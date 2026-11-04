@@ -1,33 +1,448 @@
-export const assistantEn = { assistant: {
-  title: "AI assistant", open: "Open AI assistant", collapse: "Collapse assistant", expand: "Expand workspace", compact: "Return to page", close: "Close assistant",
-  stage: "Page guide preview. General AI conversation and financial changes are unavailable in this stage.",
-  currentPage: "Current page", noContext: "This page does not publish supported metrics yet.", snapshot: "Snapshot · {{time}}", snapshotLabel: "Captured at", expired: "This page snapshot is unavailable or expired. Reload the business page to capture fresh evidence.",
-  refresh: "Refresh page evidence", metric: "Visible metric", chooseMetric: "Choose a metric", needsSelection: "Several numbers may match. Choose the metric you mean.", explain: "Explain selected metric", openAccount: "Open an account", explicitNavigation: "Choose an exact account. Identical names remain separate choices in page order.", navigationBlocked: "Finish the current financial review before navigating.",
-  empty: "Choose a visible metric to start a local page explanation.", conversation: "Page explanations", localGuide: "Local page guide · no model", evidence: "Data evidence", scope: "Scope", currency: "Currency", timezone: "Ledger timezone", missing: "Missing data", hasMissing: "Incomplete inputs exist; inspect the business page for details.", noMissing: "No missing inputs reported for this figure.", oldEvidence: "Saved snapshot, not a live balance. It cannot authorize a later action.",
-  review: "Financial review", reviewUnavailable: "AI financial proposals and confirmation are unavailable. No change has been prepared or posted. Use the app's existing recording and review flow. Pending or unknown outcomes there must be resolved with the original operation.", confirmUnavailable: "AI confirmation unavailable", settings: "AI provider and privacy", providerUnavailable: "AI provider unavailable", credentialSettings: "Manage model API keys in desktop Settings → Built-in AI credentials.", memoryOnly: "Only local page explanations stay in this window's memory and clear when it closes. Backend AI sessions have separate persistent storage.", composer: "Message", noSending: "No prompt, page data or secret is sent to a model. Use the local page guide above.", stop: "Stop explanation",
-  state: { idle: "Local page guide ready", running: "Preparing page explanation…", stopped: "Explanation stopped", stale: "Page changed. The previous explanation was discarded.", disconnected: "Disconnected. Actions are paused; reconnect does not replay them.", loading: "Checking assistant capabilities…", unavailable: "Unavailable" },
-  metricState: { available: "Available in this snapshot.", incomplete: "Known subtotal or partial estimate; this is not a complete total.", unavailable: "The value is missing. Missing data is never zero.", stale: "The displayed data is stale. Reload the business page before using it." },
-  basis: { net_worth: "Net worth uses the current page's household valuation and currency. It is assets less liabilities, not investment return.", assets: "Assets use the current household valuation, inclusion rules and currency. Missing valuations or exchange rates may leave only a known subtotal.", liabilities: "Liabilities use the page's sign, valuation and currency. Net worth subtracts the debt magnitude.", account_value: "Account value uses the page's recorded or priced holdings in the displayed currency. It is not a price return or cash-flow measure." },
-} };
-export const assistantZhCN = { assistant: {
-  title: "AI 助手", open: "打开 AI 助手", collapse: "收起助手", expand: "展开完整工作区", compact: "返回业务页面", close: "关闭助手",
-  stage: "页面指南预览。本阶段尚未开放通用 AI 对话与财务修改。",
-  currentPage: "当前页面", noContext: "此页面尚未发布支持的指标。", snapshot: "快照 · {{time}}", snapshotLabel: "采集时间", expired: "页面快照不可用或已过期。请刷新业务页面以获取新依据。",
-  refresh: "刷新页面依据", metric: "可见指标", chooseMetric: "选择指标", needsSelection: "有多个数字可能符合，请选择你指的指标。", explain: "解释所选指标", openAccount: "打开账户", explicitNavigation: "请选择准确的账户。同名账户按页面顺序分别列出。", navigationBlocked: "请先完成当前财务审核，再进行导航。",
-  empty: "选择当前可见指标，开始本地页面解释。", conversation: "页面解释", localGuide: "本地页面指南 · 未调用模型", evidence: "数据依据", scope: "范围", currency: "币种", timezone: "账本时区", missing: "缺失数据", hasMissing: "存在不完整输入，请在业务页面查看详情。", noMissing: "此数值未报告缺失输入。", oldEvidence: "这是历史快照，并非实时余额，不能授权后续操作。",
-  review: "财务审核", reviewUnavailable: "AI 财务提案与确认尚未开放，未准备或提交任何修改。请使用现有记账与审核流程。该流程中进行中或结果未知的操作必须以原操作身份恢复。", confirmUnavailable: "AI 确认不可用", settings: "AI 提供商与隐私", providerUnavailable: "AI 提供商不可用", credentialSettings: "可在桌面端设置 → 内置 AI 凭据中管理模型 API 密钥。", memoryOnly: "仅本地页面解释保留在当前窗口内存，关闭后清除。后端 AI 会话使用独立的持久存储。", composer: "消息", noSending: "不会向模型发送提示、页面数据或秘密。可使用上方本地页面指南。", stop: "停止解释",
-  state: { idle: "本地页面指南已就绪", running: "正在准备页面解释…", stopped: "解释已停止", stale: "页面已变化，已丢弃旧解释。", disconnected: "连接已断开，操作暂停；重连不会重放操作。", loading: "正在检查助手能力…", unavailable: "不可用" },
-  metricState: { available: "此快照中的数值可用。", incomplete: "这是已知小计或部分估值，并非完整总额。", unavailable: "缺少数值，缺失数据不会当作零。", stale: "显示的数据已过期，请先刷新业务页面。" },
-  basis: { net_worth: "净资产采用当前页面的家庭估值和币种，为资产减去负债，并非投资收益。", assets: "资产采用当前家庭估值、纳入规则和币种。缺少估值或汇率时，可能仅提供已知小计。", liabilities: "负债的符号、估值口径和币种与页面一致；计算净资产时减去债务金额。", account_value: "账户价值采用页面记录的金额或持仓估值及显示币种，并非价格回报或现金流。" },
-} };
-export const assistantZhTW = { assistant: {
-  title: "AI 助手", open: "開啟 AI 助手", collapse: "收合助手", expand: "展開完整工作區", compact: "返回業務頁面", close: "關閉助手",
-  stage: "頁面指南預覽。本階段尚未開放通用 AI 對話與財務修改。",
-  currentPage: "目前頁面", noContext: "此頁面尚未發布支援的指標。", snapshot: "快照 · {{time}}", snapshotLabel: "擷取時間", expired: "頁面快照無法使用或已過期。請重新整理業務頁面以取得新依據。",
-  refresh: "重新整理頁面依據", metric: "可見指標", chooseMetric: "選擇指標", needsSelection: "有多個數字可能符合，請選擇你指的指標。", explain: "解釋所選指標", openAccount: "開啟帳戶", explicitNavigation: "請選擇正確的帳戶。同名帳戶按頁面順序分別列出。", navigationBlocked: "請先完成目前財務審核，再進行導覽。",
-  empty: "選擇目前可見指標，開始本機頁面解釋。", conversation: "頁面解釋", localGuide: "本機頁面指南 · 未呼叫模型", evidence: "資料依據", scope: "範圍", currency: "幣別", timezone: "帳本時區", missing: "缺少資料", hasMissing: "存在不完整輸入，請在業務頁面查看詳情。", noMissing: "此數值未回報缺少輸入。", oldEvidence: "這是歷史快照，並非即時餘額，不能授權後續操作。",
-  review: "財務審核", reviewUnavailable: "AI 財務提案與確認尚未開放，未準備或提交任何修改。請使用現有記帳與審核流程。該流程中進行中或結果未知的操作必須以原操作身分恢復。", confirmUnavailable: "AI 確認無法使用", settings: "AI 提供商與隱私", providerUnavailable: "AI 提供商無法使用", credentialSettings: "可在桌面端設定 → 內建 AI 憑據中管理模型 API 金鑰。", memoryOnly: "僅本機頁面解釋保留在目前視窗記憶體，關閉後清除。後端 AI 對話使用獨立的持久儲存。", composer: "訊息", noSending: "不會向模型傳送提示、頁面資料或秘密。可使用上方本機頁面指南。", stop: "停止解釋",
-  state: { idle: "本機頁面指南已就緒", running: "正在準備頁面解釋…", stopped: "解釋已停止", stale: "頁面已變更，已捨棄舊解釋。", disconnected: "連線已中斷，操作暫停；重新連線不會重播操作。", loading: "正在檢查助手能力…", unavailable: "無法使用" },
-  metricState: { available: "此快照中的數值可用。", incomplete: "這是已知小計或部分估值，並非完整總額。", unavailable: "缺少數值，缺少資料不會當作零。", stale: "顯示的資料已過期，請先重新整理業務頁面。" },
-  basis: { net_worth: "淨資產採用目前頁面的家庭估值和幣別，為資產減去負債，並非投資收益。", assets: "資產採用目前家庭估值、納入規則和幣別。缺少估值或匯率時，可能僅提供已知小計。", liabilities: "負債的符號、估值口徑和幣別與頁面一致；計算淨資產時減去債務金額。", account_value: "帳戶價值採用頁面記錄的金額或持倉估值及顯示幣別，並非價格回報或現金流。" },
-} };
+export const assistantEn = {
+  aiChat: {
+    sendNavigate: "Send and allow one page change",
+    navigationHelp:
+      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview/account page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
+    navigationPending:
+      "One page change authorized for this message; waiting for a successful reply.",
+    navigationOpened: "The requested page was opened.",
+    navigationStopped:
+      "No page change was applied. The request, page lease or review guard did not permit it; it will not retry automatically.",
+    offlineLocal:
+      "Network appears offline. Local history and Stop remain available; new model messages are paused.",
+    traceHelp:
+      "Host read trace. These are read times; quote/source dates stay in the returned data. Page coverage is per response, not proof that every relevant page was read.",
+    morePages: "This response advertised more pages.",
+    responseEnd: "This response advertised no further pages.",
+    missingReported: "Incomplete or missing input was reported.",
+    missingUnknown:
+      "Missing inputs are not summarized here; this does not establish completeness.",
+    source: {
+      compare_financial_context: "Financial state comparison",
+      compare_financial_attribution: "Read-only period attribution",
+      get_financial_comparison_page: "Comparison evidence page",
+      get_financial_context: "Financial summary",
+      get_financial_context_page: "Financial summary page",
+      get_financial_context_item: "Financial summary detail",
+      get_overview: "Current overview",
+      list_accounts: "Account directory",
+      get_account_snapshot: "Account snapshot",
+      get_read_page: "Continuation page",
+      get_read_item: "Captured item detail",
+    },
+    scope:
+      "Read-only AI · overview, accounts and closed-period attribution (household or one account, base currency, up to 365 days). Financial writes and market refresh remain unavailable. Navigation requires the separate per-message button.",
+    ready: "Model ready",
+    disabled:
+      "AI is off or unavailable. Save a key, enter a model and explicitly enable it in Settings → Built-in AI credentials.",
+    privacy:
+      "Sending a message sends your question, successful conversation history and relevant controlled ledger reads to OpenAI. Never enter secrets. No automatic retry.",
+    pageHint:
+      "Current-page questions use fresh backend data for the selected overview/account. Visible filters and exact screen values are not shared. Unsupported pages have no model page context. Account buttons require your click.",
+    error:
+      "Connection or request failed. Refresh state before trying a new message.",
+    history: "Conversations",
+    new: "New conversation",
+    session: "Conversation {{number}}",
+    delete: "Delete conversation",
+    previous: "Previous turn",
+    next: "Next turn",
+    latest: "Latest turn",
+    stop: "Stop model run",
+    empty:
+      "Ask about current household value or a specific account. For example: summarize my current financial position and disclose missing inputs.",
+    retention:
+      "Private local history: up to 20 conversations, 64 turns each, retained for 30 days. Delete a conversation to remove it from the local history. Saved model context is historical evidence, not a live balance.",
+    message: "Message",
+    send: "Send to model",
+    timeout: "The run timed out. It will not retry automatically.",
+    runError:
+      "The run did not complete. No new model history was saved; inspect the state before sending again.",
+    provider: "Provider: OpenAI Responses (api.openai.com)",
+    model: "Model ID",
+    enable: "Enable desktop read-only model requests",
+    consent:
+      "Model requests may incur provider charges. Enabling allows only explicit message submissions, never automatic startup requests. Your key stays in the household database and backups. Related financial data is sent to the provider. Disabling cancels active runs. Changing models starts fresh model context while preserving display history.",
+    saveConfig: "Save model configuration",
+    disable: "Disable AI and stop runs",
+    configError:
+      "Configuration could not be saved. Stop active runs and refresh before retrying.",
+    run: {
+      accepted: "Accepted · preparing request",
+      running:
+        "Running · reading related data / waiting for provider (up to 120 seconds)",
+      succeeded: "Completed",
+      failed: "Failed",
+      cancelled: "Stopped",
+      interrupted: "Interrupted · send a new request to continue",
+    },
+  },
+  assistant: {
+    title: "AI assistant",
+    open: "Open AI assistant",
+    collapse: "Collapse assistant",
+    expand: "Expand workspace",
+    compact: "Return to page",
+    close: "Close assistant",
+    stage:
+      "Page guide preview. General AI conversation and financial changes are unavailable in this stage.",
+    currentPage: "Current page",
+    noContext: "This page does not publish supported metrics yet.",
+    snapshot: "Snapshot · {{time}}",
+    snapshotLabel: "Captured at",
+    expired:
+      "This page snapshot is unavailable or expired. Reload the business page to capture fresh evidence.",
+    refresh: "Refresh page evidence",
+    metric: "Visible metric",
+    chooseMetric: "Choose a metric",
+    needsSelection: "Several numbers may match. Choose the metric you mean.",
+    explain: "Explain selected metric",
+    openAccount: "Open an account",
+    explicitNavigation:
+      "Choose an exact account. Identical names remain separate choices in page order.",
+    navigationBlocked: "Finish the current financial review before navigating.",
+    empty: "Choose a visible metric to start a local page explanation.",
+    conversation: "Page explanations",
+    localGuide: "Local page guide · no model",
+    evidence: "Data evidence",
+    scope: "Scope",
+    currency: "Currency",
+    timezone: "Ledger timezone",
+    missing: "Missing data",
+    hasMissing:
+      "Incomplete inputs exist; inspect the business page for details.",
+    noMissing: "No missing inputs reported for this figure.",
+    oldEvidence:
+      "Saved snapshot, not a live balance. It cannot authorize a later action.",
+    review: "Financial review",
+    reviewUnavailable:
+      "AI financial proposals and confirmation are unavailable. No change has been prepared or posted. Use the app's existing recording and review flow. Pending or unknown outcomes there must be resolved with the original operation.",
+    confirmUnavailable: "AI confirmation unavailable",
+    settings: "AI provider and privacy",
+    providerUnavailable: "AI provider unavailable",
+    credentialSettings:
+      "Manage model API keys in desktop Settings → Built-in AI credentials.",
+    memoryOnly:
+      "Only local page explanations stay in this window's memory and clear when it closes. Backend AI sessions have separate persistent storage.",
+    composer: "Message",
+    noSending:
+      "No prompt, page data or secret is sent to a model. Use the local page guide above.",
+    stop: "Stop explanation",
+    state: {
+      idle: "Local page guide ready",
+      running: "Preparing page explanation…",
+      stopped: "Explanation stopped",
+      stale: "Page changed. The previous explanation was discarded.",
+      disconnected:
+        "Disconnected. Actions are paused; reconnect does not replay them.",
+      loading: "Checking assistant capabilities…",
+      unavailable: "Unavailable",
+    },
+    metricState: {
+      available: "Available in this snapshot.",
+      incomplete:
+        "Known subtotal or partial estimate; this is not a complete total.",
+      unavailable: "The value is missing. Missing data is never zero.",
+      stale:
+        "The displayed data is stale. Reload the business page before using it.",
+    },
+    basis: {
+      net_worth:
+        "Net worth uses the current page's household valuation and currency. It is assets less liabilities, not investment return.",
+      assets:
+        "Assets use the current household valuation, inclusion rules and currency. Missing valuations or exchange rates may leave only a known subtotal.",
+      liabilities:
+        "Liabilities use the page's sign, valuation and currency. Net worth subtracts the debt magnitude.",
+      account_value:
+        "Account value uses the page's recorded or priced holdings in the displayed currency. It is not a price return or cash-flow measure.",
+    },
+  },
+};
+export const assistantZhCN = {
+  aiChat: {
+    sendNavigate: "发送并允许一次页面跳转",
+    navigationHelp:
+      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览或账户页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
+    navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
+    navigationOpened: "已打开请求的页面。",
+    navigationStopped:
+      "未执行页面跳转：请求、页面凭证或审核状态不允许，且不会自动重试。",
+    offlineLocal:
+      "网络似乎已断开。本地历史与停止仍可使用，新模型消息暂停发送。",
+    traceHelp:
+      "后端读取记录。此处为读取时间；行情与来源日期仍保留在查询数据中。分页情况仅对应每次响应，不证明所有相关页均已读取。",
+    morePages: "此响应提示还有后续分页。",
+    responseEnd: "此响应未提示后续分页。",
+    missingReported: "查询报告了缺失或不完整输入。",
+    missingUnknown: "此处未汇总缺失输入，不能据此判断数据完整。",
+    source: {
+      compare_financial_context: "财务状态对比",
+      compare_financial_attribution: "只读期间归因",
+      get_financial_comparison_page: "对比证据分页",
+      get_financial_context: "财务摘要",
+      get_financial_context_page: "财务摘要分页",
+      get_financial_context_item: "财务摘要明细",
+      get_overview: "当前总览",
+      list_accounts: "账户目录",
+      get_account_snapshot: "账户快照",
+      get_read_page: "后续分页",
+      get_read_item: "快照项目明细",
+    },
+    scope:
+      "只读 AI · 支持总览、账户与已结束期间归因（家庭或单账户、基础币种、最多365天）。财务写入和行情刷新仍关闭，跳转需使用单独的本条消息授权按钮。",
+    ready: "模型已就绪",
+    disabled:
+      "AI 已关闭或不可用。请在设置 → 内置 AI 凭据保存密钥、填写模型并显式开启。",
+    privacy:
+      "发送消息会将问题、成功对话历史和相关的受控账本查询结果发给 OpenAI。请勿输入秘密。失败不会自动重试。",
+    pageHint:
+      "当前页面问题会按选定的总览或账户重新读取后端数据；不会共享可见筛选条件和屏幕数值。不支持的页面没有模型页面上下文。账户跳转需要你点击按钮。",
+    error: "连接或请求失败。请先刷新状态，再发送新消息。",
+    history: "会话历史",
+    new: "新建会话",
+    session: "会话 {{number}}",
+    delete: "删除会话",
+    previous: "上一轮",
+    next: "下一轮",
+    latest: "最新一轮",
+    stop: "停止模型运行",
+    empty:
+      "可以询问当前家庭资产或具体账户，例如：概述当前财务状况，并说明缺失数据。",
+    retention:
+      "本地私密历史：最多 20 个会话，每个 64 轮，保留 30 天。删除会话会移除其本地历史。历史模型上下文不是实时余额。",
+    message: "消息",
+    send: "发送给模型",
+    timeout: "运行超时，不会自动重试。",
+    runError: "运行未完成，未保存新的模型历史。请先检查状态，再发送新请求。",
+    provider: "提供商：OpenAI Responses（api.openai.com）",
+    model: "模型 ID",
+    enable: "开启桌面只读模型请求",
+    consent:
+      "模型调用可能产生提供商费用。开启后仅在你显式发送消息时调用，不会在启动时自动请求。密钥保存在家庭数据库和备份中，相关财务数据会发给提供商。关闭会取消运行；切换模型会清空模型上下文，保留显示历史。",
+    saveConfig: "保存模型配置",
+    disable: "关闭 AI 并停止运行",
+    configError: "无法保存配置。请先停止运行并刷新后重试。",
+    run: {
+      accepted: "已接受 · 正在准备请求",
+      running: "运行中 · 查询相关数据或等待提供商（最多 120 秒）",
+      succeeded: "已完成",
+      failed: "失败",
+      cancelled: "已停止",
+      interrupted: "已中断 · 请发送新请求继续",
+    },
+  },
+  assistant: {
+    title: "AI 助手",
+    open: "打开 AI 助手",
+    collapse: "收起助手",
+    expand: "展开完整工作区",
+    compact: "返回业务页面",
+    close: "关闭助手",
+    stage: "页面指南预览。本阶段尚未开放通用 AI 对话与财务修改。",
+    currentPage: "当前页面",
+    noContext: "此页面尚未发布支持的指标。",
+    snapshot: "快照 · {{time}}",
+    snapshotLabel: "采集时间",
+    expired: "页面快照不可用或已过期。请刷新业务页面以获取新依据。",
+    refresh: "刷新页面依据",
+    metric: "可见指标",
+    chooseMetric: "选择指标",
+    needsSelection: "有多个数字可能符合，请选择你指的指标。",
+    explain: "解释所选指标",
+    openAccount: "打开账户",
+    explicitNavigation: "请选择准确的账户。同名账户按页面顺序分别列出。",
+    navigationBlocked: "请先完成当前财务审核，再进行导航。",
+    empty: "选择当前可见指标，开始本地页面解释。",
+    conversation: "页面解释",
+    localGuide: "本地页面指南 · 未调用模型",
+    evidence: "数据依据",
+    scope: "范围",
+    currency: "币种",
+    timezone: "账本时区",
+    missing: "缺失数据",
+    hasMissing: "存在不完整输入，请在业务页面查看详情。",
+    noMissing: "此数值未报告缺失输入。",
+    oldEvidence: "这是历史快照，并非实时余额，不能授权后续操作。",
+    review: "财务审核",
+    reviewUnavailable:
+      "AI 财务提案与确认尚未开放，未准备或提交任何修改。请使用现有记账与审核流程。该流程中进行中或结果未知的操作必须以原操作身份恢复。",
+    confirmUnavailable: "AI 确认不可用",
+    settings: "AI 提供商与隐私",
+    providerUnavailable: "AI 提供商不可用",
+    credentialSettings: "可在桌面端设置 → 内置 AI 凭据中管理模型 API 密钥。",
+    memoryOnly:
+      "仅本地页面解释保留在当前窗口内存，关闭后清除。后端 AI 会话使用独立的持久存储。",
+    composer: "消息",
+    noSending: "不会向模型发送提示、页面数据或秘密。可使用上方本地页面指南。",
+    stop: "停止解释",
+    state: {
+      idle: "本地页面指南已就绪",
+      running: "正在准备页面解释…",
+      stopped: "解释已停止",
+      stale: "页面已变化，已丢弃旧解释。",
+      disconnected: "连接已断开，操作暂停；重连不会重放操作。",
+      loading: "正在检查助手能力…",
+      unavailable: "不可用",
+    },
+    metricState: {
+      available: "此快照中的数值可用。",
+      incomplete: "这是已知小计或部分估值，并非完整总额。",
+      unavailable: "缺少数值，缺失数据不会当作零。",
+      stale: "显示的数据已过期，请先刷新业务页面。",
+    },
+    basis: {
+      net_worth:
+        "净资产采用当前页面的家庭估值和币种，为资产减去负债，并非投资收益。",
+      assets:
+        "资产采用当前家庭估值、纳入规则和币种。缺少估值或汇率时，可能仅提供已知小计。",
+      liabilities:
+        "负债的符号、估值口径和币种与页面一致；计算净资产时减去债务金额。",
+      account_value:
+        "账户价值采用页面记录的金额或持仓估值及显示币种，并非价格回报或现金流。",
+    },
+  },
+};
+export const assistantZhTW = {
+  aiChat: {
+    sendNavigate: "傳送並允許一次頁面跳轉",
+    navigationHelp:
+      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽或帳戶頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
+    navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
+    navigationOpened: "已開啟請求的頁面。",
+    navigationStopped:
+      "未執行頁面跳轉：請求、頁面憑據或審核狀態不允許，且不會自動重試。",
+    offlineLocal:
+      "網路似乎已中斷。本機歷史與停止仍可使用，新模型訊息暫停傳送。",
+    traceHelp:
+      "後端讀取記錄。此處為讀取時間；行情與來源日期仍保留在查詢資料中。分頁情況僅對應每次回應，不證明所有相關頁均已讀取。",
+    morePages: "此回應提示還有後續分頁。",
+    responseEnd: "此回應未提示後續分頁。",
+    missingReported: "查詢回報了缺少或不完整輸入。",
+    missingUnknown: "此處未彙總缺少輸入，不能據此判斷資料完整。",
+    source: {
+      compare_financial_context: "財務狀態比較",
+      compare_financial_attribution: "唯讀期間歸因",
+      get_financial_comparison_page: "比較證據分頁",
+      get_financial_context: "財務摘要",
+      get_financial_context_page: "財務摘要分頁",
+      get_financial_context_item: "財務摘要明細",
+      get_overview: "目前總覽",
+      list_accounts: "帳戶目錄",
+      get_account_snapshot: "帳戶快照",
+      get_read_page: "後續分頁",
+      get_read_item: "快照項目明細",
+    },
+    scope:
+      "唯讀 AI · 支援總覽、帳戶與已結束期間歸因（家庭或單一帳戶、基礎幣別、最多365天）。財務寫入和行情更新仍關閉，跳轉需使用獨立的本則訊息授權按鈕。",
+    ready: "模型已就緒",
+    disabled:
+      "AI 已關閉或無法使用。請在設定 → 內建 AI 憑據儲存金鑰、填寫模型並明確開啟。",
+    privacy:
+      "傳送訊息會將問題、成功對話歷史和相關的受控帳本查詢結果傳給 OpenAI。請勿輸入秘密。失敗不會自動重試。",
+    pageHint:
+      "目前頁面問題會按選定的總覽或帳戶重新讀取後端資料；不會分享可見篩選條件和畫面數值。不支援的頁面沒有模型頁面上下文。帳戶導覽需要你點擊按鈕。",
+    error: "連線或請求失敗。請先重新整理狀態，再傳送新訊息。",
+    history: "對話歷史",
+    new: "新增對話",
+    session: "對話 {{number}}",
+    delete: "刪除對話",
+    previous: "上一輪",
+    next: "下一輪",
+    latest: "最新一輪",
+    stop: "停止模型執行",
+    empty:
+      "可以詢問目前家庭資產或特定帳戶，例如：概述目前財務狀況，並說明缺少資料。",
+    retention:
+      "本機私密歷史：最多 20 個對話，每個 64 輪，保留 30 天。刪除對話會移除其本機歷史。歷史模型上下文不是即時餘額。",
+    message: "訊息",
+    send: "傳送給模型",
+    timeout: "執行逾時，不會自動重試。",
+    runError: "執行未完成，未儲存新的模型歷史。請先檢查狀態，再傳送新請求。",
+    provider: "提供商：OpenAI Responses（api.openai.com）",
+    model: "模型 ID",
+    enable: "開啟桌面唯讀模型請求",
+    consent:
+      "模型呼叫可能產生提供商費用。開啟後僅在你明確傳送訊息時呼叫，不會在啟動時自動請求。金鑰儲存在家庭資料庫和備份中，相關財務資料會傳給提供商。關閉會取消執行；切換模型會清空模型上下文，保留顯示歷史。",
+    saveConfig: "儲存模型設定",
+    disable: "關閉 AI 並停止執行",
+    configError: "無法儲存設定。請先停止執行並重新整理後再試。",
+    run: {
+      accepted: "已接受 · 正在準備請求",
+      running: "執行中 · 查詢相關資料或等待提供商（最多 120 秒）",
+      succeeded: "已完成",
+      failed: "失敗",
+      cancelled: "已停止",
+      interrupted: "已中斷 · 請傳送新請求繼續",
+    },
+  },
+  assistant: {
+    title: "AI 助手",
+    open: "開啟 AI 助手",
+    collapse: "收合助手",
+    expand: "展開完整工作區",
+    compact: "返回業務頁面",
+    close: "關閉助手",
+    stage: "頁面指南預覽。本階段尚未開放通用 AI 對話與財務修改。",
+    currentPage: "目前頁面",
+    noContext: "此頁面尚未發布支援的指標。",
+    snapshot: "快照 · {{time}}",
+    snapshotLabel: "擷取時間",
+    expired: "頁面快照無法使用或已過期。請重新整理業務頁面以取得新依據。",
+    refresh: "重新整理頁面依據",
+    metric: "可見指標",
+    chooseMetric: "選擇指標",
+    needsSelection: "有多個數字可能符合，請選擇你指的指標。",
+    explain: "解釋所選指標",
+    openAccount: "開啟帳戶",
+    explicitNavigation: "請選擇正確的帳戶。同名帳戶按頁面順序分別列出。",
+    navigationBlocked: "請先完成目前財務審核，再進行導覽。",
+    empty: "選擇目前可見指標，開始本機頁面解釋。",
+    conversation: "頁面解釋",
+    localGuide: "本機頁面指南 · 未呼叫模型",
+    evidence: "資料依據",
+    scope: "範圍",
+    currency: "幣別",
+    timezone: "帳本時區",
+    missing: "缺少資料",
+    hasMissing: "存在不完整輸入，請在業務頁面查看詳情。",
+    noMissing: "此數值未回報缺少輸入。",
+    oldEvidence: "這是歷史快照，並非即時餘額，不能授權後續操作。",
+    review: "財務審核",
+    reviewUnavailable:
+      "AI 財務提案與確認尚未開放，未準備或提交任何修改。請使用現有記帳與審核流程。該流程中進行中或結果未知的操作必須以原操作身分恢復。",
+    confirmUnavailable: "AI 確認無法使用",
+    settings: "AI 提供商與隱私",
+    providerUnavailable: "AI 提供商無法使用",
+    credentialSettings: "可在桌面端設定 → 內建 AI 憑據中管理模型 API 金鑰。",
+    memoryOnly:
+      "僅本機頁面解釋保留在目前視窗記憶體，關閉後清除。後端 AI 對話使用獨立的持久儲存。",
+    composer: "訊息",
+    noSending: "不會向模型傳送提示、頁面資料或秘密。可使用上方本機頁面指南。",
+    stop: "停止解釋",
+    state: {
+      idle: "本機頁面指南已就緒",
+      running: "正在準備頁面解釋…",
+      stopped: "解釋已停止",
+      stale: "頁面已變更，已捨棄舊解釋。",
+      disconnected: "連線已中斷，操作暫停；重新連線不會重播操作。",
+      loading: "正在檢查助手能力…",
+      unavailable: "無法使用",
+    },
+    metricState: {
+      available: "此快照中的數值可用。",
+      incomplete: "這是已知小計或部分估值，並非完整總額。",
+      unavailable: "缺少數值，缺少資料不會當作零。",
+      stale: "顯示的資料已過期，請先重新整理業務頁面。",
+    },
+    basis: {
+      net_worth:
+        "淨資產採用目前頁面的家庭估值和幣別，為資產減去負債，並非投資收益。",
+      assets:
+        "資產採用目前家庭估值、納入規則和幣別。缺少估值或匯率時，可能僅提供已知小計。",
+      liabilities:
+        "負債的符號、估值口徑和幣別與頁面一致；計算淨資產時減去債務金額。",
+      account_value:
+        "帳戶價值採用頁面記錄的金額或持倉估值及顯示幣別，並非價格回報或現金流。",
+    },
+  },
+};

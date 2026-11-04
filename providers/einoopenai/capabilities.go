@@ -76,6 +76,8 @@ func sameSchemaJSON(a, b []byte) bool {
 	return errA == nil && errB == nil && reflect.DeepEqual(x, y)
 }
 
+var errCapabilityRefused = errors.New("local capability request refused")
+
 type capabilityTool struct {
 	session     CapabilitySession
 	name        string
@@ -103,7 +105,7 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 	if err != nil {
 		// Do not reflect submitted content or arbitrary implementation errors
 		// into model history. Application-facing errors belong to the host.
-		return "", errors.New("local capability request refused")
+		return "", errCapabilityRefused
 	}
 	if len(result) > 64<<10 || !jsoncodec.Valid(result) {
 		return "", errors.New("local capability result unavailable")

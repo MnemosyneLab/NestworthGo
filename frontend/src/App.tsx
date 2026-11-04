@@ -373,7 +373,7 @@ function Workspace() {
     <NavigationContext.Provider value={{ open, openHealth }}>
     <AssistantPageProvider key={bootstrap.data?.household?.id} householdId={bootstrap.data?.household?.id ?? ""}
       incarnation={String(startup.dataUpdatedAt)} surface="desktop" viewKey={`${activePageId}:${activePageId === "accounts" ? selectedAccountId ?? "" : ""}`}
-      blocked={hasUnresolvedSheetConfirmation} onNavigate={target => { if (!("mobileAccountId" in target)) open(target); }}>
+      blocked={hasUnresolvedSheetConfirmation} onNavigate={target => "mobileAccountId" in target ? false : open(target)}>
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data} navigationHistory={{
       canBack: cursor > 0, canForward: cursor < entries.length - 1,
       back, forward: () => move(1),

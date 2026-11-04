@@ -1,19 +1,27 @@
 # Built-in AI integration and delivery boundaries
 
-## Current delivery: backend runtime with activation still closed
+## Current delivery: explicitly enabled desktop read-only conversation
 
-The installed UI follow-up is documented in [Page guide stage](builtin-ai-page-guide.md).
-It adds a local deterministic guide on desktop and mobile, typed in-memory page
-publications and explicit account navigation, plus closed capability-status APIs.
-It does not activate a model, credentials, durable conversations or AI writes.
-The complete read/write assistant remains the target. The independent
-[backend runtime stage](builtin-ai-runtime.md) now installs private conversations,
-run recovery, a guarded Eino engine, desktop query/cancel IPC and a replaceable
-database credential port. Desktop settings can save, replace and delete a key;
-model activation, the page guide and all mobile or financial-write paths remain
-closed. The integration core below describes the
-prior stage merged through #203; its historical absence of executable dependencies
-is superseded by that runtime contract.
+The [desktop runtime contract](builtin-ai-runtime.md) is authoritative for the
+installed product. Users can save an OpenAI API key, choose a model and explicitly
+enable desktop read-only requests. The right-hand panel sends questions, shows
+bounded running/terminal feedback, stops runs and restores paged history without
+automatic request replay. Current overview, accounts and bounded strictly read-only closed-period attribution
+are enabled. One-shot model navigation is available only after explicit
+per-message desktop authorization. Their shared capability reads preserve cropping, pagination and
+financial evidence. A current-page selector requests fresh backend evidence; it
+does not assert visible filters or grant authority. User-click account navigation
+retains the local page host guards; model-selected page changes additionally bind
+backend page/request leases, live successful runs and navigation generations. Arbitrary model UI control and analysis-page/filter navigation remain pending.
+
+Credentials use the main SQLite configuration repository, without field encryption,
+and enter full database backups. No Keychain or signed-build dependency is used.
+Conversation state remains in its separate private sidecar. Saving a key alone
+does not enable requests. Mobile retains its local [page guide](builtin-ai-page-guide.md);
+mobile model access and every built-in financial write remain closed.
+
+The sections below retain the broader target architecture and historical host-review
+integration evidence. They do not grant currently unsupported product authority.
 
 ## Host review backend integration stage
 
@@ -51,10 +59,10 @@ That host-review stage added no executable registration or assistant UI. The
 page-guide follow-up added local UI and closed status. The subsequent
 [backend runtime stage](builtin-ai-runtime.md) now imports the guarded provider
 module, persists conversations/runs and registers desktop query/cancel methods,
-startup/restore/shutdown fences and an unavailable-by-default system secure-store
-adapter. Its host-only configuration/credential APIs and existing host reviews
-are not GUI approval. Verified secure-store deployment, trusted review UI, scoped
-mobile permissions, packaging and live-model compatibility remain activation gates.
+startup/restore/shutdown fences and a database credential adapter. Desktop
+configuration is explicit; existing host reviews are not GUI approval. Trusted
+review UI, scoped mobile permissions, packaging and live-model compatibility remain
+acceptance gates for their respective broader capabilities.
 
 Implemented and exercised with synthetic data:
 
@@ -138,7 +146,8 @@ provider tests. The dedicated workflow triggers on `internal/**` changes too,
 because the vertical test depends on shared application and persistence code.
 Only fake loopback providers, synthetic keys and synthetic ledgers are used.
 There is no real-provider/signature/model-quality acceptance,
-paid request or enabled product model flow. Full native history is private provider
+paid request or real-provider acceptance. The product model flow is now explicitly
+enabled through desktop configuration and is verified with fake providers only. Full native history is private provider
 state: never render `Reasoning`, `Extra` or serialized model objects as chat text.
 
 ## Intended runtime and authority boundaries
@@ -157,9 +166,9 @@ flowchart LR
 
 The diagram describes the target application. The local model adapter and
 review coordinator exist as tested integration components. The backend runtime
-now installs a dormant guarded model engine and private run owner in the executable.
-The installed page guide still uses local, deterministic explanations and closed
-status APIs until its separate activation and trusted UI gates are complete. No model gets
+installs the guarded engine and private run owner in the executable, with explicit
+desktop opt-in for the read-only vertical. Mobile keeps local deterministic
+explanations and closed model status. No model gets
 arbitrary SQL, repository access, reflection over Wails methods, general HTTP
 tools or a way to manufacture a host approval.
 
@@ -394,8 +403,9 @@ authority gates remain independently reviewable:
    gates and direct tool adapter. Install a bounded durable provider-run owner;
    disable implicit retries and remote storage/caching by default.
    Validate HTTPS target origin, model and redirects; do not forward credentials
-   across origins. Prefer native system secure storage with explicit unavailable/
-   locked states; no silent plaintext fallback. APIs return key presence/status
+   across origins. The accepted storage contract uses the existing main-database
+   configuration table without field encryption, including full backups. Do not
+   reintroduce Keychain/signing prerequisites. APIs return key presence/status
    only, never the secret. Keep secrets out of logs, diagnostics, exports, tools,
    prompts, checkpoints and frontend responses. Test redaction with canary keys.
 4. **Desktop host review and assistant.** Reuse AppShell, Sheet, AlertDialog,
@@ -426,11 +436,12 @@ authority gates remain independently reviewable:
    loops, permission/scope changes, pagination, concurrent confirmations,
    cancellation, interrupted model streams, provider errors, process crashes,
    SQLite reopen, backup/restore and credential canaries. Run tests and builds
-   separately. Native macOS GUI/a11y, secure storage, packaging and real-provider
+   separately. Native macOS GUI/a11y, database credential handling, packaging and real-provider
    compatibility need named evidence; Linux/jsdom and simulated approvals cannot
    substitute. No real ledger, screenshot, key or paid call is necessary for the
    synthetic acceptance gate.
 
-Until these dependent gates are complete, do not enable general AI runs, accept
-an API key or expose the trusted write path as a model tool. The page guide UI
-explicitly labels its local-only stage and keeps these capabilities closed.
+These broader gates remain required before enabling built-in financial writes or
+mobile model access. The current desktop read-only vertical accepts a write-only
+key and explicit model activation under the runtime contract above; it does not
+claim completion of the full read/write or exact-page/navigation architecture.

@@ -57,8 +57,10 @@ type Engine interface {
 	Close()
 }
 type Completion struct {
-	History []byte
-	Text    string
+	Navigation *ModelNavigationTarget
+	Evidence   []ReadEvidence
+	History    []byte
+	Text       string
 }
 type EngineFactory func(context.Context, ModelConfig, []byte, string) (Engine, error)
 
@@ -97,18 +99,21 @@ type RunState struct {
 	Digest string `json:"digest"`
 }
 type Run struct {
-	ID             string     `json:"id"`
-	RequestID      string     `json:"requestId"`
-	ConversationID string     `json:"conversationId"`
-	State          string     `json:"state"`
-	Code           string     `json:"code,omitempty"`
-	Prompt         string     `json:"prompt"`
-	Text           string     `json:"text,omitempty"`
-	Created        time.Time  `json:"created"`
-	Finished       *time.Time `json:"finished,omitempty"`
-	Provider       string     `json:"provider"`
-	Model          string     `json:"model"`
-	ConfigRevision uint64     `json:"configRevision"`
+	PageLeaseID    string         `json:"pageLeaseId,omitempty"`
+	Evidence       []ReadEvidence `json:"evidence,omitempty"`
+	Page           PageSelection  `json:"page"`
+	ID             string         `json:"id"`
+	RequestID      string         `json:"requestId"`
+	ConversationID string         `json:"conversationId"`
+	State          string         `json:"state"`
+	Code           string         `json:"code,omitempty"`
+	Prompt         string         `json:"prompt"`
+	Text           string         `json:"text,omitempty"`
+	Created        time.Time      `json:"created"`
+	Finished       *time.Time     `json:"finished,omitempty"`
+	Provider       string         `json:"provider"`
+	Model          string         `json:"model"`
+	ConfigRevision uint64         `json:"configRevision"`
 }
 type Event struct {
 	Sequence uint64 `json:"sequence"`
@@ -127,11 +132,12 @@ type Snapshot struct {
 	Reason          string      `json:"reason"`
 }
 type Conversation struct {
-	ID       string    `json:"id"`
-	Updated  time.Time `json:"updated"`
-	Runs     []Run     `json:"runs"`
-	RunCount int       `json:"runCount"`
-	Offset   int       `json:"offset"`
+	Navigation *ModelNavigationIntent `json:"navigation,omitempty"`
+	ID         string                 `json:"id"`
+	Updated    time.Time              `json:"updated"`
+	Runs       []Run                  `json:"runs"`
+	RunCount   int                    `json:"runCount"`
+	Offset     int                    `json:"offset"`
 }
 type EventPage struct {
 	Events []Event `json:"events"`
@@ -139,33 +145,48 @@ type EventPage struct {
 	Reset  bool    `json:"reset"` // fetch Conversation if journal rolled over
 }
 type StartRequest struct {
-	Epoch          string `json:"epoch"`
-	Revision       uint64 `json:"revision"`
-	ConversationID string `json:"conversationId"`
-	RequestID      string `json:"requestId"`
-	Prompt         string `json:"prompt"`
+	PageLeaseID    string        `json:"pageLeaseId,omitempty"`
+	Page           PageSelection `json:"page"`
+	Epoch          string        `json:"epoch"`
+	Revision       uint64        `json:"revision"`
+	ConversationID string        `json:"conversationId"`
+	RequestID      string        `json:"requestId"`
+	Prompt         string        `json:"prompt"`
+}
+
+type CapabilityLifecycle interface {
+	Revoke()
+	Drop(string)
+	Close()
 }
 
 type Options struct {
-	Ledger      string // host-derived database path + household binding; never UI-supplied
-	Store       Persistence
-	Credentials Credentials
-	Factory     EngineFactory
-	Validate    func(context.Context) bool // recheck live host/database authority
-	Timeout     time.Duration
+	NavigationValidator func(context.Context, ModelNavigationTarget) bool
+	NavigationClock     func() time.Time
+	Capabilities        CapabilityLifecycle
+	Ledger              string // host-derived database path + household binding; never UI-supplied
+	Store               Persistence
+	Credentials         Credentials
+	Factory             EngineFactory
+	Validate            func(context.Context) bool // recheck live host/database authority
+	Timeout             time.Duration
 }
 type Runtime struct {
-	mu        sync.Mutex
-	state     State
-	epoch     string
-	options   Options
-	ctx       context.Context
-	cancel    context.CancelFunc
-	active    map[string]context.CancelFunc
-	wg        sync.WaitGroup
-	closed    bool
-	closeOnce sync.Once
-	closeErr  error
+	navigationGeneration uint64
+	pageLease            *DesktopPageLease
+	navigationGrants     map[string]modelNavigationGrant
+	navigationIntents    map[string]ModelNavigationIntent
+	mu                   sync.Mutex
+	state                State
+	epoch                string
+	options              Options
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	active               map[string]context.CancelFunc
+	wg                   sync.WaitGroup
+	closed               bool
+	closeOnce            sync.Once
+	closeErr             error
 }
 
 func NewRuntime(o Options) (*Runtime, error) {
@@ -289,7 +310,12 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 		return ErrUnavailable
 	}
 	if len(r.active) != 0 {
-		return ErrConflict
+		if cfg.Enabled {
+			return ErrConflict
+		}
+		for _, cancel := range r.active {
+			cancel()
+		}
 	}
 	if r.options.Credentials.Available() {
 		tainted := false
@@ -316,7 +342,19 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 			return ErrUnavailable
 		}
 	}
+	// Native provider history is bound to its provider/model. Keep display history
+	// but start a fresh model context after a model change.
+	if cfg.Provider != r.state.Config.Provider || cfg.Model != r.state.Config.Model {
+		for i := range r.state.Conversations {
+			r.state.Conversations[i].History = nil
+			r.state.Conversations[i].HistoryDigest = ""
+		}
+	}
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	r.state.Config = cfg
+	r.clearNavigation()
 	r.state.Revision++
 	return r.persist()
 }
@@ -357,6 +395,10 @@ func (r *Runtime) SetCredential(ctx context.Context, epoch string, key []byte) e
 	if r.options.Credentials.Put(ctx, key) != nil {
 		return ErrUnavailable
 	}
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
+	r.clearNavigation()
 	r.state.Revision++
 	return r.persist()
 }
@@ -369,7 +411,11 @@ func (r *Runtime) DeleteCredential(ctx context.Context, epoch string) error {
 	for _, cancel := range r.active {
 		cancel()
 	}
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	r.state.Config.Enabled = false
+	r.clearNavigation()
 	r.state.Revision++
 	if err := r.persist(); err != nil {
 		return err
@@ -385,12 +431,15 @@ func (r *Runtime) Create(ctx context.Context, epoch string) (Conversation, error
 	if e := r.valid(ctx, epoch); e != nil {
 		return Conversation{}, e
 	}
+	r.clearNavigation()
 	// Retention never prunes active conversations or creates new dedup authority.
 	cutoff := time.Now().Add(-30 * 24 * time.Hour)
 	kept := r.state.Conversations[:0]
 	for _, c := range r.state.Conversations {
 		if c.Updated.After(cutoff) || r.active[c.ID] != nil {
 			kept = append(kept, c)
+		} else if r.options.Capabilities != nil {
+			r.options.Capabilities.Drop(c.ID)
 		}
 	}
 	r.state.Conversations = kept
@@ -420,6 +469,7 @@ func page(c ConversationState, offset int) Conversation {
 	v := Conversation{ID: c.ID, Updated: c.Updated, Runs: []Run{}, RunCount: len(c.Runs), Offset: offset}
 	if offset >= 0 && offset < len(c.Runs) {
 		run := c.Runs[offset].Run
+		run.Evidence = append([]ReadEvidence(nil), run.Evidence...)
 		if run.Finished != nil {
 			finished := *run.Finished
 			run.Finished = &finished
@@ -463,7 +513,9 @@ func (r *Runtime) Inspect(ctx context.Context, epoch, id string) (Conversation, 
 	if c == nil {
 		return Conversation{}, ErrStale
 	}
-	return view(*c), nil
+	v := view(*c)
+	r.navigationView(&v)
+	return v, nil
 }
 func (r *Runtime) Events(ctx context.Context, epoch, id string, after uint64) (EventPage, error) {
 	r.mu.Lock()
@@ -501,6 +553,10 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	}
 	for i, c := range r.state.Conversations {
 		if c.ID == id {
+			r.clearNavigation()
+			if r.options.Capabilities != nil {
+				r.options.Capabilities.Drop(id)
+			}
 			r.state.Conversations = append(r.state.Conversations[:i], r.state.Conversations[i+1:]...)
 			return r.persist()
 		}
@@ -508,10 +564,10 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	return ErrStale
 }
 func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
-	if !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
+	if (q.PageLeaseID != "" && !canonicalID(q.PageLeaseID)) || !q.Page.Valid() || !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
 		return Run{}, ErrBudget
 	}
-	digest := sha256.Sum256([]byte(q.Prompt))
+	digest := promptDigest(q.Prompt, q.Page, q.PageLeaseID)
 	hash := hex.EncodeToString(digest[:])
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -527,7 +583,13 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 			if saved.Digest != hash {
 				return Run{}, ErrConflict
 			}
-			return saved.Run, nil
+			out := saved.Run
+			out.Evidence = append([]ReadEvidence(nil), out.Evidence...)
+			if out.Finished != nil {
+				finished := *out.Finished
+				out.Finished = &finished
+			}
+			return out, nil
 		}
 	}
 	if q.Revision != r.state.Revision {
@@ -545,21 +607,36 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	// Validate secret taint before persisting user text. Credential-store failures
 	// cannot leak their implementation errors or cause a provider request.
 	if e := r.options.Credentials.With(ctx, func(key []byte) error {
-		if !validSecret(key) || strings.Contains(q.Prompt, string(key)) {
+		if !validSecret(key) || strings.Contains(q.Prompt, string(key)) || strings.Contains(q.Page.AccountID, string(key)) || strings.Contains(q.PageLeaseID, string(key)) {
 			return ErrUnavailable
 		}
 		return nil
 	}); e != nil {
 		return Run{}, ErrUnavailable
 	}
-	run := Run{ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
+	grant, grantErr := r.grantForStart(q)
+	if grantErr != nil {
+		return Run{}, grantErr
+	}
+	r.navigationGeneration++
+	r.navigationIntents = nil
+	r.navigationGrants = nil
+	if grant.requestID == "" {
+		r.clearNavigation()
+	} else {
+		grant.generation = r.navigationGeneration
+	}
+	run := Run{PageLeaseID: q.PageLeaseID, Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
 	c.Runs = append(c.Runs, RunState{Run: run, Digest: hash})
 	c.Updated = run.Created
 	r.event(c, run)
 	if e := r.persist(); e != nil {
 		return Run{}, e
 	}
-	runCtx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
+	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
+	if grant.requestID != "" {
+		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
+	}
 	r.active[c.ID] = cancel
 	history := append([]byte(nil), c.History...)
 	cfg := r.state.Config
@@ -615,11 +692,14 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 			code = "timeout"
 		}
 	}
-	if r.valid(context.Background(), r.epoch) != nil {
+	if r.valid(context.Background(), r.epoch) != nil || !r.state.Config.Enabled || r.state.Config.Provider != cfg.Provider || r.state.Config.Model != cfg.Model {
 		state = "interrupted"
 		code = "authority_revoked"
 	}
 	r.finish(id, runID, result, state, code)
+	if state == "succeeded" {
+		r.offerNavigation(ctx, id, runID, result)
+	}
 }
 
 // Caller owns mu. Only successful complete runs advance recoverable history.
@@ -640,6 +720,7 @@ func (r *Runtime) finish(id, runID string, result Completion, state, code string
 				c.History = append([]byte(nil), result.History...)
 				c.HistoryDigest = historyDigest(r.state.Ledger, c.ID, c.History)
 				run.Text = result.Text
+				run.Evidence = append([]ReadEvidence(nil), result.Evidence...)
 			}
 			r.event(c, *run)
 			_ = r.persist()
@@ -659,6 +740,7 @@ func (r *Runtime) Cancel(ctx context.Context, epoch, id, runID string) error {
 	}
 	for _, saved := range c.Runs {
 		if saved.Run.ID == runID {
+			r.clearNavigation()
 			if !terminal(saved.Run.State) {
 				if cancel := r.active[id]; cancel != nil {
 					cancel()
@@ -677,12 +759,23 @@ func (r *Runtime) Revoke() {
 	defer r.mu.Unlock()
 	r.closed = true
 	r.cancel()
+	r.clearNavigation()
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	for _, cancel := range r.active {
 		cancel()
 	}
 }
 func (r *Runtime) Close() error {
-	r.closeOnce.Do(func() { r.Revoke(); r.wg.Wait(); r.closeErr = r.options.Store.Close() })
+	r.closeOnce.Do(func() {
+		r.Revoke()
+		r.wg.Wait()
+		if r.options.Capabilities != nil {
+			r.options.Capabilities.Close()
+		}
+		r.closeErr = r.options.Store.Close()
+	})
 	return r.closeErr
 }
 
@@ -694,6 +787,10 @@ func (r *Runtime) FenceForRestore() error {
 	defer r.mu.Unlock()
 	r.closed = true
 	r.cancel()
+	r.clearNavigation()
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	for _, cancel := range r.active {
 		cancel()
 	}
@@ -702,6 +799,7 @@ func (r *Runtime) FenceForRestore() error {
 	}
 	r.state.Conversations = []ConversationState{}
 	r.state.Config.Enabled = false
+	r.clearNavigation()
 	r.state.Revision++
 	return r.persist()
 }
@@ -748,8 +846,32 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	if err != nil {
 		return Completion{}, ErrUnavailable
 	}
+	if result.Navigation != nil && !result.Navigation.Valid() {
+		return Completion{}, ErrUnavailable
+	}
+	evidence, encodeErr := jsoncodec.Marshal([]any{result.Evidence, result.Navigation})
+	if encodeErr != nil || !validEvidence(result.Evidence) || strings.Contains(string(evidence), string(key)) {
+		return Completion{}, ErrUnavailable
+	}
 	if len(result.History) == 0 || len(result.History) > MaxHistoryBytes || len(result.Text) > MaxTextBytes || strings.Contains(result.Text, string(key)) || strings.Contains(string(result.History), string(key)) {
 		return Completion{}, ErrUnavailable
 	}
 	return result, err
+}
+
+func promptDigest(prompt string, page PageSelection, leases ...string) [32]byte {
+	lease := ""
+	if len(leases) > 0 {
+		lease = leases[0]
+	}
+	if page == (PageSelection{}) && lease == "" {
+		return sha256.Sum256([]byte(prompt))
+	}
+	var raw []byte
+	if lease == "" {
+		raw, _ = jsoncodec.Marshal(page)
+	} else {
+		raw, _ = jsoncodec.Marshal([]any{page, lease})
+	}
+	return sha256.Sum256(append(append([]byte(prompt), 0), raw...))
 }

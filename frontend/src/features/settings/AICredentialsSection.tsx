@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import * as AIService from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
 import { Button } from "@/components/ui/button";
 import { callService } from "@/lib/wails";
+import { AIModelConfig } from "./AIModelConfig";
 import { SecretField } from "./SecretField";
 
 // New keys stay in local component state, never a query/mutation cache. The
 // parent unmounts this editor on section exit so typed secrets are discarded.
 export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
-  const status = useQuery({ queryKey: ["aiCredentialStatus"], queryFn: () => callService(() => AIService.Status()) });
+  const status = useQuery({ networkMode: "always", queryKey: ["aiCredentialStatus"], queryFn: () => callService(() => AIService.Status()) });
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -40,5 +41,6 @@ export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: b
       <Button type="submit" disabled={busy || unavailable || !key.trim()}>{t("aiCredentials.save")}</Button>
       {(failed || status.isError) && <p role="alert">{t("aiCredentials.error")}</p>}
     </form>
+    {status.data?.config && <AIModelConfig key={status.data.revision} status={status.data} unavailable={unavailable || busy} onBusyChange={onBusyChange} />}
   </section>;
 }

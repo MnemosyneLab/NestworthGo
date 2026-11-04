@@ -1,0 +1,38 @@
+Runtime/UI source: 753c193f1ef4d4a6b39986a498b2b7958ecd0bf3
+Environment: Linux amd64; Go 1.27.3; Node 24.22.0; pnpm 12.14.0.
+Wails checks use CGO_ENABLED=0/-tags purego (GTK/WebKit headers unavailable).
+
+PASS full frontend: 174 files / 1838 tests, 365.30s.
+     Started 2026-11-04 16:45:01 UTC; source remained fixed throughout the run.
+PASS targeted frontend/assistant/translation suite: 66 tests before full run.
+PASS full root Go suite: go test -tags purego -p 2 ./... on fixed source.
+PASS root Go vet -tags purego -p 2 ./... .
+PASS targeted concurrency acceptance: go test -race ./internal/assistant ./internal/builtinai
+     assistant 3.197s; builtinai 7.219s (Linux evidence only).
+PASS nested provider ./check.sh (tests, vet, build); fake endpoints/synthetic data only.
+PASS final ESLint, TypeScript --noEmit and gofmt (empty output).
+PASS final production frontend build; existing >500 kB ECharts/vendor warning retained.
+PASS purego desktop compilation with the updated production frontend bundle.
+PASS Chromium component acceptance with synthetic IPC: desktop English/light and
+     narrow Chinese/dark; activation, results, evidence, offline Stop, explicitly
+     granted model navigation, review guard, once-only application, no overflow
+     and zero page errors. No real provider calls or Wails/native GUI launch.
+
+Regression coverage: read-only SQLite query_only attribution/parity/nonzero return,
+missing quote/date budget; live cross-turn paging/fixed TTL/restart recapture;
+ungranted target rejection, navigation expiry/config/restart/page change,
+conversation deletion/new grant/new turn/Stop and mutation during live validation;
+current host policy after old checkpoint restore with unchanged native reasoning.
+
+NOT RUN: native Mac GUI/VoiceOver/package, actual provider/model/encrypted-signature
+compatibility, physical phone and full application power-loss/backup/restore.
+No authorized real test credential was available or requested; no paid model call
+or real household data was used. Financial writes and mobile model access stay off.
+
+Supplemental frontend race fix after 8f2bad1 (2026-11-04):
+PASS affected assistant/locale suite: 6 files / 55 tests, including two new
+     pending Consume -> Delete/New -> approved target response regressions.
+     Both regressions fail with admission-time withdrawal removed.
+PASS full ESLint, TypeScript --noEmit, frontend production build and diff check.
+     Existing vendor chunk warning retained; no backend source changed.
+Prior full-suite/browser evidence above remains tied to 753c193, not rerun here.

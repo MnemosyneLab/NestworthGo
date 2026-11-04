@@ -13,10 +13,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/assistant"
+	"github.com/waltwang/nestworth-go/internal/builtinai"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aistate"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/mcpserver"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/airuntime"
 )
 
 func TestEngineOnlyDispatchesCompleteSuccessfulResponses(t *testing.T) {
@@ -104,7 +106,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 	fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		requests.Add(1)
 		tools := encode(request["tools"])
-		for _, closed := range []string{"commit_change", "preview_change", "approve", "ConfirmHost"} {
+		for _, closed := range []string{"commit_change", "preview_change", "approve", "ConfirmHost", "analyze_period", "get_context", "get_market_data"} {
 			if strings.Contains(tools, `"name":"`+closed+`"`) {
 				t.Error("read-only runtime exposed writer/approval")
 			}
@@ -114,8 +116,11 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 			t.Error("native reasoning lost on actual next provider request")
 		}
 		if round == 0 {
-			writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_durable", "summary": []any{}, "encrypted_content": "opaque-durable-reasoning"}, obj{"type": "function_call", "id": "fc_durable", "call_id": "call_durable", "name": "get_account_snapshot", "arguments": encode(obj{"id": accountID}), "status": "completed"}})
+			writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_durable", "summary": []any{}, "encrypted_content": "opaque-durable-reasoning"}, obj{"type": "function_call", "id": "fc_durable", "call_id": "call_durable", "name": "get_current_page", "arguments": `{}`, "status": "completed"}})
 			return
+		}
+		if !strings.Contains(input, "get_account_snapshot") {
+			t.Error("current-page tool did not return backend source evidence")
 		}
 		if !strings.Contains(input, "function_call_output") || !strings.Contains(input, "call_durable") {
 			t.Error("tool result lost in provider history")
@@ -129,7 +134,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 		if e != nil {
 			return nil, e
 		}
-		engine, e := engineWithModel(ctx, cfg, fake.model, session, session.Close)
+		engine, e := engineWithModel(ctx, cfg, fake.model, builtinai.New(session, assistant.SelectedPage(ctx)), session.Close)
 		if e != nil {
 			session.Close()
 		}
@@ -147,11 +152,12 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 		return r
 	}
 	r := open()
+	ipc := airuntime.NewService(r)
 	s := r.Snapshot()
 	cfg := s.Config
 	cfg.Enabled = true
 	cfg.Model = "mock"
-	if e := r.Configure(t.Context(), s.Epoch, s.Revision, cfg); e != nil {
+	if e := ipc.Configure(s.Epoch, s.Revision, cfg); e != nil {
 		t.Fatal(e)
 	}
 	s = r.Snapshot()
@@ -159,8 +165,8 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	q := assistant.StartRequest{Epoch: s.Epoch, Revision: s.Revision, ConversationID: c.ID, RequestID: uuid.NewString(), Prompt: "Read synthetic balance; do not write"}
-	if _, e := r.Start(t.Context(), q); e != nil {
+	q := assistant.StartRequest{Epoch: s.Epoch, Revision: s.Revision, ConversationID: c.ID, RequestID: uuid.NewString(), Page: assistant.PageSelection{Kind: "account", AccountID: accountID}, Prompt: "Read synthetic balance; do not write"}
+	if _, e := ipc.Start(q); e != nil {
 		t.Fatal(e)
 	}
 	wait := func() {
@@ -171,6 +177,9 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 				t.Fatal(e)
 			}
 			if len(v.Runs) > 0 && v.Runs[0].State == "succeeded" {
+				if q.Prompt == "Read synthetic balance; do not write" && (len(v.Runs[0].Evidence) != 1 || v.Runs[0].Evidence[0].Source != "get_account_snapshot") {
+					t.Fatal("host source trace was not persisted")
+				}
 				raw, _ := jsoncodec.Marshal(v)
 				if strings.Contains(string(raw), "opaque-durable-reasoning") || strings.Contains(string(raw), "synthetic-canary-key") {
 					t.Fatal("native reasoning/credential displayed")
@@ -192,16 +201,17 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 		t.Fatal(e)
 	}
 	r = open()
+	ipc = airuntime.NewService(r)
 	defer r.Close()
 	s = r.Snapshot()
 	q.Epoch = s.Epoch
 	q.Revision = s.Revision
-	if _, e := r.Start(t.Context(), q); e != nil || requests.Load() != 2 {
+	if _, e := ipc.Start(q); e != nil || requests.Load() != 2 {
 		t.Fatal("reconnection replayed provider")
 	}
 	q.RequestID = uuid.NewString()
 	q.Prompt = "An explicit new turn after restart"
-	if _, e := r.Start(t.Context(), q); e != nil {
+	if _, e := ipc.Start(q); e != nil {
 		t.Fatal(e)
 	}
 	wait()

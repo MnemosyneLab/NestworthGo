@@ -23,14 +23,14 @@ func ValidateState(s State) error {
 		localRuns := map[string]bool{}
 		for _, saved := range c.Runs {
 			r := saved.Run
-			sum := sha256.Sum256([]byte(r.Prompt))
-			if !canonicalID(r.ID) || runs[r.ID] || !canonicalID(r.RequestID) || requests[r.RequestID] || r.ConversationID != c.ID || r.Created.IsZero() || len(r.Prompt) == 0 || len(r.Prompt) > MaxPromptBytes || len(r.Text) > MaxTextBytes || saved.Digest != hex.EncodeToString(sum[:]) || !knownState(r.State) || !knownCode(r.Code) {
+			sum := promptDigest(r.Prompt, r.Page, r.PageLeaseID)
+			if (r.PageLeaseID != "" && !canonicalID(r.PageLeaseID)) || !validEvidence(r.Evidence) || !r.Page.Valid() || !canonicalID(r.ID) || runs[r.ID] || !canonicalID(r.RequestID) || requests[r.RequestID] || r.ConversationID != c.ID || r.Created.IsZero() || len(r.Prompt) == 0 || len(r.Prompt) > MaxPromptBytes || len(r.Text) > MaxTextBytes || saved.Digest != hex.EncodeToString(sum[:]) || !knownState(r.State) || !knownCode(r.Code) {
 				return ErrStorage
 			}
 			if !((ModelConfig{Provider: r.Provider, Model: r.Model}).Valid()) || r.ConfigRevision == 0 {
 				return ErrStorage
 			}
-			if terminal(r.State) != (r.Finished != nil) || (r.State != "succeeded" && r.Text != "") {
+			if terminal(r.State) != (r.Finished != nil) || (r.State != "succeeded" && (r.Text != "" || len(r.Evidence) != 0)) {
 				return ErrStorage
 			}
 			runs[r.ID] = true

@@ -1,5 +1,9 @@
 # Built-in assistant page guide stage
 
+Desktop model conversation now supersedes the local desktop composer described
+in this historical page-guide stage; see [the runtime contract](builtin-ai-runtime.md).
+Mobile retains this deterministic guide and its closed model permissions.
+
 This is a runnable UI foundation for the intended complete read/write assistant.
 It is deliberately a **local deterministic page guide**, not a model-backed
 assistant. The composer, credentials, proposals and AI financial confirmation
@@ -107,7 +111,7 @@ The target remains full read/write. Before activating it, implement and verify:
    to mobile before its live permission intersection exists.
 7. Complete desktop/mobile synthetic read -> model proposal -> new trusted
    preview -> explicit confirmation -> receipt/read acceptance; native macOS
-   GUI, VoiceOver, secure store, packaging and physical-phone acceptance.
+   GUI, VoiceOver, credential entry, packaging and physical-phone acceptance.
 
 The current UI never fabricates a preview, successful mutation, streaming model
 answer or durable checkpoint. Existing backend review/provider tests remain
