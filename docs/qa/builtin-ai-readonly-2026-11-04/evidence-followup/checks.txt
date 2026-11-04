@@ -28,3 +28,11 @@ NOT RUN: native Mac GUI/VoiceOver/package, actual provider/model/encrypted-signa
 compatibility, physical phone and full application power-loss/backup/restore.
 No authorized real test credential was available or requested; no paid model call
 or real household data was used. Financial writes and mobile model access stay off.
+
+Supplemental frontend race fix after 8f2bad1 (2026-11-04):
+PASS affected assistant/locale suite: 6 files / 55 tests, including two new
+     pending Consume -> Delete/New -> approved target response regressions.
+     Both regressions fail with admission-time withdrawal removed.
+PASS full ESLint, TypeScript --noEmit, frontend production build and diff check.
+     Existing vendor chunk warning retained; no backend source changed.
+Prior full-suite/browser evidence above remains tied to 753c193, not rerun here.

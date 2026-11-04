@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -340,3 +340,80 @@ it("does not navigate when the page changes during intent consumption", async ()
   await screen.findByText(/No page change was applied/);
   expect(navigate).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["Delete conversation", "Delete"],
+  ["New conversation", "Create"],
+] as const)(
+  "withdraws pending navigation as soon as %s starts, before IPC completes",
+  async (label, operation) => {
+    let consume!: (target: { kind: string; accountId: string }) => void;
+    api.ConsumeNavigation.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          consume = resolve;
+        }),
+    );
+    let completeAction!: () => void;
+    api[operation].mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          completeAction = () => resolve({ id: "new-conversation" });
+        }),
+    );
+    api.Start.mockImplementation(async (q) => {
+      api.Inspect.mockResolvedValue({
+        id: "conversation",
+        runs: [{ ...run, requestId: q.requestId, state: "succeeded" }],
+        runCount: 2,
+        offset: 1,
+        navigation: {
+          id: "host-intent",
+          leaseId: q.pageLeaseId,
+          requestId: q.requestId,
+          runId: "run",
+          conversationId: "conversation",
+        },
+      });
+      return { ...run, state: "accepted" };
+    });
+    const navigate = vi.fn();
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <AssistantPageProvider
+          householdId="synthetic"
+          incarnation="synthetic"
+          surface="desktop"
+          viewKey="overview:"
+          blocked={() => false}
+          onNavigate={navigate}
+        >
+          <ModelConversation />
+        </AssistantPageProvider>
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await screen.findByText("Synthetic prior answer");
+    await user.type(screen.getByLabelText("Message"), "Open overview");
+    await user.click(
+      screen.getByRole("button", { name: "Send and allow one page change" }),
+    );
+    await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
+    const action = screen.getByRole("button", { name: label });
+    await waitFor(() => expect(action).toBeEnabled());
+    await user.click(action);
+    await waitFor(() => expect(api[operation]).toHaveBeenCalledTimes(1));
+    // The host already approved this intent, but its IPC response arrives while
+    // the conversation mutation is still pending. It must not dispatch.
+    await act(async () => consume({ kind: "overview", accountId: "" }));
+    expect(navigate).not.toHaveBeenCalled();
+    await screen.findByText(/No page change was applied/);
+    await act(async () => completeAction());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "New conversation" }),
+      ).toBeEnabled(),
+    );
+    expect(navigate).not.toHaveBeenCalled();
+  },
+);

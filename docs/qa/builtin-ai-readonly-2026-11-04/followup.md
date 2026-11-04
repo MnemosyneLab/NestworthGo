@@ -37,6 +37,9 @@ is changed. Environment and synthetic-data isolation remain as in the initial re
   Frontend page/publication generation and financial-review guards are checked
   before and after IPC, and application dispatch rejection is reported as blocked.
   Stop/new submissions/transport uncertainty withdraw pending frontend application.
+  Conversation actions also synchronously clear the local grant/attempt at admission,
+  before awaiting Create/Delete IPC. A previously approved navigation response cannot
+  dispatch after a new/delete action starts, even while that mutation remains pending.
   Grants/intents are memory-only; neither history nor restart recreates them.
 - Local Status/List/Inspect/Messages use React Query `networkMode:always`. The
   browser offline hint pauses new provider submissions; it does not pause local
@@ -132,3 +135,23 @@ follow the documented disabled-namespace reset procedure instead of editing hash
 Database keys and full backups retain the accepted plaintext contract; no Keychain
 or signing prerequisite is introduced. Richer native acceptance and broader product
 scope remain separate stages, not a claim that arbitrary AI operation is complete.
+
+## Pending-consume conversation-action regression
+
+Post-`8f2bad1` frontend-only fix: admission to the shared conversation action clears
+both local navigation references synchronously before awaiting any IPC. This closes
+the window where the host has already approved ConsumeNavigation but its response
+arrives after Delete or New conversation starts. Clearing on the mutation response
+or subsequent refetch would be too late. Failed/uncertain mutation responses also
+do not restore withdrawn authority.
+
+Two parameterized real-component regressions hold ConsumeNavigation and Create/Delete
+responses independently. They start each conversation action, resolve the previously
+approved navigation first, assert no dispatch while the mutation is pending, then
+complete the mutation and assert no dispatch. Both regressions failed with the
+admission fix temporarily removed; the restored fix passes the affected assistant
+and locale suite (6 files / 55 tests). This supplemental run does not relabel the
+prior 1838-test full suite or Chromium evidence as results for this later patch.
+Full ESLint, TypeScript `--noEmit` and production frontend build also pass for the
+supplemental patch; the existing vendor bundle-size warning remains. Backend code
+is unchanged. Native Mac/real-provider acceptance remains pending.

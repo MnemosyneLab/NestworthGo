@@ -162,6 +162,12 @@ export function ModelConversation() {
   async function action(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;
+    // Revoke locally at admission, before Create/Delete (or any other action)
+    // can await IPC. A previously approved Consume response may still be in flight.
+    if (navigationAttempt.current || navigationGrant.current)
+      setNavigationState("navigationStopped");
+    navigationAttempt.current = null;
+    navigationGrant.current = null;
     setBusy(true);
     setFailed(false);
     try {
