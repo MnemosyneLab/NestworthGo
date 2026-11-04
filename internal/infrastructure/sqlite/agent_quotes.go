@@ -507,6 +507,15 @@ func (r *Repository) ListAgentQuoteRecords(ctx context.Context, householdID doma
 		return nil, err
 	}
 	defer tx.Rollback()
+	result, err := listAgentQuoteRecordsQuery(ctx, tx, householdID)
+	if err != nil {
+		return nil, err
+	}
+	return result, tx.Commit()
+}
+func listAgentQuoteRecordsQuery(ctx context.Context, tx queryer, householdID domain.HouseholdID) ([]domain.AgentQuoteRecord, error) {
+	var err error
+
 	if domain.IsBoundedRead(ctx) {
 		if err := checkReadTableBudget(ctx, tx, "agent_quote_records", "household_id = ?", householdID.String()); err != nil {
 			return nil, err
@@ -550,33 +559,36 @@ func (r *Repository) ListAgentQuoteRecords(ctx context.Context, householdID doma
 	result := make([]domain.AgentQuoteRecord, 0, len(audits))
 	for _, item := range audits {
 		if item.quote.Valid {
-			if item.kind == "instrument" {
-				closure, err := agentClosureByID(ctx, tx, item.quote.String)
-				if err != nil {
-					return nil, err
-				}
-				if closure != nil {
-					item.record.Closure = closure
-					result = append(result, item.record)
-					continue
-				}
-				quote, err := scanInstrumentQuote(tx.QueryRowContext(ctx, `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json FROM instrument_quotes WHERE id = ?`, item.quote.String))
-				if err != nil {
-					return nil, err
-				}
-				item.record.InstrumentQuote = &quote
-			} else {
-				quote, err := scanFXQuote(tx.QueryRowContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE id = ?`, item.quote.String))
-				if err != nil {
-					return nil, err
-				}
-				item.record.FXQuote = &quote
+			if err := hydrateAgentRecord(ctx, tx, &item.record, item.kind, item.quote.String); err != nil {
+				return nil, err
 			}
 		}
 		result = append(result, item.record)
 	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return result, nil
+}
+
+func hydrateAgentRecord(ctx context.Context, tx queryer, record *domain.AgentQuoteRecord, kind, quoteID string) error {
+	if kind == "instrument" {
+		closure, err := agentClosureByID(ctx, tx, quoteID)
+		if err != nil {
+			return err
+		}
+		if closure != nil {
+			record.Closure = closure
+			return nil
+		}
+		quote, err := scanInstrumentQuote(tx.QueryRowContext(ctx, `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json FROM instrument_quotes WHERE id = ?`, quoteID))
+		if err != nil {
+			return err
+		}
+		record.InstrumentQuote = &quote
+	} else {
+		quote, err := scanFXQuote(tx.QueryRowContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE id = ?`, quoteID))
+		if err != nil {
+			return err
+		}
+		record.FXQuote = &quote
+	}
+	return nil
 }

@@ -816,6 +816,7 @@ func ParseOwnershipScope(value string) (OwnershipScope, error) {
 }
 
 type AccountFilter struct {
+	AccountIDs      []AccountID
 	IncludeArchived bool
 	MemberID        *MemberID
 	InstitutionID   *InstitutionID
