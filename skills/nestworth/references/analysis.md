@@ -120,7 +120,12 @@ rules are unknown, confirming, healthy or uncomputed without an open alert.
 `list_investment_review_suppressions` lists ignored scopes and absolute resume
 dates. Its nonempty arrays likewise continue from the last suppression ID until
 empty. All these reads, and `preview_investment_review_rule`, are read-only:
-they never refresh source data or publish an evaluation. A cursor expires when
+they never refresh source data or publish an evaluation. Rule previews return
+mcp-read/1: retain sourceToken/latestClosedOn/window from summary, and follow the
+frozen days section only for requested daily evidence (default 25/max 100).
+expectedSourceToken rejects a changed source before capture. A full 365-day
+policy window uses get_read_page; never replace it with a different shorter
+policy merely to fit the response. A cursor expires when
 its report or filter changes; restart from page one.
 `list_investment_review_episode_history` pages open and resolved episodes for
 one daily rule, including an archived rule. Use

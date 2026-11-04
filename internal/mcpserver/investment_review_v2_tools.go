@@ -48,6 +48,7 @@ type ReviewV2CoverageInput struct {
 }
 
 type ReviewV2PreviewInput struct {
+	Limit               int            `json:"limit,omitempty" jsonschema:"Initial closed-day rows, default 25/max 100; continue days with get_read_page"`
 	Spec                map[string]any `json:"spec"`
 	InstrumentID        string         `json:"instrumentId"`
 	LatestClosedOn      string         `json:"latestClosedOn,omitempty"`
@@ -109,12 +110,18 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 			return s.app.ListReviewRulesV2(ctx, in.Cursor, size)
 		})
 	})
-	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. sourceToken can be supplied to reject changed input.", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
+	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. expectedSourceToken rejects changed input. Frozen mcp-read/1 summary retains sourceToken/window; days are independently pageable with get_read_page (25/max 100, 64 KiB complete wire).", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
 		spec, err := reviewV2Spec(in.Spec)
 		if err != nil {
 			return nil, err
 		}
-		return s.app.PreviewReviewRuleV2(ctx, spec, in.InstrumentID, in.LatestClosedOn, in.ExpectedSourceToken)
+		return s.buildRead(ctx, s.contextGeneration, in.Limit, func(ctx context.Context) (readCapture, error) {
+			preview, err := s.app.PreviewReviewRuleV2(ctx, spec, in.InstrumentID, in.LatestClosedOn, in.ExpectedSourceToken)
+			if err != nil {
+				return readCapture{}, err
+			}
+			return sectionedReadCapture("investment_review_preview", in, preview, "days")
+		})
 	})
 	readTool(server, "list_investment_review_alerts", "Read a published rule-aware investment review report v2. Groups are paged by instrument, never split by rule; cursor is bound to report revision and filters. This read does not reconcile or update data.", func(ctx context.Context, in ReviewV2AlertPageInput) (any, error) {
 		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewAlertPage, error) {

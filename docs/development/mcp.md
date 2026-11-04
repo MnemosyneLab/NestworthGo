@@ -1043,3 +1043,11 @@ complete lists, absence claims and audits require complete relevant evidence.
 Follow the requested scope, preserve frozen identity/disclosure/quality and state
 what evidence remains deferred. This changes fetch guidance, not financial
 calculations or safety authority.
+
+
+`preview_investment_review_rule` preserves the complete policy window in a frozen
+mcp-read/1 capture: sourceToken/latestClosedOn/window stay in summary; days are
+pageable (default 25/max 100). It evaluates the original requested policy once,
+never shortens a 365-day window to meet the wire cap, and never publishes rules,
+alerts, daily evidence or derived valuations. Expiry/revocation requires a fresh
+preview capture. expectedSourceToken remains a source-change guard, not write CAS.

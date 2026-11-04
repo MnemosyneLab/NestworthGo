@@ -1016,5 +1016,51 @@
       }
     },
     "afterHash": "8cdffa12359c97b3b5571a1c9fc7f02fcf60ab149f75e198c3c9e5aab49119c7"
+  },
+  "preview_investment_review_rule": {
+    "before": {
+      "name": "preview_investment_review_rule",
+      "description": "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. sourceToken can be supplied to reject changed input.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedSourceToken": {
+            "type": "string"
+          },
+          "instrumentId": {
+            "type": "string"
+          },
+          "latestClosedOn": {
+            "type": "string"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "spec",
+          "instrumentId"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "data": true
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    "afterHash": "78f8e388e8a6a6bebc7096bf696fc0a8318bb184213bd2479d5a623c36b722c9"
   }
 }
