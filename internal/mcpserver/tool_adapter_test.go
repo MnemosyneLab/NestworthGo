@@ -47,8 +47,35 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 			// The batch-history extension intentionally adds three optional inputs
 			// and documents them. Project only that reviewed delta back to the
 			// immutable baseline; every other tool/field must still match.
-			baseline := append([]*mcp.Tool{}, listed.Tools...)
+			// The additive comparison tool has separate schema/permission tests.
+			baseline := make([]*mcp.Tool, 0, len(listed.Tools))
+			for _, tool := range listed.Tools {
+				if tool.Name != "compare_market_data_import" {
+					baseline = append(baseline, tool)
+				}
+			}
+			if len(listed.Tools) != test.count+1 {
+				t.Fatalf("expected exactly one additive comparison tool: %d", len(listed.Tools))
+			}
 			for i, tool := range baseline {
+				if tool.Name == "get_read_page" {
+					copy := *tool
+					if !strings.Contains(copy.Description, "market-comparison captures default to 100") {
+						t.Fatal("comparison page default missing")
+					}
+					copy.Description = "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25, maximum 100. Follow every cursor before claiming completeness; restart all sections after read_expired/read_revoked. No DB reads or TTL renewal."
+					baseline[i] = &copy
+					continue
+				}
+				if tool.Name == "get_read_item" {
+					copy := *tool
+					if !strings.Contains(copy.Description, "id=clientItemId") {
+						t.Fatal("comparison detail discovery missing")
+					}
+					copy.Description = "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL."
+					baseline[i] = &copy
+					continue
+				}
 				if tool.Name != "get_market_data_batch" {
 					continue
 				}
@@ -94,7 +121,7 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				t.Fatal(err)
 			}
 			hash := sha256.Sum256(raw)
-			if len(listed.Tools) != test.count || hex.EncodeToString(hash[:]) != test.hash {
+			if len(baseline) != test.count || hex.EncodeToString(hash[:]) != test.hash {
 				t.Fatalf("external %s contract changed: tools=%d sha256=%x; expected tools=%d sha256=%s", test.mode, len(listed.Tools), hash, test.count, test.hash)
 			}
 			registry := s.toolRegistry(test.mode)

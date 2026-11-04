@@ -430,8 +430,16 @@ func isBoundedTool(name string) bool {
 	return isFinancialContextTool(name) || isProductTool(name) || isFeatureTool(name) || isReadScaleTool(name)
 }
 
+func isReconciliationReadTool(name string) bool {
+	switch name {
+	case "list_reconciliation_sessions", "get_reconciliation_session", "get_reconciliation_session_page", "get_reconciliation_item":
+		return true
+	}
+	return false
+}
+
 func isBoundedHTTPCall(request financialContextHTTPCall) bool {
-	if isBoundedTool(request.Params.Name) {
+	if isBoundedTool(request.Params.Name) || isReconciliationReadTool(request.Params.Name) {
 		return true
 	}
 	switch request.Params.Name {

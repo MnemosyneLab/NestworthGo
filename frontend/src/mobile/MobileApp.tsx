@@ -225,14 +225,18 @@ function ErrorMessage({ error }: { error: unknown }) {
             defaultValue: t("mobile.requestFailed"),
           })
         : t("mobile.connectionUnavailable");
+  const field = error instanceof MobileError && error.field
+    ? t(`error.field.${error.field}`, { defaultValue: "" })
+    : "";
   return (
     <p role="alert" className="mobile-notice" data-tone="danger">
       <AlertCircle aria-hidden className="size-5 shrink-0" />
       <span className="min-w-0 flex-1">
-        {message}
-        {error instanceof MobileError && error.field
-          ? ` · ${t(`error.field.${error.field}`, { defaultValue: "" })}`
-          : ""}
+        {error instanceof MobileError && (error.code === "csrf_expired" ||
+          (error.status === 403 && error.field === "permission"))
+          ? t("mobile.reconnectBeforeRetry")
+          : message}
+        {field ? ` · ${field}` : ""}
       </span>
     </p>
   );
@@ -447,7 +451,7 @@ export function MobileApp() {
           className="mobile-icon-button"
           aria-label={t("mobile.reconnect")}
           title={t("mobile.reconnect")}
-          disabled={reconnecting || !!pending}
+          disabled={reconnecting}
           onClick={() => void reconnect()}
         >
           <RefreshCw
@@ -2643,6 +2647,7 @@ function RecordForm({
   });
   const [customTime, setCustomTime] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
+  const [planUnavailable, setPlanUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -2749,6 +2754,8 @@ function RecordForm({
       saved(r.receipt.activity);
     } catch (e) {
       setError(e);
+      if (e instanceof MobileError && e.code === "stale_preview" && e.field !== "previewToken")
+        setPlanUnavailable(true);
       if (e instanceof MobileError && e.operationState === "rejected") {
         setUncertain(false);
         setReview(null);
@@ -3036,6 +3043,16 @@ function RecordForm({
               {t("mobile.queryResult")}
             </Button>
           )}
+          {uncertain && !busy && planUnavailable && (
+            <ForgetRecovery onForget={() => {
+              onDispatch(null);
+              setPlanUnavailable(false);
+              setUncertain(false);
+              setReview(null);
+              setError(null);
+              setInput(previous => ({ ...previous, operationId: mobileOperationId() }));
+            }} />
+          )}
           {review && (
             <Button
               type="button"
@@ -3090,10 +3107,11 @@ function QuoteForm({
   onSuccess: (pending: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const [operationId] = useState(() => mobileOperationId());
+  const [operationId, setOperationId] = useState(() => mobileOperationId());
   const [value, setValue] = useState("");
   const [date, setDate] = useState(issue.RangeEnd || b.today);
   const [review, setReview] = useState<Review | null>(null);
+  const [planUnavailable, setPlanUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [unknown, setUnknown] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -3128,6 +3146,8 @@ function QuoteForm({
       }
     } catch (e) {
       setError(e);
+      if (e instanceof MobileError && e.code === "stale_preview" && e.field !== "previewToken")
+        setPlanUnavailable(true);
       if (e instanceof MobileError && e.operationState === "rejected") {
         setUnknown(false);
         setReview(null);
@@ -3237,6 +3257,16 @@ function QuoteForm({
             >
               {t("mobile.queryResult")}
             </Button>
+          )}
+          {unknown && !busy && planUnavailable && (
+            <ForgetRecovery onForget={() => {
+              onDispatch(null);
+              setPlanUnavailable(false);
+              setUnknown(false);
+              setReview(null);
+              setError(null);
+              setOperationId(mobileOperationId());
+            }} />
           )}
           <CancelDraft disabled={busy || unknown} onCancel={onCancel} />
         </div>
@@ -3408,7 +3438,6 @@ function Recovery({
   const { t } = useTranslation();
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
-  const [forget, setForget] = useState(false);
   return (
     <section className="mobile-card mobile-recovery mobile-enter">
       <p role="status" className="mobile-recovery-title">
@@ -3437,22 +3466,30 @@ function Recovery({
         >
           {t("mobile.queryResult")}
         </Button>
-        <Button variant="outline" disabled={busy} onClick={() => setForget(true)}>
-          {t("mobile.forgetRecovery")}
-        </Button>
+        <ForgetRecovery disabled={busy} onForget={onForget} />
       </div>
-      <AlertDialog open={forget} onOpenChange={setForget}>
-        <AlertDialogContent>
-          <AlertDialogTitle>{t("mobile.forgetRecovery")}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("mobile.forgetHelp")}
-          </AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-            <Button onClick={onForget}>{t("mobile.verifiedOnDesktop")}</Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </section>
   );
+}
+
+// Clearing unknown recovery requires an explicit desktop verification. It is
+// neither a rejection nor an authorization to replay the reviewed operation.
+function ForgetRecovery({ disabled, onForget }: { disabled?: boolean; onForget: () => void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return <>
+    <Button type="button" variant="outline" disabled={disabled} onClick={() => setOpen(true)}>
+      {t("mobile.forgetRecovery")}
+    </Button>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogContent>
+        <AlertDialogTitle>{t("mobile.forgetRecovery")}</AlertDialogTitle>
+        <AlertDialogDescription>{t("mobile.forgetHelp")}</AlertDialogDescription>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <Button type="button" onClick={() => { setOpen(false); onForget(); }}>{t("mobile.verifiedOnDesktop")}</Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>;
 }

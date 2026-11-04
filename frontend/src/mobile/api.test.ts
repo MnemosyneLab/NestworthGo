@@ -11,7 +11,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   setMobileSession(null);
 });
-it.each([200, 401])(
+it.each([200, 401, 403])(
   "does not deliver an old %s response into a newly paired session",
   async (status) => {
     const old: Session = {
@@ -149,3 +149,37 @@ it.each(["offline", "server", "401", "broken401"])(
     );
   },
 );
+
+it("refreshes same-grant CSRF without cancelling a concurrent accepted confirmation", async () => {
+  const grant: Session = {
+    device: { id: "phone", name: "Synthetic", permissions: { read: true, record: true, market_refresh: false, manual_quote: false } },
+    accessToken: "same-grant", csrfToken: "old", instance: "before",
+  };
+  setMobileSession(grant);
+  let finish!: (r: Response) => void;
+  const fetch = vi.fn((_url: string, init: RequestInit) => {
+    if (init.method === "POST") return new Promise<Response>(resolve => { finish = resolve; });
+    return Promise.resolve(new Response(JSON.stringify({ ok: true })));
+  });
+  vi.stubGlobal("fetch", fetch);
+  const confirmation = api("/record-confirmations", "POST", { planId: "immutable", operationId: "original" });
+  const signal = fetch.mock.calls[0][1].signal!;
+  setMobileSession({ ...grant, csrfToken: "fresh", instance: "after" });
+  expect(signal.aborted).toBe(false);
+  finish(new Response(JSON.stringify({ operationState: "committed" })));
+  await expect(confirmation).resolves.toEqual({ operationState: "committed" });
+  await api("/operations/original");
+  expect(fetch.mock.calls[1][1].headers).toMatchObject({ "X-CSRF-Token": "fresh" });
+});
+
+it("fences a replaced bearer even when the device ID is unchanged", async () => {
+  const session: Session = { device: { id: "same-id", name: "Synthetic", permissions: { read: true, record: true, manual_quote: false, market_refresh: false } }, accessToken: "old-grant", csrfToken: "old-csrf", instance: "same" };
+  setMobileSession(session);
+  let finish!: (response: Response) => void;
+  const fetch = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
+  vi.stubGlobal("fetch", fetch);
+  const oldRequest = api("/session").catch(error => error);
+  setMobileSession({ ...session, accessToken: "new-grant", csrfToken: "new-csrf" });
+  finish(new Response(JSON.stringify(session)));
+  await expect(oldRequest).resolves.toMatchObject({ code: "session_changed" });
+});

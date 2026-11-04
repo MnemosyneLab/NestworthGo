@@ -125,7 +125,16 @@ sessions, replace CSRF, cancel drafts or issue requests. Explicitly restoring a
 different credential advances the request generation, fencing late responses.
 Refresh/reopen validates through `GET /session` before enabling ledger requests.
 Normal restart refreshes CSRF without replaying commands or restoring previews. In-page **Reconnect** checks the existing session while
-preserving drafts and immutable financial confirmations. Supplied Host and
+preserving drafts and immutable financial confirmations, including pending and
+unknown outcomes. It never dispatches confirmations. Same-grant CSRF refresh
+keeps accepted requests alive; replacing or revoking a grant still fences old
+responses. An authenticated CSRF mismatch returns `403 csrf_expired` with unknown
+operation state: rejection of this HTTP attempt does not rule out an earlier
+commit. The user reconnects explicitly, then checks the original receipt or
+retries the original plan/operation ID. Missing plans after restart remain unknown;
+the mounted review offers the same explicit desktop-verified recovery discard as
+the reload recovery card, retaining entered values for a new review with a new
+operation ID. Supplied Host and
 Origin must match the address derived from the listener (port 80 is normalized
 for browser headers). Mutations require Origin, `X-Nestworth-Mobile: 1`, JSON
 content type and the session's CSRF value. Cross-origin requests and preflights

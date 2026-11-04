@@ -165,6 +165,7 @@ export class MobileError extends Error {
 }
 let csrf = "";
 let accessToken = "";
+let deviceId = "";
 const requests = new Set<AbortController>();
 let sessionGeneration = 0;
 let expired: (() => void) | undefined;
@@ -179,10 +180,17 @@ export function restoreMobileCredential() {
 }
 export function setMobileSession(session: Session | null) {
   if (!session) forgetMobileCredential(accessToken);
-  sessionGeneration++;
+  const nextToken = session ? (session.accessToken ?? accessToken) : "";
+  const changed = !session || session.device.id !== deviceId || nextToken !== accessToken;
   csrf = session?.csrfToken ?? "";
-  accessToken = session ? (session.accessToken ?? accessToken) : "";
-  for (const request of requests) request.abort();
+  accessToken = nextToken;
+  deviceId = session?.device.id ?? "";
+  // Refreshing CSRF for the same grant must not cancel an accepted write or
+  // suppress its receipt. Replacing/revoking the grant still fences all reads.
+  if (changed) {
+    sessionGeneration++;
+    for (const request of requests) request.abort();
+  }
 }
 // Only replace this tab's owned credential. A memory-only login must not
 // discard a different tab's remembered session.

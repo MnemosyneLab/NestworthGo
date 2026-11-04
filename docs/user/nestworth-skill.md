@@ -53,29 +53,31 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.0; published skill: 2.0.0
+### Current repository skill: 3.0.1; published skill: 2.0.0
 
-Repository skill 3.0.0 changes contribution analysis to one frozen capture.
+Repository skill 3.0.1 combines the import-comparison guidance from 2.3.0 with
+frozen contribution analysis. It also corrects the remaining offset-paging
+guidance and keeps all frozen section contracts explicit.
 `list_contributions` now returns `mcp-read/1`; follow its `rows` section with
 `get_read_page`. `get_contribution_item` accepts captureId/groupKey instead of a
 repeated query/returnType/groupBy. Offset pagination and independent detail
 recalculation are removed. This is a breaking MCP workflow change; the desktop
-analysis API is unchanged. Skill 3.0.0 is not yet published.
+analysis API is unchanged. Skill 3.0.1 is not yet published.
 
-Repository skill 2.2.0 adds compatible guidance for inclusive batch-history
-`fromDate`/`toDate` windows and opt-in cross-target `historyLayout=records` paging.
-It preserves exact original FX direction and NAV/close basis, distinguishes
-unread pages from missing data, and explains unavailable reverse-FX projections.
-This minor bump identifies expanded query capabilities and contract guidance;
-existing per-target history calls remain compatible. Import comparison is still
-a design, not an available tool.
+It retains skill 2.3.0's read-only import comparison with default compact
+ordered results, on-demand details from the same frozen capture, exact decimal/
+source distinctions, inactive evidence and explicit unknown chart selection. It retains skill 2.2.0's inclusive batch-history windows and
+opt-in cross-target `historyLayout=records` paging, original FX direction,
+NAV/close basis, unread-page distinctions and unavailable reverse projections.
+Existing history calls remain compatible.
 
 It also retains skill 2.1.0's post-v0.3.10 asset-change guidance:
 `endpoint_bridge/2`, separately paged reconciliation details, paired trade
 principal and valuation semantics, execution-price spreads and quantity
 remeasurement. The earlier bounded read cutover required major version 2.0.0.
-Skill 2.2.0 is not yet published; `--version latest` still selects App v0.3.10
+`--version latest` still selects App v0.3.10
 and skill 2.0.0.
+
 
 The App and skill are separate components: installing a newer skill does not
 add tools to an older App. Actual discovery and returned schemas remain the
