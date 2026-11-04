@@ -540,9 +540,15 @@ adapters and the same inclusive closed-day `query` shape as `analyze_period`:
 
 - `list_contributions`: group returns by `instrument`, `account`, `currency`, or
   `asset_class`. Supply `returnType` (`total_return`, `realized`, `unrealized`, or
-  `dividend_interest`), optional ordering and offset/limit (up to 100 rows).
-- `get_contribution_item`: use an exact row key with the same query, return type,
-  and grouping to inspect components, account breakdown and related-history hints.
+  `dividend_interest`) and optional ordering. Returns `mcp-read/1` with a frozen
+  `rows` section (default limit 25, maximum 100); continue with `get_read_page`
+  using its captureId, section and signed cursor. Offset pagination is removed.
+- `get_contribution_item`: supply the list capture's `captureId` and exact
+  `groupKey`; query/returnType/groupBy/limit arguments are removed. Components,
+  account breakdown and related-history hints come from the same frozen source,
+  with independent `rows/<key>/components` and `rows/<key>/byAccount` sections.
+  Follow their signed cursors with `get_read_page`. No recalculation or TTL renewal
+  occurs; expiry, eviction or permission revocation requires restarting the list.
 - `get_return_day`: inspect one date's amount, rate, composition, contributors,
   coverage and valuation issues; the date must be within the query range.
 - `get_asset_driver_detail`: inspect one `analyze_period.assetChange` bucket and
@@ -945,7 +951,8 @@ on get_market_data_batch (view=current/coverage/history). No history is discarde
 analyze_period returns mcp-read/1 with four projection headers in summary and
 income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
 investmentReturns/points and investmentReturns/sources sections (initial default 5).
-get_contribution_item pages components/byAccount; get_return_day pages composition,
+list_contributions freezes rows and detail together; get_contribution_item exposes
+rows/<key>/components and rows/<key>/byAccount; get_return_day pages composition,
 contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.
 These use the same capture/hash/cursor/TTL infrastructure. They retain analysis
 snapshot maintenance and non-read-only annotations; execute before write previews.

@@ -283,8 +283,19 @@ refreshes happen here; use the separate health workflow only if requested.
 | --- | --- |
 | “上个月赚了多少？” | `analyze_period` investment return, then contribution if needed |
 | “收入支出各多少？” | Period income/expense; own-account transfers and investment principal are not income/spending |
-| “哪几只资产贡献最大？” | `list_contributions` with returnType, groupBy, ordering and pagination |
-| “这行收益为什么是这个数？” | `get_contribution_item`, exact returned row key and same query/returnType/groupBy |
+| “哪几只资产贡献最大？” | `list_contributions` with returnType, groupBy and ordering; frozen rows via `get_read_page` |
+| “这行收益为什么是这个数？” | `get_contribution_item` with the list captureId and exact groupKey; frozen child sections via `get_read_page` |
+
+Contribution lists use `mcp-read/1`: inspect `summary` and `sections.rows`, then
+follow only the rows needed with `get_read_page` (captureId, section=`rows`, signed
+cursor; default limit 25, maximum 100). There is no offset argument. For selected
+row evidence call `get_contribution_item` with that same captureId and groupKey;
+do not repeat the query, returnType or groupBy. Follow its independently named
+child sections only when their evidence is needed. Pages and details never
+recalculate or renew the five-minute TTL. On expiry, eviction or revocation,
+restart the list and all related sections; never mix captures. Run analysis before
+preparing financial writes because source capture may maintain derived snapshots.
+
 | “某一天为什么亏损？” | `get_return_day`, date inside the same period |
 | “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_asset_driver_detail` with an actual returned bucket key |
 | “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
@@ -565,11 +576,11 @@ change that account's value. Missing price or FX remains unknown.
 
 The link is a bounded summary of existing asset drivers and investment return
 sources. For instrument/account/activity drilldown, existing `list_contributions`,
-`get_contribution_item` and `get_asset_driver_detail` remain available. Those
-perform a new live analysis and can reveal identities: require the corresponding
-disclosure intent, use the normalized period and actual scope ID, and describe
-them as separate captures. **They are not frozen detail pages or proof for this
-comparisonId.** Do not quietly substitute them after a compatibility failure.
+`get_asset_driver_detail` remain available and start separate analysis captures.
+`get_contribution_item` then reads only its parent contribution capture. These
+identity-bearing workflows require the corresponding disclosure intent; use the
+normalized period and actual scope ID and describe them as separate captures.
+**They are not detail pages or proof for this comparisonId.** Do not quietly substitute them after a compatibility failure.
 
 Read positions/gaps/evidence with `get_financial_comparison_page`, saving the
 three section states independently as described above. The link, content hash,

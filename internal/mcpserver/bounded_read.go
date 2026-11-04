@@ -367,52 +367,59 @@ func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 		}
 		return s.reads.page(g, in)
 	})
-	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
-		s.reads.mu.Lock()
-		defer s.reads.mu.Unlock()
-		e, err := s.reads.entry(g, in.CaptureID)
-		if err != nil {
-			return nil, err
-		}
-		if e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" {
-			key := in.Section + "/" + in.ID
-			v, ok := e.Details[key]
-			if !ok {
-				return nil, fail("not_found", "item not found in capture section")
-			}
-			r := s.reads.base(in.CaptureID, e)
-			r.Section, r.Summary = in.Section, v
-			r.Sections = map[string]ReadSection{}
-			for _, section := range e.DetailSections[key] {
-				r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, section, e, 0, 0)}
-			}
-			if ok, err := readFits(r); err != nil {
-				return nil, err
-			} else if !ok {
-				return nil, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
-			}
-			return r, nil
-		}
-		if in.Section != "products" || e.Kind != "products" {
-			return nil, fail("validation", "item section must be products")
-		}
-		v, ok := e.Details[in.ID]
+	readTool(server, "get_read_item", "Read full item evidence from a frozen contributions, products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+		return s.readItem(g, in, "")
+	})
+}
+func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any, error) {
+	s.reads.mu.Lock()
+	defer s.reads.mu.Unlock()
+	e, err := s.reads.entry(g, in.CaptureID)
+	if err != nil {
+		return nil, err
+	}
+	if requiredKind != "" && e.Kind != requiredKind {
+		return nil, fail("validation", "capture kind does not match item tool")
+	}
+	if e.Kind == "contributions" || e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" {
+		key := in.Section + "/" + in.ID
+		v, ok := e.Details[key]
 		if !ok {
-			return nil, fail("not_found", "item not found in capture")
+			return nil, fail("not_found", "item not found in capture section")
 		}
 		r := s.reads.base(in.CaptureID, e)
-		r.Summary = v
+		r.Section, r.Summary = in.Section, v
 		r.Sections = map[string]ReadSection{}
-		k := "reservations/" + in.ID
-		r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, k, e, 0, 0)}
+		for _, section := range e.DetailSections[key] {
+			r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, section, e, 0, 0)}
+		}
 		if ok, err := readFits(r); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, fail("too_large", "single_item product detail exceeds read wire budget")
+			return nil, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
 		}
 		return r, nil
-	})
+	}
+	if in.Section != "products" || e.Kind != "products" {
+		return nil, fail("validation", "item section must be products")
+	}
+	v, ok := e.Details[in.ID]
+	if !ok {
+		return nil, fail("not_found", "item not found in capture")
+	}
+	r := s.reads.base(in.CaptureID, e)
+	r.Summary = v
+	r.Sections = map[string]ReadSection{}
+	k := "reservations/" + in.ID
+	r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, k, e, 0, 0)}
+	if ok, err := readFits(r); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, fail("too_large", "single_item product detail exceeds read wire budget")
+	}
+	return r, nil
 }
+
 func isReadScaleTool(name string) bool {
 	switch name {
 	case "get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch":

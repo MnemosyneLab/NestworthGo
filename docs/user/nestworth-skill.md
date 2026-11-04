@@ -53,7 +53,14 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 2.2.0; published skill: 2.0.0
+### Current repository skill: 3.0.0; published skill: 2.0.0
+
+Repository skill 3.0.0 changes contribution analysis to one frozen capture.
+`list_contributions` now returns `mcp-read/1`; follow its `rows` section with
+`get_read_page`. `get_contribution_item` accepts captureId/groupKey instead of a
+repeated query/returnType/groupBy. Offset pagination and independent detail
+recalculation are removed. This is a breaking MCP workflow change; the desktop
+analysis API is unchanged. Skill 3.0.0 is not yet published.
 
 Repository skill 2.2.0 adds compatible guidance for inclusive batch-history
 `fromDate`/`toDate` windows and opt-in cross-target `historyLayout=records` paging.
