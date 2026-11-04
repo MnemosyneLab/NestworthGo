@@ -170,6 +170,7 @@ func (s *Service) startLocked() error {
 	generation := s.contextGeneration
 	tools := s.buildToolSet(s.config.Mode, true)
 	server := tools.server
+	server.AddReceivingMiddleware(writeSchemaErrors(tools))
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
 	boundedHandler := financialContextEnvelope(handler, tools.readResponseTools())
 	httpServer := &http.Server{Handler: protect(endpoint, s.config.Token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

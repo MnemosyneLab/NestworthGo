@@ -57,7 +57,7 @@ func TestResponseReviewMeasurements(t *testing.T) {
 				t.Logf("synthetic holdings=%d %s data=%d complete-wire-reserve=%d", n, name, len(raw), wire)
 			}
 			c := ledgerSession(t, fx)
-			listed, err := c.ListTools(t.Context(), nil)
+			listed, err := listAllTools(t.Context(), c)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -17,7 +17,7 @@ type toolSet struct {
 func newToolSet(instructions string, external bool) *toolSet {
 	set := &toolSet{Registry: agentcapability.New(instructions)}
 	if external {
-		set.server = mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "2.0.0"}, &mcp.ServerOptions{Instructions: instructions})
+		set.server = mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "2.0.0"}, &mcp.ServerOptions{Instructions: instructions, PageSize: 16})
 	}
 	return set
 }

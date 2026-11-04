@@ -55,7 +55,7 @@ func TestAgentMarketDataPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 			c := connect(t, s)
-			list, err := c.ListTools(context.Background(), nil)
+			list, err := listAllTools(context.Background(), c)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -168,7 +168,7 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 			t.Fatal(err)
 		}
 		client := connect(t, fx.service)
-		listed, err := client.ListTools(t.Context(), nil)
+		listed, err := listAllTools(t.Context(), client)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -104,7 +104,7 @@ type ReviewV2ClearSuppressionInput struct {
 // Daily investment review tools use the V2 rule projection. Read tools return
 // only the last complete publication and leave the database untouched.
 func (s *Service) reviewV2Tools(server *toolSet, mode string) {
-	readTool(server, "list_investment_review_rules", "List named daily investment review rules with independent predicates and trigger policies. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
+	readTool(server, "list_investment_review_rules", "Page live daily rules (1\u2013100, byte-aware). Continue every nonempty array using its last rule ID as cursor until an empty array; a short page may still have more. Rules are reminders, not sell recommendations.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
 		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) ([]domain.ReviewRule, error) {
 			return s.app.ListReviewRulesV2(ctx, in.Cursor, size)
 		})
@@ -144,7 +144,7 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 			return s.app.ListReviewCoverageV2(ctx, in.Filter, in.Cursor, size)
 		})
 	})
-	readTool(server, "list_investment_review_suppressions", "List ignored investment/rule scopes with absolute resume dates. This is a pure read; suppressions are separate from acknowledgements.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
+	readTool(server, "list_investment_review_suppressions", "Page live ignored scopes with absolute resume dates (1\u2013100, byte-aware). Continue every nonempty array using its last suppression ID until empty, including short pages. Suppressions are separate from acknowledgements.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
 		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) ([]domain.ReviewSuppression, error) {
 			return s.app.ListReviewSuppressionsV2(ctx, in.Cursor, size)
 		})

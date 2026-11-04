@@ -68,11 +68,11 @@ func productListEvidence(t *testing.T, c *mcp.ClientSession, args any) []any {
 	return out
 }
 func repairJobEvidence(t *testing.T, c *mcp.ClientSession, args any) map[string]any {
-	cap := scaleCapture(t, c, "get_data_repair_job", args)
+	input := jsonObject(t, args)
+	input["view"] = "evidence"
+	cap := scaleCapture(t, c, "get_data_repair_job", input)
 	out := cap["summary"].(map[string]any)
-	health := out["health"].(map[string]any)
-	health["issues"] = scaleSection(t, c, cap, "issues")
-	delete(health, "issuesCount")
+	out["health"] = sectionEvidence(t, c, "scan_data_health", map[string]any{})
 	job := out["job"].(map[string]any)
 	for _, field := range []string{"items", "blockers", "prerequisites"} {
 		job[field] = scaleSection(t, c, cap, "job_"+field)

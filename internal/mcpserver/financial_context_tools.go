@@ -380,6 +380,7 @@ func (c *financialContextCache) pageInfo(id, section string, g uint64, start, re
 }
 
 type financialContextHTTPCall struct {
+	Method string          `json:"method"`
 	ID     json.RawMessage `json:"id"`
 	Params struct {
 		Name      string          `json:"name"`
@@ -403,6 +404,7 @@ func decodeFinancialContextJSON(raw []byte, value any) error {
 func decodeFinancialContextHTTPCall(raw []byte) (financialContextHTTPCall, error) {
 	var request financialContextHTTPCall
 	var envelope struct {
+		Method string          `json:"method"`
 		ID     json.RawMessage `json:"id"`
 		Params json.RawMessage `json:"params"`
 	}
@@ -410,6 +412,10 @@ func decodeFinancialContextHTTPCall(raw []byte) (financialContextHTTPCall, error
 		return request, err
 	}
 	request.ID = envelope.ID
+	request.Method = envelope.Method
+	if envelope.Method == "tools/list" {
+		return request, nil
+	}
 	err := decodeFinancialContextJSON(envelope.Params, &request.Params)
 	return request, err
 }
@@ -440,6 +446,9 @@ func isReconciliationReadTool(name string) bool {
 }
 
 func isBoundedHTTPCall(request financialContextHTTPCall) bool {
+	if request.Method == "tools/list" {
+		return true
+	}
 	// Execution and recovery receipts must survive any response size after a
 	// business write. These names previously overlapped product/read helpers.
 	if strings.HasPrefix(request.Params.Name, "commit_") || request.Params.Name == "update_instruments_batch" {
@@ -464,7 +473,17 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 func financialContextEnvelope(next http.Handler, registered ...map[string]bool) http.Handler {
 	bounded := isBoundedHTTPCall
 	if len(registered) > 0 {
-		bounded = func(r financialContextHTTPCall) bool { return registered[0][r.Params.Name] }
+		bounded = func(r financialContextHTTPCall) bool {
+			if r.Method == "tools/list" {
+				return true
+			}
+			if cap, known := registered[0][r.Params.Name]; known {
+				return cap
+			}
+			// Known but unavailable tools cannot execute; retain safe SDK errors
+			// in lower-permission modes. Registered writes always bypass the cap.
+			return isProductTool(r.Params.Name) || isBoundedHTTPCall(r)
+		}
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -479,7 +498,7 @@ func financialContextEnvelope(next http.Handler, registered ...map[string]bool) 
 			if decodeFinancialContextJSON(raw, &batch) == nil {
 				for _, element := range batch {
 					request, err := decodeFinancialContextHTTPCall(element)
-					if err == nil && bounded(request) {
+					if err == nil && (request.Params.Name != "" || request.Method == "tools/list") {
 						http.Error(w, "bounded MCP tools require a single JSON-RPC request", http.StatusBadRequest)
 						return
 					}
@@ -509,6 +528,11 @@ func financialContextEnvelope(next http.Handler, registered ...map[string]bool) 
 					scrubSchemaError(buffer, request.ID, "invalid feature request; inspect the tool schema")
 				}
 				if buffer.oversized {
+					if request.Method == "tools/list" {
+						w.Header().Set("Content-Type", "application/json")
+						_ = jsoncodec.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "error": map[string]any{"code": -32603, "message": "tool discovery page exceeds 64 KiB wire budget"}})
+						return
+					}
 					// Replace the entire result; never truncate JSON or echo the
 					// offending property/value. Keep the original bounded RPC ID.
 					result := &mcp.CallToolResult{}

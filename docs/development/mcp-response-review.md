@@ -79,17 +79,17 @@ activity/review/reconciliation APIs keep their distinct domain paging contracts.
 
 | Family | Current shape / bound / repetition | Decision |
 | --- | --- | --- |
-| Context/catalog, members/institutions/groups/accounts/holdings | Bootstrap/catalog or directory arrays; query/account filters but directory cardinality unbounded; identities/ownership are useful | Default frozen directory/holdings pages and full item metadata; context drops embedded directory arrays, catalog stays static |
+| Context/catalog, members/institutions/groups/accounts/holdings | Metadata/static catalog; compact frozen directory/holding pages with same-capture full metadata | Read context/catalog only when needed; filtered identity lookup preserves ownership and CAS |
 | Current overview/account valuations/snapshot | Household breakdown or account array/detail; components + composition details + slices repeat, unbounded holdings | Default bounded overview/account projections preserving GUI totals/evidence; snapshot uses the same account capture |
 | Historical overview/series | Full rows/evidence/categories/reconciliation; series 1–31 points plus full overview and per-point missing rows; wire can fail below compute limits | Default bounded historical read v2 |
 | Financial context/comparison/attribution | Frozen 4 MiB captures, 5 min TTL, 64 KiB pages/item; initial financial header retained by clients, lean section/items/page continuations | Add effective leaf quality/contributions; retain coherence, aliases and financial precision evidence |
 | Products/liquidity/upcoming/instruments/Agent history/market batch | Sole mcp-read/1 contract; compact sections, filters/sort, detail links, byte-aware pages | Reuse infrastructure as the only response contract; market batch keeps genuine current/coverage/history views |
 | Market single/search | Selected single quote; history removed from single-query schema and served by market batch; provider candidate arrays | Single quote stays a direct object; complete history uses existing market batch; external search remains provider-bounded |
-| Activities/contributions | Activities keyset <=100, full item; contributions use one frozen rows/detail capture (default 25, max 100) | Keep activity keyset paging; contributions continue with get_read_page and drill down with captureId/groupKey, preserving source coherence and complete-wire bounds |
+| Activities/contributions | Activities use byte-aware live keyset pages <=100; contributions use one frozen rows/detail capture (default 25, max 100) | Authoritative cursor after delivered rows; contributions keep frozen source coherence and complete-wire bounds |
 | Period analysis | Four full projections with trends/categories/drivers/coverage; range computation bounded independently of encoded output | Default frozen projection headers and six named sections; comparison attribution remains coherent two-endpoint alternative |
-| Review V2 | Rules/suppressions <=100; report groups, daily evidence, episodes/events/coverage revision-bound pages; one episode includes sibling alerts | Retain rule grouping and complete audit evidence; no unsafe field removal |
+| Review V2 | Byte-aware <=100 rows; published report/evidence/episode/coverage cursors retain revision guards; rule/suppression arrays use live identity cursors until empty | Retain complete groups; oversized single items fail explicitly; no unsafe field removal |
 | Reconciliation sessions | Bounded header/page/item/attempt routes; links retain before/after review evidence | Retain; already separates heavy histories |
-| Health/repair | Full issue/plan arrays; polling repeats health scan; job contains per-target detail | Default frozen issue/preview/job sections; retain unresolved issues, prerequisites and separate current health |
+| Health/repair | Frozen issue/preview sections; compact job progress without scan/capture; view=evidence freezes job details | Poll counters, inspect needed evidence and scan current health after terminal outcome |
 | Preview/commit, directory writes, market import, policy/product/review writes, operation receipt | One item or <=100 commands/targets; normalized requests/effects/receipts can be large | Preserve safety evidence, original outcomes and retry hashes; no destructive compaction |
 
 Discovery includes every tool's input/output schema and long business/safety
@@ -316,3 +316,23 @@ return only the requested section and capture identity/hash/expiry; initial
 headers retain attribution, precision and disclosure. This breaking response
 change is documented in skill 4.0.0. Paired real SDK wire/call measurements and
 coverage limits are in [the compact-read report](../qa/mcp-compact-reads-2026-11-04.md).
+
+
+## Remaining-audit contract completion (skill 5.0.0)
+
+The follow-up integrates main `82dd932` (#220) after #212/#215/#216/#217.
+[Current contracts](mcp.md#bounded-discovery-and-task-directed-reads-skill-500)
+and [follow-up measurements](../qa/mcp-audit-followups-2026-11-04.md) supersede
+older shape/discovery/repair-polling descriptions above. Historical measurements
+remain evidence for their named sources, not current single-page guarantees.
+
+Discovery is paged at 16 tools and bounded by complete 64 KiB HTTP bytes. Every
+registered read/analysis/preview receives final HTTP interception; actual write
+and operation-recovery receipts bypass that buffer. Write SDK schema diagnostics
+are scrubbed before business dispatch, preserving structured business failures
+and unknown outcomes. Live activity/review/product history pages use a read
+operation fence that preserves financial preview tokens; it is not a financial
+write or a frozen lifetime. Scope, unknown values, revision, hashes, CAS and
+same-capture evidence rules remain authoritative. Complete-list/absence/audit
+claims require complete relevant evidence; summary questions do not require
+fetching every independent detail section.

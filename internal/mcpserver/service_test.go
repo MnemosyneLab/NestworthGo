@@ -86,7 +86,7 @@ func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
-	listed, err := c.ListTools(context.Background(), nil)
+	listed, err := listAllTools(context.Background(), c)
 	if err != nil {
 		t.Fatal(err)
 	}

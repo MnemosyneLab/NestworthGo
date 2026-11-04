@@ -122,6 +122,8 @@ type payloadRecorder struct {
 	mu             sync.Mutex
 	metrics        map[string]payloadMetric
 	discoveryBytes int
+	discoveryCalls int
+	discoveryMax   int
 }
 
 // Observe actual HTTP request and final complete JSON-RPC response bytes. This
@@ -160,7 +162,12 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 	res.Body = io.NopCloser(bytes.NewReader(raw))
 	if method == "tools/list" {
 		p.mu.Lock()
-		p.discoveryBytes = len(raw)
+		p.discoveryBytes += len(raw)
+		p.discoveryCalls++
+		p.discoveryMax = max(p.discoveryMax, len(raw))
+		if len(raw) > contextWireLimit {
+			p.t.Errorf("discovery page exceeds 64 KiB: %d", len(raw))
+		}
 		p.mu.Unlock()
 	}
 	if name != "" {
@@ -256,7 +263,7 @@ func TestMCPPayloadBudgetsRepresentative(t *testing.T) { runPayloadBudgets(t, fa
 func runPayloadBudgets(t *testing.T, large bool) {
 	f := newPayloadHousehold(t, large)
 	c, rec := connectPayload(t, f.service)
-	tools, err := c.ListTools(t.Context(), nil)
+	tools, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,7 @@ import (
 
 type DataRepairJobInput struct {
 	HealthReadInput
+	View  string `json:"view,omitempty" jsonschema:"progress (default) reads only job counters; evidence captures pageable job details. Neither scans health; call scan_data_health after completion."`
 	JobID string `json:"jobId" jsonschema:"Exact jobId returned by start_data_repair. Jobs are retained only in the running application process."`
 }
 
@@ -31,35 +32,42 @@ func (s *Service) dataHealthTools(server *toolSet, mode string) {
 		}
 		return s.pagedHealth(ctx, generation, in, "data_repair_preview", read, "items", "unresolved")
 	})
-	readTool(server, "get_data_repair_job", "Read progress/result for the exact repair jobId plus a fresh local health scan. The bounded read contract separates issues and job items/blockers/prerequisites with 64 KiB pages (default 25/max 100). Inspect outcome, blockers, snapshotDaysPlanned and snapshotDaysRebuilt. Rebuilt snapshots can still be incomplete. health is current state, not an immutable completion report; during running it is provisional. Jobs are process-local; not_found after restart does not imply success or failure. Use scan_data_health to recheck actual data.", func(ctx context.Context, in DataRepairJobInput) (any, error) {
+	readTool(server, "get_data_repair_job", "Poll exact process-local jobId. Default progress returns sequence, phase, outcome and counters without a health scan or capture. view=evidence freezes job items/blockers/prerequisites (25/max 100, 64 KiB). After terminal outcome, scan_data_health once for current gaps. Rebuilt days do not prove complete data; not_found after restart leaves completion unknown.", func(ctx context.Context, in DataRepairJobInput) (any, error) {
 		id := strings.TrimSpace(in.JobID)
 		if _, err := uuid.Parse(id); err != nil {
 			return nil, fail("validation", "jobId must be a UUID returned by start_data_repair")
 		}
+		if in.View != "" && in.View != "progress" && in.View != "evidence" {
+			return nil, fail("validation", "view must be progress or evidence")
+		}
 		job, ok := s.app.GetSyncJob(id)
 		if !ok {
-			return nil, fail("not_found", "repair job is unavailable in this process; scan_data_health to check current data")
+			return nil, fail("not_found", "repair job is unavailable in this process; scan_data_health to check current data; completion remains unknown")
 		}
-		report, err := s.app.ScanMarketDataHealth(ctx)
-		if err != nil {
-			return nil, err
+		if in.View != "evidence" {
+			return map[string]any{"job": map[string]any{
+				"jobId": job.JobID, "sequence": job.Sequence, "phase": job.Phase, "outcome": job.Outcome,
+				"estimatedRequests": job.EstimatedRequests, "completedRequests": job.CompletedRequests,
+				"targetCount": job.TargetCount, "completedTargets": job.CompletedTargets,
+				"snapshotDaysPlanned": job.SnapshotDaysPlanned, "snapshotDaysRebuilt": job.SnapshotDaysRebuilt,
+				"committedBatches": job.CommittedBatches, "itemCount": len(job.Items), "blockerCount": len(job.Blockers), "prerequisiteCount": len(job.Prerequisites),
+				"errorCode": job.ErrorCode, "nextEligibilityAt": job.NextEligibilityAt,
+			}, "healthIncluded": false}, nil
 		}
 		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
-			c, err := sectionedReadCapture("data_repair_job", in, marketdata.HealthReportDTO(report), "issues")
+			c, err := sectionedReadCapture("data_repair_job", in, marketdata.SyncSnapshotDTO(job), "items", "blockers", "prerequisites")
 			if err != nil {
 				return c, err
 			}
-			j, err := sectionedReadCapture("data_repair_job", in, marketdata.SyncSnapshotDTO(job), "items", "blockers", "prerequisites")
-			if err != nil {
-				return c, err
-			}
-			c.Summary = map[string]any{"job": j.Summary, "health": c.Summary, "healthScope": "current local scan, independent of recorded job completion"}
-			for name, rows := range j.Sections {
-				c.Sections["job_"+name] = rows
+			c.Summary = map[string]any{"job": c.Summary, "healthIncluded": false}
+			for _, name := range []string{"items", "blockers", "prerequisites"} {
+				c.Sections["job_"+name] = c.Sections[name]
+				delete(c.Sections, name)
 			}
 			return c, nil
 		})
 	})
+
 	if mode != LedgerWrite {
 		return
 	}

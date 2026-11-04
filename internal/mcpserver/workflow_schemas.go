@@ -1,0 +1,68 @@
+package mcpserver
+
+import "github.com/google/jsonschema-go/jsonschema"
+
+// Publish common structural dependencies before business validation. Decimal,
+// date, identity, permission, source, and CAS validation remain authoritative.
+func workflowSchema[I any](name string) *jsonschema.Schema {
+	switch name {
+	case "list_activities", "preview_change", "get_data_repair_job", "get_market_data_batch":
+	default:
+		return nil
+	}
+	s := scaleReadSchema[I](name)
+	if s == nil {
+		var err error
+		s, err = jsonschema.For[I](nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+	switch name {
+	case "list_activities":
+		s.DependentRequired = map[string][]string{
+			"afterEffectiveAt": {"afterCreatedAt", "afterId"}, "afterCreatedAt": {"afterEffectiveAt", "afterId"}, "afterId": {"afterEffectiveAt", "afterCreatedAt"},
+		}
+		low, high := float64(0), float64(100)
+		s.Properties["limit"].Minimum = &low
+		s.Properties["limit"].Maximum = &high
+	case "get_data_repair_job":
+		setSchemaEnum(s.Properties["view"], []string{"progress", "evidence"})
+	case "get_market_data_batch":
+		s.Properties["targets"].Items.OneOf = []*jsonschema.Schema{
+			{Required: []string{"instrumentId"}, Not: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Required: []string{"baseCurrency"}}, {Required: []string{"quoteCurrency"}}}}},
+			{Required: []string{"baseCurrency", "quoteCurrency"}, Not: &jsonschema.Schema{Required: []string{"instrumentId"}}},
+		}
+		s.DependentRequired = map[string][]string{"fromDate": {"toDate"}, "toDate": {"fromDate"}}
+		s.Not = &jsonschema.Schema{Required: []string{"range", "fromDate"}}
+		s.If = &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"historyLayout": {Enum: []any{"records"}}}, Required: []string{"historyLayout"}}
+		s.Then = &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"view": {Enum: []any{"history"}}}, Required: []string{"view"}}
+	case "preview_change":
+		variants := []struct {
+			kind     string
+			required []string
+		}{
+			{"position_import", []string{"accountId", "instrumentId", "quantity", "unitCost", "currency"}},
+			{"money_added", []string{"accountId", "amount", "currency", "reason"}},
+			{"money_removed", []string{"accountId", "amount", "currency", "reason"}},
+			{"cash_dividend", []string{"holdingId", "amount", "currency"}},
+			{"cash_transfer", []string{"fromAccountId", "toAccountId", "sent", "sentCurrency", "received", "receivedCurrency"}},
+			{"fx_conversion", []string{"accountId", "sold", "soldCurrency", "bought", "boughtCurrency"}},
+			{"position_transfer", []string{"fromHoldingId", "quantity"}},
+			{"position_adjustment", []string{"holdingId", "quantity"}},
+			{"trade", []string{"settlementAccountId", "instrumentId", "side", "quantity", "gross", "grossCurrency"}},
+			{"value_update", []string{"accountId", "newValue", "newValueCurrency", "reason"}},
+			{"debt_draw", []string{"debtAccountId", "cashAccountId", "principal", "principalCurrency"}},
+			{"debt_payment", []string{"debtAccountId", "cashAccountId", "principal", "principalCurrency"}},
+		}
+		for _, v := range variants {
+			branch := &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"kind": {Enum: []any{v.kind}}}, Required: append([]string{"kind"}, v.required...)}
+			if v.kind == "position_transfer" {
+				branch.OneOf = []*jsonschema.Schema{{Required: []string{"toHoldingId"}}, {Required: []string{"toAccountId"}}}
+			}
+			s.OneOf = append(s.OneOf, branch)
+		}
+		s.DependentRequired = map[string][]string{"fee": {"feeCurrency"}, "effectiveLocalDate": {"effectiveLocalTime"}, "effectiveLocalTime": {"effectiveLocalDate"}, "interestOrFee": {"interestOrFeeCurrency"}}
+	}
+	return s
+}

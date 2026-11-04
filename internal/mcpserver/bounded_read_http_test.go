@@ -98,7 +98,7 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 func TestBoundedReadOptionsAndRetiredModes(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	listed, err := c.ListTools(t.Context(), nil)
+	listed, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}
