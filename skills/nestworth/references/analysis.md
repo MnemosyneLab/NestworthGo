@@ -125,8 +125,11 @@ mcp-read/1: retain sourceToken/latestClosedOn/window from summary, and follow th
 frozen days section only for requested daily evidence (default 25/max 100).
 expectedSourceToken rejects a changed source before capture. A full 365-day
 policy window uses get_read_page; never replace it with a different shorter
-policy merely to fit the response. A cursor expires when
-its report or filter changes; restart from page one.
+policy merely to fit the response. Preview days stay frozen through source
+changes and use fixed capture TTL/revocation. Published alert, daily-evidence,
+coverage and episode cursors instead bind report revision/filter; restart those
+reads from page one after a changed publication. Rule/suppression identity
+cursors remain live, as described above.
 `list_investment_review_episode_history` pages open and resolved episodes for
 one daily rule, including an archived rule. Use
 `list_investment_review_episode_events` with an episode ID to page its opening,
@@ -175,7 +178,8 @@ outstanding ledger preview; perform analysis before preview/commit.
 For a consistent current summary or one historical closed date, use
 `get_financial_context` directly after tool discovery. A pure `minimal` request
 does not require `get_context`, `get_catalog` or directory reads; `get_context`
-would additionally disclose household/member/institution/group names. Default
+would additionally disclose household metadata; directory reads expose member,
+institution and group names. Default
 `minimal` provides aliases with exact amounts; it minimizes this output and does
 not restrict the household-wide MCP token. Notes and source URLs are not included.
 This is a one-date summary with evidence and gaps, not period return, income,
@@ -424,7 +428,8 @@ investment/category basis; property and other non-investment assets are separate
 Named disclosure and selecting real account IDs follow the same explicit-choice
 rules above; do not silently disclose directory identities to work around failure.
 
-Read and save all three initial page descriptors independently. Continue each
+Read and save all three initial page descriptors independently. Fetch only the
+sections required by the question; for a complete detailed audit, continue each
 matching cursor until complete, updating only the requested section's saved
 state from the returned page and appending items to section. Continuations do
 not repeat the initial comparison header or other sections.
@@ -617,7 +622,7 @@ update the user's App, client skill or MCP connection.
 
 ## Frozen review and upcoming pages
 
-Upcoming paged mode keeps global counts/completeness/warnings and the shared
+Upcoming captures keep global counts/completeness/warnings and the shared
 30-civil-day window, with independent items/dataChecks sections. Filter actions
 by accountIds/productIds/kinds/groups; dataChecks use accountIds/productIds only.
 Sort priority (default desc, then sortOn asc), sortOn or displayName, id asc ties.

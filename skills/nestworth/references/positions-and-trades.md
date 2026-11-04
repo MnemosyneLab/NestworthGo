@@ -4,6 +4,12 @@ Read existing instruments, holdings and settlement cash first. Resolve whether
 the user means an existing owned position, a completed buy/sell, a transfer,
 or a current quantity/cost correction. Use a supported holdings account.
 
+MCP `preview_change` supports position_import, money_added, money_removed,
+cash_dividend, cash_transfer, fx_conversion, position_transfer, trade, debt_draw
+and debt_payment. For target quantity/value adjustments use
+preview_reconciliation; GUI DTO variants position_adjustment/value_update are
+not supported preview_change kinds. All ledger writes require ledger_write.
+
 ## Already owned
 
 “记录原来持有的 10 股，成本每股 100 美元” uses `position_import` when the

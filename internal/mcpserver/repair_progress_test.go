@@ -18,7 +18,7 @@ func TestRepairProgressPollingAvoidsCaptureChurn(t *testing.T) {
 	before := len(s.reads.entries)
 	var first map[string]any
 	for i := 0; i < 3; i++ {
-		p := call(t, client, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID}, false)["data"].(map[string]any)
+		p := call(t, client, "get_data_repair_job", skillExample(t, "data-health", "repair-progress", map[string]string{"jobId": result.Job.JobID}), false)["data"].(map[string]any)
 		if p["captureId"] != nil || p["health"] != nil || p["healthIncluded"] != false || p["sections"] != nil {
 			t.Fatal("progress captured evidence/health", p)
 		}
@@ -39,7 +39,7 @@ func TestRepairProgressPollingAvoidsCaptureChurn(t *testing.T) {
 		t.Fatal("progress inflated", metric)
 	}
 	t.Logf("actual unchanged repair polling: calls=%d bytes=%d max=%d captures=%d", metric.Calls, metric.Bytes, metric.Max, len(s.reads.entries)-before)
-	detail := scaleCapture(t, client, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "view": "evidence", "limit": 1})
+	detail := scaleCapture(t, client, "get_data_repair_job", skillExample(t, "data-health", "repair-evidence", map[string]string{"jobId": result.Job.JobID}))
 	if detail["summary"].(map[string]any)["healthIncluded"] != false {
 		t.Fatal("evidence claims health")
 	}
@@ -49,7 +49,7 @@ func TestRepairProgressPollingAvoidsCaptureChurn(t *testing.T) {
 	}
 	s.reads.revoke()
 	call(t, client, "get_read_item", map[string]any{"captureId": oldID, "section": "job_items", "id": "unknown"}, true)
-	call(t, client, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID}, false)
+	call(t, client, "get_data_repair_job", skillExample(t, "data-health", "repair-progress", map[string]string{"jobId": result.Job.JobID}), false)
 }
 
 func TestTaskReadNeedsNoContextOrCatalogRoundTrips(t *testing.T) {

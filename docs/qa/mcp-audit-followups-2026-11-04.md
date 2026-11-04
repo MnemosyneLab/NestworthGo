@@ -231,3 +231,58 @@ existing O(n) snapshot copying. Focused application getter tests, MCP/applicatio
 vet, retained perf selector and the 75-example skill guard passed. This follow-up
 uses focused regressions; it does not claim another full-package/race/stress run
 or native macOS acceptance at the new head.
+
+## Skill versus MCP contract audit
+
+Reviewed every shipped reference against the current registered schemas, owning
+handlers and response builders: connection/discovery/permission; account and
+instrument identity; cash/debt/trade/batch writes; product lifecycle/terms/value/
+policy; reconciliation; historical/current/period/financial reads; market import/
+comparison/audit; repair; and recovery. Fixed contradictions and clarified scope:
+
+- Repair defaults to progress, not mcp-read/1; evidence alone creates a capture.
+- Initial captures contain summary/sections; get_read_page returns only the
+  requested section/items/page with capture identity/hash/expiry.
+- The obsolete “no import-comparison tool” sentence is removed.
+- Read/preview wire budgets explicitly exclude executed/recovery receipts.
+- Renewal without reservation release is supported by lifecycle preview/commit;
+  reservation-affecting renewal remains an App workflow.
+- Frozen preview days retain their TTL through source changes; live publication
+  cursors bind revision/filter. Cache revocation, expiry, lost cache and auth
+  failures are distinguished rather than promising one error for every trigger.
+- Product detail/revision paths and instrument query versus filter.query are
+  explicit. Comparison summaries fetch only needed evidence; complete-list,
+  absence and audit claims still require complete relevant cursors.
+- Connection references name all 104 registered tools. A per-family defaults,
+  continuation, cache/wire budget and error table is included.
+
+The audit also exposed a code/schema inconsistency: the Agent reader already
+accepted closed observation filtering and returned closed facts, but its schema
+enum excluded closed. Discovery now admits that existing read-only filter. The
+real SDK regression uses the shipped closed-only filter example, excludes an
+ordinary price record, then verifies withdrawal remains inactive. No filtering
+pushdown, permission or financial selection authority changed.
+
+Validation distinguishes three different layers:
+
+1. Python reference/name/JSON guard: **76 parseable JSON examples**, not an
+   execution claim. Its output now states this limitation explicitly.
+2. New schema routing guard: **75 tool-argument examples** validate against the
+   actual registered input schemas; **1 Inspector client configuration** is
+   classified separately. Unmapped/new/missing examples fail. All 104 registered
+   tools must appear by exact name in shipped references. This does not prove
+   fixture identities, cursor authenticity, permission or business-state validity.
+3. Actual SDK calls: the Skill workflow suites plus product lifecycle/terms/
+   valuation/policy, reconciliation correction routes, repair progress/evidence
+   and closed-day audit regressions passed in **10.936s**. They exercise the
+   shipped arguments with real synthetic fixture IDs/plans/cursors and production
+   typed handlers. Not every static example is claimed as a complete real-world
+   journey. Shared-page defaults/lean shape and 16-tool discovery pages are also
+   checked through the actual SDK; retained-data budgets are checked separately
+   against the guide.
+
+The 39 skill/installer/version Python tests passed in **19.447s**. Version 5.0.0
+remains above main 4.0.0 within this same unmerged PR; no published asset or
+installed skill was replaced. Packaging/checksum/source comparisons remain
+required after the final reference changes. Real external assistant behavior,
+model tokens and native macOS acceptance remain unverified.

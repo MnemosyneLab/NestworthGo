@@ -64,7 +64,10 @@ Activity/review/product live pages are byte-aware, and nonempty rule/suppression
 arrays continue until empty. The reconciliation limit is the complete 64 KiB
 JSON-RPC response. This major version changes the default repair-job workflow;
 no legacy full-health polling response is retained. Rule previews also use a
-frozen mcp-read/1 header and pageable days, retaining the full chosen policy. Skill 5.0.0 is not published.
+frozen mcp-read/1 header and pageable days, retaining the full chosen policy. Its references now include a per-family defaults/continuation/error table,
+explicit read-versus-execution budgets, complete tool-name inventory and
+registered-schema checks for every tool-argument example. Skill 5.0.0 is not
+published.
 
 It retains skill 4.0.0's breaking financial context/comparison continuation shape,
 compact identity lists and same-capture metadata with metadataVersion guards.

@@ -21,7 +21,12 @@ only when they are not App-managed contracts.
 {"accountId":"${accountId}","includeClosed":true}
 ```
 
-Call `get_product` using the committed contract UUID from that list.
+Call `get_product` using the committed contract UUID from that list. Its
+initial mcp-read/1 response holds the full detail under summary.detail; the
+product and its revision are summary.detail.product and
+summary.detail.product.revision. Reservations are separate sections, with
+get_read_page continuations. get_read_item from a products list instead places
+that item detail directly in its summary.
 
 <!-- example: product-detail -->
 ```json
@@ -150,8 +155,10 @@ The following synthetic examples use USD, principal 1000 and manual maturity
 interest 50. Replace dates, currency, complete terms/policy and amounts with the
 user's actual contract; do not infer rates, costs, cash confirmation or fees.
 
-Responses are capped at 64 KiB including the MCP envelope; send one JSON-RPC
-object per call. Retry large list, detail and overview reads using bounded pages and follow
+Read and preview responses are capped at 64 KiB including both SDK
+representations and the JSON-RPC envelope. Executed commit and get_operation
+recovery receipts bypass this read cap and retain their complete bodies. Send
+one JSON-RPC object per call. Retry large list, detail and overview reads using bounded pages and follow
 every cursor. Product reservations are separately paged; full detail is available
 from the same capture. A truly oversized summary or single item still fails
 explicitly; do not omit evidence or present an incomplete result as complete. Invalid fields/types
@@ -191,7 +198,7 @@ are rejected without echoing their contents.
 ## Edit terms and forecast policy
 
 With ledger_write discover preview_product_terms and commit_product_terms.
-Read get_product immediately before editing and use its product.revision as
+Read get_product immediately before editing and use summary.detail.product.revision as
 expectedRevision. Supply complete terms and policy, including unchanged financial
 fields and explicit nulls for unknowns. Kind and startOn cannot change. For a
 closed product only name/note may change; financial terms and policy must match
@@ -348,8 +355,8 @@ more. Reads create no plans/receipts and return no private receipt evidence.
 
 GUI `undo.allowed` never grants MCP write permission or reservation-restoration
 support. Dedicated MCP preview/commit tools require ledger_write and retain their
-stricter reservation restrictions. Always obtain a fresh supported preview and
-confirm it; preview and commit independently revalidate current facts.
+stricter reservation restrictions. Always inspect a fresh supported preview and
+commit when authorized; preview and commit independently revalidate current facts.
 
 ## Scalable liquidity and product reads
 
