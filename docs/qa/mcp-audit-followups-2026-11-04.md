@@ -191,3 +191,43 @@ A regression independently enumerates the ten supported MCP kinds, validates
 each advertised required-field shape against both the schema and boundary
 handler, and verifies that both layers reject fully populated unsupported
 variants. The immutable discovery test projects only the reviewed schema delta.
+
+## Independent-review follow-up: progress getter allocation
+
+Review also identified that compact wire polling still called GetSyncJob, whose
+Clone copied every retained item, blocker and prerequisite before the MCP
+projection discarded them. Default progress now calls GetSyncJobProgress: one
+lookup under the existing syncMu, scalar fields and len counts, plus a detached
+NextEligibilityAt timestamp when present. No evidence arrays, Current pointer,
+internal scope or job identity metadata are copied into this projection. Exact
+job selection, nil/missing not_found behavior, sequence/outcome/counters and
+wire shape are unchanged. view=evidence and GUI full snapshots still call the
+original defensive Clone; their complete evidence remains available.
+
+Application regression: an older requested job remains distinct from a newer
+current job; 4,096 item / 2,000 blocker / 1,000 prerequisite counts match retained
+state; every progress field matches the expected snapshot; returned timestamps
+cannot mutate job state; full evidence snapshots remain independently mutable.
+MCP progress/repair-retry/three-permission-mode health regressions passed in
+2.593s. Three unchanged polls remain 3,066 actual response bytes with zero new
+captures. The schema/handler/discovery regression group passed in 3.351s.
+
+Opt-in getter-only microbenchmark: Linux/amd64, Go 1.27.3, 100 iterations per
+case, retained synthetic jobs, non-null NextEligibilityAt. Each array has the
+listed row count. No provider, SQLite, lock contention or MCP serialization is
+included; no latency or percentile claim is made.
+
+| Getter | Rows in each of three arrays | Allocated bytes/op | Allocations/op |
+| --- | ---: | ---: | ---: |
+| Full snapshot Clone | 1 | 264 | 4 |
+| Progress projection | 1 | 24 | 1 |
+| Full snapshot Clone | 4,096 | 983,074 | 4 |
+| Progress projection | 4,096 | 24 | 1 |
+
+The projection's work does not grow with retained evidence. The remaining one
+allocation detaches the optional timestamp. This is a getter measurement, not
+the total MCP response allocation; full evidence reads/GUI listeners retain their
+existing O(n) snapshot copying. Focused application getter tests, MCP/application
+vet, retained perf selector and the 75-example skill guard passed. This follow-up
+uses focused regressions; it does not claim another full-package/race/stress run
+or native macOS acceptance at the new head.

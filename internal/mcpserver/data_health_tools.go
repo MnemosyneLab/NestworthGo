@@ -40,19 +40,23 @@ func (s *Service) dataHealthTools(server *toolSet, mode string) {
 		if in.View != "" && in.View != "progress" && in.View != "evidence" {
 			return nil, fail("validation", "view must be progress or evidence")
 		}
-		job, ok := s.app.GetSyncJob(id)
-		if !ok {
-			return nil, fail("not_found", "repair job is unavailable in this process; scan_data_health to check current data; completion remains unknown")
-		}
 		if in.View != "evidence" {
+			job, ok := s.app.GetSyncJobProgress(id)
+			if !ok {
+				return nil, fail("not_found", "repair job is unavailable in this process; scan_data_health to check current data; completion remains unknown")
+			}
 			return map[string]any{"job": map[string]any{
 				"jobId": job.JobID, "sequence": job.Sequence, "phase": job.Phase, "outcome": job.Outcome,
 				"estimatedRequests": job.EstimatedRequests, "completedRequests": job.CompletedRequests,
 				"targetCount": job.TargetCount, "completedTargets": job.CompletedTargets,
 				"snapshotDaysPlanned": job.SnapshotDaysPlanned, "snapshotDaysRebuilt": job.SnapshotDaysRebuilt,
-				"committedBatches": job.CommittedBatches, "itemCount": len(job.Items), "blockerCount": len(job.Blockers), "prerequisiteCount": len(job.Prerequisites),
+				"committedBatches": job.CommittedBatches, "itemCount": job.ItemCount, "blockerCount": job.BlockerCount, "prerequisiteCount": job.PrerequisiteCount,
 				"errorCode": job.ErrorCode, "nextEligibilityAt": job.NextEligibilityAt,
 			}, "healthIncluded": false}, nil
+		}
+		job, ok := s.app.GetSyncJob(id)
+		if !ok {
+			return nil, fail("not_found", "repair job is unavailable in this process; scan_data_health to check current data; completion remains unknown")
 		}
 		return s.buildRead(ctx, generation, in.Limit, func(context.Context) (readCapture, error) {
 			c, err := sectionedReadCapture("data_repair_job", in, marketdata.SyncSnapshotDTO(job), "items", "blockers", "prerequisites")

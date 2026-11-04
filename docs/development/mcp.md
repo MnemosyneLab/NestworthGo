@@ -932,7 +932,11 @@ selects rows before paging.
 Health reads `scan_data_health` and `preview_data_repair` accept limit and return
 bounded captures: issues for scans; items/unresolved for previews. Header counts
 describe the entire capture. Domain issueCount/range counts retain their meaning.
-`get_data_repair_job` defaults to compact progress without a scan or capture;
+`get_data_repair_job` defaults to compact progress without a scan or capture.
+Its exact-job scalar getter holds the existing job lock, reads evidence counts
+without cloning arrays and detaches the optional timestamp; allocation does not
+grow with retained job evidence. Full GUI/evidence snapshots retain their
+defensive copies;
 `view=evidence` freezes job_items/job_blockers/job_prerequisites only. Neither
 view includes health. Polling does not displace useful captures; continuation
 does not rescan or extend TTL. A separate health scan after terminal outcome
