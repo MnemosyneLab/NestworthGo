@@ -1,14 +1,20 @@
 {
-  "frontend/src/App.test.tsx": "94ffc0c4aba0256fa63df9b034ebf2f4c87a1e3d010607303a57f0917eebbf54",
-  "frontend/src/App.tsx": "71b0d211be9ad4957494f78c680af276ccb428761175bae8320174f7e89af5d8",
+  "frontend/src/App.test.tsx": "97f87369046869e45c5339fbe66c3fbc810c5857e716be2390c57762a124743e",
+  "frontend/src/App.tsx": "33f8e2ce22251429996b5fd40fc39495bab47646cb39479ecb92fd22976a03cb",
   "frontend/src/app/AppShell.tsx": "fe7e3bb7147e0677e63b2a26a031ead9a95659fbe0d1ad7aef0cb44cacc3b803",
-  "frontend/src/app/NavigationHistoryControls.tsx": "e5bd84ecbb5fc9305c47145c4cc689cf68f312a98f0597efdea98e54dddd21bc",
+  "frontend/src/app/NavigationHistoryControls.tsx": "14570814bae5fb6154116061962d67dee41c7e2c3a513efd1545a29942e3bcf4",
   "frontend/src/app/navigation.ts": "7b38c839f85c8fb946248ba9cf27479ede1dfc746634759c6a89cdf547703863",
   "frontend/src/app/navigationHistory.test.ts": "f1b93ac4f91b6cca1568f420a418d716d7977f847b8b40fc1de697242cb882d4",
   "frontend/src/app/navigationHistory.ts": "88adfbfe797ab07bd6b8bd7d524acee25e78173f1ee6673546519e2c46607fd9",
-  "frontend/src/components/ui/action-menu.tsx": "d0b6bac29a34fe017230ab163fb01a77d20dd1cfc5a39f0a8fa7a2cbd6eb5fce",
-  "frontend/src/features/historical-overview/HistoricalOverviewPage.tsx": "98762b590d3194adc98dcdece3326834bfe059e2e49cfb50bca22fe7e82775c8",
-  "frontend/src/i18n/locales/en.json": "1b9a84b428c85b21c5e897ddb848191ff0205d04555a677909c8ecd17b545d38",
-  "frontend/src/i18n/locales/zh-CN.json": "e898c7f8052de2e537f34dd5ccc0ce2d8b572d8bc843221e6a3e4dff408d3e3d",
-  "frontend/src/i18n/locales/zh-TW.json": "ac1c36ea72e5741a69be911996b7c81f1120dce8548511c640f0efc23216726d"
+  "frontend/src/components/ui/action-menu.tsx": "7cf1e61faad76c4c82fa4144aab9521efef8888ef78d09726e2c153594a4e882",
+  "frontend/src/features/historical-overview/HistoricalOverviewPage.tsx": "792852e35e73aec80fd21a0507685040e4775c44dbab3936727380dd94d5d428",
+  "frontend/src/features/onboarding/OnboardingPage.tsx": "f3b41d0ad0ba5daac2118a8bd97ecc593381770a0f8797166e174f464629aff2",
+  "frontend/src/i18n/locales/en.json": "63fa757f9b1f7182fc1a61a7f0fbe4b3d3e8db8927a4567ac4f0ae2a951164aa",
+  "frontend/src/i18n/locales/zh-CN.json": "23b78292fd95f44d15605d067f202bd858cf90be8be2b27586aa88c149e3c81c",
+  "frontend/src/i18n/locales/zh-TW.json": "6efe6c02739798776aa8588c709741420e3225c6692ab8e73fc45b2562e77ad2",
+  "frontend/src/queries/historicalCapture.test.tsx": "2679d23cdc037e295fe93723ff36c5668f5f2b9476a3758030ccb22d1f74e2e3",
+  "frontend/src/queries/historicalCapture.ts": "fa2ca3a00f9b9a0ed123025c75ace3a65f4ecf4d0004d4dc22bb19821762a3b6",
+  "frontend/src/queries/historicalOverview.ts": "bfb3ffa8c119cf6faa90be49de2cfa271526c322d179d3d4854ad98a601dbed0",
+  "frontend/src/queries/historicalSeries.ts": "e7f41e76892bafbcf5a1eb4ff04037181f2f149a4d52423ab4ca80669b0b599b",
+  "frontend/src/queries/household.ts": "62787d0942ce4115156724ed31afb952fc1ca2dc0652c358c9451b99d22e6379"
 }

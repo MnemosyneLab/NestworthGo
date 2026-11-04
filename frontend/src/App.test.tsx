@@ -5,6 +5,8 @@ const defaultHistorical = { capturedAt: "2026-10-03T12:00:00Z", left: { date: "2
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { flushSync } from "react-dom";
+import { useAnalysisStore } from "./stores/analysis";
 import App from "./App";
 import { AppProviders, queryClient } from "./app/providers";
 import i18n from "./i18n";
@@ -13,6 +15,8 @@ import { reviewV2Key } from "./queries/investmentReviewV2";
 import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 import { useObjectNavigation } from "./app/NavigationContext";
+
+const onboardingFixture = vi.hoisted(() => ({ enabled: false, completed: false }));
 
 const { startup, settingsLoad, settingsSave, listAccounts, listInstruments, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth, historicalRead, historyOrigin, seriesRead, ordinaryRecord, useRealInstrumentDetail, reviewAlerts, instrumentGroups, reconciliationList, reconciliationLast, reconciliationGet } = vi.hoisted(() => ({
   seriesRead: vi.fn(),
@@ -134,9 +138,10 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
 // OnboardingPage has its own dedicated tests.
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
   Service: {
+    CompleteOnboarding: async () => { onboardingFixture.completed = true; return {}; },
     Bootstrap: () =>
       Promise.resolve({
-        household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
+        household: onboardingFixture.enabled && !onboardingFixture.completed ? null : { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
         members: [],
         institutions: [],
         groups: [],
@@ -280,6 +285,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
 }));
 
 beforeEach(() => {
+  onboardingFixture.enabled = false; onboardingFixture.completed = false;
   queryClient.clear();
   historicalRead.mockReset().mockResolvedValue(defaultHistorical);
   seriesRead.mockReset();
@@ -1399,4 +1405,180 @@ it("executes repeated explicit create intents once each and never replays them o
   await user.click(controls.getByRole("button", { name: "Go forward" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(within(nav).getByRole("button", { name: "Accounts" })).toHaveAttribute("aria-current", "page");
+});
+
+it("keeps both same-account reconciliation drafts reachable after forward truncation and MRU replacement", async () => {
+  listAccounts.mockResolvedValue([checkingAccount]);
+  accountValuations.mockResolvedValue([checkingValuation]);
+  const counts = { pending: 0, confirmed: 0, skipped: 0, unresolved: 0 };
+  reconciliationList.mockResolvedValue([{ id: "synthetic-shared-session", status: "in_progress", accountIds: ["acc-1"], accountNames: ["Checking"], counts }]);
+  reconciliationGet.mockResolvedValue({ id: "synthetic-shared-session", householdId: "synthetic", status: "in_progress", revision: 1, startedAt: "2026-10-20T10:00:00Z", note: "Synthetic opening", closingNote: "", partial: false, accounts: [], counts });
+  const user = userEvent.setup();
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const controls = within(screen.getByRole("group", { name: "Navigation history" }));
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await user.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  for (const draft of ["Synthetic draft A", "Synthetic draft B"]) {
+    await user.click(await screen.findByRole("button", { name: "Open account reconciliation" }));
+    await user.click(await screen.findByRole("button", { name: "Continue session" }));
+    await user.click(await screen.findByRole("button", { name: "Finish session" }));
+    expect(screen.getByLabelText("Closing explanation")).toHaveValue("");
+    await user.type(screen.getByLabelText("Closing explanation"), draft);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Finish session" })).toHaveFocus());
+    await user.click(controls.getByRole("button", { name: "Go back" }));
+  }
+  await user.click(within(nav).getByRole("button", { name: "Overview" }));
+  for (const [workspace, draft] of [[1, "Synthetic draft A"], [2, "Synthetic draft B"]] as const) {
+    const trigger = controls.getByRole("button", { name: "Recent pages" });
+    trigger.focus();
+    await user.keyboard("{ArrowDown}");
+    const item = await screen.findByRole("menuitem", { name: `Tasks & checks · Checking · Reconciliation · Workspace ${workspace}` });
+    if (workspace === 1) {
+      const owner = {};
+      registerSheetConfirmation(owner);
+      try {
+        await user.click(item);
+        expect(within(nav).getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+      } finally { resolveSheetConfirmation(owner); }
+      trigger.focus();
+      await user.keyboard("{ArrowDown}");
+    }
+    await user.click(await screen.findByRole("menuitem", { name: `Tasks & checks · Checking · Reconciliation · Workspace ${workspace}` }));
+    await user.click(await screen.findByRole("button", { name: "Finish session" }));
+    expect(screen.getByLabelText("Closing explanation")).toHaveValue(draft);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Finish session" })).toHaveFocus());
+    await user.click(within(nav).getByRole("button", { name: "Overview" }));
+  }
+}, 10_000);
+
+it("forks a Recent historical visit without changing the original date or frozen capture", async () => {
+  historicalRead.mockImplementation((date: string) => Promise.resolve({ ...defaultHistorical, capturedAt: `2026-11-01T12:00:0${historicalRead.mock.calls.length}Z`, left: { ...defaultHistorical.left, date } }));
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const controls = within(screen.getByRole("group", { name: "Navigation history" }));
+  await user.click(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") }));
+  const dateA = (await screen.findByRole("button", { name: "Historical date" })).textContent!;
+  await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(1));
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  controls.getByRole("button", { name: "Recent pages" }).focus();
+  await user.keyboard("{ArrowDown}");
+  await user.click(await screen.findByRole("menuitem", { name: `Wealth history · ${dateA}` }));
+  expect(historicalRead).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: i18n.t("historicalOverview.previous") }));
+  await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(2));
+  const dateB = screen.getByRole("button", { name: "Historical date" }).textContent!;
+  expect(dateB).not.toBe(dateA);
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  controls.getByRole("button", { name: "Recent pages" }).focus();
+  await user.keyboard("{ArrowDown}");
+  await user.click(await screen.findByRole("menuitem", { name: `Wealth history · ${dateA}` }));
+  expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateA);
+  expect(historicalRead).toHaveBeenCalledTimes(2);
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateB);
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateA);
+  expect(historicalRead).toHaveBeenCalledTimes(2);
+}, 10_000);
+
+
+it("lands on Accounts after first onboarding without losing the completion callback to a ledger remount", async () => {
+  onboardingFixture.enabled = true;
+  render(<AppProviders><App /></AppProviders>);
+  const user = userEvent.setup();
+  const form = await screen.findByRole("form", { name: "Onboarding" });
+  await user.type(within(form).getByLabelText(/household name/i), "Synthetic onboarding household");
+  await user.type(within(form).getByLabelText("Member 1 name"), "Synthetic member");
+  await user.selectOptions(within(form).getByLabelText(/base currency/i), "USD");
+  await user.click(within(form).getByRole("button", { name: /get started/i }));
+  const nav = await screen.findByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await waitFor(() => expect(within(nav).getByRole("button", { name: "Accounts" })).toHaveAttribute("aria-current", "page"));
+  expect(screen.getByRole("button", { name: "Go back" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Recent pages" })).toBeDisabled();
+});
+
+it("refreshes a Recent historical fork without changing the source visit's frozen result", async () => {
+  historicalRead.mockImplementation((date: string) => Promise.resolve({ ...defaultHistorical, capturedAt: `2026-11-01T12:00:0${historicalRead.mock.calls.length}Z`, left: { ...defaultHistorical.left, date } }));
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const controls = within(screen.getByRole("group", { name: "Navigation history" }));
+  await user.click(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") }));
+  await screen.findAllByTitle("2026-11-01T12:00:01Z");
+  const date = screen.getByRole("button", { name: "Historical date" }).textContent!;
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  controls.getByRole("button", { name: "Recent pages" }).focus();
+  await user.keyboard("{ArrowDown}");
+  await user.click(await screen.findByRole("menuitem", { name: `Wealth history · ${date}` }));
+  await user.click(screen.getByRole("button", { name: "Refresh date" }));
+  await screen.findAllByTitle("2026-11-01T12:00:02Z");
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  expect(screen.getAllByTitle("2026-11-01T12:00:01Z").some(node => !node.closest("[hidden]"))).toBe(true);
+  expect(historicalRead).toHaveBeenCalledTimes(2);
+  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  await user.click(controls.getByRole("button", { name: "Go forward" }));
+  expect(screen.getAllByTitle("2026-11-01T12:00:02Z").some(node => !node.closest("[hidden]"))).toBe(true);
+  expect(historicalRead).toHaveBeenCalledTimes(2);
+}, 10_000);
+
+it("replaces an edited visit's obsolete Recent date after Back instead of advertising a released capture", async () => {
+  historicalRead.mockImplementation((date: string) => Promise.resolve({ ...defaultHistorical, left: { ...defaultHistorical.left, date } }));
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const controls = within(screen.getByRole("group", { name: "Navigation history" }));
+  await user.click(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") }));
+  const dateA = (await screen.findByRole("button", { name: "Historical date" })).textContent!;
+  await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(1));
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await user.click(controls.getByRole("button", { name: "Go back" }));
+  await user.click(screen.getByRole("button", { name: i18n.t("historicalOverview.previous") }));
+  await waitFor(() => expect(historicalRead).toHaveBeenCalledTimes(2));
+  const dateB = screen.getByRole("button", { name: "Historical date" }).textContent!;
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  controls.getByRole("button", { name: "Recent pages" }).focus();
+  await user.keyboard("{ArrowDown}");
+  expect(screen.queryByRole("menuitem", { name: `Wealth history · ${dateA}` })).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("menuitem", { name: `Wealth history · ${dateB}` }));
+  expect(screen.getByRole("button", { name: "Historical date" })).toHaveTextContent(dateB);
+  expect(historicalRead).toHaveBeenCalledTimes(2);
+}, 10_000);
+
+
+it("restores source scroll when the external analysis store forces an intermediate navigation commit", async () => {
+  listAccounts.mockResolvedValue([checkingAccount]);
+  accountValuations.mockResolvedValue([checkingValuation]);
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await user.click(await screen.findByRole("checkbox", { name: "Show archived" }));
+  await user.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await screen.findByTestId("account-detail");
+  const main = document.getElementById("main-content")!;
+  main.scrollTop = 170;
+  await user.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
+  const original = useAnalysisStore.setState;
+  const setState = vi.spyOn(useAnalysisStore, "setState").mockImplementation(state => {
+    flushSync(() => original(state));
+  });
+  try {
+    await user.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+    await waitFor(() => expect(main.scrollTop).toBe(170));
+    expect(screen.getByTestId("account-detail")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Back to accounts" }));
+    expect(screen.getByRole("checkbox", { name: "Show archived" })).toBeChecked();
+  } finally { setState.mockRestore(); }
 });

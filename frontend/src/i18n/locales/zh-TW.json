@@ -2267,6 +2267,8 @@
     "generateToken": "隨機產生"
   },
   "navigationHistory": {
+    "retainedSessions": "保留的任務工作階段",
+    "workspace": "工作區 {{number}}",
     "search": "搜尋：{{query}}",
     "sessionLimit": "為保護未完成的對帳草稿，已保留 20 個任務工作階段。請透過最近造訪返回既有工作階段，或重新啟動 Nestworth 後開始新工作階段。",
     "label": "導覽歷史",

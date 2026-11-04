@@ -2267,6 +2267,8 @@
     "generateToken": "随机生成"
   },
   "navigationHistory": {
+    "retainedSessions": "保留的任务会话",
+    "workspace": "工作区 {{number}}",
     "search": "搜索：{{query}}",
     "sessionLimit": "为保护未完成的对账草稿，已保留 20 个任务会话。请通过最近访问返回已有会话，或重启 Nestworth 后开始新会话。",
     "label": "导航历史",

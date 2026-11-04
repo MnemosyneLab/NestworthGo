@@ -1,7 +1,7 @@
 # Desktop navigation history acceptance — 2026-11-04
 
 Base: main `1701e5d5d9bb10ec9db846245766bab6f7a740e5`.
-The exact frontend source used for final checks and screenshots is recorded in
+The exact frontend source used for the final affected suites, build and screenshots is recorded in
 [frontend-source-sha256.json](frontend-source-sha256.json). These file hashes
 must match the reviewed commit; generated bindings and bundles are not committed.
 
@@ -23,7 +23,11 @@ This is Chromium HTTP acceptance, not native macOS GUI acceptance.
 
 - Frontend lint and locale coverage: passed.
 - Generated Wails bindings and TypeScript typecheck: passed.
-- Complete Vitest suite: **164 files, 1689 tests passed**, 272.90 seconds.
+- Complete local Vitest suite before the final CI-scroll regression: **164 files,
+  1695 tests passed**, 265.69 seconds.
+- After the CI-scroll fix: all **150 tests** in App, historical capture/overview
+  and onboarding suites passed; lint/typecheck/build passed again. The complete
+  final macOS check is required at the [PR head](https://github.com/MnemosyneLab/NestworthGo/pull/200/checks).
 - Production frontend build: passed. Existing large-chunk advisory remains.
 - `CGO_ENABLED=0 GOFLAGS='-mod=readonly -tags=server -p=4' go test ./...`: passed.
 - Same server configuration, `go vet ./...`: passed.
@@ -33,10 +37,16 @@ This is Chromium HTTP acceptance, not native macOS GUI acceptance.
 - Production HTTP server build after the final frontend bundle: passed.
 - `git diff --check`: passed.
 
-An early run overlapped native compilation and encountered two existing App
-5-second deadlines. Those cases passed in isolation, then all 49 App tests and
-the complete frontend suite passed in the final sequential run. No assertions
-were removed and no timeouts were raised for this change.
+An early local run overlapped native compilation and encountered two existing
+App deadlines; the subsequent sequential full suite passed without increasing
+timeouts. Separately, [original macOS CI 41775024213](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41775024213)
+failed one of 1689 tests: the account-analysis return expected scroll 170 and
+received 0. The artifact was inspected and a deterministic `flushSync` external
+store reproduction failed the same way locally. Restore requests now match the
+destination entry/page, survive intermediate commits and restore scroll before
+paint; only focus restoration is deferred/cancellable. The original assertion
+remains, and both the forced-commit regression and a real overflow browser
+journey preserve scroll 170 and the archive filter.
 
 Application regressions include cursor traversal/branch truncation, MRU
 semantics, duplicate visits, unsupported one-time intents, repeated explicit
@@ -50,7 +60,7 @@ hidden for Forward, matching the new contract.
 ## Browser evidence
 
 [Structured results](browser-results.json) record ten passing real-service
-journeys and 129 runtime requests. No page errors, application console errors,
+journeys and 119 runtime requests. No page errors, application console errors,
 or failed application HTTP responses occurred. Chromium's automatic request for
 the existing missing `/favicon.ico` is retained separately as a known warning.
 
@@ -62,6 +72,22 @@ bounds, all three locales, and clearing history on reload.
 
 - [Desktop Recent](desktop-recent.png)
 - [640px desktop Recent](narrow-recent.png)
+- [Independent retained Tasks sessions](retained-sessions.png)
+- [Historical fork restored to its original date/capture](historical-fork.png)
+- [Real account scroll restoration](scroll-restoration.png)
+
+[Review-regression results](revision-results.json) add three passing full-stack
+journeys: same-account A/B closing drafts remain reachable after forward
+truncation and MRU deduplication; a Recent date-A fork edited to B does not alter
+A's date or frozen capture in Recent/Back; first onboarding creates a real
+synthetic household and lands on Accounts with empty history. A separate
+[scroll journey](scroll-results.json) verifies actual scroll overflow at 170 and
+archive-filter restoration. These bring final browser coverage to **14 flows**.
+
+The draft regression also checks the confirmation gate on the recovery menu.
+Historical regressions cover private refresh preserving a source capture,
+removing an edited visit's obsolete MRU date, pending shared-read handoff, and
+zero-time cache release after the last host unmounts.
 
 Only synthetic data appears in these images. The interaction reference was
 inspected privately; its unrelated branding/content is not included here.
@@ -88,6 +114,18 @@ language preference and records screenshots.
 ```bash
 python3 docs/qa/navigation-history-2026-11-04/browser-acceptance.py \
   --qa-root "$QA_ROOT" --base-url http://127.0.0.1:18741
+```
+
+For review regressions, launch another final-build HTTP server on port 18742
+using a new, explicitly synthetic **empty** database/settings/XDG directory.
+This second server must still show Onboarding; do not point it at an existing
+household. Then run:
+
+```bash
+python3 docs/qa/navigation-history-2026-11-04/revision-acceptance.py \
+  --qa-root "$QA_ROOT" --onboarding-url http://127.0.0.1:18742
+python3 docs/qa/navigation-history-2026-11-04/scroll-acceptance.py \
+  --qa-root "$QA_ROOT"
 ```
 
 Use `--allow-no-sandbox` only when explicitly accepting and recording that mode.

@@ -11,10 +11,11 @@ export interface NavigationHistoryControlsProps {
   canForward: boolean;
   back: () => void;
   forward: () => void;
+  sessions?: Array<{ id: string; ordinal: number; target: NavigationTarget; onSelect: () => void }>;
   recent: Array<{ id: string; target: NavigationTarget; onSelect: () => void }>;
 }
 
-export function NavigationHistoryControls({ canBack, canForward, back, forward, recent }: NavigationHistoryControlsProps) {
+export function NavigationHistoryControls({ canBack, canForward, back, forward, recent, sessions = [] }: NavigationHistoryControlsProps) {
   const { t } = useTranslation();
   const accounts = useAccounts({ includeArchived: true });
   const instruments = useInstruments(true);
@@ -44,6 +45,6 @@ export function NavigationHistoryControls({ canBack, canForward, back, forward, 
   return <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={t("navigationHistory.label")}>
     <Button variant="ghost" size="icon" disabled={!canBack} onClick={back} aria-label={t("navigationHistory.back")} title={t("navigationHistory.back")}><ArrowLeft aria-hidden="true" className="size-4" /></Button>
     <Button variant="ghost" size="icon" disabled={!canForward} onClick={forward} aria-label={t("navigationHistory.forward")} title={t("navigationHistory.forward")}><ArrowRight aria-hidden="true" className="size-4" /></Button>
-    <ActionMenu label={t("navigationHistory.recent")} icon={History} disabled={recent.length === 0} items={recent.map(entry => ({ id: entry.id, label: label(entry.target), onSelect: entry.onSelect }))} />
+    <ActionMenu label={t("navigationHistory.recent")} icon={History} disabled={recent.length === 0 && sessions.length === 0} sections={[{ label: t("navigationHistory.retainedSessions"), items: sessions.map(entry => ({ id: entry.id, label: `${label(entry.target)} · ${t("navigationHistory.workspace", { number: entry.ordinal })}`, onSelect: entry.onSelect })) }]} items={recent.map(entry => ({ id: entry.id, label: label(entry.target), onSelect: entry.onSelect }))} />
   </div>;
 }

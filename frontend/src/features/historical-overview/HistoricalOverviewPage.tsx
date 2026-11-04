@@ -2,13 +2,15 @@ import { signedAccountAmount, signedAccountValuation, negateDisplayAmount } from
 import { quoteObservationLabel } from "@/lib/quoteEvidencePresentation";
 import { useValuationDateGeneration } from "@/queries/useValuationDayBoundary";
 import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ArrowLeftRight, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, History, RefreshCw } from "lucide-react";
 import { useHistoryOrigin } from "@/queries/history";
 import { useHistoricalSeries } from "@/queries/historicalSeries";
 import { HistoricalTrend, type HistoricalTrendMetric } from "./HistoricalTrend";
+import type { HistoricalCaptureContext } from "@/queries/historicalCapture";
 import { useHistoricalOverview } from "@/queries/historicalOverview";
 import { ymdInTimeZone } from "@/features/insights/calendar";
 import { isClosedDate, previousMonthEnd, shiftCivilDate } from "./dates";
@@ -139,7 +141,7 @@ function CellDetail({ cell, state, timezone, liability = false }: { cell?: Histo
   </section>;
 }
 
-export function HistoricalOverviewPage({ initialDate, initialContext, isActive = true, onExit, onContextChange }: { initialDate?: string; initialContext?: HistoricalNavigationContext; isActive?: boolean; onExit: () => void; onContextChange?: (date: string, context: HistoricalNavigationContext) => void }) {
+export function HistoricalOverviewPage({ initialDate, initialContext, isActive = true, onExit, onContextChange, initialCapture }: { initialDate?: string; initialContext?: HistoricalNavigationContext; isActive?: boolean; onExit: () => void; initialCapture?: HistoricalCaptureContext; onContextChange?: (date: string, context: HistoricalNavigationContext, capture: HistoricalCaptureContext) => void }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   const navigation = useObjectNavigation();
@@ -149,8 +151,14 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const [comparisonDate, setComparisonDate] = useState<string | null>(initialContext?.compareTo && initialContext.compareTo !== "current" ? initialContext.compareTo : null);
   const [changesOnly, setChangesOnly] = useState(initialContext?.changesOnly ?? false);
   const [view, setView] = useState<"allocation" | "delta" | "accounts" | "trend">(initialContext?.view ?? (initialContext?.compareTo ? "delta" : "allocation"));
-  const [seriesMode, setSeriesMode] = useState(false);
-  const [captureRequest, setCaptureRequest] = useState(0);
+  const localCaptureId = useId();
+  const queryClient = useQueryClient();
+  const [privateCaptureId, setPrivateCaptureId] = useState<string>();
+  const refreshGeneration = useRef(0);
+  const pendingPrivateRefresh = useRef(false);
+  const [captureSource] = useState(() => initialCapture ? { ...initialCapture, date: initialDate, compareTo: initialContext?.compareTo ?? "" } : undefined);
+  const [seriesMode, setSeriesMode] = useState(initialCapture?.seriesMode ?? false);
+  const [captureRequest, setCaptureRequest] = useState(initialCapture?.request ?? 0);
   const [trendMetric, setTrendMetric] = useState<HistoricalTrendMetric>("netWorth");
   const [trendSelection, setTrendSelection] = useState<string | null>(null);
   const [trendFrom, setTrendFrom] = useState<string | null>(null);
@@ -183,18 +191,40 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const date = chosenDate ?? initialDefault;
   const compareDate = comparisonDate ?? lastDate;
   const compareTo = comparison === "none" ? "" : comparison === "current" ? "current" : compareDate;
+  const captureId = privateCaptureId ?? (captureSource && date === captureSource.date && compareTo === captureSource.compareTo && captureRequest === captureSource.request && seriesMode === captureSource.seriesMode ? captureSource.id : localCaptureId);
   useEffect(() => {
     if (chosenDate === null) return;
-    onContextChange?.(date, { compareTo: compareTo || undefined, view, categoryFilter: categoryFilter ?? undefined, changesOnly, categoryRole, dimension, expanded: Array.from(expanded), fullTable });
-  }, [chosenDate, date, compareTo, view, categoryFilter, changesOnly, categoryRole, dimension, expanded, fullTable, onContextChange]);
+    onContextChange?.(date, { compareTo: compareTo || undefined, view, categoryFilter: categoryFilter ?? undefined, changesOnly, categoryRole, dimension, expanded: Array.from(expanded), fullTable }, { id: captureId, request: captureRequest, seriesMode });
+  }, [chosenDate, date, compareTo, view, categoryFilter, changesOnly, categoryRole, dimension, expanded, fullTable, onContextChange, captureId, captureRequest, seriesMode]);
   const validDate = isClosedDate(date, firstDate, lastDate);
   const validComparison = comparison !== "date" || isClosedDate(compareDate, firstDate, lastDate);
   const valid = Boolean(origin.data && validDate && validComparison);
   const spanValid = (from: string, to: string) => isClosedDate(from, firstDate, lastDate) && isClosedDate(to, firstDate, lastDate) && from <= to && to <= shiftCivilDate(from, 30);
   const validCapture = valid && (!seriesMode || spanValid(date, compareTo));
-  const overviewQuery = useHistoricalOverview(date, compareTo, isActive && validCapture && !seriesMode, captureRequest);
-  const seriesQuery = useHistoricalSeries(date, compareTo, isActive && validCapture && seriesMode, captureRequest);
+  const overviewQuery = useHistoricalOverview(date, compareTo, isActive && validCapture && !seriesMode, captureRequest, captureId);
+  const seriesQuery = useHistoricalSeries(date, compareTo, isActive && validCapture && seriesMode, captureRequest, captureId);
   const query = seriesMode ? seriesQuery : overviewQuery;
+  const { refetch: refetchCapture } = query;
+  useEffect(() => {
+    if (pendingPrivateRefresh.current && privateCaptureId === captureId) {
+      pendingPrivateRefresh.current = false;
+      void refetchCapture({ cancelRefetch: false });
+    }
+  }, [captureId, privateCaptureId, refetchCapture]);
+  const refreshCapture = () => {
+    if (query.isFetching || pendingPrivateRefresh.current) return;
+    setSelectedKey(null);
+    const kind = seriesMode ? "historical-series" : "historical-overview";
+    const key = [kind, captureId, date, compareTo, captureRequest];
+    if ((queryClient.getQueryCache().find({ queryKey: key, exact: true })?.getObserversCount() ?? 0) > 1) {
+      // Fork only this observer before refreshing. Seeding the new key preserves
+      // existing totals/error recovery while other visits keep their frozen result.
+      const id = `${localCaptureId}:refresh:${++refreshGeneration.current}`;
+      if (query.data) queryClient.setQueryData([kind, id, date, compareTo, captureRequest], query.data);
+      pendingPrivateRefresh.current = true;
+      setPrivateCaptureId(id);
+    } else void query.refetch({ cancelRefetch: false });
+  };
   const budgetExceeded = (query.error as (Error & { wireError?: { code: string } }) | null)?.wireError?.code === "historical_series_budget";
   const data = validCapture ? seriesMode ? seriesQuery.data?.overview : overviewQuery.data : undefined;
   const series = data && seriesMode ? seriesQuery.data : undefined;
@@ -297,7 +327,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
         <div className="ml-auto flex items-center gap-1">
           {comparison === "date" && <Button variant="outline" size="icon" aria-label={t("historicalOverview.swap")} title={t("historicalOverview.swap")} disabled={!validDate || !validComparison} onClick={() => { exitSeriesSelection(); setSelectedKey(null); setCategoryFilter(null); setChosenDate(compareDate); setComparisonDate(date); }}><ArrowLeftRight aria-hidden="true" /></Button>}
           {comparison === "current" && <Button variant="outline" size="icon" aria-label={t("historicalOverview.swap")} disabled title={t("historicalOverview.swapCurrentHint")}><ArrowLeftRight aria-hidden="true" /></Button>}
-          <Button variant="outline" size="icon" aria-label={t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")} title={t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")} disabled={!validCapture || query.isFetching} onClick={() => { setSelectedKey(null); void query.refetch(); }}>
+          <Button variant="outline" size="icon" aria-label={t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")} title={t(comparison === "none" ? "historicalOverview.refreshDate" : "historicalOverview.refresh")} disabled={!validCapture || query.isFetching} onClick={refreshCapture}>
             <RefreshCw className={query.isFetching ? "animate-spin" : undefined} aria-hidden="true" />
           </Button>
         </div>
