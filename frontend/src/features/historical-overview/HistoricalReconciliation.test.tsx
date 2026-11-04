@@ -14,10 +14,10 @@ const { read } = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { HistoricalOverview: read } }));
 function data(total = "-1.00012", supported: string | null = "-1.0001", residual: string | null = "-0.00002"): HistoricalOverviewResult {
   const state = { date: "2026-08-01", cutoffAt: "2026-08-01T23:59:59Z", current: false, currency: "CNY", complete: true, assets: "100", liabilities: "0", netWorth: "100", knownAssets: "100", knownLiabilities: "0", byClass: [], byCurrency: [] };
-  return { left: state, right: { ...state, date: "2026-08-02" }, change: { assets: total, liabilities: "0", netWorth: total }, categories: [], rows: [], timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-02", capturedAt: "2026-08-03T12:00:00Z", inputGeneration: 1, resolverPolicy: "policy", reconciliation: { status: "partial", currency: "CNY", basis: "endpoint_bridge/1", total, supported, residual, contributions: [{ key: "fee", amount: "-1.0001" }], reasons: ["unexplained_movement"] } };
+  return { left: state, right: { ...state, date: "2026-08-02" }, change: { assets: total, liabilities: "0", netWorth: total }, categories: [], rows: [], timezone: "UTC", originDate: "2026-08-01", lastClosedDate: "2026-08-02", capturedAt: "2026-08-03T12:00:00Z", inputGeneration: 1, resolverPolicy: "policy", reconciliation: { status: "partial", currency: "CNY", basis: "endpoint_bridge/2", total, supported, residual, contributions: [{ key: "fee", amount: "-1.0001" }], details: [], reasons: ["unexplained_movement"] } };
 }
 
-it.each(["en"])("shows exact amounts and keyboard-accessible localized explanation (%s)", async locale => {
+it.each(["en", "zh-CN", "zh-TW"])("shows exact amounts and keyboard-accessible localized explanation (%s)", async locale => {
   await i18n.changeLanguage(locale);
   render(<HistoricalReconciliationView data={data()} />);
   const section = screen.getByRole("region", { name: i18n.t("historicalReconciliation.title") });
@@ -47,6 +47,32 @@ it("keeps unknown residual distinct from zero, and zero uncertainty visible", as
   await userEvent.click(screen.getByText("How these amounts reconcile"));
   expect(screen.getByText(i18n.t("historicalReconciliation.reason.quantity_activity"))).toBeVisible();
 });
+it.each(["en", "zh-CN", "zh-TW"])("expands account/position audit details and related records without exposing internal IDs (%s)", async locale => {
+  await i18n.changeLanguage(locale);
+  const fixture = data("1.000000000001", "1", "0.000000000001");
+  fixture.rows = [
+    { key: "private-account-id", accountId: "private-account-id", name: "Synthetic broker", kind: "account" },
+    { key: "private-holding-key", accountId: "private-account-id", name: "Synthetic fund", kind: "holding" },
+  ] as HistoricalOverviewResult["rows"];
+  fixture.reconciliation!.details = [{ key: "private-holding-key", accountId: "private-account-id", holdingId: "private-holding-id", instrumentId: "private-instrument-id", kind: "holding", total: "1.000000000001", supported: "1", principal: "0", residual: "0.000000000001", openingQuantity: "10", activityQuantity: "1", closingQuantity: "11", quantityResidual: "0", contributions: [{ key: "price_change", amount: "1" }], reasons: ["valuation_mismatch"], records: [{ id: "private-activity-id", kind: "buy", reason: "principal", effectiveAt: "2026-08-02T12:00:00Z", note: "Synthetic recurring purchase", effects: [{ classification: "trade_principal", amount: null, currency: "", quantity: "1" }] }] }];
+  render(<HistoricalReconciliationView data={fixture} />);
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalReconciliation.explanation") }));
+  const account = screen.getByRole("region", { name: "Synthetic broker" });
+  const toggle = within(account).getByRole("button", { name: /Synthetic fund/ });
+  expect(within(account).queryByText("Synthetic recurring purchase")).not.toBeInTheDocument();
+  toggle.focus(); await userEvent.keyboard("{Enter}");
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(within(account).getByText("Synthetic recurring purchase")).toBeVisible();
+  expect(within(account).getByText(i18n.t("historicalReconciliation.quantityBasis"))).toBeVisible();
+  expect(within(account).getByText(i18n.t("historicalReconciliation.reason.valuation_mismatch"))).toBeVisible();
+  expect(within(account).getByText(i18n.t("historicalReconciliation.category.price_change"))).toBeVisible();
+  expect(account).toHaveTextContent("0.000000000001 CNY");
+  expect(account).not.toHaveTextContent("private-");
+  expect(account).not.toHaveTextContent("historicalReconciliation.");
+  await userEvent.keyboard(" ");
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(within(account).queryByText("Synthetic recurring purchase")).not.toBeInTheDocument();
+});
 it("publishes the reconciliation from the final rapid date selection and ignores late replies", async () => {
   await i18n.changeLanguage("en"); read.mockReset();
   function deferred() {
@@ -72,4 +98,23 @@ it("publishes the reconciliation from the final rapid date selection and ignores
   await act(async () => calls.slice(0, 3).forEach(call => call.resolve(data("999", "999", "0"))));
   expect(screen.getByRole("region")).toHaveTextContent(("+" + formatAmount("3", "CNY"))); expect(screen.queryByText(/999/)).not.toBeInTheDocument();
   view.unmount(); client.clear();
+});
+
+it("keeps identical account names distinct and replaces identifier fallbacks with readable labels", async () => {
+  await i18n.changeLanguage("en");
+  const fixture = data("0", "0", "0");
+  fixture.rows = [
+    { key: "account-a", accountId: "account-a", name: "Synthetic broker", kind: "account" },
+    { key: "account-b", accountId: "account-b", name: "Synthetic broker", kind: "account" },
+    { key: "holding-a", accountId: "account-a", holdingId: "private-holding-id", name: "private-holding-id", kind: "holding" },
+    { key: "holding-b", accountId: "account-b", name: "Synthetic fund", kind: "holding" },
+  ] as HistoricalOverviewResult["rows"];
+  const detail = { holdingId: "", instrumentId: "", kind: "holding", total: "0", supported: "0", principal: "0", residual: "0", openingQuantity: "0", activityQuantity: "0", closingQuantity: "0", quantityResidual: "0", contributions: [], reasons: [], records: [] };
+  fixture.reconciliation!.details = [{ ...detail, key: "holding-a", accountId: "account-a" }, { ...detail, key: "holding-b", accountId: "account-b" }];
+  render(<HistoricalReconciliationView data={fixture} />);
+  await userEvent.click(screen.getByRole("button", { name: "How these amounts reconcile" }));
+  expect(screen.getByRole("region", { name: "Synthetic broker [#1]" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "Synthetic broker [#2]" })).toBeVisible();
+  expect(screen.getByRole("button", { name: new RegExp(i18n.t("historicalOverview.unknown")) })).toBeVisible();
+  expect(screen.getByRole("region", { name: "Explain net worth change" })).not.toHaveTextContent("private-holding-id");
 });

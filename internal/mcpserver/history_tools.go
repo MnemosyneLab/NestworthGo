@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -71,7 +70,7 @@ type PeriodAnalysisDTO struct {
 	InvestmentReturns wire.ReturnTrendDTO `json:"investmentReturns"`
 }
 
-func (s *Service) historyTools(server *mcp.Server) {
+func (s *Service) historyTools(server *toolSet) {
 	generation := s.contextGeneration
 	historyService := history.NewService(s.app)
 	analysisService := analysis.NewService(s.app)

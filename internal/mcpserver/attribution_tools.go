@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -52,7 +52,7 @@ type GetAssetDriverDetailInput struct {
 
 // The regular readTool infers descriptions but has no enum metadata. These
 // tools publish the application adapters' accepted values as schema enums.
-func readAttributionTool[I any](server *mcp.Server, name, description string, enums map[string][]any, fn func(context.Context, I) (any, error)) {
+func readAttributionTool[I any](server *toolSet, name, description string, enums map[string][]any, fn func(context.Context, I) (any, error)) {
 	schema, err := jsonschema.For[I](nil)
 	if err != nil {
 		panic(fmt.Sprintf("%s input schema: %v", name, err))
@@ -76,16 +76,16 @@ func readAttributionTool[I any](server *mcp.Server, name, description string, en
 		}
 	}
 	closed, destructive := false, false
-	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description + " May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode.", InputSchema: schema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in I) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: name, Description: description + " May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode.", InputSchema: schema, Effect: agentcapability.Analysis, Annotations: &agentcapability.Annotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed}}, func(ctx context.Context, in I) (Response, error) {
 		value, err := fn(ctx, in)
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 
-func (s *Service) attributionTools(server *mcp.Server, adapter *analysis.Service) {
+func (s *Service) attributionTools(server *toolSet, adapter *analysis.Service) {
 	generation := s.contextGeneration
 	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Use a row key with get_contribution_item; repeat the same query, returnType and groupBy. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},

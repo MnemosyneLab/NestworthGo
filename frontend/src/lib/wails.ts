@@ -68,7 +68,11 @@ function extractMessage(error: unknown): string {
  * a localized field label reused from the `error.field.*` catalog namespace.
  */
 export function translateWailsError(error: WireError): string {
-  const message = i18next.t(error.code, { ns: "errorCode", defaultValue: i18next.t("internal", { ns: "errorCode" }) });
+  const validationKey = error.code === "validation"
+    ? error.field === "listen" ? "mobile.listenValidation"
+      : error.field === "token" ? "mobile.tokenValidation" : undefined
+    : undefined;
+  const message = validationKey ? i18next.t(validationKey) : i18next.t(error.code, { ns: "errorCode", defaultValue: i18next.t("internal", { ns: "errorCode" }) });
   const fieldKey = error.field ? (fieldLabelKeys as Record<string, string>)[error.field] : undefined;
   if (fieldKey) {
     const fieldLabel = i18next.t(fieldKey, { defaultValue: "" });

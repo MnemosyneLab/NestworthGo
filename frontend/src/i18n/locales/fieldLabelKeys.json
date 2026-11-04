@@ -61,5 +61,7 @@
   "earlyFee": "availableFunds.earlyFee",
   "earlyGrossAmount": "availableFunds.earlyGross",
   "returnedPrincipal": "availableFunds.returnedPrincipal",
-  "grossProceeds": "availableFunds.grossProceeds"
+  "grossProceeds": "availableFunds.grossProceeds",
+  "listen": "mobile.listen",
+  "token": "mobile.token"
 }

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -97,15 +97,15 @@ func productWriteError(err error) error {
 	return err
 }
 
-func (s *Service) productOperationTools(server *mcp.Server) {
+func (s *Service) productOperationTools(server *toolSet) {
 	readTool(server, "preview_product_operation", "Preview exactly one managed product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, atomic renewal without reservation changes, or latest safe operation-group undo. Requires ledger_write. This records facts already completed, never bank orders or automatic maturity cash. Exactly one matching payload. Money is original-currency decimal strings. record_existing requires original totalCostBasis/currentValue and cashExcludesProduct=true (account cash already excludes this product); recording time is server-frozen, startOn is descriptive. For open/interest/settle, effectiveAt may be empty for frozen now or use one timestamp OR local date/time in history timezone. Settle closes the whole contract; actual early receipts are allowed despite forecast locks. No reservation release/restore; use the GUI if reservations constrain the operation. Inspect normalizedJSON/effects, then commit only the planId within ten minutes. Draft IDs are provisional.", s.previewProductOperation)
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_product_operation", Description: "Commit exactly a stored preview_product_operation plan. Requires ledger_write; only operationId and input.planId. Financial effects, lifecycle operation and immutable business receipt commit atomically. Retry identical operationId/input after interruption; same plan with another operationId returns original committed IDs without posting again, including after expiry/restart. Uncommitted expired/stale/restarted/restored plans require a new preview. Never releases/restores reservations. Read get_operation for outer receipt; list_product_operations for business operation IDs.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_product_operation", Description: "Commit exactly a stored preview_product_operation plan. Requires ledger_write; only operationId and input.planId. Financial effects, lifecycle operation and immutable business receipt commit atomically. Retry identical operationId/input after interruption; same plan with another operationId returns original committed IDs without posting again, including after expiry/restart. Uncommitted expired/stale/restarted/restored plans require a new preview. Never releases/restores reservations. Read get_operation for outer receipt; list_product_operations for business operation IDs.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_product_operation", in.Input, true, func(ctx context.Context) (any, error) { return s.commitProductOperation(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(productWriteError(err))
+			return Response{}, safeError(productWriteError(err))
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 

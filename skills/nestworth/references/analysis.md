@@ -56,7 +56,9 @@ compact endpoint leaves, and independent series points. Initial default is five
 items per section, max 100; continuation default is 25. Follow every relevant
 `get_read_page` cursor. `get_read_item` with section=rows/id returns full row
 price/FX evidence; section=points/id=YYYY-MM-DD opens pageable missing evidence;
-section=overview/id=endpoints opens categories and reconciliation contributions;
+section=overview/id=endpoints opens categories, reconciliation contributions
+and reconciliationDetails; section=reconciliationDetails/id=<key> opens
+separately pageable related records;
 section=states/id=left or right returns endpoint allocations. `view=evidence`
 expands row pages. Do not expect a nested full Overview in series output.
 
@@ -70,7 +72,7 @@ amounts, coverage, capture time, source evidence and reason codes. These reads d
 refresh providers or modify ledger facts.
 
 When two compatible closed-date endpoints support reconciliation, preserve the
-returned basis `endpoint_bridge/1; later_endpoint_fx; opening_exposure_fx; unchanged_quantity_price; retained_corrected_facts` and exact identity:
+returned basis `endpoint_bridge/2; later_endpoint_fx; opening_exposure_fx; paired_principal_valuation; retained_corrected_facts` and exact identity:
 
 `B net worth − A net worth = supported contributions + unexplained residual`.
 
@@ -86,7 +88,10 @@ returned basis `endpoint_bridge/1; later_endpoint_fx; opening_exposure_fx; uncha
 
 The bridge uses the later endpoint's FX rate, not event-time FX or investment
 return. For stable holdings, opening native exposure supports FX; price movement
-uses unchanged quantity and comparable price evidence. Completeness, scope,
+uses reconciled quantities, uniquely paired trade principal and comparable price
+evidence. Valuation change after principal can include execution-price spreads
+and is not pure price return. Quantity remeasurement is a recorded adjustment,
+never inferred income. Completeness, scope,
 timestamp/source basis and intermediate changes can leave amounts in residual
 or make the bridge unavailable; retain its `status`, `reasons`, nullable totals
 and exact contribution amounts. Same-day complete endpoints have zero movement;

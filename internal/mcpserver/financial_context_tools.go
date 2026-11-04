@@ -116,7 +116,7 @@ func (s *Service) RevokeForRestore(context.Context) error {
 	return nil
 }
 
-func (s *Service) financialContextTools(server *mcp.Server, generation uint64) {
+func (s *Service) financialContextTools(server *toolSet, generation uint64) {
 	readTool(server, "get_financial_context_item", "Drill into one account, position or evidence ref in its exact frozen financial context. Inherit its already selected minimal or named disclosure; return only its related disclosed subset, without identity remapping. Optional section positions/gaps/evidence starts a related section; continue with its matching cursor. Default limit 50, maximum 100; initial response has at most one row per section. Account target is a rollup: never add it to its child amounts. Evidence returns direct users, never their siblings. No transactions, identity lookup, refresh, disclosure upgrade or DB reads. Aliases are package-local; keep contextId and ref together, never reuse aliases across captures. Fixed TTL, hash and capture are unchanged. Send one JSON-RPC object, never a batch.", func(ctx context.Context, in FinancialContextItemInput) (any, error) {
 		return s.financialContextItem(ctx, generation, in)
 	})

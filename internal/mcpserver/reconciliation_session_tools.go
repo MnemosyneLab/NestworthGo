@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -92,7 +92,7 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 	}
 	return result, nil
 }
-func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
+func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {
 	readTool(server, "list_reconciliation_sessions", "Bounded reconciliation history and in-progress sessions. Filter status, accountId and started civil date from/to; sort asc/desc. Default 25, max 50, stable content-bound cursor with stale_cursor on change.", s.listReconciliationSessions)
 	readTool(server, "get_reconciliation_session", "Read a reconciliation header and explicit outcome counts. No account/item histories are embedded. Use get_reconciliation_session_page and get_reconciliation_item for complete evidence; completed records remain immutable and recheck status is separate.", func(ctx context.Context, in IDInput) (any, error) {
 		v, e := s.app.GetReconciliationSession(ctx, in.ID)
@@ -163,7 +163,7 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 		return map[string]any{"planId": p.ID, "expiresAt": p.ExpiresAt, "result": result, "action": p.Action, "checkedItem": checked}, nil
 	}, reconciliationActionSchema())
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_reconciliation_session", Description: "Commit exactly the saved session preview. Requires ledger_write. Retry same operationId and planId after an unknown outcome. Durable session receipt is checked before expiry, completed-state and revision checks. Returned header is the original committed outcome; reread current evidence separately.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_reconciliation_session", Description: "Commit exactly the saved session preview. Requires ledger_write. Retry same operationId and planId after an unknown outcome. Durable session receipt is checked before expiry, completed-state and revision checks. Returned header is the original committed outcome; reread current evidence separately.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		v, e := s.executeWithRecovery(ctx, in.OperationID, "commit_reconciliation_session", in.Input, true, func(ctx context.Context) (any, error) {
 			raw, e := s.loadPreviewPlan(in.Input.PlanID, "reconciliation_session")
 			if e != nil {
@@ -191,9 +191,9 @@ func (s *Service) reconciliationSessionTools(server *mcp.Server, mode string) {
 			return result, e
 		})
 		if e != nil {
-			return nil, Response{}, safeError(e)
+			return Response{}, safeError(e)
 		}
-		return nil, Response{Data: v}, nil
+		return Response{Data: v}, nil
 	})
 }
 func (s *Service) listReconciliationSessions(ctx context.Context, in ReconciliationReadInput) (any, error) {

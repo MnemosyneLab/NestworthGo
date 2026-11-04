@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
 import { callService } from "@/lib/wails";
 import { displayError } from "@/lib/display";
@@ -21,6 +22,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
   const [draft, setDraft] = useState<Config | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<string>();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const config = draft ?? status.data?.config;
@@ -29,10 +31,15 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
     lock.current = true;
     setBusy(true);
     setError(null);
+    setInvalidField(undefined);
     try {
       await action();
     } catch (e) {
       setError(displayError(e, t("settings.saveError")));
+      if (e && typeof e === "object" && "wireError" in e) {
+        const wire = e.wireError as { code?: string; field?: string };
+        if (wire.code === "validation") setInvalidField(wire.field);
+      }
     } finally {
       await client.invalidateQueries({ queryKey: ["mobile-access"] });
       lock.current = false;
@@ -40,6 +47,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
     }
   }
   const set = (key: keyof Config, value: string | boolean) => {
+    if (key === invalidField) { setInvalidField(undefined); setError(null); }
     if (config) setDraft({ ...config, [key]: value });
   };
   return (
@@ -51,7 +59,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
         {t("mobile.access")}
       </h2>
       <p className="text-sm text-muted-foreground">{t("mobile.setupHelp")}</p>
-      {(error || status.error) && (
+      {((error && !["listen", "token"].includes(invalidField ?? "")) || status.error) && (
         <p role="alert">{error || t("mobile.requestFailed")}</p>
       )}
       {config && (
@@ -81,10 +89,12 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
                 id="mobile-listen"
                 value={config.listen}
                 required={config.enabled}
-                aria-describedby="mobile-listen-help"
+                aria-invalid={invalidField === "listen" || undefined}
+                aria-describedby={invalidField === "listen" ? "mobile-listen-help mobile-listen-error" : "mobile-listen-help"}
                 placeholder="192.168.1.20:9443"
                 onChange={(e) => set("listen", e.target.value.trim())}
               />
+              <FieldError id="mobile-listen-error">{invalidField === "listen" ? error : null}</FieldError>
               <p id="mobile-listen-help" className="text-sm text-muted-foreground">
                 {t("mobile.listenHelp")}
               </p>
@@ -103,9 +113,11 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                aria-describedby="mobile-token-help"
+                aria-invalid={invalidField === "token" || undefined}
+                aria-describedby={invalidField === "token" ? "mobile-token-help mobile-token-error" : "mobile-token-help"}
                 onChange={(e) => set("token", e.target.value)}
               />
+              <FieldError id="mobile-token-error">{invalidField === "token" ? error : null}</FieldError>
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"

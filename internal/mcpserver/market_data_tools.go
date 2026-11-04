@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/quote"
@@ -48,7 +48,7 @@ type AgentDataRecordDTO struct {
 	CreatedAt      string `json:"createdAt"`
 }
 
-func (s *Service) marketDataTools(server *mcp.Server, mode string) {
+func (s *Service) marketDataTools(server *toolSet, mode string) {
 	adapter := quote.NewService(s.app)
 	generation := s.contextGeneration
 	s.marketBatchTools(server, generation)
@@ -79,28 +79,28 @@ func (s *Service) marketDataTools(server *mcp.Server, mode string) {
 		return
 	}
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "import_market_data", Description: "Atomically append, correct or retract 1–100 Agent-supplied instrument quotes (latest/raw close/unit NAV), per-instrument closed-day facts (kind closed; date, optional timezone and provenance; omit value/currency) or FX rates (latest/daily_reference), with source evidence. Requires ledger_write. Find exact instrument identity first. Unit NAV is NOT cumulative NAV or annualized yield. Daily date is the source's market/NAV/reference date, NOT lookup date. Latest requires actual quotedAt. Does not contact providers or change existing source preferences. Agent data participates in valuation and suppresses ordinary fetches only where valid and sufficient. Corrections/withdrawals require an existing Agent quoteId. Retry with the same operationId and input. Quotes commit before snapshot rebuild; check snapshotStatus and scan_data_health afterward. A successful import/rebuild does not imply complete data.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[application.AgentMarketDataInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "import_market_data", Description: "Atomically append, correct or retract 1–100 Agent-supplied instrument quotes (latest/raw close/unit NAV), per-instrument closed-day facts (kind closed; date, optional timezone and provenance; omit value/currency) or FX rates (latest/daily_reference), with source evidence. Requires ledger_write. Find exact instrument identity first. Unit NAV is NOT cumulative NAV or annualized yield. Daily date is the source's market/NAV/reference date, NOT lookup date. Latest requires actual quotedAt. Does not contact providers or change existing source preferences. Agent data participates in valuation and suppresses ordinary fetches only where valid and sufficient. Corrections/withdrawals require an existing Agent quoteId. Retry with the same operationId and input. Quotes commit before snapshot rebuild; check snapshotStatus and scan_data_health afterward. A successful import/rebuild does not imply complete data.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[application.AgentMarketDataInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "import_market_data", in.Input, true, func(ctx context.Context) (any, error) {
 			return s.app.ImportAgentMarketData(ctx, in.OperationID, in.Input)
 		})
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 	type fxSourceInput struct {
 		CurrencyA string `json:"currencyA"`
 		CurrencyB string `json:"currencyB"`
 		Source    string `json:"source" jsonschema:"agent, manual or provider"`
 	}
-	mcp.AddTool(server, &mcp.Tool{Name: "set_fx_source", Description: "Set an FX pair's preferred source: agent disables provider pulling for this pair; manual/provider retain their usual behavior with supplied Agent observations eligible. Requires ledger_write; changes source selection, not the rate itself.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[fxSourceInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "set_fx_source", Description: "Set an FX pair's preferred source: agent disables provider pulling for this pair; manual/provider retain their usual behavior with supplied Agent observations eligible. Requires ledger_write; changes source selection, not the rate itself.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[fxSourceInput]) (Response, error) {
 		result, err := s.execute(ctx, in.OperationID, "set_fx_source", in.Input, func(ctx context.Context) (any, error) {
 			return adapter.SetFXPreference(ctx, in.Input.CurrencyA, in.Input.CurrencyB, in.Input.Source)
 		})
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: result}, nil
+		return Response{Data: result}, nil
 	})
 }
 
