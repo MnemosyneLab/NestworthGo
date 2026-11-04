@@ -3,7 +3,6 @@ package mcpserver
 import (
 	"context"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -104,7 +103,7 @@ type ReviewV2ClearSuppressionInput struct {
 
 // Daily investment review tools use the V2 rule projection. Read tools return
 // only the last complete publication and leave the database untouched.
-func (s *Service) reviewV2Tools(server *mcp.Server, mode string) {
+func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 	readTool(server, "list_investment_review_rules", "List named daily investment review rules with independent predicates and trigger policies. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
 		return s.app.ListReviewRulesV2(ctx, in.Cursor, in.PageSize)
 	})

@@ -8,6 +8,12 @@ quantity and total-cost reconciliation, pure cost corrections, and guarded
 activity undo/fix. This document does not establish end-to-end native UI or
 external-agent acceptance; consult the release record for their status.
 
+Tool definitions and typed handlers register through the shared capability
+registry; the external SDK adapter retains the existing protocol and behavior.
+The [built-in AI prerequisite and target design](../architecture/builtin-ai.md)
+documents direct in-process sessions and their closed production activation gates.
+This does not install an App assistant or add App confirmation to external MCP.
+
 ## Read-only financial context
 
 `get_financial_context` captures current state or one closed date with a
@@ -60,7 +66,7 @@ coverage and reason codes are not reconstructed from product lists. All modes
 also expose `get_historical_overview` and `get_historical_overview_series` as
 read-only application service calls with default bounded `historical-read/2`
 responses in the `mcp-read/1` envelope. The overview preserves the App's immutable
-history values and PR68 `endpoint_bridge/1` convention, including exact values,
+history values and `endpoint_bridge/2` convention, including exact values,
 completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
 not replace closed-period `compare_financial_attribution`.
 

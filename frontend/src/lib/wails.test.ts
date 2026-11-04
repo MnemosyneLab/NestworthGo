@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseWailsError, translateWailsError } from "./wails";
-import "@/i18n";
+import i18n from "@/i18n";
 
 // Pure wire-error helpers must not initialize desktop DOM handlers/timers.
 vi.mock("@wailsio/runtime", () => { throw new Error("wire helpers loaded the desktop SDK"); });
@@ -57,4 +57,13 @@ describe("translateWailsError", () => {
 
 it.each([["startOn", "Start date"], ["maturityOn", "Maturity date"], ["earlyFee", "Early fee"]])("labels product validation field %s", (field, label) => {
   expect(translateWailsError({ code: "validation", field, message: "invalid" })).toContain(label);
+});
+
+it.each(["en", "zh-CN", "zh-TW"])("translates mobile validation by field and preserves other error codes in %s", async (language) => {
+  await i18n.changeLanguage(language);
+  for (const field of ["listen", "token"]) {
+    expect(translateWailsError({ code: "validation", field, message: "untrusted backend detail" })).toBe(`${i18n.t(`mobile.${field}`)}: ${i18n.t(`mobile.${field}Validation`)}`);
+  }
+  expect(translateWailsError({ code: "internal", field: "listen", message: "x" })).toContain(i18n.t("internal", { ns: "errorCode" }));
+  await i18n.changeLanguage("en");
 });

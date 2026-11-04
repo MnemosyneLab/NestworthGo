@@ -19,6 +19,7 @@ while release records describe only published artifacts.
 | Architecture | [System Overview](architecture/system-overview.md) | Runtime layers, startup, state ownership, and security boundaries |
 | Architecture | [Domain Model](architecture/domain-model.md) | Financial entities, validation, and calculation semantics |
 | Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, recovery, and providers |
+| Architecture | [Built-in AI](architecture/builtin-ai.md) | Shared capability prerequisite, closed provider gates, and desktop/mobile review delivery plan |
 | Design | [Account Container Interaction](design/account-container-interaction.md) | Current Account creation, detail, action, and accessibility behavior |
 | Design | [History and Form Defaults](design/history-and-form-defaults-ux.md) | Current history, picker, calculation, and form-state behavior |
 | Design | [Backup, Restore, and JSON Export](design/backup-restore-and-json-export.md) | Implemented backup, restore, and JSON export |

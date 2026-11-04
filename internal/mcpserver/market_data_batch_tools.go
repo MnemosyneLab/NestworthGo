@@ -6,7 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -76,7 +75,7 @@ func historyRows(points []domain.QuoteSeriesPoint, order ReadSort, defaultDirect
 	}
 	return readRows(rows)
 }
-func (s *Service) marketBatchTools(server *mcp.Server, g uint64) {
+func (s *Service) marketBatchTools(server *toolSet, g uint64) {
 	readTool(server, "get_market_data_batch", "Capture 1 to 100 distinct instrument IDs or oriented FX pairs in one strictly local read-only transaction. current (default) omits history; coverage preserves counts and gapAssessment=not_evaluated; history separates selected points from raw observations per target. Follow every section cursor with get_read_page before claiming completeness. No provider refresh or writes.", func(ctx context.Context, in MarketBatchInput) (any, error) {
 		request, err := application.NormalizeMarketRead(application.MarketReadRequest{Targets: in.Targets, View: in.View, Range: in.Range, SourceFilter: in.SourceFilter})
 		if err != nil {

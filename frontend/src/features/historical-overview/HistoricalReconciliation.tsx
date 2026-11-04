@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { formatHistoricalAmount } from "./historicalAmount";
 import { SignedChange } from "./SignedChange";
+import { HistoricalReconciliationDetails } from "./HistoricalReconciliationDetails";
 
 export function HistoricalReconciliationView({ data }: { data: HistoricalOverviewResult }) {
   const { t } = useTranslation();
@@ -47,6 +48,7 @@ export function HistoricalReconciliationView({ data }: { data: HistoricalOvervie
         </tbody>
       </table></div>
       {(reasons ?? []).length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{(reasons ?? []).map(reason => <li key={reason}>{t(`historicalReconciliation.reason.${reason}`)}</li>)}</ul>}
+      {expanded && <HistoricalReconciliationDetails data={data} />}
     </div>
   </section>;
 }

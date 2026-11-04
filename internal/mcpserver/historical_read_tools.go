@@ -223,12 +223,32 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 		summary[side] = header
 	}
 	if overview.Reconciliation != nil {
-		header, e := readSummary(overview.Reconciliation, "contributions")
+		header, e := readSummary(overview.Reconciliation, "contributions", "details")
 		if e != nil {
 			return c, e
 		}
 		summary["reconciliation"] = header
 		c.Sections["contributions"], err = readRows(overview.Reconciliation.Contributions)
+		if err != nil {
+			return c, err
+		}
+		details := []map[string]any{}
+		for _, detail := range overview.Reconciliation.Details {
+			row, e := readSummary(detail, "records")
+			if e != nil {
+				return c, e
+			}
+			row["id"], row["recordCount"] = detail.Key, len(detail.Records)
+			section := "reconciliationRecords/" + detail.Key
+			c.Sections[section], err = readRows(detail.Records)
+			if err != nil {
+				return c, err
+			}
+			c.Details["reconciliationDetails/"+detail.Key] = row
+			c.DetailSections["reconciliationDetails/"+detail.Key] = []string{section}
+			details = append(details, row)
+		}
+		c.Sections["reconciliationDetails"], err = readRows(details)
 		if err != nil {
 			return c, err
 		}
@@ -271,7 +291,7 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 	}
 	c.DetailSections["overview/endpoints"] = []string{"categories"}
 	if overview.Reconciliation != nil {
-		c.DetailSections["overview/endpoints"] = append(c.DetailSections["overview/endpoints"], "contributions")
+		c.DetailSections["overview/endpoints"] = append(c.DetailSections["overview/endpoints"], "contributions", "reconciliationDetails")
 	}
 	c.Details["overview/endpoints"] = map[string]any{"totalsScope": "household", "stateIds": []string{"left"}, "reconciliation": summary["reconciliation"]}
 	if overview.Right != nil {

@@ -105,6 +105,19 @@ func TestHistoricalReadClientFiltersAndFrozenEvidence(t *testing.T) {
 		t.Fatal("lost categories")
 	}
 	scaleSection(t, c, header, "contributions")
+	for _, raw := range scaleSection(t, c, header, "reconciliationDetails") {
+		detail := raw.(map[string]any)
+		if _, ok := detail["records"]; ok {
+			t.Fatal("records escaped pagination")
+		}
+		item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: initial["captureId"].(string), Section: "reconciliationDetails", ID: detail["id"].(string)})
+		if item["contentHash"] != initial["contentHash"] {
+			t.Fatal("detail recaptured")
+		}
+		for section := range item["sections"].(map[string]any) {
+			scaleSection(t, c, item, section)
+		}
+	}
 	call(t, c, "get_read_item", ReadItemInput{CaptureID: initial["captureId"].(string), Section: "rows", ID: "absent"}, true)
 	// Cross-section, cross-capture and expired cursors fail deterministically.
 	first := initial["sections"].(map[string]any)["rows"].(map[string]any)["page"].(map[string]any)["nextCursor"].(string)
@@ -267,4 +280,45 @@ func TestHistoricalFundingCashReasonFilterAndItem(t *testing.T) {
 		t.Fatal("fixture did not follow an excluded category reference")
 	}
 	assertHistoricalMatches(t, c, cap)
+}
+
+func TestHistoricalReconciliationRecordsStayPageable(t *testing.T) {
+	t.Parallel()
+	fx := newLedgerFixture(t)
+	if _, err := fx.service.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	client := connect(t, fx.service)
+	note := strings.Repeat("Synthetic recurring purchase 中文 ", 40)
+	records := make([]application.HistoricalReconciliationRecord, 120)
+	for i := range records {
+		records[i] = application.HistoricalReconciliationRecord{ID: fmt.Sprintf("record-%03d", i), Kind: "buy", Note: &note, Effects: []application.HistoricalReconciliationEffect{}}
+	}
+	state := application.HistoricalOverviewState{Currency: "CNY", ByClass: []application.HistoricalOverviewAllocation{}, ByCurrency: []application.HistoricalOverviewAllocation{}}
+	o := application.HistoricalOverviewResult{Left: state, Right: &state, Rows: []application.HistoricalOverviewRow{}, Categories: []application.HistoricalCategoryComparison{}, Reconciliation: &application.HistoricalReconciliation{Status: "partial", Currency: "CNY", Contributions: []application.HistoricalContribution{}, Reasons: []string{}, Details: []application.HistoricalReconciliationDetail{{Key: "synthetic-position", AccountID: "synthetic-account", Contributions: []application.HistoricalContribution{}, Reasons: []string{}, Records: records}}}}
+	capture, err := historicalReadCapture(o, nil, HistoricalReadOptions{View: "compact"}, HistoricalReadFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	header, err := jsoncodec.Marshal(capture.Summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(header), "record-000") || len(header) > 8192 {
+		t.Fatalf("unbounded reconciliation header: %d bytes", len(header))
+	}
+	frozen, err := fx.service.reads.store(fx.service.contextGeneration, capture, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := scaleCapture(t, client, "get_read_item", ReadItemInput{CaptureID: frozen.CaptureID, Section: "reconciliationDetails", ID: "synthetic-position"})
+	rows := scaleSection(t, client, item, "reconciliationRecords/synthetic-position")
+	if len(rows) != len(records) {
+		t.Fatalf("records=%d want %d", len(rows), len(records))
+	}
+	for i, row := range rows {
+		if row.(map[string]any)["id"] != records[i].ID {
+			t.Fatal("lost or duplicated record", i)
+		}
+	}
 }

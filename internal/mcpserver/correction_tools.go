@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -39,15 +39,15 @@ type CorrectionPlanPreview struct {
 	Preview     wire.ChangePreviewDTO         `json:"preview"`
 }
 
-func (s *Service) correctionTools(server *mcp.Server) {
+func (s *Service) correctionTools(server *toolSet) {
 	readTool(server, "preview_correction", "Preview fixing or undoing an existing activity. Requires ledger_write. action fix replaces the historical record at its original timestamp and validates/replays later records; provide a full replacement with no timestamps. action undo posts a reversal at preview time and preserves the original history; omit replacement. These have different reporting effects. Read get_activity first and inspect the preview before commit_correction. For fix, preview.resulting describes the state immediately after the replacement at its historical time; query current valuations after commit. Already reversed/corrected records, managed products, unsupported replacements, or invalid dependent balances/positions are rejected. Preview IDs are provisional; plans expire after ten minutes or become stale on writes.", s.previewCorrection)
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_correction", Description: "Commit exactly a stored preview_correction plan. Requires ledger_write. Supply operationId and input.planId only. The correction and database mutation receipt are atomic. For fix, returned resulting values describe the historical replacement; query current valuations for today. Identical retries or the same plan with a different operationId return the original activity, including after expiry or restart. Uncommitted stale plans need a new preview. Never pass another kind of plan.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_correction", Description: "Commit exactly a stored preview_correction plan. Requires ledger_write. Supply operationId and input.planId only. The correction and database mutation receipt are atomic. For fix, returned resulting values describe the historical replacement; query current valuations for today. Identical retries or the same plan with a different operationId return the original activity, including after expiry or restart. Uncommitted stale plans need a new preview. Never pass another kind of plan.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_correction", in.Input, true, func(ctx context.Context) (any, error) { return s.commitCorrection(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 

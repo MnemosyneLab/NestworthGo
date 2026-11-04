@@ -64,9 +64,11 @@ func connectHistoryTools(t *testing.T, service *Service) *mcp.ClientSession {
 	t.Helper()
 	ctx := context.Background()
 	server := mcp.NewServer(&mcp.Implementation{Name: "history-test", Version: "1"}, nil)
+	tools := newToolSet("", false)
+	tools.server = server
 	service.reads.activate(service.contextGeneration)
-	service.boundedReadTools(server, service.contextGeneration)
-	service.historyTools(server)
+	service.boundedReadTools(tools, service.contextGeneration)
+	service.historyTools(tools)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)
 	if err != nil {
