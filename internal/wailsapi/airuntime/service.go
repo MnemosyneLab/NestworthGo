@@ -91,3 +91,22 @@ func (s *Service) Configure(epoch string, revision uint64, config assistant.Mode
 	}
 	return s.runtime.Configure(context.Background(), epoch, revision, config)
 }
+
+func (s *Service) PublishPage(epoch string, revision uint64, page assistant.PageSelection) (assistant.DesktopPageLease, error) {
+	if s.runtime == nil {
+		return assistant.DesktopPageLease{}, assistant.ErrUnavailable
+	}
+	return s.runtime.PublishPage(context.Background(), epoch, revision, page)
+}
+func (s *Service) GrantNavigation(epoch string, revision uint64, conversationID, requestID, leaseID string) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.GrantNavigation(context.Background(), epoch, revision, conversationID, requestID, leaseID)
+}
+func (s *Service) ConsumeNavigation(epoch, conversationID, runID, intentID, leaseID string) (assistant.ModelNavigationTarget, error) {
+	if s.runtime == nil {
+		return assistant.ModelNavigationTarget{}, assistant.ErrUnavailable
+	}
+	return s.runtime.ConsumeNavigation(context.Background(), epoch, conversationID, runID, intentID, leaseID)
+}

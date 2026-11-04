@@ -32,7 +32,7 @@ it("leaves closed surfaces idle, expands, collapses with focus, and pauses offli
   // Match the browser's online state for the event-driven transport fence.
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
   act(() => window.dispatchEvent(new Event("offline")));
-  expect(screen.getByText(/Disconnected\. Actions are paused/)).toBeVisible();
+  expect(screen.getByText(/Network appears offline/)).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Collapse assistant" }));
   expect(screen.getByRole("button", { name: "Open AI assistant" })).toHaveFocus();
   expect(screen.getByText("Synthetic business page")).toBeVisible();

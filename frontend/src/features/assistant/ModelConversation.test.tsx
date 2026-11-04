@@ -1,7 +1,7 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { AssistantPageProvider } from "./PageContext";
 import { ModelConversation } from "./ModelConversation";
@@ -85,9 +85,7 @@ it("restores history without replay and sends only the question and selector", a
   expect(api.Start).not.toHaveBeenCalled();
   await user.click(screen.getByText("Data evidence"));
   expect(screen.getByText(/Account snapshot/)).toBeVisible();
-  expect(
-    screen.getByText(/This response advertised more pages/),
-  ).toBeVisible();
+  expect(screen.getByText(/This response advertised more pages/)).toBeVisible();
   await user.type(screen.getByLabelText("Message"), "Read my current page");
   await user.click(screen.getByRole("button", { name: "Send to model" }));
   await waitFor(() => expect(api.Start).toHaveBeenCalledTimes(1));
@@ -173,5 +171,51 @@ it("retrieves paged history and returns to the latest turn", async () => {
   expect(api.Messages).toHaveBeenCalledWith("host", "conversation", 0);
   await user.click(screen.getByRole("button", { name: "Latest turn" }));
   await screen.findByText("Latest answer");
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  onlineManager.setOnline(true);
+});
+it("loads local status/history/pages while the browser is offline", async () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  onlineManager.setOnline(false);
+  api.Inspect.mockResolvedValue({
+    id: "conversation",
+    runs: [run],
+    runCount: 2,
+    offset: 1,
+  });
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  expect(api.Status).toHaveBeenCalled();
+  expect(api.List).toHaveBeenCalled();
+  expect(api.Inspect).toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Previous turn" }));
+  await waitFor(() =>
+    expect(api.Messages).toHaveBeenCalledWith("host", "conversation", 0),
+  );
+  expect(screen.getByRole("button", { name: "Send to model" })).toBeDisabled();
+  expect(api.Start).not.toHaveBeenCalled();
+});
+it("keeps local Stop available during a browser offline hint", async () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  onlineManager.setOnline(false);
+  api.Inspect.mockResolvedValue({
+    id: "conversation",
+    runs: [{ ...run, state: "running", text: "" }],
+    runCount: 1,
+    offset: 0,
+  });
+  const user = userEvent.setup();
+  mount();
+  const stop = await screen.findByRole("button", { name: "Stop model run" });
+  expect(stop).toBeEnabled();
+  await user.click(stop);
+  await waitFor(() =>
+    expect(api.Cancel).toHaveBeenCalledWith("host", "conversation", "run"),
+  );
   expect(api.Start).not.toHaveBeenCalled();
 });

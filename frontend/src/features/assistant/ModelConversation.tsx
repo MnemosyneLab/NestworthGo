@@ -42,14 +42,15 @@ export function ModelConversation() {
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
     refetchInterval: 2000,
-    enabled: !offline,
+    networkMode: "always",
     retry: false,
   });
   const epoch = status.data?.epoch ?? "";
   const list = useQuery({
     queryKey: ["aiConversations", epoch],
     queryFn: () => callService(() => API.List(epoch)),
-    enabled: !!epoch && !offline,
+    enabled: !!epoch,
+    networkMode: "always",
     retry: false,
   });
   const recent = [...(list.data ?? [])].sort((a, b) =>
@@ -59,21 +60,22 @@ export function ModelConversation() {
   const latest = useQuery({
     queryKey: ["aiConversation", epoch, id, "latest"],
     queryFn: () => callService(() => API.Inspect(epoch, id)),
-    enabled: !!epoch && !!id && !offline,
+    enabled: !!epoch && !!id,
+    networkMode: "always",
     retry: false,
     refetchInterval: 1000,
   });
   const history = useQuery({
     queryKey: ["aiConversation", epoch, id, offset],
     queryFn: () => callService(() => API.Messages(epoch, id, offset!)),
-    enabled: !!epoch && !!id && offset !== null && !offline,
+    enabled: !!epoch && !!id && offset !== null,
+    networkMode: "always",
     retry: false,
   });
   const conversation: Conversation | undefined =
     offset === null ? latest.data : history.data;
   const running = latest.data?.runs?.some((run) => active(run.state)) ?? false;
   const stale =
-    offline ||
     status.isError ||
     list.isError ||
     latest.isError ||
@@ -113,6 +115,7 @@ export function ModelConversation() {
   async function send() {
     if (
       !status.data?.available ||
+      offline ||
       stale ||
       running ||
       !prompt.trim() ||
@@ -155,7 +158,7 @@ export function ModelConversation() {
         <Notice role="status">
           {t(
             offline
-              ? "assistant.state.disconnected"
+              ? "aiChat.offlineLocal"
               : status.data?.available
                 ? "aiChat.ready"
                 : "aiChat.disabled",
@@ -273,7 +276,7 @@ export function ModelConversation() {
                 className={actionClass}
                 key={run.id}
                 variant="outline"
-                disabled={busy || offline}
+                disabled={busy}
                 onClick={() =>
                   void action(() =>
                     callService(() => API.Cancel(epoch, id, run.id)),
@@ -346,7 +349,7 @@ export function ModelConversation() {
               <Button
                 className={actionClass}
                 variant="outline"
-                disabled={busy || offline}
+                disabled={busy}
                 onClick={() =>
                   void action(() =>
                     callService(() => API.Cancel(epoch, id, run.id)),
@@ -408,6 +411,7 @@ export function ModelConversation() {
           type="submit"
           disabled={
             busy ||
+            offline ||
             running ||
             !status.data?.available ||
             stale ||

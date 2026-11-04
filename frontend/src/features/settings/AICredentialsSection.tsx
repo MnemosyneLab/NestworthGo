@@ -11,7 +11,7 @@ import { SecretField } from "./SecretField";
 // parent unmounts this editor on section exit so typed secrets are discarded.
 export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
-  const status = useQuery({ queryKey: ["aiCredentialStatus"], queryFn: () => callService(() => AIService.Status()) });
+  const status = useQuery({ networkMode: "always", queryKey: ["aiCredentialStatus"], queryFn: () => callService(() => AIService.Status()) });
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);

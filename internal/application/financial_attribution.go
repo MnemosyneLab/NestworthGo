@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -114,7 +115,8 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	unsupported := len(ids) > 1
 	current := right.AsOf == "current"
 	boundaryUnsupported := !current && !attributionBoundariesSupported(left.AsOf, right.AsOf, inputs.History.Origin.Timezone)
-	if !unsupported && !current && !boundaryUnsupported {
+	strictReadOnly := readOnlyFinancialAttribution(ctx)
+	if !strictReadOnly && !unsupported && !current && !boundaryUnsupported {
 		if err := s.ensureSnapshotCoverage(ctx, inputs.History.Origin.HouseholdID, left.AsOf, right.AsOf); err != nil {
 			return FinancialComparisonResult{}, err
 		}
@@ -137,6 +139,10 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 		Scope: financialAttributionScope(*c), ScopeBasis: "endpoint_account_union; included_when_either_endpoint_included; shared_comparison_refs; endpoint_scopes_preserved", LeftScope: c.Left.Scope, RightScope: c.Right.Scope,
 		BeginningValue: contextAmount(nil, currency), EndingValue: contextAmount(nil, currency), AnalysisDelta: contextAmount(nil, currency), ExplainedDelta: contextAmount(nil, currency), Residual: contextAmount(nil, currency), PrecisionAdjustment: contextAmount(nil, currency), Drivers: []FinancialAttributionDriver{},
 		Precision: FinancialAttributionPrecision{AmountScale: assetProjectionPrecision, Rounding: "half_even", BoundaryBasis: "signed_component_daily_boundary_rounded_then_summed", DriverBasis: "exact_component_day_buckets_aggregated_by_period_driver_then_existing_waterfall_rounding_and_reconciliation", BoundaryAdjustment: contextAmount(nil, currency), DriverAdjustment: contextAmount(nil, currency)},
+	}
+	if strictReadOnly {
+		link.Basis = "strict_read_only_in_memory_replay;" + link.Basis
+		link.Basis = strings.ReplaceAll(link.Basis, "fresh_recapture_after_derived_snapshot_maintenance;", "")
 	}
 	c.Attribution = link
 	finish := func(status string, reasons ...string) (FinancialComparisonResult, error) {
@@ -171,7 +177,15 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	}
 	start, _ := time.Parse("2006-01-02", left.AsOf)
 	end, _ := time.Parse("2006-01-02", right.AsOf)
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, inputs.History.Origin.HouseholdID, start, end)
+	if strictReadOnly && end.Sub(start) > 365*24*time.Hour {
+		return finish("unavailable", "read_only_period_budget_exceeded")
+	}
+	var snapshots []domain.DailyValuationSnapshot
+	if strictReadOnly {
+		snapshots, err = s.readOnlyAttributionSnapshots(ctx, inputs, start, end, now, provider, ttl)
+	} else {
+		snapshots, err = s.repository.ListDailyValuationSnapshots(ctx, inputs.History.Origin.HouseholdID, start, end)
+	}
 	if err != nil {
 		return FinancialComparisonResult{}, err
 	}

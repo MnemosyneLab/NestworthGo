@@ -1,5 +1,7 @@
 export const assistantEn = {
   aiChat: {
+    offlineLocal:
+      "Network appears offline. Local history and Stop remain available; new model messages are paused.",
     traceHelp:
       "Host read trace. These are read times; quote/source dates stay in the returned data. Page coverage is per response, not proof that every relevant page was read.",
     morePages: "This response advertised more pages.",
@@ -8,6 +10,9 @@ export const assistantEn = {
     missingUnknown:
       "Missing inputs are not summarized here; this does not establish completeness.",
     source: {
+      compare_financial_context: "Financial state comparison",
+      compare_financial_attribution: "Read-only period attribution",
+      get_financial_comparison_page: "Comparison evidence page",
       get_financial_context: "Financial summary",
       get_financial_context_page: "Financial summary page",
       get_financial_context_item: "Financial summary detail",
@@ -18,7 +23,7 @@ export const assistantEn = {
       get_read_item: "Captured item detail",
     },
     scope:
-      "Read-only AI · current overview, accounts and account details. Period returns, writes, refresh and autonomous navigation are unavailable.",
+      "Read-only AI · overview, accounts and closed-period attribution (household or one account, base currency, up to 365 days). Writes, market refresh and autonomous navigation are unavailable.",
     ready: "Model ready",
     disabled:
       "AI is off or unavailable. Save a key, enter a model and explicitly enable it in Settings → Built-in AI credentials.",
@@ -147,6 +152,8 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    offlineLocal:
+      "网络似乎已断开。本地历史与停止仍可使用，新模型消息暂停发送。",
     traceHelp:
       "后端读取记录。此处为读取时间；行情与来源日期仍保留在查询数据中。分页情况仅对应每次响应，不证明所有相关页均已读取。",
     morePages: "此响应提示还有后续分页。",
@@ -154,6 +161,9 @@ export const assistantZhCN = {
     missingReported: "查询报告了缺失或不完整输入。",
     missingUnknown: "此处未汇总缺失输入，不能据此判断数据完整。",
     source: {
+      compare_financial_context: "财务状态对比",
+      compare_financial_attribution: "只读期间归因",
+      get_financial_comparison_page: "对比证据分页",
       get_financial_context: "财务摘要",
       get_financial_context_page: "财务摘要分页",
       get_financial_context_item: "财务摘要明细",
@@ -164,7 +174,7 @@ export const assistantZhCN = {
       get_read_item: "快照项目明细",
     },
     scope:
-      "只读 AI · 支持当前总览、账户列表与账户详情。暂不支持期间收益、写入、行情刷新与自主导航。",
+      "只读 AI · 支持总览、账户与已结束期间归因（家庭或单账户、基础币种、最多365天）。写入、行情刷新与自主导航仍关闭。",
     ready: "模型已就绪",
     disabled:
       "AI 已关闭或不可用。请在设置 → 内置 AI 凭据保存密钥、填写模型并显式开启。",
@@ -279,6 +289,8 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    offlineLocal:
+      "網路似乎已中斷。本機歷史與停止仍可使用，新模型訊息暫停傳送。",
     traceHelp:
       "後端讀取記錄。此處為讀取時間；行情與來源日期仍保留在查詢資料中。分頁情況僅對應每次回應，不證明所有相關頁均已讀取。",
     morePages: "此回應提示還有後續分頁。",
@@ -286,6 +298,9 @@ export const assistantZhTW = {
     missingReported: "查詢回報了缺少或不完整輸入。",
     missingUnknown: "此處未彙總缺少輸入，不能據此判斷資料完整。",
     source: {
+      compare_financial_context: "財務狀態比較",
+      compare_financial_attribution: "唯讀期間歸因",
+      get_financial_comparison_page: "比較證據分頁",
       get_financial_context: "財務摘要",
       get_financial_context_page: "財務摘要分頁",
       get_financial_context_item: "財務摘要明細",
@@ -296,7 +311,7 @@ export const assistantZhTW = {
       get_read_item: "快照項目明細",
     },
     scope:
-      "唯讀 AI · 支援目前總覽、帳戶清單與帳戶詳情。暫不支援期間報酬、寫入、行情更新與自主導覽。",
+      "唯讀 AI · 支援總覽、帳戶與已結束期間歸因（家庭或單一帳戶、基礎幣別、最多365天）。寫入、行情更新與自主導覽仍關閉。",
     ready: "模型已就緒",
     disabled:
       "AI 已關閉或無法使用。請在設定 → 內建 AI 憑據儲存金鑰、填寫模型並明確開啟。",

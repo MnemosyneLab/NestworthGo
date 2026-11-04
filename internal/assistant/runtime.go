@@ -57,9 +57,10 @@ type Engine interface {
 	Close()
 }
 type Completion struct {
-	Evidence []ReadEvidence
-	History  []byte
-	Text     string
+	Navigation *ModelNavigationTarget
+	Evidence   []ReadEvidence
+	History    []byte
+	Text       string
 }
 type EngineFactory func(context.Context, ModelConfig, []byte, string) (Engine, error)
 
@@ -98,6 +99,7 @@ type RunState struct {
 	Digest string `json:"digest"`
 }
 type Run struct {
+	PageLeaseID    string         `json:"pageLeaseId,omitempty"`
 	Evidence       []ReadEvidence `json:"evidence,omitempty"`
 	Page           PageSelection  `json:"page"`
 	ID             string         `json:"id"`
@@ -130,11 +132,12 @@ type Snapshot struct {
 	Reason          string      `json:"reason"`
 }
 type Conversation struct {
-	ID       string    `json:"id"`
-	Updated  time.Time `json:"updated"`
-	Runs     []Run     `json:"runs"`
-	RunCount int       `json:"runCount"`
-	Offset   int       `json:"offset"`
+	Navigation *ModelNavigationIntent `json:"navigation,omitempty"`
+	ID         string                 `json:"id"`
+	Updated    time.Time              `json:"updated"`
+	Runs       []Run                  `json:"runs"`
+	RunCount   int                    `json:"runCount"`
+	Offset     int                    `json:"offset"`
 }
 type EventPage struct {
 	Events []Event `json:"events"`
@@ -142,6 +145,7 @@ type EventPage struct {
 	Reset  bool    `json:"reset"` // fetch Conversation if journal rolled over
 }
 type StartRequest struct {
+	PageLeaseID    string        `json:"pageLeaseId,omitempty"`
 	Page           PageSelection `json:"page"`
 	Epoch          string        `json:"epoch"`
 	Revision       uint64        `json:"revision"`
@@ -150,26 +154,38 @@ type StartRequest struct {
 	Prompt         string        `json:"prompt"`
 }
 
+type CapabilityLifecycle interface {
+	Revoke()
+	Drop(string)
+	Close()
+}
+
 type Options struct {
-	Ledger      string // host-derived database path + household binding; never UI-supplied
-	Store       Persistence
-	Credentials Credentials
-	Factory     EngineFactory
-	Validate    func(context.Context) bool // recheck live host/database authority
-	Timeout     time.Duration
+	NavigationValidator func(context.Context, ModelNavigationTarget) bool
+	NavigationClock     func() time.Time
+	Capabilities        CapabilityLifecycle
+	Ledger              string // host-derived database path + household binding; never UI-supplied
+	Store               Persistence
+	Credentials         Credentials
+	Factory             EngineFactory
+	Validate            func(context.Context) bool // recheck live host/database authority
+	Timeout             time.Duration
 }
 type Runtime struct {
-	mu        sync.Mutex
-	state     State
-	epoch     string
-	options   Options
-	ctx       context.Context
-	cancel    context.CancelFunc
-	active    map[string]context.CancelFunc
-	wg        sync.WaitGroup
-	closed    bool
-	closeOnce sync.Once
-	closeErr  error
+	pageLease         *DesktopPageLease
+	navigationGrants  map[string]modelNavigationGrant
+	navigationIntents map[string]ModelNavigationIntent
+	mu                sync.Mutex
+	state             State
+	epoch             string
+	options           Options
+	ctx               context.Context
+	cancel            context.CancelFunc
+	active            map[string]context.CancelFunc
+	wg                sync.WaitGroup
+	closed            bool
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 func NewRuntime(o Options) (*Runtime, error) {
@@ -333,7 +349,11 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 			r.state.Conversations[i].HistoryDigest = ""
 		}
 	}
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	r.state.Config = cfg
+	r.clearNavigation()
 	r.state.Revision++
 	return r.persist()
 }
@@ -374,6 +394,10 @@ func (r *Runtime) SetCredential(ctx context.Context, epoch string, key []byte) e
 	if r.options.Credentials.Put(ctx, key) != nil {
 		return ErrUnavailable
 	}
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
+	r.clearNavigation()
 	r.state.Revision++
 	return r.persist()
 }
@@ -386,7 +410,11 @@ func (r *Runtime) DeleteCredential(ctx context.Context, epoch string) error {
 	for _, cancel := range r.active {
 		cancel()
 	}
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	r.state.Config.Enabled = false
+	r.clearNavigation()
 	r.state.Revision++
 	if err := r.persist(); err != nil {
 		return err
@@ -408,6 +436,8 @@ func (r *Runtime) Create(ctx context.Context, epoch string) (Conversation, error
 	for _, c := range r.state.Conversations {
 		if c.Updated.After(cutoff) || r.active[c.ID] != nil {
 			kept = append(kept, c)
+		} else if r.options.Capabilities != nil {
+			r.options.Capabilities.Drop(c.ID)
 		}
 	}
 	r.state.Conversations = kept
@@ -481,7 +511,9 @@ func (r *Runtime) Inspect(ctx context.Context, epoch, id string) (Conversation, 
 	if c == nil {
 		return Conversation{}, ErrStale
 	}
-	return view(*c), nil
+	v := view(*c)
+	r.navigationView(&v)
+	return v, nil
 }
 func (r *Runtime) Events(ctx context.Context, epoch, id string, after uint64) (EventPage, error) {
 	r.mu.Lock()
@@ -519,6 +551,9 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	}
 	for i, c := range r.state.Conversations {
 		if c.ID == id {
+			if r.options.Capabilities != nil {
+				r.options.Capabilities.Drop(id)
+			}
 			r.state.Conversations = append(r.state.Conversations[:i], r.state.Conversations[i+1:]...)
 			return r.persist()
 		}
@@ -529,7 +564,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	if !q.Page.Valid() || !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
 		return Run{}, ErrBudget
 	}
-	digest := promptDigest(q.Prompt, q.Page)
+	digest := promptDigest(q.Prompt, q.Page, q.PageLeaseID)
 	hash := hex.EncodeToString(digest[:])
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -569,14 +604,18 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	// Validate secret taint before persisting user text. Credential-store failures
 	// cannot leak their implementation errors or cause a provider request.
 	if e := r.options.Credentials.With(ctx, func(key []byte) error {
-		if !validSecret(key) || strings.Contains(q.Prompt, string(key)) || strings.Contains(q.Page.AccountID, string(key)) {
+		if !validSecret(key) || strings.Contains(q.Prompt, string(key)) || strings.Contains(q.Page.AccountID, string(key)) || strings.Contains(q.PageLeaseID, string(key)) {
 			return ErrUnavailable
 		}
 		return nil
 	}); e != nil {
 		return Run{}, ErrUnavailable
 	}
-	run := Run{Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
+	grant, grantErr := r.grantForStart(q)
+	if grantErr != nil {
+		return Run{}, grantErr
+	}
+	run := Run{PageLeaseID: q.PageLeaseID, Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
 	c.Runs = append(c.Runs, RunState{Run: run, Digest: hash})
 	c.Updated = run.Created
 	r.event(c, run)
@@ -584,6 +623,9 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		return Run{}, e
 	}
 	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
+	if grant.requestID != "" {
+		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
+	}
 	r.active[c.ID] = cancel
 	history := append([]byte(nil), c.History...)
 	cfg := r.state.Config
@@ -644,6 +686,9 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 		code = "authority_revoked"
 	}
 	r.finish(id, runID, result, state, code)
+	if state == "succeeded" {
+		r.offerNavigation(ctx, id, runID, result)
+	}
 }
 
 // Caller owns mu. Only successful complete runs advance recoverable history.
@@ -702,12 +747,23 @@ func (r *Runtime) Revoke() {
 	defer r.mu.Unlock()
 	r.closed = true
 	r.cancel()
+	r.clearNavigation()
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	for _, cancel := range r.active {
 		cancel()
 	}
 }
 func (r *Runtime) Close() error {
-	r.closeOnce.Do(func() { r.Revoke(); r.wg.Wait(); r.closeErr = r.options.Store.Close() })
+	r.closeOnce.Do(func() {
+		r.Revoke()
+		r.wg.Wait()
+		if r.options.Capabilities != nil {
+			r.options.Capabilities.Close()
+		}
+		r.closeErr = r.options.Store.Close()
+	})
 	return r.closeErr
 }
 
@@ -719,6 +775,10 @@ func (r *Runtime) FenceForRestore() error {
 	defer r.mu.Unlock()
 	r.closed = true
 	r.cancel()
+	r.clearNavigation()
+	if r.options.Capabilities != nil {
+		r.options.Capabilities.Revoke()
+	}
 	for _, cancel := range r.active {
 		cancel()
 	}
@@ -727,6 +787,7 @@ func (r *Runtime) FenceForRestore() error {
 	}
 	r.state.Conversations = []ConversationState{}
 	r.state.Config.Enabled = false
+	r.clearNavigation()
 	r.state.Revision++
 	return r.persist()
 }
@@ -773,7 +834,10 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	if err != nil {
 		return Completion{}, ErrUnavailable
 	}
-	evidence, encodeErr := jsoncodec.Marshal(result.Evidence)
+	if result.Navigation != nil && !result.Navigation.Valid() {
+		return Completion{}, ErrUnavailable
+	}
+	evidence, encodeErr := jsoncodec.Marshal([]any{result.Evidence, result.Navigation})
 	if encodeErr != nil || !validEvidence(result.Evidence) || strings.Contains(string(evidence), string(key)) {
 		return Completion{}, ErrUnavailable
 	}
@@ -783,10 +847,19 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	return result, err
 }
 
-func promptDigest(prompt string, page PageSelection) [32]byte {
-	if page == (PageSelection{}) {
+func promptDigest(prompt string, page PageSelection, leases ...string) [32]byte {
+	lease := ""
+	if len(leases) > 0 {
+		lease = leases[0]
+	}
+	if page == (PageSelection{}) && lease == "" {
 		return sha256.Sum256([]byte(prompt))
 	}
-	raw, _ := jsoncodec.Marshal(page)
+	var raw []byte
+	if lease == "" {
+		raw, _ = jsoncodec.Marshal(page)
+	} else {
+		raw, _ = jsoncodec.Marshal([]any{page, lease})
+	}
 	return sha256.Sum256(append(append([]byte(prompt), 0), raw...))
 }
