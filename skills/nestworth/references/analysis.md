@@ -111,9 +111,9 @@ condition** on each closed civil date in its fixed timezone; the separate
 `triggerPolicy` chooses one hit, consecutive hits, or N hits in M calendar
 days. Missing data is unknown and contributes no hit. Today's unclosed value
 is only a preview. `list_investment_review_rules` pages definitions (at most
-100; continue every nonempty array from its last ID until empty, even after a short page), while
+100; follow page.nextCursor through the final empty page, even after a short page), while
 `list_investment_review_alerts` pages current open alerts in whole instrument
-groups (at most 100; follow `nextCursor`), and
+groups (at most 100; follow `page.nextCursor`), and
 `get_investment_review_coverage` includes current positive holdings whose
 rules are unknown, confirming, healthy or uncomputed without an open alert.
 `get_investment_review_alert` reads one current episode by ID;
@@ -236,8 +236,8 @@ unknown. The latter means the time basis was not recorded or recognized.
 
 For a summary answer, inspect the initial totals and coverage; load detail only
 for requested evidence. For a complete detailed audit, read all three descriptors: `positionsPage`, `gapsPage` and `evidencePage`. Follow
-each `nextCursor` with `get_financial_context_page`, keeping that package's exact
-contextId and the matching section. The initial response has at most one detail
+each `nextCursor` with `get_read_page({cursor, limit?})`; the signed cursor
+retains that package, section and target. The initial response has at most one detail
 row per section. **Zero returned rows with a nextCursor is a deferred section,
 not completion**; request its continuation, which must advance. Detail is
 complete only when the three independently saved section states each have
@@ -245,12 +245,12 @@ complete only when the three independently saved section states each have
 
 Save the complete initial content header (basis, scope, disclosure, versions,
 summary, coverage and dataAsOf) and all three descriptors independently.
-`get_financial_context_page` returns contextId, contentHash, capturedAt,
+`get_read_page` for a context section returns contextId, contentHash, capturedAt,
 cacheExpiresAt, section, items and page. It does not repeat content or unrelated
 section descriptors. Match ID/hash to the saved initial header, append items
 to the returned section, and update only that section from page. For a complete audit, finish when
-all three saved states are complete. Limits default to 50, maximum 100.
-`get_financial_comparison_page` uses the same section/items/page shape with
+all three saved states are complete. Limits default to 25, maximum 100.
+`get_read_page` for a comparison uses the same section/items/page shape with
 comparisonId; retain its initial left/right/change and attribution/precision
 header. Currency, disclosure and financial interpretation still come from that
 exact header; never combine another capture's header with these rows.
@@ -260,17 +260,17 @@ These are tool arguments, with values taken from the corresponding descriptor:
 
 <!-- example: financial-context-positions-page -->
 ```json
-{"contextId":"${contextId}","section":"positions","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 <!-- example: financial-context-gaps-page -->
 ```json
-{"contextId":"${contextId}","section":"gaps","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 <!-- example: financial-context-evidence-page -->
 ```json
-{"contextId":"${contextId}","section":"evidence","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 Pages remain frozen through ordinary changes and expire five minutes after
@@ -336,11 +336,9 @@ coverage rather than dropping it. Do not add per-account return percentages
 or recompute an invented portfolio rate from rounded display values.
 
 `list_activities` has inclusive local-date filters, account/instrument/kind
-filters and bounded pagination. Continue with all three returned cursor fields
-(`afterEffectiveAt`, `afterCreatedAt`, `afterId`); do not silently analyze only
+filters and bounded pagination. Continue `page.nextCursor` using `get_read_page` with only cursor and optional limit; do not silently analyze only
 the first page. For a complete contribution traversal, follow the rows section's
-`page.nextCursor` with `get_read_page` using the same `captureId` and
-`section=rows` until that section's `page.hasMore` is false. A shorter page does
+`page.nextCursor` with `get_read_page({cursor, limit?})` until that section's `page.hasMore` is false. A shorter page does
 not mean completion; keep the returned cursor rather than calculating an offset.
 
 Zero is a measured result; null/unavailable is missing evidence. Report partial
@@ -375,15 +373,16 @@ not_created, measured zero and missing amounts as returned.
 
 The initial response has at most one row per related section. Inspect all three
 page descriptors. Supply section to read a related section (even if empty), then
-follow its nextCursor with the same contextId, ref and section. A zero-row initial
-section with hasMore is deferred. Limits default to 50, maximum 100. Whole-package
+follow its nextCursor with get_read_page({cursor, limit?}); its signed scope
+retains contextId, ref and section. A zero-row initial
+section with hasMore is deferred. Limits default to 25, maximum 100. Whole-package
 page cursors and another item's cursors are not interchangeable. Keep the three
 initial descriptors independently and update only the requested section after
 each item page, ignoring its other offset-zero descriptors; these describe starts, not accumulated progress.
 
 <!-- example: financial-context-item-page -->
 ```json
-{"contextId":"${contextId}","ref":"${ref}","section":"${section}","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 Current and closed-day packages work identically. There is no transaction
@@ -458,17 +457,17 @@ summary change.
 
 <!-- example: financial-comparison-positions-page -->
 ```json
-{"comparisonId":"${comparisonId}","section":"positions","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 <!-- example: financial-comparison-gaps-page -->
 ```json
-{"comparisonId":"${comparisonId}","section":"gaps","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 <!-- example: financial-comparison-evidence-page -->
 ```json
-{"comparisonId":"${comparisonId}","section":"evidence","cursor":"${cursor}","limit":50}
+{"cursor":"${cursor}","limit":25}
 ```
 
 Send one JSON-RPC object per request, never batches. Zero rows plus nextCursor
@@ -602,7 +601,7 @@ identity-bearing workflows require the corresponding disclosure intent; use the
 normalized period and actual scope ID and describe them as separate captures.
 **They are not detail pages or proof for this comparisonId.** Do not quietly substitute them after a compatibility failure.
 
-Read positions/gaps/evidence with `get_financial_comparison_page`, saving the
+Read positions/gaps/evidence with `get_read_page`, saving the
 three section states independently as described above. Retain the initial link
 and precision summary; pages return only section/items/page and capture
 identity/hash/expiry. The cached link and fixed five-minute TTL remain unchanged. On expiry,

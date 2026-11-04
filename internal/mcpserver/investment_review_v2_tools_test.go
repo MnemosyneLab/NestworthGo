@@ -138,7 +138,7 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 		t.Fatalf("expired Wails publication: %+v %v", page, err)
 	}
 	listed := call(t, client, "list_investment_review_alerts", ReviewV2AlertPageInput{Filter: domain.ReviewAlertFilter{Status: "all"}, PageSize: 10}, false)["data"]
-	if !reflect.DeepEqual(listed, jsonObject(t, page)) {
+	if !reflect.DeepEqual(withoutPage(listed), reviewPageBusiness(t, page)) {
 		t.Fatal("MCP/Wails temporal alert status differs")
 	}
 	coverage, err := liquidity.NewService(f.app).ListReviewCoverageV2(t.Context(), liquidity.ListReviewCoverageV2Request{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10})
@@ -146,7 +146,7 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 		t.Fatalf("expired Wails coverage: %+v %v", coverage, err)
 	}
 	covered := call(t, client, "get_investment_review_coverage", ReviewV2CoverageInput{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 10}, false)["data"]
-	if !reflect.DeepEqual(covered, jsonObject(t, coverage)) {
+	if !reflect.DeepEqual(withoutPage(covered), reviewPageBusiness(t, coverage)) {
 		t.Fatal("MCP/Wails temporal coverage status differs")
 	}
 }
@@ -227,4 +227,22 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 		bad.RuleID, bad.MutationID, bad.Spec = uuid.NewString(), uuid.NewString(), object
 		call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": bad}, true)
 	}
+}
+
+// Paging metadata is transport-owned; keep every authoritative business field
+// in the Wails parity oracle, including publication status/revision and rows.
+func reviewPageBusiness(t *testing.T, v any) map[string]any {
+	out := jsonObject(t, v)
+	delete(out, "nextCursor")
+	return out
+}
+func withoutPage(v any) map[string]any {
+	out := v.(map[string]any)
+	copy := map[string]any{}
+	for k, v := range out {
+		if k != "page" {
+			copy[k] = v
+		}
+	}
+	return copy
 }

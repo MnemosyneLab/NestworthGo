@@ -21,7 +21,7 @@ func TestStableReadEnvelopeOutputSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := map[string]any{"schemaVersion": "mcp-read/1", "captureId": "capture", "captureKind": "synthetic", "capturedAt": "time", "expiresAt": "time", "contentHash": "hash", "summaryHash": "summaryhash", "section": "rows", "items": []any{}, "page": map[string]any{"total": 0, "returned": 0, "hasMore": false, "nextCursor": nil}}
+	base := map[string]any{"schemaVersion": "mcp-read/1", "captureId": "capture", "captureKind": "synthetic", "capturedAt": "time", "expiresAt": "time", "contentHash": "hash", "summaryHash": "summaryhash", "section": "rows", "items": []any{}, "page": map[string]any{"total": 0, "returned": 0, "hasMore": false, "nextCursor": nil, "consistency": "frozen"}}
 	good := map[string]any{"data": base}
 	if err := resolved.Validate(&good); err != nil {
 		t.Fatal(err)

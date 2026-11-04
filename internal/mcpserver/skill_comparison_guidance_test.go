@@ -79,13 +79,13 @@ func skillIndependentPages(t *testing.T, client *mcp.ClientSession, kind, id, re
 				continue
 			}
 			pending = true
-			tool, example := "get_financial_context_page", "financial-context-"+section+"-page"
+			tool, example := "get_read_page", "financial-context-"+section+"-page"
 			values := map[string]string{"contextId": id, "comparisonId": id, "ref": ref, "section": section, "cursor": before.NextCursor}
 			if kind == "item" {
-				tool, example = "get_financial_context_item", "financial-context-item-page"
+				tool, example = "get_read_page", "financial-context-item-page"
 			}
 			if kind == "comparison" {
-				tool, example = "get_financial_comparison_page", "financial-comparison-"+section+"-page"
+				tool, example = "get_read_page", "financial-comparison-"+section+"-page"
 			}
 			args := skillExample(t, "analysis", example, values)
 			args["limit"] = 1
@@ -202,7 +202,7 @@ func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
 		content := r.Content
 		info := r.PositionsPage
 		for info.HasMore {
-			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", skillExample(t, "analysis", "financial-comparison-positions-page", map[string]string{"comparisonId": r.ComparisonID, "cursor": info.NextCursor}), false))
+			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "analysis", "financial-comparison-positions-page", map[string]string{"comparisonId": r.ComparisonID, "cursor": info.NextCursor}), false))
 			content.Positions = append(content.Positions, page.Content.Positions...)
 			info = page.PositionsPage
 		}

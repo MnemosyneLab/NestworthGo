@@ -74,7 +74,30 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 			if err := jsoncodec.Unmarshal(priorAuditRaw, &audit); err != nil {
 				t.Fatal(err)
 			}
+			paginationRaw, err := os.ReadFile("testdata/pagination-discovery-main-9666aab.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var pagination map[string]struct {
+				Before    *mcp.Tool `json:"before"`
+				AfterHash string    `json:"afterHash"`
+			}
+			if err := jsoncodec.Unmarshal(paginationRaw, &pagination); err != nil {
+				t.Fatal(err)
+			}
+
 			for _, tool := range listed.Tools {
+				// Before metadata is independently captured from main 9666aab.
+				// Assert each intentional pagination delta before projecting it
+				// back; the historical allowlist/permission guards remain intact.
+				delta, pagingChanged := pagination[tool.Name]
+				if pagingChanged {
+					raw, _ := jsoncodec.Marshal(tool)
+					digest := sha256.Sum256(raw)
+					if hex.EncodeToString(digest[:]) != delta.AfterHash {
+						t.Fatalf("unreviewed pagination metadata: %s", tool.Name)
+					}
+				}
 				if expected := readOutputSchema(tool.Name); expected != nil {
 					if !reflect.DeepEqual(jsonObject(t, tool.OutputSchema), jsonObject(t, expected)) {
 						t.Fatalf("read output contract drift: %s", tool.Name)
@@ -82,6 +105,12 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 					// Historical discovery used Response.data:any. Project only
 					// this reviewed output-envelope delta for the old hash.
 					copy := *tool
+					copy.OutputSchema = map[string]any{"type": "object", "properties": map[string]any{"data": true}, "required": []string{"data"}, "additionalProperties": false}
+					tool = &copy
+				}
+
+				if pagingChanged {
+					copy := *delta.Before
 					copy.OutputSchema = map[string]any{"type": "object", "properties": map[string]any{"data": true}, "required": []string{"data"}, "additionalProperties": false}
 					tool = &copy
 				}

@@ -26,24 +26,25 @@ func TestActivityBytePagesPreserveCompleteUnion(t *testing.T) {
 	}
 	client, recorder := connectPayload(t, fx.service)
 	args := map[string]any{"accountId": fx.checking, "limit": 100}
+	name := "list_activities"
 	seen := map[string]bool{}
 	for calls := 0; ; calls++ {
 		if calls > 20 {
 			t.Fatal("cursor did not progress")
 		}
-		page := call(t, client, "list_activities", args, false)["data"].(map[string]any)
-		for _, row := range page["activities"].([]any) {
+		page := call(t, client, name, args, false)["data"].(map[string]any)
+		for _, row := range page["items"].([]any) {
 			id := row.(map[string]any)["id"].(string)
 			if seen[id] {
 				t.Fatal("duplicate activity", id)
 			}
 			seen[id] = true
 		}
-		if page["hasMore"] != true {
+		if page["page"].(map[string]any)["hasMore"] != true {
 			break
 		}
-		next := page["next"].(map[string]any)
-		args["afterEffectiveAt"], args["afterCreatedAt"], args["afterId"] = next["effectiveAt"], next["createdAt"], next["id"]
+		args = map[string]any{"cursor": page["page"].(map[string]any)["nextCursor"], "limit": 100}
+		name = "get_read_page"
 	}
 	if len(seen) != 18 {
 		t.Fatal("missing activities", len(seen))

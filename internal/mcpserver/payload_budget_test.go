@@ -418,13 +418,13 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	scaleSection(t, c, agents, "records")
 	// Activity lists use their native three-part keyset and complete item reads.
 	activities := call(t, c, "list_activities", map[string]any{"accountId": f.checking, "limit": 5}, false)["data"].(map[string]any)
-	activityRows := activities["activities"].([]any)
+	activityRows := activities["items"].([]any)
 	if len(activityRows) == 0 {
 		t.Fatal("activity fixture is empty")
 	}
 	call(t, c, "get_activity", IDInput{activityRows[0].(map[string]any)["id"].(string)}, false)
-	if cursor, ok := activities["next"].(map[string]any); ok {
-		call(t, c, "list_activities", map[string]any{"accountId": f.checking, "limit": 5, "afterEffectiveAt": cursor["effectiveAt"], "afterCreatedAt": cursor["createdAt"], "afterId": cursor["id"]}, false)
+	if cursor, ok := activities["page"].(map[string]any)["nextCursor"].(string); ok {
+		call(t, c, "get_read_page", map[string]any{"cursor": cursor, "limit": 5}, false)
 	}
 	// The bounded primary current overview is equivalent to every GUI field,
 	// including evidence/labels, using ordinary default requests.
@@ -521,11 +521,11 @@ func runPayloadBudgets(t *testing.T, large bool) {
 			}
 			seenCoverage[id] = true
 		}
-		cursor, _ := coverage["nextCursor"].(string)
+		cursor, _ := coverage["page"].(map[string]any)["nextCursor"].(string)
 		if cursor == "" {
 			break
 		}
-		coverage = call(t, c, "get_investment_review_coverage", ReviewV2CoverageInput{Filter: domain.ReviewCoverageFilter{Status: "all"}, PageSize: 5, Cursor: cursor}, false)["data"].(map[string]any)
+		coverage = call(t, c, "get_read_page", ReadPageInput{Cursor: cursor, Limit: 5}, false)["data"].(map[string]any)
 		if coverage["reportRevision"] != coverageRevision {
 			t.Fatal("mixed review publication")
 		}

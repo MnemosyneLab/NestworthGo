@@ -1,4 +1,4 @@
-# Frozen management reads and atomic batches
+# Business pagination and atomic batches
 
 Discover all tool-list pages first, then reuse schemas for this connection. Liquidity, products, instruments, upcoming actions, Agent
 records, account valuations, directory lists/holdings, scan_data_health and
@@ -14,14 +14,14 @@ An initial `mcp-read/1` capture response has captureId, captureKind, capturedAt,
 expiresAt, contentHash, summaryHash, normalized query, summary and sections. Each section
 has items and page {total, returned, hasMore, nextCursor}. Empty arrays mean no
 matches only when hasMore=false and nextCursor=null. A deferred section may have
-returned=0 and a cursor. Follow every relevant cursor using `get_read_page` with
-captureId, section, cursor and optional limit; filter/sort cannot change mid-read.
+returned=0 and a cursor. Follow every relevant cursor using `get_read_page` with only cursor and optional
+limit; the signed cursor retains capture/section/target/query. Filters and sort
+cannot change mid-read.
 `get_read_page` returns the same capture identity/hash/expiry plus section,
 items and page; it does not repeat query, summary or unrelated sections. Retain
 the initial header, append only the returned section and update only that
 section's saved page state.
-Default limit is 25 for ordinary captures and 100 for market-comparison captures;
-maximum 100. Actual pages may be smaller to fit 65,536 final
+Default limit is 25 for all business continuations; maximum 100. Actual pages may be smaller to fit 65,536 final
 HTTP bytes, including duplicated SDK text and structured content. Never claim
 “all” from one page. Preserve captureId/contentHash and check complete unions.
 
@@ -101,7 +101,7 @@ names exactly, including reservations/<productId> or a market target section.
 
 <!-- example: scale-page -->
 ```json
-{"captureId":"${captureId}","section":"${section}","cursor":"${cursor}","limit":25}
+{"cursor":"${cursor}","limit":25}
 ```
 
 <!-- example: scale-market-current -->
@@ -144,7 +144,7 @@ names exactly, including reservations/<productId> or a market target section.
 Discover `reconciliation_session_read`. `list_reconciliation_sessions` filters
 status/account/date and sorts asc/desc. `get_reconciliation_session_page` pages
 accounts/items/changes/links/attempts, with account/outcome filters and sort.
-Default 25/max 50; pages shrink automatically to fit the complete 65,536-byte
+Default 25/max 100; pages shrink automatically to fit the complete 65,536-byte
 JSON-RPC response, including SDK text and structuredContent. A single oversized
 item fails with too_large; reducing limit cannot recover it. Never treat a
 rejected response as an empty section. Cursors bind the filters,
@@ -188,15 +188,24 @@ upfront. Do not create a second capture and mix its evidence into the first.
 
 ## Live reads and focused evidence
 
-Activity, product-operation and review pages also honor the complete 64 KiB wire
-budget; row limits are upper bounds. Follow their returned cursor even after a
-short page. Rules and suppressions return arrays: continue every nonempty array
-with its last ID until an empty array. Review publication cursors remain bound
-to revision/filter; restart after staleness. Activity/product history and
-rule/suppression identity cursors are live reads, not frozen snapshots: restart
-if sources change and do not claim a consistent captured audit from mixed pages.
-A complete instrument group or event is never cut apart to fit a page. An
-oversized single group/detail fails explicitly; preserve that limitation.
+All business page descriptors share {returned, hasMore, nextCursor, consistency,
+total?}. Terminal nextCursor is null. All continuations use get_read_page with
+only cursor and optional limit (default 25/max 100). Live/version-bound initial
+reads return items/page; ordinary frozen initial reads use sections[name] with
+items/page. Financial initial and focused-item responses retain their immutable
+minimal-disclosure content and positionsPage/gapsPage/evidencePage descriptors;
+these descriptors use the same page fields and universal continuation entry.
+Follow a cursor even after a short or deferred page. Counts are not proof that
+evidence has been delivered. Total is omitted when not authoritative.
+
+consistency=frozen retains capture/hash/TTL. consistency=version_bound retains
+publication/filter or reconciliation evidence/revision; restart on staleness.
+consistency=live does not promise a snapshot: restart after source changes before
+claiming a coherent audit. Rules/suppressions conservatively continue every
+nonempty page through a final empty page, now with an opaque signed cursor.
+No client constructs last-ID, triple-keyset or native product cursors.
+A complete instrument group/event is never split; an oversized single item fails
+explicitly with too_large and must not be skipped or interpreted as absence.
 
 Initial financial summaries can answer totals/coverage questions without reading
 every evidence section. Read only relevant detail, but finish all requested
@@ -211,19 +220,16 @@ Limits are upper row counts; complete response bytes may produce fewer rows.
 
 | Family | Default / maximum | Continuation |
 | --- | --- | --- |
-| Tool discovery | 16 tools per page | tools/list nextCursor; reuse all schemas |
-| Ordinary mcp-read/1 initial capture | 25 / 100 | get_read_page |
+| Tool discovery (protocol exception) | 16 definitions | tools/list nextCursor |
+| Ordinary initial business reads and every continuation | 25 / 100 | get_read_page({cursor, limit?}) |
 | Current/historical overview and analyze_period initial sections | 5 / 100 | get_read_page |
-| Unified market records initial capture | 100 / 100 | get_read_page defaults to 25 |
-| Import comparison initial capture and pages | 100 / 100 | get_read_page |
-| Ordinary get_read_page | 25 / 100 | section/items/page; keep the initial header |
-| Financial context/comparison initial capture | At most 1 row per section | Dedicated context/comparison page tools |
-| Financial section/item continuation | 50 / 100 | contextId or comparisonId; item also retains ref |
-| Activity list | 100 / 100 | hasMore plus all three next cursor fields |
-| Product operation history | 25 / 100 | next as cursor, same productId |
-| Published review/live rule/suppression pages | Explicit pageSize 1–100 required | nextCursor or last identity as documented |
-| Reconciliation session evidence pages | 25 / 50 | revision/content-bound cursor |
-| Repair progress | No capture or pages | Poll exact jobId; view=evidence uses ordinary mcp-read/1 |
+| Financial context/comparison/focused-item initial sections | At most 1 row per section | get_read_page |
+| Repair progress | No capture or pages | Poll exact jobId; view=evidence uses frozen pages |
+
+Initial financial headers and focused-item responses retain their established
+disclosure/alias and hash structure, without duplicating rows in a second shape.
+Their section cursors still carry all routing scope. Explicit-scope financial
+page tools remain aliases; they are not required by the shipped workflow.
 
 For mcp-read/1, fixed TTL is 5 minutes; per-capture budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial

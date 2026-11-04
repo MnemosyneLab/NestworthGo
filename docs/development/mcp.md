@@ -18,7 +18,7 @@ This does not install an App assistant or add App confirmation to external MCP.
 
 `get_financial_context` captures current state or one closed date with a
 consistent asset/liability summary, exact nullable amounts, local gaps and
-evidence. `get_financial_context_page` reads bounded details from that same
+evidence. `get_read_page({cursor,limit?})` reads bounded details from that same
 frozen result. `get_financial_context_item` selects related account, position or
 evidence rows from a frozen package at its already selected disclosure without
 rereading SQLite. All three
@@ -666,8 +666,7 @@ The initial envelope includes schemaVersion=mcp-read/1, captureId/captureKind,
 capturedAt/expiresAt, contentHash/summaryHash, normalized query, summary and
 sections. Each section has items and page {total,returned,hasMore,nextCursor};
 nextCursor is null on completion, arrays are always arrays. A zero-row deferred
-section with a cursor is not empty. get_read_page takes captureId,section,cursor,
-limit? and returns the same capture metadata/hash, section, items and page.
+section with a cursor is not empty. get_read_page takes cursor and optional limit and returns the same capture metadata/hash, section, items and page.
 Filter and sort cannot change during continuation. get_read_item takes
 captureId,section=products,id and returns the same capture metadata, full product,
 permittedActions/disabledReasons and reservations/<productId> page entry.
@@ -839,7 +838,7 @@ See [the session architecture](account-reconciliation.md) and
 [the user workflow](../user/account-reconciliation.md). Session evidence reads
 are available in all permission modes; attestations require ledger_write.
 Headers and pageable account/item/attempt/change/link evidence are separate.
-Paged reconciliation evidence defaults to 25/max 50 rows and shrinks to fit
+Paged reconciliation evidence defaults to 25/max 100 rows and shrinks to fit
 65,536 complete JSON-RPC bytes, including both SDK representations. Preserve
 stale_cursor on changed revision/evidence; too_large identifies a single item
 that cannot fit. No evidence is truncated or silently skipped. Session writes retain
@@ -1038,8 +1037,8 @@ requeries under one application operation fence; cursor positions advance after
 exactly delivered rows. Single complete rows/groups and headers are not split or
 truncated. Review publication cursors retain their revision/filter checks.
 Activity/product history and rule/suppression lists remain live reads. Rules and
-suppressions return arrays: continue every nonempty array from its last ID until
-empty, including short pages. They do not gain frozen-audit guarantees.
+suppressions return items/page: continue every nonempty page via its signed
+nextCursor until an empty page, including short pages. They do not gain frozen-audit guarantees.
 
 Known-ID reads require neither context nor catalog calls. Initial financial
 summaries answer summary questions without downloading every detail section;
@@ -1104,3 +1103,14 @@ success outputSchema surface. See the [MCP tool output contract](https://modelco
 This avoids presenting an error object as a successful read envelope. A client
 can consume metadata programmatically; whether it forwards metadata to a model
 is not observed or assumed. Original isError/text code/field/message remain.
+
+## Unified business pagination
+
+See [the pagination inventory and contract](mcp-pagination.md) for the authoritative
+parameter, response, consistency, budget and recovery rules. Every business
+continuation uses get_read_page with only cursor and optional limit (25/max 100).
+Live/version-bound initial responses use items/page, while frozen initial sections
+and financial disclosure headers keep their owning structure. No caller builds
+triple activity keys, product cursors or last-ID review cursors. Both external
+MCP and built-in AI use the same capability projection and routing. The MCP
+implementation version is 3.0.0; the distributable skill is independently 6.0.0.

@@ -35,8 +35,8 @@ var skillSchemaExamples = map[string]map[string][]string{
 	},
 	"analysis": {
 		"get_historical_overview": {"historical-overview"}, "get_historical_overview_series": {"historical-overview-series"}, "analyze_period": {"analyze-period"},
-		"get_financial_context": {"financial-context", "financial-context-named"}, "get_financial_context_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page"}, "get_financial_context_item": {"financial-context-item", "financial-context-item-page"},
-		"compare_financial_context": {"financial-comparison"}, "get_financial_comparison_page": {"financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
+		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page", "financial-context-item-page", "financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "get_financial_context_item": {"financial-context-item"},
+		"compare_financial_context": {"financial-comparison"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
 	},
 	"paging-and-batches": {
 		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item", "compare-import-item"}, "get_read_page": {"scale-page"},

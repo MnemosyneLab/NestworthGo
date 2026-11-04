@@ -114,24 +114,21 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 		}
 	}
 	first := call(t, c, "list_activities", map[string]any{"limit": 1, "accountId": accountID}, false)["data"].(map[string]any)
-	if first["hasMore"] != true || len(first["activities"].([]any)) != 1 {
+	if first["page"].(map[string]any)["hasMore"] != true || len(first["items"].([]any)) != 1 {
 		t.Fatalf("first page: %+v", first)
 	}
-	if first["activities"].([]any)[0].(map[string]any)["id"] != ids[1] {
+	if first["items"].([]any)[0].(map[string]any)["id"] != ids[1] {
 		t.Fatalf("unexpected first activity: %+v", first)
 	}
-	cursor := first["next"].(map[string]any)
-	second := call(t, c, "list_activities", map[string]any{
-		"limit": 1, "accountId": accountID,
-		"afterEffectiveAt": cursor["effectiveAt"], "afterCreatedAt": cursor["createdAt"], "afterId": cursor["id"],
-	}, false)["data"].(map[string]any)
-	if second["hasMore"] != false || second["activities"].([]any)[0].(map[string]any)["id"] != ids[0] {
+	cursor := first["page"].(map[string]any)["nextCursor"]
+	second := call(t, c, "get_read_page", map[string]any{"cursor": cursor, "limit": 1}, false)["data"].(map[string]any)
+	if second["page"].(map[string]any)["hasMore"] != false || second["items"].([]any)[0].(map[string]any)["id"] != ids[0] {
 		t.Fatalf("second page: %+v", second)
 	}
 	filtered := call(t, c, "list_activities", map[string]any{
 		"kinds": []string{"cash_in"}, "fromLocalDate": "2025-03-02", "toLocalDate": "2025-03-03",
 	}, false)["data"].(map[string]any)
-	if got := filtered["activities"].([]any); len(got) != 1 || got[0].(map[string]any)["id"] != ids[0] {
+	if got := filtered["items"].([]any); len(got) != 1 || got[0].(map[string]any)["id"] != ids[0] {
 		t.Fatalf("filtered activities: %+v", filtered)
 	}
 	activity := call(t, c, "get_activity", IDInput{ID: ids[0]}, false)["data"].(map[string]any)
