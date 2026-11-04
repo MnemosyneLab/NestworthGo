@@ -5,6 +5,9 @@ package einoopenai
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -49,14 +52,102 @@ var _ model.AgenticModel = (*Model)(nil)
 var errProtocol = errors.New("provider response rejected: invalid or unsuccessful completion")
 var errLimit = errors.New("provider response rejected: resource limit")
 
-const nativeKey = "nestworth.responses.reasoning.v1"
+const nativeKey = "nestworth.responses.output.v1"
 
 type roundKey struct{}
+type nativeState struct {
+	Output        []json.RawMessage `json:"output"`
+	ContentSHA256 string            `json:"content_sha256"`
+}
+
 type round struct {
 	stream      bool
-	native      map[string]json.RawMessage
-	nativeOrder []string
+	replay      map[string][]json.RawMessage
+	replayOrder []string
 	output      []json.RawMessage
+}
+
+// Preserve each complete native output group at its original history position.
+// The private markers exist only between the upstream request builder and our
+// transport. They are replaced before any request reaches the network.
+func (m *Model) prepareInput(in []*schema.AgenticMessage, state *round) ([]*schema.AgenticMessage, error) {
+	prepared := make([]*schema.AgenticMessage, len(in))
+	nativeBytes, nativeItems := 0, 0
+	ids := map[string]bool{}
+	for i, msg := range in {
+		if msg == nil {
+			return nil, errProtocol
+		}
+		prepared[i] = msg
+		raw, exists := msg.Extra[nativeKey]
+		if !exists {
+			// Generated native messages may not silently fall back to the lossy converter.
+			if msg.ResponseMeta != nil && msg.ResponseMeta.OpenAIExtension != nil {
+				return nil, errProtocol
+			}
+			if msg.Role == schema.AgenticRoleTypeAssistant {
+				if len(msg.ContentBlocks) != 1 {
+					return nil, errProtocol
+				}
+				for _, block := range msg.ContentBlocks {
+					if block == nil || block.Type != schema.ContentBlockTypeAssistantGenText || block.AssistantGenText == nil || block.AssistantGenText.OpenAIExtension != nil {
+						return nil, errProtocol
+					}
+				}
+			}
+			continue
+		}
+		s, ok := raw.(string)
+		if !ok || len(s) > m.limits.Bytes || strictJSON([]byte(s)) != nil || msg.Role != schema.AgenticRoleTypeAssistant {
+			return nil, errProtocol
+		}
+		nativeBytes += len(s)
+		if nativeBytes > m.limits.Bytes {
+			return nil, errLimit
+		}
+		var snapshot nativeState
+		if jsoncodec.Unmarshal([]byte(s), &snapshot) != nil || snapshot.Output == nil {
+			return nil, errProtocol
+		}
+		seal, err := nativeSeal(msg, snapshot.Output)
+		if err != nil || seal != snapshot.ContentSHA256 {
+			return nil, errProtocol
+		}
+		nativeItems += len(snapshot.Output)
+		if nativeItems > m.limits.Items {
+			return nil, errLimit
+		}
+		for _, item := range snapshot.Output {
+			obj, err := validateItem(item)
+			if err != nil {
+				return nil, err
+			}
+			id := str(obj, "id")
+			if ids[id] {
+				return nil, errProtocol
+			}
+			ids[id] = true
+		}
+		marker := "nestworth_native_" + rand.Text()
+		state.replay[marker] = snapshot.Output
+		state.replayOrder = append(state.replayOrder, marker)
+		prepared[i] = &schema.AgenticMessage{Role: schema.AgenticRoleTypeAssistant,
+			ContentBlocks: []*schema.ContentBlock{schema.NewContentBlock(&schema.AssistantGenText{Text: marker})}}
+	}
+	return prepared, nil
+}
+
+// A consistency check for accidental edits/reordering, never approval authority.
+func nativeSeal(msg *schema.AgenticMessage, output []json.RawMessage) (string, error) {
+	raw, err := jsoncodec.Marshal(struct {
+		Blocks []*schema.ContentBlock `json:"blocks"`
+		Output []json.RawMessage      `json:"output"`
+	}{msg.ContentBlocks, output})
+	if err != nil {
+		return "", errProtocol
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func New(ctx context.Context, cfg Config) (*Model, error) { return newModel(ctx, cfg, false) }
@@ -120,49 +211,16 @@ func (m *Model) Stream(ctx context.Context, in []*schema.AgenticMessage, opts ..
 func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, stream bool, opts ...model.Option) (*schema.AgenticMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.limits.Timeout)
 	defer cancel()
-	state := &round{stream: stream, native: map[string]json.RawMessage{}}
-	nativeBytes := 0
-	for _, msg := range in {
-		if msg == nil {
-			return nil, errProtocol
-		}
-		raw, exists := msg.Extra[nativeKey]
-		if !exists {
-			continue
-		}
-		s, ok := raw.(string)
-		if !ok || len(s) > m.limits.Bytes || strictJSON([]byte(s)) != nil {
-			return nil, errProtocol
-		}
-		nativeBytes += len(s)
-		if nativeBytes > m.limits.Bytes {
-			return nil, errLimit
-		}
-		var items []json.RawMessage
-		if jsoncodec.Unmarshal([]byte(s), &items) != nil || len(items) > m.limits.Items {
-			return nil, errProtocol
-		}
-		for _, item := range items {
-			obj, err := validateItem(item)
-			if err != nil || str(obj, "type") != "reasoning" || str(obj, "id") == "" {
-				return nil, errProtocol
-			}
-			id := str(obj, "id")
-			if _, exists := state.native[id]; exists {
-				return nil, errProtocol
-			}
-			if len(state.native) >= m.limits.Items {
-				return nil, errLimit
-			}
-			state.native[id] = item
-			state.nativeOrder = append(state.nativeOrder, id)
-		}
+	state := &round{stream: stream, replay: map[string][]json.RawMessage{}}
+	prepared, err := m.prepareInput(in, state)
+	if err != nil {
+		return nil, err
 	}
 	ctx = context.WithValue(ctx, roundKey{}, state)
 	// The upstream nonstream converter preserves complete native reasoning. Its
 	// unsafe streaming converter is never invoked. The transport changes the wire
 	// mode and returns the verified terminal response as JSON to the same SDK.
-	msg, err := m.inner.Generate(ctx, in, opts...)
+	msg, err := m.inner.Generate(ctx, prepared, opts...)
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -172,23 +230,19 @@ func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, strea
 	if msg == nil {
 		return nil, errProtocol
 	}
-	var native []json.RawMessage
-	for _, raw := range state.output {
-		obj, _ := object(raw)
-		if str(obj, "type") == "reasoning" {
-			native = append(native, raw)
-		}
+	seal, err := nativeSeal(msg, state.output)
+	if err != nil {
+		return nil, err
 	}
-	if len(native) > 0 {
-		raw, err := jsoncodec.Marshal(native)
-		if err != nil {
-			return nil, errProtocol
-		}
-		if msg.Extra == nil {
-			msg.Extra = map[string]any{}
-		}
-		msg.Extra[nativeKey] = string(raw)
+	raw, err := jsoncodec.Marshal(nativeState{Output: state.output, ContentSHA256: seal})
+	if err != nil {
+		return nil, errProtocol
 	}
+	if msg.Extra == nil {
+		msg.Extra = map[string]any{}
+	}
+	msg.Extra[nativeKey] = string(raw)
+
 	return msg, nil
 }
 
@@ -223,24 +277,33 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errProtocol
 	}
 	seen := map[string]bool{}
-	for i, raw := range input {
+	var restored []json.RawMessage
+	for _, raw := range input {
 		item, err := object(raw)
 		if err != nil {
 			return nil, errProtocol
 		}
-		if str(item, "type") == "reasoning" {
-			id := str(item, "id")
-			original, ok := state.native[id]
-			if !ok || seen[id] || len(seen) >= len(state.nativeOrder) || state.nativeOrder[len(seen)] != id {
+		marker := nativeMarker(item)
+		if original, ok := state.replay[marker]; ok {
+			if seen[marker] || len(seen) >= len(state.replayOrder) || state.replayOrder[len(seen)] != marker {
 				return nil, errProtocol
 			}
-			input[i], seen[id] = original, true
+			seen[marker] = true
+			restored = append(restored, original...)
+		} else {
+			if str(item, "type") == "reasoning" {
+				return nil, errProtocol
+			}
+			restored = append(restored, raw)
 		}
 	}
-	if len(seen) != len(state.native) {
+	if len(seen) != len(state.replay) {
 		return nil, errProtocol
 	}
-	fields["input"], _ = jsoncodec.Marshal(input)
+	if restored == nil {
+		restored = []json.RawMessage{}
+	}
+	fields["input"], _ = jsoncodec.Marshal(restored)
 	fields["stream"], _ = jsoncodec.Marshal(state.stream)
 	fields["store"] = json.RawMessage("false")
 	fields["include"] = json.RawMessage(`["reasoning.encrypted_content"]`)
@@ -321,4 +384,15 @@ func boundedRead(r io.Reader, limit int) ([]byte, error) {
 		return nil, errProtocol
 	}
 	return raw, nil
+}
+
+func nativeMarker(item map[string]json.RawMessage) string {
+	if str(item, "role") != "assistant" || str(item, "type") != "message" {
+		return ""
+	}
+	var content []map[string]json.RawMessage
+	if jsoncodec.Unmarshal(item["content"], &content) != nil || len(content) != 1 || str(content[0], "type") != "output_text" {
+		return ""
+	}
+	return str(content[0], "text")
 }

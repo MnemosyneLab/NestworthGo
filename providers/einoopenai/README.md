@@ -50,16 +50,23 @@ Live display-token streaming is deferred; this increases time to first display.
    arguments. Cancellation and bounds are checked before returning a message.
    An already dispatched tool's own transaction/outcome semantics still belong
    to the capability layer; this adapter does not provide rollback or approval.
-4. Complete native reasoning items, including encrypted content, IDs, status,
-   multiple summary/content entries, future fields and exact numeric lexemes,
-   are retained in a versioned JSON-string sidecar in `AgenticMessage.Extra`.
-   The next real SDK request replaces the converter's potentially lossy native
-   reasoning item with that captured item. Missing, duplicate or unmatched native
-   history is refused. Encrypted content present at added or first arriving at done is covered;
-   conflicting snapshots are rejected. This sidecar must survive conversation
-   persistence/checkpoints. It is internal provider state, **never display text**.
-   UI consumers must select `AssistantGenText` explicitly, never serialize or
-   render the entire model message, `Reasoning`, metadata or `Extra` as chat text.
+4. Complete native **output groups** are retained in a versioned JSON-string
+   sidecar in `AgenticMessage.Extra`: reasoning, function calls and whole assistant
+   messages. This preserves encrypted content, IDs, order, nullable fields,
+   message `phase`, refusal parts, multipart message boundaries, future fields
+   and exact numeric lexemes. On the next request, private per-round placeholders
+   in the upstream builder are replaced with these captured items before any
+   HTTP request. This bypasses that release's lossy history conversion, which
+   drops phase, rewrites refusals as output text and splits multipart messages
+   into multiple same-ID messages. Placeholders never reach the provider.
+   Missing/duplicate/unmatched state or edited/reordered Eino content is refused;
+   a digest binds native output and converted content for consistency, never
+   approval authority. The
+   `nestworth.responses.output.v1` sidecar must survive serialization/checkpoints.
+   Earlier draft sidecar formats are refused rather than replayed lossily.
+   Native state is **never display text**. UI consumers must select visible text
+   or refusal fields explicitly, never render the entire model message,
+   `Reasoning`, metadata or `Extra` as chat text.
 5. The wire boundary enforces `store:false`, encrypted reasoning inclusion,
    disabled automatic truncation and zero SDK retries. Previous-response IDs,
    remote conversations/background execution, explicit remote cache keys/retention
@@ -83,6 +90,24 @@ fixtures and explicit review. Model choice and credentials are host-owned;
 `Config.APIKey` is an integration input, not credential storage or a frontend API.
 The public constructor accepts HTTPS only; tests use a private loopback exception
 and a transport that rejects every other host.
+
+## Provider contract and synthetic coverage
+
+The official [streaming contract](https://developers.openai.com/api/reference/resources/responses/streaming-events#response.output_item.added)
+marks added reasoning ciphertext as provisional; done is the authoritative item
+for continuation. Added ciphertext may be absent, null, partial or already final.
+A differing added/done value is therefore accepted, while done and the terminal
+completed response must still agree. The [reasoning/message schemas](https://developers.openai.com/api/reference/resources/responses)
+allow optional nullable encrypted content and assistant phase; these are preserved
+exactly. Reasoning `content` is documented as an optional array, without null;
+`content:null` remains unsupported and is refused. No real provider capture or
+request was used to infer additional nullable behavior.
+
+Tests exercise all provisional-ciphertext forms followed by success, failed,
+incomplete and truncated responses. The latter still produce zero dispatch.
+Stream and nonstream tests also round-trip absent/null final ciphertext and
+preserve multipart text/refusal grouping and commentary/final_answer/null phase
+through four actual adapter requests, with serialization between rounds.
 
 ## Reproduce and evidence
 
@@ -112,7 +137,9 @@ names and identities, sequence/index errors, conflicting terminal output, incomp
 SSE delimiters, post-completion errors, text-part consistency, resource caps, timeout
 while waiting for EOF after completion, cancellation before/during a response,
 read failures after completion, HTTP errors, redirects, disabled retries, request
-option overrides, native-state serialization and concurrent round isolation.
+option overrides, full native-history serialization/replay and concurrent round
+isolation. Workflow guards retain the exact active-workflow inventory, nonrunning
+Linux rollback archive and the dedicated gate's trusted-origin/macOS ARM64 rules.
 
 No real OpenAI compatibility, encrypted-signature validity, arbitrary compatible
 provider, model quality, credential/keychain, database migration/recovery, built-in

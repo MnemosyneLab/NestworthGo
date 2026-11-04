@@ -107,6 +107,12 @@ func validateItem(raw []byte) (map[string]json.RawMessage, error) {
 		if status != "completed" || str(item, "role") != "assistant" {
 			return nil, errProtocol
 		}
+		if !nullOrAbsent(item["phase"]) {
+			phase := str(item, "phase")
+			if phase != "commentary" && phase != "final_answer" {
+				return nil, errProtocol
+			}
+		}
 		var parts []map[string]json.RawMessage
 		if jsoncodec.Unmarshal(item["content"], &parts) != nil || parts == nil {
 			return nil, errProtocol
@@ -130,8 +136,13 @@ func validateItem(raw []byte) (map[string]json.RawMessage, error) {
 			}
 		}
 	case "reasoning":
-		if (len(item["status"]) != 0 && status != "completed") || str(item, "encrypted_content") == "" {
+		if len(item["status"]) != 0 && status != "completed" {
 			return nil, errProtocol
+		}
+		if !nullOrAbsent(item["encrypted_content"]) {
+			if _, err := textField(item, "encrypted_content"); err != nil {
+				return nil, err
+			}
 		}
 		var summary []map[string]json.RawMessage
 		if jsoncodec.Unmarshal(item["summary"], &summary) != nil || summary == nil {
@@ -277,9 +288,9 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 					return errProtocol
 				}
 			}
-			if old := str(prior.added, "encrypted_content"); old != "" && old != str(item, "encrypted_content") {
-				return errProtocol
-			}
+			// Reasoning encrypted_content at added may be incomplete or null.
+			// The done item is authoritative; it must still match the completed
+			// response and pass all completion/EOF checks before being released.
 			if prior.argsSeen && prior.args.String() != str(item, "arguments") {
 				return errProtocol
 			}
@@ -492,7 +503,7 @@ func validateAdded(item map[string]json.RawMessage) error {
 				return err
 			}
 		}
-		if _, ok := item["encrypted_content"]; ok {
+		if !nullOrAbsent(item["encrypted_content"]) {
 			if _, err := textField(item, "encrypted_content"); err != nil {
 				return err
 			}
@@ -545,6 +556,9 @@ func partText(raw []byte, expected string) (string, error) {
 	return text, nil
 }
 func consumePart(item *streamItem, obj map[string]json.RawMessage, event string) error {
+	if _, exists := obj["status"]; exists && str(obj, "status") != "completed" {
+		return errProtocol
+	}
 	group, key, kind := "content", "content_index", ""
 	if strings.HasPrefix(event, "response.reasoning_summary_") {
 		group, key, kind = "summary", "summary_index", "summary_text"

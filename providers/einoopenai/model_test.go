@@ -708,6 +708,8 @@ func TestTextEventIntegrityBeforeToolRelease(t *testing.T) {
 		{"missing-part", func(es []obj) []obj { delete(es[5], "part"); return es }, false},
 		{"null-part-text", func(es []obj) []obj { es[5]["part"].(obj)["text"] = nil; return es }, false},
 		{"duplicate-part-added", func(es []obj) []obj { return append(es[:6], append([]obj{es[5]}, es[6:]...)...) }, false},
+		{"incomplete-part-done", func(es []obj) []obj { es[8]["status"] = "incomplete"; return es }, false},
+		{"incomplete-text-done", func(es []obj) []obj { es[7]["status"] = "incomplete"; return es }, false},
 		{"missing-part-done", func(es []obj) []obj { return append(es[:8], es[9:]...) }, false},
 		{"delta-after-text-done", func(es []obj) []obj { return append(es[:8], append([]obj{es[6]}, es[8:]...)...) }, false},
 		{"huge-content-index", func(es []obj) []obj { es[5]["content_index"] = 1000000000; return es }, false},
@@ -733,43 +735,81 @@ func TestTextEventIntegrityBeforeToolRelease(t *testing.T) {
 		})
 	}
 }
-func TestAddedAndDoneReasoningConsistency(t *testing.T) {
-	for _, conflict := range []bool{false, true} {
-		t.Run(fmt.Sprint(conflict), func(t *testing.T) {
-			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, req obj) {
-				if n > 0 {
-					writeMode(w, req, []any{textItem()})
+
+// The documented added snapshot is provisional, including nonempty ciphertext.
+// Acceptance still requires item done, response completed and clean EOF.
+func TestProvisionalReasoningUsesDoneSnapshot(t *testing.T) {
+	for _, value := range []struct {
+		name      string
+		encrypted any
+		omit      bool
+	}{
+		{"absent", nil, true}, {"null", nil, false}, {"partial", "unfinished_ciphertext", false}, {"already-complete", "opaque_rs_0", false},
+	} {
+		for _, mode := range []string{"complete", "eof-before-done", "eof-before-completed", "failed", "incomplete"} {
+			t.Run(value.name+"/"+mode, func(t *testing.T) {
+				f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, req obj) {
+					if n > 0 {
+						writeMode(w, req, []any{textItem()})
+						return
+					}
+					es := events([]any{reasoningItem("rs_0"), callItem()})
+					if value.omit {
+						delete(es[1]["item"].(obj), "encrypted_content")
+					} else {
+						es[1]["item"].(obj)["encrypted_content"] = value.encrypted
+					}
+					switch mode {
+					case "eof-before-done":
+						es = es[:5]
+					case "eof-before-completed":
+						es = es[:len(es)-1]
+					case "failed", "incomplete":
+						es[len(es)-1]["type"] = "response." + mode
+						es[len(es)-1]["response"].(obj)["status"] = mode
+					}
+					w.Header().Set("Content-Type", "text/event-stream")
+					fmt.Fprint(w, sse(es))
+				})
+				count, errs := run(t, context.Background(), f.model, true)
+				if mode != "complete" {
+					if count != 0 || len(errs) == 0 {
+						t.Fatalf("count=%d errors=%v", count, errs)
+					}
 					return
 				}
-				es := events([]any{reasoningItem("rs_0"), callItem()})
-				es[1]["item"].(obj)["encrypted_content"] = "opaque_rs_0"
-				if conflict {
-					es[1]["item"].(obj)["encrypted_content"] = "conflicting"
+				if count != 1 || len(errs) != 0 {
+					t.Fatalf("count=%d errors=%v", count, errs)
 				}
-				w.Header().Set("Content-Type", "text/event-stream")
-				fmt.Fprint(w, sse(es))
+				var got any
+				for _, entry := range f.requests[1]["input"].([]any) {
+					item := entry.(map[string]any)
+					if item["type"] == "reasoning" {
+						got = item
+					}
+				}
+				if !same([]byte(encode(got)), []byte(encode(reasoningItem("rs_0")))) {
+					t.Fatal("provisional snapshot replaced authoritative done reasoning")
+				}
 			})
-			count, errs := run(t, context.Background(), f.model, true)
-			if conflict {
-				if count != 0 || len(errs) == 0 {
-					t.Fatal("reasoning conflict released call")
-				}
-			} else if count != 1 || len(errs) != 0 {
-				t.Fatalf("count=%d errors=%v", count, errs)
-			}
-		})
+		}
 	}
 }
+
 func TestConcurrentRoundIsolation(t *testing.T) {
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, req obj) {
 		writeMode(w, req, []any{reasoningItem("rs_0"), textItem()})
 	})
+	seed, err := f.model.Generate(context.Background(), []*schema.AgenticMessage{schema.UserAgenticMessage("seed")})
+	if err != nil {
+		t.Fatal(err)
+	}
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
 		go func(stream bool) {
 			defer wg.Done()
-			in := []*schema.AgenticMessage{schema.UserAgenticMessage("synthetic")}
+			in := []*schema.AgenticMessage{schema.UserAgenticMessage("seed"), seed, schema.UserAgenticMessage("synthetic")}
 			var msg *schema.AgenticMessage
 			var err error
 			if stream {
@@ -788,7 +828,7 @@ func TestConcurrentRoundIsolation(t *testing.T) {
 		}(i%2 == 0)
 	}
 	wg.Wait()
-	if len(f.requests) != 8 {
+	if len(f.requests) != 9 {
 		t.Fatalf("requests=%d", len(f.requests))
 	}
 }
@@ -803,4 +843,150 @@ func FuzzProviderParsing(f *testing.F) {
 		_ = strictJSON([]byte(s))
 		_, _, _ = validateStream([]byte(s), Limits{Bytes: 8192, Events: 32, Items: 16})
 	})
+}
+
+func TestNullableReasoningCiphertextAndContentContract(t *testing.T) {
+	for _, stream := range []bool{true, false} {
+		for _, kind := range []string{"null-ciphertext", "absent-ciphertext", "absent-content", "null-content", "wrong-ciphertext-type"} {
+			t.Run(fmt.Sprintf("stream=%v/%s", stream, kind), func(t *testing.T) {
+				item := reasoningItem("rs_0")
+				switch kind {
+				case "null-ciphertext":
+					item["encrypted_content"] = nil
+				case "absent-ciphertext":
+					delete(item, "encrypted_content")
+				case "absent-content":
+					delete(item, "content")
+				case "null-content":
+					item["content"] = nil
+				case "wrong-ciphertext-type":
+					item["encrypted_content"] = 17
+				}
+				f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, req obj) {
+					if n == 0 {
+						writeMode(w, req, []any{item, callItem()})
+					} else {
+						writeMode(w, req, []any{textItem()})
+					}
+				})
+				count, errs := run(t, context.Background(), f.model, stream)
+				if kind == "null-content" || kind == "wrong-ciphertext-type" {
+					if count != 0 || len(errs) == 0 {
+						t.Fatalf("unsupported reasoning shape: count=%d errors=%v", count, errs)
+					}
+					return
+				}
+				if count != 1 || len(errs) != 0 {
+					t.Fatalf("count=%d errors=%v", count, errs)
+				}
+				var got any
+				for _, entry := range f.requests[1]["input"].([]any) {
+					native := entry.(map[string]any)
+					if native["type"] == "reasoning" {
+						got = native
+					}
+				}
+				if !same([]byte(encode(got)), []byte(encode(item))) {
+					t.Fatal("native nullable/absent field was changed")
+				}
+			})
+		}
+	}
+}
+func TestNativeAssistantSemanticsAcrossAdapterRounds(t *testing.T) {
+	for _, stream := range []bool{true, false} {
+		t.Run(fmt.Sprint(stream), func(t *testing.T) {
+			outputs := [][]any{}
+			for n, phase := range []any{"commentary", "final_answer", nil} {
+				msg := textItem()
+				msg["id"] = fmt.Sprintf("msg_%d", n)
+				msg["phase"] = phase
+				msg["content"] = []any{
+					obj{"type": "output_text", "text": "First segment", "annotations": []any{}, "logprobs": []any{}},
+					obj{"type": "refusal", "refusal": "Synthetic refusal"},
+					obj{"type": "output_text", "text": "Last segment", "annotations": []any{}},
+				}
+				outputs = append(outputs, []any{reasoningItem(fmt.Sprintf("rs_%d", n)), msg})
+			}
+			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, req obj) {
+				if n < len(outputs) {
+					writeMode(w, req, outputs[n])
+				} else {
+					last := textItem()
+					last["id"] = "msg_last"
+					writeMode(w, req, []any{last})
+				}
+			})
+			history := []*schema.AgenticMessage{schema.UserAgenticMessage("start")}
+			for n := 0; n < 4; n++ {
+				var msg *schema.AgenticMessage
+				var err error
+				if stream {
+					var sr *schema.StreamReader[*schema.AgenticMessage]
+					sr, err = f.model.Stream(context.Background(), history)
+					if err == nil {
+						msg, err = sr.Recv()
+						sr.Close()
+					}
+				} else {
+					msg, err = f.model.Generate(context.Background(), history)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Exercise the actual serialized schema handed back to the adapter, not a stub.
+				var restored schema.AgenticMessage
+				if jsoncodec.Unmarshal([]byte(encode(msg)), &restored) != nil {
+					t.Fatal("history serialization failed")
+				}
+				history = append(history, &restored, schema.UserAgenticMessage("next"))
+				var got []any
+				for _, entry := range f.requests[n]["input"].([]any) {
+					item := entry.(map[string]any)
+					if item["type"] == "reasoning" || item["role"] == "assistant" {
+						got = append(got, item)
+					}
+				}
+				var expected []any
+				for i := 0; i < n; i++ {
+					expected = append(expected, outputs[i]...)
+				}
+				if !same([]byte(encode(got)), []byte(encode(expected))) {
+					t.Fatalf("round %d changed native message phase, refusal, part grouping or order", n)
+				}
+				if strings.Contains(encode(f.requests[n]["input"]), "nestworth_native_") {
+					t.Fatal("private replay marker reached provider")
+				}
+			}
+		})
+	}
+}
+
+func TestChangedNativeHistoryIsRefusedBeforeNetwork(t *testing.T) {
+	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, req obj) {
+		msg := textItem()
+		msg["phase"] = "commentary"
+		writeMode(w, req, []any{msg})
+	})
+	first, err := f.model.Generate(context.Background(), []*schema.AgenticMessage{schema.UserAgenticMessage("start")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state nativeState
+	if jsoncodec.Unmarshal([]byte(first.Extra[nativeKey].(string)), &state) != nil {
+		t.Fatal("native state decode")
+	}
+	item, err := object(state.Output[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	item["phase"] = json.RawMessage(`"final_answer"`)
+	state.Output[0] = json.RawMessage(encode(item))
+	first.Extra[nativeKey] = encode(state)
+	if _, err := f.model.Generate(context.Background(), []*schema.AgenticMessage{first, schema.UserAgenticMessage("next")}); err == nil {
+		t.Fatal("changed native phase accepted with stale digest")
+	}
+	if f.calls.calls.Load() != 1 {
+		t.Fatal("changed native state reached provider")
+	}
 }
