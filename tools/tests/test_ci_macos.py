@@ -183,13 +183,43 @@ class MacCI(unittest.TestCase):
         self.assertTrue(archive.is_file())
         self.assertNotEqual(archive.parent, ROOT / '.github/workflows')
         self.assertIn('name: test', archive.read_text())
-        active = {p.name for p in (ROOT / '.github/workflows').glob('*.yml')}
-        self.assertEqual(active, {'check.yml', 'perf.yml', 'ci-native-image.yml'})
+        active = {p.name for p in (ROOT / '.github/workflows').iterdir()
+                  if p.suffix in {'.yml', '.yaml'}}
+        self.assertEqual(active, {'check.yml', 'perf.yml', 'ci-native-image.yml',
+                                  'eino-provider.yml'})
         mac = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn('    name: test\n', mac)
         self.assertNotIn('pull_request:', mac)
         self.assertNotIn('pull_request_target:', mac)
         self.assertIn("branches: ['**']", mac)
+
+    def test_eino_provider_requires_trusted_origin_and_native_runner(self):
+        workflow = (ROOT / '.github/workflows/eino-provider.yml').read_text()
+        self.assertIn("on:\n  push:\n    branches: ['**']\n    paths:\n", workflow)
+        self.assertIn('  workflow_dispatch:\n', workflow)
+        for event in ('pull_request', 'pull_request_target', 'workflow_run',
+                      'repository_dispatch', 'schedule'):
+            self.assertNotIn(event + ':', workflow)
+        guard = ("    if: github.repository == 'MnemosyneLab/NestworthGo' && "
+                 "(github.event_name == 'push' || "
+                 "github.event_name == 'workflow_dispatch')\n")
+        self.assertIn(guard, workflow)
+        self.assertEqual(workflow.count('runs-on:'), 1)
+        self.assertIn('    runs-on: [self-hosted, macOS, ARM64]\n', workflow)
+        self.assertIn('permissions:\n  contents: read\n', workflow)
+        self.assertNotIn('contents: write', workflow)
+        self.assertNotIn('container:', workflow)
+        self.assertNotIn('sudo ', workflow)
+        self.assertIn('persist-credentials: false', workflow)
+        self.assertIn('working-directory: providers/einoopenai\n', workflow)
+        self.assertIn('go-version-file: providers/einoopenai/go.mod\n', workflow)
+        self.assertIn('run: ./check.sh | tee ', workflow)
+        checks = (ROOT / 'providers/einoopenai/check.sh').read_text()
+        for command in ('set -euo pipefail', 'export GOWORK=off',
+                        'go test -count=1 -timeout=120s ./...',
+                        'go vet ./...', 'go build ./...'):
+            self.assertIn(command, checks)
+        self.assertNotIn('-race', checks)
 
     def test_increased_frontend_and_go_parallelism_preserves_smaller_host_limits(self):
         budget = load('ci-macos-environment').lane_budget
