@@ -2141,6 +2141,7 @@
     "rememberUnavailable": "This login could not be remembered. Keep this page open; storage may be unavailable or another tab may have changed the saved login.",
     "connectionHelp": "Keep the computer hosting Nestworth awake, with the app running on the trusted private network. Closing the last window exits the app.",
     "connectionUnavailable": "Connection unavailable. Data may be old. Check the computer hosting Nestworth, the app and the network.",
+    "reconnectBeforeRetry": "Connection credentials need refreshing or access was denied. Select Reconnect, then check the original result or retry the same submission. Reconnecting never confirms a write.",
     "requestFailed": "The request could not be completed.",
     "ledgerTimezone": "Ledger timezone: {{timezone}}",
     "unavailable": "Unavailable",

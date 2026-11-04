@@ -1214,3 +1214,104 @@ it("retains the mounted financial review when remembered-session validation obse
   expect(previews).toHaveLength(1);
   expect(confirms).toHaveLength(0);
 });
+
+it.each(["csrf_expired", "forbidden", "offline"])("recovers %s confirmation by explicit reconnect without replay or losing the review", async failure => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let refreshed = false;
+  let attempts = 0;
+  const bodies: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/session") && init.method === "GET")
+      return json({ ...session, csrfToken: refreshed ? "fresh-csrf" : session.csrfToken });
+    if (url.endsWith("/record-confirmations")) {
+      attempts++;
+      bodies.push(init.body as string);
+      if (!refreshed) {
+        if (failure === "offline") throw new TypeError("synthetic offline");
+        return json({ error: { code: failure, field: failure === "forbidden" ? "permission" : "csrfToken", operationState: "unknown" } }, 403);
+      }
+      expect(init.headers).toMatchObject({ "X-CSRF-Token": "fresh-csrf" });
+      return base(url, init);
+    }
+    return base(url, init);
+  }));
+  const user = userEvent.setup();
+  mount();
+  await fillRecord(user);
+  const amount = screen.getByRole("textbox", { name: "Amount" });
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Retry same submission" })).toBeEnabled());
+  const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
+  expect(reference).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  if (failure !== "offline") expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("mobile.reconnectBeforeRetry"));
+  refreshed = true;
+  await user.dblClick(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled());
+  expect(attempts).toBe(1);
+  expect(screen.getByRole("textbox", { name: "Amount" })).toBe(amount);
+  expect(amount).toHaveValue("1.2345");
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(reference);
+  await user.dblClick(screen.getByRole("button", { name: "Retry same submission" }));
+  await screen.findByText("Saved successfully");
+  expect(bodies).toHaveLength(2);
+  expect(bodies[0]).toBe(bodies[1]);
+  expect(confirms).toHaveLength(1);
+});
+
+it("requires desktop verification to leave an unavailable plan and retains draft values with a fresh operation ID", async () => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let writes = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/record-confirmations")) {
+      writes++;
+      return json({ error: { code: "stale_preview", field: "planId", operationState: "unknown" } }, 409);
+    }
+    return base(url, init);
+  }));
+  const user = userEvent.setup();
+  mount();
+  await fillRecord(user);
+  const originalId = previews[0].operationId;
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await screen.findByRole("button", { name: i18n.t("mobile.forgetRecovery") });
+  expect(screen.getByRole("button", { name: "Edit draft" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") }));
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("button", { name: "Edit draft" })).toBeDisabled();
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).not.toBeNull();
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") }));
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.verifiedOnDesktop") }));
+  expect(screen.getByRole("textbox", { name: "Amount" })).toHaveValue("1.2345");
+  expect(screen.getByRole("textbox", { name: "Amount" })).toBeEnabled();
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+  expect(writes).toBe(1);
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  expect(previews).toHaveLength(2);
+  expect(previews[1].operationId).not.toBe(originalId);
+  expect(writes).toBe(1);
+});
+
+it("delivers an in-flight receipt once when reconnect overlaps confirmation", async () => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let finish!: () => void;
+  let writes = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/record-confirmations")) {
+      writes++;
+      await new Promise<void>(resolve => { finish = resolve; });
+    }
+    return base(url, init);
+  }));
+  const user = userEvent.setup();
+  mount();
+  await fillRecord(user);
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await user.dblClick(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled());
+  expect(writes).toBe(1);
+  await act(async () => finish());
+  await screen.findByText("Saved successfully");
+  expect(confirms).toHaveLength(1);
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+});
