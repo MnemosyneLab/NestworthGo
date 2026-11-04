@@ -64,6 +64,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
       )}
       {config && (
         <form
+          noValidate
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();

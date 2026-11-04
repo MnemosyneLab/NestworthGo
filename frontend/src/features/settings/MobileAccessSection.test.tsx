@@ -110,3 +110,24 @@ it("associates backend token validation with the token input", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("mobile.tokenValidation"));
   expect(screen.getByLabelText("Mobile token")).toHaveAttribute("aria-invalid", "true");
 });
+
+it.each(["en", "zh-CN", "zh-TW"].flatMap(language => [
+  { field: "listen", value: "" },
+  { field: "token", value: "" },
+  { field: "token", value: "short" },
+  { field: "token", value: "invalid!token" },
+].map(test => ({ language, ...test }))))("lets application validation explain $field '$value' inline in $language", async ({ language, field, value }) => {
+  await i18n.changeLanguage(language);
+  mobile.Configure.mockRejectedValue(new Error(JSON.stringify({ code: "validation", field, message: "invalid" })));
+  const user = userEvent.setup();
+  mount();
+  const input = await screen.findByLabelText(i18n.t(`mobile.${field}`));
+  await user.clear(input);
+  if (value) await user.type(input, value);
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.saveAccess") }));
+  await waitFor(() => expect(mobile.Configure).toHaveBeenCalledTimes(1));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t(`mobile.${field}Validation`));
+  expect(input).toHaveAttribute("aria-invalid", "true");
+  expect(input).toHaveAccessibleDescription(expect.stringContaining(i18n.t(`mobile.${field}Validation`)));
+  expect(input.closest("form")).toHaveAttribute("novalidate");
+});
