@@ -110,17 +110,168 @@ class SkillVersionTests(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             self.check('missing-baseline')
 
-    def test_ci_uses_before_tip_and_main_merge_base(self):
+    @contextlib.contextmanager
+    def push_event(self, before, ref='refs/heads/topic'):
         event = self.root / 'event.json'
+        event.write_text(json.dumps({'before': before}))
         self.git('update-ref', 'refs/remotes/origin/main', self.base)
-        with patch.dict(os.environ, GITHUB_EVENT_PATH=str(event), GITHUB_EVENT_NAME='push'):
-            event.write_text(json.dumps({'before': self.base}))
+        with patch.dict(os.environ, GITHUB_EVENT_PATH=str(event), GITHUB_EVENT_NAME='push',
+                        GITHUB_REF=ref, GITHUB_SHA=self.git('rev-parse', 'HEAD')):
+            yield
+
+    def test_unrelated_followup_push_cannot_hide_missing_bump(self):
+        (self.skill / 'references/analysis.md').write_text('new contract')
+        self.commit()
+        previous = self.git('rev-parse', 'HEAD')
+        (self.root / 'app.txt').write_text('unrelated')
+        self.commit()
+        with self.push_event(previous), self.assertRaisesRegex(ValueError, 'bump'):
+            self.check(checker.ci_base())
+
+    def test_followup_skill_edit_keeps_pr_bump_valid(self):
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        (self.skill / 'references/analysis.md').write_text('new contract')
+        self.commit()
+        previous = self.git('rev-parse', 'HEAD')
+        (self.skill / 'references/analysis.md').write_text('clarified new contract')
+        self.commit()
+        with self.push_event(previous):
+            self.check(checker.ci_base())
+
+    def test_main_unrelated_followup_cannot_hide_failed_version_check(self):
+        (self.skill / 'references/analysis.md').write_text('unversioned main edit')
+        self.commit()
+        previous = self.git('rev-parse', 'HEAD')
+        (self.root / 'app.txt').write_text('unrelated followup')
+        self.commit()
+        with self.push_event(previous, 'refs/heads/main'):
+            with self.assertRaisesRegex(ValueError, 'bump'):
+                checker.check_ci_version()
+
+    def test_main_integration_can_include_multiple_branch_edits(self):
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        (self.skill / 'references/analysis.md').write_text('integrated guidance')
+        self.commit()
+        with self.push_event(self.base, 'refs/heads/main'):
+            with contextlib.redirect_stdout(io.StringIO()):
+                checker.check_ci_version()
+        previous = self.git('rev-parse', 'HEAD')
+        (self.root / 'app.txt').write_text('unrelated followup')
+        self.commit()
+        with self.push_event(previous, 'refs/heads/main'):
+            with contextlib.redirect_stdout(io.StringIO()):
+                checker.check_ci_version()
+
+    def test_ambiguous_merge_base_fails(self):
+        (self.root / 'left.txt').write_text('left')
+        self.commit()
+        left = self.git('rev-parse', 'HEAD')
+        self.git('checkout', '-b', 'right', self.base)
+        (self.root / 'right.txt').write_text('right')
+        self.commit()
+        right = self.git('rev-parse', 'HEAD')
+        tree = self.git('rev-parse', 'HEAD^{tree}')
+        first = self.git('commit-tree', tree, '-p', left, '-p', right, '-m', 'left merge')
+        second = self.git('commit-tree', tree, '-p', right, '-p', left, '-m', 'right merge')
+        self.git('checkout', '--detach', second)
+        with self.push_event(self.base):
+            self.git('update-ref', 'refs/remotes/origin/main', first)
+            with self.assertRaisesRegex(ValueError, 'unambiguous'):
+                checker.ci_base()
+
+    def test_first_branch_push_ignores_zero_before_and_missing_old_push(self):
+        for before in ('0' * 40, 'f' * 40):
+            with self.subTest(before=before), self.push_event(before):
+                self.assertEqual(checker.ci_base(), self.base)
+
+    def test_main_push_and_manual_use_integration_baseline(self):
+        (self.root / 'app.txt').write_text('main integration')
+        self.commit()
+        with self.push_event(self.base, 'refs/heads/main'):
             self.assertEqual(checker.ci_base(), self.base)
-            event.write_text(json.dumps({'before': '0' * 40}))
-            self.assertEqual(checker.ci_base(), self.base)
-            event.write_text('{}')
             with patch.dict(os.environ, GITHUB_EVENT_NAME='workflow_dispatch'):
                 self.assertEqual(checker.ci_base(), self.base)
+
+    def test_initial_main_and_missing_main_push_tip_fail(self):
+        with self.push_event('0' * 40, 'refs/heads/main'):
+            with self.assertRaisesRegex(ValueError, 'no prior tip'):
+                checker.ci_base()
+            with patch.dict(os.environ, GITHUB_EVENT_NAME='workflow_dispatch'):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    checker.ci_base()
+        with self.push_event('f' * 40, 'refs/heads/main'):
+            with self.assertRaises(subprocess.CalledProcessError):
+                checker.ci_base()
+
+    def test_pr_tags_and_wrong_event_head_are_rejected(self):
+        with self.push_event(self.base):
+            with patch.dict(os.environ, GITHUB_EVENT_NAME='pull_request'):
+                with self.assertRaisesRegex(ValueError, 'branch push/manual'):
+                    checker.ci_base()
+            with patch.dict(os.environ, GITHUB_REF='refs/tags/v99.0.0'):
+                with self.assertRaisesRegex(ValueError, 'branch push/manual'):
+                    checker.ci_base()
+            with patch.dict(os.environ, GITHUB_SHA='f' * 40):
+                with self.assertRaisesRegex(ValueError, 'exact event head'):
+                    checker.ci_base()
+
+    def test_missing_main_ref_does_not_fall_back_to_tag(self):
+        with self.push_event(self.base):
+            self.git('tag', 'v99.0.0')
+            self.git('update-ref', '-d', 'refs/remotes/origin/main')
+            with self.assertRaises(subprocess.CalledProcessError):
+                checker.ci_base()
+
+    def test_shallow_clone_is_rejected_even_with_visible_merge_base(self):
+        clone = self.root / 'shallow'
+        self.git('clone', '--depth=1', self.root.as_uri(), str(clone))
+        with self.push_event(self.base), patch.object(checker, 'ROOT', clone):
+            with self.assertRaisesRegex(ValueError, 'shallow'):
+                checker.ci_base()
+
+    def test_unrelated_main_history_is_rejected(self):
+        self.git('checkout', '--orphan', 'unrelated')
+        (self.root / 'new.txt').write_text('new root')
+        self.commit()
+        with self.push_event(self.base, 'refs/heads/main'):
+            with self.assertRaises(subprocess.CalledProcessError):
+                checker.ci_base()
+        with self.push_event(self.base):
+            with self.assertRaises(subprocess.CalledProcessError):
+                checker.ci_base()
+
+    def test_concurrent_main_version_is_not_reused(self):
+        self.git('checkout', '-b', 'main-update')
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        self.commit()
+        newer_main = self.git('rev-parse', 'HEAD')
+        self.git('checkout', '-b', 'topic', self.base)
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        (self.skill / 'references/analysis.md').write_text('topic guidance')
+        self.commit()
+        with self.push_event(self.base):
+            self.git('update-ref', 'refs/remotes/origin/main', newer_main)
+            with self.assertRaisesRegex(ValueError, 'above 2.1.0'):
+                checker.check_ci_version()
+            (self.skill / 'VERSION').write_text('2.2.0\n')
+            with contextlib.redirect_stdout(io.StringIO()):
+                checker.check_ci_version()
+        self.commit()
+        self.git('checkout', '-b', 'app-only', self.base)
+        (self.root / 'app.txt').write_text('no skill changes')
+        self.commit()
+        with self.push_event(self.base):
+            self.git('update-ref', 'refs/remotes/origin/main', newer_main)
+            with contextlib.redirect_stdout(io.StringIO()):
+                checker.check_ci_version()
+
+    def test_missing_historical_version_is_not_assumed_initial_release(self):
+        self.git('rm', 'skills/nestworth/VERSION')
+        self.commit()
+        historical = self.git('rev-parse', 'HEAD')
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.check(historical)
 
 
 if __name__ == '__main__':

@@ -225,9 +225,31 @@ Inspect the archive's VERSION and compare all payload files with their sources.
 Installer tests use temporary destinations exclusively; do not update a real
 installed skill or ledger to validate a release.
 
-The native CI tooling lane runs the same version guard against a push's previous
-tip, or the main merge base for new branches/manual dispatch. Full checkout
-history makes these baselines available; missing history fails explicitly.
+The native CI tooling lane checks the complete branch change against its unique
+merge base with `origin/main` on every origin branch push/manual run. The bump
+must also exceed current main's skill version when the branch changes bundled
+inputs, so a concurrent main release cannot silently allocate the same version.
+A follow-up unrelated push cannot hide a missing bump; further edits in the same
+unmerged PR can retain its already-increased version. Application-only branches
+need no bump. Rebase/review versions when main advances.
+
+On main pushes, the baseline is the actual previous main tip, which must exist
+and be an ancestor of the exact event head. Manual main runs check the latest
+integration against its first parent. Both also compare against main's latest
+first-parent VERSION-change commit: content drift after that integrated version
+must not be hidden by a later unrelated main push. Full checkout history is required; shallow
+repositories, missing refs/commits, ambiguous/no merge bases, initial main commits
+with no previous tip, unrelated main force-pushes and mismatched event heads fail
+explicitly. No tag or release-history fallback silently passes the guard.
+Initial adoption without historical VERSION requires a reviewed bootstrap;
+`--base` supports explicit local historical review, not a CI bypass.
+
+The native workflow continues to accept only origin branch pushes/manual runs;
+PR and tag events are rejected by the automatic guard. PR heads receive checks
+through their origin branch push, without enabling execution of fork PR code on
+the personal runner. Tag publication does not replace branch validation or
+release asset/version allocation review.
+
 The content checker also verifies the guide's current repository version.
 The guard compares Git changes for all bundled inputs and requires a strictly
 higher stable version, including for version-only edits. No maintained hashes
