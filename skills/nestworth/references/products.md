@@ -9,8 +9,9 @@ does not install/update an App, connect MCP or grant permission.
 
 ## Identify the product and facts
 
-Use `get_context` and `get_catalog` for ordinary management, then resolve the
-account and contract. Include closed products when looking for a past settlement
+Resolve the account and contract with filtered reads. Use `get_context` only
+for needed instance/permission/timezone metadata and `get_catalog` for unknown
+business vocabulary or entity creation. Include closed products when looking for a past settlement
 or an undo. Managed kinds are `term_deposit` and `locked_product`; ordinary
 NAV-priced funds/wealth holdings remain on the normal instrument/holding path
 only when they are not App-managed contracts.

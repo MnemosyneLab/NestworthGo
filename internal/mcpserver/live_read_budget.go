@@ -15,7 +15,7 @@ func fitLiveReadPage[T any](ctx context.Context, app *application.Service, limit
 	if limit < 1 || limit > 100 {
 		return result, fail("validation", "page size must be 1 to 100")
 	}
-	err := app.WithWrite(ctx, func(ctx context.Context) error {
+	err := app.WithRead(ctx, func(ctx context.Context) error {
 		for {
 			value, err := read(ctx, limit)
 			if err != nil {

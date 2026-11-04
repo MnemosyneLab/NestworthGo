@@ -1,6 +1,6 @@
 # Frozen management reads and atomic batches
 
-Discover tools first. Liquidity, products, instruments, upcoming actions, Agent
+Discover all tool-list pages first, then reuse schemas for this connection. Liquidity, products, instruments, upcoming actions, Agent
 records, account valuations, directory lists/holdings and health/repair reads
 return mcp-read/1 by default. There is one contract; do not pass responseMode.
 Historical/current overview reads default to five initial items per section;
@@ -138,8 +138,10 @@ names exactly, including reservations/<productId> or a market target section.
 Discover `reconciliation_session_read`. `list_reconciliation_sessions` filters
 status/account/date and sorts asc/desc. `get_reconciliation_session_page` pages
 accounts/items/changes/links/attempts, with account/outcome filters and sort.
-Default 25/max 50; the wire budget is 96 KiB. Reduce limit on response_too_large;
-never treat a rejected response as an empty section. Cursors bind the filters,
+Default 25/max 50; pages shrink automatically to fit the complete 65,536-byte
+JSON-RPC response, including SDK text and structuredContent. A single oversized
+item fails with too_large; reducing limit cannot recover it. Never treat a
+rejected response as an empty section. Cursors bind the filters,
 sort, full current evidence and session revision. stale_cursor means restart
 that read, not guess an offset. Item summaries expose attemptCount; full item
 evidence and pageable attempts are separate. Preserve recorded and effective
@@ -176,3 +178,22 @@ upfront. Do not create a second capture and mix its evidence into the first.
 ```json
 {"captureId":"${captureId}","section":"results","id":"csv/001"}
 ```
+
+
+## Live reads and focused evidence
+
+Activity, product-operation and review pages also honor the complete 64 KiB wire
+budget; row limits are upper bounds. Follow their returned cursor even after a
+short page. Rules and suppressions return arrays: continue every nonempty array
+with its last ID until an empty array. Review publication cursors remain bound
+to revision/filter; restart after staleness. Activity/product history and
+rule/suppression identity cursors are live reads, not frozen snapshots: restart
+if sources change and do not claim a consistent captured audit from mixed pages.
+A complete instrument group or event is never cut apart to fit a page. An
+oversized single group/detail fails explicitly; preserve that limitation.
+
+Initial financial summaries can answer totals/coverage questions without reading
+every evidence section. Read only relevant detail, but finish all requested
+classification/list/absence/audit evidence before claiming it complete. Counts
+and empty deferred arrays do not mean delivered evidence. Read limits never
+truncate a write's execution receipt or get_operation recovery evidence.

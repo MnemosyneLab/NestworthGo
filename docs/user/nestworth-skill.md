@@ -53,15 +53,20 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 4.0.0; published skill: 2.0.0
+### Current repository skill: 5.0.0; published skill: 2.0.0
 
-Repository skill 4.0.0 adds the breaking financial context/comparison
-continuation shape: section/items/page with capture identity/hash/expiry, while
-the complete initial financial header is retained by the client. Directory and
-instrument lists return compact identity projections; full frozen metadata uses
-get_read_item. Instrument metadataVersion and managed/archive guards remain in
-lists. This major bump requires callers to update continuation readers and does
-not add a legacy response path. Skill 4.0.0 is not yet published.
+Repository skill 5.0.0 separates repair progress (the default, no health scan or
+capture) from frozen job evidence (`view=evidence`); current health is a separate
+scan after completion. Discovery follows all tool-list pages and reuses schemas.
+Context/catalog reads and evidence downloads are conditional on the task;
+complete-list/absence/audit claims still require relevant complete page unions.
+Activity/review/product live pages are byte-aware, and nonempty rule/suppression
+arrays continue until empty. The reconciliation limit is the complete 64 KiB
+JSON-RPC response. This major version changes the default repair-job workflow;
+no legacy full-health polling response is retained. Skill 5.0.0 is not published.
+
+It retains skill 4.0.0's breaking financial context/comparison continuation shape,
+compact identity lists and same-capture metadata with metadataVersion guards.
 
 It retains skill 3.0.1, which combines the import-comparison guidance from 2.3.0 with
 frozen contribution analysis. It also corrects the remaining offset-paging

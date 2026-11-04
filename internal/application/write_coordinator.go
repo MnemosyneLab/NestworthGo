@@ -262,6 +262,13 @@ func (s *Service) WithWrite(ctx context.Context, fn func(context.Context) error)
 	return fn(ctx)
 }
 
+// WithRead holds the ordinary serial operation gate for a coherent multi-read
+// callback. Pure reads leave preview tokens unchanged. Nested financial writes
+// still mark the permit and retain normal invalidation and exclusive fences.
+func (s *Service) WithRead(ctx context.Context, fn func(context.Context) error) error {
+	return s.withSnapshotMaintenance(ctx, fn)
+}
+
 // WithPrivateConfiguration fences private host state against backup/restore
 // without invalidating financial previews merely for saving review metadata.
 // Metadata writes must only touch private configuration. Nested financial writes

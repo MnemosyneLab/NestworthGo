@@ -53,13 +53,16 @@ rather than changing disclosure or bypassing request validation.
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
 | `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, daily investment-review rule/acknowledgement/suppression/refresh writes, managed lifecycle/terms/value pairs and starting data repair |
 
+Discover all tools/list pages, following nextCursor even when a page is short.
+Cache this connection's tool schemas rather than rediscovering before every call.
 Discover the actual tools before choosing a workflow. An absent tool may reflect
 permissions or an older App. Explain the specific needed setting/update; do not
 attempt another tool to bypass it. `get_context.capabilities` is helpful, but
 actual tool availability and schemas decide whether an operation is supported.
 For a pure minimal summary, discovery followed directly by `get_financial_context`
-is sufficient. Do not require `get_context`: it returns identity-bearing household metadata. Ordinary management still starts with `get_context`
-and `get_catalog`. If the context tools are missing, explain the needed App
+is sufficient. Do not require `get_context`: it returns identity-bearing household metadata. Ordinary reads can call their tool directly. Use `get_context` only for needed
+instance/permission/timezone/history metadata and `get_catalog` for unknown
+vocabulary or entity creation; reuse both until their context changes. If the context tools are missing, explain the needed App
 update; an identity-bearing fallback requires an explicit disclosure choice,
 not a silent directory read. Skill updates do not update the App or MCP connection. Analysis tools, including
 `compare_financial_attribution`, can maintain derived snapshots under the existing

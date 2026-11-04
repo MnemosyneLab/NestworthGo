@@ -111,14 +111,15 @@ condition** on each closed civil date in its fixed timezone; the separate
 `triggerPolicy` chooses one hit, consecutive hits, or N hits in M calendar
 days. Missing data is unknown and contributes no hit. Today's unclosed value
 is only a preview. `list_investment_review_rules` pages definitions (at most
-100; continue from the last ID on a full page), while
+100; continue every nonempty array from its last ID until empty, even after a short page), while
 `list_investment_review_alerts` pages current open alerts in whole instrument
 groups (at most 100; follow `nextCursor`), and
 `get_investment_review_coverage` includes current positive holdings whose
 rules are unknown, confirming, healthy or uncomputed without an open alert.
 `get_investment_review_alert` reads one current episode by ID;
 `list_investment_review_suppressions` lists ignored scopes and absolute resume
-dates. All these reads, and `preview_investment_review_rule`, are read-only:
+dates. Its nonempty arrays likewise continue from the last suppression ID until
+empty. All these reads, and `preview_investment_review_rule`, are read-only:
 they never refresh source data or publish an evaluation. A cursor expires when
 its report or filter changes; restart from page one.
 `list_investment_review_episode_history` pages open and resolved episodes for
@@ -224,7 +225,8 @@ Do not infer the time's provenance from its presence. `dataAsOf.unknownTimeCount
 counts missing/unusable time values; it can be zero while `timestampBasis` is
 unknown. The latter means the time basis was not recorded or recognized.
 
-Read all three descriptors: `positionsPage`, `gapsPage` and `evidencePage`. Follow
+For a summary answer, inspect the initial totals and coverage; load detail only
+for requested evidence. For a complete detailed audit, read all three descriptors: `positionsPage`, `gapsPage` and `evidencePage`. Follow
 each `nextCursor` with `get_financial_context_page`, keeping that package's exact
 contextId and the matching section. The initial response has at most one detail
 row per section. **Zero returned rows with a nextCursor is a deferred section,
@@ -237,7 +239,7 @@ summary, coverage and dataAsOf) and all three descriptors independently.
 `get_financial_context_page` returns contextId, contentHash, capturedAt,
 cacheExpiresAt, section, items and page. It does not repeat content or unrelated
 section descriptors. Match ID/hash to the saved initial header, append items
-to the returned section, and update only that section from page. Finish when
+to the returned section, and update only that section from page. For a complete audit, finish when
 all three saved states are complete. Limits default to 50, maximum 100.
 `get_financial_comparison_page` uses the same section/items/page shape with
 comparisonId; retain its initial left/right/change and attribution/precision
