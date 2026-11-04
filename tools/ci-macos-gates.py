@@ -25,7 +25,7 @@ LANES = (
         ('build', 'go build -p "$NESTWORTH_GO_PARALLEL" -o "$RUNNER_TEMP/nestworth-ci" ./cmd/nestworth', '.'),
     ),
     (
-        ('tooling', 'python3 tools/check-nestworth-skill.py\npython3 tools/run-tooling-tests.py --tier fast', '.'),
+        ('tooling', 'python3 tools/check-nestworth-skill.py --ci-base\npython3 tools/run-tooling-tests.py --tier fast', '.'),
         ('whitespace', 'git diff --check', '.'),
     ),
     (

@@ -76,6 +76,8 @@ class InstallerTests(unittest.TestCase):
         with tarfile.open(archive, "r:gz") as bundle:
             prefix = "nestworth-skill/skills/nestworth/"
             self.assertEqual(bundle.extractfile(prefix + "VERSION").read().decode().strip(), SOURCE_VERSION)
+            guide = bundle.extractfile("nestworth-skill/INSTALL.md").read().decode()
+            self.assertIn(f"### Current repository skill: {SOURCE_VERSION}; published skill:", guide)
             analysis = bundle.extractfile(prefix + "references/analysis.md").read()
             connection = bundle.extractfile(prefix + "references/connection.md").read()
         examples = {name: json.loads(raw) for name, raw in re.findall(
