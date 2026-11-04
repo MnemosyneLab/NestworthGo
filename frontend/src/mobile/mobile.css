@@ -1300,3 +1300,20 @@ div[aria-busy="true"] > .mobile-groups {
     grid-template-columns: repeat(2, minmax(0, 1fr)) 4rem repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Task details live in Data health; navigation keeps background work discoverable. */
+.mobile-tab-job {
+  max-width: 100%;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  color: var(--color-primary);
+}
+.mobile-tab-job[data-tone="warning"] {
+  color: color-mix(in oklab, var(--color-warning) 70%, var(--color-foreground));
+}
+.mobile-job-details:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}

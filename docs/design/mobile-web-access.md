@@ -208,9 +208,20 @@ cancellation rights. Global desktop history repair can be viewed but remains
 desktop-only for retry. The panel reports real
 preparing/running/partial/failed/succeeded/cancelled states, phase, counts, readable
 targets, bounded domain error codes, history ranges and next-eligibility time.
+Task details are collapsed by default in Data health, including successful tasks.
+Overview shows only a compact running or attention summary with a link to Data
+health. Accounts and Ledger do not repeat the task card; a localized Data health
+navigation status keeps running work, partial/failed/cancelled results and status
+read errors discoverable. The shared observer remains mounted across these tabs.
+Failure causes, cooldowns, cancellation state and supported retry/desktop actions
+remain visible without expanding target details. The disclosure retains shared
+source, current target, bounded target rows and pinned pagination. Starting or
+attaching to a task returns to Data health. Completion still invalidates local
+health and overview reads without starting provider work.
 Provider messages and paths are never returned as task detail. Page errors offer
 an explicit status reload. Paging pins the job identity; navigation and reconnect
-reread process state without starting work. Hidden pages stop polling.
+reread process state without starting work. Background browser documents stop
+polling.
 
 A retry opens a fresh explicit preview using saved observations and existing
 provider/freshness limits (`all` latest retries become `stale`). It is not a

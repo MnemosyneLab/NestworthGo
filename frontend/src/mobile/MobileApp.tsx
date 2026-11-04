@@ -17,6 +17,8 @@ import {
   ArrowUpRight,
   CandlestickChart,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ChevronLeft,
   ChevronRight,
   CreditCard,
@@ -248,6 +250,9 @@ export function MobileApp() {
   const [theme, setTheme] = useState(() => mobilePreferences().theme);
   const [sessionError, setSessionError] = useState<unknown>();
   const [tab, setTab] = useState("overview");
+  const [jobSignal, setJobSignal] = useState<
+    "running" | "attention" | "unavailable" | null
+  >(null);
   const [detail, setDetail] = useState<{
     kind: "accounts" | "holdings" | "activities";
     id: string;
@@ -277,6 +282,7 @@ export function MobileApp() {
         setQuote(null);
         setMarket(null);
         setReceipt(null);
+        setJobSignal(null);
       }
     },
     [client],
@@ -378,13 +384,7 @@ export function MobileApp() {
         <LoadingState label={t("common.loading")} />
       </main>
     );
-  if (!session)
-    return (
-      <Login
-        error={sessionError}
-        onLogin={acceptSession}
-      />
-    );
+  if (!session) return <Login error={sessionError} onLogin={acceptSession} />;
   const b = bootstrap.data?.data;
   const hiddenNav = record !== null || quote !== null || market !== null;
   const connectionState = offline
@@ -621,6 +621,8 @@ export function MobileApp() {
               onCancel={() => setMarket(null)}
               onStarted={() => {
                 setMarket(null);
+                setDetail(null);
+                setTab("health");
                 void client.invalidateQueries({ queryKey: ["mobile", "job"] });
               }}
             />
@@ -655,7 +657,13 @@ export function MobileApp() {
           ) : (
             <>
               {b.capabilities.market_refresh && (
-                <JobPanel onRetry={setMarket} disabled={offline || !!pending} />
+                <JobPanel
+                  tab={tab}
+                  onOpen={() => goTab("health")}
+                  onSignal={setJobSignal}
+                  onRetry={setMarket}
+                  disabled={offline || !!pending}
+                />
               )}
               {tab === "overview" && (
                 <Overview
@@ -749,6 +757,23 @@ export function MobileApp() {
                       return <Icon aria-hidden />;
                     })()}
                     <span>{item[1]}</span>
+                    {item[0] === "health" && jobSignal && (
+                      <span
+                        className="mobile-tab-job"
+                        data-tone={
+                          jobSignal === "running" ? undefined : "warning"
+                        }
+                        role="status"
+                      >
+                        {t(
+                          jobSignal === "running"
+                            ? "mobile.job.running"
+                            : jobSignal === "unavailable"
+                              ? "mobile.jobStatusUnavailable"
+                              : "mobile.jobAttention",
+                        )}
+                      </span>
+                    )}
                   </button>
                 ),
               )}
@@ -913,7 +938,11 @@ function Segmented<T extends string>({
   );
 }
 // Geometry only: plotted from server totals; displayed figures stay exact strings.
-function Sparkline({ points }: { points: { date: string; valuation: Metric }[] }) {
+function Sparkline({
+  points,
+}: {
+  points: { date: string; valuation: Metric }[];
+}) {
   const values = points.map((p) =>
     p.valuation.total ? Number(p.valuation.total.amount) : NaN,
   );
@@ -2044,14 +2073,21 @@ function Health({
 }
 
 function JobPanel({
+  tab,
+  onOpen,
+  onSignal,
   onRetry,
   disabled,
 }: {
+  tab: string;
+  onOpen: () => void;
+  onSignal: (signal: "running" | "attention" | "unavailable" | null) => void;
   onRetry: (r: MarketRequest) => void;
   disabled: boolean;
 }) {
   const { t } = useTranslation();
   const client = useQueryClient();
+  const [expandedJob, setExpandedJob] = useState("");
   const [cursor, setCursor] = useState("");
   const [pinned, setPinned] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -2084,11 +2120,36 @@ function JobPanel({
       void client.invalidateQueries({ queryKey: ["mobile", "overview"] });
     }
   }, [jobId, outcome, client]);
+  const attention =
+    !!job &&
+    (!["running", "succeeded"].includes(job.outcome) ||
+      !!job.errorCode ||
+      !!job.blockers?.length ||
+      !!job.nextEligibilityAt ||
+      !!error ||
+      job.items?.some(
+        (item) =>
+          !!item.errorCode || ["failed", "rate_limited"].includes(item.status),
+      ));
+  const signal = query.error
+    ? "unavailable"
+    : attention
+      ? "attention"
+      : outcome === "running"
+        ? "running"
+        : null;
+  useEffect(() => {
+    onSignal(signal);
+  }, [onSignal, signal]);
+  // Keep the shared task observer mounted across tabs, including when its card is hidden.
+  const visible = tab === "health" || (tab === "overview" && !!signal);
+  const expanded = !!job && expandedJob === job.jobId;
   const reload = () => {
     setCursor("");
     setPinned("");
     void client.invalidateQueries({ queryKey: ["mobile", "job"] });
   };
+  if (!visible) return null;
   if (!job)
     return query.error ? (
       <div className="mobile-stack">
@@ -2099,7 +2160,16 @@ function JobPanel({
       </div>
     ) : null;
   const codes = [
-    ...new Set([job.errorCode, ...(job.blockers ?? [])].filter(Boolean)),
+    ...new Set(
+      [
+        job.errorCode,
+        ...(job.blockers ?? []),
+        ...(job.items ?? []).map((item) => item.errorCode),
+        ...(!job.items?.length
+          ? (job.result?.Items ?? []).map((item) => item.ErrorCode)
+          : []),
+      ].filter(Boolean),
+    ),
   ];
   const tone =
     job.outcome === "succeeded"
@@ -2120,15 +2190,17 @@ function JobPanel({
         </span>
         <div className="min-w-0 flex-1">
           <h2>{t("mobile.marketJob")}</h2>
-          <p>
-            {t(`marketData.phase.${job.phase}`, {
-              defaultValue: t(
-                job.request.mode === "history"
-                  ? "mobile.syncHistory"
-                  : "mobile.updateMarket",
-              ),
-            })}
-          </p>
+          {job.outcome === "running" && (
+            <p>
+              {t(`marketData.phase.${job.phase}`, {
+                defaultValue: t(
+                  job.request.mode === "history"
+                    ? "mobile.syncHistory"
+                    : "mobile.updateMarket",
+                ),
+              })}
+            </p>
+          )}
         </div>
       </div>
       <p role="status" className="mobile-job-status">
@@ -2151,14 +2223,6 @@ function JobPanel({
           value={job.completed}
         />
       )}
-      {job.source === "shared" && (
-        <p className="mobile-hint">{t("mobile.sharedJob")}</p>
-      )}
-      {job.current && (
-        <p className="mobile-hint">
-          {t("mobile.currentTarget", { target: job.current })}
-        </p>
-      )}
       {job.nextEligibilityAt && (
         <p className="mobile-hint">
           {t("mobile.nextEligibility", {
@@ -2166,63 +2230,11 @@ function JobPanel({
           })}
         </p>
       )}
-      {!!job.items?.length && (
-        <ul className="mobile-list mobile-job-items">
-          {job.items.map((item, index) => (
-            <li key={index}>
-              <div className="mobile-job-item">
-                <span className="mobile-row-title">
-                  {item.label || t("mobile.unavailable")}
-                </span>
-                <span
-                  className="mobile-job-item-status"
-                  data-tone={
-                    item.status === "failed" || item.status === "rate_limited"
-                      ? "warning"
-                      : undefined
-                  }
-                >
-                  {t(`marketData.status.${item.status}`, {
-                    defaultValue: t(
-                      item.status === "failed"
-                        ? "mobile.requestFailed"
-                        : "mobile.complete",
-                    ),
-                  })}
-                </span>
-              </div>
-              {item.startDate && item.endDate && (
-                <p className="mobile-hint">
-                  {formatCivilDate(item.startDate)} —{" "}
-                  {formatCivilDate(item.endDate)}
-                </p>
-              )}
-              {item.errorCode && (
-                <p className="mobile-hint" data-tone="warning">
-                  {t(`errorCode:${item.errorCode}`, {
-                    defaultValue: t("mobile.requestFailed"),
-                  })}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
       {codes.map((code) => (
         <p key={code} className="mobile-hint" data-tone="warning">
           {t(`errorCode:${code}`, { defaultValue: t("mobile.requestFailed") })}
         </p>
       ))}
-      {!job.items?.length &&
-        job.result?.Items?.filter(
-          (i) => i.Status === "failed" || i.Status === "rate_limited",
-        ).map((item, index) => (
-          <p key={index} className="mobile-hint" data-tone="warning">
-            {t(`errorCode:${item.ErrorCode}`, {
-              defaultValue: t("mobile.requestFailed"),
-            })}
-          </p>
-        ))}
       <ErrorMessage error={query.error || error} />
       {job.outcome === "running" && cancelRequested === job.jobId && (
         <p role="status" className="mobile-hint">
@@ -2230,14 +2242,12 @@ function JobPanel({
         </p>
       )}
       {["partial", "failed", "cancelled"].includes(job.outcome) &&
-        (job.retryable ? (
-          <p className="mobile-hint">{t("mobile.retryJobHelp")}</p>
-        ) : (
+        !job.retryable && (
           <p className="mobile-desktop-note">
             <Monitor aria-hidden />
             <span>{t("mobile.desktopRequired")}</span>
           </p>
-        ))}
+        )}
       <div className="mobile-form-actions">
         {query.error && (
           <Button variant="outline" onClick={reload}>
@@ -2291,16 +2301,94 @@ function JobPanel({
             </Button>
           )}
       </div>
-      {(cursor || query.data?.next) && (
-        <Pager
-          next={query.data?.next}
-          paged={!!cursor}
-          onFirst={reload}
-          onNext={() => {
-            setPinned(job.jobId);
-            setCursor(query.data?.next ?? "");
-          }}
-        />
+      {tab === "health" ? (
+        <>
+          <Button
+            variant="ghost"
+            aria-expanded={expanded}
+            aria-controls="mobile-job-details"
+            onClick={() => setExpandedJob(expanded ? "" : job.jobId)}
+          >
+            {expanded ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
+            {t(expanded ? "mobile.hideJobDetails" : "mobile.showJobDetails")}
+          </Button>
+          <div
+            id="mobile-job-details"
+            className="mobile-job-details"
+            hidden={!expanded}
+          >
+            {job.retryable && (
+              <p className="mobile-hint">{t("mobile.retryJobHelp")}</p>
+            )}
+            {job.source === "shared" && (
+              <p className="mobile-hint">{t("mobile.sharedJob")}</p>
+            )}
+            {job.current && (
+              <p className="mobile-hint">
+                {t("mobile.currentTarget", { target: job.current })}
+              </p>
+            )}
+            {!!job.items?.length && (
+              <ul className="mobile-list mobile-job-items">
+                {job.items.map((item, index) => (
+                  <li key={index}>
+                    <div className="mobile-job-item">
+                      <span className="mobile-row-title">
+                        {item.label || t("mobile.unavailable")}
+                      </span>
+                      <span
+                        className="mobile-job-item-status"
+                        data-tone={
+                          item.status === "failed" ||
+                          item.status === "rate_limited"
+                            ? "warning"
+                            : undefined
+                        }
+                      >
+                        {t(`marketData.status.${item.status}`, {
+                          defaultValue: t(
+                            item.status === "failed"
+                              ? "mobile.requestFailed"
+                              : "mobile.complete",
+                          ),
+                        })}
+                      </span>
+                    </div>
+                    {item.startDate && item.endDate && (
+                      <p className="mobile-hint">
+                        {formatCivilDate(item.startDate)} —{" "}
+                        {formatCivilDate(item.endDate)}
+                      </p>
+                    )}
+                    {item.errorCode && (
+                      <p className="mobile-hint" data-tone="warning">
+                        {t(`errorCode:${item.errorCode}`, {
+                          defaultValue: t("mobile.requestFailed"),
+                        })}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(cursor || query.data?.next) && (
+              <Pager
+                next={query.data?.next}
+                paged={!!cursor}
+                onFirst={reload}
+                onNext={() => {
+                  setPinned(job.jobId);
+                  setCursor(query.data?.next ?? "");
+                }}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <Button variant="ghost" onClick={onOpen}>
+          {t("mobile.viewJob")}
+          <ChevronRight aria-hidden />
+        </Button>
       )}
     </section>
   );
