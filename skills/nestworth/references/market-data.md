@@ -16,8 +16,12 @@ no history origin exists).
 
 For FX, records `value` and base/quote currencies are the original stored rate
 and direction. `displayValue` is the oriented chart projection and can be rounded;
-never treat its reciprocal as an exact original price. Keep observationKind and
-priceBasis together: Agent unit NAV is stored as close with
+never treat its reciprocal as an exact original price.
+If a reverse historical value cannot fit the supported display range, unified
+records fail with `unavailable`; query the original direction or narrow the
+window. Do not interpret that error as missing observations.
+
+Keep observationKind and priceBasis together: Agent unit NAV is stored as close with
 `agent_unit_nav_v1`. `chartSelected` concerns chart points, not import equality
 or source preference. Withdrawn/corrected history needs Agent audit evidence;
 this active-history read alone does not prove an import item is missing.

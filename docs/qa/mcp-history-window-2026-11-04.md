@@ -41,6 +41,15 @@ calls. The existing snapshot test also exercises the new date path under SQLite
 `query_only`, verifies unchanged data/change counts, and retains concurrent-pair
 snapshot/budget coverage.
 
+Follow-up reverse-FX regression first reproduced a false empty history for a
+stored USD/SGD rate of `0.000000000001` on September 27 while a newer rate of `2`
+remained selected current. Its SGD/USD reciprocal exceeds FxRate's range, so the
+legacy chart projection silently omits it. The unified capture now checks every
+original quote ID against the projection and returns explicit `unavailable`
+instead of `no_quotes_in_range` or a partial capture. Tests cover entirely and
+partially unrepresentable windows, unchanged legacy output, and exact retrieval
+in the original direction.
+
 The immutable pre-extension external-discovery hashes remain assertions. A narrow
 projection removes only the three newly optional batch-history properties and
 restores that tool's previous description before comparing the original hashes;

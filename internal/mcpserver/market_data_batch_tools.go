@@ -251,6 +251,21 @@ func unifiedHistoryRows(t application.MarketReadResultTarget, order ReadSort, ti
 	for _, q := range t.RawFXQuotes {
 		rawFX[q.ID.String()] = q
 	}
+	if t.Target.InstrumentID == "" {
+		// The compatibility chart projection may omit valid stored FX facts
+		// whose reciprocal cannot fit FxRate. Check original-to-projected IDs,
+		// including an entirely empty projection, before deriving any coverage
+		// or publishing a capture that could be mistaken for missing evidence.
+		projected := map[string]bool{}
+		for _, p := range t.Series.Observations {
+			projected[p.ID] = true
+		}
+		for id := range rawFX {
+			if !projected[id] {
+				return nil, fail("unavailable", "FX history projection is incomplete or not representable in the requested direction; narrow the date range or query the original direction")
+			}
+		}
+	}
 	rows, err := historyRows(t.Series.Observations, order, "asc")
 	if err != nil {
 		return nil, err

@@ -749,6 +749,11 @@ For FX, `baseCurrency`, `quoteCurrency` and `value` describe the **original stor
 direction**. `target` retains the requested direction; `displayValue` is its
 existing, potentially inverted and rounded chart projection. It must never be
 compared as an original exact FX rate. Missing raw FX evidence fails the capture.
+The unified layout also verifies every original FX quote survived the existing
+chart projection. If a reciprocal is not representable within FxRate bounds,
+the entire capture fails with `unavailable`, including when every requested
+history observation would otherwise disappear. Query the original direction or
+narrow the window; this error must never be interpreted as missing quotes.
 Provider and Agent sources remain distinct. Conversion evidence is retained.
 
 `historyStatus` on target metadata distinguishes `not_found`,

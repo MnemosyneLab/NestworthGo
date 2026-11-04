@@ -255,6 +255,61 @@ func TestMarketRecordsSingleItemAndCaptureBudgets(t *testing.T) {
 	}
 }
 
+func TestMarketRecordsRejectUnrepresentableReverseFX(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	if _, err := fx.app.AppendManualFXQuote(t.Context(), "USD", "SGD", "0.000000000001", "2026-09-27T12:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.app.AppendManualFXQuote(t.Context(), "USD", "SGD", "2", "2026-09-28T12:00:00Z"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.app.SetFXPreference(t.Context(), "USD", "SGD", "manual"); err != nil {
+		t.Fatal(err)
+	}
+	date := "2026-09-27"
+	target := application.MarketReadTarget{BaseCurrency: "SGD", QuoteCurrency: "USD"}
+	result, err := fx.app.ReadMarketDataBatch(t.Context(), application.MarketReadRequest{Targets: []application.MarketReadTarget{target}, View: "history", FromDate: &date, ToDate: &date})
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := result.Targets[0]
+	// The newer selected current rate remains representable. Only the older
+	// requested history fact disappears in the compatibility chart projection.
+	if row.CurrentValue == nil || *row.CurrentValue != "0.5" || len(row.RawFXQuotes) != 1 || len(row.Series.Observations) != 0 {
+		t.Fatalf("boundary not activated: %+v", row)
+	}
+	args := map[string]any{"targets": []application.MarketReadTarget{target}, "view": "history", "fromDate": date, "toDate": date}
+	legacy := scaleCapture(t, c, "get_market_data_batch", args)
+	legacyTarget := scaleSection(t, c, legacy, "targets")[0].(map[string]any)
+	if legacyTarget["coverage"].(map[string]any)["observationsCount"] != float64(0) {
+		t.Fatal("legacy projection changed")
+	}
+	args["historyLayout"] = "records"
+	response, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_market_data_batch", Arguments: args})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, err := jsoncodec.Marshal(response.Content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !response.IsError || !strings.Contains(string(wire), "unavailable") || !strings.Contains(string(wire), "not representable") {
+		t.Fatalf("raw evidence silently dropped: %s", wire)
+	}
+	// A partially representable window must also fail, not publish a subset.
+	args["toDate"] = "2026-09-28"
+	call(t, c, "get_market_data_batch", args, true)
+	// The same original quote is returned precisely in its stored direction.
+	args["toDate"] = date
+	args["targets"] = []application.MarketReadTarget{{BaseCurrency: "USD", QuoteCurrency: "SGD"}}
+	direct := scaleCapture(t, c, "get_market_data_batch", args)
+	records := scaleSection(t, c, direct, "records")
+	if len(records) != 1 || records[0].(map[string]any)["value"] != "0.000000000001" {
+		t.Fatal("original rate lost", records)
+	}
+}
+
 func TestUnifiedHistoryRawFXAndSelection(t *testing.T) {
 	rate, err := domain.ParseFxRate("3.123456789012")
 	if err != nil {
