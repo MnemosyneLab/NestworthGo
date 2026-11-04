@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -72,15 +72,15 @@ type ReconciliationPlanPreview struct {
 	Previews  []wire.ChangePreviewDTO     `json:"previews"`
 }
 
-func (s *Service) reconciliationTools(server *mcp.Server) {
+func (s *Service) reconciliationTools(server *toolSet) {
 	readTool(server, "preview_reconciliation", "Preview 1 to 100 current account balances or holding quantities as exact ledger adjustments. Requires ledger_write. Account targets need accountId, targetBalance and currency. Holding targets accept targetQuantity and/or totalCost. totalCost requires the instrument currency and sets the entire remaining position cost; omit targetQuantity for cost-only correction. Without totalCost, quantity increases require unitCost for the added units. Never combine unitCost and totalCost. Quantity and cost changes can produce two commands and the plan is limited to 100 commands. Current values must differ. The preview posts nothing. Inspect every resolved command and effect before commit_reconciliation. Plans expire in ten minutes and become stale on other writes.", s.previewReconciliation)
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_reconciliation", Description: "Commit exactly the resolved preview_reconciliation plan in one database transaction. Requires ledger_write. Pass operationId and input.planId only. An identical retry or reuse of the plan returns the original activities, even after an interruption. An uncommitted expired or stale plan requires a new preview.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_reconciliation", Description: "Commit exactly the resolved preview_reconciliation plan in one database transaction. Requires ledger_write. Pass operationId and input.planId only. An identical retry or reuse of the plan returns the original activities, even after an interruption. An uncommitted expired or stale plan requires a new preview.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_reconciliation", in.Input, true, func(ctx context.Context) (any, error) { return s.commitReconciliation(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -114,7 +113,7 @@ func (s *Service) pagedInstruments(ctx context.Context, g uint64, in InstrumentR
 		return readCapture{Kind: "instruments", Query: map[string]any{"includeArchived": in.IncludeArchived, "filter": f, "sort": order}, Summary: map[string]any{"totalInstrumentCount": total, "matchedInstrumentCount": len(rows)}, Sections: map[string][]json.RawMessage{"instruments": raw}}, err
 	})
 }
-func (s *Service) instrumentBatchTools(server *mcp.Server, mode string) {
+func (s *Service) instrumentBatchTools(server *toolSet, mode string) {
 	if mode == ReadOnly {
 		return
 	}

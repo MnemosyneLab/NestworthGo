@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
@@ -361,7 +360,7 @@ func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(co
 	}
 	return s.reads.store(g, e, limit)
 }
-func (s *Service) boundedReadTools(server *mcp.Server, g uint64) {
+func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 	readTool(server, "get_read_page", "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25, maximum 100. Follow every cursor before claiming completeness; restart all sections after read_expired/read_revoked. No DB reads or TTL renewal.", func(ctx context.Context, in ReadPageInput) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err

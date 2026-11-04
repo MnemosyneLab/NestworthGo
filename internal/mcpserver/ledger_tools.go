@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -38,7 +38,7 @@ type CommitChangeInput struct {
 	PlanID string `json:"planId" jsonschema:"The opaque ID returned by the matching preview tool. Reusing this plan cannot record it twice, even with another operationId."`
 }
 
-func (s *Service) ledgerTools(server *mcp.Server) {
+func (s *Service) ledgerTools(server *toolSet) {
 	s.productOperationTools(server)
 	s.productDataTools(server)
 	s.liquidityPolicyTools(server)
@@ -49,12 +49,12 @@ func (s *Service) ledgerTools(server *mcp.Server) {
 	// positions, or the activity ledger.
 	readTool(server, "preview_change", "Prepare one ledger record without posting it. Requires ledger_write. kind: position_import (accountId, instrumentId, quantity, original per-unit unitCost, currency matching the instrument; NEW position only, no cash leg); position_transfer (fromHoldingId, quantity, toHoldingId for an existing destination or toAccountId to find/create a destination holding for the same instrument; carries cost without income or sale); money_added/money_removed (accountId, amount, currency, reason); trade (side buy/sell, settlementAccountId, instrumentId, optional holdingId, quantity, gross total, grossCurrency, optional fee/feeCurrency); cash_dividend (holdingId, amount, currency); cash_transfer (fromAccountId, toAccountId, sent/sentCurrency, received/receivedCurrency, optional fee/feeCurrency); fx_conversion (accountId, sold/soldCurrency, bought/boughtCurrency, optional fee/feeCurrency); debt_draw/debt_payment (debtAccountId, cashAccountId, principal/principalCurrency, payment optional interestOrFee/interestOrFeeCurrency). Supply effectiveAt RFC3339 OR effectiveLocalDate and effectiveLocalTime in the history timezone. Omitted time is frozen at preview. Read get_catalog for reasons. Inspect effects, then pass planId to commit_change within ten minutes. Preview activity and new holding IDs are provisional; use committed receipt IDs. A first buy or transfer to a new account creates a holding atomically; this records completed trades, never places orders. Historical entries use the same replay validation as the App.", s.previewChange)
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_change", Description: "Post exactly one previously previewed ledger record. Requires ledger_write. Input contains only planId; the server stores the exact command. Expired or stale plans must be previewed again. Retry with identical operationId and input after interruptions; the database mutation key prevents duplicate posting. Returns a durable operation receipt. Reusing the same plan with another operationId still returns the original activity. For an atomic group use preview_batch and commit_batch instead.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_change", Description: "Post exactly one previously previewed ledger record. Requires ledger_write. Input contains only planId; the server stores the exact command. Expired or stale plans must be previewed again. Retry with identical operationId and input after interruptions; the database mutation key prevents duplicate posting. Returns a durable operation receipt. Reusing the same plan with another operationId still returns the original activity. For an atomic group use preview_batch and commit_batch instead.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_change", in.Input, true, func(ctx context.Context) (any, error) { return s.commitChange(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 
