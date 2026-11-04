@@ -209,6 +209,17 @@ once. Archived and excluded rows remain inspectable but do not enter totals.
 Consequently internal transfers and principal repayment do not create household
 wealth; their account-level movements are still visible.
 
+The endpoint attribution bridge may infer a zero opening quantity for an absent
+holding only when its first replay-visible time is in `(start, end]`, it is not
+an Origin holding, and its parent account exists and remains included at both
+endpoints without an intervening scope change. First visibility is the earlier
+of the holding's audit `CreatedAt` and all retained normalized activity economic
+times referencing that holding, indexed once from the same frozen capture.
+This supports historical backfills without rewriting audit dates. Existing
+unknown cells, archival/scope changes, quote and FX evidence, quantity checks,
+and paired-principal checks remain authoritative. Reverse comparisons use the
+same chronological proof and reverse the resulting amounts.
+
 Unknown is distinct from zero, cleared holdings, absent entities and archives.
 An incomplete eligible component makes the relevant headline total and net
 worth unknown. Available estimates remain visible as explicitly incomplete
