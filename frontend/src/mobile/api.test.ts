@@ -113,3 +113,39 @@ it("ignores retired external-server preferences and always calls this page’s s
   expect(fetch).toHaveBeenCalledWith("/mobile-api/v1/bootstrap", expect.objectContaining({credentials: "omit"}));
   localStorage.removeItem("nestworth.mobile.connection.v1");
 });
+
+it.each(["offline", "server", "401", "broken401"])(
+  "keeps remembered login through %s only when authentication is still possible",
+  async (mode) => {
+    const { rememberMobileCredential, rememberedMobileCredential } =
+      await import("./connection");
+    const { restoreMobileCredential } = await import("./api");
+    const saved = {
+      accessToken: "s".repeat(43),
+      expiresAt: new Date(Date.now() + 60000).toISOString(),
+    };
+    rememberMobileCredential(saved);
+    restoreMobileCredential();
+    let headers: Record<string, string> = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url, init: RequestInit) => {
+        headers = init.headers as Record<string, string>;
+        expect(init.credentials).toBe("omit");
+        expect(init.cache).toBe("no-store");
+        if (mode === "offline") throw new TypeError("offline");
+        return new Response(
+          mode === "broken401"
+            ? "broken"
+            : JSON.stringify({ error: { code: "unavailable" } }),
+          { status: mode === "server" ? 503 : 401 },
+        );
+      }),
+    );
+    await expect(api("/session")).rejects.toBeDefined();
+    expect(headers.Authorization).toBe(`Bearer ${saved.accessToken}`);
+    expect(rememberedMobileCredential()).toEqual(
+      mode.includes("401") ? null : saved,
+    );
+  },
+);

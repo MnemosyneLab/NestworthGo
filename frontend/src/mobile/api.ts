@@ -1,4 +1,9 @@
-import { ConnectionError } from "./connection";
+import {
+  ConnectionError,
+  forgetMobileCredential,
+  rememberedMobileCredential,
+  rememberMobileCredential,
+} from "./connection";
 export type Permissions = {
   read: boolean;
   record: boolean;
@@ -6,7 +11,12 @@ export type Permissions = {
   manual_quote: boolean;
 };
 export type Session = {
-  device: { id: string; name: string; permissions: Permissions };
+  device: {
+    id: string;
+    name: string;
+    permissions: Permissions;
+    expiresAt?: string;
+  };
   csrfToken: string;
   instance: string;
   accessToken?: string;
@@ -158,11 +168,38 @@ let accessToken = "";
 const requests = new Set<AbortController>();
 let sessionGeneration = 0;
 let expired: (() => void) | undefined;
+export function restoreMobileCredential() {
+  const stored = rememberedMobileCredential();
+  if (stored && stored.accessToken !== accessToken) {
+    sessionGeneration++;
+    accessToken = stored.accessToken;
+    csrf = "";
+    for (const request of requests) request.abort();
+  }
+}
 export function setMobileSession(session: Session | null) {
+  if (!session) forgetMobileCredential(accessToken);
   sessionGeneration++;
   csrf = session?.csrfToken ?? "";
   accessToken = session ? (session.accessToken ?? accessToken) : "";
   for (const request of requests) request.abort();
+}
+// Only replace this tab's owned credential. A memory-only login must not
+// discard a different tab's remembered session.
+export function persistMobileLogin(
+  session: Session,
+  remember: boolean,
+): boolean {
+  forgetMobileCredential(accessToken);
+  return (
+    !remember ||
+    (!!session.accessToken &&
+      !!session.device.expiresAt &&
+      rememberMobileCredential({
+        accessToken: session.accessToken,
+        expiresAt: session.device.expiresAt,
+      }))
+  );
 }
 export function onSessionExpired(callback: () => void) {
   expired = callback;
@@ -177,6 +214,7 @@ export async function api<T>(
   options: { signal?: AbortSignal; timeout?: number; anonymous?: boolean } = {},
 ): Promise<T> {
   const requestGeneration = sessionGeneration;
+  const requestToken = options.anonymous ? "" : accessToken;
   const controller = new AbortController();
   requests.add(controller);
   const abort = () => controller.abort();
@@ -202,12 +240,21 @@ export async function api<T>(
         "Content-Type": "application/json",
         "X-Nestworth-Mobile": "1",
         ...(!options.anonymous && csrf ? { "X-CSRF-Token": csrf } : {}),
-        ...(!options.anonymous && accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : {}),
+        ...(requestToken ? { Authorization: `Bearer ${requestToken}` } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    // An explicit server 401 invalidates even when its response body is broken.
+    if (
+      response.status === 401 &&
+      !options.anonymous &&
+      requestGeneration === sessionGeneration
+    ) {
+      forgetMobileCredential(requestToken);
+      accessToken = "";
+      csrf = "";
+      if (path !== "/session") expired?.();
+    }
     let payload;
     try {
       payload = await response.json();
@@ -219,8 +266,6 @@ export async function api<T>(
     if (requestGeneration !== sessionGeneration)
       throw new MobileError(409, "session_changed");
     if (!response.ok) {
-      if (response.status === 401 && !options.anonymous && path !== "/session")
-        expired?.();
       throw new MobileError(
         response.status,
         payload.error?.code ?? "unavailable",

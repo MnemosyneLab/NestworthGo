@@ -254,7 +254,7 @@ func run() error {
 		defer agentServer.Close()
 		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
 			if mobileServer != nil {
-				if err := mobileServer.Close(); err != nil {
+				if err := mobileServer.RevokeForRestore(); err != nil {
 					return err
 				}
 				service.CancelMobileMarketAndWait()
