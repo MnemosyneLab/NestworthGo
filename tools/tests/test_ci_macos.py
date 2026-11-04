@@ -193,7 +193,7 @@ class MacCI(unittest.TestCase):
         self.assertNotIn('pull_request_target:', mac)
         self.assertIn("branches: ['**']", mac)
 
-    def test_eino_provider_requires_trusted_origin_and_native_runner(self):
+    def test_eino_provider_requires_trusted_origin_and_hosted_linux_runner(self):
         workflow = (ROOT / '.github/workflows/eino-provider.yml').read_text()
         self.assertIn("on:\n  push:\n    branches: ['**']\n    paths:\n", workflow)
         self.assertIn('  workflow_dispatch:\n', workflow)
@@ -205,7 +205,9 @@ class MacCI(unittest.TestCase):
                  "github.event_name == 'workflow_dispatch')\n")
         self.assertIn(guard, workflow)
         self.assertEqual(workflow.count('runs-on:'), 1)
-        self.assertIn('    runs-on: [self-hosted, macOS, ARM64]\n', workflow)
+        self.assertIn('    runs-on: ubuntu-24.04\n', workflow)
+        for forbidden in ('self-hosted', 'macOS', 'macos-', 'ARM64'):
+            self.assertNotIn(forbidden, workflow)
         self.assertIn('permissions:\n  contents: read\n', workflow)
         self.assertNotIn('contents: write', workflow)
         self.assertNotIn('container:', workflow)
@@ -213,9 +215,15 @@ class MacCI(unittest.TestCase):
         self.assertIn('persist-credentials: false', workflow)
         self.assertIn('working-directory: providers/einoopenai\n', workflow)
         self.assertIn('go-version-file: providers/einoopenai/go.mod\n', workflow)
+        self.assertIn('          cache: false\n', workflow)
+        self.assertIn('    timeout-minutes: 10\n', workflow)
+        for path in ('providers/einoopenai/**', 'internal/jsoncodec/**',
+                     'go.mod', 'go.sum', '.github/workflows/eino-provider.yml'):
+            self.assertIn("      - '" + path + "'\n", workflow)
         self.assertIn('run: ./check.sh | tee ', workflow)
         checks = (ROOT / 'providers/einoopenai/check.sh').read_text()
         for command in ('set -euo pipefail', 'export GOWORK=off',
+                        'test -z "$(gofmt -l .)"',
                         'go test -count=1 -timeout=120s ./...',
                         'go vet ./...', 'go build ./...'):
             self.assertIn(command, checks)
