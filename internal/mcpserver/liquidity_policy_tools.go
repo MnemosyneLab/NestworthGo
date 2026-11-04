@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
@@ -29,7 +29,7 @@ type LiquidityPolicyPlanPreview struct {
 	AfterOrigin  string              `json:"afterOrigin"`
 }
 
-func (s *Service) liquidityPolicyTools(server *mcp.Server) {
+func (s *Service) liquidityPolicyTools(server *toolSet) {
 	readTool(server, "preview_save_liquidity_policy", "Preview creation or full replacement of an ordinary source's GUI access/withdrawal rules. Requires ledger_write. Copy sourceRef from get_liquidity_overview (account_value, account_cash with currency, or holding with holdingId); never use instrument identity. expectedRevision is 0 for assumed defaults, otherwise the explicit policy revision. Supply the complete policy: accessKind on_request/on_date/unknown/excluded; unlockOn, settlementDays (0-365), dayBasis calendar/weekdays, receiptOnOverride, accessibleAmountCap, normalExitFee, earlyKind allowed/not_allowed/unknown, earlySettlementDays, earlyDayBasis, earlyFee, earlyAmountMode current_value/fixed_gross, earlyGrossAmount and note. Nullable fields clear with null; omission never preserves a previous value. Money is exact decimal strings in source currency; zero fee is known, null fee is unknown. Civil dates use YYYY-MM-DD. Returns effective before/after policies; metadata is provisional. Only active asset sources; managed policies require preview_product_terms. No cash, ledger or reservation effects. Inspect then commit_save_liquidity_policy within ten minutes.", func(ctx context.Context, in liquidity.SavePolicyRequest) (any, error) {
 		return s.previewLiquidityPolicy(ctx, in, false)
 	})
@@ -37,20 +37,20 @@ func (s *Service) liquidityPolicyTools(server *mcp.Server) {
 		return s.previewLiquidityPolicy(ctx, liquidity.SavePolicyRequest{Source: in.Source, ExpectedRevision: in.ExpectedRevision}, true)
 	})
 	for _, entry := range []struct {
-		tool  mcp.Tool
+		tool  agentcapability.Definition
 		reset bool
 	}{
-		{tool: mcp.Tool{Name: "commit_save_liquidity_policy"}, reset: false},
-		{tool: mcp.Tool{Name: "commit_reset_liquidity_policy"}, reset: true},
+		{tool: agentcapability.Definition{Name: "commit_save_liquidity_policy"}, reset: false},
+		{tool: agentcapability.Definition{Name: "commit_reset_liquidity_policy"}, reset: true},
 	} {
 		name, reset := entry.tool.Name, entry.reset
 		closed := false
-		mcp.AddTool(server, &mcp.Tool{Name: name, Description: "Commit exactly the matching stored ordinary liquidity policy preview. Requires ledger_write; input is only operationId and input.planId. CAS and preview version are checked under the shared application write permit. Successful same-operation retries return the original receipt; changed input conflicts. Unlike managed product atomic receipts, pending/unknown policy receipts are never replayed automatically: inspect get_operation and get_liquidity_overview before a new intentional preview. A used plan with a new operationId is stale, never a second write. Expired, changed, restarted or restored uncommitted plans require a new preview. Reset result is a revision-zero acknowledgement; read the overview for effective defaults. No ledger or reservation mutation.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+		registerTool(server, &agentcapability.Definition{Name: name, Description: "Commit exactly the matching stored ordinary liquidity policy preview. Requires ledger_write; input is only operationId and input.planId. CAS and preview version are checked under the shared application write permit. Successful same-operation retries return the original receipt; changed input conflicts. Unlike managed product atomic receipts, pending/unknown policy receipts are never replayed automatically: inspect get_operation and get_liquidity_overview before a new intentional preview. A used plan with a new operationId is stale, never a second write. Expired, changed, restarted or restored uncommitted plans require a new preview. Reset result is a revision-zero acknowledgement; read the overview for effective defaults. No ledger or reservation mutation.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 			value, err := s.execute(ctx, in.OperationID, name, in.Input, func(ctx context.Context) (any, error) { return s.commitLiquidityPolicy(ctx, in.Input, reset) })
 			if err != nil {
-				return nil, Response{}, safeError(err)
+				return Response{}, safeError(err)
 			}
-			return nil, Response{Data: value}, nil
+			return Response{Data: value}, nil
 		})
 	}
 }

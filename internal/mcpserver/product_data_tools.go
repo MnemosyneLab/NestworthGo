@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -53,23 +53,23 @@ type ProductValuationPlanPreview struct {
 	Preview   liquidity.ProductValuationPreviewDTO `json:"preview"`
 }
 
-func (s *Service) productDataTools(server *mcp.Server) {
+func (s *Service) productDataTools(server *toolSet) {
 	readTool(server, "preview_product_terms", "Preview a complete GUI terms/policy edit for one managed product. Requires ledger_write. productId and expectedRevision must match get_product; supply full terms/policy, including nullable unknowns, with decimal strings in product currency and fractional annualRate or annualRatePercent; prefer one representation, since a nonempty percent takes GUI precedence when both are supplied. Review the resolved canonical annualRate in after. Kind/startOn are immutable; closed contracts only accept name/note while all financial fields/policy stay unchanged. Shows exact before/after revisions, terms, forecast policy and unchanged current value; cash/quantity/cost/quotes/net worth are unchanged. Preview timestamps are provisional metadata. Reservations remain unchanged; forecasts may change and never record actual interest. Inspect the plan then commit_product_terms within ten minutes. Generic directory writes cannot edit financial terms.", s.previewProductTerms)
 	readTool(server, "preview_product_valuation", "Preview one actual total-value observation for an open locked_product. Requires ledger_write. Original-currency amount is a positive decimal string; observedAt is the actual RFC3339 timestamp or empty for frozen App now. After validation, preview freezes UTC milliseconds and truncates submillisecond precision to match persistence; review that exact command. No NAV units, projected interest, provider pulls or generic managed quote imports. term_deposit is rejected. Shows the normalized frozen command and current value before/after using the portfolio quote authority: a historical observation may leave today's value unchanged. Missing current value remains unknown. No cash/quantity/cost or reservation changes. Historical observation may dirty derived analysis. Inspect then commit_product_valuation within ten minutes; draft effects are provisional.", s.previewProductValuation)
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_product_terms", Description: "Commit exactly a stored preview_product_terms plan. Requires ledger_write; only operationId and input.planId. Contract/policy CAS revisions and immutable business receipt share one SQLite transaction. Retry identical operation/input after interruption; same plan/new operationId returns original result even after expiry/restart. Uncommitted stale/expired/restarted/restored plans need a fresh preview. Returned product is the recorded-time result; read get_product separately for current value and complete active reservations. Never releases/restores reserves.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_product_terms", Description: "Commit exactly a stored preview_product_terms plan. Requires ledger_write; only operationId and input.planId. Contract/policy CAS revisions and immutable business receipt share one SQLite transaction. Retry identical operation/input after interruption; same plan/new operationId returns original result even after expiry/restart. Uncommitted stale/expired/restarted/restored plans need a fresh preview. Returned product is the recorded-time result; read get_product separately for current value and complete active reservations. Never releases/restores reserves.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_product_terms", in.Input, true, func(ctx context.Context) (any, error) { return s.commitProductTerms(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_product_valuation", Description: "Commit exactly a stored preview_product_valuation plan. Requires ledger_write; only operationId and input.planId. Quote, value_observation operation and immutable receipt commit atomically; no cash/quantity/cost or reservation changes. Matching retries and same plan/new operationId return original quote/operation/value/time, including after expiry/restart, never today's live product. Read get_product separately; derived analysis may remain dirty. Uncommitted stale/expired/restarted/restored plans need a fresh preview.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_product_valuation", Description: "Commit exactly a stored preview_product_valuation plan. Requires ledger_write; only operationId and input.planId. Quote, value_observation operation and immutable receipt commit atomically; no cash/quantity/cost or reservation changes. Matching retries and same plan/new operationId return original quote/operation/value/time, including after expiry/restart, never today's live product. Read get_product separately; derived analysis may remain dirty. Uncommitted stale/expired/restarted/restored plans need a fresh preview.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_product_valuation", in.Input, true, func(ctx context.Context) (any, error) { return s.commitProductValuation(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 

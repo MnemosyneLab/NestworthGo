@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
@@ -15,7 +15,7 @@ type DataRepairJobInput struct {
 	JobID string `json:"jobId" jsonschema:"Exact jobId returned by start_data_repair. Jobs are retained only in the running application process."`
 }
 
-func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
+func (s *Service) dataHealthTools(server *toolSet, mode string) {
 	generation := s.contextGeneration
 	readTool(server, "scan_data_health", "Run the same local Data Health scan as the UI, without provider requests. The bounded read contract returns frozen issue pages with complete header/counts; default 25/max 100 and 64 KiB complete wire. Missing data is not zero.", func(ctx context.Context, in HealthReadInput) (any, error) {
 		read := func(ctx context.Context) (any, error) {
@@ -64,11 +64,11 @@ func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
 		return
 	}
 	open := true
-	mcp.AddTool(server, &mcp.Tool{
+	registerTool(server, &agentcapability.Definition{
 		Name:        "start_data_repair",
 		Description: "Start the same repair_all job as the UI, fetching configured provider data and rebuilding derived snapshots. Requires ledger_write. Inspect scan_data_health and preview_data_repair first. Uses provider limits and existing application write guards. Reuse operationId for identical retries. The durable receipt records job submission only: inspect attached/conflict and poll the returned jobId to learn completion and remaining issues. A conflicting job means repair_all was not scheduled. An accepted job continues independently of this request or MCP connection.",
-		Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &open},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[Empty]) (*mcp.CallToolResult, Response, error) {
+		Effect:      agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &open},
+	}, func(ctx context.Context, in Mutation[Empty]) (Response, error) {
 		value, err := s.execute(ctx, in.OperationID, "start_data_repair", in.Input, func(ctx context.Context) (any, error) {
 			result, err := s.app.StartMarketDataSync(ctx, application.SyncRequest{Scope: application.SyncScopeRepairAll})
 			if err != nil {
@@ -77,8 +77,8 @@ func (s *Service) dataHealthTools(server *mcp.Server, mode string) {
 			return marketdata.SyncStartResultDTO{Job: marketdata.SyncSnapshotDTO(result.Job), Attached: result.Attached, Conflict: result.Conflict, Reason: result.Reason}, nil
 		})
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }

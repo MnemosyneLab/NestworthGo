@@ -3,7 +3,7 @@ package mcpserver
 import (
 	"context"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 )
 
 type HistoricalOverviewInput struct {
@@ -22,19 +22,19 @@ type HistoricalOverviewSeriesInput struct {
 // preference changes too. Unknown outcomes remain conservative because these
 // application configuration writes do not share a transaction with the MCP
 // receipt file.
-func ledgerWriteTool[I any](s *Service, server *mcp.Server, name, description string, fn func(context.Context, I) (any, error)) {
+func ledgerWriteTool[I any](s *Service, server *toolSet, name, description string, fn func(context.Context, I) (any, error)) {
 	closed := false
-	tool := &mcp.Tool{Name: name, Description: description + " Requires ledger_write. Supply a new operationId for each intended change and reuse the exact same ID and input when retrying; an unknown outcome is never replayed automatically. Read get_operation and current data before another intended change.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}
-	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[I]) (*mcp.CallToolResult, Response, error) {
+	tool := &agentcapability.Definition{Name: name, Description: description + " Requires ledger_write. Supply a new operationId for each intended change and reuse the exact same ID and input when retrying; an unknown outcome is never replayed automatically. Read get_operation and current data before another intended change.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}
+	registerTool(server, tool, func(ctx context.Context, in Mutation[I]) (Response, error) {
 		value, err := s.execute(ctx, in.OperationID, name, in.Input, func(ctx context.Context) (any, error) { return fn(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 
-func (s *Service) featureTools(server *mcp.Server) {
+func (s *Service) featureTools(server *toolSet) {
 	generation := s.contextGeneration
 	readTool(server, "get_upcoming_actions", "Read the GUI's aggregated upcoming product, reservation, receipt, eligibility and data-check actions for the next 30 household-local civil dates. The bounded read contract independently pages filtered globally sorted items and dataChecks while retaining household header/counts. Follow every cursor. Returns the shared upcoming-actions/1 projection, exact reasons, source evidence, timezone, capture time and completeness; do not reconstruct it from product lists or treat estimates as posted facts.", func(ctx context.Context, in UpcomingReadInput) (any, error) {
 		return s.pagedUpcoming(ctx, generation, in)

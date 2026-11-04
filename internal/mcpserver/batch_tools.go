@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -42,15 +42,15 @@ type BatchChangeResult struct {
 	Changes []wire.ChangePreviewDTO `json:"changes"`
 }
 
-func (s *Service) batchTools(server *mcp.Server) {
+func (s *Service) batchTools(server *toolSet) {
 	readTool(server, "preview_batch", "Preview an atomic group of 1 to 100 ledger records without posting any. Requires ledger_write. Commands use preview_change's kinds and fields, including position_import and position_transfer. Supply commands in nondecreasing effective-time order; equal times use array order. All omitted timestamps share one frozen instant. Earlier entries fund later trades. For a buy/sell following a new, imported, or transferred position, omit holdingId and use its account and instrument IDs. Preview IDs are provisional. No directory creation, cross-command placeholder IDs, or target-state reconciliation. An invalid entry rejects the entire preview. Inspect all previews before commit_batch; plans expire in ten minutes and become stale on other application writes.", s.previewBatch)
 	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: "commit_batch", Description: "Commit exactly the stored preview_batch plan as one database transaction: all holdings, activities and the batch mutation receipt succeed together or all roll back. Requires ledger_write. Pass operationId and input.planId only. Never submit a single-change plan here. Identical retries and reuse of the same plan return the original activities, including after interruption or restart; changed operation arguments conflict. Expired or stale uncommitted plans require a fresh preview.", Annotations: &mcp.ToolAnnotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in Mutation[CommitChangeInput]) (*mcp.CallToolResult, Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: "commit_batch", Description: "Commit exactly the stored preview_batch plan as one database transaction: all holdings, activities and the batch mutation receipt succeed together or all roll back. Requires ledger_write. Pass operationId and input.planId only. Never submit a single-change plan here. Identical retries and reuse of the same plan return the original activities, including after interruption or restart; changed operation arguments conflict. Expired or stale uncommitted plans require a fresh preview.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_batch", in.Input, true, func(ctx context.Context) (any, error) { return s.commitBatch(ctx, in.Input) })
 		if err != nil {
-			return nil, Response{}, safeError(err)
+			return Response{}, safeError(err)
 		}
-		return nil, Response{Data: value}, nil
+		return Response{Data: value}, nil
 	})
 }
 
