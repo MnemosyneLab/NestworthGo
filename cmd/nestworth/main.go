@@ -18,6 +18,7 @@ import (
 
 	webassets "github.com/waltwang/nestworth-go"
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/diagnostics"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
@@ -31,6 +32,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/version"
 	wailsaccount "github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	wailsagent "github.com/waltwang/nestworth-go/internal/wailsapi/agent"
+	wailsairuntime "github.com/waltwang/nestworth-go/internal/wailsapi/airuntime"
 	wailsanalysis "github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
@@ -237,9 +239,21 @@ func run() error {
 	if service != nil {
 		dataService = wailsdata.NewService(service, store, platform, marketdataService)
 	}
+	var assistantRuntime *assistant.Runtime
+	if service != nil {
+		var runtimeErr error
+		assistantRuntime, runtimeErr = openAssistantRuntime(service, databasePath, store.Path)
+		if runtimeErr != nil {
+			slog.Info("assistant runtime unavailable; activation remains closed")
+		}
+		if assistantRuntime != nil {
+			defer assistantRuntime.Close()
+		}
+	}
 	var agentServer *mcpserver.Service
 	var mobileServer *mobileapi.Server
 	registered := services(service, store, recoveryService, dataService, marketdataService, appService)
+	registered = append(registered, application.NewService(wailsairuntime.NewService(assistantRuntime)))
 	registered = append(registered, application.NewService(wailsbackup.NewService(cloudBackup, service, recoveryUseCase, recoveryService)))
 	if service != nil {
 		mobileAssets, err := fs.Sub(webassets.Dist, "frontend/dist")
@@ -253,6 +267,11 @@ func run() error {
 		agentServer.SetReconciliationChanged(func() { emitter.Emit(mcpserver.ReconciliationChangedEvent, true) })
 		defer agentServer.Close()
 		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
+			if assistantRuntime != nil {
+				if err := assistantRuntime.FenceForRestore(); err != nil {
+					return err
+				}
+			}
 			if mobileServer != nil {
 				if err := mobileServer.RevokeForRestore(); err != nil {
 					return err
@@ -274,6 +293,9 @@ func run() error {
 	// drain business writers, then cancel/join provider workers before final
 	// remote backup confirmation and any database descriptor close.
 	defer func() {
+		if assistantRuntime != nil {
+			_ = assistantRuntime.Close()
+		}
 		if mobileServer != nil {
 			_ = mobileServer.Close()
 		}

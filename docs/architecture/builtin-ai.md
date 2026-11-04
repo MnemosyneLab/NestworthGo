@@ -1,13 +1,18 @@
 # Built-in AI integration and delivery boundaries
 
-## Current delivery: page guide UI, general AI activation still closed
+## Current delivery: backend runtime with activation still closed
 
 The installed UI follow-up is documented in [Page guide stage](builtin-ai-page-guide.md).
 It adds a local deterministic guide on desktop and mobile, typed in-memory page
 publications and explicit account navigation, plus closed capability-status APIs.
 It does not activate a model, credentials, durable conversations or AI writes.
-The complete read/write assistant remains the target. The backend integration
-core described below is the prior stage merged through #203.
+The complete read/write assistant remains the target. The independent
+[backend runtime stage](builtin-ai-runtime.md) now installs private conversations,
+run recovery, a guarded Eino engine, desktop query/cancel IPC and a replaceable
+secure credential port. Existing ad-hoc builds, the page guide and all mobile or
+financial-write paths remain closed. The integration core below describes the
+prior stage merged through #203; its historical absence of executable dependencies
+is superseded by that runtime contract.
 
 ## Host review backend integration stage
 
@@ -23,7 +28,7 @@ Base main `76722b33477f45aed4babffaa0d33664098c3f7d` includes merged #199
 - A reusable Eino `CapabilityTools` adapter over the model-facing in-process
   session. It validates closed-world, non-writing discovery, rejects lossy schema
   conversion, returns detached metadata and rechecks the session at dispatch.
-  It never calls a local HTTP/MCP endpoint. Root runtime dependencies stay unchanged.
+  It never calls a local HTTP/MCP endpoint. Root runtime dependencies stayed unchanged in that host-review stage.
 - A durable, versioned host review coordinator for single `commit_change` ledger
   operations. It independently prepares a preview, binds immutable authority,
   admits once, commits through the existing application gate, and inspects both
@@ -41,14 +46,14 @@ Base main `76722b33477f45aed4babffaa0d33664098c3f7d` includes merged #199
   Failed/truncated/incomplete proposal responses dispatch zero preview calls.
   Native reasoning is replayed on the next actual provider request.
 
-The backend stage added no application service registration, Wails method, mobile
-endpoint or assistant UI. The page guide follow-up adds only capability-status
-entry points and local UI; no runner, API-key input or secret store is installed. The provider module is
-still not imported by the executable. There is no activation flag to turn on:
-the product entry points do not exist. The host APIs are integration components,
-not proof of trusted GUI approval. Complete model-backed desktop/mobile UI, live mobile intersection,
-conversation/run persistence, system credential storage, startup/restore wiring,
-packaging and live-model compatibility remain required before activation.
+That host-review stage added no executable registration or assistant UI. The
+page-guide follow-up added local UI and closed status. The subsequent
+[backend runtime stage](builtin-ai-runtime.md) now imports the guarded provider
+module, persists conversations/runs and registers desktop query/cancel methods,
+startup/restore/shutdown fences and an unavailable-by-default system secure-store
+adapter. Its host-only configuration/credential APIs and existing host reviews
+are not GUI approval. Verified secure-store deployment, trusted review UI, scoped
+mobile permissions, packaging and live-model compatibility remain activation gates.
 
 Implemented and exercised with synthetic data:
 
@@ -131,8 +136,8 @@ This now includes the synthetic ledger/host-review gate as well as all #201
 provider tests. The dedicated workflow triggers on `internal/**` changes too,
 because the vertical test depends on shared application and persistence code.
 Only fake loopback providers, synthetic keys and synthetic ledgers are used.
-There is no real provider/signature/model-quality evidence, native keychain,
-paid request or root-runtime activation. Full native history is private provider
+There is no real-provider/signature/model-quality or signed-Keychain acceptance,
+paid request or enabled product model flow. Full native history is private provider
 state: never render `Reasoning`, `Extra` or serialized model objects as chat text.
 
 ## Intended runtime and authority boundaries
@@ -150,8 +155,10 @@ flowchart LR
 ```
 
 The diagram describes the target application. The local model adapter and
-review coordinator now exist as tested integration components; no model runner is installed in the executable. The installed page guide UI
-uses only local, deterministic explanations and closed status APIs. No model gets
+review coordinator exist as tested integration components. The backend runtime
+now installs a dormant guarded model engine and private run owner in the executable.
+The installed page guide still uses local, deterministic explanations and closed
+status APIs until its separate activation and trusted UI gates are complete. No model gets
 arbitrary SQL, repository access, reflection over Wails methods, general HTTP
 tools or a way to manufacture a host approval.
 
@@ -172,9 +179,10 @@ exists. Mobile session expiry/revocation must cancel runs and fence confirmation
 Restore integration must register local-session revocation alongside external
 MCP **before** replacing database state, under the existing restore lifecycle.
 `RevokeForRestore` cancels/fences without draining a writer while the application
-owns its exclusive permit; `Close` drains only outside that permit. The current
-per-call household check alone cannot close a restore race and is not automatic
-restore integration. Restored configuration, cached evidence and approvals must
+owns its exclusive permit; `Close` drains only outside that permit. The backend
+runtime now registers a read-only cancellation/purge fence before replacement. A future write-capable review owner must also register its session
+fence; a per-call household check alone cannot close that restore race. Restored
+configuration, cached evidence and approvals must
 not regain authority; rebind to a fresh incarnation and require new previews.
 
 ## Durable host review core and remaining UI protocol
@@ -234,8 +242,9 @@ records fail closed. Pending and unknown reviews cannot be dismissed through
 `CancelHostChange`, and this stage provides no button to replace their identity.
 Directory/configuration unknown writes are never replayed.
 
-These APIs still need a durable conversation/run owner, current scoped/mobile
-permissions, startup/restore registration, trusted UI and navigation guards.
+These APIs still need explicit links to the runtime conversation/run owner, current
+scoped/mobile permissions, trusted review UI, write-session lifecycle registration
+and navigation guards.
 They must not be exposed directly to the current household-wide mobile surface.
 Receipt retention must remain independent of conversation deletion in that
 future owner. Full crash/power-loss and backup/restore App acceptance is pending;
@@ -251,16 +260,17 @@ are not imported. Equivalent guarantees are tested at their current owner:
 
 | Historical scenario | Current local-adapter coverage | Still pending |
 | --- | --- | --- |
-| Eino + officialmcp + HTTP + SQLite | Real Eino + guarded provider + `CapabilityTools` + direct shared handlers + synthetic SQLite; existing external MCP discovery/behavior tests remain | Installed App runner and desktop/mobile flows |
-| Eino checkpoint across real child processes | `TestHostReviewAcrossProcessRestart`: real child abrupt exit, new process/SQLite open, old uncommitted review rejected; #201 separately tests native-state serialization/replay | Durable Eino/conversation checkpoint store and complete cross-process model-history resume; no automatic paid-model rerun |
+| Eino + officialmcp + HTTP + SQLite | Real Eino + guarded provider + `CapabilityTools` + direct shared handlers + synthetic SQLite; existing external MCP discovery/behavior tests remain | Model-backed desktop/mobile UI and trusted review flows |
+| Eino checkpoint across real child processes | `TestHostReviewAcrossProcessRestart`: real child abrupt exit, new process/SQLite open, old uncommitted review rejected; #201 separately tests native-state serialization/replay | The runtime stage adds durable full-turn history and actual SDK replay after reopen; actual-provider cross-process/power-loss acceptance remains pending; no automatic paid-model rerun |
 | Successful commit response lost/reconnect | Child exits after the business transaction, before saving outer success/returning to host; new child inspects original plan/operation and recovers exactly one ledger activity without dispatch | Actual desktop/mobile disconnect/reconnect UI; unknown directory/configuration operations remain nonreplayable |
 | False balance/approval summary | Actual Eino summarization middleware receives a synthetic false 99999 balance/approval summary, rereads real account evidence, and leaves authoritative cash at 0 with no write before explicit host review | Production compaction policy, summary persistence and hostile long-context acceptance against a real model |
 
 The synthetic summary case shows that summaries have no financial or approval
 API authority. It does not prove real-model explanation accuracy. Exact answers
-must still come from controlled evidence. The current model gate preserves native
-history in a JSON sidecar; the host-review subprocess fixture is not an Eino
-checkpoint test and must never be reported as one.
+must still come from controlled evidence. The provider gate serializes native
+history; the runtime stage now persists that
+full-turn state in a private SQLite sidecar. The host-review subprocess fixture is
+not an Eino checkpoint test and must never be reported as one.
 
 ## Structured page context and semantic navigation contract
 
@@ -364,12 +374,14 @@ requirements; these client-only contexts grant no backend/model authority.
 
 ## Conversation, provider and UI follow-up plan
 
-Implement in dependency order, with each stage independently reviewable:
+Complete the remaining integration in dependency order. The read-only runtime
+implements parts of steps 1–3 as detailed in its contract; the full UI and write
+authority gates remain independently reviewable:
 
 1. **Capability ownership and principals.** Move the remaining transport-neutral
    business/cache/receipt owner out of `mcpserver`; preserve external compatibility
    tests. Add ledger incarnations, account-scope enforcement and live mobile
-   permission intersection. Hook shutdown, ledger change and restore revocation.
+   permission intersection. The runtime stage now hooks shutdown and restore revocation for its read-only owner; scoped authority remains pending.
 2. **Versioned durable host state.** Extend the implemented version-1 single-change
    host review core with conversations, messages, runs and evidence snapshots;
    define approved SQLite migration/recovery rules where schema changes are needed.
