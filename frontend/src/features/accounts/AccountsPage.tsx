@@ -23,6 +23,8 @@ import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 import { accountGroupNet, groupAccounts } from "@/features/accounts/accountGroups";
 import { AccountIcon } from "@/components/icons/AccountIcon";
+import { usePublishAssistantPage } from "@/features/assistant/PageContext";
+import { useSettings } from "@/queries/settings";
 
 /**
  * AccountsPage is the real-world account list. Clicking a row opens Account
@@ -54,6 +56,7 @@ export function AccountsPage({
   const filter = { includeArchived: showArchived || Boolean(selectedId), ...(!selectedId && navigationFilter && navigationFilter.value !== "unassigned" ? { [navigationFilter.dimension]: navigationFilter.value } : {}) };
   const accounts = useAccounts(filter);
   const valuations = useAccountValuations(filter);
+  const settings = useSettings();
   const createAccount = useCreateAccount();
   const [createOpen, setCreateOpen] = useState(false);
   const [handledCreateRequestId, setHandledCreateRequestId] = useState(0);
@@ -78,6 +81,11 @@ export function AccountsPage({
     () => groupAccounts((accounts.data ?? []).filter(record => !navigationFilter || navigationFilter.value !== "unassigned" || (navigationFilter.dimension === "institutionId" ? !record.account.institutionId : navigationFilter.dimension === "groupId" ? !record.account.groupId : true)), valuations.data ?? []),
     [accounts.data, valuations.data, navigationFilter],
   );
+  usePublishAssistantPage({ viewKey: "accounts:", page: "accounts", scope: { kind: "household", label: t("nav.accounts") },
+    timezone: settings.data?.timezone ?? "UTC", basis: "base", observedAt: accounts.dataUpdatedAt,
+    state: accounts.isError ? "unavailable" : accounts.isLoading ? "loading" : "available", filters: { includeArchived: showArchived }, metrics: [],
+    targets: grouped.flatMap(group => group.records).slice(0, 64).map(record => ({ label: [record.account.name, record.institutionName, record.account.defaultCurrency].filter(Boolean).join(" · "), destination: { page: "accounts", accountId: record.account.id } })),
+  }, accounts.refetch);
 
   const saveCreate = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
     setCreateError(undefined);
@@ -104,6 +112,7 @@ export function AccountsPage({
         record={selectedRecord}
         valuation={valuationByAccountId.get(selectedRecord.account.id)}
         valuationUpdatedAt={valuations.dataUpdatedAt}
+        onRefresh={valuations.refetch}
         onBack={() => setSelectedId(null)}
       />
     );

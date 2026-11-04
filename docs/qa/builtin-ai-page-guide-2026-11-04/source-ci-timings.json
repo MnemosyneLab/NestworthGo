@@ -1,0 +1,116 @@
+{
+  "sourceSha": "d0b49f697c594031c4fc7b3b71e3c7a9141d1e42",
+  "url": "https://github.com/MnemosyneLab/NestworthGo/actions/runs/41791990587",
+  "jobs": [
+    {
+      "name": "test",
+      "startedAt": "2026-11-04T07:24:05Z",
+      "completedAt": "2026-11-04T07:27:40Z",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:08Z",
+          "completedAt": "2026-11-04T07:24:10Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:10Z",
+          "completedAt": "2026-11-04T07:24:15Z"
+        },
+        {
+          "name": "Run actions/setup-go@v7",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:15Z",
+          "completedAt": "2026-11-04T07:24:15Z"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:15Z",
+          "completedAt": "2026-11-04T07:24:15Z"
+        },
+        {
+          "name": "Reuse pinned pnpm executable",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:15Z",
+          "completedAt": "2026-11-04T07:24:15Z"
+        },
+        {
+          "name": "Verify native environment and select persistent caches",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:15Z",
+          "completedAt": "2026-11-04T07:24:16Z"
+        },
+        {
+          "name": "Prepare pinned Wails CLI",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:16Z",
+          "completedAt": "2026-11-04T07:24:16Z"
+        },
+        {
+          "name": "Install locked frontend dependencies",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:16Z",
+          "completedAt": "2026-11-04T07:24:17Z"
+        },
+        {
+          "name": "Generate Wails bindings once",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:17Z",
+          "completedAt": "2026-11-04T07:24:20Z"
+        },
+        {
+          "name": "Frontend build",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:20Z",
+          "completedAt": "2026-11-04T07:24:25Z"
+        },
+        {
+          "name": "Run independent correctness lanes",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:24:25Z",
+          "completedAt": "2026-11-04T07:26:53Z"
+        },
+        {
+          "name": "Require every correctness gate",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:26:53Z",
+          "completedAt": "2026-11-04T07:26:53Z"
+        },
+        {
+          "name": "Retain environment, full test results and timings",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:26:53Z",
+          "completedAt": "2026-11-04T07:27:03Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:27:03Z",
+          "completedAt": "2026-11-04T07:27:03Z"
+        },
+        {
+          "name": "Post Run actions/setup-go@v7",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:27:03Z",
+          "completedAt": "2026-11-04T07:27:03Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:27:03Z",
+          "completedAt": "2026-11-04T07:27:04Z"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success",
+          "startedAt": "2026-11-04T07:27:04Z",
+          "completedAt": "2026-11-04T07:27:04Z"
+        }
+      ]
+    }
+  ]
+}

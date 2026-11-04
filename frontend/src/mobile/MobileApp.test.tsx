@@ -49,6 +49,7 @@ let marketCancelRequests: number;
 let marketConfirms: string[];
 let healthy = false;
 let resolveFirst: (() => void) | undefined;
+let accountDetailResponse: Record<string, unknown>;
 
 beforeEach(async () => {
   await i18n.changeLanguage("en");
@@ -67,10 +68,13 @@ beforeEach(async () => {
   healthy = false;
   mode = "success";
   resolveFirst = undefined;
+  accountDetailResponse = { account: { name: "Synthetic bank" }, components: [] };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit) => {
       const route = url.replace("/mobile-api/v1", "");
+      if (route === "/assistant/status") return json(envelope({ version: 1, surface: "mobile", pageGuide: true,
+        provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" }));
       if (route === "/session")
         return json({
           ...session,
@@ -136,9 +140,7 @@ beforeEach(async () => {
           }),
         );
       if (route === "/accounts/synthetic-bank")
-        return json(
-          envelope({ account: { name: "Synthetic bank" }, components: [] }),
-        );
+        return json(envelope(accountDetailResponse));
       if (route.startsWith("/holdings?"))
         return json(
           envelope({
@@ -289,6 +291,52 @@ async function fillRecord(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("mobile financial interruption flow", () => {
+  it.each([
+    { name: "complete USD despite missing household FX", baseComplete: false, value: { amount: "123.4567", currency: "USD" }, nativeComplete: true, missingInputs: [], state: "Available in this snapshot.", missing: "No missing inputs reported for this figure." },
+    { name: "partial native projection", baseComplete: false, value: { amount: "123.4567", currency: "USD" }, nativeComplete: false, missingInputs: [{ kind: "holding_amount" }], state: "Known subtotal or partial estimate; this is not a complete total.", missing: "Incomplete inputs exist; inspect the business page for details." },
+    { name: "missing native FX despite complete household value", baseComplete: true, value: null, nativeComplete: false, missingInputs: [{ kind: "fx_rate" }], state: "The value is missing. Missing data is never zero.", missing: "Incomplete inputs exist; inspect the business page for details." },
+  ])("keeps assistant account evidence in its displayed currency: $name", async fixture => {
+    accountDetailResponse = {
+      account: { name: "Synthetic bank", defaultCurrency: "USD", trackingMode: "balance" }, components: [],
+      displayValue: { currency: "USD", value: fixture.value, complete: fixture.nativeComplete, missingInputs: fixture.missingInputs },
+      complete: fixture.baseComplete, baseValue: fixture.baseComplete ? { amount: "9999", currency: "CNY" } : null,
+      missingInputs: fixture.baseComplete ? [] : [{ kind: "fx_rate", baseCurrency: "USD", quoteCurrency: "CNY" }],
+    };
+    const user = userEvent.setup(); mount();
+    await screen.findByText("SYNTHETIC MOBILE TEST");
+    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    await user.click(await screen.findByRole("button", { name: /Synthetic bank/ }));
+    await screen.findByRole("heading", { name: "Synthetic bank" });
+    await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
+    await screen.findByText("Local page guide ready");
+    await user.selectOptions(screen.getByLabelText("Visible metric"), screen.getByRole("option", { name: "Synthetic bank" }));
+    await user.click(screen.getByRole("button", { name: "Explain selected metric" }));
+    const conversation = screen.getByLabelText("Page explanations");
+    expect(await within(conversation).findByText(fixture.state)).toBeVisible();
+    await user.click(within(conversation).getByText("Data evidence", { exact: true }));
+    expect(within(conversation).getByText(fixture.missing)).toBeVisible();
+    expect(within(conversation).getByText("USD", { exact: true })).toBeVisible();
+    expect(within(conversation).queryByText("CNY", { exact: true })).not.toBeInTheDocument();
+    expect(previews).toHaveLength(0); expect(confirms).toHaveLength(0);
+  });
+  it("opens the local assistant and separate closed review without dispatching a financial change", async () => {
+    const user = userEvent.setup(); mount();
+    await screen.findByRole("button", { name: "Quick record" });
+    const trigger = screen.getByRole("button", { name: "Open AI assistant" });
+    await user.click(trigger);
+    await screen.findByText("Local page guide ready");
+    await user.selectOptions(screen.getByLabelText("Visible metric"), screen.getByRole("option", { name: "Net worth" }));
+    await user.click(screen.getByRole("button", { name: "Explain selected metric" }));
+    await screen.findByText("Local page guide · no model");
+    await user.click(screen.getByRole("button", { name: "Financial review" }));
+    expect(screen.getByRole("button", { name: "AI confirmation unavailable" })).toBeDisabled();
+    expect(previews).toHaveLength(0); expect(confirms).toHaveLength(0);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Financial review" })).toHaveFocus());
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.getByRole("button", { name: "Quick record" })).toBeVisible();
+  });
   it("shows a known holding cost from the tagged money DTO instead of a blank amount", async () => {
     const user = userEvent.setup();
     mount();
