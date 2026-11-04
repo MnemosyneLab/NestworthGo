@@ -1582,3 +1582,56 @@ it("restores source scroll when the external analysis store forces an intermedia
     expect(screen.getByRole("checkbox", { name: "Show archived" })).toBeChecked();
   } finally { setState.mockRestore(); }
 });
+
+it.each(["back", "recent"] as const)("restores same-page %s scroll only after the destination account DOM is committed", async route => {
+  const long = { ...checkingAccount, account: { ...checkingAccount.account, id: "synthetic-long", name: "Long synthetic account" } };
+  listAccounts.mockResolvedValue([checkingAccount, long]);
+  accountValuations.mockResolvedValue([checkingValuation, { ...checkingValuation, account: long.account }]);
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const user = userEvent.setup();
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  const controls = within(screen.getByRole("group", { name: "Navigation history" }));
+  await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await screen.findByTestId("accounts-table");
+  const main = document.getElementById("main-content")!;
+  let top = 0;
+  const attempts: Array<{ requested: number; height: number }> = [];
+  // jsdom has no layout. Model native scroll clamping from the currently
+  // committed list/account DOM; the real browser fixture measures actual CSS heights.
+  const height = () => main.querySelector('[data-testid="accounts-table"]') ? 2400
+    : document.querySelector("header h1")?.textContent?.includes("Long synthetic account") ? 3000 : 500;
+  Object.defineProperties(main, {
+    clientHeight: { configurable: true, get: () => 600 },
+    scrollHeight: { configurable: true, get: height },
+    scrollTop: { configurable: true, get: () => top, set: (value: number) => {
+      attempts.push({ requested: value, height: height() });
+      top = Math.max(0, Math.min(value, Math.max(0, height() - 600)));
+    } },
+  });
+  if (route === "recent") {
+    await user.click(screen.getByRole("button", { name: /Long synthetic account.*Bank account/ }));
+    await screen.findByRole("heading", { name: "Long synthetic account" });
+    main.scrollTop = 900;
+    await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+  } else main.scrollTop = 900;
+  await user.click(screen.getByRole("button", { name: /Checking.*Bank account/ }));
+  await screen.findByTestId("account-detail");
+  expect(height()).toBe(500);
+  expect(main.scrollTop).toBe(0);
+  const original = useAnalysisStore.setState;
+  const setState = vi.spyOn(useAnalysisStore, "setState").mockImplementation(state => {
+    flushSync(() => original(state));
+  });
+  try {
+    if (route === "back") await user.click(controls.getByRole("button", { name: "Go back" }));
+    else {
+      await user.click(controls.getByRole("button", { name: "Recent pages" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Accounts · Long synthetic account" }));
+    }
+    await waitFor(() => expect(main.scrollTop).toBe(900));
+    expect(attempts.filter(attempt => attempt.requested === 900).every(attempt => attempt.height > 600)).toBe(true);
+    if (route === "back") expect(screen.getByTestId("accounts-table")).toBeVisible();
+    else expect(screen.getByRole("heading", { name: "Long synthetic account" })).toBeVisible();
+  } finally { setState.mockRestore(); }
+});

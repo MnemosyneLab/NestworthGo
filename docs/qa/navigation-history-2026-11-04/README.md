@@ -1,9 +1,10 @@
 # Desktop navigation history acceptance — 2026-11-04
 
 Base: main `1701e5d5d9bb10ec9db846245766bab6f7a740e5`.
-The exact frontend source used for the final affected suites, build and screenshots is recorded in
+The follow-up frontend source fingerprint is recorded in
 [frontend-source-sha256.json](frontend-source-sha256.json). These file hashes
 must match the reviewed commit; generated bindings and bundles are not committed.
+Earlier screenshots retain their original validation scope as identified below.
 
 ## Environment and isolation
 
@@ -27,7 +28,8 @@ This is Chromium HTTP acceptance, not native macOS GUI acceptance.
   1695 tests passed**, 265.69 seconds.
 - After the CI-scroll fix: all **150 tests** in App, historical capture/overview
   and onboarding suites passed; lint/typecheck/build passed again. The complete
-  final macOS check is required at the [PR head](https://github.com/MnemosyneLab/NestworthGo/pull/200/checks).
+  macOS run [41779322441](https://github.com/MnemosyneLab/NestworthGo/actions/runs/41779322441)
+  passed all 1696 tests at `e3d1b76`. Follow-up results are tied to the latest [PR head](https://github.com/MnemosyneLab/NestworthGo/pull/200/checks).
 - Production frontend build: passed. Existing large-chunk advisory remains.
 - `CGO_ENABLED=0 GOFLAGS='-mod=readonly -tags=server -p=4' go test ./...`: passed.
 - Same server configuration, `go vet ./...`: passed.
@@ -141,3 +143,33 @@ memory-only and does not survive reload/restart or a household change. The
 current restore path requires restart. The conservative 20-Tasks-session limit
 and unexposed page-local-state limits are described in the
 [navigation contract](../../design/navigation-history.md).
+
+## Same-page account restore review
+
+The review edge was reproduced on `e3d1b76` before modifying production code.
+Two forced-`flushSync` App regressions failed (900 became 0). A separate real
+Chromium fixture uses 61 synthetic accounts and 40 holdings through application
+services, with native CSS geometry and the browser's original scrollTop setter.
+Both list→short-detail→Back and long-account→short-account→Recent lost position.
+The short DOM had scrollHeight/clientHeight 844/844; the restored destinations
+were 4367/844 and 4152/844. Writes into the short DOM were clamped to zero.
+
+Restore requests now wait for the destination account ID and filter as well as
+entry/page identity. The effect rechecks those props and performs no unsolicited
+scroll reset when there is no pending restore. The same native browser paths
+restore their captured list offset (1187) and account offset (900) exactly.
+See [paired geometry results](same-page-results.json).
+
+Reproduce with `node same-page-build.mjs /workspace/scratch/<fresh-directory>`
+from the repository root (use this directory's full script path). This opt-in
+builder seeds a fresh synthetic database and adds only a forced shared-store
+commit hook to a separate test bundle; it restores production dist afterwards.
+Launch its server with explicit isolated database/settings/XDG paths, then run
+`same-page-acceptance.py --qa-root <same-directory> --base-url <local-url>`.
+The script traces the original native setter without fabricating scroll sizes.
+Production builds include no test hook. The prior fourteen browser journeys
+were captured on `e3d1b76`; these two additional journeys verify this follow-up.
+
+The concurrent main merge `073e0b7` is preserved. The follow-up is rebased onto
+that commit; its final complete CI outcome is recorded in PR #200 for the exact
+head. No deadline or scroll assertion was removed or increased.

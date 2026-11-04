@@ -107,12 +107,14 @@ function Workspace() {
   const activeEntryId = entries[cursor]?.id;
   const trail = entries.slice(0, cursor).flatMap(entry => entry.snapshot ? [entry.snapshot] : []);
   const allSnapshots = [...entries, ...recent].flatMap(entry => entry.snapshot ? [entry.snapshot] : []);
-  const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string; page?: PageId; entryId?: number } | null>(null);
+  const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string; page?: PageId; entryId?: number; accountId?: string | null; filter?: AccountListFocus } | null>(null);
   useLayoutEffect(() => {
     const position = restorePosition.current;
-    // External stores may commit the cursor before the destination page. Keep
-    // the request until both match, including across cancelled focus frames.
-    if (position && ((position.page && position.page !== activePageId) || (position.entryId !== undefined && position.entryId !== activeEntryId))) return;
+    // External stores can commit the cursor before the page or account props.
+    // Writing into the previous (shorter) DOM would permanently clamp scroll.
+    if (!position) return;
+    if ((position.page && position.page !== activePageId) || (position.entryId !== undefined && position.entryId !== activeEntryId)) return;
+    if (position.page === "accounts" && (position.accountId !== selectedAccountId || position.filter !== accountFilter)) return;
     const main = document.getElementById("main-content");
     if (main) main.scrollTop = position?.scroll ?? 0;
     const frame = requestAnimationFrame(() => {
@@ -140,7 +142,7 @@ function Workspace() {
       document.removeEventListener("keydown", cancelRestore, true);
       document.removeEventListener("focusin", cancelRestore, true);
     };
-  }, [activePageId, cursor, activeEntryId]);
+  }, [activePageId, cursor, activeEntryId, selectedAccountId, accountFilter]);
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
   const setAccent = useUiStore((state) => state.setAccent);
@@ -299,7 +301,7 @@ function Workspace() {
     setReturnToHoldingsAfterCreate(target.page === "accounts" && target.create === true && activePageId === "portfolio");
     if (destination.snapshot) restore(destination.snapshot, destination.id);
     else {
-      restorePosition.current = { scroll: 0, focus: null, focusId: restorePosition.current?.focusId, page: resolved.page, entryId: destination.id };
+      restorePosition.current = { scroll: 0, focus: null, focusId: restorePosition.current?.focusId, page: resolved.page, entryId: destination.id, ...(resolved.page === "accounts" ? { accountId: resolved.accountId ?? null, filter: resolved.filter } : {}) };
       applyTarget(resolved);
     }
   };
