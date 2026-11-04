@@ -1,10 +1,22 @@
 # Built-in assistant page guide acceptance — 2026-11-04
 
-Source: `d0b49f697c594031c4fc7b3b71e3c7a9141d1e42`, based on main
+Initial acceptance source: `d0b49f697c594031c4fc7b3b71e3c7a9141d1e42`, based on main
 `d47055514975345b37c558514fd1e2a58ff93c32` (merged #203, including #200).
 [PR #204](https://github.com/MnemosyneLab/NestworthGo/pull/204) remains a draft.
 Later evidence-only commits must retain the source fingerprints in
 [source-evidence.json](source-evidence.json).
+
+A later currency-completeness correction changes the account guide mapper;
+these initial fingerprints/screenshots remain historical acceptance evidence.
+The guide now takes the amount, completeness and missing reasons from the same
+native `displayValue` projection. It must not borrow household/base FX failures.
+Three mobile component regressions cover complete native/missing household FX,
+partial native value and missing native value/complete household valuation. The
+first and third failed before the correction; all pass afterward. A real
+authenticated HTTP regression verifies that a USD 123.4567 account without
+USD/CNY FX has complete native evidence and incomplete household evidence.
+The shared mapper also preserves exact/zero/signed values and the native currency
+when its value is omitted. Current-head validation is reported in PR #204.
 
 This is an installed **local deterministic page guide**, not a complete AI
 assistant. General model conversation, credential entry, durable conversations,

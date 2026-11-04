@@ -1,6 +1,7 @@
 import { mobileOperationId } from "./operationId";
 import { MobileAssistant } from "./MobileAssistant";
 import { AssistantPageProvider, usePublishAssistantPage } from "@/features/assistant/PageContext";
+import { nativeAccountMetric, type AccountDisplayProjection } from "@/features/assistant/publications";
 import {
   useCallback,
   useEffect,
@@ -139,7 +140,7 @@ type AccountDetail = {
     defaultCurrency?: string;
   };
   components: Component[];
-  displayValue?: { value: Money | null } | null;
+  displayValue?: AccountDisplayProjection | null;
   baseValue?: Money | null;
   complete?: boolean;
 };
@@ -1733,12 +1734,11 @@ function Detail({
     `accountId=${kind === "accounts" ? id : ""}`,
   );
   const accountEvidence = kind === "accounts" ? query.data?.data as AccountDetail | undefined : undefined;
-  const accountMoney = accountEvidence?.displayValue?.value;
+  const accountDisplay = accountEvidence?.displayValue;
   usePublishAssistantPage({ viewKey: `accounts:accounts-${id}`, page: "accounts", scope: { kind: "account", label: accountEvidence?.account.name ?? "" },
-    timezone: query.data?.ledgerTimezone ?? "UTC", basis: "native", currency: accountMoney?.currency,
+    timezone: query.data?.ledgerTimezone ?? "UTC", basis: "native", currency: accountDisplay?.value?.currency ?? accountDisplay?.currency,
     observedAt: query.dataUpdatedAt, state: kind !== "accounts" || query.isError ? "unavailable" : query.isPending ? "loading" : "available", targets: [],
-    metrics: [{ label: accountEvidence?.account.name ?? "", value: accountMoney?.amount ?? null, unit: accountMoney?.currency ?? "",
-      basis: "account_value", status: accountEvidence?.complete ? "available" : accountMoney ? "incomplete" : "unavailable", missingReasons: accountEvidence?.complete ? [] : ["incomplete"] }],
+    metrics: [nativeAccountMetric(accountDisplay, accountEvidence?.account.name ?? "")],
   }, query.refetch);
   if (!query.data)
     return (

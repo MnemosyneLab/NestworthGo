@@ -1,10 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { PageHost } from "./pageHost";
 import { isClosedStatus, type NavigationIntentV1, type PagePublication } from "./contracts";
-import { overviewPublication } from "./publications";
+import { nativeAccountMetric, overviewPublication } from "./publications";
 
 const now = 1_800_000_000_000;
 const principal = { householdId: "synthetic-household", ledgerIncarnation: "incarnation", assistantSessionId: "session", permissionRevision: "permission", surface: "desktop" as const };
+it("keeps native account amounts, gaps and completeness in one projection", () => {
+  const native = { currency: "USD", value: { amount: "0.000000000000000123", currency: "USD" }, complete: true, missingInputs: [] };
+  expect(nativeAccountMetric(native, "Synthetic USD")).toMatchObject({ value: "0.000000000000000123", unit: "USD", status: "available", missingReasons: [] });
+  expect(nativeAccountMetric({ ...native, value: { amount: "0", currency: "USD" } }, "Zero USD")).toMatchObject({ value: "0", status: "available" });
+  expect(nativeAccountMetric({ ...native, complete: false, missingInputs: [{ kind: "holding_amount" }] }, "Partial USD")).toMatchObject({ status: "incomplete", missingReasons: ["holding_amount"] });
+  expect(nativeAccountMetric({ ...native, value: undefined, complete: false, missingInputs: [{ kind: "fx_rate" }] }, "Missing USD")).toMatchObject({ value: null, unit: "USD", status: "unavailable", missingReasons: ["fx_rate"] });
+  expect(nativeAccountMetric(native, "Signed display", { amount: "-0.000000000000000123", currency: "USD" })).toMatchObject({ value: "-0.000000000000000123", status: "available", missingReasons: [] });
+  expect(native.value.amount).toBe("0.000000000000000123");
+});
 export const publication: PagePublication = { viewKey: "accounts:", page: "accounts", scope: { kind: "household", label: "Synthetic accounts" },
   timezone: "Asia/Shanghai", basis: "native", observedAt: now, state: "available", currency: "CNY",
   metrics: [{ label: "Cash", value: "0", unit: "CNY", basis: "account_value", status: "available", missingReasons: [] }],

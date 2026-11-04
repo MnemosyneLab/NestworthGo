@@ -33,6 +33,7 @@ import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, Valuat
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import { AccountIcon } from "@/components/icons/AccountIcon";
 import { usePublishAssistantPage } from "@/features/assistant/PageContext";
+import { nativeAccountMetric } from "@/features/assistant/publications";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,12 +148,14 @@ export function AccountDetail({
 
 
   const displayMoney = accountDisplayMoney(record, valuation);
+  const guideDisplay = valuation?.displayValue ?? {
+    currency: displayMoney.primary?.currency ?? record.account.defaultCurrency, value: displayMoney.primary,
+    complete: !displayMoney.primaryPartial, missingInputs: displayMoney.primaryPartial ? valuation?.missingInputs : [],
+  };
   usePublishAssistantPage({ viewKey: `accounts:${record.account.id}`, page: "accounts", scope: { kind: "account", label: record.account.name },
     timezone: settings.data?.timezone ?? "UTC", basis: "native", currency: displayMoney.primary?.currency,
     observedAt: valuationUpdatedAt ?? 0, state: valuation ? "available" : "unavailable", targets: [],
-    metrics: [{ label: record.account.name, value: displayMoney.primary?.amount ?? null, unit: displayMoney.primary?.currency ?? record.account.defaultCurrency,
-      basis: "account_value", status: displayMoney.primaryPartial ? "incomplete" : displayMoney.primary ? "available" : "unavailable",
-      missingReasons: valuation?.missingInputs?.map(input => input.kind) ?? [] }],
+    metrics: [nativeAccountMetric(guideDisplay, record.account.name, displayMoney.primary)],
   }, onRefresh);
   const titleAmount = displayMoney.primary
     ? `${formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)}${displayMoney.primaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`

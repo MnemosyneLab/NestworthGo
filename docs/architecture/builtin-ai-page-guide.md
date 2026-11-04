@@ -28,6 +28,14 @@ no metrics. No query cache enumeration, DOM scraping, notes or input values are
 included. The visible account list supplies only its displayed candidates,
 bounded at 64; it does not search hidden accounts or fetch additional pages.
 
+Account-currency guide values, completeness and missing reasons come together
+from `displayValue`, independently of household/base `complete` and
+`missingInputs`. Missing USD/CNY FX must not make a complete displayed USD
+balance partial. An omitted native value stays unavailable, with its known
+native currency retained, even when the household projection is complete.
+Desktop and mobile share this metric mapping; desktop keeps its existing signed
+display amount without changing the projection's completeness or gaps.
+
 Both desktop IPC `assistant.Service.Status` and the mobile
 `GET /mobile-api/v1/assistant/status` return the shared version-1 closed status.
 The mobile route retains existing live authentication and Read checks. Record,

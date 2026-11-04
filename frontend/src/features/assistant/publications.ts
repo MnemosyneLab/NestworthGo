@@ -2,6 +2,19 @@ import type { PagePublication } from "./contracts";
 import { hasDisplay, type DisplayValuation } from "@/components/valuation/valuationQuality";
 import { signedAccountAmount } from "@/lib/liabilityDisplay";
 
+// AccountDisplayValueDTO describes account currency independently of the
+// household projection. Keep the selected amount, completeness and gaps together.
+export type AccountDisplayProjection = {
+  currency: string; value?: { amount: string; currency: string } | null;
+  complete: boolean; missingInputs?: readonly { kind: string }[] | null;
+};
+export function nativeAccountMetric(projection: AccountDisplayProjection | null | undefined, label: string,
+  displayedMoney = projection?.value): PagePublication["metrics"][number] {
+  return { label, value: displayedMoney?.amount ?? null, unit: displayedMoney?.currency ?? projection?.currency ?? "",
+    basis: "account_value", status: !displayedMoney ? "unavailable" : projection?.complete === true ? "available" : "incomplete",
+    missingReasons: projection?.missingInputs?.map(input => input.kind) ?? [] };
+}
+
 type Overview = { currency: string; complete: boolean; netWorth: string; assets: string; liabilities: string;
   displayValuation?: { netWorth: DisplayValuation; assets: DisplayValuation; liabilities: DisplayValuation };
   missingInputs?: { kind: string }[] | null };
