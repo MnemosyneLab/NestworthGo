@@ -41,7 +41,11 @@ let confirms: { body: string; headers: Record<string, string> }[];
 let mode: "success" | "lost" | "revoked" | "stale";
 let previews: Record<string, string>[];
 let marketJob: Job | null;
+let pinnedMarketJob: Job | null;
 let marketLost: boolean;
+let marketReadError: boolean;
+let marketNext: string;
+let marketCancelRequests: number;
 let marketConfirms: string[];
 let healthy = false;
 let resolveFirst: (() => void) | undefined;
@@ -54,7 +58,11 @@ beforeEach(async () => {
   confirms = [];
   previews = [];
   marketJob = null;
+  pinnedMarketJob = null;
   marketLost = false;
+  marketReadError = false;
+  marketNext = "";
+  marketCancelRequests = 0;
   marketConfirms = [];
   healthy = false;
   mode = "success";
@@ -216,8 +224,19 @@ beforeEach(async () => {
           attached: marketConfirms.length > 1,
         });
       }
+      if (route.startsWith("/market-jobs/") && route.endsWith("/cancel")) {
+        marketCancelRequests++;
+        return json({ requested: true });
+      }
       if (route.startsWith("/market-jobs/"))
-        return json({ job: marketJob, next: "" });
+        return marketReadError
+          ? json({ code: "unavailable" }, 503)
+          : json({
+              job: route.startsWith("/market-jobs/current?")
+                ? marketJob
+                : (pinnedMarketJob ?? marketJob),
+              next: route.includes("cursor=page2") ? "" : marketNext,
+            });
       if (route.startsWith("/operations/"))
         return json({ operationState: "committed", receipt: { activity } });
       if (route.startsWith("/health") && healthy)
@@ -318,14 +337,26 @@ describe("mobile financial interruption flow", () => {
     await user.click(settings);
     expect(settings).toHaveAttribute("aria-expanded", "true");
     const panel = screen.getByRole("region", { name: "Settings" });
-    expect(within(panel).getByRole("combobox", { name: "Language" })).toBeInTheDocument();
-    expect(within(panel).getByRole("combobox", { name: "Theme" })).toBeInTheDocument();
-    expect(within(panel).getByRole("button", { name: "Sign out" })).toBeEnabled();
+    expect(
+      within(panel).getByRole("combobox", { name: "Language" }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("combobox", { name: "Theme" }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("button", { name: "Sign out" }),
+    ).toBeEnabled();
     const nav = screen.getByRole("navigation", { name: "Main navigation" });
-    expect(within(nav).getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    expect(
+      within(nav).getByRole("button", { name: "Overview" }),
+    ).toHaveAttribute("aria-current", "page");
     await user.click(within(nav).getByRole("button", { name: "Accounts" }));
-    expect(within(nav).getByRole("button", { name: "Accounts" })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("button", { name: "Overview" })).not.toHaveAttribute("aria-current");
+    expect(
+      within(nav).getByRole("button", { name: "Accounts" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      within(nav).getByRole("button", { name: "Overview" }),
+    ).not.toHaveAttribute("aria-current");
   });
 
   it("renders a healthy empty report without losing the application", async () => {
@@ -460,7 +491,9 @@ it("releases a proven stale review without losing the draft and guards navigatio
   mount();
   await fillRecord(user);
   await user.click(screen.getByRole("button", { name: "Settings" }));
-  expect(screen.queryByRole("button", { name: "Connection settings" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Connection settings" }),
+  ).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeDisabled();
   expect(
     screen.queryByRole("button", { name: "Accounts" }),
@@ -500,11 +533,25 @@ it("keeps the same market acceptance after a lost response and shows partial fai
   };
   const user = userEvent.setup();
   mount();
-  await screen.findByText("Synthetic BBB", { exact: false });
+  await screen.findByRole("region", { name: i18n.t("mobile.marketJob") });
+  expect(screen.queryByText("Synthetic BBB")).not.toBeInTheDocument();
   expect(
     screen.getByText(i18n.t("errorCode:provider_rate_limit")),
   ).toBeInTheDocument();
-  expect(screen.getByText(i18n.t("mobile.sharedJob"))).toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", { name: i18n.t("mobile.viewJob") }),
+  );
+  expect(screen.getByText("Synthetic BBB")).not.toBeVisible();
+  const disclosure = screen.getByRole("button", {
+    name: i18n.t("mobile.showJobDetails"),
+  });
+  disclosure.focus();
+  await user.keyboard("{Enter}");
+  expect(screen.getByText("Synthetic BBB")).toBeVisible();
+  expect(disclosure).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByText(i18n.t("mobile.sharedJob"))).toBeVisible();
+  await user.keyboard(" ");
+  expect(disclosure).toHaveAttribute("aria-expanded", "false");
   await user.click(
     screen.getByRole("button", { name: i18n.t("mobile.retryFailed") }),
   );
@@ -649,8 +696,10 @@ it.each(["record", "quote", "market"])(
         screen.getByRole("button", { name: i18n.t("mobile.updateMarket") }),
       );
     await user.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(screen.getByRole("button", {name: "Sign out"})).toBeDisabled();
-    expect(screen.queryByLabelText("Backend address or LAN IP:port")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeDisabled();
+    expect(
+      screen.queryByLabelText("Backend address or LAN IP:port"),
+    ).not.toBeInTheDocument();
     if (kind === "record")
       expect(screen.getByRole("textbox", { name: "Amount" })).toHaveValue(
         "1.2345",
@@ -692,7 +741,13 @@ it.each(["pending", "unknown"])(
       await screen.findByText("Saved successfully");
       expect(confirms).toHaveLength(2);
       expect(confirms[0].body).toBe(confirms[1].body);
-      expect(vi.mocked(fetch).mock.calls.every(([url]) => String(url).startsWith("/mobile-api/v1/"))).toBe(true);
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.every(([url]) =>
+            String(url).startsWith("/mobile-api/v1/"),
+          ),
+      ).toBe(true);
     } finally {
       await act(async () => resolveFirst?.());
     }
@@ -735,7 +790,9 @@ it("recovers an original receipt after signing in again with the shared token", 
   await fillRecord(user);
   await user.click(screen.getByRole("button", { name: "Confirm" }));
   await screen.findByRole("button", { name: "Sign in" });
-  expect(screen.queryByLabelText("Backend address or LAN IP:port")).not.toBeInTheDocument();
+  expect(
+    screen.queryByLabelText("Backend address or LAN IP:port"),
+  ).not.toBeInTheDocument();
   const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
   expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(reference);
   await user.type(screen.getByLabelText("Mobile token"), "synthetic-new-pair");
@@ -747,3 +804,252 @@ it("recovers an original receipt after signing in again with the shared token", 
   expect(confirms).toHaveLength(1);
   expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
 });
+
+function syntheticJob(outcome: string): Job {
+  return {
+    jobId: "synthetic-shared-job",
+    outcome,
+    phase: outcome === "running" ? "queued" : "complete",
+    completed: outcome === "running" ? 0 : 40,
+    total: 40,
+    request: { mode: "latest", scope: "stale" },
+    source: "shared",
+    retryable: false,
+    cancellable: false,
+    result: { Items: [] },
+    items: Array.from({ length: 40 }, (_, index) => ({
+      label: `Synthetic target ${index}`,
+      status: "fetched",
+    })),
+  };
+}
+it.each(["succeeded", "running", "partial", "failed", "cancelled"])(
+  "keeps %s task details collapsed and off account/ledger tabs",
+  async (outcome) => {
+    marketJob = syntheticJob(outcome);
+    const user = userEvent.setup();
+    mount();
+    await screen.findByRole("button", { name: "Update market data" });
+    if (outcome === "succeeded")
+      expect(
+        screen.queryByRole("region", { name: "Market data task" }),
+      ).not.toBeInTheDocument();
+    else await screen.findByRole("region", { name: "Market data task" });
+    for (const tab of ["Accounts", "Ledger"]) {
+      await user.click(screen.getByRole("button", { name: tab }));
+      expect(
+        screen.queryByRole("region", { name: "Market data task" }),
+      ).not.toBeInTheDocument();
+      if (outcome !== "succeeded")
+        expect(
+          screen.getByRole("button", { name: /Data health/ }),
+        ).toHaveTextContent(
+          outcome === "running" ? "Running" : "Task needs attention",
+        );
+    }
+    await user.click(screen.getByRole("button", { name: /Data health/ }));
+    const card = await screen.findByRole("region", {
+      name: "Market data task",
+    });
+    const disclosure = within(card).getByRole("button", {
+      name: "Show task details",
+    });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Synthetic target 39")).not.toBeVisible();
+    if (["partial", "failed", "cancelled"].includes(outcome))
+      expect(
+        within(card).getByText(i18n.t("mobile.desktopRequired")),
+      ).toBeVisible();
+    await user.click(disclosure);
+    expect(screen.getByText("Synthetic target 39")).toBeVisible();
+  },
+);
+it("observes shared task completion on another tab and refreshes authoritative views", async () => {
+  marketJob = syntheticJob("running");
+  const user = userEvent.setup();
+  const client = mount();
+  await screen.findByRole("progressbar", { name: "Market data progress" });
+  await user.click(screen.getByRole("button", { name: "Accounts" }));
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  marketJob = {
+    ...syntheticJob("failed"),
+    errorCode: "provider_authentication",
+    nextEligibilityAt: "2026-11-05T12:00:00Z",
+  };
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ["mobile", "job"] });
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: /Data health/ }),
+    ).toHaveTextContent("Task needs attention"),
+  );
+  expect(
+    screen.queryByRole("region", { name: "Market data task" }),
+  ).not.toBeInTheDocument();
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["mobile", "overview"] });
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["mobile", "/health"] });
+  await user.click(screen.getByRole("button", { name: /Data health/ }));
+  const card = await screen.findByRole("region", { name: "Market data task" });
+  expect(
+    within(card).getByText(i18n.t("errorCode:provider_authentication")),
+  ).toBeVisible();
+  expect(within(card).getByText(/Next eligible attempt/)).toBeVisible();
+  expect(
+    within(card).getByRole("button", { name: "Show task details" }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
+
+it("keeps cancellation and status read errors visible without opening details", async () => {
+  marketJob = {
+    ...syntheticJob("running"),
+    cancellable: true,
+    source: "mobile",
+  };
+  const user = userEvent.setup();
+  const client = mount();
+  await user.click(await screen.findByRole("button", { name: "Cancel task" }));
+  expect(marketCancelRequests).toBe(1);
+  await screen.findByText(i18n.t("mobile.cancelRequested"));
+  expect(screen.getByRole("button", { name: "Cancel task" })).toBeDisabled();
+  marketReadError = true;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ["mobile", "job"] });
+  });
+  await screen.findByRole("button", { name: "Reload task status" });
+  expect(screen.getByRole("button", { name: /Data health/ })).toHaveTextContent(
+    "Task status unavailable",
+  );
+  marketReadError = false;
+  marketJob = syntheticJob("cancelled");
+  await user.click(screen.getByRole("button", { name: "Reload task status" }));
+  await screen.findByText(i18n.t("mobile.desktopRequired"));
+  expect(marketCancelRequests).toBe(1);
+});
+it("pins detail pagination and resets disclosure for a new current task", async () => {
+  marketJob = syntheticJob("succeeded");
+  marketNext = "page2";
+  const user = userEvent.setup();
+  mount();
+  await screen.findByRole("button", { name: "Update market data" });
+  await user.click(screen.getByRole("button", { name: /Data health/ }));
+  await user.click(
+    await screen.findByRole("button", { name: "Show task details" }),
+  );
+  const card = screen.getByRole("region", { name: "Market data task" });
+  await user.click(within(card).getByRole("button", { name: "Next page" }));
+  await waitFor(() =>
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.some(([url]) =>
+          String(url).includes(
+            "/market-jobs/synthetic-shared-job?cursor=page2",
+          ),
+        ),
+    ).toBe(true),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Hide task details" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  marketJob = { ...syntheticJob("running"), jobId: "synthetic-next-job" };
+  await user.click(
+    within(screen.getByRole("region", { name: "Market data task" })).getByRole(
+      "button",
+      { name: "First page" },
+    ),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Show task details" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByText("Synthetic target 39")).not.toBeVisible();
+});
+
+it.each(["Accounts", "Ledger", "Overview", "collapse"])(
+  "resumes current shared tasks after leaving pinned details via %s",
+  async (destination) => {
+    marketJob = syntheticJob("succeeded");
+    pinnedMarketJob = marketJob;
+    marketNext = "page2";
+    const user = userEvent.setup();
+    const client = mount();
+    await screen.findByRole("button", { name: "Update market data" });
+    await user.click(screen.getByRole("button", { name: /Data health/ }));
+    await user.click(
+      await screen.findByRole("button", { name: "Show task details" }),
+    );
+    await user.click(
+      within(
+        screen.getByRole("region", { name: "Market data task" }),
+      ).getByRole("button", { name: "Next page" }),
+    );
+    await screen.findByRole("button", { name: "Hide task details" });
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.some(([url]) =>
+            String(url).includes(
+              "/market-jobs/synthetic-shared-job?cursor=page2",
+            ),
+          ),
+      ).toBe(true),
+    );
+    marketJob = {
+      ...syntheticJob("running"),
+      jobId: "synthetic-new-shared-job",
+    };
+    const readStart = vi.mocked(fetch).mock.calls.length;
+    await user.click(
+      screen.getByRole("button", {
+        name: destination === "collapse" ? "Hide task details" : destination,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Data health/ }),
+      ).toHaveTextContent("Running"),
+    );
+    marketJob = {
+      ...marketJob,
+      outcome: "failed",
+      phase: "complete",
+      errorCode: "provider_authentication",
+    };
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["mobile", "job"] });
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Data health/ }),
+      ).toHaveTextContent("Task needs attention"),
+    );
+    const subsequentReads = vi
+      .mocked(fetch)
+      .mock.calls.slice(readStart)
+      .map(([url]) => String(url))
+      .filter((url) => url.includes("/market-jobs/"));
+    expect(subsequentReads.length).toBeGreaterThan(0);
+    expect(
+      subsequentReads.every((url) =>
+        url.endsWith("/market-jobs/current?cursor="),
+      ),
+    ).toBe(true);
+    if (["Accounts", "Ledger"].includes(destination))
+      expect(
+        screen.queryByRole("region", { name: "Market data task" }),
+      ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Data health/ }));
+    const card = await screen.findByRole("region", {
+      name: "Market data task",
+    });
+    expect(
+      within(card).getByText(i18n.t("errorCode:provider_authentication")),
+    ).toBeVisible();
+    expect(
+      within(card).getByRole("button", { name: "Show task details" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(pinnedMarketJob.outcome).toBe("succeeded");
+    expect(marketConfirms).toHaveLength(0);
+  },
+);

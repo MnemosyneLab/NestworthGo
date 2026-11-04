@@ -1,65 +1,107 @@
-# Historical panorama reconciliation (first iteration)
+# Historical panorama reconciliation
 
-## Design before implementation
+The GUI and historical read tools explain two net-worth endpoints from one
+immutable capture. This is an endpoint reconciliation, **not investment return**.
+No snapshot maintenance, provider request, ledger mutation or extra repository
+query is added. Current endpoints remain unavailable because their quote
+selection authority differs from closed-day history.
 
-Keep the existing single immutable batch, replay cutoffs, net-worth scope and
-exact endpoint valuation. Add a read-only reconciliation to the captured
-comparison (including the bounded trend bundle); no snapshots, providers,
-ledger changes or extra repository queries. No new chart is needed: a compact
-summary and expandable exact contribution table explain the identity better.
-
-For complete compatible endpoints:
+For complete compatible endpoints, exact decimal strings preserve:
 
 `B net worth − A net worth = supported contributions + unexplained residual`.
 
-Compute chronologically over `(earlier civil-day cutoff, later cutoff]`, then
-negate every contribution and residual for reverse comparisons. Same-day
-complete endpoints have zero movement; incomplete totals stay unknown. Current
-B keeps its explicit current boundary and is left unavailable for attribution
-in this first iteration because historical and current quote authorities differ.
+The basis is `endpoint_bridge/2; later_endpoint_fx; opening_exposure_fx;
+paired_principal_valuation; retained_corrected_facts`. Compute over
+`(earlier civil-day cutoff, later cutoff]`, then negate monetary contributions,
+paired principal and residual for reverse comparisons. Quantities and related
+records remain in chronological order and retain their economic directions.
+Later corrections and undo consume the capture's normalized retained economic
+facts; recover semantic kind/reason/trade detail through reversal chains without
+filtering records or inverting their effects a second time.
 
-Monetary ledger effects use the existing asset-bucket classification (income,
-spending, external flows, dividend/interest, fees, adjustments and liability
-impact). Convert at the **chronologically later endpoint rate**, explicitly an
-endpoint bridge convention rather than event-time cash flows or investment
-return. For stable components, opening native amount × (later rate − earlier
-rate) is FX. An unchanged holding quantity with comparable price evidence uses
-quantity × (later price − earlier price) × later FX for price, and opening
-native value × rate change for FX. These terms do not overlap.
-Price continuity includes timestamp basis: an Agent date-label anchor and an
-actual source timestamp are different authorities. A switch leaves the affected
-holding movement in residual with `basis_changed`. This attribution rule remains
-stricter than chart geometry: the trend may connect comparable priced totals
-across source/timestamp encodings without attributing their difference to price.
+## Recorded effects and principal
 
-Require included, complete same-currency components at both ends and no relevant
-intermediate scope or preference changes. Ignore parent rows to avoid duplicate
-counting. Fully internal principal legs are neutral; their discrepancies remain
-residual. Do not attribute price for quantities touched by activities (including
-round trips), trades, splits or transfers. Foreign internal/trade exposure
-changes do not receive an opening-only FX estimate; their movement stays
-residual. Missing endpoint values, changed scope, unsupported or unknown
-monetary/quantity effects and internal imbalances are disclosed. Corrections
-and reversals consume the repository's same normalized economic activities as
-historical replay, never raw facts or a second reversal filter.
+Keep the shared asset-bucket classifier's semantic precedence: income, spending,
+dividends/interest, fees/taxes, adjustments, external flows and liability impact.
+Monetary contributions use the chronologically later endpoint's adopted FX
+conversion, not event-time FX. Fees never become trade principal or a second
+holding contribution. Cost-only corrections change neither quantity nor wealth.
 
-Bound additional work by retained account/row/effect/observation counts and cancellation checks.
-Exceeding the reconciliation budget leaves the ordinary comparison available
-with an explicit unavailable reason. Do not round contributions or hide small
-residuals; exact decimal arithmetic uses the existing valuation conversion
-precision. A zero net residual does not erase uncertainty reasons.
+For a buy/sell, require exactly one quantity leg, one opposite cash principal
+leg, and matching trade detail (holding, instrument, quantity, currency and gross).
+Both components must be included and reliable, with compatible later FX evidence.
+Assign the cash principal once and its exact opposite to the holding. Never
+allocate a single gross amount to several quantity legs. Ambiguous multi-leg
+trades remain unexplained. This also supports round trips, sales and liquidation.
+A proven newly-created holding in an existing included account has zero opening
+exposure; absent unknown values and newly-included accounts do not acquire zero
+balances. A cleared zero holding can use its uniquely paired settlement cash's
+later FX evidence, since zero valuation itself need not select an FX quote.
 
-## Delivery and deferred decisions
+Reconcile `opening quantity + signed recorded quantity = closing quantity`.
+For a holding whose quantity reconciles, verify endpoint native values against
+quantity × adopted unit quote. Require compatible currency, source/source key,
+price basis, observation kind, timestamp authority and source policy on positive
+endpoint exposures, without intervening scope/preference/binding changes.
+A real zero exposure needs no unit quote. Supported valuation change is:
 
-Expose total, supported subtotal and residual in the comparison view, with
-localized expandable definitions, exact category amounts and reason codes.
-Reuse existing Tabs, DatePicker, capture cancellation and theme controls.
-Synthetic application tests establish decimal identity, multi-currency bridge,
-neutral transfers, liability signs, missing evidence, corrections/reversals,
-same/reversed dates and bounded cancellation. Frontend tests establish readable
-unknown/zero/negative states, keyboard disclosure and latest-capture behavior.
+`(closing native value − opening native value − net trade/transfer principal
+  − measured quantity adjustments) converted at later FX`.
 
-Defer trading/path attribution and event-time FX until a compatible bounded
-read-only adapter to the existing daily analysis is justified. This iteration
-must not reuse the snapshot-maintaining MCP attribution endpoint. Native macOS
-GUI acceptance remains separate from Linux builds and synthetic UI tests.
+Call this **valuation change after principal**, never pure price return. It can
+include execution-price versus endpoint-valuation spreads and is not daily path
+attribution. Opening native exposure converted at each endpoint gives the
+separate FX contribution. Changed FX authorities and missing conversion evidence
+retain their affected difference. Finite decimal division can leave an exact
+nonzero remainder; there is no epsilon or forced rounding/clearing.
+
+Same-instrument position transfers require two opposite equal quantity legs,
+compatible later quotes and FX, and included endpoints. Their virtual principal
+cancels once across accounts. Monetary internal transfers and debt principal are
+neutral only as a complete zero-sum set after later-rate conversion and liability
+signs. Unbalanced foreign internal legs and their uncertain exposure remain in
+residual, never income.
+
+## Quantity remeasurement
+
+A recorded reconciliation quantity effect is an **adjustment**, not income.
+Measure its signed quantity at the later adopted unit quote; unit cost establishes
+recorded cost semantics, not market value or earnings. It is not a cash principal
+leg. For an unpriced remeasurement with changed unit quotes, a share restatement
+such as a split is possible: retain the affected movement and
+`remeasurement_basis` uncertainty instead of inventing income, a split ratio or
+an adjustment amount. With unchanged comparable unit quotes, unpriced share
+remeasurement can be measured as an adjustment (for example a flat-NAV money
+fund). Quantity gaps or unsupported quantity effects block the holding bridge.
+Zero net residual never erases a recorded uncertainty.
+
+## Details and limits
+
+Every leaf exposes exact `total`, contribution subtotal, paired `principal`,
+`residual`, chronological quantity reconciliation, reason codes and related
+records with signed native money/quantity effects. Per-leaf identity is:
+
+`total = supported contributions + paired principal + residual`.
+
+Across the household, paired principal sums to zero. Account parent rows are
+excluded from calculation. Missing totals stay null; known leaf evidence remains
+available even when the household total/residual is unavailable. Scope,
+valuation, quote-basis and quantity mismatches retain explicit reasons. These
+checks do not diagnose any particular real ledger's USDC/USDT difference.
+
+The GUI groups details under readable account and instrument names, with shared
+Button disclosures, exact audit amounts, localized timestamps and English,
+Simplified Chinese and Traditional Chinese copy. Monetary headlines continue
+using the shared display formatter. No frontend financial arithmetic is added.
+The MCP historical header excludes details/records: `overview/endpoints` opens
+pageable `contributions` and `reconciliationDetails`; a reconciliation detail
+item opens its own `reconciliationRecords/<key>` section. These sections remain
+household-wide even when endpoint-row filters are present, and retain the same
+capture hash, byte budget and cursor semantics.
+
+Work is bounded by retained row/account/holding/effect/observation counts and
+cancellation/time limits. Budget refusal preserves the ordinary comparison.
+Event-time FX, ambiguous multi-leg allocation, automatic corporate-action
+inference and full daily return decomposition remain outside this bridge.
+Native macOS GUI acceptance is a separate gate from Linux builds, browser
+checks and synthetic tests.

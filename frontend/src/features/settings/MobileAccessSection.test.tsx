@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -7,7 +7,6 @@ import { MobileAccessSection } from "./MobileAccessSection";
 
 const mobile = vi.hoisted(() => ({ Status: vi.fn(), Configure: vi.fn(), GenerateToken: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/mobile/service", () => mobile);
-vi.mock("@/lib/wails", () => ({ callService: (run: () => Promise<unknown>) => run() }));
 const status = { config: { enabled: true, listen: "192.168.1.20:9443", token: "SYNTHETIC1" }, url: "http://192.168.1.20:9443", running: true };
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -81,4 +80,33 @@ it.each(["en", "zh-CN", "zh-TW"])("renders the simple setup and migration guidan
   expect(screen.getByText(i18n.t("mobile.setupHelp"))).not.toHaveTextContent(/HTTPS|TLS/);
   expect(screen.getByLabelText(i18n.t("mobile.listen"))).toBeInTheDocument();
   expect(screen.getByText(i18n.t("mobile.connectionHelp"))).toBeInTheDocument();
+});
+
+it.each(["en", "zh-CN", "zh-TW"])("explains rejected wildcard addresses at the real input in %s", async (language) => {
+  await i18n.changeLanguage(language);
+  mobile.Configure.mockRejectedValue(new Error(JSON.stringify({ code: "validation", field: "listen", message: "invalid" })));
+  const user = userEvent.setup();
+  mount();
+  const address = await screen.findByLabelText(i18n.t("mobile.listen"));
+  await user.clear(address);
+  await user.type(address, "0.0.0.0:9443");
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.saveAccess") }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("mobile.listenValidation"));
+  expect(address).toHaveAttribute("aria-invalid", "true");
+  expect(address).toHaveAccessibleDescription(expect.stringContaining(i18n.t("mobile.listenValidation")));
+  expect(address).toHaveValue("0.0.0.0:9443");
+  await waitFor(() => expect(address).toBeEnabled());
+  await user.clear(address);
+  await user.type(address, "192.168.1.20:9443");
+  expect(address).not.toHaveAttribute("aria-invalid");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+it("associates backend token validation with the token input", async () => {
+  mobile.Configure.mockRejectedValue(new Error(JSON.stringify({ code: "validation", field: "token", message: "invalid" })));
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Running");
+  await user.click(screen.getByRole("button", { name: "Apply connection settings" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("mobile.tokenValidation"));
+  expect(screen.getByLabelText("Mobile token")).toHaveAttribute("aria-invalid", "true");
 });

@@ -66,7 +66,7 @@ coverage and reason codes are not reconstructed from product lists. All modes
 also expose `get_historical_overview` and `get_historical_overview_series` as
 read-only application service calls with default bounded `historical-read/2`
 responses in the `mcp-read/1` envelope. The overview preserves the App's immutable
-history values and PR68 `endpoint_bridge/1` convention, including exact values,
+history values and `endpoint_bridge/2` convention, including exact values,
 completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
 not replace closed-period `compare_financial_attribution`.
 

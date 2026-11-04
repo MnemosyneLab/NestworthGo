@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -14,19 +15,21 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-// Captured from the unchanged main 1701e5d5d9bb10ec9db846245766bab6f7a740e5
+// Captured from the unchanged main 82f3be0e981d5cd3a8cdaae061a4b76b179b8c29
 // via real HTTP ListTools, sorted by tool name then jsoncodec.MarshalIndent
 // (two spaces, no trailing newline). These are immutable external-contract
 // baselines, not regenerated expectations from the implementation under test.
-func TestExternalDiscoveryMatchesMain1701e5d(t *testing.T) {
+// Relative to the earlier 1701e5d capture, upstream #198 changed only the two
+// historical-overview tool descriptions; all modes keep the same tool schemas.
+func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
 		hash  string
 	}{
-		{ReadOnly, 54, "4530963b4346ddc00b29153c648a08f6f483aab3b71f72893c52b3767303ea41"},
-		{DirectoryWrite, 73, "033db03f203423e7cb00b307c1b0900a65ccf60a268903320941db4c3f2df70f"},
-		{LedgerWrite, 103, "e7931cf9ad2188e2a33b7d7fc27222fcbe58f73434031e81a68681712290261a"},
+		{ReadOnly, 54, "c02f6b3026c818f83cbe80cc45213b6d231b79f575de36a8b97bf37c35290080"},
+		{DirectoryWrite, 73, "d4e617f2f51354d975f876b9d2fd1a68a2dccc1784e4f1161046b56ee8373ce1"},
+		{LedgerWrite, 103, "e00154e5f62d4de957f8ba16d35e4e9003c4a77b3d4a01643202ffd65c0d24f4"},
 	} {
 		t.Run(test.mode, func(t *testing.T) {
 			t.Parallel()
@@ -34,7 +37,8 @@ func TestExternalDiscoveryMatchesMain1701e5d(t *testing.T) {
 			if _, err := s.Enable(test.mode); err != nil {
 				t.Fatal(err)
 			}
-			listed, err := connect(t, s).ListTools(t.Context(), nil)
+			client := connect(t, s)
+			listed, err := client.ListTools(t.Context(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -47,7 +51,12 @@ func TestExternalDiscoveryMatchesMain1701e5d(t *testing.T) {
 			if len(listed.Tools) != test.count || hex.EncodeToString(hash[:]) != test.hash {
 				t.Fatalf("external %s contract changed: tools=%d sha256=%x; expected tools=%d sha256=%s", test.mode, len(listed.Tools), hash, test.count, test.hash)
 			}
-			definitions := s.toolRegistry(test.mode).Definitions()
+			registry := s.toolRegistry(test.mode)
+			instructions := client.InitializeResult().Instructions
+			if instructions != registry.Instructions() || !strings.Contains(instructions, "endpoint_bridge/2 reconciliation semantics") || strings.Contains(instructions, "endpoint_bridge/1") {
+				t.Fatal("shared/external instructions lost current historical reconciliation semantics")
+			}
+			definitions := registry.Definitions()
 			if len(definitions) != len(listed.Tools) {
 				t.Fatal("local registry lost tools")
 			}

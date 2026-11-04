@@ -25,8 +25,11 @@ Implemented and exercised with synthetic data:
   separate capability core is subsequent work. The registration extraction is
   complete; the entire package separation is not.
 - Normal external MCP uses the shared registrations. Immutable discovery
-  fingerprints from unmodified main `1701e5d5d9bb10ec9db846245766bab6f7a740e5`
-  cover all metadata and schemas in its 54/73/103-tool modes. Typed prior-adapter
+  fingerprints from unmodified main `82f3be0e981d5cd3a8cdaae061a4b76b179b8c29`
+  cover all metadata and schemas in its 54/73/103-tool modes. The updated capture
+  retains upstream #198's two historical-overview description revisions relative
+  to the initial `1701e5d` baseline; tool schemas are unchanged. Shared/external
+  instructions also retain `endpoint_bridge/2`. Typed prior-adapter
   comparisons cover successful output, business errors, unknown tools, missing,
   wrong-type, extra, null, array and malformed/trailing arguments. Existing HTTP
   envelope, pagination, plan and receipt regressions remain in place.
