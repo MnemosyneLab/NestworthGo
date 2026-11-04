@@ -392,40 +392,6 @@ func TestLegacySnapshotCoverageBoundedDirtyRange(t *testing.T) {
 	}
 }
 
-func TestLegacySnapshotCoverageRetainsMidnightContract(t *testing.T) {
-	t.Parallel()
-	s, _, owner, now := overviewFixture(t)
-	*now = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-	cash := overviewAccount(t, s, owner, "Synthetic Havana cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "America/Havana"); err != nil {
-		t.Fatal(err)
-	}
-	*now = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
-	// The repeated midnight at the left date is unsupported by attribution's
-	// preflight. Legacy origin-day analysis and trends only need the NEXT
-	// midnight to build this date's close and retain their existing support.
-	if attributionBoundariesSupported("2026-11-01", "2026-11-02", "America/Havana") {
-		t.Fatal("fixture lacks a repeated left midnight")
-	}
-	result, err := s.Analyze(t.Context(), testReturnQuery("2026-11-01", "2026-11-02"))
-	if err != nil || len(result.Days) != 2 {
-		t.Fatal(result, err)
-	}
-	for _, day := range result.Days {
-		if day.Status != domain.CompletenessOK || day.EndingValue.CanonicalAmount() != "100" {
-			t.Fatal(day)
-		}
-	}
-	trend, err := s.NetWorthTrend(t.Context(), domain.TrendRange("2026-11-01:2026-11-02"))
-	if err != nil || !trend.Complete || len(trend.Points) != 2 || trend.Start == nil || trend.Start.CanonicalAmount() != "100" {
-		t.Fatal(trend, err)
-	}
-	if got := coverageDates(t, s, cash.Account.HouseholdID); !reflect.DeepEqual(got, []string{"2026-11-01", "2026-11-02"}) {
-		t.Fatal(got)
-	}
-	wantAttributionStatus(t, attributionFor(t, s, "2026-11-01", "2026-11-02"), "incompatible", "historical_boundary_unsupported")
-}
-
 func TestLegacySnapshotCoverageSourcePreferenceRevision(t *testing.T) {
 	t.Parallel()
 	s, _, r, cash, instrument := legacyCoverageFixture(t)

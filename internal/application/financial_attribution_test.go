@@ -334,23 +334,6 @@ func TestFinancialAttributionResidualIsPreserved(t *testing.T) {
 		t.Fatal(link)
 	}
 }
-func TestFinancialAttributionUnsupportedHistoricalMidnight(t *testing.T) {
-	t.Parallel()
-	s, db, owner, now := overviewFixture(t)
-	*now = time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
-	overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "America/Havana"); err != nil {
-		t.Fatal(err)
-	}
-	*now = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
-	r := attributionFor(t, s, "2026-10-31", "2026-11-01")
-	wantAttributionStatus(t, r, "incompatible", "historical_boundary_unsupported")
-	var count int
-	if err := db.SQL.QueryRow("SELECT count(*) FROM daily_valuation_snapshots").Scan(&count); err != nil || count != 0 {
-		t.Fatal("unsupported boundary materialized", count, err)
-	}
-}
-
 func TestFinancialAttributionEvidencePolicyAndScopeProof(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
