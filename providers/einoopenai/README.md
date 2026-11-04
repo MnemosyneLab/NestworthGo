@@ -119,7 +119,8 @@ With Go 1.27.3 or newer, run from this directory:
 
 This runs formatting, all default tests (including seeded parser fuzz cases),
 vet and a separate build. The dedicated `Eino provider acceptance` workflow runs
-the same command on trusted origin pushes; ordinary root `check` remains intact.
+the same command on GitHub-hosted Ubuntu 24.04 on trusted origin pushes;
+ordinary root `check` remains intact.
 Module download is the only required non-loopback network access for these tests.
 All requests, keys, opaque reasoning and counters are synthetic. Tests never open
 a ledger or make a paid/provider request.
@@ -139,7 +140,7 @@ while waiting for EOF after completion, cancellation before/during a response,
 read failures after completion, HTTP errors, redirects, disabled retries, request
 option overrides, full native-history serialization/replay and concurrent round
 isolation. Workflow guards retain the exact active-workflow inventory, nonrunning
-Linux rollback archive and the dedicated gate's trusted-origin/macOS ARM64 rules.
+Linux rollback archive and the dedicated gate's trusted-origin/hosted-Linux rules.
 
 No real OpenAI compatibility, encrypted-signature validity, arbitrary compatible
 provider, model quality, credential/keychain, database migration/recovery, built-in
