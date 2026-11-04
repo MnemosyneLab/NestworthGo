@@ -21,6 +21,23 @@ class SkillVersionTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(prefix='nestworth-version-test-')
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
+        # Every Git caller (including checker subprocesses and clone children)
+        # shares a scoped, hermetic configuration. Prevent automatic maintenance
+        # from outliving a command and writing into a directory during cleanup.
+        empty_template = self.root / '.git-template'
+        empty_template.mkdir()
+        git_env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+        git_env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
+                       GIT_TEMPLATE_DIR=str(empty_template), GIT_CONFIG_COUNT='5')
+        for index, (key, value) in enumerate((
+                ('maintenance.auto', 'false'), ('gc.auto', '0'),
+                ('gc.autoDetach', 'false'), ('maintenance.autoDetach', 'false'),
+                ('core.hooksPath', str(empty_template)))):
+            git_env[f'GIT_CONFIG_KEY_{index}'] = key
+            git_env[f'GIT_CONFIG_VALUE_{index}'] = value
+        environment = patch.dict(os.environ, git_env, clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
         self.skill = self.root / 'skills/nestworth'
         self.skill.mkdir(parents=True)
         for name, value in {
@@ -42,9 +59,10 @@ class SkillVersionTests(unittest.TestCase):
         (self.skill / 'VERSION').write_text('2.0.0\n')
         self.commit()
         self.base = self.git('rev-parse', 'HEAD')
-        self.addCleanup(patch.stopall)
-        patch.object(checker, 'ROOT', self.root).start()
-        patch.object(checker, 'SKILL', self.skill).start()
+        for name, value in (('ROOT', self.root), ('SKILL', self.skill)):
+            override = patch.object(checker, name, value)
+            override.start()
+            self.addCleanup(override.stop)
 
     def git(self, *args):
         return subprocess.check_output(['git', *args], cwd=self.root, text=True, stderr=subprocess.PIPE).strip()
@@ -56,6 +74,27 @@ class SkillVersionTests(unittest.TestCase):
     def check(self, base=None):
         with contextlib.redirect_stdout(io.StringIO()):
             checker.check_version(base or self.base)
+
+    def test_git_subprocesses_cannot_spawn_automatic_maintenance(self):
+        # Host/local preferences must not reactivate maintenance. Trace actual
+        # Git child launches rather than infer process lifetime from a sleep.
+        self.git('config', '--local', 'maintenance.auto', 'true')
+        self.git('config', '--local', 'gc.auto', '1')
+        self.git('config', '--local', 'gc.autoDetach', 'true')
+        self.assertEqual(self.git('config', '--get', 'maintenance.auto'), 'false')
+        self.assertEqual(self.git('config', '--get', 'gc.auto'), '0')
+        self.assertEqual(self.git('config', '--get', 'gc.autoDetach'), 'false')
+        trace = self.root / '.git/trace2-events.json'
+        with patch.dict(os.environ, GIT_TRACE2_EVENT=str(trace)):
+            for index in range(3):
+                (self.root / 'app.txt').write_text(str(index))
+                self.commit()
+            self.git('clone', '--depth=1', self.root.as_uri(), str(self.root / 'clone'))
+            self.assertEqual(checker.main_version_boundary(), self.base)
+        children = [event.get('argv', []) for event in map(json.loads, trace.read_text().splitlines())
+                    if event.get('event') == 'child_start']
+        self.assertTrue(children, 'Trace must include actual clone subprocesses')
+        self.assertFalse([argv for argv in children if 'maintenance' in argv or 'gc' in argv], children)
 
     def test_stale_installation_guide_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Installation guide"):
