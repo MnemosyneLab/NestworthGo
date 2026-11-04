@@ -1,6 +1,6 @@
-// Package assistant owns the installed assistant's capability gate. The provider
-// runner and financial writer are deliberately absent until their activation
-// gates are implemented. No credential value or configuration is accepted here.
+// Package assistant owns the page-guide activation gate and the independent
+// backend conversation runtime. The installed page guide retains its closed
+// contract until verified secure credentials, UI and scoped permissions connect.
 package assistant
 
 type Status struct {

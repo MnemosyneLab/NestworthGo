@@ -167,8 +167,11 @@ status and remaining performance acceptance limits are maintained in the
 ### Storage compatibility
 
 See [database support and storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery) for the current schema, supported historical versions, migration order, recovery-copy guarantees, and blocked database states. Missing current tables and old constraints fail verification rather than being repaired. Durable settings and
-provider credentials live in SQLite; the separate versioned JSON file stores
-presentation preferences.
+legacy market-data provider credentials live in SQLite; the separate versioned
+JSON file stores presentation preferences. Built-in AI is separate: its credentials
+use the system secure-store port and never enter either database or settings file.
+Its private version-1 conversation sidecar and closed activation gates are described
+in [the runtime contract](../architecture/builtin-ai-runtime.md).
 
 ## Validation strategy
 
