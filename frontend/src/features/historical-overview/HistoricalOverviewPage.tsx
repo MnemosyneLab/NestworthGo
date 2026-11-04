@@ -139,7 +139,7 @@ function CellDetail({ cell, state, timezone, liability = false }: { cell?: Histo
   </section>;
 }
 
-export function HistoricalOverviewPage({ initialDate, initialContext, isActive = true, onExit }: { initialDate?: string; initialContext?: HistoricalNavigationContext; isActive?: boolean; onExit: () => void }) {
+export function HistoricalOverviewPage({ initialDate, initialContext, isActive = true, onExit, onContextChange }: { initialDate?: string; initialContext?: HistoricalNavigationContext; isActive?: boolean; onExit: () => void; onContextChange?: (date: string, context: HistoricalNavigationContext) => void }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   const navigation = useObjectNavigation();
@@ -183,6 +183,10 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const date = chosenDate ?? initialDefault;
   const compareDate = comparisonDate ?? lastDate;
   const compareTo = comparison === "none" ? "" : comparison === "current" ? "current" : compareDate;
+  useEffect(() => {
+    if (chosenDate === null) return;
+    onContextChange?.(date, { compareTo: compareTo || undefined, view, categoryFilter: categoryFilter ?? undefined, changesOnly, categoryRole, dimension, expanded: Array.from(expanded), fullTable });
+  }, [chosenDate, date, compareTo, view, categoryFilter, changesOnly, categoryRole, dimension, expanded, fullTable, onContextChange]);
   const validDate = isClosedDate(date, firstDate, lastDate);
   const validComparison = comparison !== "date" || isClosedDate(compareDate, firstDate, lastDate);
   const valid = Boolean(origin.data && validDate && validComparison);
@@ -243,7 +247,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     setView(previous => previous === "accounts" ? "accounts" : value === "none" ? "allocation" : "delta");
   };
   useEffect(() => { if (categoryFilter) clearFilterButton.current?.focus(); }, [categoryFilter]);
-  const chrome = <PageChrome pageId="historical-overview" title={t("historicalOverview.title")} actions={
+  const chrome = <PageChrome enabled={isActive} pageId="historical-overview" title={t("historicalOverview.title")} actions={
     <Button variant="outline" onClick={onExit}>{t("historicalOverview.exit")}</Button>
   } />;
   if (origin.isLoading) return <>{chrome}<LoadingState label={t("historicalOverview.loading")} /></>;

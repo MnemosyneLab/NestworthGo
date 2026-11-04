@@ -1,0 +1,14 @@
+{
+  "frontend/src/App.test.tsx": "94ffc0c4aba0256fa63df9b034ebf2f4c87a1e3d010607303a57f0917eebbf54",
+  "frontend/src/App.tsx": "71b0d211be9ad4957494f78c680af276ccb428761175bae8320174f7e89af5d8",
+  "frontend/src/app/AppShell.tsx": "fe7e3bb7147e0677e63b2a26a031ead9a95659fbe0d1ad7aef0cb44cacc3b803",
+  "frontend/src/app/NavigationHistoryControls.tsx": "e5bd84ecbb5fc9305c47145c4cc689cf68f312a98f0597efdea98e54dddd21bc",
+  "frontend/src/app/navigation.ts": "7b38c839f85c8fb946248ba9cf27479ede1dfc746634759c6a89cdf547703863",
+  "frontend/src/app/navigationHistory.test.ts": "f1b93ac4f91b6cca1568f420a418d716d7977f847b8b40fc1de697242cb882d4",
+  "frontend/src/app/navigationHistory.ts": "88adfbfe797ab07bd6b8bd7d524acee25e78173f1ee6673546519e2c46607fd9",
+  "frontend/src/components/ui/action-menu.tsx": "d0b6bac29a34fe017230ab163fb01a77d20dd1cfc5a39f0a8fa7a2cbd6eb5fce",
+  "frontend/src/features/historical-overview/HistoricalOverviewPage.tsx": "98762b590d3194adc98dcdece3326834bfe059e2e49cfb50bca22fe7e82775c8",
+  "frontend/src/i18n/locales/en.json": "1b9a84b428c85b21c5e897ddb848191ff0205d04555a677909c8ecd17b545d38",
+  "frontend/src/i18n/locales/zh-CN.json": "e898c7f8052de2e537f34dd5ccc0ce2d8b572d8bc843221e6a3e4dff408d3e3d",
+  "frontend/src/i18n/locales/zh-TW.json": "ac1c36ea72e5741a69be911996b7c81f1120dce8548511c640f0efc23216726d"
+}

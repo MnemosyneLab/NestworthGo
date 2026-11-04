@@ -2265,5 +2265,16 @@
     "showToken": "顯示 token",
     "hideToken": "隱藏 token",
     "generateToken": "隨機產生"
+  },
+  "navigationHistory": {
+    "search": "搜尋：{{query}}",
+    "sessionLimit": "為保護未完成的對帳草稿，已保留 20 個任務工作階段。請透過最近造訪返回既有工作階段，或重新啟動 Nestworth 後開始新工作階段。",
+    "label": "導覽歷史",
+    "back": "上一頁",
+    "forward": "下一頁",
+    "recent": "最近造訪",
+    "unavailableAccount": "帳戶無法使用",
+    "unavailableInstrument": "標的無法使用",
+    "filtered": "已篩選"
   }
 }

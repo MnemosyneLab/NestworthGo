@@ -8,6 +8,8 @@ the startup/onboarding gates are defined by
 
 ## Maintained contracts
 
+- [Desktop navigation history](navigation-history.md) — Back/Forward, bounded Recent, session/draft retention, privacy and mobile boundaries.
+
 - [Wealth history](historical-overview.md) — Independent read-only reconstruction, date comparisons, missing-data semantics and capture boundaries. Desktop visual acceptance is pending.
 - [Account Container Interaction](account-container-interaction.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Current history, picker, calculation, quote, timezone, and form-state behavior.

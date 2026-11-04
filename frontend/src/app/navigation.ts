@@ -111,7 +111,7 @@ export type NavigationTarget =
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean; create?: boolean }
   | { page: "portfolio"; view?: PortfolioView }
   | ({ page: "instrument-detail" } & InstrumentDetailContext)
-  | { page: "market-data" | "data-health"; focus?: HealthFocus }
+  | { page: "market-data" | "data-health"; focus?: HealthFocus; search?: string }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
   | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "tasks" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
 
