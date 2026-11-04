@@ -90,3 +90,19 @@ focused items additionally retain ref. Explicit-scope financial tools remain
 aliases. SDK tools/list uses the protocol's own cursor and 16-definition budget.
 Repair progress polls exact jobId; executed write/get_operation receipts are
 execution authorities and never become truncated read pages.
+
+## Review follow-up — skill 6.0.1
+
+Corrected the remaining market-data reference and compare_market_data_import
+advertised default from 100 to 25 (maximum remains 100). Both market comparison
+and financial attribution descriptions now direct continuation to get_read_page
+with only cursor and optional limit. The independent discovery baseline retains
+its captured before metadata; only these two intentional after hashes changed.
+The shared defaults test now checks market reference text and both registered
+descriptions alongside the existing actual continuation/default and byte-budget
+assertions. Financial calculations, cursor codecs and consistency rules did not
+change. Skill packaging/version guidance advances to 6.0.1; the 6.0.0 evidence
+above describes the earlier pinned run.
+Targeted skill/schema/discovery and 35-target/233-classification regression tests
+passed, together with all 136 tooling tests, the skill guard, packaging/checksum,
+formatting and whitespace checks. No financial suite or timing gate was changed.

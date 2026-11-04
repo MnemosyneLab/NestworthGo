@@ -53,9 +53,11 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 6.0.0; published skill: 2.0.0
+### Current repository skill: 6.0.1; published skill: 2.0.0
 
-Repository skill 6.0.0 uses one business continuation entry:
+Repository skill 6.0.1 corrects the market-import comparison paging guidance to
+default 25/max 100 and names the universal continuation entry. It uses one
+business continuation entry:
 `get_read_page({cursor, limit?})`, with limit default 25/max 100. Live and
 version-bound reads return items/page instead of arrays, operations/next or
 triple activity keys. Review inputs use optional limit instead of required
@@ -63,7 +65,7 @@ pageSize. Page descriptors retain live/version_bound/frozen semantics; row and
 complete 64 KiB JSON-RPC byte budgets both apply. Frozen hashes, fixed TTL,
 financial disclosure/aliases and stale/restart rules remain authoritative.
 Initial financial content and focused-item descriptors retain their established
-immutable shape without duplicate rows. Skill 6.0.0 is not published.
+immutable shape without duplicate rows. Skill 6.0.1 is not published.
 
 It retains 5.0.0's progress-only repair polling and separate frozen evidence,
 task-directed reads, complete-list/absence/audit requirements and schema-checked

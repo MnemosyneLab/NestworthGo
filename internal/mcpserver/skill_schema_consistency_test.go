@@ -177,6 +177,27 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 			t.Errorf("contract guidance missing: %s", phrase)
 		}
 	}
+	marketGuide, err := os.ReadFile(filepath.Join("..", "..", "skills", "nestworth", "references", "market-data.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(marketGuide), "Comparison pages default to 25 rows") || !strings.Contains(string(marketGuide), "get_read_page({cursor, limit?})") {
+		t.Error("market comparison guide differs from the shared default/continuation contract")
+	}
+	marketDefinition, err := s.toolRegistry(LedgerWrite).Definition("compare_market_data_import")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(marketDefinition.Description, "Comparison pages default to 25 rows, maximum 100") || !strings.Contains(marketDefinition.Description, "get_read_page({cursor,limit?})") {
+		t.Error("market comparison discovery differs from its schema/runtime default and continuation")
+	}
+	definition, err := s.toolRegistry(LedgerWrite).Definition("compare_financial_attribution")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(definition.Description, "get_read_page({cursor,limit?})") || strings.Contains(definition.Description, "get_financial_comparison_page") {
+		t.Error("financial attribution discovery must direct continuation through get_read_page")
+	}
 	if readTTL != 5*time.Minute || contextTTL != readTTL || readCaptureLimit != 4<<20 || contextPackageLimit != readCaptureLimit || readCacheLimit != 16<<20 || contextCacheLimit != readCacheLimit || readCacheCount != 8 || contextCacheCount != readCacheCount || readBuildConcurrency != 2 || readBuildTimeout != 10*time.Second || contextWireLimit != 65536 {
 		t.Fatal("runtime budgets changed; review skill contract table")
 	}

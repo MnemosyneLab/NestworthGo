@@ -151,10 +151,11 @@ date; latest needs actual quotedAt without date. nav is unit NAV, close is raw
 unadjusted close, and FX uses its original direction.
 
 Default view=summary returns compact ordinal/clientItemId/status plus necessary
-reason, duplicateGroup and batchConflict. Comparison pages default to 100 rows,
-maximum 100, and stop sooner at the 64 KiB final response budget. Follow only the
-results cursor to finish batch classification delivery. Server-computed counts
-and comparisonComputedFromCompleteEvidence do not mean details were delivered.
+reason, duplicateGroup and batchConflict. Comparison pages default to 25 rows,
+maximum 100, and stop sooner at the 64 KiB final response budget. Continue the
+results cursor with get_read_page({cursor, limit?}) to finish batch classification
+delivery. For complete bulk evidence, request limit=100 upfront and on
+continuations. Server-computed counts and comparisonComputedFromCompleteEvidence do not mean details were delivered.
 Detailed section totals/cursors remain visible with zero delivered rows and
 evidenceDelivery=deferred. Never present unread evidence as empty or complete.
 

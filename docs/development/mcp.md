@@ -1113,4 +1113,4 @@ Live/version-bound initial responses use items/page, while frozen initial sectio
 and financial disclosure headers keep their owning structure. No caller builds
 triple activity keys, product cursors or last-ID review cursors. Both external
 MCP and built-in AI use the same capability projection and routing. The MCP
-implementation version is 3.0.0; the distributable skill is independently 6.0.0.
+implementation version is 3.0.0; the distributable skill is independently 6.0.1.
