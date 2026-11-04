@@ -1,0 +1,57 @@
+name: Eino provider acceptance
+
+# Same trusted-origin policy as check.yml. Never execute fork PR code here.
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'providers/einoopenai/**'
+      - 'internal/jsoncodec/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/eino-provider.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eino-provider-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: providers/einoopenai
+
+env:
+  GOTOOLCHAIN: local
+
+jobs:
+  provider:
+    name: eino-provider
+    if: github.repository == 'MnemosyneLab/NestworthGo' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: providers/einoopenai/go.mod
+          cache: false
+      - name: Record toolchain and provider pins
+        run: |
+          go version
+          go list -m github.com/cloudwego/eino github.com/cloudwego/eino-ext/components/model/agenticopenai github.com/openai/openai-go/v3
+      - name: Check bounded provider and actual Eino runner
+        run: ./check.sh | tee "$RUNNER_TEMP/eino-provider-checks.log"
+      - name: Retain provider checks
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eino-provider-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/eino-provider-checks.log
+          if-no-files-found: warn
+          retention-days: 7
