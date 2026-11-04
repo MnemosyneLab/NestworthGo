@@ -244,7 +244,7 @@ MCP queries do not replace the desktop sync event listener.
 | `scan_data_health` | All modes | Local issues, executable actions, prerequisites, coverage and missing/outdated/incomplete snapshots |
 | `preview_data_repair` | All modes | `repair_all` targets, estimated provider requests, estimated snapshot days, items and unresolved prerequisites |
 | `start_data_repair` | `ledger_write` | Durable submission receipt containing `job`, `attached`, `conflict`, and optional `reason` |
-| `get_data_repair_job` | All modes | Exact job's progress/result and a fresh local health report |
+| `get_data_repair_job` | All modes | Compact exact-job progress by default; view=evidence freezes job details; current health is a separate scan |
 
 Recommended flow:
 
@@ -260,13 +260,13 @@ Recommended flow:
    a new intentional repair requires a new operation UUID.
 4. Poll `get_data_repair_job` with `{"jobId":"<result.job.jobId>"}` at a
    reasonable interval. Read `job.phase`, `outcome`, request/target counters,
-   `snapshotDaysPlanned`, `snapshotDaysRebuilt`, `items`, `blockers` and
-   `prerequisites`. Outcomes include `running`, `succeeded`, `partial`, `failed`
+   `snapshotDaysPlanned`, `snapshotDaysRebuilt` and evidence counts. Request
+   `view=evidence` for frozen items/blockers/prerequisites when needed. Outcomes include `running`, `succeeded`, `partial`, `failed`
    and `cancelled`. A succeeded **submission receipt** is not a completed repair.
-5. Report both rebuilt days and remaining `health.issues`. Rebuilt snapshots may
-   still lack prices or FX; **snapshot rebuilding is not data completeness**.
-   The health report is a fresh scan when queried, not a frozen completion report,
-   and remains provisional while a job runs or other writes occur.
+5. After a terminal outcome, run `scan_data_health` once and report both rebuilt
+   days and remaining issues. Rebuilt snapshots may still lack prices or FX;
+   **snapshot rebuilding is not data completeness**. This independent health
+   capture describes current state, not immutable job-completion evidence.
 
 Starting repair may contact configured external providers and persist market
 data and derived snapshots. It does not expose credentials or modify provider
@@ -299,7 +299,8 @@ must remain visible rather than being treated as zero.
 
 With `ledger_write`, use:
 
-1. `get_context`, `get_catalog`, and existing entity queries to resolve IDs,
+1. Resolve IDs with filtered entity reads; use `get_context` for needed metadata
+   and `get_catalog` for unknown vocabulary/entity creation,
    currency, history timezone and reasons. History must already be started in
    the App; MCP does not choose or reset the starting point.
 2. `preview_change` with a typed change command. The result contains `planId`,
@@ -838,8 +839,10 @@ See [the session architecture](account-reconciliation.md) and
 [the user workflow](../user/account-reconciliation.md). Session evidence reads
 are available in all permission modes; attestations require ledger_write.
 Headers and pageable account/item/attempt/change/link evidence are separate.
-All reads are bounded at 25 default/50 maximum rows and a 96 KiB response budget,
-with explicit stale_cursor/response_too_large handling. Session writes retain
+Paged reconciliation evidence defaults to 25/max 50 rows and shrinks to fit
+65,536 complete JSON-RPC bytes, including both SDK representations. Preserve
+stale_cursor on changed revision/evidence; too_large identifies a single item
+that cannot fit. No evidence is truncated or silently skipped. Session writes retain
 preview/commit, durable receipt-first recovery and user-provided provenance.
 Existing financial target reconciliation keeps its original meaning. Optional
 reconciliationLink on ledger target/change and managed-product previews is part
@@ -926,14 +929,19 @@ sort by persistent id. `get_read_item` with the corresponding section and id
 retains notes/metadata omitted from compact rows. Existing list_accounts.filter
 selects rows before paging.
 
-Health reads `scan_data_health`, `preview_data_repair` and `get_data_repair_job`
-accept limit and return bounded captures. Scans page issues; previews independently
-page items/unresolved; jobs page issues and job_items/job_blockers/job_prerequisites.
-Header counts describe the entire capture. Plural sectionCount fields are
-serialized row counts; domain issueCount/range counts retain their original
-meaning. Job outcomes and current health remain distinct authorities. Polling
-creates a new capture; continuation does not rescan or extend TTL. Starting or
-retrying repairs, durable receipts and provider permissions are unchanged.
+Health reads `scan_data_health` and `preview_data_repair` accept limit and return
+bounded captures: issues for scans; items/unresolved for previews. Header counts
+describe the entire capture. Domain issueCount/range counts retain their meaning.
+`get_data_repair_job` defaults to compact progress without a scan or capture.
+Its exact-job scalar getter holds the existing job lock, reads evidence counts
+without cloning arrays and detaches the optional timestamp; allocation does not
+grow with retained job evidence. Full GUI/evidence snapshots retain their
+defensive copies;
+`view=evidence` freezes job_items/job_blockers/job_prerequisites only. Neither
+view includes health. Polling does not displace useful captures; continuation
+does not rescan or extend TTL. A separate health scan after terminal outcome
+checks current gaps. Submission receipts, provider permissions and unknown-job
+recovery remain unchanged.
 
 `get_overview` accepts the existing account filters and limit.
 It preserves the complete current GUI overview: exact monetary values, complete,
@@ -1006,3 +1014,93 @@ Cursors remain live, content/revision-bound; `stale_cursor` requires restarting
 that traversal. A single oversized evidence item returns `too_large` explicitly;
 no evidence is truncated. Preview/commit responses and operation recovery
 receipts retain their existing behavior and are not intercepted after execution.
+
+
+## Bounded discovery and task-directed reads (skill 5.0.0)
+
+The SDK tools/list page size is 16. Follow every nextCursor and cache the complete
+tool inventory/schema for the connection. The complete HTTP discovery response
+is capped at 64 KiB; total discovery size is measured separately from per-page
+size. Common guidance lives in server instructions/skill, with concise
+high-frequency tool and operationId descriptions. Structural schemas enforce
+activity cursor triplets, market target alternatives and paired date windows,
+records/history dependence, repair views and ledger-kind required inputs. Exact
+decimal/date/identity/permission/CAS validation remains in the business layer.
+
+Production HTTP read response policy derives from registered capability effects
+(read, analysis, preview), including SDK pre-handler validation. Write effects and
+get_operation always bypass response interception: a post-execution receipt must
+never be replaced by a read-size error. In-process reads also reject oversized
+successful values; this does not apply a model-token quota or trim receipts.
+
+Activity, review and product-operation pages use byte-aware authoritative
+requeries under one application operation fence; cursor positions advance after
+exactly delivered rows. Single complete rows/groups and headers are not split or
+truncated. Review publication cursors retain their revision/filter checks.
+Activity/product history and rule/suppression lists remain live reads. Rules and
+suppressions return arrays: continue every nonempty array from its last ID until
+empty, including short pages. They do not gain frozen-audit guarantees.
+
+Known-ID reads require neither context nor catalog calls. Initial financial
+summaries answer summary questions without downloading every detail section;
+complete lists, absence claims and audits require complete relevant evidence.
+Follow the requested scope, preserve frozen identity/disclosure/quality and state
+what evidence remains deferred. This changes fetch guidance, not financial
+calculations or safety authority.
+
+
+`preview_investment_review_rule` preserves the complete policy window in a frozen
+mcp-read/1 capture: sourceToken/latestClosedOn/window stay in summary; days are
+pageable (default 25/max 100). It evaluates the original requested policy once,
+never shortens a 365-day window to meet the wire cap, and never publishes rules,
+alerts, daily evidence or derived valuations. Expiry/revocation requires a fresh
+preview capture. expectedSourceToken remains a source-change guard, not write CAS.
+
+
+## Typed read contracts and optional task discovery
+
+Shared mcp-read/1 success envelopes and financial package/page headers have
+explicit outputSchema, as does progress-versus-evidence job reading. The SDK and
+shared registry validate these shapes. Nested business payloads remain owned by
+the existing exact-value DTO contract; this is not a claim to describe every GUI
+field. No write or get_operation receipt receives a new post-execution output
+gate. Discovery baseline tests isolate this intentional output-schema change.
+
+Safe external tool errors retain isError and original code/field/message text;
+result metadata `_meta["nestworth.errorRecovery"]` additionally carries mcp-error/1 with error and conservative
+recovery action/automaticRetry/preserveIntent/discardCapture fields. Hints never
+authorize replay or turn unknown execution into failure/success. AutomaticRetry
+is false. Protocol/auth errors may remain outside this tool-error shape. Success
+and recovery receipts remain unmodified values.
+
+Clients can optionally pass tools/list `_meta.nestworth.toolGroups` as a nonempty
+array of context/summary/analysis/directory/ledger/market/products/review/
+reconciliation/health names. Discovery includes only selected categories plus
+shared get_read_page/get_read_item/get_operation; schemas and annotations match
+full discovery exactly. Registered permissions and tools/call enforcement do
+not change. The extension is not a household scope or authorization boundary.
+Default discovery stays complete. Clients that hide tools/list metadata cannot
+be assumed to use it; no automatic model-tool reduction is claimed for them.
+
+Filtered tool pages remain 16 items maximum. HMAC cursors bind normalized group
+set and running server; retain identical metadata throughout pagination. Different
+groups, tampered/full-list cursors and restarted servers require fresh discovery.
+Metadata is built once per server, with no household/provider reads or mutable
+cross-client profile. Selected requests and wire bytes are measured with the
+production SDK; this is not model-token evidence.
+
+SDK success responses continue to contain both structuredContent and JSON text.
+The typed SDK constructs the text fallback when structured output is present.
+Tests verify equal exact JSON payloads and count both copies plus JSON-RPC
+escaping/overhead. The built-in Eino adapter receives one direct capability JSON
+string (engine.go FunctionToolResult), not an external MCP envelope. External
+client/model consumption is outside the server's observation; no real external
+model-token or token-savings claim is made. Removing text without client evidence
+could remove the representation a client actually consumes, so both are retained.
+
+
+Recovery hints live in result `_meta`, not structuredContent: the latter is the
+success outputSchema surface. See the [MCP tool output contract](https://modelcontextprotocol.io/specification/2026-07-28/server/tools).
+This avoids presenting an error object as a successful read envelope. A client
+can consume metadata programmatically; whether it forwards metadata to a model
+is not observed or assumed. Original isError/text code/field/message remain.

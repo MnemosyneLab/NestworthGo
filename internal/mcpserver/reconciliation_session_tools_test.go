@@ -33,7 +33,7 @@ func TestReconciliationSessionToolPermissions(t *testing.T) {
 			t.Fatal(err)
 		}
 		c := connect(t, fx.service)
-		list, err := c.ListTools(context.Background(), nil)
+		list, err := listAllTools(context.Background(), c)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -354,7 +354,7 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 func TestReconciliationSessionOptionalSourceReferenceHTTP(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	tools, err := c.ListTools(t.Context(), nil)
+	tools, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -92,7 +92,9 @@ App-managed term deposits and locked/closed wealth products have specialized
 cash, maturity, reservation and redemption rules. MCP exposes dedicated
 `preview_product_operation` / `commit_product_operation` tools for supported
 completed lifecycle facts, plus dedicated revisioned terms and actual locked
-value edits. Renewal and reservation creation/edit/release remain App workflows.
+value edits. Renewal without reservation release uses preview_product_operation kind renew
+and its matching commit. Reservation-affecting renewal and reservation
+creation/edit/release remain App workflows.
 Never use generic trades, reconciliation or quote tools to bypass managed
 holdings/quote guards, even if a similarly named ordinary instrument could be
 created. See [products.md](products.md) for supported actions and boundaries.
@@ -100,7 +102,8 @@ created. See [products.md](products.md) for supported actions and boundaries.
 ## Frozen discovery and metadata batches
 
 See [paging and batches](paging-and-batches.md). Paged `list_instruments` supports
-filter.types/ids/query, includeArchived and displayName (default asc), name,
+filter.types/ids and either top-level query or filter.query (not both),
+plus top-level includeArchived. Sort displayName (default asc), name,
 type, updatedAt or id sorting. Each row has metadataVersion and managed status.
 Resolve exact IDs and versions before `update_instruments_batch`. Only name,
 shortName and note are accepted. Omission preserves; empty shortName clears;

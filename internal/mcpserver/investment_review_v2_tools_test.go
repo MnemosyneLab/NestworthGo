@@ -110,7 +110,7 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 		if latest.Truth != domain.ReviewTrue || len(latest.Leaves) != 2 || latest.Leaves[0].Actual != "1000.0000" || latest.Leaves[1].Actual != "1005.0000" {
 			t.Fatalf("%s metrics: %+v", policy.Kind, latest)
 		}
-		mcpPreview := call(t, client, "preview_investment_review_rule", request, false)["data"]
+		mcpPreview := sectionEvidence(t, client, "preview_investment_review_rule", request)
 		if !reflect.DeepEqual(mcpPreview, jsonObject(t, wails)) {
 			t.Fatalf("%s MCP and Wails preview differ: MCP=%+v Wails=%+v", policy.Kind, mcpPreview, wails)
 		}
@@ -168,7 +168,7 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 			t.Fatal(err)
 		}
 		client := connect(t, fx.service)
-		listed, err := client.ListTools(t.Context(), nil)
+		listed, err := listAllTools(t.Context(), client)
 		if err != nil {
 			t.Fatal(err)
 		}

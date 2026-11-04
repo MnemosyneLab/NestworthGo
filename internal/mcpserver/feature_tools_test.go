@@ -33,7 +33,7 @@ func featureJSONEqual(t *testing.T, actual, expected any) {
 
 func featureToolList(t *testing.T, c *mcp.ClientSession) map[string]*mcp.Tool {
 	t.Helper()
-	listed, err := c.ListTools(t.Context(), nil)
+	listed, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -65,7 +65,7 @@ func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 			t.Fatal(err)
 		}
 		c := connect(t, fx.service)
-		list, err := c.ListTools(t.Context(), nil)
+		list, err := listAllTools(t.Context(), c)
 		if err != nil {
 			t.Fatal(err)
 		}

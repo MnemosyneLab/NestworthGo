@@ -162,7 +162,7 @@ func TestAgentAuditScopedCaptureRetainsOutsideInvalidators(t *testing.T) {
 		t.Fatal("rotated credential reused capture")
 	}
 	readOnly := connect(t, fx.service)
-	listed, err := readOnly.ListTools(t.Context(), nil)
+	listed, err := listAllTools(t.Context(), readOnly)
 	if err != nil {
 		t.Fatal(err)
 	}

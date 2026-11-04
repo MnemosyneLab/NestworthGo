@@ -186,8 +186,10 @@ start-date bounds are inclusive civil dates in the History Origin timezone, with
 UTC fallback when no valid origin timezone exists. Invalid stored start timestamps
 fail safely. GUI instant timestamps use the configured presentation timezone;
 detail sections page accounts/items/attempts/changes/links with deterministic order.
-Pages default to 25, cap at 50 and enforce a 96 KiB encoded budget with explicit
-response_too_large. The client reduces limit instead of losing fields. Item rows
+MCP pages default to 25, cap at 50 and automatically shrink to fit 65,536
+complete JSON-RPC response bytes, including SDK text and structuredContent. An
+oversized single item fails explicitly with too_large; smaller limits cannot
+recover that item. No fields or evidence are dropped. Item rows
 omit full detail and attempt arrays explicitly, exposing attemptCount; a complete
 single-point read and pageable attempts retain the evidence. Cursors bind filters,
 sort, session revision and content, producing stale_cursor on changed evidence.

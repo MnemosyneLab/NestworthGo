@@ -50,7 +50,7 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				t.Fatal(err)
 			}
 			client := connect(t, s)
-			listed, err := client.ListTools(t.Context(), nil)
+			listed, err := listAllTools(t.Context(), client)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,53 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 			// immutable baseline; every other tool/field must still match.
 			// The additive comparison tool has separate schema/permission tests.
 			baseline := make([]*mcp.Tool, 0, len(listed.Tools))
+			// Project only independently captured main metadata for this PR's
+			// reviewed schema/description changes. Exact new hashes prevent
+			// this projection from hiding further unexpected changes.
+			priorAuditRaw, err := os.ReadFile("testdata/audit-discovery-main-a46d38b.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var audit map[string]struct {
+				Before    *mcp.Tool `json:"before"`
+				AfterHash string    `json:"afterHash"`
+			}
+			if err := jsoncodec.Unmarshal(priorAuditRaw, &audit); err != nil {
+				t.Fatal(err)
+			}
 			for _, tool := range listed.Tools {
+				if expected := readOutputSchema(tool.Name); expected != nil {
+					if !reflect.DeepEqual(jsonObject(t, tool.OutputSchema), jsonObject(t, expected)) {
+						t.Fatalf("read output contract drift: %s", tool.Name)
+					}
+					// Historical discovery used Response.data:any. Project only
+					// this reviewed output-envelope delta for the old hash.
+					copy := *tool
+					copy.OutputSchema = map[string]any{"type": "object", "properties": map[string]any{"data": true}, "required": []string{"data"}, "additionalProperties": false}
+					tool = &copy
+				}
+				// Shared operationId guidance is shortened; common server/skill
+				// instructions preserve exact retries and unknown-state recovery.
+				schema := jsonObject(t, tool.InputSchema)
+				if props, ok := schema["properties"].(map[string]any); ok {
+					if operation, ok := props["operationId"].(map[string]any); ok && operation["description"] == "New UUID per intent; retain exact input on retry. Check unknown outcome before new intent." {
+						operation["description"] = "New UUID per intended operation. Reuse exactly the same UUID and arguments for a retry; never retry unknown outcomes with a new UUID before checking data."
+						copy := *tool
+						copy.InputSchema = schema
+						tool = &copy
+					}
+				}
+				if delta, ok := audit[tool.Name]; ok {
+					raw, err := jsoncodec.Marshal(tool)
+					if err != nil {
+						t.Fatal(err)
+					}
+					digest := sha256.Sum256(raw)
+					if hex.EncodeToString(digest[:]) != delta.AfterHash {
+						t.Fatalf("unreviewed audit metadata: %s", tool.Name)
+					}
+					tool = delta.Before
+				}
 				if tool.Name != "compare_market_data_import" {
 					baseline = append(baseline, tool)
 				}
@@ -227,7 +273,7 @@ func TestFrozenContributionDiscoveryContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
-	listed, err := c.ListTools(t.Context(), nil)
+	listed, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,5 +304,22 @@ func TestFrozenContributionDiscoveryContract(t *testing.T) {
 	}
 	if found != 2 {
 		t.Fatal(found)
+	}
+}
+
+// Match real MCP discovery clients: a short page is not the entire tool set.
+func listAllTools(ctx context.Context, client *mcp.ClientSession) (*mcp.ListToolsResult, error) {
+	all := &mcp.ListToolsResult{}
+	params := &mcp.ListToolsParams{}
+	for {
+		page, err := client.ListTools(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		all.Tools = append(all.Tools, page.Tools...)
+		if page.NextCursor == "" {
+			return all, nil
+		}
+		params.Cursor = page.NextCursor
 	}
 }

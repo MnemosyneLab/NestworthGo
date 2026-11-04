@@ -56,9 +56,11 @@ Inputs reject unknown fields and wrong types through SDK schemas. Product SDK
 schema diagnostics are replaced with fixed validation errors, without echoing
 request properties/values. Application domain errors retain safe codes; raw
 SQL, paths and internal error details do not reach responses. HTTP responses,
-including SDK text plus structured content and RPC envelope, are capped at
-64 KiB; RPC IDs at 512 encoded bytes. Batches containing a product tool are
-rejected before dispatch, including legacy protocol requests. Oversized output
+for registered read/preview effects, including SDK text plus structured content
+and RPC envelope, are capped at 64 KiB; RPC IDs at 512 encoded bytes. Batches
+containing a bounded read are rejected before dispatch. Product commit execution
+and get_operation recovery receipts bypass the read response cap and retain their
+complete bodies after execution. Oversized output
 fails as a whole, never truncated JSON or a silently incomplete subtotal.
 An oversized list can be narrowed by account; an oversized single detail or
 household overview requires the GUI. This bounds wire output, not database work

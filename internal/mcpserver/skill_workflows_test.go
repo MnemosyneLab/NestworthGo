@@ -180,7 +180,7 @@ func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
 	result := mutate(t, c, "start_data_repair", map[string]any{})
 	job := result["job"].(map[string]any)
 	call(t, c, "get_data_repair_job", map[string]any{"jobId": job["jobId"]}, false)
-	if _, err := c.ListTools(context.Background(), nil); err != nil {
+	if _, err := listAllTools(context.Background(), c); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -252,7 +252,7 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 	if !strings.Contains(instructions, "call get_financial_context directly without get_context") || !strings.Contains(instructions, "ordinary management") {
 		t.Fatal("initialize instructions must distinguish minimal summary from management")
 	}
-	listed, err := c.ListTools(t.Context(), nil)
+	listed, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}

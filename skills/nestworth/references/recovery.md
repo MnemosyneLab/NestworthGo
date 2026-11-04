@@ -101,3 +101,22 @@ session and target-adjustment business receipts may resolve a lost body on an
 explicit identical retry. Unknown plan IDs never execute. A new plan after a
 revision change is a distinct reviewed intent; changing an outer operation UUID
 alone does not establish duplicate execution.
+
+
+## Machine-readable MCP recovery hints
+
+Safe external MCP tool errors retain isError and the original code/field/message
+JSON text. the standard result metadata `_meta["nestworth.errorRecovery"]` additionally uses
+schemaVersion mcp-error/1 with
+error (the same fields) and recovery {action, automaticRetry, preserveIntent,
+discardCapture}. automaticRetry is always false: hints never authorize replay,
+new operation IDs, identity disclosure or permission changes.
+
+restart_read/discardCapture applies to expired/revoked capture families.
+inspect_operation_and_current_state with preserveIntent applies to unknown
+outcomes and stale/integrity-sensitive writes: retain original IDs/input/plan,
+then follow the receipt/state rules above. A hint does not prove a stale write
+never executed. correct_input, retry_later, inspect_current_state and
+inspect_limits_or_narrow_read are navigation hints, not successful outcomes.
+HTTP authentication/protocol errors can arrive outside this tool-error shape.
+Successful execution and recovery receipts remain complete, unmodified values.

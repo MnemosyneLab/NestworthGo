@@ -62,7 +62,7 @@ func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 				t.Fatal(err)
 			}
 			c := connect(t, s)
-			listed, err := c.ListTools(context.Background(), nil)
+			listed, err := listAllTools(context.Background(), c)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -228,7 +228,7 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if terminal.SnapshotDaysPlanned == 0 || terminal.SnapshotDaysRebuilt != terminal.SnapshotDaysPlanned {
 		t.Fatalf("expected rebuilt snapshots with unresolved provider data: %+v", terminal)
 	}
-	paged := scaleCapture(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "limit": 1})
+	paged := scaleCapture(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "view": "evidence", "limit": 1})
 	header := paged["summary"].(map[string]any)
 	if header["job"].(map[string]any)["jobId"] != terminal.JobID || header["job"].(map[string]any)["outcome"] != terminal.Outcome {
 		t.Fatal("paged job changed recorded outcome")

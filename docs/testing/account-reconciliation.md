@@ -28,9 +28,11 @@ providers. Never run these checks on a personal financial database. Implemented 
 | Receipt-checked expiry permits fresh review; missing plans stay guarded; expired committed plans replay receipts | Application expiry/receipt and GUI dismissal/review regressions |
 | Maintained Skill examples and portable bundle/installer behavior | Skill checker and Python tool suite |
 
-MCP summaries default to 25/max 50 rows and reject encoded pages over 96 KiB.
-Rows explicitly separate item detail/attempt history; no evidence is silently
-truncated. Large scopes can require a smaller page size.
+MCP summaries default to 25/max 50 rows and size pages against the complete
+65,536-byte JSON-RPC response, including both SDK representations. Rows explicitly
+separate item detail/attempt history; no evidence is silently truncated. Large
+pages shrink automatically, with cursors advancing after delivered rows. A
+single oversized item fails with too_large rather than being skipped.
 
 ## Cloud commands
 

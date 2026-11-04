@@ -34,7 +34,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 					t.Fatal("missing attribution route/side-effect instruction", phrase)
 				}
 			}
-			listed, err := client.ListTools(t.Context(), nil)
+			listed, err := listAllTools(t.Context(), client)
 			if err != nil {
 				t.Fatal(err)
 			}

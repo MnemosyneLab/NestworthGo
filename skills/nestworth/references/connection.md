@@ -53,13 +53,16 @@ rather than changing disclosure or bypassing request validation.
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
 | `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, daily investment-review rule/acknowledgement/suppression/refresh writes, managed lifecycle/terms/value pairs and starting data repair |
 
+Discover all tools/list pages, following nextCursor even when a page is short.
+Cache this connection's tool schemas rather than rediscovering before every call.
 Discover the actual tools before choosing a workflow. An absent tool may reflect
 permissions or an older App. Explain the specific needed setting/update; do not
 attempt another tool to bypass it. `get_context.capabilities` is helpful, but
 actual tool availability and schemas decide whether an operation is supported.
 For a pure minimal summary, discovery followed directly by `get_financial_context`
-is sufficient. Do not require `get_context`: it returns identity-bearing household metadata. Ordinary management still starts with `get_context`
-and `get_catalog`. If the context tools are missing, explain the needed App
+is sufficient. Do not require `get_context`: it returns identity-bearing household metadata. Ordinary reads can call their tool directly. Use `get_context` only for needed
+instance/permission/timezone/history metadata and `get_catalog` for unknown
+vocabulary or entity creation; reuse both until their context changes. If the context tools are missing, explain the needed App
 update; an identity-bearing fallback requires an explicit disclosure choice,
 not a silent directory read. Skill updates do not update the App or MCP connection. Analysis tools, including
 `compare_financial_attribution`, can maintain derived snapshots under the existing
@@ -75,10 +78,10 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Coherent comparison and attribution link | `compare_financial_attribution`, `get_financial_comparison_page` |
 | Two-state differences, not returns | `compare_financial_context`, `get_financial_comparison_page` |
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
-| Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
+| Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; `create_institution`, `update_institution`, `archive_institution`, `set_institution_icon`; `create_group`, `update_group`, `archive_group`, `set_group_icon`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
-| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_suppressions`; ledger_write: create/update/archive rule, acknowledge alert, set/clear suppression, refresh |
+| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`; ledger_write: create/update/archive rule, acknowledge alert, set/clear suppression, refresh |
 | Read-only historical view | `get_historical_overview`, `get_historical_overview_series` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
@@ -88,7 +91,7 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Single/batch ledger records | `preview_change` / `commit_change`, `preview_batch` / `commit_batch` |
 | Reconciliation/correction | `preview_reconciliation` / `commit_reconciliation`, `preview_correction` / `commit_correction` |
 | History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail` |
-| Quotes and audit | `get_market_data`, `list_agent_market_data`, `import_market_data`, `set_fx_source` |
+| Quotes and audit | `get_market_data`, `get_market_data_batch`, `compare_market_data_import`, `list_agent_market_data`, `import_market_data`, `set_fx_source` |
 | Data repair | `scan_data_health`, `preview_data_repair`, `start_data_repair`, `get_data_repair_job` |
 
 Initialize the household and its history starting point in the App. In particular,
@@ -96,8 +99,9 @@ ledger recording requires started history; the MCP does not start/reset it or
 choose opening balances/costs. This is distinct from importing a position later
 in an already started history.
 
-Except the explicitly labeled Inspector client configuration, JSON examples in
-these references are **tool arguments**, not raw HTTP requests.
+Except explicitly labeled Inspector client configuration and tools/list protocol
+parameters, JSON examples in these references are **business-tool arguments**,
+not raw HTTP requests.
 `${...}` denotes a value obtained from the user or a previous response. Replace
 all placeholders; never send them as IDs. Values/dates are illustrative, not
 verified market information. Reads/previews usually take arguments directly;
@@ -124,3 +128,29 @@ Reconciliation sessions expose reconciliation_session_read in every permission
 mode and reconciliation_session_write only with ledger_write. Directory access
 does not authorize ledger attestations. Discover the actual session tool names
 before following [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).
+
+
+## Optional task-scoped tool discovery
+
+Clients that expose MCP tools/list metadata can request a smaller discovery
+set with `_meta["nestworth.toolGroups"]`. Valid groups are context, summary,
+analysis, directory, ledger, market, products, review, reconciliation and health.
+The same permission mode still governs every registered call. This is a discovery
+filter, not an authorization boundary or a financial data scope. Shared
+get_read_page/get_read_item/get_operation remain listed for evidence/recovery.
+
+The following is **tools/list protocol parameters**, not business-tool input:
+
+<!-- example: task-tool-discovery -->
+```json
+{"_meta":{"nestworth.toolGroups":["summary"]}}
+```
+
+Keep the same metadata on every nextCursor request; cursors are signed and bound
+to the normalized group set and running server. Changing groups, reconnecting
+to a restarted server or using a full-discovery cursor requires starting from
+the first page. Cache the selected inventory for that connection/group set.
+A group cannot reveal tools absent from the current permission mode. Without
+this metadata, discovery returns the complete existing tool set. Clients that
+hide tools/list metadata use full discovery and cache its schemas; this optional
+extension is not claimed to run automatically in every external assistant.

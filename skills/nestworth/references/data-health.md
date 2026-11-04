@@ -1,12 +1,17 @@
 # Diagnose and repair data health
 
-Discover the schema first. Call scan_data_health, preview_data_repair and
-get_data_repair_job with ordinary arguments and follow
-all relevant `get_read_page` cursors. Scans use issues, previews items/unresolved,
-and jobs issues/job_items/job_blockers/job_prerequisites. Counts describe the full
-capture. A new poll captures current progress/health; old pages stay frozen.
-For a full issue audit, limit=100 reduces calls while byte-aware sizing still
-applies.
+Discover the schema first. `scan_data_health` and `preview_data_repair` use
+frozen `get_read_page` cursors: scans have issues; previews items/unresolved.
+Counts describe the full capture. For a full issue audit, limit=100 reduces calls
+while byte-aware sizing still applies. Load only detail relevant to the question.
+
+`get_data_repair_job` defaults to compact progress: jobId, sequence, phase,
+outcome and counters. It performs no health scan and creates no read capture.
+For recorded item/blocker/prerequisite evidence, request `view=evidence`; this
+returns frozen job_items/job_blockers/job_prerequisites sections (default 25,
+maximum 100). Neither view contains health. Run `scan_data_health` once after a
+terminal outcome, or separately when the user requests current health. A new
+evidence request captures current job state; its old pages stay frozen.
 
 For “检查数据健康” call `scan_data_health` and explain affected dates,
 instruments/currencies, missing/outdated/incomplete snapshots and actionable
@@ -27,7 +32,8 @@ For an authorized repair:
    Track the existing job before intentionally submitting new repair work.
 5. Poll `get_data_repair_job` with `jobId`, initially every few seconds and back
    off on unchanged status. Track phase, outcome, request/target counts, rebuilt
-   days, blockers and prerequisites. Accepted work continues if the MCP request
+   days and evidence counts. Fetch `view=evidence` for needed blockers/prerequisites.
+   Accepted work continues if the MCP request
    disconnects; use the App Data Health UI for cancellation.
 6. Report outcome (`succeeded`, `partial`, `failed`, `cancelled`) and fresh
    remaining health issues. Rebuilding snapshots is not proof that every price/
@@ -42,3 +48,14 @@ automatically replayed; follow [recovery.md](recovery.md).
 
 When supply is Agent-only, a provider repair cannot invent missing NAV/FX data.
 Follow [market-data.md](market-data.md) to import real evidence, then rescan.
+
+
+<!-- example: repair-progress -->
+```json
+{"jobId":"${jobId}"}
+```
+
+<!-- example: repair-evidence -->
+```json
+{"jobId":"${jobId}","view":"evidence","limit":100}
+```
