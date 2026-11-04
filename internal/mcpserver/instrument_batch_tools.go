@@ -105,12 +105,19 @@ func (s *Service) pagedInstruments(ctx context.Context, g uint64, in InstrumentR
 			}
 			return cmp < 0
 		})
-		rows := make([]instrumentReadRow, 0, len(selected))
+		rows := make([]map[string]any, 0, len(selected))
+		details := make(map[string]any, len(selected))
 		for _, v := range selected {
-			rows = append(rows, instrumentReadRow{wire.FromInstrument(v.Instrument), domain.InstrumentMetadataVersion(v.Instrument, v.Managed), v.Managed})
+			full := instrumentReadRow{wire.FromInstrument(v.Instrument), domain.InstrumentMetadataVersion(v.Instrument, v.Managed), v.Managed}
+			encoded, err := readSummary(full)
+			if err != nil {
+				return readCapture{}, err
+			}
+			rows = append(rows, readFields(encoded, "id", "name", "shortName", "type", "metalTemplate", "quantityUnit", "quoteCurrency", "symbol", "marketCode", "countryCode", "isin", "quoteSource", "providerKey", "providerSymbol", "managedProductId", "managed", "archivedAt", "metadataVersion"))
+			details["instruments/"+v.Instrument.ID.String()] = full
 		}
 		raw, err := readRows(rows)
-		return readCapture{Kind: "instruments", Query: map[string]any{"includeArchived": in.IncludeArchived, "filter": f, "sort": order}, Summary: map[string]any{"totalInstrumentCount": total, "matchedInstrumentCount": len(rows)}, Sections: map[string][]json.RawMessage{"instruments": raw}}, err
+		return readCapture{Kind: "instruments", Query: map[string]any{"includeArchived": in.IncludeArchived, "filter": f, "sort": order}, Summary: map[string]any{"totalInstrumentCount": total, "matchedInstrumentCount": len(rows)}, Sections: map[string][]json.RawMessage{"instruments": raw}, Details: details}, err
 	})
 }
 func (s *Service) instrumentBatchTools(server *toolSet, mode string) {

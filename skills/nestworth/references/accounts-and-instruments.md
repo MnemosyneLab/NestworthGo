@@ -108,3 +108,11 @@ note=null clears; name cannot be empty/null. Duplicate aliases are allowed,
 duplicate targets are rejected. One stale/managed/archived target rejects every
 change. Managed identities require product terms. No quotes, positions, source
 preferences or ledger facts change. directory_write or ledger_write is required.
+
+
+Directory and instrument lists are compact identity projections. Full notes,
+display metadata and timestamps require `get_read_item` with the original
+captureId, row id and matching section (`instruments` for instruments).
+Read full metadata before a complete replacement; omission from a compact row
+does not mean an empty field. Instrument list metadataVersion remains available
+for atomic metadata updates. See [paging and batches](paging-and-batches.md).
