@@ -4,8 +4,13 @@ package mcpserver
 // Summary/row payloads retain exact existing business values and their owning
 // contracts. Write/recovery receipts deliberately acquire no new output gate.
 func readOutputSchema(name string) any {
+	if paginatedLiveTool(name) {
+		return wrapReadOutput(businessPageSchema())
+	}
 	switch name {
-	case "get_read_page", "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_account_snapshot", "get_overview", "get_historical_overview", "get_historical_overview_series", "get_market_data_batch", "list_agent_market_data", "compare_market_data_import", "list_products", "get_product", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail":
+	case "get_read_page":
+		return wrapReadOutput(map[string]any{"anyOf": []any{readEnvelopeSchema(), financialOutputEnvelope("contextId", true), financialOutputEnvelope("comparisonId", true), businessPageSchema(), map[string]any{"type": "object", "required": []string{"contextId", "ref", "positionsPage", "gapsPage", "evidencePage"}}}})
+	case "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_account_snapshot", "get_overview", "get_historical_overview", "get_historical_overview_series", "get_market_data_batch", "list_agent_market_data", "compare_market_data_import", "list_products", "get_product", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail":
 		return wrapReadOutput(readEnvelopeSchema())
 	case "get_financial_context":
 		return wrapReadOutput(financialOutputEnvelope("contextId", false))
@@ -58,7 +63,7 @@ func financialOutputEnvelope(id string, continuation bool) any {
 	for _, k := range required {
 		props[k] = map[string]any{"type": "string"}
 	}
-	page := map[string]any{"type": "object", "required": []string{"total", "returned", "hasMore"}, "properties": map[string]any{"total": map[string]any{"type": "integer", "minimum": 0}, "returned": map[string]any{"type": "integer", "minimum": 0}, "hasMore": map[string]any{"type": "boolean"}, "nextCursor": map[string]any{"type": "string"}}}
+	page := map[string]any{"type": "object", "required": []string{"total", "returned", "hasMore"}, "properties": map[string]any{"total": map[string]any{"type": "integer", "minimum": 0}, "returned": map[string]any{"type": "integer", "minimum": 0}, "hasMore": map[string]any{"type": "boolean"}, "nextCursor": map[string]any{"type": []string{"string", "null"}}}}
 	if continuation {
 		required = append(required, "section", "items", "page")
 		props["section"] = map[string]any{"enum": []string{"positions", "gaps", "evidence"}}
@@ -73,4 +78,17 @@ func financialOutputEnvelope(id string, continuation bool) any {
 		}
 	}
 	return map[string]any{"type": "object", "properties": props, "required": required}
+}
+
+func businessPageSchema() any {
+	return map[string]any{"type": "object", "required": []string{"items", "page"}, "properties": map[string]any{
+		"items": map[string]any{"type": "array", "items": true},
+		"page": map[string]any{"type": "object", "required": []string{"returned", "hasMore", "nextCursor", "consistency"}, "properties": map[string]any{
+			"returned":    map[string]any{"type": "integer", "minimum": 0},
+			"total":       map[string]any{"type": "integer", "minimum": 0},
+			"hasMore":     map[string]any{"type": "boolean"},
+			"nextCursor":  map[string]any{"type": []string{"string", "null"}},
+			"consistency": map[string]any{"enum": []string{"live", "version_bound", "frozen"}},
+		}},
+	}}
 }

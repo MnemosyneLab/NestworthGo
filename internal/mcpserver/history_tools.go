@@ -20,7 +20,7 @@ type ListActivitiesInput struct {
 	AfterEffectiveAt string   `json:"afterEffectiveAt,omitempty"`
 	AfterCreatedAt   string   `json:"afterCreatedAt,omitempty"`
 	AfterID          string   `json:"afterId,omitempty"`
-	Limit            int      `json:"limit,omitempty" jsonschema:"Page size, 1 to 100; defaults to 100"`
+	Limit            int      `json:"limit,omitempty" jsonschema:"Page size, 1 to 100; defaults to 25"`
 }
 
 func (in ListActivitiesInput) request() history.ActivityQueryRequest {
@@ -74,7 +74,7 @@ func (s *Service) historyTools(server *toolSet) {
 	generation := s.contextGeneration
 	historyService := history.NewService(s.app)
 	analysisService := analysis.NewService(s.app)
-	readTool(server, "list_activities", "Page live recorded activities with account/instrument/kind/date filters in the history timezone. Default/max 100; actual pages may be smaller to fit 64 KiB complete wire. Continue while hasMore, passing all three next fields as afterEffectiveAt/afterCreatedAt/afterId. Short pages do not prove completion.", func(ctx context.Context, in ListActivitiesInput) (any, error) {
+	readTool(server, "list_activities", "Page live recorded activities with account/instrument/kind/date filters in the history timezone. Default 25/max 100; actual pages may be smaller to fit 64 KiB complete wire. Continue page.nextCursor with get_read_page. Short pages do not prove completion.", func(ctx context.Context, in ListActivitiesInput) (any, error) {
 		if in.Limit < 0 || in.Limit > 100 {
 			return nil, fail("validation", "limit must be between 1 and 100, or omitted")
 		}
@@ -89,7 +89,7 @@ func (s *Service) historyTools(server *toolSet) {
 		}
 		size := in.Limit
 		if size == 0 {
-			size = 100
+			size = 25
 		}
 		return fitLiveReadPage(ctx, s.app, size, func(ctx context.Context, size int) (wire.ActivityPageDTO, error) {
 			query := in.request()

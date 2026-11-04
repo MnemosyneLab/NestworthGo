@@ -132,7 +132,7 @@ func walkScaleSchema(s *jsonschema.Schema) {
 			p.MaxLength = &max
 		}
 		if k == "cursor" {
-			max := 2048
+			max := pageCursorLimit
 			p.MaxLength = &max
 		}
 		walkScaleSchema(p)

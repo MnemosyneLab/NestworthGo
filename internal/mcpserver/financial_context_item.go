@@ -45,7 +45,7 @@ func (s *Service) financialContextItem(ctx context.Context, g uint64, in Financi
 		return empty, err
 	}
 	if in.Limit == 0 {
-		in.Limit = 50
+		in.Limit = 25
 	}
 	if in.Limit < 1 || in.Limit > 100 {
 		return empty, fail("validation", "limit must be 1 to 100")

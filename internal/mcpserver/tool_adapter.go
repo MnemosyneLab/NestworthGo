@@ -12,12 +12,14 @@ import (
 type toolSet struct {
 	*agentcapability.Registry
 	server *mcp.Server
+	pages  map[string]func(context.Context, []byte, int) (any, error)
+	paging *pageCodec
 }
 
 func newToolSet(instructions string, external bool) *toolSet {
-	set := &toolSet{Registry: agentcapability.New(instructions)}
+	set := &toolSet{paging: &pageCodec{key: newBoundedReadCache().key}, Registry: agentcapability.New(instructions), pages: map[string]func(context.Context, []byte, int) (any, error){}}
 	if external {
-		set.server = mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "2.0.0"}, &mcp.ServerOptions{Instructions: instructions, PageSize: 16})
+		set.server = mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "3.0.0"}, &mcp.ServerOptions{Instructions: instructions, PageSize: 16})
 	}
 	return set
 }
