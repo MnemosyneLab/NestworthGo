@@ -18,6 +18,8 @@ const historyOrigin = vi.fn();
 const inspectBackup = vi.fn();
 const confirmRestore = vi.fn();
 const cloud = vi.hoisted(() => ({ Status: vi.fn(), RetentionStatus: vi.fn(), Configure: vi.fn(), RecoveryPointPage: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn(), BackupNow: vi.fn() }));
+const ai = vi.hoisted(() => ({ Status: vi.fn(), SaveCredential: vi.fn(), DeleteCredential: vi.fn() }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ai);
 const agent = vi.hoisted(() => ({ Status: vi.fn(), RecentOperations: vi.fn(), Connection: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup", () => ({ Service: cloud }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/agent", () => ({ Service: agent }));
@@ -96,6 +98,7 @@ const defaultSettings = {
 afterEach(async () => { await i18n.changeLanguage("en"); });
 
 beforeEach(() => {
+  ai.Status.mockResolvedValue({ epoch: "synthetic-host", credentials: "missing" });
   load.mockReset();
   save.mockReset();
   save.mockImplementation(async (value) => { load.mockResolvedValue(value); });
@@ -572,4 +575,18 @@ it("hides unrelated preference actions on Mobile access while preserving an exis
   expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
   await user.click(screen.getByRole("button", { name: "Save changes" }));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ appearance: "dark" }));
+});
+
+
+it("discards typed AI credentials when leaving the Agent settings section", async () => {
+  load.mockResolvedValue(defaultSettings);
+  const user = userEvent.setup(); renderPage();
+  await user.click(await screen.findByRole("tab", { name: "AI · MCP" }));
+  const input = await screen.findByLabelText("OpenAI API key");
+  await waitFor(() => expect(input).toBeEnabled());
+  await user.type(input, "synthetic-unsaved-key");
+  await user.click(screen.getByRole("tab", { name: "Appearance" }));
+  await user.click(screen.getByRole("tab", { name: "AI · MCP" }));
+  expect(screen.getByLabelText("OpenAI API key")).toHaveValue("");
+  expect(ai.SaveCredential).not.toHaveBeenCalled();
 });

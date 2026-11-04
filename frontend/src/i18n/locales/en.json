@@ -2290,5 +2290,15 @@
     "unavailableAccount": "Unavailable account",
     "unavailableInstrument": "Unavailable instrument",
     "filtered": "Filtered"
+  },
+  "aiCredentials": {
+    "title": "Built-in AI credentials",
+    "help": "OpenAI API key. Saving a key does not activate model calls or financial writes.",
+    "backup": "Stored without field encryption in the household database. Full backups include this key; deleting it does not remove copies in older backups.",
+    "key": "OpenAI API key",
+    "save": "Save AI key",
+    "missing": "No AI key saved",
+    "unavailable": "AI configuration unavailable. Create a household and restart the app, or check database access.",
+    "error": "Could not update AI credentials. Check configuration status and retry."
   }
 }

@@ -2290,5 +2290,15 @@
     "unavailableAccount": "帳戶無法使用",
     "unavailableInstrument": "標的無法使用",
     "filtered": "已篩選"
+  },
+  "aiCredentials": {
+    "title": "內建 AI 憑據",
+    "help": "OpenAI API 金鑰。儲存金鑰不會開啟模型呼叫或財務寫入。",
+    "backup": "金鑰未經欄位加密存入家庭資料庫。完整備份包含此金鑰；刪除金鑰不會清除舊備份中的副本。",
+    "key": "OpenAI API 金鑰",
+    "save": "儲存 AI 金鑰",
+    "missing": "尚未儲存 AI 金鑰",
+    "unavailable": "AI 設定無法使用。請建立家庭後重新啟動應用程式，或檢查資料庫存取。",
+    "error": "無法更新 AI 憑據，請檢查設定狀態後重試。"
   }
 }

@@ -35,8 +35,7 @@ var (
 	ErrStorage     = errors.New("assistant_storage_unavailable")
 )
 
-// Credentials is a host-owned OS secure store. Implementations must never fall
-// back to files, settings, environment variables, a database or command arguments.
+// Credentials is a host-owned credential port, backed by the live database.
 // With supplies a short-lived lease; production callers never return its value.
 type Credentials interface {
 	Available() bool
@@ -260,7 +259,7 @@ func (r *Runtime) Snapshot() Snapshot {
 	live := !r.closed && r.ctx.Err() == nil && r.options.Validate(context.Background())
 	credentialStatus, reason := "unavailable", "secure_runtime_unavailable"
 	if live && r.options.Credentials.Available() {
-		credentialStatus = "missing_or_locked"
+		credentialStatus = "missing"
 		reason = "credentials_unavailable"
 		if r.options.Credentials.With(context.Background(), func(key []byte) error {
 			if !validSecret(key) {
@@ -333,7 +332,7 @@ func validSecret(key []byte) bool {
 	return true
 }
 
-// SetCredential is host-only. It is deliberately not registered in Wails/mobile.
+// SetCredential accepts explicit desktop settings input. Mobile has no binding.
 func (r *Runtime) SetCredential(ctx context.Context, epoch string, key []byte) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -716,27 +715,41 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 			err = ErrUnavailable
 		}
 	}()
-	err = r.options.Credentials.With(ctx, func(key []byte) error {
-		if !validSecret(key) {
-			return ErrUnavailable
+	// The database handle may close after the restore fence. Acquire the key
+	// under the runtime lock, but never keep that lock during provider work.
+	var key []byte
+	defer func() { clear(key) }()
+	err = func() error {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if r.valid(ctx, r.epoch) != nil {
+			return ErrStale
 		}
-		engine, e := r.options.Factory(ctx, cfg, key, id)
-		if e != nil || engine == nil {
-			return ErrUnavailable
-		}
-		defer engine.Close()
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		result, e = engine.Complete(ctx, history, prompt)
-		if e != nil {
-			return ErrUnavailable
-		}
-		if len(result.History) == 0 || len(result.History) > MaxHistoryBytes || len(result.Text) > MaxTextBytes || strings.Contains(result.Text, string(key)) || strings.Contains(string(result.History), string(key)) {
-			result = Completion{}
-			return ErrUnavailable
-		}
-		return nil
-	})
+		return r.options.Credentials.With(ctx, func(value []byte) error {
+			if !validSecret(value) {
+				return ErrUnavailable
+			}
+			key = append([]byte(nil), value...)
+			return nil
+		})
+	}()
+	if err != nil {
+		return Completion{}, ErrUnavailable
+	}
+	engine, e := r.options.Factory(ctx, cfg, key, id)
+	if e != nil || engine == nil {
+		return Completion{}, ErrUnavailable
+	}
+	defer engine.Close()
+	if ctx.Err() != nil {
+		return Completion{}, ctx.Err()
+	}
+	result, err = engine.Complete(ctx, history, prompt)
+	if err != nil {
+		return Completion{}, ErrUnavailable
+	}
+	if len(result.History) == 0 || len(result.History) > MaxHistoryBytes || len(result.Text) > MaxTextBytes || strings.Contains(result.Text, string(key)) || strings.Contains(string(result.History), string(key)) {
+		return Completion{}, ErrUnavailable
+	}
 	return result, err
 }

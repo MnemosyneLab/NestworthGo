@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AICredentialsSection } from "./AICredentialsSection";
 import { SecretField } from "./SecretField";
 import { ContinuousBackupSection } from "./ContinuousBackupSection";
 import { useBootstrap } from "@/queries/household";
@@ -98,10 +99,11 @@ export function SettingsPage() {
   const [localRestoreBusy, setLocalRestoreBusy] = useState(false);
   const [cloudInteractionBusy, setCloudInteractionBusy] = useState(false);
   const [agentBusy, setAgentBusy] = useState(false);
+  const [aiBusy, setAIBusy] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const preferenceRequest = useRef(false);
   const coinGeckoRequest = useRef(false);
-  const tabsLocked = localRestoreBusy || cloudInteractionBusy || agentBusy || resetOpen;
+  const tabsLocked = localRestoreBusy || cloudInteractionBusy || agentBusy || aiBusy || resetOpen;
   const preferencesBusy = saveSettings.isPending || resetSettings.isPending;
   const [draftOverride, setDraftOverride] = useState<Partial<Settings> | null>(null);
   const [coinGeckoKey, setCoinGeckoKey] = useState("");
@@ -411,7 +413,7 @@ export function SettingsPage() {
         </div>
       </section>
       </TabsContent>
-      <TabsContent value="agent" keepMounted><AgentSection active={activeSection === "agent"} onBusyChange={setAgentBusy} /></TabsContent>
+      <TabsContent value="agent" keepMounted>{activeSection === "agent" && <AICredentialsSection onBusyChange={setAIBusy} />}<AgentSection active={activeSection === "agent"} onBusyChange={setAgentBusy} /></TabsContent>
       <TabsContent value="mobile" keepMounted><MobileAccessSection active={activeSection === "mobile"} /></TabsContent>
       <TabsContent value="data" keepMounted>
         <div className="space-y-5">

@@ -1,6 +1,6 @@
 // Package assistant owns the page-guide activation gate and the independent
 // backend conversation runtime. The installed page guide retains its closed
-// contract until verified secure credentials, UI and scoped permissions connect.
+// contract until model activation, UI and scoped permissions connect.
 package assistant
 
 type Status struct {
