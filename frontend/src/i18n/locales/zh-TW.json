@@ -2071,6 +2071,14 @@
     "holdingsScopeNote": "顯示未封存帳戶的目前持倉（包括零數量）。金額使用標的幣別，缺失數值維持不可用。"
   },
   "mobile": {
+    "errors": {
+      "invalid_token": "手機存取權杖未被接受。請核對桌面設定中的權杖後重試。",
+      "session_expired": "此手機工作階段已失效，請重新登入。",
+      "rate_limited": "請求過於頻繁，請等待一分鐘後重試。",
+      "csrf_expired": "連線憑證需要更新，請重新連線後重試。",
+      "forbidden": "此連線沒有執行該操作的權限。",
+      "session_changed": "手機工作階段已變更，請重新連線後重試。"
+    },
     "tagline": "隨身的家庭帳本。",
     "stepPair": "登入",
     "noHoldings": "此帳戶暫無持倉。",

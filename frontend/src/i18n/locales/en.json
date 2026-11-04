@@ -2071,6 +2071,14 @@
     "holdingsScopeNote": "Current holdings in active accounts, including zero quantities. Amounts use the instrument currency; missing values remain unavailable."
   },
   "mobile": {
+    "errors": {
+      "invalid_token": "The mobile token was not accepted. Check the token in desktop Settings and try again.",
+      "session_expired": "This mobile session is no longer valid. Sign in again.",
+      "rate_limited": "Too many requests. Wait a minute before trying again.",
+      "csrf_expired": "Connection credentials need refreshing. Reconnect before trying again.",
+      "forbidden": "This connection does not have permission for this action.",
+      "session_changed": "The mobile session changed. Reconnect before trying again."
+    },
     "tagline": "Your household ledger, in your pocket.",
     "stepPair": "Sign in",
     "noHoldings": "No holdings in this account.",

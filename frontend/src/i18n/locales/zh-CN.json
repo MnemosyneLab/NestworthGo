@@ -2071,6 +2071,14 @@
     "holdingsScopeNote": "展示未归档账户中的当前持仓（包括零数量）。金额使用标的币种，缺失数值保持不可用。"
   },
   "mobile": {
+    "errors": {
+      "invalid_token": "手机访问令牌未被接受。请核对桌面设置中的令牌后重试。",
+      "session_expired": "此手机会话已失效，请重新登录。",
+      "rate_limited": "请求过于频繁，请等待一分钟后重试。",
+      "csrf_expired": "连接凭据需要刷新，请重新连接后重试。",
+      "forbidden": "此连接没有执行该操作的权限。",
+      "session_changed": "手机会话已更改，请重新连接后重试。"
+    },
     "tagline": "随身的家庭账本。",
     "stepPair": "登录",
     "noHoldings": "此账户暂无持仓。",

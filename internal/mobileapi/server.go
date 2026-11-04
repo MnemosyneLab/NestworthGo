@@ -606,7 +606,7 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	digest := sha256.Sum256([]byte(in.Token))
 	expected := sha256.Sum256([]byte(s.config.Token))
 	if s.config.Token == "" || subtle.ConstantTimeCompare(digest[:], expected[:]) != 1 {
-		fail(w, unauthorized())
+		fail(w, &domain.Error{Code: domain.ErrUnavailable, Field: "token"})
 		return
 	}
 	for k, d := range s.sessions {
