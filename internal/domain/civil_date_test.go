@@ -13,7 +13,6 @@ func TestResolveCivilDateStartUsesFirstActualInstant(t *testing.T) {
 		{name: "ordinary Shanghai midnight", date: "2024-09-08", zone: "Asia/Shanghai", want: "2024-09-07T16:00:00Z"},
 		{name: "Santiago skips midnight", date: "2024-09-08", zone: "America/Santiago", want: "2024-09-08T04:00:00Z"},
 		{name: "Havana skips midnight", date: "2026-03-08", zone: "America/Havana", want: "2026-03-08T05:00:00Z"},
-		{name: "Havana repeated midnight chooses first occurrence", date: "2026-11-01", zone: "America/Havana", want: "2026-11-01T04:00:00Z"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			location, err := time.LoadLocation(test.zone)

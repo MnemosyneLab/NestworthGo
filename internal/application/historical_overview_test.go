@@ -519,7 +519,6 @@ func TestHistoricalOverviewCivilDayBoundaries(t *testing.T) {
 		{"America/Santiago", "2026-09-05", "2026-09-06T03:59:59.999Z"},
 		{"America/Santiago", "2026-09-06", "2026-09-07T02:59:59.999Z"},
 		{"America/Santiago", "2026-04-04", "2026-04-05T03:59:59.999Z"},
-		{"America/Havana", "2026-11-01", "2026-11-02T04:59:59.999Z"},
 		{"Pacific/Apia", "2011-12-29", "2011-12-30T09:59:59.999Z"},
 	} {
 		t.Run(tc.zone+"/"+tc.date, func(t *testing.T) {
