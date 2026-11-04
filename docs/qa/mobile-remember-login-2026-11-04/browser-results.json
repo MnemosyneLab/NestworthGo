@@ -1,0 +1,22 @@
+{
+  "browser": "Linux Chromium",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "checks": [
+    "unchecked opt-in and risk text",
+    "random credential only",
+    "page reload",
+    "tab close/reopen",
+    "browser process close/reopen",
+    "API 503 retained and reconnected",
+    "pending recovery never confirms automatically",
+    "port isolation",
+    "logout clears credential",
+    "storage-denied memory fallback"
+  ],
+  "tokenExchangesBeforeLogout": 1,
+  "automaticConfirmations": 0,
+  "realIOSAndroid": false
+}

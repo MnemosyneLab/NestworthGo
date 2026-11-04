@@ -35,3 +35,44 @@ it("keeps only language and appearance preferences in storage", () => {
   expect(mobilePreferences()).toEqual({language: "zh-CN", theme: "dark"});
   expect(JSON.stringify(localStorage)).not.toMatch(/token|csrf|amount|account/);
 });
+
+it("validates and expires only the random remembered credential", async () => {
+  const { rememberMobileCredential, rememberedMobileCredential } =
+    await import("./connection");
+  const value = {
+    accessToken: "s".repeat(43),
+    expiresAt: new Date(Date.now() + 60000).toISOString(),
+  };
+  expect(rememberMobileCredential(value)).toBe(true);
+  expect(rememberedMobileCredential()).toEqual(value);
+  localStorage.setItem("nestworth.mobile.session.v1", "broken");
+  expect(rememberedMobileCredential()).toBeNull();
+  expect(localStorage.getItem("nestworth.mobile.session.v1")).toBeNull();
+  rememberMobileCredential({
+    ...value,
+    expiresAt: new Date(Date.now() - 1).toISOString(),
+  });
+  expect(rememberedMobileCredential()).toBeNull();
+});
+it("degrades safely when storage is disabled", async () => {
+  const { rememberMobileCredential, rememberedMobileCredential } =
+    await import("./connection");
+  vi.stubGlobal("localStorage", {
+    getItem() {
+      throw Error("blocked");
+    },
+    setItem() {
+      throw Error("blocked");
+    },
+    removeItem() {
+      throw Error("blocked");
+    },
+  });
+  expect(rememberedMobileCredential()).toBeNull();
+  expect(
+    rememberMobileCredential({
+      accessToken: "s".repeat(43),
+      expiresAt: "2099-01-01",
+    }),
+  ).toBe(false);
+});

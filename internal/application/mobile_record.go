@@ -301,3 +301,6 @@ func (s *Service) MobileWorkspace() string {
 	sum := sha256.Sum256([]byte(s.workspaceIdentity() + ":" + strings.Split(s.writes.previewToken(), ":")[0]))
 	return hex.EncodeToString(sum[:])
 }
+
+// MobileSessionDatabasePath binds durable authorization to the database file.
+func (s *Service) MobileSessionDatabasePath() string { return s.workspaceIdentity() }

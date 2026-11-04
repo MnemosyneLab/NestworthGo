@@ -1053,3 +1053,58 @@ it.each(["Accounts", "Ledger", "Overview", "collapse"])(
     expect(marketConfirms).toHaveLength(0);
   },
 );
+
+it("remembers only an opted-in random credential and restores it without another token exchange", async () => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let loggedIn = false;
+  const credential = "s".repeat(43);
+  const exchanges: Record<string, unknown>[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init: RequestInit) => {
+      if (url.endsWith("/session")) {
+        if (init.method === "POST") {
+          exchanges.push(JSON.parse(init.body as string));
+          loggedIn = true;
+          return json({
+            ...session,
+            device: {
+              ...session.device,
+              expiresAt: new Date(Date.now() + 604800000).toISOString(),
+            },
+            accessToken: credential,
+          });
+        }
+        if (!loggedIn) return json({ error: { code: "session_expired" } }, 401);
+        expect((init.headers as Record<string, string>).Authorization).toBe(
+          `Bearer ${credential}`,
+        );
+        return json(session);
+      }
+      return base(url, init);
+    }),
+  );
+  const user = userEvent.setup();
+  const client = mount();
+  const checkbox = await screen.findByRole("checkbox", {
+    name: "Remember this browser",
+  });
+  expect(checkbox).not.toBeChecked();
+  await user.click(checkbox);
+  await user.type(screen.getByLabelText("Mobile token"), "SYNTHETIC1");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+  await screen.findByText("SYNTHETIC MOBILE TEST");
+  expect(exchanges).toEqual([{ token: "SYNTHETIC1", remember: true }]);
+  expect(JSON.stringify(localStorage)).not.toMatch(/SYNTHETIC1|synthetic-csrf/);
+  expect(localStorage.getItem("nestworth.mobile.session.v1")).toContain(
+    credential,
+  );
+  // A newly mounted page restores only auth; no confirmation is dispatched.
+  const { cleanup } = await import("@testing-library/react");
+  cleanup();
+  client.clear();
+  mount();
+  await screen.findByText("SYNTHETIC MOBILE TEST");
+  expect(exchanges).toHaveLength(1);
+  expect(confirms).toHaveLength(0);
+});

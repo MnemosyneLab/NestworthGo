@@ -70,6 +70,7 @@ import {
   pendingOperation,
   savePending,
   setMobileSession,
+  restoreMobileCredential,
   type Account,
   type Activity,
   type Envelope,
@@ -88,6 +89,9 @@ import logoMark from "@/assets/brand/logo-mark.png";
 import {
   ConnectionError,
   mobilePreferences,
+  rememberedMobileCredential,
+  rememberMobileCredential,
+  forgetMobileCredential,
   saveMobilePreferences,
 } from "./connection";
 
@@ -248,6 +252,7 @@ export function MobileApp() {
   const [reconnecting, setReconnecting] = useState(false);
   const reconnectLock = useRef(false);
   const [theme, setTheme] = useState(() => mobilePreferences().theme);
+  const [rememberUnavailable, setRememberUnavailable] = useState(false);
   const [sessionError, setSessionError] = useState<unknown>();
   const [tab, setTab] = useState("overview");
   const [jobSignal, setJobSignal] = useState<
@@ -269,7 +274,8 @@ export function MobileApp() {
   const [receipt, setReceipt] = useState<Activity | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const acceptSession = useCallback(
-    (value: Session | null) => {
+    (value: Session | null, storageFailed = false) => {
+      setRememberUnavailable(storageFailed);
       const changed = activeDevice.current !== (value?.device.id ?? null);
       activeDevice.current = value?.device.id ?? null;
       setMobileSession(value);
@@ -290,6 +296,7 @@ export function MobileApp() {
   useEffect(() => {
     let mounted = true;
     const controller = new AbortController();
+    restoreMobileCredential();
     void api<Session>("/session", "GET", undefined, {
       signal: controller.signal,
     })
@@ -357,6 +364,10 @@ export function MobileApp() {
       const current = await api<Session>("/session");
       // Retain mounted drafts and immutable reviews across transient reconnects.
       if (current.device.id !== activeDevice.current) acceptSession(current);
+      else {
+        setMobileSession(current);
+        setSession(current);
+      }
       await client.invalidateQueries({ queryKey: ["mobile"] });
     } catch (error) {
       setSessionError(error);
@@ -542,6 +553,11 @@ export function MobileApp() {
           <span className="min-w-0 flex-1">
             {t("mobile.recoveryMemoryOnly")}
           </span>
+        </p>
+      )}
+      {rememberUnavailable && (
+        <p role="status" className="mobile-notice">
+          {t("mobile.rememberUnavailable")}
         </p>
       )}
       <ErrorMessage error={sessionError} />
@@ -794,11 +810,13 @@ function Login({
   onLogin,
   error: initialError,
 }: {
-  onLogin: (s: Session) => void;
+  onLogin: (s: Session, storageFailed?: boolean) => void;
   error?: unknown;
 }) {
   const { t } = useTranslation();
   const [token, setToken] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [saved, setSaved] = useState(() => !!rememberedMobileCredential());
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -827,10 +845,21 @@ function Login({
           void api<Session>(
             "/session",
             "POST",
-            { token: secret },
-            { signal: request.signal },
+            { token: secret, remember },
+            { signal: request.signal, anonymous: true },
           )
-            .then(onLogin)
+            .then((value) => {
+              forgetMobileCredential();
+              const stored =
+                !remember ||
+                (!!value.accessToken &&
+                  !!value.device.expiresAt &&
+                  rememberMobileCredential({
+                    accessToken: value.accessToken,
+                    expiresAt: value.device.expiresAt,
+                  }));
+              onLogin(value, !stored);
+            })
             .catch(setError)
             .finally(() => {
               lock.current = false;
@@ -858,6 +887,50 @@ function Login({
             required
           />
         </div>
+        <Label className="flex items-center gap-3" htmlFor="mobile-remember">
+          <input
+            id="mobile-remember"
+            type="checkbox"
+            checked={remember}
+            disabled={busy}
+            onChange={(event) => setRemember(event.target.checked)}
+            aria-describedby="mobile-remember-help"
+          />
+          {t("mobile.rememberBrowser")}
+        </Label>
+        <p id="mobile-remember-help" className="mobile-hint">
+          {t("mobile.rememberRisk")}
+        </p>
+        {saved && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => {
+              if (lock.current) return;
+              lock.current = true;
+              setBusy(true);
+              setError(null);
+              restoreMobileCredential();
+              const request = new AbortController();
+              controller.current = request;
+              void api<Session>("/session", "GET", undefined, {
+                signal: request.signal,
+              })
+                .then((value) => onLogin(value))
+                .catch((failure) => {
+                  setError(failure);
+                  setSaved(!!rememberedMobileCredential());
+                })
+                .finally(() => {
+                  lock.current = false;
+                  setBusy(false);
+                });
+            }}
+          >
+            {t("mobile.reconnect")}
+          </Button>
+        )}
         <ErrorMessage error={error} />
         <div className="mobile-form-actions">
           <Button size="lg" disabled={busy}>

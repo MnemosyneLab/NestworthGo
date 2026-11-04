@@ -1,4 +1,8 @@
-import { ConnectionError } from "./connection";
+import {
+  ConnectionError,
+  forgetMobileCredential,
+  rememberedMobileCredential,
+} from "./connection";
 export type Permissions = {
   read: boolean;
   record: boolean;
@@ -6,7 +10,12 @@ export type Permissions = {
   manual_quote: boolean;
 };
 export type Session = {
-  device: { id: string; name: string; permissions: Permissions };
+  device: {
+    id: string;
+    name: string;
+    permissions: Permissions;
+    expiresAt?: string;
+  };
   csrfToken: string;
   instance: string;
   accessToken?: string;
@@ -158,7 +167,11 @@ let accessToken = "";
 const requests = new Set<AbortController>();
 let sessionGeneration = 0;
 let expired: (() => void) | undefined;
+export function restoreMobileCredential() {
+  accessToken = rememberedMobileCredential()?.accessToken ?? accessToken;
+}
 export function setMobileSession(session: Session | null) {
+  if (!session) forgetMobileCredential();
   sessionGeneration++;
   csrf = session?.csrfToken ?? "";
   accessToken = session ? (session.accessToken ?? accessToken) : "";
@@ -208,6 +221,17 @@ export async function api<T>(
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    // An explicit server 401 invalidates even when its response body is broken.
+    if (
+      response.status === 401 &&
+      !options.anonymous &&
+      requestGeneration === sessionGeneration
+    ) {
+      forgetMobileCredential();
+      accessToken = "";
+      csrf = "";
+      if (path !== "/session") expired?.();
+    }
     let payload;
     try {
       payload = await response.json();
@@ -219,8 +243,6 @@ export async function api<T>(
     if (requestGeneration !== sessionGeneration)
       throw new MobileError(409, "session_changed");
     if (!response.ok) {
-      if (response.status === 401 && !options.anonymous && path !== "/session")
-        expired?.();
       throw new MobileError(
         response.status,
         payload.error?.code ?? "unavailable",

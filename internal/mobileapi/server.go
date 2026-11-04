@@ -41,7 +41,8 @@ type Config struct {
 const configVersion = 2
 
 type storedConfig struct {
-	Version int `json:"version"`
+	Version      int    `json:"version"`
+	SessionEpoch string `json:"sessionEpoch,omitempty"`
 	Config
 }
 
@@ -104,6 +105,7 @@ type session struct {
 	reads, writes int
 	window        time.Time
 	active        int
+	remember      bool
 }
 type loginBucket struct {
 	at    time.Time
@@ -146,6 +148,9 @@ type Server struct {
 	healthScan    string
 	healthAt      time.Time
 	now           func() time.Time
+	sessionEpoch  string
+	registryReady bool
+	registryError error
 }
 
 func New(app *application.Service, configPath string, assets fs.FS) *Server {
@@ -161,6 +166,7 @@ func New(app *application.Service, configPath string, assets fs.FS) *Server {
 			s.lastError = "configuration_reset"
 		} else {
 			s.config = saved.Config
+			s.sessionEpoch = saved.SessionEpoch
 		}
 	}
 	return s
@@ -183,16 +189,26 @@ func (s *Server) Status() Status {
 }
 
 // Configure is desktop-only. The shared token lives in a private settings file;
-// session credentials remain in memory. Every apply revokes existing sessions.
+// remembered sessions use a private hash registry. Every apply revokes sessions.
 func (s *Server) Configure(c Config) (Status, error) {
 	if err := c.Validate(); err != nil {
 		return s.Status(), err
 	}
 	s.lifecycle.Lock()
 	defer s.lifecycle.Unlock()
+	if err := s.revoke(""); err != nil {
+		return s.Status(), err
+	}
 	if err := s.stop(); err != nil {
 		return s.Status(), err
 	}
+	epoch, err := secret()
+	if err != nil {
+		return s.Status(), err
+	}
+	s.mu.Lock()
+	s.sessionEpoch = epoch
+	s.mu.Unlock()
 	if c.Enabled {
 		if err := s.start(c); err != nil {
 			s.mu.Lock()
@@ -201,7 +217,7 @@ func (s *Server) Configure(c Config) (Status, error) {
 			return s.Status(), invalid("connection")
 		}
 	}
-	raw, err := jsoncodec.Marshal(storedConfig{Version: configVersion, Config: c})
+	raw, err := jsoncodec.Marshal(storedConfig{Version: configVersion, SessionEpoch: epoch, Config: c})
 	if err == nil {
 		err = os.MkdirAll(filepath.Dir(s.path), 0700)
 	}
@@ -237,7 +253,10 @@ func saveConfig(path string, raw []byte) error {
 	if err = file.Close(); err != nil {
 		return err
 	}
-	return os.Rename(file.Name(), path)
+	if err = os.Rename(file.Name(), path); err != nil {
+		return err
+	}
+	return syncDirectory(filepath.Dir(path))
 }
 
 func (s *Server) Resume() error {
@@ -278,6 +297,20 @@ func (s *Server) start(c Config) error {
 	server := &http.Server{Handler: s, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	s.mu.Lock()
 	s.config = c
+	if err := s.ensureSessionEpochLocked(); err != nil {
+		s.mu.Unlock()
+		_ = listener.Close()
+		return err
+	}
+	if !s.registryReady {
+		s.loadSessionsLocked()
+	}
+	if s.registryError != nil {
+		err := s.registryError
+		s.mu.Unlock()
+		_ = listener.Close()
+		return err
+	}
 	s.listener = listener
 	s.http = server
 	s.mu.Unlock()
@@ -294,6 +327,9 @@ func (s *Server) start(c Config) error {
 	return nil
 }
 func (s *Server) Revoke(id string) {
+	_ = s.revoke(id)
+}
+func (s *Server) revoke(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, d := range s.sessions {
@@ -308,6 +344,7 @@ func (s *Server) Revoke(id string) {
 	}
 	s.pages = map[string]pageState{}
 	s.health = nil
+	return s.persistSessionsLocked()
 }
 func (s *Server) stop() error {
 	s.mu.Lock()
@@ -315,8 +352,12 @@ func (s *Server) stop() error {
 	listener := s.listener
 	s.http = nil
 	s.listener = nil
+	s.sessions = map[[32]byte]*session{}
+	s.registryReady = false
+	s.plans = map[string]*plan{}
+	s.pages = map[string]pageState{}
+	s.health = nil
 	s.mu.Unlock()
-	s.Revoke("")
 	// Shutdown can race Serve's listener registration on an immediate reapply.
 	// Close the owned listener even if Serve has not started yet.
 	if listener != nil {
@@ -329,10 +370,22 @@ func (s *Server) stop() error {
 	defer cancel()
 	return server.Shutdown(ctx)
 }
+
+// Close drains transport and drops process-local plans, preserving durable login.
 func (s *Server) Close() error { s.lifecycle.Lock(); defer s.lifecycle.Unlock(); return s.stop() }
 
+// RevokeForRestore must succeed before replacement; shutdown alone preserves login.
+func (s *Server) RevokeForRestore() error {
+	s.lifecycle.Lock()
+	defer s.lifecycle.Unlock()
+	if err := s.revoke(""); err != nil {
+		return err
+	}
+	return s.stop()
+}
+
 func (s *Server) sessionFor(r *http.Request) (*session, error) {
-	// HTTP uses explicit, memory-only bearer credentials, never ambient cookies.
+	// HTTP uses explicit bearer credentials, never ambient cookies.
 	auth := r.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, "Bearer ") {
 		return nil, unauthorized()
@@ -343,12 +396,20 @@ func (s *Server) sessionFor(r *http.Request) (*session, error) {
 	defer s.mu.Unlock()
 	d := s.sessions[digest]
 	now := s.now()
-	if d == nil || !now.Before(d.ExpiresAt) || !now.Before(d.idle) {
+	if s.registryError != nil {
+		return nil, s.registryError
+	}
+	if s.listener == nil || d == nil || !now.Before(d.ExpiresAt) || !now.Before(d.idle) {
 		delete(s.sessions, digest)
 		return nil, unauthorized()
 	}
 	d.LastUsed = now
 	d.idle = now.Add(24 * time.Hour)
+	if d.remember {
+		if err := s.persistSessionsLocked(); err != nil {
+			return nil, err
+		}
+	}
 	if now.Sub(d.window) >= time.Minute {
 		d.window = now
 		d.reads = 0
@@ -382,7 +443,12 @@ func (s *Server) authorize(d *session, permission string) (func(), error) {
 	s.mu.RLock()
 	current := s.sessions[d.digest]
 	now := s.now()
-	if current == nil || !now.Before(current.ExpiresAt) || !now.Before(current.idle) {
+	if s.registryError != nil {
+		err := s.registryError
+		s.mu.RUnlock()
+		return nil, err
+	}
+	if s.listener == nil || current == nil || !now.Before(current.ExpiresAt) || !now.Before(current.idle) {
 		s.mu.RUnlock()
 		return nil, unauthorized()
 	}
@@ -474,7 +540,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "DELETE" && path == "/session" {
-		s.Revoke(d.ID)
+		if err := s.revoke(d.ID); err != nil {
+			fail(w, err)
+			return
+		}
 		reply(w, map[string]bool{"ok": true})
 		return
 	}
@@ -487,7 +556,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Token string `json:"token"`
+		Token    string `json:"token"`
+		Remember bool   `json:"remember,omitempty"`
 	}
 	if err := decode(w, r, &in); err != nil {
 		fail(w, err)
@@ -496,6 +566,10 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.registryError != nil {
+		fail(w, s.registryError)
+		return
+	}
 	if s.listener == nil {
 		fail(w, unauthorized())
 		return
@@ -534,9 +608,9 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(s.sessions) >= 5 {
-		// Reload loses the browser's memory credential. Admit a fresh login by
-		// replacing the least-recently-used idle session, rather than locking
-		// the owner out after five reloads. Never evict an in-flight request.
+		// Admit a fresh login by replacing the least recently used inactive
+		// session. Remembered logins retain their slot across reload/restart;
+		// never evict an in-flight request.
 		var oldest *session
 		for _, current := range s.sessions {
 			if current.active == 0 && (oldest == nil || current.LastUsed.Before(oldest.LastUsed)) {
@@ -559,6 +633,16 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	if in.Remember {
+		if err := s.ensureSessionEpochLocked(); err != nil {
+			fail(w, err)
+			return
+		}
+		if _, err := s.registryScope(); err != nil {
+			fail(w, errSessionRegistry)
+			return
+		}
+	}
 	value, err := secret()
 	if err != nil {
 		fail(w, err)
@@ -571,6 +655,10 @@ func (s *Server) loginSession(w http.ResponseWriter, r *http.Request) {
 	}
 	device := Device{ID: uuid.NewString(), Name: "Mobile browser", Permissions: Permissions{Read: true, Record: true, Market: true, Manual: true}, CreatedAt: now, LastUsed: now, ExpiresAt: now.Add(7 * 24 * time.Hour)}
 	sessionDigest := sha256.Sum256([]byte(value))
-	s.sessions[sessionDigest] = &session{Device: device, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now}
+	s.sessions[sessionDigest] = &session{Device: device, digest: sessionDigest, csrf: csrf, idle: now.Add(24 * time.Hour), window: now, remember: in.Remember}
+	if err := s.persistSessionsLocked(); err != nil {
+		fail(w, err)
+		return
+	}
 	reply(w, map[string]any{"device": device, "csrfToken": csrf, "instance": s.app.MobileWorkspace(), "accessToken": value})
 }
