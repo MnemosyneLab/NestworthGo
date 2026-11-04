@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -98,6 +99,23 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				copy.Description = "Capture 1 to 100 distinct instrument IDs or oriented FX pairs in one strictly local read-only transaction. current (default) omits history; coverage preserves counts and gapAssessment=not_evaluated; history separates selected points from raw observations per target. Follow every section cursor with get_read_page before claiming completeness. No provider refresh or writes."
 				baseline[i] = &copy
 			}
+			// The reviewed breaking contribution cutover changes exactly these two
+			// tools. Preserve the original immutable whole-registry hash by
+			// substituting independently captured main 34f048f HTTP metadata for
+			// those tools only. The new contract is asserted separately below.
+			priorRaw, err := os.ReadFile("testdata/contribution-discovery-main-34f048f.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var prior map[string]*mcp.Tool
+			if err := jsoncodec.Unmarshal(priorRaw, &prior); err != nil {
+				t.Fatal(err)
+			}
+			for i, tool := range baseline {
+				if old, ok := prior[tool.Name]; ok {
+					baseline[i] = old
+				}
+			}
 			raw, err := jsoncodec.MarshalIndent(baseline, "", "  ")
 			if err != nil {
 				t.Fatal(err)
@@ -188,5 +206,46 @@ func TestTypedMCPValidationAndErrorsMatchPriorAdapter(t *testing.T) {
 		if !reflect.DeepEqual(oldResult, newResult) {
 			t.Errorf("%s %s result differs: %+v / %+v", test.name, test.raw, oldResult, newResult)
 		}
+	}
+}
+
+func TestFrozenContributionDiscoveryContract(t *testing.T) {
+	s, _, _ := fixture(t)
+	t.Cleanup(s.Close)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	listed, err := c.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, tool := range listed.Tools {
+		if tool.Name != "list_contributions" && tool.Name != "get_contribution_item" {
+			continue
+		}
+		found++
+		raw, err := jsoncodec.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schema map[string]any
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(err)
+		}
+		props := schema["properties"].(map[string]any)
+		if tool.Name == "list_contributions" {
+			if props["offset"] != nil || props["query"] == nil || props["limit"] == nil || tool.Annotations.ReadOnlyHint {
+				t.Fatal("capture schema/effect changed", schema)
+			}
+		} else {
+			if len(props) != 2 || props["captureId"] == nil || props["groupKey"] == nil || !tool.Annotations.ReadOnlyHint {
+				t.Fatal("detail schema/effect changed", schema)
+			}
+		}
+	}
+	if found != 2 {
+		t.Fatal(found)
 	}
 }

@@ -15,6 +15,9 @@ func sectionEvidence(t *testing.T, c *mcp.ClientSession, name string, args any) 
 	for section := range cap["sections"].(map[string]any) {
 		rows := scaleSection(t, c, cap, section)
 		target, key := out, section
+		if name == "get_contribution_item" {
+			key = section[strings.LastIndex(section, "/")+1:]
+		}
 		if name == "analyze_period" {
 			parts := strings.SplitN(section, "/", 2)
 			target = out[parts[0]].(map[string]any)
@@ -115,4 +118,18 @@ func canonicalEvidence(v any) any {
 		}
 	}
 	return v
+}
+
+// Project the public frozen envelope for GUI parity assertions only.
+func contributionPageEvidence(cap map[string]any) map[string]any {
+	out := cap["summary"].(map[string]any)
+	section := cap["sections"].(map[string]any)["rows"].(map[string]any)
+	page := section["page"].(map[string]any)
+	out["rows"], out["totalRows"], out["hasMore"], out["nextCursor"], out["captureId"] = section["items"], page["total"], page["hasMore"], page["nextCursor"], cap["captureId"]
+	return out
+}
+func nextContributionPage(t *testing.T, c *mcp.ClientSession, prior map[string]any) map[string]any {
+	p := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": prior["captureId"], "section": "rows", "cursor": prior["nextCursor"], "limit": 1})
+	page := p["page"].(map[string]any)
+	return map[string]any{"rows": p["items"], "totalRows": page["total"], "hasMore": page["hasMore"], "nextCursor": page["nextCursor"]}
 }
