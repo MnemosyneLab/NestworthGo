@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -439,11 +440,16 @@ func isReconciliationReadTool(name string) bool {
 }
 
 func isBoundedHTTPCall(request financialContextHTTPCall) bool {
-	if isBoundedTool(request.Params.Name) || isReconciliationReadTool(request.Params.Name) {
+	// Execution and recovery receipts must survive any response size after a
+	// business write. These names previously overlapped product/read helpers.
+	if strings.HasPrefix(request.Params.Name, "commit_") || request.Params.Name == "update_instruments_batch" {
+		return false
+	}
+	if isBoundedTool(request.Params.Name) || isReconciliationReadTool(request.Params.Name) || isReviewReadTool(request.Params.Name) {
 		return true
 	}
 	switch request.Params.Name {
-	case "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail", "get_context", "get_catalog", "get_account_snapshot", "get_market_data", "list_instruments", "list_agent_market_data", "get_account_valuations", "get_overview", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "scan_data_health", "preview_data_repair", "get_data_repair_job":
+	case "list_activities", "get_activity", "search_market_instruments", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail", "get_context", "get_catalog", "get_account_snapshot", "get_market_data", "list_instruments", "list_agent_market_data", "get_account_valuations", "get_overview", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "scan_data_health", "preview_data_repair", "get_data_repair_job":
 		return true
 	}
 	return false
@@ -455,7 +461,11 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 // at most 64 KiB until ServeHTTP completes also covers SDK validation errors.
 // Legacy SDK protocols accept batches, so reject batches containing any
 // bounded tool before dispatch, independently of the supplied protocol header.
-func financialContextEnvelope(next http.Handler) http.Handler {
+func financialContextEnvelope(next http.Handler, registered ...map[string]bool) http.Handler {
+	bounded := isBoundedHTTPCall
+	if len(registered) > 0 {
+		bounded = func(r financialContextHTTPCall) bool { return registered[0][r.Params.Name] }
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			raw, err := io.ReadAll(r.Body)
@@ -469,14 +479,14 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			if decodeFinancialContextJSON(raw, &batch) == nil {
 				for _, element := range batch {
 					request, err := decodeFinancialContextHTTPCall(element)
-					if err == nil && isBoundedHTTPCall(request) {
+					if err == nil && bounded(request) {
 						http.Error(w, "bounded MCP tools require a single JSON-RPC request", http.StatusBadRequest)
 						return
 					}
 				}
 			}
 			request, err := decodeFinancialContextHTTPCall(raw)
-			if err == nil && isBoundedHTTPCall(request) {
+			if err == nil && bounded(request) {
 				if len(request.ID) > 512 {
 					http.Error(w, "MCP request ID exceeds wire budget", http.StatusBadRequest)
 					return
@@ -489,6 +499,9 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 				if !buffer.oversized && (isReadScaleTool(request.Params.Name) || request.Params.Name == "list_instruments" || request.Params.Name == "list_agent_market_data") {
 					scrubSchemaError(buffer, request.ID, "invalid bounded read or batch request; inspect tool schema")
 				}
+				if !buffer.oversized && (isReviewReadTool(request.Params.Name) || request.Params.Name == "list_activities" || request.Params.Name == "get_activity") {
+					scrubSchemaError(buffer, request.ID, "invalid read request; inspect tool schema")
+				}
 				if !buffer.oversized && isProductTool(request.Params.Name) {
 					scrubSchemaError(buffer, request.ID, "invalid product request; inspect the tool schema")
 				}
@@ -499,7 +512,10 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					// Replace the entire result; never truncate JSON or echo the
 					// offending property/value. Keep the original bounded RPC ID.
 					result := &mcp.CallToolResult{}
-					message := "financial context response exceeds the MCP wire budget"
+					message := "read response exceeds 64 KiB complete wire budget; narrow the original query or use focused detail. A single oversized item cannot be recovered by reducing page size"
+					if isFinancialContextTool(request.Params.Name) {
+						message = "financial context response exceeds the MCP wire budget"
+					}
 					if isProductTool(request.Params.Name) {
 						message = "product response exceeds the MCP wire budget; retry " + request.Params.Name + " with a smaller limit, then follow every nextCursor; use the GUI to view the complete result if a single item is oversized"
 					} else if isFeatureTool(request.Params.Name) {

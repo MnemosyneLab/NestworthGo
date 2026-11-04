@@ -105,7 +105,9 @@ type ReviewV2ClearSuppressionInput struct {
 // only the last complete publication and leave the database untouched.
 func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 	readTool(server, "list_investment_review_rules", "List named daily investment review rules with independent predicates and trigger policies. Read-only, 1–100 at a time; use the last rule ID as cursor when a full page is returned.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
-		return s.app.ListReviewRulesV2(ctx, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) ([]domain.ReviewRule, error) {
+			return s.app.ListReviewRulesV2(ctx, in.Cursor, size)
+		})
 	})
 	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. sourceToken can be supplied to reject changed input.", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
 		spec, err := reviewV2Spec(in.Spec)
@@ -115,25 +117,37 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 		return s.app.PreviewReviewRuleV2(ctx, spec, in.InstrumentID, in.LatestClosedOn, in.ExpectedSourceToken)
 	})
 	readTool(server, "list_investment_review_alerts", "Read a published rule-aware investment review report v2. Groups are paged by instrument, never split by rule; cursor is bound to report revision and filters. This read does not reconcile or update data.", func(ctx context.Context, in ReviewV2AlertPageInput) (any, error) {
-		return s.app.ListReviewAlertGroupsV2(ctx, in.Filter, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewAlertPage, error) {
+			return s.app.ListReviewAlertGroupsV2(ctx, in.Filter, in.Cursor, size)
+		})
 	})
 	readTool(server, "get_investment_review_alert", "Read the currently open v2 episode by episodeId with its instrument's other active rule alerts. A resolved episode is not a current alert. This is a pure bounded read.", func(ctx context.Context, in ReviewV2AlertInput) (any, error) {
 		return s.app.GetReviewAlertV2(ctx, in.EpisodeID)
 	})
 	readTool(server, "list_investment_review_daily_evidence", "Page persisted closed-day T/F/U evidence for one current open review episode. A changed publication expires the cursor. This read never reconciles or writes.", func(ctx context.Context, in ReviewV2EvidenceInput) (any, error) {
-		return s.app.ListReviewDailyEvidenceV2(ctx, in.EpisodeID, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewDailyEvidencePage, error) {
+			return s.app.ListReviewDailyEvidenceV2(ctx, in.EpisodeID, in.Cursor, size)
+		})
 	})
 	readTool(server, "list_investment_review_episode_history", "Page open and resolved daily review episodes for one rule, including archived rules. Returns original trigger, condition version, handling and resolution without reinterpreting old evidence. Pure read with a revision-bound cursor.", func(ctx context.Context, in ReviewV2HistoryInput) (any, error) {
-		return s.app.ListReviewEpisodeHistoryV2(ctx, in.RuleID, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewEpisodeHistoryPage, error) {
+			return s.app.ListReviewEpisodeHistoryV2(ctx, in.RuleID, in.Cursor, size)
+		})
 	})
 	readTool(server, "list_investment_review_episode_events", "Page persisted opening, acknowledgement, evidence-correction and resolution events for one open or historical daily review episode. Pure read with a revision-bound cursor.", func(ctx context.Context, in ReviewV2EventInput) (any, error) {
-		return s.app.ListReviewEpisodeEventsV2(ctx, in.EpisodeID, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewEpisodeEventPage, error) {
+			return s.app.ListReviewEpisodeEventsV2(ctx, in.EpisodeID, in.Cursor, size)
+		})
 	})
 	readTool(server, "get_investment_review_coverage", "Page every current positive-holding investment's published daily rule outcomes, including unknown and uncomputed states with no open alert. No evaluation or write occurs. Filter by rule status; a group may contain several states.", func(ctx context.Context, in ReviewV2CoverageInput) (any, error) {
-		return s.app.ListReviewCoverageV2(ctx, in.Filter, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewCoveragePage, error) {
+			return s.app.ListReviewCoverageV2(ctx, in.Filter, in.Cursor, size)
+		})
 	})
 	readTool(server, "list_investment_review_suppressions", "List ignored investment/rule scopes with absolute resume dates. This is a pure read; suppressions are separate from acknowledgements.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
-		return s.app.ListReviewSuppressionsV2(ctx, in.Cursor, in.PageSize)
+		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) ([]domain.ReviewSuppression, error) {
+			return s.app.ListReviewSuppressionsV2(ctx, in.Cursor, size)
+		})
 	})
 	if mode != LedgerWrite {
 		return

@@ -87,7 +87,15 @@ func (s *Service) historyTools(server *toolSet) {
 		if cursorFields != 0 && cursorFields != 3 {
 			return nil, fail("validation", "provide all three next cursor fields together")
 		}
-		return historyService.ListActivityPage(ctx, in.request())
+		size := in.Limit
+		if size == 0 {
+			size = 100
+		}
+		return fitLiveReadPage(ctx, s.app, size, func(ctx context.Context, size int) (wire.ActivityPageDTO, error) {
+			query := in.request()
+			query.Limit = size
+			return historyService.ListActivityPage(ctx, query)
+		})
 	})
 	readTool(server, "get_activity", "Read one recorded activity by UUID, including its effects, trade or dividend details, and correction links. IDs come from list_activities.", func(ctx context.Context, in IDInput) (any, error) {
 		return historyService.Activity(ctx, in.ID)

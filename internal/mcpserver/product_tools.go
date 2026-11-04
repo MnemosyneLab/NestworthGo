@@ -50,7 +50,15 @@ func (s *Service) productTools(server *toolSet) {
 		if len(in.Cursor) > 128 {
 			return nil, fail("validation", "cursor must come from this product's operation page")
 		}
-		return products.ListOperations(ctx, in)
+		size := in.Limit
+		if size == 0 {
+			size = 25
+		}
+		return fitLiveReadPage(ctx, s.app, size, func(ctx context.Context, size int) (liquidity.ProductOperationPageDTO, error) {
+			query := in
+			query.Limit = size
+			return products.ListOperations(ctx, query)
+		})
 	})
 	readTool(server, "get_liquidity_overview", "Read the GUI's household liquidity overview, including product and cash sources, default horizons and optional customHorizonOn (YYYY-MM-DD in the history timezone). includeEarlyWithdrawal adds early-route estimates. Preserves unknown/null amounts, actual valuation/FX evidence, forecast routes, fee/settlement assumptions, due_unconfirmed and unresolved reservations. fullAvailable/knownAvailableSubtotal are before reservations; fullUnreserved/knownUnreservedSubtotal are after applied reservations. Known subtotals are incomplete when sources/FX are unknown; none guarantees immediately spendable cash. Projected interest is not actual cash or net worth. No provider requests, snapshot writes, automatic settlement, reservation writes or releases. Returns frozen sources and independent household unresolvedReservations pages. Server filters select detail only; household bucket totals remain unchanged. Saved-rule hasRule differs from effective defaults and exclusion. Amount sort uses exact same-base-currency values; availableBase requires a captured horizonOn. Follow every cursor; never omit sources/reserves and call an incomplete subtotal fully available.", func(ctx context.Context, in LiquidityOverviewInput) (any, error) {
 		return s.pagedLiquidity(ctx, generation, in)

@@ -125,6 +125,16 @@ func localTool[I any](server *toolSet, name, description string, readOnly bool, 
 		if err != nil {
 			return Response{}, safeError(err)
 		}
+		// Receipts are past execution evidence and never subject to read caps.
+		if name != "get_operation" {
+			fits, err := readFits(value)
+			if err != nil {
+				return Response{}, safeError(err)
+			}
+			if !fits {
+				return Response{}, fail("too_large", "single_item or required response exceeds 64 KiB complete wire budget; narrow the source query, not the page size")
+			}
+		}
 		return Response{Data: value}, nil
 	})
 }

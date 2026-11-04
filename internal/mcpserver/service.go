@@ -168,9 +168,10 @@ func (s *Service) startLocked() error {
 	s.contextGeneration = s.contexts.activate()
 	s.reads.activate(s.contextGeneration)
 	generation := s.contextGeneration
-	server := s.tools(s.config.Mode)
+	tools := s.buildToolSet(s.config.Mode, true)
+	server := tools.server
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
-	boundedHandler := financialContextEnvelope(handler)
+	boundedHandler := financialContextEnvelope(handler, tools.readResponseTools())
 	httpServer := &http.Server{Handler: protect(endpoint, s.config.Token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.contexts.active(generation) {
 			http.Error(w, "connection revoked", http.StatusUnauthorized)

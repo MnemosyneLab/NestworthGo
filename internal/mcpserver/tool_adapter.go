@@ -48,3 +48,13 @@ func (s *Service) tools(mode string) *mcp.Server { return s.buildToolSet(mode, t
 func (s *Service) toolRegistry(mode string) *agentcapability.Registry {
 	return s.buildToolSet(mode, false).Registry
 }
+
+// Derive production response policy from the authoritative effect allowlist.
+// Execution/recovery receipts never enter the read buffer, even as tools grow.
+func (set *toolSet) readResponseTools() map[string]bool {
+	names := map[string]bool{}
+	for _, d := range set.Definitions() {
+		names[d.Name] = d.Effect != agentcapability.Write && d.Name != "get_operation"
+	}
+	return names
+}

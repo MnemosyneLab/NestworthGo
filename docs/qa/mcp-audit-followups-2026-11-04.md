@@ -27,3 +27,25 @@ permissions, CAS, capture/revocation and unknown-write recovery remain mandatory
   changed the complete response limit to 64 KiB.
 
 Validation results and remaining limits will be updated with implementation.
+
+## Read wire and safe live pagination
+
+Production response interception now derives from each registered capability's
+read/analysis/preview effect; writes and get_operation recovery bypass it. This
+also fixes the previous product-commit and metadata-batch overlap. The direct
+shared read adapter checks successful payloads too. SDK validation errors and
+JSON-RPC overhead still receive final HTTP enforcement.
+
+Activity, review and product-operation pages retry a smaller authoritative page
+under one application operation fence. They never cut rows off an already-made
+cursor. Review publication cursors retain their original revision/filter guards;
+activities and product history remain documented live reads. A single oversized
+item or required header fails explicitly, with no dropped evidence.
+
+Linux/amd64, Go 1.27.3 / SDK 1.7.0, synthetic temporary SQLite: the focused read
+boundary, all-registered-effect receipt, single-item and complete activity union
+regressions passed. An 18-row escaped/Unicode activity journey used 3 actual SDK
+HTTP calls / 113,120 total response bytes, maximum 44,012 bytes. These are wire
+bytes, not tokens or latency evidence. Every write effect's middleware path was
+checked with a synthetic oversized body; that sweep does not execute business
+writes. Existing persisted unknown-outcome tests remain a separate gate.

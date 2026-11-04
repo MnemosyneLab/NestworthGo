@@ -134,7 +134,7 @@ func TestReconciliationPageActualHTTPWireBudget(t *testing.T) {
 }
 
 func TestReconciliationReadBudgetNeverTruncatesExecutedWriteOrRecovery(t *testing.T) {
-	for _, name := range []string{"commit_reconciliation_session", "commit_reconciliation", "get_operation"} {
+	for _, name := range []string{"commit_reconciliation_session", "commit_reconciliation", "get_operation", "commit_product_operation", "commit_product_terms", "commit_product_valuation", "commit_save_liquidity_policy", "commit_reset_liquidity_policy", "update_instruments_batch", "start_data_repair", "import_market_data"} {
 		body := strings.Repeat("x", contextWireLimit+1)
 		executed := false
 		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { executed = true; w.Write([]byte(body)) })
