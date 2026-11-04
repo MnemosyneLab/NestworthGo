@@ -262,6 +262,15 @@ func (s *Service) WithWrite(ctx context.Context, fn func(context.Context) error)
 	return fn(ctx)
 }
 
+// WithPrivateConfiguration fences private host state against backup/restore
+// without invalidating financial previews merely for saving review metadata.
+// Metadata writes must only touch private configuration. Nested financial writes
+// must use application APIs, which mark the permit and invalidate previews
+// normally. This is not a transaction spanning configuration and financial writes.
+func (s *Service) WithPrivateConfiguration(ctx context.Context, fn func(context.Context) error) error {
+	return s.withSnapshotMaintenance(ctx, fn)
+}
+
 // WithExclusive runs fn with the exclusive permit used by backup and restore
 // operations. A second exclusive caller receives backup_restore_busy.
 // In-flight ordinary writers are allowed to finish; new ordinary writers

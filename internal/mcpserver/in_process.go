@@ -31,9 +31,11 @@ var inProcessOwners = struct {
 // InProcessSession is a prerequisite for the built-in adapter, not an installed
 // assistant. It never listens, creates an MCP client or reads an external token.
 // It is household-wide: never expose it to scoped/mobile callers. Public Call
-// deliberately refuses writers until the durable App review boundary exists.
+// deliberately refuses writers. The separate host review API supports only
+// single ledger changes and is not installed in Wails or mobile.
 type InProcessSession struct {
 	mu          sync.Mutex
+	reviewMu    sync.Mutex
 	closed      bool
 	inflight    sync.WaitGroup
 	ctx         context.Context
@@ -81,6 +83,7 @@ func NewInProcessSession(ctx context.Context, app *application.Service, director
 		scoped = append(scoped, scopedConfiguration{ConfigurationRepository: repositories[0], prefix: "builtin_ai.capability.v1." + householdID + "." + id.String() + "."})
 	}
 	service := New(app, privateDirectory, changed, scoped...)
+	service.builtinSessionID = id.String()
 	service.config = Config{Mode: mode, InstanceID: uuid.NewString()}
 	service.contextGeneration = service.contexts.activate()
 	service.reads.activate(service.contextGeneration)
@@ -114,9 +117,8 @@ func (s *InProcessSession) Call(ctx context.Context, name string, arguments json
 	return s.call(ctx, name, arguments, false)
 }
 
-// call's trusted branch exists for adapter equivalence tests and the future
-// host-owned review service. It is intentionally unexported and has no Wails,
-// mobile, model tool or chat entry point. It is not an approval protocol.
+// call's trusted branch is used by adapter equivalence tests and the host review
+// coordinator. It stays unexported and is never registered as a model tool.
 func (s *InProcessSession) call(ctx context.Context, name string, arguments json.RawMessage, trusted bool) (json.RawMessage, error) {
 	s.mu.Lock()
 	if s.closed || !s.service.contexts.active(s.service.contextGeneration) {

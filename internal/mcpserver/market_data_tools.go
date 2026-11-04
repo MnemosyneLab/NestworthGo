@@ -81,6 +81,9 @@ func (s *Service) marketDataTools(server *toolSet, mode string) {
 	closed := false
 	registerTool(server, &agentcapability.Definition{Name: "import_market_data", Description: "Atomically append, correct or retract 1–100 Agent-supplied instrument quotes (latest/raw close/unit NAV), per-instrument closed-day facts (kind closed; date, optional timezone and provenance; omit value/currency) or FX rates (latest/daily_reference), with source evidence. Requires ledger_write. Find exact instrument identity first. Unit NAV is NOT cumulative NAV or annualized yield. Daily date is the source's market/NAV/reference date, NOT lookup date. Latest requires actual quotedAt. Does not contact providers or change existing source preferences. Agent data participates in valuation and suppresses ordinary fetches only where valid and sufficient. Corrections/withdrawals require an existing Agent quoteId. Retry with the same operationId and input. Quotes commit before snapshot rebuild; check snapshotStatus and scan_data_health afterward. A successful import/rebuild does not imply complete data.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[application.AgentMarketDataInput]) (Response, error) {
 		value, err := s.executeWithRecovery(ctx, in.OperationID, "import_market_data", in.Input, true, func(ctx context.Context) (any, error) {
+			if s.builtinSessionID != "" {
+				return s.app.ImportBuiltinAgentMarketData(ctx, s.builtinSessionID, in.OperationID, in.Input)
+			}
 			return s.app.ImportAgentMarketData(ctx, in.OperationID, in.Input)
 		})
 		if err != nil {

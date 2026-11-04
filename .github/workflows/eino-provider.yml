@@ -6,7 +6,9 @@ on:
     branches: ['**']
     paths:
       - 'providers/einoopenai/**'
-      - 'internal/jsoncodec/**'
+      # The synthetic vertical gate also exercises local capabilities and real
+      # application/SQLite handlers, so their changes must rerun this gate.
+      - 'internal/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/eino-provider.yml'

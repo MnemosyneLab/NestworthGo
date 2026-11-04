@@ -10,6 +10,24 @@ import (
 
 var payloadSHA256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
+// InspectChangeReceipt looks up a transaction-backed receipt without attempting
+// a write. Absence is not permission to replay an interrupted host submission.
+func (s *Service) InspectChangeReceipt(ctx context.Context, mutationID, payloadHash string) (*domain.ChangePreview, error) {
+	key, err := parseActivityMutation(mutationID, payloadHash)
+	if err != nil {
+		return nil, err
+	}
+	if key == nil {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "mutationId", Message: "is required"}
+	}
+	unlock, err := s.beginPreviewRead(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	return s.replayActivityMutation(ctx, key)
+}
+
 func parseActivityMutation(mutationID, payloadHash string) (*domain.ActivityMutation, error) {
 	id := strings.TrimSpace(mutationID)
 	if id == "" {

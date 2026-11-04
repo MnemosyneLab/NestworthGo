@@ -1,9 +1,11 @@
 # Completion-gated Eino Responses adapter
 
 This module resolves the two provider gates from [experiment PR #192](https://github.com/MnemosyneLab/NestworthGo/pull/192).
-It implements Eino's `model.AgenticModel`, independently of the capability bridge,
-MCP, SQLite, Wails and assistant UI. It is **not installed in the application**.
-No writer becomes available and no existing external MCP behavior changes.
+The guarded `model.AgenticModel` remains independent of MCP, SQLite and Wails.
+The module also supplies `CapabilityTools` for direct model-facing local calls
+and a synthetic ledger/host-review acceptance gate. It is **not installed in the
+application**; no model writer or App assistant entry point becomes available.
+Existing external MCP behavior is unchanged.
 
 ## Baseline and dependency order
 
@@ -15,12 +17,14 @@ unmerged/draft at `192323f67d0a4f94ba2007533be018bbe90982fa`. Its
 [design](https://github.com/MnemosyneLab/NestworthGo/blob/192323f67d0a4f94ba2007533be018bbe90982fa/docs/architecture/builtin-ai.md)
 requires provider completion checks separately from trusted host approval.
 
-This PR neither stacks on nor copies #199. The nested module keeps root runtime
-dependencies unchanged and uses the existing repository JSON wrapper via a local
-module replacement. It can merge before or after #199; a later runtime integration
-must depend on both, choose the root dependency/module layout, integrate the host
-lifecycle and durable review flow, and pass end-to-end acceptance. #192 is evidence,
-not a prerequisite to merge. No merge is requested here.
+The original provider stage (#201) and capability stage (#199) are now merged.
+The host-review integration stage uses main
+`76722b33477f45aed4babffaa0d33664098c3f7d`, including desktop navigation #200.
+The nested module still uses the repository JSON wrapper via a local replacement and does not add root runtime
+dependencies. Its additional indirect SQLite/MCP dependencies are used by the
+synthetic shared-handler acceptance fixture; it does not construct an MCP
+transport. The executable still needs a module/dependency decision, durable
+runtime/principals, credentials and trusted desktop/mobile UI before activation.
 
 The Go module proxy's `@latest` still resolved Eino **v0.9.22** and agenticopenai
 **v0.2.4** on 2026-11-04. This module pins those releases and OpenAI Go SDK
@@ -91,6 +95,44 @@ fixtures and explicit review. Model choice and credentials are host-owned;
 The public constructor accepts HTTPS only; tests use a private loopback exception
 and a transport that rejects every other host.
 
+## Direct capability adapter and host review gate
+
+`CapabilityTools(session)` accepts only the model-facing `Definitions`/`Call`
+interface. It rejects writes, open-world/provider capabilities, unknown effects,
+missing annotations, duplicate names and unsupported/lossy schema conversions.
+Returned metadata is detached. Arguments and results are bounded to 64 KiB;
+local dispatch retains exact decimal strings and the session's own typed
+validation, permission checks, paging, cancellation and revocation. Arbitrary
+implementation error text is not reflected into model history. The host must
+use the actual in-process session; it remains household-wide and is not suitable
+for current mobile/scoped principals.
+
+The interface contains no confirm, approve, broad writer dispatch or key input.
+Single ledger write reviews live separately in the root host coordinator; see
+[the integration contract](../../docs/architecture/builtin-ai.md). A model-created
+preview cannot be adopted as approval. The host obtains and displays a new
+authoritative preview, then deliberately confirms its immutable identity/digest.
+
+`TestCapabilityRunnerLedgerHostReviewLoop` runs the real guarded model and typed
+Eino runner against a local-only fake provider and real synthetic SQLite. It
+checks local account evidence, a completed proposal, a distinct host preview,
+explicit synthetic host confirmation, one exact 12.34 posting and authoritative
+readback. Complete proposal arguments followed by EOF before item done, EOF
+before response completed, failure or incomplete completion invoke no preview
+handler. Done-only opaque reasoning survives the actual next request. A separate
+positive variant uses real Eino summarization middleware with deliberately false
+99999 balance/blanket-approval text: authoritative cash stays 0 before host
+confirmation, and a fresh host preview still binds the requested exact 12.34.
+Root host tests separately exercise real child-process restart and a lost outer
+success receipt; they do not implement an Eino checkpoint store. Existing
+#201 acceptance still checks zero synthetic mutation dispatch independently of
+host approval, full native history serialization/replay and error/key canaries.
+
+This is a backend integration test, not a UI flow. Model tool choice, explanation
+quality, native key storage, mobile permissions, durable conversation/run state,
+structured page-context capture, semantic navigation and real-model compatibility
+are unimplemented or unverified. No API key or paid provider is needed to run it.
+
 ## Provider contract and synthetic coverage
 
 The official [streaming contract](https://developers.openai.com/api/reference/resources/responses/streaming-events#response.output_item.added)
@@ -143,8 +185,9 @@ isolation. Workflow guards retain the exact active-workflow inventory, nonrunnin
 Linux rollback archive and the dedicated gate's trusted-origin/hosted-Linux rules.
 
 No real OpenAI compatibility, encrypted-signature validity, arbitrary compatible
-provider, model quality, credential/keychain, database migration/recovery, built-in
-read/write UI, native GUI/a11y, Wails packaging or complete assistant acceptance is
-claimed. Completion validation is only one independent gate; host-owned review,
-scopes/principals, durable state and the #199 follow-ups remain required before
+provider, model quality, credential/keychain, financial-schema migration, full
+database/backup/restore acceptance, built-in read/write UI, native GUI/a11y, Wails
+packaging or complete assistant acceptance is claimed. The bounded host recovery
+tests above do not establish those gates. Scopes/principals, durable runtime and
+conversation state, trusted UI and the #199 follow-ups remain required before
 activating the full assistant.
