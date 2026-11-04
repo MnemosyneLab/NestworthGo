@@ -232,13 +232,18 @@ not completion**; request its continuation, which must advance. Detail is
 complete only when the three independently saved section states each have
 `hasMore: false`, not when one page response happens to show those flags.
 
-Save all three descriptors from the initial response as independent section
-states. After requesting one section, update only that section's saved cursor
-and completion flag. Ignore the other two descriptors in that page response:
-they describe offset-zero starts, not your accumulated progress. Replacing all
-three saved states can restart completed sections and repeat rows indefinitely.
-Append only the requested section's rows; finish when all three saved states
-are complete. This rule also applies to item and comparison pages below.
+Save the complete initial content header (basis, scope, disclosure, versions,
+summary, coverage and dataAsOf) and all three descriptors independently.
+`get_financial_context_page` returns contextId, contentHash, capturedAt,
+cacheExpiresAt, section, items and page. It does not repeat content or unrelated
+section descriptors. Match ID/hash to the saved initial header, append items
+to the returned section, and update only that section from page. Finish when
+all three saved states are complete. Limits default to 50, maximum 100.
+`get_financial_comparison_page` uses the same section/items/page shape with
+comparisonId; retain its initial left/right/change and attribution/precision
+header. Currency, disclosure and financial interpretation still come from that
+exact header; never combine another capture's header with these rows.
+The separate item tool below retains its related-section response contract.
 
 These are tool arguments, with values taken from the corresponding descriptor:
 
@@ -363,7 +368,7 @@ follow its nextCursor with the same contextId, ref and section. A zero-row initi
 section with hasMore is deferred. Limits default to 50, maximum 100. Whole-package
 page cursors and another item's cursors are not interchangeable. Keep the three
 initial descriptors independently and update only the requested section after
-each page, ignoring the other offset-zero descriptors as described above.
+each item page, ignoring its other offset-zero descriptors; these describe starts, not accumulated progress.
 
 <!-- example: financial-context-item-page -->
 ```json
@@ -414,7 +419,8 @@ rules above; do not silently disclose directory identities to work around failur
 
 Read and save all three initial page descriptors independently. Continue each
 matching cursor until complete, updating only the requested section's saved
-state; ignore the other sections' offset-zero descriptors in every page reply.
+state from the returned page and appending items to section. Continuations do
+not repeat the initial comparison header or other sections.
 Evidence references include the side; keep gaps and `dataAsOf` attached to that
 side. Missing base deltas are null even when a same-currency native delta exists.
 Different currencies, absent cells and unavailable amounts are not zero. Read
@@ -585,8 +591,9 @@ normalized period and actual scope ID and describe them as separate captures.
 **They are not detail pages or proof for this comparisonId.** Do not quietly substitute them after a compatibility failure.
 
 Read positions/gaps/evidence with `get_financial_comparison_page`, saving the
-three section states independently as described above. The link, content hash,
-capture and fixed five-minute TTL remain unchanged on every page. On expiry,
+three section states independently as described above. Retain the initial link
+and precision summary; pages return only section/items/page and capture
+identity/hash/expiry. The cached link and fixed five-minute TTL remain unchanged. On expiry,
 eviction or revocation, recapture with `compare_financial_attribution`, discard
 all old pages and restart every section with new cursors. Never mix old/new IDs,
 even if hashes coincide. Single JSON-RPC objects only; mixed batches are rejected.

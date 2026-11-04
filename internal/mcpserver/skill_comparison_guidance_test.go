@@ -20,6 +20,11 @@ func skillPageState(t *testing.T, data any) (map[string]FinancialContextPageInfo
 	if err != nil {
 		t.Fatal(err)
 	}
+	var continuation FinancialSectionResponse
+	if jsoncodec.Unmarshal(raw, &continuation) == nil && continuation.Section != "" {
+		financialPageTestData(t, data)
+		return map[string]FinancialContextPageInfo{continuation.Section: continuation.Page}, map[string][]json.RawMessage{continuation.Section: continuation.Items}
+	}
 	var fields map[string]json.RawMessage
 	if err = jsoncodec.Unmarshal(raw, &fields); err != nil {
 		t.Fatal(err)
@@ -102,7 +107,7 @@ func skillIndependentPages(t *testing.T, client *mcp.ClientSession, kind, id, re
 			break
 		}
 	}
-	if !sawReset {
+	if kind == "item" && !sawReset {
 		t.Fatal("fixture did not exercise nonrequested offset-zero descriptors")
 	}
 	for _, section := range skillSections {

@@ -967,6 +967,33 @@ These use the same capture/hash/cursor/TTL infrastructure. They retain analysis
 snapshot maintenance and non-read-only annotations; execute before write previews.
 
 
+### Compact management lists and financial continuations
+
+Directory and instrument lists now use explicit identity projections, rather
+than serialized GUI records with a few fields deleted. Members/groups retain
+ID/name/archive status; institutions add type/country. Accounts retain their
+nested account identity, classification, currency, lifecycle, inclusion and
+ownership plus institution/group labels; latestValue is available only in full
+detail. Holdings retain account/instrument IDs, exact quantity and archive status.
+Instrument rows retain identity, currency/unit, quote routing, managed/archive
+status and metadataVersion. Notes, display metadata, household IDs and internal
+timestamps are read through same-capture get_read_item. Use section=instruments
+for instrument details; full details retain the same version and managed guard.
+Sorting/filtering occurs before projection and cursoring. Future GUI fields do
+not automatically expand these lists. Complete replacement writes need full
+metadata; compact-field omission does not clear a stored value.
+
+get_financial_context_page and get_financial_comparison_page return only
+contextId/comparisonId, contentHash, capturedAt, cacheExpiresAt, section, items
+and page. The original content header, attribution/precision and the other
+sections' progress are not repeated. Clients save the initial header, append
+items to section, and update that section's progress from page. Identity/hash,
+fixed TTL, generation revocation and exact row content remain authoritative.
+Initial capture and get_financial_context_item response shapes are unchanged.
+This is a breaking continuation contract, distributed with skill 4.0.0; there is
+one implementation and no legacy response option. Full wire sizing still counts
+both SDK representations and the final JSON-RPC envelope.
+
 ### Reconciliation read wire budget
 
 `list_reconciliation_sessions`, `get_reconciliation_session`,

@@ -41,7 +41,7 @@ snapshots; its results are not part of this strictly read-only package.
 
 ## Response
 
-The existing MCP `{data: ...}` wrapper contains:
+The initial MCP `{data: ...}` wrapper contains:
 
 - `contextId`, `contentHash`, `capturedAt`, `generatedAt`, `cacheExpiresAt`;
 - `content`: schema/calculation/resolver versions, normalized scope, as-of and
@@ -51,6 +51,17 @@ The existing MCP `{data: ...}` wrapper contains:
   follow its cursors for details. A section crowded out by earlier sections may
   return zero rows with an offset-zero nextCursor; its standalone continuation
   must advance. Summary and counts are complete immediately.
+
+Continuation tools return a distinct projection: contextId (or comparisonId),
+contentHash, capturedAt, cacheExpiresAt, section, items and page. They return only
+the requested section's exact rows and progress. They do not repeat content,
+generatedAt, the financial header or offset-zero descriptors for other sections.
+Clients retain the original header and three independent section states, match
+ID/hash, append items to section, and update that section from page. Comparison
+left/right/change, disclosure and attribution precision remain in the initial
+header and canonical content hash; pages never recompute or upgrade disclosure.
+Expired/revoked captures still require discarding all pages and restarting.
+This is a breaking wire change; initial and item-tool shapes are unchanged.
 
 Money, quantities, prices and FX rates are exact decimal strings. Nullable
 assets/liabilities/netWorth are complete totals, never partial subtotals. Missing

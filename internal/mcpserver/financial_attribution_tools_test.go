@@ -82,8 +82,8 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				info := states[section]
 				for info.HasMore {
 					page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
-					raw, _ := jsoncodec.Marshal(page.Content.Attribution)
-					if string(raw) != string(original) || page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.CapturedAt != initial.CapturedAt {
+					raw, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
+					if page.Content.Attribution != nil || string(raw) != string(original) || page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.CapturedAt != initial.CapturedAt {
 						t.Fatal("link not frozen")
 					}
 					size, err := financialContextWireSize(page)
@@ -100,7 +100,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			}
 			// Old package remains a strictly frozen value comparison after recapture.
 			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: old.ComparisonID, Section: "positions", Cursor: old.PositionsPage.NextCursor}, false))
-			if page.Content.Attribution != nil || page.ContentHash != old.ContentHash || *page.Content.Change.NetWorth.Value != "-13" {
+			if page.Content.Attribution != nil || page.ContentHash != old.ContentHash || page.Content.Change.NetWorth.Value != nil {
 				t.Fatal("old cache rewritten")
 			}
 			oldArgs := skillExample(t, "analysis", "financial-attribution", values)
@@ -192,8 +192,8 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		info := states[section]
 		for info.HasMore {
 			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
-			rawLink, _ := jsoncodec.Marshal(page.Content.Attribution)
-			if string(rawLink) != string(originalLink) || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt || page.CacheExpiresAt != initial.CacheExpiresAt {
+			rawLink, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
+			if page.Content.Attribution != nil || string(rawLink) != string(originalLink) || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt || page.CacheExpiresAt != initial.CacheExpiresAt {
 				t.Fatal("precision summary thawed", page)
 			}
 			raw, _ := jsoncodec.Marshal(page)
