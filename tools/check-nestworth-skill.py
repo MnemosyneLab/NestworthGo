@@ -60,18 +60,39 @@ def ci_base():
     return before
 
 
+# Bound first-parent traversal independently of how often VERSION changed.
+MAX_VERSION_HISTORY = 256
+
+
+def main_version_boundary():
+    commits = git("rev-list", "--first-parent", f"--max-count={MAX_VERSION_HISTORY + 1}",
+                  "HEAD").splitlines()
+    revision_range = ["HEAD"]
+    if len(commits) > MAX_VERSION_HISTORY:
+        revision_range.append("^" + commits[-1])
+    boundary = git("log", "--first-parent", "--full-history", "-1", "--format=%H",
+                   *revision_range, "--", "skills/nestworth/VERSION")
+    if not boundary:
+        raise ValueError(f"No main version boundary within {MAX_VERSION_HISTORY} first-parent commits; reviewed baseline required")
+    try:
+        parent = git("rev-parse", "--verify", boundary + "^1^{commit}")
+        previous = version_tuple(git("show", parent + ":skills/nestworth/VERSION"))
+        current = version_tuple(git("show", boundary + ":skills/nestworth/VERSION"))
+    except (subprocess.CalledProcessError, ValueError) as error:
+        raise ValueError("Cannot validate main version boundary: missing/invalid parent VERSION history; reviewed bootstrap required") from error
+    if current <= previous:
+        raise ValueError("Invalid main version boundary: VERSION must numerically increase over its first parent")
+    return boundary
+
+
 def check_ci_version():
     base = ci_base()
     floor = "refs/remotes/origin/main" if os.environ["GITHUB_REF"] != "refs/heads/main" else None
     check_version(base, minimum=floor)
     if floor is None:
-        # main is already integrated: do not let an unrelated later push hide
-        # content drift since its last first-parent version change either.
-        boundary = git("log", "--first-parent", "-1", "--format=%H", "HEAD", "--",
-                       "skills/nestworth/VERSION")
-        if not boundary:
-            raise ValueError("Main has no historical skill version boundary")
-        check_version(boundary)
+        # Only a proven numeric increase is a distribution boundary. Whitespace,
+        # downgrades or invalid history must never reset main's drift check.
+        check_version(main_version_boundary())
 
 
 def check_version(base, minimum=None):

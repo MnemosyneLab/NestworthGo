@@ -236,8 +236,14 @@ need no bump. Rebase/review versions when main advances.
 On main pushes, the baseline is the actual previous main tip, which must exist
 and be an ancestor of the exact event head. Manual main runs check the latest
 integration against its first parent. Both also compare against main's latest
-first-parent VERSION-change commit: content drift after that integrated version
-must not be hidden by a later unrelated main push. Full checkout history is required; shallow
+first-parent VERSION-change commit: that boundary must itself be a valid numeric
+increase over its immediate first parent's VERSION. Whitespace edits and
+version decreases cannot reset the drift check. Search is bounded to 256
+first-parent commits (independent of the number of VERSION edits); absent,
+invalid, parentless or older boundaries fail and require reviewed history or
+bootstrap handling. No search skips invalid boundaries looking for a pass.
+Content drift after an integrated version must not be hidden by a later
+unrelated main push. Full checkout history is required; shallow
 repositories, missing refs/commits, ambiguous/no merge bases, initial main commits
 with no previous tip, unrelated main force-pushes and mismatched event heads fail
 explicitly. No tag or release-history fallback silently passes the guard.

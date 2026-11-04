@@ -37,6 +37,9 @@ class SkillVersionTests(unittest.TestCase):
         self.git('init', '-b', 'main')
         self.git('config', 'user.name', 'Synthetic Test')
         self.git('config', 'user.email', 'test@example.invalid')
+        (self.skill / 'VERSION').write_text('1.9.0\n')
+        self.commit()
+        (self.skill / 'VERSION').write_text('2.0.0\n')
         self.commit()
         self.base = self.git('rev-parse', 'HEAD')
         self.addCleanup(patch.stopall)
@@ -138,6 +141,71 @@ class SkillVersionTests(unittest.TestCase):
         with self.push_event(previous):
             self.check(checker.ci_base())
 
+    def test_whitespace_version_boundary_cannot_hide_main_drift(self):
+        (self.skill / 'VERSION').write_text('2.0.0\n\n')
+        (self.skill / 'references/analysis.md').write_text('unversioned main edit')
+        self.commit()
+        previous = self.git('rev-parse', 'HEAD')
+        with self.push_event(self.base, 'refs/heads/main'):
+            with self.assertRaisesRegex(ValueError, 'bump'):
+                checker.check_ci_version()
+        (self.root / 'app.txt').write_text('unrelated followup')
+        self.commit()
+        with self.push_event(previous, 'refs/heads/main'):
+            with self.assertRaisesRegex(ValueError, 'boundary'):
+                checker.check_ci_version()
+
+    def test_boundary_rejects_downgrade_and_invalid_parent(self):
+        (self.skill / 'VERSION').write_text('1.8.0\n')
+        self.commit()
+        with self.assertRaisesRegex(ValueError, 'numerically increase'):
+            checker.main_version_boundary()
+        (self.skill / 'VERSION').write_text('not-semver\n')
+        self.commit()
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        self.commit()
+        with self.assertRaisesRegex(ValueError, 'missing/invalid parent VERSION'):
+            checker.main_version_boundary()
+
+    def test_boundary_rejects_missing_parent_version_and_root(self):
+        self.git('rm', 'skills/nestworth/VERSION')
+        self.commit()
+        (self.skill / 'VERSION').write_text('2.1.0\n')
+        self.commit()
+        with self.assertRaisesRegex(ValueError, 'missing/invalid parent VERSION'):
+            checker.main_version_boundary()
+        self.git('checkout', '--detach', self.git('rev-list', '--max-parents=0', 'HEAD'))
+        with self.assertRaisesRegex(ValueError, 'reviewed bootstrap required'):
+            checker.main_version_boundary()
+
+    def test_boundary_search_has_a_hard_first_parent_limit(self):
+        with patch.object(checker, 'MAX_VERSION_HISTORY', 3):
+            for index in range(2):
+                (self.root / 'app.txt').write_text(str(index))
+                self.commit()
+            self.assertEqual(checker.main_version_boundary(), self.base)
+            (self.root / 'app.txt').write_text('third unrelated commit')
+            self.commit()
+            with self.assertRaisesRegex(ValueError, 'within 3 first-parent commits'):
+                checker.main_version_boundary()
+
+    def test_merge_boundary_uses_first_parent_version(self):
+        self.git('checkout', '-b', 'other')
+        (self.skill / 'VERSION').write_text('1.9.0\n')
+        self.commit()
+        other = self.git('rev-parse', 'HEAD')
+        self.git('checkout', '-b', 'integration', self.base)
+        (self.skill / 'VERSION').write_text('2.2.0\n')
+        self.commit()
+        first = self.git('rev-parse', 'HEAD')
+        (self.skill / 'VERSION').write_text('2.0.0\n')
+        self.git('add', '.')
+        tree = self.git('write-tree')
+        merge = self.git('commit-tree', tree, '-p', first, '-p', other, '-m', 'merge')
+        self.git('checkout', '--detach', merge)
+        with self.assertRaisesRegex(ValueError, 'numerically increase'):
+            checker.main_version_boundary()
+
     def test_main_unrelated_followup_cannot_hide_failed_version_check(self):
         (self.skill / 'references/analysis.md').write_text('unversioned main edit')
         self.commit()
@@ -193,6 +261,8 @@ class SkillVersionTests(unittest.TestCase):
                 self.assertEqual(checker.ci_base(), self.base)
 
     def test_initial_main_and_missing_main_push_tip_fail(self):
+        root = self.git('rev-list', '--max-parents=0', 'HEAD')
+        self.git('checkout', '--detach', root)
         with self.push_event('0' * 40, 'refs/heads/main'):
             with self.assertRaisesRegex(ValueError, 'no prior tip'):
                 checker.ci_base()
