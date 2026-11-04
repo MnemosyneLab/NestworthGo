@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -130,4 +130,24 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(language => [
   expect(input).toHaveAttribute("aria-invalid", "true");
   expect(input).toHaveAccessibleDescription(expect.stringContaining(i18n.t(`mobile.${field}Validation`)));
   expect(input.closest("form")).toHaveAttribute("novalidate");
+});
+
+it("retranslates a retained rejection on language changes without resubmitting or dropping the draft", async () => {
+  mobile.Configure.mockRejectedValue(new Error(JSON.stringify({ code: "validation", field: "token", message: "invalid" })));
+  const user = userEvent.setup();
+  mount();
+  const input = await screen.findByLabelText("Mobile token");
+  await user.clear(input);
+  await user.type(input, "SYNTHETIC2");
+  await user.click(screen.getByRole("button", { name: "Apply connection settings" }));
+  await screen.findByRole("alert");
+  await waitFor(() => expect(input).toBeEnabled());
+  for (const language of ["zh-CN", "zh-TW", "en"]) {
+    await act(async () => { await i18n.changeLanguage(language); });
+    expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("mobile.tokenValidation"));
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(expect.stringContaining(i18n.t("mobile.tokenValidation")));
+    expect(input).toHaveValue("SYNTHETIC2");
+    expect(mobile.Configure).toHaveBeenCalledTimes(1);
+  }
 });

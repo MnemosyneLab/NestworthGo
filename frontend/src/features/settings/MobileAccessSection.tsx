@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldError } from "@/components/ui/field-error";
 import { Label } from "@/components/ui/label";
-import { callService } from "@/lib/wails";
-import { displayError } from "@/lib/display";
+import { callService, parseWailsError, translateWailsError, type WireError } from "@/lib/wails";
 import * as MobileService from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/mobile/service";
 import type { Config } from "../../../bindings/github.com/waltwang/nestworth-go/internal/mobileapi/models";
 
@@ -21,11 +20,12 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
   });
   const [draft, setDraft] = useState<Config | null>(null);
   const [showToken, setShowToken] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<WireError | null>(null);
   const [invalidField, setInvalidField] = useState<string>();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const config = draft ?? status.data?.config;
+  const errorMessage = error ? translateWailsError(error) : null;
   async function run(action: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true;
@@ -35,7 +35,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
     try {
       await action();
     } catch (e) {
-      setError(displayError(e, t("settings.saveError")));
+      setError(parseWailsError(e));
       if (e && typeof e === "object" && "wireError" in e) {
         const wire = e.wireError as { code?: string; field?: string };
         if (wire.code === "validation") setInvalidField(wire.field);
@@ -60,7 +60,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
       </h2>
       <p className="text-sm text-muted-foreground">{t("mobile.setupHelp")}</p>
       {((error && !["listen", "token"].includes(invalidField ?? "")) || status.error) && (
-        <p role="alert">{error || t("mobile.requestFailed")}</p>
+        <p role="alert">{errorMessage || t("mobile.requestFailed")}</p>
       )}
       {config && (
         <form
@@ -95,7 +95,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
                 placeholder="192.168.1.20:9443"
                 onChange={(e) => set("listen", e.target.value.trim())}
               />
-              <FieldError id="mobile-listen-error">{invalidField === "listen" ? error : null}</FieldError>
+              <FieldError id="mobile-listen-error">{invalidField === "listen" ? errorMessage : null}</FieldError>
               <p id="mobile-listen-help" className="text-sm text-muted-foreground">
                 {t("mobile.listenHelp")}
               </p>
@@ -118,7 +118,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
                 aria-describedby={invalidField === "token" ? "mobile-token-help mobile-token-error" : "mobile-token-help"}
                 onChange={(e) => set("token", e.target.value)}
               />
-              <FieldError id="mobile-token-error">{invalidField === "token" ? error : null}</FieldError>
+              <FieldError id="mobile-token-error">{invalidField === "token" ? errorMessage : null}</FieldError>
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"

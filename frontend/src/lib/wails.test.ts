@@ -67,3 +67,9 @@ it.each(["en", "zh-CN", "zh-TW"])("translates mobile validation by field and pre
   expect(translateWailsError({ code: "internal", field: "listen", message: "x" })).toContain(i18n.t("internal", { ns: "errorCode" }));
   await i18n.changeLanguage("en");
 });
+
+it("recovers a retained callService payload without parsing its old translated message", () => {
+  const wireError = { code: "validation", field: "token", message: "untrusted detail" };
+  const retained = Object.assign(new Error("previous language"), { wireError });
+  expect(parseWailsError(retained)).toEqual(wireError);
+});
