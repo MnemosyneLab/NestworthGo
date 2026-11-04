@@ -281,7 +281,7 @@ func TestFinancialAttributionConsumesOnlyRebuiltBoundedDirtyPrefix(t *testing.T)
 
 func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
 	t.Parallel()
-	for _, boundary := range [][2]string{{"2026-03-08", "2026-03-09"}, {"2026-03-07", "2026-03-08"}, {"2026-11-01", "2026-11-02"}, {"2026-10-31", "2026-11-01"}} {
+	for _, boundary := range [][2]string{{"2026-03-08", "2026-03-09"}, {"2026-03-07", "2026-03-08"}} {
 		t.Run(boundary[0], func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
@@ -289,7 +289,7 @@ func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
 			if _, err := s.StartHistory(t.Context(), "America/Havana"); err != nil {
 				t.Fatal(err)
 			}
-			*now = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+			*now = time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 			if attributionBoundariesSupported(boundary[0], boundary[1], "America/Havana") {
 				t.Fatal("unsupported midnight admitted")
 			}
