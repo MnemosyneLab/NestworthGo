@@ -108,11 +108,13 @@ export function AccountDetail({
   record,
   valuation,
   valuationUpdatedAt,
+  onRefresh,
   onBack, updateValue = false,
 }: {
   record: AccountRecordDTO;
   valuation?: AccountValuationDTO;
   valuationUpdatedAt?: number;
+  onRefresh?: () => void;
   onBack: () => void;
   updateValue?: boolean;
 }) {
@@ -151,7 +153,7 @@ export function AccountDetail({
     metrics: [{ label: record.account.name, value: displayMoney.primary?.amount ?? null, unit: displayMoney.primary?.currency ?? record.account.defaultCurrency,
       basis: "account_value", status: displayMoney.primaryPartial ? "incomplete" : displayMoney.primary ? "available" : "unavailable",
       missingReasons: valuation?.missingInputs?.map(input => input.kind) ?? [] }],
-  });
+  }, onRefresh);
   const titleAmount = displayMoney.primary
     ? `${formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)}${displayMoney.primaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
     : displayMoney.unavailableCurrency

@@ -5,7 +5,8 @@ import { localId, type PageContextV1, type PagePublication, type NavigationResul
 type ContextValue = {
   enabled: boolean; setEnabled: (enabled: boolean) => void;
   viewKey: string; context: PageContextV1 | null;
-  publish: (publication: PagePublication) => () => void;
+  publish: (publication: PagePublication, refresh?: () => void) => () => void;
+  refresh?: () => void;
   navigate: (ref: string, snapshot: PageContextV1) => NavigationResult;
 };
 const PageContext = createContext<ContextValue | null>(null);
@@ -18,13 +19,13 @@ export function AssistantPageProvider({ viewKey, householdId, incarnation, surfa
   const principal = useMemo(() => ({ householdId, ledgerIncarnation: incarnation,
     assistantSessionId: localId(), permissionRevision: localId(), surface }), [householdId, incarnation, surface]);
   const host = useMemo(() => new PageHost(principal, Date.now, enabled ? viewKey : ""), [principal, viewKey, enabled]);
-  const [publication, setPublication] = useState<{ host: PageHost; viewKey: string; context: PageContextV1 | null } | null>(null);
+  const [publication, setPublication] = useState<{ host: PageHost; viewKey: string; context: PageContextV1 | null; refresh?: () => void } | null>(null);
   // Revoke before paint and before a user can act after a route/authority change.
   useLayoutEffect(() => () => host.revoke(), [host]);
   const context = enabled && publication?.host === host && publication.viewKey === viewKey ? publication.context : null;
-  const publish = useCallback((value: PagePublication) => {
+  const publish = useCallback((value: PagePublication, refresh?: () => void) => {
     if (!enabled || value.viewKey !== viewKey) return () => {};
-    const next = { host, viewKey, context: host.publish(value) };
+    const next = { host, viewKey, context: host.publish(value), refresh };
     setPublication(next);
     return () => {
       host.revoke();
@@ -36,12 +37,13 @@ export function AssistantPageProvider({ viewKey, householdId, incarnation, surfa
     return host.navigate({ version: 1, intentId: localId(), userTurnId: turn, contextId: snapshot.contextId,
       pageVersion: snapshot.pageVersion, action: "open_object", targetRef: ref }, turn, blocked(), onNavigate);
   }, [host, blocked, onNavigate]);
-  return <PageContext.Provider value={{ enabled, setEnabled, viewKey, context, publish, navigate }}>{children}</PageContext.Provider>;
+  return <PageContext.Provider value={{ enabled, setEnabled, viewKey, context, publish, navigate,
+    refresh: enabled && publication?.host === host && publication.viewKey === viewKey ? publication.refresh : undefined }}>{children}</PageContext.Provider>;
 }
 
 export function useAssistantPage() { return useContext(PageContext); }
 
-export function usePublishAssistantPage(value: PagePublication) {
+export function usePublishAssistantPage(value: PagePublication, refresh?: () => void) {
   const context = useContext(PageContext);
   const publish = context?.publish;
   // Capture only this typed, explicitly built DTO; never the query cache, DOM,
@@ -49,6 +51,6 @@ export function usePublishAssistantPage(value: PagePublication) {
   const encoded = context?.enabled ? JSON.stringify(value) : null;
   useLayoutEffect(() => {
     if (!publish || !encoded) return;
-    return publish(JSON.parse(encoded) as PagePublication);
-  }, [publish, encoded]);
+    return publish(JSON.parse(encoded) as PagePublication, refresh);
+  }, [publish, encoded, refresh]);
 }

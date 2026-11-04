@@ -85,7 +85,7 @@ export function AccountsPage({
     timezone: settings.data?.timezone ?? "UTC", basis: "base", observedAt: accounts.dataUpdatedAt,
     state: accounts.isError ? "unavailable" : accounts.isLoading ? "loading" : "available", filters: { includeArchived: showArchived }, metrics: [],
     targets: grouped.flatMap(group => group.records).slice(0, 64).map(record => ({ label: [record.account.name, record.institutionName, record.account.defaultCurrency].filter(Boolean).join(" · "), destination: { page: "accounts", accountId: record.account.id } })),
-  });
+  }, accounts.refetch);
 
   const saveCreate = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
     setCreateError(undefined);
@@ -112,6 +112,7 @@ export function AccountsPage({
         record={selectedRecord}
         valuation={valuationByAccountId.get(selectedRecord.account.id)}
         valuationUpdatedAt={valuations.dataUpdatedAt}
+        onRefresh={valuations.refetch}
         onBack={() => setSelectedId(null)}
       />
     );

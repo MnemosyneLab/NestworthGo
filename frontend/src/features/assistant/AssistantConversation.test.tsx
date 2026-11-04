@@ -9,18 +9,18 @@ import { useLayoutEffect } from "react";
 import { useAssistantPage } from "./PageContext";
 
 const status = { version: 1, surface: "desktop", pageGuide: true, provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" };
-function Publisher({ publication }: { publication: PagePublication }) {
+function Publisher({ publication, refresh }: { publication: PagePublication; refresh?: () => void }) {
   const enable = useAssistantPage()?.setEnabled;
   useLayoutEffect(() => enable?.(true), [enable]);
-  usePublishAssistantPage(publication); return null;
+  usePublishAssistantPage(publication, refresh); return null;
 }
 function fixture() : PagePublication { return { viewKey: "overview:", page: "overview", scope: { kind: "household", label: "Synthetic household" }, timezone: "Asia/Shanghai", basis: "base", currency: "CNY", observedAt: Date.now(), state: "available", targets: [], metrics: [
   { label: "Synthetic missing value", value: null, unit: "CNY", basis: "net_worth", status: "unavailable", missingReasons: ["quote"] },
   { label: "Synthetic subtotal", value: "0.004", unit: "CNY", basis: "assets", status: "incomplete", missingReasons: ["fx"] },
 ] }; }
-function App({ publication, disconnected = false, viewKey = "overview:", blocked = false, navigate = vi.fn() }: { publication: PagePublication; disconnected?: boolean; viewKey?: string; blocked?: boolean; navigate?: () => void }) {
+function App({ publication, disconnected = false, viewKey = "overview:", blocked = false, navigate = vi.fn(), refresh }: { publication: PagePublication; disconnected?: boolean; viewKey?: string; blocked?: boolean; navigate?: () => void; refresh?: () => void }) {
   return <AssistantPageProvider householdId="synthetic" incarnation="incarnation" surface="desktop" viewKey={viewKey} blocked={() => blocked} onNavigate={navigate}>
-    <Publisher publication={publication} /><AssistantConversation surface="desktop" status={status} loading={false} disconnected={disconnected} retry={vi.fn()} />
+    <Publisher publication={publication} refresh={refresh} /><AssistantConversation surface="desktop" status={status} loading={false} disconnected={disconnected} retry={vi.fn()} />
   </AssistantPageProvider>;
 }
 afterEach(() => vi.useRealTimers());
@@ -73,4 +73,15 @@ it("expires a snapshot while idle and blocks repeated review confirmation", asyn
   fireEvent.click(confirm); fireEvent.click(confirm);
   expect(confirm).toBeDisabled();
   expect(screen.queryByText(/succeeded|posted successfully/i)).not.toBeInTheDocument();
+});
+
+it("refreshes only by an explicit controlled page read and requires a new snapshot", async () => {
+  vi.useFakeTimers(); const refresh = vi.fn(); const publication = fixture(); const view = render(<App publication={publication} refresh={refresh} />);
+  await act(async () => vi.advanceTimersByTime(120_000));
+  expect(refresh).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh page evidence" }));
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("button", { name: "Explain selected metric" })).toBeDisabled();
+  view.rerender(<App publication={{ ...publication, observedAt: Date.now() }} refresh={refresh} />);
+  expect(screen.getByRole("button", { name: "Explain selected metric" })).toBeEnabled();
 });

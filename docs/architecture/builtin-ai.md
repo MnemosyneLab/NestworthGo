@@ -46,7 +46,7 @@ endpoint or assistant UI. The page guide follow-up adds only capability-status
 entry points and local UI; no runner, API-key input or secret store is installed. The provider module is
 still not imported by the executable. There is no activation flag to turn on:
 the product entry points do not exist. The host APIs are integration components,
-not proof of trusted GUI approval. Desktop/mobile UI, live mobile intersection,
+not proof of trusted GUI approval. Complete model-backed desktop/mobile UI, live mobile intersection,
 conversation/run persistence, system credential storage, startup/restore wiring,
 packaging and live-model compatibility remain required before activation.
 
@@ -357,9 +357,10 @@ ledger restore/switch and session replacement revoke it too. A late result must
 return `stale_context` without navigating, renewing context or retrying on the
 new page. Reconnect loads a new context and does not replay navigation, provider
 requests or writes. Saved conversation evidence retains its snapshot label and
-cannot authorize a later action. TTLs, byte/metric bounds, selection UI and exact
-wire DTO validation are acceptance requirements of the next stage, not current
-implemented guarantees.
+cannot authorize a later action. The page guide implements client-side TTLs,
+byte/metric bounds, selection and stale-account-intent refusal. Complete backend
+principal/permission validation and the full wire protocol remain next-stage
+requirements; these client-only contexts grant no backend/model authority.
 
 ## Conversation, provider and UI follow-up plan
 

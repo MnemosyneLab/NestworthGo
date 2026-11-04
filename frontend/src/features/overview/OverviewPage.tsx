@@ -185,7 +185,7 @@ export function OverviewPage({
     observedAt: overview.dataUpdatedAt, error: overview.isError, loading: overview.isLoading,
     timezone: settings.data?.timezone ?? "UTC", label: t("nav.overview"),
     labels: [t("overview.netWorth"), t("overview.assets"), t("overview.liabilities")],
-  }));
+  }), overview.refetch);
   const healthKnown = Boolean(health.data) && !health.isError && !health.isPending;
   const healthIssueCount = health.data?.issueCount ?? 0;
   const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button id="open-historical-overview" className="min-[960px]:hidden" variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;

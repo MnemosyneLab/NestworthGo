@@ -1047,7 +1047,7 @@ function Overview({
       return { label: t(`mobile.${key}`), value: money?.amount ?? null, unit: money?.currency ?? metric.currency ?? query.data!.data.currency,
         basis: key === "netWorth" ? "net_worth" : key, status: metric.total ? "available" : money ? "incomplete" : "unavailable", missingReasons: metric.total ? [] : ["incomplete"] };
     }) : [],
-  });
+  }, query.refetch);
   if (!query.data)
     return (
       <>
@@ -1267,7 +1267,7 @@ function Accounts({ onOpen }: { onOpen: (id: string) => void }) {
     timezone: query.data?.ledgerTimezone ?? "UTC", basis: "base", observedAt: query.dataUpdatedAt,
     state: query.isError ? "unavailable" : query.isPending ? "loading" : "available", metrics: [],
     targets: (items ?? []).slice(0, 64).map(account => ({ label: [account.name, account.institution, account.currency].filter(Boolean).join(" · "), destination: { mobileAccountId: account.id } })),
-  });
+  }, query.refetch);
   return (
     <section className="mobile-stack" aria-labelledby="mobile-accounts">
       <h2 id="mobile-accounts" className="mobile-page-title">
@@ -1739,7 +1739,7 @@ function Detail({
     observedAt: query.dataUpdatedAt, state: kind !== "accounts" || query.isError ? "unavailable" : query.isPending ? "loading" : "available", targets: [],
     metrics: [{ label: accountEvidence?.account.name ?? "", value: accountMoney?.amount ?? null, unit: accountMoney?.currency ?? "",
       basis: "account_value", status: accountEvidence?.complete ? "available" : accountMoney ? "incomplete" : "unavailable", missingReasons: accountEvidence?.complete ? [] : ["incomplete"] }],
-  });
+  }, query.refetch);
   if (!query.data)
     return (
       <>

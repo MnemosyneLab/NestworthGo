@@ -50,7 +50,9 @@ contexts only reuse data already delivered through its authenticated UI.
 labels, 16 missing-reason labels and 128-byte decimal strings. It retains at
 most one current context and refuses unavailable, old and future captures.
 Expiry is fixed at at most two minutes from query capture; explanation,
-reconnect and history do not renew it. A publication change, route change or
+reconnect and history do not renew it. Refresh page evidence invokes only the
+active publisher's controlled local read; expiry stays in force until a new
+query result is actually published. No provider refresh is hidden in that action. A publication change, route change or
 owner replacement revokes previous navigation authority. Publishers on retained
 hidden pages cannot replace the active context. Financial facts remain detached
 exact strings; destinations/business IDs stay in a separate host mapping.
