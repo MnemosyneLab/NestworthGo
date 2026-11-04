@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -299,6 +300,17 @@ func validationView(value any) (any, error) {
 		f, err := value.Float64()
 		if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
 			return nil, ErrInvalidArguments
+		}
+		// Avoid materializing arbitrary exponent-sized big integers. Extremely
+		// long numeric forms are unnecessary for this bounded capability surface.
+		if len(value.String()) > 1024 {
+			return nil, ErrInvalidArguments
+		}
+		if at := strings.IndexAny(value.String(), "eE"); at >= 0 {
+			exponent, err := strconv.ParseInt(value.String()[at+1:], 10, 32)
+			if err != nil || exponent < -1024 || exponent > 1024 {
+				return nil, ErrInvalidArguments
+			}
 		}
 		rational, ok := new(big.Rat).SetString(value.String())
 		if !ok {

@@ -8,6 +8,12 @@ quantity and total-cost reconciliation, pure cost corrections, and guarded
 activity undo/fix. This document does not establish end-to-end native UI or
 external-agent acceptance; consult the release record for their status.
 
+Tool definitions and typed handlers register through the shared capability
+registry; the external SDK adapter retains the existing protocol and behavior.
+The [built-in AI prerequisite and target design](../architecture/builtin-ai.md)
+documents direct in-process sessions and their closed production activation gates.
+This does not install an App assistant or add App confirmation to external MCP.
+
 ## Read-only financial context
 
 `get_financial_context` captures current state or one closed date with a

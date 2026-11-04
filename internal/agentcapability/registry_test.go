@@ -100,3 +100,28 @@ func TestOutputValidationAndCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestValidationNumberFormsAreExactAndBounded(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		literal string
+		want    any
+	}{
+		{"1e3", int64(1000)},
+		{"1.0", int64(1)},
+		{"9223372036854775807", int64(9223372036854775807)},
+		{"18446744073709551615", uint64(18446744073709551615)},
+		{"-0", int64(0)},
+		{"1.5", float64(1.5)},
+	} {
+		got, err := validationView(json.Number(test.literal))
+		if err != nil || got != test.want {
+			t.Errorf("%s: %v %T, %v", test.literal, got, got, err)
+		}
+	}
+	for _, literal := range []string{"18446744073709551616", "1e99999999", "1e-99999999", "9007199254740993.1", strings.Repeat("0", 1100) + ".1"} {
+		if _, err := validationView(json.Number(literal)); err == nil {
+			t.Errorf("unsafe/unsupported numeric form accepted: %.40s", literal)
+		}
+	}
+}
