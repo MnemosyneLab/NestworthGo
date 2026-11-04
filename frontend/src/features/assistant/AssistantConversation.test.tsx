@@ -46,6 +46,25 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(language => (["desktop", "mobile"] as c
   await waitFor(() => expect(screen.getByRole("button", { name: i18n.t("assistant.review") })).toHaveFocus());
 });
 
+it.each(["en", "zh-CN", "zh-TW"].flatMap(language => (["desktop", "mobile"] as const).map(surface => ({ language, surface }))))("discloses credential storage while gates stay closed in $language on $surface", async ({ language, surface }) => {
+  await i18n.changeLanguage(language);
+  const user = userEvent.setup();
+  render(<App publication={fixture()} surface={surface} />);
+  const summary = screen.getByText(i18n.t("assistant.settings"));
+  expect(screen.getByText(i18n.t("aiCredentials.backup"))).not.toBeVisible();
+  summary.focus();
+  expect(summary).toHaveFocus();
+  await user.click(summary);
+  for (const key of ["assistant.credentialSettings", "aiCredentials.help", "aiCredentials.backup", "assistant.memoryOnly"]) {
+    expect(screen.getByText(i18n.t(key))).toBeVisible();
+  }
+  expect(screen.getByLabelText(i18n.t("assistant.composer"))).toBeDisabled();
+  expect(screen.queryByLabelText(i18n.t("aiCredentials.key"))).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: i18n.t("assistant.review") }));
+  expect(await screen.findByText(i18n.t("assistant.reviewUnavailable"))).toBeVisible();
+  expect(screen.getByRole("button", { name: i18n.t("assistant.confirmUnavailable") })).toBeDisabled();
+});
+
 it("stops local work, discards late page results and pauses on disconnect without replay", async () => {
   vi.useFakeTimers(); const publication = fixture(); const view = render(<App publication={publication} />);
   fireEvent.change(screen.getByLabelText("Visible metric"), { target: { value: (screen.getAllByRole("option")[1] as HTMLOptionElement).value } });
