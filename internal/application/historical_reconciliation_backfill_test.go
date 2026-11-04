@@ -2,6 +2,7 @@ package application
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -213,5 +214,202 @@ func TestHistoricalReconciliationBackfillEffectBudget(t *testing.T) {
 	}
 	if r.Status != "unavailable" || !slices.Contains(r.Reasons, "budget_exceeded") || r.Residual != nil || r.Supported != nil || len(r.Details) != 0 {
 		t.Fatal(r)
+	}
+}
+
+func assertBackfillComparisonAndTrend(t *testing.T, s *Service, from, to, total string, buckets map[string]string) {
+	t.Helper()
+	for _, reverse := range []bool{false, true} {
+		a, z, sign := from, to, decimal.NewFromInt(1)
+		if reverse {
+			a, z, sign = to, from, sign.Neg()
+		}
+		overview, err := s.HistoricalOverview(t.Context(), a, z)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := assertReconciliation(t, overview, decimal.RequireFromString(total).Mul(sign).String(), "0")
+		if r.Status != "reconciled" {
+			t.Fatalf("backfill evidence lost: %+v", r)
+		}
+		assertReconciliationDetails(t, r)
+		for key, value := range buckets {
+			if got, want := reconciliationBucket(r, key), decimal.RequireFromString(value).Mul(sign).String(); got != want {
+				t.Fatalf("%s=%s want %s; %+v", key, got, want, r)
+			}
+		}
+		for _, detail := range r.Details {
+			if detail.Kind == "holding" {
+				wantOverviewAmount(t, detail.QuantityResidual, "0")
+			}
+		}
+	}
+	series, err := s.HistoricalOverviewSeries(t.Context(), from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := assertReconciliation(t, series.Overview, total, "0")
+	if r.Status != "reconciled" {
+		t.Fatal(r)
+	}
+	assertReconciliationDetails(t, r)
+	for key, want := range buckets {
+		if got := reconciliationBucket(r, key); got != want {
+			t.Fatalf("trend %s=%s want %s", key, got, want)
+		}
+	}
+}
+
+func TestHistoricalReconciliationBackfilledFirstBuyCorrectionAndUndo(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	s, db, owner, now := overviewFixture(t)
+	a := overviewAccount(t, s, owner, "Synthetic corrected backfill", "brokerage", "asset", "holdings", "CNY", "")
+	if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "100", "CNY", ""); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic corrected fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	effective := now.AddDate(0, 0, 1)
+	*now = now.AddDate(0, 0, 10)
+	auditCreated := *now
+	command := domain.TradeInput{HouseholdID: a.Account.HouseholdID, Side: domain.TradeBuy, SettlementAccountID: a.Account.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "2"), Gross: mustMoney(t, "21", "CNY"), EffectiveAt: effective}
+	buy, err := s.RecordChange(ctx, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertBackfillComparisonAndTrend(t, s, "2026-08-01", "2026-08-02", "3", map[string]string{"price_change": "3", "external_flow": "0"})
+
+	// Correct both magnitude fields after the closed endpoints. The replacement
+	// retains the original economic instant, while its audit date advances.
+	*now = now.AddDate(0, 0, 1)
+	command.HoldingID = buy.Activity.TradeDetail.HoldingID
+	command.Quantity, command.Gross, command.EffectiveAt = mustQuantity(t, "3"), mustMoney(t, "32", "CNY"), *now
+	fixed, err := s.FixChange(ctx, buy.Activity.ID, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fixed.Activity.EffectiveAt.Equal(effective) || !fixed.Activity.CreatedAt.Equal(*now) {
+		t.Fatal("correction changed economic/audit semantics", fixed.Activity)
+	}
+	batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, a.Account.HouseholdID, *now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(batch.Activities) != 1 || batch.Activities[0].ID != fixed.Activity.ID || !batch.Activities[0].EffectiveAt.Equal(effective) {
+		t.Fatal("capture did not normalize the first-buy correction", batch.Activities)
+	}
+	assertBackfillComparisonAndTrend(t, s, "2026-08-01", "2026-08-02", "4", map[string]string{"price_change": "4", "adjustment": "0", "external_flow": "0"})
+
+	// Undo the corrected buy on the next economic day, still before every audit
+	// date. Reversal directions must be consumed once from the retained capture.
+	*now = now.AddDate(0, 0, 1)
+	undoAt := effective.AddDate(0, 0, 1)
+	_, token, err := s.PreviewUndoChangeGuardedAt(ctx, fixed.Activity.ID, undoAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	undone, err := s.RecordUndoChangeGuardedAt(ctx, fixed.Activity.ID, undoAt, domain.NewMutationID().String(), strings.Repeat("ab", 32), token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !undone.Activity.EffectiveAt.Equal(undoAt) || !undone.Activity.CreatedAt.Equal(*now) {
+		t.Fatal("undo changed economic/audit semantics", undone.Activity)
+	}
+	batch, err = s.repository.LoadHistoricalSnapshotBatch(ctx, a.Account.HouseholdID, *now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(batch.Activities) != 2 || batch.Activities[0].ID != fixed.Activity.ID || batch.Activities[1].ID != undone.Activity.ID {
+		t.Fatal("capture lost corrected buy or retained undo", batch.Activities)
+	}
+	if len(batch.Portfolio.Holdings) != 1 || !batch.Portfolio.Holdings[0].CreatedAt.Equal(auditCreated) {
+		t.Fatal("holding audit date rewritten", batch.Portfolio.Holdings)
+	}
+	if _, err = db.SQL.Exec("PRAGMA query_only=ON"); err != nil {
+		t.Fatal(err)
+	}
+	assertBackfillComparisonAndTrend(t, s, "2026-08-01", "2026-08-02", "4", map[string]string{"price_change": "4", "external_flow": "0"})
+	assertBackfillComparisonAndTrend(t, s, "2026-08-01", "2026-08-03", "0", map[string]string{"price_change": "0", "adjustment": "0", "external_flow": "0"})
+	assertBackfillComparisonAndTrend(t, s, "2026-08-02", "2026-08-03", "-4", map[string]string{"price_change": "-4", "external_flow": "0"})
+}
+
+func TestHistoricalReconciliationForeignFirstBackfillAndLiquidation(t *testing.T) {
+	for _, liquidate := range []bool{false, true} {
+		t.Run(map[bool]string{false: "open_position", true: "liquidated_position"}[liquidate], func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			s, db, owner, now := overviewFixture(t)
+			a := overviewAccount(t, s, owner, "Synthetic USD backfill", "brokerage", "asset", "holdings", "USD", "")
+			if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "100", "USD", ""); err != nil {
+				t.Fatal(err)
+			}
+			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic USD fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "manual"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "", false); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+				t.Fatal(err)
+			}
+			effective := now.AddDate(0, 0, 1)
+			*now = now.AddDate(0, 0, 10)
+			auditCreated := *now
+			buy, err := s.RecordChange(ctx, domain.TradeInput{HouseholdID: a.Account.HouseholdID, Side: domain.TradeBuy, SettlementAccountID: a.Account.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "2"), Gross: mustMoney(t, "21", "USD"), EffectiveAt: effective})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "8", effective.Format(time.RFC3339)); err != nil {
+				t.Fatal(err)
+			}
+			if liquidate {
+				if _, err = s.RecordChange(ctx, domain.TradeInput{HouseholdID: a.Account.HouseholdID, Side: domain.TradeSell, SettlementAccountID: a.Account.ID, InstrumentID: instrument.ID, HoldingID: buy.Activity.TradeDetail.HoldingID, Quantity: mustQuantity(t, "2"), Gross: mustMoney(t, "25", "USD"), EffectiveAt: effective.AddDate(0, 0, 1)}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, a.Account.HouseholdID, *now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(batch.Portfolio.Holdings) != 1 || !batch.Portfolio.Holdings[0].CreatedAt.Equal(auditCreated) {
+				t.Fatal("holding audit date rewritten", batch.Portfolio.Holdings)
+			}
+			if _, err = db.SQL.Exec("PRAGMA query_only=ON"); err != nil {
+				t.Fatal(err)
+			}
+			// The buy uses later-endpoint FX: (24-21)*8 + 100*(8-7).
+			assertBackfillComparisonAndTrend(t, s, "2026-08-01", "2026-08-02", "124", map[string]string{"price_change": "24", "fx_impact": "100", "external_flow": "0"})
+			if liquidate {
+				// A zero closing holding needs no adopted quote/FX. Paired settlement
+				// cash supplies its later FX authority without inventing return.
+				closed, err := s.HistoricalOverview(ctx, "2026-08-01", "2026-08-03")
+				if err != nil {
+					t.Fatal(err)
+				}
+				row := overviewRow(t, closed, a.Account.ID.String()+":holding:"+buy.Activity.TradeDetail.HoldingID.String())
+				if row.Left != nil || row.Right == nil || row.Right.FX != nil || row.Right.Price != nil {
+					t.Fatalf("fixture did not exercise absent opening and cleared closing evidence: %+v", row)
+				}
+				wantOverviewAmount(t, row.Right.Quantity, "0")
+				assertBackfillComparisonAndTrend(t, s, "2026-08-01", "2026-08-03", "132", map[string]string{"price_change": "32", "fx_impact": "100", "external_flow": "0"})
+				assertBackfillComparisonAndTrend(t, s, "2026-08-02", "2026-08-03", "8", map[string]string{"price_change": "8", "fx_impact": "0", "external_flow": "0"})
+			}
+		})
 	}
 }
