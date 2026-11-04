@@ -38,6 +38,15 @@ func safeError(err error) *apierror.WireError {
 	return &apierror.WireError{Code: "internal", Message: "operation failed"}
 }
 func fail(code, message string) error { return &apierror.WireError{Code: code, Message: message} }
+
+func operationHash(tool string, input any) (string, error) {
+	payload, err := jsoncodec.Marshal(input)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(append([]byte(tool+"\n"), payload...))
+	return hex.EncodeToString(digest[:]), nil
+}
 func (s *Service) operationPath(id string) (string, error) {
 	parsed, err := uuid.Parse(id)
 	if err != nil {
@@ -115,12 +124,10 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 	if err != nil {
 		return nil, err
 	}
-	payload, err := jsoncodec.Marshal(input)
+	hash, err := operationHash(tool, input)
 	if err != nil {
 		return nil, err
 	}
-	digest := sha256.Sum256(append([]byte(tool+"\n"), payload...))
-	hash := hex.EncodeToString(digest[:])
 	s.operationMu.Lock()
 	defer s.operationMu.Unlock()
 	if err = ctx.Err(); err != nil {

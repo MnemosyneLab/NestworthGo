@@ -1,17 +1,44 @@
 # Built-in AI integration and delivery boundaries
 
-## Current delivery: shared capability prerequisite
+## Current delivery: host review core, application activation still closed
 
-This is a prerequisite stage, **not a working built-in App assistant**. There is
-no desktop assistant entry point, mobile assistant route, provider configuration,
-model request, credential store or production Eino runner in this change. The
-existing external MCP remains enabled according to its existing settings and
-permissions; it does not acquire an App confirmation requirement.
+The target is a complete desktop and mobile read/write assistant, including
+structured current-page explanations and semantic navigation. This delivery is
+an independently testable **backend vertical stage**, not a working App assistant
+or a permanent read-only product.
 
-The target remains a complete desktop and mobile read/write assistant. A staged
-delivery is necessary because shipping the existing model adapter or treating a
-chat response as approval would fail known safety requirements. The in-process
-read surface is an internal prerequisite, not a replacement read-only product.
+Base main `76722b33477f45aed4babffaa0d33664098c3f7d` includes merged #199
+(shared capabilities), #201 (completion-gated Responses model) and #200
+(desktop Back/Forward/Recent navigation). This stage adds:
+
+- A reusable Eino `CapabilityTools` adapter over the model-facing in-process
+  session. It validates closed-world, non-writing discovery, rejects lossy schema
+  conversion, returns detached metadata and rechecks the session at dispatch.
+  It never calls a local HTTP/MCP endpoint. Root runtime dependencies stay unchanged.
+- A durable, versioned host review coordinator for single `commit_change` ledger
+  operations. It independently prepares a preview, binds immutable authority,
+  admits once, commits through the existing application gate, and inspects both
+  outer and transaction-backed receipts without redispatch after interruption.
+- A reserved business receipt keyspace for local `import_market_data`:
+  `builtin_ai.v1:<household UUID>:<host session UUID>:<operation UUID>` (124 bytes).
+  The database has a global request-key primary key plus a household ownership
+  check. External callers still accept only UUIDs and cannot select the reserved
+  keys even when the exact local identities are known. Local UUID case aliases
+  normalize to the same receipt; external keys/schemas/behavior remain unchanged.
+  Import is still unavailable to public local/model calls and host reviews.
+- An acceptance gate with the actual Eino runner, guarded model, fake loopback
+  provider, shared local handlers and synthetic SQLite: read -> proposal -> new
+  host preview -> explicit synthetic host confirmation -> commit -> receipt/read.
+  Failed/truncated/incomplete proposal responses dispatch zero preview calls.
+  Native reasoning is replayed on the next actual provider request.
+
+No application service registration, Wails method, mobile endpoint, assistant UI,
+provider settings, API-key input or secret store is added. The provider module is
+still not imported by the executable. There is no activation flag to turn on:
+the product entry points do not exist. The host APIs are integration components,
+not proof of trusted GUI approval. Desktop/mobile UI, live mobile intersection,
+conversation/run persistence, system credential storage, startup/restore wiring,
+packaging and live-model compatibility remain required before activation.
 
 Implemented and exercised with synthetic data:
 
@@ -47,9 +74,9 @@ Implemented and exercised with synthetic data:
 - Public local discovery/calls exclude every explicit `write` effect and every
   open-world/provider capability. Read, derived analysis and private previews
   are available according to the independently selected mode. Preview creation
-  is never approval. An unexported trusted test path verifies real business
-  preview/commit parity; **it is not a production approval mechanism** and has
-  no Wails/mobile/model/chat entry point.
+  is never approval. The unexported writer dispatch is used by adapter parity tests and the new
+  host review coordinator; it has no Wails/mobile/model/chat entry point. Public
+  `Call` and `CapabilityTools` cannot approve or commit a review.
 - Local requests and delivered JSON are bounded to 64 KiB. Existing business
   page limits, frozen capture hashes, fixed expiry and evidence continue to
   apply. Local generic JSON validation preserves numeric lexemes; integer
@@ -65,49 +92,38 @@ Implemented and exercised with synthetic data:
   model write denial, cancellation and an in-flight restore revocation fence.
 
 These tests do not prove power-loss durability, arbitrary multi-process writers,
-full process-crash recovery, backup/restore acceptance or any App review flow.
+full process-crash recovery, backup/restore App acceptance or any GUI review flow.
+Targeted host tests now also use separate real child processes: an unconfirmed
+review survives abrupt exit but loses authority, and a committed transaction
+whose outer success receipt/host response is lost recovers without redispatch.
 There are no exactly-once transport claims. A cancelled request after a known
 successful commit still has its successful receipt. An interrupted admitted
 write without a proven result is unknown and requires receipt inspection with
 the original identity. Neither cancellation nor chat deletion reverses a write.
 
-## Model-provider production gates remain closed
+## Provider acceptance and remaining activation gates
 
-The experiment in [draft PR #192](https://github.com/MnemosyneLab/NestworthGo/pull/192),
-source `c13313237f279dc56d9237047e187d1787882e95`, exercises the real Eino
-runner and Responses converter with a fake HTTP/SSE provider and synthetic ledger.
-Its current released combination is Eino `v0.9.22` and agenticopenai `v0.2.4`.
-On 2026-11-04, querying the Go module proxy's `@latest` still resolved those
-versions; rerunning strict acceptance against current main reproduced both gates:
+Merged #201 supplies `providers/einoopenai`: Eino `v0.9.22`, agenticopenai
+`v0.2.4` and OpenAI SDK `v3.44.0`. It buffers through successful completion and
+clean EOF, checks event/item consistency and bounds, and preserves complete
+native output groups through serialization and replay. `Stream` releases one
+verified message; no provisional executable arguments or live display tokens
+escape. The pinned upstream converter's failures remain separately characterized;
+they are not acceptance of the corrected path.
 
-| Strict acceptance case | Result |
-| --- | --- |
-| Complete call arguments followed by EOF before item done | Tool dispatched; one synthetic mutation; FAIL |
-| EOF after item done but before response completed | Tool dispatched; one synthetic mutation; FAIL |
-| `response.failed` after complete call arguments | Tool dispatched; one synthetic mutation; FAIL |
-| Partial arguments or malformed event JSON | Zero mutations in these fixtures |
-| Encrypted reasoning arriving only at `output_item.done` | Encrypted content lost; FAIL |
-
-Reproduce in that experiment's nested module, using its pinned dependencies:
+Run from that nested module:
 
 ```sh
-EINO_REQUIRE_PROVIDER_SAFETY=1 go test -count=1 -timeout=60s -v \
-  -run 'TestRawStreamFailureCharacterization|TestReasoningArrivingOnlyAtItemDone' ./...
+./check.sh
 ```
 
-No transport change in this delivery fixes or bypasses those failures. No paid
-provider requests or real keys were used. The experiment's buffered completion
-gate, checkpoint files and simulated approvals are not production components.
-
-A production adapter must separately gate tool dispatch on a fully parsed,
-successfully completed response, EOF/trailing framing and explicit failure state,
-with byte/event/time bounds and cancellation. Display streaming is provisional
-and may proceed independently; it must not release executable tool arguments.
-The adapter must retain opaque reasoning from both added and done events, preserve
-item identity/order, and round-trip it into the next real Eino model request.
-The two strict tests must pass against the corrected actual converter/runner,
-including an otherwise-valid tool response. Silencing the failing cases, changing
-only the tool transport or using a stub model is not acceptance.
+This now includes the synthetic ledger/host-review gate as well as all #201
+provider tests. The dedicated workflow triggers on `internal/**` changes too,
+because the vertical test depends on shared application and persistence code.
+Only fake loopback providers, synthetic keys and synthetic ledgers are used.
+There is no real provider/signature/model-quality evidence, native keychain,
+paid request or root-runtime activation. Full native history is private provider
+state: never render `Reasoning`, `Extra` or serialized model objects as chat text.
 
 ## Intended runtime and authority boundaries
 
@@ -123,8 +139,9 @@ flowchart LR
   Service --> DB[Verified household SQLite]
 ```
 
-The diagram describes the target. The local model adapter, durable review
-coordinator and App assistant UI are not installed in this stage. No model gets
+The diagram describes the target application. The local model adapter and
+review coordinator now exist as tested integration components; no assistant
+runtime or UI is installed in the executable. No model gets
 arbitrary SQL, repository access, reflection over Wails methods, general HTTP
 tools or a way to manufacture a host approval.
 
@@ -150,35 +167,188 @@ per-call household check alone cannot close a restore race and is not automatic
 restore integration. Restored configuration, cached evidence and approvals must
 not regain authority; rebind to a fresh incarnation and require new previews.
 
-## Durable host review and write protocol to implement
+## Durable host review core and remaining UI protocol
 
-The model produces a structured proposal only. Trusted App code obtains the
-authoritative preview from the capability layer and renders the exact business
-effects, account/instrument labels, values, currencies, effective dates and missing
-evidence. Raw model text and summarized chat history are not review authority.
+`PreviewHostChange`, `InspectHostChange`, `ConfirmHostChange` and
+`CancelHostChange` are host-only methods on `InProcessSession`. They are absent
+from model discovery, the Eino session interface, Wails and mobile. Only single
+ledger changes are supported. Directory/configuration/market writes and all
+other commit families remain unavailable through host reviews.
 
-The host must persist a versioned review record binding ledger/incarnation,
-session/principal and permission revision, tool/write family, immutable arguments
-and digest, authoritative preview and its version, plan identity, expiry and
-operation ID. Only a deliberate action on that review in trusted App UI may
-transition it to confirmed. The model tool inventory must contain no approve,
-confirm or capability for constructing an approval credential. All writers,
-including directory/configuration writes, require this boundary for built-in AI.
-External MCP retains its present behavior.
+The host preview accepts a structured command, never an existing model plan or
+approval assertion. It obtains a new authoritative plan and persists a bounded
+version-1 `HostChangeReview` in the existing private SQLite configuration table;
+no financial schema migration or new database is introduced. File-only sessions
+cannot use this API. The record binds:
 
-Changed parameters, stale business state, permission changes, expiry, application
-restart or restore invalidate an uncommitted review. Re-preview and show a fresh
-review before another confirmation. Retain the immutable identity for a pending
-or unknown commit; prevent edits, navigation dismissal and a second dispatch.
-Repeat clicks and timeout recovery inspect/retry the *same* operation/plan.
-Existing transaction-backed ledger receipts can recover successful outcomes.
-Directory/configuration writes with unknown outcomes cannot be blindly replayed.
+- Household, live database/process incarnation, host session, process/permission
+  revision, permission and exact tool family;
+- Host-generated review ID, fixed operation ID, normalized immutable command,
+  parameter SHA-256 and authoritative plan ID/version/expiry;
+- Complete authoritative preview (effects, resulting endpoints, names, exact
+  values, currencies and effective dates), creation time and binding digest.
 
-Cancellation before dispatch produces no dispatch; cancellation while committing
-does not establish rollback. The persisted run/review state must distinguish
-cancelled-before-commit, known committed and unknown outcome. Switching ledgers
-never carries authorization forward. Receipt retention is independent of message
-and conversation deletion.
+The digest detects accidental/stale edits; it is not an approval credential or
+protection against a malicious database owner. A future trusted UI must display
+this exact preview and invoke confirmation only from a deliberate user action.
+Do not infer confirmation from model text, message history, a pasted digest or a
+model-created preview. Saved preview activity IDs remain provisional.
+
+| State | Allowed behavior |
+| --- | --- |
+| `awaiting_confirmation` | Inspect, explicitly confirm the displayed digest, or cancel |
+| `committing` | Durable admission has occurred; preserve identities and inspect receipts |
+| `succeeded` | Return the original receipt; repeated confirmations do not dispatch |
+| `needs_preview` | Old review cannot commit; obtain and show a new preview |
+| `cancelled` | No confirmation from this review; cancellation is not reversal |
+| `unknown` | Retain recovery identity; inspect only, never automatically redispatch |
+
+One live host owns a session and serializes review transitions. The application
+permit fences private review metadata and financial writes against backup and
+restore. Private metadata alone does not invalidate its own financial preview;
+financial writes still advance the ordinary revision. This is not a transaction
+across review and ledger records, nor a multiprocess CAS or exactly-once claim.
+
+Confirmation checks the saved binding/digest and exact plan, persists admission
+before dispatch, then uses the existing guarded ledger commit. Changed state is
+rejected by the application under the same write permit. Expiry or host/process
+restart requires a new preview and confirmation. Request cancellation before
+dispatch yields no write; a known commit remains success after late request
+cancellation. Session revocation forbids delivery and later confirmation.
+
+After interruption, inspection reads the original outer receipt, then performs
+a receipt-only lookup for the exact plan mutation/hash if needed. A proven
+transaction-backed success reconstructs the receipt without invoking a writer;
+absence remains unknown. Corrupt, noncanonical, future-version or mismatched
+records fail closed. Pending and unknown reviews cannot be dismissed through
+`CancelHostChange`, and this stage provides no button to replace their identity.
+Directory/configuration unknown writes are never replayed.
+
+These APIs still need a durable conversation/run owner, current scoped/mobile
+permissions, startup/restore registration, trusted UI and navigation guards.
+They must not be exposed directly to the current household-wide mobile surface.
+Receipt retention must remain independent of conversation deletion in that
+future owner. Full crash/power-loss and backup/restore App acceptance is pending;
+SQLite reopen, injected persistence failures and the targeted abrupt-subprocess
+boundaries described below are the current evidence.
+
+## Preserved #192 experiment scenarios and evidence limits
+
+The `experiment/eino-v0922` README and its lost-response, subprocess-checkpoint
+and summarization tests were inspected. It is historical evidence, not a runtime
+dependency; its officialmcp/internal-HTTP transport and prototype approval wrapper
+are not imported. Equivalent guarantees are tested at their current owner:
+
+| Historical scenario | Current local-adapter coverage | Still pending |
+| --- | --- | --- |
+| Eino + officialmcp + HTTP + SQLite | Real Eino + guarded provider + `CapabilityTools` + direct shared handlers + synthetic SQLite; existing external MCP discovery/behavior tests remain | Installed App runner and desktop/mobile flows |
+| Eino checkpoint across real child processes | `TestHostReviewAcrossProcessRestart`: real child abrupt exit, new process/SQLite open, old uncommitted review rejected; #201 separately tests native-state serialization/replay | Durable Eino/conversation checkpoint store and complete cross-process model-history resume; no automatic paid-model rerun |
+| Successful commit response lost/reconnect | Child exits after the business transaction, before saving outer success/returning to host; new child inspects original plan/operation and recovers exactly one ledger activity without dispatch | Actual desktop/mobile disconnect/reconnect UI; unknown directory/configuration operations remain nonreplayable |
+| False balance/approval summary | Actual Eino summarization middleware receives a synthetic false 99999 balance/approval summary, rereads real account evidence, and leaves authoritative cash at 0 with no write before explicit host review | Production compaction policy, summary persistence and hostile long-context acceptance against a real model |
+
+The synthetic summary case shows that summaries have no financial or approval
+API authority. It does not prove real-model explanation accuracy. Exact answers
+must still come from controlled evidence. The current model gate preserves native
+history in a JSON sidecar; the host-review subprocess fixture is not an Eino
+checkpoint test and must never be reported as one.
+
+## Structured page context and semantic navigation contract
+
+This is the agreed integration interface for the next UI/runtime stage; there
+is **no current page capture or AI navigation implementation**. Read the existing
+`frontend/src/app/navigation.ts`, `App.tsx`'s `open`/`handleNavigate` and mobile's
+navigation/review guards and [the navigation history contract](../design/navigation-history.md)
+when implementing it. Do not add screenshot, arbitrary
+DOM, script, selector, coordinate or unrestricted URL tools.
+
+The App publishes a host-owned, allowlisted `PageContextV1` snapshot:
+
+```ts
+type PageContextV1 = {
+  version: 1;
+  contextId: string;
+  householdId: string;
+  ledgerIncarnation: string;
+  assistantSessionId: string;
+  permissionRevision: string;
+  surface: "desktop" | "mobile";
+  pageVersion: number;
+  capturedAt: string;
+  expiresAt: string;
+  page: string; // Host allowlist of existing business pages.
+  targets: Array<{ ref: string; kind: "account" | "product" | "instrument" | "activity"; label: string }>;
+  scope: { kind: "household" | "account" | "instrument"; targetRef?: string };
+  range: { from?: string; to?: string; timezone: string };
+  valuation: { basis: "native" | "base"; currency?: string };
+  filters: Record<string, string | boolean>; // Per-page key/value allowlist.
+  selectedMetricRef?: string;
+  metrics: Array<{
+    ref: string;
+    label: string;
+    value: string | null; // Exact decimal/string; missing never becomes zero.
+    unit: string;
+    basis: string; // Stable calculation/denominator semantics, not scraped copy.
+    asOf?: string;
+    status: "loading" | "available" | "incomplete" | "unavailable" | "stale";
+    missingReasons: string[];
+    evidenceRefs: string[]; // Principal-bound controlled read/capture references.
+  }>;
+};
+```
+
+Target and metric refs are host-issued within the snapshot. Resolved business
+IDs stay in the authorized host mapping; GUI candidates show readable labels,
+dates and business metadata. Publish only permitted facts. Page visibility is
+not a data grant, and a hidden total must not be reconstructed from unauthorized
+rows. The context contains no input-field contents, API keys, mobile tokens,
+clipboard, arbitrary DOM/text or provider-native state. Stored names/notes are
+untrusted data. Explain metrics through their stable basis and controlled
+queries, preserving evidence time, selected range, currency, missingness and
+pagination; page snapshots are not live balances.
+
+For “what does this number mean?”, use the explicit selected metric when one
+exists. With multiple candidates and no selection, return `needs_selection`
+with readable metric choices and let the user point or clarify. Do the same for
+ambiguous account/product/stock names; never guess an ID from a similar label.
+
+A `NavigationIntentV1` carries `{version, intentId, contextId, pageVersion,
+userTurnId, action, targetRef, range?}`. Its host envelope binds the same ledger,
+session/incarnation and permission revision, with fixed expiry. `action` is an
+allowlist such as `open_object` or `set_chart_range`. The runtime validates an
+explicit navigation request in the current user turn, resolves the host ref,
+checks current read permissions, validates civil dates and dispatches the exact
+semantic target through existing navigation:
+
+| Object/action | Desktop target |
+| --- | --- |
+| Account | `{page: "accounts", accountId}`; no `create` or `updateValue` |
+| Product | `{page: "available-funds", productId, focus: {kind: "product", productId}}` |
+| Instrument/chart | `{page: "instrument-detail", instrumentId, section: "performance", from, to}` |
+| Activity | `{page: "history", activityId}` |
+| Analysis range | Explicit allowlisted read-only analysis target/context |
+
+Use the existing `visit` boundary through `open`, retaining its bounded
+entries/cursor, Recent, focus/scroll restoration and `RevisitableDestination`
+rules. Never use independent page setters or a second history stack. Explicit
+read-only activity opening is consumed once and is not reopened by history
+traversal. Preserve Back/Forward and the unresolved-confirmation guard. Mobile needs its own target
+mapping and current session-permission intersection; desktop routes are not a
+mobile fallback. The central recording action stays intact.
+
+Opening an object or changing a chart range, when explicitly requested and
+unambiguous, needs no financial approval. Creation, recording, modification,
+delete, provider refresh or permission changes never hide inside a navigation
+action and keep their own trusted review/authority boundary.
+
+Each intent is consumed once by its host. Page/scope/filter/chart changes advance
+`pageVersion` and revoke the old context; permission changes, logout, expiry,
+ledger restore/switch and session replacement revoke it too. A late result must
+return `stale_context` without navigating, renewing context or retrying on the
+new page. Reconnect loads a new context and does not replay navigation, provider
+requests or writes. Saved conversation evidence retains its snapshot label and
+cannot authorize a later action. TTLs, byte/metric bounds, selection UI and exact
+wire DTO validation are acceptance requirements of the next stage, not current
+implemented guarantees.
 
 ## Conversation, provider and UI follow-up plan
 
@@ -188,15 +358,16 @@ Implement in dependency order, with each stage independently reviewable:
    business/cache/receipt owner out of `mcpserver`; preserve external compatibility
    tests. Add ledger incarnations, account-scope enforcement and live mobile
    permission intersection. Hook shutdown, ledger change and restore revocation.
-2. **Versioned durable host state.** Add approved SQLite migration/recovery rules
-   for conversations, messages, runs, proposals/reviews and evidence snapshots.
+2. **Versioned durable host state.** Extend the implemented version-1 single-change
+   host review core with conversations, messages, runs and evidence snapshots;
+   define approved SQLite migration/recovery rules where schema changes are needed.
    Persist receipt references independently. Define CAS transitions, schema
    upgrades and fail-closed future/corrupt versions. Restart must not rerun paid
    model requests or unknown writes automatically. Reconcile receipts first;
    uncommitted reviews require new preview/confirmation.
-3. **Provider acceptance and credentials.** Correct and pass both real Eino gates
-   before production activation. Add the in-process tool adapter and bounded
-   provider runner; disable implicit retries and remote storage/caching by default.
+3. **Provider acceptance and credentials.** Preserve the now-passing real Eino
+   gates and direct tool adapter. Install a bounded durable provider-run owner;
+   disable implicit retries and remote storage/caching by default.
    Validate HTTPS target origin, model and redirects; do not forward credentials
    across origins. Prefer native system secure storage with explicit unavailable/
    locked states; no silent plaintext fallback. APIs return key presence/status
@@ -204,9 +375,15 @@ Implement in dependency order, with each stage independently reviewable:
    prompts, checkpoints and frontend responses. Test redaction with canary keys.
 4. **Desktop host review and assistant.** Reuse AppShell, Sheet, AlertDialog,
    Button/Input/NativeSelect and query/mutation infrastructure. Add an assistant
-   entry, side conversation and expanded long-conversation workspace. Account,
+   entry and the accepted layout: existing navigation on the left, current
+   business page in the center, expandable conversation/evidence cards on the
+   right, composer at the panel bottom, and an expanded full-conversation
+   workspace. Use the existing design system; illustrative mock amounts and
+   investment-page content are not requirements. Account,
    holdings, activity and historical pages send structured navigation context
-   (stable typed targets and selected scope/date), not scraped page text. Run
+   (the versioned context/navigation contract above), not scraped page text.
+   Wire metric selection, explicit read-only object navigation and chart ranges
+   through the existing navigation trail; reject ambiguous and late actions. Run
    authoritative reads for facts; show expandable evidence/time/scope/currency,
    missingness and pagination with business-page links. Saved evidence is an old
    snapshot, not a live balance. Never turn missing data into zero. Implement

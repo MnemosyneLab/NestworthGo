@@ -68,6 +68,9 @@ type Service struct {
 	endpoint                string
 	lastError               string
 	changed                 func()
+	// Only in-process hosts set this. The application uses a disjoint business
+	// receipt keyspace; external MCP retains its legacy UUID keys.
+	builtinSessionID string
 }
 
 // Directory isolates credentials and receipts for each settings/database pair.

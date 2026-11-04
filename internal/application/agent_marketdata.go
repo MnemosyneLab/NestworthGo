@@ -60,10 +60,27 @@ func agentDataValidation(field, message string) error {
 }
 
 func (s *Service) ImportAgentMarketData(ctx context.Context, requestKey string, input AgentMarketDataInput) (AgentMarketDataResult, error) {
-	var result AgentMarketDataResult
 	if _, err := uuid.Parse(requestKey); err != nil {
-		return result, agentDataValidation("operationId", "must be a UUID")
+		return AgentMarketDataResult{}, agentDataValidation("operationId", "must be a UUID")
 	}
+	return s.importAgentMarketData(ctx, "", requestKey, input)
+}
+
+// ImportBuiltinAgentMarketData reserves a disjoint business receipt keyspace,
+// not merely a private outer receipt store. The legacy external API accepts
+// UUIDs only and therefore cannot address these prefixed keys, even if it knows
+// a host session/operation ID. There was no public built-in writer to migrate.
+func (s *Service) ImportBuiltinAgentMarketData(ctx context.Context, sessionID, operationID string, input AgentMarketDataInput) (AgentMarketDataResult, error) {
+	session, sessionErr := uuid.Parse(sessionID)
+	operation, operationErr := uuid.Parse(operationID)
+	if sessionErr != nil || session == uuid.Nil || operationErr != nil || operation == uuid.Nil {
+		return AgentMarketDataResult{}, agentDataValidation("operationId", "requires nonzero host session and operation UUIDs")
+	}
+	return s.importAgentMarketData(ctx, session.String(), operation.String(), input)
+}
+
+func (s *Service) importAgentMarketData(ctx context.Context, builtinSessionID, operationID string, input AgentMarketDataInput) (AgentMarketDataResult, error) {
+	var result AgentMarketDataResult
 	if len(input.Items) == 0 || len(input.Items) > 100 {
 		return result, agentDataValidation("items", "must contain 1 to 100 items")
 	}
@@ -79,6 +96,12 @@ func (s *Service) ImportAgentMarketData(ctx context.Context, requestKey string, 
 		household, err := s.requireHousehold(writeCtx)
 		if err != nil {
 			return domain.AgentQuoteBatchResult{}, err
+		}
+		requestKey := operationID
+		if builtinSessionID != "" {
+			// 124 bytes with canonical UUIDs, within the repository's 128-byte
+			// limit. Household is included because request_key is a global PK.
+			requestKey = "builtin_ai.v1:" + household.ID.String() + ":" + builtinSessionID + ":" + operationID
 		}
 		encoded, err := jsoncodec.Marshal(input)
 		if err != nil {
@@ -111,7 +134,7 @@ func (s *Service) ImportAgentMarketData(ctx context.Context, requestKey string, 
 	if err != nil {
 		return result, err
 	}
-	result = AgentMarketDataResult{RequestKey: stored.RequestKey, Replayed: stored.Replayed, Inserted: stored.Inserted, RecordIDs: stored.RecordIDs, QuoteIDs: stored.QuoteIDs, SnapshotStatus: "not_started", CurrentValuationStatus: "updated"}
+	result = AgentMarketDataResult{RequestKey: operationID, Replayed: stored.Replayed, Inserted: stored.Inserted, RecordIDs: stored.RecordIDs, QuoteIDs: stored.QuoteIDs, SnapshotStatus: "not_started", CurrentValuationStatus: "updated"}
 	s.invalidateAnalysis()
 	// FX also affects stored, converted metal references. Reuse the same local
 	// dependent revaluation as manual/provider FX updates; never fetch a quote.

@@ -217,7 +217,7 @@ class MacCI(unittest.TestCase):
         self.assertIn('go-version-file: providers/einoopenai/go.mod\n', workflow)
         self.assertIn('          cache: false\n', workflow)
         self.assertIn('    timeout-minutes: 10\n', workflow)
-        for path in ('providers/einoopenai/**', 'internal/jsoncodec/**',
+        for path in ('providers/einoopenai/**', 'internal/**',
                      'go.mod', 'go.sum', '.github/workflows/eino-provider.yml'):
             self.assertIn("      - '" + path + "'\n", workflow)
         self.assertIn('run: ./check.sh | tee ', workflow)
