@@ -627,3 +627,76 @@ func TestCredentialDeletionFailureStillDurablyDisablesActivation(t *testing.T) {
 		t.Fatal("revoked activation returned after restart")
 	}
 }
+
+func TestDesktopDisableCancelsActiveRunAndModelChangeResetsNativeHistory(t *testing.T) {
+	c := &credentials{available: true}
+	started := make(chan struct{})
+	var count atomic.Int32
+	f := factory(func(ctx context.Context, h []byte, _ string) (ai.Completion, error) {
+		n := count.Add(1)
+		if n == 1 {
+			return ai.Completion{Text: "synthetic completed", History: []byte("old-model-native")}, nil
+		}
+		if n == 2 {
+			close(started)
+			<-ctx.Done()
+			return ai.Completion{Text: "must not publish", History: []byte("cancelled-native")}, nil
+		}
+		if len(h) != 0 {
+			t.Error("new model received old native history")
+		}
+		return ai.Completion{Text: "new model", History: []byte("new-model-native")}, nil
+	})
+	r, _ := open(t, privateTestDirectory(t), c, f, 0)
+	defer r.Close()
+	enable(t, r)
+	q := request(t, r)
+	q.Page = ai.PageSelection{Kind: "overview"}
+	if _, err := r.Start(t.Context(), q); err != nil {
+		t.Fatal(err)
+	}
+	if waitRun(t, r, q).State != "succeeded" {
+		t.Fatal("first run failed")
+	}
+	changed := q
+	changed.Page = ai.PageSelection{Kind: "accounts"}
+	if _, err := r.Start(t.Context(), changed); err != ai.ErrConflict {
+		t.Fatal("same request ID changed page selector")
+	}
+	q.RequestID = uuid.NewString()
+	if _, err := r.Start(t.Context(), q); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	status := r.Snapshot()
+	cfg := status.Config
+	cfg.Enabled = false
+	if err := r.Configure(t.Context(), status.Epoch, status.Revision, cfg); err != nil {
+		t.Fatal(err)
+	}
+	run := waitRun(t, r, q)
+	if run.State == "succeeded" || run.Text != "" {
+		t.Fatal("disabled run published")
+	}
+	status = r.Snapshot()
+	cfg.Model = "second-model"
+	cfg.Enabled = true
+	if err := r.Configure(t.Context(), status.Epoch, status.Revision, cfg); err != nil {
+		t.Fatal(err)
+	}
+	q.Revision = r.Snapshot().Revision
+	q.RequestID = uuid.NewString()
+	if _, err := r.Start(t.Context(), q); err != nil {
+		t.Fatal(err)
+	}
+	if waitRun(t, r, q).State != "succeeded" {
+		t.Fatal("model switch failed")
+	}
+	// A current page selector is data selection only and cannot carry routes,
+	// arbitrary client metrics, or a principal.
+	q.RequestID = uuid.NewString()
+	q.Page = ai.PageSelection{Kind: "settings"}
+	if _, err := r.Start(t.Context(), q); err == nil {
+		t.Fatal("unsupported page accepted")
+	}
+}

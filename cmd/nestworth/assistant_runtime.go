@@ -8,6 +8,7 @@ import (
 
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/assistant"
+	"github.com/waltwang/nestworth-go/internal/builtinai"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aistate"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -17,7 +18,7 @@ import (
 
 // All bindings and paths originate in the desktop host. No mobile principal or
 // client-provided household/ledger/path/mode is accepted. Provider activation is
-// disabled by default; activation/configuration mutation is not bound to IPC.
+// disabled by default and requires explicit desktop configuration.
 func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath string, database *sqlite.DB) (*assistant.Runtime, error) {
 	if app == nil {
 		return nil, assistant.ErrUnavailable
@@ -47,7 +48,7 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		if err != nil {
 			return nil, assistant.ErrUnavailable
 		}
-		engine, err := einoopenai.NewEngine(ctx, cfg, key, session, session.Close)
+		engine, err := einoopenai.NewEngine(ctx, cfg, key, builtinai.New(session, assistant.SelectedPage(ctx)), session.Close)
 		if err != nil {
 			session.Close()
 			return nil, assistant.ErrUnavailable

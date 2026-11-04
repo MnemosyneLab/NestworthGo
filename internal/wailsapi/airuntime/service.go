@@ -1,5 +1,5 @@
 // Package airuntime is the bounded desktop conversation adapter. Model
-// activation, approval and financial writes are not exported through IPC. Mobile
+// configuration is desktop-only; approval and financial writes are not exported. Mobile
 // is not registered here and cannot obtain a household-wide host principal.
 package airuntime
 
@@ -81,4 +81,13 @@ func (s *Service) DeleteCredential(epoch string) error {
 		return assistant.ErrUnavailable
 	}
 	return s.runtime.DeleteCredential(context.Background(), epoch)
+}
+
+// Configure requires a current host epoch/revision and explicit desktop opt-in.
+// It never changes external MCP settings or mobile permissions.
+func (s *Service) Configure(epoch string, revision uint64, config assistant.ModelConfig) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.Configure(context.Background(), epoch, revision, config)
 }

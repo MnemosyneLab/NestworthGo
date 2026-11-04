@@ -97,18 +97,19 @@ type RunState struct {
 	Digest string `json:"digest"`
 }
 type Run struct {
-	ID             string     `json:"id"`
-	RequestID      string     `json:"requestId"`
-	ConversationID string     `json:"conversationId"`
-	State          string     `json:"state"`
-	Code           string     `json:"code,omitempty"`
-	Prompt         string     `json:"prompt"`
-	Text           string     `json:"text,omitempty"`
-	Created        time.Time  `json:"created"`
-	Finished       *time.Time `json:"finished,omitempty"`
-	Provider       string     `json:"provider"`
-	Model          string     `json:"model"`
-	ConfigRevision uint64     `json:"configRevision"`
+	Page           PageSelection `json:"page"`
+	ID             string        `json:"id"`
+	RequestID      string        `json:"requestId"`
+	ConversationID string        `json:"conversationId"`
+	State          string        `json:"state"`
+	Code           string        `json:"code,omitempty"`
+	Prompt         string        `json:"prompt"`
+	Text           string        `json:"text,omitempty"`
+	Created        time.Time     `json:"created"`
+	Finished       *time.Time    `json:"finished,omitempty"`
+	Provider       string        `json:"provider"`
+	Model          string        `json:"model"`
+	ConfigRevision uint64        `json:"configRevision"`
 }
 type Event struct {
 	Sequence uint64 `json:"sequence"`
@@ -139,11 +140,12 @@ type EventPage struct {
 	Reset  bool    `json:"reset"` // fetch Conversation if journal rolled over
 }
 type StartRequest struct {
-	Epoch          string `json:"epoch"`
-	Revision       uint64 `json:"revision"`
-	ConversationID string `json:"conversationId"`
-	RequestID      string `json:"requestId"`
-	Prompt         string `json:"prompt"`
+	Page           PageSelection `json:"page"`
+	Epoch          string        `json:"epoch"`
+	Revision       uint64        `json:"revision"`
+	ConversationID string        `json:"conversationId"`
+	RequestID      string        `json:"requestId"`
+	Prompt         string        `json:"prompt"`
 }
 
 type Options struct {
@@ -289,7 +291,12 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 		return ErrUnavailable
 	}
 	if len(r.active) != 0 {
-		return ErrConflict
+		if cfg.Enabled {
+			return ErrConflict
+		}
+		for _, cancel := range r.active {
+			cancel()
+		}
 	}
 	if r.options.Credentials.Available() {
 		tainted := false
@@ -314,6 +321,14 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 			return nil
 		}) != nil {
 			return ErrUnavailable
+		}
+	}
+	// Native provider history is bound to its provider/model. Keep display history
+	// but start a fresh model context after a model change.
+	if cfg.Provider != r.state.Config.Provider || cfg.Model != r.state.Config.Model {
+		for i := range r.state.Conversations {
+			r.state.Conversations[i].History = nil
+			r.state.Conversations[i].HistoryDigest = ""
 		}
 	}
 	r.state.Config = cfg
@@ -508,10 +523,10 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	return ErrStale
 }
 func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
-	if !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
+	if !q.Page.Valid() || !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
 		return Run{}, ErrBudget
 	}
-	digest := sha256.Sum256([]byte(q.Prompt))
+	digest := promptDigest(q.Prompt, q.Page)
 	hash := hex.EncodeToString(digest[:])
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -552,14 +567,14 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	}); e != nil {
 		return Run{}, ErrUnavailable
 	}
-	run := Run{ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
+	run := Run{Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
 	c.Runs = append(c.Runs, RunState{Run: run, Digest: hash})
 	c.Updated = run.Created
 	r.event(c, run)
 	if e := r.persist(); e != nil {
 		return Run{}, e
 	}
-	runCtx, cancel := context.WithTimeout(r.ctx, r.options.Timeout)
+	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
 	r.active[c.ID] = cancel
 	history := append([]byte(nil), c.History...)
 	cfg := r.state.Config
@@ -615,7 +630,7 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 			code = "timeout"
 		}
 	}
-	if r.valid(context.Background(), r.epoch) != nil {
+	if r.valid(context.Background(), r.epoch) != nil || !r.state.Config.Enabled || r.state.Config.Provider != cfg.Provider || r.state.Config.Model != cfg.Model {
 		state = "interrupted"
 		code = "authority_revoked"
 	}
@@ -752,4 +767,12 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 		return Completion{}, ErrUnavailable
 	}
 	return result, err
+}
+
+func promptDigest(prompt string, page PageSelection) [32]byte {
+	if page == (PageSelection{}) {
+		return sha256.Sum256([]byte(prompt))
+	}
+	raw, _ := jsoncodec.Marshal(page)
+	return sha256.Sum256(append(append([]byte(prompt), 0), raw...))
 }
