@@ -1,12 +1,15 @@
 package airuntime
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -96,5 +99,29 @@ func TestDatabaseCredentialsThroughDesktopIPCKeepActivationClosed(t *testing.T) 
 	existing, found, err := repo.LoadConfiguration("settings")
 	if err != nil || !found || string(existing) != "synthetic-existing-provider" {
 		t.Fatal("modified existing provider settings")
+	}
+}
+
+// This fixture is consumed by the frontend too. Verify it against the actual
+// nil-runtime DTO so the UI cannot rely on a friendlier hand-written mock.
+func TestNilRuntimeStatusWireContract(t *testing.T) {
+	service := NewService(nil)
+	status := service.Status()
+	actual, err := jsoncodec.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, err := os.ReadFile("../../../testdata/assistant/nil-runtime-status.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(actual, bytes.TrimSpace(fixture)) {
+		t.Fatalf("nil-runtime wire fixture differs: %s", actual)
+	}
+	if status.Credentials != "unavailable" || status.Epoch != "" || status.Available || status.FinancialWrites || status.Config.Enabled {
+		t.Fatalf("nil runtime must report closed configuration: %s", actual)
+	}
+	if !errors.Is(service.SaveCredential(status.Epoch, "synthetic-key"), assistant.ErrUnavailable) || !errors.Is(service.DeleteCredential(status.Epoch), assistant.ErrUnavailable) {
+		t.Fatal("nil runtime accepted credential mutation")
 	}
 }

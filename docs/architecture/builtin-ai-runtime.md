@@ -62,7 +62,10 @@ variable, command-line secret or external process. Status returns only
 errors are never returned through IPC, diagnostics, events or conversations.
 Desktop Settings → AI / MCP provides a shared masked secret field for new input,
 replacement and explicit deletion. Input clears on submission and section exit;
-new keys do not enter query/mutation caches. Saving a key does not enable model
+new keys do not enter query/mutation caches. A missing runtime explicitly reports
+`unavailable` with an empty epoch. Editing and submission require a nonempty host
+epoch and an explicit `missing` or `present` credential status; absent, unknown
+and failed status responses keep controls closed. Saving a key does not enable model
 calls, select a model, or expose financial writes. Mobile cannot mutate credentials.
 
 This deliberately matches existing main-database provider/token storage: values

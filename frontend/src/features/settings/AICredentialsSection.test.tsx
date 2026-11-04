@@ -1,7 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import nilRuntimeStatus from "../../../../testdata/assistant/nil-runtime-status.json";
 import { AICredentialsSection } from "./AICredentialsSection";
 const api = vi.hoisted(() => ({ Status: vi.fn(), SaveCredential: vi.fn(), DeleteCredential: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
@@ -47,4 +48,39 @@ it("disables credential actions when the host is unavailable", async () => {
   await screen.findByText(/AI configuration unavailable/);
   expect(screen.getByLabelText("OpenAI API key")).toBeDisabled();
   expect(screen.getByRole("button", { name: "Save AI key" })).toBeDisabled();
+});
+
+
+it("disables credential input and submission for the actual nil-runtime wire DTO", async () => {
+  // The Go adapter test pins this shared fixture to NewService(nil).Status().
+  api.Status.mockResolvedValue(nilRuntimeStatus);
+  const { client } = mount();
+  await waitFor(() => expect(client.getQueryData(["aiCredentialStatus"])).toEqual(nilRuntimeStatus));
+  expect(screen.getByRole("status")).toHaveTextContent("AI configuration unavailable");
+  const input = screen.getByLabelText("OpenAI API key");
+  expect(input).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Save AI key" })).toBeDisabled();
+  fireEvent.submit(input.closest("form")!);
+  expect(api.SaveCredential).not.toHaveBeenCalled();
+  expect(api.DeleteCredential).not.toHaveBeenCalled();
+});
+
+
+it.each([
+  ["legacy zero-value status", "", ""],
+  ["missing key without a host", "", "missing"],
+  ["stored key without a host", "", "present"],
+  ["unknown credential state", "host-epoch", "unexpected"],
+])("refuses credential mutation for %s", async (_name, epoch, credentials) => {
+  const dto = { ...nilRuntimeStatus, epoch, credentials };
+  api.Status.mockResolvedValue(dto);
+  const { client } = mount();
+  await waitFor(() => expect(client.getQueryData(["aiCredentialStatus"])).toEqual(dto));
+  expect(screen.getByRole("status")).toHaveTextContent("AI configuration unavailable");
+  expect(screen.getByRole("button", { name: "Save AI key" })).toBeDisabled();
+  const remove = screen.queryByRole("button", { name: "Remove" });
+  if (remove) expect(remove).toBeDisabled();
+  fireEvent.submit(screen.getByRole("button", { name: "Save AI key" }).closest("form")!);
+  expect(api.SaveCredential).not.toHaveBeenCalled();
+  expect(api.DeleteCredential).not.toHaveBeenCalled();
 });

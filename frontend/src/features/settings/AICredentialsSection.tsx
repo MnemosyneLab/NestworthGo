@@ -16,8 +16,10 @@ export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: b
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
   const pending = useRef(false);
+  // Credential editing needs host identity, not the separate model-ready flag.
+  const unavailable = status.isError || !status.data?.epoch || (status.data.credentials !== "missing" && status.data.credentials !== "present");
   async function save(remove: boolean) {
-    if (pending.current || !status.data) return;
+    if (pending.current || unavailable || !status.data) return;
     pending.current = true; setBusy(true); onBusyChange?.(true); setFailed(false);
     const value = key;
     setKey(""); setGeneration((old) => old + 1);
@@ -28,7 +30,6 @@ export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: b
     } catch { setFailed(true); await status.refetch(); }
     finally { pending.current = false; setBusy(false); onBusyChange?.(false); }
   }
-  const unavailable = !status.data || status.data.credentials === "unavailable";
   return <section className="mb-5 space-y-4 rounded-2xl border border-border bg-card p-5" aria-labelledby="ai-credentials-title">
     <h2 id="ai-credentials-title" className="font-semibold">{t("aiCredentials.title")}</h2>
     <p className="text-sm text-muted-foreground">{t("aiCredentials.help")}</p>

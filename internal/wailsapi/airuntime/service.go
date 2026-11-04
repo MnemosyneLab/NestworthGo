@@ -13,7 +13,7 @@ type Service struct{ runtime *assistant.Runtime }
 func NewService(r *assistant.Runtime) *Service { return &Service{runtime: r} }
 func (s *Service) Status() assistant.Snapshot {
 	if s.runtime == nil {
-		return assistant.Snapshot{Version: 1, Reason: "secure_runtime_unavailable"}
+		return assistant.Snapshot{Version: 1, Credentials: "unavailable", Reason: "secure_runtime_unavailable"}
 	}
 	return s.runtime.Snapshot()
 }
