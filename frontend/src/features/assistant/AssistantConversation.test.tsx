@@ -37,10 +37,17 @@ it.each(["en", "zh-CN", "zh-TW"].flatMap(language => (["desktop", "mobile"] as c
   const conversation = screen.getByLabelText(i18n.t("assistant.conversation"));
   expect(within(conversation).getByText(i18n.t("assistant.metricState.unavailable"))).toBeVisible();
   expect(within(conversation).queryByText("0.00")).not.toBeInTheDocument();
-  await user.click(within(conversation).getByText(i18n.t("assistant.evidence")));
+  const evidence = within(conversation).getByText(i18n.t("assistant.evidence"));
+  expect(evidence).toHaveClass("min-h-11");
+  if (surface === "desktop") expect(evidence).toHaveClass("xl:min-h-0");
+  else expect(evidence).not.toHaveClass("xl:min-h-0");
+  await user.click(evidence);
   expect(screen.getAllByText("Asia/Shanghai")[0]).toBeVisible();
   await user.click(screen.getByRole("button", { name: i18n.t("assistant.review") }));
   expect(await screen.findByText(i18n.t("assistant.reviewUnavailable"))).toBeVisible();
+  const close = screen.getByRole("button", { name: i18n.t("common.close") });
+  expect(close).toHaveClass("min-h-11");
+  if (surface === "mobile") expect(close).not.toHaveClass("xl:min-h-8");
   expect(screen.getByRole("button", { name: i18n.t("assistant.confirmUnavailable") })).toBeDisabled();
   await user.keyboard("{Escape}");
   await waitFor(() => expect(screen.getByRole("button", { name: i18n.t("assistant.review") })).toHaveFocus());

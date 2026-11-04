@@ -1474,3 +1474,29 @@ it("retries an intact quote plan after a lost receipt with the same operation an
   expect(transport.quotePreviews).toHaveLength(1);
   expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
 });
+
+it.each(["en", "zh-CN", "zh-TW"])("localizes token and rate-limit failures without unknown field suffixes in %s", async language => {
+  await i18n.changeLanguage(language);
+  let attempts = 0;
+  vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+    if (init.method === "POST") {
+      attempts++;
+      return attempts === 1
+        ? json({ error: { code: "invalid_token", field: "token" } }, 401)
+        : json({ error: { code: "rate_limited", field: "rateLimit" } }, 429);
+    }
+    return json({ error: { code: "session_expired", field: "session" } }, 401);
+  }));
+  const user = userEvent.setup();
+  mount();
+  const input = await screen.findByLabelText(i18n.t("mobile.token"));
+  await user.type(input, "SYNTHETIC_WRONG_TOKEN");
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.login") }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("mobile.errors.invalid_token"));
+  expect(screen.getByRole("alert")).not.toHaveTextContent(i18n.t("mobile.errors.session_expired"));
+  await waitFor(() => expect(input).toBeEnabled());
+  await user.type(input, "SYNTHETIC_WRONG_TOKEN");
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.login") }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("mobile.errors.rate_limited")));
+  expect(screen.getByRole("alert").textContent).not.toMatch(/·|rateLimit|errorCode:|error\.field/);
+});

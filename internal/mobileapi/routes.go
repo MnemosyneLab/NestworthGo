@@ -46,6 +46,13 @@ func fail(w http.ResponseWriter, err error) {
 		code = string(de.Code)
 		field = de.Field
 		switch field {
+		case "token":
+			// A refused shared-token exchange is distinct from an expired grant.
+			if de.Code == domain.ErrUnavailable {
+				code, status = "invalid_token", http.StatusUnauthorized
+			} else {
+				status = http.StatusUnprocessableEntity
+			}
 		case "session":
 			code = "session_expired"
 			status = 401

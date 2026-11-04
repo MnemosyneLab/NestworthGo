@@ -89,6 +89,7 @@ import {
   type Session,
 } from "./api";
 
+import fieldLabelKeys from "@/i18n/locales/fieldLabelKeys.json";
 import logoMark from "@/assets/brand/logo-mark.png";
 import {
   ConnectionError,
@@ -221,22 +222,23 @@ function ErrorMessage({ error }: { error: unknown }) {
     error instanceof ConnectionError
       ? t(`mobile.transport.${error.code}`)
       : error instanceof MobileError
-        ? t(`errorCode:${error.code}`, {
-            defaultValue: t("mobile.requestFailed"),
+        ? t(`mobile.errors.${error.code}`, {
+            defaultValue: t(`errorCode:${error.code}`, { defaultValue: t("mobile.requestFailed") }),
           })
         : t("mobile.connectionUnavailable");
-  const field = error instanceof MobileError && error.field
-    ? t(`error.field.${error.field}`, { defaultValue: "" })
-    : "";
+  const fieldKey = error instanceof MobileError
+    ? (fieldLabelKeys as Record<string, string>)[error.field]
+    : undefined;
+  const field = fieldKey ? t(fieldKey, { defaultValue: "" }) : "";
   return (
     <p role="alert" className="mobile-notice" data-tone="danger">
       <AlertCircle aria-hidden className="size-5 shrink-0" />
       <span className="min-w-0 flex-1">
+        {field && <>{field}: </>}
         {error instanceof MobileError && (error.code === "csrf_expired" ||
           (error.status === 403 && error.field === "permission"))
           ? t("mobile.reconnectBeforeRetry")
           : message}
-        {field ? ` · ${field}` : ""}
       </span>
     </p>
   );
