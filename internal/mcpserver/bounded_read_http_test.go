@@ -13,7 +13,7 @@ import (
 
 func TestBoundedReadHTTPExactByteBoundaryDefault(t *testing.T) {
 	// Default calls receive complete-wire enforcement without mode arguments.
-	for _, name := range []string{"get_read_page", "list_instruments", "list_reconciliation_sessions", "get_reconciliation_session", "get_reconciliation_session_page", "get_reconciliation_item"} {
+	for _, name := range []string{"get_read_page", "list_instruments"} {
 		for _, size := range []int{contextWireLimit, contextWireLimit + 1} {
 			request := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{}}}
 			b, _ := jsoncodec.Marshal(request)

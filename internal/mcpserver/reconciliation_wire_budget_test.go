@@ -146,3 +146,20 @@ func TestReconciliationReadBudgetNeverTruncatesExecutedWriteOrRecovery(t *testin
 		}
 	}
 }
+
+func TestReconciliationReadHTTPExactByteBoundary(t *testing.T) {
+	for _, name := range []string{"list_reconciliation_sessions", "get_reconciliation_session", "get_reconciliation_session_page", "get_reconciliation_item"} {
+		for _, size := range []int{contextWireLimit, contextWireLimit + 1} {
+			request, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{}}})
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("{}" + strings.Repeat(" ", size-2))) })
+			response := httptest.NewRecorder()
+			financialContextEnvelope(next).ServeHTTP(response, httptest.NewRequest("POST", "/mcp", strings.NewReader(string(request))))
+			if size == contextWireLimit && response.Body.Len() != size {
+				t.Fatalf("%s boundary=%d", name, response.Body.Len())
+			}
+			if size > contextWireLimit && (response.Body.Len() > contextWireLimit || !strings.Contains(response.Body.String(), "too_large")) {
+				t.Fatalf("%s oversized=%d", name, response.Body.Len())
+			}
+		}
+	}
+}
