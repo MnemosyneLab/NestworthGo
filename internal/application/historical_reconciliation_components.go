@@ -126,6 +126,7 @@ func (b *historicalBridge) compute() error {
 		}
 	}
 	newHoldings := map[string]bool{}
+	firstVisible := make(map[domain.HoldingID]time.Time, len(b.batch.Portfolio.Holdings))
 	originHoldings := map[domain.HoldingID]bool{}
 	for _, c := range b.batch.OriginData.Components {
 		if c.HoldingID != nil {
@@ -133,8 +134,32 @@ func (b *historicalBridge) compute() error {
 		}
 	}
 	for _, h := range b.batch.Portfolio.Holdings {
-		if b.inPeriod(h.CreatedAt) && !originHoldings[h.ID] {
-			newHoldings[h.ID.String()] = true
+		if err := b.ctx.Err(); err != nil {
+			return err
+		}
+		firstVisible[h.ID] = h.CreatedAt
+	}
+	// Match replay visibility using the same retained, normalized capture.
+	// Corrections/reversals already have their economic times and directions;
+	// neither audit creation time nor an in-period-only scan proves absence.
+	for _, activity := range b.batch.Activities {
+		if err := b.ctx.Err(); err != nil {
+			return err
+		}
+		for _, effect := range activity.Effects {
+			if err := b.ctx.Err(); err != nil {
+				return err
+			}
+			if effect.HoldingID != nil {
+				if at, ok := firstVisible[*effect.HoldingID]; ok && activity.EffectiveAt.Before(at) {
+					firstVisible[*effect.HoldingID] = activity.EffectiveAt
+				}
+			}
+		}
+	}
+	for id, at := range firstVisible {
+		if b.inPeriod(at) && !originHoldings[id] {
+			newHoldings[id.String()] = true
 		}
 	}
 	for _, row := range b.overview.Rows {
@@ -154,7 +179,7 @@ func (b *historicalBridge) compute() error {
 		if row.HoldingID != "" {
 			b.holdings[row.HoldingID] = row.Key
 		}
-		// Absence is zero only for a proven newly-created position in an
+		// Absence is zero only for a proven newly-visible position in an
 		// existing included account, never for an unknown endpoint value.
 		parent := parents[row.AccountID]
 		newPosition := a == nil && z != nil && newHoldings[row.HoldingID] && parent.Left != nil && parent.Right != nil && parent.Left.Included && parent.Right.Included && !b.changedAccounts[row.AccountID]
