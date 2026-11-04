@@ -102,3 +102,12 @@ or automatically remove previously created QA applications.
 If an accepted authorization flow stalls or repeats, stop requesting the same
 permission. Preserve completed work and logs, mark blocked checks accurately,
 and proceed with available verification and the authorized commit workflow.
+
+## Distributable Nestworth skill
+
+Any change to `skills/nestworth/**`, the bundled installer or installation guide
+must increase `skills/nestworth/VERSION` in the same PR. This includes reference
+text, examples, paging, financial interpretation and MCP contract guidance.
+Follow the independent skill version policy and verification steps in
+[the skill guide](docs/user/nestworth-skill.md#skill-version-policy).
+Do not tie the skill version to the App version or modify installed user skills.
