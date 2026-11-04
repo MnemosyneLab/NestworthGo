@@ -4,7 +4,7 @@ Base: `1701e5d` (main). This record accompanies the implementation commit.
 The repository has no `.agents/skills`; root/frontend guidance and the maintained
 engineering, local workflow and shared-control contracts were followed.
 
-## Automated evidence
+## Initial implementation automated evidence (`01794cf`)
 
 Environment: Linux amd64, Go 1.27.3, Node 24.22.0, pnpm 12.14.0. Wails 3.1.0
 bindings and native Linux checks ran in the existing GTK4/WebKitGTK build
@@ -80,3 +80,32 @@ native macOS GUI acceptance. Native application launch/relaunch, packaging,
 signing and notarization were not performed. Shared task state changes in the
 browser were synthetic; provider admission, ownership, cancellation and retry
 contracts retain the existing Go tests and backend behavior.
+
+## Pinned-detail follow-up
+
+Independent review identified that a pinned successful task could remain the
+active query after its details were hidden, suppressing new shared task status.
+Four added regression cases failed against `01794cf` at the missing running
+navigation signal: leaving paged details for Accounts, Ledger or Overview, and
+collapsing details in Data health. The fixture returns distinct old/pinned and
+new/current tasks, so re-reading the old job cannot accidentally satisfy them.
+
+The pin and cursor now apply only inside expanded Data health details. Leaving
+that tab switches the query to `current` immediately and clears the old disclosure
+and pagination state; collapsing details also releases the pin. Expanded detail
+pagination remains tied to its task. No second polling observer or provider work
+was added.
+
+Follow-up validation: all 35 MobileApp tests passed, including the four new cases
+and existing pagination/first-page, cancellation, immutable acceptance and error
+coverage. Typecheck, production build and lint passed. The original full-suite
+and Go evidence above belongs to `01794cf`; backend behavior is unchanged in this
+follow-up and the latest pushed head has its own native macOS CI run.
+
+The final production bundle was also checked in Chromium at 390px against the
+synthetic HTTP/SQLite fixture, with separate old-successful and new-current task
+responses. For all four exit paths, subsequent task reads used only
+`/market-jobs/current?cursor=`; real timer polling exposed the new running task
+and then its failed/authentication state. Accounts/Ledger retained no card;
+returning to Data health showed the new failure with collapsed details. The old
+pinned response stayed successful throughout. No uncaught page errors occurred.

@@ -2094,11 +2094,25 @@ function JobPanel({
   const [cancelRequested, setCancelRequested] = useState("");
   const [error, setError] = useState<unknown>();
   const lock = useRef(false);
+  // Keep pagination local to the detail tab without resetting cancellation state.
+  const [previousTab, setPreviousTab] = useState(tab);
+  if (previousTab !== tab) {
+    setPreviousTab(tab);
+    if (tab !== "health") {
+      setExpandedJob("");
+      setPinned("");
+      setCursor("");
+    }
+  }
+  // A pinned page belongs only to an open detail view; summaries observe current work.
+  const viewingDetails = tab === "health" && expandedJob !== "";
+  const activePinned = viewingDetails ? pinned : "";
+  const activeCursor = viewingDetails ? cursor : "";
   const query = useQuery({
-    queryKey: ["mobile", "job", pinned, cursor],
+    queryKey: ["mobile", "job", activePinned, activeCursor],
     queryFn: ({ signal }) =>
       api<{ job: Job | null; next?: string }>(
-        `/market-jobs/${pinned || "current"}?cursor=${encodeURIComponent(cursor)}`,
+        `/market-jobs/${activePinned || "current"}?cursor=${encodeURIComponent(activeCursor)}`,
         "GET",
         undefined,
         { signal },
@@ -2307,7 +2321,13 @@ function JobPanel({
             variant="ghost"
             aria-expanded={expanded}
             aria-controls="mobile-job-details"
-            onClick={() => setExpandedJob(expanded ? "" : job.jobId)}
+            onClick={() => {
+              setExpandedJob(expanded ? "" : job.jobId);
+              if (expanded) {
+                setPinned("");
+                setCursor("");
+              }
+            }}
           >
             {expanded ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
             {t(expanded ? "mobile.hideJobDetails" : "mobile.showJobDetails")}

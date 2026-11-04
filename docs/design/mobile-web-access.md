@@ -215,8 +215,10 @@ navigation status keeps running work, partial/failed/cancelled results and statu
 read errors discoverable. The shared observer remains mounted across these tabs.
 Failure causes, cooldowns, cancellation state and supported retry/desktop actions
 remain visible without expanding target details. The disclosure retains shared
-source, current target, bounded target rows and pinned pagination. Starting or
-attaching to a task returns to Data health. Completion still invalidates local
+source, current target, bounded target rows and pinned pagination. Collapsing
+details or leaving Data health releases that pin and returns to the current
+shared task, so a hidden old page cannot suppress new task navigation status.
+Starting or attaching to a task returns to Data health. Completion still invalidates local
 health and overview reads without starting provider work.
 Provider messages and paths are never returned as task detail. Page errors offer
 an explicit status reload. Paging pins the job identity; navigation and reconnect

@@ -41,6 +41,7 @@ let confirms: { body: string; headers: Record<string, string> }[];
 let mode: "success" | "lost" | "revoked" | "stale";
 let previews: Record<string, string>[];
 let marketJob: Job | null;
+let pinnedMarketJob: Job | null;
 let marketLost: boolean;
 let marketReadError: boolean;
 let marketNext: string;
@@ -57,6 +58,7 @@ beforeEach(async () => {
   confirms = [];
   previews = [];
   marketJob = null;
+  pinnedMarketJob = null;
   marketLost = false;
   marketReadError = false;
   marketNext = "";
@@ -230,7 +232,9 @@ beforeEach(async () => {
         return marketReadError
           ? json({ code: "unavailable" }, 503)
           : json({
-              job: marketJob,
+              job: route.startsWith("/market-jobs/current?")
+                ? marketJob
+                : (pinnedMarketJob ?? marketJob),
               next: route.includes("cursor=page2") ? "" : marketNext,
             });
       if (route.startsWith("/operations/"))
@@ -865,9 +869,7 @@ it("observes shared task completion on another tab and refreshes authoritative v
   const user = userEvent.setup();
   const client = mount();
   await screen.findByRole("progressbar", { name: "Market data progress" });
-  await user.click(
-    screen.getByRole("button", { name: "Accounts" }),
-  );
+  await user.click(screen.getByRole("button", { name: "Accounts" }));
   const invalidate = vi.spyOn(client, "invalidateQueries");
   marketJob = {
     ...syntheticJob("failed"),
@@ -962,3 +964,92 @@ it("pins detail pagination and resets disclosure for a new current task", async 
   ).toHaveAttribute("aria-expanded", "false");
   expect(screen.getByText("Synthetic target 39")).not.toBeVisible();
 });
+
+it.each(["Accounts", "Ledger", "Overview", "collapse"])(
+  "resumes current shared tasks after leaving pinned details via %s",
+  async (destination) => {
+    marketJob = syntheticJob("succeeded");
+    pinnedMarketJob = marketJob;
+    marketNext = "page2";
+    const user = userEvent.setup();
+    const client = mount();
+    await screen.findByRole("button", { name: "Update market data" });
+    await user.click(screen.getByRole("button", { name: /Data health/ }));
+    await user.click(
+      await screen.findByRole("button", { name: "Show task details" }),
+    );
+    await user.click(
+      within(
+        screen.getByRole("region", { name: "Market data task" }),
+      ).getByRole("button", { name: "Next page" }),
+    );
+    await screen.findByRole("button", { name: "Hide task details" });
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.some(([url]) =>
+            String(url).includes(
+              "/market-jobs/synthetic-shared-job?cursor=page2",
+            ),
+          ),
+      ).toBe(true),
+    );
+    marketJob = {
+      ...syntheticJob("running"),
+      jobId: "synthetic-new-shared-job",
+    };
+    const readStart = vi.mocked(fetch).mock.calls.length;
+    await user.click(
+      screen.getByRole("button", {
+        name: destination === "collapse" ? "Hide task details" : destination,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Data health/ }),
+      ).toHaveTextContent("Running"),
+    );
+    marketJob = {
+      ...marketJob,
+      outcome: "failed",
+      phase: "complete",
+      errorCode: "provider_authentication",
+    };
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["mobile", "job"] });
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Data health/ }),
+      ).toHaveTextContent("Task needs attention"),
+    );
+    const subsequentReads = vi
+      .mocked(fetch)
+      .mock.calls.slice(readStart)
+      .map(([url]) => String(url))
+      .filter((url) => url.includes("/market-jobs/"));
+    expect(subsequentReads.length).toBeGreaterThan(0);
+    expect(
+      subsequentReads.every((url) =>
+        url.endsWith("/market-jobs/current?cursor="),
+      ),
+    ).toBe(true);
+    if (["Accounts", "Ledger"].includes(destination))
+      expect(
+        screen.queryByRole("region", { name: "Market data task" }),
+      ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Data health/ }));
+    const card = await screen.findByRole("region", {
+      name: "Market data task",
+    });
+    expect(
+      within(card).getByText(i18n.t("errorCode:provider_authentication")),
+    ).toBeVisible();
+    expect(
+      within(card).getByRole("button", { name: "Show task details" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(pinnedMarketJob.outcome).toBe("succeeded");
+    expect(marketConfirms).toHaveLength(0);
+  },
+);
