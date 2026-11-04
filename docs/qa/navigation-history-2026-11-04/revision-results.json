@@ -1,0 +1,10 @@
+{
+  "fixture": "analytics-linux-qa-v3 / complete-cny",
+  "sandbox": "disabled",
+  "cases": [
+    "Both same-account reconciliation drafts remain reachable after forward truncation and MRU replacement",
+    "Recent and Back restore their selected historical date and original frozen capture without rereading",
+    "First onboarding lands on Accounts with empty history after real household creation"
+  ],
+  "pageErrors": []
+}

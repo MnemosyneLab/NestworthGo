@@ -17,11 +17,13 @@ export function useBootstrap(options: { enabled?: boolean } = {}) {
   });
 }
 
-export function useCompleteOnboarding() {
+export function useCompleteOnboarding(onCompleted?: () => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: CompleteOnboardingRequest) => callService(() => HouseholdService.CompleteOnboarding(request)),
     onSuccess: () => {
+      // Deliver the destination before Bootstrap can remove the onboarding UI.
+      onCompleted?.();
       void queryClient.invalidateQueries({ queryKey: queryKeys.household.bootstrap });
       void queryClient.invalidateQueries({ queryKey: queryKeys.history.origin });
     },

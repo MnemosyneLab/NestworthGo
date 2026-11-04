@@ -17,6 +17,7 @@ import { displayError } from "@/lib/display";
 import { toast } from "sonner";
 import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
+import { NavigationHistoryControls, type NavigationHistoryControlsProps } from "./NavigationHistoryControls";
 import { AppFocusBoundary } from "./AppFocusBoundary";
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {
@@ -89,6 +90,7 @@ function LanguageSwitcher({ language, disabled, compact, onChange }: { language:
 }
 
 export interface AppShellProps {
+  navigationHistory?: NavigationHistoryControlsProps;
   activePageId: PageId;
   onNavigate: (target: NavigationTarget) => void;
   settings: Settings;
@@ -100,7 +102,7 @@ export interface AppShellProps {
  * inside. Navigation uses simple page-state rather than a router;
  * DEFAULT_PAGE_ID ("overview") is the product's default landing page.
  */
-export function AppShell({ activePageId, onNavigate, settings, children }: AppShellProps) {
+export function AppShell({ activePageId, onNavigate, settings, children, navigationHistory }: AppShellProps) {
  useValuationDayBoundary();
   const { t } = useTranslation();
   useTheme();
@@ -221,7 +223,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
         </div>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-14 shrink-0 items-center gap-3 border-b border-border bg-background/85 px-6 py-2 backdrop-blur-md sm:px-8">
+        <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-2 py-2 backdrop-blur-md sm:px-8">
+          {navigationHistory && <NavigationHistoryControls {...navigationHistory} />}
           <div ref={setPageBarTarget} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2" />
         </header>
         <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">

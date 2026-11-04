@@ -49,7 +49,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   const catalog = useCatalog();
   const settings = useSettings();
   const saveSettings = useSaveSettings();
-  const completeOnboarding = useCompleteOnboarding();
+  const completeOnboarding = useCompleteOnboarding(onCompleted);
   const [language, setLanguagePreference] = useState<Language>(settings.data?.language ?? Language.LanguageSystem);
   const [startHistorical, setStartHistorical] = useState(false);
   const [historyDate, setHistoryDate] = useState("");
@@ -105,7 +105,6 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
         memberNames: values.memberNames.map((member) => member.name.trim()).filter(Boolean),
         ...(startHistorical ? { timezone: historyTimezone, historyStartDate: historyDate || today } : {}),
       },
-      { onSuccess: onCompleted },
     );
   };
 

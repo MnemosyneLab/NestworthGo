@@ -113,3 +113,22 @@ it("keeps live failures as translated errors and allows an explicit successful r
   await act(async () => { await view.result.current.refetch(); });
   await waitFor(() => expect(view.result.current.data).toEqual({ final: true }));
 });
+
+it("keeps a shared immutable capture alive for a visible fork and releases it after both hosts unmount", async () => {
+  const { client, wrapper } = setup();
+  const pending = deferred<{ left: { date: string }; amount: string }>();
+  read.mockReturnValue(pending.promise);
+  const hook = renderHook(({ sourceActive }) => {
+    const source = useHistoricalOverview("2026-08-31", "", sourceActive, 0, "synthetic-shared-capture");
+    const fork = useHistoricalOverview("2026-08-31", "", !sourceActive, 0, "synthetic-shared-capture");
+    return { source, fork };
+  }, { initialProps: { sourceActive: true }, wrapper });
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+  hook.rerender({ sourceActive: false });
+  expect(pending.cancel).not.toHaveBeenCalled();
+  await act(async () => pending.resolve({ left: { date: "2026-08-31" }, amount: "17" }));
+  await waitFor(() => expect(hook.result.current.fork.data).toEqual({ left: { date: "2026-08-31" }, amount: "17" }));
+  expect(read).toHaveBeenCalledTimes(1);
+  hook.unmount();
+  await waitFor(() => expect(client.getQueryCache().getAll()).toHaveLength(0));
+});

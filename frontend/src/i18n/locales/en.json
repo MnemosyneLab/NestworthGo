@@ -2272,5 +2272,18 @@
     "showToken": "Show token",
     "hideToken": "Hide token",
     "generateToken": "Generate token"
+  },
+  "navigationHistory": {
+    "retainedSessions": "Retained Tasks sessions",
+    "workspace": "Workspace {{number}}",
+    "search": "Search: {{query}}",
+    "sessionLimit": "Twenty Tasks sessions are already retained to protect unfinished reconciliation drafts. Return through Recent or restart Nestworth to begin a new session.",
+    "label": "Navigation history",
+    "back": "Go back",
+    "forward": "Go forward",
+    "recent": "Recent pages",
+    "unavailableAccount": "Unavailable account",
+    "unavailableInstrument": "Unavailable instrument",
+    "filtered": "Filtered"
   }
 }

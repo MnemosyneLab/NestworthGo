@@ -2272,5 +2272,18 @@
     "showToken": "显示 token",
     "hideToken": "隐藏 token",
     "generateToken": "随机生成"
+  },
+  "navigationHistory": {
+    "retainedSessions": "保留的任务会话",
+    "workspace": "工作区 {{number}}",
+    "search": "搜索：{{query}}",
+    "sessionLimit": "为保护未完成的对账草稿，已保留 20 个任务会话。请通过最近访问返回已有会话，或重启 Nestworth 后开始新会话。",
+    "label": "导航历史",
+    "back": "后退",
+    "forward": "前进",
+    "recent": "最近访问",
+    "unavailableAccount": "账户不可用",
+    "unavailableInstrument": "标的不可用",
+    "filtered": "已筛选"
   }
 }

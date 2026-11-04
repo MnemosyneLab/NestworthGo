@@ -1,0 +1,95 @@
+{
+  "before": [
+    {
+      "route": "back",
+      "saved": 799,
+      "actual": 0,
+      "short": {
+        "height": 844,
+        "client": 844
+      },
+      "destination": {
+        "height": 4367,
+        "client": 844
+      },
+      "writes": [
+        {
+          "requested": 799,
+          "actual": 0,
+          "height": 844,
+          "client": 844
+        }
+      ],
+      "passed": false
+    },
+    {
+      "route": "recent",
+      "saved": 900,
+      "actual": 0,
+      "short": {
+        "height": 844,
+        "client": 844
+      },
+      "destination": {
+        "height": 4152,
+        "client": 844
+      },
+      "writes": [
+        {
+          "requested": 900,
+          "actual": 0,
+          "height": 844,
+          "client": 844
+        }
+      ],
+      "passed": false
+    }
+  ],
+  "after": [
+    {
+      "route": "back",
+      "saved": 1187,
+      "actual": 1187,
+      "short": {
+        "height": 844,
+        "client": 844
+      },
+      "destination": {
+        "height": 4367,
+        "client": 844
+      },
+      "writes": [
+        {
+          "requested": 1187,
+          "actual": 1187,
+          "height": 4367,
+          "client": 844
+        }
+      ],
+      "passed": true
+    },
+    {
+      "route": "recent",
+      "saved": 900,
+      "actual": 900,
+      "short": {
+        "height": 844,
+        "client": 844
+      },
+      "destination": {
+        "height": 4152,
+        "client": 844
+      },
+      "writes": [
+        {
+          "requested": 900,
+          "actual": 900,
+          "height": 4152,
+          "client": 844
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "environment": "Chromium 154, real HTTP services and synthetic SQLite, native scroll geometry; forced external-store flushSync; OS sandbox disabled"
+}
