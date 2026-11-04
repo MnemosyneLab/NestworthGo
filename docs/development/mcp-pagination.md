@@ -28,12 +28,13 @@ Never infer completeness from returned < limit or invent a total for live reads.
 
 ## Deliberate initial-envelope exceptions
 
-Financial initial and focused-item responses retain `content` (or focused
+Financial initial and focused-item initial responses retain `content` (or focused
 positions/gaps/evidence) and positionsPage/gapsPage/evidencePage descriptors.
 These immutable disclosure packages have financial schema/hash and alias
 contracts. Their descriptors use the same page fields and every cursor uses the
 same continuation entry. Ordinary continuations remain compact section/items/page;
-focused item continuations retain ref and related evidence. There is no duplicate
+focused item continuations use the same section/items/page shape plus ref, without
+repeating target/header or unrelated progress. There is no duplicate
 row representation. Financial initial sections remain at most one row; overview
 and period-analysis initial sections retain five rows to prioritize summaries.
 All continuations default to 25. Explicit-scope financial page tools and optional

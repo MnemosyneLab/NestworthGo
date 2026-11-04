@@ -232,7 +232,11 @@ func (s *Service) continuePage(ctx context.Context, set *toolSet, g uint64, in R
 		if split < 1 {
 			return nil, fail("validation", "invalid item page scope")
 		}
-		return s.financialContextItem(ctx, g, FinancialContextItemInput{ContextID: cursor.ContextID, Ref: target[:split], Section: target[split+1:], Cursor: in.Cursor, Limit: in.Limit})
+		item, err := s.financialContextItem(ctx, g, FinancialContextItemInput{ContextID: cursor.ContextID, Ref: target[:split], Section: target[split+1:], Cursor: in.Cursor, Limit: in.Limit, compactPage: true})
+		if err != nil {
+			return nil, err
+		}
+		return compactFinancialItemPage(item, target[split+1:])
 	}
 	if comparison {
 		return s.financialComparisonPage(ctx, g, FinancialComparisonPageInput{ComparisonID: cursor.ContextID, Section: cursor.Section, Cursor: in.Cursor, Limit: in.Limit})

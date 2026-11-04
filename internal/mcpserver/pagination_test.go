@@ -48,8 +48,8 @@ func TestUnifiedPageFrozenScopeAndFinancialItem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	detail := item.(FinancialContextItemResponse)
-	if detail.ContextID != first.ContextID || detail.Ref != first.Ref || detail.ContentHash != first.ContentHash || detail.CacheExpiresAt != first.CacheExpiresAt || detail.Positions[0].Ref != "position-2" {
+	detail := item.(FinancialSectionResponse)
+	if detail.ContextID != first.ContextID || detail.Ref != first.Ref || detail.ContentHash != first.ContentHash || detail.CacheExpiresAt != first.CacheExpiresAt || !strings.Contains(string(detail.Items[0]), `"ref":"position-2"`) {
 		t.Fatal("lost item scope", detail)
 	}
 	// Reuse the authenticated whole-package cursor without resending any identity.
@@ -205,6 +205,48 @@ func TestUnifiedPageBudgetIncludesProjectedCursor(t *testing.T) {
 		m := jsonObject(t, value)
 		if v, ok := m["nextCursor"]; !ok || v != nil {
 			t.Fatal("inconsistent terminal cursor", m)
+		}
+	}
+}
+
+func TestUnifiedItemDeferredRowUsesCompactBudgetWithoutSkipping(t *testing.T) {
+	s, g := itemFixture(t)
+	s.reads = newBoundedReadCache()
+	s.reads.activate(g)
+	set := newToolSet("synthetic", false)
+	entry := s.contexts.entries["package-a"]
+	entry.result.Content.Positions[0].Name = strings.Repeat("target", 2500)
+	entry.result.Content.Positions[1].Name = strings.Repeat("child", 4000)
+	s.contexts.entries["package-a"] = entry
+	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
+	if initial.PositionsPage.Returned != 0 || !initial.PositionsPage.HasMore {
+		t.Fatal("unread large child mistaken for absence", initial.PositionsPage)
+	}
+	value, err := s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: initial.PositionsPage.NextCursor, Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := value.(FinancialSectionResponse)
+	if len(page.Items) != 1 || page.Ref != "account-1" || !strings.Contains(string(page.Items[0]), `"ref":"position-1"`) {
+		t.Fatal("skipped child", page)
+	}
+	object := jsonObject(t, page)
+	for _, key := range []string{"position", "evidenceItem", "basis", "positionsPage", "gapsPage", "evidencePage"} {
+		if _, exists := object[key]; exists {
+			t.Fatal("repeated initial header/progress", key)
+		}
+	}
+	if size, err := financialContextWireSize(page); err != nil || size > contextWireLimit {
+		t.Fatal(size, err)
+	}
+	// A truly oversized NEXT row must fail at that exact boundary for every
+	// requested count. It must never advance to the following smaller row.
+	entry.result.Content.Positions[2].Name = strings.Repeat("x", contextWireLimit)
+	s.contexts.entries["package-a"] = entry
+	for _, limit := range []int{1, 100} {
+		_, err = s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: page.Page.NextCursor, Limit: limit})
+		if err == nil || !strings.Contains(err.Error(), "too_large") {
+			t.Fatal("oversized row skipped", limit, err)
 		}
 	}
 }

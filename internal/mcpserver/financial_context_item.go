@@ -9,11 +9,12 @@ import (
 
 // Refs are interpreted only inside ContextID. They are not persistent identities.
 type FinancialContextItemInput struct {
-	ContextID string `json:"contextId"`
-	Ref       string `json:"ref"`
-	Section   string `json:"section,omitempty"`
-	Cursor    string `json:"cursor,omitempty"`
-	Limit     int    `json:"limit,omitempty"`
+	compactPage bool   // host-owned continuation projection, never a model argument
+	ContextID   string `json:"contextId"`
+	Ref         string `json:"ref"`
+	Section     string `json:"section,omitempty"`
+	Cursor      string `json:"cursor,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
 }
 
 type FinancialContextItemResponse struct {
@@ -164,7 +165,7 @@ func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cac
 		}
 		offset = cur.Offset
 	}
-	if size, err := financialContextWireSize(r); err != nil {
+	if size, err := financialItemWireSize(in, r); err != nil {
 		return r, err
 	} else if size > contextWireLimit {
 		return r, fail("too_large", "context item target exceeds the MCP wire budget")
@@ -189,7 +190,7 @@ func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cac
 			return r, err
 		}
 	}
-	if size, err := financialContextWireSize(r); err != nil {
+	if size, err := financialItemWireSize(in, r); err != nil {
 		return r, err
 	} else if size > contextWireLimit {
 		return r, fail("too_large", "context item exceeds the MCP wire budget")
@@ -207,7 +208,7 @@ func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, ent
 	for i := offset; i < len(rows) && len(*output) < limit; i++ {
 		*output = append(*output, rows[i])
 		*info = pageInfo(len(*output))
-		size, err := financialContextWireSize(*r)
+		size, err := financialItemWireSize(in, *r)
 		if err != nil {
 			return err
 		}
@@ -221,6 +222,7 @@ func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, ent
 				// A crowded initial section may defer, but its standalone first page must fit.
 				trial := in
 				trial.Section, trial.Cursor, trial.Limit = section, "", 1
+				trial.compactPage = true // Universal continuation does not repeat the initial target/header.
 				if _, err := c.itemResponse(trial, entry, g); err != nil {
 					return err
 				}

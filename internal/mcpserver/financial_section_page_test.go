@@ -14,7 +14,7 @@ func financialPageTestData(t *testing.T, data any) any {
 	if !ok || obj["section"] == nil {
 		return data
 	}
-	allowed := map[string]bool{"contextId": true, "comparisonId": true, "contentHash": true, "capturedAt": true, "cacheExpiresAt": true, "section": true, "items": true, "page": true}
+	allowed := map[string]bool{"ref": true, "contextId": true, "comparisonId": true, "contentHash": true, "capturedAt": true, "cacheExpiresAt": true, "section": true, "items": true, "page": true}
 	for key := range obj {
 		if !allowed[key] {
 			t.Fatalf("continuation repeats header or unrelated progress: %s", key)

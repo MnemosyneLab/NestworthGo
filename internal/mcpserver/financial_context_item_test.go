@@ -52,7 +52,12 @@ func readItem(t *testing.T, s *Service, g uint64, in FinancialContextItemInput) 
 }
 func decodeItem(t *testing.T, obj map[string]any) FinancialContextItemResponse {
 	t.Helper()
-	raw, _ := jsoncodec.Marshal(obj["data"])
+	data := obj["data"]
+	if page, ok := data.(map[string]any); ok && page["section"] != nil {
+		financialPageTestData(t, data)
+		data = map[string]any{"contextId": page["contextId"], "ref": page["ref"], "contentHash": page["contentHash"], "capturedAt": page["capturedAt"], "cacheExpiresAt": page["cacheExpiresAt"], page["section"].(string): page["items"], page["section"].(string) + "Page": page["page"]}
+	}
+	raw, _ := jsoncodec.Marshal(data)
 	var r FinancialContextItemResponse
 	if err := jsoncodec.Unmarshal(raw, &r); err != nil {
 		t.Fatal(err)

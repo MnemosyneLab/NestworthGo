@@ -87,7 +87,9 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 			}
 
 			for _, tool := range listed.Tools {
-				// Before metadata is independently captured from main 9666aab.
+				// Input/description/annotation metadata is independently captured
+				// from main 9666aab; old success schemas are omitted because
+				// current success schemas are validated separately below.
 				// Assert each intentional pagination delta before projecting it
 				// back; the historical allowlist/permission guards remain intact.
 				delta, pagingChanged := pagination[tool.Name]

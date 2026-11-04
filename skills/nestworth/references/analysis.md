@@ -254,7 +254,8 @@ all three saved states are complete. Limits default to 25, maximum 100.
 comparisonId; retain its initial left/right/change and attribution/precision
 header. Currency, disclosure and financial interpretation still come from that
 exact header; never combine another capture's header with these rows.
-The separate item tool below retains its related-section response contract.
+Focused-item continuations use the same section/items/page shape and retain ref;
+the original target/disclosure/basis header is not repeated.
 
 These are tool arguments, with values taken from the corresponding descriptor:
 
@@ -378,7 +379,8 @@ retains contextId, ref and section. A zero-row initial
 section with hasMore is deferred. Limits default to 25, maximum 100. Whole-package
 page cursors and another item's cursors are not interchangeable. Keep the three
 initial descriptors independently and update only the requested section after
-each item page, ignoring its other offset-zero descriptors; these describe starts, not accumulated progress.
+each section/items/page continuation. Retain ref and the initial target/header;
+continuations omit unrelated descriptors.
 
 <!-- example: financial-context-item-page -->
 ```json

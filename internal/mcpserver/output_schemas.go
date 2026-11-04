@@ -132,5 +132,5 @@ func unifiedPageSchema() any {
 		"then": map[string]any{"required": []string{"contentHash", "capturedAt"}, "anyOf": []any{map[string]any{"required": []string{"captureId", "expiresAt"}}, map[string]any{"required": []string{"contextId", "cacheExpiresAt"}}, map[string]any{"required": []string{"comparisonId", "cacheExpiresAt"}}}},
 	}}
 	page["properties"].(map[string]any)["schemaVersion"] = map[string]any{"const": "mcp-read/1"}
-	return map[string]any{"anyOf": []any{page, map[string]any{"type": "object", "required": []string{"contextId", "ref", "contentHash", "capturedAt", "cacheExpiresAt", "positionsPage", "gapsPage", "evidencePage"}}}}
+	return page
 }

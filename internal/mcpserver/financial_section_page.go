@@ -11,6 +11,7 @@ import (
 // Only the requested section's rows and progress are returned. In particular,
 // comparison attribution/precision and context basis are not resent per page.
 type FinancialSectionResponse struct {
+	Ref            string                   `json:"ref,omitempty"`
 	ContextID      string                   `json:"contextId,omitempty"`
 	ComparisonID   string                   `json:"comparisonId,omitempty"`
 	ContentHash    string                   `json:"contentHash"`
@@ -73,4 +74,35 @@ func financialSectionPage[T any](c *financialContextCache, r FinancialSectionRes
 	}
 	r.Page = c.pageInfo(id, r.Section, g, offset, len(r.Items), len(rows))
 	return r, nil
+}
+
+// Related-item continuation keeps only its frozen target identity and requested
+// section. The initial target/disclosure/basis header remains authoritative.
+func compactFinancialItemPage(r FinancialContextItemResponse, section string) (FinancialSectionResponse, error) {
+	out := FinancialSectionResponse{ContextID: r.ContextID, Ref: r.Ref, ContentHash: r.ContentHash, CapturedAt: r.CapturedAt, CacheExpiresAt: r.CacheExpiresAt, Section: section}
+	var err error
+	switch section {
+	case "positions":
+		out.Items, err = readRows(r.Positions)
+		out.Page = r.PositionsPage
+	case "gaps":
+		out.Items, err = readRows(r.Gaps)
+		out.Page = r.GapsPage
+	case "evidence":
+		out.Items, err = readRows(r.Evidence)
+		out.Page = r.EvidencePage
+	default:
+		return out, fail("validation", "unknown item section")
+	}
+	return out, err
+}
+func financialItemWireSize(in FinancialContextItemInput, r FinancialContextItemResponse) (int, error) {
+	if !in.compactPage {
+		return financialContextWireSize(r)
+	}
+	page, err := compactFinancialItemPage(r, in.Section)
+	if err != nil {
+		return 0, err
+	}
+	return financialContextWireSize(page)
 }

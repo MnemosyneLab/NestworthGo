@@ -107,8 +107,8 @@ func skillIndependentPages(t *testing.T, client *mcp.ClientSession, kind, id, re
 			break
 		}
 	}
-	if kind == "item" && !sawReset {
-		t.Fatal("fixture did not exercise nonrequested offset-zero descriptors")
+	if sawReset {
+		t.Fatal("compact continuation repeated unrelated progress")
 	}
 	for _, section := range skillSections {
 		if len(got[section]) != totals[section] || states[section].HasMore {
