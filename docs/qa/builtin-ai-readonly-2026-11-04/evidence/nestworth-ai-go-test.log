@@ -1,0 +1,57 @@
+ok  	github.com/waltwang/nestworth-go	0.004s
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-probe	0.018s
+ok  	github.com/waltwang/nestworth-go/cmd/analytics-qa-seed	0.023s
+ok  	github.com/waltwang/nestworth-go/cmd/investment-review-qa-seed	0.030s
+ok  	github.com/waltwang/nestworth-go/cmd/nestworth	(cached)
+?   	github.com/waltwang/nestworth-go/docs/qa/post-merge-pr101-pr102-2026-10-17/repro	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/agentcapability	0.043s
+ok  	github.com/waltwang/nestworth-go/internal/application	310.880s
+ok  	github.com/waltwang/nestworth-go/internal/architecture	0.053s
+ok  	github.com/waltwang/nestworth-go/internal/assistant	0.307s
+ok  	github.com/waltwang/nestworth-go/internal/builtinai	(cached)
+ok  	github.com/waltwang/nestworth-go/internal/diagnostics	0.055s
+ok  	github.com/waltwang/nestworth-go/internal/domain	0.331s
+ok  	github.com/waltwang/nestworth-go/internal/format	0.016s
+?   	github.com/waltwang/nestworth-go/internal/infrastructure	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials	0.522s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/aistate	0.084s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/appports	3.181s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/backup	11.597s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup	29.982s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/marketdata	3.213s
+ok  	github.com/waltwang/nestworth-go/internal/infrastructure/sqlite	48.998s
+ok  	github.com/waltwang/nestworth-go/internal/jsoncodec	0.027s
+ok  	github.com/waltwang/nestworth-go/internal/mcpserver	128.537s
+ok  	github.com/waltwang/nestworth-go/internal/mobileapi	9.523s
+ok  	github.com/waltwang/nestworth-go/internal/settings	0.584s
+?   	github.com/waltwang/nestworth-go/internal/testsupport/reviewsource	[no test files]
+?   	github.com/waltwang/nestworth-go/internal/testutil	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/version	0.006s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/account	2.637s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/agent	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/airuntime	0.250s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analysis	0.667s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	1.277s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/apierror	0.050s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/app	0.043s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/assistant	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/catalog	0.027s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup	0.034s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/data	0.604s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/directory	2.201s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	10.985s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	1.842s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/household	0.985s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/instrument	1.868s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/liquidity	0.505s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/marketdata	1.904s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/mobile	[no test files]
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/native	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	1.600s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/preview	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/quote	1.753s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation	1.874s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/recovery	3.151s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/settings	0.858s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/wailstest	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/wire	0.116s

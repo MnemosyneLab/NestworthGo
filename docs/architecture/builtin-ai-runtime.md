@@ -1,19 +1,17 @@
-# Built-in AI backend runtime stage
+# Built-in AI desktop read-only runtime
 
-This stage installs the guarded Eino model and a private conversation/run owner
-in the Go executable. Main already contains #199, #201, #203 and the page guide
-from #204 (`adf7ea47fa94cbeb40b45b52d14b57cba18b4b57`). No page-guide UI is
-reimplemented. The intended product remains a complete desktop/mobile read/write
-assistant; this backend safety stage does not complete that product.
+The desktop right-hand assistant supports explicit OpenAI Responses model requests,
+controlled local financial reads, run feedback, cancellation and paged persistent
+history. Activation defaults off. Desktop Settings → Built-in AI credentials saves
+a write-only key, a model ID and an explicit enable flag. There are no startup,
+reconnect or implicit retry model calls. Financial writes and mobile model access
+remain closed. The existing deterministic page guide remains available on mobile.
 
-The installed page guide keeps its existing nine-field closed status. Its
-in-memory explanations and client page generations do not grant backend
-permission. The independent desktop `airuntime.Service` provides bounded
-conversation/run queries and cancellation for later UI integration. Desktop
-settings expose write-only credential save/delete and configuration status.
-There is no activation/configuration, proposal, approval, confirmation or financial
-writer in that IPC inventory, and no new mobile route. General model activation
-remains closed in all builds.
+The first enabled vertical is current overview, account directory and account
+detail. Period returns, financial proposals, arbitrary page inspection, provider
+refresh and model-driven navigation are unavailable and the UI discloses those
+limits. Existing explicit account target buttons keep the frontend page host's
+expiry, opaque-target and unresolved-review guards.
 
 ## Ownership and authority
 
@@ -31,7 +29,13 @@ owned by the conversation UUID. It is closed when the run ends. No local HTTP,
 external MCP token, generic Wails dispatch or open-world capability is used.
 Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
-The model inventory contains no writer, preview or approval method. The host
+`internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
+`get_financial_context`, `get_financial_context_page`, `get_financial_context_item`,
+`get_overview`, `list_accounts`, `get_account_snapshot`, `get_read_page` and
+`get_read_item`. It adds an empty-argument `get_current_page` only for supported
+view selections. The shared session independently rechecks permissions and budgets.
+No configuration, network refresh, projection-maintaining analysis, writer,
+preview or approval method is available. The host
 review methods from #203 remain separate and are not registered by this stage.
 Their operation receipts remain in their existing household/session namespaces;
 chat deletion neither deletes those receipts nor reverses a financial operation.
@@ -50,7 +54,11 @@ providers and key-looking model names are refused. The initial model is the
 non-operational placeholder `unconfigured`, with activation off. Host integration
 must explicitly choose a model and save a credential before enabling
 it. Configuration/key changes increment the revision; stale new requests
-are refused. Configuration/key replacement cannot race an active run. Credential
+are refused. Enabling/configuration replacement and key replacement cannot race
+an active run.
+Explicit disable cancels active workers and prevents late successful publication.
+A provider/model change clears native checkpoints while preserving display
+history. Credential
 revocation cancels runs and durably disables activation before attempting deletion.
 
 `assistant.Credentials` remains a replaceable host-owned port with `Available`,
@@ -126,9 +134,9 @@ conversation, and 16 MiB aggregate serialized private state. Conversations older
 than 30 days are pruned on startup and conversation creation; no background timer
 or cloud retention service is installed. Budget/storage failures close the runtime
 instead of exposing an undurable success. Explicit conversation deletion removes
-only private AI state. Public history pages contain one attempted turn, and can
-expand to at most 480 KiB under worst-case JSON escaping; no private checkpoint
-or reasoning field is included.
+only private AI state. Public history pages contain one attempted turn plus at most 16 bounded host
+read records. JSON escaping can expand the 80 KiB prompt/display text budget;
+no private checkpoint or reasoning field is included.
 
 There is no financial schema upgrade. Fresh sidecars initialize transactionally;
 future/unknown sidecars are not repaired or downgraded. Rolling back the app leaves
@@ -141,7 +149,7 @@ migration of an older AI schema, because no supported prior durable schema exist
 
 Start requires the current host epoch, current configuration revision, a host-
 created conversation ID and canonical client request UUID. Each run pins its provider, model and configuration revision. Admission with an
-immutable prompt digest is durable before a worker or provider is invoked.
+immutable prompt-and-page-selector digest is durable before a worker or provider is invoked.
 An identical request returns its original run, including failed/interrupted runs;
 changed content under the same request ID conflicts. At most two runs can be
 active, with one per conversation. A second different request to that conversation
@@ -169,7 +177,8 @@ A successful checkpoint retains the complete Eino messages, native output groups
 opaque reasoning, tool call/result order and provider/model identity. It is never
 rebuilt from display text. The next actual SDK request validates/replays those
 native groups in place. Changing models cannot silently reuse the old model's
-opaque state; choose a new conversation. Context-budget exhaustion similarly
+opaque state; configuration changes clear native history and retain display
+turns. Context-budget exhaustion similarly
 requires a new conversation until a verified compaction policy exists.
 
 A failure after a previous read can have performed that read; it does not advance
@@ -192,13 +201,19 @@ database path/household switch selects a separate namespace.
 ## UI and page integration contracts
 
 The desktop IPC inventory is `Status`, `List`, `Create`, `Inspect`, `Messages`,
-`Start`, `Cancel`, `Events`, and `Delete`. `Inspect` returns the latest attempted
+`Start`, `Cancel`, `Events`, `Delete`, `SaveCredential`, `DeleteCredential` and
+`Configure`. Configuration is desktop-only and uses the current epoch/revision.
+`Inspect` returns the latest attempted
 turn; `Messages` takes an explicit zero-based offset and returns one turn plus
 run count. Events contain only sequence, run ID, state and fixed code: at most
 64 per call, 256 retained per conversation. Reconnect queries state/events using
 the latest epoch instead of resubmitting a new paid request. A rolled-over/future
-cursor returns `reset`; refresh metadata/history. Generated bindings contain
-neither key mutation, configuration, history internals nor host review methods.
+cursor returns `reset`; refresh metadata/history. Generated bindings expose
+write-only credential input and bounded configuration,
+never stored secrets, history internals or host review methods. The desktop polls
+status every two seconds and the selected latest turn every second while mounted.
+History pages load on explicit selection. No poll invokes a model. Offline state
+pauses actions; reconnect/reload reads persisted state instead of replaying Start.
 
 `PageHost`, `PageBinding`, `PageSnapshot` and `NavigationIntent` are a Go port for
 later structured publishers. `MatchesCurrentPage` is only a prerequisite fence:
@@ -207,10 +222,30 @@ and fixed expiry of at most two minutes must agree. The publisher must additiona
 intersect live user/object permissions and guard unresolved reviews. Navigation
 requires a host-recorded explicit user intent and a private opaque-ref mapping;
 model-provided routes, DOM selectors, coordinates or approval flags are forbidden.
-The current `ClosedPageHost` always refuses; no page/navigation model tools or
-backend acceptance of #204's client-only generations are installed here.
+The current `ClosedPageHost` always refuses full page leases and model navigation.
+The narrower selection tool below does not accept #204's client-only generations.
 
-Remaining gates include UI binding and read evidence cards, trusted proposal/
+The narrower `PageSelection` carries only a kind (`overview`, `accounts`, `account`)
+and optional canonical account UUID. It is an untrusted data-selection hint from
+the desktop, not proof of the visible page and not a scoped principal. Runtime
+admission rejects unsupported kinds and binds the selection into request dedup.
+`get_current_page` resolves a new shared `get_overview`, `list_accounts` or
+`get_account_snapshot` capture, with backend capture time and tool source. IDs are
+validated against the live household. Client metrics, labels, filters, permission
+claims and routes are never sent. The model must not claim exact visible-screen
+or filter parity; source timestamps/missingness remain in shared capture data.
+This does not implement the broader trusted page-publication/navigation port.
+
+Successful turns also persist up to 16 host read records, separate from model
+prose: controlled tool source, read timestamp, whether that response advertised
+more pages, and a conservative missing-input indicator. A reported incomplete
+flag or nonempty gaps/missing-input list marks `reported`; otherwise
+`not_summarized` explicitly establishes no completeness claim. Source/quote dates
+remain in the original tool data. Per-response page flags never prove that every
+relevant continuation was consumed. The UI exposes these records in Data evidence;
+it does not render raw tool payloads, private reasoning or credential material.
+
+Remaining gates include richer financial evidence cards, trusted proposal/
 review/receipt wiring, broader page/navigation coverage, mobile/scoped principals,
 native GUI/accessibility, physical devices,
 power-loss/full backup-restore application acceptance and real-provider encrypted
