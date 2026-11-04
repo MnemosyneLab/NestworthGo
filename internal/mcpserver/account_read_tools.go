@@ -6,7 +6,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 type AccountValuationReadInput struct {
@@ -21,7 +23,19 @@ func (s *Service) pagedAccountValuations(ctx context.Context, g uint64, in Accou
 	}
 	return s.buildRead(ctx, g, in.Limit, func(ctx context.Context) (readCapture, error) {
 		capturedAt := time.Now()
-		values, err := account.NewService(s.app).AccountValuations(ctx, in.AccountFilterRequest)
+		filter, err := in.AccountFilterRequest.ToDomain()
+		if err != nil {
+			return readCapture{}, err
+		}
+		for _, raw := range in.AccountIDs {
+			id, e := domain.ParseAccountID(raw)
+			if e != nil {
+				return readCapture{}, e
+			}
+			filter.AccountIDs = append(filter.AccountIDs, id)
+		}
+		valued, err := s.app.AccountValuations(ctx, filter)
+		values := wire.FromAccountValuations(valued)
 		if err != nil {
 			return readCapture{}, err
 		}
@@ -84,7 +98,7 @@ func (s *Service) pagedAccountValuations(ctx context.Context, g uint64, in Accou
 			}
 			rows = append(rows, header)
 		}
-		c.Summary = map[string]any{"totalAccountCount": len(values), "matchedAccountCount": len(rows), "countsScope": "request_account_filters", "itemsScope": "accountIds within request filters", "aggregation": "account rollups; do not add components again"}
+		c.Summary = map[string]any{"totalAccountCount": len(values), "matchedAccountCount": len(rows), "countsScope": "request_account_filters_and_accountIds", "itemsScope": "accountIds within request filters", "aggregation": "account rollups; do not add components again"}
 		c.Sections["accounts"], err = readRows(rows)
 		return c, err
 	})
