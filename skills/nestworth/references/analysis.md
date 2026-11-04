@@ -285,6 +285,9 @@ refreshes happen here; use the separate health workflow only if requested.
 | “收入支出各多少？” | Period income/expense; own-account transfers and investment principal are not income/spending |
 | “哪几只资产贡献最大？” | `list_contributions` with returnType, groupBy and ordering; frozen rows via `get_read_page` |
 | “这行收益为什么是这个数？” | `get_contribution_item` with the list captureId and exact groupKey; frozen child sections via `get_read_page` |
+| “某一天为什么亏损？” | `get_return_day`, date inside the same period |
+| “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_asset_driver_detail` with an actual returned bucket key |
+| “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
 
 Contribution lists use `mcp-read/1`: inspect `summary` and `sections.rows`, then
 follow only the rows needed with `get_read_page` (captureId, section=`rows`, signed
@@ -295,10 +298,6 @@ child sections only when their evidence is needed. Pages and details never
 recalculate or renew the five-minute TTL. On expiry, eviction or revocation,
 restart the list and all related sections; never mix captures. Run analysis before
 preparing financial writes because source capture may maintain derived snapshots.
-
-| “某一天为什么亏损？” | `get_return_day`, date inside the same period |
-| “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_asset_driver_detail` with an actual returned bucket key |
-| “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
 
 Contribution return types are `total_return`, `realized`, `unrealized`,
 `dividend_interest`; grouping is instrument/account/currency/asset_class.
@@ -323,7 +322,10 @@ or recompute an invented portfolio rate from rounded display values.
 `list_activities` has inclusive local-date filters, account/instrument/kind
 filters and bounded pagination. Continue with all three returned cursor fields
 (`afterEffectiveAt`, `afterCreatedAt`, `afterId`); do not silently analyze only
-the first page. Contribution pages similarly use offset/limit/hasMore.
+the first page. For a complete contribution traversal, follow the rows section's
+`page.nextCursor` with `get_read_page` using the same `captureId` and
+`section=rows` until that section's `page.hasMore` is false. A shorter page does
+not mean completion; keep the returned cursor rather than calculating an offset.
 
 Zero is a measured result; null/unavailable is missing evidence. Report partial
 amounts as partial, preserve native/base distinctions and don't treat asset
