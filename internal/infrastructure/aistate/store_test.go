@@ -10,7 +10,7 @@ import (
 )
 
 func TestVersionedPrivateStoreAndRollback(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "private")
 	s, e := Open(dir, "ledger-a")
 	if e != nil {
 		t.Fatal(e)
@@ -76,6 +76,10 @@ func TestPrivateStoreRefusesSymlinkAndBroadPermissions(t *testing.T) {
 	if _, e := Open(dir, "ledger"); e == nil {
 		t.Fatal("broad directory admitted")
 	}
+	if info, e := os.Stat(dir); e != nil || info.Mode().Perm() != 0755 {
+		t.Fatal("Open changed an existing directory's permissions")
+	}
+
 	if e := os.Chmod(dir, 0700); e != nil {
 		t.Fatal(e)
 	}
@@ -98,7 +102,7 @@ func TestPrivateStoreRefusesSymlinkAndBroadPermissions(t *testing.T) {
 func TestCorruptPrivateSchemaAndFuturePayloadFailClosed(t *testing.T) {
 	for _, mode := range []string{"schema", "payload"} {
 		t.Run(mode, func(t *testing.T) {
-			dir := t.TempDir()
+			dir := filepath.Join(t.TempDir(), "private")
 			s, e := Open(dir, "ledger")
 			if e != nil {
 				t.Fatal(e)
@@ -118,5 +122,32 @@ func TestCorruptPrivateSchemaAndFuturePayloadFailClosed(t *testing.T) {
 				t.Fatal("corrupt/future state accepted")
 			}
 		})
+	}
+}
+
+func TestPrivateStoreCreatesRestrictedChildUnderPublicParent(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.Chmod(parent, 0755); err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(parent, "assistant-private")
+	store, err := Open(directory, "synthetic-ledger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	for _, fixture := range []struct {
+		path string
+		mode os.FileMode
+	}{
+		{directory, 0700}, {filepath.Join(directory, "state.db"), 0600}, {filepath.Join(directory, "state.lock"), 0600},
+	} {
+		info, err := os.Stat(fixture.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if mode := info.Mode().Perm(); mode != fixture.mode {
+			t.Fatalf("%s mode %04o, want %04o", filepath.Base(fixture.path), mode, fixture.mode)
+		}
 	}
 }

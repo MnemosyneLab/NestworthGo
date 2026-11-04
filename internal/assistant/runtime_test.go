@@ -71,6 +71,14 @@ func factory(fn func(context.Context, []byte, string) (ai.Completion, error)) ai
 		return &engine{fn}, nil
 	}
 }
+
+// TempDir's numbered directory uses 0777 subject to the process umask. Give
+// Open a dedicated child so the production code creates its required 0700
+// directory under both ordinary 0022 and restrictive 0077 test environments.
+func privateTestDirectory(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "assistant-private")
+}
 func open(t *testing.T, dir string, c *credentials, f ai.EngineFactory, timeout time.Duration) (*ai.Runtime, *aistate.Store) {
 	t.Helper()
 	store, err := aistate.Open(dir, "synthetic-ledger")
@@ -126,7 +134,7 @@ func waitRun(t *testing.T, r *ai.Runtime, q ai.StartRequest) ai.Run {
 	return ai.Run{}
 }
 func TestDurableHistoryIdempotencyAndPublicPrivacy(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateTestDirectory(t)
 	c := &credentials{available: true}
 	var calls atomic.Int32
 	f := factory(func(_ context.Context, h []byte, p string) (ai.Completion, error) {
@@ -239,7 +247,7 @@ func TestCancelTimeoutFailureAndTaintNeverAdvanceHistory(t *testing.T) {
 			if mode == "timeout" {
 				timeout = 20 * time.Millisecond
 			}
-			r, store := open(t, t.TempDir(), &credentials{available: true}, f, timeout)
+			r, store := open(t, privateTestDirectory(t), &credentials{available: true}, f, timeout)
 			defer r.Close()
 			enable(t, r)
 			q := request(t, r)
@@ -268,7 +276,7 @@ func TestCancelTimeoutFailureAndTaintNeverAdvanceHistory(t *testing.T) {
 	}
 }
 func TestAdmissionBoundsAndCredentialTaint(t *testing.T) {
-	r, _ := open(t, t.TempDir(), &credentials{available: true}, factory(func(context.Context, []byte, string) (ai.Completion, error) {
+	r, _ := open(t, privateTestDirectory(t), &credentials{available: true}, factory(func(context.Context, []byte, string) (ai.Completion, error) {
 		t.Fatal("unexpected provider")
 		return ai.Completion{}, nil
 	}), 0)
@@ -288,7 +296,7 @@ func TestAdmissionBoundsAndCredentialTaint(t *testing.T) {
 	if _, e := r.Start(t.Context(), q); !errors.Is(e, ai.ErrStale) {
 		t.Fatal("stale host admitted")
 	}
-	closed, _ := open(t, t.TempDir(), &credentials{}, factory(nil), 0)
+	closed, _ := open(t, privateTestDirectory(t), &credentials{}, factory(nil), 0)
 	defer closed.Close()
 	s := closed.Snapshot()
 	cfg := s.Config
@@ -300,7 +308,7 @@ func TestAdmissionBoundsAndCredentialTaint(t *testing.T) {
 func TestRevokeCancelsAndFencesLateResults(t *testing.T) {
 	start := make(chan struct{})
 	release := make(chan struct{})
-	dir := t.TempDir()
+	dir := privateTestDirectory(t)
 	r, _ := open(t, dir, &credentials{available: true}, factory(func(context.Context, []byte, string) (ai.Completion, error) {
 		close(start)
 		<-release
@@ -351,7 +359,7 @@ func TestCrashHelper(t *testing.T) {
 	select {}
 }
 func TestAbruptProcessExitRecoversWithoutReplay(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateTestDirectory(t)
 	cmd := exec.Command(os.Args[0], "-test.run=^TestCrashHelper$")
 	cmd.Env = append(os.Environ(), "NESTWORTH_AI_CRASH_FIXTURE="+dir)
 	if out, e := cmd.CombinedOutput(); e != nil {
@@ -380,7 +388,7 @@ func TestAbruptProcessExitRecoversWithoutReplay(t *testing.T) {
 }
 
 func TestRestorePurgesHistoryAndKeepsActivationClosed(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateTestDirectory(t)
 	creds := &credentials{available: true}
 	r, _ := open(t, dir, creds, factory(func(context.Context, []byte, string) (ai.Completion, error) {
 		return ai.Completion{History: []byte("pre-restore-native"), Text: "pre-restore"}, nil
@@ -446,7 +454,7 @@ func (s *failingStore) Save(state ai.State) error {
 func TestPersistenceFailureCannotAdmitOrPublishSuccess(t *testing.T) {
 	for _, phase := range []string{"admission", "completion"} {
 		t.Run(phase, func(t *testing.T) {
-			dir := t.TempDir()
+			dir := privateTestDirectory(t)
 			base, e := aistate.Open(dir, "synthetic-ledger")
 			if e != nil {
 				t.Fatal(e)
@@ -503,7 +511,7 @@ func TestPersistenceFailureCannotAdmitOrPublishSuccess(t *testing.T) {
 	}
 }
 func TestImmediateRestoreAfterAdmissionCannotStartOrRestoreOldConversation(t *testing.T) {
-	r, _ := open(t, t.TempDir(), &credentials{available: true}, factory(func(ctx context.Context, _ []byte, _ string) (ai.Completion, error) {
+	r, _ := open(t, privateTestDirectory(t), &credentials{available: true}, factory(func(ctx context.Context, _ []byte, _ string) (ai.Completion, error) {
 		<-ctx.Done()
 		return ai.Completion{}, ctx.Err()
 	}), 0)
@@ -521,7 +529,7 @@ func TestImmediateRestoreAfterAdmissionCannotStartOrRestoreOldConversation(t *te
 }
 
 func TestNativeHistoryCannotBeSwappedBetweenConversations(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateTestDirectory(t)
 	creds := &credentials{available: true}
 	r, store := open(t, dir, creds, factory(func(_ context.Context, _ []byte, p string) (ai.Completion, error) {
 		return ai.Completion{History: []byte("private-history:" + p), Text: "synthetic"}, nil
@@ -564,7 +572,7 @@ func TestFailureAndPanicValuesNeverReachLogs(t *testing.T) {
 	log.SetOutput(&logs)
 	defer func() { slog.SetDefault(priorSlog); log.SetOutput(priorLog) }()
 	for _, mode := range []string{"failure", "panic"} {
-		r, _ := open(t, t.TempDir(), &credentials{available: true}, factory(func(context.Context, []byte, string) (ai.Completion, error) {
+		r, _ := open(t, privateTestDirectory(t), &credentials{available: true}, factory(func(context.Context, []byte, string) (ai.Completion, error) {
 			if mode == "panic" {
 				panic(canary + " opaque-private-reasoning")
 			}
@@ -592,7 +600,7 @@ type refusedDeletion struct{ credentials }
 
 func (*refusedDeletion) Delete(context.Context) error { return errors.New(canary) }
 func TestCredentialDeletionFailureStillDurablyDisablesActivation(t *testing.T) {
-	dir := t.TempDir()
+	dir := privateTestDirectory(t)
 	store, err := aistate.Open(dir, "synthetic-ledger")
 	if err != nil {
 		t.Fatal(err)
