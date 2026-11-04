@@ -57,8 +57,9 @@ type Engine interface {
 	Close()
 }
 type Completion struct {
-	History []byte
-	Text    string
+	Evidence []ReadEvidence
+	History  []byte
+	Text     string
 }
 type EngineFactory func(context.Context, ModelConfig, []byte, string) (Engine, error)
 
@@ -97,19 +98,20 @@ type RunState struct {
 	Digest string `json:"digest"`
 }
 type Run struct {
-	Page           PageSelection `json:"page"`
-	ID             string        `json:"id"`
-	RequestID      string        `json:"requestId"`
-	ConversationID string        `json:"conversationId"`
-	State          string        `json:"state"`
-	Code           string        `json:"code,omitempty"`
-	Prompt         string        `json:"prompt"`
-	Text           string        `json:"text,omitempty"`
-	Created        time.Time     `json:"created"`
-	Finished       *time.Time    `json:"finished,omitempty"`
-	Provider       string        `json:"provider"`
-	Model          string        `json:"model"`
-	ConfigRevision uint64        `json:"configRevision"`
+	Evidence       []ReadEvidence `json:"evidence,omitempty"`
+	Page           PageSelection  `json:"page"`
+	ID             string         `json:"id"`
+	RequestID      string         `json:"requestId"`
+	ConversationID string         `json:"conversationId"`
+	State          string         `json:"state"`
+	Code           string         `json:"code,omitempty"`
+	Prompt         string         `json:"prompt"`
+	Text           string         `json:"text,omitempty"`
+	Created        time.Time      `json:"created"`
+	Finished       *time.Time     `json:"finished,omitempty"`
+	Provider       string         `json:"provider"`
+	Model          string         `json:"model"`
+	ConfigRevision uint64         `json:"configRevision"`
 }
 type Event struct {
 	Sequence uint64 `json:"sequence"`
@@ -435,6 +437,7 @@ func page(c ConversationState, offset int) Conversation {
 	v := Conversation{ID: c.ID, Updated: c.Updated, Runs: []Run{}, RunCount: len(c.Runs), Offset: offset}
 	if offset >= 0 && offset < len(c.Runs) {
 		run := c.Runs[offset].Run
+		run.Evidence = append([]ReadEvidence(nil), run.Evidence...)
 		if run.Finished != nil {
 			finished := *run.Finished
 			run.Finished = &finished
@@ -542,7 +545,13 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 			if saved.Digest != hash {
 				return Run{}, ErrConflict
 			}
-			return saved.Run, nil
+			out := saved.Run
+			out.Evidence = append([]ReadEvidence(nil), out.Evidence...)
+			if out.Finished != nil {
+				finished := *out.Finished
+				out.Finished = &finished
+			}
+			return out, nil
 		}
 	}
 	if q.Revision != r.state.Revision {
@@ -560,7 +569,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	// Validate secret taint before persisting user text. Credential-store failures
 	// cannot leak their implementation errors or cause a provider request.
 	if e := r.options.Credentials.With(ctx, func(key []byte) error {
-		if !validSecret(key) || strings.Contains(q.Prompt, string(key)) {
+		if !validSecret(key) || strings.Contains(q.Prompt, string(key)) || strings.Contains(q.Page.AccountID, string(key)) {
 			return ErrUnavailable
 		}
 		return nil
@@ -655,6 +664,7 @@ func (r *Runtime) finish(id, runID string, result Completion, state, code string
 				c.History = append([]byte(nil), result.History...)
 				c.HistoryDigest = historyDigest(r.state.Ledger, c.ID, c.History)
 				run.Text = result.Text
+				run.Evidence = append([]ReadEvidence(nil), result.Evidence...)
 			}
 			r.event(c, *run)
 			_ = r.persist()
@@ -761,6 +771,10 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	}
 	result, err = engine.Complete(ctx, history, prompt)
 	if err != nil {
+		return Completion{}, ErrUnavailable
+	}
+	evidence, encodeErr := jsoncodec.Marshal(result.Evidence)
+	if encodeErr != nil || !validEvidence(result.Evidence) || strings.Contains(string(evidence), string(key)) {
 		return Completion{}, ErrUnavailable
 	}
 	if len(result.History) == 0 || len(result.History) > MaxHistoryBytes || len(result.Text) > MaxTextBytes || strings.Contains(result.Text, string(key)) || strings.Contains(string(result.History), string(key)) {

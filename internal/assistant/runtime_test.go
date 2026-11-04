@@ -700,3 +700,30 @@ func TestDesktopDisableCancelsActiveRunAndModelChangeResetsNativeHistory(t *test
 		t.Fatal("unsupported page accepted")
 	}
 }
+
+func TestPageSelectorCannotPersistCredentialCanary(t *testing.T) {
+	key := uuid.NewString()
+	c := &credentials{available: true, key: []byte(key)}
+	f := factory(func(context.Context, []byte, string) (ai.Completion, error) {
+		t.Error("tainted page reached provider")
+		return ai.Completion{}, nil
+	})
+	r, _ := open(t, privateTestDirectory(t), c, f, 0)
+	defer r.Close()
+	s := r.Snapshot()
+	cfg := s.Config
+	cfg.Enabled = true
+	cfg.Model = "mock"
+	if err := r.Configure(t.Context(), s.Epoch, s.Revision, cfg); err != nil {
+		t.Fatal(err)
+	}
+	q := request(t, r)
+	q.Page = ai.PageSelection{Kind: "account", AccountID: key}
+	if _, err := r.Start(t.Context(), q); err == nil {
+		t.Fatal("credential-bearing selector accepted")
+	}
+	v, err := r.Inspect(t.Context(), q.Epoch, q.ConversationID)
+	if err != nil || len(v.Runs) != 0 {
+		t.Fatal("credential selector persisted")
+	}
+}

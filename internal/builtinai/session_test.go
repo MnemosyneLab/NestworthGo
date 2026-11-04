@@ -2,7 +2,9 @@ package builtinai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,6 +77,10 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	if jsoncodec.Unmarshal(raw, &view) != nil || view.Source != "list_accounts" || view.CapturedAt == "" {
 		t.Fatalf("missing backend provenance: %s", raw)
 	}
+	trace := session.Evidence()
+	if len(trace) != 1 || trace[0].Source != "list_accounts" || !trace[0].HasMore || trace[0].Missing != "not_summarized" {
+		t.Fatalf("bad host trace: %+v", trace)
+	}
 	capture := view.Data.Data
 	if capture == nil {
 		t.Fatalf("missing capture: %s", raw)
@@ -126,5 +132,31 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	shared.Close()
 	if _, err := detail.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
 		t.Fatal("revoked session accepted")
+	}
+}
+
+type brokenShared struct{ raw json.RawMessage }
+
+func (b brokenShared) Definitions() ([]agentcapability.Definition, error) { return nil, nil }
+func (b brokenShared) Call(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+	return b.raw, nil
+}
+func TestReadResultOverflowAndMalformedDataFailClosed(t *testing.T) {
+	for _, raw := range []string{`not json`, `"` + strings.Repeat("x", 64<<10) + `"`} {
+		session := New(brokenShared{raw: []byte(raw)}, assistant.PageSelection{Kind: "overview"})
+		if _, err := session.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
+			t.Fatal("invalid/oversized result reached model")
+		}
+		if len(session.Evidence()) != 0 {
+			t.Fatal("failed read published evidence")
+		}
+	}
+	session := New(brokenShared{raw: []byte(`{"page":{"nextCursor":"continuation"},"summary":{"complete":false}}`)}, assistant.PageSelection{Kind: "overview"})
+	if _, err := session.Call(t.Context(), "get_current_page", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	evidence := session.Evidence()
+	if len(evidence) != 1 || !evidence[0].HasMore || evidence[0].Missing != "reported" {
+		t.Fatal("cursor/missing metadata lost")
 	}
 }

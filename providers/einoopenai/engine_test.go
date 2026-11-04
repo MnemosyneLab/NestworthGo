@@ -177,6 +177,9 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 				t.Fatal(e)
 			}
 			if len(v.Runs) > 0 && v.Runs[0].State == "succeeded" {
+				if q.Prompt == "Read synthetic balance; do not write" && (len(v.Runs[0].Evidence) != 1 || v.Runs[0].Evidence[0].Source != "get_account_snapshot") {
+					t.Fatal("host source trace was not persisted")
+				}
 				raw, _ := jsoncodec.Marshal(v)
 				if strings.Contains(string(raw), "opaque-durable-reasoning") || strings.Contains(string(raw), "synthetic-canary-key") {
 					t.Fatal("native reasoning/credential displayed")

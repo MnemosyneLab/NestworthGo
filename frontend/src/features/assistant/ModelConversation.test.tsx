@@ -23,6 +23,14 @@ const run = {
   id: "run",
   prompt: "Synthetic saved question",
   text: "Synthetic prior answer",
+  evidence: [
+    {
+      source: "get_account_snapshot",
+      capturedAt: "2026-11-04T10:00:00Z",
+      hasMore: true,
+      missing: "reported",
+    },
+  ],
   state: "succeeded",
   model: "mock",
   created: "2026-11-04T10:00:00Z",
@@ -75,6 +83,11 @@ it("restores history without replay and sends only the question and selector", a
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(api.Start).not.toHaveBeenCalled();
+  await user.click(screen.getByText("Data evidence"));
+  expect(screen.getByText(/Account snapshot/)).toBeVisible();
+  expect(
+    screen.getByText(/This response advertised more pages/),
+  ).toBeVisible();
   await user.type(screen.getByLabelText("Message"), "Read my current page");
   await user.click(screen.getByRole("button", { name: "Send to model" }));
   await waitFor(() => expect(api.Start).toHaveBeenCalledTimes(1));

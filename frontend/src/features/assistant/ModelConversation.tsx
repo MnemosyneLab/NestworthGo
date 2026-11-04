@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import * as API from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Notice } from "@/components/ui/notice";
 import { callService } from "@/lib/wails";
+import { formatTimestamp } from "@/lib/time";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 
@@ -17,8 +18,9 @@ const active = (state: string) => state === "accepted" || state === "running";
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
  * storage. Refresh/reconnect reads state; it never replays Start. */
 export function ModelConversation() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const page = useAssistantPage();
+  const client = useQueryClient();
   const actionClass = "min-h-11 whitespace-normal xl:min-h-9";
   const [offline, setOffline] = useState(() => !navigator.onLine);
   useEffect(() => {
@@ -50,7 +52,10 @@ export function ModelConversation() {
     enabled: !!epoch && !offline,
     retry: false,
   });
-  const id = selected || list.data?.[list.data.length - 1]?.id || "";
+  const recent = [...(list.data ?? [])].sort((a, b) =>
+    String(b.updated).localeCompare(String(a.updated)),
+  )[0];
+  const id = selected || recent?.id || "";
   const latest = useQuery({
     queryKey: ["aiConversation", epoch, id, "latest"],
     queryFn: () => callService(() => API.Inspect(epoch, id)),
@@ -94,11 +99,15 @@ export function ModelConversation() {
     } catch {
       setFailed(true);
     } finally {
+      // Reconcile persisted state before releasing the admission guard, including
+      // an uncertain Start response. No operation is replayed by this refresh.
+      await Promise.allSettled([
+        status.refetch(),
+        list.refetch(),
+        client.invalidateQueries({ queryKey: ["aiConversation", epoch] }),
+      ]);
       pending.current = false;
       setBusy(false);
-      await status.refetch();
-      await list.refetch();
-      if (id) await latest.refetch();
     }
   }
   async function send() {
@@ -172,16 +181,18 @@ export function ModelConversation() {
           </Label>
           <NativeSelect
             id="ai-history"
-            className="min-h-11 min-w-0 flex-1 xl:min-h-9"
+            className="min-h-11 w-full basis-full xl:min-h-9"
             value={id}
-            disabled={busy}
+            disabled={busy || !list.data?.length}
             onChange={(event) => {
               setSelected(event.target.value);
               setOffset(null);
               setFailed(false);
             }}
           >
-            <option value="">{t("aiChat.new")}</option>
+            <option value="" disabled>
+              {t("aiChat.history")}
+            </option>
             {list.data?.map((c, index) => (
               <option key={c.id} value={c.id}>
                 {t("aiChat.session", { number: index + 1 })}
@@ -284,12 +295,45 @@ export function ModelConversation() {
               {t(`aiChat.run.${run.state}`)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {run.model} · {String(run.created)}
+              {run.model} ·{" "}
+              {formatTimestamp(
+                String(run.created),
+                page?.context?.range.timezone ?? "UTC",
+                i18n.language,
+              )}
             </p>
             {run.text && (
               <p className="whitespace-pre-wrap break-words text-sm">
                 {run.text}
               </p>
+            )}
+            {!!run.evidence?.length && (
+              <details className="text-xs text-muted-foreground">
+                <summary className={actionClass}>
+                  {t("assistant.evidence")}
+                </summary>
+                <p>{t("aiChat.traceHelp")}</p>
+                {run.evidence.map((entry, index) => (
+                  <p key={index} className="mt-2">
+                    {t(`aiChat.source.${entry.source}`)} ·{" "}
+                    {formatTimestamp(
+                      String(entry.capturedAt),
+                      page?.context?.range.timezone ?? "UTC",
+                      i18n.language,
+                    )}
+                    <br />
+                    {t(
+                      entry.hasMore ? "aiChat.morePages" : "aiChat.responseEnd",
+                    )}
+                    <br />
+                    {t(
+                      entry.missing === "reported"
+                        ? "aiChat.missingReported"
+                        : "aiChat.missingUnknown",
+                    )}
+                  </p>
+                ))}
+              </details>
             )}
             {run.code && (
               <p role="alert" className="text-sm">
@@ -318,6 +362,15 @@ export function ModelConversation() {
           <p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p>
         )}
         <p className="text-xs text-muted-foreground">{t("aiChat.retention")}</p>
+        {page?.refresh && (
+          <Button
+            className={actionClass}
+            variant="outline"
+            onClick={() => page.refresh?.()}
+          >
+            {t("assistant.refresh")}
+          </Button>
+        )}
         {page?.context?.targets.map((target) => (
           <Button
             className={actionClass}

@@ -18,12 +18,13 @@ import (
 // No auto-resume, summarizer, retry, approval or writer is installed.
 // Each saved checkpoint is a complete turn, including untouched native items.
 type Engine struct {
-	model  *Model
-	tools  map[string]tool.InvokableTool
-	infos  []*schema.ToolInfo
-	config assistant.ModelConfig
-	secret []byte
-	close  func()
+	model    *Model
+	tools    map[string]tool.InvokableTool
+	infos    []*schema.ToolInfo
+	config   assistant.ModelConfig
+	secret   []byte
+	close    func()
+	evidence func() []assistant.ReadEvidence
 }
 type checkpoint struct {
 	Version  int                      `json:"version"`
@@ -55,6 +56,11 @@ func engineWithModel(ctx context.Context, cfg assistant.ModelConfig, m *Model, s
 		return nil, errEngine
 	}
 	out := &Engine{model: m, config: cfg, tools: map[string]tool.InvokableTool{}, close: close}
+	if trace, ok := session.(interface {
+		Evidence() []assistant.ReadEvidence
+	}); ok {
+		out.evidence = trace.Evidence
+	}
 	for _, t := range tools {
 		info, err := t.Info(ctx)
 		if err != nil {
@@ -159,7 +165,11 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if err != nil || len(raw) > assistant.MaxHistoryBytes || text.Len() == 0 || text.Len() > assistant.MaxTextBytes {
 				return empty, errEngine
 			}
-			return assistant.Completion{History: raw, Text: text.String()}, nil
+			result := assistant.Completion{History: raw, Text: text.String()}
+			if e.evidence != nil {
+				result.Evidence = e.evidence()
+			}
+			return result, nil
 		}
 		for _, call := range pending {
 			if ctx.Err() != nil {

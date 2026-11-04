@@ -1,5 +1,22 @@
 export const assistantEn = {
   aiChat: {
+    traceHelp:
+      "Host read trace. These are read times; quote/source dates stay in the returned data. Page coverage is per response, not proof that every relevant page was read.",
+    morePages: "This response advertised more pages.",
+    responseEnd: "This response advertised no further pages.",
+    missingReported: "Incomplete or missing input was reported.",
+    missingUnknown:
+      "Missing inputs are not summarized here; this does not establish completeness.",
+    source: {
+      get_financial_context: "Financial summary",
+      get_financial_context_page: "Financial summary page",
+      get_financial_context_item: "Financial summary detail",
+      get_overview: "Current overview",
+      list_accounts: "Account directory",
+      get_account_snapshot: "Account snapshot",
+      get_read_page: "Continuation page",
+      get_read_item: "Captured item detail",
+    },
     scope:
       "Read-only AI · current overview, accounts and account details. Period returns, writes, refresh and autonomous navigation are unavailable.",
     ready: "Model ready",
@@ -130,6 +147,22 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    traceHelp:
+      "后端读取记录。此处为读取时间；行情与来源日期仍保留在查询数据中。分页情况仅对应每次响应，不证明所有相关页均已读取。",
+    morePages: "此响应提示还有后续分页。",
+    responseEnd: "此响应未提示后续分页。",
+    missingReported: "查询报告了缺失或不完整输入。",
+    missingUnknown: "此处未汇总缺失输入，不能据此判断数据完整。",
+    source: {
+      get_financial_context: "财务摘要",
+      get_financial_context_page: "财务摘要分页",
+      get_financial_context_item: "财务摘要明细",
+      get_overview: "当前总览",
+      list_accounts: "账户目录",
+      get_account_snapshot: "账户快照",
+      get_read_page: "后续分页",
+      get_read_item: "快照项目明细",
+    },
     scope:
       "只读 AI · 支持当前总览、账户列表与账户详情。暂不支持期间收益、写入、行情刷新与自主导航。",
     ready: "模型已就绪",
@@ -246,6 +279,22 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    traceHelp:
+      "後端讀取記錄。此處為讀取時間；行情與來源日期仍保留在查詢資料中。分頁情況僅對應每次回應，不證明所有相關頁均已讀取。",
+    morePages: "此回應提示還有後續分頁。",
+    responseEnd: "此回應未提示後續分頁。",
+    missingReported: "查詢回報了缺少或不完整輸入。",
+    missingUnknown: "此處未彙總缺少輸入，不能據此判斷資料完整。",
+    source: {
+      get_financial_context: "財務摘要",
+      get_financial_context_page: "財務摘要分頁",
+      get_financial_context_item: "財務摘要明細",
+      get_overview: "目前總覽",
+      list_accounts: "帳戶目錄",
+      get_account_snapshot: "帳戶快照",
+      get_read_page: "後續分頁",
+      get_read_item: "快照項目明細",
+    },
     scope:
       "唯讀 AI · 支援目前總覽、帳戶清單與帳戶詳情。暫不支援期間報酬、寫入、行情更新與自主導覽。",
     ready: "模型已就緒",

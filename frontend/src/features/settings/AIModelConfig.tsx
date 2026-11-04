@@ -74,29 +74,31 @@ export function AIModelConfig({
         {t("aiChat.enable")}
       </Label>
       <p className="text-xs text-muted-foreground">{t("aiChat.consent")}</p>
-      <Button
-        className="min-h-11 whitespace-normal xl:min-h-9"
-        type="submit"
-        disabled={
-          busy ||
-          unavailable ||
-          !model ||
-          !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/.test(model)
-        }
-      >
-        {t("aiChat.saveConfig")}
-      </Button>
-      {status.config?.enabled && (
+      <div className="flex flex-wrap gap-2">
         <Button
           className="min-h-11 whitespace-normal xl:min-h-9"
-          type="button"
-          variant="outline"
-          disabled={busy || unavailable}
-          onClick={() => void save(true)}
+          type="submit"
+          disabled={
+            busy ||
+            unavailable ||
+            !model ||
+            !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/.test(model)
+          }
         >
-          {t("aiChat.disable")}
+          {t("aiChat.saveConfig")}
         </Button>
-      )}
+        {status.config?.enabled && (
+          <Button
+            className="min-h-11 whitespace-normal xl:min-h-9"
+            type="button"
+            variant="outline"
+            disabled={busy || unavailable}
+            onClick={() => void save(true)}
+          >
+            {t("aiChat.disable")}
+          </Button>
+        )}
+      </div>
       {failed && <p role="alert">{t("aiChat.configError")}</p>}
     </form>
   );
