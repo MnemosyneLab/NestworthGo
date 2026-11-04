@@ -67,7 +67,7 @@ the temporary connection credential is removed with the fixture directory.
 
 ## Automated coverage and limits
 
-- Mobile Vitest: 7 files / 78 tests pass, including stale/legacy CSRF, offline,
+- Mobile Vitest: 7 files / 81 tests pass, including stale/legacy CSRF, offline,
   immutable retry, concurrent reconnect/confirmation, credential replacement and
   late-response fencing, remembered-session cross-tab ownership, reauthentication
   receipt recovery, keyboard recovery dismissal and fresh-operation identity.
@@ -81,3 +81,23 @@ the temporary connection credential is removed with the fixture directory.
 - Native Linux compile checks are separate from browser evidence. Native GUI,
   macOS packaging/Keychain/VoiceOver and physical iOS/Android were not exercised.
   Browser emulation does not establish those acceptance gates.
+
+### QuoteForm follow-up coverage
+
+Three additional QuoteForm interaction regressions use an explicit synthetic
+transport that tracks durable receipts separately from process-local plans and
+counts confirmation attempts. They cover never-committed and committed/lost-
+response reviews across CSRF rotation and plan loss, reconnect without dispatch,
+byte-identical same-plan retries, original-operation receipt lookup, unknown
+receipt absence, cancelled desktop-verification dismissal, retained exact quote
+value/date, a fresh operation/plan after explicit discard, and one explicit new
+commit. An intact-plan lost receipt additionally checks pending double-click
+suppression and explicit idempotent retry. Record and market endpoints receive
+no commands from these quote journeys.
+
+These are React interaction tests with synthetic HTTP responses, not new native
+or real-browser quote acceptance. The existing application quote atomic-receipt
+and verified SQLite-reopen regressions are also rerun: repeated confirmation
+returns the same fact ID and exact value, and recovered receipts retain that
+identity after database reopen. No production code changes accompany this
+follow-up. The latest fetched main remains `34f048f797c4667689a729cd2324bdbd9eb005f8`.
