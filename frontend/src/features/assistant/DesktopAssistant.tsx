@@ -43,7 +43,7 @@ export function useDesktopAssistant() {
     {opened && conversation}
   </aside> : <Sheet open={open} onOpenChange={setOpen}>
     <SheetContent id="desktop-assistant" finalFocus={triggerRef} size="lg" className="flex flex-col overflow-hidden p-0">
-      <SheetHeader className="px-4 pt-4"><SheetTitle>{t("assistant.title")}</SheetTitle></SheetHeader>
+      <SheetHeader className="static mx-0 mt-0 px-4 pt-4"><SheetTitle>{t("assistant.title")}</SheetTitle></SheetHeader>
       {conversation}
     </SheetContent>
   </Sheet>;

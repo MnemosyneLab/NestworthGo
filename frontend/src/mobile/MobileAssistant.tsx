@@ -20,7 +20,7 @@ export function MobileAssistant({ blocked, disconnected }: { blocked: boolean; d
     <Button variant="outline" size="icon" className="mobile-icon-button" aria-label={t("assistant.open")} aria-expanded={open} aria-controls="mobile-assistant" disabled={blocked} onClick={() => setOpen(true)}><Sparkles aria-hidden /></Button>
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent id="mobile-assistant" className="flex h-full max-w-full flex-col overflow-hidden rounded-none p-0">
-        <SheetHeader className="px-4 pt-4"><SheetTitle>{t("assistant.title")}</SheetTitle></SheetHeader>
+        <SheetHeader className="static mx-0 mt-0 px-4 pt-4"><SheetTitle>{t("assistant.title")}</SheetTitle></SheetHeader>
         <AssistantConversation surface="mobile" status={status.data?.data} loading={status.isPending} disconnected={disconnected || status.isError} retry={() => void status.refetch()} />
       </SheetContent>
     </Sheet>
