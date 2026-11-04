@@ -52,6 +52,7 @@ func (s *Service) marketDataTools(server *toolSet, mode string) {
 	adapter := quote.NewService(s.app)
 	generation := s.contextGeneration
 	s.marketBatchTools(server, generation)
+	s.marketComparisonTools(server, generation)
 	readTool(server, "get_market_data", "Read one selected current price/rate. Choose an instrumentId OR an oriented currency pair. Retrieve locally saved history and provenance with get_market_data_batch view=history; follow points and observations cursors. Does not fetch any provider. Keep observation dates and missing values visible; a carried NAV is not today's published NAV.", func(ctx context.Context, in MarketDataQuery) (any, error) {
 		if in.InstrumentID != "" {
 			if in.BaseCurrency != "" || in.QuoteCurrency != "" {

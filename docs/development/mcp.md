@@ -131,6 +131,15 @@ overlay. Existing provider adapters are unchanged.
 - `list_agent_market_data`: page audit records, original source title/URL,
   exact values, effective dates, corrections and withdrawals. `active` means
   eligible, not necessarily selected. Available in every permission mode.
+- `compare_market_data_import`: read-only, 1–500 ordered proposed rows / 100 targets /
+  128 KiB. Default compact results preserve client IDs/order, exact classification
+  and batch conflicts; default comparison page size is 100, capped by final bytes.
+  Follow results pages for batch delivery. Source/selection/audit evidence remains
+  deferred in the same capture; get_read_item section=results id=clientItemId reads
+  focused details, or page result_details/matches/evidence/audits/targets for all
+  details. view=full supports upfront bulk review. Computation completeness is
+  distinct from evidence delivery; no import/refresh/write authorization occurs.
+  See the [comparison API contract](../design/mcp-import-comparison-api.md).
 - `import_market_data`: `ledger_write` only. Atomically import 1–100 items with
   one `operationId`. Operations are `append` (default), `correct`, or `retract`.
   A correction/withdrawal requires the existing Agent `targetQuoteId`; other
@@ -763,8 +772,8 @@ both relevant section cursors finish. A zero-item deferred page is not evidence
 of missing prices. `evidenceScope=active_observations_only` excludes withdrawn or
 superseded facts; use Agent audit history for those historical facts. This read
 cannot establish import absence or compute a safe write precondition. The
-[bounded import comparison design](../design/mcp-import-comparison.md) specifies
-the separate interface; that interface is not implemented by this change.
+[implemented import comparison API](../design/mcp-import-comparison-api.md) specifies
+the separate implemented tool, including inactive evidence and exact classifications.
 
 The unified layout uses the same permission generation, fixed read-only SQLite
 snapshot, content hash, HMAC-bound cursor, five-minute TTL, response byte budget,

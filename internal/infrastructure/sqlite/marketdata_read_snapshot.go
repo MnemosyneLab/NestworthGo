@@ -15,9 +15,10 @@ import (
 // from validated typed targets, with values bound separately.
 type marketScopedQuery struct {
 	queryer
-	instrumentIDs []string
-	fxPredicate   string
-	fxArgs        []any
+	budgetCandidates bool
+	instrumentIDs    []string
+	fxPredicate      string
+	fxArgs           []any
 }
 
 func (q marketScopedQuery) scope(statement string, args []any) (string, []any) {
@@ -46,7 +47,7 @@ func (q marketScopedQuery) QueryRowContext(ctx context.Context, statement string
 func (q marketScopedQuery) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
 	statement, args = q.scope(statement, args)
 	statement += " LIMIT 20001"
-	if strings.Contains(statement, "WITH candidates") {
+	if strings.Contains(statement, "WITH candidates") && !q.budgetCandidates {
 		return q.queryer.QueryContext(ctx, statement, args...)
 	}
 	expression := "512"

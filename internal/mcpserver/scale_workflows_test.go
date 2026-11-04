@@ -115,7 +115,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 	productJSONEqual(t, empty["summary"].(map[string]any)["buckets"], overview.Buckets)
 	call(t, c, "get_liquidity_overview", map[string]any{"filter": map[string]any{}}, false)
 	call(t, c, "get_liquidity_overview", map[string]any{"sort": map[string]any{"field": "availableBase"}}, true)
-	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "update_instruments_batch"} {
+	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "compare_market_data_import", "update_instruments_batch"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, wire := productHTTP(t, fx.service, payload, "")
 		if status != 200 || len(wire) > contextWireLimit || strings.Contains(string(wire), "privateprivate") {
