@@ -545,7 +545,7 @@ func financialContextEnvelope(next http.Handler, registered ...map[string]bool) 
 					} else if isFeatureTool(request.Params.Name) {
 						message = "feature response exceeds the MCP wire budget; retry paged reviews/upcoming reads and follow every nextCursor; narrow the requested data for other tools"
 					}
-					result.SetError(fail("too_large", message))
+					result = recoveryResult(fail("too_large", message))
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
 					_ = jsoncodec.NewEncoder(w).Encode(struct {
@@ -619,7 +619,7 @@ func scrubSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage, 
 		}
 	}
 	result := &mcp.CallToolResult{}
-	result.SetError(fail("validation", message))
+	result = recoveryResult(fail("validation", message))
 	buffer.body.Reset()
 	buffer.header.Set("Content-Type", "application/json")
 	buffer.status = http.StatusOK

@@ -244,3 +244,19 @@ authority from read-cache errors.
 ```json
 {"filter":{"instrumentIds":["${instrumentId}"],"observationKinds":["closed"]},"limit":100}
 ```
+
+
+Shared read tools advertise success outputSchema for the mcp-read/1 envelope,
+including capture identity/hash/expiry and initial-summary versus section-page
+forms. Repair advertises progress or evidence shapes. Business summaries/rows
+retain their owning exact-money, nullability and provenance contracts; the
+common envelope schema does not claim to describe every nested GUI field.
+Write and get_operation recovery receipts gain no new post-execution schema
+restriction. Error recovery uses the separate mcp-error/1 shape described in
+[recovery](recovery.md), not a successful data result.
+
+The SDK sends both JSON text and structuredContent. Both count toward measured
+wire bytes. A client can choose which representation to consume; model-token
+cost depends on that client. Do not add the two copies as separate evidence or
+claim model-token savings from HTTP-byte measurements. The built-in adapter uses
+its direct capability path; external assistant consumption remains client-specific.

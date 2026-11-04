@@ -271,9 +271,21 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	rec.mu.Lock()
 	rawDiscoveryBytes := rec.discoveryBytes
 	rec.mu.Unlock()
-	if rawDiscoveryBytes == 0 || rawDiscoveryBytes > 160<<10 {
-		t.Fatalf("raw tool discovery grew to %d bytes", rawDiscoveryBytes)
+	// Retain the pre-envelope budget for every other metadata field. Typed
+	// output envelopes are an intentional contract addition, measured separately
+	// rather than silently widening the old input/description budget.
+	oldOutput, _ := jsoncodec.Marshal(map[string]any{"type": "object", "properties": map[string]any{"data": true}, "required": []string{"data"}, "additionalProperties": false})
+	outputDelta := 0
+	for _, tool := range tools.Tools {
+		if readOutputSchema(tool.Name) != nil {
+			encoded, _ := jsoncodec.Marshal(tool.OutputSchema)
+			outputDelta += len(encoded) - len(oldOutput)
+		}
 	}
+	if rawDiscoveryBytes == 0 || rawDiscoveryBytes-outputDelta > 160<<10 || rawDiscoveryBytes > 192<<10 {
+		t.Fatalf("tool discovery grew: actual=%d reviewed-output-delta=%d legacy-metadata=%d", rawDiscoveryBytes, outputDelta, rawDiscoveryBytes-outputDelta)
+	}
+	t.Logf("explicit read-output schema cost=%d bytes; other discovery metadata=%d bytes", outputDelta, rawDiscoveryBytes-outputDelta)
 	t.Logf("discovery registered=%d raw-HTTP-JSON-RPC-bytes=%d reconstructed-JSON-RPC-bytes=%d", len(tools.Tools), rawDiscoveryBytes, len(discovery))
 	measureCompactReadJourneys(t, c, rec, f)
 	// Management and catalog (including note-preserving full item retrieval).

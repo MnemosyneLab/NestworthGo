@@ -1055,3 +1055,45 @@ pageable (default 25/max 100). It evaluates the original requested policy once,
 never shortens a 365-day window to meet the wire cap, and never publishes rules,
 alerts, daily evidence or derived valuations. Expiry/revocation requires a fresh
 preview capture. expectedSourceToken remains a source-change guard, not write CAS.
+
+
+## Typed read contracts and optional task discovery
+
+Shared mcp-read/1 success envelopes and financial package/page headers have
+explicit outputSchema, as does progress-versus-evidence job reading. The SDK and
+shared registry validate these shapes. Nested business payloads remain owned by
+the existing exact-value DTO contract; this is not a claim to describe every GUI
+field. No write or get_operation receipt receives a new post-execution output
+gate. Discovery baseline tests isolate this intentional output-schema change.
+
+Safe external tool errors retain isError and original code/field/message text;
+structuredContent additionally carries mcp-error/1 with error and conservative
+recovery action/automaticRetry/preserveIntent/discardCapture fields. Hints never
+authorize replay or turn unknown execution into failure/success. AutomaticRetry
+is false. Protocol/auth errors may remain outside this tool-error shape. Success
+and recovery receipts remain unmodified values.
+
+Clients can optionally pass tools/list `_meta.nestworth.toolGroups` as a nonempty
+array of context/summary/analysis/directory/ledger/market/products/review/
+reconciliation/health names. Discovery includes only selected categories plus
+shared get_read_page/get_read_item/get_operation; schemas and annotations match
+full discovery exactly. Registered permissions and tools/call enforcement do
+not change. The extension is not a household scope or authorization boundary.
+Default discovery stays complete. Clients that hide tools/list metadata cannot
+be assumed to use it; no automatic model-tool reduction is claimed for them.
+
+Filtered tool pages remain 16 items maximum. HMAC cursors bind normalized group
+set and running server; retain identical metadata throughout pagination. Different
+groups, tampered/full-list cursors and restarted servers require fresh discovery.
+Metadata is built once per server, with no household/provider reads or mutable
+cross-client profile. Selected requests and wire bytes are measured with the
+production SDK; this is not model-token evidence.
+
+SDK success responses continue to contain both structuredContent and JSON text.
+The typed SDK constructs the text fallback when structured output is present.
+Tests verify equal exact JSON payloads and count both copies plus JSON-RPC
+escaping/overhead. The built-in Eino adapter receives one direct capability JSON
+string (engine.go FunctionToolResult), not an external MCP envelope. External
+client/model consumption is outside the server's observation; no real external
+model-token or token-savings claim is made. Removing text without client evidence
+could remove the representation a client actually consumes, so both are retained.

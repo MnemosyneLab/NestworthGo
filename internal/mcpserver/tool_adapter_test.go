@@ -75,6 +75,16 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, tool := range listed.Tools {
+				if expected := readOutputSchema(tool.Name); expected != nil {
+					if !reflect.DeepEqual(jsonObject(t, tool.OutputSchema), jsonObject(t, expected)) {
+						t.Fatalf("read output contract drift: %s", tool.Name)
+					}
+					// Historical discovery used Response.data:any. Project only
+					// this reviewed output-envelope delta for the old hash.
+					copy := *tool
+					copy.OutputSchema = map[string]any{"type": "object", "properties": map[string]any{"data": true}, "required": []string{"data"}, "additionalProperties": false}
+					tool = &copy
+				}
 				// Shared operationId guidance is shortened; common server/skill
 				// instructions preserve exact retries and unknown-state recovery.
 				schema := jsonObject(t, tool.InputSchema)

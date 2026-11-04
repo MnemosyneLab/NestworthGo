@@ -127,3 +127,29 @@ Reconciliation sessions expose reconciliation_session_read in every permission
 mode and reconciliation_session_write only with ledger_write. Directory access
 does not authorize ledger attestations. Discover the actual session tool names
 before following [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).
+
+
+## Optional task-scoped tool discovery
+
+Clients that expose MCP tools/list metadata can request a smaller discovery
+set with `_meta.nestworth.toolGroups`. Valid groups are context, summary,
+analysis, directory, ledger, market, products, review, reconciliation and health.
+The same permission mode still governs every registered call. This is a discovery
+filter, not an authorization boundary or a financial data scope. Shared
+get_read_page/get_read_item/get_operation remain listed for evidence/recovery.
+
+The following is **tools/list protocol parameters**, not business-tool input:
+
+<!-- example: task-tool-discovery -->
+```json
+{"_meta":{"nestworth.toolGroups":["summary"]}}
+```
+
+Keep the same metadata on every nextCursor request; cursors are signed and bound
+to the normalized group set and running server. Changing groups, reconnecting
+to a restarted server or using a full-discovery cursor requires starting from
+the first page. Cache the selected inventory for that connection/group set.
+A group cannot reveal tools absent from the current permission mode. Without
+this metadata, discovery returns the complete existing tool set. Clients that
+hide tools/list metadata use full discovery and cache its schemas; this optional
+extension is not claimed to run automatically in every external assistant.

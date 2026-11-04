@@ -286,3 +286,72 @@ remains above main 4.0.0 within this same unmerged PR; no published asset or
 installed skill was replaced. Packaging/checksum/source comparisons remain
 required after the final reference changes. Real external assistant behavior,
 model tokens and native macOS acceptance remain unverified.
+
+## Remaining contract/discovery/recovery work
+
+The follow-up implements the remaining safe client-boundary work rather than
+claiming one consistency model for different authorities:
+
+- Frozen captures and financial packages keep their fixed identity/hash/TTL and
+  same-capture pages. Published review/reconciliation cursors retain revision
+  fences; activity/product/rule/suppression identity pages remain live. Their
+  differences are now explicit in the Skill matrix, not hidden as “all frozen”.
+- **34** shared read/financial header/progress tools now publish stable success
+  output envelopes validated by the registry and SDK. Nested summary/row DTOs
+  retain exact existing fields; this does not claim exhaustive JSON schemas for
+  every nested GUI field or every legacy direct-DTO tool. Write and recovery
+  receipts acquire no new post-execution output gate.
+- Safe external tool errors additionally expose **mcp-error/1** structured
+  error/recovery data while preserving isError and original code/field/message
+  text. Every hint has automaticRetry=false. Unknown/stale/integrity-sensitive
+  writes preserve original intent and direct clients to operation/current-state
+  inspection. Success and get_operation recovery receipts are unchanged.
+- Optional tools/list `_meta.nestworth.toolGroups` provides request-scoped
+  discovery. Full schemas/annotations match default discovery, shared evidence/
+  recovery tools remain available, and signed cursors bind the normalized groups
+  and running server. The mode-specific registered call allowlist remains the
+  permission authority. Default discovery is still complete; a client that does
+  not expose tools/list metadata is not claimed to use this optimization.
+
+Actual SDK/HTTP measurements with final envelope schemas:
+
+| Discovery request | Tools | HTTP calls | Response bytes |
+| --- | ---: | ---: | ---: |
+| Default full inventory | 104 | 7 | 190,499 |
+| Explicit summary categories plus shared evidence/recovery | 9 | 1 | 17,897 |
+
+The full inventory is **larger**, because output envelopes add 40,803 bytes.
+The original 160 KiB non-output-envelope metadata guard remains after projecting
+only that reviewed addition; measured other metadata is 149,696 bytes. A separate
+192 KiB full-inventory ceiling, 24 KiB summary-subset ceiling and unchanged 64 KiB
+per-response cap prevent unbounded growth. This is an explicit interface tradeoff,
+not a claim that default discovery shrank or that all clients use subsets.
+
+The typed SDK intentionally emits structuredContent and JSON text. An actual
+account call delivered equal exact JSON in both representations: 1,301 bytes
+each, 2,960 final HTTP bytes including escaping/envelope. The test checks semantic
+identity with preserved numeric lexemes and counts both copies. No external
+assistant/model-token consumption was measured. The built-in Eino capability
+adapter passes one direct result string in its FunctionToolResult; that is a
+separate path, established from its maintained source, not live model evidence.
+Removing the SDK text fallback without consumer evidence could remove the copy
+that a real client uses; both copies therefore remain. No token-saving claim is
+made from these transport measurements.
+
+Focused SDK checks cover subset size/schema equality, complete selected unions,
+signed group/cursor mismatch rejection without echo, read-only write rejection,
+unchanged calls outside a discovery filter, stable output identity/version,
+structured expired-read/unknown-write handling and full oversized success receipts.
+The shipped task-discovery protocol example itself is used by the SDK test.
+Current static/schema coverage is **77** parseable JSON examples: **75** tool
+arguments validated against actual registered schemas, one Inspector config and
+one tools/list protocol-parameter example. This is not 77 end-to-end scenarios.
+
+An initial full MCP attempt ran 231.206s and failed only the previous aggregate
+160 KiB discovery-growth assertion; no functional test failed. The reviewed
+output-schema cost is now separated while preserving that original guard for
+other metadata. Both representative payload tiers subsequently passed:
+20 accounts / 8 instruments, 5.233s, 119 calls / 1,555,875 bytes / maximum 64,165;
+200 accounts / 25 instruments, 24.212s, 270 calls / 8,753,219 bytes / maximum
+64,634. Each tier still probes 60 business tools. These are synthetic transport
+measurements, not latency comparisons or loaded native CI timing claims.

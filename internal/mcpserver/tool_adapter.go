@@ -23,6 +23,9 @@ func newToolSet(instructions string, external bool) *toolSet {
 }
 
 func registerTool[I any](set *toolSet, definition *agentcapability.Definition, handler func(context.Context, I) (Response, error)) {
+	if definition.OutputSchema == nil && definition.Effect != agentcapability.Write {
+		definition.OutputSchema = readOutputSchema(definition.Name)
+	}
 	agentcapability.Add(set.Registry, definition, handler)
 	if set.server == nil {
 		return
@@ -31,10 +34,7 @@ func registerTool[I any](set *toolSet, definition *agentcapability.Definition, h
 	if err != nil {
 		panic(err)
 	}
-	tool := &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, OutputSchema: d.OutputSchema}
-	if a := d.Annotations; a != nil {
-		tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: a.ReadOnlyHint, DestructiveHint: a.DestructiveHint, IdempotentHint: a.IdempotentHint, OpenWorldHint: a.OpenWorldHint}
-	}
+	tool := sdkTool(d)
 	// Keep the SDK's original typed validation, defaults, decoding, structured
 	// errors and response envelope. External tools acquire no App approval gate.
 	mcp.AddTool(set.server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, input I) (*mcp.CallToolResult, Response, error) {
@@ -57,4 +57,12 @@ func (set *toolSet) readResponseTools() map[string]bool {
 		names[d.Name] = d.Effect != agentcapability.Write && d.Name != "get_operation"
 	}
 	return names
+}
+
+func sdkTool(d agentcapability.Definition) *mcp.Tool {
+	tool := &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, OutputSchema: d.OutputSchema}
+	if a := d.Annotations; a != nil {
+		tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: a.ReadOnlyHint, DestructiveHint: a.DestructiveHint, IdempotentHint: a.IdempotentHint, OpenWorldHint: a.OpenWorldHint}
+	}
+	return tool
 }

@@ -80,7 +80,7 @@ func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 		reference := strings.TrimSuffix(filepath.Base(file), ".md")
 		for _, match := range examples.FindAllStringSubmatch(string(raw), -1) {
 			name := match[1]
-			if reference == "connection" && name == "inspector-http-config" {
+			if reference == "connection" && (name == "inspector-http-config" || name == "task-tool-discovery") {
 				configs++
 				continue
 			}
@@ -135,10 +135,10 @@ func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 			t.Errorf("mapped example disappeared: %s", key)
 		}
 	}
-	if configs != 1 || checked == 0 {
+	if configs != 2 || checked == 0 {
 		t.Fatal("configuration/tool example classification failed", configs, checked)
 	}
-	t.Logf("registered-schema validation: %d tool examples, %d separately classified client configuration", checked, configs)
+	t.Logf("registered-schema validation: %d tool examples, %d separately classified client/protocol examples", checked, configs)
 }
 
 func TestSkillToolInventoryCoversRegisteredTools(t *testing.T) {
