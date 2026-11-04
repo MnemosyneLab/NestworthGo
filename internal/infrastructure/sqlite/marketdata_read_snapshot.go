@@ -138,7 +138,10 @@ func (r *Repository) ReadMarketDataSnapshot(ctx context.Context, in domain.Marke
 		}
 		location = l
 	}
-	trend, _ := domain.ParseTrendRange(in.Range)
+	trend, err := in.TrendRange()
+	if err != nil {
+		return out, err
+	}
 	filter, _ := domain.ParseQuoteSourceFilter(in.SourceFilter)
 	query := domain.NewQuoteReadWindow(trend, filter, now, location, "", "")
 	if in.View != "current" {

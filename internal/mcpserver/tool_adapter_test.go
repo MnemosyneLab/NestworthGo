@@ -43,7 +43,35 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				t.Fatal(err)
 			}
 			sort.Slice(listed.Tools, func(i, j int) bool { return listed.Tools[i].Name < listed.Tools[j].Name })
-			raw, err := jsoncodec.MarshalIndent(listed.Tools, "", "  ")
+			// The batch-history extension intentionally adds three optional inputs
+			// and documents them. Project only that reviewed delta back to the
+			// immutable baseline; every other tool/field must still match.
+			baseline := append([]*mcp.Tool{}, listed.Tools...)
+			for i, tool := range baseline {
+				if tool.Name != "get_market_data_batch" {
+					continue
+				}
+				copy := *tool
+				schemaJSON, err := jsoncodec.Marshal(tool.InputSchema)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var schema map[string]any
+				if err := jsoncodec.Unmarshal(schemaJSON, &schema); err != nil {
+					t.Fatal(err)
+				}
+				properties := schema["properties"].(map[string]any)
+				for _, field := range []string{"fromDate", "toDate", "historyLayout"} {
+					if properties[field] == nil {
+						t.Fatalf("missing optional batch extension %s", field)
+					}
+					delete(properties, field)
+				}
+				copy.InputSchema = schema
+				copy.Description = "Capture 1 to 100 distinct instrument IDs or oriented FX pairs in one strictly local read-only transaction. current (default) omits history; coverage preserves counts and gapAssessment=not_evaluated; history separates selected points from raw observations per target. Follow every section cursor with get_read_page before claiming completeness. No provider refresh or writes."
+				baseline[i] = &copy
+			}
+			raw, err := jsoncodec.MarshalIndent(baseline, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
