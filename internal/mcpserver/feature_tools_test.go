@@ -123,7 +123,7 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	if summary["change"].(map[string]any)["netWorth"] != "50" {
 		t.Fatal(summary)
 	}
-	if !strings.Contains(summary["reconciliation"].(map[string]any)["basis"].(string), "endpoint_bridge/1") {
+	if !strings.Contains(summary["reconciliation"].(map[string]any)["basis"].(string), "endpoint_bridge/2") {
 		t.Fatal(summary)
 	}
 	rows := scaleSection(t, c, view, "rows")
