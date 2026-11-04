@@ -15,7 +15,9 @@ touch-sized Sheet from its header; the existing bottom navigation and central
 recording action remain unchanged. The separate Financial review Sheet explains
 the closed writer and directs users to the existing trusted recording flow.
 
-Overview, Accounts and account detail publish explicitly constructed DTOs from
+Page capture is off until the assistant opens and is revoked when it closes.
+No assistant status request or conversation view mounts on the initial closed
+desktop surface. Overview, Accounts and account detail publish explicitly constructed DTOs from
 their existing queries. The guide explains selected visible figures using
 localized calculation definitions and retained evidence snapshots. It does not
 calculate totals or returns. All three languages use the existing control,

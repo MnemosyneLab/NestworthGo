@@ -5,9 +5,15 @@ import i18n from "@/i18n";
 import { AssistantPageProvider, usePublishAssistantPage } from "./PageContext";
 import { AssistantConversation } from "./AssistantConversation";
 import type { PagePublication } from "./contracts";
+import { useLayoutEffect } from "react";
+import { useAssistantPage } from "./PageContext";
 
 const status = { version: 1, surface: "desktop", pageGuide: true, provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" };
-function Publisher({ publication }: { publication: PagePublication }) { usePublishAssistantPage(publication); return null; }
+function Publisher({ publication }: { publication: PagePublication }) {
+  const enable = useAssistantPage()?.setEnabled;
+  useLayoutEffect(() => enable?.(true), [enable]);
+  usePublishAssistantPage(publication); return null;
+}
 function fixture() : PagePublication { return { viewKey: "overview:", page: "overview", scope: { kind: "household", label: "Synthetic household" }, timezone: "Asia/Shanghai", basis: "base", currency: "CNY", observedAt: Date.now(), state: "available", targets: [], metrics: [
   { label: "Synthetic missing value", value: null, unit: "CNY", basis: "net_worth", status: "unavailable", missingReasons: ["quote"] },
   { label: "Synthetic subtotal", value: "0.004", unit: "CNY", basis: "assets", status: "incomplete", missingReasons: ["fx"] },

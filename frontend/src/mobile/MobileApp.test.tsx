@@ -71,6 +71,8 @@ beforeEach(async () => {
     "fetch",
     vi.fn(async (url: string, init: RequestInit) => {
       const route = url.replace("/mobile-api/v1", "");
+      if (route === "/assistant/status") return json(envelope({ version: 1, surface: "mobile", pageGuide: true,
+        provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" }));
       if (route === "/session")
         return json({
           ...session,
@@ -289,6 +291,24 @@ async function fillRecord(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("mobile financial interruption flow", () => {
+  it("opens the local assistant and separate closed review without dispatching a financial change", async () => {
+    const user = userEvent.setup(); mount();
+    await screen.findByRole("button", { name: "Quick record" });
+    const trigger = screen.getByRole("button", { name: "Open AI assistant" });
+    await user.click(trigger);
+    await screen.findByText("Local page guide ready");
+    await user.selectOptions(screen.getByLabelText("Visible metric"), screen.getByRole("option", { name: "Net worth" }));
+    await user.click(screen.getByRole("button", { name: "Explain selected metric" }));
+    await screen.findByText("Local page guide · no model");
+    await user.click(screen.getByRole("button", { name: "Financial review" }));
+    expect(screen.getByRole("button", { name: "AI confirmation unavailable" })).toBeDisabled();
+    expect(previews).toHaveLength(0); expect(confirms).toHaveLength(0);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Financial review" })).toHaveFocus());
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.getByRole("button", { name: "Quick record" })).toBeVisible();
+  });
   it("shows a known holding cost from the tagged money DTO instead of a blank amount", async () => {
     const user = userEvent.setup();
     mount();

@@ -452,7 +452,7 @@ export function MobileApp() {
         >
           <Settings2 aria-hidden />
         </Button>
-        {b?.capabilities.read && <MobileAssistant blocked={!!pending || hiddenNav} disconnected={connectionState !== "connected"} />}
+        {b?.capabilities.read && <MobileAssistant key={`${tab}:${detail?.id ?? ""}`} blocked={!!pending || hiddenNav} disconnected={connectionState !== "connected"} />}
       </header>
       {showSettings && (
         <section

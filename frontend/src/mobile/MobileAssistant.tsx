@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AssistantConversation } from "@/features/assistant/AssistantConversation";
+import { useAssistantPage } from "@/features/assistant/PageContext";
 import { api, type Envelope } from "./api";
 
 export function MobileAssistant({ blocked, disconnected }: { blocked: boolean; disconnected: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const enablePage = useAssistantPage()?.setEnabled;
+  useLayoutEffect(() => { enablePage?.(open && !blocked && !disconnected); return () => enablePage?.(false); }, [enablePage, open, blocked, disconnected]);
   const status = useQuery({ queryKey: ["mobile", "assistant", "status"],
     queryFn: () => api<Envelope<unknown>>("/assistant/status"),
     enabled: open && !disconnected, retry: false, refetchOnWindowFocus: false });

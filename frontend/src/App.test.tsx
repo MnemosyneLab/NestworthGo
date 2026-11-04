@@ -15,6 +15,8 @@ import { reviewV2Key } from "./queries/investmentReviewV2";
 import { useUiStore } from "./stores/ui";
 import { registerSheetConfirmation, resolveSheetConfirmation } from "./components/ui/sheet-confirmation";
 import { useObjectNavigation } from "./app/NavigationContext";
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/assistant", () => ({ Service: { Status: () => Promise.resolve({ version: 1, surface: "desktop", pageGuide: true,
+  provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" }) } }));
 
 const onboardingFixture = vi.hoisted(() => ({ enabled: false, completed: false }));
 
