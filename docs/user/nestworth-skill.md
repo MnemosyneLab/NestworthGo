@@ -46,21 +46,27 @@ bash nestworth-skill/install.sh --version latest
 ```
 
 Pin a published **App release tag** instead with `--version vX.Y.Z`. This selects
-the GitHub release, not the skill's own `VERSION`. The published v0.3.9
-release includes skill 1.11.0; v0.3.8 historically includes skill 1.9.0 and
-v0.3.7 includes skill 1.6.0. Each release must include the two named assets. If the latest App release lacks
-them, use a release that includes them or a local bundle; there is no fallback
-to unreleased main-branch content.
+the GitHub release, not the skill's own `VERSION`. The latest published
+[v0.3.10 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10)
+contains skill 2.0.0; v0.3.9 contains 1.11.0, v0.3.8 contains 1.9.0 and
+v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
+latest App release lacks them, use a release that includes them or a local
+bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository and published skill: 1.11.0
+### Current repository skill: 2.1.0; published skill: 2.0.0
 
-The [v0.3.9 bundle](../releases/v0.3.9.md) publishes skill 1.11.0. Its examples
-remain synthetic; they do not prove external Codex discovery, client reasoning
-or live Mac acceptance. External-client acceptance was not run for this
-release. The App and skill are separate components: installing a newer skill
-does not add tools to an older App. The installer with `--version latest`
-selects v0.3.9 and skill 1.11.0; `--version v0.3.8` selects historical skill
-1.9.0, and `--version v0.3.7` selects skill 1.6.0.
+Repository skill 2.1.0 records the post-v0.3.10 asset-change guidance:
+`endpoint_bridge/2`, separately paged reconciliation details, paired trade
+principal and valuation semantics, execution-price spreads and quantity
+remeasurement. This minor bump identifies expanded analysis contract guidance;
+it does not claim a new incompatible MCP tool interface. The earlier bounded
+read cutover required major version 2.0.0. Skill 2.1.0 is not yet published;
+`--version latest` still selects App v0.3.10 and skill 2.0.0.
+
+The App and skill are separate components: installing a newer skill does not
+add tools to an older App. Actual discovery and returned schemas remain the
+authority. Examples remain synthetic and do not establish external Codex
+discovery, client reasoning or live Mac acceptance.
 
 Existing clients do **not** update their installed skill automatically when the
 App or repository changes. Update explicitly, check `--status` for the intended
@@ -130,8 +136,8 @@ Upcoming actions is an App-only read interface, with no new MCP tool.
 Setup, backups/restores, provider credentials and history resets also remain App
 workflows. No brokerage orders are placed through the skill.
 
-The App version, package content schema (`financial-context/1`) and item schema
-(`financial-context-item/1`) are separate contracts. Installed clients require
+The App version, skill version and returned MCP schema identifiers (including
+`mcp-read/1` and `historical-read/2`) are separate contracts. Installed clients require
 an explicit skill update. A missing item tool means the connected App lacks this
 capability; do not silently fall back to identity-bearing reads.
 
@@ -173,3 +179,59 @@ or real missing transactions, explicitly check sourced evidence and finish fully
 or partially. It must never invent a source, value, explanation or confirmation.
 See [account reconciliation](account-reconciliation.md). Private receipts remain
 separate from user-facing completed reconciliation evidence.
+
+## Skill version policy
+
+`skills/nestworth/VERSION` is the only skill version source. Packaging copies
+that file verbatim; the installer reads it and records/reports it in installation
+metadata and `--status`. Do not duplicate it in frontmatter or agent metadata.
+The App's version/build and the installer's `--version` release selector are
+independent. A new App release can ship an unchanged skill version only when
+all distributable skill inputs are unchanged.
+
+Bump in the same PR whenever any distributable input changes: every file under
+`skills/nestworth/` (entry instructions, agent metadata and all references),
+`tools/install-nestworth-skill.sh` and this guide (bundled as `INSTALL.md`).
+Reference-only edits, examples, typo fixes, safety/authorization guidance,
+financial meaning, paging, schema/tool arguments and compatibility guidance all
+count. Changes to implementation contracts require reviewing the skill and
+updating/bumping it when its guidance changes. Unrelated App code, development
+docs and tests alone do not require a skill bump.
+
+Use stable SemVer `MAJOR.MINOR.PATCH`: major for incompatible supported tool,
+argument, workflow or interpretation changes; minor for compatible new
+capabilities or expanded contract guidance; patch for compatible corrections,
+clarifications, metadata or installer fixes. Classify by effect on consumers,
+not file type. Never reuse or decrease a version. Before choosing it, fetch main
+and tags, inspect VERSION history and published release assets (including draft
+releases), then choose above both main and any already allocated version. Update
+this guide's current repository section in the same PR; preserve historical
+published versions. Recheck after rebasing or concurrent releases. Never replace
+published assets with different content under the same skill version.
+
+Stage added payload files so Git includes them in the local comparison.
+Before committing, run:
+
+```bash
+git fetch origin main --tags
+python3 tools/check-nestworth-skill.py --base origin/main
+python3 -m unittest discover -s tools/tests -v
+python3 tools/package-nestworth-skill.py
+(cd dist/skills && shasum -a 256 -c nestworth-skill.tar.gz.sha256)
+go test ./internal/mcpserver -run Skill
+```
+
+Inspect the archive's VERSION and compare all payload files with their sources.
+Installer tests use temporary destinations exclusively; do not update a real
+installed skill or ledger to validate a release.
+
+The native CI tooling lane runs the same version guard against a push's previous
+tip, or the main merge base for new branches/manual dispatch. Full checkout
+history makes these baselines available; missing history fails explicitly.
+The content checker also verifies the guide's current repository version.
+The guard compares Git changes for all bundled inputs and requires a strictly
+higher stable version, including for version-only edits. No maintained hashes
+are needed. Without `--base`/`--ci-base`, the checker validates current content
+only (for source bundles/checkouts without history). The guard does not decide
+SemVer impact, detect stale guidance after implementation-only changes, or query
+release registries for version reuse: maintainers still review those points.
