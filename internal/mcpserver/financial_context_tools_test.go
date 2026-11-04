@@ -23,7 +23,7 @@ import (
 
 func decodeContext(t *testing.T, obj map[string]any) FinancialContextResponse {
 	t.Helper()
-	raw, _ := jsoncodec.Marshal(obj["data"])
+	raw, _ := jsoncodec.Marshal(financialPageTestData(t, obj["data"]))
 	var r FinancialContextResponse
 	if err := jsoncodec.Unmarshal(raw, &r); err != nil {
 		t.Fatal(err)
@@ -60,17 +60,22 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			}
 			cursor := initial.PositionsPage.NextCursor
 			count := initial.PositionsPage.Returned
+			positions := append([]application.FinancialContextPosition{}, initial.Content.Positions...)
 			for cursor != "" {
 				page := decodeContext(t, call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
-				if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.PositionsPage.Returned == 0 || *page.Content.Summary.NetWorth.Value != "50" {
+				if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.PositionsPage.Returned == 0 || page.Content.Summary.NetWorth.Value != nil {
 					t.Fatal(page)
 				}
+				positions = append(positions, page.Content.Positions...)
+				retry := decodeContext(t, call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
+				productJSONEqual(t, retry, page)
 				count += page.PositionsPage.Returned
 				cursor = page.PositionsPage.NextCursor
 			}
 			if count != initial.PositionsPage.Total {
 				t.Fatal(count, initial.PositionsPage)
 			}
+			productJSONEqual(t, positions, s.contexts.entries[initial.ContextID].result.Content.Positions)
 			if changes.Load() != 0 {
 				t.Fatal("context emitted write event")
 			}
@@ -267,8 +272,8 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	}
 	c.entries["id"] = entry
 	page, err := (&Service{contexts: c}).financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: "id", Section: "evidence", Cursor: initial.EvidencePage.NextCursor})
-	if err != nil || page.EvidencePage.Returned != 1 || page.EvidencePage.HasMore {
-		t.Fatal("continuation must advance", page.EvidencePage, err)
+	if err != nil || page.Page.Returned != 1 || page.Page.HasMore {
+		t.Fatal("continuation must advance", page.Page, err)
 	}
 	value = strings.Repeat("9", contextWireLimit)
 	if _, err := c.response("id", entry, g, "", 0, 1); err == nil {
@@ -601,14 +606,14 @@ func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
 	var reply struct {
 		Result struct {
 			StructuredContent struct {
-				Data FinancialContextResponse `json:"data"`
+				Data FinancialSectionResponse `json:"data"`
 			} `json:"structuredContent"`
 		} `json:"result"`
 	}
 	if err = jsoncodec.Unmarshal(raw, &reply); err != nil {
 		t.Fatal(err)
 	}
-	page := reply.Result.StructuredContent.Data.PositionsPage
+	page := reply.Result.StructuredContent.Data.Page
 	if page.Returned <= 0 || page.Returned >= 100 || !page.HasMore || page.NextCursor == cursor {
 		t.Fatal("page did not advance within wire bound", page)
 	}

@@ -53,16 +53,24 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.1; published skill: 2.0.0
+### Current repository skill: 4.0.0; published skill: 2.0.0
 
-Repository skill 3.0.1 combines the import-comparison guidance from 2.3.0 with
+Repository skill 4.0.0 adds the breaking financial context/comparison
+continuation shape: section/items/page with capture identity/hash/expiry, while
+the complete initial financial header is retained by the client. Directory and
+instrument lists return compact identity projections; full frozen metadata uses
+get_read_item. Instrument metadataVersion and managed/archive guards remain in
+lists. This major bump requires callers to update continuation readers and does
+not add a legacy response path. Skill 4.0.0 is not yet published.
+
+It retains skill 3.0.1, which combines the import-comparison guidance from 2.3.0 with
 frozen contribution analysis. It also corrects the remaining offset-paging
 guidance and keeps all frozen section contracts explicit.
 `list_contributions` now returns `mcp-read/1`; follow its `rows` section with
 `get_read_page`. `get_contribution_item` accepts captureId/groupKey instead of a
 repeated query/returnType/groupBy. Offset pagination and independent detail
 recalculation are removed. This is a breaking MCP workflow change; the desktop
-analysis API is unchanged. Skill 3.0.1 is not yet published.
+analysis API is unchanged.
 
 It retains skill 2.3.0's read-only import comparison with default compact
 ordered results, on-demand details from the same frozen capture, exact decimal/

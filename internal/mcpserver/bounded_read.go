@@ -406,7 +406,7 @@ func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 		}
 		return s.reads.page(g, in)
 	})
-	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations, directory or market-comparison capture. Comparison uses section=results and id=clientItemId, with focused child evidence from that same capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations, directory, instrument or market-comparison capture. Comparison uses section=results and id=clientItemId, with focused child evidence from that same capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }
@@ -426,7 +426,7 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	if e.Kind == "market_import_comparison" {
 		return s.reads.comparisonItem(in.CaptureID, e, in)
 	}
-	if e.Kind == "contributions" || e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" {
+	if e.Kind == "contributions" || e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" || e.Kind == "instruments" {
 		key := in.Section + "/" + in.ID
 		v, ok := e.Details[key]
 		if !ok {

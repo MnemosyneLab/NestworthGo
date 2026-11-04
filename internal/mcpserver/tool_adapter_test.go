@@ -22,6 +22,17 @@ import (
 // baselines, not regenerated expectations from the implementation under test.
 // Relative to the earlier 1701e5d capture, upstream #198 changed only the two
 // historical-overview tool descriptions; all modes keep the same tool schemas.
+// These five description-only deltas document the reviewed compact-read
+// contract. Assert each exact new description, then project it back so the
+// immutable baseline still detects unrelated schema/permission/tool changes.
+var compactReadDiscoveryChanges = map[string]struct{ before, afterHash string }{
+	"get_read_item":                 {before: "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", afterHash: "834360e2f1e5d4afa18de3ea93c97dacaa4c51e2ddeddf228004ae36eb2cdbb0"},
+	"list_accounts":                 {before: "List account definitions with ownership and supported filters. Use this result for account IDs and editable fields. The bounded read contract provides stable frozen pages (default 25/max 100); get_read_item with section=accounts and id retains complete metadata/notes.", afterHash: "e50990229e67d60614b59e177d36a7cc6be1d1341e35fdf1b2ec19b2aae9b660"},
+	"list_instruments":              {before: "Search existing local instruments by name, symbol or shortName before creating one. The bounded read contract supports frozen filter/types/IDs and stable sorting, with metadataVersion for atomic metadata batches. Follow every cursor. Distinguish market and quote currency.", afterHash: "3bc0e887aa22ac10b004dc2f3ad04ac5197af0303befd461c26acc3fd47a3906"},
+	"get_financial_context_page":    {before: "Read all three sections (positions, gaps, evidence) from the exact frozen context and matching next cursor. Zero returned rows with nextCursor means deferred, not complete. Aliases cannot be matched across packages or used as UUIDs. Send one JSON-RPC object, never a batch. Default limit 50, maximum 100. Expired, evicted or revoked results require a new package and restart of every section; discard old pages and never mix packages or reuse old cursors with a new contextId. Pages never refresh or extend the fixed TTL. A too_large single row or summary cannot be fixed by lowering limit.", afterHash: "9ceec9bbc0cb364c847229fec366d011690fb7165f247e91a9eb9b993fa11acf"},
+	"get_financial_comparison_page": {before: "Read a frozen comparison section (positions, gaps, evidence), using its comparisonId and exact matching nextCursor. Default limit 50, maximum 100. Zero returned rows with a nextCursor are deferred. Never mix contexts, comparisons, sides, sections or cursors. Expired, evicted or revoked packages require restarting every section; pages do not extend TTL. A too_large summary or row cannot be repaired with smaller pages. Changes are not returns; an attached attribution link is frozen in the same hash and summary and never recomputed by pages. Send a single JSON-RPC object, never a batch.", afterHash: "572a9d1e27a492a1a958d20fe352ac4b41bb024543bd9a289e3544eed1af2d58"},
+}
+
 func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
@@ -58,21 +69,21 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				t.Fatalf("expected exactly one additive comparison tool: %d", len(listed.Tools))
 			}
 			for i, tool := range baseline {
+				if delta, ok := compactReadDiscoveryChanges[tool.Name]; ok {
+					hash := sha256.Sum256([]byte(tool.Description))
+					if hex.EncodeToString(hash[:]) != delta.afterHash {
+						t.Fatalf("unreviewed compact-read discovery delta: %s", tool.Name)
+					}
+					copy := *tool
+					copy.Description = delta.before
+					baseline[i] = &copy
+				}
 				if tool.Name == "get_read_page" {
 					copy := *tool
 					if !strings.Contains(copy.Description, "market-comparison captures default to 100") {
 						t.Fatal("comparison page default missing")
 					}
 					copy.Description = "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25, maximum 100. Follow every cursor before claiming completeness; restart all sections after read_expired/read_revoked. No DB reads or TTL renewal."
-					baseline[i] = &copy
-					continue
-				}
-				if tool.Name == "get_read_item" {
-					copy := *tool
-					if !strings.Contains(copy.Description, "id=clientItemId") {
-						t.Fatal("comparison detail discovery missing")
-					}
-					copy.Description = "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL."
 					baseline[i] = &copy
 					continue
 				}

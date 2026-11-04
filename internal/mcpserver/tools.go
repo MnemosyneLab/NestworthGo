@@ -218,7 +218,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		}
 		return s.pagedDirectory(ctx, generation, "groups", in, in.Limit, out)
 	})
-	readTool(server, "list_accounts", "List account definitions with ownership and supported filters. Use this result for account IDs and editable fields. The bounded read contract provides stable frozen pages (default 25/max 100); get_read_item with section=accounts and id retains complete metadata/notes.", func(ctx context.Context, in AccountListInput) (any, error) {
+	readTool(server, "list_accounts", "List compact account identity, classification, currency, inclusion and ownership with supported filters. Full editable metadata and value evidence require same-capture get_read_item. The bounded read contract provides stable frozen pages (default 25/max 100); get_read_item with section=accounts and id retains complete metadata/notes.", func(ctx context.Context, in AccountListInput) (any, error) {
 		records, err := accounts.ListAccounts(ctx, in.Filter)
 		if err != nil {
 			return nil, err
@@ -231,7 +231,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		}
 		return s.pagedDirectory(ctx, generation, "accounts", in, in.Limit, out)
 	})
-	readTool(server, "list_instruments", "Search existing local instruments by name, symbol or shortName before creating one. The bounded read contract supports frozen filter/types/IDs and stable sorting, with metadataVersion for atomic metadata batches. Follow every cursor. Distinguish market and quote currency.", func(ctx context.Context, in InstrumentReadInput) (any, error) {
+	readTool(server, "list_instruments", "Search existing local instruments by name, symbol or shortName before creating one. The bounded read contract supports frozen filter/types/IDs and stable sorting, with metadataVersion for atomic metadata batches. Default rows retain identity, currency/unit, quote routing, managed/archive status and metadataVersion; notes, display metadata and timestamps require get_read_item with section=instruments and row id in this capture. Default 25/max 100; follow every cursor. Distinguish market and quote currency.", func(ctx context.Context, in InstrumentReadInput) (any, error) {
 		return s.pagedInstruments(ctx, generation, in)
 	})
 	readTool(server, "list_holdings", "Read holdings for an account; this does not place orders or modify positions. The bounded read contract provides stable frozen pages (default 25/max 100); get_read_item with section=holdings and id retains complete metadata/notes.", func(ctx context.Context, in HoldingListInput) (any, error) {

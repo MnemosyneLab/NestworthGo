@@ -104,4 +104,4 @@ Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
 products. Do not substitute general trades for a managed product operation.
 
-Skill 2 uses bounded reads by default; follow section cursors and retain capture hashes.
+Use compact directories and frozen details; financial continuations return section/items/page. Retain initial headers and hashes.
