@@ -1277,7 +1277,7 @@
     "collapse": "Collapse {{name}}",
     "accountContext": "Account: {{name}}",
     "title": "Wealth history",
-    "exit": "Back to current",
+    "exit": "View current overview",
     "date": "Historical date",
     "compare": "Compare with",
     "compareDate": "Comparison date",
@@ -2274,6 +2274,8 @@
     "generateToken": "Generate token"
   },
   "navigationHistory": {
+    "backTo": "Go back to {{destination}}",
+    "forwardTo": "Go forward to {{destination}}",
     "retainedSessions": "Retained Tasks sessions",
     "workspace": "Workspace {{number}}",
     "search": "Search: {{query}}",

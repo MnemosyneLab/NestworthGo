@@ -187,7 +187,7 @@ it("opens a closed day, expands using keyboard and repeatedly dismisses read-onl
   await user.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(read).toHaveBeenCalledTimes(1);
-  await user.click(screen.getByRole("button", { name: "Back to current" }));
+  await user.click(screen.getByRole("button", { name: "View current overview" }));
   expect(exit).toHaveBeenCalledOnce();
 });
 

@@ -1,0 +1,13 @@
+{
+  "frontend/src/App.test.tsx": "361bf37c06ef3796593f4ef5627f2998c84fe8551349b1620449f66f8c66a0d8",
+  "frontend/src/App.tsx": "3774d799745d6fb5a91f8c9c2406d70e7af04a160683d7f447d4c9ef4a28faf9",
+  "frontend/src/app/NavigationHistoryControls.tsx": "24e5dc2989984c379b0be32bc007d474ece00201240cea91d043016a680f429e",
+  "frontend/src/features/accounts/AccountDetail.tsx": "82161d9dc497ee44c1e6b7c6ee17b23b84a6106a1f15dd878b567154823968df",
+  "frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx": "c307ea238de04b788c9ef865d8608c60bd72d1939851dc919157f9a774c4f770",
+  "frontend/src/i18n/locales/en.json": "c9b8a2d21b00fd4b30b1431a15d2ae0b9830064656120c300ed5380e92585d25",
+  "frontend/src/i18n/locales/zh-CN.json": "ffd3989b1698dafc678cd7fcda8212cbb5fe8ce6c6e8e5c47586aeafb412850c",
+  "frontend/src/i18n/locales/zh-TW.json": "a97938bd4932e0c3ccb9c6137c04391c8ad7b3bc89145ec78f292eeedcb70566",
+  "frontend/src/mobile/MobileApp.test.tsx": "88171ade881a536552feab044ca5ce51e349c28f39ed352c2c7442d5fa056d99",
+  "frontend/src/mobile/MobileApp.tsx": "9409cfffca14b02ea724309b99a2a05e99d07140bd30f45e62555ed871734efb",
+  "frontend/src/app/NavigationHistoryControls.test.tsx": "1d3432e8c850d47571ba3e9d7ef5b7da73576233faaa391be8546580192d1551"
+}
