@@ -16,7 +16,21 @@ first and third failed before the correction; all pass afterward. A real
 authenticated HTTP regression verifies that a USD 123.4567 account without
 USD/CNY FX has complete native evidence and incomplete household evidence.
 The shared mapper also preserves exact/zero/signed values and the native currency
-when its value is omitted. Current-head validation is reported in PR #204.
+when its value is omitted. On follow-up source
+`851e01a0f526c5ddd0124568cea09bdc2976a46e`, all **55 affected frontend tests**
+passed, as did lint, typecheck, production build, the real HTTP regression and
+mobile-package vet. A fresh authenticated real-service mobile run confirms
+native USD 100 is available with no native missing inputs while the household
+CNY projection has missing FX. It dispatched no write request and its fixture
+exited successfully after explicit cleanup. Current-head CI is reported in PR #204.
+
+[Follow-up results](native-fx-results.json) ·
+[Source fingerprints](native-fx-source-evidence.json) ·
+[Native USD guide](native-fx-guide-390.png) ·
+[Native USD evidence](native-fx-evidence-390.png).
+Run [native-fx-browser.py](native-fx-browser.py) with `--root` pointing at a fresh
+`TestMobileBrowserFixture` directory and `--output` for evidence. It closes the
+fixture explicitly and uses the already documented unsandboxed browser mode.
 
 This is an installed **local deterministic page guide**, not a complete AI
 assistant. General model conversation, credential entry, durable conversations,
