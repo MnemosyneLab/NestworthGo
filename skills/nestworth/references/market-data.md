@@ -4,6 +4,26 @@
 Supply `instrumentId` or an oriented `baseCurrency`/`quoteCurrency` pair.
 Use `get_market_data_batch` with view=history for complete locally stored selected
 points and raw observations, following all section cursors.
+For a bounded interval, pass paired inclusive `fromDate`/`toDate` instead of
+`range`. Opt in to `historyLayout=records` for a single cross-target `records`
+section with exact original observations and `chartSelected` flags. Follow both
+records and target-metadata cursors. The initial limit defaults to 100 for this
+layout, but the 64 KiB wire budget may return fewer rows. Unknown targets have
+`historyStatus=not_found`; known targets with no matching active facts have
+`no_quotes_in_range`. An unread page never proves absence. Daily dates use stored
+market/NAV dates; other timestamps use the captured household timezone (UTC when
+no history origin exists).
+
+For FX, records `value` and base/quote currencies are the original stored rate
+and direction. `displayValue` is the oriented chart projection and can be rounded;
+never treat its reciprocal as an exact original price. Keep observationKind and
+priceBasis together: Agent unit NAV is stored as close with
+`agent_unit_nav_v1`. `chartSelected` concerns chart points, not import equality
+or source preference. Withdrawn/corrected history needs Agent audit evidence;
+this active-history read alone does not prove an import item is missing.
+The capture content hash is not a later-write CAS token. No import-comparison
+tool is added yet.
+
 Identify the observation date/source;
 a carried NAV is not a newly published NAV.
 

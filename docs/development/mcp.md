@@ -719,6 +719,54 @@ sort={field:targetKey|displayName,direction:asc|desc} and limit. Optional
 historySort chooses quotedAt/effectiveDate and direction; points default
 quotedAt asc, observations quotedAt desc, then createdAt/quoteId asc.
 
+Alternatively supply paired `fromDate` / `toDate` (`YYYY-MM-DD`, inclusive).
+An explicit `range` cannot accompany them. Partial, empty, invalid and reversed
+bounds fail validation. Daily observations use their stored effective market/NAV
+date; observations without an effective date use instants bounded by the
+household history timezone's local midnights, including DST transitions. The
+existing domain quote window owns these rules. An absent history origin uses
+UTC; an invalid configured timezone fails the capture. Custom bounds are echoed
+in query, summary and coverage; legacy named-range calls keep their prior shape.
+
+`historyLayout=records` explicitly opts a history request into unified pagination.
+The default `per_target` layout and existing cursors remain compatible. The new
+layout has only `targets` and `records` sections, initially returning records as
+space permits, then target metadata. Initial limit defaults to 100 in this layout;
+explicit limits and continuation limits retain the 1–100 bound (continuation
+default 25). There is no promise that 233 records fit one response. Targets follow
+`sort`; within each target records follow `historySort` (default quotedAt asc,
+createdAt and quoteId asc ties). One signed records cursor continues across all
+targets. Each active observation is stored once; `chartSelected` identifies
+membership in the existing selected chart points. It does not assert current
+valuation selection, preferred-source eligibility or import equivalence.
+
+Each record includes target identity, quoteId, civil `date` and `dateBasis`,
+quotedAt/createdAt, observationKind, priceBasis, timestampBasis, exact decimal
+`value`, currency, sourceKind/sourceKey, revision and chartSelected. Storage
+observation kind alone cannot distinguish NAV from close: an Agent unit NAV has
+`observationKind=close`, `priceBasis=agent_unit_nav_v1`. Preserve the basis.
+For FX, `baseCurrency`, `quoteCurrency` and `value` describe the **original stored
+direction**. `target` retains the requested direction; `displayValue` is its
+existing, potentially inverted and rounded chart projection. It must never be
+compared as an original exact FX rate. Missing raw FX evidence fails the capture.
+Provider and Agent sources remain distinct. Conversion evidence is retained.
+
+`historyStatus` on target metadata distinguishes `not_found`,
+`no_quotes_in_range`, and `available`, independently of current-price status.
+The capture is complete at creation, but a client has not read all evidence until
+both relevant section cursors finish. A zero-item deferred page is not evidence
+of missing prices. `evidenceScope=active_observations_only` excludes withdrawn or
+superseded facts; use Agent audit history for those historical facts. This read
+cannot establish import absence or compute a safe write precondition. The
+[bounded import comparison design](../design/mcp-import-comparison.md) specifies
+the separate interface; that interface is not implemented by this change.
+
+The unified layout uses the same permission generation, fixed read-only SQLite
+snapshot, content hash, HMAC-bound cursor, five-minute TTL, response byte budget,
+4 MiB capture, cache/build and row limits as other `mcp-read/1` captures. It does
+not store a second points copy or per-target history sections. `contentHash`
+identifies captured content; it is not a CAS token for a subsequent mutation.
+
 All metadata/preferences/current/history facts come from one read-only transaction
 with a frozen clock/provider choice. Existing selectors, active correction
 predicates, range and oriented FX/chart-point logic are reused. current returns
