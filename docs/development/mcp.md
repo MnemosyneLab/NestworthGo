@@ -958,3 +958,17 @@ get_contribution_item pages components/byAccount; get_return_day pages compositi
 contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.
 These use the same capture/hash/cursor/TTL infrastructure. They retain analysis
 snapshot maintenance and non-read-only annotations; execute before write previews.
+
+
+### Reconciliation read wire budget
+
+`list_reconciliation_sessions`, `get_reconciliation_session`,
+`get_reconciliation_session_page` and `get_reconciliation_item` enforce the
+complete 64 KiB HTTP JSON-RPC budget, including the SDK text and structured
+representations. A requested page limit is an upper row bound: pages shrink
+before response construction to fit both representations and envelope allowance.
+Follow `nextCursor` even when fewer than the requested rows are returned.
+Cursors remain live, content/revision-bound; `stale_cursor` requires restarting
+that traversal. A single oversized evidence item returns `too_large` explicitly;
+no evidence is truncated. Preview/commit responses and operation recovery
+receipts retain their existing behavior and are not intercepted after execution.
