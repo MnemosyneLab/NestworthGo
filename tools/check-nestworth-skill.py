@@ -157,7 +157,7 @@ def check():
     unlinked = set((SKILL / "references").glob("*.md")) - linked
     if unlinked:
         raise ValueError(f"Unreachable references: {unlinked}")
-    print(f"Skill references and {len(examples)} JSON examples match current MCP tool names.")
+    print(f"Static skill reference/tool-name guard: {len(examples)} parseable JSON examples (schema and end-to-end execution checked separately).")
 
 
 if __name__ == "__main__":

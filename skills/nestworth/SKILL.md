@@ -5,8 +5,7 @@ description: Use a running Nestworth App through its local MCP to manage account
 
 # Nestworth
 
-Use the App's MCP as the authority for financial records and calculations. This
-skill needs no source checkout. Answer in the user's language.
+Use the App's MCP as the authority for financial records and calculations. Answer in the user's language.
 
 ## Start with the connected App
 
@@ -16,15 +15,18 @@ tool prefixes can differ. For a pure minimal financial summary, go directly to
 after discovery. For why a two-state change happened or whether it was profit,
 use `compare_financial_attribution` for a fresh coherent capture with a compatibility
 link; follow [analysis.md](references/analysis.md#link-a-comparison-to-change-attribution).
-Use `get_financial_context_item` for a ref in a single-state
-frozen package, inheriting its disclosure. No `get_context`, catalog or directory
-read is required. `get_context` discloses household metadata; directory tools disclose names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
-disclosure choices. A summary or two-state difference does not answer period-return questions.
+`get_financial_context_item` inherits its frozen package's disclosure. These
+workflows need no identity-disclosing context/catalog/directory reads.
+A summary or two-state difference does not answer period-return questions.
 
-For ordinary management and identity-bearing period analysis, call `get_context` and `get_catalog`
-to identify the instance, household, history timezone/start, permission mode and
-vocabulary. Refresh that context after reconnection or a permission/instance
-change. Use actual tool schemas and availability over examples in this skill.
+Call the task's read directly with known IDs and filters. Use `get_context` only
+for unknown instance/permission/timezone/history metadata; reuse until reconnect
+or permission/instance change. Use `get_catalog` for entity creation or unknown
+vocabulary. Neither is a prerequisite for ordinary reads. Prefer actual schemas.
+
+Fetch only needed detail. Complete-list, absence and audit claims require all
+relevant cursors; preserve capture/hash, disclosure and deferred scope. See
+[paging and batches](references/paging-and-batches.md).
 
 If the connection, household setup or required history start is missing, follow
 [connection.md](references/connection.md). Guide the user through the App;
@@ -52,7 +54,7 @@ Read only the references needed for this request:
 
 For large management reads and multiple metadata/review changes, follow
 [paging and batches](references/paging-and-batches.md). Prefer server filters/sort,
-finish every cursor, and verify versions before atomic writes.
+finish the cursors needed for the requested scope, and verify versions before atomic writes.
 
 ## Shared operating rules
 

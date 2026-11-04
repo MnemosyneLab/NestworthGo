@@ -335,7 +335,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
-	listed, err := client.ListTools(context.Background(), nil)
+	listed, err := listAllTools(context.Background(), client)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -25,8 +25,9 @@ Keep observationKind and priceBasis together: Agent unit NAV is stored as close 
 `agent_unit_nav_v1`. `chartSelected` concerns chart points, not import equality
 or source preference. Withdrawn/corrected history needs Agent audit evidence;
 this active-history read alone does not prove an import item is missing.
-The capture content hash is not a later-write CAS token. No import-comparison
-tool is added yet.
+The capture content hash is not a later-write CAS token. For ordered input
+classification and withdrawn/corrected evidence, use the read-only
+`compare_market_data_import` workflow below.
 
 Identify the observation date/source;
 a carried NAV is not a newly published NAV.
@@ -115,7 +116,8 @@ targetKey or displayName; historySort can select quotedAt/effectiveDate and
 asc/desc. Missing/not-found targets remain visible with status/reasons.
 
 `list_agent_market_data` filters instrumentIds, oriented fxPairs,
-operations append/correct/retract, nullable active, observationKinds, civil
+operations append/correct/retract, nullable active, observationKinds
+(latest/close/nav/closed/daily_reference), civil
 fromDate/toDate and RFC3339 createdFrom/createdTo. Observation date differs from
 creation time. Retractions resolve their targeted observation identity before
 filtering; active means not corrected/retracted, not currently selected. Sort

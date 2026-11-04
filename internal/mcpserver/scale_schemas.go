@@ -75,7 +75,7 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		case "get_upcoming_actions":
 			enums = map[string][]string{"kinds": {"reservation_unresolved", "reservation_shortfall", "source_access", "product_schedule"}, "groups": {"attention", "scheduled", "eligible"}}
 		case "list_agent_market_data":
-			enums = map[string][]string{"operations": {string(domain.AgentQuoteAppend), string(domain.AgentQuoteCorrect), string(domain.AgentQuoteRetract)}, "observationKinds": {"latest", "close", "nav", "daily_reference"}}
+			enums = map[string][]string{"operations": {string(domain.AgentQuoteAppend), string(domain.AgentQuoteCorrect), string(domain.AgentQuoteRetract)}, "observationKinds": {"latest", "close", "nav", "closed", "daily_reference"}}
 		}
 		for k, values := range enums {
 			if p := filter.Properties[k]; p != nil && p.Items != nil {

@@ -122,6 +122,8 @@ type payloadRecorder struct {
 	mu             sync.Mutex
 	metrics        map[string]payloadMetric
 	discoveryBytes int
+	discoveryCalls int
+	discoveryMax   int
 }
 
 // Observe actual HTTP request and final complete JSON-RPC response bytes. This
@@ -160,7 +162,12 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 	res.Body = io.NopCloser(bytes.NewReader(raw))
 	if method == "tools/list" {
 		p.mu.Lock()
-		p.discoveryBytes = len(raw)
+		p.discoveryBytes += len(raw)
+		p.discoveryCalls++
+		p.discoveryMax = max(p.discoveryMax, len(raw))
+		if len(raw) > contextWireLimit {
+			p.t.Errorf("discovery page exceeds 64 KiB: %d", len(raw))
+		}
 		p.mu.Unlock()
 	}
 	if name != "" {
@@ -256,7 +263,7 @@ func TestMCPPayloadBudgetsRepresentative(t *testing.T) { runPayloadBudgets(t, fa
 func runPayloadBudgets(t *testing.T, large bool) {
 	f := newPayloadHousehold(t, large)
 	c, rec := connectPayload(t, f.service)
-	tools, err := c.ListTools(t.Context(), nil)
+	tools, err := listAllTools(t.Context(), c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,9 +271,21 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	rec.mu.Lock()
 	rawDiscoveryBytes := rec.discoveryBytes
 	rec.mu.Unlock()
-	if rawDiscoveryBytes == 0 || rawDiscoveryBytes > 160<<10 {
-		t.Fatalf("raw tool discovery grew to %d bytes", rawDiscoveryBytes)
+	// Retain the pre-envelope budget for every other metadata field. Typed
+	// output envelopes are an intentional contract addition, measured separately
+	// rather than silently widening the old input/description budget.
+	oldOutput, _ := jsoncodec.Marshal(map[string]any{"type": "object", "properties": map[string]any{"data": true}, "required": []string{"data"}, "additionalProperties": false})
+	outputDelta := 0
+	for _, tool := range tools.Tools {
+		if readOutputSchema(tool.Name) != nil {
+			encoded, _ := jsoncodec.Marshal(tool.OutputSchema)
+			outputDelta += len(encoded) - len(oldOutput)
+		}
 	}
+	if rawDiscoveryBytes == 0 || rawDiscoveryBytes-outputDelta > 160<<10 || rawDiscoveryBytes > 192<<10 {
+		t.Fatalf("tool discovery grew: actual=%d reviewed-output-delta=%d legacy-metadata=%d", rawDiscoveryBytes, outputDelta, rawDiscoveryBytes-outputDelta)
+	}
+	t.Logf("explicit read-output schema cost=%d bytes; other discovery metadata=%d bytes", outputDelta, rawDiscoveryBytes-outputDelta)
 	t.Logf("discovery registered=%d raw-HTTP-JSON-RPC-bytes=%d reconstructed-JSON-RPC-bytes=%d", len(tools.Tools), rawDiscoveryBytes, len(discovery))
 	measureCompactReadJourneys(t, c, rec, f)
 	// Management and catalog (including note-preserving full item retrieval).

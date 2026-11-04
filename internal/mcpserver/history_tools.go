@@ -74,7 +74,7 @@ func (s *Service) historyTools(server *toolSet) {
 	generation := s.contextGeneration
 	historyService := history.NewService(s.app)
 	analysisService := analysis.NewService(s.app)
-	readTool(server, "list_activities", "Page recorded activities, including corrections, with optional account, instrument, persisted activity kind and inclusive local-date filters. Dates use the immutable History Origin timezone. Pass all three next cursor fields as afterEffectiveAt, afterCreatedAt and afterId; an empty next means the end.", func(ctx context.Context, in ListActivitiesInput) (any, error) {
+	readTool(server, "list_activities", "Page live recorded activities with account/instrument/kind/date filters in the history timezone. Default/max 100; actual pages may be smaller to fit 64 KiB complete wire. Continue while hasMore, passing all three next fields as afterEffectiveAt/afterCreatedAt/afterId. Short pages do not prove completion.", func(ctx context.Context, in ListActivitiesInput) (any, error) {
 		if in.Limit < 0 || in.Limit > 100 {
 			return nil, fail("validation", "limit must be between 1 and 100, or omitted")
 		}
@@ -87,7 +87,15 @@ func (s *Service) historyTools(server *toolSet) {
 		if cursorFields != 0 && cursorFields != 3 {
 			return nil, fail("validation", "provide all three next cursor fields together")
 		}
-		return historyService.ListActivityPage(ctx, in.request())
+		size := in.Limit
+		if size == 0 {
+			size = 100
+		}
+		return fitLiveReadPage(ctx, s.app, size, func(ctx context.Context, size int) (wire.ActivityPageDTO, error) {
+			query := in.request()
+			query.Limit = size
+			return historyService.ListActivityPage(ctx, query)
+		})
 	})
 	readTool(server, "get_activity", "Read one recorded activity by UUID, including its effects, trade or dividend details, and correction links. IDs come from list_activities.", func(ctx context.Context, in IDInput) (any, error) {
 		return historyService.Activity(ctx, in.ID)

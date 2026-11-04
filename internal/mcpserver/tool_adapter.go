@@ -17,12 +17,15 @@ type toolSet struct {
 func newToolSet(instructions string, external bool) *toolSet {
 	set := &toolSet{Registry: agentcapability.New(instructions)}
 	if external {
-		set.server = mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "2.0.0"}, &mcp.ServerOptions{Instructions: instructions})
+		set.server = mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "2.0.0"}, &mcp.ServerOptions{Instructions: instructions, PageSize: 16})
 	}
 	return set
 }
 
 func registerTool[I any](set *toolSet, definition *agentcapability.Definition, handler func(context.Context, I) (Response, error)) {
+	if definition.OutputSchema == nil && definition.Effect != agentcapability.Write {
+		definition.OutputSchema = readOutputSchema(definition.Name)
+	}
 	agentcapability.Add(set.Registry, definition, handler)
 	if set.server == nil {
 		return
@@ -31,10 +34,7 @@ func registerTool[I any](set *toolSet, definition *agentcapability.Definition, h
 	if err != nil {
 		panic(err)
 	}
-	tool := &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, OutputSchema: d.OutputSchema}
-	if a := d.Annotations; a != nil {
-		tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: a.ReadOnlyHint, DestructiveHint: a.DestructiveHint, IdempotentHint: a.IdempotentHint, OpenWorldHint: a.OpenWorldHint}
-	}
+	tool := sdkTool(d)
 	// Keep the SDK's original typed validation, defaults, decoding, structured
 	// errors and response envelope. External tools acquire no App approval gate.
 	mcp.AddTool(set.server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, input I) (*mcp.CallToolResult, Response, error) {
@@ -47,4 +47,22 @@ func (s *Service) tools(mode string) *mcp.Server { return s.buildToolSet(mode, t
 
 func (s *Service) toolRegistry(mode string) *agentcapability.Registry {
 	return s.buildToolSet(mode, false).Registry
+}
+
+// Derive production response policy from the authoritative effect allowlist.
+// Execution/recovery receipts never enter the read buffer, even as tools grow.
+func (set *toolSet) readResponseTools() map[string]bool {
+	names := map[string]bool{}
+	for _, d := range set.Definitions() {
+		names[d.Name] = d.Effect != agentcapability.Write && d.Name != "get_operation"
+	}
+	return names
+}
+
+func sdkTool(d agentcapability.Definition) *mcp.Tool {
+	tool := &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, OutputSchema: d.OutputSchema}
+	if a := d.Annotations; a != nil {
+		tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: a.ReadOnlyHint, DestructiveHint: a.DestructiveHint, IdempotentHint: a.IdempotentHint, OpenWorldHint: a.OpenWorldHint}
+	}
+	return tool
 }

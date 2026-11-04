@@ -101,7 +101,7 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 	t.Parallel()
 	s, _, accountID, ids := historyFixture(t)
 	c := connectHistoryTools(t, s)
-	listed, err := c.ListTools(context.Background(), nil)
+	listed, err := listAllTools(context.Background(), c)
 	if err != nil {
 		t.Fatal(err)
 	}

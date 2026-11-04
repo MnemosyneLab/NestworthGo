@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/assistant"
@@ -53,6 +54,49 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(definitions) != 12 {
+		t.Fatalf("combined discovery lost bounded tools: got %d, want 12", len(definitions))
+	}
+	outputs := map[string]*jsonschema.Resolved{}
+	for _, d := range definitions {
+		for _, input := range []bool{true, false} {
+			supplied := d.OutputSchema
+			if input {
+				supplied = d.InputSchema
+			}
+			if supplied == nil {
+				if !input && d.Name == "get_current_page" {
+					continue
+				}
+				t.Fatalf("missing schema: %s input=%v", d.Name, input)
+			}
+			encoded, e := jsoncodec.Marshal(supplied)
+			if e != nil {
+				t.Fatal(e)
+			}
+			var schema jsonschema.Schema
+			if e = jsoncodec.Unmarshal(encoded, &schema); e != nil {
+				t.Fatal(e)
+			}
+			resolved, e := schema.Resolve(nil)
+			if e != nil {
+				t.Fatalf("%s schema: %v", d.Name, e)
+			}
+			if !input {
+				outputs[d.Name] = resolved
+			}
+		}
+	}
+	validateOutput := func(name string, raw json.RawMessage) {
+		t.Helper()
+		var value any
+		if e := jsoncodec.Unmarshal(raw, &value); e != nil {
+			t.Fatal(e)
+		}
+		if e := outputs[name].Validate(&value); e != nil {
+			t.Fatalf("%s output: %v", name, e)
+		}
+	}
 	for _, d := range definitions {
 		if !allowed(d.Name) && d.Name != "get_current_page" {
 			t.Fatal("extra tool exposed")
@@ -77,6 +121,13 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	if jsoncodec.Unmarshal(raw, &view) != nil || view.Source != "list_accounts" || view.CapturedAt == "" {
 		t.Fatalf("missing backend provenance: %s", raw)
 	}
+	var current struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := jsoncodec.Unmarshal(raw, &current); err != nil {
+		t.Fatal(err)
+	}
+	validateOutput("list_accounts", current.Data)
 	trace := session.Evidence()
 	if len(trace) != 1 || trace[0].Source != "list_accounts" || !trace[0].HasMore || trace[0].Missing != "not_summarized" {
 		t.Fatalf("bad host trace: %+v", trace)
@@ -98,6 +149,7 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		if err != nil || len(raw) > 64<<10 {
 			t.Fatal("page/budget failed", err)
 		}
+		validateOutput("get_read_page", raw)
 		var envelope struct {
 			Data map[string]any `json:"data"`
 		}
@@ -128,6 +180,12 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	cancel()
 	if _, err := detail.Call(ctx, "get_current_page", []byte(`{}`)); err == nil {
 		t.Fatal("cancelled read dispatched")
+	}
+	if err := shared.RevokeForRestore(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := shared.Definitions(); err == nil {
+		t.Fatal("restore retained discovery")
 	}
 	shared.Close()
 	if _, err := detail.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {

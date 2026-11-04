@@ -55,7 +55,7 @@ func TestAgentMarketDataPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 			c := connect(t, s)
-			list, err := c.ListTools(context.Background(), nil)
+			list, err := listAllTools(context.Background(), c)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -180,7 +180,10 @@ func TestAgentClosedDayMCPImportAuditAndWithdrawal(t *testing.T) {
 	if len(ids) != 1 {
 		t.Fatal(result)
 	}
-	records := call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
+	// A price record must not leak into a closed-fact-only audit filter.
+	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"instrumentId": fx.instrument, "kind": "close", "date": "2026-09-27", "timezone": "UTC", "currency": "USD", "value": "1", "sourceTitle": "Synthetic price"}}})
+	args := skillExample(t, "paging-and-batches", "scale-agent-closures", map[string]string{"instrumentId": fx.instrument})
+	records := call(t, c, "list_agent_market_data", args, false)["data"].(map[string]any)
 	rows := scaleSection(t, c, records, "records")
 	if len(rows) != 1 {
 		t.Fatal(records)
@@ -190,7 +193,7 @@ func TestAgentClosedDayMCPImportAuditAndWithdrawal(t *testing.T) {
 		t.Fatal(row)
 	}
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": ids[0], "sourceTitle": "Synthetic closure withdrawn"}}})
-	records = call(t, c, "list_agent_market_data", map[string]any{}, false)["data"].(map[string]any)
+	records = call(t, c, "list_agent_market_data", args, false)["data"].(map[string]any)
 	for _, raw := range scaleSection(t, c, records, "records") {
 		if raw.(map[string]any)["active"] == true {
 			t.Fatal("withdrawn closure remains active")
