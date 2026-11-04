@@ -70,7 +70,7 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
         {expired && <p role="status" className="text-sm text-warning-foreground">{t("assistant.expired")}</p>}
         {page?.refresh && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={!ready || run === "running"} onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         <Label htmlFor={`assistant-metric-${surface}`}>{t("assistant.metric")}</Label>
-        <NativeSelect id={`assistant-metric-${surface}`} className="min-h-11" value={chosen?.ref ?? ""} onChange={e => setSelected(e.target.value)} disabled={!ready || expired || run === "running"}>
+        <NativeSelect id={`assistant-metric-${surface}`} className="min-h-11 text-base" value={chosen?.ref ?? ""} onChange={e => setSelected(e.target.value)} disabled={!ready || expired || run === "running"}>
           <option value="">{t("assistant.chooseMetric")}</option>
           {context?.metrics.map(m => <option key={m.ref} value={m.ref}>{m.label}</option>)}
         </NativeSelect>
