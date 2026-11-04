@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -45,7 +46,21 @@ func TestStructuredRecoveryPreservesUnknownAndSuccessReceipt(t *testing.T) {
 func TestStructuredReadRecoveryThroughSDK(t *testing.T) {
 	fx := newLedgerFixture(t)
 	client := ledgerSession(t, fx)
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_read_page", Arguments: ReadPageInput{CaptureID: "unavailable", Section: "rows", Cursor: "synthetic"}})
+
+	rows, err := readRows([]string{"first", "second"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	captured, err := fx.service.reads.store(fx.service.contextGeneration, readCapture{Kind: "synthetic", Summary: map[string]any{}, Sections: map[string][]json.RawMessage{"rows": rows}}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursor := *captured.Sections["rows"].Page.NextCursor
+	fx.service.reads.mu.Lock()
+	delete(fx.service.reads.entries, captured.CaptureID)
+	fx.service.reads.bytes = 0
+	fx.service.reads.mu.Unlock()
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_read_page", Arguments: ReadPageInput{Cursor: cursor}})
 	if err != nil || !result.IsError {
 		t.Fatal(err, result)
 	}

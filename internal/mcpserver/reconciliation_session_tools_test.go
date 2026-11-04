@@ -141,7 +141,7 @@ func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 	if _, err = pageReconciliation(in, rows, 4); err == nil {
 		t.Fatal("stale cursor accepted")
 	}
-	in.Limit = 51
+	in.Limit = 101
 	if _, err = pageReconciliation(in, rows, 3); err == nil {
 		t.Fatal("oversized page accepted")
 	}

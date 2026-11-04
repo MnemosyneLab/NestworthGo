@@ -7,7 +7,7 @@ points and raw observations, following all section cursors.
 For a bounded interval, pass paired inclusive `fromDate`/`toDate` instead of
 `range`. Opt in to `historyLayout=records` for a single cross-target `records`
 section with exact original observations and `chartSelected` flags. Follow both
-records and target-metadata cursors. The initial limit defaults to 100 for this
+records and target-metadata cursors. The initial limit defaults to 25 for this
 layout, but the 64 KiB wire budget may return fewer rows. Unknown targets have
 `historyStatus=not_found`; known targets with no matching active facts have
 `no_quotes_in_range`. An unread page never proves absence. Daily dates use stored

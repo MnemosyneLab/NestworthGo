@@ -66,7 +66,9 @@ func connectHistoryTools(t *testing.T, service *Service) *mcp.ClientSession {
 	server := mcp.NewServer(&mcp.Implementation{Name: "history-test", Version: "1"}, nil)
 	tools := newToolSet("", false)
 	tools.server = server
+	service.contextGeneration = service.contexts.activate()
 	service.reads.activate(service.contextGeneration)
+	tools.paging = &pageCodec{key: service.reads.key, generation: service.contextGeneration}
 	service.boundedReadTools(tools, service.contextGeneration)
 	service.historyTools(tools)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()

@@ -399,7 +399,7 @@ func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(co
 	return s.reads.store(g, e, limit)
 }
 func (s *Service) boundedReadTools(server *toolSet, g uint64) {
-	readTool(server, "get_read_page", "Continue ANY business read with only its opaque nextCursor and optional limit (default 25/max 100). Cursor retains tool, filters, target/section and consistency scope; do not decode or edit it. Short/deferred pages remain incomplete while hasMore. Frozen pages retain hash/TTL, version_bound pages restart after staleness, live pages are not a snapshot. Restart all related evidence after invalidation. Never skip an oversized item.", func(ctx context.Context, in ReadPageInput) (any, error) {
+	readTool(server, "get_read_page", "Continue any business nextCursor with only cursor and optional limit (25/max 100). Scope is signed; only row budget may change. Short/deferred pages remain incomplete while hasMore. Preserve frozen hash/TTL, version_bound staleness and live semantics. Restart related reads after invalidation; oversized items fail explicitly.", func(ctx context.Context, in ReadPageInput) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

@@ -86,12 +86,12 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(examples["financial-context-named"]["disclosure"], "named")
         for section in ("positions", "gaps", "evidence"):
             arguments = examples[f"financial-context-{section}-page"]
-            self.assertEqual(arguments["section"], section)
-            self.assertEqual(arguments["contextId"], "${contextId}")
+            self.assertEqual(arguments, {"cursor":"${cursor}", "limit":25})
+            self.assertNotIn("contextId", arguments)
             self.assertEqual(arguments["cursor"], "${cursor}")
         self.assertEqual(examples["financial-context-item"],
                          {"contextId": "${contextId}", "ref": "${ref}"})
-        self.assertEqual(examples["financial-context-item-page"]["section"], "${section}")
+        self.assertEqual(examples["financial-context-item-page"], {"cursor":"${cursor}", "limit":25})
         self.assertIn("package disclosure: minimal stays free of names/raw IDs", analysis.decode())
         self.assertIn("`get_financial_context_item`", connection.decode())
         self.assertIn("omitting cursor to start each section", analysis.decode())

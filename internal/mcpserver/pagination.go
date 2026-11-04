@@ -280,7 +280,7 @@ func paginationInputSchema[I any](name string, supplied any) any {
 	if limit := schema.Properties["limit"]; limit != nil {
 		low, high := float64(0), float64(100)
 		limit.Minimum, limit.Maximum = &low, &high
-		limit.Description = "Upper row budget, default 25/max 100; bytes may shorten pages. Continue page.nextCursor with get_read_page."
+		limit.Description = "Rows default 25/max 100; byte-limited. Continue with get_read_page."
 	}
 	return schema
 }

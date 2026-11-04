@@ -172,7 +172,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"Ordinary get_read_page | 25 / 100", "Import comparison initial capture and pages | 100 / 100", "section/items/page", "5 minutes", "4 MiB", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
+	for _, phrase := range []string{"Ordinary initial business reads and every continuation | 25 / 100", "get_read_page({cursor, limit?})", "items/page", "5 minutes", "4 MiB", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
 		if !strings.Contains(string(guide), phrase) {
 			t.Errorf("contract guidance missing: %s", phrase)
 		}
@@ -187,7 +187,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	for _, c := range []struct {
 		kind  string
 		count int
-	}{{"synthetic_contract", 25}, {"market_import_comparison", 100}} {
+	}{{"synthetic_contract", 25}, {"market_import_comparison", 25}} {
 		captured, err := s.reads.store(s.contextGeneration, readCapture{Kind: c.kind, Query: map[string]any{"view": "full"}, Summary: map[string]any{"source": "synthetic"}, Sections: map[string][]json.RawMessage{"rows": rows}}, 1)
 		if err != nil {
 			t.Fatal(err)

@@ -354,7 +354,7 @@ func TestFinancialContextItemSkillPagination(t *testing.T) {
 	for section, info := range map[string]FinancialContextPageInfo{"positions": first.PositionsPage, "gaps": first.GapsPage, "evidence": first.EvidencePage} {
 		count := info.Returned
 		for info.HasMore {
-			page := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "analysis", "financial-context-item-page", map[string]string{"contextId": "package-a", "ref": "account-1", "section": section, "cursor": info.NextCursor}), false))
+			page := decodeItem(t, call(t, client, "get_read_page", skillExample(t, "analysis", "financial-context-item-page", map[string]string{"contextId": "package-a", "ref": "account-1", "section": section, "cursor": info.NextCursor}), false))
 			switch section {
 			case "positions":
 				info = page.PositionsPage

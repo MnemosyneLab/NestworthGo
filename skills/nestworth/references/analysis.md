@@ -118,8 +118,8 @@ groups (at most 100; follow `page.nextCursor`), and
 rules are unknown, confirming, healthy or uncomputed without an open alert.
 `get_investment_review_alert` reads one current episode by ID;
 `list_investment_review_suppressions` lists ignored scopes and absolute resume
-dates. Its nonempty arrays likewise continue from the last suppression ID until
-empty. All these reads, and `preview_investment_review_rule`, are read-only:
+dates. Its nonempty items/page results likewise continue using page.nextCursor
+with get_read_page through a final empty page. All these reads, and `preview_investment_review_rule`, are read-only:
 they never refresh source data or publish an evaluation. Rule previews return
 mcp-read/1: retain sourceToken/latestClosedOn/window from summary, and follow the
 frozen days section only for requested daily evidence (default 25/max 100).

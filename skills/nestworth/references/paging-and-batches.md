@@ -228,8 +228,8 @@ Limits are upper row counts; complete response bytes may produce fewer rows.
 
 Initial financial headers and focused-item responses retain their established
 disclosure/alias and hash structure, without duplicating rows in a second shape.
-Their section cursors still carry all routing scope. Explicit-scope financial
-page tools remain aliases; they are not required by the shipped workflow.
+Their section cursors still carry all routing scope. Explicit-scope `get_financial_context_page` and
+`get_financial_comparison_page` remain aliases; they are not required by the shipped workflow.
 
 For mcp-read/1, fixed TTL is 5 minutes; per-capture budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial

@@ -255,7 +255,7 @@ func inMemoryClient(t *testing.T, server *mcp.Server) *mcp.ClientSession {
 
 func TestTypedMCPValidationAndErrorsMatchPriorAdapter(t *testing.T) {
 	t.Parallel()
-	prior := mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: "2.0.0"}, nil)
+	prior := mcp.NewServer(&mcp.Implementation{Name: "Nestworth", Version: mcpImplementationVersion}, nil)
 	closed, destructive := false, false
 	handler := func(_ context.Context, in IDInput) (Response, error) {
 		if in.ID == "refuse" {

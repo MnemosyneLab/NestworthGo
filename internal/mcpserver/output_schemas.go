@@ -36,11 +36,43 @@ func readOutputSchema(name string) any {
 }
 
 func wrapReadOutput(data any) any {
-	return map[string]any{"type": "object", "properties": map[string]any{"data": data}, "required": []string{"data"}, "additionalProperties": false}
+	out := map[string]any{"type": "object", "properties": map[string]any{"data": data}, "required": []string{"data"}, "additionalProperties": false}
+	if usesFrozenPageSchema(data) {
+		out["$defs"] = map[string]any{"frozenPage": frozenPageSchema()}
+	}
+	return out
+}
+
+const frozenPageSchemaRef = "#/$defs/frozenPage"
+
+func frozenPageSchema() any {
+	return map[string]any{"type": "object", "required": []string{"total", "returned", "hasMore", "nextCursor", "consistency"}, "properties": map[string]any{
+		"total": map[string]any{"type": "integer", "minimum": 0}, "returned": map[string]any{"type": "integer", "minimum": 0}, "hasMore": map[string]any{"type": "boolean"}, "nextCursor": map[string]any{"type": []string{"string", "null"}}, "consistency": map[string]any{"const": "frozen"},
+	}}
+}
+func usesFrozenPageSchema(value any) bool {
+	switch v := value.(type) {
+	case map[string]any:
+		if v["$ref"] == frozenPageSchemaRef {
+			return true
+		}
+		for _, child := range v {
+			if usesFrozenPageSchema(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range v {
+			if usesFrozenPageSchema(child) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func readEnvelopeSchema() any {
-	page := map[string]any{"type": "object", "required": []string{"total", "returned", "hasMore", "nextCursor"}, "properties": map[string]any{"total": map[string]any{"type": "integer", "minimum": 0}, "returned": map[string]any{"type": "integer", "minimum": 0}, "hasMore": map[string]any{"type": "boolean"}, "nextCursor": map[string]any{"type": []string{"string", "null"}}}}
+	page := map[string]any{"$ref": frozenPageSchemaRef}
 	rows := map[string]any{"type": "array", "items": true}
 	props := map[string]any{}
 	required := []string{"schemaVersion", "captureId", "captureKind", "capturedAt", "expiresAt", "contentHash", "summaryHash"}
@@ -63,7 +95,7 @@ func financialOutputEnvelope(id string, continuation bool) any {
 	for _, k := range required {
 		props[k] = map[string]any{"type": "string"}
 	}
-	page := map[string]any{"type": "object", "required": []string{"total", "returned", "hasMore"}, "properties": map[string]any{"total": map[string]any{"type": "integer", "minimum": 0}, "returned": map[string]any{"type": "integer", "minimum": 0}, "hasMore": map[string]any{"type": "boolean"}, "nextCursor": map[string]any{"type": []string{"string", "null"}}}}
+	page := map[string]any{"$ref": frozenPageSchemaRef}
 	if continuation {
 		required = append(required, "section", "items", "page")
 		props["section"] = map[string]any{"enum": []string{"positions", "gaps", "evidence"}}
