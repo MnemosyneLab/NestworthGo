@@ -49,6 +49,11 @@ func fail(w http.ResponseWriter, err error) {
 		case "session":
 			code = "session_expired"
 			status = 401
+		case "csrfToken":
+			// This HTTP attempt was blocked before dispatch. An earlier
+			// attempt may still have committed: keep operationState unknown.
+			code = "csrf_expired"
+			status = 403
 		case "permission":
 			code = "forbidden"
 			status = 403

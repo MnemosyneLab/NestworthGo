@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -25,7 +26,7 @@ import (
 // contract. Assert each exact new description, then project it back so the
 // immutable baseline still detects unrelated schema/permission/tool changes.
 var compactReadDiscoveryChanges = map[string]struct{ before, afterHash string }{
-	"get_read_item":                 {before: "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", afterHash: "7c3301fac4956b07a8a2b4bfd0cc091ce28ec44e45ddab462a27ad55236fee1b"},
+	"get_read_item":                 {before: "Read full item evidence from a frozen products, historical, account-valuations or directory capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", afterHash: "834360e2f1e5d4afa18de3ea93c97dacaa4c51e2ddeddf228004ae36eb2cdbb0"},
 	"list_accounts":                 {before: "List account definitions with ownership and supported filters. Use this result for account IDs and editable fields. The bounded read contract provides stable frozen pages (default 25/max 100); get_read_item with section=accounts and id retains complete metadata/notes.", afterHash: "e50990229e67d60614b59e177d36a7cc6be1d1341e35fdf1b2ec19b2aae9b660"},
 	"list_instruments":              {before: "Search existing local instruments by name, symbol or shortName before creating one. The bounded read contract supports frozen filter/types/IDs and stable sorting, with metadataVersion for atomic metadata batches. Follow every cursor. Distinguish market and quote currency.", afterHash: "3bc0e887aa22ac10b004dc2f3ad04ac5197af0303befd461c26acc3fd47a3906"},
 	"get_financial_context_page":    {before: "Read all three sections (positions, gaps, evidence) from the exact frozen context and matching next cursor. Zero returned rows with nextCursor means deferred, not complete. Aliases cannot be matched across packages or used as UUIDs. Send one JSON-RPC object, never a batch. Default limit 50, maximum 100. Expired, evicted or revoked results require a new package and restart of every section; discard old pages and never mix packages or reuse old cursors with a new contextId. Pages never refresh or extend the fixed TTL. A too_large single row or summary cannot be fixed by lowering limit.", afterHash: "9ceec9bbc0cb364c847229fec366d011690fb7165f247e91a9eb9b993fa11acf"},
@@ -57,7 +58,16 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 			// The batch-history extension intentionally adds three optional inputs
 			// and documents them. Project only that reviewed delta back to the
 			// immutable baseline; every other tool/field must still match.
-			baseline := append([]*mcp.Tool{}, listed.Tools...)
+			// The additive comparison tool has separate schema/permission tests.
+			baseline := make([]*mcp.Tool, 0, len(listed.Tools))
+			for _, tool := range listed.Tools {
+				if tool.Name != "compare_market_data_import" {
+					baseline = append(baseline, tool)
+				}
+			}
+			if len(listed.Tools) != test.count+1 {
+				t.Fatalf("expected exactly one additive comparison tool: %d", len(listed.Tools))
+			}
 			for i, tool := range baseline {
 				if delta, ok := compactReadDiscoveryChanges[tool.Name]; ok {
 					hash := sha256.Sum256([]byte(tool.Description))
@@ -67,6 +77,15 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 					copy := *tool
 					copy.Description = delta.before
 					baseline[i] = &copy
+				}
+				if tool.Name == "get_read_page" {
+					copy := *tool
+					if !strings.Contains(copy.Description, "market-comparison captures default to 100") {
+						t.Fatal("comparison page default missing")
+					}
+					copy.Description = "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25, maximum 100. Follow every cursor before claiming completeness; restart all sections after read_expired/read_revoked. No DB reads or TTL renewal."
+					baseline[i] = &copy
+					continue
 				}
 				if tool.Name != "get_market_data_batch" {
 					continue
@@ -91,12 +110,29 @@ func TestExternalDiscoveryMatchesMain82f3be0(t *testing.T) {
 				copy.Description = "Capture 1 to 100 distinct instrument IDs or oriented FX pairs in one strictly local read-only transaction. current (default) omits history; coverage preserves counts and gapAssessment=not_evaluated; history separates selected points from raw observations per target. Follow every section cursor with get_read_page before claiming completeness. No provider refresh or writes."
 				baseline[i] = &copy
 			}
+			// The reviewed breaking contribution cutover changes exactly these two
+			// tools. Preserve the original immutable whole-registry hash by
+			// substituting independently captured main 34f048f HTTP metadata for
+			// those tools only. The new contract is asserted separately below.
+			priorRaw, err := os.ReadFile("testdata/contribution-discovery-main-34f048f.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var prior map[string]*mcp.Tool
+			if err := jsoncodec.Unmarshal(priorRaw, &prior); err != nil {
+				t.Fatal(err)
+			}
+			for i, tool := range baseline {
+				if old, ok := prior[tool.Name]; ok {
+					baseline[i] = old
+				}
+			}
 			raw, err := jsoncodec.MarshalIndent(baseline, "", "  ")
 			if err != nil {
 				t.Fatal(err)
 			}
 			hash := sha256.Sum256(raw)
-			if len(listed.Tools) != test.count || hex.EncodeToString(hash[:]) != test.hash {
+			if len(baseline) != test.count || hex.EncodeToString(hash[:]) != test.hash {
 				t.Fatalf("external %s contract changed: tools=%d sha256=%x; expected tools=%d sha256=%s", test.mode, len(listed.Tools), hash, test.count, test.hash)
 			}
 			registry := s.toolRegistry(test.mode)
@@ -181,5 +217,46 @@ func TestTypedMCPValidationAndErrorsMatchPriorAdapter(t *testing.T) {
 		if !reflect.DeepEqual(oldResult, newResult) {
 			t.Errorf("%s %s result differs: %+v / %+v", test.name, test.raw, oldResult, newResult)
 		}
+	}
+}
+
+func TestFrozenContributionDiscoveryContract(t *testing.T) {
+	s, _, _ := fixture(t)
+	t.Cleanup(s.Close)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	listed, err := c.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, tool := range listed.Tools {
+		if tool.Name != "list_contributions" && tool.Name != "get_contribution_item" {
+			continue
+		}
+		found++
+		raw, err := jsoncodec.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schema map[string]any
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(err)
+		}
+		props := schema["properties"].(map[string]any)
+		if tool.Name == "list_contributions" {
+			if props["offset"] != nil || props["query"] == nil || props["limit"] == nil || tool.Annotations.ReadOnlyHint {
+				t.Fatal("capture schema/effect changed", schema)
+			}
+		} else {
+			if len(props) != 2 || props["captureId"] == nil || props["groupKey"] == nil || !tool.Annotations.ReadOnlyHint {
+				t.Fatal("detail schema/effect changed", schema)
+			}
+		}
+	}
+	if found != 2 {
+		t.Fatal(found)
 	}
 }

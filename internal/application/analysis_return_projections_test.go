@@ -793,3 +793,13 @@ func TestReturnSummaryOmitsIncompleteEndingInvestment(t *testing.T) {
 		t.Fatalf("known ending lost: %+v", got)
 	}
 }
+
+func TestContributionSortTiesUseStableKeys(t *testing.T) {
+	for _, ordering := range []ContributionSort{ContributionSortAmountDesc, ContributionSortAmountAsc, ContributionSortRateDesc, ContributionSortRateAsc, ContributionSortNameAsc} {
+		rows := []ContributionRow{{Key: "z", Label: "same"}, {Key: "a", Label: "Same"}, {Key: "m", Label: "same"}}
+		sortContributionRows(rows, ordering, true)
+		if rows[0].Key != "a" || rows[1].Key != "m" || rows[2].Key != "z" {
+			t.Fatalf("%s ties: %+v", ordering, rows)
+		}
+	}
+}

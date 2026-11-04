@@ -1214,3 +1214,263 @@ it("retains the mounted financial review when remembered-session validation obse
   expect(previews).toHaveLength(1);
   expect(confirms).toHaveLength(0);
 });
+
+it.each(["csrf_expired", "forbidden", "offline"])("recovers %s confirmation by explicit reconnect without replay or losing the review", async failure => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let refreshed = false;
+  let attempts = 0;
+  const bodies: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/session") && init.method === "GET")
+      return json({ ...session, csrfToken: refreshed ? "fresh-csrf" : session.csrfToken });
+    if (url.endsWith("/record-confirmations")) {
+      attempts++;
+      bodies.push(init.body as string);
+      if (!refreshed) {
+        if (failure === "offline") throw new TypeError("synthetic offline");
+        return json({ error: { code: failure, field: failure === "forbidden" ? "permission" : "csrfToken", operationState: "unknown" } }, 403);
+      }
+      expect(init.headers).toMatchObject({ "X-CSRF-Token": "fresh-csrf" });
+      return base(url, init);
+    }
+    return base(url, init);
+  }));
+  const user = userEvent.setup();
+  mount();
+  await fillRecord(user);
+  const amount = screen.getByRole("textbox", { name: "Amount" });
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Retry same submission" })).toBeEnabled());
+  const reference = sessionStorage.getItem("nestworth.mobile.pending.v1");
+  expect(reference).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  if (failure !== "offline") expect(screen.getByRole("alert")).toHaveTextContent(i18n.t("mobile.reconnectBeforeRetry"));
+  refreshed = true;
+  await user.dblClick(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled());
+  expect(attempts).toBe(1);
+  expect(screen.getByRole("textbox", { name: "Amount" })).toBe(amount);
+  expect(amount).toHaveValue("1.2345");
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(reference);
+  await user.dblClick(screen.getByRole("button", { name: "Retry same submission" }));
+  await screen.findByText("Saved successfully");
+  expect(bodies).toHaveLength(2);
+  expect(bodies[0]).toBe(bodies[1]);
+  expect(confirms).toHaveLength(1);
+});
+
+it("requires desktop verification to leave an unavailable plan and retains draft values with a fresh operation ID", async () => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let writes = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/record-confirmations")) {
+      writes++;
+      return json({ error: { code: "stale_preview", field: "planId", operationState: "unknown" } }, 409);
+    }
+    return base(url, init);
+  }));
+  const user = userEvent.setup();
+  mount();
+  await fillRecord(user);
+  const originalId = previews[0].operationId;
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await screen.findByRole("button", { name: i18n.t("mobile.forgetRecovery") });
+  expect(screen.getByRole("button", { name: "Edit draft" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") }));
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("button", { name: "Edit draft" })).toBeDisabled();
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).not.toBeNull();
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") }));
+  await user.click(screen.getByRole("button", { name: i18n.t("mobile.verifiedOnDesktop") }));
+  expect(screen.getByRole("textbox", { name: "Amount" })).toHaveValue("1.2345");
+  expect(screen.getByRole("textbox", { name: "Amount" })).toBeEnabled();
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+  expect(writes).toBe(1);
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  expect(previews).toHaveLength(2);
+  expect(previews[1].operationId).not.toBe(originalId);
+  expect(writes).toBe(1);
+});
+
+it("delivers an in-flight receipt once when reconnect overlaps confirmation", async () => {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  let finish!: () => void;
+  let writes = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/record-confirmations")) {
+      writes++;
+      await new Promise<void>(resolve => { finish = resolve; });
+    }
+    return base(url, init);
+  }));
+  const user = userEvent.setup();
+  mount();
+  await fillRecord(user);
+  await user.click(screen.getByRole("button", { name: "Confirm" }));
+  await user.dblClick(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled());
+  expect(writes).toBe(1);
+  await act(async () => finish());
+  await screen.findByText("Saved successfully");
+  expect(confirms).toHaveLength(1);
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+});
+
+// Synthetic quote transport keeps receipts separately from process-local plans,
+// like the real mobile API. Count commits independently of confirmation attempts.
+function quoteRecoveryTransport(loseFirstReceipt = false, holdLostReceipt = false) {
+  const base = vi.mocked(fetch).getMockImplementation()!;
+  const quotePreviews: Record<string, string>[] = [];
+  const attempts: { body: string; csrf: string }[] = [];
+  const queries: string[] = [];
+  const plans = new Set<string>();
+  const receipts = new Set<string>();
+  let csrf = session.csrfToken;
+  let incarnation = session.instance;
+  let loseNext = loseFirstReceipt;
+  let releaseLoss: (() => void) | undefined;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+    if (url.endsWith("/session") && init.method === "GET")
+      return json({ ...session, csrfToken: csrf, instance: incarnation });
+    if (url.endsWith("/quote-previews")) {
+      const input = JSON.parse(init.body as string) as Record<string, string>;
+      quotePreviews.push(input);
+      const planId = `synthetic-quote-plan-${quotePreviews.length}`;
+      plans.add(planId);
+      return json({ planId, receipt: { value: input.value, currency: "CNY", quotedAt: input.quotedAt, effectiveDate: input.quotedAt } });
+    }
+    if (url.endsWith("/quote-confirmations")) {
+      const sentCSRF = (init.headers as Record<string, string>)["X-CSRF-Token"];
+      attempts.push({ body: init.body as string, csrf: sentCSRF });
+      if (sentCSRF !== csrf)
+        return json({ error: { code: "csrf_expired", field: "csrfToken", operationState: "unknown" } }, 403);
+      const input = JSON.parse(init.body as string) as { planId: string; operationId: string };
+      if (!plans.has(input.planId))
+        return json({ error: { code: "stale_preview", field: "planId", operationState: "unknown" } }, 409);
+      receipts.add(input.operationId);
+      if (loseNext) {
+        loseNext = false;
+        if (holdLostReceipt) await new Promise<void>(resolve => { releaseLoss = resolve; });
+        throw new TypeError("synthetic lost quote receipt after commit");
+      }
+      return json({ operationState: "committed", receipt: { derivedPending: false } });
+    }
+    if (url.includes("/operations/")) {
+      const operationId = url.split("/operations/")[1];
+      queries.push(operationId);
+      return json(receipts.has(operationId)
+        ? { operationState: "committed", receipt: { derivedPending: false } }
+        : { operationState: "unknown" });
+    }
+    return base(url, init);
+  }));
+  return {
+    quotePreviews, attempts, queries, receipts,
+    releaseLostReceipt() { releaseLoss?.(); },
+    restart() { csrf = "synthetic-fresh-quote-csrf"; incarnation = "synthetic-quote-restarted"; plans.clear(); },
+  };
+}
+
+async function reviewSyntheticQuote(user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByText("SYNTHETIC MOBILE TEST");
+  await user.click(screen.getByRole("button", { name: "Data health" }));
+  await user.click(await screen.findByRole("button", { name: i18n.t("mobile.manualQuote") }));
+  await user.type(screen.getByRole("textbox", { name: i18n.t("mobile.quoteValue") }), "1.23456789");
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  await screen.findByRole("region", { name: "Confirm" });
+}
+
+it.each([false, true])("preserves quote review across stale CSRF and restart with previous commit=%s, recovering without duplicate writes", async committed => {
+  const transport = quoteRecoveryTransport(committed);
+  const user = userEvent.setup();
+  mount();
+  await reviewSyntheticQuote(user);
+  const input = screen.getByRole("textbox", { name: i18n.t("mobile.quoteValue") });
+  const review = screen.getByRole("region", { name: "Confirm" });
+  const original = transport.quotePreviews[0];
+  if (committed) {
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry same submission" })).toBeEnabled());
+    expect(transport.receipts.size).toBe(1);
+  }
+  transport.restart();
+  await user.click(screen.getByRole("button", { name: committed ? "Retry same submission" : "Confirm" }));
+  await screen.findByText(i18n.t("mobile.reconnectBeforeRetry"));
+  const pending = sessionStorage.getItem("nestworth.mobile.pending.v1");
+  expect(JSON.parse(pending!)).toMatchObject({ operationId: original.operationId });
+  const attemptsBeforeReconnect = transport.attempts.length;
+  await user.click(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled());
+  expect(transport.attempts).toHaveLength(attemptsBeforeReconnect);
+  expect(transport.quotePreviews).toHaveLength(1);
+  expect(screen.getByRole("region", { name: "Confirm" })).toBe(review);
+  expect(screen.getByRole("textbox", { name: i18n.t("mobile.quoteValue") })).toBe(input);
+  expect(input).toHaveValue("1.23456789");
+  expect(input).toBeDisabled();
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(pending);
+  await user.click(screen.getByRole("button", { name: "Retry same submission" }));
+  await screen.findByRole("button", { name: i18n.t("mobile.forgetRecovery") });
+  expect(transport.attempts[transport.attempts.length - 1]?.csrf).toBe("synthetic-fresh-quote-csrf");
+  expect(new Set(transport.attempts.map(attempt => attempt.body)).size).toBe(1);
+  expect(JSON.parse(transport.attempts[0].body)).toEqual({ planId: "synthetic-quote-plan-1", operationId: original.operationId });
+  await user.click(screen.getByRole("button", { name: "Check original result" }));
+  expect(transport.queries).toEqual([original.operationId]);
+  if (committed) {
+    await screen.findByText("Saved successfully");
+    expect(transport.receipts.size).toBe(1);
+    expect(transport.quotePreviews).toHaveLength(1);
+    expect(transport.attempts).toHaveLength(attemptsBeforeReconnect + 1);
+    expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+  } else {
+    await waitFor(() => expect(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") })).toBeEnabled());
+    expect(transport.receipts.size).toBe(0);
+    expect(screen.queryByText("Saved successfully")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(input).toBeDisabled();
+    expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(pending);
+    await user.click(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") }));
+    await user.keyboard("{Escape}");
+    expect(input).toBeDisabled();
+    expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBe(pending);
+    await user.click(screen.getByRole("button", { name: i18n.t("mobile.forgetRecovery") }));
+    await user.click(screen.getByRole("button", { name: i18n.t("mobile.verifiedOnDesktop") }));
+    expect(input).toBeEnabled();
+    expect(input).toHaveValue(original.value);
+    expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+    expect(transport.attempts).toHaveLength(attemptsBeforeReconnect + 1);
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByRole("region", { name: "Confirm" });
+    expect(transport.quotePreviews[1]).toEqual({ ...original, operationId: expect.any(String) });
+    expect(transport.quotePreviews[1].operationId).not.toBe(original.operationId);
+    expect(transport.receipts.size).toBe(0);
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await screen.findByText("Saved successfully");
+    expect(transport.receipts.size).toBe(1);
+    expect(transport.receipts.has(original.operationId)).toBe(false);
+    expect(JSON.parse(transport.attempts[transport.attempts.length - 1]!.body)).toEqual({ planId: "synthetic-quote-plan-2", operationId: transport.quotePreviews[1].operationId });
+  }
+  expect(confirms).toHaveLength(0);
+  expect(marketConfirms).toHaveLength(0);
+});
+
+it("retries an intact quote plan after a lost receipt with the same operation and exactly one commit", async () => {
+  const transport = quoteRecoveryTransport(true, true);
+  const user = userEvent.setup();
+  mount();
+  await reviewSyntheticQuote(user);
+  await user.dblClick(screen.getByRole("button", { name: "Confirm" }));
+  expect(transport.attempts).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Retry same submission" })).toBeDisabled();
+  await act(async () => transport.releaseLostReceipt());
+  await waitFor(() => expect(screen.getByRole("button", { name: "Retry same submission" })).toBeEnabled());
+  await user.click(screen.getByRole("button", { name: "Reconnect" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Reconnect" })).toBeEnabled());
+  expect(transport.attempts).toHaveLength(1);
+  await user.click(screen.getByRole("button", { name: "Retry same submission" }));
+  await screen.findByText("Saved successfully");
+  expect(transport.attempts).toHaveLength(2);
+  expect(transport.attempts[0].body).toBe(transport.attempts[1].body);
+  expect(transport.receipts.size).toBe(1);
+  expect(transport.quotePreviews).toHaveLength(1);
+  expect(sessionStorage.getItem("nestworth.mobile.pending.v1")).toBeNull();
+});

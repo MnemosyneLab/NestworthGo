@@ -1,6 +1,8 @@
 # Compact MCP management reads and financial continuations
 
-Base: main `34f048f797c4667689a729cd2324bdbd9eb005f8`.
+Original paired-measurement base: main `34f048f797c4667689a729cd2324bdbd9eb005f8`.
+Current integration base: main `002b4f0` (frozen contributions, import comparison
+and complete reconciliation wire budgets included).
 Environment: Linux amd64, Go 1.27.3, MCP Go SDK 1.7.0, server build tag,
 isolated temporary synthetic SQLite households. No real ledger or live provider.
 The PR records the exact tested head. These changes are default-enabled in the
@@ -26,7 +28,7 @@ Only requested progress is returned. Initial captures and the related-item tool
 keep their original shape. Canonical content hashes, financial calculations,
 permissions, fixed TTL and generation revocation remain authoritative.
 
-This breaking continuation contract ships with distributable skill 3.0.0 and
+This breaking continuation contract ships with distributable skill 4.0.0 and
 updated discovery descriptions. No legacy runtime response path was added.
 No import-comparison, contribution snapshot or reconciliation-budget code is
 changed. No application/domain/GUI code is changed.
@@ -98,3 +100,48 @@ more than 25 distinct instruments and model token use were not measured.
 Large full metadata remains subject to capture and single-item budgets; it fails
 explicitly rather than truncating. Pages require retaining the original header;
 old clients must update their readers. CI and independent review remain pending. No merge or deployment was performed.
+
+
+## Integration with main 002b4f0
+
+The shared get_read_item route now keeps main's market-import-comparison detail
+handler and dedicated contribution-kind guard. Instruments join the generic
+frozen detail branch without changing either route. Main's contribution row
+capture/detail mapping, import comparison compact defaults and reconciliation
+HTTP budget are retained. Discovery still checks the immutable baseline, now
+including the upstream comparison-tool addition and contribution metadata
+projection alongside the exact compact-description deltas.
+
+The distributable skill is 4.0.0, above main's 3.0.1; this separately breaking
+financial continuation contract also retains contribution captureId/groupKey,
+read-only import comparison and the 64 KiB reconciliation guidance. Published
+assets remain unchanged.
+
+Fresh actual SDK wire samples on the merged implementation:
+
+| Complete journey | Ordinary calls / bytes | Larger calls / bytes |
+| --- | ---: | ---: |
+| All account identity pages | 2 / 21,628 | 9 / 200,082 |
+| All account pages + one detail | 3 / 24,914 | 10 / 203,369 |
+| All instrument identity pages | 2 / 7,884 | 2 / 17,658 |
+| All instrument pages + one detail | 3 / 10,380 | 3 / 20,157 |
+| Financial context, all sections | 6 / 125,651 | 24 / 921,122 |
+| Comparison, all sections | 8 / 274,110 | 47 / 2,041,665 |
+
+Discovery now has 104 tools and measures 150,734 actual HTTP JSON-RPC bytes.
+Both ordinary and larger payload tiers passed; maximum business response remains
+64,165 / 64,632 bytes. The earlier before/after tables describe the original
+paired experiment, rather than a new baseline containing main's added tool.
+
+
+Post-integration full server-tagged MCP package passed in 159.983s, including
+all skill workflows, frozen contribution, import-comparison and reconciliation
+wire regressions; MCP vet passed. The ordinary/perf payload pair passed in
+19.252s. The reference/version check passed 73 executable JSON examples and
+verified the 3.0.1 -> 4.0.0 bump. These wall times are test-run observations
+under concurrent local checks, not runtime performance comparisons.
+
+Full Python tooling discovery passed all 136 tests in 218.733s on the integrated
+source, with the installed Go toolchain on PATH. Skill 4.0.0 packaging and its
+adjacent SHA-256 checksum passed. No retries or skipped assertions were needed
+for this integration validation. Native/macOS/frontend checks remain unclaimed.

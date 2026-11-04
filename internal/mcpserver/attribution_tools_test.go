@@ -179,16 +179,16 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 	if err != nil || len(baseList.Rows) != 2 {
 		t.Fatalf("base realized list rows=%+v err=%v", baseList.Rows, err)
 	}
-	baseMCP := call(t, client, "list_contributions", map[string]any{"query": query, "returnType": "realized", "groupBy": "instrument", "ordering": "amount_desc", "limit": 1}, false)["data"].(map[string]any)
-	if baseMCP["totalRows"] != float64(2) || baseMCP["hasMore"] != true || baseMCP["nextOffset"] != float64(1) {
+	baseMCP := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{"query": query, "returnType": "realized", "groupBy": "instrument", "ordering": "amount_desc", "limit": 1}, false)["data"].(map[string]any))
+	if baseMCP["totalRows"] != float64(2) || baseMCP["hasMore"] != true || baseMCP["nextCursor"] == nil {
 		t.Fatalf("realized pagination metadata = %+v", baseMCP)
 	}
 	baseRows := baseMCP["rows"].([]any)
 	if len(baseRows) != 1 || !reflect.DeepEqual(baseRows[0], jsonObject(t, baseList.Rows[0])) {
 		t.Fatalf("realized first page = %+v, want %+v", baseRows, baseList.Rows[0])
 	}
-	secondPage := call(t, client, "list_contributions", map[string]any{"query": query, "returnType": "realized", "groupBy": "instrument", "ordering": "amount_desc", "limit": 1, "offset": 1}, false)["data"].(map[string]any)
-	if secondPage["totalRows"] != float64(2) || secondPage["hasMore"] != false || secondPage["nextOffset"] != nil {
+	secondPage := nextContributionPage(t, client, baseMCP)
+	if secondPage["totalRows"] != float64(2) || secondPage["hasMore"] != false || secondPage["nextCursor"] != nil {
 		t.Fatalf("realized second page metadata = %+v", secondPage)
 	}
 	accountList, err := adapter.Contribution(t.Context(), request, "realized", "account", "amount_desc")
@@ -216,10 +216,10 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		scoped := call(t, client, "list_contributions", map[string]any{
+		scoped := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{
 			"query":      map[string]any{"from": request.From, "to": request.To, "scopeKind": tc.kind, "scopeId": tc.id, "valuation": "native", "basis": "investment"},
 			"returnType": "realized", "groupBy": "account", "ordering": "amount_desc", "limit": 100,
-		}, false)["data"].(map[string]any)
+		}, false)["data"].(map[string]any))
 		filterRequest := request
 		filterRequest.Valuation = "native"
 		if tc.field == "currency" {
@@ -227,10 +227,10 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 		} else {
 			filterRequest.AssetClass = tc.value
 		}
-		filterOnly := call(t, client, "list_contributions", map[string]any{
+		filterOnly := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{
 			"query":      map[string]any{"from": request.From, "to": request.To, "valuation": "native", "basis": "investment", tc.field: tc.value},
 			"returnType": "realized", "groupBy": "account", "ordering": "amount_desc", "limit": 100,
-		}, false)["data"].(map[string]any)
+		}, false)["data"].(map[string]any))
 		want, err := adapter.Contribution(t.Context(), filterRequest, "realized", "account", "amount_desc")
 		if err != nil {
 			t.Fatal(err)
@@ -253,9 +253,9 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 		}
 	}
 	usdFilter := map[string]any{"from": request.From, "to": request.To, "currency": "USD"}
-	filteredPage := call(t, client, "list_contributions", map[string]any{
+	filteredPage := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{
 		"query": usdFilter, "returnType": "realized", "groupBy": "account", "ordering": "amount_desc", "limit": 1,
-	}, false)["data"].(map[string]any)
+	}, false)["data"].(map[string]any))
 	usdValue := "USD"
 	filteredWant, err := adapter.Contribution(t.Context(), analysis.AnalysisQueryRequest{
 		From: request.From, To: request.To, Currency: &usdValue,
@@ -263,14 +263,12 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filteredPage["totalRows"] != float64(2) || filteredPage["hasMore"] != true || filteredPage["nextOffset"] != float64(1) ||
+	if filteredPage["totalRows"] != float64(2) || filteredPage["hasMore"] != true || filteredPage["nextCursor"] == nil ||
 		!reflect.DeepEqual(filteredPage["rows"].([]any)[0], jsonObject(t, filteredWant.Rows[0])) {
 		t.Fatalf("filtered first page = %+v, want rows from filtered Wails projection %+v", filteredPage, filteredWant.Rows)
 	}
-	filteredSecond := call(t, client, "list_contributions", map[string]any{
-		"query": usdFilter, "returnType": "realized", "groupBy": "account", "ordering": "amount_desc", "limit": 1, "offset": 1,
-	}, false)["data"].(map[string]any)
-	if filteredSecond["totalRows"] != float64(2) || filteredSecond["hasMore"] != false || filteredSecond["nextOffset"] != nil ||
+	filteredSecond := nextContributionPage(t, client, filteredPage)
+	if filteredSecond["totalRows"] != float64(2) || filteredSecond["hasMore"] != false || filteredSecond["nextCursor"] != nil ||
 		!reflect.DeepEqual(filteredSecond["rows"].([]any)[0], jsonObject(t, filteredWant.Rows[1])) {
 		t.Fatalf("filtered second page = %+v, want rows from filtered Wails projection %+v", filteredSecond, filteredWant.Rows)
 	}
@@ -278,7 +276,7 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 	// All four dimensions intersect and contradictions cannot widen to the
 	// household. Currency and class remain filters, not grouping dimensions.
 	combinedQuery := map[string]any{"from": request.From, "to": request.To, "accountId": accountA, "instrumentId": stock.ID.String(), "currency": "USD", "assetClass": "stock"}
-	combined := call(t, client, "list_contributions", map[string]any{"query": combinedQuery, "returnType": "realized", "groupBy": "instrument", "limit": 100}, false)["data"].(map[string]any)
+	combined := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{"query": combinedQuery, "returnType": "realized", "groupBy": "instrument", "limit": 100}, false)["data"].(map[string]any))
 	if rows := combined["rows"].([]any); len(rows) != 1 || rows[0].(map[string]any)["key"] != stock.ID.String() || rows[0].(map[string]any)["amount"].(map[string]any)["amount"] != "-3" {
 		t.Fatalf("combined intersection = %+v, want account A stock -3 USD", combined)
 	}
@@ -288,31 +286,31 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 		{"from": request.From, "to": request.To, "scopeKind": "currency", "scopeId": "USD", "currency": "CNY"},
 		{"from": request.From, "to": request.To, "scopeKind": "asset_class", "scopeId": "stock", "assetClass": "etf"},
 	} {
-		result := call(t, client, "list_contributions", map[string]any{"query": contradiction, "returnType": "realized", "groupBy": "instrument", "limit": 1}, false)["data"].(map[string]any)
+		result := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{"query": contradiction, "returnType": "realized", "groupBy": "instrument", "limit": 1}, false)["data"].(map[string]any))
 		if result["available"] != true || len(result["rows"].([]any)) != 0 || result["totalRows"] != float64(0) || result["hasMore"] != false {
 			t.Fatalf("contradictory query widened: %+v", result)
 		}
 	}
-	memberResult := call(t, client, "list_contributions", map[string]any{"query": map[string]any{"from": request.From, "to": request.To, "memberId": "00000000-0000-4000-8000-000000000001"}, "returnType": "realized", "groupBy": "instrument"}, false)["data"].(map[string]any)
+	memberResult := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{"query": map[string]any{"from": request.From, "to": request.To, "memberId": "00000000-0000-4000-8000-000000000001"}, "returnType": "realized", "groupBy": "instrument"}, false)["data"].(map[string]any))
 	if memberResult["status"] != "unavailable" || len(memberResult["rows"].([]any)) != 0 {
 		t.Fatalf("member filter should remain unsupported: %+v", memberResult)
 	}
-	groupResult := call(t, client, "list_contributions", map[string]any{"query": query, "returnType": "realized", "groupBy": "currency"}, false)["data"].(map[string]any)
+	groupResult := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{"query": query, "returnType": "realized", "groupBy": "currency"}, false)["data"].(map[string]any))
 	if groupResult["status"] != "unavailable" || len(groupResult["rows"].([]any)) != 0 {
 		t.Fatalf("realized currency grouping should remain unsupported: %+v", groupResult)
 	}
 	itemKey := stock.ID.String()
 	stockIDString := stock.ID.String()
 	usdCurrency := "USD"
-	item := sectionEvidence(t, client, "get_contribution_item", map[string]any{"query": combinedQuery, "returnType": "realized", "groupBy": "instrument", "groupKey": itemKey})
+	item := sectionEvidence(t, client, "get_contribution_item", map[string]any{"captureId": combined["captureId"], "groupKey": itemKey})
 	wantItem, err := adapter.ContributionItem(t.Context(), analysis.AnalysisQueryRequest{
 		From: request.From, To: request.To, AccountID: &accountA, InstrumentID: &stockIDString, Currency: &usdCurrency, AssetClass: "stock",
 	}, "realized", "instrument", itemKey)
 	if err != nil || !reflect.DeepEqual(item, jsonObject(t, wantItem)) {
 		t.Fatalf("realized item MCP=%+v Wails=%+v err=%v", item, wantItem, err)
 	}
-	call(t, client, "get_contribution_item", map[string]any{"query": combinedQuery, "returnType": "realized", "groupBy": "instrument", "groupKey": etf.ID.String()}, true)
-	call(t, client, "get_contribution_item", map[string]any{"query": query, "returnType": "realized", "groupBy": "instrument", "groupKey": "synthetic-instrument"}, true)
+	call(t, client, "get_contribution_item", map[string]any{"captureId": combined["captureId"], "groupKey": etf.ID.String()}, true)
+	call(t, client, "get_contribution_item", map[string]any{"captureId": combined["captureId"], "groupKey": "synthetic-instrument"}, true)
 
 	// Current metadata determines class selection, including for older sale
 	// events. The synthetic history remains isolated to the test database.
@@ -341,7 +339,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail"} {
+	for _, name := range []string{"list_contributions", "get_return_day", "get_asset_driver_detail"} {
 		found := false
 		for _, tool := range listed.Tools {
 			if tool.Name == name {
@@ -375,9 +373,9 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	request := analysis.AnalysisQueryRequest{From: "2025-03-02", To: "2025-03-03", IncludeCash: true}
 	adapter := analysis.NewService(app)
 
-	contribution := call(t, client, "list_contributions", map[string]any{
+	contribution := contributionPageEvidence(call(t, client, "list_contributions", map[string]any{
 		"query": query, "returnType": "dividend_interest", "groupBy": "account", "limit": 1,
-	}, false)["data"].(map[string]any)
+	}, false)["data"].(map[string]any))
 	wantContribution, err := adapter.Contribution(ctx, request, "dividend_interest", "account", "amount_desc")
 	if err != nil {
 		t.Fatal(err)
@@ -388,20 +386,18 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	if contribution["returnType"] != "dividend_interest" || contribution["groupBy"] != "account" || contribution["status"] != wantContribution.Status || contribution["ratedDays"] != float64(wantContribution.RatedDays) || contribution["totalDays"] != float64(wantContribution.TotalDays) {
 		t.Fatalf("contribution metadata: %+v", contribution)
 	}
-	if contribution["limit"] != float64(1) || contribution["totalRows"] != float64(len(wantContribution.Rows)) {
+	if contribution["totalRows"] != float64(len(wantContribution.Rows)) {
 		t.Fatalf("contribution page metadata: %+v", contribution)
 	}
 	rows := contribution["rows"].([]any)
 	if len(rows) != 1 || !reflect.DeepEqual(rows[0], jsonObject(t, wantContribution.Rows[0])) {
 		t.Fatalf("contribution rows: %+v, want %+v", rows, wantContribution.Rows)
 	}
-	if contribution["hasMore"] != true || contribution["nextOffset"] != float64(1) {
+	if contribution["hasMore"] != true || contribution["nextCursor"] == nil {
 		t.Fatalf("first contribution page: %+v", contribution)
 	}
-	second := call(t, client, "list_contributions", map[string]any{
-		"query": query, "returnType": "dividend_interest", "groupBy": "account", "limit": 1, "offset": 1,
-	}, false)["data"].(map[string]any)
-	if second["hasMore"] != false || second["nextOffset"] != nil || !reflect.DeepEqual(second["rows"].([]any)[0], jsonObject(t, wantContribution.Rows[1])) {
+	second := nextContributionPage(t, client, contribution)
+	if second["hasMore"] != false || second["nextCursor"] != nil || !reflect.DeepEqual(second["rows"].([]any)[0], jsonObject(t, wantContribution.Rows[1])) {
 		t.Fatalf("second contribution page: %+v", second)
 	}
 	if len(wantContribution.Rows) > 0 {
@@ -410,7 +406,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 			t.Fatalf("contribution key = %q, want brokerage IDs %q or %q", key, brokerageID, secondBrokerageID)
 		}
 		item := sectionEvidence(t, client, "get_contribution_item", map[string]any{
-			"query": query, "returnType": "dividend_interest", "groupBy": "account", "groupKey": key,
+			"captureId": contribution["captureId"], "groupKey": key,
 		})
 		wantItem, err := adapter.ContributionItem(ctx, request, "dividend_interest", "account", key)
 		if err != nil {

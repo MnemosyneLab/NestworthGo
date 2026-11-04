@@ -539,7 +539,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.mu.Unlock()
 	}()
 	if r.Method != "GET" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(d.csrf)) != 1 {
-		fail(w, forbidden())
+		fail(w, &domain.Error{Code: domain.ErrConflict, Field: "csrfToken"})
 		return
 	}
 	if r.Method == "GET" && path == "/session" {

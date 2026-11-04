@@ -78,6 +78,22 @@ func TestMobileBrowserFixture(t *testing.T) {
 	for {
 		select {
 		case <-ticker.C:
+			// A browser may request a genuine listener/registry restart while
+			// retaining its mounted review. Only this opt-in synthetic fixture
+			// watches the private control directory; no product endpoint exists.
+			if _, err := os.Stat(filepath.Join(directory, "restart")); err == nil {
+				// The initial listener belongs to httptest, so also drain its
+				// browser keep-alives (production Server.Close owns this).
+				f.http.CloseClientConnections()
+				restartRemembered(t, f)
+				f.s.assets = os.DirFS("../../frontend/dist")
+				if err := os.Remove(filepath.Join(directory, "restart")); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(directory, "restarted"), []byte("ready"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if _, err := os.Stat(filepath.Join(directory, "done")); err == nil {
 				return
 			}

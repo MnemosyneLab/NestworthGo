@@ -461,8 +461,8 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	sectionEvidence(t, c, "analyze_period", map[string]any{"query": query})
 	contributionQuery := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.brokerage}
 	contributions := call(t, c, "list_contributions", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "limit": 5}, false)["data"].(map[string]any)
-	if rows := contributions["rows"].([]any); len(rows) > 0 {
-		sectionEvidence(t, c, "get_contribution_item", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "groupKey": rows[0].(map[string]any)["key"]})
+	if rows := contributions["sections"].(map[string]any)["rows"].(map[string]any)["items"].([]any); len(rows) > 0 {
+		sectionEvidence(t, c, "get_contribution_item", map[string]any{"captureId": contributions["captureId"], "groupKey": rows[0].(map[string]any)["key"]})
 	}
 	sectionEvidence(t, c, "get_return_day", map[string]any{"query": query, "date": "2026-10-02"})
 	sectionEvidence(t, c, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "external_flow"})

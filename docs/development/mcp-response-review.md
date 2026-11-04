@@ -85,7 +85,7 @@ activity/review/reconciliation APIs keep their distinct domain paging contracts.
 | Financial context/comparison/attribution | Frozen 4 MiB captures, 5 min TTL, 64 KiB pages/item; initial financial header retained by clients, lean section/items/page continuations | Add effective leaf quality/contributions; retain coherence, aliases and financial precision evidence |
 | Products/liquidity/upcoming/instruments/Agent history/market batch | Sole mcp-read/1 contract; compact sections, filters/sort, detail links, byte-aware pages | Reuse infrastructure as the only response contract; market batch keeps genuine current/coverage/history views |
 | Market single/search | Selected single quote; history removed from single-query schema and served by market batch; provider candidate arrays | Single quote stays a direct object; complete history uses existing market batch; external search remains provider-bounded |
-| Activities/contributions | Activities keyset <=100, full item; contributions offset <=100, repeated aggregate metadata; related item/day/driver detail may grow | Keep existing activity and contribution list paging; contribution item/day/driver collections now frozen sections |
+| Activities/contributions | Activities keyset <=100, full item; contributions use one frozen rows/detail capture (default 25, max 100) | Keep activity keyset paging; contributions continue with get_read_page and drill down with captureId/groupKey, preserving source coherence and complete-wire bounds |
 | Period analysis | Four full projections with trends/categories/drivers/coverage; range computation bounded independently of encoded output | Default frozen projection headers and six named sections; comparison attribution remains coherent two-endpoint alternative |
 | Review V2 | Rules/suppressions <=100; report groups, daily evidence, episodes/events/coverage revision-bound pages; one episode includes sibling alerts | Retain rule grouping and complete audit evidence; no unsafe field removal |
 | Reconciliation sessions | Bounded header/page/item/attempt routes; links retain before/after review evidence | Retain; already separates heavy histories |
@@ -314,5 +314,5 @@ Instrument and directory lists now use explicit identity projections with full
 same-capture get_read_item metadata. Financial context/comparison continuations
 return only the requested section and capture identity/hash/expiry; initial
 headers retain attribution, precision and disclosure. This breaking response
-change is documented in skill 3.0.0. Paired real SDK wire/call measurements and
+change is documented in skill 4.0.0. Paired real SDK wire/call measurements and
 coverage limits are in [the compact-read report](../qa/mcp-compact-reads-2026-11-04.md).

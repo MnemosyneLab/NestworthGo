@@ -1,8 +1,10 @@
-# Bounded read-only import comparison (proposed)
+# Bounded read-only import comparison (historical proposal)
 
-Status: design only. No comparison tool is registered in this change. The shipped
-batch-history date window and `historyLayout=records` improve evidence retrieval;
-they do not implement the classifications below.
+Status: historical proposal from the batch-history change. The implemented
+`compare_market_data_import` tool is documented in the [API contract](mcp-import-comparison-api.md).
+That contract is authoritative for request bounds, classification and evidence
+scope; this page preserves the design rationale. The active-only batch-history
+capture remains insufficient for import absence proof.
 
 ## Why a separate capture is required
 
