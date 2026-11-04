@@ -2290,5 +2290,15 @@
     "unavailableAccount": "账户不可用",
     "unavailableInstrument": "标的不可用",
     "filtered": "已筛选"
+  },
+  "aiCredentials": {
+    "title": "内置 AI 凭据",
+    "help": "OpenAI API 密钥。保存密钥不会开启模型调用或财务写入。",
+    "backup": "密钥未经字段加密存入家庭数据库。完整备份包含此密钥；删除密钥不会清除旧备份中的副本。",
+    "key": "OpenAI API 密钥",
+    "save": "保存 AI 密钥",
+    "missing": "尚未保存 AI 密钥",
+    "unavailable": "AI 配置不可用。请创建家庭后重启应用，或检查数据库访问。",
+    "error": "无法更新 AI 凭据，请检查配置状态后重试。"
   }
 }

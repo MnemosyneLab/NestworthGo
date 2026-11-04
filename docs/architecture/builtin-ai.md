@@ -9,8 +9,9 @@ It does not activate a model, credentials, durable conversations or AI writes.
 The complete read/write assistant remains the target. The independent
 [backend runtime stage](builtin-ai-runtime.md) now installs private conversations,
 run recovery, a guarded Eino engine, desktop query/cancel IPC and a replaceable
-secure credential port. Existing ad-hoc builds, the page guide and all mobile or
-financial-write paths remain closed. The integration core below describes the
+database credential port. Desktop settings can save, replace and delete a key;
+model activation, the page guide and all mobile or financial-write paths remain
+closed. The integration core below describes the
 prior stage merged through #203; its historical absence of executable dependencies
 is superseded by that runtime contract.
 
@@ -136,7 +137,7 @@ This now includes the synthetic ledger/host-review gate as well as all #201
 provider tests. The dedicated workflow triggers on `internal/**` changes too,
 because the vertical test depends on shared application and persistence code.
 Only fake loopback providers, synthetic keys and synthetic ledgers are used.
-There is no real-provider/signature/model-quality or signed-Keychain acceptance,
+There is no real-provider/signature/model-quality acceptance,
 paid request or enabled product model flow. Full native history is private provider
 state: never render `Reasoning`, `Extra` or serialized model objects as chat text.
 

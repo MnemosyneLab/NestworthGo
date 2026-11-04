@@ -9,10 +9,11 @@ assistant; this backend safety stage does not complete that product.
 The installed page guide keeps its existing nine-field closed status. Its
 in-memory explanations and client page generations do not grant backend
 permission. The independent desktop `airuntime.Service` provides bounded
-conversation/run queries and cancellation for later UI integration. There is no
-credential input, activation/configuration, proposal, approval, confirmation or
-financial writer in that IPC inventory, and no new mobile route. General model
-activation remains unavailable in current ordinary/ad-hoc builds.
+conversation/run queries and cancellation for later UI integration. Desktop
+settings expose write-only credential save/delete and configuration status.
+There is no activation/configuration, proposal, approval, confirmation or financial
+writer in that IPC inventory, and no new mobile route. General model activation
+remains closed in all builds.
 
 ## Ownership and authority
 
@@ -41,45 +42,43 @@ intersection, per-account authorization and other write families remain required
 before any built-in writer can be exposed. The model cannot manufacture host
 approval from text, a summary, a digest, a page snapshot or a saved conversation.
 
-## Configuration and secure credentials
+## Configuration and database credentials
 
 A versioned private `ModelConfig` contains only provider, model and enabled state.
 Only `openai-responses` is implemented. Model names have a bounded syntax; other
 providers and key-looking model names are refused. The initial model is the
 non-operational placeholder `unconfigured`, with activation off. Host integration
-must explicitly choose a model and provision a secure credential before enabling
-it. Host-only configuration/key changes increment the revision; stale new requests
+must explicitly choose a model and save a credential before enabling
+it. Configuration/key changes increment the revision; stale new requests
 are refused. Configuration/key replacement cannot race an active run. Credential
 revocation cancels runs and durably disables activation before attempting deletion.
 
-`assistant.Credentials` is replaceable and exposes `Available`, `Put`, `With` and
-`Delete` only to host code. Neither key material nor an arbitrary implementation
-error is returned through IPC, events, diagnostics, checkpoints or storage.
-Credential status is only `unavailable`, `missing_or_locked`, or `present`.
-There is no environment-variable, command-line, file, settings or database
-fallback. No migration copies credentials from older provider settings.
+`assistant.Credentials` remains a replaceable host-owned port with `Available`,
+`Put`, `With` and `Delete`. The production adapter uses the existing live SQLite
+`ConfigurationRepository`, under the independent `assistant.credentials.v1` key
+in `app_configuration`. It requires no Keychain, signing identity, environment
+variable, command-line secret or external process. Status returns only
+`unavailable`, `missing`, or `present`; stored key material and implementation
+errors are never returned through IPC, diagnostics, events or conversations.
+Desktop Settings → AI / MCP provides a shared masked secret field for new input,
+replacement and explicit deletion. Input clears on submission and section exit;
+new keys do not enter query/mutation caches. A missing runtime explicitly reports
+`unavailable` with an empty epoch. Editing and submission require a nonempty host
+epoch and an explicit `missing` or `present` credential status; absent, unknown
+and failed status responses keep controls closed. Saving a key does not enable model
+calls, select a model, or expose financial writes. Mobile cannot mutate credentials.
 
-The Darwin/CGO adapter uses Security.framework directly, never the `security`
-CLI. API selection follows [Apple TN3137](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains),
-[accessibility](https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlockedthisdeviceonly)
-and [code validity](https://developer.apple.com/documentation/security/seccodecheckvalidity(_:_:_:)). Its Keychain service/account are fixed/versioned and host-scope-derived.
-It selects the data-protection Keychain, disables synchronization, uses
-`WhenUnlockedThisDeviceOnly`, and fails when interactive authentication would be
-needed. It verifies the running code against the production bundle identifier,
-Apple signing anchor and a build-pinned Team ID, requires hardened runtime,
-rejects ad-hoc signing and unsafe debugger/library-injection entitlements, and
-rechecks code validity for every operation. Go lease buffers and the engine's
-extra key copy are cleared after use; Go/SDK strings and OS-managed buffers do
-not provide a guarantee of complete memory erasure.
-
-The audited release Team ID is deliberately unset in source and cannot be
-supplied through app settings or environment variables. Existing development
-identity `com.nestworth.dev` and the documented ad-hoc release packaging therefore
-remain closed. Merely passing a macOS compile is not signed Keychain acceptance.
-Setting a release trust identity requires a reviewed release change plus signed
-bundle, entitlement, locked/unlocked, restart, update and denial tests. No signing
-setting or system security preference is changed by this work. Non-Darwin or
-non-CGO builds return an unavailable store.
+This deliberately matches existing main-database provider/token storage: values
+have no field encryption and full database backups include them. Restoring an old
+backup can restore its old key; deleting/replacing a live key does not remove old
+backup copies or promise forensic erasure of SQLite/filesystem remnants. Protect
+backup files accordingly. Conversation state remains outside these backups.
+Deletion writes an empty configuration tombstone and first disables activation.
+Lease buffers are cleared after use; Go/SDK strings do not guarantee complete
+memory erasure. No prior supported AI database credential exists, and no existing
+provider/MCP setting is migrated or modified. The removed signed-Keychain adapter
+was unavailable in ordinary builds; no automatic Keychain import is performed.
+No financial schema migration is required.
 
 Provider calls use the #201 adapter: fixed default HTTPS OpenAI origin, no custom
 origin exposed by this runtime, no redirects, zero SDK retries, `store:false`,
@@ -112,9 +111,11 @@ Conversation state does not enter the financial database, configuration table,
 ledger audit, operation receipts, native app bundle, normal database snapshot,
 JSON ledger export or application backup selection. The end-to-end fake-provider
 test creates an actual application backup and verifies that conversation identity,
-native reasoning, AI schema and key canaries are absent. The OS may independently
-back up private files or encrypted Keychain data under its own policy; the app
-never serializes a key. Conversation text is private local plaintext and may
+native reasoning and private AI schema are absent. Its in-memory fake credential
+canary remains absent; production database credentials intentionally enter full
+backups. Dedicated database-credential tests verify archive/restore behavior.
+The OS may independently back up private files under its own policy.
+Conversation text is private local plaintext and may
 contain financial information. OS disk encryption and device access remain
 relevant. Secure deletion does not promise forensic erasure from filesystem
 snapshots, previous disk copies or operating-system caches.
@@ -211,6 +212,6 @@ backend acceptance of #204's client-only generations are installed here.
 
 Remaining gates include UI binding and read evidence cards, trusted proposal/
 review/receipt wiring, broader page/navigation coverage, mobile/scoped principals,
-verified signed Keychain behavior, native GUI/accessibility, physical devices,
+native GUI/accessibility, physical devices,
 power-loss/full backup-restore application acceptance and real-provider encrypted
 signature compatibility. All unsupported paths stay closed.
