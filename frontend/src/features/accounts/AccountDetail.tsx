@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import { AccountIcon } from "@/components/icons/AccountIcon";
+import { usePublishAssistantPage } from "@/features/assistant/PageContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -144,6 +145,13 @@ export function AccountDetail({
 
 
   const displayMoney = accountDisplayMoney(record, valuation);
+  usePublishAssistantPage({ viewKey: `accounts:${record.account.id}`, page: "accounts", scope: { kind: "account", label: record.account.name },
+    timezone: settings.data?.timezone ?? "UTC", basis: "native", currency: displayMoney.primary?.currency,
+    observedAt: valuationUpdatedAt ?? 0, state: valuation ? "available" : "unavailable", targets: [],
+    metrics: [{ label: record.account.name, value: displayMoney.primary?.amount ?? null, unit: displayMoney.primary?.currency ?? record.account.defaultCurrency,
+      basis: "account_value", status: displayMoney.primaryPartial ? "incomplete" : displayMoney.primary ? "available" : "unavailable",
+      missingReasons: valuation?.missingInputs?.map(input => input.kind) ?? [] }],
+  });
   const titleAmount = displayMoney.primary
     ? `${formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)}${displayMoney.primaryPartial ? ` · ${t("accounts.displaySubtotal")}` : ""}`
     : displayMoney.unavailableCurrency

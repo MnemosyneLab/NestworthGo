@@ -33,6 +33,8 @@ import { TasksHomeSummary } from "@/features/tasks/TasksHomeSummary";
 import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
 import { OverviewLiquidityCard } from "@/features/liquidity/OverviewLiquidityCard";
 import { healthIssueLabel } from "@/features/data-health/healthIssueLabel";
+import { usePublishAssistantPage } from "@/features/assistant/PageContext";
+import { overviewPublication } from "@/features/assistant/publications";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
@@ -179,6 +181,11 @@ export function OverviewPage({
   const settings = useSettings();
   const overview = useOverview();
   const health = useMarketDataHealth();
+  usePublishAssistantPage(overviewPublication(overview.data, {
+    observedAt: overview.dataUpdatedAt, error: overview.isError, loading: overview.isLoading,
+    timezone: settings.data?.timezone ?? "UTC", label: t("nav.overview"),
+    labels: [t("overview.netWorth"), t("overview.assets"), t("overview.liabilities")],
+  }));
   const healthKnown = Boolean(health.data) && !health.isError && !health.isPending;
   const healthIssueCount = health.data?.issueCount ?? 0;
   const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button id="open-historical-overview" className="min-[960px]:hidden" variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;

@@ -25,6 +25,7 @@ import type { HistoricalCaptureContext } from "@/queries/historicalCapture";
 import { toast } from "sonner";
 import { AgentWorkspaceObserver } from "@/queries/agent";
 import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
+import { AssistantPageProvider } from "@/features/assistant/PageContext";
 
 const HistoricalOverviewPage = lazy(() => import("@/features/historical-overview/HistoricalOverviewPage").then(module => ({ default: module.HistoricalOverviewPage })));
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
@@ -371,6 +372,9 @@ function Workspace() {
   const retained = (page: PageId) => activePageId === page || (page === "tasks" && retainedReconciliation.size > 0) || (!(page === "overview" && (activePageId === "historical-overview" || activePageId === "settings")) && allSnapshots.some(entry => entry.page === page));
   return (
     <NavigationContext.Provider value={{ open, openHealth }}>
+    <AssistantPageProvider key={bootstrap.data?.household?.id} householdId={bootstrap.data?.household?.id ?? ""}
+      incarnation={String(startup.dataUpdatedAt)} surface="desktop" viewKey={`${activePageId}:${activePageId === "accounts" ? selectedAccountId ?? "" : ""}`}
+      blocked={hasUnresolvedSheetConfirmation} onNavigate={target => { if (!("mobileAccountId" in target)) open(target); }}>
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data} navigationHistory={{
       canBack: cursor > 0, canForward: cursor < entries.length - 1,
       back, forward: () => move(1),
@@ -477,6 +481,7 @@ function Workspace() {
         </div>
       )}
     </AppShell>
+    </AssistantPageProvider>
     </NavigationContext.Provider>
   );
 }

@@ -19,6 +19,7 @@ import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang
 import { PageChromeProvider } from "@/components/layout/PageChrome";
 import { NavigationHistoryControls, type NavigationHistoryControlsProps } from "./NavigationHistoryControls";
 import { AppFocusBoundary } from "./AppFocusBoundary";
+import { useDesktopAssistant } from "@/features/assistant/DesktopAssistant";
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {
   system: Monitor,
@@ -114,6 +115,7 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
   const collapsed = narrow ? !narrowExpanded : storedCollapsed;
   const toggleSidebar = narrow ? () => setNarrowExpanded((value) => !value) : toggleStoredSidebar;
   const saveSettings = useSaveSettings();
+  const assistant = useDesktopAssistant();
   const tasksCounts = useTasksCounts();
   const tasksStale = (tasksCounts.upcoming.isError && Boolean(tasksCounts.upcoming.data)) || (tasksCounts.review.isError && Boolean(tasksCounts.review.data));
   const retryStaleTasks = () => {
@@ -226,10 +228,14 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
         <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-2 py-2 backdrop-blur-md sm:px-8">
           {navigationHistory && <NavigationHistoryControls {...navigationHistory} />}
           <div ref={setPageBarTarget} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2" />
+          {assistant.trigger}
         </header>
-        <main id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
+        <div className="flex min-h-0 min-w-0 flex-1">
+        <main id="main-content" hidden={assistant.expanded} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
           <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
+        {assistant.panel}
+        </div>
       </div>
       </AppFocusBoundary>
     </PageChromeProvider>

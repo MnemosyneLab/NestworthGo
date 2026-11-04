@@ -1,6 +1,15 @@
 # Built-in AI integration and delivery boundaries
 
-## Current delivery: host review core, application activation still closed
+## Current delivery: page guide UI, general AI activation still closed
+
+The installed UI follow-up is documented in [Page guide stage](builtin-ai-page-guide.md).
+It adds a local deterministic guide on desktop and mobile, typed in-memory page
+publications and explicit account navigation, plus closed capability-status APIs.
+It does not activate a model, credentials, durable conversations or AI writes.
+The complete read/write assistant remains the target. The backend integration
+core described below is the prior stage merged through #203.
+
+## Host review backend integration stage
 
 The target is a complete desktop and mobile read/write assistant, including
 structured current-page explanations and semantic navigation. This delivery is
@@ -32,8 +41,9 @@ Base main `76722b33477f45aed4babffaa0d33664098c3f7d` includes merged #199
   Failed/truncated/incomplete proposal responses dispatch zero preview calls.
   Native reasoning is replayed on the next actual provider request.
 
-No application service registration, Wails method, mobile endpoint, assistant UI,
-provider settings, API-key input or secret store is added. The provider module is
+The backend stage added no application service registration, Wails method, mobile
+endpoint or assistant UI. The page guide follow-up adds only capability-status
+entry points and local UI; no runner, API-key input or secret store is installed. The provider module is
 still not imported by the executable. There is no activation flag to turn on:
 the product entry points do not exist. The host APIs are integration components,
 not proof of trusted GUI approval. Desktop/mobile UI, live mobile intersection,
@@ -140,8 +150,8 @@ flowchart LR
 ```
 
 The diagram describes the target application. The local model adapter and
-review coordinator now exist as tested integration components; no assistant
-runtime or UI is installed in the executable. No model gets
+review coordinator now exist as tested integration components; no model runner is installed in the executable. The installed page guide UI
+uses only local, deterministic explanations and closed status APIs. No model gets
 arbitrary SQL, repository access, reflection over Wails methods, general HTTP
 tools or a way to manufacture a host approval.
 
@@ -254,8 +264,9 @@ checkpoint test and must never be reported as one.
 
 ## Structured page context and semantic navigation contract
 
-This is the agreed integration interface for the next UI/runtime stage; there
-is **no current page capture or AI navigation implementation**. Read the existing
+This is the agreed integration interface for the next UI/runtime stage; the [page guide stage](builtin-ai-page-guide.md) now implements a bounded
+client-only subset for Overview, Accounts and account detail. General model
+navigation and the complete protocol below remain unavailable. Read the existing
 `frontend/src/app/navigation.ts`, `App.tsx`'s `open`/`handleNavigate` and mobile's
 navigation/review guards and [the navigation history contract](../design/navigation-history.md)
 when implementing it. Do not add screenshot, arbitrary
@@ -406,5 +417,6 @@ Implement in dependency order, with each stage independently reviewable:
    substitute. No real ledger, screenshot, key or paid call is necessary for the
    synthetic acceptance gate.
 
-Until these dependent gates are complete, do not add an enabled assistant UI,
-accept an API key or expose the trusted write path as a model tool.
+Until these dependent gates are complete, do not enable general AI runs, accept
+an API key or expose the trusted write path as a model tool. The page guide UI
+explicitly labels its local-only stage and keeps these capabilities closed.
