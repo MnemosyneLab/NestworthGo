@@ -1,0 +1,86 @@
+{
+  "browser": "154.0.8037.57",
+  "rows": [
+    {
+      "language": "en",
+      "theme": "light",
+      "surface": "mobile",
+      "width": 320,
+      "evidenceHeight": 44,
+      "reviewCloseHeight": 44,
+      "topCloseHeight": 44,
+      "keyboard": true,
+      "localizedValidation": true,
+      "languageSwitchWithoutResubmit": true,
+      "horizontalOverflow": false
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "surface": "mobile",
+      "width": 320,
+      "evidenceHeight": 44,
+      "reviewCloseHeight": 44,
+      "topCloseHeight": 44,
+      "keyboard": true,
+      "localizedValidation": true,
+      "languageSwitchWithoutResubmit": true,
+      "horizontalOverflow": false
+    },
+    {
+      "language": "zh-CN",
+      "theme": "light",
+      "surface": "mobile",
+      "width": 320,
+      "evidenceHeight": 44,
+      "reviewCloseHeight": 44,
+      "topCloseHeight": 44,
+      "keyboard": true,
+      "localizedValidation": true,
+      "languageSwitchWithoutResubmit": true,
+      "horizontalOverflow": false
+    },
+    {
+      "language": "zh-CN",
+      "theme": "dark",
+      "surface": "mobile",
+      "width": 320,
+      "evidenceHeight": 44,
+      "reviewCloseHeight": 44,
+      "topCloseHeight": 44,
+      "keyboard": true,
+      "localizedValidation": true,
+      "languageSwitchWithoutResubmit": true,
+      "horizontalOverflow": false
+    },
+    {
+      "language": "zh-TW",
+      "theme": "light",
+      "surface": "mobile",
+      "width": 320,
+      "evidenceHeight": 44,
+      "reviewCloseHeight": 44,
+      "topCloseHeight": 44,
+      "keyboard": true,
+      "localizedValidation": true,
+      "languageSwitchWithoutResubmit": true,
+      "horizontalOverflow": false
+    },
+    {
+      "language": "zh-TW",
+      "theme": "dark",
+      "surface": "mobile",
+      "width": 320,
+      "evidenceHeight": 44,
+      "reviewCloseHeight": 44,
+      "topCloseHeight": 44,
+      "keyboard": true,
+      "localizedValidation": true,
+      "languageSwitchWithoutResubmit": true,
+      "horizontalOverflow": false
+    }
+  ],
+  "consoleErrors": [],
+  "scope": "Real shared components with synthetic Wails/status adapters; Chromium keyboard/DOM semantics and layout, not native macOS or actual screen-reader testing.",
+  "sourceCommit": "4590e74595297219d7ce0a05a3fb60e2d4476a8d"
+}
