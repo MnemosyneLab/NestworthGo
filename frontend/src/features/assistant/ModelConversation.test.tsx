@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -6,6 +7,9 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AssistantPageProvider } from "./PageContext";
 import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
+  PublishPage: vi.fn(),
+  GrantNavigation: vi.fn(),
+  ConsumeNavigation: vi.fn(),
   Status: vi.fn(),
   List: vi.fn(),
   Inspect: vi.fn(),
@@ -37,6 +41,9 @@ const run = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
+  api.GrantNavigation.mockResolvedValue(undefined);
+  api.ConsumeNavigation.mockResolvedValue({ kind: "overview", accountId: "" });
   api.Status.mockResolvedValue({
     epoch: "host",
     revision: 3,
@@ -96,10 +103,13 @@ it("restores history without replay and sends only the question and selector", a
     prompt: "Read my current page",
     page: { kind: "overview", accountId: "" },
   });
+  expect(api.GrantNavigation).not.toHaveBeenCalled();
+  expect(api.ConsumeNavigation).not.toHaveBeenCalled();
   expect(Object.keys(api.Start.mock.calls[0][0]).sort()).toEqual([
     "conversationId",
     "epoch",
     "page",
+    "pageLeaseId",
     "prompt",
     "requestId",
     "revision",
@@ -218,4 +228,115 @@ it("keeps local Stop available during a browser offline hint", async () => {
     expect(api.Cancel).toHaveBeenCalledWith("host", "conversation", "run"),
   );
   expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("executes one typed navigation only after the explicit per-message grant", async () => {
+  const navigate = vi.fn();
+  api.Start.mockImplementation(async (q) => {
+    api.Inspect.mockResolvedValue({
+      id: "conversation",
+      runs: [{ ...run, requestId: q.requestId, state: "succeeded" }],
+      runCount: 2,
+      offset: 1,
+      navigation: {
+        id: "host-intent",
+        leaseId: q.pageLeaseId,
+        requestId: q.requestId,
+        runId: "run",
+        conversationId: "conversation",
+      },
+    });
+    return { ...run, state: "accepted" };
+  });
+  const client = createTestQueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <AssistantPageProvider
+        householdId="synthetic"
+        incarnation="synthetic"
+        surface="desktop"
+        viewKey="overview:"
+        blocked={() => false}
+        onNavigate={navigate}
+      >
+        <ModelConversation />
+      </AssistantPageProvider>
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Open the account list");
+  await user.click(
+    screen.getByRole("button", { name: "Send and allow one page change" }),
+  );
+  await waitFor(() =>
+    expect(navigate).toHaveBeenCalledWith({ page: "overview" }),
+  );
+  expect(api.GrantNavigation).toHaveBeenCalledTimes(1);
+  expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1);
+  expect(navigate).toHaveBeenCalledTimes(1);
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1);
+});
+it("does not navigate when the page changes during intent consumption", async () => {
+  let finish!: (target: { kind: string; accountId: string }) => void;
+  api.ConsumeNavigation.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  api.Start.mockImplementation(async (q) => {
+    api.Inspect.mockResolvedValue({
+      id: "conversation",
+      runs: [{ ...run, requestId: q.requestId, state: "succeeded" }],
+      runCount: 2,
+      offset: 1,
+      navigation: {
+        id: "host-intent",
+        leaseId: q.pageLeaseId,
+        requestId: q.requestId,
+        runId: "run",
+        conversationId: "conversation",
+      },
+    });
+    return { ...run, state: "accepted" };
+  });
+  const navigate = vi.fn();
+  function Shell() {
+    const [view, setView] = useState("overview:");
+    return (
+      <AssistantPageProvider
+        householdId="synthetic"
+        incarnation="synthetic"
+        surface="desktop"
+        viewKey={view}
+        blocked={() => false}
+        onNavigate={navigate}
+      >
+        <button onClick={() => setView("accounts:")}>
+          Change synthetic page
+        </button>
+        <ModelConversation />
+      </AssistantPageProvider>
+    );
+  }
+  render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <Shell />
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Open overview");
+  await user.click(
+    screen.getByRole("button", { name: "Send and allow one page change" }),
+  );
+  await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
+  await user.click(
+    screen.getByRole("button", { name: "Change synthetic page" }),
+  );
+  finish({ kind: "overview", accountId: "" });
+  await screen.findByText(/No page change was applied/);
+  expect(navigate).not.toHaveBeenCalled();
 });

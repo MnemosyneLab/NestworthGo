@@ -12,10 +12,11 @@ import (
 )
 
 type navigationTarget struct {
-	Ref    string `json:"targetRef"`
-	Kind   string `json:"kind"`
-	Label  string `json:"label"`
-	target assistant.ModelNavigationTarget
+	AccountID string `json:"accountId,omitempty"`
+	Ref       string `json:"targetRef"`
+	Kind      string `json:"kind"`
+	Label     string `json:"label"`
+	target    assistant.ModelNavigationTarget
 }
 
 func navigationDefinitions() []agentcapability.Definition {
@@ -49,12 +50,16 @@ func (s *Session) collectNavigationAccounts(value any) {
 		if !ok {
 			continue
 		}
-		account, ok := row["account"].(map[string]any)
-		if !ok {
-			continue
+		account := row
+		if nested, ok := row["account"].(map[string]any); ok {
+			account = nested
 		}
 		id, _ := account["id"].(string)
 		name, _ := account["name"].(string)
+		currency, _ := account["defaultCurrency"].(string)
+		if currency != "" {
+			name += " · " + currency
+		}
 		target := assistant.ModelNavigationTarget{Kind: "account", AccountID: id}
 		if target.Valid() && len(name) <= 240 {
 			s.addNavigationTarget(target, name)
@@ -71,7 +76,7 @@ func (s *Session) addNavigationTarget(target assistant.ModelNavigationTarget, la
 		}
 	}
 	ref := uuid.NewString()
-	s.targets[ref] = navigationTarget{Ref: ref, Kind: target.Kind, Label: label, target: target}
+	s.targets[ref] = navigationTarget{Ref: ref, Kind: target.Kind, Label: label, AccountID: target.AccountID, target: target}
 }
 func (s *Session) navigationCall(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	if !s.navigationAllowed || ctx.Err() != nil {

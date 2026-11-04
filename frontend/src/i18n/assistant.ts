@@ -1,5 +1,13 @@
 export const assistantEn = {
   aiChat: {
+    sendNavigate: "Send and allow one page change",
+    navigationHelp:
+      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview/account page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
+    navigationPending:
+      "One page change authorized for this message; waiting for a successful reply.",
+    navigationOpened: "The requested page was opened.",
+    navigationStopped:
+      "No page change was applied. The request, page lease or review guard did not permit it; it will not retry automatically.",
     offlineLocal:
       "Network appears offline. Local history and Stop remain available; new model messages are paused.",
     traceHelp:
@@ -23,7 +31,7 @@ export const assistantEn = {
       get_read_item: "Captured item detail",
     },
     scope:
-      "Read-only AI · overview, accounts and closed-period attribution (household or one account, base currency, up to 365 days). Writes, market refresh and autonomous navigation are unavailable.",
+      "Read-only AI · overview, accounts and closed-period attribution (household or one account, base currency, up to 365 days). Financial writes and market refresh remain unavailable. Navigation requires the separate per-message button.",
     ready: "Model ready",
     disabled:
       "AI is off or unavailable. Save a key, enter a model and explicitly enable it in Settings → Built-in AI credentials.",
@@ -152,6 +160,13 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    sendNavigate: "发送并允许一次页面跳转",
+    navigationHelp:
+      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览或账户页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
+    navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
+    navigationOpened: "已打开请求的页面。",
+    navigationStopped:
+      "未执行页面跳转：请求、页面凭证或审核状态不允许，且不会自动重试。",
     offlineLocal:
       "网络似乎已断开。本地历史与停止仍可使用，新模型消息暂停发送。",
     traceHelp:
@@ -174,7 +189,7 @@ export const assistantZhCN = {
       get_read_item: "快照项目明细",
     },
     scope:
-      "只读 AI · 支持总览、账户与已结束期间归因（家庭或单账户、基础币种、最多365天）。写入、行情刷新与自主导航仍关闭。",
+      "只读 AI · 支持总览、账户与已结束期间归因（家庭或单账户、基础币种、最多365天）。财务写入和行情刷新仍关闭，跳转需使用单独的本条消息授权按钮。",
     ready: "模型已就绪",
     disabled:
       "AI 已关闭或不可用。请在设置 → 内置 AI 凭据保存密钥、填写模型并显式开启。",
@@ -289,6 +304,13 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    sendNavigate: "傳送並允許一次頁面跳轉",
+    navigationHelp:
+      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽或帳戶頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
+    navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
+    navigationOpened: "已開啟請求的頁面。",
+    navigationStopped:
+      "未執行頁面跳轉：請求、頁面憑據或審核狀態不允許，且不會自動重試。",
     offlineLocal:
       "網路似乎已中斷。本機歷史與停止仍可使用，新模型訊息暫停傳送。",
     traceHelp:
@@ -311,7 +333,7 @@ export const assistantZhTW = {
       get_read_item: "快照項目明細",
     },
     scope:
-      "唯讀 AI · 支援總覽、帳戶與已結束期間歸因（家庭或單一帳戶、基礎幣別、最多365天）。寫入、行情更新與自主導覽仍關閉。",
+      "唯讀 AI · 支援總覽、帳戶與已結束期間歸因（家庭或單一帳戶、基礎幣別、最多365天）。財務寫入和行情更新仍關閉，跳轉需使用獨立的本則訊息授權按鈕。",
     ready: "模型已就緒",
     disabled:
       "AI 已關閉或無法使用。請在設定 → 內建 AI 憑據儲存金鑰、填寫模型並明確開啟。",

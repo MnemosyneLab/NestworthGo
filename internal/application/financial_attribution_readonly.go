@@ -2,10 +2,15 @@ package application
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
+
+var errReadOnlyAttributionBudget = errors.New("read_only_snapshot_budget_exceeded")
+
+const maxReadOnlyAttributionItems = 20000
 
 type readOnlyAttributionKey struct{}
 
@@ -37,6 +42,7 @@ func (s *Service) readOnlyAttributionSnapshots(ctx context.Context, inputs Finan
 	}
 	ctx = context.WithValue(ctx, historicalQuoteCacheKey{}, quotes)
 	snapshots := []domain.DailyValuationSnapshot{}
+	itemCount := 0
 	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -48,6 +54,10 @@ func (s *Service) readOnlyAttributionSnapshots(ctx context.Context, inputs Finan
 		snapshot, err := builder.valueHistoricalSnapshot(ctx, &batch.Origin, cutoff, day.Format("2006-01-02"))
 		if err != nil {
 			return nil, err
+		}
+		itemCount += len(snapshot.Items)
+		if itemCount > maxReadOnlyAttributionItems {
+			return nil, errReadOnlyAttributionBudget
 		}
 		snapshots = append(snapshots, snapshot)
 	}

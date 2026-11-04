@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"sort"
 	"strings"
 	"time"
@@ -183,6 +184,9 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	var snapshots []domain.DailyValuationSnapshot
 	if strictReadOnly {
 		snapshots, err = s.readOnlyAttributionSnapshots(ctx, inputs, start, end, now, provider, ttl)
+		if errors.Is(err, errReadOnlyAttributionBudget) {
+			return finish("unavailable", "read_only_snapshot_budget_exceeded")
+		}
 	} else {
 		snapshots, err = s.repository.ListDailyValuationSnapshots(ctx, inputs.History.Origin.HouseholdID, start, end)
 	}

@@ -38,6 +38,13 @@ export function ModelConversation() {
   const [failed, setFailed] = useState(false);
   const [offset, setOffset] = useState<number | null>(null);
   const pending = useRef(false);
+  const navigationGrant = useRef<{
+    requestID: string;
+    leaseID: string;
+    stamp: string;
+  } | null>(null);
+  const [navigationState, setNavigationState] = useState("");
+  const navigationAttempt = useRef<string | null>(null);
   const status = useQuery({
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
@@ -91,6 +98,67 @@ export function ModelConversation() {
     }
     previousEpoch.current = epoch;
   }, [epoch]);
+  // Route, publication, config and host changes revoke the old page lease.
+  // This is local IPC metadata only; no provider call or replay is performed.
+  const modelStamp = page?.modelStamp ?? "";
+  const configRevision = status.data?.revision ?? 0;
+  const modelAvailable = status.data?.available ?? false;
+  useEffect(() => {
+    if (navigationGrant.current) setNavigationState("navigationStopped");
+    navigationGrant.current = null;
+    navigationAttempt.current = null;
+    if (!epoch || !modelAvailable || !modelStamp) return;
+    const [kind, accountId = ""] = (page?.viewKey ?? "").split(":");
+    const selection =
+      kind === "overview"
+        ? { kind: "overview", accountId: "" }
+        : kind === "accounts"
+          ? { kind: accountId ? "account" : "accounts", accountId }
+          : { kind: "", accountId: "" };
+    void callService(() =>
+      API.PublishPage(epoch, configRevision, selection),
+    ).catch(() => {});
+  }, [modelStamp, epoch, configRevision, modelAvailable, page?.viewKey]);
+  useEffect(() => {
+    const grant = navigationGrant.current;
+    const run = latest.data?.runs?.[0];
+    if (
+      !grant ||
+      !run ||
+      run.requestId !== grant.requestID ||
+      active(run.state)
+    )
+      return;
+    navigationGrant.current = null;
+    const intent = latest.data?.navigation;
+    if (
+      run.state !== "succeeded" ||
+      !intent ||
+      intent.leaseId !== grant.leaseID ||
+      intent.requestId !== grant.requestID ||
+      !page
+    ) {
+      setNavigationState("navigationStopped");
+      return;
+    }
+    navigationAttempt.current = grant.requestID;
+    void page
+      .navigateModel(grant.stamp, () =>
+        callService(() =>
+          API.ConsumeNavigation(epoch, id, run.id, intent.id, intent.leaseId),
+        ).then((target) => {
+          if (navigationAttempt.current !== grant.requestID)
+            throw new Error("assistant_navigation_withdrawn");
+          return target;
+        }),
+      )
+      .then((result) =>
+        setNavigationState(
+          result === "opened" ? "navigationOpened" : "navigationStopped",
+        ),
+      )
+      .catch(() => setNavigationState("navigationStopped"));
+  }, [latest.data, page, epoch, id]);
   async function action(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;
@@ -99,6 +167,11 @@ export function ModelConversation() {
     try {
       await work();
     } catch {
+      navigationAttempt.current = null;
+      if (navigationGrant.current) {
+        navigationGrant.current = null;
+        setNavigationState("navigationStopped");
+      }
       setFailed(true);
     } finally {
       // Reconcile persisted state before releasing the admission guard, including
@@ -112,7 +185,15 @@ export function ModelConversation() {
       setBusy(false);
     }
   }
-  async function send() {
+  function cancelRun(runID: string) {
+    navigationAttempt.current = null;
+    if (navigationGrant.current) {
+      navigationGrant.current = null;
+      setNavigationState("navigationStopped");
+    }
+    return callService(() => API.Cancel(epoch, id, runID));
+  }
+  async function send(allowNavigation = false) {
     if (
       !status.data?.available ||
       offline ||
@@ -122,7 +203,13 @@ export function ModelConversation() {
       utf8ByteLength(prompt) > 16384
     )
       return;
+    if (allowNavigation && (!page || !page.canModelNavigate(page.modelStamp))) {
+      setNavigationState("navigationStopped");
+      return;
+    }
+    navigationAttempt.current = null;
     const text = prompt;
+    const stamp = page?.modelStamp ?? "";
     await action(async () => {
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
@@ -135,12 +222,43 @@ export function ModelConversation() {
           : kind === "accounts"
             ? { kind: accountId ? "account" : "accounts", accountId }
             : { kind: "", accountId: "" };
+      const requestId = crypto.randomUUID();
+      let pageLeaseId = "";
+      if (allowNavigation) {
+        const lease = await callService(() =>
+          API.PublishPage(epoch, status.data!.revision, selection),
+        );
+        if (!page?.canModelNavigate(stamp))
+          throw new Error("assistant_stale_page");
+        await callService(() =>
+          API.GrantNavigation(
+            epoch,
+            status.data!.revision,
+            current,
+            requestId,
+            lease.id,
+          ),
+        );
+        if (!page.canModelNavigate(stamp))
+          throw new Error("assistant_stale_page");
+        pageLeaseId = lease.id;
+        navigationGrant.current = {
+          requestID: requestId,
+          leaseID: lease.id,
+          stamp,
+        };
+        setNavigationState("navigationPending");
+      } else {
+        navigationGrant.current = null;
+        setNavigationState("");
+      }
       await callService(() =>
         API.Start({
           epoch,
           revision: status.data!.revision,
           conversationId: current,
-          requestId: crypto.randomUUID(),
+          requestId,
+          pageLeaseId,
           prompt: text,
           page: selection,
         }),
@@ -157,11 +275,13 @@ export function ModelConversation() {
         <p className="text-sm text-muted-foreground">{t("aiChat.scope")}</p>
         <Notice role="status">
           {t(
-            offline
-              ? "aiChat.offlineLocal"
-              : status.data?.available
-                ? "aiChat.ready"
-                : "aiChat.disabled",
+            status.isPending
+              ? "assistant.state.loading"
+              : offline
+                ? "aiChat.offlineLocal"
+                : status.data?.available
+                  ? "aiChat.ready"
+                  : "aiChat.disabled",
           )}
         </Notice>
         <p className="text-xs text-muted-foreground">{t("aiChat.privacy")}</p>
@@ -277,11 +397,7 @@ export function ModelConversation() {
                 key={run.id}
                 variant="outline"
                 disabled={busy}
-                onClick={() =>
-                  void action(() =>
-                    callService(() => API.Cancel(epoch, id, run.id)),
-                  )
-                }
+                onClick={() => void action(() => cancelRun(run.id))}
               >
                 {t("aiChat.stop")}
               </Button>
@@ -350,11 +466,7 @@ export function ModelConversation() {
                 className={actionClass}
                 variant="outline"
                 disabled={busy}
-                onClick={() =>
-                  void action(() =>
-                    callService(() => API.Cancel(epoch, id, run.id)),
-                  )
-                }
+                onClick={() => void action(() => cancelRun(run.id))}
               >
                 {t("aiChat.stop")}
               </Button>
@@ -421,6 +533,31 @@ export function ModelConversation() {
         >
           {t("aiChat.send")}
         </Button>
+        <Button
+          className={actionClass}
+          type="button"
+          variant="outline"
+          disabled={
+            busy ||
+            offline ||
+            running ||
+            !status.data?.available ||
+            stale ||
+            !prompt.trim() ||
+            utf8ByteLength(prompt) > 16384
+          }
+          onClick={() => void send(true)}
+        >
+          {t("aiChat.sendNavigate")}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          {t("aiChat.navigationHelp")}
+        </p>
+        {navigationState && (
+          <p role="status" className="text-xs text-muted-foreground">
+            {t(`aiChat.${navigationState}`)}
+          </p>
+        )}
       </form>
     </div>
   );

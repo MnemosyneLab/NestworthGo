@@ -34,6 +34,7 @@ type DesktopPageLease struct {
 	ExpiresAt time.Time     `json:"expiresAt"`
 }
 type ModelNavigationIntent struct {
+	generation     uint64
 	ID             string                `json:"id"`
 	LeaseID        string                `json:"leaseId"`
 	RequestID      string                `json:"requestId"`
@@ -45,6 +46,7 @@ type ModelNavigationIntent struct {
 type modelNavigationGrant struct {
 	lease                     DesktopPageLease
 	conversationID, requestID string
+	generation                uint64
 }
 type modelNavigationGrantKey struct{}
 
@@ -56,9 +58,10 @@ func (r *Runtime) navigationNow() time.Time {
 	if r.options.NavigationClock != nil {
 		return r.options.NavigationClock()
 	}
-	return time.Now().UTC()
+	return time.Now()
 }
 func (r *Runtime) clearNavigation() {
+	r.navigationGeneration++
 	r.pageLease = nil
 	r.navigationGrants = nil
 	r.navigationIntents = nil
@@ -102,7 +105,9 @@ func (r *Runtime) GrantNavigation(ctx context.Context, epoch string, revision ui
 		}
 	}
 	// One outstanding explicit intent per page; a newer authorization revokes it.
-	r.navigationGrants = map[string]modelNavigationGrant{requestID: {lease: *r.pageLease, conversationID: conversationID, requestID: requestID}}
+	r.navigationGeneration++
+	r.navigationIntents = nil
+	r.navigationGrants = map[string]modelNavigationGrant{requestID: {lease: *r.pageLease, conversationID: conversationID, requestID: requestID, generation: r.navigationGeneration}}
 	return nil
 }
 func (r *Runtime) grantForStart(q StartRequest) (modelNavigationGrant, error) {
@@ -114,14 +119,14 @@ func (r *Runtime) grantForStart(q StartRequest) (modelNavigationGrant, error) {
 		return modelNavigationGrant{}, nil
 	}
 	delete(r.navigationGrants, q.RequestID)
-	if grant.conversationID != q.ConversationID || grant.lease.ID != q.PageLeaseID || !r.currentLease(grant.lease.ID) {
+	if grant.generation != r.navigationGeneration || grant.conversationID != q.ConversationID || grant.lease.ID != q.PageLeaseID || !r.currentLease(grant.lease.ID) {
 		return modelNavigationGrant{}, ErrStale
 	}
 	return grant, nil
 }
 func (r *Runtime) offerNavigation(ctx context.Context, id, runID string, result Completion) {
 	grant, ok := ctx.Value(modelNavigationGrantKey{}).(modelNavigationGrant)
-	if !ok || result.Navigation == nil || !result.Navigation.Valid() || r.closed || !r.currentLease(grant.lease.ID) || ctx.Err() != nil {
+	if !ok || grant.generation != r.navigationGeneration || result.Navigation == nil || !result.Navigation.Valid() || r.closed || !r.currentLease(grant.lease.ID) || ctx.Err() != nil {
 		return
 	}
 	if r.navigationIntents == nil {
@@ -129,15 +134,17 @@ func (r *Runtime) offerNavigation(ctx context.Context, id, runID string, result 
 	}
 	// Bound and replace pending navigation; old responses cannot accumulate authority.
 	r.navigationIntents = map[string]ModelNavigationIntent{}
-	intent := ModelNavigationIntent{ID: uuid.NewString(), LeaseID: grant.lease.ID, RequestID: grant.requestID, RunID: runID, ConversationID: id, Target: *result.Navigation, ExpiresAt: grant.lease.ExpiresAt}
-	r.navigationIntents[intent.ID] = intent
+	intent := ModelNavigationIntent{generation: r.navigationGeneration, ID: uuid.NewString(), LeaseID: grant.lease.ID, RequestID: grant.requestID, RunID: runID, ConversationID: id, Target: *result.Navigation, ExpiresAt: grant.lease.ExpiresAt}
+	if r.hasNavigationRun(intent) {
+		r.navigationIntents[intent.ID] = intent
+	}
 }
 func (r *Runtime) navigationView(v *Conversation) {
 	if len(v.Runs) == 0 {
 		return
 	}
 	for _, intent := range r.navigationIntents {
-		if intent.ConversationID == v.ID && intent.RunID == v.Runs[0].ID && r.currentLease(intent.LeaseID) {
+		if intent.generation == r.navigationGeneration && r.hasNavigationRun(intent) && intent.ConversationID == v.ID && intent.RunID == v.Runs[0].ID && r.currentLease(intent.LeaseID) {
 			copy := intent
 			v.Navigation = &copy
 		}
@@ -154,7 +161,7 @@ func (r *Runtime) ConsumeNavigation(ctx context.Context, epoch, conversationID, 
 		return ModelNavigationTarget{}, err
 	}
 	intent, ok := r.navigationIntents[intentID]
-	if !ok || !r.currentLease(leaseID) || intent.LeaseID != leaseID || intent.ConversationID != conversationID || intent.RunID != runID || r.options.NavigationValidator == nil {
+	if !ok || intent.generation != r.navigationGeneration || !r.hasNavigationRun(intent) || !r.currentLease(leaseID) || intent.LeaseID != leaseID || intent.ConversationID != conversationID || intent.RunID != runID || r.options.NavigationValidator == nil {
 		r.mu.Unlock()
 		return ModelNavigationTarget{}, ErrStale
 	}
@@ -165,8 +172,19 @@ func (r *Runtime) ConsumeNavigation(ctx context.Context, epoch, conversationID, 
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.valid(ctx, epoch) != nil || !r.currentLease(leaseID) {
+	if r.valid(ctx, epoch) != nil || intent.generation != r.navigationGeneration || !r.hasNavigationRun(intent) || !r.currentLease(leaseID) {
 		return ModelNavigationTarget{}, ErrStale
 	}
 	return intent.Target, nil
+}
+
+// Caller owns mu. A captured intent is never valid merely because its map entry
+// exists: it must still belong to the current successful turn of a live session.
+func (r *Runtime) hasNavigationRun(intent ModelNavigationIntent) bool {
+	c := r.find(intent.ConversationID)
+	if c == nil || len(c.Runs) == 0 {
+		return false
+	}
+	run := c.Runs[len(c.Runs)-1].Run
+	return run.ID == intent.RunID && run.RequestID == intent.RequestID && run.State == "succeeded" && run.ConfigRevision == r.state.Revision && run.PageLeaseID == intent.LeaseID
 }

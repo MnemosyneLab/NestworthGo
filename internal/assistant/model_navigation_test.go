@@ -16,6 +16,7 @@ func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T)
 	c := &credentials{available: true}
 	dir := filepath.Join(t.TempDir(), "private")
 	var enabled bool
+	var duringValidation func()
 	factory := func(ctx context.Context, _ ai.ModelConfig, _ []byte, _ string) (ai.Engine, error) {
 		enabled = ai.ModelNavigationEnabled(ctx)
 		return &engine{fn: func(context.Context, []byte, string) (ai.Completion, error) {
@@ -27,7 +28,12 @@ func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T)
 		if err != nil {
 			t.Fatal(err)
 		}
-		r, err := ai.NewRuntime(ai.Options{Ledger: "synthetic-nav", Store: store, Credentials: c, Factory: factory, Validate: func(context.Context) bool { return true }, NavigationClock: func() time.Time { return now }, NavigationValidator: func(_ context.Context, target ai.ModelNavigationTarget) bool { return target.Valid() }})
+		r, err := ai.NewRuntime(ai.Options{Ledger: "synthetic-nav", Store: store, Credentials: c, Factory: factory, Validate: func(context.Context) bool { return true }, NavigationClock: func() time.Time { return now }, NavigationValidator: func(_ context.Context, target ai.ModelNavigationTarget) bool {
+			if duringValidation != nil {
+				duringValidation()
+			}
+			return target.Valid()
+		}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,6 +93,13 @@ func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T)
 		t.Fatal("intent replayed")
 	}
 	intent = startGranted()
+	if err := r.Cancel(t.Context(), q.Epoch, q.ConversationID, intent.RunID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
+		t.Fatal("Stop left a completed navigation intent executable")
+	}
+	intent = startGranted()
 	publish()
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
 		t.Fatal("old page navigated after refresh")
@@ -111,6 +124,61 @@ func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T)
 	if err := r.Configure(t.Context(), status.Epoch, status.Revision, cfg); err != nil {
 		t.Fatal(err)
 	}
+	intent = startGranted()
+	if err := r.GrantNavigation(t.Context(), q.Epoch, r.Snapshot().Revision, q.ConversationID, uuid.NewString(), intent.LeaseID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
+		t.Fatal("new authorization retained old intent")
+	}
+	intent = startGranted()
+	duringValidation = func() {
+		if err := r.GrantNavigation(t.Context(), q.Epoch, r.Snapshot().Revision, q.ConversationID, uuid.NewString(), intent.LeaseID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
+		t.Fatal("new grant during validation retained in-flight intent")
+	}
+	duringValidation = nil
+	intent = startGranted()
+	q.RequestID = uuid.NewString()
+	q.PageLeaseID = ""
+	q.Revision = r.Snapshot().Revision
+	if _, err := r.Start(t.Context(), q); err != nil {
+		t.Fatal(err)
+	}
+	waitRun(t, r, q)
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
+		t.Fatal("new ordinary turn retained old intent")
+	}
+	intent = startGranted()
+	if err := r.Delete(t.Context(), q.Epoch, q.ConversationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
+		t.Fatal("deleted conversation retained intent")
+	}
+	conversation, err := r.Create(t.Context(), q.Epoch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.ConversationID = conversation.ID
+	intent = startGranted()
+	duringValidation = func() {
+		if err := r.Delete(t.Context(), q.Epoch, q.ConversationID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
+		t.Fatal("conversation deletion during validation retained intent")
+	}
+	duringValidation = nil
+	conversation, err = r.Create(t.Context(), q.Epoch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.ConversationID = conversation.ID
 	intent = startGranted()
 	if err := r.Close(); err != nil {
 		t.Fatal(err)

@@ -172,20 +172,21 @@ type Options struct {
 	Timeout             time.Duration
 }
 type Runtime struct {
-	pageLease         *DesktopPageLease
-	navigationGrants  map[string]modelNavigationGrant
-	navigationIntents map[string]ModelNavigationIntent
-	mu                sync.Mutex
-	state             State
-	epoch             string
-	options           Options
-	ctx               context.Context
-	cancel            context.CancelFunc
-	active            map[string]context.CancelFunc
-	wg                sync.WaitGroup
-	closed            bool
-	closeOnce         sync.Once
-	closeErr          error
+	navigationGeneration uint64
+	pageLease            *DesktopPageLease
+	navigationGrants     map[string]modelNavigationGrant
+	navigationIntents    map[string]ModelNavigationIntent
+	mu                   sync.Mutex
+	state                State
+	epoch                string
+	options              Options
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	active               map[string]context.CancelFunc
+	wg                   sync.WaitGroup
+	closed               bool
+	closeOnce            sync.Once
+	closeErr             error
 }
 
 func NewRuntime(o Options) (*Runtime, error) {
@@ -430,6 +431,7 @@ func (r *Runtime) Create(ctx context.Context, epoch string) (Conversation, error
 	if e := r.valid(ctx, epoch); e != nil {
 		return Conversation{}, e
 	}
+	r.clearNavigation()
 	// Retention never prunes active conversations or creates new dedup authority.
 	cutoff := time.Now().Add(-30 * 24 * time.Hour)
 	kept := r.state.Conversations[:0]
@@ -551,6 +553,7 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	}
 	for i, c := range r.state.Conversations {
 		if c.ID == id {
+			r.clearNavigation()
 			if r.options.Capabilities != nil {
 				r.options.Capabilities.Drop(id)
 			}
@@ -561,7 +564,7 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	return ErrStale
 }
 func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
-	if !q.Page.Valid() || !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
+	if (q.PageLeaseID != "" && !canonicalID(q.PageLeaseID)) || !q.Page.Valid() || !canonicalID(q.RequestID) || !canonicalID(q.ConversationID) || len(q.Prompt) == 0 || len(q.Prompt) > MaxPromptBytes || strings.TrimSpace(q.Prompt) == "" {
 		return Run{}, ErrBudget
 	}
 	digest := promptDigest(q.Prompt, q.Page, q.PageLeaseID)
@@ -614,6 +617,14 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	grant, grantErr := r.grantForStart(q)
 	if grantErr != nil {
 		return Run{}, grantErr
+	}
+	r.navigationGeneration++
+	r.navigationIntents = nil
+	r.navigationGrants = nil
+	if grant.requestID == "" {
+		r.clearNavigation()
+	} else {
+		grant.generation = r.navigationGeneration
 	}
 	run := Run{PageLeaseID: q.PageLeaseID, Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
 	c.Runs = append(c.Runs, RunState{Run: run, Digest: hash})
@@ -729,6 +740,7 @@ func (r *Runtime) Cancel(ctx context.Context, epoch, id, runID string) error {
 	}
 	for _, saved := range c.Runs {
 		if saved.Run.ID == runID {
+			r.clearNavigation()
 			if !terminal(saved.Run.State) {
 				if cancel := r.active[id]; cancel != nil {
 					cancel()
