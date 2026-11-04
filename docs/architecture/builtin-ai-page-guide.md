@@ -52,7 +52,10 @@ scope, timezone, currency, filter flags, typed metrics and opaque target refs.
 These client generations are **not backend principal credentials** and must not
 be accepted by a future runner as authorization. This stage does not claim a
 production ledger-incarnation or scoped-model principal protocol. Mobile
-contexts only reuse data already delivered through its authenticated UI.
+contexts only reuse data already delivered through its authenticated UI. On
+remembered-session reconnect, an incarnation change revokes/replaces the guide
+host and remounts only its guide UI; it must not remount the financial page
+subtree or discard an existing draft/review.
 
 `PageHost` bounds snapshots to 64 KiB, 32 metrics, 64 targets, 240-character
 labels, 16 missing-reason labels and 128-byte decimal strings. It retains at

@@ -27,9 +27,9 @@ are changed. HTTP sends the token, session credential and financial data in
 plaintext. It is intended only for a trusted LAN, with no confidentiality claim.
 
 Apply closes the old listener and revokes sessions, previews and cursors,
-including when the token or address changes or access is disabled. Restart
-retains the shared token but drops sessions; phones sign in again with the same
-token. Restore closes access and cancels/joins mobile provider work before data
+including when the token or address changes or access is disabled. Normal shutdown/restart retains explicitly remembered sessions and the shared
+token; unremembered sessions still require login. Apply remains an explicit
+"save and sign out phones" action even when values are unchanged. Restore closes access and cancels/joins mobile provider work before data
 replacement. Shutdown uses the existing application/database shutdown path.
 
 ## Token and browser session
@@ -42,12 +42,47 @@ configuration is required. This limit reduces online guessing, but cannot
 protect a token observed on the unencrypted network.
 
 `mobile-access.json` beside presentation settings is now version 2 and contains
-`version`, `enabled`, `listen` and `token`. The token is persisted in plaintext
+`version`, `enabled`, `listen`, `token` and a private random `sessionEpoch`.
+The epoch is added lazily to existing version-2 files and never exposed in DTOs. The token is persisted in plaintext
 so desktop settings can show/edit it, using an atomic replacement with mode
 0600. It is separate from MCP credentials and is not part of Nestworth backup
 archives (database plus presentation settings). OS-level copies of the app's
-settings directory may include it. Sessions and CSRF credentials remain memory
-only. No token is put in URLs, QR codes, logs or mobile persistent storage.
+settings directory may include it. Remembered sessions use a separate `mobile-access.json.sessions` registry (0600,
+atomic replacement, file and directory fsync). It contains only SHA-256 digests
+of the high-entropy random bearer plus session ID, created/last-used/absolute
+expiry times and a database/configuration scope HMAC. It contains no bearer,
+shared token, CSRF or financial data. The existing application instance lock
+fences a second process using the same database. The registry is excluded from
+Nestworth database/presentation backups, as is mobile access configuration.
+OS/browser profile backups and whole filesystem snapshots are outside that
+exclusion; this is not protection against a local attacker who can modify the
+settings directory or roll back the entire machine.
+
+The scope HMAC uses the separate random epoch (kept only in private access
+configuration), so a leaked registry cannot test guesses of a short shared token.
+Apply rotates that epoch. The scope binds the canonical database path, filesystem
+device/inode and current
+listen address/shared token. Switching databases, copying settings or replacing
+the database file rejects the old registry. The supported restore path durably
+revokes before replacing data and fails restore admission if revocation cannot
+be saved. Normal shutdown only drains HTTP and clears in-memory plans/cursors;
+it does not revoke remembered login. Apply (including unchanged settings), token
+change, disable, sign-out-all and individual sign-out durably remove grants.
+Only remembered entries survive startup; CSRF is regenerated and recovered by
+`GET /session`. Startup corruption, expired entries and incompatible scope are
+replaced with an empty/filtered registry, never interpreted as grants. A registry
+write failure returns unavailable, fences authorization, attempts to remove stale
+grants and never acknowledges successful login/sign-out/restore. If removal also
+fails, durable revocation is uncertain and the operation must be retried after
+storage repair. On unverified platforms without stable file identity, remembering
+is unavailable; memory-only login remains supported.
+
+Every accepted remembered request saves last-use under the authorization lock,
+with synchronous small-file I/O; no asynchronous flush can resurrect an
+acknowledged revoke. This adds one bounded atomic registry replacement per
+remembered authenticated request (at most five entries). There is no benchmark
+claim. A crash before last-use is saved may shorten validity, never extend it.
+No token enters URLs, QR codes, logs or financial caches.
 
 A successful token login returns a fresh 32-byte random bearer credential and
 CSRF value. The shared token remains reusable; it is not an API bearer token.
@@ -60,8 +95,36 @@ permission choices and desktop device-management UI were removed. Phone sign-out
 revokes that session; applying settings signs out all phones.
 
 The phone always calls relative same-origin routes with `credentials: omit`;
-there are no cookies or selectable transport modes. Page reload requires the
-shared token again. In-page **Reconnect** checks the existing session while
+there are no cookies or selectable transport modes. The login form offers an unchecked **Remember this browser** choice. When
+selected, the server-issued random bearer and absolute expiry enter immutable
+localStorage records selected by an opaque random ID; scheme/host/port isolation is the browser's standard
+origin boundary. The shared token and CSRF never enter browser storage. The UI
+states "Up to 7 days; expires after 24 hours idle" and warns that HTTP is
+plaintext, this requires a trusted device/network, and XSS can read the local
+credential. Local storage is not encrypted or protected by cookies/HttpOnly.
+Without opt-in, session credentials remain in memory. If browser storage is
+unavailable, login safely falls back to page memory and displays that limitation.
+Expired/malformed stored credentials and any explicit authenticated 401 (even a
+malformed error body) clear only the matching request/session credential. Network errors, timeouts and 5xx
+retain them; the login screen offers **Reconnect** without another token exchange.
+Each save uses a new immutable record key, while the shared selector contains no
+bearer. Expiry, 401, logout and failed publication compare the captured session
+credential and remove only its matching record; invalidation never deletes the
+selector. This remains safe if another tab publishes between comparison and
+removal: its new record has a different key. A successful explicit remembered
+login selects its new record. A memory-only login never clears a different tab's
+remembered credential. Older unselected records can be cleaned after replacement;
+concurrent orphaned records are reaped only after expiry. A missing or revoked
+selected record never falls back to an older grant. Legacy v1 credentials remain
+readable only before a v2 selector exists; new saves use v2, so stale v1 pages
+cannot delete a new v2 credential.
+
+Storage events refresh the login screen's Reconnect availability by reading
+current storage, not delayed event values. They do not switch active in-memory
+sessions, replace CSRF, cancel drafts or issue requests. Explicitly restoring a
+different credential advances the request generation, fencing late responses.
+Refresh/reopen validates through `GET /session` before enabling ledger requests.
+Normal restart refreshes CSRF without replaying commands or restoring previews. In-page **Reconnect** checks the existing session while
 preserving drafts and immutable financial confirmations. Supplied Host and
 Origin must match the address derived from the listener (port 80 is normalized
 for browser headers). Mutations require Origin, `X-Nestworth-Mobile: 1`, JSON
@@ -73,10 +136,15 @@ API responses use no-store. Static assets retain the same-origin CSP, no frames,
 objects, remote scripts or financial service worker. Hash-named JS/CSS are cached
 and gzip is supported. Existing bounds remain: 32KiB request bodies,
 500-character notes, 100-item maximum pages, four concurrent requests per session
-and bounded login/read/write rates. Durable audit links use operation/session
+and bounded login/read/write rates. Session concurrency and rate admission run
+before last-use/idle renewal and registry I/O under the same authorization lock.
+A rejected 429 neither writes the registry nor extends idle validity; admitted
+remembered requests durably renew recent use before reserving their active slot.
+Durable audit links use operation/session
 identifiers rather than tokens or full request bodies.
 
-Only language and appearance preferences enter localStorage. Financial drafts
+Apart from opted-in random credentials and their opaque selection metadata, only language and appearance
+preferences enter localStorage. Financial drafts
 and query data remain in memory. Active drafts guard page exit and sign-out;
 unknown confirmations retain their original recovery identity. The browser uses
 `crypto.getRandomValues` for operation UUIDs, which works without a secure context;
@@ -99,7 +167,8 @@ certificate, key or frontend-origin fields. Invalid saved JSON also stays off.
 No certificate files, ledger data, database schemas, provider settings or
 presentation preferences are modified by this migration. Future unknown versions
 also stay disabled. Version-2 enabled configurations resume with their saved
-token and a fresh empty session set.
+token and only valid remembered sessions from the matching private registry.
+An existing installation without that registry starts with no sessions.
 
 Retired phone server preferences are ignored. Requests always use the page's
 own server, and old per-server recovery references are not redirected to a new
@@ -170,7 +239,8 @@ offers receipt lookup or retry of that same plan. Only the household and
 operation IDs go into sessionStorage, in the page origin’s sessionStorage.
 If storage is unavailable, the page retains recovery in memory and asks the user
 to keep it open until the original result is confirmed. There is no offline
-write queue, token storage or persistent financial cache. Missing plans/receipts do not prove that
+write queue or persistent financial cache; remembered authentication never
+serializes a write, preview or reviewed financial body. Missing plans/receipts do not prove that
 a write failed. After desktop verification, the user may explicitly discard a
 recovery reference; this never saves, reverses or replays a financial operation.
 
