@@ -16,6 +16,7 @@ type MarketReadRepository interface {
 }
 type MarketReadResult struct {
 	CapturedAt time.Time
+	Timezone   string
 	Targets    []MarketReadResultTarget
 }
 type MarketReadResultTarget struct {
@@ -27,6 +28,7 @@ type MarketReadResultTarget struct {
 	CurrentFX         *domain.FXQuote
 	CurrentValue      *string
 	Series            domain.QuoteSeries
+	RawFXQuotes       []domain.FXQuote
 }
 
 func NormalizeMarketRead(in MarketReadRequest) (MarketReadRequest, error) {
@@ -39,10 +41,10 @@ func NormalizeMarketRead(in MarketReadRequest) (MarketReadRequest, error) {
 	if in.View != "current" && in.View != "history" && in.View != "coverage" {
 		return in, &domain.Error{Code: domain.ErrValidation, Message: "view must be current, coverage or history"}
 	}
-	if in.Range == "" {
+	if in.Range == "" && in.FromDate == nil && in.ToDate == nil {
 		in.Range = "30d"
 	}
-	if _, err := domain.ParseTrendRange(in.Range); err != nil {
+	if _, err := in.TrendRange(); err != nil {
 		return in, err
 	}
 	if in.SourceFilter == "" {
@@ -103,8 +105,8 @@ func (s *Service) ReadMarketDataBatch(ctx context.Context, in MarketReadRequest)
 			return MarketReadResult{}, err
 		}
 	}
-	result := MarketReadResult{CapturedAt: now, Targets: []MarketReadResultTarget{}}
-	r, _ := domain.ParseTrendRange(in.Range)
+	result := MarketReadResult{CapturedAt: now, Timezone: location.String(), Targets: []MarketReadResultTarget{}}
+	r, _ := in.TrendRange()
 	for _, t := range in.Targets {
 		row := MarketReadResultTarget{Target: t, DisplayName: t.Key(), Status: "missing", Reasons: []string{}, Series: domain.QuoteSeries{Range: r, Points: []domain.QuoteSeriesPoint{}, Observations: []domain.QuoteSeriesPoint{}, OutsideRange: snapshot.OutsideRange[t.Key()]}}
 		if t.InstrumentID != "" {
@@ -161,7 +163,8 @@ func (s *Service) ReadMarketDataBatch(ctx context.Context, in MarketReadRequest)
 				row.Status = "available"
 			}
 			row.Series.BaseCurrency, row.Series.QuoteCurrency = base, quote
-			row.Series.Observations = fxSeriesObservations(snapshot.FXHistory[t.Key()], base, quote)
+			row.RawFXQuotes = snapshot.FXHistory[t.Key()]
+			row.Series.Observations = fxSeriesObservations(row.RawFXQuotes, base, quote)
 		}
 		row.Series.Points = chartQuotePoints(row.Series.Observations, r, location)
 		if row.Status == "missing" {
