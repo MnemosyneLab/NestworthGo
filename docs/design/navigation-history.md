@@ -12,8 +12,23 @@ Every sidebar, account selection and cross-page object link enters the same
 navigation boundary. The boundary checks unresolved Sheet confirmations before
 changing any history, recent items, page state or session identity. Back and
 Forward use an entries/cursor model; opening a destination after Back removes
-the forward branch. The existing contextual Back and investment-account
-creation return flow use the same cursor.
+the forward branch. The investment-account creation return flow uses the same cursor.
+The page bar is the single history traversal entry; duplicate body-level history
+Back links are removed. Back and Forward tooltips and accessible names describe
+the actual adjacent destination, using the same business labels as Recent.
+
+Account detail keeps a text **Accounts / current account** breadcrumb. Its
+Accounts action returns to the list with the existing filter, focus and original
+cross-page source semantics; it is distinct from history traversal. Wealth
+history has an explicit **View current overview** action through the guarded
+navigation boundary. It always opens Overview and saves the frozen historical
+visit for Back/Forward/Recent. Reconciliation session lists, category returns,
+preview-to-draft, cancellation, wizard steps, dates and pagination remain local
+business transitions.
+
+Mobile keeps its own return control. A holding opened from an account returns
+to that account first, then the account list. Form cancellation and unresolved
+confirmation/recovery guards retain their existing behavior.
 
 A `RevisitableDestination` excludes account creation/value-update actions,
 activity-sheet opening, receipt verification, reserve/policy editing and
