@@ -3,8 +3,10 @@
 All business continuations use `get_read_page({cursor, limit?})`. The opaque
 cursor retains the original tool, filters, order, target, section and consistency
 scope. Only the row budget may change. `limit` defaults to 25 and is at most 100;
-zero also selects the default. Byte budgets may produce shorter pages. Tool
-protocol discovery (`tools/list`) remains SDK-owned, with 16 definitions per page.
+zero also selects the default. Byte budgets may produce shorter pages. For bulk
+classification/list audits, explicitly request limit=100 on both the initial read
+and continuations to reduce call/header overhead. Default 25 favors focused reads.
+Tool protocol discovery (`tools/list`) remains SDK-owned, with 16 definitions per page.
 
 ## Inventory and ownership
 

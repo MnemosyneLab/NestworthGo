@@ -21,8 +21,12 @@ cannot change mid-read.
 items and page; it does not repeat query, summary or unrelated sections. Retain
 the initial header, append only the returned section and update only that
 section's saved page state.
-Default limit is 25 for all business continuations; maximum 100. Actual pages may be smaller to fit 65,536 final
-HTTP bytes, including duplicated SDK text and structured content. Never claim
+Default limit is 25 for all business continuations; maximum 100. Actual pages
+may be smaller to fit 65,536 final HTTP bytes, including duplicated SDK text and
+structured content. For a complete bulk import/list audit, use limit=100 upfront
+and on continuations
+when that evidence is needed; this reduces per-call overhead while retaining the
+same byte cap. Default 25 favors focused reads. Never claim
 “all” from one page. Preserve captureId/contentHash and check complete unions.
 
 Captures have fixed five-minute TTL without renewal, 4 MiB capture budget,
