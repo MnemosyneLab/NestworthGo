@@ -18,15 +18,15 @@ function fixture() : PagePublication { return { viewKey: "overview:", page: "ove
   { label: "Synthetic missing value", value: null, unit: "CNY", basis: "net_worth", status: "unavailable", missingReasons: ["quote"] },
   { label: "Synthetic subtotal", value: "0.004", unit: "CNY", basis: "assets", status: "incomplete", missingReasons: ["fx"] },
 ] }; }
-function App({ publication, disconnected = false, viewKey = "overview:", blocked = false, navigate = vi.fn(), refresh }: { publication: PagePublication; disconnected?: boolean; viewKey?: string; blocked?: boolean; navigate?: () => void; refresh?: () => void }) {
-  return <AssistantPageProvider householdId="synthetic" incarnation="incarnation" surface="desktop" viewKey={viewKey} blocked={() => blocked} onNavigate={navigate}>
-    <Publisher publication={publication} refresh={refresh} /><AssistantConversation surface="desktop" status={status} loading={false} disconnected={disconnected} retry={vi.fn()} />
+function App({ publication, disconnected = false, viewKey = "overview:", blocked = false, navigate = vi.fn(), refresh, surface = "desktop" }: { publication: PagePublication; disconnected?: boolean; viewKey?: string; blocked?: boolean; navigate?: () => void; refresh?: () => void; surface?: "desktop" | "mobile" }) {
+  return <AssistantPageProvider householdId="synthetic" incarnation="incarnation" surface={surface} viewKey={viewKey} blocked={() => blocked} onNavigate={navigate}>
+    <Publisher publication={publication} refresh={refresh} /><AssistantConversation surface={surface} status={{ ...status, surface }} loading={false} disconnected={disconnected} retry={vi.fn()} />
   </AssistantPageProvider>;
 }
 afterEach(() => vi.useRealTimers());
 
-it.each(["en", "zh-CN", "zh-TW"])("supports keyboard selection, evidence and closed review in %s", async language => {
-  await i18n.changeLanguage(language); const user = userEvent.setup(); render(<App publication={fixture()} />);
+it.each(["en", "zh-CN", "zh-TW"].flatMap(language => (["desktop", "mobile"] as const).map(surface => ({ language, surface }))))("supports keyboard selection, evidence and closed review in $language on $surface", async ({ language, surface }) => {
+  await i18n.changeLanguage(language); const user = userEvent.setup(); render(<App publication={fixture()} surface={surface} />);
   expect(screen.getByLabelText(i18n.t("assistant.composer"))).toBeDisabled();
   await user.click(screen.getByRole("button", { name: i18n.t("assistant.explain") }));
   expect(screen.getByText(i18n.t("assistant.needsSelection"))).toBeVisible();

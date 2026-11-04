@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Notice } from "@/components/ui/notice";
+import { EmptyState } from "@/components/layout/PageState";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatAmount } from "@/lib/money";
@@ -19,6 +22,9 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
   surface: "desktop" | "mobile"; status: unknown; loading: boolean; disconnected: boolean; retry: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  // The dock uses normal density; sheet/mobile surfaces retain touch targets.
+  const actionClass = cn("h-auto min-h-11 whitespace-normal", surface === "desktop" && "xl:min-h-9");
+  const fieldClass = cn("min-h-11 text-base", surface === "desktop" && "xl:min-h-9 xl:text-sm");
   const page = useAssistantPage();
   const context = page?.context;
   const [selected, setSelected] = useState("");
@@ -60,36 +66,42 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
   const state = disconnected ? "disconnected" : loading ? "loading" : !ready ? "unavailable" : run;
   return <div className="flex h-full min-h-0 min-w-0 flex-col" data-testid="assistant-conversation">
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-      <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{t("assistant.stage")}</p>
-      <p role="status" className="text-sm">{t(`assistant.state.${state}`)}</p>
-      {(disconnected || (!loading && !ready)) && <Button variant="outline" onClick={retry}>{t("common.retryAction")}</Button>}
+      <p className="text-xs leading-5 text-muted-foreground">{t("assistant.stage")}</p>
+      <Notice role="status" tone={disconnected || (!loading && !ready) ? "warning" : "info"}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p>{t(`assistant.state.${state}`)}</p>
+          {(disconnected || (!loading && !ready)) && <Button variant="outline" className={actionClass} onClick={retry}>{t("common.retryAction")}</Button>}
+        </div>
+      </Notice>
       <Card className="flex flex-col gap-3 p-4">
-        <h3 className="font-semibold">{t("assistant.currentPage")}</h3>
+        <h3 className="text-sm font-semibold">{t("assistant.currentPage")}</h3>
         <p className="text-sm text-muted-foreground">{context?.scope.label ?? t("assistant.noContext")}</p>
         {context && <p className="text-xs text-muted-foreground">{t("assistant.snapshot", { time: formatTimestamp(context.capturedAt, context.range.timezone, i18n.language) })}</p>}
-        {expired && <p role="status" className="text-sm text-warning-foreground">{t("assistant.expired")}</p>}
-        {page?.refresh && <Button variant="outline" className="h-auto min-h-11 whitespace-normal" disabled={!ready || run === "running"} onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
-        <Label htmlFor={`assistant-metric-${surface}`}>{t("assistant.metric")}</Label>
-        <NativeSelect id={`assistant-metric-${surface}`} className="min-h-11 text-base" value={chosen?.ref ?? ""} onChange={e => setSelected(e.target.value)} disabled={!ready || expired || run === "running"}>
-          <option value="">{t("assistant.chooseMetric")}</option>
-          {context?.metrics.map(m => <option key={m.ref} value={m.ref}>{m.label}</option>)}
-        </NativeSelect>
-        <Button className="h-auto min-h-11 whitespace-normal" onClick={() => void explain()} disabled={!ready || expired || !context?.metrics.length || run === "running"}>{t("assistant.explain")}</Button>
-        {notice && <p role="status" className="text-sm">{t(`assistant.${notice}`)}</p>}
+        {expired && <Notice tone="warning" role="status">{t("assistant.expired")}</Notice>}
+        {page?.refresh && <Button variant="outline" className={actionClass} disabled={!ready || run === "running"} onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`assistant-metric-${surface}`}>{t("assistant.metric")}</Label>
+          <NativeSelect id={`assistant-metric-${surface}`} className={fieldClass} value={chosen?.ref ?? ""} onChange={e => setSelected(e.target.value)} disabled={!ready || expired || run === "running"}>
+            <option value="">{t("assistant.chooseMetric")}</option>
+            {context?.metrics.map(m => <option key={m.ref} value={m.ref}>{m.label}</option>)}
+          </NativeSelect>
+        </div>
+        <Button className={actionClass} onClick={() => void explain()} disabled={!ready || expired || !context?.metrics.length || run === "running"}>{t("assistant.explain")}</Button>
+        {notice && <Notice role="status">{t(`assistant.${notice}`)}</Notice>}
         {context && context.targets.length > 0 && <div className="space-y-2">
           <p className="text-sm font-medium">{t("assistant.openAccount")}</p>
           <p className="text-xs text-muted-foreground">{t("assistant.explicitNavigation")}</p>
-          {context.targets.map(target => <Button key={target.ref} variant="outline" className="h-auto min-h-11 w-full justify-start whitespace-normal text-left" disabled={!ready || expired} onClick={() => {
+          {context.targets.map(target => <Button key={target.ref} variant="outline" className={cn(actionClass, "w-full justify-start text-left")} disabled={!ready || expired} onClick={() => {
             const result = page?.navigate(target.ref, context);
             if (result !== "opened") setNotice(result === "stale_context" ? "expired" : "navigationBlocked");
           }}>{target.label}</Button>)}
         </div>}
       </Card>
-      {messages.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">{t("assistant.empty")}</p>}
+      {messages.length === 0 && <EmptyState size="compact" title={t("assistant.empty")} />}
       <div aria-label={t("assistant.conversation")} className="space-y-3">
         {messages.map(message => <Card key={message.id} className="space-y-3 p-4">
           <p className="text-xs font-medium text-muted-foreground">{t("assistant.localGuide")}</p>
-          <h3 className="font-semibold">{message.metric.label}</h3>
+          <h3 className="text-sm font-semibold">{message.metric.label}</h3>
           <p className="num break-words text-xl">{message.metric.value === null ? t("assistant.state.unavailable") : formatAmount(message.metric.value, message.metric.unit)}</p>
           <p className="text-sm">{t(`assistant.basis.${message.metric.basis}`)}</p>
           <p className="text-sm">{t(`assistant.metricState.${message.metric.status}`)}</p>
@@ -106,22 +118,24 @@ export function AssistantConversation({ surface, status, loading, disconnected, 
           </details>
         </Card>)}
       </div>
-      <Button variant="outline" className="h-auto min-h-11 whitespace-normal" onClick={() => setReviewOpen(true)}>{t("assistant.review")}</Button>
-      <details className="space-y-2 rounded-lg border p-3 text-sm">
-        <summary className="cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("assistant.settings")}</summary>
-        <p>{t("assistant.providerUnavailable")}</p><p>{t("assistant.secureStoreUnavailable")}</p><p>{t("assistant.memoryOnly")}</p>
+      <Button variant="outline" className={actionClass} onClick={() => setReviewOpen(true)}>{t("assistant.review")}</Button>
+      <details className="rounded-lg border border-border bg-card text-sm">
+        <summary className={cn(actionClass, "cursor-pointer rounded-lg px-3 py-2 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>{t("assistant.settings")}</summary>
+        <div className="space-y-2 border-t border-border p-3 text-muted-foreground">
+          <p>{t("assistant.providerUnavailable")}</p><p>{t("assistant.secureStoreUnavailable")}</p><p>{t("assistant.memoryOnly")}</p>
+        </div>
       </details>
     </div>
-    <div className="shrink-0 space-y-2 border-t bg-card p-4">
-      {run === "running" && <Button variant="outline" onClick={() => { pending.current?.abort(); setRun("stopped"); }}>{t("assistant.stop")}</Button>}
+    <div className="shrink-0 space-y-2 border-t border-border bg-card p-4">
+      {run === "running" && <Button variant="outline" className={actionClass} onClick={() => { pending.current?.abort(); setRun("stopped"); }}>{t("assistant.stop")}</Button>}
       <Label htmlFor={`assistant-composer-${surface}`}>{t("assistant.composer")}</Label>
-      <Input id={`assistant-composer-${surface}`} disabled placeholder={t("assistant.providerUnavailable")} aria-describedby={`assistant-composer-help-${surface}`} />
+      <Input className={fieldClass} id={`assistant-composer-${surface}`} disabled placeholder={t("assistant.providerUnavailable")} aria-describedby={`assistant-composer-help-${surface}`} />
       <p id={`assistant-composer-help-${surface}`} className="text-xs text-muted-foreground">{t("assistant.noSending")}</p>
     </div>
     <Sheet open={reviewOpen} onOpenChange={setReviewOpen}>
       <SheetContent className="space-y-4">
         <SheetHeader><SheetTitle>{t("assistant.review")}</SheetTitle></SheetHeader>
-        <p>{t("assistant.reviewUnavailable")}</p>
+        <Notice>{t("assistant.reviewUnavailable")}</Notice>
         <Button disabled>{t("assistant.confirmUnavailable")}</Button>
       </SheetContent>
     </Sheet>
