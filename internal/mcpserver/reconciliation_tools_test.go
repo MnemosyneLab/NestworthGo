@@ -29,7 +29,7 @@ func reconciliationPreview(t *testing.T, c *mcp.ClientSession, targets ...map[st
 
 func reconciliationCommit(t *testing.T, c *mcp.ClientSession, operationID, planID string) map[string]any {
 	t.Helper()
-	data := call(t, c, "commit_reconciliation", map[string]any{
+	data := call(t, c, "commit_plan", map[string]any{
 		"operationId": operationID, "input": map[string]any{"planId": planID},
 	}, false)["data"].(map[string]any)
 	if data["status"] != "succeeded" {
@@ -54,7 +54,7 @@ func TestReconciliationToolsRequireLedgerPermission(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = true
 		}
-		for _, name := range []string{"preview_reconciliation", "commit_reconciliation"} {
+		for _, name := range []string{"preview_reconciliation", "commit_plan"} {
 			if found[name] != (mode == LedgerWrite) {
 				t.Fatalf("%s exposed=%v in mode %s", name, found[name], mode)
 			}
@@ -133,7 +133,7 @@ func TestReconciliationPreviewCommitAndReplay(t *testing.T) {
 	if got := ledgerActivityCount(t, fx.app); got != before+3 {
 		t.Fatalf("replay duplicated activities: %d", got)
 	}
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", map[string]any{"operationId": opID, "input": map[string]any{"planId": uuid.NewString()}}); code != "conflict" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": uuid.NewString()}}); code != "conflict" {
 		t.Fatalf("reused operation with different plan code=%s", code)
 	}
 	reduction := reconciliationPreview(t, c, map[string]any{"holdingId": holdingID, "targetQuantity": "9"})
@@ -273,24 +273,16 @@ func TestReconciliationRejectsManagedHolding(t *testing.T) {
 	}
 }
 
-func TestReconciliationRejectsStaleExpiredAndWrongPlanType(t *testing.T) {
+func TestReconciliationRejectsStaleAndExpiredPlans(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	target := map[string]any{"accountId": fx.checking, "targetBalance": "50", "currency": "USD"}
 	plan := reconciliationPreview(t, c, target)
 	planID := plan["planId"].(string)
-	for _, name := range []string{"commit_change", "commit_batch"} {
-		if code := ledgerErrorCode(t, c, name, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "validation" {
-			t.Fatalf("%s accepted reconciliation plan: %s", name, code)
-		}
-	}
 	single := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.savings, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-29T12:00:00Z"})
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": single["planId"]}}); code != "validation" {
-		t.Fatalf("reconciliation accepted change plan: %s", code)
-	}
 	ledgerCommit(t, c, uuid.NewString(), single["planId"].(string))
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "stale_preview" {
 		t.Fatalf("stale reconciliation code=%s", code)
 	}
 	expired := reconciliationPreview(t, c, target)
@@ -308,7 +300,7 @@ func TestReconciliationRejectsStaleExpiredAndWrongPlanType(t *testing.T) {
 	if err := fx.service.writePrivate(path, saved); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": expiredID}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": expiredID}}); code != "stale_preview" {
 		t.Fatalf("expired reconciliation code=%s", code)
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 1 {
@@ -372,7 +364,7 @@ func TestReconciliationOldUnknownCommitAfterNewPlanRevision(t *testing.T) {
 	if _, err := db.SQL.Exec("DELETE FROM app_configuration WHERE key=?", "mcp.plan."+id); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", args); code != "operation_outcome_unknown" {
+	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
 	newer := reconciliationPreview(t, c, map[string]any{"accountId": fx.checking, "targetBalance": "30", "currency": "USD"})
@@ -380,7 +372,7 @@ func TestReconciliationOldUnknownCommitAfterNewPlanRevision(t *testing.T) {
 	count := ledgerActivityCount(t, fx.app)
 	// An old absent body remains unknown even after a different reviewed plan
 	// committed. Changing outer operation IDs is not treated as proof of a duplicate.
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", args); code != "operation_outcome_unknown" {
+	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
 	var body any
@@ -390,7 +382,7 @@ func TestReconciliationOldUnknownCommitAfterNewPlanRevision(t *testing.T) {
 	if err = fx.service.writePrivate(filepath.Join(fx.service.dir, "plans", id+".json"), body); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_reconciliation", args); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	if ledgerActivityCount(t, fx.app) != count {

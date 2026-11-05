@@ -19,7 +19,7 @@ import (
 func sessionAction(t *testing.T, c *mcp.ClientSession, in map[string]any) map[string]any {
 	t.Helper()
 	p := call(t, c, "preview_reconciliation_session", in, false)["data"].(map[string]any)
-	result := call(t, c, "commit_reconciliation_session", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": p["planId"]}}, false)["data"].(map[string]any)
+	result := call(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": p["planId"]}}, false)["data"].(map[string]any)
 	return result["result"].(map[string]any)
 }
 func sessionHeader(t *testing.T, c *mcp.ClientSession, id string) map[string]any {
@@ -46,7 +46,7 @@ func TestReconciliationSessionToolPermissions(t *testing.T) {
 				t.Fatalf("missing %s in %s", name, mode)
 			}
 		}
-		for _, name := range []string{"preview_reconciliation_session", "commit_reconciliation_session"} {
+		for _, name := range []string{"preview_reconciliation_session", "commit_plan"} {
 			if names[name] != (mode == LedgerWrite) {
 				t.Fatalf("%s in %s", name, mode)
 			}
@@ -156,7 +156,7 @@ func TestReconciliationLinkedBatchUsesOneAtomicScope(t *testing.T) {
 	item := point["item"].(map[string]any)
 	link := map[string]any{"sessionId": id, "accountId": fx.checking, "itemId": "balance", "expectedRevision": point["sessionRevision"], "financialRevision": item["financialRevision"]}
 	p := call(t, c, "preview_batch", map[string]any{"reconciliationLink": link, "commands": []any{map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "2", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}}}, false)["data"].(map[string]any)
-	call(t, c, "commit_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": p["planId"]}}, false)
+	call(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": p["planId"]}}, false)
 	links := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "links"}, false)["data"].(map[string]any)
 	if links["page"].(map[string]any)["total"].(float64) != 2 {
 		t.Fatal(links)
@@ -283,7 +283,7 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 	planID := preview["planId"].(string)
 	operationID := uuid.NewString()
 	args := map[string]any{"operationId": operationID, "input": map[string]any{"planId": planID}}
-	posted := call(t, c, "commit_reconciliation_session", args, false)["data"].(map[string]any)
+	posted := call(t, c, "commit_plan", args, false)["data"].(map[string]any)
 	operation, err := fx.service.GetOperation(operationID)
 	if err != nil {
 		t.Fatal(err)
@@ -292,7 +292,7 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 		t.Fatal(err)
 	}
 	// An already-succeeded outer receipt is independent of plan retention.
-	replay := call(t, c, "commit_reconciliation_session", args, false)["data"].(map[string]any)
+	replay := call(t, c, "commit_plan", args, false)["data"].(map[string]any)
 	if replay["id"] != posted["id"] {
 		t.Fatal("succeeded operation receipt changed")
 	}
@@ -303,7 +303,7 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 	if err = fx.service.writePrivate(path, operation); err != nil {
 		t.Fatal(err)
 	}
-	recovered := call(t, c, "commit_reconciliation_session", args, false)["data"].(map[string]any)
+	recovered := call(t, c, "commit_plan", args, false)["data"].(map[string]any)
 	if recovered["result"].(map[string]any)["id"] != planID {
 		t.Fatal("business receipt not recovered")
 	}
@@ -319,21 +319,24 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 	}
 	pendingOp := uuid.NewString()
 	missingArgs := map[string]any{"operationId": pendingOp, "input": map[string]any{"planId": missingID}}
-	if code := ledgerErrorCode(t, c, "commit_reconciliation_session", missingArgs); code != "operation_outcome_unknown" {
+	if code := ledgerErrorCode(t, c, "commit_plan", missingArgs); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
-	saved, err := fx.service.GetOperation(pendingOp)
-	if err != nil || saved.Status != "unknown" {
-		t.Fatalf("missing plan permanently failed: %+v %v", saved, err)
+	// A missing plan cannot be routed, so no receipt is invented for it.
+	if _, err = fx.service.GetOperation(pendingOp); err == nil {
+		t.Fatal("missing plan recorded an operation receipt")
 	}
 	// Recover older versions' permanently failed not_found operations too.
-	saved.Status = "failed"
-	saved.Error = safeError(fail("not_found", "old missing plan"))
+	hash, err := operationHash("commit_reconciliation_session", CommitChangeInput{PlanID: missingID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := Operation{ID: pendingOp, Tool: "commit_reconciliation_session", Hash: hash, Status: "failed", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano), Error: safeError(fail("not_found", "old missing plan"))}
 	path, _ = fx.service.operationPath(pendingOp)
 	if err = fx.service.writePrivate(path, saved); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_reconciliation_session", missingArgs); code != "operation_outcome_unknown" {
+	if code := ledgerErrorCode(t, c, "commit_plan", missingArgs); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
 	var body any
@@ -344,7 +347,7 @@ func TestReconciliationSQLiteMissingPlanUnknownAndReceiptRecovery(t *testing.T) 
 		t.Fatal(err)
 	}
 	// Only an explicit retry submits the recovered, unchanged reviewed plan.
-	call(t, c, "commit_reconciliation_session", missingArgs, false)
+	call(t, c, "commit_plan", missingArgs, false)
 	rows, err := fx.app.ListReconciliationSessions(t.Context())
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("unexpected executions: %d %v", len(rows), err)

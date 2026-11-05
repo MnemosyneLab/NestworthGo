@@ -82,18 +82,21 @@ Creating a definition does not create ownership or a trade. Continue with
 [positions-and-trades.md](positions-and-trades.md) or [market-data.md](market-data.md).
 
 For updates, omitted fields are preserved; supplied ownership replaces the
-allocation. Instrument `replace=true` requires the complete form, so prefer
+allocation. `update_account` clears institutionId, groupId, note, iconKey,
+openedOn or closedOn only with the matching `<field>Set:true` (for example
+`{"note":"","noteSet":true}`); an empty value without `Set` keeps the stored one.
+Member, institution and group updates take `name`, `iconKey` or both (at least one); omitted fields are kept and both apply together. Instrument `replace=true` requires the complete form, so prefer
 partial changes for a narrow edit. Institution updates currently rename only.
-Use the relevant `set_*_icon` tools for member/institution/group icons; account
-and instrument icons use updates. Archive/restore uses `archive_*` with
+Member, institution and group icons use their `update_*` tool; account
+and instrument icons use updates too. Archive/restore uses `archive_*` with
 `archived:true/false` and preserves history; it does not delete references.
 
 App-managed term deposits and locked/closed wealth products have specialized
 cash, maturity, reservation and redemption rules. MCP exposes dedicated
-`preview_product_operation` / `commit_product_operation` tools for supported
+`preview_product_operation` and `commit_plan` for supported
 completed lifecycle facts, plus dedicated revisioned terms and actual locked
 value edits. Renewal without reservation release uses preview_product_operation kind renew
-and its matching commit. Reservation-affecting renewal and reservation
+and `commit_plan`. Reservation-affecting renewal and reservation
 creation/edit/release remain App workflows.
 Never use generic trades, reconciliation or quote tools to bypass managed
 holdings/quote guards, even if a similarly named ordinary instrument could be

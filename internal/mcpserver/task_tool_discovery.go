@@ -20,7 +20,7 @@ const toolGroupsMeta = "nestworth.toolGroups"
 // still goes through the unchanged mode-specific registered SDK allowlist.
 func discoveryGroup(name string) string {
 	switch name {
-	case "get_read_page", "get_read_item", "get_operation":
+	case "get_read_page", "get_read_item", "get_operation", "commit_plan":
 		return "shared"
 	case "get_context", "get_catalog":
 		return "context"
@@ -28,7 +28,7 @@ func discoveryGroup(name string) string {
 		return "summary"
 	case "get_overview", "get_account_valuations", "get_account_snapshot", "get_historical_overview", "get_historical_overview_series", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail", "list_activities", "get_activity":
 		return "analysis"
-	case "preview_change", "commit_change", "preview_batch", "commit_batch", "preview_correction", "commit_correction", "preview_reconciliation", "commit_reconciliation":
+	case "preview_change", "preview_batch", "preview_correction", "preview_reconciliation":
 		return "ledger"
 	}
 	switch {

@@ -74,7 +74,7 @@ func TestHostReviewReadPreviewConfirmReceiptLoop(t *testing.T) {
 		t.Fatal("private preview changed business state or lost its immutable command")
 	}
 	assertActivityCount(t, fx, 0)
-	_, err := fx.local.Call(t.Context(), "commit_change", mustJSON(t, Mutation[CommitChangeInput]{review.Binding.OperationID, CommitChangeInput{review.Binding.Plan.ID}}))
+	_, err := fx.local.Call(t.Context(), "commit_plan", mustJSON(t, Mutation[CommitChangeInput]{review.Binding.OperationID, CommitChangeInput{review.Binding.Plan.ID}}))
 	requireLocalError(t, err, "approval_required")
 	for _, name := range []string{"approve", "confirm", "ConfirmHostChange", "approve_review"} {
 		_, err := fx.local.Call(t.Context(), name, mustJSON(t, map[string]any{"id": review.Binding.ID, "digest": review.Digest, "approved": true}))

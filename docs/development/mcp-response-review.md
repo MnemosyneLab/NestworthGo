@@ -60,9 +60,10 @@ schema errors, reject batches/oversized IDs, and cap the complete output. Writes
 activity/review/reconciliation APIs keep their distinct domain paging contracts.
 
 - `attribution_tools.go`: `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail`.
-- `batch_tools.go`: `preview_batch`, `commit_batch`.
+- `batch_tools.go`: `preview_batch`.
 - `bounded_read.go`: `get_read_page`, `get_read_item`.
-- `correction_tools.go`: `preview_correction`, `commit_correction`.
+- `commit_plan_tool.go`: `commit_plan` (write receipt; no read output schema).
+- `correction_tools.go`: `preview_correction`.
 - `data_health_tools.go`: `scan_data_health`, `preview_data_repair`, `get_data_repair_job`, `start_data_repair`.
 - `feature_tools.go`: `get_upcoming_actions`, `get_historical_overview`, `get_historical_overview_series`.
 - `financial_comparison_tools.go`: `compare_financial_attribution`, `compare_financial_context`.
@@ -70,16 +71,16 @@ activity/review/reconciliation APIs keep their distinct domain paging contracts.
 - `history_tools.go`: `list_activities`, `get_activity`, `analyze_period`.
 - `instrument_batch_tools.go`: `update_instruments_batch`.
 - `investment_review_v2_tools.go`: `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `get_investment_review_coverage`, `list_investment_review_suppressions`, `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews`.
-- `ledger_tools.go`: `preview_change`, `commit_change`.
-- `liquidity_policy_tools.go`: `preview_save_liquidity_policy`, `preview_reset_liquidity_policy`, `commit_save_liquidity_policy`, `commit_reset_liquidity_policy`.
+- `ledger_tools.go`: `preview_change`.
+- `liquidity_policy_tools.go`: `preview_save_liquidity_policy`, `preview_reset_liquidity_policy`.
 - `market_data_batch_tools.go`: `get_market_data_batch`.
 - `market_data_tools.go`: `get_market_data`, `list_agent_market_data`, `import_market_data`, `set_fx_source`.
-- `product_data_tools.go`: `preview_product_terms`, `preview_product_valuation`, `commit_product_terms`, `commit_product_valuation`.
-- `product_operation_tools.go`: `preview_product_operation`, `commit_product_operation`.
+- `product_data_tools.go`: `preview_product_terms`, `preview_product_valuation`.
+- `product_operation_tools.go`: `preview_product_operation`.
 - `product_tools.go`: `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`.
-- `reconciliation_session_tools.go`: `list_reconciliation_sessions`, `get_reconciliation_session`, `get_reconciliation_session_page`, `get_reconciliation_item`, `preview_reconciliation_session`, `commit_reconciliation_session`.
-- `reconciliation_tools.go`: `preview_reconciliation`, `commit_reconciliation`.
-- `tools.go`: `get_context`, `get_catalog`, `get_operation`, `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings`, `get_account_valuations`, `get_account_snapshot`, `get_overview`, `create_member`, `update_member`, `archive_member`, `set_member_icon`, `create_institution`, `update_institution`, `archive_institution`, `set_institution_icon`, `create_group`, `update_group`, `archive_group`, `set_group_icon`, `create_account`, `update_account`, `archive_account`, `create_instrument`, `update_instrument`, `archive_instrument`, `search_market_instruments`.
+- `reconciliation_session_tools.go`: `list_reconciliation_sessions`, `get_reconciliation_session`, `get_reconciliation_session_page`, `get_reconciliation_item`, `preview_reconciliation_session`.
+- `reconciliation_tools.go`: `preview_reconciliation`.
+- `tools.go`: `get_context`, `get_catalog`, `get_operation`, `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings`, `get_account_valuations`, `get_account_snapshot`, `get_overview`, `create_member`, `update_member`, `archive_member`, `create_institution`, `update_institution`, `archive_institution`, `create_group`, `update_group`, `archive_group`, `create_account`, `update_account`, `archive_account`, `create_instrument`, `update_instrument`, `archive_instrument`, `search_market_instruments`.
 
 ## Shapes and complete read-family inventory
 

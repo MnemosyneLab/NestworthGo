@@ -304,7 +304,7 @@ func (s *InProcessSession) ConfirmHostChange(ctx context.Context, id, expectedDi
 			return err // No dispatch unless durable admission succeeded.
 		}
 		input, _ := jsoncodec.Marshal(Mutation[CommitChangeInput]{OperationID: review.Binding.OperationID, Input: CommitChangeInput{PlanID: review.Binding.Plan.ID}})
-		_, callErr := s.call(ctx, "commit_change", input, true)
+		_, callErr := s.call(ctx, "commit_plan", input, true)
 		review.State = ReviewUnknown
 		if callErr == nil {
 			// Use the persisted receipt's exact bytes. The generic capability

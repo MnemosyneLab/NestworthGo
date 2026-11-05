@@ -11,8 +11,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
+// The strict oracle keeps the full pre-compaction contract.
 func TestStableReadEnvelopeOutputSchema(t *testing.T) {
-	raw, _ := jsoncodec.Marshal(readOutputSchema("get_read_page"))
+	raw, _ := jsoncodec.Marshal(fullReadOutputSchema("get_read_page"))
 	var schema jsonschema.Schema
 	if jsoncodec.Unmarshal(raw, &schema) != nil {
 		t.Fatal("schema decode")
@@ -35,7 +36,7 @@ func TestStableReadEnvelopeOutputSchema(t *testing.T) {
 	if err := resolved.Validate(&good); err == nil {
 		t.Fatal("capture identity/hash loss accepted")
 	}
-	for _, name := range []string{"commit_change", "commit_product_operation", "update_instruments_batch", "get_operation"} {
+	for _, name := range []string{"commit_plan", "update_instruments_batch", "get_operation"} {
 		if readOutputSchema(name) != nil {
 			t.Fatal("receipt acquired a new post-execution output gate", name)
 		}
@@ -69,8 +70,8 @@ func TestSDKDualRepresentationWireEvidence(t *testing.T) {
 	t.Logf("actual SDK dual representation: text JSON=%d structured JSON=%d final HTTP=%d; consumer/model token use is not measured", len(text.Text), len(structured), metric.Bytes)
 }
 
-// The discovered outputSchema must describe delivery exactly, and real responses
-// must validate against it: present and complete on a top-level initial capture,
+// The strict read contract must describe delivery exactly, and real responses
+// must validate against it and the compact discovered schema: present and complete on a top-level initial capture,
 // absent on continuation pages and focused item details.
 func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
 	fx := newLedgerFixture(t)
@@ -79,24 +80,30 @@ func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	validators := map[string]*jsonschema.Resolved{}
-	for _, tool := range listed.Tools {
-		raw, err := jsoncodec.Marshal(tool.OutputSchema)
+	resolve := func(name string, schemaValue any) *jsonschema.Resolved {
+		raw, err := jsoncodec.Marshal(schemaValue)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(raw), "mcp-read/1") {
-			continue
-		}
 		var schema jsonschema.Schema
 		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
-			t.Fatal(tool.Name, err)
+			t.Fatal(name, err)
 		}
 		resolved, err := schema.Resolve(nil)
 		if err != nil {
-			t.Fatal(tool.Name, err)
+			t.Fatal(name, err)
 		}
-		validators[tool.Name] = resolved
+		return resolved
+	}
+	// validators is the strict test oracle; shipped is the compact schema that
+	// tools/list actually advertises. Real responses must satisfy both.
+	validators, shipped := map[string]*jsonschema.Resolved{}, map[string]*jsonschema.Resolved{}
+	for _, tool := range listed.Tools {
+		if readOutputKind(tool.Name) != readKindEnvelope {
+			continue
+		}
+		validators[tool.Name] = resolve(tool.Name, fullReadOutputSchema(tool.Name))
+		shipped[tool.Name] = resolve(tool.Name, tool.OutputSchema)
 	}
 	if len(validators) < 20 {
 		t.Fatalf("expected the mcp-read/1 tools to be discovered, found %d", len(validators))
@@ -133,6 +140,9 @@ func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
 			t.Fatalf("%s returned %T", tool, result.StructuredContent)
 		}
 		if err := validators[tool].Validate(&structured); err != nil {
+			t.Fatalf("%s response violates the strict read contract: %v", tool, err)
+		}
+		if err := shipped[tool].Validate(&structured); err != nil {
 			t.Fatalf("%s response violates its discovered outputSchema: %v", tool, err)
 		}
 		data := structured["data"].(map[string]any)
@@ -180,4 +190,57 @@ func firstItemID(t *testing.T, data map[string]any, section string) string {
 	}
 	t.Fatalf("no identifier in %v", row)
 	return ""
+}
+
+// The advertised schema is compact on purpose. It must still identify the
+// envelope version, the capture identity and the paging fields, and it must stay
+// small because the same envelope is repeated by about thirty tools.
+func TestCompactReadOutputSchemaKeepsRecognitionFields(t *testing.T) {
+	resolve := func(value any) *jsonschema.Resolved {
+		raw, _ := jsoncodec.Marshal(value)
+		var schema jsonschema.Schema
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(err)
+		}
+		resolved, err := schema.Resolve(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resolved
+	}
+	envelope := resolve(readOutputSchema("get_overview"))
+	good := func() map[string]any {
+		return map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "captureId": "c", "expiresAt": "t", "contentHash": "h", "summary": map[string]any{}}}
+	}
+	value := good()
+	if err := envelope.Validate(&value); err != nil {
+		t.Fatal(err)
+	}
+	for field, mutate := range map[string]func(map[string]any){
+		"wrong version":  func(d map[string]any) { d["schemaVersion"] = "mcp-read/2" },
+		"no captureId":   func(d map[string]any) { delete(d, "captureId") },
+		"no expiresAt":   func(d map[string]any) { delete(d, "expiresAt") },
+		"no contentHash": func(d map[string]any) { delete(d, "contentHash") },
+	} {
+		value = good()
+		mutate(value["data"].(map[string]any))
+		if envelope.Validate(&value) == nil {
+			t.Errorf("compact envelope schema accepted %s", field)
+		}
+	}
+	page := resolve(readOutputSchema("get_read_page"))
+	pageValue := map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "items": []any{}, "page": map[string]any{"hasMore": false, "nextCursor": nil}}}
+	if err := page.Validate(&pageValue); err != nil {
+		t.Fatal(err)
+	}
+	pageValue = map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "items": []any{}, "page": map[string]any{"hasMore": false}}}
+	if page.Validate(&pageValue) == nil {
+		t.Error("compact page schema accepted a page without nextCursor")
+	}
+	for _, name := range []string{"get_overview", "get_read_page", "list_accounts", "get_financial_context", "get_data_repair_job"} {
+		raw, _ := jsoncodec.Marshal(readOutputSchema(name))
+		if len(raw) > 420 {
+			t.Errorf("%s output schema is %d bytes; keep the repeated envelope compact", name, len(raw))
+		}
+	}
 }

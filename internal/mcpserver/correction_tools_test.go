@@ -36,7 +36,7 @@ func correctionPreview(t *testing.T, c *mcp.ClientSession, input map[string]any)
 
 func correctionCommit(t *testing.T, c *mcp.ClientSession, operationID, planID string) map[string]any {
 	t.Helper()
-	receipt := call(t, c, "commit_correction", map[string]any{
+	receipt := call(t, c, "commit_plan", map[string]any{
 		"operationId": operationID, "input": map[string]any{"planId": planID},
 	}, false)["data"].(map[string]any)
 	if receipt["status"] != "succeeded" {
@@ -61,7 +61,7 @@ func TestCorrectionToolsRequireLedgerWrite(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = true
 		}
-		if found["preview_correction"] != (mode == LedgerWrite) || found["commit_correction"] != (mode == LedgerWrite) {
+		if found["preview_correction"] != (mode == LedgerWrite) || found["commit_plan"] != (mode == LedgerWrite) {
 			t.Fatalf("mode=%s correction tools=%v", mode, found)
 		}
 	}
@@ -214,14 +214,11 @@ func TestMCPCorrectionRejectsInvalidAndStalePlans(t *testing.T) {
 		}
 	}
 	plan := correctionPreview(t, c, map[string]any{"action": "undo", "activityId": originalID})
-	if code := ledgerErrorCode(t, c, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": plan["planId"]}}); code != "validation" {
-		t.Fatalf("wrong commit tool code=%s", code)
-	}
 	_, err := history.NewService(fx.app).RecordChange(context.Background(), history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: fx.checking, Amount: "10", Currency: "USD", Reason: "income", EffectiveAt: "2026-09-21T12:00:00Z"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_correction", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": plan["planId"]}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": plan["planId"]}}); code != "stale_preview" {
 		t.Fatalf("stale correction code=%s", code)
 	}
 	if ledgerActivityCount(t, fx.app) != 2 || ledgerCash(t, c, fx.checking) != "110" {
@@ -263,7 +260,7 @@ func TestMCPCorrectionRecoversAfterCommittedWriteButFailedSnapshotRebuild(t *tes
 	planID := plan["planId"].(string)
 	opID := uuid.NewString()
 	repository.fail.Store(true)
-	if code := ledgerErrorCode(t, c, "commit_correction", map[string]any{"operationId": opID, "input": map[string]any{"planId": planID}}); code != "internal" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": planID}}); code != "internal" {
 		t.Fatalf("postcommit snapshot failure code=%s", code)
 	}
 	receipt, err := service.GetOperation(opID)

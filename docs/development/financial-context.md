@@ -236,7 +236,7 @@ selection, all three page sections, zero-row deferral, expiry/restart with an
 unchanged semantic hash, and row-kind/FX/time-provenance semantics. Standalone
 bundle tests verify those examples (now in the skill's `financial-context.md`
 reference) survive packaging and installation, and that client-specific
-configuration stays out of the bundle. The current repository skill is 3.0.2
+configuration stays out of the bundle. The current repository skill is 3.0.3
 (unpublished); the latest published App v0.3.10 includes skill 2.0.0. Installed
 clients require an explicit update. The historical
 [v0.3.9 release](../releases/v0.3.9.md) includes skill 1.11.0; historical

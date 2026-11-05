@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -43,15 +42,7 @@ type BatchChangeResult struct {
 }
 
 func (s *Service) batchTools(server *toolSet) {
-	readTool(server, "preview_batch", "Preview an atomic group of 1-100 ledger records (same kinds and fields as preview_change, including position_import and position_transfer); nothing posts. Commands must be in nondecreasing effective-time order (equal times keep array order; omitted times share one frozen instant), so earlier entries can fund later ones. For a buy or sell after a new, imported or transferred position, omit holdingId and give its account and instrument IDs. No directory creation or placeholder IDs; one invalid entry rejects the whole preview. Commit with commit_batch.", s.previewBatch)
-	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_batch", Description: "Commit the stored preview_batch plan atomically: all holdings, activities and the batch receipt, or nothing. Input is operationId and input.planId only; never a single-change plan. Retrying the same plan returns the original activities. Expired or stale plans need a new preview.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_batch", in.Input, true, func(ctx context.Context) (any, error) { return s.commitBatch(ctx, in.Input) })
-		if err != nil {
-			return Response{}, safeError(err)
-		}
-		return Response{Data: value}, nil
-	})
+	readTool(server, "preview_batch", "Preview an atomic group of 1-100 ledger records (same kinds and fields as preview_change, including position_import and position_transfer); nothing posts. Commands must be in nondecreasing effective-time order (equal times keep array order; omitted times share one frozen instant), so earlier entries can fund later ones. For a buy or sell after a new, imported or transferred position, omit holdingId and give its account and instrument IDs. No directory creation or placeholder IDs; one invalid entry rejects the whole preview. Commit with commit_plan.", s.previewBatch)
 }
 
 func batchInputError(index int, err error) error {

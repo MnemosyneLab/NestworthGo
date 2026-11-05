@@ -387,6 +387,36 @@ func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...str
 	return member, nil
 }
 func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name string) (domain.Member, error) {
+	return s.EditMember(ctx, id, DirectoryEdit{Name: &name})
+}
+
+// DirectoryEdit is a partial edit of a member, institution or group. Nil fields
+// keep the stored value. Supplied fields are written by one statement, so a
+// name and an icon change together or not at all.
+type DirectoryEdit struct {
+	Name    *string
+	IconKey *string
+}
+
+func (e DirectoryEdit) icon() (*string, error) {
+	if e.Name == nil && e.IconKey == nil {
+		return nil, &domain.Error{Code: domain.ErrValidation, Message: "provide name, iconKey or both"}
+	}
+	if e.IconKey == nil {
+		return nil, nil
+	}
+	key, err := normalizeIconKey(*e.IconKey)
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
+func (s *Service) EditMember(ctx context.Context, id domain.MemberID, edit DirectoryEdit) (domain.Member, error) {
+	icon, err := edit.icon()
+	if err != nil {
+		return domain.Member{}, err
+	}
 	ctx, unlock, err := s.beginWrite(ctx)
 	if err != nil {
 		return domain.Member{}, err
@@ -400,11 +430,18 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 	if err != nil {
 		return domain.Member{}, err
 	}
-	updated, err := domain.NewMember(current.HouseholdID, name, s.clock())
-	if err != nil {
-		return domain.Member{}, err
+	updated := current
+	updated.UpdatedAt = s.clock()
+	if edit.Name != nil {
+		renamed, err := domain.NewMember(current.HouseholdID, *edit.Name, s.clock())
+		if err != nil {
+			return domain.Member{}, err
+		}
+		updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
 	}
-	updated.ID, updated.IconKey, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	if icon != nil {
+		updated.IconKey = icon
+	}
 	if err := s.repository.UpdateMember(ctx, updated); err != nil {
 		return domain.Member{}, err
 	}
@@ -477,6 +514,14 @@ func (s *Service) CreateInstitution(ctx context.Context, name string, institutio
 	return institution, nil
 }
 func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID, name string) (domain.Institution, error) {
+	return s.EditInstitution(ctx, id, DirectoryEdit{Name: &name})
+}
+
+func (s *Service) EditInstitution(ctx context.Context, id domain.InstitutionID, edit DirectoryEdit) (domain.Institution, error) {
+	icon, err := edit.icon()
+	if err != nil {
+		return domain.Institution{}, err
+	}
 	ctx, unlock, err := s.beginWrite(ctx)
 	if err != nil {
 		return domain.Institution{}, err
@@ -490,11 +535,18 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	updated, err := domain.NewInstitution(current.HouseholdID, name, current.InstitutionType, s.clock())
-	if err != nil {
-		return domain.Institution{}, err
+	updated := current
+	updated.UpdatedAt = s.clock()
+	if edit.Name != nil {
+		renamed, err := domain.NewInstitution(current.HouseholdID, *edit.Name, current.InstitutionType, s.clock())
+		if err != nil {
+			return domain.Institution{}, err
+		}
+		updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
 	}
-	updated.ID, updated.IconKey, updated.CountryCode, updated.Website, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.CountryCode, current.Website, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	if icon != nil {
+		updated.IconKey = icon
+	}
 	if err := s.repository.UpdateInstitution(ctx, updated); err != nil {
 		return domain.Institution{}, err
 	}
@@ -543,6 +595,14 @@ func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...stri
 	return group, nil
 }
 func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name string) (domain.Group, error) {
+	return s.EditGroup(ctx, id, DirectoryEdit{Name: &name})
+}
+
+func (s *Service) EditGroup(ctx context.Context, id domain.GroupID, edit DirectoryEdit) (domain.Group, error) {
+	icon, err := edit.icon()
+	if err != nil {
+		return domain.Group{}, err
+	}
 	ctx, unlock, err := s.beginWrite(ctx)
 	if err != nil {
 		return domain.Group{}, err
@@ -556,11 +616,18 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 	if err != nil {
 		return domain.Group{}, err
 	}
-	updated, err := domain.NewGroup(current.HouseholdID, name, s.clock())
-	if err != nil {
-		return domain.Group{}, err
+	updated := current
+	updated.UpdatedAt = s.clock()
+	if edit.Name != nil {
+		renamed, err := domain.NewGroup(current.HouseholdID, *edit.Name, s.clock())
+		if err != nil {
+			return domain.Group{}, err
+		}
+		updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
 	}
-	updated.ID, updated.IconKey, updated.Color, updated.Description, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Color, current.Description, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	if icon != nil {
+		updated.IconKey = icon
+	}
 	if err := s.repository.UpdateGroup(ctx, updated); err != nil {
 		return domain.Group{}, err
 	}

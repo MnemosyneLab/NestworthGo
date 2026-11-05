@@ -2,7 +2,7 @@
 
 Use `get_catalog.moneyInReasons` / `moneyOutReasons` and existing account cash.
 All examples below are arguments for `preview_change`; inspect effects and use
-`commit_change` as described in [positions-and-trades.md](positions-and-trades.md).
+`commit_plan` as described in [positions-and-trades.md](positions-and-trades.md).
 
 | Intent | Record |
 | --- | --- |

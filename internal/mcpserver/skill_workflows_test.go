@@ -76,7 +76,7 @@ func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
 	post := func(reference, name string) map[string]any {
 		t.Helper()
 		preview := ledgerPreview(t, c, skillExample(t, reference, name, values))
-		return skillCommit(t, c, "commit_change", preview["planId"].(string))
+		return skillCommit(t, c, "commit_plan", preview["planId"].(string))
 	}
 	post("cash-and-debt", "income")
 	buy := post("positions-and-trades", "buy")
@@ -90,13 +90,13 @@ func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
 		t.Fatalf("documented FX should include separate fee: USD=%s EUR=%s", usd, eur)
 	}
 	preview := call(t, c, "preview_reconciliation", skillExample(t, "reconciliation-and-corrections", "cost-target", values), false)["data"].(map[string]any)
-	skillCommit(t, c, "commit_reconciliation", preview["planId"].(string))
+	skillCommit(t, c, "commit_plan", preview["planId"].(string))
 	assertReconciliationCost(t, fx, values["holdingId"], "6", "50", "300")
 	if ledgerCash(t, c, accountID) != "812" {
 		t.Fatal("cost-target example moved cash")
 	}
 	preview = call(t, c, "preview_reconciliation", skillExample(t, "reconciliation-and-corrections", "balance-target", values), false)["data"].(map[string]any)
-	skillCommit(t, c, "commit_reconciliation", preview["planId"].(string))
+	skillCommit(t, c, "commit_plan", preview["planId"].(string))
 	if ledgerCash(t, c, accountID) != "1250" {
 		t.Fatal("balance-target example did not set target")
 	}
@@ -117,15 +117,15 @@ func TestSkillCashDebtAndBatchExamples(t *testing.T) {
 	plan := batchPreview(t, c, income, expense)
 	opID := uuid.NewString()
 	arguments := skillExample(t, "positions-and-trades", "commit", map[string]string{"operationId": opID, "planId": plan["planId"].(string)})
-	call(t, c, "commit_batch", arguments, false)
-	call(t, c, "commit_batch", arguments, false)
+	call(t, c, "commit_plan", arguments, false)
+	call(t, c, "commit_plan", arguments, false)
 	if ledgerCash(t, c, fx.checking) != "950" || ledgerActivityCount(t, fx.app) != 2 {
 		t.Fatal("documented batch/retry duplicated or misclassified income/expense")
 	}
 	draw := ledgerPreview(t, c, map[string]any{"kind": "debt_draw", "debtAccountId": fx.debt, "cashAccountId": fx.checking, "principal": "300", "principalCurrency": "USD", "effectiveAt": values["effectiveAt"]})
-	skillCommit(t, c, "commit_change", draw["planId"].(string))
+	skillCommit(t, c, "commit_plan", draw["planId"].(string))
 	repayment := ledgerPreview(t, c, skillExample(t, "cash-and-debt", "debt-payment", values))
-	skillCommit(t, c, "commit_change", repayment["planId"].(string))
+	skillCommit(t, c, "commit_plan", repayment["planId"].(string))
 	if cash, debt := ledgerCash(t, c, fx.checking), ledgerCash(t, c, fx.debt); cash != "1140" || debt != "200" {
 		t.Fatalf("documented repayment should separate principal and interest: %s %s", cash, debt)
 	}

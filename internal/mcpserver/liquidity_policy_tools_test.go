@@ -61,12 +61,15 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 		for _, tool := range list.Tools {
 			found[tool.Name] = tool
 		}
-		for _, name := range []string{"preview_save_liquidity_policy", "commit_save_liquidity_policy", "preview_reset_liquidity_policy", "commit_reset_liquidity_policy"} {
+		for _, name := range []string{"preview_save_liquidity_policy", "preview_reset_liquidity_policy", "commit_plan"} {
 			if (found[name] != nil) != (mode == LedgerWrite) {
 				t.Fatalf("%s %s", mode, name)
 			}
 			if mode != LedgerWrite {
-				r, e := c.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
+				// An unknown tool ends the HTTP session, so probe it on a throwaway client.
+				probe := connect(t, fx.service)
+				r, e := probe.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
+				probe.Close()
 				if e == nil && !r.IsError {
 					t.Fatal(name)
 				}
@@ -132,14 +135,14 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 				t.Fatal(p)
 			}
 			id, op := p["planId"].(string), uuid.NewString()
-			result := productDataCommitHTTP(t, c, "commit_save_liquidity_policy", id, op)
+			result := productDataCommitHTTP(t, c, "commit_plan", id, op)
 			if result["revision"] != float64(1) || result["accessibleAmountCap"].(map[string]any)["amount"] != "123.1234" || result["earlyGrossAmount"].(map[string]any)["amount"] != "100.0003" {
 				t.Fatal(result)
 			}
-			if retry := productDataCommitHTTP(t, c, "commit_save_liquidity_policy", id, op); !reflect.DeepEqual(result, retry) {
+			if retry := productDataCommitHTTP(t, c, "commit_plan", id, op); !reflect.DeepEqual(result, retry) {
 				t.Fatal("retry differs")
 			}
-			if code := productDataCommitCode(t, c, "commit_save_liquidity_policy", id); code != "stale_preview" {
+			if code := productDataCommitCode(t, c, "commit_plan", id); code != "stale_preview" {
 				t.Fatal(code)
 			}
 			assertPolicyGUIParity(t, fx, c)
@@ -158,7 +161,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 			input.ExpectedRevision = 1
 			input.Policy = application.ProductPolicyInput{AccessKind: "on_request", EarlyKind: "not_allowed", NormalExitFee: productString("0")}
 			p = productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
-			result = productDataCommitHTTP(t, c, "commit_save_liquidity_policy", p["planId"].(string), uuid.NewString())
+			result = productDataCommitHTTP(t, c, "commit_plan", p["planId"].(string), uuid.NewString())
 			for _, field := range []string{"accessibleAmountCap", "unlockOn", "receiptOnOverride", "note", "earlyFee", "earlyGrossAmount", "settlementDays"} {
 				if result[field] != nil {
 					t.Fatal(field, result)
@@ -172,7 +175,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 			if p["afterOrigin"] != "assumed" || p["after"].(map[string]any)["revision"] != float64(0) {
 				t.Fatal(p)
 			}
-			result = productDataCommitHTTP(t, c, "commit_reset_liquidity_policy", p["planId"].(string), uuid.NewString())
+			result = productDataCommitHTTP(t, c, "commit_plan", p["planId"].(string), uuid.NewString())
 			if result["revision"] != float64(0) {
 				t.Fatal(result)
 			}
@@ -231,11 +234,7 @@ func TestLiquidityPolicyHTTPValidationCASAndRecovery(t *testing.T) {
 		}
 	}
 	p := productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
-	// Wrong family must fail without invalidating the reviewed plan.
-	if code := productDataCommitCode(t, c, "commit_reset_liquidity_policy", p["planId"].(string)); code != "validation" {
-		t.Fatal(code)
-	}
-	productDataCommitHTTP(t, c, "commit_save_liquidity_policy", p["planId"].(string), uuid.NewString())
+	productDataCommitHTTP(t, c, "commit_plan", p["planId"].(string), uuid.NewString())
 	if code := ledgerErrorCode(t, c, "preview_save_liquidity_policy", input); code != "revision_conflict" {
 		t.Fatal(code)
 	}
@@ -249,7 +248,7 @@ func TestLiquidityPolicyHTTPValidationCASAndRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := policyOverview(t, c)
-	if code := productDataCommitCode(t, c, "commit_save_liquidity_policy", p["planId"].(string)); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", p["planId"].(string)); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	if !reflect.DeepEqual(before, policyOverview(t, c)) {
@@ -258,13 +257,13 @@ func TestLiquidityPolicyHTTPValidationCASAndRecovery(t *testing.T) {
 	input.ExpectedRevision = 2
 	p = productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
 	productEditPlan(t, fx.service, p["planId"].(string), func(p map[string]any) { p["expiresAt"] = time.Now().Add(-time.Minute).Format(time.RFC3339Nano) })
-	if code := productDataCommitCode(t, c, "commit_save_liquidity_policy", p["planId"].(string)); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", p["planId"].(string)); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	p = productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
 	op := uuid.NewString()
 	id := p["planId"].(string)
-	productDataCommitHTTP(t, c, "commit_save_liquidity_policy", id, op)
+	productDataCommitHTTP(t, c, "commit_plan", id, op)
 	// Simulate interrupted receipt persistence after the business write.
 	path := filepath.Join(fx.service.dir, "operations", op+".json")
 	receipt, err := fx.service.GetOperation(op)
@@ -284,17 +283,17 @@ func TestLiquidityPolicyHTTPValidationCASAndRecovery(t *testing.T) {
 	}
 	current := policyOverview(t, c)
 	args := map[string]any{"operationId": op, "input": map[string]any{"planId": id}}
-	if code := ledgerErrorCode(t, c, "commit_save_liquidity_policy", args); code != "operation_outcome_unknown" {
+	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
 	if !reflect.DeepEqual(current, policyOverview(t, c)) {
 		t.Fatal("ambiguous retry overwrote newer rules")
 	}
-	if code := productDataCommitCode(t, c, "commit_save_liquidity_policy", id); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", id); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	args["input"] = map[string]any{"planId": uuid.NewString()}
-	if code := ledgerErrorCode(t, c, "commit_save_liquidity_policy", args); code != "conflict" {
+	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "conflict" {
 		t.Fatal(code)
 	}
 	input.Source.AccountID = fx.debt
@@ -323,7 +322,7 @@ func TestLiquidityPolicyHTTPManagedRejection(t *testing.T) {
 			}
 		}
 		p := productDataPreviewHTTP(t, c, "preview_product_terms", productTermsInput(id, 1, kind))
-		productDataCommitHTTP(t, c, "commit_product_terms", p["planId"].(string), uuid.NewString())
+		productDataCommitHTTP(t, c, "commit_plan", p["planId"].(string), uuid.NewString())
 		assertPolicyGUIParity(t, fx, c)
 	}
 }
@@ -335,10 +334,10 @@ func TestLiquidityPolicyHTTPExamplesNullableModesAndGuards(t *testing.T) {
 	args := skillExample(t, "products", "liquidity-policy-save", map[string]string{"accountId": fx.checking})
 	p := productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", args)
 	commit := skillExample(t, "products", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
-	call(t, c, "commit_save_liquidity_policy", commit, false)
+	call(t, c, "commit_plan", commit, false)
 	p = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", skillExample(t, "products", "liquidity-policy-reset", map[string]string{"accountId": fx.checking}))
 	commit = skillExample(t, "products", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
-	call(t, c, "commit_reset_liquidity_policy", commit, false)
+	call(t, c, "commit_plan", commit, false)
 	ref := liquidity.SourceRefDTO{Kind: "account_value", AccountID: fx.checking}
 	revision := 0
 	for _, kind := range []string{"unknown", "excluded", "on_request", "on_date"} {
@@ -351,7 +350,7 @@ func TestLiquidityPolicyHTTPExamplesNullableModesAndGuards(t *testing.T) {
 		policy.Note = nil
 		input := liquidity.SavePolicyRequest{Source: ref, ExpectedRevision: revision, Policy: policy}
 		p = productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
-		result := productDataCommitHTTP(t, c, "commit_save_liquidity_policy", p["planId"].(string), uuid.NewString())
+		result := productDataCommitHTTP(t, c, "commit_plan", p["planId"].(string), uuid.NewString())
 		if result["normalExitFee"] != nil || result["settlementDays"] != nil || result["earlyAmountMode"] != "current_value" || result["note"] != nil {
 			t.Fatal(result)
 		}
@@ -373,7 +372,7 @@ func TestLiquidityPolicyHTTPExamplesNullableModesAndGuards(t *testing.T) {
 	if err := fx.app.ArchiveAccount(t.Context(), domain.AccountID(fx.checking), true); err != nil {
 		t.Fatal(err)
 	}
-	if code := productDataCommitCode(t, c, "commit_reset_liquidity_policy", p["planId"].(string)); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", p["planId"].(string)); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	if code := ledgerErrorCode(t, c, "preview_reset_liquidity_policy", liquidity.ResetPolicyRequest{Source: ref, ExpectedRevision: revision}); code == "" {
@@ -390,7 +389,7 @@ func TestLiquidityPolicyHTTPPersistentRestartRestoreAndABA(t *testing.T) {
 	p := productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
 	op := uuid.NewString()
 	id := p["planId"].(string)
-	result := productDataCommitHTTP(t, c, "commit_save_liquidity_policy", id, op)
+	result := productDataCommitHTTP(t, c, "commit_plan", id, op)
 	input.ExpectedRevision = 1
 	pending := productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
 	// Reset and recreate preserve revision 1 but must never admit this old plan.
@@ -404,7 +403,7 @@ func TestLiquidityPolicyHTTPPersistentRestartRestoreAndABA(t *testing.T) {
 	if _, err := gui.SavePolicy(t.Context(), recreate); err != nil {
 		t.Fatal(err)
 	}
-	if code := productDataCommitCode(t, c, "commit_save_liquidity_policy", pending["planId"].(string)); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", pending["planId"].(string)); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	pending = productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
@@ -420,17 +419,17 @@ func TestLiquidityPolicyHTTPPersistentRestartRestoreAndABA(t *testing.T) {
 		t.Fatal(err)
 	}
 	c = connect(t, fx.service)
-	if retry := productDataCommitHTTP(t, c, "commit_save_liquidity_policy", id, op); !reflect.DeepEqual(result, retry) {
+	if retry := productDataCommitHTTP(t, c, "commit_plan", id, op); !reflect.DeepEqual(result, retry) {
 		t.Fatal("restart changed original receipt")
 	}
-	if code := productDataCommitCode(t, c, "commit_save_liquidity_policy", pending["planId"].(string)); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", pending["planId"].(string)); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	pending = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", liquidity.ResetPolicyRequest{Source: input.Source, ExpectedRevision: 1})
 	if err := app.WithExclusive(t.Context(), application.ExclusiveRestore, func(context.Context) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if code := productDataCommitCode(t, c, "commit_reset_liquidity_policy", pending["planId"].(string)); code != "stale_preview" {
+	if code := productDataCommitCode(t, c, "commit_plan", pending["planId"].(string)); code != "stale_preview" {
 		t.Fatal(code)
 	}
 	assertPolicyGUIParity(t, fx, c)

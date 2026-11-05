@@ -132,7 +132,7 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 			t.Fatal("extra tool exposed")
 		}
 	}
-	for _, name := range []string{"commit_change", "preview_change", "get_context", "get_market_data", "analyze_period", "start_data_repair"} {
+	for _, name := range []string{"commit_plan", "preview_change", "get_context", "get_market_data", "analyze_period", "start_data_repair"} {
 		if _, err := session.Call(t.Context(), name, []byte(`{}`)); err == nil {
 			t.Fatalf("extra authority: %s", name)
 		}

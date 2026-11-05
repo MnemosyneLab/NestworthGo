@@ -52,18 +52,14 @@ certify old frozen comparisons.
 | Coherent comparison and attribution link | `compare_financial_attribution`, `get_read_page` |
 | Two-state differences, not returns | `compare_financial_context`, `get_read_page` |
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
-| Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; `create_institution`, `update_institution`, `archive_institution`, `set_institution_icon`; `create_group`, `update_group`, `archive_group`, `set_group_icon`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
+| Definition maintenance | `create_member`, `update_member`, `archive_member`; `create_institution`, `update_institution`, `archive_institution`; `create_group`, `update_group`, `archive_group`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`; ledger_write: create/update/archive rule, acknowledge alert, set/clear suppression, refresh |
 | Read-only historical view | `get_historical_overview`, `get_historical_overview_series` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
-| Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
-| Ordinary access/withdrawal rules (ledger_write) | `preview_save_liquidity_policy` / `commit_save_liquidity_policy`, `preview_reset_liquidity_policy` / `commit_reset_liquidity_policy` |
-| Managed terms/policy (ledger_write) | `preview_product_terms` / `commit_product_terms` |
-| Actual locked-product value (ledger_write) | `preview_product_valuation` / `commit_product_valuation` |
-| Single/batch ledger records | `preview_change` / `commit_change`, `preview_batch` / `commit_batch` |
-| Reconciliation/correction | `preview_reconciliation` / `commit_reconciliation`, `preview_correction` / `commit_correction` |
+| Previews (ledger_write) | `preview_change`, `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
+| Commit any preview (ledger_write) | `commit_plan` with the returned `planId`; the server reads the plan kind |
 | History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail` |
 | Quotes and audit | `get_market_data`, `get_market_data_batch`, `compare_market_data_import`, `list_agent_market_data`, `import_market_data`, `set_fx_source` |
 | Data repair | `scan_data_health`, `preview_data_repair`, `start_data_repair`, `get_data_repair_job` |

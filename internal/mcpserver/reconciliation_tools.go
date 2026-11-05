@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -73,15 +72,7 @@ type ReconciliationPlanPreview struct {
 }
 
 func (s *Service) reconciliationTools(server *toolSet) {
-	readTool(server, "preview_reconciliation", "Preview 1-100 current balance or holding targets as exact ledger adjustments; nothing posts. Account target: accountId, targetBalance, currency. Holding target: targetQuantity and/or totalCost (cost of the whole remaining position, in the instrument currency; omit targetQuantity for a cost-only correction). A quantity increase without totalCost needs unitCost for the added units; never combine unitCost with totalCost. Targets must differ from current values, and quantity plus cost can expand to two commands (plan limit 100). Inspect every resolved command, then commit_reconciliation.", s.previewReconciliation)
-	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_reconciliation", Description: "Commit a stored preview_reconciliation plan atomically (operationId and input.planId only). Retrying the same plan returns the original activities. Expired or stale plans need a new preview.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_reconciliation", in.Input, true, func(ctx context.Context) (any, error) { return s.commitReconciliation(ctx, in.Input) })
-		if err != nil {
-			return Response{}, safeError(err)
-		}
-		return Response{Data: value}, nil
-	})
+	readTool(server, "preview_reconciliation", "Preview 1-100 current balance or holding targets as exact ledger adjustments; nothing posts. Account target: accountId, targetBalance, currency. Holding target: targetQuantity and/or totalCost (cost of the whole remaining position, in the instrument currency; omit targetQuantity for a cost-only correction). A quantity increase without totalCost needs unitCost for the added units; never combine unitCost with totalCost. Targets must differ from current values, and quantity plus cost can expand to two commands (plan limit 100). Inspect every resolved command, then commit_plan.", s.previewReconciliation)
 }
 
 func targetInputError(index int, err error) error {

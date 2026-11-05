@@ -323,7 +323,7 @@ func (s *Service) SetReconciliationChanged(fn func()) {
 	s.reconciliationChangedMu.Unlock()
 }
 func (s *Service) notifyChanged(tool string) {
-	if tool == "commit_reconciliation_session" {
+	if tool == "commit_reconciliation_session" { // receipt label of the session plan kind
 		s.reconciliationChangedMu.RLock()
 		fn := s.reconciliationChanged
 		s.reconciliationChangedMu.RUnlock()

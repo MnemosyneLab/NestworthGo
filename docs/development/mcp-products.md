@@ -43,7 +43,7 @@ financial-context captures.
 The server advertises managed_product_read and liquidity_read capabilities.
 Discovery and schemas remain authoritative; GUI permittedActions are not MCP
 permission or proof of an exposed write tool. The current source skill version is
-3.0.2 (unpublished); updating repository files does not install it in a user client.
+3.0.3 (unpublished); updating repository files does not install it in a user client.
 
 History pages retain newest-created-time/UUID ordering. The shared application snapshot checks that the
 contract exists before returning history, accepts default/zero limit 25, rejects
@@ -86,13 +86,13 @@ due_unconfirmed changes display/availability, never automatically writes cash.
 
 ## Write interface and permissions
 
-All three pairs are registered in ledger_write by their respective review units:
+All three previews are registered in ledger_write by their respective review units and commit through `commit_plan`:
 
-| Preview/commit pair | Accepted command |
+| Preview | Accepted command |
 | --- | --- |
-| preview_product_operation / commit_product_operation | Exactly one tagged payload for open, record_existing, receive_interest, settle or undo |
-| preview_product_terms / commit_product_terms | productId, expectedRevision, complete GUI terms and policy |
-| preview_product_valuation / commit_product_valuation | Open locked product, explicit original-currency amount and actual observation time |
+| preview_product_operation | Exactly one tagged payload for open, record_existing, receive_interest, settle or undo |
+| preview_product_terms | productId, expectedRevision, complete GUI terms and policy |
+| preview_product_valuation | Open locked product, explicit original-currency amount and actual observation time |
 
 Only ledger_write may discover or invoke any of these previews or commits.
 directory_write must never authorize financial or product-policy writes.

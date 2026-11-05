@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -40,15 +39,7 @@ type CorrectionPlanPreview struct {
 }
 
 func (s *Service) correctionTools(server *toolSet) {
-	readTool(server, "preview_correction", "Preview fixing or undoing an existing activity; read get_activity first. fix replaces the record at its original timestamp with a full replacement command (no timestamps) and replays later records; preview.resulting describes the state just after that historical point, so read current valuations after commit. undo posts a reversal at preview time and keeps history (omit replacement). Already reversed or corrected records, managed products, unsupported replacements and invalid dependent balances or positions are rejected. Commit with commit_correction.", s.previewCorrection)
-	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_correction", Description: "Commit a stored preview_correction plan atomically (operationId and input.planId only). For fix, the returned resulting values describe the historical replacement, so read current valuations afterwards. Retrying the same plan returns the original activity. Never pass another plan kind.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_correction", in.Input, true, func(ctx context.Context) (any, error) { return s.commitCorrection(ctx, in.Input) })
-		if err != nil {
-			return Response{}, safeError(err)
-		}
-		return Response{Data: value}, nil
-	})
+	readTool(server, "preview_correction", "Preview fixing or undoing an existing activity; read get_activity first. fix replaces the record at its original timestamp with a full replacement command (no timestamps) and replays later records; preview.resulting describes the state just after that historical point, so read current valuations after commit. undo posts a reversal at preview time and keeps history (omit replacement). Already reversed or corrected records, managed products, unsupported replacements and invalid dependent balances or positions are rejected. Commit with commit_plan.", s.previewCorrection)
 }
 
 func (s *Service) previewCorrection(ctx context.Context, in CorrectionInput) (any, error) {

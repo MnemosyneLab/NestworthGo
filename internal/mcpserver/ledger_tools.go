@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -45,17 +44,10 @@ func (s *Service) ledgerTools(server *toolSet) {
 	s.batchTools(server)
 	s.correctionTools(server)
 	s.reconciliationTools(server)
+	s.commitPlanTool(server)
 	// Persisting a preview stores only a private plan; it never mutates money,
 	// positions, or the activity ledger.
-	readTool(server, "preview_change", "Preview one completed ledger record (kind selects the required fields); nothing posts. Amounts, costs and quantities are exact decimal strings with explicit currencies. position_import needs the original per-unit cost and has no cash leg; position_transfer carries cost without profit. Use effectiveAt or a household-local date and time (an omitted time freezes at preview). Inspect the normalized command and effects, then commit_change. No brokerage order is placed.", s.previewChange)
-	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_change", Description: "Post one previewed ledger record. Input is operationId and input.planId only; the server stores the exact command. Retrying the same plan returns the original activity, even with a new operationId. Expired or stale plans need a new preview. For an atomic group use preview_batch and commit_batch.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_change", in.Input, true, func(ctx context.Context) (any, error) { return s.commitChange(ctx, in.Input) })
-		if err != nil {
-			return Response{}, safeError(err)
-		}
-		return Response{Data: value}, nil
-	})
+	readTool(server, "preview_change", "Preview one completed ledger record (kind selects the required fields); nothing posts. Amounts, costs and quantities are exact decimal strings with explicit currencies. position_import needs the original per-unit cost and has no cash leg; position_transfer carries cost without profit. Use effectiveAt or a household-local date and time (an omitted time freezes at preview). Inspect the normalized command and effects, then commit_plan. No brokerage order is placed.", s.previewChange)
 }
 
 // Reject fields silently ignored by the UI's tagged-union adapter. The agent

@@ -174,8 +174,8 @@ not a restorable application database or MCP session.
 
 Read permissions expose list_reconciliation_sessions, get_reconciliation_session,
 get_reconciliation_session_page and get_reconciliation_item. Only ledger_write
-registers preview_reconciliation_session and commit_reconciliation_session.
-Directory permission never authorizes attestations. Existing commit_reconciliation
+registers preview_reconciliation_session; its plan commits with commit_plan.
+Directory permission never authorizes attestations. A preview_reconciliation plan
 continues to mean a financial target adjustment, not session completion. Atomic
 batches use one batch-level link and reject per-command/mixed links. Historical
 replacement commands reject session links. Unlinked existing plans retain their

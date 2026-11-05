@@ -19,19 +19,19 @@ import (
 // permission/cursor validity is tested separately by real workflow regressions.
 var skillSchemaExamples = map[string]map[string][]string{
 	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}},
-	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_change": {"commit"}},
+	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
 	"cash-and-debt":            {"preview_change": {"income", "expense", "fx-conversion", "debt-payment"}},
 	"market-data":              {"import_market_data": {"fund-nav", "fx-reference", "withdraw-quote"}, "set_fx_source": {"fx-source"}},
 	"data-health":              {"get_data_repair_job": {"repair-progress", "repair-evidence"}},
 	"products": {
 		"list_products": {"product-list"}, "get_product": {"product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
-		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_product_operation": {"product-commit"},
-		"preview_product_terms": {"product-terms"}, "commit_product_terms": {"product-terms-commit"}, "preview_product_valuation": {"product-valuation"}, "commit_product_valuation": {"product-valuation-commit"},
-		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "commit_save_liquidity_policy": {"liquidity-policy-commit"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"},
+		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit", "product-terms-commit", "product-valuation-commit", "liquidity-policy-commit"},
+		"preview_product_terms": {"product-terms"}, "preview_product_valuation": {"product-valuation"},
+		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"},
 	},
 	"reconciliation-and-corrections": {
 		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_change": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
-		"commit_reconciliation_session": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
+		"commit_plan": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
 	},
 	"analysis": {
 		"get_historical_overview": {"historical-overview"}, "get_historical_overview_series": {"historical-overview-series"}, "analyze_period": {"analyze-period"},

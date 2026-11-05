@@ -38,8 +38,8 @@ Base main `76722b33477f45aed4babffaa0d33664098c3f7d` includes merged #199
   session. It validates closed-world, non-writing discovery, rejects lossy schema
   conversion, returns detached metadata and rechecks the session at dispatch.
   It never calls a local HTTP/MCP endpoint. Root runtime dependencies stayed unchanged in that host-review stage.
-- A durable, versioned host review coordinator for single `commit_change` ledger
-  operations. It independently prepares a preview, binds immutable authority,
+- A durable, versioned host review coordinator for single-change ledger
+  operations (committed through `commit_plan`). It independently prepares a preview, binds immutable authority,
   admits once, commits through the existing application gate, and inspects both
   outer and transaction-backed receipts without redispatch after interruption.
 - A reserved business receipt keyspace for local `import_market_data`:
