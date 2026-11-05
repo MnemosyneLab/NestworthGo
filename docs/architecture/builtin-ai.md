@@ -135,6 +135,15 @@ verified message; no provisional executable arguments or live display tokens
 escape. The pinned upstream converter's failures remain separately characterized;
 they are not acceptance of the corrected path.
 
+Function argument `done` events contain a complete argument snapshot and do not
+require a preceding partial delta. If deltas were present, their exact bytes must
+match `done`; the finalized arguments must also match `output_item.done` and the
+successful terminal response. Tool execution still waits for clean EOF. Shared
+capability schemas retain optional omission semantics with explicit `strict:false`
+on the actual Responses wire tools; local argument validation remains authoritative.
+See [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)
+and [streaming events](https://developers.openai.com/api/reference/resources/responses/streaming-events).
+
 Run from that nested module:
 
 ```sh
