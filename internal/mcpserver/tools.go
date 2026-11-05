@@ -336,7 +336,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 	writeTool(s, server, "create_instrument", "Create an investment instrument, not a holding or trade. Search existing instruments first; require explicit market/currency when ambiguous.", func(ctx context.Context, in instrument.InstrumentRequest) (any, error) {
 		return instruments.CreateInstrument(ctx, in)
 	})
-	writeTool(s, server, "update_instrument", "Partial instrument edit. Omitted fields are kept. JSON null clears shortName, symbol, marketCode, countryCode, isin, note, providerKey and providerSymbol, and resets iconKey to the type default. An empty string is rejected and does not clear. Null is rejected for name, type, quoteCurrency, metalTemplate, quantityUnit, quoteSource and sortOrder. This changes instrument metadata, not quantity or cost.", s.updateInstrument)
+	writeTool(s, server, "update_instrument", "Partial instrument edit. Omitted fields are kept. JSON null clears shortName, symbol, marketCode, countryCode, isin, note, providerKey and providerSymbol, and resets iconKey to the type default. Clearing marketCode/provider fields is rejected if domain rules require or default them (gold/silver templates, CoinGecko market). An empty string is rejected and does not clear. Null is rejected for name, type, quoteCurrency, metalTemplate, quantityUnit, quoteSource and sortOrder. This changes instrument metadata, not quantity or cost.", s.updateInstrument)
 	writeTool(s, server, "archive_instrument", "Archive or restore an instrument under existing holding rules.", func(ctx context.Context, in ArchiveInput) (any, error) {
 		return done(instruments.ArchiveInstrument(ctx, in.ID, in.Archived))
 	})

@@ -126,3 +126,34 @@ func TestMCPInstrumentSearchAliasNameCodeAndDuplicates(t *testing.T) {
 		}
 	}
 }
+
+func TestMCPInstrumentBindingNullClearRejectsAtomically(t *testing.T) {
+	s, app, _ := fixture(t)
+	if _, err := s.Enable(DirectoryWrite); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	for _, template := range []string{"gold", "silver"} {
+		i := mutate(t, c, "create_instrument", map[string]any{"name": template, "type": "precious_metal", "metalTemplate": template, "quantityUnit": "g", "quoteCurrency": "USD", "quoteSource": "manual"})
+		for _, field := range []string{"marketCode", "providerKey", "providerSymbol"} {
+			got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": i["id"], "changes": map[string]any{field: nil, "name": "must not persist"}})
+			if !strings.Contains(got, "cannot be cleared") {
+				t.Fatalf("%s/%s: %s", template, field, got)
+			}
+		}
+	}
+	crypto := mutate(t, c, "create_instrument", map[string]any{"name": "Synthetic Bitcoin", "type": "crypto", "quoteCurrency": "USD", "quoteSource": "provider", "providerKey": "coingecko", "providerSymbol": "bitcoin"})
+	got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": crypto["id"], "changes": map[string]any{"marketCode": nil, "name": "must not persist"}})
+	if !strings.Contains(got, "cannot be cleared") {
+		t.Fatal(got)
+	}
+	rows, err := app.ListInstruments(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		if row.Name == "must not persist" {
+			t.Fatal("rejected patch partially persisted")
+		}
+	}
+}

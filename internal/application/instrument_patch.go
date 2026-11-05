@@ -156,3 +156,22 @@ func assignNote(edit StringField, input *InstrumentInput) error {
 		return &domain.Error{Code: domain.ErrValidation, Field: "note", Message: "invalid patch"}
 	}
 }
+
+// These optional fields may be required or normalized by a domain binding.
+// Reject impossible clears atomically instead of reporting success with a value.
+func validateInstrumentPatchClears(next domain.Instrument, patch InstrumentPatch) error {
+	for _, field := range []struct {
+		name  string
+		edit  StringField
+		value *string
+	}{
+		{"marketCode", patch.MarketCode, next.MarketCode},
+		{"providerKey", patch.ProviderKey, next.ProviderKey},
+		{"providerSymbol", patch.ProviderSymbol, next.ProviderSymbol},
+	} {
+		if field.edit.Op == FieldClear && field.value != nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: field.name, Message: "cannot be cleared for this instrument configuration; omit it to keep the required value"}
+		}
+	}
+	return nil
+}

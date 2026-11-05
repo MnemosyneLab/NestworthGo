@@ -676,3 +676,10 @@ TTL.
 - [account-reconciliation.md](account-reconciliation.md) — session writes
 - [mcp-consolidation-design.md](mcp-consolidation-design.md) — Phase 3 design
 - [mcp-remaining-work.md](mcp-remaining-work.md) — stream split and deferred items
+
+Instrument PATCH clears are checked against the final domain-normalized
+configuration before persistence. Gold/silver template providerKey,
+providerSymbol and marketCode clears, and CoinGecko-bound marketCode clears,
+are validation errors rather than silently restored defaults. Ordinary optional
+clears and valid transitions away from provider binding remain supported;
+iconKey null remains the explicit type-default reset. Rejection is atomic.

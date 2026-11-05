@@ -285,6 +285,15 @@ func (s *Service) PatchInstrument(ctx context.Context, id domain.InstrumentID, p
 		if err := applyInstrumentPatch(&next, patch); err != nil {
 			return InstrumentInput{}, err
 		}
+		// Validate the final domain-normalized configuration before persistence.
+		// A clear must not silently turn into a template/provider default.
+		normalized, err := newInstrumentFromInput(current.HouseholdID, next, s.clock())
+		if err != nil {
+			return InstrumentInput{}, err
+		}
+		if err := validateInstrumentPatchClears(normalized, patch); err != nil {
+			return InstrumentInput{}, err
+		}
 		return next, nil
 	})
 }

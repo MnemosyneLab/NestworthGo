@@ -118,7 +118,14 @@ Example `update_institution` to change only the icon:
 
 `update_instrument` is the same partial edit. JSON null clears shortName,
 symbol, marketCode, countryCode, isin, note, providerKey and providerSymbol,
-and resets iconKey to the type default. Null is rejected for name, type,
+and resets iconKey to the type default. Clearing marketCode/provider fields
+is rejected when the final configuration requires or defaults them: gold/silver
+templates retain their required COMEX/Yahoo binding, and a CoinGecko binding
+requires CRYPTO marketCode. These are validation failures, not reset operations;
+the entire patch is rejected without applying other fields. Provider-source
+instruments still require providerKey and providerSymbol. Omit binding fields
+to keep them, or make an explicitly intended valid configuration change.
+Null is rejected for name, type,
 quoteCurrency, metalTemplate, quantityUnit, quoteSource and sortOrder. There
 is no replace flag. Account and instrument icons use their update tools. Use
 `archive_account` or `archive_instrument` with `archived:true/false` to archive

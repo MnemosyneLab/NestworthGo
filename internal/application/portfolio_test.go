@@ -290,3 +290,72 @@ func TestInstrumentPatchOmitsKeepAndNullClearsInsideTheWrite(t *testing.T) {
 		t.Fatalf("rejected patch persisted: %+v %v", stored, err)
 	}
 }
+
+func TestInstrumentPatchRejectsDefaultedClearsAtomically(t *testing.T) {
+	t.Parallel()
+	database, err := sqlite.Open(t.TempDir() + "/patch-defaults.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic patch", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, template := range []string{"gold", "silver"} {
+		for _, source := range []string{"manual", "agent", "provider"} {
+			t.Run(template+"/"+source, func(t *testing.T) {
+				created, err := service.CreateInstrument(ctx, InstrumentInput{Name: template + source, Type: "precious_metal", MetalTemplate: template, QuantityUnit: "g", QuoteCurrency: "USD", QuoteSource: source})
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, field := range []string{"marketCode", "providerKey", "providerSymbol"} {
+					patch := InstrumentPatch{Name: StringField{Op: FieldSet, Value: "must not persist"}}
+					switch field {
+					case "marketCode":
+						patch.MarketCode.Op = FieldClear
+					case "providerKey":
+						patch.ProviderKey.Op = FieldClear
+					case "providerSymbol":
+						patch.ProviderSymbol.Op = FieldClear
+					}
+					if _, err := service.PatchInstrument(ctx, created.ID, patch); err == nil {
+						t.Fatalf("%s clear silently defaulted", field)
+					}
+				}
+				kept, err := service.PatchInstrument(ctx, created.ID, InstrumentPatch{})
+				if err != nil || kept.Name != created.Name || pointerText(kept.ProviderKey) != pointerText(created.ProviderKey) || pointerText(kept.ProviderSymbol) != pointerText(created.ProviderSymbol) || pointerText(kept.MarketCode) != "COMEX" {
+					t.Fatalf("rejected patch persisted: %+v %v", kept, err)
+				}
+				if err := service.ArchiveInstrument(ctx, created.ID, true); err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	}
+	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.PatchInstrument(ctx, crypto.ID, InstrumentPatch{MarketCode: StringField{Op: FieldClear}, Name: StringField{Op: FieldSet, Value: "must not persist"}}); err == nil {
+		t.Fatal("CoinGecko market clear silently defaulted")
+	}
+	kept, err := service.PatchInstrument(ctx, crypto.ID, InstrumentPatch{})
+	if err != nil || kept.Name != crypto.Name || pointerText(kept.MarketCode) != "CRYPTO" {
+		t.Fatalf("crypto changed: %+v %v", kept, err)
+	}
+	// A complete valid transition away from provider binding may clear all three.
+	cleared, err := service.PatchInstrument(ctx, crypto.ID, InstrumentPatch{QuoteSource: StringField{Op: FieldSet, Value: "manual"}, MarketCode: StringField{Op: FieldClear}, ProviderKey: StringField{Op: FieldClear}, ProviderSymbol: StringField{Op: FieldClear}})
+	if err != nil || cleared.MarketCode != nil || cleared.ProviderKey != nil || cleared.ProviderSymbol != nil {
+		t.Fatalf("valid clear rejected: %+v %v", cleared, err)
+	}
+	ordinary, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Ordinary", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", MarketCode: "US", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "SYNTH"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleared, err = service.PatchInstrument(ctx, ordinary.ID, InstrumentPatch{MarketCode: StringField{Op: FieldClear}, ProviderKey: StringField{Op: FieldClear}, ProviderSymbol: StringField{Op: FieldClear}})
+	if err != nil || cleared.MarketCode != nil || cleared.ProviderKey != nil || cleared.ProviderSymbol != nil {
+		t.Fatalf("ordinary optional clear rejected: %+v %v", cleared, err)
+	}
+}
