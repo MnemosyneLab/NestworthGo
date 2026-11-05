@@ -21,6 +21,7 @@ const api = vi.hoisted(() => ({
   Cancel: vi.fn(),
   Create: vi.fn(),
   Delete: vi.fn(),
+  Rename: vi.fn(),
 }));
 vi.mock(
   "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service",
@@ -74,6 +75,7 @@ beforeEach(() => {
   api.Cancel.mockResolvedValue(undefined);
   api.Create.mockResolvedValue({ id: "new-conversation" });
   api.Delete.mockResolvedValue(undefined);
+  api.Rename.mockResolvedValue(undefined);
 });
 function mount(viewKey = "overview:", client = createTestQueryClient()) {
   return render(
@@ -740,4 +742,33 @@ it("announces an immediate first reply from a newly created conversation", async
   await screen.findByText("Immediate first reply");
   expect(await screen.findByText("AI reply received for message 1.")).toHaveAttribute("aria-live", "polite");
 
+});
+
+it("displays generated titles and saves manual names using keyboard controls", async () => {
+  const user = userEvent.setup();
+  api.List.mockResolvedValue([{ id: "conversation", title: "资产趋势", titleSource: "luna", runCount: 1 }]);
+  api.Inspect.mockResolvedValue({ id: "conversation", title: "资产趋势", titleSource: "luna", runs: [run], runCount: 1, offset: 0 });
+  mount();
+  await screen.findByRole("option", { name: "资产趋势" });
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  const input = screen.getByRole("textbox", { name: "Conversation title" });
+  expect(input).toHaveFocus();
+  await user.clear(input);
+  await user.type(input, "我的会话{Enter}");
+  await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", "我的会话"));
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Conversation title" })).not.toBeInTheDocument());
+});
+
+it("cancels title editing without writing and preserves a failed rename for retry", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Discard{Escape}");
+  expect(api.Rename).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  api.Rename.mockRejectedValueOnce(new Error("synthetic storage failure"));
+  await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Keep draft{Enter}");
+  await screen.findByRole("alert");
+  expect(screen.getByRole("textbox", { name: "Conversation title" })).toHaveValue("Keep draft");
 });

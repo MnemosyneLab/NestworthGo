@@ -1,5 +1,12 @@
 export const assistantEn = {
   aiChat: {
+    rename: "Rename conversation",
+    titleLabel: "Conversation title",
+    saveTitle: "Save title",
+    cancelTitle: "Cancel rename",
+    titlePolicy: "After the first successful reply, we try gpt-6-luna once using your existing provider and key to title the chat. Only the first question (up to 512 characters) is sent, without page or ledger data. This additional request may incur provider charges. If unavailable, a local title is kept. Manual names always take priority.",
+    titleSource: { local: "Title generated locally", pending: "Generating title with Luna…", luna: "Title generated with gpt-6-luna", manual: "Manually named conversation" },
+
     detailOmitted: "Display budget exhausted; value omitted. The complete value was used by the tool/model.",
 
     "preview": "Generating · incomplete preview",
@@ -216,6 +223,13 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    rename: "重命名会话",
+    titleLabel: "会话标题",
+    saveTitle: "保存标题",
+    cancelTitle: "取消重命名",
+    titlePolicy: "首次成功回复后，使用现有提供商和密钥尝试调用一次 gpt-6-luna 生成标题。仅发送首条问题（最多 512 个字符），不附带页面或账本数据。额外请求可能产生提供商费用；不可用时保留本地标题。手动命名始终优先。",
+    titleSource: { local: "本地生成的标题", pending: "正在使用 Luna 生成标题…", luna: "由 gpt-6-luna 生成的标题", manual: "手动命名的会话" },
+
     detailOmitted: "展示额度已用尽，此值未展示。工具和模型使用完整值。",
 
     "preview": "正在生成 · 未完成预览",
@@ -416,6 +430,13 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    rename: "重新命名對話",
+    titleLabel: "對話標題",
+    saveTitle: "儲存標題",
+    cancelTitle: "取消重新命名",
+    titlePolicy: "首次成功回覆後，使用現有供應商和金鑰嘗試呼叫一次 gpt-6-luna 產生標題。僅傳送首條問題（最多 512 個字元），不附帶頁面或帳本資料。額外請求可能產生供應商費用；無法使用時保留本機標題。手動命名始終優先。",
+    titleSource: { local: "本機產生的標題", pending: "正在使用 Luna 產生標題…", luna: "由 gpt-6-luna 產生的標題", manual: "手動命名的對話" },
+
     detailOmitted: "展示額度已用盡，此值未展示。工具和模型使用完整值。",
 
     "preview": "正在生成 · 未完成預覽",

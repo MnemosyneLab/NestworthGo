@@ -543,3 +543,35 @@ workspace validation and unresolved-review checks are unchanged. In particular,
 generic reading does not add routes, arbitrary UI control or financial writes.
 Native GUI, real-provider and physical-device acceptance require separate evidence
 from component/protocol tests and builds.
+
+### Conversation titles
+
+The host persists an optional title, source (`local`, `pending`, `luna`, or
+`manual`) and one-shot attempt marker in the private conversation sidecar.
+Existing untitled history receives a local title at startup; it is never sent
+back to a provider merely because the app upgraded or restarted. Older app
+versions with strict sidecar decoding may reject the added optional fields;
+do not downgrade against the updated private sidecar.
+
+New conversations immediately receive a whitespace-normalized, 48-code-point
+excerpt of the first question. After the first successful answer the host makes
+at most one separate `gpt-6-luna` Responses request using the existing provider
+and credential. There is no extra key, tool/session access, page content, native
+history, assistant answer, or ledger attachment. Only the first user question,
+limited to 512 code points, accompanies title-only instructions. User-supplied
+question text itself may contain financial details. Provider availability is not
+assumed: unavailable models, errors, malformed/empty results, cancellation and
+a ten-second deadline retain the local title. There are no automatic retries,
+including after restart. This additional request can incur provider charges;
+the settings and conversation information disclose the model and behavior.
+
+The answer is durable before title work starts, and later turns do not wait for
+it. Title workers are isolated by conversation and fenced by runtime/configuration
+revision. Disable, credential replacement/deletion, restore, shutdown and
+conversation deletion cancel outstanding work; late results cannot recreate a
+conversation or replace a manually named title. Desktop Rename persists manual
+ownership even when the text equals the existing automatic title. Names are
+limited to 64 Unicode code points, reject control/format characters and the active
+credential, and render as text. Retention and ledger binding are unchanged.
+The UI polls authoritative title metadata and supports keyboard rename, cancel,
+and localized English, Simplified Chinese and Traditional Chinese labels.
