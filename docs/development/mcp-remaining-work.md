@@ -95,6 +95,8 @@ Wave 3(最后,依赖前面都合并)
 **与 C1 的关系**:都改 `output_schemas.go` 的 `readOutputKind` 成员列表,冲突按行合并。
 **破坏性**:是。**规模**:L(捕获成本是风险点)。若测量显示成本过高,可以只交付测量结论并关闭该项。
 
+**状态**: CLOSED-as-measure-only。测量记录在 [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md)。合成账本上,把每个 return day 冻进 `analyze_period` 后,14 年区间的捕获是 4,473,188 字节,超过 4 MiB 上限。折叠没有实现。
+
 ### E1. nullable 数组 schema 修复
 
 **目标**:`type:["null","array"]` 触发 Inspector 告警,现在靠文档解释。改成客户端友好的形式(例如省略可选字段,或 `anyOf`),并删除 `docs/development/mcp.md` 里的解释段落。
