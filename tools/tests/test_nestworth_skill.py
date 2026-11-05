@@ -79,9 +79,13 @@ class InstallerTests(unittest.TestCase):
             guide = bundle.extractfile("nestworth-skill/INSTALL.md").read().decode()
             self.assertIn(f"### Current repository skill: {SOURCE_VERSION}; published skill:", guide)
             analysis = bundle.extractfile(prefix + "references/financial-context.md").read()
+            item = bundle.extractfile(prefix + "references/financial-context-item.md").read()
             connection = bundle.extractfile(prefix + "references/connection.md").read()
-        examples = {name: json.loads(raw) for name, raw in re.findall(
-            r"<!-- example: ([a-z-]+) -->\s*```json\n(.*?)\n```", analysis.decode(), re.S)}
+        def examples_in(raw):
+            return {name: json.loads(body) for name, body in re.findall(
+                r"<!-- example: ([a-z-]+) -->\s*```json\n(.*?)\n```", raw.decode(), re.S)}
+        examples = examples_in(analysis)
+        item_examples = examples_in(item)
         self.assertEqual(examples["financial-context"]["disclosure"], "minimal")
         self.assertEqual(examples["financial-context-named"]["disclosure"], "named")
         for section in ("positions", "gaps", "evidence"):
@@ -89,16 +93,17 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(arguments, {"cursor":"${cursor}", "limit":25})
             self.assertNotIn("contextId", arguments)
             self.assertEqual(arguments["cursor"], "${cursor}")
-        self.assertEqual(examples["financial-context-item"],
+        self.assertEqual(item_examples["financial-context-item"],
                          {"contextId": "${contextId}", "ref": "${ref}"})
-        self.assertEqual(examples["financial-context-item-page"], {"cursor":"${cursor}", "limit":25})
-        self.assertIn("package disclosure: minimal stays free of names/raw IDs", analysis.decode())
+        self.assertEqual(item_examples["financial-context-item-page"], {"cursor":"${cursor}", "limit":25})
+        self.assertIn("package disclosure: minimal stays free of names/raw IDs", item.decode())
         self.assertIn("`get_financial_context_item`", connection.decode())
-        self.assertIn("omitting cursor to start each section", analysis.decode())
+        self.assertIn("omitting cursor to start each section", item.decode())
         self.assertNotIn("inspector-http-config", connection.decode())
         self.assertNotIn("nestworth.toolGroups", connection.decode())
         self.run_installer("--source", archive)
         self.assertEqual((self.target / "references/financial-context.md").read_bytes(), analysis)
+        self.assertEqual((self.target / "references/financial-context-item.md").read_bytes(), item)
         self.assertEqual((self.target / "references/connection.md").read_bytes(),
                          connection)
         self.assertIn(SOURCE_VERSION, self.run_installer("--status").stdout)

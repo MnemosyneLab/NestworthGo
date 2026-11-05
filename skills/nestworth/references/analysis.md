@@ -162,7 +162,7 @@ to one episode. Neither action changes holdings.
 For investment returns, income/expense or an inclusive period report, call
 `analyze_period`. For two-state value differences use `compare_financial_context`;
 for “why did two closed-date states change; was that profit?”, use
-`compare_financial_attribution` directly; see [financial-context.md](financial-context.md#link-a-comparison-to-change-attribution).
+`compare_financial_attribution` directly; see [financial-attribution.md](financial-attribution.md#link-a-comparison-to-change-attribution).
 Neither minimal comparison route needs get_context/catalog/directory reads.
 Attribution may maintain derived snapshots and invalidate previews, including
 in read_only mode; the plain comparison is strictly no-write.

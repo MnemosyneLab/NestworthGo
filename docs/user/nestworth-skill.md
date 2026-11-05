@@ -53,7 +53,12 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.5; published skill: 2.0.0
+### Current repository skill: 3.0.6; published skill: 2.0.0
+
+Repository skill 3.0.6 splits the long product, financial-context and paging
+references into one file per task. Each file keeps that task's steps, failure
+recovery and the same schema-checked examples. No tool was added or removed.
+`commit_plan` may still omit `operationId`. The server derives one from `planId`.
 
 Repository skill 3.0.5 is the coordinator PATCH for the Wave 1 tool-surface
 changes already in this tree and for this follow-on. Wave 1 removed
@@ -114,7 +119,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.5 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.6 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

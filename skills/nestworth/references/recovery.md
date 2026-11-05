@@ -57,7 +57,7 @@ ledger cannot recover absent facts from external cached success; a missing fact
 requires fresh intent and preview after inspecting restored data. JSON household
 export excludes private MCP and terms-recovery configuration; it is not a restored
 MCP session. Active reservations and undo groups
-that would restore reservations require GUI handling. See [products.md](products.md).
+that would restore reservations require GUI handling. See [product lifecycle](product-lifecycle.md).
 
 
 An integrity_failed product receipt is not a failed financial transaction to

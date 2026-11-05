@@ -105,7 +105,7 @@ App-managed product quotes require the App's own product workflow.
 
 ## Multi-target frozen market reads
 
-Use `get_market_data` with `targets` after discovery; see [paging and batches](paging-and-batches.md).
+Use `get_market_data` with `targets` after discovery; see [market read pages](market-read-pages.md) and [paging and batches](paging-and-batches.md).
 Supply 1–100 distinct instrument IDs or complete oriented currency pairs. current
 is default and omits history; coverage returns first/last, observation/selected
 point counts, outsideRange and gapAssessment=not_evaluated, without claiming

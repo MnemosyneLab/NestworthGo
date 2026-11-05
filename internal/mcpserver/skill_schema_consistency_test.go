@@ -25,9 +25,17 @@ var skillSchemaExamples = map[string]map[string][]string{
 	"data-health":              {"get_data_repair_job": {"repair-progress", "repair-evidence"}},
 	"products": {
 		"list_products": {"product-list"}, "get_product": {"product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
-		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit", "product-terms-commit", "product-valuation-commit", "liquidity-policy-commit"},
-		"preview_product_terms": {"product-terms"}, "preview_product_valuation": {"product-valuation"},
-		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"},
+	},
+	"product-lifecycle": {
+		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit"},
+	},
+	"product-terms":     {"preview_product_terms": {"product-terms"}, "commit_plan": {"product-terms-commit"}},
+	"product-valuation": {"preview_product_valuation": {"product-valuation"}, "commit_plan": {"product-valuation-commit"}},
+	"liquidity-policy": {
+		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"}, "commit_plan": {"liquidity-policy-commit"},
+	},
+	"product-pages": {
+		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item"},
 	},
 	"reconciliation-and-corrections": {
 		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_change": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
@@ -37,12 +45,17 @@ var skillSchemaExamples = map[string]map[string][]string{
 		"get_historical_overview": {"historical-overview", "historical-overview-series"}, "analyze_period": {"analyze-period"},
 	},
 	"financial-context": {
-		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page", "financial-context-item-page", "financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "get_financial_context_item": {"financial-context-item"},
-		"compare_financial_context": {"financial-comparison"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
+		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page"},
 	},
-	"paging-and-batches": {
-		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item", "compare-import-item"}, "get_read_page": {"scale-page"},
-		"get_market_data": {"scale-market-current", "scale-market-coverage", "scale-market-history", "scale-market-records"}, "list_agent_market_data": {"scale-agent-retractions", "scale-agent-closures"}, "list_instruments": {"scale-instruments"}, "update_instruments_batch": {"scale-metadata"}, "compare_market_data_import": {"compare-import-summary"},
+	"financial-context-item": {"get_financial_context_item": {"financial-context-item"}, "get_read_page": {"financial-context-item-page"}},
+	"financial-comparison": {
+		"compare_financial_context": {"financial-comparison"}, "get_read_page": {"financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"},
+	},
+	"financial-attribution": {"compare_financial_attribution": {"financial-attribution", "financial-attribution-account"}},
+	"paging-and-batches":    {"get_read_page": {"scale-page"}},
+	"directory-batches":     {"list_instruments": {"scale-instruments"}, "update_instruments_batch": {"scale-metadata"}},
+	"market-read-pages": {
+		"get_market_data": {"scale-market-current", "scale-market-coverage", "scale-market-history", "scale-market-records"}, "list_agent_market_data": {"scale-agent-retractions", "scale-agent-closures"}, "get_read_item": {"compare-import-item"}, "compare_market_data_import": {"compare-import-summary"},
 	},
 }
 

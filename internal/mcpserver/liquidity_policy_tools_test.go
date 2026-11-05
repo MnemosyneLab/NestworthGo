@@ -344,12 +344,12 @@ func TestLiquidityPolicyHTTPExamplesNullableModesAndGuards(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	args := skillExample(t, "products", "liquidity-policy-save", map[string]string{"accountId": fx.checking})
+	args := skillExample(t, "liquidity-policy", "liquidity-policy-save", map[string]string{"accountId": fx.checking})
 	p := productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", args)
-	commit := skillExample(t, "products", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
+	commit := skillExample(t, "liquidity-policy", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
 	call(t, c, "commit_plan", commit, false)
-	p = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", skillExample(t, "products", "liquidity-policy-reset", map[string]string{"accountId": fx.checking}))
-	commit = skillExample(t, "products", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
+	p = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", skillExample(t, "liquidity-policy", "liquidity-policy-reset", map[string]string{"accountId": fx.checking}))
+	commit = skillExample(t, "liquidity-policy", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
 	call(t, c, "commit_plan", commit, false)
 	ref := liquidity.SourceRefDTO{Kind: "account_value", AccountID: fx.checking}
 	revision := 0

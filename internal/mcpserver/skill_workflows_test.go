@@ -435,7 +435,7 @@ func TestSkillFinancialComparisonExamples(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
-	initial := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-context", "financial-comparison", nil), false))
+	initial := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-comparison", "financial-comparison", nil), false))
 	if initial.Content.ChangeBasis != "right_minus_left; not_return_or_attribution" {
 		t.Fatal(initial.Content.ChangeBasis)
 	}
@@ -452,7 +452,7 @@ func TestSkillFinancialComparisonExamples(t *testing.T) {
 		}
 		count, total := info.Returned, info.Total
 		for info.HasMore {
-			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-context", "financial-comparison-"+section+"-page", map[string]string{"comparisonId": initial.ComparisonID, "cursor": info.NextCursor}), false))
+			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-comparison", "financial-comparison-"+section+"-page", map[string]string{"comparisonId": initial.ComparisonID, "cursor": info.NextCursor}), false))
 			if page.ContentHash != initial.ContentHash {
 				t.Fatal("mixed package")
 			}

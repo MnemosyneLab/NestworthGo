@@ -35,19 +35,19 @@ func TestSkillScaleExamplesActualCalls(t *testing.T) {
 	}
 	c := ledgerSession(t, fx)
 	values := map[string]string{"instrumentId": fund.ID.String()}
-	cap := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "paging-and-batches", "scale-liquidity-funds", nil))
+	cap := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "product-pages", "scale-liquidity-funds", nil))
 	if len(scaleSection(t, c, cap, "sources")) != 1 {
 		t.Fatal("fund/explicit/sort example failed")
 	}
 	scaleSection(t, c, cap, "unresolvedReservations")
-	unconfigured := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "paging-and-batches", "scale-liquidity-unconfigured", nil))
+	unconfigured := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "product-pages", "scale-liquidity-unconfigured", nil))
 	for _, v := range scaleSection(t, c, unconfigured, "sources") {
 		if v.(map[string]any)["hasRule"] != false {
 			t.Fatal("unconfigured example")
 		}
 	}
 	for _, view := range []string{"current", "coverage", "history"} {
-		cap := scaleCapture(t, c, "get_market_data", skillExample(t, "paging-and-batches", "scale-market-"+view, values))
+		cap := scaleCapture(t, c, "get_market_data", skillExample(t, "market-read-pages", "scale-market-"+view, values))
 		for _, raw := range scaleSection(t, c, cap, "targets") {
 			v := raw.(map[string]any)
 			if view == "history" {
@@ -57,9 +57,9 @@ func TestSkillScaleExamplesActualCalls(t *testing.T) {
 			}
 		}
 	}
-	instrument := scaleCapture(t, c, "list_instruments", skillExample(t, "paging-and-batches", "scale-instruments", values))
+	instrument := scaleCapture(t, c, "list_instruments", skillExample(t, "directory-batches", "scale-instruments", values))
 	rows := scaleSection(t, c, instrument, "instruments")
 	values["metadataVersion"] = rows[0].(map[string]any)["metadataVersion"].(string)
 	values["operationId"] = uuid.NewString()
-	call(t, c, "update_instruments_batch", skillExample(t, "paging-and-batches", "scale-metadata", values), false)
+	call(t, c, "update_instruments_batch", skillExample(t, "directory-batches", "scale-metadata", values), false)
 }

@@ -120,11 +120,11 @@ and `commit_plan`. Reservation-affecting renewal and reservation
 creation/edit/release remain App workflows.
 Never use generic trades, reconciliation or quote tools to bypass managed
 holdings/quote guards, even if a similarly named ordinary instrument could be
-created. See [products.md](products.md) for supported actions and boundaries.
+created. See [products.md](products.md) for reads and [product-lifecycle.md](product-lifecycle.md) for supported writes.
 
 ## Frozen discovery and metadata batches
 
-See [paging and batches](paging-and-batches.md). Paged `list_instruments` supports
+See [paging and batches](paging-and-batches.md) and [directory batches](directory-batches.md). Paged `list_instruments` supports
 filter.types/ids and either top-level query or filter.query (not both),
 plus top-level includeArchived. Sort displayName (default asc), name,
 type, updatedAt or id sorting. Each row has metadataVersion and managed status.
@@ -141,4 +141,4 @@ display metadata and timestamps require `get_read_item` with the original
 captureId, row id and matching section (`instruments` for instruments).
 Read full metadata before a complete replacement; omission from a compact row
 does not mean an empty field. Instrument list metadataVersion remains available
-for atomic metadata updates. See [paging and batches](paging-and-batches.md).
+for atomic metadata updates. See [directory batches](directory-batches.md).

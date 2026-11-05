@@ -51,7 +51,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				t.Fatal("tool not available")
 			}
 			values := map[string]string{"leftDate": "2025-03-02", "rightDate": "2025-03-03", "accountId": accountID}
-			args := skillExample(t, "financial-context", "financial-attribution", values)
+			args := skillExample(t, "financial-attribution", "financial-attribution", values)
 			old := decodeComparison(t, call(t, client, "compare_financial_context", args, false))
 			if _, err := history.NewService(app).RecordChange(t.Context(), history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: accountID, Amount: "10", Currency: "USD", Reason: "income", EffectiveAt: "2025-03-03T13:00:00Z"}); err != nil {
 				t.Fatal(err)
@@ -103,10 +103,10 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			if page.Content.Attribution != nil || page.ContentHash != old.ContentHash || page.Content.Change.NetWorth.Value != nil {
 				t.Fatal("old cache rewritten")
 			}
-			oldArgs := skillExample(t, "financial-context", "financial-attribution", values)
+			oldArgs := skillExample(t, "financial-attribution", "financial-attribution", values)
 			oldArgs["comparisonId"] = old.ComparisonID
 			call(t, client, "compare_financial_attribution", oldArgs, true)
-			single := decodeComparison(t, call(t, client, "compare_financial_attribution", skillExample(t, "financial-context", "financial-attribution-account", values), false))
+			single := decodeComparison(t, call(t, client, "compare_financial_attribution", skillExample(t, "financial-attribution", "financial-attribution-account", values), false))
 			if single.Content.Attribution.Status != "compatible" || single.Content.Attribution.Scope.AccountCount != 1 || *single.Content.Change.NetWorth.Value != "-15" {
 				t.Fatal("single account mismatch", single)
 			}
@@ -167,7 +167,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
-	args := skillExample(t, "financial-context", "financial-attribution-account", map[string]string{"leftDate": "2026-08-10", "rightDate": "2026-08-11", "accountId": selected.Account.ID.String()})
+	args := skillExample(t, "financial-attribution", "financial-attribution-account", map[string]string{"leftDate": "2026-08-10", "rightDate": "2026-08-11", "accountId": selected.Account.ID.String()})
 	later := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
 	if later.Content.Attribution.Status != "compatible" {
 		t.Fatal(later)

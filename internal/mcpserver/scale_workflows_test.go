@@ -58,7 +58,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		}
 	}
 	c := ledgerSession(t, fx)
-	cap := scaleCapture(t, c, "list_products", skillExample(t, "paging-and-batches", "scale-products", nil))
+	cap := scaleCapture(t, c, "list_products", skillExample(t, "product-pages", "scale-products", nil))
 	products := scaleSection(t, c, cap, "products")
 	if len(products) != 12 {
 		t.Fatal(len(products))
@@ -72,7 +72,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 			t.Fatal("compact row includes policy")
 		}
 	}
-	item := scaleCapture(t, c, "get_read_item", skillExample(t, "paging-and-batches", "scale-product-item", map[string]string{"captureId": cap["captureId"].(string), "productId": id}))
+	item := scaleCapture(t, c, "get_read_item", skillExample(t, "product-pages", "scale-product-item", map[string]string{"captureId": cap["captureId"].(string), "productId": id}))
 	reserves := scaleSection(t, c, item, "reservations/"+id)
 	if len(reserves) != 91 {
 		t.Fatal(len(reserves))
@@ -108,7 +108,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 			t.Fatal(v)
 		}
 	}
-	empty := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "paging-and-batches", "scale-empty-match", nil))
+	empty := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "product-pages", "scale-empty-match", nil))
 	if len(scaleSection(t, c, empty, "sources")) != 0 {
 		t.Fatal("empty intersection")
 	}
@@ -206,7 +206,7 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 		}
 	}
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": id, "sourceTitle": "Synthetic withdrawal"}}})
-	audit := scaleCapture(t, c, "list_agent_market_data", skillExample(t, "paging-and-batches", "scale-agent-retractions", map[string]string{"instrumentId": fx.instrument}))
+	audit := scaleCapture(t, c, "list_agent_market_data", skillExample(t, "market-read-pages", "scale-agent-retractions", map[string]string{"instrumentId": fx.instrument}))
 	records := scaleSection(t, c, audit, "records")
 	if len(records) != 1 || records[0].(map[string]any)["instrumentId"] != fx.instrument {
 		t.Fatal("retraction lost target identity")

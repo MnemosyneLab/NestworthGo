@@ -182,7 +182,7 @@ func TestAgentClosedDayMCPImportAuditAndWithdrawal(t *testing.T) {
 	}
 	// A price record must not leak into a closed-fact-only audit filter.
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"instrumentId": fx.instrument, "kind": "close", "date": "2026-09-27", "timezone": "UTC", "currency": "USD", "value": "1", "sourceTitle": "Synthetic price"}}})
-	args := skillExample(t, "paging-and-batches", "scale-agent-closures", map[string]string{"instrumentId": fx.instrument})
+	args := skillExample(t, "market-read-pages", "scale-agent-closures", map[string]string{"instrumentId": fx.instrument})
 	records := call(t, c, "list_agent_market_data", args, false)["data"].(map[string]any)
 	rows := scaleSection(t, c, records, "records")
 	if len(rows) != 1 {
