@@ -62,7 +62,7 @@ const responseRules = [
 const responseDiagnostic = (code: string) =>
   responseRules.some((rule) => code === `provider_response_rejected.${rule}`);
 const budgetDiagnostic = (code: string) =>
-  code.startsWith("assistant_budget_exceeded.") && Object.hasOwn(diagnosticKeys, code);
+  code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
