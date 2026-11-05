@@ -93,12 +93,15 @@ it("anchors an existing message when earlier history and a streaming tail grow t
   vi.spyOn(article, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 200 + prepend - viewport.scrollTop, 400, 200));
   fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
   await waitFor(() => expect(release).toBeTypeOf("function"));
+  // A manual scroll during the pending history read updates the saved offset.
+  viewport.scrollTop = 150;
+  fireEvent.scroll(viewport);
   tailGrowth = 500;
   rerender(view(2));
-  expect(viewport.scrollTop).toBe(100);
+  expect(viewport.scrollTop).toBe(150);
   prepend = 300;
   await act(async () => release?.({ id: "conversation", offset: 0, runs: [saved(0)], runCount: 7 }));
   await screen.findByText("Saved answer 0");
-  expect(viewport.scrollTop).toBe(400);
-  expect(article.getBoundingClientRect().top).toBe(100);
+  expect(viewport.scrollTop).toBe(450);
+  expect(article.getBoundingClientRect().top).toBe(50);
 });

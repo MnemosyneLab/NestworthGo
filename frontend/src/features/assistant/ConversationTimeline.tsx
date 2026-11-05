@@ -143,7 +143,9 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
     <p ref={announcement} role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
     <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none]"
       role="region" aria-label={t("aiChat.transcript")} tabIndex={0}
-      onScroll={event => { const el = event.currentTarget; followingRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; setFollowing(followingRef.current); }}>
+      onScroll={event => { const el = event.currentTarget;
+        if (anchor.current) anchor.current.offset = anchor.current.element.getBoundingClientRect().top - el.getBoundingClientRect().top;
+        followingRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; setFollowing(followingRef.current); }}>
       <div ref={content} className="mx-auto max-w-2xl space-y-6">
         {first > 0 && <Button variant="ghost" className="w-full text-muted-foreground" disabled={loading} onClick={() => {
           if (viewport.current) {
@@ -203,6 +205,6 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
         {!latest ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p> : !runs.length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><Sparkles className="size-7 text-primary" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p></div>}
       </div>
     </div>
-    {!following && <Button variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm" onClick={() => { followingRef.current = true; setFollowing(true); }}><ArrowDown className="size-3.5" aria-hidden="true" />{t("aiChat.jumpLatest")}</Button>}
+    {!following && <Button variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm" onClick={() => { anchor.current = null; followingRef.current = true; setFollowing(true); }}><ArrowDown className="size-3.5" aria-hidden="true" />{t("aiChat.jumpLatest")}</Button>}
   </div>;
 }
