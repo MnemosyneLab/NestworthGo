@@ -34,7 +34,7 @@ var skillSchemaExamples = map[string]map[string][]string{
 		"commit_plan": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
 	},
 	"analysis": {
-		"get_historical_overview": {"historical-overview"}, "get_historical_overview_series": {"historical-overview-series"}, "analyze_period": {"analyze-period"},
+		"get_historical_overview": {"historical-overview", "historical-overview-series"}, "analyze_period": {"analyze-period"},
 	},
 	"financial-context": {
 		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page", "financial-context-item-page", "financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "get_financial_context_item": {"financial-context-item"},
@@ -42,7 +42,7 @@ var skillSchemaExamples = map[string]map[string][]string{
 	},
 	"paging-and-batches": {
 		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item", "compare-import-item"}, "get_read_page": {"scale-page"},
-		"get_market_data_batch": {"scale-market-current", "scale-market-coverage", "scale-market-history", "scale-market-records"}, "list_agent_market_data": {"scale-agent-retractions", "scale-agent-closures"}, "list_instruments": {"scale-instruments"}, "update_instruments_batch": {"scale-metadata"}, "compare_market_data_import": {"compare-import-summary"},
+		"get_market_data": {"scale-market-current", "scale-market-coverage", "scale-market-history", "scale-market-records"}, "list_agent_market_data": {"scale-agent-retractions", "scale-agent-closures"}, "list_instruments": {"scale-instruments"}, "update_instruments_batch": {"scale-metadata"}, "compare_market_data_import": {"compare-import-summary"},
 	},
 }
 

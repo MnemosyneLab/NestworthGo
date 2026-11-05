@@ -363,6 +363,20 @@ func historicalReadCapture(overview application.HistoricalOverviewResult, points
 	}
 	return c, nil
 }
+func (s *Service) pagedHistoricalRead(ctx context.Context, g uint64, in HistoricalOverviewInput) (ReadEnvelope, error) {
+	series := in.From != "" || in.To != ""
+	if series {
+		if in.From == "" || in.To == "" {
+			return ReadEnvelope{}, fail("validation", "series requires both from and to")
+		}
+		if in.Date != "" || in.CompareTo != "" {
+			return ReadEnvelope{}, fail("validation", "choose {date, compareTo} or {from, to}")
+		}
+		return s.pagedHistoricalSeries(ctx, g, HistoricalOverviewSeriesInput{HistoricalReadOptions: in.HistoricalReadOptions, From: in.From, To: in.To})
+	}
+	return s.pagedHistoricalOverview(ctx, g, in)
+}
+
 func (s *Service) pagedHistoricalOverview(ctx context.Context, g uint64, in HistoricalOverviewInput) (ReadEnvelope, error) {
 	options, f, err := normalizeHistoricalRead(in.HistoricalReadOptions)
 	if err != nil {

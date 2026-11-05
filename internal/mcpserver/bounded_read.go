@@ -550,7 +550,7 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 
 func isReadScaleTool(name string) bool {
 	switch name {
-	case "get_read_page", "get_read_item", "get_market_data_batch", "compare_market_data_import", "update_instruments_batch":
+	case "get_read_page", "get_read_item", "get_market_data", "compare_market_data_import", "update_instruments_batch":
 		return true
 	}
 	return false

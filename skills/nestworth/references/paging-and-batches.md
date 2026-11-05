@@ -168,6 +168,9 @@ dates on changes. First sessions have no prior successful-check watermark.
 
 ### Unified bounded market history
 
+These examples are `get_market_data` arguments. `targets` selects the batch
+capture; a lone instrument or currency pair stays the single `{current}` read.
+
 <!-- example: scale-market-records -->
 ```json
 {"targets":[{"instrumentId":"${instrumentId}"}],"view":"history","fromDate":"2026-09-01","toDate":"2026-09-28","historyLayout":"records","limit":100}

@@ -44,9 +44,30 @@ func featureToolList(t *testing.T, c *mcp.ClientSession) map[string]*mcp.Tool {
 	return tools
 }
 
+func TestHistoricalOverviewSchemaModes(t *testing.T) {
+	t.Parallel()
+	schema := scaleReadSchema[HistoricalOverviewInput]("get_historical_overview")
+	resolved, err := schema.Resolve(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := []map[string]any{{}, {"date": "2026-10-01"}, {"date": "2026-10-01", "compareTo": "current"}, {"compareTo": "2026-10-10"}, {"from": "2026-10-01", "to": "2026-10-10"}}
+	invalid := []map[string]any{{"from": "2026-10-01"}, {"to": "2026-10-10"}, {"date": "2026-10-01", "from": "2026-10-01", "to": "2026-10-02"}, {"compareTo": "current", "from": "2026-10-01", "to": "2026-10-02"}}
+	for _, v := range valid {
+		if err := resolved.Validate(&v); err != nil {
+			t.Fatalf("valid historical input rejected: %v: %v", v, err)
+		}
+	}
+	for _, v := range invalid {
+		if err := resolved.Validate(&v); err == nil {
+			t.Fatalf("invalid historical input accepted: %v", v)
+		}
+	}
+}
+
 func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 	t.Parallel()
-	readTools := []string{"get_upcoming_actions", "get_historical_overview", "get_historical_overview_series"}
+	readTools := []string{"get_upcoming_actions", "get_historical_overview"}
 	writeTools := []string{}
 	if len(featureHTTPTools) != len(readTools)+len(writeTools) {
 		t.Fatalf("HTTP guard coverage has %d feature tools; discovery has %d", len(featureHTTPTools), len(readTools)+len(writeTools))
@@ -147,7 +168,7 @@ func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 		featureJSONEqual(t, item["summary"], wantRows[row["id"].(string)])
 	}
 	seriesArgs := skillExample(t, "analysis", "historical-overview-series", nil)
-	series := scaleCapture(t, c, "get_historical_overview_series", seriesArgs)
+	series := scaleCapture(t, c, "get_historical_overview", seriesArgs)
 	guiSeries, err := analytics.NewService(fx.app).HistoricalOverviewSeries(t.Context(), seriesArgs["from"].(string), seriesArgs["to"].(string))
 	if err != nil {
 		t.Fatal(err)

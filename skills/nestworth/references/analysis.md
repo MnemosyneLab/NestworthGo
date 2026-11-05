@@ -49,11 +49,12 @@ price/FX evidence; never infer the affected asset from informational gaps.
 
 ## Historical endpoint view and reconciliation
 
-For one or two historical states, use `get_historical_overview`; for a bounded
-daily trend with its endpoint views from the same capture, use
-`get_historical_overview_series`. Dates are closed `YYYY-MM-DD` civil labels in
-the household history timezone. Overview accepts an optional second closed date
-or `current`; series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/1` envelope: summary,
+Use `get_historical_overview` for both shapes. `{date, compareTo}` reads one or
+two historical states (`date` may be empty for the GUI default month end;
+`compareTo` is an optional second closed date or `current`). `{from, to}` reads
+a bounded daily trend with its endpoint views from the same capture. Do not send
+both shapes together. Dates are closed `YYYY-MM-DD` civil labels in
+the household history timezone. Series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/1` envelope: summary,
 compact endpoint leaves, and independent series points. Initial default is five
 items per section, max 100; continuation default is 25. Follow every relevant
 `get_read_page` cursor. `get_read_item` with section=rows/id returns full row

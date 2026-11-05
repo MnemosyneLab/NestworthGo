@@ -90,7 +90,7 @@ func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 53 {
+	if len(listed.Tools) != 51 {
 		t.Fatalf("tools=%d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {

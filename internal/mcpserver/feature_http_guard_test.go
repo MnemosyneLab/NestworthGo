@@ -14,7 +14,6 @@ import (
 var featureHTTPTools = []string{
 	"get_upcoming_actions",
 	"get_historical_overview",
-	"get_historical_overview_series",
 }
 
 func TestFeatureHTTPBoundaries(t *testing.T) {
@@ -24,7 +23,7 @@ func TestFeatureHTTPBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The three feature names share one isFeatureTool case arm.
+	// The feature names share one isFeatureTool case arm.
 	for _, name := range featureHTTPTools[:1] {
 		t.Run(name, func(t *testing.T) {
 			// The SDK's closed schemas reject the private field and can include

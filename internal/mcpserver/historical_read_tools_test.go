@@ -135,11 +135,16 @@ func TestHistoricalAndAccountCompleteWireMeasurements(t *testing.T) {
 		t.Run(fmt.Sprint(n), func(t *testing.T) {
 			fx := responseReviewFixture(t, n)
 			c := ledgerSession(t, fx)
-			for name, args := range map[string]map[string]any{
-				"get_historical_overview":        {"date": "2026-10-01", "compareTo": "2026-10-10"},
-				"get_historical_overview_series": {"from": "2026-10-01", "to": "2026-10-10"},
-				"get_account_valuations":         {},
+			for _, callCase := range []struct {
+				name   string
+				args   map[string]any
+				series bool
+			}{
+				{"get_historical_overview", map[string]any{"date": "2026-10-01", "compareTo": "2026-10-10"}, false},
+				{"get_historical_overview", map[string]any{"from": "2026-10-01", "to": "2026-10-10"}, true},
+				{"get_account_valuations", map[string]any{}, false},
 			} {
+				name, args := callCase.name, callCase.args
 				result, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: args})
 				if err != nil || result.IsError {
 					t.Fatalf("%s: %v %+v", name, err, result)
@@ -171,13 +176,13 @@ func TestHistoricalAndAccountCompleteWireMeasurements(t *testing.T) {
 					section = "accounts"
 				}
 				scaleSection(t, c, cap, section)
-				if name == "get_historical_overview_series" {
+				if callCase.series {
 					if len(scaleSection(t, c, cap, "points")) != 10 {
 						t.Fatal("lost points")
 					}
 				}
 			}
-			single := scaleCapture(t, c, "get_historical_overview_series", map[string]any{"from": "2026-10-01", "to": "2026-10-01", "limit": 1})
+			single := scaleCapture(t, c, "get_historical_overview", map[string]any{"from": "2026-10-01", "to": "2026-10-01", "limit": 1})
 			if len(scaleSection(t, c, single, "points")) != 1 {
 				t.Fatal("single day lost")
 			}
@@ -320,5 +325,22 @@ func TestHistoricalReconciliationRecordsStayPageable(t *testing.T) {
 		if row.(map[string]any)["id"] != records[i].ID {
 			t.Fatal("lost or duplicated record", i)
 		}
+	}
+}
+
+func TestMergedReadShapesStayDistinct(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	call(t, c, "get_historical_overview", map[string]any{"from": "2026-10-01"}, true)
+	call(t, c, "get_historical_overview", map[string]any{"date": "2026-10-01", "from": "2026-10-01", "to": "2026-10-02"}, true)
+	call(t, c, "get_market_data", map[string]any{"instrumentId": fx.instrument, "view": "history"}, true)
+	call(t, c, "get_market_data", map[string]any{"instrumentId": fx.instrument, "targets": []any{map[string]any{"instrumentId": fx.instrument}}}, true)
+	current := call(t, c, "get_market_data", map[string]any{"instrumentId": fx.instrument}, false)["data"].(map[string]any)
+	if _, ok := current["current"]; !ok || current["captureId"] != nil {
+		t.Fatal(current)
+	}
+	batch := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": fx.instrument}}, "view": "current", "limit": 1})
+	if batch["schemaVersion"] != "mcp-read/1" || batch["captureKind"] != "market_data" {
+		t.Fatalf("batch shape changed: %v", batch["captureKind"])
 	}
 }

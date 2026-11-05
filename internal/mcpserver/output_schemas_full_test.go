@@ -16,6 +16,8 @@ func fullReadOutputSchema(name string) any {
 		return fullWrapReadOutput(fullFinancialOutputEnvelope("contextId"))
 	case readKindComparison:
 		return fullWrapReadOutput(fullFinancialOutputEnvelope("comparisonId"))
+	case readKindMarketData:
+		return fullWrapReadOutput(map[string]any{"oneOf": []any{currentQuoteOutputSchema(), fullReadEnvelopeSchema()}})
 	case readKindRepairJob:
 		fields := map[string]any{}
 		for _, k := range []string{"jobId", "phase", "outcome", "errorCode"} {

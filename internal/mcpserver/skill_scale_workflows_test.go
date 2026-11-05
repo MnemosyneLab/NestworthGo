@@ -47,7 +47,7 @@ func TestSkillScaleExamplesActualCalls(t *testing.T) {
 		}
 	}
 	for _, view := range []string{"current", "coverage", "history"} {
-		cap := scaleCapture(t, c, "get_market_data_batch", skillExample(t, "paging-and-batches", "scale-market-"+view, values))
+		cap := scaleCapture(t, c, "get_market_data", skillExample(t, "paging-and-batches", "scale-market-"+view, values))
 		for _, raw := range scaleSection(t, c, cap, "targets") {
 			v := raw.(map[string]any)
 			if view == "history" {

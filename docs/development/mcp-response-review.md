@@ -65,7 +65,7 @@ activity/review/reconciliation APIs keep their distinct domain paging contracts.
 - `commit_plan_tool.go`: `commit_plan` (write receipt; no read output schema).
 - `correction_tools.go`: `preview_correction`.
 - `data_health_tools.go`: `scan_data_health`, `preview_data_repair`, `get_data_repair_job`, `start_data_repair`.
-- `feature_tools.go`: `get_upcoming_actions`, `get_historical_overview`, `get_historical_overview_series`.
+- `feature_tools.go`: `get_upcoming_actions`, `get_historical_overview`.
 - `financial_comparison_tools.go`: `compare_financial_attribution`, `compare_financial_context`.
 - `financial_context_tools.go`: `get_financial_context_item`, `get_financial_context`.
 - `history_tools.go`: `list_activities`, `get_activity`, `analyze_period`.
@@ -73,7 +73,7 @@ activity/review/reconciliation APIs keep their distinct domain paging contracts.
 - `investment_review_v2_tools.go`: `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `get_investment_review_coverage`, `list_investment_review_suppressions`, `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews`.
 - `ledger_tools.go`: `preview_change`.
 - `liquidity_policy_tools.go`: `preview_save_liquidity_policy`, `preview_reset_liquidity_policy`.
-- `market_data_batch_tools.go`: `get_market_data_batch`.
+- `market_data_batch_tools.go`: batch read used by `get_market_data`.
 - `market_data_tools.go`: `get_market_data`, `list_agent_market_data`, `import_market_data`, `set_fx_source`.
 - `product_data_tools.go`: `preview_product_terms`, `preview_product_valuation`.
 - `product_operation_tools.go`: `preview_product_operation`.

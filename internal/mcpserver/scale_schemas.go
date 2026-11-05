@@ -10,8 +10,8 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		"analyze_period": {}, "get_account_snapshot": {}, "get_overview": {},
 		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
 		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
-		"get_historical_overview": {}, "get_historical_overview_series": {}, "get_account_valuations": {},
-		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data_batch": {"targetKey", "displayName"}, "compare_market_data_import": {}, "get_read_page": {}, "get_read_item": {}}
+		"get_historical_overview": {}, "get_account_valuations": {},
+		"get_liquidity_overview": {"sourceKey", "displayName", "instrumentType", "accessKind", "policyOrigin", "normalReceiptOn", "currentValueBase", "availableBase"}, "list_products": {"startOn", "maturityOn", "displayName", "state"}, "get_product": {}, "list_instruments": {"displayName", "name", "type", "updatedAt", "id"}, "get_upcoming_actions": {"priority", "sortOn", "displayName"}, "list_agent_market_data": {"createdAt", "observationDate", "operation"}, "get_market_data": {"targetKey", "displayName"}, "compare_market_data_import": {}, "get_read_page": {}, "get_read_item": {}}
 	sortFields, ok := fields[name]
 	if !ok {
 		return nil
@@ -42,13 +42,17 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	if name == "list_instruments" {
 		schema.Properties["query"].MaxLength = nil
 	}
-	if name == "get_historical_overview" || name == "get_historical_overview_series" {
+	if name == "get_historical_overview" {
 		setSchemaEnum(schema.Properties["view"], []string{"compact", "evidence"})
 		filter := schema.Properties["filter"]
 		setSchemaEnum(filter.Properties["quality"], []string{"pending", "missing", "provisional", "verified"})
 		setSchemaEnum(filter.Properties["side"], []string{"left", "right", "either"})
 		setSchemaEnum(filter.Properties["kinds"].Items, []string{"account", "holding", "balance", "cash"})
 		setSchemaEnum(filter.Properties["reasons"].Items, historicalReasons)
+		schema.OneOf = []*jsonschema.Schema{
+			{Not: schemaAnyRequired("from", "to")},
+			{Required: []string{"from", "to"}, Not: schemaAnyRequired("date", "compareTo")},
+		}
 	}
 	filter := schema.Properties["filter"]
 	if filter != nil {
@@ -83,7 +87,7 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 			}
 		}
 	}
-	if name == "get_market_data_batch" {
+	if name == "get_market_data" {
 		for k, values := range map[string][]string{"view": {"current", "coverage", "history"}, "range": {"30d", "ytd", "1y", "all"}, "sourceFilter": {"all", "manual", "provider", "agent"}, "historyLayout": {"per_target", "records"}} {
 			setSchemaEnum(schema.Properties[k], values)
 		}
@@ -109,6 +113,14 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	}
 	return schema
 }
+func schemaAnyRequired(fields ...string) *jsonschema.Schema {
+	anyOf := make([]*jsonschema.Schema, 0, len(fields))
+	for _, field := range fields {
+		anyOf = append(anyOf, &jsonschema.Schema{Required: []string{field}})
+	}
+	return &jsonschema.Schema{AnyOf: anyOf}
+}
+
 func setSchemaEnum(p *jsonschema.Schema, values []string) {
 	if p == nil {
 		return

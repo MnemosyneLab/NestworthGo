@@ -424,7 +424,7 @@ func isFinancialContextTool(name string) bool {
 
 func isFeatureTool(name string) bool {
 	switch name {
-	case "get_upcoming_actions", "get_historical_overview", "get_historical_overview_series":
+	case "get_upcoming_actions", "get_historical_overview":
 		return true
 	default:
 		return false

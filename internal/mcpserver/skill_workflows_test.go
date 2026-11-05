@@ -146,7 +146,7 @@ func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
 	if data["current"].(map[string]any)["unitPrice"] != "1.0197" {
 		t.Fatal("documented fund NAV date/value not available through MCP")
 	}
-	history := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": values["instrumentId"]}}, "view": "history", "range": "all"})
+	history := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": values["instrumentId"]}}, "view": "history", "range": "all"})
 	targets := scaleSection(t, c, history, "targets")
 	target := targets[0].(map[string]any)["targetKey"].(string)
 	history["sections"] = targets[0].(map[string]any)["sections"]

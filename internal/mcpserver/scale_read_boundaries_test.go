@@ -106,12 +106,12 @@ func TestMarketBatchReadNeverCallsProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, view := range []string{"current", "coverage", "history"} {
-		cap := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": fx.instrument}, map[string]any{"baseCurrency": "USD", "quoteCurrency": "SGD"}}, "view": view})
+		cap := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": fx.instrument}, map[string]any{"baseCurrency": "USD", "quoteCurrency": "SGD"}}, "view": view})
 		if len(scaleSection(t, c, cap, "targets")) != 2 {
 			t.Fatal("read lost missing targets")
 		}
 	}
-	scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": fx.instrument}}, "view": "history", "historyLayout": "records", "fromDate": "2026-09-01", "toDate": "2026-09-29"})
+	scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": fx.instrument}}, "view": "history", "historyLayout": "records", "fromDate": "2026-09-01", "toDate": "2026-09-29"})
 	after, err := fx.app.ListActivities(t.Context(), 100)
 	if err != nil || !reflect.DeepEqual(before, after) || provider.calls.Load() != 0 {
 		t.Fatal("market read performed a provider or ledger mutation", err)

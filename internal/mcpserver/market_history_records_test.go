@@ -80,7 +80,7 @@ func TestMarketHistoryRecords35Targets233Quotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	args := map[string]any{"targets": targets, "view": "history", "fromDate": "2026-09-01", "toDate": "2026-09-07", "limit": 100}
-	legacy := scaleCapture(t, c, "get_market_data_batch", args)
+	legacy := scaleCapture(t, c, "get_market_data", args)
 	legacyTargets, legacyCalls, _ := measuredMarketSection(t, c, legacy, "targets")
 	legacyCalls++
 	for _, raw := range legacyTargets {
@@ -92,7 +92,7 @@ func TestMarketHistoryRecords35Targets233Quotes(t *testing.T) {
 		}
 	}
 	args["historyLayout"] = "records"
-	unified := scaleCapture(t, c, "get_market_data_batch", args)
+	unified := scaleCapture(t, c, "get_market_data", args)
 	initialBytes, _ := jsoncodec.Marshal(unified)
 	var initial ReadEnvelope
 	if err := decodeReadValue(initialBytes, &initial); err != nil {
@@ -122,7 +122,7 @@ func TestMarketHistoryRecords35Targets233Quotes(t *testing.T) {
 	if calls+metadataCalls+1 >= legacyCalls {
 		t.Fatal("no call reduction")
 	}
-	status, body := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "get_market_data_batch", "arguments": args}}, "")
+	status, body := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "get_market_data", "arguments": args}}, "")
 	if status != 200 || len(body) > contextWireLimit || strings.Contains(string(body), `"isError":true`) {
 		t.Fatalf("wire status=%d bytes=%d", status, len(body))
 	}
@@ -140,7 +140,7 @@ func TestMarketHistoryRecords35Targets233Quotes(t *testing.T) {
 	if !reflect.DeepEqual(rows, again) {
 		t.Fatal("capture changed after write")
 	}
-	newCap := scaleCapture(t, c, "get_market_data_batch", args)
+	newCap := scaleCapture(t, c, "get_market_data", args)
 	if newCap["summary"].(map[string]any)["recordCount"] != float64(234) {
 		t.Fatal("new capture stale")
 	}
@@ -162,12 +162,12 @@ func TestMarketRecordsValidationStatusesAndWithdrawal(t *testing.T) {
 		for k, v := range extra {
 			args[k] = v
 		}
-		call(t, c, "get_market_data_batch", args, true)
+		call(t, c, "get_market_data", args, true)
 	}
 	unknown := uuid.NewString()
 	base["targets"] = []any{map[string]any{"instrumentId": fx.instrument}, map[string]any{"instrumentId": unknown}}
 	base["fromDate"], base["toDate"] = "2026-09-28", "2026-09-28"
-	cap := scaleCapture(t, c, "get_market_data_batch", base)
+	cap := scaleCapture(t, c, "get_market_data", base)
 	if len(scaleSection(t, c, cap, "records")) != 0 {
 		t.Fatal("invented quote")
 	}
@@ -184,7 +184,7 @@ func TestMarketRecordsValidationStatusesAndWithdrawal(t *testing.T) {
 	item := map[string]any{"instrumentId": fx.instrument, "currency": "USD", "value": "1.0197", "kind": "nav", "date": "2026-09-28", "sourceTitle": "Synthetic issuer"}
 	receipt := mutate(t, c, "import_market_data", map[string]any{"items": []any{item}})
 	id := receipt["quoteIds"].([]any)[0]
-	cap = scaleCapture(t, c, "get_market_data_batch", base)
+	cap = scaleCapture(t, c, "get_market_data", base)
 	rows := scaleSection(t, c, cap, "records")
 	if len(rows) != 1 || rows[0].(map[string]any)["date"] != "2026-09-28" || rows[0].(map[string]any)["observationKind"] != "close" || rows[0].(map[string]any)["priceBasis"] != "agent_unit_nav_v1" || rows[0].(map[string]any)["sourceKind"] != "agent" {
 		t.Fatal(rows)
@@ -192,13 +192,13 @@ func TestMarketRecordsValidationStatusesAndWithdrawal(t *testing.T) {
 	item["operation"], item["targetQuoteId"], item["value"] = "correct", id, "1.01970001"
 	correction := mutate(t, c, "import_market_data", map[string]any{"items": []any{item}})
 	correctedID := correction["quoteIds"].([]any)[0]
-	corrected := scaleCapture(t, c, "get_market_data_batch", base)
+	corrected := scaleCapture(t, c, "get_market_data", base)
 	correctedRows := scaleSection(t, c, corrected, "records")
 	if len(correctedRows) != 1 || correctedRows[0].(map[string]any)["quoteId"] != correctedID || correctedRows[0].(map[string]any)["value"] != "1.01970001" {
 		t.Fatal("correction or exact tail lost", correctedRows)
 	}
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": correctedID, "sourceTitle": "Synthetic withdrawal"}}})
-	newCap := scaleCapture(t, c, "get_market_data_batch", base)
+	newCap := scaleCapture(t, c, "get_market_data", base)
 	if len(scaleSection(t, c, newCap, "records")) != 0 || len(scaleSection(t, c, cap, "records")) != 1 {
 		t.Fatal("withdrawal/frozen contract")
 	}
@@ -219,7 +219,7 @@ func TestMarketRecordsOriginalFXThroughSDK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cap := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"baseCurrency": "SGD", "quoteCurrency": "USD"}}, "view": "history", "historyLayout": "records", "fromDate": "2026-09-28", "toDate": "2026-09-28"})
+	cap := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"baseCurrency": "SGD", "quoteCurrency": "USD"}}, "view": "history", "historyLayout": "records", "fromDate": "2026-09-28", "toDate": "2026-09-28"})
 	rows := scaleSection(t, c, cap, "records")
 	if len(rows) != 1 {
 		t.Fatal(rows)
@@ -280,13 +280,13 @@ func TestMarketRecordsRejectUnrepresentableReverseFX(t *testing.T) {
 		t.Fatalf("boundary not activated: %+v", row)
 	}
 	args := map[string]any{"targets": []application.MarketReadTarget{target}, "view": "history", "fromDate": date, "toDate": date}
-	legacy := scaleCapture(t, c, "get_market_data_batch", args)
+	legacy := scaleCapture(t, c, "get_market_data", args)
 	legacyTarget := scaleSection(t, c, legacy, "targets")[0].(map[string]any)
 	if legacyTarget["coverage"].(map[string]any)["observationsCount"] != float64(0) {
 		t.Fatal("legacy projection changed")
 	}
 	args["historyLayout"] = "records"
-	response, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_market_data_batch", Arguments: args})
+	response, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_market_data", Arguments: args})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,11 +299,11 @@ func TestMarketRecordsRejectUnrepresentableReverseFX(t *testing.T) {
 	}
 	// A partially representable window must also fail, not publish a subset.
 	args["toDate"] = "2026-09-28"
-	call(t, c, "get_market_data_batch", args, true)
+	call(t, c, "get_market_data", args, true)
 	// The same original quote is returned precisely in its stored direction.
 	args["toDate"] = date
 	args["targets"] = []application.MarketReadTarget{{BaseCurrency: "USD", QuoteCurrency: "SGD"}}
-	direct := scaleCapture(t, c, "get_market_data_batch", args)
+	direct := scaleCapture(t, c, "get_market_data", args)
 	records := scaleSection(t, c, direct, "records")
 	if len(records) != 1 || records[0].(map[string]any)["value"] != "0.000000000001" {
 		t.Fatal("original rate lost", records)

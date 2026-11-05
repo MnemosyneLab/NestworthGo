@@ -188,7 +188,7 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 			budget = 16 << 10
 		case "get_financial_context":
 			budget = 28 << 10
-		case "get_historical_overview", "get_historical_overview_series", "get_overview":
+		case "get_historical_overview", "get_overview":
 			budget = 56 << 10
 		}
 		if len(raw) > budget {
@@ -327,7 +327,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	}
 	// Same-capture historical summary -> all points/leaves -> full item evidence.
 	start = rec.total()
-	capture := scaleCapture(t, c, "get_historical_overview_series", map[string]any{"from": "2026-09-12", "to": "2026-10-12"})
+	capture := scaleCapture(t, c, "get_historical_overview", map[string]any{"from": "2026-09-12", "to": "2026-10-12"})
 	leaves := assertHistoricalMatches(t, c, capture)
 	if len(scaleSection(t, c, capture, "points")) != 31 {
 		t.Fatal("lost closed dates")
@@ -400,7 +400,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	call(t, c, "get_financial_context_item", FinancialContextItemInput{ContextID: context.ContextID, Ref: positions[0].Ref}, false)
 	rec.journey("financial context all sections + item", start, 40, 2<<20)
 	// Local market histories and Agent provenance use their bounded entrances.
-	market := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": f.instrument}, map[string]any{"baseCurrency": "USD", "quoteCurrency": "EUR"}}, "view": "history", "range": "all"})
+	market := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": f.instrument}, map[string]any{"baseCurrency": "USD", "quoteCurrency": "EUR"}}, "view": "history", "range": "all"})
 	targets := scaleSection(t, c, market, "targets")
 	if len(targets) != 2 {
 		t.Fatal("market targets lost")

@@ -62,9 +62,11 @@ Renewal and reservation mutations remain App workflows. See the portable
 All permission modes expose `get_upcoming_actions`, using the App's
 `upcoming-actions/1` aggregation and DTO so dates, timezone, capture freshness,
 coverage and reason codes are not reconstructed from product lists. All modes
-also expose `get_historical_overview` and `get_historical_overview_series` as
-read-only application service calls with default bounded `historical-read/2`
-responses in the `mcp-read/1` envelope. The overview preserves the App's immutable
+also expose `get_historical_overview` as a
+read-only application service call with default bounded `historical-read/2`
+responses in the `mcp-read/1` envelope. Pass `{date, compareTo}` for one closed
+date, optionally compared with another closed date or current, or `{from, to}`
+for a 1–31 day trend. Do not combine the two input shapes. The overview preserves the App's immutable
 history values and `endpoint_bridge/2` convention, including exact values,
 completeness, timestamp basis, later-endpoint FX and no-write behavior. It does
 not replace closed-period `compare_financial_attribution`.
@@ -726,7 +728,7 @@ nested targets can still exceed a single item and fail safely.
 
 ### Multi-target market protocol
 
-get_market_data_batch takes targets (1–100 distinct instrumentId OR complete
+get_market_data with targets takes 1–100 distinct instrumentId OR complete
 oriented baseCurrency/quoteCurrency), view=current|coverage|history (current
 default), range=30d|ytd|1y|all (30d default), sourceFilter=all|manual|provider|agent,
 sort={field:targetKey|displayName,direction:asc|desc} and limit. Optional
@@ -960,8 +962,11 @@ retrievable through those tools instead of being embedded in bootstrap.
 get_catalog is a small static vocabulary and retains its direct object shape.
 get_account_snapshot returns the same account capture as get_account_valuations,
 filtered to its required id; get_read_item accounts/id opens all evidence sections.
-get_market_data returns only the selected current quote; range/history is solely
-on get_market_data_batch (view=current/coverage/history). No history is discarded.
+get_market_data returns only the selected current quote when called with
+instrumentId or a currency pair. The same tool returns the batch capture when
+called with targets (view=current/coverage/history). The two inputs are mutually
+exclusive, and the output schema is a oneOf of `{current}` and the read envelope.
+No history is discarded from the batch shape.
 
 analyze_period returns mcp-read/1 with four projection headers in summary and
 income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
