@@ -527,3 +527,45 @@ that every manual gate passed for a release. Historical v0.3.9 publication and
 owner-waived/deferred gates remain in its [release record](../releases/v0.3.9.md)
 and [dated Mac package QA](../qa/v0.3.9-release-package-2026-10-21.md);
 v0.3.6 closeout evidence remains in the [v0.3.6 contract](../releases/v0.3.6.md).
+
+## Manual Mac mini packages in Actions
+
+After `package-macos.yml` reaches the default branch, open **Actions → Package
+macOS DMG and skill → Run workflow**. Select a trusted origin branch using
+**Use workflow from**, then run it. Only repository writers can dispatch it.
+The selected branch must contain this workflow and its helpers. Tags and fork
+PR refs are unsupported. Checkout uses the dispatch SHA, so a branch advancing
+while queued does not silently change the source being packaged.
+
+The job uses the existing `[self-hosted, macOS, ARM64]` Mac mini runner pool,
+native macOS/SDK 27+, Go and Wails pins from `go.mod`, Node 24.22.0 and pnpm
+12.14.0. It reuses the native prerequisite/cache helpers and invokes
+`wails3 task package:release`, including skill checks and package verification.
+It does not launch the application. Database/settings overrides point to the
+existing disposable synthetic directory, never a real household ledger.
+
+On success, download the `nestworth-macos-arm64-<sha>-<run>-<attempt>` artifact
+from the run page within 14 days. It contains:
+
+- `macos/Nestworth-<app-version>-arm64.dmg` and `.zip`, with `macos/SHA256SUMS`;
+- `skills/nestworth-skill.tar.gz` and its `.sha256` file;
+- `package-manifest.json`: source branch and SHA, independent app/build and skill
+  versions, toolchain evidence, file sizes and SHA-256 checksums.
+
+The skill is the latest content **at the selected commit**, with its own
+`skills/nestworth/VERSION`; it is not fetched from another branch or release.
+The manifest rejects packaged app/skill versions that differ from that source.
+Verify checksums from each extracted subdirectory. No release is published;
+packages retain the existing ad-hoc signature. Developer ID signing,
+notarization and native GUI acceptance remain separate manual gates.
+
+This manual-only workflow has `contents: read`, does not persist checkout
+credentials, and has no PR, fork, push or scheduled trigger. In this public
+repository, review all selected branch code, workflows, dependencies and install
+scripts before dispatch: they execute as the persistent runner account and can
+access that account's files, keychain, network and shared caches. A clean
+checkout, disposable output cleanup and synthetic paths prevent accidental stale
+packages but are **not a security sandbox** or a host/cache sanitization promise.
+Do not dispatch unreviewed external code. Existing runner security, permissions,
+credentials and service configuration are unchanged. Only explicit package files
+are uploaded; no database, settings, keychain, logs or home-directory archive.
