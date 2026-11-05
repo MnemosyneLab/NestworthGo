@@ -82,9 +82,9 @@ change.
 
 ## Persistence and historical data
 
-Schema 19 tables hold daily rule definitions, immutable condition versions,
+The current schema retains daily rule definitions, immutable condition versions,
 evaluation inputs/results, episodes, events, suppressions and mutation receipts.
-Supported schemas 21/22 may contain original V1 preference JSON and hashes in
+Supported schemas 21/22/23 may contain original V1 preference JSON and hashes in
 archival state, malformed/orphaned keys in quarantine, and `legacy_v1` rules.
 These immutable records remain valid supported data. Active V2 queries select
 daily rules only; the old settings reader remains read-only for recovery.
@@ -92,8 +92,7 @@ Pre21 SQLite migrations are no longer supported.
 
 ## Validation references
 
-Use [daily rollout details](../development/investment-review-daily-rollout.md),
-[real browser acceptance](../development/real-browser-acceptance.md), and the
+Use [real browser acceptance](../development/real-browser-acceptance.md) and the
 [dated synthetic acceptance evidence](../testing/investment-review-daily-acceptance-2026-10-16.md).
 The dated report records earlier implementation-time checks and is historical
 evidence, not a claim that retired V1 interfaces remain available.
@@ -509,7 +508,7 @@ Observations strip Go's monotonic clock component before comparison, so a still-
 
 ## Schema21 and recovery
 
-Both supported schemas contain `review_temporal_checkpoints`. Startup verifies
+All supported schemas (21, 22 and 23) contain `review_temporal_checkpoints`. Startup verifies
 its exact definition and checkpoint structure. Unknown nonempty policy versions
 cannot establish reuse and are replaced by full publication. Schema21→22 adds
 closure facts without replaying financial history and retains a verified
@@ -519,7 +518,7 @@ Complete SQLite snapshots preserve certificates consistently. Restore retains di
 
 ### Source journal retention and recovery
 
-Both supported schemas retain the financial source journal. An initial empty
+All supported schemas (21, 22 and 23) retain the financial source journal. An initial empty
 journal is not a historical completeness proof. Each changed source
 row advances its revision and journal atomically with its business transaction.
 At multiples of 256 revisions above 4096, retention advances the floor to at

@@ -1,7 +1,7 @@
 # Optional investment short names
 
-SQLite schemas 21 and 22 retain the short-name field. Only those database
-versions are supported; see [storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
+SQLite schemas 21, 22 and 23 retain the short-name field. For supported
+versions and ordered upgrades, see [storage recovery](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
 
 ## Display and identity contract
 
@@ -18,13 +18,16 @@ existing `InstrumentLabel` layout and classes. Selectors append identity text
 Duplicate aliases are allowed, including across share classes and archived
 instruments. Sorting and labels do not change stable row/navigation keys.
 
-The optional field permits at most 120 Unicode code points after trimming.
+The desktop metadata field permits at most 120 Unicode code points after trimming.
 An explicit empty or whitespace-only string clears it. An omitted field keeps
 an existing alias, including an older complete-form request that predates this
 field. New records default to an empty alias. The field does not change symbols,
 provider bindings, ISINs, IDs, quantities, exact money values or transaction
 identity. Existing provider bindings are retained when a form edits metadata
 on an instrument using Manual or Agent quotes.
+
+For MCP update/clear semantics, use the [MCP update contract](mcp-update-conventions.md);
+the desktop form convention above is not a promise about every transport.
 
 The alias is propagated through Wails/MCP requests, instrument DTOs, valuation
 and missing-input components, grouped holdings, overview/activity labels,

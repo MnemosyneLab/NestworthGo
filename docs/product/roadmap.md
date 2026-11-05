@@ -28,3 +28,32 @@ contracts. Their mention here does not imply implementation or commitment.
 - Automation proposes facts; it does not silently post financial changes.
 - Optional integrations remain replaceable infrastructure.
 - Presentation changes preserve established historical and financial definitions.
+
+## Uncommitted exploration
+
+Earlier brainstorms are consolidated here as questions, not a prioritized backlog:
+
+- Scenario sandbox: hypothetical expenses, income, transfers and life changes,
+  isolated from the real ledger with visible assumptions.
+- Purpose allocations: goals and unallocated funds without double counting;
+  emergency-fund months would need a separate definition. Existing reservations
+  and liquidity estimates are covered by [Available Funds](../design/available-funds.md).
+- Statement/screenshot drafts: extract and match facts, show a reviewable diff,
+  and leave unexplained differences unresolved. Existing [reconciliation](../user/account-reconciliation.md)
+  does not imply automatic document ingestion.
+- Life-event labels and an investment decision journal: dated rationale,
+  costs, outstanding reimbursements and user-selected review dates.
+- Allocation limits, hypothetical rebalancing, comparison periods and benchmarks:
+  define scope and denominators before adding percentages. No trade execution.
+- Private calendar and monthly summary: distinguish expected events from posted
+  activity; existing [upcoming actions](../user/upcoming-actions.md) and the
+  [monthly-review proposal](../design/monthly-review-and-data-confidence.md)
+  own their narrower scopes.
+- Search/saved analysis views, command navigation, report exports, corporate-action
+  clues, bond-specific models and linked property/debt/insurance need explicit
+  requirements. Member-specific returns and tax lots need separate financial
+  definitions. None is a commitment implied by the retired numbered idea list.
+
+Current feature behavior belongs in the design/user guides, not in a duplicate
+idea-status table. Select future work from an observed user need and a scoped
+financial/privacy contract.

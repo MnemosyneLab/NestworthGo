@@ -58,7 +58,7 @@ holdings inside it.
 
 ## 3. Current implementation and boundaries
 
-The current `0.3.1` implementation closes the Account-container interaction
+The Account-container implementation closes the Account-container interaction
 loop:
 
 - `AccountsPage` groups by Institution. Clicking an account opens detail in the

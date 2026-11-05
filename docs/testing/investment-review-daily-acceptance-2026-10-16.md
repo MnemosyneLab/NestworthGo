@@ -6,6 +6,32 @@ tests ran under Vitest. `Source mapped` means implementation was inspected but
 there is no isolated test with the same scenario wording. Device-only checks are
 called out explicitly and are not represented as automated passes.
 
+## Provenance and interpretation
+
+The design 1.2 source was Library item `libfile_da0cbd81b3c08191a4bdc7c9b6bee201`,
+version 2, 114254 bytes, SHA-256
+`acddcc6e6eb82806c1d67156dd89d2e4e9b63af0a5e337df56a228ce1c34e56e`.
+The rollout started from main `d23c01f4f9b59b64b7f83d4b246a8d6b37252f91`.
+This is historical evidence: V1 conversion and pre-21 migration tests below
+refer to that stage, not supported current APIs. Current V2 behavior and preserved
+legacy records are defined in the [investment-review contract](../design/investment-review.md).
+
+The lifecycle corrections preserve acknowledgements across unknown votes and
+condition edits until a proven false policy interval, distinguish same-day
+clear/rebuy epochs without inventing today's vote, and close removed targets
+without duplicate resolution events. Regression sources include
+`TestReviewLifecycleRelatesEditedConditionByProvenPolicyInterval`,
+`TestReviewSameDayClearAndRebuyUsesNewEpisodeWithClosedVotes`,
+`TestReviewSameDayClearClosesEpisodeBeforeNextDailyVote`,
+`TestReviewAtomicSameDayTransferKeepsEpisodeAndAcknowledgement`, and
+`TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne`.
+
+The rollout's Linux server-profile Go tests/vet/build and 137-file, 1,457-test
+Vitest run passed with Go 1.27.2 and Wails beta.28; lint, typecheck and Vite build
+also passed. These counts describe that historical run only. Native macOS,
+VoiceOver, Chinese IME, high zoom, restart and backup/restore were not exercised.
+The rollout's earlier CI run was not evidence for its final head.
+
 ## Assets and values
 
 | ID | Evidence | Execution status |
@@ -140,7 +166,7 @@ called out explicitly and are not represented as automated passes.
 | U01 | `ReviewRuleEditor.test.tsx` nested editor and validation cases; three locale files; [Chromium editor screenshot](../qa/investment-review-daily-2026-10-16/nested-condition-editor.chromium.png) captured from the synthetic harness. Native zoom/theme/layout acceptance was not run. | Vitest passed; Chromium screenshot captured; native layout not run |
 | U02 | `ReviewEpisodeHistorySheet.test.tsx`; shared Sheet keyboard/focus behavior is tested in `src/components/ui/sheet.test.tsx`; native VoiceOver/IME acceptance is not run here. | Vitest; native VoiceOver/IME not run |
 | U03 | `InvestmentReviewPage.test.tsx`; `ReviewRuleEditor.test.tsx`; `ReviewEpisodeHistorySheet.test.tsx` | Vitest passed |
-| U04 | owner split documented in `investment-review-daily-rollout.md`; shared App/navigation wiring is owned by PR99 and was not edited in this branch | Page contract tested; shared route owned by PR99 |
+| U04 | Historical PR98 covered the review page; shared App/navigation integration was separately owned by PR99 | Page contract tested; shared route owned by PR99 |
 | U05 | `ReviewRuleEditor.test.tsx` (nested editor, 20/21 leaves, invalid numeric thresholds and multi-type selection); `TestReviewPredicateTwentyLeafLimitIncludesNestedGroups`; `TestReviewPolicyValidationAndNormalization` | Go + Vitest passed |
 | U06 | `TestReviewCoverageIncludesUnknownWithoutAnAlertAndExcludesZeroHolding`; `TestReviewCoveragePausePreservesUnknownDailyTruth`; `InvestmentReviewPage.test.tsx` | Go + Vitest passed |
 

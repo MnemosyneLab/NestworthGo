@@ -23,59 +23,30 @@ Packaging guide](local-workflow.md). For Linux server mode, install Go, Node,
 pnpm, and the Wails CLI. Native GTK/WebKit packages are not required for the
 `server` build; they are required by the native `wails3 task dev` workflow.
 
-The verified acceptance run for PR101/PR102 used:
-
-| Tool | Version |
-| --- | --- |
-| Go | `1.26.0` (`linux/amd64`) |
-| Wails CLI | `v3.0.0-beta.28` |
-| Node | `v24.19.0` |
-| pnpm | `12.2.1` |
-| Vite | `8.2.1` |
-| Python Playwright | `1.62.0` |
-| Cloud Chromium | `151.0.7922.173` |
-
-Check each command before starting. In one Linux cloud image, `/usr/bin/go` was
-an unrelated Go board-game binary: `go version` returned `Go: Unknown option:
-version`. Do not assume the executable name means it is the Go compiler. The
-verified Go 1.26.0 archive had SHA256
-`aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235`. For that
-exact archive on Linux/amd64, an isolated install can be verified and used as
-follows:
+Use the checkout's toolchain pins, not an older QA report's environment:
+`go.mod` (Go and Wails), `.node-version`, and `frontend/package.json`
+(`engines` and `packageManager`). The current pins are Go 1.27.3, Wails v3.1.0,
+Node 24.22.0 and pnpm 12.14.0. Check the selected executables before setup:
 
 ```bash
-TOOL_ROOT=/tmp/nestworth-acceptance-tools
-mkdir -p "$TOOL_ROOT"
-curl --fail --location --output "$TOOL_ROOT/go1.26.0.linux-amd64.tar.gz" \
-  https://go.dev/dl/go1.26.0.linux-amd64.tar.gz
-echo 'aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235  /tmp/nestworth-acceptance-tools/go1.26.0.linux-amd64.tar.gz' \
-  | sha256sum --check
-mkdir -p "$TOOL_ROOT/go1.26.0"
-tar -C "$TOOL_ROOT/go1.26.0" -xzf "$TOOL_ROOT/go1.26.0.linux-amd64.tar.gz"
-export GOROOT="$TOOL_ROOT/go1.26.0/go"
-export GOPATH="$TOOL_ROOT/gopath"
-export GOMODCACHE="$GOPATH/pkg/mod"
-export GOCACHE="$TOOL_ROOT/go-build-cache"
-export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
 go version
-```
-
-The project CLI prerequisite is Wails `v3.1.0`, invoked as `wails3`.
-When it is not already installed, install the CLI from the matching module
-version:
-
-```bash
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+node --version
+pnpm --version
 wails3 version
 ```
 
-Use the pinned `pnpm` version and check `pnpm --version`; the tested container's
-fallback pnpm wrapper was `11.19.0`, so it explicitly used pnpm `12.2.1`. For a
-temporary npm-exec installation, verify the pinned package with:
+If the CLI is absent, install the exact Wails version from `go.mod`:
 
 ```bash
-npm exec --yes --package=pnpm@12.2.1 -- pnpm --version
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 ```
+
+The historical PR101/PR102 run used Linux/amd64 Go 1.26.0, Wails beta.28,
+Node 24.19.0, pnpm 12.2.1, Vite 8.2.1, Python Playwright 1.62.0 and Chromium
+151.0.7922.173. Its Go archive SHA-256 was
+`aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235`.
+Those values describe [historical evidence](../qa/post-merge-pr101-pr102-2026-10-17/REPORT.md),
+not a supported installation recipe for current main.
 
 Do not let a mismatched package-manager wrapper silently determine the build.
 Use the cloud environment's browser executable. The verified Chromium was

@@ -354,3 +354,24 @@ transactions. Archive exceptions apply only to the original record's endpoints;
 the persistence layer independently checks those immutable endpoint references.
 Current archive metadata is preserved. New transactions keep existing active
 endpoint and positive-quantity guards.
+
+## Exact default-time boundary
+
+A new Record captures one browser instant at millisecond precision and submits
+RFC3339 `effectiveAt`, with empty local date/time fields. Waiting, editing an
+amount, changing kind, previewing and confirming preserve that instant. Editing
+the date or time selects manual `HH:MM` precision; a minute before the exact
+History Origin is rejected. Use current time explicitly recaptures and
+invalidates the old preview even within the same minute. Reopening captures anew.
+The backend remains authoritative for origin/future bounds and IANA timezone
+DST gaps/ambiguities. Fix preserves the original effective timestamp.
+
+Historical NW-008 evidence (baseline `b08dfb301b7da2310d0f78cdc23d832822f78bc4`):
+`HistoryPage.test.tsx`, `exactTime.test.ts` and
+`TestExactDefaultTimeAndManualMinuteBoundaries` cover UTC/Shanghai,
+second/millisecond origins, cash and position transfers, delayed confirmation,
+manual-minute rejection, stale previews and database reload. The targeted
+frontend run passed 76 tests; Wails history/race and binding/type checks were
+reported separately. This evidence does not establish final whole-suite or
+native IPC acceptance. The initial defect submitted `12:34:00` after an origin
+of `12:34:45.123`; no backend boundary relaxation was needed.

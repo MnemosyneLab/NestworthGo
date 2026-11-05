@@ -1,10 +1,19 @@
 # Linux native CI images
 
-`check.yml` uses a reviewed public image for meta, the bindings producer and
-four Go shards. Frontend quality and four frontend test shards stay on hosted
-Node; they consume the verified, exact-run bindings artifact and do not pull a
-native image. All existing gates, coverage, timeouts and perf tiers remain.
-This is independent of the application/server image in `build/docker`.
+## Current use and archive boundary
+
+Regular [`check.yml`](../../.github/workflows/check.yml) runs on native macOS;
+it does not use these Linux images. The `tooling-extended` job in
+[`perf.yml`](../../.github/workflows/perf.yml) resolves the reviewed image pins;
+its race and performance jobs use hosted Ubuntu with the bounded apt helper.
+Image build/publication remains in its own workflow.
+
+The producer, Go-shard and frontend-consumer topology below describes
+[the archived Linux check workflow](../../.github/workflow-archive/check-linux.yml.disabled).
+It remains useful for reviewed rollback, image publication and cache compatibility,
+not as a description of today's regular CI. Historical measurements apply only
+to their named workflow/source. This is independent of `build/docker` application
+images; restoring the archive requires a separate reviewed workflow change.
 
 ## Two variants and one version source
 

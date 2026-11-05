@@ -98,7 +98,7 @@ TLS mode. R2 uses a validated account ID to construct its HTTPS endpoint,
 region `auto`, explicit static credentials and normal TLS verification.
 
 Cloud inspection downloads to a private temporary directory, validates the
-supported 21/22 schemas nondestructively, requires its version to match the
+supported 21/22/23 schemas nondestructively, requires its version to match the
 stream identity, and creates a temporary local package
 for the existing token-based restore preview. Empty/not-found and incompatible
 candidates are errors. Installation requires typed `RESTORE` plus acknowledgment
@@ -128,7 +128,7 @@ bucket, stable BackupID and exact stream UUID. Existing remote identities are
 not adopted into the ledger. Legacy, foreign, unknown and crash-abandoned
 streams remain protected. The current stream and the newest two sealed streams
 are protected. On each scan those two streams must actually restore to private
-temporary databases and pass supported 21/22 schema, integrity and foreign-key
+temporary databases and pass supported 21/22/23 schema, integrity and foreign-key
 verification. If either fails, cleanup is skipped; an older unverified stream
 is never substituted. Temporary verification files are removed on completion,
 failure or cancellation. Verification honors cancellation without weakening

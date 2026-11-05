@@ -157,7 +157,7 @@ backend. Financial mutations and evidence receipts are never best-effort paired.
 ## Storage, backup and export
 
 Reconciliation tables, indexes, revision triggers and evidence remain required
-in both supported schemas 21/22. Read-only inspection verifies either version
+in supported schemas 21/22/23. Read-only inspection verifies each version
 without upgrading the source.
 Normal live open upgrades a restored copy. Unsupported versions, missing current
 structures and malformed facts remain blocked. Backup containers and continuous

@@ -22,7 +22,7 @@ the startup/onboarding gates are defined by
 - [Investment review](investment-review.md) — Current review rules, evidence, and explicit user controls.
 - [Upcoming actions](upcoming-actions.md) — Implemented read-only scheduled-action projection; release acceptance status is in the release record.
 - [JSON export format](json-export-format.md) — Versioned export schema and compatibility rules.
-- [Feature ideas](feature-ideas.md) — Historical proposal snapshot; open ideas are not roadmap commitments.
+- [Future directions](../product/roadmap.md) — Planned designs and uncommitted exploration.
 - [Market-data contracts](../architecture/data-and-ipc-contracts.md) — Current persistence, observation, coverage, provider, and recovery authority.
 
 ## Current screen map
@@ -67,8 +67,6 @@ in progress, planned, or deferred. Store durable decisions in the product,
 architecture, or release document that owns them; standalone prototypes are
 not product contracts.
 
-- [Investment review](investment-review.md) — Daily rule-based investment review, persisted evidence, suppressions, and historical episodes.
-- [Upcoming actions](upcoming-actions.md) — Implemented read-only normal-route projection and App entry points; native acceptance pending.
 
 ## Performance maintenance
 
