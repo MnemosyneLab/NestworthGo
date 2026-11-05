@@ -13,11 +13,23 @@ import (
 func TestGreetingThenCurrentFinancialContext(t *testing.T) {
 	_, observed, _ := ledgerSession(t)
 	fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+		for _, raw := range request["tools"].([]any) {
+			tool := raw.(map[string]any)
+			if tool["strict"] != false {
+				t.Error("optional capability schemas need explicit strict:false")
+			}
+			if tool["name"] == "get_financial_context" {
+				parameters := tool["parameters"].(map[string]any)
+				if required, ok := parameters["required"].([]any); ok && len(required) != 0 {
+					t.Error("optional context fields became required")
+				}
+			}
+		}
 		switch round {
 		case 0:
-			writeMode(w, request, []any{textItem()})
+			writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_greeting", "summary": []any{}, "encrypted_content": "synthetic-opaque-reasoning"}, textItem()})
 		case 1:
-			if !strings.Contains(encode(request["input"]), "Synthetic complete") {
+			if !strings.Contains(encode(request["input"]), "Synthetic complete") || !strings.Contains(encode(request["input"]), "synthetic-opaque-reasoning") {
 				t.Error("lost greeting history")
 			}
 			items := []any{obj{"type": "function_call", "id": "fc_context", "call_id": "call_context", "name": "get_financial_context", "arguments": `{}`, "status": "completed"}}
@@ -53,12 +65,15 @@ func TestGreetingThenCurrentFinancialContext(t *testing.T) {
 }
 
 func TestArgumentDoneSnapshotStillRequiresMatchingSuccessfulCompletion(t *testing.T) {
-	for _, mode := range []string{"valid", "mismatch_item", "mismatch_delta", "duplicate_done", "late_delta", "invalid_object", "missing_completed", "failed", "trailing_data"} {
+	for _, mode := range []string{"valid", "valid_nonempty", "mismatch_item", "mismatch_delta", "duplicate_done", "late_delta", "invalid_object", "missing_completed", "failed", "trailing_data"} {
 		t.Run(mode, func(t *testing.T) {
 			item := callItem()
 			item["arguments"] = `{}`
+			if mode == "valid_nonempty" {
+				item["arguments"] = `{"amount":"12.34"}`
+			}
 			es := events([]any{item})
-			done := obj{"type": "response.function_call_arguments.done", "output_index": 0, "item_id": "fc_0", "arguments": `{}`}
+			done := obj{"type": "response.function_call_arguments.done", "output_index": 0, "item_id": "fc_0", "arguments": item["arguments"]}
 			es[2] = done
 			switch mode {
 			case "mismatch_item":
@@ -81,7 +96,7 @@ func TestArgumentDoneSnapshotStillRequiresMatchingSuccessfulCompletion(t *testin
 				wire += "data: invalid\n\n"
 			}
 			_, _, err := validateStream([]byte(wire), Limits{Items: 128, Events: 4096})
-			if (err == nil) != (mode == "valid") {
+			if (err == nil) != (mode == "valid" || mode == "valid_nonempty") {
 				t.Fatalf("unexpected validation result: %v", err)
 			}
 		})

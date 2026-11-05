@@ -682,7 +682,7 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 	state, code := "succeeded", ""
 	if err != nil {
 		state = "failed"
-		code = "provider_or_storage_failure"
+		code = FailureCode(err)
 	}
 	if ctx.Err() != nil {
 		state = "cancelled"
@@ -844,7 +844,7 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	}
 	result, err = engine.Complete(ctx, history, prompt)
 	if err != nil {
-		return Completion{}, ErrUnavailable
+		return Completion{}, safeFailure(err)
 	}
 	if result.Navigation != nil && !result.Navigation.Valid() {
 		return Completion{}, ErrUnavailable

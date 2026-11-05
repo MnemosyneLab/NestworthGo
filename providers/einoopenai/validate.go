@@ -330,8 +330,11 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 				item.args.WriteString(delta)
 			} else {
 				arguments, err := textField(obj, "arguments")
-				if err != nil || len(arguments) > 64<<10 {
+				if err != nil {
 					return errProtocol
+				}
+				if len(arguments) > 64<<10 {
+					return errLimit
 				}
 				if _, err := object([]byte(arguments)); err != nil {
 					return err

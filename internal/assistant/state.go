@@ -52,6 +52,10 @@ func ValidateState(s State) error {
 }
 func knownState(s string) bool { return s == "accepted" || s == "running" || terminal(s) }
 func knownCode(s string) bool {
+	switch s {
+	case "provider_authentication", "provider_rate_limited", "provider_request_rejected", "provider_unavailable", "provider_connection", "provider_response_rejected", "model_history_rejected", "tool_result_rejected", "assistant_budget_exceeded":
+		return true
+	}
 	return s == "" || s == "restart_requires_new_request" || s == "authority_revoked" || s == "provider_or_storage_failure" || s == "cancelled" || s == "timeout"
 }
 
