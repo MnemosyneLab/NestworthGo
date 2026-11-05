@@ -115,4 +115,8 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 	if len(view.Runs) != 1 || view.Runs[0].State != "succeeded" || len(view.Runs[0].Evidence) != 2 || view.Navigation != nil {
 		t.Fatalf("page read failed or navigated: %+v", view)
 	}
+	activities, err := app.ListActivities(t.Context(), 10)
+	if err != nil || len(activities) != 0 {
+		t.Fatal("page tool wrote financial data", err)
+	}
 }

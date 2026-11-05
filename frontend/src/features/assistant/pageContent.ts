@@ -22,10 +22,14 @@ export function capturePageContent(viewKey: string): SemanticPage {
   const limitations: string[] = [];
   const nodes: SemanticNode[] = [];
   const root = viewKey === "return-analysis:" ? document.querySelector<HTMLElement>('[data-assistant-page="return-analysis"]') : null;
-  const page = root && !root.closest('[hidden], [inert], [aria-hidden="true"]') ? "return-analysis" : "unsupported";
+  // A modal assistant can make the underlying active page inert. Read its
+  // reviewed content while describing the overlay; retained hidden routes stay out.
+  const page = root && !root.closest('[hidden]') && getComputedStyle(root).display !== "none" ? "return-analysis" : "unsupported";
   if (page === "unsupported") limitations.push("This page is not supported. Only the active return-analysis page is currently available.");
   else {
     limitations.push("Semantic content of the active analysis tab only. Canvas/SVG geometry, hover-only tooltips and portal popovers are not exported. Collapsed disclosures retain their state and available semantic contents. No arbitrary UI control.");
+    const overlay = !!root?.closest('[inert], [aria-hidden="true"]');
+    if (overlay) limitations.push("The active page is blocked by an overlay; its controls are descriptive only.");
     const used = new Set<string>();
     const add = (n: Omit<SemanticNode, "id">, preferred?: string) => {
       if (nodes.length >= 8192) throw new Error("page_content_budget");
@@ -44,7 +48,7 @@ export function capturePageContent(viewKey: string): SemanticPage {
       return Array.from(node.childNodes).map(visibleText).join("");
     };
     const walk = (el: Element, parent: string, module: string) => {
-      if (el.matches(excluded)) return;
+      if (el !== root && el.matches(excluded)) return;
       if (getComputedStyle(el).display === "none" || getComputedStyle(el).visibility === "hidden") return;
       module = el.getAttribute("data-assistant-module") || module;
       const roleAttribute = el.getAttribute("role") || "";
@@ -56,7 +60,7 @@ export function capturePageContent(viewKey: string): SemanticPage {
       if (el instanceof HTMLInputElement && ["checkbox", "radio"].includes(el.type)) role = el.type;
       let nextParent = parent;
       if (role) {
-        const state: string[] = [];
+        const state: string[] = overlay ? ["inert=true"] : [];
         for (const name of ["expanded", "selected", "checked", "pressed", "invalid", "busy", "readonly", "disabled"]) {
           const value = el.getAttribute(`aria-${name}`); if (value !== null) state.push(`${name}=${value}`);
         }
@@ -64,7 +68,7 @@ export function capturePageContent(viewKey: string): SemanticPage {
         if (el instanceof HTMLInputElement) { if (el.type === "checkbox" || el.type === "radio") state.push(`checked=${el.checked}`); if (el.readOnly) state.push("readonly=true"); }
         if (el instanceof HTMLOptionElement) {state.push(`selected=${el.selected}`); if (el.disabled) state.push("disabled=true");}
         if (el.tagName === "SUMMARY") state.push(`expanded=${(el.parentElement as HTMLDetailsElement).open}`);
-        let name = el.getAttribute("aria-label") || (field ? Array.from(el.labels || []).map(visibleText).join(" ") : "");
+        let name = el.getAttribute("aria-label") || (field ? Array.from(el.labels || []).filter(label => root!.contains(label)).map(visibleText).join(" ") : "");
         if (!name && el.hasAttribute("aria-labelledby")) {
           name = (el.getAttribute("aria-labelledby") || "").split(/\s+/).map(id => document.getElementById(id)).filter((label): label is HTMLElement => !!label && !!root?.contains(label)).map(visibleText).join(" ");
         }

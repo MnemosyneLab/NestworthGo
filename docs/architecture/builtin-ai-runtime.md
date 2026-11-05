@@ -375,6 +375,8 @@ seconds and are checked against the runtime epoch, config revision, live
 workspace validator, run cancellation and enabled state. Nothing is prepublished.
 The current page must have an explicit reviewed root and match the current view
 key, excluding retained inactive pages and the assistant's own conversation.
+When a modal assistant makes the underlying active page inert, its reviewed
+content remains readable and the overlay/inert state is explicitly reported.
 
 The first supported root is Return analysis, across its active calendar, trend
 and contribution tabs. Stable module paths are `page`, `views`, `filters` and the

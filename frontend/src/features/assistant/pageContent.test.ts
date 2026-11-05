@@ -32,3 +32,11 @@ it("splits long text losslessly and rejects excessive content without advertisin
   const p = capturePageContent("return-analysis:"); expect(p.nodes.filter(n => n.name.includes("中")).map(n => n.name).join("")).toBe(paragraph.textContent);
   paragraph.textContent = "x".repeat(400 * 8193); expect(() => capturePageContent("return-analysis:")).toThrow("page_content_budget");
 });
+
+
+it("reads the active page under the assistant modal but excludes retained hidden routes", () => {
+ fixture(); const root=document.querySelector("main")!; root.setAttribute("inert", "");
+ const page=capturePageContent("return-analysis:"); expect(page.page).toBe("return-analysis");
+ expect(page.nodes[0].state).toContain("inert=true"); expect(page.limitations.join(" ")).toContain("overlay");
+ root.setAttribute("hidden", ""); expect(capturePageContent("return-analysis:").page).toBe("unsupported");
+});

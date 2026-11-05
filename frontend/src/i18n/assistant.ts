@@ -2,7 +2,7 @@ export const assistantEn = {
   aiChat: {
     sendNavigate: "Send and allow one page change",
     navigationHelp:
-      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview/account page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
+      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview, account or Return analysis page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
     navigationPending:
       "One page change authorized for this message; waiting for a successful reply.",
     navigationOpened: "The requested page was opened.",
@@ -173,7 +173,7 @@ export const assistantZhCN = {
   aiChat: {
     sendNavigate: "发送并允许一次页面跳转",
     navigationHelp:
-      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览或账户页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
+      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览、账户或收益分析页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
     navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
     navigationOpened: "已打开请求的页面。",
     navigationStopped:
@@ -328,7 +328,7 @@ export const assistantZhTW = {
   aiChat: {
     sendNavigate: "傳送並允許一次頁面跳轉",
     navigationHelp:
-      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽或帳戶頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
+      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽、帳戶或收益分析頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
     navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
     navigationOpened: "已開啟請求的頁面。",
     navigationStopped:
