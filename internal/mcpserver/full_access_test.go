@@ -116,8 +116,11 @@ func TestFullTransferSQLFailureRollsBackAllLegs(t *testing.T) {
 	if _, err := fx.local.ExecuteFullChange(t.Context(), cash.Binding.ID); err != nil {
 		t.Fatal(err)
 	}
-	var before int
-	if err := fx.db.SQL.QueryRow("SELECT count(*) FROM account_cash_values").Scan(&before); err != nil {
+	// Compare exact persisted balance rows, not the application revision: the
+	// coordinator intentionally advances revision even for failed writes.
+	const balances = "SELECT group_concat(row, '|') FROM (SELECT id || ':' || amount AS row FROM account_values UNION ALL SELECT id || ':' || amount AS row FROM account_cash_values ORDER BY row)"
+	var before string
+	if err := fx.db.SQL.QueryRow(balances).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	command := history.ChangeCommandRequest{Kind: history.ChangeCashTransfer, FromAccountID: fx.checking, ToAccountID: fx.savings, Sent: "2", SentCurrency: "USD", Received: "2", ReceivedCurrency: "USD", EffectiveAt: "2026-09-28T13:00:00Z"}
@@ -133,9 +136,9 @@ func TestFullTransferSQLFailureRollsBackAllLegs(t *testing.T) {
 		t.Fatal("expected SQL rollback")
 	}
 	assertActivityCount(t, fx, 1)
-	var after int
-	if err = fx.db.SQL.QueryRow("SELECT count(*) FROM account_cash_values").Scan(&after); err != nil || before != after || version != fx.app.MobileDataVersion() {
-		t.Fatalf("partial write before=%d after=%d err=%v", before, after, err)
+	var after string
+	if err = fx.db.SQL.QueryRow(balances).Scan(&after); err != nil || before != after || version == fx.app.MobileDataVersion() {
+		t.Fatalf("rollback/invalidation before=%s after=%s err=%v", before, after, err)
 	}
 	if _, err = fx.db.SQL.Exec("DROP TRIGGER fail_full_receipt"); err != nil {
 		t.Fatal(err)
