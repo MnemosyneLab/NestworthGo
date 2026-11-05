@@ -74,7 +74,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   // This component is keyed by runtime epoch and conversation ID by its owner.
   // Retain observed latest attempts while their positional history fetch catches
   // up; a pending/failed read must never erase an already displayed answer.
-  const [retained, setRetained] = useState(new Map<string, { run: Conversation["runs"][number]; offset: number }>());
+  const [retained, setRetained] = useState(new Map<string, { run: NonNullable<Conversation["runs"]>[number]; offset: number }>());
   const [announcement, setAnnouncement] = useState("");
   const announced = useRef(new Set<string>());
   const initialized = useRef(false);

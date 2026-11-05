@@ -51,10 +51,17 @@ try{
  await page.getByRole('button',{name:await t('assistant.open'),exact:true}).click();await page.getByLabel(await t('aiChat.message'),{exact:true}).waitFor();
  await page.getByLabel(await t('aiChat.message'),{exact:true}).fill('Read my synthetic current accounts');await page.getByRole('button',{name:await t('aiChat.send'),exact:true}).click();
  await page.getByText(await t('aiChat.run.running'),{exact:true}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('#ai-model-prompt')?.disabled);
+ await page.getByLabel(await t('aiChat.message'),{exact:true}).focus();
  const reading=page.getByRole('region',{name:await t('aiChat.transcript'),exact:true});
  await reading.evaluate(el=>{el.scrollTop=0;el.dispatchEvent(new Event('scroll'));});
  await page.getByText(/Synthetic checking: 12.34 USD/).waitFor();
  assert.equal(await reading.evaluate(el=>el.scrollTop),0);
+ assert.equal(await page.getByLabel(await t('aiChat.message'),{exact:true}).evaluate(el=>document.activeElement===el),true);
+ await page.getByText((await t('aiChat.replyReceived')).replace('{{number}}','8'),{exact:true}).waitFor();
+ const live=page.locator('#desktop-assistant [aria-live="polite"]');
+ assert.equal(await live.textContent(),(await t('aiChat.replyReceived')).replace('{{number}}','8'));
+ await live.evaluate(el=>{window.__qa.announcements=0;new MutationObserver(()=>window.__qa.announcements++).observe(el,{subtree:true,childList:true,characterData:true});});
  await page.getByRole('button',{name:await t('aiChat.jumpLatest'),exact:true}).click();
  assert.equal(await page.evaluate(()=>window.__qa.calls.length),1);assert.deepEqual(await page.evaluate(()=>window.__qa.calls[0].page),{kind:'accounts',accountId:''});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -77,9 +84,9 @@ try{
  await page.evaluate(()=>window.__qa.blocked=true);await page.getByRole('button',{name:'Synthetic checking',exact:true}).click();assert.equal(await page.evaluate(()=>window.__qa.navigated),0);
  await page.evaluate(()=>window.__qa.blocked=false);await page.getByRole('button',{name:'Synthetic checking',exact:true}).click();assert.equal(await page.evaluate(()=>window.__qa.navigated),1);assert.equal(await page.evaluate(()=>window.__qa.calls.length),1);assert.equal(await page.getByLabel(await t('aiChat.message'),{exact:true}).inputValue(),'Keep this synthetic draft private');
  await page.getByLabel(await t('aiChat.message'),{exact:true}).fill('Second synthetic question');await page.getByRole('button',{name:await t('aiChat.send'),exact:true}).click();await page.getByRole('button',{name:await t('aiChat.stop'),exact:true}).waitFor();await page.context().setOffline(true);await page.getByRole('button',{name:await t('aiChat.stop'),exact:true}).click();await page.getByText(await t('aiChat.run.cancelled'),{exact:true}).waitFor();
- assert.equal(await page.evaluate(()=>window.__qa.calls.length),2);assert.equal(await page.evaluate(()=>window.__qa.grants||0),0);await page.context().setOffline(false);
+ assert.equal(await page.evaluate(()=>window.__qa.calls.length),2);assert.equal(await page.evaluate(()=>window.__qa.grants||0),0);assert.equal(await page.evaluate(()=>window.__qa.announcements),0);await page.context().setOffline(false);
  await page.getByLabel(await t('aiChat.message'),{exact:true}).fill('Open overview');await page.getByRole('button',{name:await t('aiChat.sendNavigate'),exact:true}).click();await page.getByText(await t('aiChat.navigationOpened'),{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.__qa.navigated),2);assert.equal(await page.evaluate(()=>window.__qa.grants),1);assert.equal(await page.evaluate(()=>window.__qa.calls.length),3);
- results.push({width,language,theme,explicitActivation:true,selectorOnly:true,completed:true,cancelled:true,offlineHistoryAndStop:true,explicitModelNavigation:true,navigationGuard:true,targetKeepsDraftWithoutSending:true,noOverflow:true,continuousHistory:true,readingPositionPreserved:true,keyboardDisclosure:true,providerCalls:0});await page.close();
+ results.push({width,language,theme,explicitActivation:true,selectorOnly:true,completed:true,cancelled:true,offlineHistoryAndStop:true,explicitModelNavigation:true,navigationGuard:true,targetKeepsDraftWithoutSending:true,politeReplyNotification:true,replyKeepsFocus:true,noRepeatedAnnouncement:true,noOverflow:true,continuousHistory:true,readingPositionPreserved:true,keyboardDisclosure:true,providerCalls:0});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(join(output,'results.json'),JSON.stringify({results,errors},null,2));console.log(JSON.stringify({results,errors}));
 }finally{await browser?.close();await server.close();rmSync(scratch,{recursive:true,force:true});}
