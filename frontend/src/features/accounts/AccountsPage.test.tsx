@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { queryKeys } from "@/queries/keys";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { AccountsPage } from "./AccountsPage";
 import i18n from "@/i18n";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
@@ -835,11 +836,20 @@ describe("AccountsPage", () => {
     await layout.findByText("Synthetic stock");
     expect(layout.getAllByRole("listitem").map((item) => item.getAttribute("data-group"))).toEqual(["stock", "fund", "precious_metal"]);
     expect(layout.getByText("5 g")).toBeInTheDocument();
+    const before = capturePageContent("accounts:brk-1");
+    expect(before.nodes.some(n => n.module === "holdings" && n.name.includes("Synthetic fund"))).toBe(true);
     await userEvent.click(layout.getByRole("button", { name: "Collapse Funds & ETFs" }));
+    const collapsed = capturePageContent("accounts:brk-1");
+    expect(collapsed.id).not.toBe(before.id);
+    expect(collapsed.nodes.find(n => n.name === "Expand Funds & ETFs")?.state).toContain("expanded=false");
+    expect(collapsed.nodes.some(n => n.name.includes("Synthetic fund"))).toBe(false);
     expect(layout.queryByText("Synthetic fund")).not.toBeInTheDocument();
     expect(layout.getByText("Synthetic gold")).toBeInTheDocument();
     await userEvent.click(layout.getByRole("button", { name: "Show details for Synthetic gold" }));
     expect(layout.getByText("Expanded synthetic holding")).toBeInTheDocument();
+    const expanded = capturePageContent("accounts:brk-1");
+    expect(expanded.id).not.toBe(collapsed.id);
+    expect(expanded.nodes.some(n => n.module === "holdings" && n.name.includes("Expanded synthetic holding"))).toBe(true);
   });
 
   it("shows complete cash history fields with two-decimal money and no raw suffix", async () => {
@@ -1924,4 +1934,31 @@ it("uses the shared aligned holding disclosure and keeps row actions independent
   await waitFor(() => expect(screen.queryByRole("menu", { hidden: true })).not.toBeInTheDocument());
   expect(actions).toHaveFocus();
   expect(trigger).toHaveAttribute("aria-expanded", "true");
+});
+
+
+it("reads the real account list and detail live, fences filters and excludes portal forms", async () => {
+ const user = userEvent.setup();
+ renderPage();
+ await screen.findByText(emptyAccount.account.name);
+ const first = capturePageContent("accounts:");
+ expect(first.page).toBe("accounts");
+ expect(first.nodes.some(n => n.module === "account-list" && n.name.includes(emptyAccount.account.name))).toBe(true);
+ expect(first.nodes.find(n => n.id === "page/accounts-show-archived")?.state).toContain("checked=false");
+ await user.click(screen.getByLabelText(i18n.t("accounts.showArchived")));
+ const changed = capturePageContent("accounts:");
+ expect(changed.id).not.toBe(first.id);
+ expect(changed.nodes.find(n => n.id === "page/accounts-show-archived")?.state).toContain("checked=true");
+ await user.click(screen.getByText(emptyAccount.account.name));
+ await screen.findByTestId("account-detail");
+ const detail = capturePageContent(`accounts:${emptyAccount.account.id}`);
+ expect(detail.page).toBe("account");
+ expect(detail.nodes.some(n => n.name.includes(emptyAccount.account.name))).toBe(true);
+ expect(capturePageContent("accounts:another-account").page).toBe("unsupported");
+ expect(capturePageContent("accounts:").page).toBe("unsupported");
+ await user.click(screen.getByRole("button", { name: i18n.t("accounts.settings") }));
+ await screen.findByRole("button", {name: i18n.t("common.save")});
+ expect(capturePageContent(`accounts:${emptyAccount.account.id}`).limitations.join(" ")).toContain("form values are unavailable");
+ expect(capturePageContent(`accounts:${emptyAccount.account.id}`).nodes.some(n => n.name === i18n.t("common.save"))).toBe(false);
+ expect(createAccount).not.toHaveBeenCalled(); expect(updateAccount).not.toHaveBeenCalled();
 });

@@ -109,11 +109,12 @@ export function AccountDetail({
   valuation,
   valuationUpdatedAt,
   onRefresh,
-  onBack, updateValue = false,
+  onBack, updateValue = false, isFetching = false,
 }: {
   record: AccountRecordDTO;
   valuation?: AccountValuationDTO;
   valuationUpdatedAt?: number;
+  isFetching?: boolean;
   onRefresh?: () => void;
   onBack: () => void;
   updateValue?: boolean;
@@ -196,7 +197,7 @@ export function AccountDetail({
   );
 
   return (
-    <div className="flex min-w-0 flex-col gap-6" data-testid="account-detail">
+    <div className="flex min-w-0 flex-col gap-6" data-testid="account-detail" data-assistant-page="account" data-assistant-view={`accounts:${record.account.id}`} aria-busy={isFetching || groupsQuery.isFetching || cashValues.isFetching}>
       <PageChrome
         pageId="accounts"
         leading={
@@ -244,7 +245,7 @@ export function AccountDetail({
           {t("accounts.archivedReadOnly")}
         </p>
       )}
-      <AccountReconciliation accountId={record.account.id} archived={archived} />
+      <section data-assistant-module="reconciliation"><AccountReconciliation accountId={record.account.id} archived={archived} /></section>
       {valuation && !valuation.complete && missingReasons.length > 0 && (
         <p role="status" className="text-sm text-warning-foreground">
           {t("overview.totalsExcludeMissing")} {missingReasons.join(" · ")}
@@ -257,12 +258,12 @@ export function AccountDetail({
       )}
 
       {composite && record.account.balanceSheetRole !== "liability" && valuation?.composition && (
-        <AccountCompositionPanel key={record.account.id} composition={valuation.composition} updatedAt={valuationUpdatedAt} />
+        <section data-assistant-module="composition"><AccountCompositionPanel key={record.account.id} composition={valuation.composition} updatedAt={valuationUpdatedAt} /></section>
       )}
 
       {composite && (
         <div data-testid="account-cash-holdings-layout" className="grid min-w-0 grid-cols-1 items-start gap-4">
-          <Card className="min-w-0">
+          <Card className="min-w-0" data-assistant-module="cash">
             <CardHeader>
               <CardTitle>{t("accounts.cash")}</CardTitle>
             </CardHeader>
@@ -305,7 +306,7 @@ export function AccountDetail({
               )}
             </CardContent>
           </Card>
-          {!cashOnly && !groupsQuery.isLoading && !groupsQuery.isError && <Card className="min-w-0">
+          {!cashOnly && !groupsQuery.isLoading && !groupsQuery.isError && <Card className="min-w-0" data-assistant-module="holdings">
             <CardHeader>
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>
@@ -348,13 +349,13 @@ export function AccountDetail({
         </div>
       )}
 
-      <AccountProductsSection
+      <section data-assistant-module="products"><AccountProductsSection
         record={record}
         cashAmount={cash.find((component) => component.nativeCurrency === record.account.defaultCurrency)?.nativeAmount}
-      />
+      /></section>
 
       {composite && !cashValues.isError && (cashValues.data?.length ?? 0) > 0 && (
-        <Card data-testid="account-cash-history">
+        <Card data-testid="account-cash-history" data-assistant-module="cash-history">
           <CardHeader><CardTitle>{t("accounts.cashHistory")}</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -399,7 +400,7 @@ export function AccountDetail({
       )}
 
       {!composite && (
-        <Card className="min-w-0">
+        <Card className="min-w-0" data-assistant-module="value">
           <CardHeader>
             <CardTitle>{displayEnum(t, "enum", record.account.accountType)}</CardTitle>
           </CardHeader>

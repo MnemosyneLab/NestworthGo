@@ -67,3 +67,13 @@ it("never turns a reviewed contribution ID into permission to read secret input 
  for(const secret of ["protected-password","protected-note","protected-new-field"])expect(raw).not.toContain(secret);
  expect(page.nodes.filter(n=>n.state.includes("redacted"))).toHaveLength(3);
 });
+
+
+it("keeps the field allowlist scoped to the reviewed page and rejects hidden ancestors", () => {
+ document.body.innerHTML = '<div hidden><main data-assistant-page="overview">retained overview</main></div><main data-assistant-page="accounts"><input id="analysis-from" value="not-reviewed-on-accounts"><label for="accounts-show-archived">Archived</label><input id="accounts-show-archived" type="checkbox" checked><div data-assistant-module="account-list">Synthetic bank</div></main>';
+ expect(capturePageContent("overview:").page).toBe("unsupported");
+ const page=capturePageContent("accounts:");
+ expect(JSON.stringify(page)).not.toContain("not-reviewed-on-accounts");
+ expect(page.nodes.find(n=>n.id==="page/accounts-show-archived")?.state).toContain("checked=true");
+ expect(capturePageContent("settings:").page).toBe("unsupported");
+});

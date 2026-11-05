@@ -112,6 +112,7 @@ export function AccountsPage({
         record={selectedRecord}
         valuation={valuationByAccountId.get(selectedRecord.account.id)}
         valuationUpdatedAt={valuations.dataUpdatedAt}
+        isFetching={accounts.isFetching || valuations.isFetching}
         onRefresh={valuations.refetch}
         onBack={() => setSelectedId(null)}
       />
@@ -127,7 +128,7 @@ export function AccountsPage({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-assistant-page="accounts" aria-busy={accounts.isFetching || valuations.isFetching}>
       <PageChrome
         pageId="accounts"
         title={t("nav.accounts")}
@@ -158,7 +159,7 @@ export function AccountsPage({
         description={t("accounts.description")}
         status={
           <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <input type="checkbox" className="size-4 accent-primary" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+            <input id="accounts-show-archived" type="checkbox" className="size-4 accent-primary" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
             {t("accounts.showArchived")}
           </label>
         }
@@ -181,7 +182,7 @@ export function AccountsPage({
       )}
 
       {!accounts.isLoading && !accounts.isError && accounts.data && grouped.length > 0 && (
-        <div className="flex flex-col gap-6" data-testid="accounts-table">
+        <div className="flex flex-col gap-6" data-testid="accounts-table" data-assistant-module="account-list">
           <span className="sr-only">{t("accounts.tableLabel")}</span>
           {grouped.map((group) => (
             <section key={group.key} className="flex flex-col gap-2">

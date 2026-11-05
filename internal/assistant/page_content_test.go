@@ -14,6 +14,12 @@ import (
 )
 
 func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) {
+	for _, page := range []string{"return-analysis", "overview", "accounts", "account"} {
+		t.Run(page, func(t *testing.T) { checkPageCapture(t, page) })
+	}
+}
+
+func checkPageCapture(t *testing.T, page string) {
 	calls := make(chan ai.PageContentReader, 1)
 	done := make(chan error, 1)
 	f := func(ctx context.Context, _ ai.ModelConfig, _ []byte, _ string) (ai.Engine, error) {
@@ -35,7 +41,7 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 	if reader == nil {
 		t.Fatal("missing internal page reader")
 	}
-	snapshot := ai.PageContent{ID: uuid.NewString(), Page: "return-analysis", CapturedAt: time.Now(), Nodes: []ai.PageNode{}}
+	snapshot := ai.PageContent{ID: uuid.NewString(), Page: page, CapturedAt: time.Now(), Nodes: []ai.PageNode{}}
 	for i := range 80 {
 		snapshot.Nodes = append(snapshot.Nodes, ai.PageNode{ID: fmt.Sprint(i), Module: "filters", Role: "text", Name: fmt.Sprintf("合成 Synthetic %d", i)})
 	}
