@@ -59,7 +59,7 @@ try{
  assert.equal(await page.evaluate(()=>window.__qa.calls.length),1);assert.deepEqual(await page.evaluate(()=>window.__qa.calls[0].page),{kind:'accounts',accountId:''});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.locator('#desktop-assistant').screenshot({path:join(output,'chat-'+width+'-'+theme+'-collapsed.png')});
- await page.locator('summary').filter({hasText:await t('aiChat.toolReads').then(x=>x.replace('{{count}}','1'))}).click();await page.getByText(await t('aiChat.missingUnknown'),{exact:false}).waitFor();
+ await page.locator('summary').filter({hasText:await t('aiChat.toolReads').then(x=>x.replace('{{total}}','1'))}).click();await page.getByText(await t('aiChat.missingUnknown'),{exact:false}).waitFor();
  await page.locator('#desktop-assistant').screenshot({path:join(output,'chat-'+width+'-'+theme+'.png')});
 
  const transcript=page.getByRole('region',{name:await t('aiChat.transcript'),exact:true});

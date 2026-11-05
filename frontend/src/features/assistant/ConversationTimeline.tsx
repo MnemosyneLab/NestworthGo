@@ -98,7 +98,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
             <div className="min-w-0 flex-1 space-y-3"><span className="sr-only">{t("assistant.title")}</span>
               {!!run.evidence?.length && <details className="group rounded-lg border border-border text-xs text-muted-foreground">
                 <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-                  <Check className="size-3.5 shrink-0" aria-hidden="true" /><span className="flex-1">{t("aiChat.toolReads", { count: run.evidence.length })}</span><ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  <Check className="size-3.5 shrink-0" aria-hidden="true" /><span className="flex-1">{t("aiChat.toolReads", { total: run.evidence.length })}</span><ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
                 </summary>
                 <div className="space-y-3 border-t border-border p-3"><p>{t("aiChat.traceHelp")}</p>
                   {run.evidence.map((entry, index) => <div key={index} className="space-y-1">
