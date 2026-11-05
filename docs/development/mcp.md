@@ -12,7 +12,7 @@ through the official Go SDK (implementation version `3.0.0`). Handlers reuse
 the runtime-free `internal/wailsapi` adapters. MCP does not use Wails RPC and
 does not open SQLite itself. Secrets, backup/restore, arbitrary filesystem
 access and arbitrary SQL are not tools. The repository skill is an independent
-component (`skills/nestworth/VERSION`, currently 3.0.7, unpublished). It does
+component (`skills/nestworth/VERSION`, currently 3.0.8, unpublished). It does
 not add tools to an older App. Actual `tools/list` is the authority.
 
 This contract does not establish end-to-end native UI or external-agent
@@ -116,8 +116,8 @@ npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.js
 ## Tool inventory
 
 Counts below are the default `tools/list` inventory for each mode.
-Investment-review management is off, so `ledger_write` has 78 tools rather
-than 85. Hashes of name,
+Investment-review management is off, and the three drill-down tools are
+folded into `get_read_item`, so `ledger_write` has 75 tools rather than 85. Hashes of name,
 annotations and input/output schema are in
 `internal/mcpserver/testdata/discovery-contract.json`. Description prose is
 not part of that hash.
@@ -130,7 +130,7 @@ not part of that hash.
 | Financial summary | `get_financial_context`, `get_financial_context_item`, `compare_financial_context`, `compare_financial_attribution`, `get_read_page`, `get_read_item` |
 | Directory and holdings | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Current state | `get_overview`, `get_account_snapshot`, `get_account_valuations` |
-| History and analysis | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail`, `get_historical_overview` |
+| History and analysis | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_read_item`, `get_historical_overview` |
 | Products and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Investment review reads | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions` |
 | Market | `get_market_data`, `compare_market_data_import`, `list_agent_market_data`, `search_market_instruments` |
@@ -312,18 +312,20 @@ principal are not household income or expenses. Unavailable returns stay
 unavailable, not zero. The result is `mcp-read/1` with income, expense, asset
 change and investment-return sections.
 
-`list_contributions`, `get_contribution_item`, `get_return_day` and
-`get_asset_driver_detail` stay separate tools. Folding the three detail tools
-into the parent capture was measured and not implemented: freezing every
-return day on a synthetic 14-year range was 4,473,188 bytes, over the 4 MiB
-capture limit. See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+`get_contribution_item`, `get_return_day` and `get_asset_driver_detail` are
+removed. The same evidence is `get_read_item` on the parent capture.
+`list_contributions` already freezes each row: section=`rows`, id=the row key,
+then `rows/<key>/components` and `rows/<key>/byAccount`. `analyze_period`
+freezes every return day and the eleven asset-change drivers beside the
+capture. section=`returnDays`, id=YYYY-MM-DD opens `composition`,
+`contributors` and `issues`. section=`assetDrivers`, id=the bucket key opens
+`byInstrument`, `byAccount` and `residualDetails`. Those details are not part
+of the marshaled capture, so a long range that fits today still fits. The
+4 MiB cap is unchanged. See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
 
-`list_contributions` already freezes each row's components and account
-breakdown. `get_contribution_item` reads those sections from the list capture.
-`get_return_day` and `get_asset_driver_detail` still compute from the analysis
-query. Member is not an analysis scope. Asset-class filters use the
-instrument's current type. Preserve nullable amounts and coverage. Unrealized
-contribution remains unavailable when the analysis backend says so.
+Member is not an analysis scope. Asset-class filters use the instrument's
+current type. Preserve nullable amounts and coverage. Unrealized contribution
+remains unavailable when the analysis backend says so.
 
 `preview_investment_review_rule` is a read. It freezes the requested policy
 window in `mcp-read/1` and does not publish rules, alerts or valuations.
@@ -584,26 +586,27 @@ Every client pays `tools/list` and the server instructions on connect.
 hashes the contract and ignores description prose.
 
 Measured with `go test -count=1 -v ./internal/mcpserver -run TestDiscoveryBudget`
-on this branch (synthetic fixture, Linux), default discovery, investment
-review management off.
+on this branch after the C2 fold (synthetic fixture, Linux), default
+discovery, investment review management off. Removing
+`get_contribution_item`, `get_return_day` and `get_asset_driver_detail` is
+the `tools/list` change on top of the hidden management tools. Description
+prose on `analyze_period`, `list_contributions` and `get_read_item` changed
+and is outside the contract hash.
 
-| Mode | Tools | `tools/list` bytes | Instructions | Previous ceiling | Ceiling |
+| Mode | Tools | `tools/list` bytes | Instructions | Previous measurement | Ceiling |
 | --- | --- | --- | --- | --- | --- |
-| `read_only` | 51 | 63,386 | 2,373 | 64,700 | 64,700 |
-| `directory_write` | 64 | 78,447 | 2,373 | 80,000 | 80,000 |
-| `ledger_write` | 78 | 114,029 | 2,373 | 123,000 | 116,400 |
+| `read_only` | 48 | 59,137 | 2,373 | 51 / 63,386 | 64,700 |
+| `directory_write` | 61 | 74,198 | 2,373 | 64 / 78,447 | 80,000 |
+| `ledger_write` | 75 | 109,780 | 2,373 | 78 / 114,029 | 116,400 |
 
-`read_only` and `directory_write` grew by 39 bytes because `get_context`
-mentions `investmentReviewManagement`. Those ceilings stay: 63,386 and 78,447
-still fit the previous 2% caps. `ledger_write` dropped seven management tools
-(85 tools / 120,549 bytes before this switch). Its ceiling is about 2% above
-the new default (`114029 * 1.02 = 116310`, rounded up to 116,400). Enabling
-the switch puts those seven tools back; that payload is not the default
-budget. The longest description is 1,137 bytes (`commit_plan` on
-`ledger_write`; `get_historical_overview` is 1,016 on the other modes). The
-1,500-byte description cap stays a prose ceiling, not a fitted total.
-Instructions stay capped at 2,400 bytes, which is already inside 2% of 2,373
-and was not raised.
+Each mode dropped 4,249 bytes and three tools from the measurement taken with
+investment-review management off. Ceilings stay 64,700 / 80,000 / 116,400.
+This slice does not retighten them. Enabling the switch puts the seven
+management tools back; that payload is not the default budget. The longest
+description is 1,137 bytes (`commit_plan` on `ledger_write`;
+`get_historical_overview` is 1,016 on the other modes). The 1,500-byte
+description cap stays a prose ceiling. Instructions stay capped at 2,400
+bytes.
 
 These are `jsoncodec` bytes of the tool array, not model tokens. Earlier
 before/after tables are in the changelog. Wire response budget, capture
@@ -623,7 +626,8 @@ TTL.
 - Large preview schemas share sub-schemas. Required fields per kind remain.
 - `commit_plan` may omit `operationId`. Other writes may not.
 - `toolGroups` is not read. Both success representations stay.
-- Drill-down tools are not folded into `get_read_item`.
+- Contribution rows, return days and asset drivers are `get_read_item`
+  sections on the parent capture. The three former drill-down tools are gone.
 - Snapshot and valuations are not merged.
 
 ## Deferred
@@ -633,7 +637,9 @@ TTL.
   `investmentReviewManagement` is enabled. See Investment review management
   above.
 - E3: omit / `replace` / `<field>Set` are not collapsed into one PATCH rule.
-- C2: drill-down fold is closed as measure-only.
+- C2: done. Contribution, return-day and asset-driver reads are
+  `get_read_item` sections. Return days stay off the marshaled capture.
+  See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
 
 ## Related documents
 

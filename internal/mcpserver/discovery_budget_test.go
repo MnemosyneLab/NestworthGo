@@ -9,11 +9,12 @@ import (
 // Discovery size budgets guard against prose creep. They bound what every
 // client pays on connection: the serialized tools/list payload per permission
 // mode, the longest tool description and the server instructions. Mode ceilings
-// are about 2% above the latest default-discovery measurement (read_only 63386,
-// directory_write 78447, ledger_write 114029). ledger_write is the default
-// with investment-review management hidden; enabling that switch adds the
-// seven tools back and is not this ceiling. maxToolDescriptionBytes stays a
-// prose cap: the longest measured description is 1137 bytes (commit_plan), and
+// stay where they were when investment-review management was hidden (read_only
+// 64700, directory_write 80000, ledger_write 116400). The C2 fold measured
+// read_only 59137, directory_write 74198 and ledger_write 109780 and did not
+// retighten those ceilings. Enabling the switch adds the seven management
+// tools back and is not this ceiling. maxToolDescriptionBytes stays a prose
+// cap: the longest measured description is 1137 bytes (commit_plan), and
 // fitting that cap to 2% would reject the next necessary sentence. Instructions
 // are already inside 2% (2373 bytes against 2400) and are not raised. Raising a
 // limit is a deliberate review decision and needs a stated reason, not a

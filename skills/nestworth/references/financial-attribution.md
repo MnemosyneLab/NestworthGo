@@ -117,13 +117,17 @@ repayment principal do not create wealth. Single-account external flows can
 change that account's value. Missing price or FX remains unknown.
 
 The link is a bounded summary of existing asset drivers and investment return
-sources. For instrument, account or activity drilldown, `list_contributions` and
-`get_asset_driver_detail` remain available and start separate analysis captures.
-`get_contribution_item` then reads only its parent contribution capture. These
-identity-bearing workflows require the corresponding disclosure intent. Use the
-normalized period and actual scope ID and describe them as separate captures.
-**They are not detail pages or proof for this comparisonId.** Do not quietly
-substitute them after a compatibility failure. See [analysis](analysis.md).
+sources. For instrument, account or activity drilldown, call `analyze_period`
+or `list_contributions`, then `get_read_item` on that capture. Contribution
+rows use section=`rows` and id=the row key; child sections are
+`rows/<key>/components` and `rows/<key>/byAccount`. A return day uses
+section=`returnDays` and id=YYYY-MM-DD. An asset-change bucket uses
+section=`assetDrivers` and id=the bucket key. Those period sections are frozen
+with `analyze_period` and are not a second capture. These identity-bearing
+workflows require the corresponding disclosure intent. Use the normalized
+period and actual scope ID. **They are not detail pages or proof for this
+comparisonId.** Do not quietly substitute them after a compatibility failure.
+See [analysis](analysis.md).
 
 ## When the link fails
 

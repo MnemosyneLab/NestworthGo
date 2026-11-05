@@ -345,6 +345,20 @@ func measureC2Window(t *testing.T, app *application.Service, adapter *analysis.S
 
 	folded := attachPeriodDrilldown(t, parent, calendar.Cells, drivers)
 	foldedSize := frozenCaptureSize(t, folded)
+	produced, prodErr := periodReadCapture(AnalyzePeriodInput{Query: query}, period, newPeriodDrilldown(from, to, calendar.Cells, drivers))
+	if prodErr != nil {
+		t.Fatal(prodErr)
+	}
+	producedSize := frozenCaptureSize(t, produced)
+	if producedSize != parentSize {
+		t.Fatalf("production json %d != period body %d", producedSize, parentSize)
+	}
+	if producedSize > readCaptureLimit {
+		t.Fatalf("production capture %d exceeds readCaptureLimit %d", producedSize, readCaptureLimit)
+	}
+	if produced.drilldown == nil || len(produced.drilldown.days) != len(calendar.Cells) || len(produced.drilldown.drivers) != len(drivers) {
+		t.Fatalf("production drill-down days=%d drivers=%d", len(produced.drilldown.days), len(produced.drilldown.drivers))
+	}
 
 	daySectionRows := 0
 	for _, day := range calendar.Cells {
@@ -455,6 +469,7 @@ func measureC2Window(t *testing.T, app *application.Service, adapter *analysis.S
 	t.Logf("return_calendar_build=%s driver_build=%s drivers=%d", calendarElapsed, driverElapsed, len(drivers))
 	t.Logf("folded_bytes=%d incremental_bytes=%d day_section_rows=%d driver_section_rows=%d residual_rows=%d", foldedSize, foldedSize-parentSize, daySectionRows, driverSectionRows, residualRows)
 	t.Logf("folded_vs_capture_limit=%.6f folded_vs_cache_limit=%.6f over_capture_limit=%t", float64(foldedSize)/float64(readCaptureLimit), float64(foldedSize)/float64(readCacheLimit), foldedSize > readCaptureLimit)
+	t.Logf("production_json_bytes=%d naive_folded_bytes=%d production_over_cap=%t drilldown_omitted_from_json=%t", producedSize, foldedSize, producedSize > readCaptureLimit, producedSize == parentSize)
 	t.Logf("naive_return_day calls=%d of %d elapsed=%s complete=%t", naiveLimit, naiveDays, naiveElapsed, naiveLimit == naiveDays)
 	t.Logf("contributions_bytes=%d rows_only_bytes=%d detail_incremental_bytes=%d items=%d contrib_build=%s contrib_status=%s", contribSize, rowsSize, contribSize-rowsSize, len(items), contribElapsed, contrib.Status)
 	t.Logf("heap_alloc_before=%d heap_alloc_after_decode=%d heap_delta=%d vm_rss_kib=%d ttl=%s", before.HeapAlloc, after.HeapAlloc, int64(after.HeapAlloc)-int64(before.HeapAlloc), readVmRSS(), readTTL)

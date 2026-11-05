@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -100,55 +99,14 @@ func (s *Service) historyTools(server *toolSet) {
 	readTool(server, "get_activity", "Read one recorded activity by UUID, including its effects, trade or dividend details, and correction links. IDs come from list_activities.", func(ctx context.Context, in IDInput) (any, error) {
 		return historyService.Activity(ctx, in.ID)
 	})
-	analysisTool(server, "analyze_period", "Income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the household history timezone; the range must end before the current local day. Missing prices or FX can leave results partial or unavailable: keep available, status, missingReason and nullable amounts and rates, and never read null as zero. Own-account transfers and purchase principal are not income or expenses. Returns a summary plus sections (income, expenses, assetChange, investmentReturns); continue with get_read_page. May refresh derived snapshots.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
-		var result PeriodAnalysisDTO
-		query := in.Query.request()
-		// Keep all four projections on one application revision. Nested snapshot
-		// maintenance in the adapters remains reentrant on this context.
-		err := s.app.WithWrite(ctx, func(ctx context.Context) error {
-			var err error
-			result.Income, err = analysisService.Categories(ctx, query, "income")
-			if err != nil {
-				return err
-			}
-			result.Expenses, err = analysisService.Categories(ctx, query, "spending")
-			if err != nil {
-				return err
-			}
-			result.AssetChange, err = analysisService.AssetChange(ctx, query)
-			if err != nil {
-				return err
-			}
-			result.InvestmentReturns, err = analysisService.ReturnTrend(ctx, query, "period_return_amount")
-			return err
-		})
+	analysisTool(server, "analyze_period", "Income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the household history timezone; the range must end before the current local day. Missing prices or FX can leave results partial or unavailable: keep available, status, missingReason and nullable amounts and rates, and never read null as zero. Own-account transfers and purchase principal are not income or expenses. Returns a summary plus sections (income, expenses, assetChange, investmentReturns); continue with get_read_page. Open one frozen return day with get_read_item section=returnDays and id=YYYY-MM-DD, or one asset-change bucket with section=assetDrivers and the bucket key. Those details stay with this capture and are omitted from its stored body. May refresh derived snapshots.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
+		result, drilldown, err := loadPeriodAnalysis(ctx, s.app, analysisService, in.Query)
 		if err != nil {
 			return nil, err
 		}
 		return s.buildRead(ctx, generation, autoInlineWhenUnset(in.Limit), func(context.Context) (readCapture, error) {
-			capture := readCapture{Kind: "period_analysis", Query: in, Summary: map[string]any{}, Sections: map[string][]json.RawMessage{}}
-			projections := []struct {
-				name   string
-				value  any
-				fields []string
-			}{
-				{"income", result.Income, []string{"rows"}},
-				{"expenses", result.Expenses, []string{"rows"}},
-				{"assetChange", result.AssetChange, []string{"waterfall", "groups"}},
-				{"investmentReturns", result.InvestmentReturns, []string{"points", "sources"}},
-			}
-			for _, projection := range projections {
-				part, err := sectionedReadCapture("period_analysis", in, projection.value, projection.fields...)
-				if err != nil {
-					return capture, err
-				}
-				capture.Summary.(map[string]any)[projection.name] = part.Summary
-				for name, rows := range part.Sections {
-					capture.Sections[projection.name+"/"+name] = rows
-				}
-			}
-			return capture, nil
+			return periodReadCapture(in, result, drilldown)
 		})
 	})
-	s.attributionTools(server, analysisService)
+	s.attributionTools(server)
 }

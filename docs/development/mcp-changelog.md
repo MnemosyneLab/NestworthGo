@@ -252,10 +252,35 @@ closed as measure-only. D and E3 were deferred. See
 [mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md) and
 [mcp-wave2-deferred.md](mcp-wave2-deferred.md).
 
+## C2 drill-down fold
+
+`get_contribution_item`, `get_return_day` and `get_asset_driver_detail` are
+removed. `get_read_item` opens the same evidence on the parent capture.
+Contribution rows were already frozen inside `list_contributions`.
+`analyze_period` now also freezes every return day and the eleven asset-change
+drivers, but those values are kept off the marshaled capture. `store` still
+charges only `jsoncodec.Marshal` against the 4 MiB cap, so the 14-year and
+18-year windows that previously measured 4,473,188 and 5,748,641 folded bytes
+do not start failing `too_large`. See
+[mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+
+`TestDiscoveryBudget` after the removal, measured on top of default discovery
+with investment-review management off:
+
+| Mode | Tools | `tools/list` bytes |
+| --- | --- | --- |
+| `read_only` | 48 | 59,137 (was 63,386) |
+| `directory_write` | 61 | 74,198 (was 78,447) |
+| `ledger_write` | 75 | 109,780 (was 114,029) |
+
+Instructions stayed 2,373 bytes. Ceilings stayed 64,700 / 80,000 / 116,400.
+Name, annotation and schema hashes of the remaining tools were unchanged.
+Skill `3.0.8` documents the three removed names.
+
 ## F2 contract rewrite and budget tighten
 
 `docs/development/mcp.md` was rewritten from this chronological stack into the
-current contract. The measurement above is still the live `tools/list` size:
+current contract. The measurement at that rewrite was
 51 / 63,347, 64 / 78,408, 85 / 120,549, instructions 2,373, longest
 description 1,137 (`commit_plan`). Mode ceilings moved from 66,500 / 83,500 /
 128,000 to 64,700 / 80,000 / 123,000, about 2% above those measurements. The

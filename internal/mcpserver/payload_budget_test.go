@@ -479,14 +479,17 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	// Analysis work is narrow and done once; other probes reuse those snapshots.
 	query := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.checking}
 	start = rec.total()
-	sectionEvidence(t, c, "analyze_period", map[string]any{"query": query})
+	periodCapture := scaleCapture(t, c, "analyze_period", map[string]any{"query": query})
+	for section := range periodCapture["sections"].(map[string]any) {
+		scaleSection(t, c, periodCapture, section)
+	}
 	contributionQuery := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.brokerage}
 	contributions := call(t, c, "list_contributions", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "limit": 5}, false)["data"].(map[string]any)
 	if rows := contributions["sections"].(map[string]any)["rows"].(map[string]any)["items"].([]any); len(rows) > 0 {
-		sectionEvidence(t, c, "get_contribution_item", map[string]any{"captureId": contributions["captureId"], "groupKey": rows[0].(map[string]any)["key"]})
+		sectionEvidence(t, c, "get_read_item", map[string]any{"captureId": contributions["captureId"], "section": "rows", "id": rows[0].(map[string]any)["key"]})
 	}
-	sectionEvidence(t, c, "get_return_day", map[string]any{"query": query, "date": "2026-10-02"})
-	sectionEvidence(t, c, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "external_flow"})
+	sectionEvidence(t, c, "get_read_item", map[string]any{"captureId": periodCapture["captureId"], "section": "returnDays", "id": "2026-10-02"})
+	sectionEvidence(t, c, "get_read_item", map[string]any{"captureId": periodCapture["captureId"], "section": "assetDrivers", "id": "external_flow"})
 	rec.journey("analysis and attribution complete sections", start, 20, 512<<10)
 	comparisonArgs := map[string]any{"leftAsOf": "2026-10-01", "rightAsOf": "2026-10-02", "scope": map[string]any{"kind": "accounts", "accountIds": []string{f.checking}}}
 	comparison := call(t, c, "compare_financial_context", comparisonArgs, false)["data"].(map[string]any)

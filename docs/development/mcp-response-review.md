@@ -59,7 +59,7 @@ content. Error adaptation uses safeError; bounded HTTP tools additionally saniti
 schema errors, reject batches/oversized IDs, and cap the complete output. Writes retain their original SDK results and safety evidence. Existing bounded
 activity/review/reconciliation APIs keep their distinct domain paging contracts.
 
-- `attribution_tools.go`: `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail`.
+- `attribution_tools.go`: `list_contributions`. Contribution, return-day and asset-driver drill-down is `get_read_item` on the parent capture.
 - `batch_tools.go`: `preview_batch`.
 - `bounded_read.go`: `get_read_page`, `get_read_item`.
 - `commit_plan_tool.go`: `commit_plan` (write receipt; no read output schema).

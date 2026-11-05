@@ -193,15 +193,15 @@ outstanding ledger preview; perform analysis before preview/commit.
 | “上个月赚了多少？” | `analyze_period` investment return, then contribution if needed |
 | “收入支出各多少？” | Period income/expense; own-account transfers and investment principal are not income/spending |
 | “哪几只资产贡献最大？” | `list_contributions` with returnType, groupBy and ordering; frozen rows via `get_read_page` |
-| “这行收益为什么是这个数？” | `get_contribution_item` with the list captureId and exact groupKey; frozen child sections via `get_read_page` |
-| “某一天为什么亏损？” | `get_return_day`, date inside the same period |
-| “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_asset_driver_detail` with an actual returned bucket key |
+| “这行收益为什么是这个数？” | `get_read_item` on the list capture, section=`rows`, id=the row key; frozen child sections via `get_read_page` |
+| “某一天为什么亏损？” | `get_read_item` on the `analyze_period` capture, section=`returnDays`, id=that YYYY-MM-DD |
+| “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_read_item` section=`assetDrivers` and id=that bucket key |
 | “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
 
 Contribution lists use `mcp-read/1`: inspect `summary` and `sections.rows`, then
 follow only the rows needed with `get_read_page` (captureId, section=`rows`, signed
 cursor; default limit 25, maximum 100). There is no offset argument. For selected
-row evidence call `get_contribution_item` with that same captureId and groupKey;
+row evidence call `get_read_item` with that same captureId, section=`rows` and id=the row key;
 do not repeat the query, returnType or groupBy. Follow its independently named
 child sections only when their evidence is needed. Pages and details never
 recalculate or renew the five-minute TTL. On expiry, eviction or revocation,
@@ -220,6 +220,18 @@ intersect, including on the same dimension. Contradictions yield available
 empty results. Realized grouping remains instrument/account, and member filters
 remain unsupported. Detail hints identify related history and may be broader
 than a currency/class-filtered row's exact activity set.
+
+On an `analyze_period` capture, `get_read_item` section=`returnDays` id=YYYY-MM-DD
+opens that closed day. Page `returnDays/<date>/composition`,
+`returnDays/<date>/contributors` and `returnDays/<date>/issues`.
+`get_read_item` section=`assetDrivers` id=the bucket key opens
+`assetDrivers/<key>/byInstrument`, `assetDrivers/<key>/byAccount` and
+`assetDrivers/<key>/residualDetails`. The date must fall inside the capture
+range. Bucket keys are the assetChange keys already returned:
+external_flow, income, spending, dividend_interest, price_change, fx_impact,
+fx_conversion_spread, fee, liability_impact, adjustment, residual. These
+sections are frozen with the period capture and do not renew its TTL. They
+are omitted from the stored capture body so a long range can still be captured.
 
 Asset drivers include external flow, income, spending, dividend/interest, price,
 FX impact, conversion spread, fees, liabilities, adjustments and residual.

@@ -60,7 +60,7 @@ certify old frozen comparisons.
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Previews (ledger_write) | `preview_change`, `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
 | Commit any preview (ledger_write) | `commit_plan` with the returned `planId`; the server reads the plan kind |
-| History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail` |
+| History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_read_item` |
 | Quotes and audit | `get_market_data`, `compare_market_data_import`, `list_agent_market_data`, `import_market_data`, `set_fx_source` |
 | Data repair | `scan_data_health`, `preview_data_repair`, `start_data_repair`, `get_data_repair_job` |
 

@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -302,15 +303,15 @@ func TestRealizedContributionFiltersHTTPAndWails(t *testing.T) {
 	itemKey := stock.ID.String()
 	stockIDString := stock.ID.String()
 	usdCurrency := "USD"
-	item := sectionEvidence(t, client, "get_contribution_item", map[string]any{"captureId": combined["captureId"], "groupKey": itemKey})
+	item := sectionEvidence(t, client, "get_read_item", map[string]any{"captureId": combined["captureId"], "section": "rows", "id": itemKey})
 	wantItem, err := adapter.ContributionItem(t.Context(), analysis.AnalysisQueryRequest{
 		From: request.From, To: request.To, AccountID: &accountA, InstrumentID: &stockIDString, Currency: &usdCurrency, AssetClass: "stock",
 	}, "realized", "instrument", itemKey)
 	if err != nil || !reflect.DeepEqual(item, jsonObject(t, wantItem)) {
 		t.Fatalf("realized item MCP=%+v Wails=%+v err=%v", item, wantItem, err)
 	}
-	call(t, client, "get_contribution_item", map[string]any{"captureId": combined["captureId"], "groupKey": etf.ID.String()}, true)
-	call(t, client, "get_contribution_item", map[string]any{"captureId": combined["captureId"], "groupKey": "synthetic-instrument"}, true)
+	call(t, client, "get_read_item", map[string]any{"captureId": combined["captureId"], "section": "rows", "id": etf.ID.String()}, true)
+	call(t, client, "get_read_item", map[string]any{"captureId": combined["captureId"], "section": "rows", "id": "synthetic-instrument"}, true)
 
 	// Current metadata determines class selection, including for older sale
 	// events. The synthetic history remains isolated to the test database.
@@ -339,7 +340,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"list_contributions", "get_return_day", "get_asset_driver_detail"} {
+	for _, name := range []string{"list_contributions", "analyze_period"} {
 		found := false
 		for _, tool := range listed.Tools {
 			if tool.Name == name {
@@ -405,8 +406,8 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 		if key != brokerageID && key != secondBrokerageID {
 			t.Fatalf("contribution key = %q, want brokerage IDs %q or %q", key, brokerageID, secondBrokerageID)
 		}
-		item := sectionEvidence(t, client, "get_contribution_item", map[string]any{
-			"captureId": contribution["captureId"], "groupKey": key,
+		item := sectionEvidence(t, client, "get_read_item", map[string]any{
+			"captureId": contribution["captureId"], "section": "rows", "id": key,
 		})
 		wantItem, err := adapter.ContributionItem(ctx, request, "dividend_interest", "account", key)
 		if err != nil {
@@ -417,7 +418,9 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 		}
 	}
 
-	day := sectionEvidence(t, client, "get_return_day", map[string]any{"query": query, "date": "2025-03-03"})
+	period := scaleCapture(t, client, "analyze_period", map[string]any{"query": query})
+	dayArgs := map[string]any{"captureId": period["captureId"], "section": "returnDays", "id": "2025-03-03"}
+	day := sectionEvidence(t, client, "get_read_item", dayArgs)
 	wantDay, err := adapter.ReturnDay(ctx, request, "2025-03-03")
 	if err != nil {
 		t.Fatal(err)
@@ -425,13 +428,41 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	if !reflect.DeepEqual(day, jsonObject(t, wantDay)) {
 		t.Fatalf("return day = %+v, want %+v", day, wantDay)
 	}
-	driver := sectionEvidence(t, client, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "income"})
+	driverArgs := map[string]any{"captureId": period["captureId"], "section": "assetDrivers", "id": "income"}
+	driver := sectionEvidence(t, client, "get_read_item", driverArgs)
 	wantDriver, err := adapter.AssetDriverDetail(ctx, request, "income")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(driver, jsonObject(t, wantDriver)) {
 		t.Fatalf("asset driver = %+v, want %+v", driver, wantDriver)
+	}
+	if _, err := history.NewService(app).RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeMoneyAdded, AccountID: brokerageID, Amount: "3", Currency: "USD",
+		Reason: "income", EffectiveAt: "2025-03-03T16:00:00Z",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if again := sectionEvidence(t, client, "get_read_item", dayArgs); !reflect.DeepEqual(day, again) {
+		t.Fatalf("frozen return day changed: before=%+v after=%+v", day, again)
+	}
+	if again := sectionEvidence(t, client, "get_read_item", driverArgs); !reflect.DeepEqual(driver, again) {
+		t.Fatalf("frozen asset driver changed: before=%+v after=%+v", driver, again)
+	}
+	s.reads.mu.Lock()
+	stored := s.reads.entries[period["captureId"].(string)]
+	charged := stored.size
+	s.reads.mu.Unlock()
+	if stored.drilldown == nil || len(stored.drilldown.days) == 0 || len(stored.drilldown.drivers) != len(assetDriverKeys) {
+		t.Fatal("analyze_period dropped frozen drill-down")
+	}
+	for key := range stored.Sections {
+		if strings.HasPrefix(key, "returnDays/") || strings.HasPrefix(key, "assetDrivers/") {
+			t.Fatalf("drill-down stored in capture body: %s", key)
+		}
+	}
+	if charged > readCaptureLimit {
+		t.Fatalf("capture charge %d exceeds %d", charged, readCaptureLimit)
 	}
 
 	for _, args := range []map[string]any{
@@ -444,8 +475,8 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	} {
 		call(t, client, "list_contributions", args, true)
 	}
-	call(t, client, "get_contribution_item", map[string]any{"query": query, "returnType": "total_return", "groupBy": "account", "groupKey": ""}, true)
-	call(t, client, "get_return_day", map[string]any{"query": query, "date": "2025-03-04"}, true)
-	call(t, client, "get_return_day", map[string]any{"query": query, "date": "2025-03-02T00:00:00Z"}, true)
-	call(t, client, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "unknown"}, true)
+	call(t, client, "get_read_item", map[string]any{"captureId": contribution["captureId"], "section": "rows", "id": ""}, true)
+	call(t, client, "get_read_item", map[string]any{"captureId": period["captureId"], "section": "returnDays", "id": "2025-03-04"}, true)
+	call(t, client, "get_read_item", map[string]any{"captureId": period["captureId"], "section": "returnDays", "id": "2025-03-02T00:00:00Z"}, true)
+	call(t, client, "get_read_item", map[string]any{"captureId": period["captureId"], "section": "assetDrivers", "id": "unknown"}, true)
 }

@@ -82,7 +82,7 @@ func TestFrozenContributionDiscoveryContract(t *testing.T) {
 	}
 	found := 0
 	for _, tool := range listed.Tools {
-		if tool.Name != "list_contributions" && tool.Name != "get_contribution_item" {
+		if tool.Name != "list_contributions" {
 			continue
 		}
 		found++
@@ -95,17 +95,11 @@ func TestFrozenContributionDiscoveryContract(t *testing.T) {
 			t.Fatal(err)
 		}
 		props := schema["properties"].(map[string]any)
-		if tool.Name == "list_contributions" {
-			if props["offset"] != nil || props["query"] == nil || props["limit"] == nil || tool.Annotations.ReadOnlyHint {
-				t.Fatal("capture schema/effect changed", schema)
-			}
-		} else {
-			if len(props) != 2 || props["captureId"] == nil || props["groupKey"] == nil || !tool.Annotations.ReadOnlyHint {
-				t.Fatal("detail schema/effect changed", schema)
-			}
+		if props["offset"] != nil || props["query"] == nil || props["limit"] == nil || tool.Annotations.ReadOnlyHint {
+			t.Fatal("capture schema/effect changed", schema)
 		}
 	}
-	if found != 2 {
+	if found != 1 {
 		t.Fatal(found)
 	}
 }

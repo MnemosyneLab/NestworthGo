@@ -20,8 +20,8 @@ func TestContributionCaptureSurvivesMutationAndExpires(t *testing.T) {
 	args := map[string]any{"query": map[string]any{"from": "2025-03-02", "to": "2025-03-03", "includeCash": true}, "returnType": "dividend_interest", "groupBy": "account", "limit": 1}
 	capture := scaleCapture(t, c, "list_contributions", args)
 	first := contributionPageEvidence(capture)
-	itemArgs := map[string]any{"captureId": capture["captureId"], "groupKey": a}
-	before := sectionEvidence(t, c, "get_contribution_item", itemArgs)
+	itemArgs := map[string]any{"captureId": capture["captureId"], "section": "rows", "id": a}
+	before := sectionEvidence(t, c, "get_read_item", itemArgs)
 	// Change the already-captured row so the live ordering and amount both change.
 	holdings, err := app.ListHoldings(t.Context(), domain.AccountID(a), false)
 	if err != nil || len(holdings) == 0 {
@@ -35,7 +35,7 @@ func TestContributionCaptureSurvivesMutationAndExpires(t *testing.T) {
 	if row["key"] != a || row["amount"].(map[string]any)["amount"] != "5" {
 		t.Fatalf("old snapshot changed: %+v", second)
 	}
-	after := sectionEvidence(t, c, "get_contribution_item", itemArgs)
+	after := sectionEvidence(t, c, "get_read_item", itemArgs)
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("frozen detail changed: before=%+v after=%+v", before, after)
 	}
@@ -46,12 +46,12 @@ func TestContributionCaptureSurvivesMutationAndExpires(t *testing.T) {
 	}
 	rec.journey("frozen contribution first page, detail, mutation, continuation, detail and fresh capture", start, 12, 128<<10)
 	call(t, c, "get_read_page", map[string]any{"captureId": capture["captureId"], "section": "rows", "cursor": first["nextCursor"].(string) + "x"}, true)
-	call(t, c, "get_contribution_item", map[string]any{"captureId": capture["captureId"], "groupKey": "missing"}, true)
+	call(t, c, "get_read_item", map[string]any{"captureId": capture["captureId"], "section": "rows", "id": "missing"}, true)
 	s.reads.mu.Lock()
 	now := s.reads.now()
 	s.reads.now = func() time.Time { return now.Add(readTTL) }
 	s.reads.mu.Unlock()
-	call(t, c, "get_contribution_item", itemArgs, true)
+	call(t, c, "get_read_item", itemArgs, true)
 	_, err = s.readItem(s.contextGeneration, ReadItemInput{CaptureID: capture["captureId"].(string), Section: "rows", ID: a}, "contributions")
 	if err == nil || !strings.Contains(err.Error(), "read_expired") {
 		t.Fatalf("expiry: %v", err)
