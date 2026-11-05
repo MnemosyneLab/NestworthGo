@@ -264,7 +264,20 @@ cursor returns `reset`; refresh metadata/history. Generated bindings expose
 write-only credential input and bounded configuration,
 never stored secrets, history internals or host review methods. The desktop polls
 status every two seconds and the selected latest turn every second while mounted.
-History pages load on explicit selection. No poll invokes a model. Offline state
+The sidebar presents a chronological transcript: the latest attempt and up to
+five preceding turns load on session selection. “Load earlier messages” prepends
+five more bounded `Messages` reads without replacing the visible transcript.
+New attempts retain already displayed history. Scrolling away from the bottom
+pauses following; “Latest messages” resumes it. Failed history reads have a
+local retry that never replays `Start`.
+Completed host read evidence appears in a collapsed disclosure attached to its
+answer, with allowlisted localized source names, capture time and conservative
+coverage/missingness. The current API has no per-tool live lifecycle events;
+working indicators describe the run only and never invent tool progress.
+Privacy/scope/retention information lives behind an accessible info popover.
+Single-message navigation remains a separate explicit send action inside the
+page-navigation disclosure; opening it grants nothing. Closing the assistant
+retains the session and does not delete its persisted history. No poll invokes a model. Offline state
 pauses only new model submissions. All local Status/List/Inspect/Messages queries
 use `networkMode:always`; Stop and local history remain available under a browser
 offline hint. Reconnect/reload reads persisted state instead of replaying Start.

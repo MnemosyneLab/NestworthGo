@@ -8,67 +8,18 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Notice } from "@/components/ui/notice";
 import { callService } from "@/lib/wails";
-import { formatTimestamp } from "@/lib/time";
+import { InfoPopover } from "@/components/ui/info-popover";
+import { Plus, Trash2, ArrowUp, Sparkles } from "lucide-react";
+import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 
-type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
-const diagnosticKeys: Record<string, string> = {
-  timeout: "aiChat.timeout",
-  provider_authentication: "aiChat.providerAuthentication",
-  provider_rate_limited: "aiChat.providerRateLimited",
-  provider_request_rejected: "aiChat.providerRequestRejected",
-  provider_unavailable: "aiChat.providerUnavailable",
-  provider_connection: "aiChat.providerConnection",
-  provider_response_rejected: "aiChat.providerResponseRejected",
-  model_history_rejected: "aiChat.modelHistoryRejected",
-  tool_result_rejected: "aiChat.toolResultRejected",
-  assistant_budget_exceeded: "aiChat.runBudgetExceeded",
-  "assistant_budget_exceeded.model_rounds": "aiChat.budgetModelRounds",
-  "assistant_budget_exceeded.tool_calls": "aiChat.budgetToolCalls",
-  "assistant_budget_exceeded.history_bytes": "aiChat.budgetHistory",
-  "assistant_budget_exceeded.history_messages": "aiChat.budgetHistory",
-  "assistant_budget_exceeded.prompt_bytes": "aiChat.budgetPrompt",
-  "assistant_budget_exceeded.text_bytes": "aiChat.budgetText",
-  "assistant_budget_exceeded.provider_payload": "aiChat.budgetProviderPayload",
-  "assistant_budget_exceeded.tool_result_bytes": "aiChat.budgetToolResult",
-  "assistant_budget_exceeded.read_evidence": "aiChat.budgetReadEvidence",
-};
-// Only exact, code-owned diagnostic rules may be rendered; never reflect an
-// unknown backend code (which could contain data from another implementation).
-const responseRules = [
-  "request_contract",
-  "response_headers",
-  "response_body",
-  "response_terminal",
-  "response_item",
-  "stream_frame",
-  "stream_order",
-  "stream_lifecycle",
-  "stream_item_added",
-  "stream_item_done",
-  "stream_function_status",
-  "stream_function_arguments",
-  "stream_function_identity",
-  "stream_arguments",
-  "stream_part",
-  "stream_terminal",
-  "stream_event",
-  "stream_eof",
-  "sdk_conversion",
-  "engine_inventory",
-  "engine_empty_text",
-];
-const responseDiagnostic = (code: string) =>
-  responseRules.some((rule) => code === `provider_response_rejected.${rule}`);
-const budgetDiagnostic = (code: string) =>
-  code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
  * storage. Refresh/reconnect reads state; it never replays Start. */
 export function ModelConversation() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const page = useAssistantPage();
   const client = useQueryClient();
   const actionClass = "min-h-11 whitespace-normal xl:min-h-9";
@@ -86,7 +37,7 @@ export function ModelConversation() {
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [offset, setOffset] = useState<number | null>(null);
+  const [submission, setSubmission] = useState<{ conversationId: string; requestId: string } | null>(null);
   const pending = useRef(false);
   const navigationGrant = useRef<{
     requestID: string;
@@ -122,29 +73,16 @@ export function ModelConversation() {
     retry: false,
     refetchInterval: 1000,
   });
-  const history = useQuery({
-    queryKey: ["aiConversation", epoch, id, offset],
-    queryFn: () => callService(() => API.Messages(epoch, id, offset!)),
-    enabled: !!epoch && !!id && offset !== null,
-    networkMode: "always",
-    retry: false,
-  });
-  const conversation: Conversation | undefined =
-    offset === null ? latest.data : history.data;
   const running = latest.data?.runs?.some((run) => active(run.state)) ?? false;
-  const stale =
-    status.isError ||
-    list.isError ||
-    latest.isError ||
-    (offset !== null && history.isError);
+  const stale = status.isError || list.isError || latest.isError;
   // An epoch identifies a process/ledger incarnation. Never carry an old ID or
   // pending draft into a replacement runtime.
   const previousEpoch = useRef(epoch);
   useEffect(() => {
     if (previousEpoch.current && previousEpoch.current !== epoch) {
       setSelected("");
-      setOffset(null);
       setPrompt("");
+      setSubmission(null);
     }
     previousEpoch.current = epoch;
   }, [epoch]);
@@ -269,7 +207,6 @@ export function ModelConversation() {
     await action(async () => {
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
-      setOffset(null);
       // Only a selector crosses IPC. No frontend metrics/labels/permission claims.
       const [kind, accountId = ""] = (page?.viewKey ?? "").split(":");
       const selection =
@@ -308,6 +245,7 @@ export function ModelConversation() {
         navigationGrant.current = null;
         setNavigationState("");
       }
+      setSubmission({ conversationId: current, requestId });
       await callService(() =>
         API.Start({
           epoch,
@@ -327,21 +265,35 @@ export function ModelConversation() {
       className="flex h-full min-h-0 flex-col"
       data-testid="model-conversation"
     >
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-        <p className="text-sm text-muted-foreground">{t("aiChat.scope")}</p>
-        <Notice role="status">
-          {t(
-            status.isPending
-              ? "assistant.state.loading"
-              : offline
-                ? "aiChat.offlineLocal"
-                : status.data?.available
-                  ? "aiChat.ready"
-                  : "aiChat.disabled",
-          )}
-        </Notice>
-        <p className="text-xs text-muted-foreground">{t("aiChat.privacy")}</p>
-        <p className="text-xs text-muted-foreground">{t("aiChat.pageHint")}</p>
+      <div className="flex shrink-0 items-center gap-1 border-b border-border p-3">
+        <Label htmlFor="ai-history" className="sr-only">{t("aiChat.history")}</Label>
+        <NativeSelect id="ai-history" className="min-h-11 min-w-0 flex-1 xl:min-h-9" value={id}
+          disabled={busy || !list.data?.length}
+          onChange={(event) => {
+            navigationGrant.current = null;
+            navigationAttempt.current = null;
+            setNavigationState("");
+            setSubmission(null);
+            setSelected(event.target.value);
+            setFailed(false);
+          }}>
+          <option value="" disabled>{t("aiChat.history")}</option>
+          {list.data?.map((c, index) => <option key={c.id} value={c.id}>{t("aiChat.session", { number: index + 1 })}</option>)}
+        </NativeSelect>
+        <Button size="icon" variant="ghost" aria-label={t("aiChat.new")} title={t("aiChat.new")}
+          disabled={busy || stale || !epoch} onClick={() => void action(async () => {
+            const c = await callService(() => API.Create(epoch));
+            setSelected(c.id);
+          })}><Plus className="size-4" aria-hidden="true" /></Button>
+        <Button size="icon" variant="ghost" aria-label={t("aiChat.delete")} title={t("aiChat.delete")}
+          disabled={busy || running || !id || stale} onClick={() => void action(async () => {
+            await callService(() => API.Delete(epoch, id));
+            setSelected("");
+          })}><Trash2 className="size-4" aria-hidden="true" /></Button>
+      </div>
+      {(status.isPending || offline || !status.data?.available) && <Notice role="status" className="m-3">
+        {t(status.isPending ? "assistant.state.loading" : offline ? "aiChat.offlineLocal" : "aiChat.disabled")}
+      </Notice>}
         {(failed || stale) && (
           <Notice tone="warning" role="alert">
             {t("aiChat.error")}
@@ -354,227 +306,38 @@ export function ModelConversation() {
             </Button>
           </Notice>
         )}
-        <div className="flex flex-wrap gap-2">
-          <Label htmlFor="ai-history" className="sr-only">
-            {t("aiChat.history")}
-          </Label>
-          <NativeSelect
-            id="ai-history"
-            className="min-h-11 w-full basis-full xl:min-h-9"
-            value={id}
-            disabled={busy || !list.data?.length}
-            onChange={(event) => {
-              setSelected(event.target.value);
-              setOffset(null);
-              setFailed(false);
-            }}
-          >
-            <option value="" disabled>
-              {t("aiChat.history")}
-            </option>
-            {list.data?.map((c, index) => (
-              <option key={c.id} value={c.id}>
-                {t("aiChat.session", { number: index + 1 })}
-              </option>
-            ))}
-          </NativeSelect>
-          <Button
-            className={actionClass}
-            variant="outline"
-            disabled={busy || stale || !epoch}
-            onClick={() =>
-              void action(async () => {
-                const c = await callService(() => API.Create(epoch));
-                setSelected(c.id);
-                setOffset(null);
-              })
-            }
-          >
-            {t("aiChat.new")}
-          </Button>
-          <Button
-            className={actionClass}
-            variant="outline"
-            disabled={busy || running || !id || stale}
-            onClick={() =>
-              void action(async () => {
-                await callService(() => API.Delete(epoch, id));
-                setSelected("");
-                setOffset(null);
-              })
-            }
-          >
-            {t("aiChat.delete")}
-          </Button>
-        </div>
-        {conversation && conversation.runCount > 1 && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              className={actionClass}
-              variant="outline"
-              disabled={busy || running || conversation.offset <= 0}
-              onClick={() => setOffset(conversation.offset - 1)}
-            >
-              {t("aiChat.previous")}
-            </Button>
-            <Button
-              className={actionClass}
-              variant="outline"
-              disabled={
-                busy ||
-                running ||
-                conversation.offset >= conversation.runCount - 1
-              }
-              onClick={() =>
-                setOffset(
-                  conversation.offset + 1 === conversation.runCount - 1
-                    ? null
-                    : conversation.offset + 1,
-                )
-              }
-            >
-              {t("aiChat.next")}
-            </Button>
-            <Button
-              className={actionClass}
-              variant="ghost"
-              onClick={() => setOffset(null)}
-            >
-              {t("aiChat.latest")}
-            </Button>
-          </div>
-        )}
-        {offset !== null &&
-          latest.data?.runs
-            ?.filter((run) => active(run.state))
-            .map((run) => (
-              <Button
-                className={actionClass}
-                key={run.id}
-                variant="outline"
-                disabled={busy}
-                onClick={() => void action(() => cancelRun(run.id))}
-              >
-                {t("aiChat.stop")}
-              </Button>
-            ))}
-        {conversation?.runs?.map((run) => (
-          <article
-            key={run.id}
-            className="space-y-3 rounded-xl border border-border p-3"
-          >
-            <p className="whitespace-pre-wrap break-words text-sm">
-              {run.prompt}
-            </p>
-            <p role="status" className="text-xs text-muted-foreground">
-              {t(`aiChat.run.${run.state}`)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {run.model} ·{" "}
-              {formatTimestamp(
-                String(run.created),
-                page?.context?.range.timezone ?? "UTC",
-                i18n.language,
-              )}
-            </p>
-            {run.text && (
-              <p className="whitespace-pre-wrap break-words text-sm">
-                {run.text}
-              </p>
-            )}
-            {!!run.evidence?.length && (
-              <details className="text-xs text-muted-foreground">
-                <summary className={actionClass}>
-                  {t("assistant.evidence")}
-                </summary>
-                <p>{t("aiChat.traceHelp")}</p>
-                {run.evidence.map((entry, index) => (
-                  <p key={index} className="mt-2">
-                    {t(`aiChat.source.${entry.source}`)} ·{" "}
-                    {formatTimestamp(
-                      String(entry.capturedAt),
-                      page?.context?.range.timezone ?? "UTC",
-                      i18n.language,
-                    )}
-                    <br />
-                    {t(
-                      entry.hasMore ? "aiChat.morePages" : "aiChat.responseEnd",
-                    )}
-                    <br />
-                    {t(
-                      entry.missing === "reported"
-                        ? "aiChat.missingReported"
-                        : "aiChat.missingUnknown",
-                    )}
-                  </p>
-                ))}
-              </details>
-            )}
-            {run.code && (
-              <p role="alert" className="text-sm">
-                {t(responseDiagnostic(run.code) ? "aiChat.providerResponseRejected" : (diagnosticKeys[run.code] ?? "aiChat.runError"))}
-                {(responseDiagnostic(run.code) || budgetDiagnostic(run.code)) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}
-              </p>
-            )}
-            {active(run.state) && (
-              <Button
-                className={actionClass}
-                variant="outline"
-                disabled={busy}
-                onClick={() => void action(() => cancelRun(run.id))}
-              >
-                {t("aiChat.stop")}
-              </Button>
-            )}
-          </article>
-        ))}
-        {!conversation?.runs?.length && (
-          <p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p>
-        )}
-        <p className="text-xs text-muted-foreground">{t("aiChat.retention")}</p>
-        {page?.refresh && (
-          <Button
-            className={actionClass}
-            variant="outline"
-            onClick={() => page.refresh?.()}
-          >
-            {t("assistant.refresh")}
-          </Button>
-        )}
-        {page?.context?.targets.map((target) => (
-          <Button
-            className={actionClass}
-            key={target.ref}
-            variant="outline"
-            disabled={busy}
-            onClick={() => {
-              if (page.navigate(target.ref, page.context!) !== "opened")
-                setFailed(true);
-            }}
-          >
-            {target.label}
-          </Button>
-        ))}
-      </div>
+      {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
+        submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
+        busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
       <form
-        className="shrink-0 space-y-2 border-t border-border p-4"
+        className="shrink-0 space-y-3 border-t border-border p-3"
         onSubmit={(event) => {
           event.preventDefault();
           void send();
         }}
       >
-        <Label htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
+        <Label className="sr-only" htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
         <Input
           className="min-h-11 text-base xl:min-h-9 xl:text-sm"
           id="ai-model-prompt"
           value={prompt}
           maxBytes={16384}
+          byteCountVisibility="sr-only"
+          placeholder={t("aiChat.placeholder")}
+          onKeyDown={(event) => { if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }}
           autoComplete="off"
           onChange={(event) => setPrompt(event.target.value)}
           disabled={busy || !status.data?.available || stale}
         />
+        <div className="flex flex-wrap items-center gap-2">
+        <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
+          {["scope", "privacy", "pageHint", "retention"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
+          {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
+        </div></InfoPopover>
+        <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t("aiChat.readOnly")}</span>
         <Button
           className={actionClass}
+          aria-label={t("aiChat.send")}
           type="submit"
           disabled={
             busy ||
@@ -586,10 +349,14 @@ export function ModelConversation() {
             utf8ByteLength(prompt) > 16384
           }
         >
-          {t("aiChat.send")}
+          <ArrowUp className="size-4" aria-hidden="true" />{t("aiChat.send")}
         </Button>
+        </div>
+        <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.navigationOptions")}</summary>
+        <p className="py-2 leading-relaxed">{t("aiChat.navigationHelp")}</p>
         <Button
-          className={actionClass}
+          className={`${actionClass} max-w-full`}
           type="button"
           variant="outline"
           disabled={
@@ -605,9 +372,8 @@ export function ModelConversation() {
         >
           {t("aiChat.sendNavigate")}
         </Button>
-        <p className="text-xs text-muted-foreground">
-          {t("aiChat.navigationHelp")}
-        </p>
+        <div className="flex flex-wrap gap-2 pt-2">{page?.context?.targets.map(target => <Button type="button" key={target.ref} variant="ghost" className="max-w-full whitespace-normal" disabled={busy} onClick={() => { if (page.navigate(target.ref, page.context!) !== "opened") setFailed(true); }}>{target.label}</Button>)}</div>
+        </details>
         {navigationState && (
           <p role="status" className="text-xs text-muted-foreground">
             {t(`aiChat.${navigationState}`)}

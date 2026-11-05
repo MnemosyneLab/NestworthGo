@@ -10,7 +10,7 @@ import (
 // Keep the private runtime vocabulary aligned with the desktop's exact-code
 // allowlist. Localized guidance is separately covered by locale/UI tests.
 func TestDesktopBudgetVocabularyMatchesRuntime(t *testing.T) {
-	raw, err := os.ReadFile("../../frontend/src/features/assistant/ModelConversation.tsx")
+	raw, err := os.ReadFile("../../frontend/src/features/assistant/ConversationTimeline.tsx")
 	if err != nil {
 		t.Fatal(err)
 	}

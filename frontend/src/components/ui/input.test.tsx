@@ -27,3 +27,13 @@ it.each(["a", "中", "😀"])("counts UTF-8 bytes and validates actual pasted %s
   expect(input).not.toHaveAttribute("aria-invalid", "true");
   expect(input).toHaveAccessibleDescription("0 / 12 bytes");
 });
+
+it("keeps compact byte counts accessible and overflow errors visible", async () => {
+  render(<Input aria-label="Compact message" maxBytes={4} byteCountVisibility="sr-only" />);
+  const input = screen.getByRole("textbox", { name: "Compact message" });
+  expect(input).toHaveAccessibleDescription("0 / 4 bytes");
+  expect(screen.getByText("0 / 4 bytes")).toHaveClass("sr-only");
+  await userEvent.setup().type(input, "12345");
+  expect(screen.getByRole("alert")).not.toHaveClass("sr-only");
+  expect(input).toHaveAttribute("aria-invalid", "true");
+});

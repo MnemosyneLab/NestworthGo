@@ -6,9 +6,11 @@ import { FieldError } from "./field-error";
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   maxBytes?: number;
+  /** Keep the byte count available to assistive technology in compact forms. */
+  byteCountVisibility?: "visible" | "sr-only";
 };
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type, maxBytes, ...props }, ref) => {
+const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type, maxBytes, byteCountVisibility = "visible", ...props }, ref) => {
   const { t } = useTranslation();
   const counterId = React.useId();
   const [draft, setDraft] = React.useState(String(props.defaultValue ?? ""));
@@ -43,7 +45,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type,
           {t("inputBytes.exceeded", { count: bytes, limit: maxBytes })}
         </FieldError>
       ) : (
-        <p id={counterId} className="text-xs text-muted-foreground">
+        <p id={counterId} className={cn("text-xs text-muted-foreground", byteCountVisibility === "sr-only" && "sr-only")}>
           {t("inputBytes.count", { count: bytes, limit: maxBytes })}
         </p>
       )}
