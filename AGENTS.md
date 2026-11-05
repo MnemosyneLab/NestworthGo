@@ -106,8 +106,13 @@ and proceed with available verification and the authorized commit workflow.
 ## Distributable Nestworth skill
 
 Any change to `skills/nestworth/**`, the bundled installer or installation guide
-must increase `skills/nestworth/VERSION` in the same PR. This includes reference
-text, examples, paging, financial interpretation and MCP contract guidance.
+must update `skills/nestworth/VERSION` in the same PR. Default to incrementing
+the third (PATCH) component by one, for example `3.0.1` → `3.0.2`. Change MAJOR
+or MINOR only for a substantial change or an explicit user request; explain
+the reason in the PR. The explicitly requested 6.0.1 → 3.0.1 normalization is
+a one-time historical exception, not permission for future decreases. Covered
+changes include reference text, examples, paging, financial interpretation and
+MCP contract guidance.
 Follow the independent skill version policy and verification steps in
 [the skill guide](docs/user/nestworth-skill.md#skill-version-policy).
 Do not tie the skill version to the App version or modify installed user skills.

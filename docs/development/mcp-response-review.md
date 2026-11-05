@@ -1,5 +1,11 @@
 # MCP response review and bounded read contracts
 
+Version clarification (2026-11-05): the current repository skill is 3.0.1,
+unpublished. Version labels and measurements below retain the original tested
+commits; they do not describe a published release or the normalized tree.
+See the [current skill guide](../user/nestworth-skill.md#skill-version-policy)
+for the explicit 6.0.1 → 3.0.1 normalization and default PATCH increment rule.
+
 Base: `1ee6cc4257a2efe4d1155e895b032370173738f8`. Cutover starts from PR169 reviewed head `2dd7903d17bfbc981e4da7b3a193582b0e8afe8e`. Synthetic data only.
 
 ## Response principles and decisions
@@ -321,7 +327,7 @@ coverage limits are in [the compact-read report](../qa/mcp-compact-reads-2026-11
 ## Remaining-audit contract completion (skill 5.0.0)
 
 The follow-up integrates main `82dd932` (#220) after #212/#215/#216/#217.
-[Current contracts](mcp.md#bounded-discovery-and-task-directed-reads-skill-500)
+[Current contracts](mcp.md#bounded-discovery-and-task-directed-reads-skill-301)
 and [follow-up measurements](../qa/mcp-audit-followups-2026-11-04.md) supersede
 older shape/discovery/repair-polling descriptions above. Historical measurements
 remain evidence for their named sources, not current single-page guarantees.

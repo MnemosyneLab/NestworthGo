@@ -152,6 +152,77 @@ class SkillVersionTests(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             self.check('missing-baseline')
 
+    def normalization_source(self):
+        (self.skill / 'VERSION').write_text('6.0.1\n')
+        self.commit()
+        self.base = self.git('rev-parse', 'HEAD')
+        override = patch.object(checker, 'NORMALIZATION_SOURCE', self.base)
+        override.start()
+        self.addCleanup(override.stop)
+
+    def test_exact_normalization_branch_and_main_then_patch(self):
+        self.normalization_source()
+        (self.skill / 'VERSION').write_text('3.0.1\n')
+        self.check()
+        self.commit()
+        normalized = self.git('rev-parse', 'HEAD')
+        for ref in ('refs/heads/topic', 'refs/heads/main'):
+            with self.subTest(ref=ref), self.push_event(self.base, ref):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    checker.check_ci_version()
+        self.assertEqual(checker.main_version_boundary(), normalized)
+        (self.root / 'app.txt').write_text('unrelated followup')
+        self.commit()
+        with self.push_event(normalized, 'refs/heads/main'):
+            with contextlib.redirect_stdout(io.StringIO()):
+                checker.check_ci_version()
+        (self.skill / 'references/analysis.md').write_text('later guidance')
+        self.commit()
+        drift = self.git('rev-parse', 'HEAD')
+        with self.push_event(normalized, 'refs/heads/main'):
+            with self.assertRaisesRegex(ValueError, 'bump'):
+                checker.check_ci_version()
+        (self.skill / 'VERSION').write_text('3.0.2\n')
+        self.commit()
+        with self.push_event(drift, 'refs/heads/main'):
+            with contextlib.redirect_stdout(io.StringIO()):
+                checker.check_ci_version()
+
+    def test_normalization_cannot_allow_other_decreases_or_reuse(self):
+        self.normalization_source()
+        (self.skill / 'references/analysis.md').write_text('normalization guidance')
+        for version in ('3.0.0', '3.0.2', '6.0.0', '6.0.1'):
+            with self.subTest(version=version):
+                (self.skill / 'VERSION').write_text(version + '\n')
+                with self.assertRaisesRegex(ValueError, 'bump'):
+                    self.check()
+        (self.skill / 'VERSION').write_text('3.0.1\n')
+        self.commit()
+        normalized = self.git('rev-parse', 'HEAD')
+        (self.skill / 'references/analysis.md').write_text('unversioned edit')
+        with self.assertRaisesRegex(ValueError, 'bump'):
+            self.check(normalized)
+        (self.skill / 'VERSION').write_text('3.0.0\n')
+        with self.assertRaisesRegex(ValueError, 'bump'):
+            self.check(normalized)
+
+    def test_normalization_rejects_wrong_source_and_concurrent_main(self):
+        self.normalization_source()
+        source = self.base
+        (self.root / 'app.txt').write_text('concurrent main')
+        self.commit()
+        newer_main = self.git('rev-parse', 'HEAD')
+        (self.skill / 'VERSION').write_text('3.0.1\n')
+        with self.assertRaisesRegex(ValueError, 'bump'):
+            self.check(newer_main)
+        with self.push_event(source):
+            self.git('update-ref', 'refs/remotes/origin/main', newer_main)
+            with self.assertRaisesRegex(ValueError, 'bump'):
+                checker.check_ci_version()
+        self.commit()
+        with self.assertRaisesRegex(ValueError, 'numerically increase'):
+            checker.main_version_boundary()
+
     @contextlib.contextmanager
     def push_event(self, before, ref='refs/heads/topic'):
         event = self.root / 'event.json'

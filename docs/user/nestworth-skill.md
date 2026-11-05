@@ -53,49 +53,32 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 6.0.1; published skill: 2.0.0
+### Current repository skill: 3.0.1; published skill: 2.0.0
 
-Repository skill 6.0.1 corrects the market-import comparison paging guidance to
-default 25/max 100 and names the universal continuation entry. It uses one
-business continuation entry:
-`get_read_page({cursor, limit?})`, with limit default 25/max 100. Live and
-version-bound reads return items/page instead of arrays, operations/next or
-triple activity keys. Review inputs use optional limit instead of required
-pageSize. Page descriptors retain live/version_bound/frozen semantics; row and
-complete 64 KiB JSON-RPC byte budgets both apply. Frozen hashes, fixed TTL,
-financial disclosure/aliases and stale/restart rules remain authoritative.
-Initial financial content and focused-item descriptors retain their established
-immutable shape without duplicate rows. Skill 6.0.1 is not published.
+Repository skill 3.0.1 includes the unified business continuation entry
+`get_read_page({cursor, limit?})`, default 25/max 100, including market-import
+comparison guidance. Live and version-bound reads return items/page; review
+inputs use optional limit. Descriptors retain live/version_bound/frozen semantics,
+fixed capture/hash/TTL, disclosure, stale/restart rules and the complete 64 KiB
+JSON-RPC budget. Initial financial content and focused-item descriptors keep
+their immutable shape without duplicate rows.
 
-It retains 5.0.0's progress-only repair polling and separate frozen evidence,
-task-directed reads, complete-list/absence/audit requirements and schema-checked
-executable examples. Embedded and standalone bundles use this same source.
+The same skill includes compact identity lists and same-capture details with
+metadataVersion guards; frozen contribution rows/drill-down; progress-only repair
+polling with separate frozen evidence; task-directed discovery and reads; inclusive
+batch-history windows; read-only import comparison; and asset-change guidance.
+Complete-list/absence/audit claims still require traversing all relevant pages.
+Embedded and standalone consumers use the same source and schema-checked examples.
+The current MCP workflows include breaking changes from the published skill;
+use actual discovery and schemas when connecting to an older App.
 
-It retains skill 4.0.0's breaking financial context/comparison continuation shape,
-compact identity lists and same-capture metadata with metadataVersion guards.
-
-It retains skill 3.0.1, which combines the import-comparison guidance from 2.3.0 with
-frozen contribution analysis. It also corrects the remaining offset-paging
-guidance and keeps all frozen section contracts explicit.
-`list_contributions` now returns `mcp-read/1`; follow its `rows` section with
-`get_read_page`. `get_contribution_item` accepts captureId/groupKey instead of a
-repeated query/returnType/groupBy. Offset pagination and independent detail
-recalculation are removed. This is a breaking MCP workflow change; the desktop
-analysis API is unchanged.
-
-It retains skill 2.3.0's read-only import comparison with default compact
-ordered results, on-demand details from the same frozen capture, exact decimal/
-source distinctions, inactive evidence and explicit unknown chart selection. It retains skill 2.2.0's inclusive batch-history windows and
-opt-in cross-target `historyLayout=records` paging, original FX direction,
-NAV/close basis, unread-page distinctions and unavailable reverse projections.
-Existing history calls remain compatible.
-
-It also retains skill 2.1.0's post-v0.3.10 asset-change guidance:
-`endpoint_bridge/2`, separately paged reconciliation details, paired trade
-principal and valuation semantics, execution-price spreads and quantity
-remeasurement. The earlier bounded read cutover required major version 2.0.0.
-`--version latest` still selects App v0.3.10
-and skill 2.0.0.
+This is an explicitly requested version normalization from the unreleased 6.0.1
+tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
+publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
+in Git history and dated QA records identify those original tested trees only.
+They are not aliases for this tree and were not published release assets.
+Skill 3.0.1 is not published: `--version latest` still selects App v0.3.10
+and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 
 The App and skill are separate components: installing a newer skill does not
@@ -233,16 +216,30 @@ count. Changes to implementation contracts require reviewing the skill and
 updating/bumping it when its guidance changes. Unrelated App code, development
 docs and tests alone do not require a skill bump.
 
-Use stable SemVer `MAJOR.MINOR.PATCH`: major for incompatible supported tool,
-argument, workflow or interpretation changes; minor for compatible new
-capabilities or expanded contract guidance; patch for compatible corrections,
-clarifications, metadata or installer fixes. Classify by effect on consumers,
-not file type. Never reuse or decrease a version. Before choosing it, fetch main
-and tags, inspect VERSION history and published release assets (including draft
-releases), then choose above both main and any already allocated version. Update
-this guide's current repository section in the same PR; preserve historical
-published versions. Recheck after rebasing or concurrent releases. Never replace
-published assets with different content under the same skill version.
+Use stable `MAJOR.MINOR.PATCH`. Whenever distributable skill content changes,
+**default to increasing PATCH (the third component) by exactly one**, for example
+`3.0.1` → `3.0.2`. This includes ordinary additions, reference/example edits,
+corrections, clarifications, metadata and installer changes. Do not automatically
+increase MAJOR or MINOR because a tool/schema changed or guidance grew.
+Adjust MAJOR or MINOR only for a substantial change or an explicit user request;
+document the scope and reason in the PR. For a substantial change, use MAJOR for
+incompatible supported workflows/interpretation and MINOR for significant
+compatible capabilities. Review consumer compatibility independently of the number.
+
+Before choosing a version, fetch main and tags and inspect VERSION history and
+published/draft release assets. Normally choose above main and every allocated
+version; never replace published assets with different content under the same
+version. Update this guide's current repository section and recheck after rebasing
+or concurrent releases. Preserve historical published versions and dated evidence.
+
+The sole approved historical exception is the explicitly requested normalization
+of unreleased 6.0.1 at `94302de02e6b3894fe3ba5f0d7931210c396ef5a` to 3.0.1.
+The guard accepts only that exact source tip/version and target version, including
+its main integration boundary; there is no flag or general downgrade exemption.
+After integration the normal sequence resumes at 3.0.2. Unchanged/whitespace-only
+versions, other decreases and later content drift still fail. Historical
+unreleased 4.x–6.x labels do not set the future allocation floor after this
+normalization; published versions remain immutable.
 
 Stage added payload files so Git includes them in the local comparison.
 Before committing, run:
@@ -263,7 +260,7 @@ installed skill or ledger to validate a release.
 The native CI tooling lane checks the complete branch change against its unique
 merge base with `origin/main` on every origin branch push/manual run. The bump
 must also exceed current main's skill version when the branch changes bundled
-inputs, so a concurrent main release cannot silently allocate the same version.
+inputs (except the exact normalization above), so a concurrent main release cannot silently allocate the same version.
 A follow-up unrelated push cannot hide a missing bump; further edits in the same
 unmerged PR can retain its already-increased version. Application-only branches
 need no bump. Rebase/review versions when main advances.
@@ -272,7 +269,8 @@ On main pushes, the baseline is the actual previous main tip, which must exist
 and be an ancestor of the exact event head. Manual main runs check the latest
 integration against its first parent. Both also compare against main's latest
 first-parent VERSION-change commit: that boundary must itself be a valid numeric
-increase over its immediate first parent's VERSION. Whitespace edits and
+increase over its immediate first parent's VERSION, or the exact approved
+normalization above. Whitespace edits and other
 version decreases cannot reset the drift check. Search is bounded to 256
 first-parent commits (independent of the number of VERSION edits); absent,
 invalid, parentless or older boundaries fail and require reviewed history or
@@ -293,8 +291,8 @@ release asset/version allocation review.
 
 The content checker also verifies the guide's current repository version.
 The guard compares Git changes for all bundled inputs and requires a strictly
-higher stable version, including for version-only edits. No maintained hashes
-are needed. Without `--base`/`--ci-base`, the checker validates current content
+higher stable version, including for version-only edits, apart from that one
+normalization. No maintained payload hashes are needed. Without `--base`/`--ci-base`, the checker validates current content
 only (for source bundles/checkouts without history). The guard does not decide
 SemVer impact, detect stale guidance after implementation-only changes, or query
 release registries for version reuse: maintainers still review those points.

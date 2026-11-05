@@ -63,6 +63,17 @@ def ci_base():
 # Bound first-parent traversal independently of how often VERSION changed.
 MAX_VERSION_HISTORY = 256
 
+# Explicitly requested normalization of an unreleased tree. Bind the exception
+# to its immutable source, not a branch name, environment flag or version pair
+# alone. Future decreases and concurrent main changes still fail closed.
+NORMALIZATION_SOURCE = "94302de02e6b3894fe3ba5f0d7931210c396ef5a"
+
+
+def approved_normalization(base, current, previous, minimum=None):
+    return (base == NORMALIZATION_SOURCE and previous == (6, 0, 1)
+            and current == (3, 0, 1)
+            and (minimum is None or git("rev-parse", "--verify", minimum + "^{commit}") == base))
+
 
 def main_version_boundary():
     commits = git("rev-list", "--first-parent", f"--max-count={MAX_VERSION_HISTORY + 1}",
@@ -80,7 +91,7 @@ def main_version_boundary():
         current = version_tuple(git("show", boundary + ":skills/nestworth/VERSION"))
     except (subprocess.CalledProcessError, ValueError) as error:
         raise ValueError("Cannot validate main version boundary: missing/invalid parent VERSION history; reviewed bootstrap required") from error
-    if current <= previous:
+    if current <= previous and not approved_normalization(parent, current, previous):
         raise ValueError("Invalid main version boundary: VERSION must numerically increase over its first parent")
     return boundary
 
@@ -90,8 +101,8 @@ def check_ci_version():
     floor = "refs/remotes/origin/main" if os.environ["GITHUB_REF"] != "refs/heads/main" else None
     check_version(base, minimum=floor)
     if floor is None:
-        # Only a proven numeric increase is a distribution boundary. Whitespace,
-        # downgrades or invalid history must never reset main's drift check.
+        # A numeric increase or the exact approved normalization is a boundary.
+        # Whitespace, other downgrades and invalid history never reset drift.
         check_version(main_version_boundary())
 
 
@@ -113,7 +124,8 @@ def check_version(base, minimum=None):
         main_version = git("show", minimum + ":skills/nestworth/VERSION")
         if version_tuple(main_version) > version_tuple(previous):
             previous = main_version
-    if current_tuple <= version_tuple(previous):
+    if current_tuple <= version_tuple(previous) and not approved_normalization(
+            base, current_tuple, version_tuple(previous), minimum):
         raise ValueError(f"Distributable skill changed: bump skills/nestworth/VERSION above {previous} (got {current})")
     print(f"Distributable skill version: {previous} -> {current}")
 

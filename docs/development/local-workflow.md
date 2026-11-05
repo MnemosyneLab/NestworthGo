@@ -519,9 +519,11 @@ checksums; build and publish from one unchanged source commit. A successful
 task does not establish accessibility, Gatekeeper, live provider, or minimum
 macOS version acceptance.
 
-See the [latest published release record](../releases/v0.3.9.md) and
-[dated Mac package QA](../qa/v0.3.9-release-package-2026-10-21.md) for v0.3.9
-publication evidence and owner-waived/deferred gates. The archive-launch
-commands above describe acceptance still not run for that release. Historical
-v0.3.6 closeout evidence remains in
-the [v0.3.6 contract](../releases/v0.3.6.md).
+See the [latest published v0.3.10 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10)
+for its 2026-10-28 publication, skill 2.0.0, exact-source package/archive startup
+checks and remaining acceptance limits. Repository skill 3.0.1 is unpublished.
+The commands above remain reusable packaging/acceptance procedures, not proof
+that every manual gate passed for a release. Historical v0.3.9 publication and
+owner-waived/deferred gates remain in its [release record](../releases/v0.3.9.md)
+and [dated Mac package QA](../qa/v0.3.9-release-package-2026-10-21.md);
+v0.3.6 closeout evidence remains in the [v0.3.6 contract](../releases/v0.3.6.md).
