@@ -1,5 +1,35 @@
 export const assistantEn = {
   aiChat: {
+    writeInstitution: "Institution",
+    writeInstitutionAssigned: "Assigned",
+    writeInstitutionUnassigned: "Not assigned",
+    writeOwners: "Owners",
+    writeAccountType: "Account type / default currency",
+    writeIdentityMissing: "Account identity was not captured. Obtain a fresh preview before confirming.",
+
+
+  "writeReview": "Ledger change review",
+  "writeReviewHelp": "Frozen server preview. Only Confirm below posts this exact change. Chat messages never approve a write.",
+  "writeUnknown": "Result unavailable or uncertain. Inspect the original review; do not submit a replacement.",
+  "writeAmount": "Change amount (exact)",
+  "writeResult": "Balance after this change (exact)",
+  "writeTime": "Effective time (with timezone)",
+  "writeNote": "Note",
+  "writeConfirm": "Confirm this ledger change",
+  "writeRepreview": "Refresh preview for review",
+  "writeCancel": "Cancel unsubmitted change",
+  "writeInspect": "Check original result",
+  "writeControlled": "Reviewed writes · OpenAI",
+  "writePermission": "Allow cash change proposals for this app session. Every write requires a separate confirmation.",
+  "writeState": {
+    "awaiting_confirmation": "Awaiting your confirmation; nothing posted.",
+    "committing": "Submission in progress; check the original result.",
+    "succeeded": "Recorded successfully. Repeated confirmation does not record it again.",
+    "needs_preview": "The preview is stale. Refresh it and review again before confirming.",
+    "cancelled": "Cancelled before submission.",
+    "unknown": "Outcome unknown. Keep this review and inspect; do not submit again."
+  }
+,
     rename: "Rename conversation",
     titleLabel: "Conversation title",
     saveTitle: "Save title",
@@ -64,6 +94,7 @@ export const assistantEn = {
       open_page: "Request page change",
       open_return_trend: "Request return trend and filters",
 
+      propose_cash_change: "Cash change proposal",
       read_page_content: "Page content",
       compare_financial_context: "Financial state comparison",
       compare_financial_attribution: "Read-only period attribution",
@@ -76,7 +107,7 @@ export const assistantEn = {
       get_read_item: "Captured item detail",
     },
     scope:
-      "Read-only AI · overview, accounts and closed-period attribution (household or one account, base currency, up to 365 days). Financial writes and market refresh remain unavailable. Navigation requires the separate per-message button.",
+      "Overview, accounts and closed-period attribution (household or one account, base currency, up to 365 days). Cash deposits/withdrawals require the session write switch and a separate frozen review confirmation. Market refresh remains unavailable. Navigation requires the separate per-message button.",
     ready: "Model ready",
     disabled:
       "AI is off or unavailable. Save a key, enter a model and explicitly enable it in Settings → Built-in AI credentials.",
@@ -123,7 +154,7 @@ export const assistantEn = {
       "The run did not complete. No new model history was saved; inspect the state before sending again.",
     provider: "Provider: OpenAI Responses (api.openai.com)",
     model: "Model ID",
-    enable: "Enable desktop read-only model requests",
+    enable: "Enable desktop model requests",
     consent:
       "Model requests may incur provider charges. Enabling allows only explicit message submissions, never automatic startup requests. Your key stays in the household database and backups. Related financial data is sent to the provider. Disabling cancels active runs. Changing models starts fresh model context while preserving display history.",
     saveConfig: "Save model configuration",
@@ -223,6 +254,36 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    writeInstitution: "机构",
+    writeInstitutionAssigned: "已指定",
+    writeInstitutionUnassigned: "未指定",
+    writeOwners: "所有人",
+    writeAccountType: "账户类型／默认币种",
+    writeIdentityMissing: "此预览未保存账户身份信息，请刷新预览后再确认。",
+
+
+  "writeReview": "账本变更审阅",
+  "writeReviewHelp": "服务端冻结预览。只有点击下方确认才会提交这笔变更，聊天文本不能批准写入。",
+  "writeUnknown": "结果暂不可用或尚未确定。请查询原审阅，不要重新提交替代操作。",
+  "writeAmount": "变更金额（精确值）",
+  "writeResult": "变更后余额（精确值）",
+  "writeTime": "生效时间（含时区）",
+  "writeNote": "备注",
+  "writeConfirm": "确认这笔账本变更",
+  "writeRepreview": "刷新预览并重新审阅",
+  "writeCancel": "取消未提交的变更",
+  "writeInspect": "查询原操作结果",
+  "writeControlled": "确认后写入 · OpenAI",
+  "writePermission": "允许本次应用会话提出现金变更。每次写入仍须单独确认。",
+  "writeState": {
+    "awaiting_confirmation": "等待你确认，尚未入账。",
+    "committing": "正在提交，请查询原操作结果。",
+    "succeeded": "已成功入账，重复确认不会重复记账。",
+    "needs_preview": "预览已失效，请刷新预览后重新审阅确认。",
+    "cancelled": "已在提交前取消。",
+    "unknown": "结果尚未确定。请保留审阅并查询，不要重新提交。"
+  }
+,
     rename: "重命名会话",
     titleLabel: "会话标题",
     saveTitle: "保存标题",
@@ -285,6 +346,7 @@ export const assistantZhCN = {
       open_page: "请求页面跳转",
       open_return_trend: "请求收益趋势和筛选",
 
+      propose_cash_change: "现金变更提案",
       read_page_content: "页面内容",
       compare_financial_context: "财务状态对比",
       compare_financial_attribution: "只读期间归因",
@@ -297,7 +359,7 @@ export const assistantZhCN = {
       get_read_item: "快照项目明细",
     },
     scope:
-      "只读 AI · 支持总览、账户与已结束期间归因（家庭或单账户、基础币种、最多365天）。财务写入和行情刷新仍关闭，跳转需使用单独的本条消息授权按钮。",
+      "支持总览、账户与已结束期间归因（家庭或单账户、基础币种、最多365天）。现金存入／支出需开启本次会话写入权限，并单独确认冻结预览。行情刷新仍关闭，跳转需单独授权。",
     ready: "模型已就绪",
     disabled:
       "AI 已关闭或不可用。请在设置 → 内置 AI 凭据保存密钥、填写模型并显式开启。",
@@ -342,7 +404,7 @@ export const assistantZhCN = {
     runError: "运行未完成，未保存新的模型历史。请先检查状态，再发送新请求。",
     provider: "提供商：OpenAI Responses（api.openai.com）",
     model: "模型 ID",
-    enable: "开启桌面只读模型请求",
+    enable: "开启桌面模型请求",
     consent:
       "模型调用可能产生提供商费用。开启后仅在你显式发送消息时调用，不会在启动时自动请求。密钥保存在家庭数据库和备份中，相关财务数据会发给提供商。关闭会取消运行；切换模型会清空模型上下文，保留显示历史。",
     saveConfig: "保存模型配置",
@@ -430,6 +492,36 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    writeInstitution: "機構",
+    writeInstitutionAssigned: "已指定",
+    writeInstitutionUnassigned: "未指定",
+    writeOwners: "所有人",
+    writeAccountType: "帳戶類型／預設幣別",
+    writeIdentityMissing: "此預覽未儲存帳戶身分資訊，請更新預覽後再確認。",
+
+
+  "writeReview": "帳本變更審閱",
+  "writeReviewHelp": "伺服器凍結預覽。只有點擊下方確認才會提交這筆變更，聊天文字不能批准寫入。",
+  "writeUnknown": "結果暫不可用或尚未確定。請查詢原審閱，不要重新提交替代操作。",
+  "writeAmount": "變更金額（精確值）",
+  "writeResult": "變更後餘額（精確值）",
+  "writeTime": "生效時間（含時區）",
+  "writeNote": "備註",
+  "writeConfirm": "確認這筆帳本變更",
+  "writeRepreview": "更新預覽並重新審閱",
+  "writeCancel": "取消未提交的變更",
+  "writeInspect": "查詢原操作結果",
+  "writeControlled": "確認後寫入 · OpenAI",
+  "writePermission": "允許本次應用程式工作階段提出現金變更。每次寫入仍須單獨確認。",
+  "writeState": {
+    "awaiting_confirmation": "等待你確認，尚未入帳。",
+    "committing": "正在提交，請查詢原操作結果。",
+    "succeeded": "已成功入帳，重複確認不會重複記帳。",
+    "needs_preview": "預覽已失效，請更新預覽後重新審閱確認。",
+    "cancelled": "已在提交前取消。",
+    "unknown": "結果尚未確定。請保留審閱並查詢，不要重新提交。"
+  }
+,
     rename: "重新命名對話",
     titleLabel: "對話標題",
     saveTitle: "儲存標題",
@@ -492,6 +584,7 @@ export const assistantZhTW = {
       open_page: "請求頁面跳轉",
       open_return_trend: "請求收益趨勢和篩選",
 
+      propose_cash_change: "現金變更提案",
       read_page_content: "頁面內容",
       compare_financial_context: "財務狀態比較",
       compare_financial_attribution: "唯讀期間歸因",
@@ -504,7 +597,7 @@ export const assistantZhTW = {
       get_read_item: "快照項目明細",
     },
     scope:
-      "唯讀 AI · 支援總覽、帳戶與已結束期間歸因（家庭或單一帳戶、基礎幣別、最多365天）。財務寫入和行情更新仍關閉，跳轉需使用獨立的本則訊息授權按鈕。",
+      "支援總覽、帳戶與已結束期間歸因（家庭或單一帳戶、基礎幣別、最多365天）。現金存入／支出需開啟本次工作階段寫入權限，並單獨確認凍結預覽。行情更新仍關閉，跳轉需單獨授權。",
     ready: "模型已就緒",
     disabled:
       "AI 已關閉或無法使用。請在設定 → 內建 AI 憑據儲存金鑰、填寫模型並明確開啟。",
@@ -549,7 +642,7 @@ export const assistantZhTW = {
     runError: "執行未完成，未儲存新的模型歷史。請先檢查狀態，再傳送新請求。",
     provider: "提供商：OpenAI Responses（api.openai.com）",
     model: "模型 ID",
-    enable: "開啟桌面唯讀模型請求",
+    enable: "開啟桌面模型請求",
     consent:
       "模型呼叫可能產生提供商費用。開啟後僅在你明確傳送訊息時呼叫，不會在啟動時自動請求。金鑰儲存在家庭資料庫和備份中，相關財務資料會傳給提供商。關閉會取消執行；切換模型會清空模型上下文，保留顯示歷史。",
     saveConfig: "儲存模型設定",

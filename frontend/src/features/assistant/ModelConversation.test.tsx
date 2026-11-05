@@ -9,6 +9,9 @@ import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from
 import { ModelConversation } from "./ModelConversation";
 import i18n from "@/i18n";
 const api = vi.hoisted(() => ({
+  Reviews: vi.fn(),
+  SetWritePermission: vi.fn(),
+  ReviewAction: vi.fn(),
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
@@ -47,6 +50,7 @@ const run = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  api.Reviews.mockResolvedValue([]);
   api.PendingPageReads.mockResolvedValue([]);
   api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
@@ -743,6 +747,16 @@ it("announces an immediate first reply from a newly created conversation", async
   await screen.findByText("Immediate first reply");
   expect(await screen.findByText("AI reply received for message 1.")).toHaveAttribute("aria-live", "polite");
 
+});
+
+it("enables reviewed writes only through the separate session permission switch", async () => {
+ const user=userEvent.setup();mount();
+ await screen.findByText("Synthetic prior answer");
+ expect(api.SetWritePermission).not.toHaveBeenCalled();
+ await user.click(screen.getByRole("checkbox",{name:/Allow cash change proposals/}));
+ await waitFor(()=>expect(api.SetWritePermission).toHaveBeenCalledExactlyOnceWith("host",3,true));
+ expect(api.Start).not.toHaveBeenCalled();
+ expect(api.ReviewAction).not.toHaveBeenCalled();
 });
 
 it("displays generated titles and saves manual names using keyboard controls", async () => {

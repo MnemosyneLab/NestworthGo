@@ -18,6 +18,16 @@ func ValidateState(s State) error {
 		if !validTitleState(c) || !canonicalID(c.ID) || conversations[c.ID] || c.Updated.IsZero() || len(c.History) > MaxHistoryBytes || len(c.Runs) > MaxRuns || len(c.Events) > MaxEvents || c.HistoryDigest != historyDigest(s.Ledger, c.ID, c.History) {
 			return ErrStorage
 		}
+		if len(c.Reviews) > MaxRuns {
+			return ErrStorage
+		}
+		reviewIDs := map[string]bool{}
+		for _, ref := range c.Reviews {
+			if !canonicalID(ref.ID) || reviewIDs[ref.ID] {
+				return ErrStorage
+			}
+			reviewIDs[ref.ID] = true
+		}
 		conversations[c.ID] = true
 		requests := map[string]bool{}
 		localRuns := map[string]bool{}

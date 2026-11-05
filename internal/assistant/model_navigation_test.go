@@ -245,3 +245,53 @@ func TestPageChangeDuringModelRunSuppressesNavigation(t *testing.T) {
 		t.Fatal("late completion navigated old page")
 	}
 }
+
+// A typed page action from the same successful run cannot dismiss a financial
+// review restored from durable state, even after the conversation is renamed.
+func TestReturnTrendBlockedByRestoredReviewAfterRename(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	store, err := aistate.Open(dir, "synthetic-nav-review")
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := ai.InitialState("synthetic-nav-review")
+	id := uuid.NewString()
+	state.Conversations = []ai.ConversationState{{ID: id, Updated: time.Now(), Reviews: []ai.ReviewRef{{ID: uuid.NewString()}}}}
+	if err := store.Save(state); err != nil {
+		t.Fatal(err)
+	}
+	target := ai.ModelNavigationTarget{Kind: "return-trend", Trend: &ai.ReturnTrendAction{From: "2026-01-01", To: "2026-02-28", Valuation: "base", IncludeCash: true, Display: "linked_rate"}}
+	validated := false
+	r, err := ai.NewRuntime(ai.Options{Ledger: "synthetic-nav-review", Store: store, Credentials: &credentials{available: true}, Validate: func(context.Context) bool { return true }, NavigationValidator: func(context.Context, ai.ModelNavigationTarget) bool { validated = true; return true }, Factory: factory(func(context.Context, []byte, string) (ai.Completion, error) {
+		return ai.Completion{Text: "Requested trend", History: []byte("synthetic"), Navigation: &target}, nil
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	enable(t, r)
+	status := r.Snapshot()
+	if err := r.Rename(t.Context(), status.Epoch, id, "Pending cash review"); err != nil {
+		t.Fatal(err)
+	}
+	lease, err := r.PublishPage(t.Context(), status.Epoch, status.Revision, ai.PageSelection{Kind: "overview"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := ai.StartRequest{Epoch: status.Epoch, Revision: status.Revision, ConversationID: id, RequestID: uuid.NewString(), Prompt: "Open return trend", Page: ai.PageSelection{Kind: "overview"}, PageLeaseID: lease.ID}
+	if err := r.GrantNavigation(t.Context(), q.Epoch, q.Revision, id, q.RequestID, lease.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Start(t.Context(), q); err != nil {
+		t.Fatal(err)
+	}
+	waitRun(t, r, q)
+	view, err := r.Inspect(t.Context(), q.Epoch, id)
+	if err != nil || view.Navigation == nil || view.Title != "Pending cash review" {
+		t.Fatal("missing combined conversation state", err)
+	}
+	intent := view.Navigation
+	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, id, intent.RunID, intent.ID, lease.ID); err == nil || validated {
+		t.Fatal("pending review allowed return trend execution")
+	}
+}

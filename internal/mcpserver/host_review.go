@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -29,8 +30,8 @@ const (
 )
 
 // HostChangeReview is private host state, never a model tool or chat message.
-// It is not registered with Wails or mobile. A future trusted UI must display
-// Binding.Preview and explicitly confirm that exact Digest. The digest detects
+// The desktop runtime projects Binding.Preview for explicit UI confirmation;
+// mobile and model tools never receive this host API. The digest detects
 // changed reviews; possession of it is not an approval credential.
 type HostChangeReview struct {
 	Binding HostChangeReviewBinding `json:"binding"`
@@ -40,20 +41,21 @@ type HostChangeReview struct {
 }
 
 type HostChangeReviewBinding struct {
-	Version            int               `json:"version"`
-	ID                 string            `json:"id"`
-	HouseholdID        string            `json:"householdId"`
-	SessionID          string            `json:"sessionId"`
-	LedgerIncarnation  string            `json:"ledgerIncarnation"`
-	IncarnationID      string            `json:"incarnationId"`
-	PermissionRevision string            `json:"permissionRevision"`
-	Permission         string            `json:"permission"`
-	Tool               string            `json:"tool"`
-	OperationID        string            `json:"operationId"`
-	CreatedAt          time.Time         `json:"createdAt"`
-	ParameterDigest    string            `json:"parameterDigest"`
-	Plan               changePlan        `json:"plan"`
-	Preview            ChangePlanPreview `json:"preview"`
+	Version            int                      `json:"version"`
+	ID                 string                   `json:"id"`
+	HouseholdID        string                   `json:"householdId"`
+	SessionID          string                   `json:"sessionId"`
+	LedgerIncarnation  string                   `json:"ledgerIncarnation"`
+	IncarnationID      string                   `json:"incarnationId"`
+	PermissionRevision string                   `json:"permissionRevision"`
+	Permission         string                   `json:"permission"`
+	Tool               string                   `json:"tool"`
+	OperationID        string                   `json:"operationId"`
+	CreatedAt          time.Time                `json:"createdAt"`
+	ParameterDigest    string                   `json:"parameterDigest"`
+	Plan               changePlan               `json:"plan"`
+	Preview            ChangePlanPreview        `json:"preview"`
+	CashAccount        *HostCashAccountIdentity `json:"cashAccount,omitempty"`
 }
 
 func reviewDigest(value any) (string, error) {
@@ -88,6 +90,9 @@ func (s *InProcessSession) withHostReview(ctx context.Context, fn func(context.C
 	s.reviewMu.Lock()
 	defer s.reviewMu.Unlock()
 	err := s.service.app.WithPrivateConfiguration(callContext, func(ctx context.Context) error {
+		if s.ctx.Err() != nil || !s.service.contexts.active(s.service.contextGeneration) {
+			return fail("session_revoked", "in-process session revoked before host review")
+		}
 		if ctx.Err() != nil {
 			return fail("cancelled", "request cancelled before host review")
 		}
@@ -115,12 +120,25 @@ func (s *InProcessSession) withHostReview(ctx context.Context, fn func(context.C
 // Only single ledger changes are supported; directory/market writers stay closed.
 func (s *InProcessSession) PreviewHostChange(ctx context.Context, command history.ChangeCommandRequest) (HostChangeReview, error) {
 	var review HostChangeReview
+	// Canonicalize at the authoritative boundary, before the command/plan/digest
+	// are persisted. Projection must agree with domain-normalized endpoint codes.
+	if cashReview(command) {
+		currency, err := domain.ParseSupportedCurrency(command.Currency)
+		if err != nil {
+			return review, safeError(err)
+		}
+		command.Currency = currency.String()
+	}
 	// Detach pointer fields before retaining any caller input.
 	arguments, err := jsoncodec.Marshal(command)
 	if err != nil || len(arguments) > inProcessInputLimit {
 		return review, fail("validation", "invalid host proposal")
 	}
 	err = s.withHostReview(ctx, func(ctx context.Context) error {
+		identity, err := s.cashAccountIdentity(ctx, command)
+		if err != nil {
+			return err
+		}
 		raw, err := s.Call(ctx, "preview_change", arguments)
 		if err != nil {
 			return err
@@ -139,6 +157,17 @@ func (s *InProcessSession) PreviewHostChange(ctx context.Context, command histor
 		if jsoncodec.Unmarshal(planRaw, &plan) != nil {
 			return fail("review_unavailable", "authoritative plan unavailable")
 		}
+		if identity != nil {
+			found := false
+			for _, endpoint := range result.Data.Preview.Resulting {
+				if endpoint.AccountID != nil && *endpoint.AccountID == identity.AccountID && endpoint.Currency == command.Currency && endpoint.Amount != "" {
+					found = true
+				}
+			}
+			if !found {
+				return fail("review_unavailable", "cash review result unavailable")
+			}
+		}
 		parameters, err := reviewDigest(plan.Command)
 		if err != nil {
 			return err
@@ -148,7 +177,7 @@ func (s *InProcessSession) PreviewHostChange(ctx context.Context, command histor
 			LedgerIncarnation: s.service.app.MobileWorkspace(),
 			IncarnationID:     s.service.config.InstanceID, PermissionRevision: s.service.config.InstanceID,
 			Permission: LedgerWrite, Tool: "commit_change", OperationID: uuid.NewString(),
-			CreatedAt: time.Now().UTC(), ParameterDigest: parameters, Plan: plan, Preview: result.Data,
+			CashAccount: identity, CreatedAt: time.Now().UTC(), ParameterDigest: parameters, Plan: plan, Preview: result.Data,
 		}}
 		review.Digest, err = reviewDigest(review.Binding)
 		if err != nil {
@@ -218,6 +247,10 @@ func (s *InProcessSession) loadHostReview(id string) (HostChangeReview, error) {
 		uuid.Validate(b.IncarnationID) == nil && b.PermissionRevision == b.IncarnationID && !b.CreatedAt.IsZero() &&
 		b.Plan.Type == "change" && uuid.Validate(b.Plan.ID) == nil && b.Plan.ID == b.Preview.PlanID && b.Plan.Version != "" &&
 		b.Preview.ExpiresAt == b.Plan.ExpiresAt.Format(time.RFC3339Nano) && b.Plan.ExpiresAt.After(b.CreatedAt)
+	if b.CashAccount != nil {
+		identity := b.CashAccount
+		valid = valid && cashReview(b.Plan.Command) && identity.AccountID == b.Plan.Command.AccountID && identity.Name != "" && identity.AccountType != "" && identity.DefaultCurrency != "" && identity.Owners != nil
+	}
 	switch review.State {
 	case ReviewAwaitingConfirmation, ReviewCommitting, ReviewSucceeded, ReviewNeedsPreview, ReviewCancelled, ReviewUnknown:
 	default:
@@ -340,7 +373,7 @@ func (s *InProcessSession) ConfirmHostChange(ctx context.Context, id, expectedDi
 }
 
 func (s *InProcessSession) hostReviewCurrent(review HostChangeReview) bool {
-	return review.Binding.IncarnationID == s.service.config.InstanceID &&
+	return (!cashReview(review.Binding.Plan.Command) || review.Binding.CashAccount != nil) && review.Binding.IncarnationID == s.service.config.InstanceID &&
 		review.Binding.LedgerIncarnation == s.service.app.MobileWorkspace() &&
 		review.Binding.Plan.Version == s.service.app.MobileDataVersion() && time.Now().Before(review.Binding.Plan.ExpiresAt)
 }

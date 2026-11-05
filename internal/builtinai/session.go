@@ -19,6 +19,7 @@ type Capabilities interface {
 	Call(context.Context, string, json.RawMessage) (json.RawMessage, error)
 }
 type Session struct {
+	propose           assistant.ProposalHandler
 	pageReader        assistant.PageContentReader
 	navigationAllowed bool
 	targets           map[string]navigationTarget
@@ -57,6 +58,7 @@ func (s *Session) WithPageReader(reader assistant.PageContentReader) *Session {
 	s.pageReader = reader
 	return s
 }
+func (s *Session) WithProposals(h assistant.ProposalHandler) *Session { s.propose = h; return s }
 func (s *Session) Definitions() ([]agentcapability.Definition, error) {
 	defs, err := s.shared.Definitions()
 	if err != nil {
@@ -88,6 +90,15 @@ func (s *Session) Definitions() ([]agentcapability.Definition, error) {
 	if s.navigationAllowed {
 		out = append(out, navigationDefinitions()...)
 	}
+	if s.propose != nil {
+		closed := false
+		props := map[string]any{}
+		for _, key := range []string{"kind", "accountId", "amount", "currency", "reason", "effectiveAt", "note"} {
+			props[key] = map[string]any{"type": "string"}
+		}
+		props["kind"] = map[string]any{"type": "string", "enum": []string{"money_added", "money_removed"}}
+		out = append(out, agentcapability.Definition{Name: "propose_cash_change", Description: "Propose one completed cash deposit or withdrawal for explicit desktop user review. Never posts money. Use account IDs from current evidence, exact positive decimal amount, explicit currency/reason and RFC3339 effectiveAt. Do not guess missing details; ask the user. The host freezes an authoritative preview. Chat approval is not confirmation. No batch, transfer, directory, holding or reconciliation changes. One unresolved proposal per conversation.", Effect: agentcapability.Preview, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: map[string]any{"type": "object", "properties": props, "required": []string{"kind", "accountId", "amount", "currency", "reason", "effectiveAt"}, "additionalProperties": false}})
+	}
 	return out, nil
 }
 func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
@@ -98,6 +109,12 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	}
 	if ctx.Err() != nil {
 		return nil, assistant.ErrUnavailable
+	}
+	if name == "propose_cash_change" {
+		if s.propose == nil {
+			return nil, assistant.ErrUnavailable
+		}
+		return s.propose(ctx, args)
 	}
 	if name == "read_page_content" {
 		if s.pageReader == nil {

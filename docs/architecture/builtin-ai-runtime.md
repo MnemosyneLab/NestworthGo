@@ -1,16 +1,17 @@
-# Built-in AI desktop read-only runtime
+# Built-in AI desktop runtime
 
 The desktop right-hand assistant supports explicit OpenAI Responses model requests,
 controlled local financial reads, run feedback, cancellation and paged persistent
 history. Activation defaults off. Desktop Settings → Built-in AI credentials saves
 a write-only key, a model ID and an explicit enable flag. There are no startup,
-reconnect or implicit retry model calls. Financial writes and mobile model access
-remain closed. The existing deterministic page guide remains available on mobile.
+reconnect or implicit retry model calls. Reviewed single cash changes are desktop-only
+and require a separate session permission and per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
-Financial proposals/writes, arbitrary page inspection, provider refresh, arbitrary
-UI automation and mobile model access remain unavailable. Existing explicit
+Cash deposits/withdrawals can be proposed through the bounded review flow below.
+Other financial writes, provider refresh, arbitrary UI automation and mobile model
+access remain unavailable. Existing explicit
 account buttons retain their page-host guards; model navigation has independent
 backend and frontend fences described below.
 
@@ -25,8 +26,12 @@ Callers cannot select paths, a household, a mobile principal or a tool permissio
 A missing household leaves the backend unavailable until a later application
 restart; onboarding does not silently activate it.
 
-Each live conversation owns a direct `InProcessSession` in `ReadOnly` mode through
-`builtinai.Pool`; the provider engine and credential lease remain per-run. This
+Each live conversation owns a direct `InProcessSession` through
+`builtinai.Pool`; the installed desktop uses a durable configuration repository
+and a host-owned `LedgerWrite` session, while the model adapter retains its
+fixed read allowlist plus the separately enabled proposal callback. The model
+never receives the host review methods. Read-only test/integration pools remain
+`ReadOnly` when no repository is supplied. The engine and credential lease remain per-run. This
 preserves frozen captures across turns within the original fixed five-minute TTL.
 Page/item reads never renew it. The pool is bound to this runtime/ledger and at
 most 20 conversations. Delete/retention drops the conversation session; config/key
@@ -45,17 +50,87 @@ were removed. It adds `get_current_page` only for supported
 view selections, and `get_navigation_targets`/`open_page`/`open_return_trend` only for an explicit
 per-message host grant. The shared session independently rechecks permissions
 and budgets.
-No configuration, network refresh, projection-maintaining analysis, financial
-writer/preview or approval method is available. The host
-review methods from #203 remain separate and are not registered by this stage.
+No configuration, network refresh, projection-maintaining analysis, direct
+financial writer or approval method is available to the model. The host review
+methods from #203 are adapted only by the desktop runtime review endpoints.
 Their operation receipts remain in their existing household/session namespaces;
 chat deletion neither deletes those receipts nor reverses a financial operation.
 
-The current authority is desktop, household-wide, read-only. No mobile/scoped
-principal may receive it. Trusted proposal/review UI, live mobile permission
-intersection, per-account authorization and other write families remain required
-before any built-in writer can be exposed. The model cannot manufacture host
+The current authority is desktop and household-wide. No mobile/scoped principal
+may receive it. Live mobile permission intersection, per-account authorization
+and other write families remain unimplemented. The model cannot manufacture host
 approval from text, a summary, a digest, a page snapshot or a saved conversation.
+
+## Reviewed single cash changes
+
+The conversation panel has an explicit session write switch. It defaults off on
+startup, is reset by model configuration/credential deletion, and cannot be
+turned on during an active model run. Disabling it fences live sessions; each
+reviewed write still requires a separate user click on the frozen preview.
+Changing permission increments the configuration revision and revokes prior
+sessions. Merely saving a key never enables writes. Normal shutdown preserves
+review references but not permission; restore fences the old runtime and purges
+its conversation namespace before replacing the database.
+
+Only `propose_cash_change` is added to a permitted model run. Its strict bounded
+input accepts `money_added` or `money_removed`, an account ID, exact amount,
+currency, reason, effective RFC3339 time and optional note. It cannot carry a
+plan, operation ID, mutation key, approval, holding, reconciliation link or other
+command fields. The shared ledger validator still decides valid reasons,
+accounts, amounts, dates and effects. Unknown kinds and fields fail closed.
+Directory edits, batches, transfers, securities and other change families stay
+closed. This does not use or extend MCP's composite directory PATCH path.
+
+The callback obtains a new host-authoritative preview and persists its reference
+in the conversation before acknowledging the proposal. Model history receives
+only “awaiting user review”, never a confirmation method or digest. Each
+conversation permits one unresolved proposal and at most 64 review references.
+A provider failure/cancellation after proposing does not grant approval or erase
+that review. Stop stops generation; Cancel in the review panel only dismisses an
+unsubmitted change. Chat text, summaries and page content cannot confirm.
+
+The desktop displays the frozen account name, institution, owner names, account
+type and default currency alongside exact amount/currency, resulting balance,
+effective time, reason and note. These readable identities are captured under
+the same application gate as the plan and included in its host review digest;
+there is no display-time live metadata join or exposed account UUID. The host
+compares normalized readable identities and rejects a proposal if another
+account remains indistinguishable, requiring a distinct account name. Account,
+member and institution writes invalidate the version and require repreview.
+Legacy reviews without identity cannot confirm but retain receipt recovery.
+Cash currency is normalized through the domain parser before persisting the
+command/plan/review; projection also normalizes legacy currency inputs. Invalid
+currencies fail before creating private review state. Confirm submits only the review ID and
+exact displayed digest, bound by the runtime to that conversation and live
+permission. Session acquisition occurs before a second runtime revision check;
+revocation then cancels that exact session, including requests waiting on the
+application gate. Host review admission checks session cancellation/generation
+synchronously after acquiring that gate, independently of AfterFunc delivery. No runtime lock is held across application review/write gates.
+The host core durably admits before dispatch and uses the existing application
+Service, version validation, mutation transaction and idempotent receipt. No
+financial formula is implemented in the UI. Repeated confirmations reconcile the
+same operation. Conflicts/expiry/restart require a fresh preview and a new user
+confirmation; refreshing never confirms automatically.
+
+`Reviews` only inspects/reconciles; polling, reconnect and restart never dispatch
+a writer. A lost response retains the original reference. Pending/unknown results
+have no cancel, repreview or replacement-proposal path. They stay visible for
+inspection and block conversation deletion/retention and model navigation until
+resolved. Unsubmitted stale reviews may be cancelled or explicitly refreshed.
+A crash between refreshed-preview creation and reference persistence can leave
+an unreachable private *unsubmitted* preview; it cannot execute. Existing host
+receipt recovery covers commit-success/outer-receipt loss. Genuine unresolved
+outcomes remain unresolved rather than being blindly retried.
+
+This delivery does not feed confirmed results back into the model automatically,
+resume a model after approval, add Eino checkpoints, implement mobile writes,
+or claim live-provider/native macOS GUI acceptance. Unit/integration evidence
+uses synthetic SQLite ledgers and local fake models. Polling adds bounded private
+review reads (up to 64 references per selected conversation every 1.5 seconds
+while generating or unresolved; settled views stop polling);
+no global latency or RSS claim is made. Cash identity capture adds one account
+list and one member list per preview, with a linear ambiguity check; these run
+under the existing operation gate and are not repeated by display polling.
 
 ## Strictly read-only period analysis
 
@@ -263,7 +338,8 @@ run count. Events contain only sequence, run ID, state and fixed code: at most
 the latest epoch instead of resubmitting a new paid request. A rolled-over/future
 cursor returns `reset`; refresh metadata/history. Generated bindings expose
 write-only credential input and bounded configuration,
-never stored secrets, history internals or host review methods. The desktop polls
+never stored secrets or history internals. `SetWritePermission`, `Reviews` and
+`ReviewAction` are desktop-only, bounded endpoints; none is a model tool. The desktop polls
 status every two seconds and the selected latest turn every second while mounted (every 200 ms during an active run).
 The sidebar presents a chronological transcript: the latest attempt and up to
 five preceding turns load on session selection. “Load earlier messages” prepends
@@ -371,8 +447,8 @@ an invalid request may be corrected within the still-valid grant. New actions
 after a conflict need a new per-message grant.
 
 Remaining gates include richer financial evidence cards, broader analysis filter
-navigation, arbitrary page/control coverage, trusted financial proposal/review/
-receipt wiring, mobile/scoped principals, native GUI/accessibility, physical
+navigation, arbitrary page/control coverage, financial proposal/review/receipt
+families beyond the reviewed cash path, mobile/scoped principals, native GUI/accessibility, physical
 devices, full power-loss/restore acceptance and real-provider encrypted-signature
 compatibility. Larger periods/households need measured memory/latency evidence
 before budgets are expanded. All unsupported paths stay closed.
