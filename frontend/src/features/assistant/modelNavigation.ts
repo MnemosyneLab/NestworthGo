@@ -7,7 +7,7 @@ export type ModelPageState = {
   blocked: () => boolean;
   dispatch: (target: NavigationTarget) => boolean | void;
 };
-export type ModelTarget = { kind: string; accountId: string };
+export type ModelTarget = { kind: string; accountId: string; tab?: string };
 const canonicalID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export function modelNavigationAllowed(stamp: string, current: ModelPageState) {
@@ -34,6 +34,11 @@ export async function applyModelNavigation(
   if (state.stamp !== stamp || state.surface !== "desktop")
     return "stale_context";
   if (state.blocked()) return "blocked";
+  if (target.kind === "return-analysis" && target.accountId === "" &&
+      (target.tab === "calendar" || target.tab === "trend" || target.tab === "contribution")) {
+    return state.dispatch({page: "return-analysis", tab: target.tab}) === false ? "blocked" : "opened";
+  }
+  if (target.tab) return "invalid_target";
   if (target.kind === "overview" && target.accountId === "") {
     return state.dispatch({ page: "overview" }) === false
       ? "blocked"

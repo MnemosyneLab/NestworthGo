@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -22,13 +22,26 @@ it("renders per-step details and provisional Markdown, then removes cancelled pr
   rerender(view({ ...initial, progress: { ...initial.progress, revision: 2, tools: [{ ...initial.progress.tools[0], state: "succeeded", output: '{"account":"Synthetic","amount":"12.3456"}' }] } }));
   expect(screen.getByText(/Financial summary · Completed/)).toBeVisible();
   expect(screen.getByText('{"account":"Synthetic","amount":"12.3456"}')).toBeVisible();
-  rerender(view({ ...initial, progress: { ...initial.progress, revision: 3, tools: [{ ...initial.progress.tools[0], state: "succeeded", output: "", outputTruncated: true }] } }));
-  expect(screen.getByText(/Display budget exhausted/)).toBeVisible();
+  rerender(view({ ...initial, progress: { ...initial.progress, revision: 3, tools: [{ ...initial.progress.tools[0], state: "succeeded", input: "", inputTruncated: true, output: "", outputTruncated: true }] } }));
+  expect(screen.getAllByText(/Display budget exhausted/)).toHaveLength(2);
+  expect(screen.queryByText(/Showing a truncated prefix/)).toBeNull();
   expect(screen.queryByText("No output received.")).toBeNull();
   rerender(view({ ...initial, runs: [{ ...run, state: "cancelled", code: "cancelled" }], progress: { ...initial.progress, revision: 3, text: "" } }));
   expect(screen.queryByText("Synthetic preview")).toBeNull();
   expect(screen.getByText("Stopped")).toBeVisible();
 });
+it("renders internal page-read status and actual details from the new page bridge", () => {
+  const client = createTestQueryClient();
+  const pageTool = { ...initial.progress.tools[0], source: "read_page_content", state: "succeeded", input: '{"module":"filters","limit":1}', output: '{"page":"return-analysis","nodes":[{"value":"Synthetic USD"}],"hasMore":true}' };
+  const latest = { ...initial, progress: undefined, runs: [{ ...run, state: "succeeded", text: "**Synthetic page reply**", tools: [pageTool], evidence: [{source:"read_page_content",capturedAt:"2026-11-05T00:00:00Z",hasMore:true,missing:"reported"}] }] };
+  render(<QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={latest as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()} /></QueryClientProvider>);
+  const summary = screen.getByText("Page content · Completed");
+  fireEvent.click(summary.closest("summary")!);
+  expect(screen.getByText(pageTool.input)).toBeVisible();
+  expect(screen.getByText(pageTool.output)).toBeVisible();
+  expect(screen.queryByText("Ledger read")).toBeNull();
+});
+
 it("follows resizing and chunks only while near the bottom", () => {
   let resize = () => {};
   const disconnect = vi.fn();
@@ -55,4 +68,37 @@ it("follows resizing and chunks only while near the bottom", () => {
   expect(viewport.scrollTop).toBe(1800);
   unmount();
   expect(disconnect).toHaveBeenCalled();
+});
+
+it("anchors an existing message when earlier history and a streaming tail grow together", async () => {
+  let release: ((value: unknown) => void) | undefined;
+  const saved = (position: number) => ({ ...run, id: `saved-${position}`, state: "succeeded", text: `Saved answer ${position}` });
+  api.Messages.mockImplementation(async (_epoch, _id, offset: number) => {
+    if (offset === 0) return new Promise(resolve => { release = resolve; });
+    return { id: "conversation", offset, runs: [saved(offset)], runCount: 7 };
+  });
+  const client = createTestQueryClient();
+  const latest = { ...initial, offset: 6, runCount: 7 };
+  const view = (revision: number) => <QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={{ ...latest, progress: { ...initial.progress, revision, text: "Synthetic tail ".repeat(revision) } } as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()} /></QueryClientProvider>;
+  const { rerender } = render(view(1));
+  await screen.findByText("Saved answer 1");
+  const viewport = screen.getByRole("region", { name: "Conversation messages" });
+  let prepend = 0;
+  let tailGrowth = 0;
+  Object.defineProperties(viewport, { scrollHeight: { get: () => 2000 + prepend + tailGrowth }, clientHeight: { get: () => 300 } });
+  viewport.scrollTop = 100;
+  fireEvent.scroll(viewport);
+  const article = screen.getByText("Saved answer 1").closest("article")!;
+  vi.spyOn(viewport, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 400, 300));
+  vi.spyOn(article, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 200 + prepend - viewport.scrollTop, 400, 200));
+  fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
+  await waitFor(() => expect(release).toBeTypeOf("function"));
+  tailGrowth = 500;
+  rerender(view(2));
+  expect(viewport.scrollTop).toBe(100);
+  prepend = 300;
+  await act(async () => release?.({ id: "conversation", offset: 0, runs: [saved(0)], runCount: 7 }));
+  await screen.findByText("Saved answer 0");
+  expect(viewport.scrollTop).toBe(400);
+  expect(article.getBoundingClientRect().top).toBe(100);
 });

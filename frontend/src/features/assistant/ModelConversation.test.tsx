@@ -5,8 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from "./PageContext";
+
 import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
+  PendingPageReads: vi.fn(),
+  DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
   GrantNavigation: vi.fn(),
   ConsumeNavigation: vi.fn(),
@@ -42,6 +45,8 @@ const run = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  api.PendingPageReads.mockResolvedValue([]);
+  api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
   api.GrantNavigation.mockResolvedValue(undefined);
   api.ConsumeNavigation.mockResolvedValue({ kind: "overview", accountId: "" });
@@ -480,6 +485,84 @@ it.each([
   expect(api.Start).not.toHaveBeenCalled();
 });
 
+
+it("fulfills a tool capture automatically with the latest supported page, without navigation approval", async () => {
+ function EnabledPage() {
+  const page=useAssistantPage();
+  const enablePage=page?.setEnabled;
+  useLayoutEffect(()=>{enablePage?.(true)},[enablePage]);
+  return <><main data-assistant-page="return-analysis"><section data-assistant-module="filters"><label htmlFor="analysis-from">From</label><input id="analysis-from" defaultValue="2026-10-01" /></section></main><ModelConversation /></>;
+ }
+ api.PendingPageReads.mockResolvedValueOnce([{id:"capture-first"}]).mockResolvedValue([]);
+ render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={()=>false} onNavigate={vi.fn()}><EnabledPage /></AssistantPageProvider></QueryClientProvider>);
+ await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));
+ expect(api.DeliverPageContent.mock.calls[0][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-01"})]));
+ fireEvent.change(screen.getByLabelText("From"),{target:{value:"2026-10-02"}});
+ api.PendingPageReads.mockResolvedValueOnce([{id:"capture-second"}]);
+ await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(2));
+ expect(api.DeliverPageContent.mock.calls[1][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-02"})]));
+ expect(api.GrantNavigation).not.toHaveBeenCalled(); expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("revokes analysis navigation when a live filter changes during intent consumption", async () => {
+  let finish!: (target: { kind: string; accountId: string }) => void;
+  api.ConsumeNavigation.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  api.Start.mockImplementation(async (q) => {
+    api.Inspect.mockResolvedValue({
+      id: "conversation",
+      runs: [{ ...run, requestId: q.requestId, state: "succeeded" }],
+      runCount: 2,
+      offset: 1,
+      navigation: {
+        id: "host-intent",
+        leaseId: q.pageLeaseId,
+        requestId: q.requestId,
+        runId: "run",
+        conversationId: "conversation",
+      },
+    });
+    return { ...run, state: "accepted" };
+  });
+  const navigate = vi.fn();
+  function Shell() {
+    return <AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={()=>false} onNavigate={navigate}>
+      <main data-assistant-page="return-analysis"><label htmlFor="analysis-from">From</label><input id="analysis-from" defaultValue="2026-10-01" /></main>
+      <ModelConversation />
+    </AssistantPageProvider>;
+  }
+  render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <Shell />
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Open overview");
+  await user.click(
+    screen.getByRole("button", { name: "Send and allow one page change" }),
+  );
+  await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
+  fireEvent.change(screen.getByLabelText("From"), {target:{value:"2026-10-02"}});
+  finish({ kind: "overview", accountId: "" });
+  await screen.findByText(/No page change was applied/);
+  expect(navigate).not.toHaveBeenCalled();
+});
+
+
+it("captures the current page even with the local page guide off and no conversation UI mounted", async () => {
+ api.PendingPageReads.mockResolvedValueOnce([{id:"collapsed-sidebar-read"}]).mockResolvedValue([]);
+ render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={()=>false} onNavigate={vi.fn()}><main data-assistant-page="return-analysis"><p>Latest underlying page</p></main></AssistantPageProvider></QueryClientProvider>);
+ await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));
+ expect(JSON.stringify(api.DeliverPageContent.mock.calls[0][2].nodes)).toContain("Latest underlying page");
+ expect(api.GrantNavigation).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
+
+});
+
 it("loads older messages in bounded batches and retains them when a new run arrives", async () => {
   const saved = (n: number) => ({ ...run, id: `run-${n}`, prompt: `Question ${n}`, text: `Answer ${n}`, evidence: [] });
   api.Inspect.mockResolvedValue({ id: "conversation", runs: [saved(7)], runCount: 8, offset: 7 });
@@ -656,4 +739,5 @@ it("announces an immediate first reply from a newly created conversation", async
   await user.click(screen.getByRole("button", { name: "Send to model" }));
   await screen.findByText("Immediate first reply");
   expect(await screen.findByText("AI reply received for message 1.")).toHaveAttribute("aria-live", "polite");
+
 });

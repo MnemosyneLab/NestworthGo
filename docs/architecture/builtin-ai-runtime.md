@@ -298,7 +298,8 @@ admission rejects unsupported kinds and binds the selection into request dedup.
 `get_current_page` resolves a new shared `get_overview`, `list_accounts` or
 `get_account_snapshot` capture, with backend capture time and tool source. IDs are
 validated against the live household. Client metrics, labels, filters, permission
-claims and routes are never sent. The model must not claim exact visible-screen
+claims and routes are never sent through this selector. The separate internal
+`read_page_content` tool below exposes supported semantic presentation facts. The model must not claim exact visible-screen
 or filter parity; source timestamps/missingness remain in shared capture data.
 This does not implement the broader trusted page-publication/navigation port.
 
@@ -341,7 +342,7 @@ after IPC, and honors App navigation rejection. Stop, a newer submission or
 transport uncertainty also withdraws pending frontend application. Full page-
 publication/mobile authorization via the broader Go PageHost port remains separate.
 
-Remaining gates include richer financial evidence cards, analysis-page/filter/date
+Remaining gates include richer financial evidence cards, analysis filter/date
 navigation, arbitrary page/control coverage, trusted financial proposal/review/
 receipt wiring, mobile/scoped principals, native GUI/accessibility, physical
 devices, full power-loss/restore acceptance and real-provider encrypted-signature
@@ -427,13 +428,90 @@ marks it interrupted and does not restore transient previews or unfinished tool
 details. No financial storage schema or permission changes are involved.
 
 Completed replies and incomplete previews use the same allowlisted Markdown
-renderer (GFM tables, lists, code and emphasis). Raw HTML is dropped. Images are
+renderer (GFM tables, lists, code, emphasis and visible footnote references/text). Raw HTML is dropped. Images are
 inert alt text, links are inert labels, and no Markdown resource can load remotely
 or trigger desktop navigation. Unclosed fences/links are parsed safely again on
 each snapshot. User prompts remain plain text. ResizeObserver follows viewport
 and transcript height changes (Markdown, width and tool disclosures) only when
 following is enabled. Scrolling up pauses follow; the explicit Latest messages
-button resumes it. History prepend retains its existing scroll anchor. Chunk
+button resumes it. History prepend anchors a visible message element, so concurrent growth at the streaming tail does not change the reading position. Chunk
 text is not a live region; tool status changes and the completed-reply announcer
 provide bounded polite announcements. Native Mac visual and screen-reader
 acceptance remain separate from jsdom geometry tests.
+
+## On-demand internal page content
+
+`read_page_content` is added only by `builtinai.Session.WithPageReader` in the
+installed desktop factory. The shared agent capability registry and external MCP
+server neither discover nor dispatch it. Reading is enabled by default for the
+built-in assistant and has no separate permission, approval, publish or refresh
+step. Existing configured AI opt-in and the displayed provider privacy notice
+apply to page content as well as controlled ledger reads. Read access grants no
+navigation, DOM execution or financial-write authority.
+
+Each tool invocation asks the mounted desktop bridge for a synchronous capture
+of the *then-current* active page, including live input properties rather than
+only React/backend state. The desktop host bridge stays mounted independently of sidebar visibility and
+local page-guide enablement. While configured AI is available it polls request
+IDs (750 ms idle, 150 ms immediately after a delivery), not page contents. Requests expire after ten
+seconds and are checked against the runtime epoch, config revision, live
+workspace validator, run cancellation and enabled state. Nothing is prepublished.
+The current page must have an explicit reviewed root and match the current view
+key, excluding retained inactive pages and the assistant's own conversation.
+When a modal assistant makes the underlying active page inert, its reviewed
+content remains readable and the overlay/inert state is explicitly reported.
+
+The first supported root is Return analysis, across its active calendar, trend
+and contribution tabs. Stable module paths are `page`, `views`, `filters` and the
+active tab name; named controls use module/control IDs. Anonymous semantic text
+IDs are stable only within the same semantic snapshot. Output consists of typed
+nodes with parent/module, role, accessible name, displayed value, state and
+*descriptive* affordances. Field values are restricted to reviewed analysis
+control IDs; password, hidden, file, unknown and textarea inputs are redacted.
+`data-assistant-private` subtrees, URLs, option database IDs, event handlers,
+raw HTML and SVG/canvas geometry are excluded. Known configured credential
+material is also rejected by the backend, including strings escaped in JSON.
+
+Native select option labels/selection, shared date-picker labels/displayed values,
+search combobox text/expanded state, all contribution toolbar/ranking/detail
+controls (return type, grouping, ordering, count, search),
+checkbox/radio values, disabled/read-only/invalid/pressed states, headings,
+tables, statuses, alerts and disclosure state are represented. Roleless `aria-busy` containers become semantic groups so
+background fetching changes the snapshot even when financial rows are unchanged.
+Collapsed
+in-root disclosures retain available semantic contents. Portal popovers and
+hover-only chart content are outside this capture. Chart geometry is explicitly
+reported as unsupported; an available semantic data table can be read. Other
+pages return `page:unsupported`, no nodes and explicit limitations; the original
+backend overview/account selection tool remains independent. This is not full
+application or arbitrary UI control coverage.
+
+A capture is bounded to 8,192 nodes and 512 KiB; excessive content fails closed
+without claiming completeness. Long text is split into 400-character nodes
+without discarding the remainder; shortened accessible labels are reported as a
+limitation. Responses default to 32 nodes (maximum 64) and at most 24 KiB. They
+include snapshot ID, capture time, module directory, selection, total nodes,
+offset, `hasMore`, optional `nextCursor`, limitations and `complete`. The latter
+is true only if the *entire requested selection* fits this response and has no
+limitations. It never means all application content is supported. Read records
+retain per-response pagination/missingness evidence.
+
+Continue with the same `snapshotId`, module and next offset. Every continuation
+captures the current semantic state again before returning the original frozen
+snapshot's next slice. A changed semantic generation rejects continuation; a new
+initial read without a snapshot ID captures the latest state automatically.
+Generation fingerprints include the host visit and root identity, so leaving and
+returning or remounting a page revokes old snapshots even when content matches.
+Snapshot state is run-local and memory-only; tool results may enter the normal
+successful model history under the existing conversation retention rules.
+Financial assertions must still use authoritative controlled ledger reads.
+
+Under the existing explicit one-turn navigation grant, opaque target discovery
+also offers Return analysis's calendar, trend and contribution destinations.
+These are fixed typed read-only routes; they preserve existing analysis filters.
+Analysis navigation also compares the captured semantic generation before
+intent consumption and again after IPC, rejecting intervening filter/data changes.
+No arbitrary click, edit, date/filter application or financial action is added.
+The existing successful-run, source-page lease, expiry, live workspace and
+unresolved-review checks still gate dispatch. Future pages require reviewed
+root/field coverage and privacy/state regression tests before opting in.

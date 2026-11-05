@@ -13,3 +13,12 @@ it("renders Markdown and unfinished fences without executable HTML or remote res
   expect(screen.getByText("Synthetic image")).toBeVisible();
   expect(screen.getByText("link")).toBeVisible();
 });
+
+
+it("preserves footnote references and qualifying text with inert links", () => {
+  const { container } = render(<AssistantMarkdown text={'Synthetic return is **12.34%**[^coverage].\n\n[^coverage]: Coverage is incomplete; this is a synthetic estimate. [Source](javascript:alert%281%29) ![No remote load](https://attacker.invalid/track)'} />);
+  expect(container.querySelector("sup")).toHaveTextContent("1");
+  expect(screen.getByText(/Coverage is incomplete; this is a synthetic estimate/)).toBeVisible();
+  expect(container.querySelector("section")).toHaveTextContent("Coverage is incomplete");
+  expect(container.querySelector("a,img,script,iframe")).toBeNull();
+});

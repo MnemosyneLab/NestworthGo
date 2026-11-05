@@ -42,20 +42,20 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   }, [origin.data?.timezone, origin.isLoading, session.returnCursor, setReturnView]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-assistant-page="return-analysis">
       <PageChrome pageId="return-analysis" title={t("insights.returnAnalysis")} />
       <Tabs className="flex flex-col gap-4" value={session.returnTab} onValueChange={(value) => changeTab(value as typeof session.returnTab)}>
-        <TabsList className="self-start">
+        <TabsList className="self-start" data-assistant-module="views">
           <TabsTrigger value="calendar">{t("insights.calendar")}</TabsTrigger>
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>
         </TabsList>
         <AnalysisFilterBar compact={session.returnTab === "contribution"} session={session} resolvedRange={resolvedRange} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} onClearAdditionalFilters={clearAdditionalFilters} />
-        <TabsContent value="calendar">
+        <TabsContent value="calendar" data-assistant-module="calendar">
           <ReturnCalendarTab session={session} view={calendarView} onViewChange={setCalendarView} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>
-        <TabsContent value="trend"><ReturnTrendTab session={session} /></TabsContent>
-        <TabsContent value="contribution"><ContributionTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>
+        <TabsContent value="trend" data-assistant-module="trend"><ReturnTrendTab session={session} /></TabsContent>
+        <TabsContent value="contribution" data-assistant-module="contribution"><ContributionTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>
       </Tabs>
     </div>
   );

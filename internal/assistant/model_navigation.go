@@ -11,11 +11,18 @@ import (
 // history nor a client page selector can mint a grant. Each explicit grant is
 // bound to one not-yet-started request, config revision and current page lease.
 type ModelNavigationTarget struct {
+	Tab       string `json:"tab,omitempty"`
 	Kind      string `json:"kind"`
 	AccountID string `json:"accountId"`
 }
 
 func (t ModelNavigationTarget) Valid() bool {
+	if t.Kind == "return-analysis" {
+		return t.AccountID == "" && (t.Tab == "calendar" || t.Tab == "trend" || t.Tab == "contribution")
+	}
+	if t.Tab != "" {
+		return false
+	}
 	switch t.Kind {
 	case "overview", "accounts":
 		return t.AccountID == ""

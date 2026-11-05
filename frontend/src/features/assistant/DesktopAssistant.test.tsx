@@ -15,7 +15,9 @@ it("leaves closed surfaces idle, expands, collapses with focus, and pauses offli
   vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(min-width: 1280px)", addEventListener: () => {}, removeEventListener: () => {} }));
   status.mockResolvedValue({ version: 1, surface: "desktop", pageGuide: true, provider: "unavailable", credentials: "unavailable", conversations: "memory", modelRuns: false, financialWrites: false, reason: "activation_incomplete" });
   render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="generation" surface="desktop" viewKey="overview:" blocked={() => false} onNavigate={vi.fn()}><Shell /></AssistantPageProvider></QueryClientProvider>);
-  expect(status).not.toHaveBeenCalled();
+  // The desktop host reads local availability metadata even with the panel
+  // closed; it still mounts no conversation and performs no model submission.
+  expect(status).toHaveBeenCalled();
   expect(screen.queryByTestId("model-conversation")).not.toBeInTheDocument();
   const user = userEvent.setup(); await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
   await waitFor(() => expect(status).toHaveBeenCalled());

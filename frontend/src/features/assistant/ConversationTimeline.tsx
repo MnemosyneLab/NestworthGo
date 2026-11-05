@@ -62,7 +62,7 @@ const budgetDiagnostic = (code: string) =>
   code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
-const sources = new Set(["compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
+const sources = new Set(["read_page_content", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
 export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "" }: {
   epoch: string; id: string; latest?: Conversation; submittedRequestId?: string; busy: boolean; onCancel: (runID: string) => void;
 }) {
@@ -73,7 +73,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   const viewport = useRef<HTMLDivElement>(null);
  const content = useRef<HTMLDivElement>(null);
  const followingRef = useRef(true);
-  const anchor = useRef<{ height: number; top: number } | null>(null);
+  const anchor = useRef<{ element: HTMLElement; offset: number } | null>(null);
   // This component is keyed by runtime epoch and conversation ID by its owner.
   // Retain observed latest attempts while their positional history fetch catches
   // up; a pending/failed read must never erase an already displayed answer.
@@ -120,7 +120,12 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
     const el = viewport.current;
     if (!el) return;
     if (anchor.current) {
-      if (!loading) { el.scrollTop = anchor.current.top + el.scrollHeight - anchor.current.height; anchor.current = null; }
+      if (!loading) {
+        const saved = anchor.current;
+        if (saved.element.isConnected && el.contains(saved.element))
+          el.scrollTop += saved.element.getBoundingClientRect().top - el.getBoundingClientRect().top - saved.offset;
+        anchor.current = null;
+      }
     } else if (following) el.scrollTop = el.scrollHeight;
   }, [signature, loading, following]);
   useEffect(() => {
@@ -141,7 +146,12 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
       onScroll={event => { const el = event.currentTarget; followingRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; setFollowing(followingRef.current); }}>
       <div ref={content} className="mx-auto max-w-2xl space-y-6">
         {first > 0 && <Button variant="ghost" className="w-full text-muted-foreground" disabled={loading} onClick={() => {
-          if (viewport.current) anchor.current = { height: viewport.current.scrollHeight, top: viewport.current.scrollTop };
+          if (viewport.current) {
+            const el = viewport.current;
+            const top = el.getBoundingClientRect().top;
+            const element = Array.from(el.querySelectorAll<HTMLElement>("article")).find(article => article.getBoundingClientRect().bottom > top);
+            if (element) anchor.current = { element, offset: element.getBoundingClientRect().top - top };
+          }
           followingRef.current = false; setFollowing(false); setFirst(value => Math.max(0, value - 5));
         }}>{t("aiChat.loadEarlier")}</Button>}
         {loading && <p role="status" className="text-center text-xs text-muted-foreground">{t("aiChat.loadingHistory")}</p>}
@@ -172,7 +182,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                   </summary>
                   <div className="space-y-2 border-t border-border p-3">
                     <p>{t("aiChat.toolInput")}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.input || (tool.inputTruncated ? t("aiChat.detailOmitted") : "")}</pre>
-                    {tool.inputTruncated && <p>{t("aiChat.detailTruncated")}</p>}
+                    {tool.inputTruncated && !!tool.input && <p>{t("aiChat.detailTruncated")}</p>}
                     <p>{t("aiChat.toolOutput")}</p>{tool.output ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.output}</pre> : <p>{t(tool.outputTruncated ? "aiChat.detailOmitted" : "aiChat.noToolOutput")}</p>}
                     {tool.outputTruncated && !!tool.output && <p>{t("aiChat.detailTruncated")}</p>}
                     <p>{t("aiChat.liveDetailHelp")}</p>
