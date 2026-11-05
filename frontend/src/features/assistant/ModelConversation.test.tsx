@@ -788,3 +788,31 @@ it.each([
   await user.click(screen.getByRole("button", { name: cancelLabel }));
   expect(api.Rename).not.toHaveBeenCalled();
 });
+
+it.each(["😀", "𠀀"])("accepts 64 Unicode code points when typing %s titles", async character => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  const input = screen.getByRole("textbox", { name: "Conversation title" });
+  const title = character.repeat(64);
+  await user.type(input, title);
+  expect(input).toHaveValue(title);
+  await user.type(input, character);
+  expect(input).toHaveValue(title);
+  await user.click(screen.getByRole("button", { name: "Save title" }));
+  await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", title));
+});
+
+it("limits mixed Unicode titles to 64 code points on paste", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  const input = screen.getByRole("textbox", { name: "Conversation title" });
+  const title = "A".repeat(62) + "😀𠀀";
+  await user.paste(title + "extra");
+  expect(input).toHaveValue(title);
+  await user.click(screen.getByRole("button", { name: "Save title" }));
+  await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", title));
+});

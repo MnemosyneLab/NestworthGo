@@ -314,8 +314,9 @@ export function ModelConversation() {
         void action(async () => { await callService(() => API.Rename(epoch, draft.id, draft.title)); setRename(null); });
       }}>
         <Label htmlFor="ai-conversation-title">{t("aiChat.titleLabel")}</Label>
-        <Input id="ai-conversation-title" autoFocus value={rename.title} maxLength={64} disabled={busy}
-          onChange={event => setRename({ id, title: event.target.value })}
+        {/* Native maxlength counts UTF-16 units; 128 allows 64 supplementary code points. */}
+        <Input id="ai-conversation-title" autoFocus value={rename.title} maxLength={128} disabled={busy}
+          onChange={event => setRename({ id, title: Array.from(event.target.value).slice(0, 64).join("") })}
           onKeyDown={event => { if (event.key === "Escape") setRename(null); if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }} />
         <div className="flex gap-2"><Button type="submit" disabled={busy || stale || !rename.title.trim()}>{t("aiChat.saveTitle")}</Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={() => setRename(null)}>{t("aiChat.cancelTitle")}</Button></div>
