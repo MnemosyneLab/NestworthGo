@@ -82,6 +82,7 @@ it("anchors an existing message when earlier history and a streaming tail grow t
   const view = (revision: number) => <QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={{ ...latest, progress: { ...initial.progress, revision, text: "Synthetic tail ".repeat(revision) } } as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()} /></QueryClientProvider>;
   const { rerender } = render(view(1));
   await screen.findByText("Saved answer 1");
+  await waitFor(() => expect(screen.queryByText("Loading messages…")).toBeNull());
   const viewport = screen.getByRole("region", { name: "Conversation messages" });
   let prepend = 0;
   let tailGrowth = 0;
@@ -102,6 +103,6 @@ it("anchors an existing message when earlier history and a streaming tail grow t
   prepend = 300;
   await act(async () => release?.({ id: "conversation", offset: 0, runs: [saved(0)], runCount: 7 }));
   await screen.findByText("Saved answer 0");
-  expect(viewport.scrollTop).toBe(450);
+  await waitFor(() => expect(viewport.scrollTop).toBe(450));
   expect(article.getBoundingClientRect().top).toBe(50);
 });
