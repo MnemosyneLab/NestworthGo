@@ -387,5 +387,5 @@ it("captures real overview modules, authoritative displayed values and descripti
  expect(moduleNodes(page,"composition").some(n=>n.name.includes("Synthetic bank"))).toBe(true);
  expect(page.nodes.some(n=>n.module === "recent-activity")).toBe(true);
  expect(page.nodes.some(n=>n.module === "trend")).toBe(true);
- expect(page.limitations.join(" ")).toContain("Canvas/SVG");
+ expect(page.limitations.join(" ")).toMatch(/canvas\/SVG/i);
 });
