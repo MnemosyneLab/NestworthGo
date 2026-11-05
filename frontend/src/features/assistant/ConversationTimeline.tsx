@@ -171,10 +171,10 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                     <span role="status" aria-live="polite" aria-atomic="true">{t(sources.has(tool.source) || ["get_current_page", "get_navigation_targets", "open_page"].includes(tool.source) ? `aiChat.source.${tool.source}` : "aiChat.unknownRead")} · {t(`aiChat.toolState.${tool.state}`)}</span>
                   </summary>
                   <div className="space-y-2 border-t border-border p-3">
-                    <p>{t("aiChat.toolInput")}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.input}</pre>
+                    <p>{t("aiChat.toolInput")}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.input || (tool.inputTruncated ? t("aiChat.detailOmitted") : "")}</pre>
                     {tool.inputTruncated && <p>{t("aiChat.detailTruncated")}</p>}
-                    <p>{t("aiChat.toolOutput")}</p>{tool.output ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.output}</pre> : <p>{t("aiChat.noToolOutput")}</p>}
-                    {tool.outputTruncated && <p>{t("aiChat.detailTruncated")}</p>}
+                    <p>{t("aiChat.toolOutput")}</p>{tool.output ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.output}</pre> : <p>{t(tool.outputTruncated ? "aiChat.detailOmitted" : "aiChat.noToolOutput")}</p>}
+                    {tool.outputTruncated && !!tool.output && <p>{t("aiChat.detailTruncated")}</p>}
                     <p>{t("aiChat.liveDetailHelp")}</p>
                   </div>
                 </details>)}

@@ -1,5 +1,6 @@
 export const assistantEn = {
   aiChat: {
+    detailOmitted: "Display budget exhausted; value omitted. The complete value was used by the tool/model.",
 
     "preview": "Generating · incomplete preview",
     "toolInput": "Input",
@@ -214,6 +215,7 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    detailOmitted: "展示额度已用尽，此值未展示。工具和模型使用完整值。",
 
     "preview": "正在生成 · 未完成预览",
     "toolInput": "输入",
@@ -412,6 +414,7 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    detailOmitted: "展示額度已用盡，此值未展示。工具和模型使用完整值。",
 
     "preview": "正在生成 · 未完成預覽",
     "toolInput": "輸入",

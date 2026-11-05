@@ -22,6 +22,9 @@ it("renders per-step details and provisional Markdown, then removes cancelled pr
   rerender(view({ ...initial, progress: { ...initial.progress, revision: 2, tools: [{ ...initial.progress.tools[0], state: "succeeded", output: '{"account":"Synthetic","amount":"12.3456"}' }] } }));
   expect(screen.getByText(/Financial summary · Completed/)).toBeVisible();
   expect(screen.getByText('{"account":"Synthetic","amount":"12.3456"}')).toBeVisible();
+  rerender(view({ ...initial, progress: { ...initial.progress, revision: 3, tools: [{ ...initial.progress.tools[0], state: "succeeded", output: "", outputTruncated: true }] } }));
+  expect(screen.getByText(/Display budget exhausted/)).toBeVisible();
+  expect(screen.queryByText("No output received.")).toBeNull();
   rerender(view({ ...initial, runs: [{ ...run, state: "cancelled", code: "cancelled" }], progress: { ...initial.progress, revision: 3, text: "" } }));
   expect(screen.queryByText("Synthetic preview")).toBeNull();
   expect(screen.getByText("Stopped")).toBeVisible();
