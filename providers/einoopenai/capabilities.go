@@ -11,6 +11,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"github.com/eino-contrib/jsonschema"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
+	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -102,12 +103,18 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		return "", errors.New("local capability arguments exceed budget")
 	}
 	result, err := t.session.Call(ctx, t.name, json.RawMessage(arguments))
+	if budget := assistant.NormalizeBudgetFailure(err); budget != nil {
+		return "", budget
+	}
 	if err != nil {
 		// Do not reflect submitted content or arbitrary implementation errors
 		// into model history. Application-facing errors belong to the host.
 		return "", errCapabilityRefused
 	}
-	if len(result) > 64<<10 || !jsoncodec.Valid(result) {
+	if len(result) > 64<<10 {
+		return "", assistant.BudgetFailure("tool_result_bytes")
+	}
+	if !jsoncodec.Valid(result) {
 		return "", errors.New("local capability result unavailable")
 	}
 	return string(result), nil

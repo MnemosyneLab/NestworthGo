@@ -46,7 +46,8 @@ node docs/qa/ai-sidebar-chat-2026-11-05/browser.mjs
 light and 390px Traditional Chinese dark: completion, cancellation while offline,
 selector-only Start, continuous history/loading earlier, preserved reading
 position during completion, keyboard disclosure, explicit navigation and its
-review guard, zero provider calls, no horizontal overflow and no browser errors.
+review guard, page-target clicks preserving a nonempty draft without sending it,
+zero provider calls, no horizontal overflow and no browser errors.
 
 - [Desktop light](desktop-light.png), [desktop dark](desktop-dark.png)
 - [Narrow light](narrow-light.png), [narrow dark](narrow-dark.png)
@@ -58,3 +59,17 @@ verification, not native macOS, VoiceOver, packaging or live-provider acceptance
 No backend runtime or resource budgets were changed. The bounded UI may retain
 up to the existing 64 turns and fetches five older turns per explicit load;
 there is no new runtime polling or provider traffic.
+
+## Budget integration and draft-submission regression
+
+After synchronizing main's budget finalization fix (#229), the nine exact budget
+subcodes and their safe diagnostic display live in ConversationTimeline. The Go
+vocabulary contract checks that actual owning component; runtime and frontend
+allowlists still have exactly the same nine rules. All budget guidance and
+unknown-code rejection tests remain. The page-context/navigation orchestrator
+continues to live in ModelConversation and PageContext.
+
+Account target buttons inside the composer explicitly use `type="button"`.
+A regression test types a nonempty draft, opens navigation options and clicks an
+account target: navigation occurs, the draft is retained, and neither Start nor
+GrantNavigation is invoked. The browser fixture checks the same boundary.

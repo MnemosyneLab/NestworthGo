@@ -19,6 +19,15 @@ const diagnosticKeys: Record<string, string> = {
   model_history_rejected: "aiChat.modelHistoryRejected",
   tool_result_rejected: "aiChat.toolResultRejected",
   assistant_budget_exceeded: "aiChat.runBudgetExceeded",
+  "assistant_budget_exceeded.model_rounds": "aiChat.budgetModelRounds",
+  "assistant_budget_exceeded.tool_calls": "aiChat.budgetToolCalls",
+  "assistant_budget_exceeded.history_bytes": "aiChat.budgetHistory",
+  "assistant_budget_exceeded.history_messages": "aiChat.budgetHistory",
+  "assistant_budget_exceeded.prompt_bytes": "aiChat.budgetPrompt",
+  "assistant_budget_exceeded.text_bytes": "aiChat.budgetText",
+  "assistant_budget_exceeded.provider_payload": "aiChat.budgetProviderPayload",
+  "assistant_budget_exceeded.tool_result_bytes": "aiChat.budgetToolResult",
+  "assistant_budget_exceeded.read_evidence": "aiChat.budgetReadEvidence",
 };
 // Only exact, code-owned diagnostic rules may be rendered; never reflect an
 // unknown backend code (which could contain data from another implementation).
@@ -48,6 +57,8 @@ const responseRules = [
 const responseDiagnostic = (code: string) =>
   responseRules.some((rule) => code === `provider_response_rejected.${rule}`);
 
+const budgetDiagnostic = (code: string) =>
+  code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
 const sources = new Set(["compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
@@ -112,7 +123,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
               {run.state !== "succeeded" && <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
                 {active(run.state) && <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{t(`aiChat.run.${run.state}`)}
               </p>}
-              {run.code && <p role="alert" className="text-sm text-destructive">{t(responseDiagnostic(run.code) ? "aiChat.providerResponseRejected" : (diagnosticKeys[run.code] ?? "aiChat.runError"))}{responseDiagnostic(run.code) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}</p>}
+              {run.code && <p role="alert" className="text-sm text-destructive">{t(responseDiagnostic(run.code) ? "aiChat.providerResponseRejected" : (diagnosticKeys[run.code] ?? "aiChat.runError"))}{(responseDiagnostic(run.code) || budgetDiagnostic(run.code)) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}</p>}
               {active(run.state) && <Button variant="outline" size="sm" disabled={busy} onClick={() => onCancel(run.id)}>{t("aiChat.stop")}</Button>}
               <details className="text-xs text-muted-foreground"><summary className="w-fit cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.messageDetails")}</summary><p className="pt-2 break-words">{run.model} · {timestamp(String(run.created))}</p></details>
             </div>

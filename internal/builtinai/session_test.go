@@ -218,3 +218,24 @@ func TestReadResultOverflowAndMalformedDataFailClosed(t *testing.T) {
 		t.Fatal("cursor/missing metadata lost")
 	}
 }
+
+func TestReadBudgetsKeepFixedDiagnostics(t *testing.T) {
+	for _, name := range []string{"get_overview", "get_current_page"} {
+		t.Run(name, func(t *testing.T) {
+			session := New(brokenShared{raw: json.RawMessage(`"` + strings.Repeat("x", 64<<10) + `"`)}, assistant.PageSelection{Kind: "overview"})
+			_, err := session.Call(t.Context(), name, json.RawMessage(`{}`))
+			if assistant.FailureCode(err) != "assistant_budget_exceeded.tool_result_bytes" || len(session.Evidence()) != 0 {
+				t.Fatal("oversized read diagnostic lost", err)
+			}
+		})
+	}
+	session := New(brokenShared{raw: json.RawMessage(`{}`)}, assistant.PageSelection{})
+	for range 16 {
+		if _, err := session.Call(t.Context(), "get_overview", json.RawMessage(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := session.Call(t.Context(), "get_overview", json.RawMessage(`{}`)); assistant.FailureCode(err) != "assistant_budget_exceeded.read_evidence" || len(session.Evidence()) != 16 {
+		t.Fatal("evidence limit diagnostic lost", err)
+	}
+}
