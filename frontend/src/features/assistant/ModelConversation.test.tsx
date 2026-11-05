@@ -7,6 +7,7 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from "./PageContext";
 
 import { ModelConversation } from "./ModelConversation";
+import i18n from "@/i18n";
 const api = vi.hoisted(() => ({
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
@@ -771,4 +772,19 @@ it("cancels title editing without writing and preserves a failed rename for retr
   await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Keep draft{Enter}");
   await screen.findByRole("alert");
   expect(screen.getByRole("textbox", { name: "Conversation title" })).toHaveValue("Keep draft");
+});
+
+it.each([
+  ["en", "Rename conversation", "Conversation title", "Cancel rename"],
+  ["zh-CN", "重命名会话", "会话标题", "取消重命名"],
+  ["zh-TW", "重新命名對話", "對話標題", "取消重新命名"],
+])("offers accessible rename controls in %s", async (locale, renameLabel, titleLabel, cancelLabel) => {
+  await i18n.changeLanguage(locale);
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: renameLabel }));
+  expect(screen.getByRole("textbox", { name: titleLabel })).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: cancelLabel }));
+  expect(api.Rename).not.toHaveBeenCalled();
 });

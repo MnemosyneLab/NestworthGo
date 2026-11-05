@@ -107,7 +107,8 @@ func TestLateTitleCannotOverrideManualDeleteOrConfiguration(t *testing.T) {
 	for _, mode := range []string{"manual", "delete", "config", "credential", "revoke"} {
 		t.Run(mode, func(t *testing.T) {
 			entered, release := make(chan struct{}), make(chan struct{})
-			r := titleRuntime(t, privateTestDirectory(t), func(context.Context, ai.ModelConfig, []byte, string) (string, error) {
+			dir := privateTestDirectory(t)
+			r := titleRuntime(t, dir, func(context.Context, ai.ModelConfig, []byte, string) (string, error) {
 				close(entered)
 				<-release
 				return "Late generated title", nil
@@ -156,6 +157,11 @@ func TestLateTitleCannotOverrideManualDeleteOrConfiguration(t *testing.T) {
 			// Close waits for the deliberately late provider before reopening persisted state.
 			if err = r.Close(); err != nil {
 				t.Fatal(err)
+			}
+			r2 := titleRuntime(t, dir, nil, time.Second)
+			c, err = r2.Inspect(t.Context(), r2.Snapshot().Epoch, q.ConversationID)
+			if err != nil || c.TitleSource != source {
+				t.Fatal(c, err)
 			}
 			if mode == "manual" && c.Title != "我的标题" {
 				t.Fatal(c)

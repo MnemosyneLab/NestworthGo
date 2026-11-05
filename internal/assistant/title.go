@@ -28,8 +28,12 @@ func validTitleState(c ConversationState) bool {
 		return false
 	}
 	switch c.TitleSource {
-	case "", "local", "pending", "luna", "manual":
+	case "":
+		return c.Title == "" && !c.TitleAttempted
+	case "local":
 		return true
+	case "pending", "luna", "manual":
+		return c.Title != "" && c.TitleAttempted
 	}
 	return false
 }
@@ -75,7 +79,7 @@ func (r *Runtime) startTitle(id string, cfg ModelConfig, prompt string) {
 	}
 	c.TitleAttempted = true
 	c.TitleSource = "local"
-	if r.options.TitleGenerator == nil || !cfg.Enabled || cfg.Provider != "openai-responses" {
+	if c.Title == "" || r.options.TitleGenerator == nil || !cfg.Enabled || cfg.Provider != "openai-responses" {
 		_ = r.persist()
 		return
 	}
