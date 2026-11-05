@@ -961,8 +961,14 @@ get_context returns household metadata, history origin, identity, permissions an
 names of directory tools. Names/notes for members, institutions and groups are
 retrievable through those tools instead of being embedded in bootstrap.
 get_catalog is a small static vocabulary and retains its direct object shape.
-get_account_snapshot returns the same account capture as get_account_valuations,
-filtered to its required id; get_read_item accounts/id opens all evidence sections.
+get_account_snapshot and get_account_valuations build one current-valuation
+capture (`pagedAccountValuations` / `ValueAccountCompositions`). Snapshot passes
+only the required id and returns not_found when that account is missing or
+archived. Valuations also accepts accountIds, account filters and limit, and an
+unmatched filter is an empty page. get_read_item accounts/id opens the evidence
+sections. Neither tool is a return or an endpoint move. get_overview stays the
+household GUI overview (`ValueAccounts`, archived accounts included). See
+[the Wave 2 comparison](mcp-wave2-c3-nav-entries.md).
 get_market_data returns only the selected current quote when called with
 instrumentId or a currency pair. The same tool returns the batch capture when
 called with targets (view=current/coverage/history). The two inputs are mutually
@@ -1079,21 +1085,12 @@ authorize replay or turn unknown execution into failure/success. AutomaticRetry
 is false. Protocol/auth errors may remain outside this tool-error shape. Success
 and recovery receipts remain unmodified values.
 
-Clients can optionally pass tools/list `_meta.nestworth.toolGroups` as a nonempty
-array of context/summary/analysis/directory/ledger/market/products/review/
-reconciliation/health names. Discovery includes only selected categories plus
-shared get_read_page/get_read_item/get_operation; schemas and annotations match
-full discovery exactly. Registered permissions and tools/call enforcement do
-not change. The extension is not a household scope or authorization boundary.
-Default discovery stays complete. Clients that hide tools/list metadata cannot
-be assumed to use it; no automatic model-tool reduction is claimed for them.
-
-Filtered tool pages remain 16 items maximum. HMAC cursors bind normalized group
-set and running server; retain identical metadata throughout pagination. Different
-groups, tampered/full-list cursors and restarted servers require fresh discovery.
-Metadata is built once per server, with no household/provider reads or mutable
-cross-client profile. Selected requests and wire bytes are measured with the
-production SDK; this is not model-token evidence.
+`tools/list` `_meta.nestworth.toolGroups` is removed. It was an optional
+nonstandard filter. Omitting it already returned the full inventory for the
+permission mode, and no maintained client sent the key. `tools/call` permission
+stays the registered mode allowlist. A request that still sends the key,
+including an unrecognized group name, receives the same pages as a request that
+omits it. See [the Wave 2 decision](mcp-wave2-g-toolgroups.md).
 
 SDK success responses continue to contain both structuredContent and JSON text.
 The typed SDK constructs the text fallback when structured output is present.
@@ -1286,19 +1283,11 @@ npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.js
 
 ### Task-scoped discovery protocol parameters
 
-The following are `tools/list` protocol parameters, not business-tool input:
-
-```json
-{"_meta":{"nestworth.toolGroups":["summary"]}}
-```
-
-Valid groups are context, summary, analysis, directory, ledger, market,
-products, review, reconciliation and health. Keep the same metadata on every
-`nextCursor` request; cursors are signed and bound to the normalized group set
-and running server. Changing groups, reconnecting to a restarted server or using
-a full-discovery cursor starts from the first page. The filter is not an
-authorization boundary, and a group cannot reveal tools absent from the current
-permission mode. The behavior is covered by `task_tool_discovery_test.go`.
+`tools/list` `_meta.nestworth.toolGroups` is no longer read. A request that
+still sends it receives the same pages as a request that omits it. There is no
+group cursor to continue. Default discovery is the full inventory for the
+permission mode, still paged at 16 tools. The decision and the A2 evidence are
+in [mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md).
 
 ### Directory archive folded into update
 
@@ -1385,4 +1374,24 @@ bytes (−268). Published input schemas moved with the same rewrite:
 `preview_change` 2,516 → 2,498 and `preview_product_operation` 5,396 → 5,855
 (`anyOf` on the shared required pointers). Budgets were not raised.
 `skills/nestworth/VERSION` was not bumped.
+
+### Wave 2 account-entry descriptions and toolGroups removal
+
+`get_account_snapshot` and `get_account_valuations` stay two tools. Their
+descriptions now say they share one current-valuation capture, and that a
+missing snapshot id is `not_found` while an unmatched valuations filter is an
+empty page. That prose is the only `tools/list` size change. The optional
+`_meta.nestworth.toolGroups` middleware is gone and was not on the default
+list path, so it adds no tools and no bytes. `TestDiscoveryBudget` on this
+change, against the nullable-schema sizes above:
+
+| Mode | Tools | `tools/list` bytes |
+| --- | --- | --- |
+| `read_only` | 51 | 63,022 → 63,347 (+325) |
+| `directory_write` | 64 | 78,083 → 78,408 (+325) |
+| `ledger_write` | 85 | 120,426 → 120,751 (+325) |
+
+Instructions stayed 2,300 bytes. Budgets were not raised. Name, annotation and
+schema hashes are unchanged because the contract snapshot excludes description
+prose. Both `structuredContent` and JSON text stay on success results.
 

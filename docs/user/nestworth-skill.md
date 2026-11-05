@@ -53,7 +53,24 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.4; published skill: 2.0.0
+### Current repository skill: 3.0.5; published skill: 2.0.0
+
+Repository skill 3.0.5 is the coordinator PATCH for the Wave 1 tool-surface
+changes already in this tree and for this follow-on. Wave 1 removed
+`archive_member`, `archive_institution`, `archive_group`,
+`get_historical_overview_series` and `get_market_data_batch`. Member,
+institution and group archive is `archived` on the matching `update_*` tool.
+Historical overview and market data each keep one tool with two input shapes.
+This pass removes the optional `tools/list` `_meta.nestworth.toolGroups`
+filter. Clients do not send it, and a missing group never changed `tools/call`
+permission. Default discovery stays the full list for the permission mode.
+Success results still carry both `structuredContent` and JSON text.
+`get_account_snapshot` and `get_account_valuations` stay separate tools on one
+current-valuation capture: one required id with not_found, versus filtered rows
+with an empty page. Neither is a return or an endpoint movement. The version
+stays a PATCH step because the policy below does not raise MAJOR or MINOR for
+tool changes alone, and actual discovery is the authority when connecting an
+older App to this skill.
 
 Repository skill 3.0.4 clarifies partial institution updates and adds a
 schema-checked icon-only example. It includes the unified business continuation entry
@@ -95,7 +112,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.4 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.5 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

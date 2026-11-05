@@ -11,8 +11,8 @@
 | --- | --- | --- |
 | `internal/mcpserver/testdata/discovery-contract.json` | 每个增删或改动 schema 的工具都会变 | 不手工合并。合并后在最新 main 上重新生成,并核对 diff 只含预期工具(生成方法见第 5 节) |
 | `internal/mcpserver/discovery_budget_test.go` | 体积变化后预算要下调 | 每个 PR 只放宽或收紧自己的部分,合并后由协调者统一收紧 |
-| 工具总数断言 | `in_process_test.go`、`repair_progress_test.go`、`task_tool_discovery_test.go`、`service_test.go`、`internal/builtinai/session_test.go` | 每个 PR 只改自己的增量,合并后重新核对 |
-| `internal/mcpserver/task_tool_discovery.go` | 新工具必须归入某个发现分组,否则测试失败 | 各自改,冲突按行合并 |
+| 工具总数断言 | `in_process_test.go`、`repair_progress_test.go`、`service_test.go`、`internal/builtinai/session_test.go` | 每个 PR 只改自己的增量,合并后重新核对 |
+| `internal/mcpserver/task_tool_discovery.go` | Wave 2 G 已删除。新工具不再归入发现分组 | 不要恢复这个文件 |
 | `skills/nestworth/VERSION` 与 `docs/user/nestworth-skill.md` | 规则要求改 skill 必须升版本;并行 PR 会撞同一个号 | 各 PR 先不抢号;由协调者按合并顺序依次升 PATCH,不并行升 |
 | `skills/nestworth/references/connection.md` | 工具分组表列出每个工具名 | 各自改自己那几行 |
 | `docs/development/mcp.md` | 变更记录式堆叠,所有人都往里加 | 各 PR 只加自己的小节;结构重写放到最后(工作流 F) |
@@ -138,7 +138,7 @@ Wave 3(最后,依赖前面都合并)
 ### C3. 净值/估值入口收敛
 
 **问题**:“净值是多少”有 5 个入口。
-**先做**:比较 `get_account_snapshot` 与 `get_account_valuations` 是否是同一捕获的单账户投影(设计文档里的开放问题);比较结果决定是合并还是只在描述里写清区别。
+**先做**:比较 `get_account_snapshot` 与 `get_account_valuations` 是否是同一捕获的单账户投影(设计文档里的开放问题);比较结果决定是合并还是只在描述里写清区别。已决定:是同一捕获的单账户投影,但空结果语义不同,本轮不合并,只改描述。见 [mcp-wave2-c3-nav-entries.md](mcp-wave2-c3-nav-entries.md)。
 **依赖**:A2 的数据(Agent 实际选哪个工具)、C1 的结论。
 **范围**:先出结论文档,再决定是否改工具。语义边界(终点变动不是收益率)不能因合并而模糊。
 **规模**:S(结论)到 L(实现)。
@@ -151,7 +151,7 @@ Wave 3(最后,依赖前面都合并)
 2. 保持现状,仅改善分组;
 3. 把写入类(创建/更新/归档规则、确认告警、屏蔽)放到新的权限模式。
 
-**需要产品决定**:选哪种。涉及设置项和权限模型,不属于纯 MCP 改动。
+**需要产品决定**:选哪种。涉及设置项和权限模型,不属于纯 MCP 改动。本轮不做,见 [mcp-wave2-deferred.md](mcp-wave2-deferred.md)。
 **注意**:权限模式变化会触及 `Mode` 与外部授权流程,需单独评审。
 **规模**:M-L。
 
@@ -160,13 +160,13 @@ Wave 3(最后,依赖前面都合并)
 **目标**:所有 patch 工具统一为“省略 = 保留,`null` = 清除”,取代 `<field>Set`、`replace` 开关等三种风格。
 **风险**:破坏性,且 `update_account` 的“空字符串与 null”区别要重新定义;必须有迁移说明和合约快照评审。
 **依赖**:E1(nullable schema 的形式要先定)。
-**需要的决定**:是否值得做。审计已经用测试固定了现状,统一的收益是减少 Agent 误操作,代价是又一次破坏性变更。
+**需要的决定**:是否值得做。审计已经用测试固定了现状,统一的收益是减少 Agent 误操作,代价是又一次破坏性变更。本轮不做,见 [mcp-wave2-deferred.md](mcp-wave2-deferred.md)。
 **规模**:L。
 
 ### G. `toolGroups` 机制与双份响应
 
-- **`toolGroups`**:依赖非标准 `_meta`,主流客户端不会发送。依据 A2,决定删除还是保留。删除会简化发现中间件和测试。
-- **`structuredContent` 与文本两份**:如果 A2 显示客户端把两份都转发给模型,再评估只保留一份(协议兼容性要核对);没有证据就保持不动。
+- **`toolGroups`**:已删除。见 [mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md)。
+- **`structuredContent` 与文本两份**:A2 没有模型宿主转发证据,两份都保留。
 
 **规模**:S-M。**完全取决于 A2**。
 
@@ -191,7 +191,7 @@ Wave 3(最后,依赖前面都合并)
 1. **隔离**:每个工作流一个独立 worktree 和分支,互不复用。开始前记录分支、SHA 和未提交改动。
 2. **先量后改**:涉及体积的改动,先用 `TestDiscoveryBudget` 记录改动前的字节数,改完再记录;只报告实测数,不报估算。
 3. **合约快照**:`testdata/discovery-contract.json` 没有自动再生成开关。做法是写一个临时测试,按 `discoveryContractHashes` 生成文件,运行后删除临时测试,并核对 diff 只含预期工具。
-4. **断言同步**:工具数量断言、`task_tool_discovery.go` 分组、`internal/builtinai/session.go` 的白名单(只读白名单,新增读工具要在这里评估)。
+4. **断言同步**:工具数量断言、`internal/builtinai/session.go` 的白名单(只读白名单,新增读工具要在这里评估)。`task_tool_discovery.go` 已删除,不要再给新工具补发现分组。
 5. **JSON**:仓库内的 JSON 编解码只用 `internal/jsoncodec`。
 6. **测试范围**:先跑受影响的包(`internal/mcpserver`、`internal/application`、`internal/builtinai`),需要时再扩大;不重复跑全量、race 或 benchmark。性能证据放在 `perf`。
 7. **Skill**:改 `skills/nestworth/**` 的 PR 要说明需要升版本,由协调者按合并顺序统一落版本号;`tools/check-nestworth-skill.py` 与 `tools/tests/test_nestworth_skill*.py` 必须通过。
