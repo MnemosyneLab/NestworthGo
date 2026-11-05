@@ -2,12 +2,13 @@
 
 ## Current baseline
 
-Current `main` identifies as Nestworth `v0.3.9` / build `10`, published on
-2026-10-21; see the [release record](../releases/v0.3.9.md). The
+Current `main` identifies as Nestworth `v0.3.10` / build `11`. The latest
+published release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), published
+2026-10-28 with skill 2.0.0; repository skill 3.0.1 remains unpublished. The
 application is a local-first desktop app with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
-provides typed domain contracts, SQLite bootstrap with current schema `22`
-(with a verified additive upgrade from 21),
+provides typed domain contracts, SQLite bootstrap with current schema `23`
+(with verified ordered additive upgrades from 21 and 22),
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Return Analysis, Asset Changes, exact valuation, explicit

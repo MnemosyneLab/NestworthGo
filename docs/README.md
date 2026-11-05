@@ -1,7 +1,9 @@
 # Nestworth Documentation
 
 This directory documents current `main`. The latest published release is
-[v0.3.9 (build 10, 2026-10-21)](releases/v0.3.9.md). The
+[v0.3.10 (build 11, 2026-10-28)](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), with skill 2.0.0.
+The repository skill is 3.0.1 (unpublished); see the
+[skill guide](user/nestworth-skill.md#skill-version-policy). The
 current version/build and implementation status come from source and tests,
 while release records describe only published artifacts.
 
@@ -34,7 +36,9 @@ while release records describe only published artifacts.
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Current published release, historical release contracts, and closeout evidence |
-| Release | [v0.3.9 Release Record](releases/v0.3.9.md) | Published scope, exact source/tag identity and acceptance boundaries |
+| Release | [v0.3.10 Published Release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) | Current published source, assets, skill 2.0.0, compatibility and final acceptance limits |
+| Release | [v0.3.10 Prepared Release Notes](releases/v0.3.10-notes.md) | Historical preparation summary; final evidence is in the published GitHub release |
+| Release | [v0.3.9 Release Record](releases/v0.3.9.md) | Historical published scope, exact source/tag identity and acceptance boundaries |
 | Release | [v0.3.9 Release Notes](releases/v0.3.9-notes.md) | Published summary and macOS/database compatibility |
 | Release | [v0.3.8 Release Record](releases/v0.3.8.md) | Published scope, source/tag identity, package verification, and acceptance boundaries |
 | Release | [v0.3.8 Release Notes](releases/v0.3.8-notes.md) | Published release summary, compatibility, and package/acceptance status |

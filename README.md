@@ -105,20 +105,20 @@ current navigation may differ. [Screenshot source and scope](docs/qa/post-merge-
 
 Download the **Apple Silicon DMG or ZIP** from
 [GitHub Releases](https://github.com/MnemosyneLab/NestworthGo/releases/latest).
-The current release is **v0.3.9 · build 10**, published October 21, 2026.
+The current release is **v0.3.10 · build 11**, published October 28, 2026.
 Checksums are included with the downloads.
 
 | Before you install | Current release |
 | --- | --- |
 | Platform | macOS **27.0 or newer**, Apple Silicon (arm64) |
 | Signing | Ad-hoc signed; **no Developer ID signature or notarization**. macOS may warn or block the app. |
-| Existing databases | Supports verified **schemas 21 and 22**. **v0.3.8's schema 16 cannot be opened directly.** Preserve your original database and backups. |
-| Verification | Package integrity and uploaded assets verified. Native GUI/accessibility and archive-launch acceptance are owner-deferred; schema recovery, test-ledger and external-client acceptance were not run. |
+| Existing databases | Supports verified **schemas 21, 22 and 23**, with ordered upgrades to schema23. **v0.3.8's schema 16 cannot be opened directly.** Preserve your original database and backups. |
+| Verification | The published release records native package integrity and synthetic archive startup/restart checks. Remaining GUI/IPC, reconciliation, onboarding, keyboard/accessibility and normal-menu Quit gates were owner-waived. Gatekeeper acceptance and the scheduled race aggregate were not green; see the release evidence. |
 
-The only supported database upgrade is verified **21 → 22**, with a retained,
-verified read-only recovery copy. Older, unversioned, malformed and future
+Supported database upgrades are verified **21 → 22 → 23** and **22 → 23**,
+with a retained, verified read-only recovery copy before each mutation. Older, unversioned, malformed and future
 databases are rejected. See [storage and recovery](docs/architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery)
-and the [full release record](docs/releases/v0.3.9.md) before upgrading.
+and the [published release evidence](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) before upgrading.
 
 ### Bring Codex along
 

@@ -2,9 +2,14 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.10] — Unreleased
+## [0.3.10] — 2026-10-28
 
-Release preparation for build 11. See the [prepared release notes](docs/releases/v0.3.10-notes.md).
+Published as [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) (build 11) from
+`74558eea202ddd054fffb43b73b217115a6a8883`, with arm64 DMG/ZIP, checksums
+and portable skill 2.0.0. The published GitHub body records final validation and
+acceptance limits; the [prepared release notes](docs/releases/v0.3.10-notes.md)
+remain the preparation summary. Later main-branch work, including repository
+skill 3.0.1 (unpublished), is not part of those published assets.
 
 ### Added and changed
 
@@ -27,8 +32,10 @@ Release preparation for build 11. See the [prepared release notes](docs/releases
   a verified read-only recovery copy before each upgrade. Older schemas remain
   unsupported; no general migration chain is introduced.
 
-Packaging, native acceptance, signing and publication results must be recorded
-for the final release source; this preparation entry does not claim they passed.
+The published release records native package/archive startup checks, ad-hoc
+signing, no notarization, Gatekeeper rejection, the scheduled race-shard timeout
+and owner-waived remaining GUI/IPC/accessibility/onboarding/Quit gates. Those
+waived or failed gates are not passing acceptance; see the final published body.
 
 ## [0.3.9] — 2026-10-21
 

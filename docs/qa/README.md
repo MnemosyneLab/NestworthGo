@@ -2,10 +2,12 @@
 
 This index points to selected verification evidence. Reports apply only to the
 source revisions and scopes they name; they are not a live status board. Use
-the [current release record](../releases/v0.3.9.md) for published scope and
+the [current published v0.3.10 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) for published scope and
 open acceptance boundaries.
 
 ## Product validation
+
+- [v0.3.10 published validation and acceptance limits](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) — Published 2026-10-28 with skill 2.0.0; package/archive startup evidence, known race-shard timeout, signing limits and owner-waived GUI gates.
 
 - [v0.3.9 Mac package verification — 2026-10-21](v0.3.9-release-package-2026-10-21.md) — Native package and five-asset integrity checks; owner-waived signing/notarization and deferred native acceptance remain explicit.
 
