@@ -25,6 +25,7 @@ vi.mock(
 );
 const run = {
   id: "run",
+  requestId: "saved-request",
   prompt: "Synthetic saved question",
   text: "Synthetic prior answer",
   evidence: [
@@ -69,9 +70,9 @@ beforeEach(() => {
   api.Create.mockResolvedValue({ id: "new-conversation" });
   api.Delete.mockResolvedValue(undefined);
 });
-function mount(viewKey = "overview:") {
+function mount(viewKey = "overview:", client = createTestQueryClient()) {
   return render(
-    <QueryClientProvider client={createTestQueryClient()}>
+    <QueryClientProvider client={client}>
       <AssistantPageProvider
         householdId="synthetic"
         incarnation="synthetic"
@@ -93,6 +94,8 @@ it("restores history without replay and sends only the question and selector", a
   await user.click(screen.getByText(/Data reads · 1/));
   expect(screen.getByText(/Account snapshot/)).toBeVisible();
   expect(screen.getByText(/This response advertised more pages/)).toBeVisible();
+  expect(screen.getByText(/Read started/)).toBeVisible();
+  expect(screen.queryByText(/Read completed/)).not.toBeInTheDocument();
   await user.type(screen.getByLabelText("Message"), "Read my current page");
   await user.click(screen.getByRole("button", { name: "Send to model" }));
   await waitFor(() => expect(api.Start).toHaveBeenCalledTimes(1));
@@ -569,4 +572,88 @@ it("navigates to a page target with a draft without sending it to the model", as
   expect(screen.getByLabelText("Message")).toHaveValue("Do not send this draft");
   expect(api.Start).not.toHaveBeenCalled();
   expect(api.GrantNavigation).not.toHaveBeenCalled();
+});
+
+
+it("retains observed answers while history is pending or failed and isolates other sessions", async () => {
+  let rejectHistory!: (reason: Error) => void;
+  api.Messages.mockImplementation(() => new Promise((_resolve, reject) => { rejectHistory = reject; }));
+  api.List.mockResolvedValue([{ id: "conversation", updated: "2026-11-05", runCount: 1 }, { id: "other", updated: "2026-11-04", runCount: 1 }]);
+  let current = { id: "conversation", runs: [run], runCount: 1, offset: 0 };
+  api.Inspect.mockImplementation(async (_epoch, id) => id === "other"
+    ? { id: "other", runs: [{ ...run, id: "other-run", prompt: "Other question", text: "Other session answer" }], runCount: 1, offset: 0 }
+    : current);
+  api.Start.mockImplementation(async q => {
+    current = { id: "conversation", runs: [{ ...run, id: "new-run", prompt: q.prompt, text: "New answer" }], runCount: 2, offset: 1 };
+    return current.runs[0];
+  });
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Next question");
+  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  await screen.findByText("New answer");
+  expect(screen.getByText("Synthetic prior answer")).toBeVisible();
+  expect(screen.getByText("Loading messages…")).toBeVisible();
+  await act(async () => rejectHistory(new Error("private-history-error")));
+  await screen.findByText(/Earlier messages could not be loaded/);
+  expect(screen.getByText("Synthetic prior answer")).toBeVisible();
+  expect(screen.getByText("New answer")).toBeVisible();
+  expect(screen.getAllByRole("article")[0]).toHaveTextContent("Synthetic prior answer");
+  await user.selectOptions(screen.getByLabelText("Conversations"), "other");
+  await screen.findByText("Other session answer");
+  expect(screen.queryByText("Synthetic prior answer")).not.toBeInTheDocument();
+  expect(screen.queryByText("New answer")).not.toBeInTheDocument();
+});
+
+it("announces a new successful reply once without moving focus or announcing loaded history", async () => {
+  const client = createTestQueryClient();
+  let current = { id: "conversation", runs: [run], runCount: 1, offset: 0 };
+  api.Inspect.mockImplementation(async () => current);
+  api.Start.mockImplementation(async q => {
+    current = { id: "conversation", runs: [{ ...run, id: "new-run", requestId: q.requestId, state: "running", text: "" }], runCount: 2, offset: 1 };
+    return current.runs[0];
+  });
+  const user = userEvent.setup();
+  mount("overview:", client);
+  await screen.findByText("Synthetic prior answer");
+  const notification = screen.getByRole("status");
+  expect(notification).toHaveAttribute("aria-live", "polite");
+  expect(notification).toHaveAttribute("aria-atomic", "true");
+  expect(notification).toBeEmptyDOMElement();
+  await user.type(screen.getByLabelText("Message"), "New question");
+  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  await screen.findByRole("button", { name: "Stop model run" });
+  const input = screen.getByLabelText("Message");
+  await waitFor(() => expect(input).toBeEnabled());
+  input.focus();
+  current = { ...current, runs: [{ ...current.runs[0], state: "succeeded", text: "Fresh successful answer" }] };
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  await screen.findByText("AI reply received for message 2.");
+  expect(input).toHaveFocus();
+  const mutations = vi.fn();
+  const observer = new MutationObserver(mutations);
+  observer.observe(notification, { childList: true, characterData: true, subtree: true });
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  expect(mutations).not.toHaveBeenCalled();
+  expect(input).toHaveFocus();
+  observer.disconnect();
+});
+
+
+it("announces an immediate first reply from a newly created conversation", async () => {
+  api.List.mockResolvedValue([]);
+  api.Start.mockImplementation(async q => {
+    const reply = { ...run, id: "first-run", requestId: q.requestId, text: "Immediate first reply" };
+    api.Inspect.mockResolvedValue({ id: "new-conversation", runs: [reply], runCount: 1, offset: 0 });
+    return reply;
+  });
+  const user = userEvent.setup();
+  mount();
+  await waitFor(() => expect(screen.getByLabelText("Message")).toBeEnabled());
+  await user.type(screen.getByLabelText("Message"), "First question");
+  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  await screen.findByText("Immediate first reply");
+  expect(await screen.findByText("AI reply received for message 1.")).toHaveAttribute("aria-live", "polite");
 });

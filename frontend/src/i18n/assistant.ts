@@ -1,5 +1,6 @@
 export const assistantEn = {
   aiChat: {
+    replyReceived: "AI reply received for message {{number}}.",
     transcript: "Conversation messages",
     exchange: "Message exchange",
     you: "You",
@@ -7,7 +8,7 @@ export const assistantEn = {
     loadingHistory: "Loading messages…",
     historyError: "Earlier messages could not be loaded.",
     toolReads: "Data reads · {{total}}",
-    readCompleted: "Read completed",
+    readStarted: "Read started",
     unknownRead: "Ledger read",
     messageDetails: "Message details",
     jumpLatest: "Latest messages",
@@ -193,6 +194,7 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    replyReceived: "第 {{number}} 条消息的 AI 答复已收到。",
     transcript: "对话消息",
     exchange: "消息对话",
     you: "你",
@@ -200,7 +202,7 @@ export const assistantZhCN = {
     loadingHistory: "正在加载消息…",
     historyError: "无法加载更早消息。",
     toolReads: "数据依据 · {{total}} 次读取",
-    readCompleted: "已完成读取",
+    readStarted: "读取开始时间",
     unknownRead: "账本读取",
     messageDetails: "消息详情",
     jumpLatest: "最新消息",
@@ -370,6 +372,7 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    replyReceived: "第 {{number}} 則訊息的 AI 答覆已收到。",
     transcript: "對話訊息",
     exchange: "訊息對話",
     you: "你",
@@ -377,7 +380,7 @@ export const assistantZhTW = {
     loadingHistory: "正在載入訊息…",
     historyError: "無法載入更早訊息。",
     toolReads: "資料依據 · {{total}} 次讀取",
-    readCompleted: "已完成讀取",
+    readStarted: "讀取開始時間",
     unknownRead: "帳本讀取",
     messageDetails: "訊息詳情",
     jumpLatest: "最新訊息",

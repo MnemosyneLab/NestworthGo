@@ -37,6 +37,7 @@ export function ModelConversation() {
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [submission, setSubmission] = useState<{ conversationId: string; requestId: string } | null>(null);
   const pending = useRef(false);
   const navigationGrant = useRef<{
     requestID: string;
@@ -81,6 +82,7 @@ export function ModelConversation() {
     if (previousEpoch.current && previousEpoch.current !== epoch) {
       setSelected("");
       setPrompt("");
+      setSubmission(null);
     }
     previousEpoch.current = epoch;
   }, [epoch]);
@@ -243,6 +245,7 @@ export function ModelConversation() {
         navigationGrant.current = null;
         setNavigationState("");
       }
+      setSubmission({ conversationId: current, requestId });
       await callService(() =>
         API.Start({
           epoch,
@@ -270,6 +273,7 @@ export function ModelConversation() {
             navigationGrant.current = null;
             navigationAttempt.current = null;
             setNavigationState("");
+            setSubmission(null);
             setSelected(event.target.value);
             setFailed(false);
           }}>
@@ -303,6 +307,7 @@ export function ModelConversation() {
           </Notice>
         )}
       {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
+        submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
         busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
       <form
         className="shrink-0 space-y-3 border-t border-border p-3"

@@ -21,7 +21,8 @@ The viewport follows only while the reader stays near the bottom; a Latest
 messages button resumes following after scrolling away.
 
 Only real host read evidence is displayed. Its details show a localized
-allowlisted tool name, read completion time, paging and conservative missingness.
+allowlisted tool name, read start time recorded before dispatch, paging and
+conservative missingness. CapturedAt is not a completion or quote timestamp.
 There are no raw tool arguments or results in the UI and no invented per-tool
 progress. Run status and Stop remain visible for active attempts; fixed safe
 diagnostics remain visible for failures. Privacy, scope, page-context and
@@ -73,3 +74,10 @@ Account target buttons inside the composer explicitly use `type="button"`.
 A regression test types a nonempty draft, opens navigation options and clicks an
 account target: navigation occurs, the draft is retained, and neither Start nor
 GrantNavigation is invoked. The browser fixture checks the same boundary.
+
+Already observed latest answers remain in conversation-scoped memory while their
+positional history request is pending or failed. The epoch/conversation key
+isolates that memory on session changes. A persistent polite status region
+announces each new successful reply once, without moving focus; loading existing
+history and repeated polling do not announce old replies. Immediate first replies
+are associated with the current explicit submission request.

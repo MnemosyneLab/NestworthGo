@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, Check, ChevronDown, LoaderCircle, Sparkles } from "lucide-react";
@@ -62,8 +62,8 @@ const budgetDiagnostic = (code: string) =>
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
 const sources = new Set(["compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
-export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
-  epoch: string; id: string; latest?: Conversation; busy: boolean; onCancel: (runID: string) => void;
+export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "" }: {
+  epoch: string; id: string; latest?: Conversation; submittedRequestId?: string; busy: boolean; onCancel: (runID: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const page = useAssistantPage();
@@ -71,6 +71,27 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
   const [following, setFollowing] = useState(true);
   const viewport = useRef<HTMLDivElement>(null);
   const anchor = useRef<{ height: number; top: number } | null>(null);
+  // This component is keyed by runtime epoch and conversation ID by its owner.
+  // Retain observed latest attempts while their positional history fetch catches
+  // up; a pending/failed read must never erase an already displayed answer.
+  const [retained, setRetained] = useState(new Map<string, { run: Conversation["runs"][number]; offset: number }>());
+  const [announcement, setAnnouncement] = useState("");
+  const announced = useRef(new Set<string>());
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (!latest) return;
+    setRetained(previous => {
+      const next = new Map(previous);
+      latest.runs?.forEach((run, index) => next.set(run.id, { run, offset: latest.offset + index }));
+      return next;
+    });
+    for (const run of latest.runs ?? []) {
+      if (run.state !== "succeeded" || announced.current.has(run.id)) continue;
+      announced.current.add(run.id);
+      if (initialized.current || (!!submittedRequestId && run.requestId === submittedRequestId)) setAnnouncement(t("aiChat.replyReceived", { number: latest.offset + 1 }));
+    }
+    initialized.current = true;
+  }, [latest, t, submittedRequestId]);
   const offset = latest?.offset ?? 0;
   const history = useQueries({ queries: Array.from({ length: offset - first }, (_, index) => {
     const position = first + index;
@@ -80,7 +101,11 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
   }) });
   const loading = history.some(query => query.isPending);
   const failed = history.some(query => query.isError);
-  const runs = [...new Map([...history.flatMap(query => query.data?.runs ?? []), ...(latest?.runs ?? [])].map(run => [run.id, run])).values()];
+  const visible = new Map(retained);
+  for (const conversation of [...history.map(query => query.data), latest]) {
+    conversation?.runs?.forEach((run, index) => visible.set(run.id, { run, offset: conversation.offset + index }));
+  }
+  const runs = [...visible.values()].sort((a, b) => a.offset - b.offset).map(entry => entry.run);
   const signature = runs.map(run => `${run.id}:${run.state}:${run.text}:${run.evidence?.length}`).join("|");
   useLayoutEffect(() => {
     const el = viewport.current;
@@ -91,6 +116,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
   }, [signature, loading, following]);
   const timestamp = (value: string) => formatTimestamp(value, page?.context?.range.timezone ?? "UTC", i18n.language);
   return <div className="relative flex min-h-0 flex-1 flex-col">
+    <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
     <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none]"
       role="region" aria-label={t("aiChat.transcript")} tabIndex={0}
       onScroll={event => { const el = event.currentTarget; setFollowing(el.scrollHeight - el.scrollTop - el.clientHeight < 48); }}>
@@ -114,7 +140,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel }: {
                 <div className="space-y-3 border-t border-border p-3"><p>{t("aiChat.traceHelp")}</p>
                   {run.evidence.map((entry, index) => <div key={index} className="space-y-1">
                     <p className="font-medium text-foreground">{t(sources.has(entry.source) ? `aiChat.source.${entry.source}` : "aiChat.unknownRead")}</p>
-                    <p>{t("aiChat.readCompleted")} · {timestamp(String(entry.capturedAt))}</p>
+                    <p>{t("aiChat.readStarted")} · {timestamp(String(entry.capturedAt))}</p>
                     <p>{t(entry.hasMore ? "aiChat.morePages" : "aiChat.responseEnd")}</p><p>{t(entry.missing === "reported" ? "aiChat.missingReported" : "aiChat.missingUnknown")}</p>
                   </div>)}
                 </div>
