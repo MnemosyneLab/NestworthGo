@@ -22,6 +22,8 @@ sets package boundaries and validation expectations.
 
 - [Local MCP](mcp.md) and [MCP Products](mcp-products.md) — loopback transport,
   permission modes, tools, and product boundaries.
+- [MCP Wave 1 A baseline](mcp-wave1-a-baseline.md) — CI phase timing, a real
+  MCP client measurement, and the blocked native macOS check.
 - [Financial Context](financial-context.md) — MCP context authorization and
   disclosure limits.
 - [Continuous Backup](continuous-backup.md) — opt-in backup and recovery.
