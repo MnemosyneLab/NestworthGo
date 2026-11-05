@@ -106,6 +106,9 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	captured := time.Now().UTC()
 	result, err := s.read(ctx, tool, input)
 	if err != nil {
+		if budget := assistant.NormalizeBudgetFailure(err); budget != nil {
+			return nil, budget
+		}
 		return nil, assistant.ErrUnavailable
 	}
 	raw, err := jsoncodec.Marshal(struct {
@@ -115,7 +118,7 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 		Data       json.RawMessage         `json:"data"`
 	}{tool, captured, s.page, result})
 	if err != nil || len(raw) > 64<<10 {
-		return nil, assistant.ErrBudget
+		return nil, assistant.BudgetFailure("tool_result_bytes")
 	}
 	return raw, nil
 }
@@ -137,7 +140,7 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 		return nil, err
 	}
 	if len(raw) > 64<<10 {
-		return nil, assistant.ErrBudget
+		return nil, assistant.BudgetFailure("tool_result_bytes")
 	}
 	item := assistant.ReadEvidence{Source: name, CapturedAt: captured, Missing: "not_summarized"}
 	var value any
@@ -177,7 +180,7 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.evidence) >= 16 {
-		return nil, assistant.ErrBudget
+		return nil, assistant.BudgetFailure("read_evidence")
 	}
 	if s.navigationAllowed {
 		s.collectNavigationAccounts(value)

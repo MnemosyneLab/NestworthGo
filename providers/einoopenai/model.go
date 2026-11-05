@@ -100,7 +100,10 @@ func (m *Model) prepareInput(in []*schema.AgenticMessage, state *round) ([]*sche
 			continue
 		}
 		s, ok := raw.(string)
-		if !ok || len(s) > m.limits.Bytes || strictJSON([]byte(s)) != nil || msg.Role != schema.AgenticRoleTypeAssistant {
+		if ok && len(s) > m.limits.Bytes {
+			return nil, errLimit
+		}
+		if !ok || strictJSON([]byte(s)) != nil || msg.Role != schema.AgenticRoleTypeAssistant {
 			return nil, errProtocol
 		}
 		nativeBytes += len(s)
@@ -215,6 +218,9 @@ func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, strea
 	defer cancel()
 	state := &round{stream: stream, replay: map[string][]json.RawMessage{}}
 	prepared, err := m.prepareInput(in, state)
+	if errors.Is(err, errLimit) {
+		return nil, assistant.BudgetFailure("provider_payload")
+	}
 	if err != nil {
 		return nil, assistant.ErrModelHistory
 	}
@@ -266,7 +272,7 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 			if state, ok := req.Context().Value(roundKey{}).(*round); ok {
 				switch {
 				case errors.Is(failure, errLimit):
-					state.failure = assistant.ErrBudget
+					state.failure = assistant.BudgetFailure("provider_payload")
 				case errors.Is(failure, errProtocol):
 					state.failure = assistant.ProviderResponseFailure(phase)
 				default:

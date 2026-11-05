@@ -24,6 +24,15 @@ const diagnosticKeys: Record<string, string> = {
   model_history_rejected: "aiChat.modelHistoryRejected",
   tool_result_rejected: "aiChat.toolResultRejected",
   assistant_budget_exceeded: "aiChat.runBudgetExceeded",
+  "assistant_budget_exceeded.model_rounds": "aiChat.budgetModelRounds",
+  "assistant_budget_exceeded.tool_calls": "aiChat.budgetToolCalls",
+  "assistant_budget_exceeded.history_bytes": "aiChat.budgetHistory",
+  "assistant_budget_exceeded.history_messages": "aiChat.budgetHistory",
+  "assistant_budget_exceeded.prompt_bytes": "aiChat.budgetPrompt",
+  "assistant_budget_exceeded.text_bytes": "aiChat.budgetText",
+  "assistant_budget_exceeded.provider_payload": "aiChat.budgetProviderPayload",
+  "assistant_budget_exceeded.tool_result_bytes": "aiChat.budgetToolResult",
+  "assistant_budget_exceeded.read_evidence": "aiChat.budgetReadEvidence",
 };
 // Only exact, code-owned diagnostic rules may be rendered; never reflect an
 // unknown backend code (which could contain data from another implementation).
@@ -52,6 +61,8 @@ const responseRules = [
 ];
 const responseDiagnostic = (code: string) =>
   responseRules.some((rule) => code === `provider_response_rejected.${rule}`);
+const budgetDiagnostic = (code: string) =>
+  code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
@@ -502,7 +513,7 @@ export function ModelConversation() {
             {run.code && (
               <p role="alert" className="text-sm">
                 {t(responseDiagnostic(run.code) ? "aiChat.providerResponseRejected" : (diagnosticKeys[run.code] ?? "aiChat.runError"))}
-                {responseDiagnostic(run.code) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}
+                {(responseDiagnostic(run.code) || budgetDiagnostic(run.code)) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}
               </p>
             )}
             {active(run.state) && (
