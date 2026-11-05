@@ -1,26 +1,43 @@
 # Release Documents
 
-The latest published release is [v0.3.9 / build 10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.9),
-published 2026-10-21. Its Apple Silicon arm64 DMG/ZIP, checksums and standalone
-skill 1.11.0 are available. It requires macOS 27.0 or newer and database schema
-21/22; v0.3.8's schema 16 cannot be opened directly. Package and uploaded-asset
-integrity passed. Publication with ad-hoc signing, no notarization and deferred
-native GUI/archive-launch acceptance was explicitly authorized by the owner.
-Unperformed manual checks are not passed gates.
+The latest published release is [v0.3.10 / build 11](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10),
+published 2026-10-28 from `74558eea202ddd054fffb43b73b217115a6a8883`.
+Its Apple Silicon arm64 DMG/ZIP, checksums and standalone skill **2.0.0** are
+available. It requires macOS 27.0 or newer and supports verified database
+schemas 21, 22 and 23, with ordered additive upgrades to schema23; v0.3.8's
+schema16 cannot be opened directly.
+
+The published GitHub release records native package and archive startup/restart
+checks, ad-hoc signing, no notarization, Gatekeeper rejection and the known
+scheduled race-shard timeout. Remaining native GUI/IPC, reconciliation interaction,
+archive onboarding, keyboard/accessibility and normal-menu Quit acceptance were
+owner-waived; those gates were not passed. See the published release for the
+exact evidence and limits.
+
+The current repository skill is **3.0.1 (unpublished)**. It is separate from the
+published v0.3.10 skill 2.0.0 and does not replace any release asset. See the
+[skill guide](../user/nestworth-skill.md#skill-version-policy) for version policy.
 
 ## Current published release
 
-- [v0.3.9 release record](v0.3.9.md) — source/tag identity, scope, compatibility and acceptance.
-- [v0.3.9 release notes](v0.3.9-notes.md) — published summary and upgrade limits.
-- [v0.3.9 Mac package QA](../qa/v0.3.9-release-package-2026-10-21.md) — exact environment, checks and all five asset hashes.
+- [v0.3.10 published release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) — authoritative publication, source identity, assets, compatibility and acceptance evidence.
+- [v0.3.10 prepared release notes](v0.3.10-notes.md) — retained preparation summary; the published GitHub body records final validation and waivers.
 
-## Previous published release
+## Previous published releases
 
+- [v0.3.9 release record](v0.3.9.md) — historical source/tag identity, scope, compatibility and acceptance; shipped skill 1.11.0.
+- [v0.3.9 release notes](v0.3.9-notes.md) — historical published summary and upgrade limits.
+- [v0.3.9 Mac package QA](../qa/v0.3.9-release-package-2026-10-21.md) — historical environment, checks and asset hashes.
 - [v0.3.8 release record](v0.3.8.md) — historical scope and acceptance.
 - [v0.3.8 release notes](v0.3.8-notes.md) — historical summary and upgrade guidance.
 - [v0.3.8 Mac package QA](../qa/v0.3.8-release-package-2026-10-14.md) — historical package evidence.
 
 ## Published history
+
+- [v0.3.10 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10)
+  — published 2026-10-28 at `74558eea` (build 11), with arm64 DMG/ZIP,
+  checksums and skill 2.0.0. The published GitHub body records final validation
+  and acceptance limits; [prepared notes](v0.3.10-notes.md) remain historical.
 
 - [v0.3.9 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.9)
   — published 2026-10-21 at `57ddf33f` (build 10), with arm64 DMG/ZIP,
