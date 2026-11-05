@@ -79,6 +79,7 @@ func readEnvelopeSchema() any {
 	props["query"] = true
 	props["summary"] = true
 	props["sections"] = map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "object", "properties": map[string]any{"items": rows, "page": page}, "required": []string{"items", "page"}}}
+	props["delivery"] = map[string]any{"type": "object", "properties": map[string]any{"selectionComplete": map[string]any{"type": "boolean"}}}
 	props["section"] = map[string]any{"type": "string"}
 	props["items"] = rows
 	props["page"] = page

@@ -947,7 +947,7 @@ It preserves the complete current GUI overview: exact monetary values, complete,
 displayValuation and historyStarted in the summary; independent missingInputs,
 assetsByType/liabilitiesByType, byMember/byInstitution/byGroup/byAccountType,
 recentActivities, accountLabels, instrumentLabels and holdingLabels sections.
-Initial default is five per section, continuation default 25/max 100; all output
+Initial rows: floor of five per section, grown to at most 25 within a 24 KiB response budget when limit is omitted (see mcp-pagination.md), continuation default 25/max 100; all output
 uses mcp-read/1. totalsScope=request_account_filters. Counts describe complete
 section cardinalities. Use get_financial_context for a minimal-disclosure summary and adopted evidence.
 A 200-account regression fetches every section and compares every field with the
@@ -966,7 +966,7 @@ on get_market_data_batch (view=current/coverage/history). No history is discarde
 
 analyze_period returns mcp-read/1 with four projection headers in summary and
 income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
-investmentReturns/points and investmentReturns/sources sections (initial default 5).
+investmentReturns/points and investmentReturns/sources sections (initial rows as for get_overview).
 list_contributions freezes rows and detail together; get_contribution_item exposes
 rows/<key>/components and rows/<key>/byAccount; get_return_day pages composition,
 contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.

@@ -33,7 +33,7 @@ func (in ListActivitiesInput) request() history.ActivityQueryRequest {
 }
 
 type AnalyzePeriodInput struct {
-	Limit int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 5, maximum 100"`
+	Limit int                 `json:"limit,omitempty" jsonschema:"Initial rows per section; omitted fills small results within a byte budget (at least 5 when they fit, at most 25), maximum 100"`
 	Query PeriodAnalysisQuery `json:"query" jsonschema:"Inclusive from/to YYYY-MM-DD local dates and optional scope, valuation, and filters"`
 }
 
@@ -125,11 +125,7 @@ func (s *Service) historyTools(server *toolSet) {
 		if err != nil {
 			return nil, err
 		}
-		limit := in.Limit
-		if limit == 0 {
-			limit = 5
-		}
-		return s.buildRead(ctx, generation, limit, func(context.Context) (readCapture, error) {
+		return s.buildRead(ctx, generation, autoInlineWhenUnset(in.Limit), func(context.Context) (readCapture, error) {
 			capture := readCapture{Kind: "period_analysis", Query: in, Summary: map[string]any{}, Sections: map[string][]json.RawMessage{}}
 			projections := []struct {
 				name   string

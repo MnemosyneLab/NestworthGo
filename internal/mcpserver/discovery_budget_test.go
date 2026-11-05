@@ -17,9 +17,9 @@ const (
 )
 
 var discoveryBudgetBytes = map[string]int{
-	ReadOnly:       102500,
-	DirectoryWrite: 120500,
-	LedgerWrite:    174500,
+	ReadOnly:       105000,
+	DirectoryWrite: 123000,
+	LedgerWrite:    177000,
 }
 
 func TestDiscoveryBudget(t *testing.T) {

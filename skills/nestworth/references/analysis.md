@@ -4,8 +4,10 @@ Use `get_overview` and `get_account_valuations` for
 bounded current reads. Overview summary preserves GUI
 exact totals, currency, completeness and display quality; independently page all
 relevant breakdowns, missing inputs, recent activities and identity-label sections
-with get_read_page. Its totals follow the existing account filters. Default five
-initial items per section, continuations 25/max 100. Preserve complete and quality
+with get_read_page. Its totals follow the existing account filters. Small results
+come back inline (at least five rows per section when they fit, at most 25);
+continuations are 25/max 100. `delivery.selectionComplete=true` means every selected row is
+already inline; it says nothing about data completeness (`complete`, `missingInputs`). Preserve complete and quality
 when interpreting amounts. get_financial_context remains the
 direct minimal-disclosure summary and evidence path.
 

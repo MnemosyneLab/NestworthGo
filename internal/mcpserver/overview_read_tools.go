@@ -9,18 +9,14 @@ import (
 
 type OverviewReadInput struct {
 	account.AccountFilterRequest
-	Limit int `json:"limit,omitempty" jsonschema:"Paged initial default 5 per section, maximum 100; continuation default 25"`
+	Limit int `json:"limit,omitempty" jsonschema:"Initial rows per section; omitted fills small results within a byte budget (at least 5 per section when they fit, at most 25), maximum 100; continuation default 25"`
 }
 
 // Preserve the complete current GUI overview, including all breakdowns,
 // missing inputs, recent activities and identity labels. Only its collections
 // move out of the summary; no total or completeness calculation is repeated.
 func (s *Service) pagedOverview(ctx context.Context, g uint64, in OverviewReadInput) (ReadEnvelope, error) {
-	limit := in.Limit
-	if limit == 0 {
-		limit = 5
-	}
-	return s.buildRead(ctx, g, limit, func(ctx context.Context) (readCapture, error) {
+	return s.buildRead(ctx, g, autoInlineWhenUnset(in.Limit), func(ctx context.Context) (readCapture, error) {
 		value, err := portfolio.NewService(s.app).Overview(ctx, in.AccountFilterRequest)
 		if err != nil {
 			return readCapture{}, err
