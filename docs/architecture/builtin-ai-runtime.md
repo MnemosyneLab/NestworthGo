@@ -29,7 +29,7 @@ restart; onboarding does not silently activate it.
 Each live conversation owns a direct `InProcessSession` through
 `builtinai.Pool`; the installed desktop uses a durable configuration repository
 and a host-owned `LedgerWrite` session, while the model adapter retains its
-fixed read allowlist plus the separately enabled proposal callback. The model
+fixed read allowlist plus the separately enabled reviewed/Full callback. The model
 never receives the host review methods. Read-only test/integration pools remain
 `ReadOnly` when no repository is supplied. The engine and credential lease remain per-run. This
 preserves frozen captures across turns within the original fixed five-minute TTL.
@@ -50,8 +50,9 @@ were removed. It adds `get_current_page` only for supported
 view selections, and `get_navigation_targets`/`open_page` only for an explicit
 per-message host grant. The shared session independently rechecks permissions
 and budgets.
-No configuration, network refresh, projection-maintaining analysis, direct
-financial writer or approval method is available to the model. The host review
+No configuration, network refresh, projection-maintaining analysis or human
+approval method is available to the model. Direct financial writes exist only
+through the explicitly enabled Full stage below. The host review
 methods from #203 are adapted only by the desktop runtime review endpoints.
 Their operation receipts remain in their existing household/session namespaces;
 chat deletion neither deletes those receipts nor reverses a financial operation.

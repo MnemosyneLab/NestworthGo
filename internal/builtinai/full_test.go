@@ -182,4 +182,12 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	if err := db.SQL.QueryRow("SELECT count(*) FROM app_configuration WHERE key LIKE 'builtin_ai.capability.v1.%.review.%'").Scan(&audits); err != nil || audits != 1 {
 		t.Fatalf("audit removed %d %v", audits, err)
 	}
+	enable()
+	if err := r.FenceForRestore(); err != nil {
+		t.Fatal(err)
+	}
+	if ipc.Status().FullAccess || ipc.Status().FinancialWrites {
+		t.Fatal("restore retained Full authority")
+	}
+	count(1)
 }
