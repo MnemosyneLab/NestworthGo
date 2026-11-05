@@ -159,13 +159,23 @@ func (r *Repository) CreateMember(ctx context.Context, member domain.Member) err
 	})
 }
 func (r *Repository) UpdateMember(ctx context.Context, member domain.Member) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE members SET name = ?, icon_key = ?, note = ?, updated_at = ? WHERE id = ? AND household_id = ?`, member.Name, nullableString(member.IconKey), nullableString(member.Note), formatTimestamp(member.UpdatedAt), member.ID.String(), member.HouseholdID.String())
-	if err != nil {
-		return err
-	}
-	return requireAffected(result, "member")
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if member.ArchivedAt != nil {
+			var active int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM members WHERE household_id = ? AND archived_at IS NULL AND id <> ?`, member.HouseholdID.String(), member.ID.String()).Scan(&active); err != nil {
+				return err
+			}
+			if active < 1 {
+				return &domain.Error{Code: domain.ErrConflict, Message: "household must retain at least one active member"}
+			}
+		}
+		result, err := tx.ExecContext(ctx, `UPDATE members SET name = ?, icon_key = ?, note = ?, updated_at = ?, archived_at = ? WHERE id = ? AND household_id = ?`, member.Name, nullableString(member.IconKey), nullableString(member.Note), formatTimestamp(member.UpdatedAt), nullableTime(member.ArchivedAt), member.ID.String(), member.HouseholdID.String())
+		if err != nil {
+			return err
+		}
+		return requireAffected(result, "member")
+	})
 }
-
 func (r *Repository) SetMemberArchive(ctx context.Context, householdID domain.HouseholdID, id domain.MemberID, archived bool, now time.Time) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		if archived {
@@ -194,7 +204,7 @@ func (r *Repository) CreateInstitution(ctx context.Context, institution domain.I
 	})
 }
 func (r *Repository) UpdateInstitution(ctx context.Context, institution domain.Institution) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE institutions SET name = ?, icon_key = ?, institution_type = ?, country_code = ?, website = ?, note = ?, updated_at = ? WHERE id = ? AND household_id = ?`, institution.Name, nullableString(institution.IconKey), string(institution.InstitutionType), nullableString(institution.CountryCode), nullableString(institution.Website), nullableString(institution.Note), formatTimestamp(institution.UpdatedAt), institution.ID.String(), institution.HouseholdID.String())
+	result, err := r.database.SQL.ExecContext(ctx, `UPDATE institutions SET name = ?, icon_key = ?, institution_type = ?, country_code = ?, website = ?, note = ?, updated_at = ?, archived_at = ? WHERE id = ? AND household_id = ?`, institution.Name, nullableString(institution.IconKey), string(institution.InstitutionType), nullableString(institution.CountryCode), nullableString(institution.Website), nullableString(institution.Note), formatTimestamp(institution.UpdatedAt), nullableTime(institution.ArchivedAt), institution.ID.String(), institution.HouseholdID.String())
 	if err != nil {
 		return err
 	}
@@ -223,7 +233,7 @@ func (r *Repository) CreateGroup(ctx context.Context, group domain.Group) error 
 	})
 }
 func (r *Repository) UpdateGroup(ctx context.Context, group domain.Group) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE account_groups SET name = ?, icon_key = ?, color = ?, description = ?, updated_at = ? WHERE id = ? AND household_id = ?`, group.Name, nullableString(group.IconKey), nullableString(group.Color), nullableString(group.Description), formatTimestamp(group.UpdatedAt), group.ID.String(), group.HouseholdID.String())
+	result, err := r.database.SQL.ExecContext(ctx, `UPDATE account_groups SET name = ?, icon_key = ?, color = ?, description = ?, updated_at = ?, archived_at = ? WHERE id = ? AND household_id = ?`, group.Name, nullableString(group.IconKey), nullableString(group.Color), nullableString(group.Description), formatTimestamp(group.UpdatedAt), nullableTime(group.ArchivedAt), group.ID.String(), group.HouseholdID.String())
 	if err != nil {
 		return err
 	}

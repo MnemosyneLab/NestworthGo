@@ -23,7 +23,9 @@ type Repository interface {
 }
 
 // DirectoryRepository owns Household, Members, Institutions, Groups, and
-// the icon references those entities carry.
+// the icon references those entities carry. UpdateMember, UpdateInstitution and
+// UpdateGroup atomically persist the supplied entity, including ArchivedAt and
+// UpdatedAt. Omission handling and archive guards belong to the application.
 type DirectoryRepository interface {
 	Household(context.Context) (*domain.Household, error)
 	CreateOnboarding(context.Context, domain.Household, []domain.Member) error

@@ -10,8 +10,8 @@ import (
 )
 
 // editDirectory applies a partial name, icon and archive edit to a member,
-// institution or group. Name and icon still share one application statement.
-// Archive state is part of the same call and the same MCP receipt. It uses the
+// institution or group atomically, including its update timestamp. Archive
+// state is part of the same write and the same MCP receipt. It uses the
 // application service directly: the Wails-bound directory service keeps its
 // independent GUI writes unchanged.
 func editDirectory[ID ~string, Domain any, DTO any](id string, parse func(string) (ID, error), edit func(ID) (Domain, error), from func(Domain) DTO) (any, error) {
