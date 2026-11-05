@@ -15,6 +15,13 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 **current** net worth/account values, holdings, costs and missing inputs. They
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
+`get_account_snapshot` and `get_account_valuations` are one current-valuation
+capture. Snapshot takes one required account id and returns not_found when that
+account is missing or archived. Valuations takes optional accountIds plus the
+account filters and returns an empty page when nothing matches. Do not add a
+rollup to its components. Neither tool is a return or an endpoint movement;
+use `analyze_period` for returns and `get_historical_overview` for endpoint
+movement. `get_overview` remains the household GUI overview.
 
 From `get_account_valuations`, open `get_read_item` accounts/id. Its
 composition_types section groups components by instrument type/cash;

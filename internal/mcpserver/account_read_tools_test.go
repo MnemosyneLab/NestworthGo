@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -75,4 +76,28 @@ func TestDefaultAccountSnapshotEvidenceAndMissingIdentity(t *testing.T) {
 	}
 	call(t, c, "get_account_snapshot", IDInput{ID: fx.checking}, true)
 	call(t, c, "get_account_snapshot", IDInput{ID: "00000000-0000-4000-8000-000000000000"}, true)
+}
+
+func TestAccountSnapshotIsSingleAccountValuationCapture(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	snapshot := scaleCapture(t, c, "get_account_snapshot", IDInput{ID: fx.checking})
+	valuations := scaleCapture(t, c, "get_account_valuations", map[string]any{"accountIds": []string{fx.checking}})
+	if snapshot["schemaVersion"] != "mcp-read/1" || valuations["schemaVersion"] != "mcp-read/1" {
+		t.Fatal("schema", snapshot["schemaVersion"], valuations["schemaVersion"])
+	}
+	if !reflect.DeepEqual(snapshot["summary"], valuations["summary"]) {
+		t.Fatalf("summary\nsnapshot=%v\nvaluations=%v", snapshot["summary"], valuations["summary"])
+	}
+	snapshotRows := scaleSection(t, c, snapshot, "accounts")
+	valuationRows := scaleSection(t, c, valuations, "accounts")
+	if len(snapshotRows) != 1 || !reflect.DeepEqual(snapshotRows, valuationRows) {
+		t.Fatal("single-account rows differ")
+	}
+	missing := "00000000-0000-4000-8000-000000000099"
+	call(t, c, "get_account_snapshot", IDInput{ID: missing}, true)
+	empty := scaleCapture(t, c, "get_account_valuations", map[string]any{"accountIds": []string{missing}})
+	if len(scaleSection(t, c, empty, "accounts")) != 0 {
+		t.Fatal("missing account id was not an empty valuations page")
+	}
 }

@@ -293,10 +293,10 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		}
 		return s.pagedDirectory(ctx, generation, "holdings", in, in.Limit, wire.FromHoldings(values))
 	})
-	readTool(server, "get_account_valuations", "Current account values, holdings, costs and missing valuation inputs as compact account rows (rollups: never add them to their holdings). get_read_item section=accounts id=<accountId> opens components, composition and missing-evidence sections. Filter with accountIds. Never present incomplete values as complete.", func(ctx context.Context, in AccountValuationReadInput) (any, error) {
+	readTool(server, "get_account_valuations", "Current account values, holdings, costs and missing valuation inputs as compact account rows from the same capture as get_account_snapshot (rollups: never add them to their holdings). Filter with accountIds and account filters; an unmatched filter is an empty page, not not_found. get_read_item section=accounts id=<accountId> opens components, composition and missing-evidence sections. Never present incomplete values as complete. Current valuation, not a return or an endpoint move.", func(ctx context.Context, in AccountValuationReadInput) (any, error) {
 		return s.pagedAccountValuations(ctx, generation, in)
 	})
-	readTool(server, "get_account_snapshot", "Capture one account header; get_read_item accounts/id opens cash, holdings, composition and missing evidence pages. Supply its ID from list_accounts; follow every detail cursor.", func(ctx context.Context, in IDInput) (any, error) {
+	readTool(server, "get_account_snapshot", "One required account from the same current-valuation capture as get_account_valuations. Supply its id from list_accounts; an unknown or archived id is not_found. get_read_item accounts/id opens cash, holdings, composition and missing evidence pages; follow every detail cursor. Current valuation, not a return or an endpoint move.", func(ctx context.Context, in IDInput) (any, error) {
 		id, err := domain.ParseAccountID(in.ID)
 		if err != nil {
 			return nil, err

@@ -31,8 +31,11 @@ list_groups, list_accounts and list_holdings. Existing filters still apply;
 follow every cursor. get_read_item with the section and id preserves full notes
 and metadata from that capture. get_account_valuations uses the bounded contract:
 compact account headers, with separate component/composition/missing/evidence
-sections reached through get_read_item accounts/id. Never add account rollups to
-their component amounts.
+sections reached through get_read_item accounts/id. get_account_snapshot is that
+same capture for one required id and returns not_found when the account is
+missing or archived; an unmatched valuations filter is an empty page. Never add
+account rollups to their component amounts. Current account value is not a
+return or an endpoint movement.
 
 After creation query `list_accounts` / `get_account_snapshot`. Directory
 creation is not atomic with subsequent funding or trades. If a later step
