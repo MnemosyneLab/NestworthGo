@@ -33,10 +33,10 @@ export function ChangeReviews({ epoch, id, enabled, busy, runKey = "" }: {epoch:
  if(!items.length&&!reviews.isError)return null;
  return <section aria-label={t("aiChat.writeReview")} className="max-h-72 shrink-0 overflow-y-auto border-t border-border p-3 text-sm">
   <h3 className="font-medium">{t("aiChat.writeReview")}</h3>
-  <p className="py-1 text-xs text-muted-foreground">{t("aiChat.writeReviewHelp")}</p>
   {(uncertain||reviews.isError)&&<p role="alert">{t("aiChat.writeUnknown")}</p>}
   {items.map(review=><article key={review.id} className="my-2 space-y-2 rounded border border-border p-3">
    {review.source==="ai_full"&&<p className="font-medium">{t("aiChat.fullActive")}</p>}
+   <p className="py-1 text-xs text-muted-foreground">{t(review.source==="ai_full" ? "aiChat.fullHelp" : "aiChat.writeReviewHelp")}</p>
    <p className="font-medium">{displayEnum(t,"history.kind",review.kind)} · {review.account}</p>
    {review.summary ? <p className="whitespace-pre-wrap num">{review.summary}</p> : <dl className="grid grid-cols-1 gap-1 break-words">
     {review.accountType ? <>
@@ -50,7 +50,7 @@ export function ChangeReviews({ epoch, id, enabled, busy, runKey = "" }: {epoch:
     <div><dt className="inline">{t("history.reasonLabel")}: </dt><dd className="inline">{displayEnum(t,"history.reason",review.reason)}</dd></div>
     {review.note&&<div><dt className="inline">{t("aiChat.writeNote")}: </dt><dd className="inline whitespace-pre-wrap">{review.note}</dd></div>}
    </dl>}
-   <p role="status">{t(`aiChat.writeState.${review.state}`)}</p>
+   <p role="status">{t(review.source==="ai_full" && review.state==="awaiting_confirmation" ? "aiChat.fullAwaiting" : review.source==="ai_full" && review.state==="needs_preview" ? "aiChat.fullNeedsPreview" : review.source==="ai_full" && review.state==="succeeded" ? "aiChat.fullSucceeded" : `aiChat.writeState.${review.state}`)}</p>
    <div className="flex flex-wrap gap-2">
     {review.source!=="ai_full"&&review.state==="awaiting_confirmation"&&<Button type="button" disabled={!enabled||busy||pending||reviews.isError||uncertain||!review.accountType} onClick={()=>void act(review,"confirm")}>{t("aiChat.writeConfirm")}</Button>}
     {review.source!=="ai_full"&&review.state==="needs_preview"&&<Button type="button" disabled={!enabled||busy||pending||reviews.isError} onClick={()=>void act(review,"repreview")}>{t("aiChat.writeRepreview")}</Button>}

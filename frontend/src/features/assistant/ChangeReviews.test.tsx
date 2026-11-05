@@ -81,6 +81,7 @@ it.each(["No matching institution","没有对应机构","沒有對應機構","No
 it.each(["awaiting_confirmation","needs_preview","unknown","succeeded"])("Full %s is never a human confirmation or automatic replay",async(state)=>{
  api.Reviews.mockResolvedValue([{...review,source:"ai_full",state}]);mount();
  await screen.findByText("Full access · cash and transfers");
+ expect(screen.queryByText(/Only Confirm below/)).toBeNull();
  expect(screen.queryByRole("button",{name:"Confirm this ledger change"})).toBeNull();
  expect(screen.queryByRole("button",{name:"Refresh preview for review"})).toBeNull();
  fireEvent.click(screen.getByRole("button",{name:"Check original result"}));
