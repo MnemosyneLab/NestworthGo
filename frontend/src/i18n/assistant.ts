@@ -55,7 +55,7 @@ export const assistantEn = {
         "running": "Running",
         "succeeded": "Completed",
         "failed": "Failed",
-        "refused": "Read refused",
+        "refused": "Tool refused",
         "interrupted": "Interrupted"
     }
 ,
@@ -100,6 +100,7 @@ export const assistantEn = {
       open_page: "Request page change",
       open_return_trend: "Request return trend and filters",
 
+      execute_ledger_change: "Full ledger change",
       propose_cash_change: "Cash change proposal",
       read_page_content: "Page content",
       compare_financial_context: "Financial state comparison",
@@ -315,7 +316,7 @@ export const assistantZhCN = {
         "running": "执行中",
         "succeeded": "已完成",
         "failed": "失败",
-        "refused": "读取被拒绝",
+        "refused": "工具调用被拒绝",
         "interrupted": "已中断"
     }
 ,
@@ -358,6 +359,7 @@ export const assistantZhCN = {
       open_page: "请求页面跳转",
       open_return_trend: "请求收益趋势和筛选",
 
+      execute_ledger_change: "Full 账本变更",
       propose_cash_change: "现金变更提案",
       read_page_content: "页面内容",
       compare_financial_context: "财务状态对比",
@@ -559,7 +561,7 @@ export const assistantZhTW = {
         "running": "執行中",
         "succeeded": "已完成",
         "failed": "失敗",
-        "refused": "讀取被拒絕",
+        "refused": "工具呼叫被拒絕",
         "interrupted": "已中斷"
     }
 ,
@@ -602,6 +604,7 @@ export const assistantZhTW = {
       open_page: "請求頁面跳轉",
       open_return_trend: "請求收益趨勢和篩選",
 
+      execute_ledger_change: "Full 帳本變更",
       propose_cash_change: "現金變更提案",
       read_page_content: "頁面內容",
       compare_financial_context: "財務狀態比較",

@@ -432,6 +432,8 @@ func (r *Runtime) SetCredential(ctx context.Context, epoch string, key []byte) e
 	if r.options.Credentials.Put(ctx, key) != nil {
 		return ErrUnavailable
 	}
+	r.writeEnabled = false
+	r.fullEnabled = false
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}

@@ -110,6 +110,26 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 		t.Fatal("writes enabled by default")
 	}
 	enable()
+	for _, mode := range []string{"full", "reviewed"} {
+		before := ipc.Status()
+		if mode == "reviewed" {
+			if err := ipc.SetWritePermission(before.Epoch, before.Revision, true); err != nil {
+				t.Fatal(err)
+			}
+			before = ipc.Status()
+		}
+		if err := ipc.SaveCredential(before.Epoch, "synthetic-replacement-secret-"+mode); err != nil {
+			t.Fatal(err)
+		}
+		after := ipc.Status()
+		if after.FullAccess || after.FinancialWrites || after.Revision <= before.Revision {
+			t.Fatalf("credential rotation retained %s authority: %+v", mode, after)
+		}
+		if err := ipc.SetFullAccess(before.Epoch, before.Revision, true); err == nil {
+			t.Fatal("old revision reenabled Full")
+		}
+		enable()
+	}
 	c, err := ipc.Create(ipc.Status().Epoch)
 	if err != nil {
 		t.Fatal(err)
@@ -190,4 +210,70 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 		t.Fatal("restore retained Full authority")
 	}
 	count(1)
+}
+
+func TestFullRequiredBusinessDetailsCannotDefault(t *testing.T) {
+	cash := fullCommand{Kind: "money_added", AccountID: uuid.NewString(), Amount: "1", Currency: "USD", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"}
+	transfer := fullCommand{Kind: "cash_transfer", FromAccountID: uuid.NewString(), ToAccountID: uuid.NewString(), Sent: "1", SentCurrency: "USD", Received: "1", ReceivedCurrency: "USD", EffectiveAt: cash.EffectiveAt}
+	for _, base := range []fullCommand{cash, transfer} {
+		if err := validateFullCommand(base); err != nil {
+			t.Fatal(err)
+		}
+		for _, at := range []string{"", " ", "\t\n", "2026-09-28", "2026-09-28T12:00:00", " 2026-09-28T12:00:00Z"} {
+			c := base
+			c.EffectiveAt = at
+			if validateFullCommand(c) == nil {
+				t.Fatalf("accepted implicit time %q", at)
+			}
+		}
+	}
+	for _, value := range []string{"", " \t"} {
+		c := cash
+		c.Reason = value
+		if validateFullCommand(c) == nil {
+			t.Fatal("defaulted reason")
+		}
+		c = cash
+		c.AccountID = value
+		if validateFullCommand(c) == nil {
+			t.Fatal("defaulted account")
+		}
+		c = cash
+		c.Amount = value
+		if validateFullCommand(c) == nil {
+			t.Fatal("defaulted amount")
+		}
+		c = cash
+		c.Currency = value
+		if validateFullCommand(c) == nil {
+			t.Fatal("defaulted currency")
+		}
+		for _, field := range []string{"from", "to", "sent", "sentCurrency", "received", "receivedCurrency"} {
+			c := transfer
+			switch field {
+			case "from":
+				c.FromAccountID = value
+			case "to":
+				c.ToAccountID = value
+			case "sent":
+				c.Sent = value
+			case "sentCurrency":
+				c.SentCurrency = value
+			case "received":
+				c.Received = value
+			case "receivedCurrency":
+				c.ReceivedCurrency = value
+			}
+			if validateFullCommand(c) == nil {
+				t.Fatalf("defaulted transfer %s", field)
+			}
+		}
+	}
+	// Exercise the actual adapter boundary: invalid inputs must fail before any
+	// shared session call, even when no backing session exists.
+	for _, raw := range []string{`{"kind":"money_added","accountId":"x","amount":"1","currency":"USD","effectiveAt":"2026-09-28T12:00:00Z"}`, `{"kind":"money_added","reason":"income","effectiveAt":" "}`, `{"kind":"cash_transfer","effectiveAt":"2026-09-28T12:00:00Z"}`} {
+		if _, err := (reviewSession{}).PreviewFull(t.Context(), []byte(raw)); err == nil {
+			t.Fatal("incomplete input reached writer")
+		}
+	}
 }

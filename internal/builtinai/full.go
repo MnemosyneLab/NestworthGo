@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/assistant"
@@ -43,6 +45,9 @@ func (s reviewSession) PreviewFull(ctx context.Context, raw json.RawMessage) (as
 	if d.Decode(&extra) != io.EOF {
 		return assistant.ChangeReview{}, assistant.ErrUnavailable
 	}
+	if err := validateFullCommand(in); err != nil {
+		return assistant.ChangeReview{}, err
+	}
 	canonical, err := jsoncodec.Marshal(in)
 	if err != nil {
 		return assistant.ChangeReview{}, err
@@ -72,4 +77,26 @@ func fullDefinition() agentcapability.Definition {
 	props["kind"] = map[string]any{"type": "string", "enum": []string{"money_added", "money_removed", "cash_transfer"}}
 	closed := false
 	return agentcapability.Definition{Name: "execute_ledger_change", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, Description: "Full permission: directly record one completed cash deposit/withdrawal or account cash transfer, without a separate confirmation. Host previews and commits with domain validation and a stable durable operation identity. Require explicit exact amounts/currencies, account IDs from authoritative reads and RFC3339 effectiveAt. Cash changes require accountId, amount, currency, reason. Transfers require fromAccountId, toAccountId, sent/sentCurrency, received/receivedCurrency, optional fee/feeCurrency. Ask for missing business details. No batches, directory, positions, reconciliation, future/incomplete financial events or guessed values. Never retry a failed/interrupted/unknown write or recreate it with different arguments; inspect the original desktop operation. Success is authoritative only when status is succeeded.", InputSchema: map[string]any{"type": "object", "properties": props, "required": []string{"kind", "effectiveAt"}, "additionalProperties": false}}
+}
+
+// Full does not infer business defaults from absent model arguments.
+func validateFullCommand(in fullCommand) error {
+	if _, err := time.Parse(time.RFC3339Nano, in.EffectiveAt); err != nil {
+		return assistant.ErrUnavailable
+	}
+	var required []string
+	switch in.Kind {
+	case history.ChangeMoneyAdded, history.ChangeMoneyRemoved:
+		required = []string{in.AccountID, in.Amount, in.Currency, in.Reason}
+	case history.ChangeCashTransfer:
+		required = []string{in.FromAccountID, in.ToAccountID, in.Sent, in.SentCurrency, in.Received, in.ReceivedCurrency}
+	default:
+		return assistant.ErrUnavailable
+	}
+	for _, value := range required {
+		if strings.TrimSpace(value) == "" {
+			return assistant.ErrUnavailable
+		}
+	}
+	return nil
 }
