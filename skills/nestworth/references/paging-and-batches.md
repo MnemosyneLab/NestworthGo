@@ -6,9 +6,13 @@ preview_data_repair return mcp-read/1 by default. get_data_repair_job defaults t
 compact progress without a capture; only view=evidence uses mcp-read/1. There is one contract; do not pass responseMode.
 Historical/current overview and period reads inline small results (at least five
 rows per section when they fit, at most 25, within a byte budget); continuations
-default to 25. Every initial response carries `delivery.selectionComplete` and
-`delivery.pendingSections`: when true, every selected row is already inline and
-no cursor is needed. Data completeness (`complete`, `missingInputs`,
+default to 25. Every top-level initial `mcp-read/1` capture (the first response of a read; not financial context/comparison packages) carries
+`delivery.selectionComplete` and `delivery.pendingSections`; continuation pages and
+focused item details (`get_read_item`, comparison items) do not. When
+`selectionComplete` is true, every selected row of that capture is already inline
+and no cursor is needed. For `compare_market_data_import` view=summary the
+selection is the `results` section only; deferred detail sections are not reported
+as pending, so it never claims evidence delivery. Data completeness (`complete`, `missingInputs`,
 `displayValuation`) is separate: a fully delivered selection can still describe
 incomplete data. Pure minimal financial-context workflows retain
 their disclosure path.

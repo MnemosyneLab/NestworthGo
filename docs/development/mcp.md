@@ -1138,14 +1138,15 @@ semantics, operationId retry rules, analysis snapshot side effects) lives once
 in the server instructions; the helper constructors no longer append it.
 
 Slimming measurement (real `tools/list` JSON from `TestDiscoveryBudget`,
-before -> after, bytes; "after" includes the `delivery` output property added by
-the read-envelope change, which costs about 2.7 KB per mode):
+before -> after, bytes; "after" includes the exact `delivery` output property (both fields required, string
+array) added to 28 read tools, which costs about 6.6 KB per mode; before it the
+reductions were -7.2%, -7.9% and -8.6%):
 
 | Mode | Tools | `tools/list` | Descriptions | Instructions |
 | --- | --- | --- | --- | --- |
-| `read_only` | 55 -> 53 | 108,144 -> 103,057 (-4.7%) | 22,274 -> 16,842 | 3,111 -> 2,313 |
-| `directory_write` | 74 -> 72 | 128,513 -> 121,028 (-5.8%) | 26,377 -> 18,547 | 3,111 -> 2,313 |
-| `ledger_write` | 104 -> 102 | 187,634 -> 174,107 (-7.2%) | 43,889 -> 30,017 | 3,111 -> 2,313 |
+| `read_only` | 55 -> 53 | 108,144 -> 107,005 (-1.1%) | 22,274 -> 16,842 | 3,111 -> 2,313 |
+| `directory_write` | 74 -> 72 | 128,513 -> 124,976 (-2.8%) | 26,377 -> 18,547 | 3,111 -> 2,313 |
+| `ledger_write` | 104 -> 102 | 187,634 -> 178,055 (-5.1%) | 43,889 -> 30,017 | 3,111 -> 2,313 |
 
 These are wire bytes, not model tokens. Output schemas now dominate
 (roughly 45 KB per mode, mostly the `mcp-read/1` envelope repeated per tool);
@@ -1163,7 +1164,7 @@ there is no timing claim). The scripts follow the documented skill examples.
 
 | Scenario | Calls before -> after | Bytes before -> after |
 | --- | --- | --- |
-| Discovery (`initialize` + `tools/list`, 7 calls, ledger_write) | 7 -> 7 | 189,510 -> 175,925 (-7.2%) |
+| Discovery (`initialize` + `tools/list`, 7 calls, ledger_write) | 7 -> 7 | 189,510 -> 175,925 (-7.2%; measured before the exact `delivery` schema, which adds about 3.9 KB per mode) |
 | 1. Current net worth (`get_financial_context`) | 1 -> 1 | 9,038 -> 9,036 |
 | 2. Record a buy (income + buy previews/commits, holdings read) | 5 -> 5 | 21,183 -> 21,307 (+0.6%) |
 | 3. Balance reconcile (preview + commit) | 2 -> 2 | 7,002 -> 7,002 |
@@ -1173,7 +1174,7 @@ there is no timing claim). The scripts follow the documented skill examples.
 | 5d. `analyze_period`, 20 days, every section | 2 -> 1 | 14,768 -> 13,029 (-11.8%) |
 | 6. Data repair (scan, preview, start, poll) | 4 -> 4 | 7,666 -> 7,916 |
 
-The small per-response increase (about 125 bytes) is the `delivery` object. Gains
+The small per-response increase (about 125 bytes) is the `delivery` object, which only top-level initial captures carry. Gains
 appear only when a result has between six and 25 rows per section; with small
 fixtures or more than 25 rows the call count is unchanged.
 

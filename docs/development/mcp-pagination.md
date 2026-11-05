@@ -41,8 +41,10 @@ row representation. Financial initial sections remain at most one row; overview,
 historical and period-analysis initial sections keep a floor of five rows per
 section and, when `limit` is omitted, grow round-robin to at most 25 rows per
 section while the whole response stays within a 24 KiB byte budget. An explicit
-`limit` keeps its exact meaning. Every initial `mcp-read/1` response carries
-`delivery:{selectionComplete,pendingSections}`: whether every row of the selected
+`limit` keeps its exact meaning. Every top-level initial `mcp-read/1` capture response carries
+`delivery:{selectionComplete,pendingSections}` (both required inside the object;
+the property is optional on the envelope because continuation pages and focused
+`get_read_item`/comparison item details never carry it): whether every row of the selected
 sections is already inline. It is transport completeness only and is independent
 of `complete`, `missingInputs` and `displayValuation` in the summary.
 All continuations default to 25. `get_read_page({cursor,limit?})` is the only

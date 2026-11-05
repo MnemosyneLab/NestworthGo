@@ -79,7 +79,10 @@ func readEnvelopeSchema() any {
 	props["query"] = true
 	props["summary"] = true
 	props["sections"] = map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "object", "properties": map[string]any{"items": rows, "page": page}, "required": []string{"items", "page"}}}
-	props["delivery"] = map[string]any{"type": "object", "properties": map[string]any{"selectionComplete": map[string]any{"type": "boolean"}}}
+	// delivery exists only on a top-level initial capture. Continuation pages and
+	// focused item details (get_read_item, comparison items) never carry it, so the
+	// property is optional on the envelope but exact when present.
+	props["delivery"] = map[string]any{"type": "object", "required": []string{"selectionComplete", "pendingSections"}, "properties": map[string]any{"selectionComplete": map[string]any{"type": "boolean"}, "pendingSections": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, "additionalProperties": false}
 	props["section"] = map[string]any{"type": "string"}
 	props["items"] = rows
 	props["page"] = page

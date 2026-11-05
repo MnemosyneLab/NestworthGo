@@ -68,3 +68,116 @@ func TestSDKDualRepresentationWireEvidence(t *testing.T) {
 	}
 	t.Logf("actual SDK dual representation: text JSON=%d structured JSON=%d final HTTP=%d; consumer/model token use is not measured", len(text.Text), len(structured), metric.Bytes)
 }
+
+// The discovered outputSchema must describe delivery exactly, and real responses
+// must validate against it: present and complete on a top-level initial capture,
+// absent on continuation pages and focused item details.
+func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
+	fx := newLedgerFixture(t)
+	client := ledgerSession(t, fx)
+	listed, err := listAllTools(t.Context(), client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validators := map[string]*jsonschema.Resolved{}
+	for _, tool := range listed.Tools {
+		raw, err := jsoncodec.Marshal(tool.OutputSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), "mcp-read/1") {
+			continue
+		}
+		var schema jsonschema.Schema
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(tool.Name, err)
+		}
+		resolved, err := schema.Resolve(nil)
+		if err != nil {
+			t.Fatal(tool.Name, err)
+		}
+		validators[tool.Name] = resolved
+	}
+	if len(validators) < 20 {
+		t.Fatalf("expected the mcp-read/1 tools to be discovered, found %d", len(validators))
+	}
+	// Schema shape: both fields declared and required, array of strings.
+	probe := func(delivery map[string]any) error {
+		out := map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "captureId": "c", "captureKind": "k", "capturedAt": "t", "expiresAt": "t", "contentHash": "h", "summaryHash": "s", "summary": map[string]any{}, "delivery": delivery}}
+		return validators["get_overview"].Validate(&out)
+	}
+	if err := probe(map[string]any{"selectionComplete": true, "pendingSections": []any{}}); err != nil {
+		t.Fatal(err)
+	}
+	for name, bad := range map[string]map[string]any{
+		"missing pendingSections":   {"selectionComplete": true},
+		"missing selectionComplete": {"pendingSections": []any{}},
+		"non-string pending":        {"selectionComplete": false, "pendingSections": []any{1}},
+		"non-array pending":         {"selectionComplete": false, "pendingSections": "a"},
+		"non-bool complete":         {"selectionComplete": "yes", "pendingSections": []any{}},
+		"unknown field":             {"selectionComplete": true, "pendingSections": []any{}, "extra": 1},
+	} {
+		if probe(bad) == nil {
+			t.Errorf("schema accepted an invalid delivery: %s", name)
+		}
+	}
+
+	check := func(tool string, args any, wantDelivery bool) map[string]any {
+		t.Helper()
+		result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: tool, Arguments: args})
+		if err != nil || result.IsError {
+			t.Fatal(tool, err, result)
+		}
+		structured, ok := result.StructuredContent.(map[string]any)
+		if !ok {
+			t.Fatalf("%s returned %T", tool, result.StructuredContent)
+		}
+		if err := validators[tool].Validate(&structured); err != nil {
+			t.Fatalf("%s response violates its discovered outputSchema: %v", tool, err)
+		}
+		data := structured["data"].(map[string]any)
+		delivery, has := data["delivery"].(map[string]any)
+		if has != wantDelivery {
+			t.Fatalf("%s delivery present=%v, want %v", tool, has, wantDelivery)
+		}
+		if has {
+			if _, ok := delivery["selectionComplete"].(bool); !ok {
+				t.Fatalf("%s selectionComplete missing: %v", tool, delivery)
+			}
+			if _, ok := delivery["pendingSections"].([]any); !ok {
+				t.Fatalf("%s pendingSections missing or null: %v", tool, delivery)
+			}
+		}
+		return data
+	}
+	check("get_overview", map[string]any{}, true)
+	check("analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-01", "to": "2026-09-28", "scopeKind": "household", "valuation": "base", "basis": "investment"}}, true)
+	// A forced small limit leaves rows pending: delivery names the sections.
+	limited := check("get_overview", map[string]any{"limit": 1}, true)
+	if limited["delivery"].(map[string]any)["selectionComplete"] == true {
+		for name, section := range limited["sections"].(map[string]any) {
+			if section.(map[string]any)["page"].(map[string]any)["hasMore"] == true {
+				t.Fatalf("section %s has more rows but delivery claims completeness", name)
+			}
+		}
+	}
+	// Focused item details and continuation pages never carry delivery.
+	valuations := check("get_account_valuations", map[string]any{}, true)
+	check("get_read_item", map[string]any{"captureId": valuations["captureId"], "section": "accounts", "id": firstItemID(t, valuations, "accounts")}, false)
+}
+
+func firstItemID(t *testing.T, data map[string]any, section string) string {
+	t.Helper()
+	items := data["sections"].(map[string]any)[section].(map[string]any)["items"].([]any)
+	if len(items) == 0 {
+		t.Fatalf("section %s is empty", section)
+	}
+	row := items[0].(map[string]any)
+	for _, key := range []string{"id", "accountId", "key"} {
+		if v, ok := row[key].(string); ok {
+			return v
+		}
+	}
+	t.Fatalf("no identifier in %v", row)
+	return ""
+}
