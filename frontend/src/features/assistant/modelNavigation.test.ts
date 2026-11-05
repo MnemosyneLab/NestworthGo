@@ -79,3 +79,12 @@ it("does not report opened when the application navigation guard rejects dispatc
     ),
   ).toBe("blocked");
 });
+
+it("maps only authorized fixed analysis views to semantic navigation", async () => {
+  const current = state();
+  expect(await applyModelNavigation("current", () => current, async () => ({kind: "return-analysis", accountId: "", tab: "trend"}))).toBe("opened");
+  expect(current.dispatch).toHaveBeenCalledWith({page: "return-analysis", tab: "trend"});
+  current.dispatch.mockClear();
+  expect(await applyModelNavigation("current", () => current, async () => ({kind: "return-analysis", accountId: "", tab: "write"}))).toBe("invalid_target");
+  expect(current.dispatch).not.toHaveBeenCalled();
+});

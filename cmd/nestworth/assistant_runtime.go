@@ -49,7 +49,7 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		if err != nil {
 			return nil, assistant.ErrUnavailable
 		}
-		engine, err := einoopenai.NewEngine(ctx, cfg, key, builtinai.New(session, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)), nil)
+		engine, err := einoopenai.NewEngine(ctx, cfg, key, builtinai.New(session, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)).WithPageReader(assistant.CurrentPageReader(ctx)), nil)
 		if err != nil {
 			return nil, assistant.ErrUnavailable
 		}

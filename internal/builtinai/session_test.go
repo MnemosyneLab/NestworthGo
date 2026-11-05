@@ -49,6 +49,36 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer shared.Close()
+	// The external/shared registry never discovers or dispatches this UI tool.
+	externalDefinitions, _ := shared.Definitions()
+	for _, d := range externalDefinitions {
+		if d.Name == "read_page_content" {
+			t.Fatal("internal page tool leaked into MCP discovery")
+		}
+	}
+	if _, err := shared.Call(t.Context(), "read_page_content", []byte(`{}`)); err == nil {
+		t.Fatal("external MCP invoked page content")
+	}
+	internal := New(shared, assistant.PageSelection{}).WithPageReader(func(context.Context, json.RawMessage) (json.RawMessage, error) {
+		return json.RawMessage(`{"hasMore":false,"complete":false}`), nil
+	})
+	internalDefs, err := internal.Definitions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, d := range internalDefs {
+		found = found || d.Name == "read_page_content"
+	}
+	if !found {
+		t.Fatal("missing internal tool")
+	}
+	if _, err := internal.Call(t.Context(), "read_page_content", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(internal.Evidence()) != 1 || internal.Evidence()[0].Missing != "reported" {
+		t.Fatal("page trace lost coverage")
+	}
 	session := New(shared, assistant.PageSelection{Kind: "accounts"})
 	definitions, err := session.Definitions()
 	if err != nil {

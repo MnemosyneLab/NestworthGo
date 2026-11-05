@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { PageHost } from "./pageHost";
+import { PageContentBridge } from "./PageContentBridge";
 import {
   localId,
   type PageContextV1,
@@ -170,6 +171,7 @@ export function AssistantPageProvider({
             : undefined,
       }}
     >
+      {surface === "desktop" && <PageContentBridge viewKey={viewKey} generation={modelStamp} />}
       {children}
     </PageContext.Provider>
   );

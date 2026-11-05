@@ -110,3 +110,16 @@ func (s *Service) ConsumeNavigation(epoch, conversationID, runID, intentID, leas
 	}
 	return s.runtime.ConsumeNavigation(context.Background(), epoch, conversationID, runID, intentID, leaseID)
 }
+
+func (s *Service) PendingPageReads(epoch string) ([]assistant.PageReadRequest, error) {
+	if s.runtime == nil {
+		return nil, assistant.ErrUnavailable
+	}
+	return s.runtime.PendingPageReads(context.Background(), epoch)
+}
+func (s *Service) DeliverPageContent(epoch, requestID string, content assistant.PageContent) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.DeliverPageContent(context.Background(), epoch, requestID, content)
+}

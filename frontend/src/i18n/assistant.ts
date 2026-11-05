@@ -18,7 +18,7 @@ export const assistantEn = {
 
     sendNavigate: "Send and allow one page change",
     navigationHelp:
-      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview/account page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
+      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview, account or Return analysis page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
     navigationPending:
       "One page change authorized for this message; waiting for a successful reply.",
     navigationOpened: "The requested page was opened.",
@@ -34,6 +34,7 @@ export const assistantEn = {
     missingUnknown:
       "Missing inputs are not summarized here; this does not establish completeness.",
     source: {
+      read_page_content: "Page content",
       compare_financial_context: "Financial state comparison",
       compare_financial_attribution: "Read-only period attribution",
       get_financial_comparison_page: "Comparison evidence page",
@@ -52,9 +53,9 @@ export const assistantEn = {
     disabled:
       "AI is off or unavailable. Save a key, enter a model and explicitly enable it in Settings → Built-in AI credentials.",
     privacy:
-      "Sending a message sends your question, successful conversation history and relevant controlled ledger reads to OpenAI. Never enter secrets. No automatic retry.",
+      "Sending a message sends your question, successful conversation history, relevant controlled ledger reads and supported page content requested by the model to OpenAI. Never enter secrets. No automatic retry.",
     pageHint:
-      "Current-page questions use fresh backend data for the selected overview/account. Visible filters and exact screen values are not shared. Unsupported pages have no model page context. Account buttons require your click.",
+      "Page content is read automatically when requested by the model. Return analysis is supported: active view, filters, controls and semantic text. Charts report their limits. Other pages currently expose only the existing overview/account backend selector. Navigation needs separate authorization.",
     error:
       "Connection or request failed. Refresh state before trying a new message.",
     history: "Conversations",
@@ -212,7 +213,7 @@ export const assistantZhCN = {
 
     sendNavigate: "发送并允许一次页面跳转",
     navigationHelp:
-      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览或账户页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
+      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览、账户或收益分析页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
     navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
     navigationOpened: "已打开请求的页面。",
     navigationStopped:
@@ -226,6 +227,7 @@ export const assistantZhCN = {
     missingReported: "查询报告了缺失或不完整输入。",
     missingUnknown: "此处未汇总缺失输入，不能据此判断数据完整。",
     source: {
+      read_page_content: "页面内容",
       compare_financial_context: "财务状态对比",
       compare_financial_attribution: "只读期间归因",
       get_financial_comparison_page: "对比证据分页",
@@ -244,9 +246,9 @@ export const assistantZhCN = {
     disabled:
       "AI 已关闭或不可用。请在设置 → 内置 AI 凭据保存密钥、填写模型并显式开启。",
     privacy:
-      "发送消息会将问题、成功对话历史和相关的受控账本查询结果发给 OpenAI。请勿输入秘密。失败不会自动重试。",
+      "发送消息会将问题、成功对话历史、相关的受控账本查询结果，以及模型查询的受支持页面内容发给 OpenAI。请勿输入秘密。失败不会自动重试。",
     pageHint:
-      "当前页面问题会按选定的总览或账户重新读取后端数据；不会共享可见筛选条件和屏幕数值。不支持的页面没有模型页面上下文。账户跳转需要你点击按钮。",
+      "模型可按需自动读取收益分析页的当前视图、筛选、控件和语义文本，图表会注明限制。其他页面暂保留总览或账户的后端查询。跳转仍需单独授权。",
     error: "连接或请求失败。请先刷新状态，再发送新消息。",
     history: "会话历史",
     new: "新建会话",
@@ -390,7 +392,7 @@ export const assistantZhTW = {
 
     sendNavigate: "傳送並允許一次頁面跳轉",
     navigationHelp:
-      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽或帳戶頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
+      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽、帳戶或收益分析頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
     navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
     navigationOpened: "已開啟請求的頁面。",
     navigationStopped:
@@ -404,6 +406,7 @@ export const assistantZhTW = {
     missingReported: "查詢回報了缺少或不完整輸入。",
     missingUnknown: "此處未彙總缺少輸入，不能據此判斷資料完整。",
     source: {
+      read_page_content: "頁面內容",
       compare_financial_context: "財務狀態比較",
       compare_financial_attribution: "唯讀期間歸因",
       get_financial_comparison_page: "比較證據分頁",
@@ -422,9 +425,9 @@ export const assistantZhTW = {
     disabled:
       "AI 已關閉或無法使用。請在設定 → 內建 AI 憑據儲存金鑰、填寫模型並明確開啟。",
     privacy:
-      "傳送訊息會將問題、成功對話歷史和相關的受控帳本查詢結果傳給 OpenAI。請勿輸入秘密。失敗不會自動重試。",
+      "傳送訊息會將問題、成功對話歷史、相關的受控帳本查詢結果，以及模型查詢的受支援頁面內容傳給 OpenAI。請勿輸入秘密。失敗不會自動重試。",
     pageHint:
-      "目前頁面問題會按選定的總覽或帳戶重新讀取後端資料；不會分享可見篩選條件和畫面數值。不支援的頁面沒有模型頁面上下文。帳戶導覽需要你點擊按鈕。",
+      "模型可按需自動讀取收益分析頁的目前檢視、篩選、控制項和語義文字，圖表會註明限制。其他頁面暫保留總覽或帳戶的後端查詢。導覽仍需獨立授權。",
     error: "連線或請求失敗。請先重新整理狀態，再傳送新訊息。",
     history: "對話歷史",
     new: "新增對話",

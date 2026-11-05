@@ -13,6 +13,12 @@ import { Plus, Trash2, ArrowUp, Sparkles } from "lucide-react";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
+import { capturePageContent } from "./pageContent";
+
+function samePageContent(generation: string | null, viewKey: string, hostGeneration: string) {
+  if (generation === null) return true;
+  try { return capturePageContent(viewKey, hostGeneration).id === generation; } catch { return false; }
+}
 
 const active = (state: string) => state === "accepted" || state === "running";
 
@@ -43,6 +49,7 @@ export function ModelConversation() {
     requestID: string;
     leaseID: string;
     stamp: string;
+    contentGeneration: string | null;
   } | null>(null);
   const [navigationState, setNavigationState] = useState("");
   const navigationAttempt = useRef<string | null>(null);
@@ -124,7 +131,8 @@ export function ModelConversation() {
       !intent ||
       intent.leaseId !== grant.leaseID ||
       intent.requestId !== grant.requestID ||
-      !page
+      !page ||
+      !samePageContent(grant.contentGeneration, page.viewKey, page.modelStamp)
     ) {
       setNavigationState("navigationStopped");
       return;
@@ -135,7 +143,7 @@ export function ModelConversation() {
         callService(() =>
           API.ConsumeNavigation(epoch, id, run.id, intent.id, intent.leaseId),
         ).then((target) => {
-          if (navigationAttempt.current !== grant.requestID)
+          if (navigationAttempt.current !== grant.requestID || !samePageContent(grant.contentGeneration, page.viewKey, page.modelStamp))
             throw new Error("assistant_navigation_withdrawn");
           return target;
         }),
@@ -205,6 +213,7 @@ export function ModelConversation() {
     const text = prompt;
     const stamp = page?.modelStamp ?? "";
     await action(async () => {
+      const contentGeneration = allowNavigation && page?.viewKey === "return-analysis:" ? capturePageContent(page.viewKey, page.modelStamp).id : null;
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
       // Only a selector crosses IPC. No frontend metrics/labels/permission claims.
@@ -232,13 +241,14 @@ export function ModelConversation() {
             lease.id,
           ),
         );
-        if (!page.canModelNavigate(stamp))
+        if (!page.canModelNavigate(stamp) || !samePageContent(contentGeneration, page.viewKey, page.modelStamp))
           throw new Error("assistant_stale_page");
         pageLeaseId = lease.id;
         navigationGrant.current = {
           requestID: requestId,
           leaseID: lease.id,
           stamp,
+          contentGeneration,
         };
         setNavigationState("navigationPending");
       } else {
