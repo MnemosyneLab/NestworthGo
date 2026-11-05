@@ -186,6 +186,8 @@ Wave 3(最后,依赖前面都合并)
 - 改成“当前合约”:权限、工具清单、读写流程、恢复、预算,历史移到单独的变更记录文件。
 - 在其他工作流全部合并后做,避免改一半又被覆盖。
 
+**状态**: 已在本分支完成。当前合约是 [mcp.md](mcp.md)。阶段叙事和测量表在 [mcp-changelog.md](mcp-changelog.md)。发现体积的最终测量写在 mcp.md 的 Discovery budgets。`skills/nestworth/VERSION` 已是 F1 的 3.0.5,本次只改 development 文档和发现预算常量,没有再升 skill 版本。
+
 ## 5. 每个工作流都要遵守的流程
 
 1. **隔离**:每个工作流一个独立 worktree 和分支,互不复用。开始前记录分支、SHA 和未提交改动。

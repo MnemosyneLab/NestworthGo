@@ -3,7 +3,7 @@
 Measurement record for stream A in
 [mcp-remaining-work.md](mcp-remaining-work.md). This file is separate from the
 headless Go SDK pairing table in
-[mcp.md](mcp.md#paired-scenario-measurement-headless-synthetic-data). Those
+[mcp-changelog.md](mcp-changelog.md#paired-scenario-measurement-headless-synthetic-data). Those
 figures used `payloadRecorder` and an in-process Go client. The figures below
 come from an external TypeScript MCP client and from GitHub Actions.
 

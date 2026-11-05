@@ -68,4 +68,4 @@ neither result is a return or an endpoint move. No handler, schema, or
 valuation formula changed. The discovery-contract hashes exclude description
 prose. Measured `tools/list` growth is the prose itself: +325 bytes in every
 permission mode, tool counts unchanged. See the Wave 2 measurement note in
-[mcp.md](mcp.md#wave-2-account-entry-descriptions-and-toolgroups-removal).
+[mcp-changelog.md](mcp-changelog.md#wave-2-account-entry-descriptions-and-toolgroups-removal).

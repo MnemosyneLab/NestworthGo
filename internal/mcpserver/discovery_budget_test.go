@@ -8,18 +8,22 @@ import (
 
 // Discovery size budgets guard against prose creep. They bound what every
 // client pays on connection: the serialized tools/list payload per permission
-// mode, the longest tool description and the server instructions. Limits carry
-// about 2% headroom over the measured size; raising one is a deliberate review
-// decision and needs a stated reason, not a mechanical bump.
+// mode, the longest tool description and the server instructions. Mode ceilings
+// are about 2% above the F2 measurement (read_only 63347, directory_write
+// 78408, ledger_write 120549). maxToolDescriptionBytes stays a prose cap: the
+// longest measured description is 1137 bytes (commit_plan), and fitting that
+// cap to 2% would reject the next necessary sentence. Instructions are already
+// inside 2% (2373 bytes against 2400) and are not raised. Raising a limit is a
+// deliberate review decision and needs a stated reason, not a mechanical bump.
 const (
 	maxToolDescriptionBytes = 1500
 	maxInstructionsBytes    = 2400
 )
 
 var discoveryBudgetBytes = map[string]int{
-	ReadOnly:       66500,
-	DirectoryWrite: 83500,
-	LedgerWrite:    128000,
+	ReadOnly:       64700,
+	DirectoryWrite: 80000,
+	LedgerWrite:    123000,
 }
 
 func TestDiscoveryBudget(t *testing.T) {

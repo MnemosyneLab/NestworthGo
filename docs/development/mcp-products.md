@@ -309,7 +309,7 @@ and atomic writes still apply. See [the App history contract](product-operation-
 Use the bounded contracts on list_products, get_product and get_liquidity_overview.
 Legacy responses retain their current full shape. New filters/sort/limit require
 explicit paged mode. The complete envelope, cache/cursor/byte contracts and
-permission matrix are specified in [MCP integration](mcp.md#scalable-management-reads-and-batches-mcp-read1).
+permission matrix are specified in [MCP integration](mcp.md#bounded-reads-mcp-read1).
 
 Product filters are productKinds/states/query, with accountId/includeClosed.
 Sort startOn (default desc), maturityOn, displayName or state, productId asc ties.

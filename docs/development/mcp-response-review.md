@@ -328,7 +328,7 @@ coverage limits are in [the compact-read report](../qa/mcp-compact-reads-2026-11
 ## Remaining-audit contract completion (skill 5.0.0)
 
 The follow-up integrates main `82dd932` (#220) after #212/#215/#216/#217.
-[Current contracts](mcp.md#bounded-discovery-and-task-directed-reads-skill-301)
+[Current contracts](mcp.md#schema-and-response-shape)
 and [follow-up measurements](../qa/mcp-audit-followups-2026-11-04.md) supersede
 older shape/discovery/repair-polling descriptions above. Historical measurements
 remain evidence for their named sources, not current single-page guarantees.
