@@ -101,6 +101,12 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 			case <-ticker.C:
 				requests, _ := service.PendingPageReads(status.Epoch)
 				for _, request := range requests {
+					// Capture waits must remain visible through the same Wails
+					// snapshot as the conversation, before page data arrives.
+					active, inspectErr := service.Inspect(status.Epoch, conversation.ID)
+					if inspectErr != nil || active.Progress == nil || len(active.Progress.Tools) == 0 || active.Progress.Tools[len(active.Progress.Tools)-1].Source != "read_page_content" || active.Progress.Tools[len(active.Progress.Tools)-1].State != "running" || active.Runs[0].Text != "" {
+						t.Errorf("page capture lost live tool progress: %+v error=%v", active.Progress, inspectErr)
+					}
 					err := service.DeliverPageContent(status.Epoch, request.ID, assistant.PageContent{ID: captureID, Page: "return-analysis", CapturedAt: time.Now(), Nodes: []assistant.PageNode{{ID: "from", Module: "filters", Role: "textbox", Name: "From", Value: "2026-10-01"}, {ID: "currency", Module: "filters", Role: "combobox", Name: "Currency", Value: "Synthetic USD"}}, Limitations: []string{"Synthetic semantic capture"}})
 					if err != nil {
 						t.Errorf("delivery: %v", err)
@@ -114,6 +120,14 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 	<-stopped
 	if len(view.Runs) != 1 || view.Runs[0].State != "succeeded" || len(view.Runs[0].Evidence) != 2 || view.Navigation != nil {
 		t.Fatalf("page read failed or navigated: %+v", view)
+	}
+	if len(view.Runs[0].Tools) != 2 {
+		t.Fatalf("page tools absent from completed conversation: %+v", view.Runs[0].Tools)
+	}
+	for _, detail := range view.Runs[0].Tools {
+		if detail.Source != "read_page_content" || detail.State != "succeeded" || !strings.Contains(detail.Input, `"module":"filters"`) || !strings.Contains(detail.Output, snapshotID) {
+			t.Fatalf("page tool details mismatch: %+v", detail)
+		}
 	}
 	activities, err := app.ListActivities(t.Context(), 10)
 	if err != nil || len(activities) != 0 {

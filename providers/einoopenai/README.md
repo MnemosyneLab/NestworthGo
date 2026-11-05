@@ -37,10 +37,13 @@ actual typed agent/runner is used in acceptance tests, with a synthetic mutation
 counter and no approval wrapper. Both `Generate` and `Stream` go through the same
 bounded transport before the SDK or Eino receives a response. Stream requests
 use real SSE on the wire, but deliberately return one complete Eino message.
-Live display-token streaming is deferred. The desktop Engine calls Generate
-(nonstreaming JSON), since the UI already publishes only complete turns. Stream
-remains a separately tested adapter, not an automatic fallback. Both paths keep
-bounded whole-body reads and successful terminal validation before tool dispatch.
+The desktop runtime installs a progress observer: Engine Generate then selects
+SSE and publishes provisional text snapshots while frames arrive. Without an
+observer Generate retains JSON mode. Stream still returns one verified message.
+All modes retain bounded reads, terminal validation and clean EOF before dispatch.
+Tool start/end events carry real, bounded input/output through the runtime;
+only successful complete replies advance the native checkpoint. See the
+[built-in runtime contract](../../docs/architecture/builtin-ai-runtime.md#provisional-streaming-and-tool-details).
 No latency/quality equivalence with a live provider is claimed.
 
 1. The adapter reuses agenticopenai's request builder and **nonstream** response

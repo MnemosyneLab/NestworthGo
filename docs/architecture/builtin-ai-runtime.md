@@ -171,7 +171,7 @@ than 30 days are pruned on startup and conversation creation; no background time
 or cloud retention service is installed. Budget/storage failures close the runtime
 instead of exposing an undurable success. Explicit conversation deletion removes
 only private AI state. Public history pages contain one attempted turn plus at most 16 bounded host
-read records. JSON escaping can expand the 80 KiB prompt/display text budget;
+read records and 64 KiB of credential-filtered tool details. JSON escaping can expand these prompt/display/detail text budgets;
 no private checkpoint or reasoning field is included.
 
 There is no financial schema upgrade. Fresh sidecars initialize transactionally;
@@ -213,7 +213,7 @@ keeps #201's own byte/event/item/60-second limits. A response yields an executab
 message only after terminal success, full item/framing validation and clean EOF.
 The whole call inventory is checked before dispatch; a response mixing a valid
 read with a writer dispatches neither. Cancellation after `response.completed`
-but before EOF also dispatches nothing. There is no provisional token display, SDK request retry, automatic run replay,
+but before EOF also dispatches nothing. Provisional text is displayed separately and never authorizes a tool or advances history. There is no SDK request retry, automatic run replay,
 remote checkpoint, compactor or summary replacement. A refused controlled tool
 returns a fixed model-visible error without implementation details or financial
 facts. Within the existing 8-round/16-call budget, the model can re-capture an
@@ -263,7 +263,7 @@ the latest epoch instead of resubmitting a new paid request. A rolled-over/futur
 cursor returns `reset`; refresh metadata/history. Generated bindings expose
 write-only credential input and bounded configuration,
 never stored secrets, history internals or host review methods. The desktop polls
-status every two seconds and the selected latest turn every second while mounted.
+status every two seconds and the selected latest turn every second while mounted (every 200 ms during an active run).
 The sidebar presents a chronological transcript: the latest attempt and up to
 five preceding turns load on session selection. “Load earlier messages” prepends
 five more bounded `Messages` reads without replacing the visible transcript.
@@ -272,8 +272,7 @@ pauses following; “Latest messages” resumes it. Failed history reads have a
 local retry that never replays `Start`.
 Completed host read evidence appears in a collapsed disclosure attached to its
 answer, with allowlisted localized source names, capture time and conservative
-coverage/missingness. The current API has no per-tool live lifecycle events;
-working indicators describe the run only and never invent tool progress.
+coverage/missingness. Per-tool lifecycle events now show actual serial execution, with expandable input/output details and explicit refused/failed/interrupted states.
 Privacy/scope/retention information lives behind an accessible info popover.
 Single-message navigation remains a separate explicit send action inside the
 page-navigation disclosure; opening it grants nothing. Closing the assistant
@@ -311,7 +310,7 @@ flag or nonempty gaps/missing-input list marks `reported`; otherwise
 `not_summarized` explicitly establishes no completeness claim. Source/quote dates
 remain in the original tool data. Per-response page flags never prove that every
 relevant continuation was consumed. The UI exposes these records in Data evidence;
-it does not render raw tool payloads, private reasoning or credential material.
+separate tool disclosures show credential-filtered input/output values. Private reasoning and credential material are never displayed.
 
 ## One-shot model navigation
 
@@ -389,6 +388,56 @@ No raw sizes, content, prompts, account names, IDs, keys or arbitrary error text
 are added. Old generic budget failures remain generic. Failed runs keep the last
 successful checkpoint, emit no partial answer/evidence/navigation and can reopen.
 
+## Provisional streaming and tool details
+
+The runtime installs a request-scoped progress observer. Engine Generate then
+selects real provider SSE; the transport validates each incoming frame while
+assembling the complete response. Only observed output-text/refusal parts reach
+the provisional display channel. Reasoning and tool argument fragments do not.
+The SDK still receives only the fully verified terminal JSON after clean EOF;
+its streaming converter is not used. Existing model-round, tool-inventory,
+capability validation, authority, timeout and checkpoint gates remain in place.
+Each model round resets the provisional text snapshot. Text is coalesced to at
+most 20 updates/second, and the engine withholds a credential-sized suffix to
+prevent an API key split across chunks from escaping. Short replies may therefore
+appear only at completion. Completion, cancellation and failure remove preview
+text. A refusal can be a complete answer under the existing provider contract.
+
+`Inspect` carries a cumulative `progress` snapshot scoped by epoch, conversation,
+run ID and revision. The selected active conversation observes it at most five
+times/second through local Wails IPC. A reconnect inspects the current snapshot;
+it never resubmits Start. Session switching cannot mix progress because query
+keys and the timeline instance include epoch/conversation. No new Wails global
+broadcast or raw provider-event bus is introduced. The existing run-state event
+journal keeps its original contract. Preview snapshots are memory-only and never
+stored as successful text, evidence or native history.
+
+Tools emit start immediately before dispatch and completion/refusal/failure when
+they return. A run ending during a tool marks it interrupted, without inventing
+an output or a rollback. The compact row expands actual input and returned output
+as inert text. Account names, amounts and exact financial number lexemes remain
+visible; credential fields and the active provider key are removed. Each input
+or output has an 8 KiB display cap, and the entire attempt has a 64 KiB detail
+budget, with explicit truncated-prefix labels. Display truncation does not alter
+what the tool or model receives. No raw error text is shown. Finished attempts
+persist these bounded details in the same private sidecar and retention/deletion
+boundary as the conversation, including failed attempts; the last successful
+provider checkpoint still advances only for a complete successful answer. Old
+runs lacking details remain valid. Abrupt restart retains the admitted attempt,
+marks it interrupted and does not restore transient previews or unfinished tool
+details. No financial storage schema or permission changes are involved.
+
+Completed replies and incomplete previews use the same allowlisted Markdown
+renderer (GFM tables, lists, code, emphasis and visible footnote references/text). Raw HTML is dropped. Images are
+inert alt text, links are inert labels, and no Markdown resource can load remotely
+or trigger desktop navigation. Unclosed fences/links are parsed safely again on
+each snapshot. User prompts remain plain text. ResizeObserver follows viewport
+and transcript height changes (Markdown, width and tool disclosures) only when
+following is enabled. Scrolling up pauses follow; the explicit Latest messages
+button resumes it. History prepend anchors a visible message element, so concurrent growth at the streaming tail does not change the reading position. Chunk
+text is not a live region; tool status changes and the completed-reply announcer
+provide bounded polite announcements. Native Mac visual and screen-reader
+acceptance remain separate from jsdom geometry tests.
 
 ## On-demand internal page content
 

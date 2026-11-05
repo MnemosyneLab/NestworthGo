@@ -56,12 +56,14 @@ var errLimit = errors.New("provider response rejected: resource limit")
 const nativeKey = "nestworth.responses.output.v1"
 
 type roundKey struct{}
+type displayKey struct{}
 type nativeState struct {
 	Output        []json.RawMessage `json:"output"`
 	ContentSHA256 string            `json:"content_sha256"`
 }
 
 type round struct {
+	display     func(string)
 	stream      bool
 	replay      map[string][]json.RawMessage
 	replayOrder []string
@@ -204,7 +206,8 @@ func newModel(ctx context.Context, cfg Config, testHTTP bool) (*Model, error) {
 }
 
 func (m *Model) Generate(ctx context.Context, in []*schema.AgenticMessage, opts ...model.Option) (*schema.AgenticMessage, error) {
-	return m.generate(ctx, in, false, opts...)
+	_, live := ctx.Value(displayKey{}).(func(string))
+	return m.generate(ctx, in, live, opts...)
 }
 func (m *Model) Stream(ctx context.Context, in []*schema.AgenticMessage, opts ...model.Option) (*schema.StreamReader[*schema.AgenticMessage], error) {
 	msg, err := m.generate(ctx, in, true, opts...)
@@ -216,7 +219,8 @@ func (m *Model) Stream(ctx context.Context, in []*schema.AgenticMessage, opts ..
 func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, stream bool, opts ...model.Option) (*schema.AgenticMessage, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.limits.Timeout)
 	defer cancel()
-	state := &round{stream: stream, replay: map[string][]json.RawMessage{}}
+	display, _ := ctx.Value(displayKey{}).(func(string))
+	state := &round{display: display, stream: stream, replay: map[string][]json.RawMessage{}}
 	prepared, err := m.prepareInput(in, state)
 	if errors.Is(err, errLimit) {
 		return nil, assistant.BudgetFailure("provider_payload")
@@ -391,18 +395,15 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 		return nil, errProtocol
 	}
 	phase = "response_body"
-	raw, err := boundedRead(response.Body, t.limits.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	if req.Context().Err() != nil {
-		return nil, req.Context().Err()
-	}
+	var raw []byte
 	var output []json.RawMessage
 	if state.stream {
-		raw, output, err = validateStream(raw, t.limits)
+		raw, output, err = validateStreamReader(response.Body, t.limits, state.display)
 	} else {
-		output, err = validateResponse(raw, t.limits)
+		raw, err = boundedRead(response.Body, t.limits.Bytes)
+		if err == nil {
+			output, err = validateResponse(raw, t.limits)
+		}
 	}
 	if err != nil {
 		return nil, err
