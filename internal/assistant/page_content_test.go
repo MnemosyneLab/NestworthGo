@@ -96,6 +96,35 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 	}); err != nil {
 		t.Fatal(err)
 	}
+
+	// The frontend's real ContributionTab tests prove that these exact control
+	// properties change the semantic generation even when financial rows match.
+	// Continue the same desktop protocol with that new ID: no old slice is returned.
+	for _, control := range []string{"contribution-return-type", "contribution-group-by", "contribution-sort", "contribution-limit", "contribution-search", "contribution-loading"} {
+		snapshot.ID = uuid.NewString()
+		snapshot.Nodes = []ai.PageNode{{ID: "contribution/" + control, Module: "contribution", Role: "textbox", Value: "before"}, {ID: "contribution/amount", Module: "contribution", Role: "text", Name: "12.34 USD"}}
+		if control == "contribution-loading" {
+			snapshot.Nodes[0].Role = "group"
+			snapshot.Nodes[0].Value = ""
+			snapshot.Nodes[0].State = []string{"busy=false"}
+		}
+		initial, err := capture(`{"module":"contribution","limit":1}`, nil)
+		if err != nil || initial["hasMore"] != true {
+			t.Fatal("missing contribution continuation", err)
+		}
+		args := fmt.Sprintf(`{"snapshotId":%q,"module":"contribution","cursor":1}`, snapshot.ID)
+		if _, err := capture(args, func(p *ai.PageContent) {
+			p.ID = uuid.NewString()
+			p.Nodes = append([]ai.PageNode(nil), p.Nodes...)
+			if control == "contribution-loading" {
+				p.Nodes[0].State = []string{"busy=true"}
+			} else {
+				p.Nodes[0].Value = "after"
+			}
+		}); err == nil {
+			t.Fatalf("%s kept an old cursor despite a changed control", control)
+		}
+	}
 	for _, args := range []string{`{"cursor":2}`, `{"html":true}`, `{"limit":65}`, `null`} {
 		if _, err := reader(t.Context(), []byte(args)); err == nil {
 			t.Fatalf("accepted %s", args)

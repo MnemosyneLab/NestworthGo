@@ -59,3 +59,11 @@ it("captures the real shared date picker label, displayed value and popup state 
  expect(date).toMatchObject({role:"button",name:"From date",value:"2026-10-01"});
  expect(date?.state).toContain("expanded=false");
 });
+
+
+it("never turns a reviewed contribution ID into permission to read secret input types or new fields", () => {
+ document.body.innerHTML = '<main data-assistant-page="return-analysis"><section data-assistant-module="contribution"><input id="contribution-search" type="password" value="protected-password"><textarea id="contribution-sort">protected-note</textarea><input id="contribution-secret" value="protected-new-field"></section></main>';
+ const page=capturePageContent("return-analysis:");const raw=JSON.stringify(page);
+ for(const secret of ["protected-password","protected-note","protected-new-field"])expect(raw).not.toContain(secret);
+ expect(page.nodes.filter(n=>n.state.includes("redacted"))).toHaveLength(3);
+});

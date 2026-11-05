@@ -424,9 +424,12 @@ raw HTML and SVG/canvas geometry are excluded. Known configured credential
 material is also rejected by the backend, including strings escaped in JSON.
 
 Native select option labels/selection, shared date-picker labels/displayed values,
-search combobox text/expanded state,
+search combobox text/expanded state, all contribution toolbar/ranking/detail
+controls (return type, grouping, ordering, count, search),
 checkbox/radio values, disabled/read-only/invalid/pressed states, headings,
-tables, statuses, alerts and disclosure state are represented. Collapsed
+tables, statuses, alerts and disclosure state are represented. Roleless `aria-busy` containers become semantic groups so
+background fetching changes the snapshot even when financial rows are unchanged.
+Collapsed
 in-root disclosures retain available semantic contents. Portal popovers and
 hover-only chart content are outside this capture. Chart geometry is explicitly
 reported as unsupported; an available semantic data table can be read. Other

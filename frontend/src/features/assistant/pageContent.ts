@@ -11,7 +11,16 @@ export type SemanticPage = {
 let lastEncoding = "";
 let lastID = "";
 const rootIdentities = new WeakMap<Element,string>();
-const allowedFields = /^(analysis-(scope|scope-id|from|to|valuation|cash|filter-(account|currency|asset-class|member|instrument))|return-trend-display)$/;
+// Explicit reviewed semantic controls, never a prefix-based permission for
+// future inputs. IDs are owned by the real page/shared control triggers.
+const allowedFields = new Set([
+  "analysis-scope", "analysis-scope-id", "analysis-from", "analysis-to",
+  "analysis-valuation", "analysis-cash", "analysis-filter-account",
+  "analysis-filter-currency", "analysis-filter-asset-class", "analysis-filter-member",
+  "analysis-filter-instrument", "return-trend-display",
+  "contribution-return-type", "contribution-group-by", "contribution-sort",
+  "contribution-limit", "contribution-search",
+]);
 const roles: Record<string, string> = {
   BUTTON: "button", A: "link", SELECT: "combobox", OPTION: "option",
   INPUT: "textbox", TEXTAREA: "textbox", H1: "heading", H2: "heading", H3: "heading", H4: "heading",
@@ -55,10 +64,13 @@ export function capturePageContent(viewKey: string, generation = viewKey): Seman
       const roleAttribute = el.getAttribute("role") || "";
       let role = semanticRoles.has(roleAttribute) ? roleAttribute : roles[el.tagName];
       if (el.hasAttribute("data-assistant-module") || el === root) role = "region";
+      // Busy containers are semantic even without an explicit ARIA role. Keep
+      // both true and false so background query transitions fence old captures.
+      if (!role && el.hasAttribute("aria-busy")) role = "group";
       const field = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
-      const fieldButton = el instanceof HTMLButtonElement && allowedFields.test(el.id);
+      const fieldButton = el instanceof HTMLButtonElement && allowedFields.has(el.id);
       const labelledControl = field || fieldButton;
-      const sensitive = field && (!allowedFields.test(el.id) || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && ["password", "hidden", "file"].includes(el.type)));
+      const sensitive = field && (!allowedFields.has(el.id) || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && ["password", "hidden", "file"].includes(el.type)));
       if (sensitive) { add({ parent, module, role: "textbox", name: "Protected input", value: "", state: ["redacted"], actions: [] }); return; }
       if (el instanceof HTMLInputElement && ["checkbox", "radio"].includes(el.type)) role = el.type;
       let nextParent = parent;
