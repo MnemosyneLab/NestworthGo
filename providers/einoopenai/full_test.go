@@ -223,7 +223,7 @@ func TestFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 				t.Fatal("restart retained Full")
 			}
 			reviews, err := fresh.Reviews(status.Epoch, c.ID)
-			if err != nil || len(reviews) != 1 || reviews[0].State != "succeeded" || reviews[0].Source != "ai_full" {
+			if err != nil || len(reviews) != 1 || reviews[0].State != "succeeded" || reviews[0].Source != "ai_full" || reviews[0].ID != store.refID {
 				t.Fatalf("original receipt recovery: %+v %v", reviews, err)
 			}
 			rows, err = app.ListActivities(t.Context(), 10)
