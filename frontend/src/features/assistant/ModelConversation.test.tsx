@@ -90,7 +90,7 @@ it("restores history without replay and sends only the question and selector", a
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(api.Start).not.toHaveBeenCalled();
-  await user.click(screen.getByText("Data evidence"));
+  await user.click(screen.getByText(/Data reads · 1/));
   expect(screen.getByText(/Account snapshot/)).toBeVisible();
   expect(screen.getByText(/This response advertised more pages/)).toBeVisible();
   await user.type(screen.getByLabelText("Message"), "Read my current page");
@@ -166,21 +166,16 @@ it("keeps an off runtime closed and prevents byte-overflow submission", async ()
   expect(screen.getByLabelText("Message")).toBeDisabled();
   expect(api.Start).not.toHaveBeenCalled();
 });
-it("retrieves paged history and returns to the latest turn", async () => {
-  api.Inspect.mockResolvedValue({
-    id: "conversation",
-    runs: [{ ...run, text: "Latest answer" }],
-    runCount: 2,
-    offset: 1,
-  });
-  const user = userEvent.setup();
+it("shows consecutive messages together without turn navigation", async () => {
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [{ ...run, id: "latest", prompt: "Latest question", text: "Latest answer" }], runCount: 2, offset: 1 });
   mount();
   await screen.findByText("Latest answer");
-  await user.click(screen.getByRole("button", { name: "Previous turn" }));
   await screen.findByText("Synthetic prior answer");
   expect(api.Messages).toHaveBeenCalledWith("host", "conversation", 0);
-  await user.click(screen.getByRole("button", { name: "Latest turn" }));
-  await screen.findByText("Latest answer");
+  const exchanges = screen.getAllByRole("article");
+  expect(exchanges[0]).toHaveTextContent("Synthetic saved question");
+  expect(exchanges[1]).toHaveTextContent("Latest question");
+  expect(screen.queryByRole("button", { name: "Previous turn" })).not.toBeInTheDocument();
   expect(api.Start).not.toHaveBeenCalled();
 });
 
@@ -197,13 +192,11 @@ it("loads local status/history/pages while the browser is offline", async () => 
     runCount: 2,
     offset: 1,
   });
-  const user = userEvent.setup();
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(api.Status).toHaveBeenCalled();
   expect(api.List).toHaveBeenCalled();
   expect(api.Inspect).toHaveBeenCalled();
-  await user.click(screen.getByRole("button", { name: "Previous turn" }));
   await waitFor(() =>
     expect(api.Messages).toHaveBeenCalledWith("host", "conversation", 0),
   );
@@ -266,6 +259,7 @@ it("executes one typed navigation only after the explicit per-message grant", as
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open the account list");
+  await user.click(screen.getByText("Page navigation"));
   await user.click(
     screen.getByRole("button", { name: "Send and allow one page change" }),
   );
@@ -329,6 +323,7 @@ it("does not navigate when the page changes during intent consumption", async ()
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open overview");
+  await user.click(screen.getByText("Page navigation"));
   await user.click(
     screen.getByRole("button", { name: "Send and allow one page change" }),
   );
@@ -395,6 +390,7 @@ it.each([
     const user = userEvent.setup();
     await screen.findByText("Synthetic prior answer");
     await user.type(screen.getByLabelText("Message"), "Open overview");
+    await user.click(screen.getByText("Page navigation"));
     await user.click(
       screen.getByRole("button", { name: "Send and allow one page change" }),
     );
@@ -466,4 +462,66 @@ it.each([
   }
   expect(alert).not.toHaveTextContent("private-canary");
   expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("loads older messages in bounded batches and retains them when a new run arrives", async () => {
+  const saved = (n: number) => ({ ...run, id: `run-${n}`, prompt: `Question ${n}`, text: `Answer ${n}`, evidence: [] });
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [saved(7)], runCount: 8, offset: 7 });
+  api.Messages.mockImplementation(async (_epoch, _id, offset) => ({ id: "conversation", runs: [saved(offset)], runCount: 8, offset }));
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Answer 2");
+  expect(api.Messages).toHaveBeenCalledTimes(5);
+  expect(screen.queryByText("Answer 0")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Load earlier messages" }));
+  await screen.findByText("Answer 0");
+  expect(screen.getByText("Answer 7")).toBeVisible();
+  api.Start.mockImplementation(async () => {
+    api.Inspect.mockResolvedValue({ id: "conversation", runs: [saved(8)], runCount: 9, offset: 8 });
+    return saved(8);
+  });
+  await user.type(screen.getByLabelText("Message"), "Next question{Enter}");
+  await screen.findByText("Answer 8");
+  expect(screen.getByText("Answer 0")).toBeVisible();
+  expect(screen.getByText("Answer 7")).toBeVisible();
+  expect(screen.getAllByRole("article")).toHaveLength(9);
+});
+
+it("retries only failed history reads without replaying the model request", async () => {
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [{ ...run, id: "latest", text: "Latest answer" }], runCount: 2, offset: 1 });
+  api.Messages.mockRejectedValueOnce(new Error("private-history-payload"));
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText(/Earlier messages could not be loaded/);
+  expect(screen.getByText("Latest answer")).toBeVisible();
+  expect(screen.queryByText(/private-history-payload/)).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByText("Synthetic prior answer");
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("keeps privacy and navigation details keyboard accessible without granting on disclosure", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  const info = screen.getByRole("button", { name: "AI provider and privacy" });
+  info.focus();
+  await user.keyboard("{Enter}");
+  expect(await screen.findByText(/Sending a message sends your question/)).toBeVisible();
+  await user.keyboard("{Escape}");
+  expect(info).toHaveFocus();
+  const options = screen.getByText("Page navigation");
+  await user.click(options);
+  expect(screen.getByRole("button", { name: "Send and allow one page change" })).toBeVisible();
+  expect(api.GrantNavigation).not.toHaveBeenCalled();
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("displays only allowlisted tool names and never a raw source identifier", async () => {
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [{ ...run, evidence: [{ ...run.evidence[0], source: "private_source_canary" }] }], runCount: 1, offset: 0 });
+  const user = userEvent.setup();
+  mount();
+  await user.click(await screen.findByText(/Data reads · 1/));
+  expect(screen.getByText("Ledger read")).toBeVisible();
+  expect(screen.queryByText(/private_source_canary/)).not.toBeInTheDocument();
 });

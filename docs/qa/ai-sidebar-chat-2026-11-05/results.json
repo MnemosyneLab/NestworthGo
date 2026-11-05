@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "language": "en",
+      "theme": "light",
+      "explicitActivation": true,
+      "selectorOnly": true,
+      "completed": true,
+      "cancelled": true,
+      "offlineHistoryAndStop": true,
+      "explicitModelNavigation": true,
+      "navigationGuard": true,
+      "noOverflow": true,
+      "continuousHistory": true,
+      "readingPositionPreserved": true,
+      "keyboardDisclosure": true,
+      "providerCalls": 0
+    },
+    {
+      "width": 1440,
+      "language": "en",
+      "theme": "dark",
+      "explicitActivation": true,
+      "selectorOnly": true,
+      "completed": true,
+      "cancelled": true,
+      "offlineHistoryAndStop": true,
+      "explicitModelNavigation": true,
+      "navigationGuard": true,
+      "noOverflow": true,
+      "continuousHistory": true,
+      "readingPositionPreserved": true,
+      "keyboardDisclosure": true,
+      "providerCalls": 0
+    },
+    {
+      "width": 320,
+      "language": "zh-CN",
+      "theme": "light",
+      "explicitActivation": true,
+      "selectorOnly": true,
+      "completed": true,
+      "cancelled": true,
+      "offlineHistoryAndStop": true,
+      "explicitModelNavigation": true,
+      "navigationGuard": true,
+      "noOverflow": true,
+      "continuousHistory": true,
+      "readingPositionPreserved": true,
+      "keyboardDisclosure": true,
+      "providerCalls": 0
+    },
+    {
+      "width": 390,
+      "language": "zh-TW",
+      "theme": "dark",
+      "explicitActivation": true,
+      "selectorOnly": true,
+      "completed": true,
+      "cancelled": true,
+      "offlineHistoryAndStop": true,
+      "explicitModelNavigation": true,
+      "navigationGuard": true,
+      "noOverflow": true,
+      "continuousHistory": true,
+      "readingPositionPreserved": true,
+      "keyboardDisclosure": true,
+      "providerCalls": 0
+    }
+  ],
+  "errors": []
+}

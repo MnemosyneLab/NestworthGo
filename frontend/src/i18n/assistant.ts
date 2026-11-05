@@ -1,5 +1,20 @@
 export const assistantEn = {
   aiChat: {
+    transcript: "Conversation messages",
+    exchange: "Message exchange",
+    you: "You",
+    loadEarlier: "Load earlier messages",
+    loadingHistory: "Loading messages…",
+    historyError: "Earlier messages could not be loaded.",
+    toolReads: "Data reads · {{count}}",
+    readCompleted: "Read completed",
+    unknownRead: "Ledger read",
+    messageDetails: "Message details",
+    jumpLatest: "Latest messages",
+    placeholder: "Ask a question…",
+    readOnly: "Read-only · OpenAI",
+    navigationOptions: "Page navigation",
+
     sendNavigate: "Send and allow one page change",
     navigationHelp:
       "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview/account page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
@@ -170,6 +185,21 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    transcript: "对话消息",
+    exchange: "消息对话",
+    you: "你",
+    loadEarlier: "加载更早消息",
+    loadingHistory: "正在加载消息…",
+    historyError: "无法加载更早消息。",
+    toolReads: "数据依据 · {{count}} 次读取",
+    readCompleted: "已完成读取",
+    unknownRead: "账本读取",
+    messageDetails: "消息详情",
+    jumpLatest: "最新消息",
+    placeholder: "问点什么…",
+    readOnly: "只读 · OpenAI",
+    navigationOptions: "页面跳转",
+
     sendNavigate: "发送并允许一次页面跳转",
     navigationHelp:
       "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览或账户页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
@@ -324,6 +354,21 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    transcript: "對話訊息",
+    exchange: "訊息對話",
+    you: "你",
+    loadEarlier: "載入更早訊息",
+    loadingHistory: "正在載入訊息…",
+    historyError: "無法載入更早訊息。",
+    toolReads: "資料依據 · {{count}} 次讀取",
+    readCompleted: "已完成讀取",
+    unknownRead: "帳本讀取",
+    messageDetails: "訊息詳情",
+    jumpLatest: "最新訊息",
+    placeholder: "問點什麼…",
+    readOnly: "唯讀 · OpenAI",
+    navigationOptions: "頁面導覽",
+
     sendNavigate: "傳送並允許一次頁面跳轉",
     navigationHelp:
       "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽或帳戶頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
