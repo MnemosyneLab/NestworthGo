@@ -4,7 +4,8 @@
 
 Current development identifies as Nestworth `v0.3.10` / build `11`; the latest published
 release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), published 2026-10-28 with
-skill 2.0.0. Repository skill 3.0.3 remains unpublished. The project
+skill 2.0.0. The unpublished repository skill version is recorded in
+[`skills/nestworth/VERSION`](../../skills/nestworth/VERSION). The project
 is a Go 1.27.3 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
@@ -14,7 +15,7 @@ localization, accessibility, and chart rendering.
 ## Prerequisites
 
 - Go 1.27.3 or newer;
-- Node.js 24.22.0 (Active LTS, Krypton) with pnpm;
+- Node.js 24.22.0 with pnpm;
 - Wails CLI `v3.1.0`;
 - macOS 27.0 or newer on Apple Silicon, with a macOS 27 SDK, for the primary
   desktop and packaging target.
@@ -220,8 +221,9 @@ The native CI image, safe bootstrap, publication boundary and digest
 activation procedure are maintained in [Linux native CI image](ci-native-image.md).
 Current check triggers and budgets are maintained in
 [Local Development and Packaging](local-workflow.md#frontend-only-checks) and
-the repository workflows. Native `.app`/DMG packaging, signing, and notarization stay
-manual. Wails v3 is pinned at `v3.1.0` (`@wailsio/runtime` at
+the repository workflows. Native `.app`/DMG packaging can run locally or through the manually dispatched
+[package workflow](../../.github/workflows/package-macos.yml). Signing, notarization
+and interactive package acceptance remain separate gates. Wails v3 is pinned at `v3.1.0` (`@wailsio/runtime` at
 `3.1.0`); upgrade those versions only in a dedicated change.
 
 ## Documentation and change gate

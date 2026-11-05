@@ -32,81 +32,19 @@ and CI CLI/cache guards are pinned to v3.1.0 together. Regenerate the ignored
 bindings and run the installed-runtime integration checks after upgrading.
 Native window, menu, lifecycle and package acceptance remain separate gates.
 
-## v3.0.0 compatibility notes
+## Repository compatibility constraints
 
-The [official stable release](https://github.com/wailsapp/wails/releases/tag/v3.0.0)
-requires Go 1.26+; the existing Go 1.27.3 baseline meets that requirement.
-Go, the CLI/binding generator and the npm runtime are pinned to v3.0.0 together.
-The [official migration guide](https://wails.io/migration/v2-to-v3/) describes
-v2 application, service, event and binding changes; Nestworth already uses the
-v3 APIs. Regenerate ignored bindings with the stable generator and validate
-installed-runtime cancellation and error integration before accepting the upgrade.
-The CLI guard compares the complete version output so a beta or nightly cannot
-match the stable version by prefix; synthetic CLI-selection tests cover this.
+Keep the customized transactional Darwin staging and package verification tasks.
+They require a real output directory inside the repository and reject symlinked
+output. Build on local storage outside file-provider folders such as iCloud or
+Dropbox, with `bin` a regular directory. Do not blindly copy upstream relocation
+or regenerated Taskfiles over these custom tasks.
 
-Changes since beta.34 include Windows menu painting/dark-mode crash fixes,
-staged-updater recovery and a CLI update fix. The release also updates upstream
-security dependencies and documents remaining iframe bridge limitations.
-Keep the customized Darwin staging/packaging tasks and the local-storage
-restriction below; updating dependencies does not regenerate project Taskfiles.
-Native macOS GUI and packaging, live AI/provider clients and public release
-acceptance remain separate gates from cloud server and jsdom tests.
-
-## beta.34 compatibility notes
-
-The [beta.33 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.33)
-adds generated event-name constants in `bindings/events` for discoverable
-compile-time event registrations. Regenerate the complete ignored bindings
-rather than copying an older generated tree.
-
-The [beta.34 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.34)
-uses a TCP readiness probe for Vite in `wails3 dev`, fixes tray-menu updates
-while a menu is open, and corrects Windows focus, dialogs and WebView2 COM
-handling. Native dev startup, menus and application lifecycle still require
-isolated platform acceptance. Keep Nestworth's customized output and packaging
-tasks when comparing regenerated build assets.
-
-## beta.32 compatibility notes
-
-The [beta.31 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.31)
-requires Go 1.26+, fixes binding generation with Go 1.27 JSON aliases, and adds
-`@wailsio/runtime/cancellable` for imports that must avoid root-runtime side
-effects. Nestworth now requires Go 1.27.3; regenerate bindings rather than
-preserving generated `encoding/json/v2` models from an older generator.
-
-The [beta.30 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.30)
-stops the macOS window-update notification loop that consumed user activation
-on macOS 27, affecting clipboard writes from real clicks, and fixes duplicate
-window teardown. The [beta.32 release](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.32)
-adds macOS menu section headers and fixes relative window positioning and
-updater relaunch recovery. Native window, clipboard, menu and lifecycle behavior
-still requires isolated macOS acceptance.
-
-The customized output/staging restrictions below continue to apply.
-
-## beta.28 compatibility notes
-
-[beta.27](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.27)
-fixes camera/microphone permission handling on macOS 12+. Applications using
-those permissions still need usage descriptions and, when sandboxed, device
-entitlements. Nestworth does not request media capture permissions.
-
-[beta.28](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.28)
-fixes Windows WebView2 recovery/lifetime handling and Linux tray right-click
-behavior. Its [macOS output fix](https://github.com/wailsapp/wails/pull/6225)
-updates generated Darwin tasks to move output out of file-provider folders and
-link the original output path. Updating the module does not update existing
-project Taskfiles.
-
-Nestworth retains its customized transactional bundle staging and package
-verification. These tasks require a real output directory inside the repository
-and reject symlinked output. Do not apply the upstream relocation task blindly:
-its symlink conflicts with this contract. Build this checkout on local,
-non-synchronized storage (outside iCloud Drive, Dropbox, or similar providers),
-and keep `bin` a regular directory. Automatic output relocation remains outside
-this dependency update. Native macOS verification must include repeated package
-builds, dev restart, strict signature verification, and launch/relaunch of each
-DMG/ZIP payload with isolated synthetic data.
+Regenerate the complete ignored bindings, including event constants. Runtime
+cancellation/error integration, native windows, clipboard, menus, tray, restart
+and package launch/relaunch remain separate validation boundaries. Historical
+beta-by-beta upgrade narratives are available in Git history; they do not change
+the pinned versions or the procedure below.
 
 ## Upgrade boundary
 
