@@ -156,8 +156,8 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
+    <div className="flex flex-col gap-4" data-assistant-module="timeline" aria-busy={activities.isFetching || accounts.isFetching || instruments.isFetching || holdings.isFetching}>
+      <section data-assistant-module="filters" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-kind">{t("history.filterKind")}</Label>
@@ -234,7 +234,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
       {activityList.length === 0 ? (
         <EmptyState title={t("history.noActivityYet")} description={t("history.noActivityDescription")} />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs" data-testid="activity-list" aria-label={t("history.activityKind")}>
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs" data-testid="activity-list" data-assistant-module="activities" aria-label={t("history.activityKind")}>
           {activityGroups.map((group) => (
             <section key={group.date} className="border-b border-border last:border-b-0">
               <h3 className="num border-b border-border bg-muted/40 px-4 py-1.5 text-xs font-semibold text-muted-foreground">
@@ -392,7 +392,7 @@ export function HistoryPage({ navigationFilters, navigationActivityId, navigatio
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-assistant-page="history" aria-busy={origin.isFetching || snapshotState.isFetching || health.isFetching}>
       <PageChrome pageId="history" title={t("nav.history")} />
       <PageIntro
         description={t("history.description")}
@@ -418,11 +418,11 @@ export function HistoryPage({ navigationFilters, navigationActivityId, navigatio
           retryLabel={t("common.retryAction")}
         />
       )}
-      {!origin.isLoading && !origin.isError && !origin.data && <StartHistoryForm />}
+      {!origin.isLoading && !origin.isError && !origin.data && <section data-assistant-module="starting-point"><StartHistoryForm /></section>}
       {origin.data && (!origin.isError || hasUnresolvedSheetConfirmation()) && (
         <>
           <Timeline key={navigationRequestId || JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} navigationActivityId={navigationActivityId} navigationRequestId={navigationRequestId} onFiltersChange={onFiltersChange} onNavigationActivityClose={onNavigationActivityClose} />
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3" aria-label={t("history.snapshotHealth")}>
+          <section data-assistant-module="snapshot-health" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3" aria-label={t("history.snapshotHealth")}>
             <div className="flex flex-col gap-1 text-sm">
               <p className="font-medium">{t("history.snapshotHealth")}</p>
               <p className="text-muted-foreground">

@@ -1,3 +1,4 @@
+import { moduleNodes } from "@/test/assistantCapture";
 import type { ObjectNavigation } from "@/app/NavigationContext";
 import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -382,9 +383,9 @@ it("captures real overview modules, authoritative displayed values and descripti
  const { capturePageContent } = await import("@/features/assistant/pageContent");
  const page = capturePageContent("overview:");
  expect(page.page).toBe("overview");
- expect(page.nodes.filter(n => n.module === "valuation").map(n=>n.name).join(" ")).toContain("700.00");
- expect(page.nodes.some(n=>n.module === "composition" && n.name.includes("Synthetic bank"))).toBe(true);
+ expect(moduleNodes(page,"valuation").map(n=>n.name).join(" ")).toContain("700.00");
+ expect(moduleNodes(page,"composition").some(n=>n.name.includes("Synthetic bank"))).toBe(true);
  expect(page.nodes.some(n=>n.module === "recent-activity")).toBe(true);
  expect(page.nodes.some(n=>n.module === "trend")).toBe(true);
- expect(page.limitations.join(" ")).toContain("Canvas/SVG");
+ expect(page.limitations.join(" ")).toMatch(/canvas\/SVG/i);
 });

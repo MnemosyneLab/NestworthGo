@@ -1,3 +1,4 @@
+import { SecretRegion } from "@/lib/businessCapture";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, History, Plug, Power, ShieldCheck, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -85,7 +86,7 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
       </div>
     </>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {active && connection && running && <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    {active && connection && running && <SecretRegion className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold"><Terminal className="size-4 text-muted-foreground" aria-hidden="true" />{t("agent.connectionLabel")}</h3>
         <div className="flex items-center gap-1">
@@ -95,7 +96,7 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
       </div>
       <textarea readOnly spellCheck={false} wrap="off" aria-label={t("agent.connectionLabel")} value={connection} rows={10} className="block w-full resize-y border-0 bg-muted/35 p-5 font-mono text-xs leading-6 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" />
       <p className="border-t border-border px-5 py-3 text-xs leading-5 text-muted-foreground">{t("agent.secretHelp")}</p>
-    </div>}
+    </SecretRegion>}
     <div className="space-y-3 pt-1">
       <h3 className="flex items-center gap-2 text-sm font-semibold"><History className="size-4 text-muted-foreground" aria-hidden="true" />{t("agent.recent")}</h3>
       {operations.isError && <p role="alert">{displayError(operations.error, t("settings.loadError"))}</p>}

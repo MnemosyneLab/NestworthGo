@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -17,7 +19,7 @@ beforeEach(async () => {
 });
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}><MobileAccessSection /></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><MobileAccessSection /></BusinessPageRoot></QueryClientProvider>);
 }
 it("uses only a LAN address and editable token, applying changes explicitly", async () => {
   const user = userEvent.setup();
@@ -43,6 +45,7 @@ it("generates a short draft token without changing the live token or QR until ap
   const qr = screen.getByRole("img", { name: "Open mobile connection" }).outerHTML;
   await user.click(screen.getByRole("button", { name: "Generate token" }));
   expect(await screen.findByDisplayValue("ABCD234567")).toHaveAttribute("type", "text");
+  const capture=JSON.stringify(capturePageContent("settings:")); expect(capture).not.toContain("ABCD234567"); expect(capture).not.toContain("SYNTHETIC1");
   expect(mobile.Configure).not.toHaveBeenCalled();
   expect(screen.getByRole("img", { name: "Open mobile connection" }).outerHTML).toBe(qr);
   await user.click(screen.getByRole("button", { name: "Hide token" }));
@@ -150,4 +153,11 @@ it("retranslates a retained rejection on language changes without resubmitting o
     expect(input).toHaveValue("SYNTHETIC2");
     expect(mobile.Configure).toHaveBeenCalledTimes(1);
   }
+});
+
+
+it("keeps revealed token and token-bearing connection URLs private while reading public settings",async()=>{
+ mobile.Status.mockResolvedValue({...status,url:`${status.url}/connect?token=synthetic-link-canary`});mount();await screen.findByText("Running");
+ await userEvent.click(screen.getByRole("button",{name:"Show token"}));expect(screen.getByLabelText(i18n.t("mobile.token"))).toHaveAttribute("type","text");
+ const raw=JSON.stringify(capturePageContent("settings:"));expect(raw).not.toContain("synthetic-link-canary");expect(raw).not.toContain("SYNTHETIC1");expect(raw).toContain("192.168.1.20:9443");
 });

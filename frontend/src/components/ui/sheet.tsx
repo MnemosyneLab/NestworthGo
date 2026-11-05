@@ -1,3 +1,4 @@
+import { useBusinessPortal } from "@/lib/businessCapture";
 import * as React from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
@@ -120,6 +121,7 @@ const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithou
   ...props
 }, forwardedRef) {
   const confirmation = useSheetConfirmation();
+  const capture = useBusinessPortal();
   const popupRef = React.useRef<HTMLDivElement | null>(null);
   const setPopupRef = React.useCallback((node: HTMLDivElement | null) => {
     popupRef.current = node;
@@ -128,10 +130,11 @@ const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithou
   }, [forwardedRef]);
 
   return (
-    <BaseDialog.Portal>
+    <>{capture.origin}<BaseDialog.Portal>
       <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-foreground/35 backdrop-blur-[2px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
       <SheetViewport>
         <BaseDialog.Popup
+          {...capture.props}
           ref={setPopupRef}
           initialFocus={initialFocus === undefined ? (interaction) => {
             const popup = popupRef.current;
@@ -154,7 +157,7 @@ const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithou
           </SheetCloseDisabledContext.Provider>
         </BaseDialog.Popup>
       </SheetViewport>
-    </BaseDialog.Portal>
+    </BaseDialog.Portal></>
   );
 });
 

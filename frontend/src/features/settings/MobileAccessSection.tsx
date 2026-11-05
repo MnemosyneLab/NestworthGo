@@ -1,3 +1,4 @@
+import { SecretRegion } from "@/lib/businessCapture";
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -103,6 +104,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
             <div className="space-y-2">
               <Label htmlFor="mobile-access-token">{t("mobile.token")}</Label>
               <Input
+                data-assistant-private="credential"
                 id="mobile-access-token"
                 type={showToken && active ? "text" : "password"}
                 value={config.token}
@@ -157,7 +159,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
         {status.data?.running ? t("mobile.running") : t("mobile.stopped")}
       </p>
       {status.data?.running && (
-        <div className="space-y-2">
+        <SecretRegion className="space-y-2">
           <a
             className="break-all underline"
             href={status.data.url}
@@ -174,7 +176,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
             title={t("mobile.connectionQR")}
           />
           <p className="text-sm">{t("mobile.connectionQRHelp")}</p>
-        </div>
+        </SecretRegion>
       )}
       <p className="text-sm text-muted-foreground">{t("mobile.connectionHelp")}</p>
     </section>

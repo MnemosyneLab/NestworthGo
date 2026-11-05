@@ -369,12 +369,13 @@ function Workspace() {
   }
   reconciliationEntries.set(reconciliationRequestId, reconciliationFocus);
   const retained = (page: PageId) => activePageId === page || (page === "tasks" && retainedReconciliation.size > 0) || (!(page === "overview" && (activePageId === "historical-overview" || activePageId === "settings")) && allSnapshots.some(entry => entry.page === page));
+  const captureView = `${activePageId}:${activePageId === "accounts" ? selectedAccountId ?? "" : ""}`;
   return (
     <NavigationContext.Provider value={{ open, openHealth }}>
     <AssistantPageProvider key={bootstrap.data?.household?.id} householdId={bootstrap.data?.household?.id ?? ""}
-      incarnation={String(startup.dataUpdatedAt)} surface="desktop" viewKey={`${activePageId}:${activePageId === "accounts" ? selectedAccountId ?? "" : ""}`}
+      incarnation={String(startup.dataUpdatedAt)} surface="desktop" viewKey={captureView}
       blocked={hasUnresolvedSheetConfirmation} onNavigate={target => "mobileAccountId" in target ? false : open(target)}>
-    <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data} navigationHistory={{
+    <AppShell captureView={captureView} captureIdentity={JSON.stringify({ household: bootstrap.data?.household?.id, incarnation: startup.dataUpdatedAt, target: targetFromSnapshot(capture()), activity: activePageId === "history" ? historyActivityId : undefined, historicalVisit: activePageId === "historical-overview" ? historicalRequest : undefined, reconciliationVisit: activePageId === "tasks" ? reconciliationRequestId : undefined })} activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data} navigationHistory={{
       canBack: cursor > 0, canForward: cursor < entries.length - 1,
       back, forward: () => move(1),
       backTarget: entries[cursor - 1]?.target, forwardTarget: entries[cursor + 1]?.target,

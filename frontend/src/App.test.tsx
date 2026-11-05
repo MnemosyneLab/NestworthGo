@@ -1,3 +1,4 @@
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { upcomingData, upcomingItem } from "@/test/upcomingActions";
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), InstrumentHoldingGroups: () => instrumentGroups(), HistoricalOverview: (...args: unknown[]) => historicalRead(...args), HistoricalOverviewSeries: (...args: unknown[]) => seriesRead(...args) } }));
 /* default historical fixture */
@@ -461,8 +462,12 @@ describe("App shell smoke test", () => {
     await userEvent.click(await screen.findByRole("tab", { name: "All instruments" }));
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund One details" }));
     expect(await screen.findByTestId("instrument-detail-page")).toHaveTextContent('"instrumentId":"fund-one"');
+    const firstOwner=document.querySelector<HTMLElement>('[data-assistant-root="business"]')!.dataset.assistantOwner;
+    const firstCapture=capturePageContent("instrument-detail:");
     await userEvent.click(screen.getByRole("button", { name: "Show data records" }));
     expect(screen.getByTestId("instrument-detail-page")).toHaveTextContent('"section":"data"');
+    expect(document.querySelector<HTMLElement>('[data-assistant-root="business"]')!.dataset.assistantOwner).not.toBe(firstOwner);
+    expect(capturePageContent("instrument-detail:").id).not.toBe(firstCapture.id);
     await userEvent.click(screen.getByRole("button", { name: /^Go back to Investment assets(?: ·|$)/ }));
     expect(screen.getByRole("tab", { name: "All instruments" })).toHaveAttribute("aria-selected", "true");
     await userEvent.click(await screen.findByRole("button", { name: "Open Fund Two details" }));

@@ -136,7 +136,7 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
       />
       <div className="flex flex-wrap items-center gap-3">
         <MoneyRoundingHelp />
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" checked={showZero} onChange={(event) => setShowZero(event.target.checked)} />{t("holdingsSummary.showZero")}</label>
+        <label className="flex items-center gap-2 text-sm"><input id="holdings-show-zero" type="checkbox" className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" checked={showZero} onChange={(event) => setShowZero(event.target.checked)} />{t("holdingsSummary.showZero")}</label>
         {visible.length > 1 && <Button size="sm" variant="ghost" onClick={() => setCollapsed(scope, allCollapsed ? [] : visible.map((group) => group.key))}>
           {allCollapsed ? <ChevronsUpDown aria-hidden="true" /> : <ChevronsDownUp aria-hidden="true" />}
           {t(allCollapsed ? "holdingGroups.expandAll" : "holdingGroups.collapseAll")}

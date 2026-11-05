@@ -1,3 +1,4 @@
+import { SecretRegion } from "@/lib/businessCapture";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ export function SecretField({ id, label, hasValue, value, onChange, onRemove, di
   const [editing, setEditing] = useState(false);
   const [visible, setVisible] = useState(false);
   const showInput = !hasValue || editing || value !== "";
-  return <div className="flex flex-col gap-2">
+  return <SecretRegion className="flex flex-col gap-2">
     <Label id={`${id}-label`} htmlFor={showInput ? id : undefined}>{label}</Label>
     {hasValue && <div className="flex flex-wrap items-center gap-2">
       <span aria-label={t("secretField.configured")} className="font-mono">••••••••</span>
@@ -25,5 +26,5 @@ export function SecretField({ id, label, hasValue, value, onChange, onRemove, di
       <Button aria-describedby={`${id}-label`} type="button" variant="outline" aria-controls={id} aria-pressed={visible} onClick={() => setVisible(!visible)} disabled={disabled}>{t(visible ? "secretField.hide" : "secretField.show")}</Button>
       {hasValue && <Button aria-describedby={`${id}-label`} type="button" variant="ghost" onClick={() => { onChange(""); setVisible(false); setEditing(false); }} disabled={disabled}>{t("common.cancel")}</Button>}
     </div>}
-  </div>;
+  </SecretRegion>;
 }
