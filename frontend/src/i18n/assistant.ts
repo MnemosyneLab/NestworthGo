@@ -20,6 +20,8 @@ export const assistantEn = {
   "writeCancel": "Cancel unsubmitted change",
   "writeInspect": "Check original result",
   "writeControlled": "Reviewed writes · OpenAI",
+  "fullActive": "Full access · cash and transfers",
+  "fullPermission": "Full for this app session: AI can directly record cash changes and transfers without individual confirmation. Turn off anytime. Resets on restart. Other write families are not yet available.",
   "writePermission": "Allow cash change proposals for this app session. Every write requires a separate confirmation.",
   "writeState": {
     "awaiting_confirmation": "Awaiting your confirmation; nothing posted.",
@@ -266,6 +268,8 @@ export const assistantZhCN = {
   "writeCancel": "取消未提交的变更",
   "writeInspect": "查询原操作结果",
   "writeControlled": "确认后写入 · OpenAI",
+  "fullActive": "Full 权限 · 现金和转账",
+  "fullPermission": "本次应用会话启用 Full：AI 可直接记录现金变更和转账，无需逐笔确认。可随时关闭，重启后关闭。其他写入类型尚未开放。",
   "writePermission": "允许本次应用会话提出现金变更。每次写入仍须单独确认。",
   "writeState": {
     "awaiting_confirmation": "等待你确认，尚未入账。",
@@ -496,6 +500,8 @@ export const assistantZhTW = {
   "writeCancel": "取消未提交的變更",
   "writeInspect": "查詢原操作結果",
   "writeControlled": "確認後寫入 · OpenAI",
+  "fullActive": "Full 權限 · 現金與轉帳",
+  "fullPermission": "本次應用程式工作階段啟用 Full：AI 可直接記錄現金變更與轉帳，無需逐筆確認。可隨時關閉，重新啟動後關閉。其他寫入類型尚未開放。",
   "writePermission": "允許本次應用程式工作階段提出現金變更。每次寫入仍須單獨確認。",
   "writeState": {
     "awaiting_confirmation": "等待你確認，尚未入帳。",

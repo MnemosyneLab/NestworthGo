@@ -10,6 +10,7 @@ import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
   Reviews: vi.fn(),
   SetWritePermission: vi.fn(),
+  SetFullAccess: vi.fn(),
   ReviewAction: vi.fn(),
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
@@ -755,3 +756,11 @@ it("enables reviewed writes only through the separate session permission switch"
  expect(api.Start).not.toHaveBeenCalled();
  expect(api.ReviewAction).not.toHaveBeenCalled();
 });
+
+ it("requires explicit Full opt-in and never invokes a model or human confirmation",async()=>{
+ const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");
+ const control=screen.getByRole("checkbox",{name:/Full for this app session/});expect(control).not.toBeChecked();
+ control.focus();await user.keyboard(" ");
+ await waitFor(()=>expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host",3,true));
+ expect(api.SetWritePermission).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();expect(api.ReviewAction).not.toHaveBeenCalled();
+ });

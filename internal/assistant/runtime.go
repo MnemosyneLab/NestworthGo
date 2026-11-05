@@ -131,6 +131,7 @@ type Snapshot struct {
 	Config          ModelConfig `json:"config"`
 	Available       bool        `json:"available"`
 	Credentials     string      `json:"credentials"`
+	FullAccess      bool        `json:"fullAccess"`
 	FinancialWrites bool        `json:"financialWrites"` // explicit desktop permission; every change still requires review
 	Reason          string      `json:"reason"`
 }
@@ -177,6 +178,7 @@ type Options struct {
 	Timeout             time.Duration
 }
 type Runtime struct {
+	fullEnabled          bool
 	writeEnabled         bool
 	reviewBusy           map[string]bool
 	progress             map[string]*Progress
@@ -304,7 +306,7 @@ func (r *Runtime) Snapshot() Snapshot {
 			}
 		}
 	}
-	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, FinancialWrites: live && r.writeEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
+	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, FullAccess: live && r.fullEnabled && r.state.Config.Enabled, FinancialWrites: live && r.writeEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
 }
 func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, cfg ModelConfig) error {
 	r.mu.Lock()
@@ -363,6 +365,7 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 		r.options.Capabilities.Revoke()
 	}
 	r.writeEnabled = false
+	r.fullEnabled = false
 	r.state.Config = cfg
 	r.clearNavigation()
 	r.state.Revision++
@@ -425,6 +428,7 @@ func (r *Runtime) DeleteCredential(ctx context.Context, epoch string) error {
 		r.options.Capabilities.Revoke()
 	}
 	r.writeEnabled = false
+	r.fullEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
 	r.state.Revision++
@@ -649,7 +653,12 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		return Run{}, e
 	}
 	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
-	if r.writeEnabled && r.options.Reviews != nil {
+	if r.fullEnabled && r.options.Reviews != nil {
+		runCtx = context.WithValue(runCtx, fullKey{}, ProposalHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+			return r.executeFull(ctx, q.Epoch, c.ID, run.ID, q.Revision, raw)
+		}))
+	}
+	if r.writeEnabled && !r.fullEnabled && r.options.Reviews != nil {
 		runCtx = context.WithValue(runCtx, proposalKey{}, ProposalHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 			return r.propose(ctx, q.Epoch, c.ID, run.ID, q.Revision, raw)
 		}))
@@ -831,6 +840,7 @@ func (r *Runtime) FenceForRestore() error {
 	}
 	r.state.Conversations = []ConversationState{}
 	r.writeEnabled = false
+	r.fullEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
 	r.state.Revision++

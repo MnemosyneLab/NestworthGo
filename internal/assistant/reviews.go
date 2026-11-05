@@ -18,6 +18,8 @@ type CashProposal struct {
 	Note        string `json:"note,omitempty"`
 }
 type ChangeReview struct {
+	Summary            string   `json:"summary"`
+	Source             string   `json:"source"`
 	ID                 string   `json:"id"`
 	Digest             string   `json:"digest"`
 	State              string   `json:"state"`
@@ -60,6 +62,14 @@ func CurrentProposalHandler(ctx context.Context) ProposalHandler {
 	return h
 }
 func (r *Runtime) SetWritePermission(ctx context.Context, epoch string, revision uint64, enabled bool) error {
+	return r.setWriteMode(ctx, epoch, revision, enabled, false)
+}
+
+func (r *Runtime) SetFullAccess(ctx context.Context, epoch string, revision uint64, enabled bool) error {
+	return r.setWriteMode(ctx, epoch, revision, enabled, enabled)
+}
+
+func (r *Runtime) setWriteMode(ctx context.Context, epoch string, revision uint64, enabled, full bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := r.valid(ctx, epoch); err != nil {
@@ -72,12 +82,20 @@ func (r *Runtime) SetWritePermission(ctx context.Context, epoch string, revision
 		return ErrUnavailable
 	}
 	r.writeEnabled = enabled
+	r.fullEnabled = full
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}
 	r.clearNavigation()
 	r.state.Revision++
-	return r.persist()
+	if err := r.persist(); err != nil {
+		r.writeEnabled, r.fullEnabled = false, false
+		if r.options.Capabilities != nil {
+			r.options.Capabilities.Revoke()
+		}
+		return err
+	}
+	return nil
 }
 func (r *Runtime) pendingReview(c *ConversationState) bool {
 	for _, ref := range c.Reviews {

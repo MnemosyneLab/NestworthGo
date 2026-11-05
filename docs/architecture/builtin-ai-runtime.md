@@ -4,14 +4,14 @@ The desktop right-hand assistant supports explicit OpenAI Responses model reques
 controlled local financial reads, run feedback, cancellation and paged persistent
 history. Activation defaults off. Desktop Settings → Built-in AI credentials saves
 a write-only key, a model ID and an explicit enable flag. There are no startup,
-reconnect or implicit retry model calls. Reviewed single cash changes are desktop-only
-and require a separate session permission and per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
+reconnect or implicit retry model calls. Desktop writes default off. The user can opt into reviewed cash changes or the
+Full stage described below; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
 Cash deposits/withdrawals can be proposed through the bounded review flow below.
-Other financial writes, provider refresh, arbitrary UI automation and mobile model
-access remain unavailable. Existing explicit
+Full additionally supports direct cash transfers. Other financial writes, provider
+refresh, arbitrary UI automation and mobile model access remain unavailable. Existing explicit
 account buttons retain their page-host guards; model navigation has independent
 backend and frontend fences described below.
 
@@ -60,6 +60,71 @@ The current authority is desktop and household-wide. No mobile/scoped principal
 may receive it. Live mobile permission intersection, per-account authorization
 and other write families remain unimplemented. The model cannot manufacture host
 approval from text, a summary, a digest, a page snapshot or a saved conversation.
+
+## Explicit Full access — cash and transfers stage
+
+Full is an optional desktop, household-wide, app-session permission. It is shown
+separately from reviewed writes; choosing either replaces the other. Startup,
+configuration/credential changes, restore and shutdown clear both permissions.
+Enabling requires an idle configured runtime and the current epoch/revision;
+disabling remains available during a run. Every mode change revokes existing
+capability sessions and navigation grants. A failed permission-state save closes
+both write modes. No model argument, chat approval or restored history enables it.
+
+Only a Full run receives `execute_ledger_change`. This stage supports completed
+`money_added`, `money_removed` and `cash_transfer` commands with exact decimal
+strings, explicit currencies and RFC3339 effective time. Transfers use the shared
+multi-leg transaction. The strict adapter excludes caller mutation IDs,
+reconciliation links, holdings, directory fields and batch commands. The shared
+MCP command validator and application Service still own semantic validation;
+there is no direct database writer. The known composite directory PATCH
+atomicity defect from #239 is **not fixed here and that path is not exposed**.
+FX, security trades/transfers, debt, reconciliation, correction, directory,
+market-data and batches remain future stages, each requiring transaction and
+recovery acceptance. Full is a permission model, not a claim of all-family parity.
+
+The host obtains its own preview and durable operation identity, then persists a
+conversation recovery reference **before** dispatch. `ExecuteFullChange` accepts
+only that reference, uses a separate `ai_full` binding, and cannot submit a human
+review. Conversely, human confirmation cannot adopt a Full record. The common
+submission kernel checks session cancellation/generation under the application
+gate, workspace incarnation, preview version/expiry and immutable stored plan,
+then durably admits before calling shared commit/transaction/receipt logic.
+Revocation never replaces a captured session with a newly authorized one.
+An active callback must still match the original live conversation/run/revision.
+Concurrent calls are serialized/fenced; unresolved records block new Full writes
+in that conversation, deletion, retention and navigation. Account scope remains
+household-wide, not per-account; switching conversations cannot adopt another
+conversation's operation. A model continuation is not proof that the visible UI
+still shows the original conversation.
+
+A failed or lost response retains the same reference. Polling, reconnect and
+restart only inspect; they never dispatch. Unknown receipts cannot be cancelled,
+repreviewed or replaced. A verified transaction receipt can recover success even
+when the outer response/receipt was lost. If a crash occurred before dispatch,
+the saved preview becomes stale after restart and may only be dismissed; it is
+not automatically resumed. Version conflicts require an explicitly new request,
+not automatic retry. Stop does not undo a completed transaction. There is no
+cross-request semantic deduplication of a deliberately repeated new instruction.
+No automatic financial retry or continuation is introduced.
+
+Business audit is the existing durable household/session host-operation record
+in ledger configuration, with immutable command/plan/operation identity and a
+receipt linked to the financial activity. New records distinguish `ai_full` from
+`human_review`; legacy empty-source records retain manual-review semantics.
+External MCP keeps its separate operation namespace and unchanged permissions.
+These records are not chat history: deleting a conversation leaves the business
+audit and financial activity intact. An audit browser/export and centralized
+source labels for all historical manual/MCP activity rows are not added. Existing
+single-process ownership remains: these private records do not implement a
+cross-process CAS or authorize concurrent app processes over one ledger.
+
+The desktop shows Full's supported scope, an immediate revocation switch and
+source-attributed operation results. It never offers human confirm/repreview for
+Full records. Successful observed writes invalidate business queries. All local
+acceptance uses synthetic temporary SQLite ledgers and fake models; no real
+provider or household data is used. Native Mac GUI and cross-process concurrent
+writer acceptance remain separate from Linux and subprocess restart tests.
 
 ## Reviewed single cash changes
 

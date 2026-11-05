@@ -6,6 +6,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/mcpserver"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
+	"strings"
 )
 
 type reviewSession struct{ session *mcpserver.InProcessSession }
@@ -22,6 +23,16 @@ func (p *Pool) AcquireReview(ctx context.Context, id string) (assistant.ReviewSe
 }
 func reviewView(r mcpserver.HostChangeReview) (assistant.ChangeReview, error) {
 	c := r.Binding.Preview.Command
+	if r.Binding.Source == "ai_full" && c.Kind == history.ChangeCashTransfer {
+		lines := []string{c.Sent + " " + c.SentCurrency + " → " + c.Received + " " + c.ReceivedCurrency}
+		if c.Fee != "" {
+			lines = append(lines, "Fee: "+c.Fee+" "+c.FeeCurrency)
+		}
+		for _, e := range r.Binding.Preview.Preview.Resulting {
+			lines = append(lines, e.Name+": "+e.Amount+" "+e.Currency)
+		}
+		return assistant.ChangeReview{Summary: strings.Join(lines, "\n"), Source: "ai_full", ID: r.Binding.ID, Digest: r.Digest, State: r.State, Kind: string(c.Kind), Amount: c.Sent, Currency: c.SentCurrency, EffectiveAt: c.EffectiveAt}, nil
+	}
 	if c.Kind != history.ChangeMoneyAdded && c.Kind != history.ChangeMoneyRemoved {
 		return assistant.ChangeReview{}, assistant.ErrUnavailable
 	}
@@ -29,7 +40,7 @@ func reviewView(r mcpserver.HostChangeReview) (assistant.ChangeReview, error) {
 	if err != nil {
 		return assistant.ChangeReview{}, assistant.ErrUnavailable
 	}
-	v := assistant.ChangeReview{ID: r.Binding.ID, Digest: r.Digest, State: r.State, ExpiresAt: r.Binding.Preview.ExpiresAt, Kind: string(c.Kind), Amount: c.Amount, Currency: currency.String(), Reason: c.Reason, EffectiveAt: c.EffectiveAt}
+	v := assistant.ChangeReview{Source: r.Binding.Source, ID: r.Binding.ID, Digest: r.Digest, State: r.State, ExpiresAt: r.Binding.Preview.ExpiresAt, Kind: string(c.Kind), Amount: c.Amount, Currency: currency.String(), Reason: c.Reason, EffectiveAt: c.EffectiveAt}
 	if c.Note != nil {
 		v.Note = *c.Note
 	}
@@ -91,7 +102,7 @@ func (s reviewSession) Repreview(ctx context.Context, id string) (assistant.Chan
 	if err != nil {
 		return assistant.ChangeReview{}, err
 	}
-	if r.State != mcpserver.ReviewNeedsPreview {
+	if r.Binding.Source == "ai_full" || r.State != mcpserver.ReviewNeedsPreview {
 		return assistant.ChangeReview{}, assistant.ErrConflict
 	}
 	if _, err := reviewView(r); err != nil {

@@ -77,3 +77,13 @@ it.each(["No matching institution","没有对应机构","沒有對應機構","No
  await user.click(within(cards[1] as HTMLElement).getByRole("button",{name:"Confirm this ledger change"}));
  expect(api.ReviewAction).toHaveBeenCalledExactlyOnceWith("epoch","conversation","assigned-review","assigned-digest","confirm");
 });
+
+it.each(["awaiting_confirmation","needs_preview","unknown","succeeded"])("Full %s is never a human confirmation or automatic replay",async(state)=>{
+ api.Reviews.mockResolvedValue([{...review,source:"ai_full",state}]);mount();
+ await screen.findByText("Full access · cash and transfers");
+ expect(screen.queryByRole("button",{name:"Confirm this ledger change"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"Refresh preview for review"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"Check original result"}));
+ await waitFor(()=>expect(api.Reviews.mock.calls.length).toBeGreaterThan(1));
+ expect(api.ReviewAction).not.toHaveBeenCalled();
+});
