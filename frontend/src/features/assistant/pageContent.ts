@@ -42,7 +42,7 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
  const page=available ? root!.dataset.assistantPage || route : "unsupported";
  if(!available) limits.add("No current app-owned business root matches the current view/object access identity.");
  else {
-  limits.add("Mounted semantic content only; no HTML, URLs or execution authority. Hidden routes/tabs, secret regions, unmounted virtual rows and unloaded business pages are excluded. Node pagination does not load business records.");
+  limits.add("Mounted semantic content only; no HTML, URL attributes or execution authority. Hidden routes/tabs, secret regions, unmounted virtual rows and unloaded business pages are excluded. Node pagination does not load business records.");
   limits.add("Only app-owned published portals are included. Custom/unowned popups, canvas/SVG geometry and hover-only chart content may be unavailable; mounted semantic chart tables remain readable. Descriptive actions grant no clicks, navigation or financial writes.");
   if(root!.closest('[inert],[aria-hidden="true"]')) limits.add("The business surface is blocked by an overlay; controls are descriptive, not proof of current operability.");
   if(root!.dataset.assistantOccluded==="assistant") limits.add("The current business surface is occluded by the assistant; its underlying state remains readable, not proof of visible or operable controls.");
@@ -107,7 +107,12 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
    const hint=el.getAttribute("data-assistant-module");
    if(el===root){module="page";role="region";}
    else if(hint && /^[a-z][a-z0-9/-]{0,119}$/.test(hint)) {module=hint;role ||= "region";}
-   else if(["region","article","form","dialog","alertdialog","tabpanel","navigation"].includes(role)) module=`section-${++moduleNumber}`;
+   else if(["region","article","form","dialog","alertdialog","tabpanel","navigation"].includes(role)) {
+    const heading=card ? Array.from(el.querySelectorAll("h1,h2,h3,h4,h5,h6")).find(child=>child.closest('[data-slot="card"]')===el && safe(child)) : Array.from(el.children).find(child=>/^H[1-6]$/.test(child.tagName));
+    const label=nameOf(el,false) || (heading ? visibleText(heading) : "");
+    const suffix=Array.from(label.replace(/[^\p{L}\p{N}-]+/gu,"-").replace(/^-|-$/g,"")).slice(0,24).join("");
+    module=`section-${++moduleNumber}${suffix ? `-${suffix}` : ""}`;
+   }
    if(!role && el.hasAttribute("aria-busy")) role="group";
    const field=el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
    const fieldButton=el instanceof HTMLButtonElement && el.hasAttribute("data-assistant-control");
@@ -133,7 +138,9 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
     if(value.length>2048 || state.size>12 || Array.from(state).some(s=>s.length>2048)) throw new Error("page_content_budget");
     const actions=["button","link","disclosure","tab","menuitem","menuitemcheckbox","menuitemradio"].includes(role) ? ["activate (description only)"] : field ? ["edit/select (description only)"] : [];
     // Prefer authored business IDs, never generated instance IDs/UUIDs as UI labels.
-    const stableID=labelled && /^[a-z][a-z0-9-]{0,95}$/.test(el.id) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(el.id) ? `${module}/${el.id}` : hint && module===hint ? module : undefined;
+    const authoredNamespace=el.closest('[data-assistant-module]')?.getAttribute("data-assistant-module") || "page";
+    const namespace=/^[a-z][a-z0-9/-]{0,119}$/.test(authoredNamespace) ? authoredNamespace : "page";
+    const stableID=labelled && /^[a-z][a-z0-9-]{0,95}$/.test(el.id) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(el.id) ? `${namespace}/${el.id}` : hint && module===hint ? module : undefined;
     nextParent=add({parent,module,role,name:name.trim(),value,state:[...state],actions},stableID);
    }
    for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE){if(!field && (!role || !namedText.has(role))) text(child.textContent || "",nextParent,module);}else if(child instanceof Element) walk(child,nextParent,module,depth+1);}

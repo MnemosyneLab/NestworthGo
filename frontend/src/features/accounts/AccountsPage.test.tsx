@@ -1,3 +1,4 @@
+import { moduleNodes } from "@/test/assistantCapture";
 import { useHoldingGroupStore } from "@/stores/holdings";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -1942,13 +1943,13 @@ it("uses the shared aligned holding disclosure and keeps row actions independent
 });
 
 
-it("reads the real account list and detail live, fences filters and excludes portal forms", async () => {
+it("reads the real account list and detail live, fences filters and excludes unowned portal forms", async () => {
  const user = userEvent.setup();
  renderPage();
  await screen.findByText(emptyAccount.account.name);
  const first = capturePageContent("accounts:");
  expect(first.page).toBe("accounts");
- expect(first.nodes.some(n => n.module === "account-list" && n.name.includes(emptyAccount.account.name))).toBe(true);
+ expect(moduleNodes(first,"account-list").some(n => n.name.includes(emptyAccount.account.name))).toBe(true);
  expect(first.nodes.find(n => n.id === "page/accounts-show-archived")?.state).toContain("checked=false");
  await user.click(screen.getByLabelText(i18n.t("accounts.showArchived")));
  const changed = capturePageContent("accounts:");
@@ -1963,7 +1964,7 @@ it("reads the real account list and detail live, fences filters and excludes por
  expect(capturePageContent("accounts:").page).toBe("unsupported");
  await user.click(screen.getByRole("button", { name: i18n.t("accounts.settings") }));
  await screen.findByRole("button", {name: i18n.t("common.save")});
- expect(capturePageContent(`accounts:${emptyAccount.account.id}`).limitations.join(" ")).toContain("form values are unavailable");
+ expect(capturePageContent(`accounts:${emptyAccount.account.id}`).limitations.join(" ")).toContain("Custom/unowned popups");
  expect(capturePageContent(`accounts:${emptyAccount.account.id}`).nodes.some(n => n.name === i18n.t("common.save"))).toBe(false);
  expect(createAccount).not.toHaveBeenCalled(); expect(updateAccount).not.toHaveBeenCalled();
 });

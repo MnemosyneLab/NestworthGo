@@ -473,7 +473,7 @@ invalid/busy/expanded/pressed/current/sort states and descriptive affordances.
 Native selects expose option labels, not stored option IDs; shared date controls
 publish their canonical business date. Ordinary financial amounts, draft values,
 notes and textarea contents are readable; financial data is not classified as a
-credential. No raw HTML, URLs, event handlers, DOM commands or machine IDs from
+credential. No raw HTML, URL attributes, event handlers, DOM commands or machine IDs from
 select options are exported. Accessible-name references are restricted to eligible
 owned content and cannot read into a private ancestor or the surrounding shell.
 Presentation remains untrusted data, not instructions or financial authority.
