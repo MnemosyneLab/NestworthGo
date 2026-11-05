@@ -186,17 +186,17 @@ export function AccountsPage({
           <span className="sr-only">{t("accounts.tableLabel")}</span>
           {grouped.map((group) => (
             <section key={group.key} className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between gap-3 px-1">
-                <h2 className="text-sm font-semibold text-foreground">
+              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-3 px-1">
+                <h2 className="min-w-0 [overflow-wrap:anywhere] text-sm font-semibold text-foreground">
                   {group.key === "unassigned" ? t("accounts.unassignedInstitution") : group.label}
                 </h2>
                 {groupSubtotal(group.records) && (
-                  <span className="num text-xs font-medium text-muted-foreground" data-testid={`accounts-group-subtotal-${group.key}`}>
+                  <span className="num min-w-0 [overflow-wrap:anywhere] text-xs font-medium text-muted-foreground" data-testid={`accounts-group-subtotal-${group.key}`}>
                     {groupSubtotal(group.records)}
                   </span>
                 )}
               </div>
-              <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              <ul className="@container overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
                 {group.records.map((record) => {
                   const valuation = valuationByAccountId.get(record.account.id);
                   const displayMoney = accountDisplayMoney(record, valuation);
@@ -221,7 +221,7 @@ export function AccountsPage({
                     <li key={record.account.id} className="border-b border-border last:border-0">
                       <button
                         type="button"
-                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
+                        className="grid w-full grid-cols-1 items-center @min-[12rem]:grid-cols-[auto_minmax(0,1fr)] gap-3 px-4 py-3 text-left @lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
                         onClick={() => setSelectedId(record.account.id)}
                       >
                         <span
@@ -230,20 +230,20 @@ export function AccountsPage({
                         >
                           <AccountIcon account={record.account} className="size-8" />
                         </span>
-                        <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="flex min-w-0 flex-1 flex-col gap-1 [overflow-wrap:anywhere]">
                           <span className="flex flex-wrap items-center gap-2 font-semibold">
-                            {record.account.name}
-                            <Badge variant="outline">{displayEnum(t, "enum", record.account.accountType)}</Badge>
-                            {record.account.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
+                            <span className="min-w-0">{record.account.name}</span>
+                            <Badge className="max-w-full whitespace-normal" variant="outline">{displayEnum(t, "enum", record.account.accountType)}</Badge>
+                            {record.account.archivedAt && <Badge className="max-w-full whitespace-normal" variant="secondary">{t("common.archived")}</Badge>}
                             {record.account.balanceSheetRole === "liability" && (
-                              <Badge variant="outline">{t("accounts.liability")}</Badge>
+                              <Badge className="max-w-full whitespace-normal" variant="outline">{t("accounts.liability")}</Badge>
                             )}
                           </span>
                           <span className="text-xs text-muted-foreground">{completeness}</span>
                         </span>
-                        <span className="flex shrink-0 flex-col items-end">
-                          <MoneyText size={displayMoney.primary ? "md" : "sm"} tone={displayMoney.primary ? "neutral" : "muted"}>{value}</MoneyText>
-                          {secondary && <MoneyText tone="muted" className="text-xs font-normal">{secondary}</MoneyText>}
+                        <span className="col-span-full flex min-w-0 flex-col items-start @lg:col-span-1 @lg:items-end @lg:text-right">
+                          <MoneyText wrap size={displayMoney.primary ? "md" : "sm"} tone={displayMoney.primary ? "neutral" : "muted"}>{value}</MoneyText>
+                          {secondary && <MoneyText wrap tone="muted" className="text-xs font-normal">{secondary}</MoneyText>}
                         </span>
                       </button>
                     </li>

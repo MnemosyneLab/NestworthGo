@@ -7,6 +7,7 @@ describe("PageChrome", () => {
     render(<PageChrome pageId="accounts" title="Accounts" actions={<button type="button">Add account</button>} />);
 
     expect(screen.getByRole("heading", { name: "Accounts" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Accounts" })).not.toHaveClass("truncate");
     expect(screen.getByRole("button", { name: "Add account" })).toBeInTheDocument();
   });
 

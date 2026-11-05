@@ -20,14 +20,17 @@ const moneyVariants = cva("num whitespace-nowrap tracking-tight", {
   defaultVariants: { size: "sm", tone: "neutral" },
 });
 
-export interface MoneyTextProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof moneyVariants> {}
+export interface MoneyTextProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof moneyVariants> {
+  /** Preserve the complete value in narrow cards, including unbroken amounts. */
+  wrap?: boolean;
+}
 
 /**
  * MoneyText renders an already-formatted money string with tabular figures
  * so columns of amounts line up. Formatting stays in lib/money.
  */
-export function MoneyText({ className, size, tone, ...props }: MoneyTextProps) {
-  return <span className={cn(moneyVariants({ size, tone }), className)} {...props} />;
+export function MoneyText({ className, size, tone, wrap = false, ...props }: MoneyTextProps) {
+  return <span className={cn(moneyVariants({ size, tone }), wrap && "min-w-0 max-w-full whitespace-normal [overflow-wrap:anywhere]", className)} {...props} />;
 }
 
 /** Picks positive/negative tone from a canonical decimal string; zero and empty stay neutral. */

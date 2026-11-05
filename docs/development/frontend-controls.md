@@ -63,6 +63,9 @@ Layout and display conventions from the "Ledger" visual direction:
 - Typography: the serif `font-display` is for page titles, calendar headings
   and the `MoneyText size="xl"` hero figure only; tables, labels and other
   amounts stay in the sans with tabular figures (`num`). Use sentence case.
+- Narrow cards: use `MoneyText wrap` to keep complete formatted amounts visible;
+  wrap long values instead of clipping or ellipsizing financial totals. Page
+  headings and actions reflow, and account rows stack within narrow containers.
 - Card: `CardHeader` is `p-5` and `CardContent` is `px-5 pb-5` with no top
   padding and no responsive variants, so caller `p-*`/`pt-*` overrides always
   apply. Header-less cards add their own `pt-5`. Select cards in tests with
