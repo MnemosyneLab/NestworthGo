@@ -2,11 +2,12 @@
 
 Status: items 1 (icon merge), 2 (PATCH audit, see [mcp-update-conventions.md](mcp-update-conventions.md)),
 3 (`commit_plan`) and 5 (compact output schemas) are implemented in this branch;
-[mcp.md](mcp.md#phase-3-icon-merge-commit_plan-and-compact-output-schemas) has the
+[mcp-changelog.md](mcp-changelog.md#phase-3-icon-merge-commit_plan-and-compact-output-schemas) has the
 measurements. Item 4 (financial read merges) is still design only. Phases 1 and 2
 (alias removal, prose slimming, byte-budgeted inlining, `delivery`) are described
-in [mcp.md](mcp.md#discovery-size-and-the-external-contract-snapshot) and
-[mcp-pagination.md](mcp-pagination.md).
+in [mcp-changelog.md](mcp-changelog.md#discovery-size-before-the-phase-3-schema-cut) and
+[mcp-pagination.md](mcp-pagination.md). Current ceilings are in
+[mcp.md](mcp.md#discovery-budgets).
 
 Where the implementation departs from the recommendations below (the sections
 keep the original analysis):
@@ -151,6 +152,10 @@ Mergeable on semantics:
   the parent capture, which already exists for other families. This removes three
   tools but requires the parent captures (`list_contributions`, `analyze_period`)
   to freeze the drill-down detail, which has memory and TTL costs; measure first.
+  Implemented on this branch: the three tools are removed. Return days and asset
+  drivers are frozen with `analyze_period` but omitted from the marshaled capture
+  so the 4 MiB cap still accepts the ranges it accepted before. See
+  [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
 
 Not merged: context versus comparison versus attribution (different write
 behavior and permission-adjacent side effects), and returns versus endpoint

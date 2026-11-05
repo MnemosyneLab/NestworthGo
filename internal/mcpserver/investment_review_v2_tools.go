@@ -102,9 +102,23 @@ type ReviewV2ClearSuppressionInput struct {
 	ExpectedRevision int    `json:"expectedRevision"`
 }
 
+// investmentReviewManagementTools are the ledger_write management surface.
+// They stay out of discovery until InvestmentReviewManagement is set.
+// Reads below are registered in every mode. The desktop review screen uses
+// the Wails adapters and does not consult this list.
+var investmentReviewManagementTools = []string{
+	"create_investment_review_rule",
+	"update_investment_review_rule",
+	"archive_investment_review_rule",
+	"acknowledge_investment_review_alert",
+	"set_investment_review_suppression",
+	"clear_investment_review_suppression",
+	"refresh_investment_reviews",
+}
+
 // Daily investment review tools use the V2 rule projection. Read tools return
 // only the last complete publication and leave the database untouched.
-func (s *Service) reviewV2Tools(server *toolSet, mode string) {
+func (s *Service) reviewV2Tools(server *toolSet, mode string, reviewManagement bool) {
 	readTool(server, "list_investment_review_rules", "Page live daily rules (1\u2013100, byte-aware). Follow page.nextCursor with get_read_page, even after a short page. Rules are reminders, not sell recommendations.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
 		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) ([]domain.ReviewRule, error) {
 			return s.app.ListReviewRulesV2(ctx, in.Cursor, size)
@@ -156,7 +170,7 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 			return s.app.ListReviewSuppressionsV2(ctx, in.Cursor, size)
 		})
 	})
-	if mode != LedgerWrite {
+	if mode != LedgerWrite || !reviewManagement {
 		return
 	}
 	ledgerWriteTool(s, server, "create_investment_review_rule", "Create one named v2 daily rule. Its condition checks each closed day; choose single, consecutive, or rolling triggerPolicy. Supply a stable mutationId inside input as well as the outer operationId.", func(ctx context.Context, in ReviewV2RuleInput) (any, error) {

@@ -1,235 +1,116 @@
-# Business pagination and atomic batches
+# Page a business read and recover it
 
-Liquidity, products, instruments, upcoming actions, Agent
-records, account valuations, directory lists/holdings, scan_data_health and
-preview_data_repair return mcp-read/1 by default. get_data_repair_job defaults to
-compact progress without a capture; only view=evidence uses mcp-read/1. There is one contract; do not pass responseMode.
-Historical/current overview and period reads inline small results (at least five
-rows per section when they fit, at most 25, within a byte budget); continuations
-default to 25. Every top-level initial `mcp-read/1` capture (the first response of a read; not financial context/comparison packages) carries
-`delivery.selectionComplete` and `delivery.pendingSections`; continuation pages and
-focused item details (`get_read_item`, comparison items) do not. When
-`selectionComplete` is true, every selected row of that capture is already inline
-and no cursor is needed. For `compare_market_data_import` view=summary the
-selection is the `results` section only; deferred detail sections are not reported
-as pending, so it never claims evidence delivery. Data completeness (`complete`, `missingInputs`,
-`displayValuation`) is separate: a fully delivered selection can still describe
-incomplete data. Pure minimal financial-context workflows retain
-their disclosure path.
+Liquidity, products, instruments, upcoming actions, Agent records, account
+valuations, directory lists, holdings, `scan_data_health` and
+`preview_data_repair` return mcp-read/1 by default. `get_data_repair_job`
+defaults to compact progress without a capture. Only view=evidence uses
+mcp-read/1. There is one contract. Do not pass responseMode. Historical and
+current overview and period reads inline small results: at least five rows per
+section when they fit, at most 25, within a byte budget. Continuations default
+to 25. Every top-level initial mcp-read/1 capture carries
+`delivery.selectionComplete` and `delivery.pendingSections`. Continuation pages
+and focused item details (`get_read_item`, comparison items) do not. When
+`selectionComplete` is true, every selected row of that capture is already
+inline and no cursor is needed. For `compare_market_data_import` view=summary
+the selection is the `results` section only. Deferred detail sections are not
+reported as pending, so it never claims evidence delivery. Data completeness
+(`complete`, `missingInputs`, `displayValuation`) is separate: a fully delivered
+selection can still describe incomplete data. Pure minimal financial-context
+workflows retain their disclosure path in [financial context](financial-context.md).
+
+Task arguments live with the task: [product pages](product-pages.md),
+[directory batches](directory-batches.md), [market read pages](market-read-pages.md).
 
 ## Completeness and recovery
 
-An initial `mcp-read/1` capture response has captureId, captureKind, capturedAt,
-expiresAt, contentHash, summaryHash, normalized query, summary and sections. Each section
+An initial mcp-read/1 capture has captureId, captureKind, capturedAt, expiresAt,
+contentHash, summaryHash, normalized query, summary and sections. Each section
 has items and page {total, returned, hasMore, nextCursor}. Empty arrays mean no
-matches only when hasMore=false and nextCursor=null. A deferred section may have
-returned=0 and a cursor. Follow every relevant cursor using `get_read_page` with only cursor and optional
-limit; the signed cursor retains capture/section/target/query. Filters and sort
-cannot change mid-read.
-`get_read_page` returns the same capture identity/hash/expiry plus section,
-items and page; it does not repeat query, summary or unrelated sections. Retain
+matches only when hasMore is false and nextCursor is null. A deferred section
+may have returned=0 and a cursor. Follow every relevant cursor using
+`get_read_page` with only cursor and optional limit. The signed cursor retains
+capture, section, target and query. Filters and sort cannot change mid-read.
+`get_read_page` returns the same capture identity, hash and expiry plus section,
+items and page. It does not repeat query, summary or unrelated sections. Retain
 the initial header, append only the returned section and update only that
-section's saved page state.
-Default limit is 25 for all business continuations; maximum 100. Actual pages
-may be smaller to fit 65,536 final HTTP bytes, including duplicated SDK text and
-structured content. For a complete bulk import/list audit, use limit=100 upfront
-and on continuations
-when that evidence is needed; this reduces per-call overhead while retaining the
-same byte cap. Default 25 favors focused reads. Never claim
-“all” from one page. Preserve captureId/contentHash and check complete unions.
-
-Captures have fixed five-minute TTL without renewal, 4 MiB capture budget,
-16 MiB total cache, eight entries, two builders and a ten-second build budget.
-SQL reads also preflight row/payload budgets. Expired/evicted captures return
-read_expired; a revoked generation returns read_revoked. Reconnection, permission
-changes, restore or restart invalidate old captures; lost caches may report
-read_expired and revoked credentials may fail authentication. Discard every old page and restart the original query. Invalid,
-tampered, wrong-section/target/capture cursors return validation. Do not stitch
-captures. too_large distinguishes summary, single_item and capture; an oversized
-single item is never skipped or truncated. Lowering limit cannot fix that item.
-Send one JSON-RPC object per business call; JSON-RPC array batches are rejected.
-
-Arrays within one filter are OR, different fields AND, empty arrays unrestricted.
-Unknowns remain null and do not match either hasRule=true or hasRule=false.
-Sorting is global before pages, null-last in both directions, with fixed identity
-ascending ties. Names compare trimmed case-insensitive text without locale;
-amounts/percentages use exact decimals. IDs determine write identity, not labels.
-
-## Compact directory identity and details
-
-Directory lists return explicit identity projections. Members/groups keep IDs,
-names and archive status; institutions also keep type/country. Accounts keep
-classification, currency, inclusion, lifecycle and ownership, with institution/
-group labels; they do not embed latest values. Holdings keep account/instrument
-IDs, exact quantity and archive status. Use valuation tools for current balances.
-
-Instrument rows retain full/short names, type, symbol, market/country/ISIN,
-quote currency/unit, quote routing, managed/archive status and metadataVersion.
-A shared ticker or display name is not sufficient identity. Lists omit notes,
-icons, sort metadata, household IDs and internal timestamps. For full metadata,
-call `get_read_item` with the same captureId, section (`instruments`, `members`,
-`institutions`, `groups`, `accounts` or `holdings`) and row id. The response's
-summary is the complete frozen item, including the instrument metadataVersion
-and managed flag. Get editable fields there before a complete replacement; do
-not treat omitted list fields as empty. Old captures stay frozen after writes;
-refresh before a new write intention or when checking a stale-version error.
-
-## Batch writes
-
-Use the ordinary {operationId,input} envelope with 1–100 distinct targets.
-Verify all IDs, metadataVersion/revision and clearing intent before writing.
-Every item succeeds or the whole batch fails. Short receipts describe execution,
-not current state. Same operationId and identical input return the original
-receipt; changed input conflicts. Pending/unknown must be checked with
-`get_operation` and fresh reads before another intentional operation; no automatic
-replay across the business-write/outer-receipt crash window. Metadata requires
-directory_write or ledger_write. No generic arbitrary executor, provider refresh or
-financial posting is introduced.
-
-## Executable argument examples
-
-Replace UUID/version placeholders from current reads. Dates are examples; use
-the user's household-local civil dates. Cursor examples use returned section
-names exactly, including reservations/<productId> or a market target section.
-
-<!-- example: scale-liquidity-funds -->
-```json
-{"filter":{"instrumentTypes":["mutual_fund","bank_investment_product"],"policyOrigins":["explicit"]},"sort":{"field":"displayName","direction":"asc"},"limit":1}
-```
-
-<!-- example: scale-liquidity-unconfigured -->
-```json
-{"filter":{"hasRule":false},"limit":1}
-```
-
-<!-- example: scale-products -->
-```json
-{"limit":1}
-```
-
-<!-- example: scale-product-item -->
-```json
-{"captureId":"${captureId}","section":"products","id":"${productId}"}
-```
+section's saved page state. Default limit is 25 for all business continuations.
+Maximum is 100. Actual pages may be smaller to fit 65,536 final HTTP bytes,
+including duplicated SDK text and structured content. For a complete bulk
+import or list audit, use limit=100 upfront and on continuations when that
+evidence is needed. Default 25 favors focused reads. Never claim “all” from one
+page. Preserve captureId and contentHash and check complete unions.
 
 <!-- example: scale-page -->
 ```json
 {"cursor":"${cursor}","limit":25}
 ```
 
-<!-- example: scale-market-current -->
-```json
-{"targets":[{"instrumentId":"${instrumentId}"},{"baseCurrency":"USD","quoteCurrency":"SGD"}],"view":"current","limit":1}
-```
+Captures have a fixed five-minute TTL without renewal, a 4 MiB parent JSON budget,
+16 MiB total cache, eight entries, two builders and a ten-second build budget.
+SQL reads also preflight row and payload budgets. Expired or evicted captures
+return read_expired. A revoked generation returns read_revoked. Reconnection,
+permission changes, restore or restart invalidate old captures. Lost caches may
+report read_expired, and revoked credentials may fail authentication. Discard
+every old page and restart the original query. Invalid, tampered or
+wrong-section, target or capture cursors return validation. Do not stitch
+captures. too_large distinguishes summary, single_item and capture. An oversized
+single item is never skipped or truncated. Lowering limit cannot fix that item.
+Send one JSON-RPC object per business call. JSON-RPC array batches are rejected.
 
-<!-- example: scale-market-coverage -->
-```json
-{"targets":[{"instrumentId":"${instrumentId}"},{"baseCurrency":"SGD","quoteCurrency":"USD"}],"view":"coverage","range":"30d","limit":1}
-```
+Arrays within one filter are OR. Different fields are AND. Empty arrays are
+unrestricted. Unknowns remain null and do not match either hasRule=true or
+hasRule=false. Sorting is global before pages, null-last in both directions,
+with fixed identity ascending ties. Names compare trimmed case-insensitive text
+without locale. Amounts and percentages use exact decimals. IDs determine write
+identity, not labels.
 
-<!-- example: scale-market-history -->
-```json
-{"targets":[{"instrumentId":"${instrumentId}"},{"baseCurrency":"SGD","quoteCurrency":"USD"}],"view":"history","range":"30d","limit":1}
-```
-
-<!-- example: scale-agent-retractions -->
-```json
-{"filter":{"instrumentIds":["${instrumentId}"],"operations":["retract"],"active":false},"sort":{"field":"createdAt","direction":"desc"}}
-```
-
-<!-- example: scale-instruments -->
-```json
-{"filter":{"ids":["${instrumentId}"]},"sort":{"field":"displayName","direction":"asc"},"limit":1}
-```
-
-<!-- example: scale-metadata -->
-```json
-{"operationId":"${operationId}","input":{"items":[{"id":"${instrumentId}","expectedMetadataVersion":"${metadataVersion}","changes":{"shortName":"Fund A","name":"Synthetic fund","note":null}}]}}
-```
-
-<!-- example: scale-empty-match -->
-```json
-{"filter":{"policyOrigins":["explicit"],"hasRule":false}}
-```
-
-## Reconciliation evidence
+## Reconciliation evidence pages
 
 Discover `reconciliation_session_read`. `list_reconciliation_sessions` filters
-status/account/date and sorts asc/desc. `get_reconciliation_session_page` pages
-accounts/items/changes/links/attempts, with account/outcome filters and sort.
-Default 25/max 100; pages shrink automatically to fit the complete 65,536-byte
-JSON-RPC response, including SDK text and structuredContent. A single oversized
-item fails with too_large; reducing limit cannot recover it. Never treat a
-rejected response as an empty section. Cursors bind the filters,
-sort, full current evidence and session revision. stale_cursor means restart
-that read, not guess an offset. Item summaries expose attemptCount; full item
-evidence and pageable attempts are separate. Preserve recorded and effective
-dates on changes. First sessions have no prior successful-check watermark.
-
-### Unified bounded market history
-
-<!-- example: scale-market-records -->
-```json
-{"targets":[{"instrumentId":"${instrumentId}"}],"view":"history","fromDate":"2026-09-01","toDate":"2026-09-28","historyLayout":"records","limit":100}
-```
-
-This opt-in layout returns `records` and `targets` sections. Read all relevant
-cursors; `chartSelected` marks selected chart membership without duplicating the
-raw observation. Dates and exact FX direction/basis rules are documented in
-[market data](market-data.md). Older `history` calls keep per-target entrances.
-
-## Compact comparison delivery
-
-`compare_market_data_import` defaults to compact batch results. Read its results
-cursor to finish classification delivery; detailed sections remain deferred, not
-empty. Server-computed counts are not evidence-delivery claims. Use
-`get_read_item` section=results id=clientItemId for focused details from the SAME
-capture, follow any child cursors, and retain its hash/expiry. Bulk detail readers
-can continue result_details/matches/evidence/audits/targets or choose view=full
-upfront. Do not create a second capture and mix its evidence into the first.
-
-<!-- example: compare-import-summary -->
-```json
-{"items":[{"clientItemId":"csv/001","instrumentId":"${instrumentId}","kind":"nav","currency":"USD","date":"2026-09-28","value":"1.00000001"}]}
-```
-
-<!-- example: compare-import-item -->
-```json
-{"captureId":"${captureId}","section":"results","id":"csv/001"}
-```
-
+status, account and date and sorts ascending or descending.
+`get_reconciliation_session_page` pages accounts, items, changes, links and
+attempts, with account and outcome filters and sort. Default 25, maximum 100.
+Pages shrink automatically to fit the complete 65,536-byte JSON-RPC response,
+including SDK text and structuredContent. A single oversized item fails with
+too_large. Reducing limit cannot recover it. Never treat a rejected response as
+an empty section. Cursors bind the filters, sort, full current evidence and
+session revision. stale_cursor means restart that read, not guess an offset.
+Item summaries expose attemptCount. Full item evidence and pageable attempts
+are separate. Preserve recorded and effective dates on changes. First sessions
+have no prior successful-check watermark. The session steps are in
+[reconciliation](reconciliation-and-corrections.md).
 
 ## Live reads and focused evidence
 
 All business page descriptors share {returned, hasMore, nextCursor, consistency,
-total?}. Terminal nextCursor is null. All continuations use get_read_page with
-only cursor and optional limit (default 25/max 100). Live/version-bound initial
-reads return items/page; ordinary frozen initial reads use sections[name] with
-items/page. Financial initial and focused-item responses retain their immutable
-minimal-disclosure content and positionsPage/gapsPage/evidencePage descriptors;
-these descriptors use the same page fields and universal continuation entry.
-Follow a cursor even after a short or deferred page. Counts are not proof that
-evidence has been delivered. Total is omitted when not authoritative.
+total?}. Terminal nextCursor is null. All continuations use `get_read_page` with
+only cursor and optional limit (default 25, maximum 100). Live and version-bound
+initial reads return items/page. Ordinary frozen initial reads use sections[name]
+with items/page. Financial initial and focused-item responses retain their
+immutable minimal-disclosure content and positionsPage, gapsPage and evidencePage
+descriptors. These descriptors use the same page fields and the universal
+continuation entry. Follow a cursor even after a short or deferred page. Counts
+are not proof that evidence has been delivered. Total is omitted when it is not
+authoritative.
 
-consistency=frozen retains capture/hash/TTL. consistency=version_bound retains
-publication/filter or reconciliation evidence/revision; restart on staleness.
-consistency=live does not promise a snapshot: restart after source changes before
-claiming a coherent audit. Rules/suppressions conservatively continue every
-nonempty page through a final empty page, now with an opaque signed cursor.
-No client constructs last-ID, triple-keyset or native product cursors.
-A complete instrument group/event is never split; an oversized single item fails
-explicitly with too_large and must not be skipped or interpreted as absence.
-
-Initial financial summaries can answer totals/coverage questions without reading
-every evidence section. Read only relevant detail, but finish all requested
-classification/list/absence/audit evidence before claiming it complete. Counts
-and empty deferred arrays do not mean delivered evidence. Read limits never
-truncate a write's execution receipt or get_operation recovery evidence.
-
+consistency=frozen retains capture, hash and TTL. consistency=version_bound
+retains publication, filter or reconciliation evidence and revision. Restart on
+staleness. consistency=live does not promise a snapshot. Restart after source
+changes before claiming a coherent audit. Rules and suppressions conservatively
+continue every nonempty page through a final empty page, with an opaque signed
+cursor. No client constructs last-ID, triple-keyset or native product cursors.
+A complete instrument group or event is never split. An oversized single item
+fails explicitly with too_large and must not be skipped or interpreted as
+absence. Initial financial summaries can answer totals and coverage questions
+without reading every evidence section. Read only relevant detail, but finish
+all requested classification, list, absence and audit evidence before claiming
+it complete. Counts and empty deferred arrays do not mean delivered evidence.
+Read limits never truncate a write's execution receipt or `get_operation`
+recovery evidence.
 
 ## Defaults by response family
 
-Limits are upper row counts; complete response bytes may produce fewer rows.
+Limits are upper row counts. Complete response bytes may produce fewer rows.
 
 | Family | Default / maximum | Continuation |
 | --- | --- | --- |
@@ -240,41 +121,37 @@ Limits are upper row counts; complete response bytes may produce fewer rows.
 | Repair progress | No capture or pages | Poll exact jobId; view=evidence uses frozen pages |
 
 Initial financial headers and focused-item responses retain their established
-disclosure/alias and hash structure, without duplicating rows in a second shape.
-Their section cursors carry all routing scope, so `get_read_page({cursor, limit?})` is the only continuation entry.
+disclosure, alias and hash structure, without duplicating rows in a second
+shape. Their section cursors carry all routing scope, so
+`get_read_page({cursor, limit?})` is the only continuation entry.
 
-For mcp-read/1, fixed TTL is 5 minutes; per-capture budget is 4 MiB; its cache
+For mcp-read/1, fixed TTL is 5 minutes; parent JSON budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial
-context/comparison uses a separate cache with the same TTL, 4 MiB package and
+context and comparison use a separate cache with the same TTL, 4 MiB package and
 16 MiB / 8-entry limits. These are retained-data budgets, distinct from the
-65,536-byte complete HTTP response limit. Executed write/recovery receipts are
-excluded from read response interception.
+65,536-byte complete HTTP response limit. Executed write and recovery receipts
+are excluded from read response interception.
 
-mcp-read/1 lookup errors are read_expired/read_revoked; financial packages use
+mcp-read/1 lookup errors are read_expired/read_revoked. Financial packages use
 context_expired/context_revoked. Restart the original initial request and all
-requested related sections after either family's invalidation. Published review cursors use conflict with cursor_expired on changed publication;
-reconciliation uses stale_cursor on changed evidence. Restart their original read. Never convert validation, read_busy, too_large,
-not_found or an authentication failure into an empty successful result. See
-[recovery](recovery.md) for pending/unknown write outcomes, which are a separate
-authority from read-cache errors.
+requested related sections after either family's invalidation. Published review
+cursors use conflict with cursor_expired on a changed publication. Reconciliation
+uses stale_cursor on changed evidence. Restart their original read. Never convert
+validation, read_busy, too_large, not_found or an authentication failure into an
+empty successful result. See [recovery](recovery.md) for pending or unknown write
+outcomes, which are a separate authority from read-cache errors.
 
-<!-- example: scale-agent-closures -->
-```json
-{"filter":{"instrumentIds":["${instrumentId}"],"observationKinds":["closed"]},"limit":100}
-```
+Shared read tools advertise the mcp-read/1 envelope, including capture identity,
+hash and expiry and initial-summary versus section-page forms. Repair advertises
+progress or evidence. Nested rows keep their own exact-money and provenance
+contracts. The envelope does not describe every GUI field, and write or
+`get_operation` receipts gain no extra post-execution schema. Error metadata uses
+the mcp-error/1 shape in [recovery](recovery.md), not a successful data result.
+The SDK sends JSON text and structuredContent. Both count toward wire bytes. Do not add the two copies as separate evidence or treat HTTP bytes as model tokens.
 
-
-Shared read tools advertise success outputSchema for the mcp-read/1 envelope,
-including capture identity/hash/expiry and initial-summary versus section-page
-forms. Repair advertises progress or evidence shapes. Business summaries/rows
-retain their owning exact-money, nullability and provenance contracts; the
-common envelope schema does not claim to describe every nested GUI field.
-Write and get_operation recovery receipts gain no new post-execution schema
-restriction. Error recovery metadata uses the separate mcp-error/1 shape described in
-[recovery](recovery.md), not a successful data result.
-
-The SDK sends both JSON text and structuredContent. Both count toward measured
-wire bytes. A client can choose which representation to consume; model-token
-cost depends on that client. Do not add the two copies as separate evidence or
-claim model-token savings from HTTP-byte measurements. The built-in adapter uses
-its direct capability path; external assistant consumption remains client-specific.
+Period drill-down JSON is stored separately but charged to the same 16 MiB
+cache. Parent JSON plus frozen detail bytes, keys and metadata allowance must
+fit 8 MiB per capture; at most 32,768 day/driver entries are retained. Exceeding
+either returns `too_large` before admission; narrow the query. These limits do
+not bound process RSS or temporary analysis allocations. Paging does not renew
+TTL, and eviction requires restarting all sections.

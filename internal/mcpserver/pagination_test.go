@@ -119,6 +119,7 @@ func TestUnifiedPageLiveQueryAuthentication(t *testing.T) {
 
 func TestUnifiedRulesFinalEmptyAndInProcessParity(t *testing.T) {
 	fx := newLedgerFixture(t)
+	enableInvestmentReviewManagement(t, fx.service)
 	external := ledgerSession(t, fx)
 	spec := jsonObject(t, testReviewV2Spec())
 	for range 3 {

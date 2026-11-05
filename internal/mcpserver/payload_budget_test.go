@@ -188,7 +188,7 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 			budget = 16 << 10
 		case "get_financial_context":
 			budget = 28 << 10
-		case "get_historical_overview", "get_historical_overview_series", "get_overview":
+		case "get_historical_overview", "get_overview":
 			budget = 56 << 10
 		}
 		if len(raw) > budget {
@@ -262,6 +262,8 @@ func payloadSection(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 func TestMCPPayloadBudgetsRepresentative(t *testing.T) { runPayloadBudgets(t, false) }
 func runPayloadBudgets(t *testing.T, large bool) {
 	f := newPayloadHousehold(t, large)
+	// This journey calls review management tools. Default discovery hides them.
+	enableInvestmentReviewManagement(t, f.service)
 	c, rec := connectPayload(t, f.service)
 	tools, err := listAllTools(t.Context(), c)
 	if err != nil {
@@ -327,7 +329,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	}
 	// Same-capture historical summary -> all points/leaves -> full item evidence.
 	start = rec.total()
-	capture := scaleCapture(t, c, "get_historical_overview_series", map[string]any{"from": "2026-09-12", "to": "2026-10-12"})
+	capture := scaleCapture(t, c, "get_historical_overview", map[string]any{"from": "2026-09-12", "to": "2026-10-12"})
 	leaves := assertHistoricalMatches(t, c, capture)
 	if len(scaleSection(t, c, capture, "points")) != 31 {
 		t.Fatal("lost closed dates")
@@ -400,7 +402,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	call(t, c, "get_financial_context_item", FinancialContextItemInput{ContextID: context.ContextID, Ref: positions[0].Ref}, false)
 	rec.journey("financial context all sections + item", start, 40, 2<<20)
 	// Local market histories and Agent provenance use their bounded entrances.
-	market := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": f.instrument}, map[string]any{"baseCurrency": "USD", "quoteCurrency": "EUR"}}, "view": "history", "range": "all"})
+	market := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": f.instrument}, map[string]any{"baseCurrency": "USD", "quoteCurrency": "EUR"}}, "view": "history", "range": "all"})
 	targets := scaleSection(t, c, market, "targets")
 	if len(targets) != 2 {
 		t.Fatal("market targets lost")
@@ -477,14 +479,17 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	// Analysis work is narrow and done once; other probes reuse those snapshots.
 	query := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.checking}
 	start = rec.total()
-	sectionEvidence(t, c, "analyze_period", map[string]any{"query": query})
+	periodCapture := scaleCapture(t, c, "analyze_period", map[string]any{"query": query})
+	for section := range periodCapture["sections"].(map[string]any) {
+		scaleSection(t, c, periodCapture, section)
+	}
 	contributionQuery := map[string]any{"from": "2026-10-01", "to": "2026-10-02", "scopeKind": "account", "scopeId": f.brokerage}
 	contributions := call(t, c, "list_contributions", map[string]any{"query": contributionQuery, "returnType": "total_return", "groupBy": "instrument", "limit": 5}, false)["data"].(map[string]any)
 	if rows := contributions["sections"].(map[string]any)["rows"].(map[string]any)["items"].([]any); len(rows) > 0 {
-		sectionEvidence(t, c, "get_contribution_item", map[string]any{"captureId": contributions["captureId"], "groupKey": rows[0].(map[string]any)["key"]})
+		sectionEvidence(t, c, "get_read_item", map[string]any{"captureId": contributions["captureId"], "section": "rows", "id": rows[0].(map[string]any)["key"]})
 	}
-	sectionEvidence(t, c, "get_return_day", map[string]any{"query": query, "date": "2026-10-02"})
-	sectionEvidence(t, c, "get_asset_driver_detail", map[string]any{"query": query, "driverKey": "external_flow"})
+	sectionEvidence(t, c, "get_read_item", map[string]any{"captureId": periodCapture["captureId"], "section": "returnDays", "id": "2026-10-02"})
+	sectionEvidence(t, c, "get_read_item", map[string]any{"captureId": periodCapture["captureId"], "section": "assetDrivers", "id": "external_flow"})
 	rec.journey("analysis and attribution complete sections", start, 20, 512<<10)
 	comparisonArgs := map[string]any{"leftAsOf": "2026-10-01", "rightAsOf": "2026-10-02", "scope": map[string]any{"kind": "accounts", "accountIds": []string{f.checking}}}
 	comparison := call(t, c, "compare_financial_context", comparisonArgs, false)["data"].(map[string]any)

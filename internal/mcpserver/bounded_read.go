@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,14 +74,19 @@ type ReadEnvelope struct {
 	Page          *ReadPageInfo          `json:"page,omitempty"`
 }
 type readCapture struct {
-	DetailSections    map[string][]string          `json:"detailSections,omitempty"`
-	InitialSections   []string                     `json:"initialSections,omitempty"`
-	Kind              string                       `json:"kind"`
-	Query             any                          `json:"query"`
-	Summary           any                          `json:"summary"`
-	Sections          map[string][]json.RawMessage `json:"sections"`
-	Details           map[string]any               `json:"details,omitempty"`
-	CapturedAt        time.Time                    `json:"capturedAt"`
+	DetailSections  map[string][]string          `json:"detailSections,omitempty"`
+	InitialSections []string                     `json:"initialSections,omitempty"`
+	Kind            string                       `json:"kind"`
+	Query           any                          `json:"query"`
+	Summary         any                          `json:"summary"`
+	Sections        map[string][]json.RawMessage `json:"sections"`
+	Details         map[string]any               `json:"details,omitempty"`
+	CapturedAt      time.Time                    `json:"capturedAt"`
+	// drilldown is frozen with the capture and omitted from the marshal that
+	// store charges against readCaptureLimit. Its own retained charge is added
+	// to size for admission and eviction. Reattach it after the JSON
+	// round-trip below.
+	drilldown         *periodDrilldown
 	hash, summaryHash string
 	expires           time.Time
 	size              int
@@ -349,6 +355,7 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	if e.CapturedAt.IsZero() {
 		e.CapturedAt = c.now()
 	}
+	drilldown := e.drilldown
 	e.Query = normalizeFrozenQuery(e.Query)
 	b, err := jsoncodec.Marshal(e)
 	if err != nil {
@@ -357,6 +364,13 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	if len(b) > readCaptureLimit {
 		return ReadEnvelope{}, fail("too_large", "capture exceeds read budget; narrow query")
 	}
+	retainedSize := len(b)
+	if drilldown != nil {
+		retainedSize += drilldown.size
+	}
+	if retainedSize > readRetainedCaptureLimit {
+		return ReadEnvelope{}, fail("too_large", "capture and period details exceed retained budget; narrow query")
+	}
 	// Decode into a fresh capture: Sonic may reuse map values and their slice
 	// storage when decoding into e, which would retain caller-owned aliases.
 	var frozen readCapture
@@ -364,12 +378,13 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 		return ReadEnvelope{}, err
 	}
 	e = frozen
+	e.drilldown = drilldown
 	h := sha256.Sum256(b)
 	e.hash = hex.EncodeToString(h[:])
 	summary, _ := jsoncodec.Marshal(e.Summary)
 	h = sha256.Sum256(summary)
 	e.summaryHash = hex.EncodeToString(h[:])
-	e.size = len(b)
+	e.size = retainedSize
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.revoked || g != c.generation {
@@ -489,7 +504,7 @@ func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 		}
 		return s.continuePage(ctx, server, g, in)
 	})
-	readTool(server, "get_read_item", "Open one item of a frozen capture (products, historical, account valuations, directory, instruments or market comparison) by section and id, with full evidence and independently paged child sections; comparison rows use section=results and id=clientItemId. Does not recapture or renew the TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Open one item of a frozen capture (products, historical, account valuations, directory, instruments, contributions, period analysis or market comparison) by section and id, with full evidence and independently paged child sections. Does not recapture or renew the TTL. Comparison rows use section=results and id=clientItemId. Contribution rows use section=rows and id=the row key. A period return day uses section=returnDays and id=YYYY-MM-DD; an asset-change bucket uses section=assetDrivers and id=external_flow, income, spending, dividend_interest, price_change, fx_impact, fx_conversion_spread, fee, liability_impact, adjustment or residual. Those period sections are frozen with analyze_period and omitted from its stored body.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }
@@ -500,16 +515,19 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	if err != nil {
 		return nil, err
 	}
-	if requiredKind == "" && e.Kind == "contributions" {
-		return nil, fail("validation", "use get_contribution_item for contribution captures")
-	}
 	if requiredKind != "" && e.Kind != requiredKind {
 		return nil, fail("validation", "capture kind does not match item tool")
 	}
 	if e.Kind == "market_import_comparison" {
 		return s.reads.comparisonItem(in.CaptureID, e, in)
 	}
+	if e.Kind == "period_analysis" {
+		return s.reads.periodItem(in.CaptureID, e, in)
+	}
 	if e.Kind == "contributions" || e.Kind == "historical_overview" || e.Kind == "historical_overview_series" || e.Kind == "account_valuations" || e.Kind == "directory" || e.Kind == "instruments" {
+		if e.Kind == "contributions" && strings.TrimSpace(in.ID) == "" {
+			return nil, fail("validation", "groupKey must be a non-empty list_contributions row key")
+		}
 		key := in.Section + "/" + in.ID
 		v, ok := e.Details[key]
 		if !ok {
@@ -550,7 +568,7 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 
 func isReadScaleTool(name string) bool {
 	switch name {
-	case "get_read_page", "get_read_item", "get_market_data_batch", "compare_market_data_import", "update_instruments_batch":
+	case "get_read_page", "get_read_item", "get_market_data", "compare_market_data_import", "update_instruments_batch":
 		return true
 	}
 	return false

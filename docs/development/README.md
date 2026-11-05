@@ -20,8 +20,17 @@ sets package boundaries and validation expectations.
 
 ## Architecture and feature contracts
 
-- [Local MCP](mcp.md) and [MCP Products](mcp-products.md) — loopback transport,
-  permission modes, tools, and product boundaries.
+- [Local MCP](mcp.md) and [MCP Products](mcp-products.md) — current contract:
+  permissions, tools, read and write flows, recovery, and budgets. Stage
+  history is in [mcp-changelog.md](mcp-changelog.md).
+- [MCP Wave 1 A baseline](mcp-wave1-a-baseline.md) — CI phase timing, a real
+  MCP client measurement, and the blocked native macOS check.
+- [MCP Wave 2 C3 account entries](mcp-wave2-c3-nav-entries.md) — snapshot and
+  valuations share one capture; the tools stay separate.
+- [MCP Wave 2 toolGroups](mcp-wave2-g-toolgroups.md) — the optional discovery
+  filter is removed; both result copies stay.
+- [MCP Wave 2 deferred](mcp-wave2-deferred.md) — review exposure and PATCH
+  unification wait on later evidence.
 - [Financial Context](financial-context.md) — MCP context authorization and
   disclosure limits.
 - [Continuous Backup](continuous-backup.md) — opt-in backup and recovery.

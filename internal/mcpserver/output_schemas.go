@@ -19,6 +19,7 @@ const (
 	readKindContext      = "financial_context"
 	readKindComparison   = "financial_comparison"
 	readKindRepairJob    = "repair_job"
+	readKindMarketData   = "market_data"
 )
 
 // readOutputKind classifies every tool that has a read output schema. It is the
@@ -30,7 +31,9 @@ func readOutputKind(name string) string {
 	switch name {
 	case "get_read_page":
 		return readKindUnifiedPage
-	case "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_account_snapshot", "get_overview", "get_historical_overview", "get_historical_overview_series", "get_market_data_batch", "list_agent_market_data", "compare_market_data_import", "list_products", "get_product", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail":
+	case "get_market_data":
+		return readKindMarketData
+	case "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_account_snapshot", "get_overview", "get_historical_overview", "list_agent_market_data", "compare_market_data_import", "list_products", "get_product", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions":
 		return readKindEnvelope
 	case "get_financial_context":
 		return readKindContext
@@ -58,6 +61,8 @@ func readOutputSchema(name string) any {
 	case readKindRepairJob:
 		progress := map[string]any{"required": []string{"job", "healthIncluded"}, "properties": map[string]any{"healthIncluded": map[string]any{"const": false}}}
 		data = map[string]any{"oneOf": []any{progress, compactEnvelopeSchema()}}
+	case readKindMarketData:
+		data = map[string]any{"oneOf": []any{currentQuoteOutputSchema(), compactEnvelopeSchema()}}
 	default:
 		return nil
 	}
@@ -66,6 +71,15 @@ func readOutputSchema(name string) any {
 
 func compactEnvelopeSchema() any {
 	return map[string]any{"type": "object", "required": []string{"schemaVersion", "captureId", "expiresAt", "contentHash"}, "properties": map[string]any{"schemaVersion": map[string]any{"const": "mcp-read/1"}}}
+}
+
+// currentQuoteOutputSchema is the single-target get_market_data result.
+// Batch calls on the same tool return the read envelope instead.
+func currentQuoteOutputSchema() any {
+	return map[string]any{
+		"type": "object", "additionalProperties": false, "required": []string{"current"},
+		"properties": map[string]any{"current": map[string]any{"anyOf": []any{map[string]any{"type": "object"}, map[string]any{"type": "null"}}}},
+	}
 }
 
 func compactPageSchema(versioned bool) any {

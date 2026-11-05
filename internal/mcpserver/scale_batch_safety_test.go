@@ -63,7 +63,7 @@ func TestScalePermissionMatrix(t *testing.T) {
 			}
 			c := connect(t, fx.service)
 			tools := featureToolList(t, c)
-			for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "compare_market_data_import"} {
+			for _, name := range []string{"get_read_page", "get_read_item", "get_market_data", "compare_market_data_import"} {
 				if tools[name] == nil || !tools[name].Annotations.ReadOnlyHint {
 					t.Fatalf("read tool unavailable %s", name)
 				}

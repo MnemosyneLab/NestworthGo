@@ -5,12 +5,47 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
+
+// CommitPlanRequest is the commit_plan envelope. operationId is optional only
+// here; every other write still uses Mutation, which requires it. planId stays
+// the atomic idempotency key. An omitted or blank operationId is replaced by
+// derivedCommitPlanOperationID before any receipt is read or written. A
+// non-blank value is explicit and follows the existing UUID, retry, conflict
+// and liquidity rules unchanged.
+type CommitPlanRequest struct {
+	OperationID string            `json:"operationId,omitempty" jsonschema:"Optional. Omit to derive a UUID v5 from the canonical planId. An explicit UUID is stored and retried unchanged."`
+	Input       CommitChangeInput `json:"input"`
+}
+
+// commitPlanOperationNamespace is the UUID v5 namespace for operation IDs
+// derived when commit_plan omits operationId. It is itself UUID v5 of the name
+// "nestworth:mcp:commit_plan:operation" in the RFC 4122 URL namespace. The
+// derived id hashes the canonical lowercase planId under this namespace.
+// Changing either value would mint a new receipt identity for the same omitted
+// retry, so both are part of the durable contract.
+var commitPlanOperationNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("nestworth:mcp:commit_plan:operation"))
+
+func derivedCommitPlanOperationID(planID string) (string, error) {
+	id, err := uuid.Parse(planID)
+	if err != nil {
+		return "", fail("validation", "planId must be a UUID returned by a preview tool")
+	}
+	return uuid.NewSHA1(commitPlanOperationNamespace, []byte(id.String())).String(), nil
+}
+
+func commitPlanOperationID(operationID, planID string) (string, error) {
+	if strings.TrimSpace(operationID) != "" {
+		return operationID, nil
+	}
+	return derivedCommitPlanOperationID(planID)
+}
 
 // commitPlanRoute describes how one stored plan kind is committed. The receipt
 // tool name is the historical per-kind commit name. It stays in the durable
@@ -47,12 +82,24 @@ var commitPlanRoutes = map[string]commitPlanRoute{
 
 func (s *Service) commitPlanTool(server *toolSet) {
 	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_plan", Description: "Commit one stored preview plan of any kind: preview_change, _batch, _correction, _reconciliation, _product_operation, _product_terms, _product_valuation, _save_liquidity_policy, _reset_liquidity_policy or a reconciliation-session action. Input is operationId and input.planId only; the server reads the plan kind and the exact stored command, so the caller cannot change or mislabel it. A plan commits once: retrying the same operationId and planId returns the original receipt, and another operationId for a used or stale plan is rejected with stale_preview; request a new preview. The receipt tool names the plan kind and result is that kind's committed outcome. After an unknown outcome call get_operation, read current data, then retry the same operationId. Liquidity-policy receipts that are pending or unknown are never replayed; inspect them and preview again.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		route, err := s.resolveCommitPlanRoute(ctx, in.OperationID, in.Input.PlanID)
+	registerTool(server, &agentcapability.Definition{
+		Name: "commit_plan",
+		Description: "Commit a stored preview with input.planId. operationId is optional only on this tool: omit it and the server derives UUID v5 from the canonical planId under namespace f1f65af0-bbb8-5d57-af9c-b624de715dcb (lowercase hyphenated plan UUID as name). An explicit operationId is stored and retried unchanged. planId is the atomic idempotency key. " +
+			"The same operationId and input return the saved receipt; a different input conflicts and does not post, including when a derived id already belongs to another explicit call or tool. The receipt tool names the plan kind. " +
+			"Ledger, batch, correction and managed-product plans deduplicate by planId and can recover with another operationId after expiry. Reconciliation can recover from its database receipt if the plan file is gone. " +
+			"Uncommitted stale or expired previews are rejected. Liquidity save/reset do not replay: a different explicit operationId on a used plan returns stale_preview, and pending or unknown receipts are not replayed. Missing plans without evidence return operation_outcome_unknown. " +
+			"If unclear, locally derive the omitted ID without resubmitting, call get_operation with that ID and read current data before a fresh preview. Unknown outcomes do not authorize blind retries.",
+		Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed},
+	}, func(ctx context.Context, in CommitPlanRequest) (Response, error) {
+		operationID, err := commitPlanOperationID(in.OperationID, in.Input.PlanID)
 		if err != nil {
 			return Response{}, safeError(err)
 		}
-		value, err := s.executeWithRecovery(ctx, in.OperationID, route.receiptTool, in.Input, route.recoverable, func(ctx context.Context) (any, error) { return route.run(s, ctx, in.Input) })
+		route, err := s.resolveCommitPlanRoute(ctx, operationID, in.Input.PlanID)
+		if err != nil {
+			return Response{}, safeError(err)
+		}
+		value, err := s.executeWithRecovery(ctx, operationID, route.receiptTool, in.Input, route.recoverable, func(ctx context.Context) (any, error) { return route.run(s, ctx, in.Input) })
 		if err != nil {
 			if route.mapError != nil {
 				err = route.mapError(err)

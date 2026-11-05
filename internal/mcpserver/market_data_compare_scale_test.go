@@ -177,7 +177,7 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 	recorder.metrics = map[string]payloadMetric{}
 	recorder.mu.Unlock()
 	start := recorder.total()
-	legacy := scaleCapture(t, c, "get_market_data_batch", MarketBatchInput{Targets: targets, View: "history", Range: "all", Limit: 100})
+	legacy := scaleCapture(t, c, "get_market_data", MarketBatchInput{Targets: targets, View: "history", Range: "all", Limit: 100})
 	rows, _ := comparisonWalk(t, c, legacy, "targets", 100)
 	observations := 0
 	for _, raw := range rows {

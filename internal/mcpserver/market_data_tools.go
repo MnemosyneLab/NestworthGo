@@ -11,10 +11,44 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 )
 
-type MarketDataQuery struct {
-	InstrumentID  string `json:"instrumentId,omitempty"`
-	BaseCurrency  string `json:"baseCurrency,omitempty"`
-	QuoteCurrency string `json:"quoteCurrency,omitempty"`
+// MarketDataInput keeps the two former reads on one tool. A single instrumentId
+// or oriented currency pair returns {current} and never history. targets (with
+// the batch fields) returns the paged capture: views, coverage, per-target or
+// records partitions, and original-versus-display FX evidence. The shapes are
+// mutually exclusive.
+type MarketDataInput struct {
+	InstrumentID  string                         `json:"instrumentId,omitempty"`
+	BaseCurrency  string                         `json:"baseCurrency,omitempty"`
+	QuoteCurrency string                         `json:"quoteCurrency,omitempty"`
+	Targets       []application.MarketReadTarget `json:"targets,omitempty"`
+	View          string                         `json:"view,omitempty"`
+	Range         string                         `json:"range,omitempty"`
+	FromDate      *string                        `json:"fromDate,omitempty"`
+	ToDate        *string                        `json:"toDate,omitempty"`
+	HistoryLayout string                         `json:"historyLayout,omitempty"`
+	SourceFilter  string                         `json:"sourceFilter,omitempty"`
+	Sort          *ReadSort                      `json:"sort,omitempty"`
+	HistorySort   *ReadSort                      `json:"historySort,omitempty"`
+	Limit         int                            `json:"limit,omitempty"`
+}
+
+func (in MarketDataInput) asBatch() MarketBatchInput {
+	return MarketBatchInput{Targets: in.Targets, View: in.View, Range: in.Range, FromDate: in.FromDate, ToDate: in.ToDate, HistoryLayout: in.HistoryLayout, SourceFilter: in.SourceFilter, Sort: in.Sort, HistorySort: in.HistorySort, Limit: in.Limit}
+}
+
+func marketInputUsesBatch(in MarketDataInput) (bool, error) {
+	single := in.InstrumentID != "" || in.BaseCurrency != "" || in.QuoteCurrency != ""
+	batchFields := in.View != "" || in.Range != "" || in.FromDate != nil || in.ToDate != nil || in.HistoryLayout != "" || in.SourceFilter != "" || in.Sort != nil || in.HistorySort != nil || in.Limit != 0
+	if in.Targets != nil {
+		if single {
+			return false, fail("validation", "choose instrumentId or currency pair, or targets")
+		}
+		return true, nil
+	}
+	if batchFields {
+		return false, fail("validation", "batch fields require targets")
+	}
+	return false, nil
 }
 
 type AgentDataListInput struct {
@@ -51,9 +85,15 @@ type AgentDataRecordDTO struct {
 func (s *Service) marketDataTools(server *toolSet, mode string) {
 	adapter := quote.NewService(s.app)
 	generation := s.contextGeneration
-	s.marketBatchTools(server, generation)
 	s.marketComparisonTools(server, generation)
-	readTool(server, "get_market_data", "Selected current price or rate for one instrumentId or oriented currency pair, from local data only. History and provenance: get_market_data_batch with view=history. Keep observation dates and missing values visible; a carried NAV is not today's published NAV.", func(ctx context.Context, in MarketDataQuery) (any, error) {
+	readTool(server, "get_market_data", "Local quotes only; no provider refresh or writes. Two mutually exclusive inputs. Single current: instrumentId, or an oriented baseCurrency and quoteCurrency pair, returns {current} for the selected price or rate and no history. Batch: targets is 1-100 distinct instrumentId or oriented currency pairs and returns an mcp-read/1 capture. view is current (default, no history), coverage (counts, first and last dates, gapAssessment=not_evaluated) or history (per-target points and observations). Use range (30d, ytd, 1y, all) or paired inclusive fromDate and toDate. historyLayout=records returns one shared records section of active observations with chartSelected flags; an FX value keeps its original direction and displayValue is the oriented chart projection. Follow every cursor before claiming absence. A carried NAV is not today's published NAV.", func(ctx context.Context, in MarketDataInput) (any, error) {
+		batch, err := marketInputUsesBatch(in)
+		if err != nil {
+			return nil, err
+		}
+		if batch {
+			return s.readMarketDataBatch(ctx, generation, in.asBatch())
+		}
 		if in.InstrumentID != "" {
 			if in.BaseCurrency != "" || in.QuoteCurrency != "" {
 				return nil, fail("validation", "choose instrumentId or FX pair")

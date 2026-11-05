@@ -32,7 +32,7 @@ func productPlanHTTP(t *testing.T, c *mcp.ClientSession, in ProductOperationInpu
 
 func productSkillPlan(t *testing.T, c *mcp.ClientSession, name string, values map[string]string) map[string]any {
 	t.Helper()
-	return call(t, c, "preview_product_operation", skillExample(t, "products", name, values), false)["data"].(map[string]any)
+	return call(t, c, "preview_product_operation", skillExample(t, "product-lifecycle", name, values), false)["data"].(map[string]any)
 }
 
 func productAssertNetWorth(t *testing.T, c *mcp.ClientSession, want string) {
@@ -45,7 +45,7 @@ func productAssertNetWorth(t *testing.T, c *mcp.ClientSession, want string) {
 
 func productCommitHTTP(t *testing.T, c *mcp.ClientSession, planID, operationID string) map[string]any {
 	t.Helper()
-	op := call(t, c, "commit_plan", skillExample(t, "products", "product-commit", map[string]string{"operationId": operationID, "planId": planID}), false)["data"].(map[string]any)
+	op := call(t, c, "commit_plan", skillExample(t, "product-lifecycle", "product-commit", map[string]string{"operationId": operationID, "planId": planID}), false)["data"].(map[string]any)
 	if op["status"] != "succeeded" {
 		t.Fatal(op)
 	}

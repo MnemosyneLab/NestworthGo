@@ -1,9 +1,10 @@
 # Prices, unit NAV and FX observations
 
-`get_market_data` reads one selected current price/rate without provider requests.
-Supply `instrumentId` or an oriented `baseCurrency`/`quoteCurrency` pair.
-Use `get_market_data_batch` with view=history for complete locally stored selected
-points and raw observations, following all section cursors.
+`get_market_data` reads local prices and rates without provider requests.
+A single `instrumentId` or an oriented `baseCurrency`/`quoteCurrency` pair returns
+`{current}` only. Do not combine that shape with batch fields.
+For complete locally stored selected points and raw observations, call the same
+tool with `targets` and view=history, following all section cursors.
 For a bounded interval, pass paired inclusive `fromDate`/`toDate` instead of
 `range`. Opt in to `historyLayout=records` for a single cross-target `records`
 section with exact original observations and `chartSelected` flags. Follow both
@@ -104,7 +105,7 @@ App-managed product quotes require the App's own product workflow.
 
 ## Multi-target frozen market reads
 
-Use `get_market_data_batch` after discovery; see [paging and batches](paging-and-batches.md).
+Use `get_market_data` with `targets` after discovery; see [market read pages](market-read-pages.md) and [paging and batches](paging-and-batches.md).
 Supply 1–100 distinct instrument IDs or complete oriented currency pairs. current
 is default and omits history; coverage returns first/last, observation/selected
 point counts, outsideRange and gapAssessment=not_evaluated, without claiming
@@ -116,7 +117,8 @@ targetKey or displayName; historySort can select quotedAt/effectiveDate and
 asc/desc. Missing/not-found targets remain visible with status/reasons.
 
 `list_agent_market_data` filters instrumentIds, oriented fxPairs,
-operations append/correct/retract, nullable active, observationKinds
+operations append/correct/retract, optional boolean active (omit for no filter;
+true/false are accepted, null is rejected), observationKinds
 (latest/close/nav/closed/daily_reference), civil
 fromDate/toDate and RFC3339 createdFrom/createdTo. Observation date differs from
 creation time. Retractions resolve their targeted observation identity before

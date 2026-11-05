@@ -15,6 +15,13 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 **current** net worth/account values, holdings, costs and missing inputs. They
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
+`get_account_snapshot` and `get_account_valuations` are one current-valuation
+capture. Snapshot takes one required account id and returns not_found when that
+account is missing or archived. Valuations takes optional accountIds plus the
+account filters and returns an empty page when nothing matches. Do not add a
+rollup to its components. Neither tool is a return or an endpoint movement;
+use `analyze_period` for returns and `get_historical_overview` for endpoint
+movement. `get_overview` remains the household GUI overview.
 
 From `get_account_valuations`, open `get_read_item` accounts/id. Its
 composition_types section groups components by instrument type/cash;
@@ -49,11 +56,12 @@ price/FX evidence; never infer the affected asset from informational gaps.
 
 ## Historical endpoint view and reconciliation
 
-For one or two historical states, use `get_historical_overview`; for a bounded
-daily trend with its endpoint views from the same capture, use
-`get_historical_overview_series`. Dates are closed `YYYY-MM-DD` civil labels in
-the household history timezone. Overview accepts an optional second closed date
-or `current`; series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/1` envelope: summary,
+Use `get_historical_overview` for both shapes. `{date, compareTo}` reads one or
+two historical states (`date` may be empty for the GUI default month end;
+`compareTo` is an optional second closed date or `current`). `{from, to}` reads
+a bounded daily trend with its endpoint views from the same capture. Do not send
+both shapes together. Dates are closed `YYYY-MM-DD` civil labels in
+the household history timezone. Series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/1` envelope: summary,
 compact endpoint leaves, and independent series points. Initial default is five
 items per section, max 100; continuation default is 25. Follow every relevant
 `get_read_page` cursor. `get_read_item` with section=rows/id returns full row
@@ -139,10 +147,13 @@ acknowledgement, evidence-correction and resolution events. These historical
 reads preserve the original condition version and never reinterpret it as the
 current rule; a changed publication expires their cursors.
 
-With `ledger_write`, v2 uses `create_investment_review_rule`,
-`update_investment_review_rule`, `archive_investment_review_rule`,
-`acknowledge_investment_review_alert`, `set_investment_review_suppression`,
-`clear_investment_review_suppression` and `refresh_investment_reviews`.
+Management tools are hidden unless Settings enables investment review
+management. With that switch and `ledger_write`, v2 uses
+`create_investment_review_rule`, `update_investment_review_rule`,
+`archive_investment_review_rule`, `acknowledge_investment_review_alert`,
+`set_investment_review_suppression`, `clear_investment_review_suppression`
+and `refresh_investment_reviews`. The switch is off by default. Reads above
+stay listed either way. The App review screen is separate.
 Rule/alert/suppression edits require their own `expectedRevision` and inner
 `mutationId`; the MCP envelope also requires `operationId`. Reuse both IDs and
 the exact input on a retry. Inspect `get_operation` and the relevant v2 read
@@ -154,7 +165,7 @@ to one episode. Neither action changes holdings.
 For investment returns, income/expense or an inclusive period report, call
 `analyze_period`. For two-state value differences use `compare_financial_context`;
 for “why did two closed-date states change; was that profit?”, use
-`compare_financial_attribution` directly; see [financial-context.md](financial-context.md#link-a-comparison-to-change-attribution).
+`compare_financial_attribution` directly; see [financial-attribution.md](financial-attribution.md#link-a-comparison-to-change-attribution).
 Neither minimal comparison route needs get_context/catalog/directory reads.
 Attribution may maintain derived snapshots and invalidate previews, including
 in read_only mode; the plain comparison is strictly no-write.
@@ -182,15 +193,15 @@ outstanding ledger preview; perform analysis before preview/commit.
 | “上个月赚了多少？” | `analyze_period` investment return, then contribution if needed |
 | “收入支出各多少？” | Period income/expense; own-account transfers and investment principal are not income/spending |
 | “哪几只资产贡献最大？” | `list_contributions` with returnType, groupBy and ordering; frozen rows via `get_read_page` |
-| “这行收益为什么是这个数？” | `get_contribution_item` with the list captureId and exact groupKey; frozen child sections via `get_read_page` |
-| “某一天为什么亏损？” | `get_return_day`, date inside the same period |
-| “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_asset_driver_detail` with an actual returned bucket key |
+| “这行收益为什么是这个数？” | `get_read_item` on the list capture, section=`rows`, id=the row key; frozen child sections via `get_read_page` |
+| “某一天为什么亏损？” | `get_read_item` on the `analyze_period` capture, section=`returnDays`, id=that YYYY-MM-DD |
+| “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_read_item` section=`assetDrivers` and id=that bucket key |
 | “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
 
 Contribution lists use `mcp-read/1`: inspect `summary` and `sections.rows`, then
 follow only the rows needed with `get_read_page` (captureId, section=`rows`, signed
 cursor; default limit 25, maximum 100). There is no offset argument. For selected
-row evidence call `get_contribution_item` with that same captureId and groupKey;
+row evidence call `get_read_item` with that same captureId, section=`rows` and id=the row key;
 do not repeat the query, returnType or groupBy. Follow its independently named
 child sections only when their evidence is needed. Pages and details never
 recalculate or renew the five-minute TTL. On expiry, eviction or revocation,
@@ -209,6 +220,20 @@ intersect, including on the same dimension. Contradictions yield available
 empty results. Realized grouping remains instrument/account, and member filters
 remain unsupported. Detail hints identify related history and may be broader
 than a currency/class-filtered row's exact activity set.
+
+On an `analyze_period` capture, `get_read_item` section=`returnDays` id=YYYY-MM-DD
+opens that closed day. Page `returnDays/<date>/composition`,
+`returnDays/<date>/contributors` and `returnDays/<date>/issues`.
+`get_read_item` section=`assetDrivers` id=the bucket key opens
+`assetDrivers/<key>/byInstrument`, `assetDrivers/<key>/byAccount` and
+`assetDrivers/<key>/residualDetails`. The date must fall inside the capture
+range. Bucket keys are the assetChange keys already returned:
+external_flow, income, spending, dividend_interest, price_change, fx_impact,
+fx_conversion_spread, fee, liability_impact, adjustment, residual. These
+sections are frozen with the period capture and do not renew its TTL. They
+are omitted from the parent JSON but count toward the retained-data budget.
+Large day × instrument detail sets can fail `too_large`; narrow the query
+explicitly and never silently drop evidence.
 
 Asset drivers include external flow, income, spending, dividend/interest, price,
 FX impact, conversion spread, fees, liabilities, adjustments and residual.

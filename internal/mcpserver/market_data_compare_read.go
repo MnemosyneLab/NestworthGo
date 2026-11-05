@@ -23,6 +23,11 @@ func readSectionRows(e readCapture, section string) ([]json.RawMessage, bool, er
 	if rows, ok := e.Sections[section]; ok {
 		return rows, true, nil
 	}
+	if e.drilldown != nil {
+		if rows, ok, err := e.drilldown.sectionRows(section); ok || err != nil {
+			return rows, ok, err
+		}
+	}
 	if e.Kind != "market_import_comparison" {
 		return nil, false, nil
 	}

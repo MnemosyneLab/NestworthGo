@@ -1,35 +1,67 @@
-# MCP update conventions (audit)
+# MCP update conventions
 
-Write tools that change existing state do not share one rule for what an omitted
-field means. This is the audited inventory. `TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas`
+Write tools that change existing state follow one of three rules. Patch tools
+share one: omit a field to keep the stored value, and JSON null clears a field
+that is allowed to be empty. An empty string is rejected on those tools. It
+does not clear, and it does not keep. Full replacements still require every
+field. Selectors are not field patches.
+
+`TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas`
 (`internal/mcpserver/update_conventions_test.go`) classifies every `update_*`,
-`set_*` and versioned replacement preview and checks each against the schema
-shape its convention requires, so a new tool cannot silently introduce another
-convention: it must be added to the table and to this document.
+`set_*` and versioned replacement preview and checks the schema shape, so a
+new tool cannot reintroduce a `<field>Set` flag or a `replace` switch.
 
 | Convention | Tools | Omitted field | How to clear |
 | --- | --- | --- | --- |
-| `patch_at_least_one` | `update_member`, `update_institution`, `update_group` | kept; at least one of `name`, `iconKey` is required, and both apply in one write | not applicable: a name and an icon are never empty |
-| `patch_set_flags` | `update_account` | kept | send `<field>Set:true` with an empty or null value for institutionId, groupId, note, iconKey, openedOn, closedOn. An empty value **without** `Set` keeps the stored value. Ownership is a complete replacement when supplied |
-| `patch_replace_flag` | `update_instrument` | kept when `replace=false`; with `replace=true` the call replaces the whole form state | nullable fields accept null/empty as the instrument schema defines |
-| `patch_versioned_batch` | `update_instruments_batch` | kept per row; every row needs `expectedMetadataVersion`; `changes` needs at least one field | empty `shortName` clears; `note:null` clears |
-| `revisioned_replacement` | `update_investment_review_rule` | not allowed: complete rule with `expectedRevision` | not applicable |
-| `versioned_full_replacement` | `preview_save_liquidity_policy`, `preview_product_terms` | not allowed: every policy and terms field is required, with `expectedRevision`. Omission never keeps a stored value | `null` means unknown/cleared where the schema allows it |
+| `patch` | `update_member`, `update_institution`, `update_group`, `update_account`, `update_instrument`, `update_instruments_batch` | kept | JSON null on a clearable field. Null and an empty string are rejected when the field cannot be cleared |
+| `revisioned_replacement` | `update_investment_review_rule` | not allowed: the complete rule and `expectedRevision` are required | not applicable |
+| `versioned_full_replacement` | `preview_save_liquidity_policy`, `preview_product_terms` | not allowed: every policy and terms field is required, with `expectedRevision`. Omission never keeps a stored value | `null` means unknown or cleared where the schema allows it |
 | `selection` | `set_fx_source`, `set_investment_review_suppression` | state selectors, not field updates | their own clear actions |
 
-## Findings from the audit
+## Patch fields
 
-- `update_account` previously said "empty string clears optional fields". The
-  application keeps the stored value unless the matching `Set` flag is true, so an
-  agent following the old text would silently not clear a note. The tool
-  description and the skill now state the `Set` rule, and
-  `TestUpdateAccountClearRequiresSetFlag` exercises set, omit, empty-without-Set and
-  empty-with-Set against a real account.
-- `preview_product_terms` is a full replacement with one audited exception:
-  `terms.shortName` is optional (omitted or null keeps, empty string clears). The
-  exception is listed in the test and stated in the tool description and skill.
-- Three styles remain for "keep": omit (patch tools), a `replace` switch
-  (`update_instrument`) and explicit per-field `Set` flags (`update_account`).
-  Standardizing them (for example omitted = keep and `null` = clear everywhere) is a
-  breaking schema change and is deliberately not part of this audit; it needs its
-  own decision and a contract-snapshot review.
+Directory name, icon and `archived` cannot be cleared. At least one of those
+fields is required. `archived: true` archives and `archived: false` restores.
+A household keeps at least one active member, and the only active owner of a
+live account cannot be archived. A rejected archive does not apply the other
+fields in that call.
+
+`update_account` clears `institutionId`, `groupId`, `note`, `iconKey`,
+`openedOn` and `closedOn` with null. A note has no distinct empty stored
+value, so null is the only clear; an empty string is invalid. Null and an
+empty string are rejected for name, account type, balance-sheet role,
+tracking mode, currency, inclusion flags, ownership and `initialAmount`.
+Those classification and currency fields stay immutable when a different
+value is supplied. Ownership, when supplied, replaces the whole allocation
+and cannot be empty. `initialAmount` does not rewrite balance history.
+Removing `<field>Set` is a breaking change: `{"note":"","noteSet":true}` is
+rejected. Send `{"note":null}`.
+
+`update_instrument` clears `shortName`, `symbol`, `marketCode`,
+`countryCode`, `isin`, `note`, `providerKey` and `providerSymbol` with null.
+Null on `iconKey` resets it to the instrument type's default icon. Null is
+rejected for `name`, `type`, `quoteCurrency`, `metalTemplate`,
+`quantityUnit`, `quoteSource` and `sortOrder`. `sortOrder: 0` is a stored
+order, not an omission. The `replace` flag is removed. A caller that used
+`replace: true` to drop omitted optional fields now sends null for each field
+to clear and omits the fields to keep. An empty `shortName` no longer
+clears; send null.
+
+`update_instruments_batch` uses the same rule for `name`, `shortName` and
+`note`. Null clears `shortName` and `note`. An empty string is rejected,
+including a blank note that previously cleared. Null `shortName` now clears;
+it used to be rejected. Null and an empty name are rejected. Every row still
+needs `expectedMetadataVersion`, and `changes` still needs at least one
+field. Managed or archived targets and a stale version reject the whole
+batch.
+
+## Full replacements
+
+`preview_product_terms` remains a full replacement with one audited exception:
+`terms.shortName` is optional. Omitted or null keeps the stored alias and an
+empty string clears it. That exception is not the patch rule. The field is
+optional inside an otherwise required terms object, and null there still
+means keep. The tool description states it.
+
+Liquidity policy save is a full replacement. Null means unknown or cleared
+where that schema allows it. Omission does not keep a stored policy field.

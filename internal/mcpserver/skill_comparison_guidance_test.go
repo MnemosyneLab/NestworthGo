@@ -87,7 +87,14 @@ func skillIndependentPages(t *testing.T, client *mcp.ClientSession, kind, id, re
 			if kind == "comparison" {
 				tool, example = "get_read_page", "financial-comparison-"+section+"-page"
 			}
-			args := skillExample(t, "financial-context", example, values)
+			reference := "financial-context"
+			if kind == "item" {
+				reference = "financial-context-item"
+			}
+			if kind == "comparison" {
+				reference = "financial-comparison"
+			}
+			args := skillExample(t, reference, example, values)
 			args["limit"] = 1
 			response := call(t, client, tool, args, false)
 			next, rows := skillPageState(t, response["data"])
@@ -151,9 +158,9 @@ func TestSkillIndependentSectionStateAcrossAllPagingTools(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("context", func(t *testing.T) { skillIndependentPages(t, client, "context", "package-a", "", initial) })
-	item := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "financial-context", "financial-context-item", map[string]string{"contextId": "package-a", "ref": "account-1"}), false))
+	item := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "financial-context-item", "financial-context-item", map[string]string{"contextId": "package-a", "ref": "account-1"}), false))
 	t.Run("item", func(t *testing.T) { skillIndependentPages(t, client, "item", "package-a", "account-1", item) })
-	comparison := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-context", "financial-comparison", nil), false))
+	comparison := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-comparison", "financial-comparison", nil), false))
 	t.Run("comparison", func(t *testing.T) {
 		skillIndependentPages(t, client, "comparison", comparison.ComparisonID, "", comparison)
 	})
@@ -196,13 +203,13 @@ func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
 	client := connect(t, s)
 	read := func(left, right string) application.FinancialComparisonContent {
 		t.Helper()
-		args := skillExample(t, "financial-context", "financial-comparison", nil)
+		args := skillExample(t, "financial-comparison", "financial-comparison", nil)
 		args["leftAsOf"], args["rightAsOf"] = left, right
 		r := decodeComparison(t, call(t, client, "compare_financial_context", args, false))
 		content := r.Content
 		info := r.PositionsPage
 		for info.HasMore {
-			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-context", "financial-comparison-positions-page", map[string]string{"comparisonId": r.ComparisonID, "cursor": info.NextCursor}), false))
+			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-comparison", "financial-comparison-positions-page", map[string]string{"comparisonId": r.ComparisonID, "cursor": info.NextCursor}), false))
 			content.Positions = append(content.Positions, page.Content.Positions...)
 			info = page.PositionsPage
 		}

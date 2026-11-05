@@ -146,7 +146,7 @@ func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
 	if data["current"].(map[string]any)["unitPrice"] != "1.0197" {
 		t.Fatal("documented fund NAV date/value not available through MCP")
 	}
-	history := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": []any{map[string]any{"instrumentId": values["instrumentId"]}}, "view": "history", "range": "all"})
+	history := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": values["instrumentId"]}}, "view": "history", "range": "all"})
 	targets := scaleSection(t, c, history, "targets")
 	target := targets[0].(map[string]any)["targetKey"].(string)
 	history["sections"] = targets[0].(map[string]any)["sections"]
@@ -435,7 +435,7 @@ func TestSkillFinancialComparisonExamples(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
-	initial := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-context", "financial-comparison", nil), false))
+	initial := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-comparison", "financial-comparison", nil), false))
 	if initial.Content.ChangeBasis != "right_minus_left; not_return_or_attribution" {
 		t.Fatal(initial.Content.ChangeBasis)
 	}
@@ -452,7 +452,7 @@ func TestSkillFinancialComparisonExamples(t *testing.T) {
 		}
 		count, total := info.Returned, info.Total
 		for info.HasMore {
-			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-context", "financial-comparison-"+section+"-page", map[string]string{"comparisonId": initial.ComparisonID, "cursor": info.NextCursor}), false))
+			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-comparison", "financial-comparison-"+section+"-page", map[string]string{"comparisonId": initial.ComparisonID, "cursor": info.NextCursor}), false))
 			if page.ContentHash != initial.ContentHash {
 				t.Fatal("mixed package")
 			}

@@ -18,31 +18,44 @@ import (
 // registered tool, not a duplicated/schema-inferred approximation. State/ID/
 // permission/cursor validity is tested separately by real workflow regressions.
 var skillSchemaExamples = map[string]map[string][]string{
-	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}},
+	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}, "update_account": {"account-clear-note"}},
 	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
 	"cash-and-debt":            {"preview_change": {"income", "expense", "fx-conversion", "debt-payment"}},
 	"market-data":              {"import_market_data": {"fund-nav", "fx-reference", "withdraw-quote"}, "set_fx_source": {"fx-source"}},
 	"data-health":              {"get_data_repair_job": {"repair-progress", "repair-evidence"}},
 	"products": {
 		"list_products": {"product-list"}, "get_product": {"product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
-		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit", "product-terms-commit", "product-valuation-commit", "liquidity-policy-commit"},
-		"preview_product_terms": {"product-terms"}, "preview_product_valuation": {"product-valuation"},
-		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"},
+	},
+	"product-lifecycle": {
+		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit"},
+	},
+	"product-terms":     {"preview_product_terms": {"product-terms"}, "commit_plan": {"product-terms-commit"}},
+	"product-valuation": {"preview_product_valuation": {"product-valuation"}, "commit_plan": {"product-valuation-commit"}},
+	"liquidity-policy": {
+		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"}, "commit_plan": {"liquidity-policy-commit"},
+	},
+	"product-pages": {
+		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item"},
 	},
 	"reconciliation-and-corrections": {
 		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_change": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
 		"commit_plan": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
 	},
 	"analysis": {
-		"get_historical_overview": {"historical-overview"}, "get_historical_overview_series": {"historical-overview-series"}, "analyze_period": {"analyze-period"},
+		"get_historical_overview": {"historical-overview", "historical-overview-series"}, "analyze_period": {"analyze-period"},
 	},
 	"financial-context": {
-		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page", "financial-context-item-page", "financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "get_financial_context_item": {"financial-context-item"},
-		"compare_financial_context": {"financial-comparison"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
+		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page"},
 	},
-	"paging-and-batches": {
-		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item", "compare-import-item"}, "get_read_page": {"scale-page"},
-		"get_market_data_batch": {"scale-market-current", "scale-market-coverage", "scale-market-history", "scale-market-records"}, "list_agent_market_data": {"scale-agent-retractions", "scale-agent-closures"}, "list_instruments": {"scale-instruments"}, "update_instruments_batch": {"scale-metadata"}, "compare_market_data_import": {"compare-import-summary"},
+	"financial-context-item": {"get_financial_context_item": {"financial-context-item"}, "get_read_page": {"financial-context-item-page"}},
+	"financial-comparison": {
+		"compare_financial_context": {"financial-comparison"}, "get_read_page": {"financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"},
+	},
+	"financial-attribution": {"compare_financial_attribution": {"financial-attribution", "financial-attribution-account"}},
+	"paging-and-batches":    {"get_read_page": {"scale-page"}},
+	"directory-batches":     {"list_instruments": {"scale-instruments"}, "update_instruments_batch": {"scale-metadata"}},
+	"market-read-pages": {
+		"get_market_data": {"scale-market-current", "scale-market-coverage", "scale-market-history", "scale-market-records"}, "list_agent_market_data": {"scale-agent-retractions", "scale-agent-closures"}, "get_read_item": {"compare-import-item"}, "compare_market_data_import": {"compare-import-summary"},
 	},
 }
 
@@ -170,7 +183,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"Ordinary initial business reads and every continuation | 25 / 100", "get_read_page({cursor, limit?})", "items/page", "5 minutes", "4 MiB", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
+	for _, phrase := range []string{"Ordinary initial business reads and every continuation | 25 / 100", "get_read_page({cursor, limit?})", "items/page", "5 minutes", "4 MiB", "8 MiB per capture", "32,768", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
 		if !strings.Contains(string(guide), phrase) {
 			t.Errorf("contract guidance missing: %s", phrase)
 		}
@@ -196,7 +209,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if !strings.Contains(definition.Description, "get_read_page({cursor,limit?})") || strings.Contains(definition.Description, "get_financial_comparison_page") {
 		t.Error("financial attribution discovery must direct continuation through get_read_page")
 	}
-	if readTTL != 5*time.Minute || contextTTL != readTTL || readCaptureLimit != 4<<20 || contextPackageLimit != readCaptureLimit || readCacheLimit != 16<<20 || contextCacheLimit != readCacheLimit || readCacheCount != 8 || contextCacheCount != readCacheCount || readBuildConcurrency != 2 || readBuildTimeout != 10*time.Second || contextWireLimit != 65536 {
+	if readRetainedCaptureLimit != 8<<20 || readDrillEntryLimit != 32768 || readTTL != 5*time.Minute || contextTTL != readTTL || readCaptureLimit != 4<<20 || contextPackageLimit != readCaptureLimit || readCacheLimit != 16<<20 || contextCacheLimit != readCacheLimit || readCacheCount != 8 || contextCacheCount != readCacheCount || readBuildConcurrency != 2 || readBuildTimeout != 10*time.Second || contextWireLimit != 65536 {
 		t.Fatal("runtime budgets changed; review skill contract table")
 	}
 	rows, err := readRows(make([]string, 151))
@@ -240,5 +253,60 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	}
 	if total != len(s.toolRegistry(LedgerWrite).Definitions()) || pages < 2 {
 		t.Fatal("incomplete tool discovery", total, pages)
+	}
+}
+
+func TestSkillOptionalBooleanFiltersRejectNull(t *testing.T) {
+	s, _, _ := fixture(t)
+	registry := s.toolRegistry(ReadOnly)
+	for _, tc := range []struct{ tool, field string }{
+		{"get_liquidity_overview", "hasRule"}, {"get_liquidity_overview", "excluded"}, {"list_agent_market_data", "active"},
+	} {
+		t.Run(tc.tool+"/"+tc.field, func(t *testing.T) {
+			definition, err := registry.Definition(tc.tool)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded, err := jsoncodec.Marshal(definition.InputSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var schema jsonschema.Schema
+			if err := jsoncodec.Unmarshal(encoded, &schema); err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := schema.Resolve(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, value := range []any{true, false, nil} {
+				input := map[string]any{"filter": map[string]any{tc.field: value}}
+				err := resolved.Validate(&input)
+				if (err == nil) != (value != nil) {
+					t.Errorf("%v validation: %v", value, err)
+				}
+			}
+			input := map[string]any{"filter": map[string]any{}}
+			if err := resolved.Validate(&input); err != nil {
+				t.Fatalf("omitted boolean: %v", err)
+			}
+		})
+	}
+}
+
+func TestSkillOmittedOperationRecoveryMatchesDerivation(t *testing.T) {
+	raw, err := os.ReadFile("../../skills/nestworth/references/recovery.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const plan = "11111111-1111-4111-8111-111111111111"
+	derived, err := derivedCommitPlanOperationID(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{commitPlanOperationNamespace.String(), plan, derived, "uuid.uuid5(namespace, str(uuid.UUID(plan_id)))", "without submitting", "Missing/pending/unknown receipts do not prove non-execution"} {
+		if !strings.Contains(string(raw), text) {
+			t.Errorf("recovery recipe missing %q", text)
+		}
 	}
 }

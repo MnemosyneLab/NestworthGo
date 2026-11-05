@@ -1,10 +1,12 @@
 package domain
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -35,6 +37,18 @@ type InstrumentMetadataReceipt struct {
 	Items          []InstrumentMetadataReceiptItem `json:"items"`
 }
 
+func jsonNull(raw json.RawMessage) bool {
+	return bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
+}
+
+func nonemptyMetadataString(field string, raw json.RawMessage) (string, error) {
+	var value string
+	if jsonNull(raw) || jsoncodec.Unmarshal(raw, &value) != nil || strings.TrimSpace(value) == "" {
+		return "", validation(field, "must be a nonempty string; null clears")
+	}
+	return value, nil
+}
+
 func InstrumentMetadataVersion(i Instrument, managed bool) string {
 	b, _ := jsoncodec.Marshal(struct {
 		ID              InstrumentID
@@ -63,26 +77,34 @@ func ApplyInstrumentMetadata(i Instrument, c InstrumentMetadataChanges, now time
 		i.Name = name
 	}
 	if len(c.ShortName) > 0 {
-		var v string
-		if string(c.ShortName) == "null" || jsoncodec.Unmarshal(c.ShortName, &v) != nil {
-			return i, false, validation("shortName", "must be a string; empty clears")
+		if jsonNull(c.ShortName) {
+			i.ShortName = ""
+		} else {
+			name, err := nonemptyMetadataString("shortName", c.ShortName)
+			if err != nil {
+				return i, false, err
+			}
+			normalized, err := NormalizeInstrumentShortName(name)
+			if err != nil {
+				return i, false, err
+			}
+			i.ShortName = normalized
 		}
-		name, err := NormalizeInstrumentShortName(v)
-		if err != nil {
-			return i, false, err
-		}
-		i.ShortName = name
 	}
 	if len(c.Note) > 0 {
-		var v *string
-		if jsoncodec.Unmarshal(c.Note, &v) != nil {
-			return i, false, validation("note", "must be string or null")
+		if jsonNull(c.Note) {
+			i.Note = nil
+		} else {
+			text, err := nonemptyMetadataString("note", c.Note)
+			if err != nil {
+				return i, false, err
+			}
+			note, err := validateNote("note", &text)
+			if err != nil {
+				return i, false, err
+			}
+			i.Note = note
 		}
-		note, err := validateNote("note", v)
-		if err != nil {
-			return i, false, err
-		}
-		i.Note = note
 	}
 	changed := i.Name != before.Name || i.ShortName != before.ShortName || !reflect.DeepEqual(i.Note, before.Note)
 	if changed {

@@ -6,7 +6,7 @@ import "github.com/google/jsonschema-go/jsonschema"
 // date, identity, permission, source, and CAS validation remain authoritative.
 func workflowSchema[I any](name string) *jsonschema.Schema {
 	switch name {
-	case "preview_investment_review_rule", "list_activities", "preview_change", "get_data_repair_job", "get_market_data_batch":
+	case "preview_investment_review_rule", "list_activities", "preview_change", "get_data_repair_job", "get_market_data":
 	default:
 		return nil
 	}
@@ -32,7 +32,7 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 		s.Properties["limit"].Maximum = &high
 	case "get_data_repair_job":
 		setSchemaEnum(s.Properties["view"], []string{"progress", "evidence"})
-	case "get_market_data_batch":
+	case "get_market_data":
 		s.Properties["targets"].Items.OneOf = []*jsonschema.Schema{
 			{Required: []string{"instrumentId"}, Not: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Required: []string{"baseCurrency"}}, {Required: []string{"quoteCurrency"}}}}},
 			{Required: []string{"baseCurrency", "quoteCurrency"}, Not: &jsonschema.Schema{Required: []string{"instrumentId"}}},
@@ -41,6 +41,14 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 		s.Not = &jsonschema.Schema{Required: []string{"range", "fromDate"}}
 		s.If = &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"historyLayout": {Enum: []any{"records"}}}, Required: []string{"historyLayout"}}
 		s.Then = &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"view": {Enum: []any{"history"}}}, Required: []string{"view"}}
+		batchOnly := func() *jsonschema.Schema {
+			return schemaAnyRequired("targets", "view", "range", "fromDate", "toDate", "historyLayout", "sourceFilter", "sort", "historySort", "limit")
+		}
+		s.OneOf = []*jsonschema.Schema{
+			{Required: []string{"instrumentId"}, Not: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{schemaAnyRequired("baseCurrency", "quoteCurrency"), batchOnly()}}},
+			{Required: []string{"baseCurrency", "quoteCurrency"}, Not: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{schemaAnyRequired("instrumentId"), batchOnly()}}},
+			{Required: []string{"targets"}, Not: schemaAnyRequired("instrumentId", "baseCurrency", "quoteCurrency")},
+		}
 	case "preview_change":
 		variants := []struct {
 			kind     string
@@ -65,6 +73,7 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			s.OneOf = append(s.OneOf, branch)
 		}
 		s.DependentRequired = map[string][]string{"fee": {"feeCurrency"}, "effectiveLocalDate": {"effectiveLocalTime"}, "effectiveLocalTime": {"effectiveLocalDate"}, "interestOrFee": {"interestOrFeeCurrency"}}
+		slimPreviewChangeSchema(s)
 	}
 	return s
 }

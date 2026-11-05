@@ -90,7 +90,7 @@ func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 53 {
+	if len(listed.Tools) != 48 {
 		t.Fatalf("tools=%d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {
@@ -125,12 +125,12 @@ func TestDirectoryWritesAndDurableRetries(t *testing.T) {
 	}
 	id := first["result"].(map[string]any)["id"].(string)
 	mutate(t, c, "update_member", map[string]any{"id": id, "name": "Bobby"})
-	mutate(t, c, "archive_member", map[string]any{"id": id, "archived": true})
+	mutate(t, c, "update_member", map[string]any{"id": id, "archived": true})
 	members, err := app.ListMembers(context.Background(), false)
 	if err != nil || len(members) != 1 {
 		t.Fatalf("members %v %v", members, err)
 	}
-	mutate(t, c, "archive_member", map[string]any{"id": id, "archived": false})
+	mutate(t, c, "update_member", map[string]any{"id": id, "archived": false})
 	args["input"] = map[string]string{"name": "Different"}
 	call(t, c, "create_member", args, true)
 	call(t, c, "create_member", map[string]any{"operationId": "../bad", "input": map[string]string{"name": "Bad"}}, true)

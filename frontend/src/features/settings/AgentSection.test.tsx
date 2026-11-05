@@ -7,8 +7,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { AgentSection } from "./AgentSection";
 
-const { status, enable, disable, connection, operations } = vi.hoisted(() => ({ status: vi.fn(), enable: vi.fn(), disable: vi.fn(), connection: vi.fn(), operations: vi.fn() }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/agent", () => ({ Service: { Status: status, Enable: enable, Disable: disable, Connection: connection, RecentOperations: operations } }));
+const { status, enable, disable, connection, operations, setReview } = vi.hoisted(() => ({ status: vi.fn(), enable: vi.fn(), disable: vi.fn(), connection: vi.fn(), operations: vi.fn(), setReview: vi.fn() }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/agent", () => ({ Service: { Status: status, Enable: enable, Disable: disable, Connection: connection, RecentOperations: operations, SetInvestmentReviewManagement: setReview } }));
 const off = { running: false, mode: "read_only", endpoint: "", instanceId: "test" };
 const on = { ...off, running: true, endpoint: "http://127.0.0.1:1234/mcp" };
 function mount() { const client = createTestQueryClient({ retry: false }); return render(<QueryClientProvider client={client}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><AgentSection /></BusinessPageRoot></QueryClientProvider>); }
@@ -64,6 +64,32 @@ describe("AgentSection", () => {
     await user.click(screen.getByRole("button", { name: "Apply permissions" }));
     await waitFor(() => expect(enable).toHaveBeenCalledWith("ledger_write"));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Apply permissions" })).not.toBeInTheDocument());
+  });
+  it("keeps investment review management off until ledger write is enabled with the switch", async () => {
+    const user = userEvent.setup();
+    mount();
+    await user.selectOptions(await screen.findByLabelText("Agent permissions"), "ledger_write");
+    const box = screen.getByRole("checkbox", { name: "Investment review management" });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/Off by default/)).toBeInTheDocument();
+    expect(screen.getByText(/review screen is unchanged/)).toBeInTheDocument();
+    await user.click(box);
+    expect(setReview).not.toHaveBeenCalled();
+    expect(enable).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Enable MCP" }));
+    await waitFor(() => expect(setReview).toHaveBeenCalledWith(true));
+    expect(enable).toHaveBeenCalledWith("ledger_write");
+  });
+  it("applies investment review management on a running ledger connection without changing the mode", async () => {
+    status.mockResolvedValue({ ...on, mode: "ledger_write", investmentReviewManagement: false });
+    const user = userEvent.setup();
+    mount();
+    await screen.findByText("MCP is running on this computer");
+    await user.click(screen.getByRole("checkbox", { name: "Investment review management" }));
+    expect(setReview).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Apply permissions" }));
+    await waitFor(() => expect(setReview).toHaveBeenCalledWith(true));
+    expect(enable).not.toHaveBeenCalled();
   });
   it("reports failed activation without displaying connection credentials", async () => {
     enable.mockRejectedValue(new Error("activation failed"));

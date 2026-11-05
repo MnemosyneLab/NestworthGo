@@ -96,6 +96,7 @@ func Add[I, O any](r *Registry, definition *Definition, handler func(context.Con
 	if err != nil {
 		panic(fmt.Sprintf("%s input schema: %v", d.Name, err))
 	}
+	normalizeNullableInputSchema(input)
 	if input.Type != "object" {
 		panic("capability input must be an object: " + d.Name)
 	}
@@ -163,7 +164,7 @@ func inferSchema[T any](supplied any) (*jsonschema.Schema, error) {
 	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	return jsonschema.ForType(t, &jsonschema.ForOptions{})
+	return jsonschema.ForType(t, &jsonschema.ForOptions{TypeSchemas: patchTypeSchemas()})
 }
 
 func clone(d Definition) Definition {

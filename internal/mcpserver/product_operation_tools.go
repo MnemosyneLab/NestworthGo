@@ -47,7 +47,7 @@ type RenewProductInput struct {
 type ProductOperationInput struct {
 	Renew              *RenewProductInput                  `json:"renew,omitempty"`
 	ReconciliationLink *domain.ReconciliationLink          `json:"reconciliationLink,omitempty"`
-	Kind               string                              `json:"kind" jsonschema:"open, record_existing, receive_interest, settle, renew or undo; exactly one matching payload"`
+	Kind               string                              `json:"kind"`
 	Open               *application.OpenProductCommand     `json:"open,omitempty"`
 	RecordExisting     *RecordExistingProductInput         `json:"recordExisting,omitempty"`
 	ReceiveInterest    *application.ReceiveInterestCommand `json:"receiveInterest,omitempty"`
@@ -97,7 +97,7 @@ func productWriteError(err error) error {
 }
 
 func (s *Service) productOperationTools(server *toolSet) {
-	readTool(server, "preview_product_operation", "Preview one managed-product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, atomic renewal (no reservation changes) or the latest safe operation-group undo. It records completed facts, never bank orders or automatic maturity cash. Supply exactly one matching payload; money is decimal strings in the original currency. record_existing needs the original totalCostBasis and currentValue and cashExcludesProduct=true. effectiveAt may be empty (frozen now), one timestamp, or a local date and time in the history timezone; startOn is descriptive. Settle closes the whole contract, and actual early receipts are allowed. Reservations are never released or restored; use the GUI if they constrain the operation. Inspect normalizedJSON and effects, then commit_plan.", s.previewProductOperation)
+	readTool(server, "preview_product_operation", "Preview one managed-product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, atomic renewal (no reservation changes) or the latest safe operation-group undo. It records completed facts, never bank orders or automatic maturity cash. Supply exactly one matching payload; money is decimal strings in the original currency. record_existing needs the original totalCostBasis and currentValue and cashExcludesProduct=true. effectiveAt may be empty (frozen now), one timestamp, or a local date and time in the history timezone; startOn is descriptive. Settle closes the whole contract, and actual early receipts are allowed. Reservations are never released or restored; use the GUI if they constrain the operation. Inspect normalizedJSON and effects, then commit_plan.", s.previewProductOperation, productOperationInputSchema())
 }
 
 func (s *Service) previewProductOperation(ctx context.Context, in ProductOperationInput) (any, error) {

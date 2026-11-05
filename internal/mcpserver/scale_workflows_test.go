@@ -58,7 +58,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		}
 	}
 	c := ledgerSession(t, fx)
-	cap := scaleCapture(t, c, "list_products", skillExample(t, "paging-and-batches", "scale-products", nil))
+	cap := scaleCapture(t, c, "list_products", skillExample(t, "product-pages", "scale-products", nil))
 	products := scaleSection(t, c, cap, "products")
 	if len(products) != 12 {
 		t.Fatal(len(products))
@@ -72,7 +72,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 			t.Fatal("compact row includes policy")
 		}
 	}
-	item := scaleCapture(t, c, "get_read_item", skillExample(t, "paging-and-batches", "scale-product-item", map[string]string{"captureId": cap["captureId"].(string), "productId": id}))
+	item := scaleCapture(t, c, "get_read_item", skillExample(t, "product-pages", "scale-product-item", map[string]string{"captureId": cap["captureId"].(string), "productId": id}))
 	reserves := scaleSection(t, c, item, "reservations/"+id)
 	if len(reserves) != 91 {
 		t.Fatal(len(reserves))
@@ -108,14 +108,14 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 			t.Fatal(v)
 		}
 	}
-	empty := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "paging-and-batches", "scale-empty-match", nil))
+	empty := scaleCapture(t, c, "get_liquidity_overview", skillExample(t, "product-pages", "scale-empty-match", nil))
 	if len(scaleSection(t, c, empty, "sources")) != 0 {
 		t.Fatal("empty intersection")
 	}
 	productJSONEqual(t, empty["summary"].(map[string]any)["buckets"], overview.Buckets)
 	call(t, c, "get_liquidity_overview", map[string]any{"filter": map[string]any{}}, false)
 	call(t, c, "get_liquidity_overview", map[string]any{"sort": map[string]any{"field": "availableBase"}}, true)
-	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data_batch", "compare_market_data_import", "update_instruments_batch"} {
+	for _, name := range []string{"get_read_page", "get_read_item", "get_market_data", "compare_market_data_import", "update_instruments_batch"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, wire := productHTTP(t, fx.service, payload, "")
 		if status != 200 || len(wire) > contextWireLimit || strings.Contains(string(wire), "privateprivate") {
@@ -178,7 +178,7 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 	receipt := mutate(t, c, "import_market_data", map[string]any{"items": []any{item, map[string]any{"baseCurrency": "USD", "quoteCurrency": "SGD", "value": "1.28", "kind": "daily_reference", "date": "2026-09-28", "sourceTitle": "Synthetic FX"}}})
 	id := receipt["quoteIds"].([]any)[0]
 	targets := []any{map[string]any{"instrumentId": fx.instrument}, map[string]any{"baseCurrency": "SGD", "quoteCurrency": "USD"}, map[string]any{"instrumentId": uuid.NewString()}}
-	current := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": targets, "limit": 1})
+	current := scaleCapture(t, c, "get_market_data", map[string]any{"targets": targets, "limit": 1})
 	if len(current["sections"].(map[string]any)) != 1 {
 		t.Fatal("current included history")
 	}
@@ -187,7 +187,7 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 		t.Fatal("missing target")
 	}
 	for _, view := range []string{"coverage", "history"} {
-		cap := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": targets, "view": view, "limit": 1})
+		cap := scaleCapture(t, c, "get_market_data", map[string]any{"targets": targets, "view": view, "limit": 1})
 		for _, raw := range scaleSection(t, c, cap, "targets") {
 			v := raw.(map[string]any)
 			coverage := v["coverage"].(map[string]any)
@@ -206,7 +206,7 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 		}
 	}
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": id, "sourceTitle": "Synthetic withdrawal"}}})
-	audit := scaleCapture(t, c, "list_agent_market_data", skillExample(t, "paging-and-batches", "scale-agent-retractions", map[string]string{"instrumentId": fx.instrument}))
+	audit := scaleCapture(t, c, "list_agent_market_data", skillExample(t, "market-read-pages", "scale-agent-retractions", map[string]string{"instrumentId": fx.instrument}))
 	records := scaleSection(t, c, audit, "records")
 	if len(records) != 1 || records[0].(map[string]any)["instrumentId"] != fx.instrument {
 		t.Fatal("retraction lost target identity")
@@ -215,10 +215,10 @@ func TestScaleHTTPMarketCurrentHistoryAndAgentRetraction(t *testing.T) {
 	for range 99 {
 		many = append(many, map[string]any{"instrumentId": uuid.NewString()})
 	}
-	large := scaleCapture(t, c, "get_market_data_batch", map[string]any{"targets": many, "view": "history", "limit": 100})
+	large := scaleCapture(t, c, "get_market_data", map[string]any{"targets": many, "view": "history", "limit": 100})
 	if len(scaleSection(t, c, large, "targets")) != 100 {
 		t.Fatal("100 target completeness")
 	}
-	call(t, c, "get_market_data_batch", map[string]any{"targets": []any{targets[0], targets[0]}}, true)
+	call(t, c, "get_market_data", map[string]any{"targets": []any{targets[0], targets[0]}}, true)
 	call(t, c, "list_agent_market_data", map[string]any{"offset": 1}, true)
 }

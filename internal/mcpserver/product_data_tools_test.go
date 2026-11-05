@@ -604,11 +604,11 @@ func TestProductHTTPDataSkillExamples(t *testing.T) {
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	deposit, _ := productDataSeed(t, fx, c, "term_deposit")
-	p := productDataPreviewHTTP(t, c, "preview_product_terms", skillExample(t, "products", "product-terms", map[string]string{"productId": deposit}))
-	call(t, c, "commit_plan", skillExample(t, "products", "product-terms-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)}), false)
+	p := productDataPreviewHTTP(t, c, "preview_product_terms", skillExample(t, "product-terms", "product-terms", map[string]string{"productId": deposit}))
+	call(t, c, "commit_plan", skillExample(t, "product-terms", "product-terms-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)}), false)
 	locked, _ := productDataSeed(t, fx, c, "locked_product")
-	p = productDataPreviewHTTP(t, c, "preview_product_valuation", skillExample(t, "products", "product-valuation", map[string]string{"productId": locked}))
-	call(t, c, "commit_plan", skillExample(t, "products", "product-valuation-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)}), false)
+	p = productDataPreviewHTTP(t, c, "preview_product_valuation", skillExample(t, "product-valuation", "product-valuation", map[string]string{"productId": locked}))
+	call(t, c, "commit_plan", skillExample(t, "product-valuation", "product-valuation-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)}), false)
 	productAssertNetWorth(t, c, "2100")
 }
 

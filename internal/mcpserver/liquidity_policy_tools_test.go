@@ -175,7 +175,14 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 			if p["afterOrigin"] != "assumed" || p["after"].(map[string]any)["revision"] != float64(0) {
 				t.Fatal(p)
 			}
-			result = productDataCommitHTTP(t, c, "commit_plan", p["planId"].(string), uuid.NewString())
+			id, op = p["planId"].(string), uuid.NewString()
+			result = productDataCommitHTTP(t, c, "commit_plan", id, op)
+			if retry := productDataCommitHTTP(t, c, "commit_plan", id, op); !reflect.DeepEqual(result, retry) {
+				t.Fatal("reset retry did not return its saved result")
+			}
+			if code := productDataCommitCode(t, c, "commit_plan", id); code != "stale_preview" {
+				t.Fatalf("used reset with a different operationId: %s", code)
+			}
 			if result["revision"] != float64(0) {
 				t.Fatal(result)
 			}
@@ -270,11 +277,7 @@ func TestLiquidityPolicyHTTPValidationCASAndRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	receipt.Status = "pending"
 	receipt.Result = nil
-	if err := fx.service.writePrivate(path, receipt); err != nil {
-		t.Fatal(err)
-	}
 	newer := input
 	newer.ExpectedRevision = 3
 	newer.Policy.Note = productString("Concurrent GUI rule edit")
@@ -283,14 +286,24 @@ func TestLiquidityPolicyHTTPValidationCASAndRecovery(t *testing.T) {
 	}
 	current := policyOverview(t, c)
 	args := map[string]any{"operationId": op, "input": map[string]any{"planId": id}}
-	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "operation_outcome_unknown" {
-		t.Fatal(code)
-	}
-	if !reflect.DeepEqual(current, policyOverview(t, c)) {
-		t.Fatal("ambiguous retry overwrote newer rules")
-	}
-	if code := productDataCommitCode(t, c, "commit_plan", id); code != "stale_preview" {
-		t.Fatal(code)
+	for _, state := range []string{"pending", "unknown"} {
+		receipt.Status = state
+		if err := fx.service.writePrivate(path, receipt); err != nil {
+			t.Fatal(err)
+		}
+		got := call(t, c, "get_operation", IDInput{ID: op}, false)["data"].(map[string]any)
+		if got["status"] != "unknown" || got["result"] != nil {
+			t.Fatalf("ambiguous %s receipt reported as %v", state, got)
+		}
+		if code := ledgerErrorCode(t, c, "commit_plan", args); code != "operation_outcome_unknown" {
+			t.Fatalf("same operationId with %s receipt: %s", state, code)
+		}
+		if code := productDataCommitCode(t, c, "commit_plan", id); code != "stale_preview" {
+			t.Fatalf("new operationId with %s receipt: %s", state, code)
+		}
+		if !reflect.DeepEqual(current, policyOverview(t, c)) {
+			t.Fatalf("ambiguous %s retry overwrote newer rules", state)
+		}
 	}
 	args["input"] = map[string]any{"planId": uuid.NewString()}
 	if code := ledgerErrorCode(t, c, "commit_plan", args); code != "conflict" {
@@ -331,12 +344,12 @@ func TestLiquidityPolicyHTTPExamplesNullableModesAndGuards(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	args := skillExample(t, "products", "liquidity-policy-save", map[string]string{"accountId": fx.checking})
+	args := skillExample(t, "liquidity-policy", "liquidity-policy-save", map[string]string{"accountId": fx.checking})
 	p := productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", args)
-	commit := skillExample(t, "products", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
+	commit := skillExample(t, "liquidity-policy", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
 	call(t, c, "commit_plan", commit, false)
-	p = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", skillExample(t, "products", "liquidity-policy-reset", map[string]string{"accountId": fx.checking}))
-	commit = skillExample(t, "products", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
+	p = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", skillExample(t, "liquidity-policy", "liquidity-policy-reset", map[string]string{"accountId": fx.checking}))
+	commit = skillExample(t, "liquidity-policy", "liquidity-policy-commit", map[string]string{"operationId": uuid.NewString(), "planId": p["planId"].(string)})
 	call(t, c, "commit_plan", commit, false)
 	ref := liquidity.SourceRefDTO{Kind: "account_value", AccountID: fx.checking}
 	revision := 0

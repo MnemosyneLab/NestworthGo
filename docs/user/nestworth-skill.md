@@ -53,9 +53,54 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.3; published skill: 2.0.0
+### Current repository skill: 3.0.10; published skill: 2.0.0
 
-Repository skill 3.0.3 includes the unified business continuation entry
+Repository skill 3.0.10 bounds retained period details and clarifies recovery and
+conditional instrument clears. It gives patch updates one rule: omit a field to keep it,
+and JSON null clears a clearable field. `update_account` no longer uses
+`<field>Set`. `update_instrument` no longer uses `replace`. An empty string is
+rejected on those updates, including instrument `shortName`, so it neither
+keeps nor clears. Directory name, icon and archived still cannot be cleared.
+Full replacements are unchanged, including a hidden investment-review rule
+update. No tool was added or removed.
+
+Repository skill 3.0.8 removes `get_contribution_item`, `get_return_day` and
+`get_asset_driver_detail`. Open those details with `get_read_item` on the
+parent capture: contribution rows use section=`rows`; an `analyze_period`
+return day uses section=`returnDays` and id=YYYY-MM-DD; an asset-change
+bucket uses section=`assetDrivers` and the bucket key.
+
+Repository skill 3.0.7 tells agents that investment-review management tools are
+hidden unless Settings enables that switch on a `ledger_write` connection.
+Review reads stay available. No tool was added or removed from the App; default
+MCP discovery omits the seven management tools until the switch is on.
+
+Repository skill 3.0.6 splits the long product, financial-context and paging
+references into one file per task. Each file keeps that task's steps, failure
+recovery and the same schema-checked examples. No tool was added or removed.
+`commit_plan` may still omit `operationId`. The server derives one from `planId`.
+
+Repository skill 3.0.5 is the coordinator PATCH for the Wave 1 tool-surface
+changes already in this tree and for this follow-on. Wave 1 removed
+`archive_member`, `archive_institution`, `archive_group`,
+`get_historical_overview_series` and `get_market_data_batch`. Member,
+institution and group archive is `archived` on the matching `update_*` tool.
+Historical overview and market data each keep one tool with two input shapes.
+This pass removes the optional `tools/list` `_meta.nestworth.toolGroups`
+filter. Clients do not send it, and a missing group never changed `tools/call`
+permission. Default discovery stays the full list for the permission mode.
+`commit_plan` may omit `operationId`; the server derives one from `planId`.
+Other writes still require `operationId`, and an explicit id remains valid.
+Success results still carry both `structuredContent` and JSON text.
+`get_account_snapshot` and `get_account_valuations` stay separate tools on one
+current-valuation capture: one required id with not_found, versus filtered rows
+with an empty page. Neither is a return or an endpoint movement. The version
+stays a PATCH step because the policy below does not raise MAJOR or MINOR for
+tool changes alone, and actual discovery is the authority when connecting an
+older App to this skill.
+
+Repository skill 3.0.4 clarifies partial institution updates and adds a
+schema-checked icon-only example. It includes the unified business continuation entry
 `get_read_page({cursor, limit?})`, default 25/max 100, including market-import
 comparison guidance. Live and version-bound reads return items/page; review
 inputs use optional limit. Descriptors retain live/version_bound/frozen semantics,
@@ -94,7 +139,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.3 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.10 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

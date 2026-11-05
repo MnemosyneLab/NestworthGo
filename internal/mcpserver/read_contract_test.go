@@ -15,7 +15,7 @@ func sectionEvidence(t *testing.T, c *mcp.ClientSession, name string, args any) 
 	for section := range cap["sections"].(map[string]any) {
 		rows := scaleSection(t, c, cap, section)
 		target, key := out, section
-		if name == "get_contribution_item" {
+		if name == "get_read_item" {
 			key = section[strings.LastIndex(section, "/")+1:]
 		}
 		if name == "analyze_period" {

@@ -424,7 +424,7 @@ func isFinancialContextTool(name string) bool {
 
 func isFeatureTool(name string) bool {
 	switch name {
-	case "get_upcoming_actions", "get_historical_overview", "get_historical_overview_series":
+	case "get_upcoming_actions", "get_historical_overview":
 		return true
 	default:
 		return false
@@ -456,7 +456,7 @@ func isBoundedHTTPCall(request financialContextHTTPCall) bool {
 		return true
 	}
 	switch request.Params.Name {
-	case "list_activities", "get_activity", "search_market_instruments", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail", "get_context", "get_catalog", "get_account_snapshot", "get_market_data", "list_instruments", "list_agent_market_data", "get_account_valuations", "get_overview", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "scan_data_health", "preview_data_repair", "get_data_repair_job":
+	case "list_activities", "get_activity", "search_market_instruments", "analyze_period", "list_contributions", "get_context", "get_catalog", "get_account_snapshot", "get_market_data", "list_instruments", "list_agent_market_data", "get_account_valuations", "get_overview", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "scan_data_health", "preview_data_repair", "get_data_repair_job":
 		return true
 	}
 	return false
