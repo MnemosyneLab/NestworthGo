@@ -115,7 +115,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
     conversation?.runs?.forEach((run, index) => visible.set(run.id, { run, offset: conversation.offset + index }));
   }
   const runs = [...visible.values()].sort((a, b) => a.offset - b.offset).map(entry => entry.run);
-  const signature = `${latest?.progress?.revision ?? 0}:` + runs.map(run => `${run.id}:${run.state}:${run.text}:${run.evidence?.length}`).join("|");
+  const signature = `${latest?.progress?.revision ?? 0}:` + runs.map(run => `${run.id}:${run.state}:${run.text?.length}:${run.evidence?.length}:${run.tools?.length}`).join("|");
   useLayoutEffect(() => {
     const el = viewport.current;
     if (!el) return;
