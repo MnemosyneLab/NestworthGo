@@ -234,8 +234,9 @@ direct minimal after discovery without directory pre-reads, explicit named
 selection, all three page sections, zero-row deferral, expiry/restart with an
 unchanged semantic hash, and row-kind/FX/time-provenance semantics. Standalone
 bundle tests verify those examples and Inspector-specific HTTP configuration
-survive packaging and installation. The current source and published skill
-version is 1.11.0; installed clients require an explicit update. The published
+survive packaging and installation. The current repository skill is 3.0.1
+(unpublished); the latest published App v0.3.10 includes skill 2.0.0. Installed
+clients require an explicit update. The historical
 [v0.3.9 release](../releases/v0.3.9.md) includes skill 1.11.0; historical
 v0.3.8 assets retain skill 1.9.0. The release record separately identifies
 unperformed external-client and test-ledger acceptance; package checks and

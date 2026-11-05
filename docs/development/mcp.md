@@ -846,7 +846,7 @@ preview/commit, durable receipt-first recovery and user-provided provenance.
 Existing financial target reconciliation keeps its original meaning. Optional
 reconciliationLink on ledger target/change and managed-product previews is part
 of the immutable request hash and owning financial transaction. A correction
-never confirms a check. Maintained Skill 1.11.0 documents both routes, partial
+never confirms a check. Current repository skill 3.0.1 documents both routes, partial
 completion, source precision and same-operation recovery.
 
 
@@ -997,9 +997,9 @@ sections' progress are not repeated. Clients save the initial header, append
 items to section, and update that section's progress from page. Identity/hash,
 fixed TTL, generation revocation and exact row content remain authoritative.
 Initial capture and get_financial_context_item response shapes are unchanged.
-This is a breaking continuation contract, distributed with skill 4.0.0; there is
-one implementation and no legacy response option. Full wire sizing still counts
-both SDK representations and the final JSON-RPC envelope.
+This is a breaking continuation contract, documented by current repository skill
+3.0.1; there is one implementation and no legacy response option. Full wire
+sizing still counts both SDK representations and the final JSON-RPC envelope.
 
 ### Reconciliation read wire budget
 
@@ -1015,7 +1015,7 @@ no evidence is truncated. Preview/commit responses and operation recovery
 receipts retain their existing behavior and are not intercepted after execution.
 
 
-## Bounded discovery and task-directed reads (skill 5.0.0)
+## Bounded discovery and task-directed reads (skill 3.0.1)
 
 The SDK tools/list page size is 16. Follow every nextCursor and cache the complete
 tool inventory/schema for the connection. The complete HTTP discovery response
@@ -1113,4 +1113,6 @@ Live/version-bound initial responses use items/page, while frozen initial sectio
 and financial disclosure headers keep their owning structure. No caller builds
 triple activity keys, product cursors or last-ID review cursors. Both external
 MCP and built-in AI use the same capability projection and routing. The MCP
-implementation version is 3.0.0; the distributable skill is independently 6.0.1.
+implementation version is 3.0.0; the distributable skill is independently 3.0.1
+(unpublished; see the
+[skill version policy](../user/nestworth-skill.md#skill-version-policy)).

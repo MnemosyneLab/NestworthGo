@@ -129,8 +129,11 @@ Connect a local client in **Settings → AI / MCP**, then install the optional
 bash tools/install-nestworth-skill.sh
 ```
 
-Standalone skill **1.11.0** is also included in the v0.3.9 release. Installing
-it does not enable MCP, grant permissions or change financial records.
+The current repository skill is **3.0.1** (unpublished); the latest published
+App v0.3.10 includes skill **2.0.0**, and v0.3.9 retains **1.11.0**. Installing
+a skill does not enable MCP, grant permissions or change financial records.
+See the [skill guide](docs/user/nestworth-skill.md#skill-version-policy) for the
+default PATCH increment rule and the explicit version normalization.
 
 ## Built around your data
 

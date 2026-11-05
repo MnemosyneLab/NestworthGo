@@ -1,5 +1,11 @@
 # Compact MCP management reads and financial continuations
 
+Version clarification (2026-11-05): the current repository skill is 3.0.1,
+unpublished. Version labels and measurements below retain the original tested
+commits; they do not describe a published release or the normalized tree.
+See the [current skill guide](../user/nestworth-skill.md#skill-version-policy)
+for the explicit 6.0.1 → 3.0.1 normalization and default PATCH increment rule.
+
 Original paired-measurement base: main `34f048f797c4667689a729cd2324bdbd9eb005f8`.
 Current integration base: main `002b4f0` (frozen contributions, import comparison
 and complete reconciliation wire budgets included).

@@ -1,5 +1,11 @@
 # MCP audit follow-ups
 
+Version clarification (2026-11-05): the current repository skill is 3.0.1,
+unpublished. Version labels and measurements below retain the original tested
+commits; they do not describe a published release or the normalized tree.
+See the [current skill guide](../user/nestworth-skill.md#skill-version-policy)
+for the explicit 6.0.1 → 3.0.1 normalization and default PATCH increment rule.
+
 ## Published baseline and scope
 
 Baseline: main `a46d38bbbf84f9908506463dae1e27d28f62b163`.

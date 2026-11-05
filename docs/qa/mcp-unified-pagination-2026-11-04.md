@@ -1,5 +1,11 @@
 # Unified MCP pagination verification — 2026-11-04
 
+Version clarification (2026-11-05): the current repository skill is 3.0.1,
+unpublished. Version labels and measurements below retain the original tested
+commits; they do not describe a published release or the normalized tree.
+See the [current skill guide](../user/nestworth-skill.md#skill-version-policy)
+for the explicit 6.0.1 → 3.0.1 normalization and default PATCH increment rule.
+
 Runtime/test source: `1e93bb2` (MCP implementation `08d85b8`, built-in adapter
 follow-up `1e93bb2`), based on main `9666aab`. Subsequent documentation-only delivery
 changes do not change the verified runtime. All data was synthetic and isolated.
