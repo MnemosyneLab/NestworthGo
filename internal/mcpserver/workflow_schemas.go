@@ -73,6 +73,7 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			s.OneOf = append(s.OneOf, branch)
 		}
 		s.DependentRequired = map[string][]string{"fee": {"feeCurrency"}, "effectiveLocalDate": {"effectiveLocalTime"}, "effectiveLocalTime": {"effectiveLocalDate"}, "interestOrFee": {"interestOrFeeCurrency"}}
+		slimPreviewChangeSchema(s)
 	}
 	return s
 }

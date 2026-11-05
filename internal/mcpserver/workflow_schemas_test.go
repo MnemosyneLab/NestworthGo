@@ -22,8 +22,8 @@ func TestWorkflowStructuralDependencies(t *testing.T) {
 		{"ledger kind", workflowSchema[history.ChangeCommandRequest]("preview_change"), nil, nil},
 		{"repair view", workflowSchema[DataRepairJobInput]("get_data_repair_job"), []map[string]any{{"jobId": "id"}, {"jobId": "id", "view": "evidence"}}, []map[string]any{{"jobId": "id", "view": "full"}}},
 	}
-	cases[2].valid = []map[string]any{{"kind": "money_added", "accountId": "a", "amount": "1.0001", "currency": "USD", "reason": "income"}, {"kind": "position_transfer", "fromHoldingId": "a", "toAccountId": "b", "quantity": "1"}}
-	cases[2].invalid = []map[string]any{{"kind": "money_added"}, {"kind": "invented"}, {"kind": "position_transfer", "fromHoldingId": "a", "quantity": "1"}, {"kind": "position_transfer", "fromHoldingId": "a", "toHoldingId": "b", "toAccountId": "c", "quantity": "1"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "effectiveLocalDate": "2026-09-01"}}
+	cases[2].valid = []map[string]any{{"kind": "money_added", "accountId": "a", "amount": "1.0001", "currency": "USD", "reason": "income"}, {"kind": "position_transfer", "fromHoldingId": "a", "toAccountId": "b", "quantity": "1"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "note": nil}}
+	cases[2].invalid = []map[string]any{{"kind": "money_added"}, {"kind": "invented"}, {"kind": "position_transfer", "fromHoldingId": "a", "quantity": "1"}, {"kind": "position_transfer", "fromHoldingId": "a", "toHoldingId": "b", "toAccountId": "c", "quantity": "1"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "effectiveLocalDate": "2026-09-01"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "added": true}, {"kind": "value_update", "accountId": "a", "newValue": "1", "newValueCurrency": "USD"}}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			resolved, err := c.schema.Resolve(nil)

@@ -1336,3 +1336,30 @@ byte delta was measured for this merge before the fold. Budgets were not
 changed. Skill reference text names the merged tools; `skills/nestworth/VERSION`
 stays 3.0.4 for the coordinator.
 
+### E2 large input schemas
+
+Measured with `TestDiscoveryBudget` on this branch after the directory-archive
+fold and the historical/market merge. The two input schemas are `jsoncodec`
+bytes of the published tool schema. Tool counts did not change. `read_only`
+stayed 51 tools / 63796 bytes and `directory_write` stayed 64 tools / 79219
+bytes. Budgets were not changed. `skills/nestworth/VERSION` was not bumped.
+
+| Schema | Before | After |
+| --- | --- | --- |
+| `preview_product_operation` input | 7,609 | 5,396 |
+| `preview_change` input | 3,221 | 2,516 |
+| `ledger_write` `tools/list` | 123,612 | 120,694 |
+
+`preview_product_operation` keeps one `productTerms`, `productPolicy` and
+`productSettle` definition and points the payloads at them. Its kind `oneOf`
+names the required payload and rejects the other payload keys. It does not copy
+terms, policy or settle. The kind sentence was already in the tool description
+(792 bytes, unchanged) and is no longer repeated on the schema.
+
+`preview_change` already had a kind `oneOf` of required names only (1,320 bytes
+on the 3,221-byte schema, no field schemas) and no description keys. Plain
+string properties now share one string schema plus a name allowlist. A per-field
+`$ref` is longer than `{"type":"string"}`, so it was not used. `added`,
+`mutationId`, `newValue` and `newValueCurrency` are omitted because the handler
+rejects them for every supported kind. Each kind's required names are unchanged.
+
