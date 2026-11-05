@@ -1309,3 +1309,30 @@ Measured `tools/list` bytes on this change, same fixture as
 126422 → 124976 bytes. Budgets were not raised. Skill reference text names the
 folded tools; `skills/nestworth/VERSION` is left for the coordinator's PATCH.
 
+### Historical overview and market data merged
+
+`get_historical_overview_series` and `get_market_data_batch` are removed.
+
+`get_historical_overview` takes one of two inputs, enforced by input `oneOf`.
+`{date, compareTo}` is one closed endpoint, with an empty date selecting the GUI
+default month end and an optional second closed date or `current`. `{from, to}`
+is a forward series of 1–31 closed dates. Do not combine the shapes. Both
+results stay `mcp-read/1` envelopes. A series adds household points and does not
+nest a full overview. Endpoint movement is still not a return.
+
+`get_market_data` takes one of two inputs, also enforced by input `oneOf`. One
+`instrumentId` or an oriented currency pair returns `{current}` and no history.
+`targets` (1–100) returns the previous batch capture: `view` current, coverage
+or history, named range or inclusive `fromDate`/`toDate`, per-target sections or
+`historyLayout=records`, and original FX `value` versus oriented `displayValue`.
+The output schema is `oneOf` `{current}` and the compact read envelope. Batch
+paging, the 1–100 target budget and evidence fields are unchanged.
+
+Measured `tools/list` bytes with `TestDiscoveryBudget` after this merge, on top
+of the directory-archive fold: read_only 51 tools / 63796 bytes; directory_write
+64 tools / 79219 bytes; ledger_write 85 tools / 123612 bytes. Against the fold's
+measured sizes that is −2 tools and −1364 bytes in every mode. The same −1364
+byte delta was measured for this merge before the fold. Budgets were not
+changed. Skill reference text names the merged tools; `skills/nestworth/VERSION`
+stays 3.0.4 for the coordinator.
+
