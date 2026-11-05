@@ -328,3 +328,18 @@ receipt wiring, mobile/scoped principals, native GUI/accessibility, physical
 devices, full power-loss/restore acceptance and real-provider encrypted-signature
 compatibility. Larger periods/households need measured memory/latency evidence
 before budgets are expanded. All unsupported paths stay closed.
+
+### Safe run failure diagnostics
+
+Failed runs expose only host-owned fixed codes: provider authentication/access
+(HTTP 401/403), rate/quota limit (429), request rejection (other non-200 responses
+below 500), temporary provider failure (5xx), connection failure, unsupported or
+incomplete response, unusable native history, unusable local tool result, resource
+budget or timeout. Unknown errors retain `provider_or_storage_failure`. The
+transport records only the fixed category across SDK wrapping; provider error
+bodies, arbitrary errors, request parameters and tool results are never copied
+into diagnostics. These categories identify a failure class, not a verified cause
+inside the provider. IPC events, durable state and the desktop use the same codes;
+English, Simplified Chinese and Traditional Chinese guidance provides next steps.
+A failure still leaves the last successful native checkpoint intact and requires
+an explicit new request. Older generic failures cannot be retrospectively classified.

@@ -21,6 +21,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"github.com/openai/openai-go/v3/responses"
+	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -65,6 +66,7 @@ type round struct {
 	replay      map[string][]json.RawMessage
 	replayOrder []string
 	output      []json.RawMessage
+	failure     error
 }
 
 // Preserve each complete native output group at its original history position.
@@ -214,7 +216,7 @@ func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, strea
 	state := &round{stream: stream, replay: map[string][]json.RawMessage{}}
 	prepared, err := m.prepareInput(in, state)
 	if err != nil {
-		return nil, err
+		return nil, assistant.ErrModelHistory
 	}
 	ctx = context.WithValue(ctx, roundKey{}, state)
 	// The upstream nonstream converter preserves complete native reasoning. Its
@@ -225,7 +227,10 @@ func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, strea
 		return nil, ctx.Err()
 	}
 	if err != nil {
-		return nil, errProtocol
+		if state.failure != nil {
+			return nil, state.failure
+		}
+		return nil, assistant.ErrProviderResponse
 	} // SDK errors may contain provider bodies.
 	if msg == nil {
 		return nil, errProtocol
@@ -252,7 +257,23 @@ type transport struct {
 	limits Limits
 }
 
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, failure error) {
+	// The SDK may wrap/replace transport errors. Keep only our fixed classification
+	// in the request-local round, never arbitrary SDK or provider text.
+	defer func() {
+		if failure != nil {
+			if state, ok := req.Context().Value(roundKey{}).(*round); ok {
+				switch {
+				case errors.Is(failure, errLimit):
+					state.failure = assistant.ErrBudget
+				case errors.Is(failure, errProtocol):
+					state.failure = assistant.ErrProviderResponse
+				default:
+					state.failure = failure
+				}
+			}
+		}
+	}()
 	state, ok := req.Context().Value(roundKey{}).(*round)
 	if !ok || req.URL.String() != t.target || req.Method != http.MethodPost || req.Body == nil {
 		return nil, errProtocol
@@ -318,7 +339,11 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if str(tool, "type") != "function" {
 				return nil, errProtocol
 			}
+			// Shared capability schemas intentionally have optional fields. Explicitly
+			// retain omission semantics rather than Responses' implicit strict conversion.
+			tool["strict"] = json.RawMessage("false")
 		}
+		fields["tools"], _ = jsoncodec.Marshal(tools)
 	}
 	body, err = jsoncodec.Marshal(fields)
 	if err != nil || len(body) > t.limits.Bytes {
@@ -333,14 +358,24 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if response != nil && response.Body != nil {
 			response.Body.Close()
 		}
-		return nil, errProtocol
+		return nil, assistant.ErrProviderConnection
 	}
 	if response == nil || response.Body == nil {
 		return nil, errProtocol
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, errProtocol
+		switch response.StatusCode {
+		case 401, 403:
+			return nil, assistant.ErrProviderAuthentication
+		case 429:
+			return nil, assistant.ErrProviderRateLimited
+		default:
+			if response.StatusCode >= 500 {
+				return nil, assistant.ErrProviderUnavailable
+			}
+			return nil, assistant.ErrProviderRequest
+		}
 	}
 	typ, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if err != nil || (state.stream && typ != "text/event-stream") || (!state.stream && typ != "application/json") {

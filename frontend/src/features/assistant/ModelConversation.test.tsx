@@ -417,3 +417,27 @@ it.each([
     expect(navigate).not.toHaveBeenCalled();
   },
 );
+
+it.each([
+  ["provider_authentication", "Check the saved API key and model access"],
+  ["provider_rate_limited", "Check usage and billing"],
+  ["provider_request_rejected", "Check the model name and access"],
+  ["provider_unavailable", "provider is temporarily unavailable"],
+  ["provider_connection", "Check your network or proxy"],
+  ["provider_response_rejected", "response was incomplete or unsupported"],
+  ["model_history_rejected", "Start a new conversation"],
+  ["tool_result_rejected", "Try a narrower financial question"],
+  ["assistant_budget_exceeded", "run reached a resource limit"],
+  ["private-canary-unknown-code", "No new model history was saved"],
+])("shows safe actionable diagnostic for %s", async (code, message) => {
+  api.Inspect.mockResolvedValue({
+    id: "conversation",
+    runs: [{ ...run, state: "failed", text: "", evidence: [], code }],
+    runCount: 1,
+    offset: 0,
+  });
+  mount();
+  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(screen.queryByText(/private-canary/)).not.toBeInTheDocument();
+  expect(api.Start).not.toHaveBeenCalled();
+});

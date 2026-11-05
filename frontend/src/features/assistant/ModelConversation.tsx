@@ -13,6 +13,18 @@ import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
+const diagnosticKeys: Record<string, string> = {
+  timeout: "aiChat.timeout",
+  provider_authentication: "aiChat.providerAuthentication",
+  provider_rate_limited: "aiChat.providerRateLimited",
+  provider_request_rejected: "aiChat.providerRequestRejected",
+  provider_unavailable: "aiChat.providerUnavailable",
+  provider_connection: "aiChat.providerConnection",
+  provider_response_rejected: "aiChat.providerResponseRejected",
+  model_history_rejected: "aiChat.modelHistoryRejected",
+  tool_result_rejected: "aiChat.toolResultRejected",
+  assistant_budget_exceeded: "aiChat.runBudgetExceeded",
+};
 const active = (state: string) => state === "accepted" || state === "running";
 
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
@@ -462,9 +474,7 @@ export function ModelConversation() {
             )}
             {run.code && (
               <p role="alert" className="text-sm">
-                {t(
-                  run.code === "timeout" ? "aiChat.timeout" : "aiChat.runError",
-                )}
+                {t(diagnosticKeys[run.code] ?? "aiChat.runError")}
               </p>
             )}
             {active(run.state) && (
