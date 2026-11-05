@@ -52,7 +52,7 @@ func ValidateState(s State) error {
 }
 func knownState(s string) bool { return s == "accepted" || s == "running" || terminal(s) }
 func knownCode(s string) bool {
-	if IsResponseFailureCode(s) {
+	if IsResponseFailureCode(s) || IsBudgetFailureCode(s) {
 		return true
 	}
 	switch s {

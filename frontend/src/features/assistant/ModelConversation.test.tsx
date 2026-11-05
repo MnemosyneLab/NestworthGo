@@ -428,6 +428,15 @@ it.each([
   ["model_history_rejected", "Start a new conversation"],
   ["tool_result_rejected", "Try a narrower financial question"],
   ["assistant_budget_exceeded", "run reached a resource limit"],
+  ["assistant_budget_exceeded.model_rounds", "model round limit"],
+  ["assistant_budget_exceeded.tool_calls", "tool call limit"],
+  ["assistant_budget_exceeded.history_bytes", "context limit"],
+  ["assistant_budget_exceeded.history_messages", "context limit"],
+  ["assistant_budget_exceeded.prompt_bytes", "input size limit"],
+  ["assistant_budget_exceeded.text_bytes", "display size limit"],
+  ["assistant_budget_exceeded.provider_payload", "payload limit"],
+  ["assistant_budget_exceeded.tool_result_bytes", "result size limit"],
+  ["assistant_budget_exceeded.read_evidence", "read evidence limit"],
   ["private-canary-unknown-code", "No new model history was saved"],
 ])("shows safe actionable diagnostic for %s", async (code, message) => {
   api.Inspect.mockResolvedValue({
@@ -449,6 +458,10 @@ it.each([
   ["provider_response_rejected.stream_part", true],
   ["provider_response_rejected.private-canary", false],
   ["provider_response_rejected.stream_part private-canary", false],
+  ["assistant_budget_exceeded.model_rounds", true],
+  ["assistant_budget_exceeded.tool_calls", true],
+  ["assistant_budget_exceeded.private-canary", false],
+  ["assistant_budget_exceeded.model_rounds private-canary", false],
 ])("only renders fixed diagnostic rules: %s", async (code, recognized) => {
   api.Inspect.mockResolvedValue({
     id: "conversation",
