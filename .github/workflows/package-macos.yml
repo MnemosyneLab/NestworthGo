@@ -1,0 +1,99 @@
+name: Package macOS DMG and skill
+run-name: Package ${{ github.ref_name }} at ${{ github.sha }}
+
+# Writers select a trusted origin branch in Actions > Run workflow.
+# Never add PR/fork events to this persistent personal runner workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: package-macos
+  cancel-in-progress: false
+
+env:
+  GOTOOLCHAIN: local
+  MACOSX_DEPLOYMENT_TARGET: '27.0'
+  CGO_CFLAGS: '-O2 -g -mmacosx-version-min=27.0'
+  CGO_CXXFLAGS: '-O2 -g -mmacosx-version-min=27.0'
+  CGO_LDFLAGS: '-O2 -g -mmacosx-version-min=27.0'
+  # The packaging Taskfile also installs dependencies; keep that install locked.
+  CI: 'true'
+
+jobs:
+  package:
+    if: github.repository == 'MnemosyneLab/NestworthGo' && github.event_name == 'workflow_dispatch' && github.ref_type == 'branch'
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Pin the dispatch commit, even if the selected branch moves in queue.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify selected source and remove stale package outputs
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF_TYPE" = branch
+          git check-ref-format "$GITHUB_REF"
+          git diff --exit-code
+          # Dedicated checkout outputs only; never clean personal directories.
+          rm -rf bin dist .task
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          package-manager-cache: false
+      - name: Reuse pinned pnpm executable
+        run: bash tools/ci-macos-pnpm.sh
+      - name: Verify native environment and select persistent caches
+        run: python3 tools/ci-macos-environment.py
+      - name: Prepare pinned Wails CLI
+        run: |
+          set -euo pipefail
+          read -r go_version wails_version <<< "$(python3 tools/ci-toolchain-versions.py)"
+          if [ ! -x "$GOBIN/wails3" ]; then
+            go install "github.com/wailsapp/wails/v3/cmd/wails3@$wails_version"
+          fi
+          test "$("$GOBIN/wails3" version 2>&1)" = "$wails_version"
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --store-dir "$NESTWORTH_PNPM_STORE"
+          # The reused Taskfile invokes pnpm install again; select the same store.
+          printf 'npm_config_store_dir=%s\n' "$NESTWORTH_PNPM_STORE" >> "$GITHUB_ENV"
+      - name: Build and verify arm64 DMG and standalone skill
+        run: wails3 task package:release
+      - name: Record and verify artifact provenance
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- go.mod go.sum frontend/pnpm-lock.yaml internal/version/version.go build/darwin/Info.plist skills/nestworth tools/install-nestworth-skill.sh docs/user/nestworth-skill.md
+          python3 tools/ci-package-manifest.py
+          (cd dist/macos && shasum -a 256 -c SHA256SUMS)
+          (cd dist/skills && shasum -a 256 -c nestworth-skill.tar.gz.sha256)
+      # Explicit files only: no raw .app, ledger, settings, home or whole checkout.
+      - name: Upload verified packages and provenance
+        uses: actions/upload-artifact@v7
+        with:
+          name: nestworth-macos-arm64-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            dist/macos/Nestworth-*-arm64.dmg
+            dist/macos/Nestworth-*-arm64.zip
+            dist/macos/SHA256SUMS
+            dist/skills/nestworth-skill.tar.gz
+            dist/skills/nestworth-skill.tar.gz.sha256
+            dist/package-manifest.json
+          if-no-files-found: error
+          retention-days: 14
