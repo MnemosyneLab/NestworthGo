@@ -7,6 +7,7 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from "./PageContext";
 
 import { ModelConversation } from "./ModelConversation";
+import i18n from "@/i18n";
 const api = vi.hoisted(() => ({
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
@@ -21,6 +22,7 @@ const api = vi.hoisted(() => ({
   Cancel: vi.fn(),
   Create: vi.fn(),
   Delete: vi.fn(),
+  Rename: vi.fn(),
 }));
 vi.mock(
   "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service",
@@ -74,6 +76,7 @@ beforeEach(() => {
   api.Cancel.mockResolvedValue(undefined);
   api.Create.mockResolvedValue({ id: "new-conversation" });
   api.Delete.mockResolvedValue(undefined);
+  api.Rename.mockResolvedValue(undefined);
 });
 function mount(viewKey = "overview:", client = createTestQueryClient()) {
   return render(
@@ -740,4 +743,76 @@ it("announces an immediate first reply from a newly created conversation", async
   await screen.findByText("Immediate first reply");
   expect(await screen.findByText("AI reply received for message 1.")).toHaveAttribute("aria-live", "polite");
 
+});
+
+it("displays generated titles and saves manual names using keyboard controls", async () => {
+  const user = userEvent.setup();
+  api.List.mockResolvedValue([{ id: "conversation", title: "资产趋势", titleSource: "luna", runCount: 1 }]);
+  api.Inspect.mockResolvedValue({ id: "conversation", title: "资产趋势", titleSource: "luna", runs: [run], runCount: 1, offset: 0 });
+  mount();
+  await screen.findByRole("option", { name: "资产趋势" });
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  const input = screen.getByRole("textbox", { name: "Conversation title" });
+  expect(input).toHaveFocus();
+  await user.clear(input);
+  await user.type(input, "我的会话{Enter}");
+  await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", "我的会话"));
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Conversation title" })).not.toBeInTheDocument());
+});
+
+it("cancels title editing without writing and preserves a failed rename for retry", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Discard{Escape}");
+  expect(api.Rename).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  api.Rename.mockRejectedValueOnce(new Error("synthetic storage failure"));
+  await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Keep draft{Enter}");
+  await screen.findByRole("alert");
+  expect(screen.getByRole("textbox", { name: "Conversation title" })).toHaveValue("Keep draft");
+});
+
+it.each([
+  ["en", "Rename conversation", "Conversation title", "Cancel rename"],
+  ["zh-CN", "重命名会话", "会话标题", "取消重命名"],
+  ["zh-TW", "重新命名對話", "對話標題", "取消重新命名"],
+])("offers accessible rename controls in %s", async (locale, renameLabel, titleLabel, cancelLabel) => {
+  await i18n.changeLanguage(locale);
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: renameLabel }));
+  expect(screen.getByRole("textbox", { name: titleLabel })).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: cancelLabel }));
+  expect(api.Rename).not.toHaveBeenCalled();
+});
+
+it.each(["😀", "𠀀"])("accepts 64 Unicode code points when typing %s titles", async character => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  const input = screen.getByRole("textbox", { name: "Conversation title" });
+  const title = character.repeat(64);
+  await user.type(input, title);
+  expect(input).toHaveValue(title);
+  await user.type(input, character);
+  expect(input).toHaveValue(title);
+  await user.click(screen.getByRole("button", { name: "Save title" }));
+  await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", title));
+});
+
+it("limits mixed Unicode titles to 64 code points on paste", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  const input = screen.getByRole("textbox", { name: "Conversation title" });
+  const title = "A".repeat(62) + "😀𠀀";
+  await user.paste(title + "extra");
+  expect(input).toHaveValue(title);
+  await user.click(screen.getByRole("button", { name: "Save title" }));
+  await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", title));
 });
