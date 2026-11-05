@@ -53,9 +53,10 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.3; published skill: 2.0.0
+### Current repository skill: 3.0.4; published skill: 2.0.0
 
-Repository skill 3.0.3 includes the unified business continuation entry
+Repository skill 3.0.4 clarifies partial institution updates and adds a
+schema-checked icon-only example. It includes the unified business continuation entry
 `get_read_page({cursor, limit?})`, default 25/max 100, including market-import
 comparison guidance. Live and version-bound reads return items/page; review
 inputs use optional limit. Descriptors retain live/version_bound/frozen semantics,
@@ -94,7 +95,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.3 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.4 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

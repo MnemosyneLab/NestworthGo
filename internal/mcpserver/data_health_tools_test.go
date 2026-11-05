@@ -199,6 +199,7 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	c2 := connect(t, resumed)
+	schemas := discoverOutputSchemas(t, c2)
 	third := call(t, c2, "start_data_repair", args, false)["data"]
 	if !reflect.DeepEqual(third, first) {
 		t.Fatalf("retry after MCP restart changed receipt: first=%v, third=%v", first, third)
@@ -228,12 +229,28 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if terminal.SnapshotDaysPlanned == 0 || terminal.SnapshotDaysRebuilt != terminal.SnapshotDaysPlanned {
 		t.Fatalf("expected rebuilt snapshots with unresolved provider data: %+v", terminal)
 	}
-	paged := scaleCapture(t, c2, "get_data_repair_job", map[string]any{"jobId": result.Job.JobID, "view": "evidence", "limit": 1})
+	const statusTool = "get_data_repair_job"
+	progress := schemas.call(t, c2, statusTool, DataRepairJobInput{JobID: result.Job.JobID})
+	if job := progress["job"].(map[string]any); job["outcome"] != terminal.Outcome {
+		t.Fatalf("progress disagrees with terminal evidence: %v", job)
+	}
+	schemas.rejects(t, statusTool, progress, "job", func(d map[string]any) { delete(d, "job") }, true)
+	schemas.rejects(t, statusTool, progress, "sequence type", func(d map[string]any) { d["job"].(map[string]any)["sequence"] = "1" }, false)
+	paged := schemas.call(t, c2, statusTool, map[string]any{"jobId": result.Job.JobID, "view": "evidence", "limit": 1})
+	schemas.rejects(t, statusTool, paged, "captureId", func(d map[string]any) { delete(d, "captureId") }, true)
+	schemas.rejects(t, statusTool, paged, "sections type", func(d map[string]any) { d["sections"] = []any{} }, false)
 	header := paged["summary"].(map[string]any)
 	if header["job"].(map[string]any)["jobId"] != terminal.JobID || header["job"].(map[string]any)["outcome"] != terminal.Outcome {
 		t.Fatal("paged job changed recorded outcome")
 	}
-	for section := range paged["sections"].(map[string]any) {
+	sections := paged["sections"].(map[string]any)
+	assertSchemaPage(t, sections["job_blockers"].(map[string]any)["page"].(map[string]any), false, "frozen")
+	items := sections["job_items"].(map[string]any)
+	assertSchemaPage(t, items["page"].(map[string]any), false, "frozen")
+	if len(items["items"].([]any)) != 0 {
+		t.Fatal("job with no provider requests unexpectedly returned provider items")
+	}
+	for section := range sections {
 		scaleSection(t, c2, paged, section)
 	}
 	blockedByIncompleteSnapshot := false
@@ -252,6 +269,10 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("preinstalled sync listener missed MCP-started completion")
+	}
+	health := schemas.call(t, c2, "scan_data_health", Empty{})
+	if issues := health["sections"].(map[string]any)["issues"].(map[string]any); len(issues["items"].([]any)) == 0 {
+		t.Fatal("expected missing-data evidence in the health response")
 	}
 	gotHealth := decodeDataHealthDTO[marketdata.MarketDataHealthReportDTO](t, status["health"])
 	if gotHealth.Healthy || gotHealth.IssueCount == 0 {

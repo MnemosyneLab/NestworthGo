@@ -47,7 +47,16 @@ var commitPlanRoutes = map[string]commitPlanRoute{
 
 func (s *Service) commitPlanTool(server *toolSet) {
 	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_plan", Description: "Commit one stored preview plan of any kind: preview_change, _batch, _correction, _reconciliation, _product_operation, _product_terms, _product_valuation, _save_liquidity_policy, _reset_liquidity_policy or a reconciliation-session action. Input is operationId and input.planId only; the server reads the plan kind and the exact stored command, so the caller cannot change or mislabel it. A plan commits once: retrying the same operationId and planId returns the original receipt, and another operationId for a used or stale plan is rejected with stale_preview; request a new preview. The receipt tool names the plan kind and result is that kind's committed outcome. After an unknown outcome call get_operation, read current data, then retry the same operationId. Liquidity-policy receipts that are pending or unknown are never replayed; inspect them and preview again.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
+	registerTool(server, &agentcapability.Definition{
+		Name: "commit_plan",
+		Description: "Commit a stored preview with operationId and input.planId. The server uses the plan's kind and exact reviewed command. " +
+			"Reusing both IDs returns a saved successful receipt; using the same operationId with different input conflicts. The receipt's tool identifies the plan kind. " +
+			"Single ledger changes, batches and corrections, and managed product operations, terms and valuations deduplicate by plan ID when the stored plan is available. A different operationId can recover the committed result without posting again, even after preview expiry. " +
+			"Reconciliation adjustments and reconciliation-session actions can also recover a committed result from their database receipt if the plan file is gone. " +
+			"An uncommitted stale or expired preview is rejected. Liquidity policy save/reset have no plan-level replay: a new operationId on an already used plan returns stale_preview while the plan is still stored. Missing plans without recovery evidence can return operation_outcome_unknown. " +
+			"If the outcome is unclear, call get_operation with the original operationId and inspect current data. For ledger, reconciliation and managed product plans, retry the original IDs when recovery is needed. Pending or unknown liquidity policy receipts cannot be replayed. Only make a fresh preview and submission after establishing that the intended change is still needed.",
+		Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed},
+	}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
 		route, err := s.resolveCommitPlanRoute(ctx, in.OperationID, in.Input.PlanID)
 		if err != nil {
 			return Response{}, safeError(err)

@@ -63,11 +63,19 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 	if _, ok := header["accounts"]; ok {
 		t.Fatal("header embedded all accounts")
 	}
-	page := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "items", "limit": 1}, false)["data"].(map[string]any)
-	if page["page"].(map[string]any)["total"].(float64) != 2 {
+	schemas := discoverOutputSchemas(t, c)
+	page := schemas.call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "items", "limit": 1})
+	info := page["page"].(map[string]any)
+	assertSchemaPage(t, info, true, "version_bound")
+	if info["total"].(float64) != 2 {
 		t.Fatal(page)
 	}
-	cursor := page["page"].(map[string]any)["nextCursor"].(string)
+	cursor := info["nextCursor"].(string)
+	last := schemas.call(t, c, "get_read_page", ReadPageInput{Cursor: cursor, Limit: 1})
+	assertSchemaPage(t, last["page"].(map[string]any), false, "version_bound")
+	if len(last["items"].([]any)) != 1 {
+		t.Fatalf("expected one remaining reconciliation item: %v", last)
+	}
 	item := page["items"].([]any)[0].(map[string]any)["item"].(map[string]any)
 	link := map[string]any{"sessionId": id, "accountId": fx.checking, "itemId": item["id"], "expectedRevision": header["revision"], "financialRevision": item["financialRevision"]}
 	correction := call(t, c, "preview_reconciliation", map[string]any{"reconciliationLink": link, "targets": []any{map[string]any{"accountId": fx.checking, "targetBalance": "25", "currency": "USD"}}}, false)["data"].(map[string]any)

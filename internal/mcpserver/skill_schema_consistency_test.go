@@ -18,7 +18,7 @@ import (
 // registered tool, not a duplicated/schema-inferred approximation. State/ID/
 // permission/cursor validity is tested separately by real workflow regressions.
 var skillSchemaExamples = map[string]map[string][]string{
-	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}},
+	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}},
 	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
 	"cash-and-debt":            {"preview_change": {"income", "expense", "fx-conversion", "debt-payment"}},
 	"market-data":              {"import_market_data": {"fund-nav", "fx-reference", "withdraw-quote"}, "set_fx_source": {"fx-source"}},
