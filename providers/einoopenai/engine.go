@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
@@ -119,6 +121,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 	saved.Messages = append(saved.Messages, schema.UserAgenticMessage(prompt))
 	seenCalls := map[string]bool{}
 	calls := 0
+	executed := 0
 	for _, msg := range saved.Messages {
 		if msg == nil {
 			return empty, errEngine
@@ -140,10 +143,31 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 		if len(saved.Messages) > 128 {
 			return empty, assistant.BudgetFailure("history_messages")
 		}
-		// The UI only publishes a completed turn. Use the SDK's JSON path to
-		// avoid parsing SSE with no incremental output benefit. Model.Generate
-		// still validates terminal success, bounded body and clean EOF before
-		// the SDK converter or any tool dispatch.
+		roundCtx := ctx
+		if assistant.HasProgress(ctx) {
+			assistant.EmitProgress(ctx, assistant.ProgressEvent{Kind: "text"})
+			last := time.Time{}
+			roundCtx = context.WithValue(ctx, displayKey{}, func(text string) {
+				if e.tainted([]byte(text)) {
+					return
+				}
+				// Keep a secret-sized suffix private so a key split over deltas
+				// cannot escape before the complete value can be detected.
+				end := len(text) - len(e.secret)
+				if end < 0 {
+					return
+				}
+				for end > 0 && end < len(text) && !utf8.RuneStart(text[end]) {
+					end--
+				}
+				if time.Since(last) < 50*time.Millisecond {
+					return
+				}
+				last = time.Now()
+				assistant.EmitProgress(ctx, assistant.ProgressEvent{Kind: "text", Text: text[:end]})
+			})
+		}
+
 		// Keep the existing eight-response limit, reserving its last response
 		// for a final answer. Hitting the tool cap also ends further reads.
 		// Add policy to a detached request so it never becomes saved history.
@@ -157,7 +181,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 		if len(input) > 128 {
 			return empty, assistant.BudgetFailure("history_messages")
 		}
-		msg, err := e.model.Generate(ctx, input, options...)
+		msg, err := e.model.Generate(roundCtx, input, options...)
 		if err != nil {
 			return empty, err
 		}
@@ -240,11 +264,24 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if ctx.Err() != nil {
 				return empty, ctx.Err()
 			}
+			executed++
+			notify := func(state string) {
+				assistant.EmitProgress(ctx, assistant.ProgressEvent{Kind: "tool", Tool: executed, Source: call.Name, State: state, Input: call.Arguments})
+			}
+			notify("running")
 			result, err := e.tools[call.Name].InvokableRun(ctx, call.Arguments)
+			status := "succeeded"
+			if err != nil {
+				status = "failed"
+			}
+			if errors.Is(err, errCapabilityRefused) {
+				status = "refused"
+			}
 			if errors.Is(err, errCapabilityRefused) && ctx.Err() == nil {
 				result = `{"error":{"code":"controlled_read_refused","recovery":"No financial fact was returned. The capture may be expired/revoked, arguments invalid, or the read unavailable. Re-capture the initial read and restart relevant pages; never mix old and new capture IDs or treat refusal as zero. Do not widen permissions or disclosure."}}`
 				err = nil
 			}
+			assistant.EmitProgress(ctx, assistant.ProgressEvent{Kind: "tool", Tool: executed, Source: call.Name, State: status, Output: result})
 			if ctx.Err() != nil {
 				return empty, ctx.Err()
 			}

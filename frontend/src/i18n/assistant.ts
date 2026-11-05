@@ -1,5 +1,21 @@
 export const assistantEn = {
   aiChat: {
+
+    "preview": "Generating · incomplete preview",
+    "toolInput": "Input",
+    "toolOutput": "Output",
+    "detailTruncated": "Showing a truncated prefix (display limit). The complete value was used by the tool/model.",
+    "noToolOutput": "No output received.",
+    "liveDetailHelp": "Tool details are stored with this local conversation. Credentials are removed.",
+    "toolState": {
+        "running": "Running",
+        "succeeded": "Completed",
+        "failed": "Failed",
+        "refused": "Read refused",
+        "interrupted": "Interrupted"
+    }
+,
+
     replyReceived: "AI reply received for message {{number}}.",
     transcript: "Conversation messages",
     exchange: "Message exchange",
@@ -34,6 +50,10 @@ export const assistantEn = {
     missingUnknown:
       "Missing inputs are not summarized here; this does not establish completeness.",
     source: {
+      get_current_page: "Current page",
+      get_navigation_targets: "Navigation choices",
+      open_page: "Request page change",
+
       compare_financial_context: "Financial state comparison",
       compare_financial_attribution: "Read-only period attribution",
       get_financial_comparison_page: "Comparison evidence page",
@@ -194,6 +214,22 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+
+    "preview": "正在生成 · 未完成预览",
+    "toolInput": "输入",
+    "toolOutput": "输出",
+    "detailTruncated": "仅显示截断后的开头（展示上限），工具和模型使用完整值。",
+    "noToolOutput": "未收到输出。",
+    "liveDetailHelp": "工具详情随本机会话保存，凭证已移除。",
+    "toolState": {
+        "running": "执行中",
+        "succeeded": "已完成",
+        "failed": "失败",
+        "refused": "读取被拒绝",
+        "interrupted": "已中断"
+    }
+,
+
     replyReceived: "第 {{number}} 条消息的 AI 答复已收到。",
     transcript: "对话消息",
     exchange: "消息对话",
@@ -226,6 +262,10 @@ export const assistantZhCN = {
     missingReported: "查询报告了缺失或不完整输入。",
     missingUnknown: "此处未汇总缺失输入，不能据此判断数据完整。",
     source: {
+      get_current_page: "当前页面",
+      get_navigation_targets: "可导航页面",
+      open_page: "请求页面跳转",
+
       compare_financial_context: "财务状态对比",
       compare_financial_attribution: "只读期间归因",
       get_financial_comparison_page: "对比证据分页",
@@ -372,6 +412,22 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+
+    "preview": "正在生成 · 未完成預覽",
+    "toolInput": "輸入",
+    "toolOutput": "輸出",
+    "detailTruncated": "僅顯示截斷後的開頭（展示上限），工具和模型使用完整值。",
+    "noToolOutput": "未收到輸出。",
+    "liveDetailHelp": "工具詳情隨本機對話儲存，憑證已移除。",
+    "toolState": {
+        "running": "執行中",
+        "succeeded": "已完成",
+        "failed": "失敗",
+        "refused": "讀取被拒絕",
+        "interrupted": "已中斷"
+    }
+,
+
     replyReceived: "第 {{number}} 則訊息的 AI 答覆已收到。",
     transcript: "對話訊息",
     exchange: "訊息對話",
@@ -404,6 +460,10 @@ export const assistantZhTW = {
     missingReported: "查詢回報了缺少或不完整輸入。",
     missingUnknown: "此處未彙總缺少輸入，不能據此判斷資料完整。",
     source: {
+      get_current_page: "目前頁面",
+      get_navigation_targets: "可導覽頁面",
+      open_page: "請求頁面跳轉",
+
       compare_financial_context: "財務狀態比較",
       compare_financial_attribution: "唯讀期間歸因",
       get_financial_comparison_page: "比較證據分頁",

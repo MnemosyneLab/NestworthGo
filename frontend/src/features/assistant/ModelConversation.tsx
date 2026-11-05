@@ -71,7 +71,7 @@ export function ModelConversation() {
     enabled: !!epoch && !!id,
     networkMode: "always",
     retry: false,
-    refetchInterval: 1000,
+    refetchInterval: (query) => query.state.data?.runs?.some((run) => active(run.state)) ? 200 : 1000,
   });
   const running = latest.data?.runs?.some((run) => active(run.state)) ?? false;
   const stale = status.isError || list.isError || latest.isError;

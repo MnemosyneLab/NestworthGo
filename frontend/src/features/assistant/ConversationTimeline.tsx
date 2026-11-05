@@ -6,6 +6,7 @@ import * as API from "../../../bindings/github.com/waltwang/nestworth-go/interna
 import { Button } from "@/components/ui/button";
 import { callService } from "@/lib/wails";
 import { formatTimestamp } from "@/lib/time";
+import { AssistantMarkdown } from "./AssistantMarkdown";
 import { useAssistantPage } from "./PageContext";
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
 const diagnosticKeys: Record<string, string> = {
@@ -70,6 +71,8 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   const [first, setFirst] = useState(() => Math.max(0, (latest?.offset ?? 0) - 5));
   const [following, setFollowing] = useState(true);
   const viewport = useRef<HTMLDivElement>(null);
+ const content = useRef<HTMLDivElement>(null);
+ const followingRef = useRef(true);
   const anchor = useRef<{ height: number; top: number } | null>(null);
   // This component is keyed by runtime epoch and conversation ID by its owner.
   // Retain observed latest attempts while their positional history fetch catches
@@ -112,7 +115,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
     conversation?.runs?.forEach((run, index) => visible.set(run.id, { run, offset: conversation.offset + index }));
   }
   const runs = [...visible.values()].sort((a, b) => a.offset - b.offset).map(entry => entry.run);
-  const signature = runs.map(run => `${run.id}:${run.state}:${run.text}:${run.evidence?.length}`).join("|");
+  const signature = `${latest?.progress?.revision ?? 0}:` + runs.map(run => `${run.id}:${run.state}:${run.text}:${run.evidence?.length}`).join("|");
   useLayoutEffect(() => {
     const el = viewport.current;
     if (!el) return;
@@ -120,20 +123,30 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
       if (!loading) { el.scrollTop = anchor.current.top + el.scrollHeight - anchor.current.height; anchor.current = null; }
     } else if (following) el.scrollTop = el.scrollHeight;
   }, [signature, loading, following]);
+  useEffect(() => {
+    if (!viewport.current || !content.current || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      const el = viewport.current;
+      if (el && followingRef.current && !anchor.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(viewport.current);
+    observer.observe(content.current);
+    return () => observer.disconnect();
+  }, []);
   const timestamp = (value: string) => formatTimestamp(value, page?.context?.range.timezone ?? "UTC", i18n.language);
   return <div className="relative flex min-h-0 flex-1 flex-col">
     <p ref={announcement} role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
     <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none]"
       role="region" aria-label={t("aiChat.transcript")} tabIndex={0}
-      onScroll={event => { const el = event.currentTarget; setFollowing(el.scrollHeight - el.scrollTop - el.clientHeight < 48); }}>
-      <div className="mx-auto max-w-2xl space-y-6">
+      onScroll={event => { const el = event.currentTarget; followingRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; setFollowing(followingRef.current); }}>
+      <div ref={content} className="mx-auto max-w-2xl space-y-6">
         {first > 0 && <Button variant="ghost" className="w-full text-muted-foreground" disabled={loading} onClick={() => {
           if (viewport.current) anchor.current = { height: viewport.current.scrollHeight, top: viewport.current.scrollTop };
-          setFollowing(false); setFirst(value => Math.max(0, value - 5));
+          followingRef.current = false; setFollowing(false); setFirst(value => Math.max(0, value - 5));
         }}>{t("aiChat.loadEarlier")}</Button>}
         {loading && <p role="status" className="text-center text-xs text-muted-foreground">{t("aiChat.loadingHistory")}</p>}
         {failed && <div role="alert" className="text-sm text-destructive">{t("aiChat.historyError")} <Button variant="ghost" size="sm" onClick={() => history.filter(q => q.isError).forEach(q => void q.refetch())}>{t("common.retryAction")}</Button></div>}
-        {runs.map(run => <article key={run.id} className="space-y-4" aria-label={t("aiChat.exchange")}>
+        {runs.map(run => { const tools = active(run.state) && latest?.progress?.runId === run.id ? latest.progress.tools : run.tools; return <article key={run.id} className="space-y-4" aria-label={t("aiChat.exchange")}>
           <div className="ml-8 flex justify-end"><div className="max-w-full rounded-2xl rounded-tr-sm bg-muted px-4 py-3">
             <span className="sr-only">{t("aiChat.you")}</span><p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{run.prompt}</p>
           </div></div>
@@ -151,7 +164,23 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                   </div>)}
                 </div>
               </details>}
-              {run.text && <p className="whitespace-pre-wrap break-words text-sm leading-7 [overflow-wrap:anywhere]">{run.text}</p>}
+              {!!tools?.length && <div className="space-y-2 text-xs text-muted-foreground">
+                {tools.map((tool, index) => <details key={index} className="rounded-lg border border-border">
+                  <summary className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    {tool.state === "running" ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
+                    <span role="status" aria-live="polite" aria-atomic="true">{t(sources.has(tool.source) || ["get_current_page", "get_navigation_targets", "open_page"].includes(tool.source) ? `aiChat.source.${tool.source}` : "aiChat.unknownRead")} · {t(`aiChat.toolState.${tool.state}`)}</span>
+                  </summary>
+                  <div className="space-y-2 border-t border-border p-3">
+                    <p>{t("aiChat.toolInput")}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.input}</pre>
+                    {tool.inputTruncated && <p>{t("aiChat.detailTruncated")}</p>}
+                    <p>{t("aiChat.toolOutput")}</p>{tool.output ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.output}</pre> : <p>{t("aiChat.noToolOutput")}</p>}
+                    {tool.outputTruncated && <p>{t("aiChat.detailTruncated")}</p>}
+                    <p>{t("aiChat.liveDetailHelp")}</p>
+                  </div>
+                </details>)}
+              </div>}
+              {run.text && <AssistantMarkdown text={run.text} />}
+              {active(run.state) && latest?.progress?.runId === run.id && latest.progress.text && <div aria-busy="true"><p className="text-xs text-muted-foreground">{t("aiChat.preview")}</p><AssistantMarkdown text={latest.progress.text} /></div>}
               {run.state !== "succeeded" && <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
                 {active(run.state) && <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{t(`aiChat.run.${run.state}`)}
               </p>}
@@ -160,10 +189,10 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
               <details className="text-xs text-muted-foreground"><summary className="w-fit cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.messageDetails")}</summary><p className="pt-2 break-words">{run.model} · {timestamp(String(run.created))}</p></details>
             </div>
           </div>
-        </article>)}
+        </article>; })}
         {!latest ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p> : !runs.length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><Sparkles className="size-7 text-primary" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p></div>}
       </div>
     </div>
-    {!following && <Button variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm" onClick={() => setFollowing(true)}><ArrowDown className="size-3.5" aria-hidden="true" />{t("aiChat.jumpLatest")}</Button>}
+    {!following && <Button variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm" onClick={() => { followingRef.current = true; setFollowing(true); }}><ArrowDown className="size-3.5" aria-hidden="true" />{t("aiChat.jumpLatest")}</Button>}
   </div>;
 }

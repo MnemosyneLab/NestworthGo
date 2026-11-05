@@ -99,6 +99,7 @@ type RunState struct {
 	Digest string `json:"digest"`
 }
 type Run struct {
+	Tools          []ToolProgress `json:"tools,omitempty"`
 	PageLeaseID    string         `json:"pageLeaseId,omitempty"`
 	Evidence       []ReadEvidence `json:"evidence,omitempty"`
 	Page           PageSelection  `json:"page"`
@@ -132,6 +133,7 @@ type Snapshot struct {
 	Reason          string      `json:"reason"`
 }
 type Conversation struct {
+	Progress   *Progress              `json:"progress,omitempty"`
 	Navigation *ModelNavigationIntent `json:"navigation,omitempty"`
 	ID         string                 `json:"id"`
 	Updated    time.Time              `json:"updated"`
@@ -172,6 +174,7 @@ type Options struct {
 	Timeout             time.Duration
 }
 type Runtime struct {
+	progress             map[string]*Progress
 	navigationGeneration uint64
 	pageLease            *DesktopPageLease
 	navigationGrants     map[string]modelNavigationGrant
@@ -470,6 +473,7 @@ func page(c ConversationState, offset int) Conversation {
 	if offset >= 0 && offset < len(c.Runs) {
 		run := c.Runs[offset].Run
 		run.Evidence = append([]ReadEvidence(nil), run.Evidence...)
+		run.Tools = append([]ToolProgress(nil), run.Tools...)
 		if run.Finished != nil {
 			finished := *run.Finished
 			run.Finished = &finished
@@ -515,6 +519,7 @@ func (r *Runtime) Inspect(ctx context.Context, epoch, id string) (Conversation, 
 	}
 	v := view(*c)
 	r.navigationView(&v)
+	r.progressView(&v)
 	return v, nil
 }
 func (r *Runtime) Events(ctx context.Context, epoch, id string, after uint64) (EventPage, error) {
@@ -557,6 +562,7 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 			if r.options.Capabilities != nil {
 				r.options.Capabilities.Drop(id)
 			}
+			delete(r.progress, id)
 			r.state.Conversations = append(r.state.Conversations[:i], r.state.Conversations[i+1:]...)
 			return r.persist()
 		}
@@ -585,6 +591,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 			}
 			out := saved.Run
 			out.Evidence = append([]ReadEvidence(nil), out.Evidence...)
+			out.Tools = append([]ToolProgress(nil), out.Tools...)
 			if out.Finished != nil {
 				finished := *out.Finished
 				out.Finished = &finished
@@ -674,7 +681,7 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 	r.mu.Unlock()
 	result := Completion{}
 	if err == nil {
-		result, err = r.invoke(ctx, cfg, id, history, prompt)
+		result, err = r.invoke(ctx, cfg, id, runID, history, prompt)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -712,6 +719,17 @@ func (r *Runtime) finish(id, runID string, result Completion, state, code string
 		run := &c.Runs[i].Run
 		if run.ID == runID {
 			now := time.Now().UTC()
+			if p := r.progress[id]; p != nil && p.RunID == runID {
+				p.Text = ""
+				for j := range p.Tools {
+					if p.Tools[j].State == "running" {
+						p.Tools[j].State = "interrupted"
+					}
+				}
+				p.Revision++
+				run.Tools = append([]ToolProgress(nil), p.Tools...)
+				delete(r.progress, id)
+			}
 			run.State = state
 			run.Code = code
 			run.Finished = &now
@@ -806,7 +824,7 @@ func (r *Runtime) FenceForRestore() error {
 
 // Treat provider/adapter panics like other untrusted failures. The panic value
 // can contain a response body or key, so it is neither formatted nor logged.
-func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, history []byte, prompt string) (result Completion, err error) {
+func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id, runID string, history []byte, prompt string) (result Completion, err error) {
 	defer func() {
 		if recover() != nil {
 			result = Completion{}
@@ -842,6 +860,7 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	if ctx.Err() != nil {
 		return Completion{}, ctx.Err()
 	}
+	ctx = WithProgress(ctx, func(event ProgressEvent) { r.observe(ctx, id, runID, key, event) })
 	result, err = engine.Complete(ctx, history, prompt)
 	if err != nil {
 		return Completion{}, safeFailure(err)

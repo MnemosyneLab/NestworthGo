@@ -1,9 +1,12 @@
 package einoopenai
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -186,15 +189,18 @@ type streamItem struct {
 }
 
 func validateStream(raw []byte, limits Limits) (result []byte, outputResult []json.RawMessage, failure error) {
+	return validateStreamReader(bytes.NewReader(raw), limits, nil)
+}
+
+// Only provisional display text escapes before terminal validation and clean EOF.
+func validateStreamReader(reader io.Reader, limits Limits, display func(string)) (result []byte, outputResult []json.RawMessage, failure error) {
 	rule := "stream_frame"
 	defer func() { failure = protocolFailure(rule, failure) }()
-	if !utf8.Valid(raw) {
-		return nil, nil, errProtocol
+	if limits.Bytes == 0 {
+		limits.Bytes = 4 << 20
 	}
-	normalized := strings.ReplaceAll(string(raw), "\r\n", "\n")
-	if strings.ContainsRune(normalized, '\r') {
-		return nil, nil, errProtocol
-	}
+	limited := &io.LimitedReader{R: reader, N: int64(limits.Bytes) + 1}
+	input := bufio.NewReader(limited)
 	var items []*streamItem
 	var final []byte
 	responseID := ""
@@ -390,17 +396,48 @@ func validateStream(raw []byte, limits Limits) (result []byte, outputResult []js
 			if err := consumePart(item, obj, typ); err != nil {
 				return err
 			}
+			if display != nil && (typ == "response.output_text.delta" || typ == "response.refusal.delta" || typ == "response.content_part.added") {
+				var text strings.Builder
+				for _, entry := range items {
+					if str(entry.added, "type") != "message" {
+						continue
+					}
+					keys := make([]string, 0, len(entry.parts))
+					for key := range entry.parts {
+						keys = append(keys, key)
+					}
+					sort.Slice(keys, func(i, j int) bool { return entry.parts[keys[i]].index < entry.parts[keys[j]].index })
+					for _, key := range keys {
+						text.WriteString(entry.parts[key].text.String())
+					}
+				}
+				if text.Len() > assistant.MaxTextBytes {
+					return errLimit
+				}
+				display(text.String())
+			}
 
 		default:
 			return errProtocol // failed/incomplete/cancelled/error and unsupported features
 		}
 		return nil
 	}
-	lines := strings.Split(normalized, "\n")
-	if strings.HasSuffix(normalized, "\n") {
-		lines = lines[:len(lines)-1] // EOF is not an SSE blank-line delimiter.
-	}
-	for _, line := range lines {
+	for {
+		line, readErr := input.ReadString('\n')
+		if limited.N <= 0 {
+			return nil, nil, errLimit
+		}
+		if readErr != nil {
+			if readErr != io.EOF || line != "" {
+				return nil, nil, errProtocol
+			}
+			break
+		}
+		line = strings.TrimSuffix(line, "\n")
+		line = strings.TrimSuffix(line, "\r")
+		if !utf8.ValidString(line) || strings.ContainsRune(line, '\r') {
+			return nil, nil, errProtocol
+		}
 		rule = "stream_frame"
 		if line == "" {
 			if err := process(); err != nil {
