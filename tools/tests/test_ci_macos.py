@@ -188,7 +188,7 @@ class MacCI(unittest.TestCase):
         active = {p.name for p in (ROOT / '.github/workflows').iterdir()
                   if p.suffix in {'.yml', '.yaml'}}
         self.assertEqual(active, {'check.yml', 'perf.yml', 'ci-native-image.yml',
-                                  'eino-provider.yml'})
+                                  'eino-provider.yml', 'package-macos.yml'})
         mac = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn('    name: test\n', mac)
         self.assertNotIn('pull_request:', mac)
