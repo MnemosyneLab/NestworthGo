@@ -86,6 +86,16 @@ func (s *Session) addNavigationTarget(target assistant.ModelNavigationTarget, la
 	s.targets[ref] = navigationTarget{Ref: ref, Kind: target.Kind, Label: label, AccountID: target.AccountID, target: target}
 }
 func (s *Session) navigationCall(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// After an accepted action, any later action attempt withdraws it, even
+	// when cancelled, malformed or pointing at an unknown target. Refusals can
+	// be recovered by the model; they must not leave earlier authority behind.
+	// Inventory reads do not spend the grant or revoke an accepted action.
+	if (name == "open_page" || name == "open_return_trend") && s.navigationUsed {
+		s.requested = nil
+		return nil, assistant.ErrConflict
+	}
 	if !s.navigationAllowed || ctx.Err() != nil {
 		return nil, assistant.ErrUnavailable
 	}
@@ -93,8 +103,6 @@ func (s *Session) navigationCall(ctx context.Context, name string, args json.Raw
 	if len(args) > 4096 || jsoncodec.Unmarshal(args, &fields) != nil || fields == nil {
 		return nil, assistant.ErrUnavailable
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if name == "get_navigation_targets" {
 		if len(fields) != 0 {
 			return nil, assistant.ErrUnavailable
@@ -124,10 +132,6 @@ func (s *Session) navigationCall(ctx context.Context, name string, args json.Raw
 	target, ok := s.targets[ref]
 	if !ok {
 		return nil, assistant.ErrUnavailable
-	}
-	if s.navigationUsed {
-		s.requested = nil
-		return nil, assistant.ErrConflict
 	}
 	copy := target.target
 	if name == "open_return_trend" {

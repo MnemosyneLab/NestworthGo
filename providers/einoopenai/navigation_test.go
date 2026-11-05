@@ -195,3 +195,103 @@ func TestNewTurnRefreshesHostPolicyWithoutReconstructingNativeHistory(t *testing
 		t.Fatal("native output was reconstructed while refreshing host policy")
 	}
 }
+
+func TestRecoveredNavigationRefusalCannotCompleteAnEarlierAction(t *testing.T) {
+	for _, mode := range []string{"unknown", "missing", "null", "wrong-type", "oversized-local", "malformed-wire", "oversized-wire", "cancelled-wire"} {
+		t.Run(mode, func(t *testing.T) {
+			session := builtinai.New(&unsafeInventory{}, assistant.PageSelection{}, true)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var targetRef string
+			fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+				switch round {
+				case 0:
+					writeMode(w, request, []any{liveCallItem(round, "get_navigation_targets", obj{})})
+				case 1:
+					var inventory struct {
+						Targets []struct {
+							Ref   string `json:"targetRef"`
+							Label string `json:"label"`
+						} `json:"targets"`
+					}
+					if err := jsoncodec.Unmarshal([]byte(latestToolOutput(t, request)), &inventory); err != nil {
+						t.Error(err)
+					}
+					for _, target := range inventory.Targets {
+						if target.Label == "Return analysis: trend" {
+							targetRef = target.Ref
+						}
+					}
+					if targetRef == "" {
+						t.Error("missing trend root")
+					}
+					writeMode(w, request, []any{liveCallItem(round, "open_return_trend", obj{"targetRef": targetRef, "from": "2026-01-01", "to": "2026-02-28", "valuation": "base", "includeCash": true, "display": "linked_rate"})})
+				case 2:
+					if !strings.Contains(latestToolOutput(t, request), "requested") || session.Navigation() == nil {
+						t.Error("first action was not accepted")
+					}
+					// The second tool is deliberately different. The adapter forwards
+					// schema-invalid JSON objects to Session, where refusal is recoverable.
+					call := liveCallItem(round, "open_page", obj{"targetRef": "unknown"})
+					switch mode {
+					case "missing":
+						call["arguments"] = `{}`
+					case "null":
+						call["arguments"] = `{"targetRef":null}`
+					case "wrong-type":
+						call["arguments"] = `{"targetRef":42}`
+					case "oversized-local":
+						call["arguments"] = strings.Repeat(" ", 4097) + `{}`
+					case "malformed-wire":
+						call["arguments"] = `{`
+					case "oversized-wire":
+						call["arguments"] = strings.Repeat(" ", 64<<10) + `{}`
+					case "cancelled-wire":
+						cancel()
+					}
+					writeMode(w, request, []any{call})
+				case 3:
+					if !strings.Contains(latestToolOutput(t, request), "controlled_read_refused") {
+						t.Error("missing recoverable refusal")
+					}
+					writeMode(w, request, []any{textItem()})
+				default:
+					t.Errorf("unexpected round %d", round)
+				}
+			})
+			engine, err := engineWithModel(ctx, assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, streamCompletionModel{fake.model}, session, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer engine.Close()
+			var events []assistant.ProgressEvent
+			ctx = assistant.WithProgress(ctx, func(event assistant.ProgressEvent) {
+				if event.Kind == "tool" {
+					events = append(events, event)
+				}
+			})
+			result, err := engine.Complete(ctx, nil, "Open a synthetic return trend")
+			if result.Navigation != nil {
+				t.Fatal("completion retained the earlier action")
+			}
+			terminal := strings.HasSuffix(mode, "wire")
+			if terminal {
+				// Protocol/64 KiB/cancellation gates can stop before Session.Call.
+				// They abort completion entirely, so no successful run can offer it.
+				if err == nil || len(result.History) != 0 {
+					t.Fatal("wire refusal did not abort completion", err)
+				}
+			} else {
+				if err != nil || result.Text == "" || len(result.History) == 0 {
+					t.Fatal("model could not recover to a successful reply", err)
+				}
+				if len(events) != 6 || events[3].Source != "open_return_trend" || events[3].State != "succeeded" || events[5].Source != "open_page" || events[5].State != "refused" {
+					t.Fatalf("wrong tool events: %+v", events)
+				}
+				if session.Navigation() != nil {
+					t.Fatal("refused second call retained session action")
+				}
+			}
+		})
+	}
+}

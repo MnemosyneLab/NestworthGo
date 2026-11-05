@@ -363,8 +363,12 @@ within five seconds produce an explicit unverified result (the page may already
 have changed), never a successful application claim. The model's tool result
 remains `requested`; only the desktop reports verified completion. Partial data
 keeps its ordinary visible coverage warnings and is not upgraded to complete
-financial evidence. Repeated/conflicting action calls revoke the pending target
-and permanently spend that turn; new requests need a new per-message grant.
+financial evidence. After an accepted action, every subsequent action attempt
+revokes the pending target and permanently spends that turn, including malformed,
+oversized, cancelled or unknown-target requests and attempts using the other
+navigation tool. Inventory reads do not revoke it. Before any action is accepted,
+an invalid request may be corrected within the still-valid grant. New actions
+after a conflict need a new per-message grant.
 
 Remaining gates include richer financial evidence cards, broader analysis filter
 navigation, arbitrary page/control coverage, trusted financial proposal/review/
