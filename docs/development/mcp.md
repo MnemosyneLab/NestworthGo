@@ -1268,13 +1268,6 @@ file private and out of reports. Then list tools with:
 npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.json --server nestworth --method tools/list
 ```
 
-Inspector may warn about nullable arrays such as `accountIds` with
-`type: ["null", "array"]`. This is a valid nullable schema also used by other
-tools; a portability warning alone does not prove missing permission or an
-unavailable tool. Check discovery and actual call validation, and report a
-client compatibility problem rather than changing disclosure or bypassing
-request validation.
-
 ### Task-scoped discovery protocol parameters
 
 The following are `tools/list` protocol parameters, not business-tool input:
@@ -1362,4 +1355,18 @@ string properties now share one string schema plus a name allowlist. A per-field
 `$ref` is longer than `{"type":"string"}`, so it was not used. `added`,
 `mutationId`, `newValue` and `newValueCurrency` are omitted because the handler
 rejects them for every supported kind. Each kind's required names are unchanged.
+
+### Nullable input schemas
+
+Input schemas no longer publish nullable type unions (`"type": ["null", ...]`).
+Optional pointers and slices decode JSON null the same as omission, so those
+fields are a single type and callers omit them. Required pointers, `shortName`,
+and `update_instruments_batch` `note` keep null through `anyOf`. Measured
+`tools/list` bytes with `TestDiscoveryBudget` after that rewrite, on top of the
+schema slimming above: read_only 51 tools / 63022 bytes (−774);
+directory_write 64 tools / 78083 bytes (−1136); ledger_write 85 tools / 120426
+bytes (−268). Published input schemas moved with the same rewrite:
+`preview_change` 2,516 → 2,498 and `preview_product_operation` 5,396 → 5,855
+(`anyOf` on the shared required pointers). Budgets were not raised.
+`skills/nestworth/VERSION` was not bumped.
 

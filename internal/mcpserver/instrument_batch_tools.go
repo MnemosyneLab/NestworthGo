@@ -139,7 +139,10 @@ func (s *Service) instrumentBatchTools(server *toolSet, mode string) {
 
 func instrumentMetadataBatchSchema() any {
 	str := map[string]any{"type": "string"}
-	changes := map[string]any{"type": "object", "additionalProperties": false, "minProperties": 1, "properties": map[string]any{"name": str, "shortName": str, "note": map[string]any{"type": []string{"string", "null"}}}}
+	// note null clears and omission keeps. anyOf preserves that difference
+	// without a nullable type union.
+	note := map[string]any{"anyOf": []any{map[string]any{"type": "string"}, map[string]any{"type": "null"}}}
+	changes := map[string]any{"type": "object", "additionalProperties": false, "minProperties": 1, "properties": map[string]any{"name": str, "shortName": str, "note": note}}
 	item := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"id", "expectedMetadataVersion", "changes"}, "properties": map[string]any{"id": str, "expectedMetadataVersion": str, "changes": changes}}
 	input := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"items"}, "properties": map[string]any{"items": map[string]any{"type": "array", "minItems": 1, "maxItems": 100, "items": item}}}
 	return map[string]any{"type": "object", "additionalProperties": false, "required": []string{"operationId", "input"}, "properties": map[string]any{"operationId": str, "input": input}}

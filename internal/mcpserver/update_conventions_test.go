@@ -173,9 +173,9 @@ func TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas(t *testing.T) {
 					t.Errorf("%s: missing patch field %s", name, field)
 				}
 			}
-			// Optional scalar pointers are nullable in the generated schema, the
-			// same shape as name and iconKey. Null and omission both keep the
-			// stored archive state; true archives and false restores.
+			// Omission keeps the stored archive state. JSON null decodes the
+			// same as omission, so the published schema is a plain boolean.
+			// true archives and false restores.
 			if !schemaTypes(props["archived"])["boolean"] || schemaTypes(props["archived"])["array"] {
 				t.Errorf("%s: archived must be an optional boolean, got %v", name, props["archived"])
 			}
