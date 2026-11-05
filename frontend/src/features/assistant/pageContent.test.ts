@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { render } from "@testing-library/react";
+import { PageChrome, PageChromeProvider } from "@/components/layout/PageChrome";
 import { DatePickerControl } from "@/components/ui/date-picker-control";
 import { afterEach, expect, it } from "vitest";
 import { capturePageContent } from "./pageContent";
@@ -76,4 +77,18 @@ it("keeps the field allowlist scoped to the reviewed page and rejects hidden anc
  expect(JSON.stringify(page)).not.toContain("not-reviewed-on-accounts");
  expect(page.nodes.find(n=>n.id==="page/accounts-show-archived")?.state).toContain("checked=true");
  expect(capturePageContent("settings:").page).toBe("unsupported");
+});
+
+
+it("captures the actual page toolbar portal without exporting app-shell or assistant content", () => {
+ const toolbar=document.createElement("div"); document.body.append(toolbar);
+ render(createElement(PageChromeProvider, { activePageId: "overview", target: toolbar, children:
+  createElement("main", {"data-assistant-page":"overview"},
+   createElement(PageChrome, {pageId:"overview",title:"Synthetic overview title",actions:createElement("button",null,"Open Wealth history")}),
+   createElement("p",null,"Synthetic body")) }));
+ const unrelated=document.createElement("aside"); unrelated.textContent="private assistant conversation"; toolbar.append(unrelated);
+ const page=capturePageContent("overview:");
+ expect(page.nodes.find(n=>n.name==="Synthetic overview title")).toMatchObject({role:"heading",module:"page"});
+ expect(page.nodes.find(n=>n.name==="Open Wealth history")).toMatchObject({role:"button",actions:["activate (description only)"]});
+ expect(JSON.stringify(page)).not.toContain("private assistant conversation");
 });

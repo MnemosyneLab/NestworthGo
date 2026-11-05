@@ -531,7 +531,9 @@ required. External MCP has no page reader or page-content tool.
 | Account detail | `page` (header/value/status), `reconciliation`, `composition`, `cash`, `holdings`, `products`, `cash-history`, `value` |
 | Return analysis | Existing `views`, `filters`, active `calendar`, `trend` or `contribution` |
 
-The list's archive checkbox is explicitly reviewed; current checked state is
+The active PageChrome toolbar portal is explicitly marked and included in `page`;
+the surrounding app shell and assistant conversation remain excluded. The list's
+archive checkbox is explicitly reviewed; current checked state is
 captured. Other newly introduced inputs remain redacted, and analysis field IDs
 are allowed only on Return analysis. Account detail also verifies the mounted
 account selection before capture. Hidden retained routes are excluded. Query busy

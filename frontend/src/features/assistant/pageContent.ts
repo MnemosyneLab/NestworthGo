@@ -42,7 +42,7 @@ export function capturePageContent(viewKey: string, generation = viewKey): Seman
   const page = root && !root.closest('[hidden]') && getComputedStyle(root).display !== "none" ? kind! : "unsupported";
   if (page === "unsupported") limitations.push("This page is not supported. Supported pages are overview, accounts, account detail and return-analysis.");
   else {
-    limitations.push("Semantic content of the active reviewed business page only. Canvas/SVG geometry, hover-only tooltips and portal popovers are not exported. Collapsed disclosures retain their state and available semantic contents. No arbitrary UI control. Portal menus, creation/edit/reconciliation sheets and their form values are unavailable; only mounted inline content is included.");
+    limitations.push("Semantic content of the active reviewed business page only. Canvas/SVG geometry, hover-only tooltips and portal popovers are not exported (the reviewed page toolbar is included). Collapsed disclosures retain their state and available semantic contents. No arbitrary UI control. Portal menus, creation/edit/reconciliation sheets and their form values are unavailable; only mounted inline content is included.");
     const overlay = !!root?.closest('[inert], [aria-hidden="true"]');
     if (overlay) limitations.push("The active page is blocked by an overlay; its controls are descriptive only.");
     const used = new Set<string>();
@@ -110,6 +110,11 @@ export function capturePageContent(viewKey: string, generation = viewKey): Seman
       }
     };
     walk(root!, "", "page");
+    // PageChrome is rendered into AppShell's toolbar through a portal. Read only
+    // its explicitly marked, active-page publisher, never the surrounding shell.
+    const chromePage = kind === "account" ? "accounts" : kind;
+    const chrome = document.querySelector<HTMLElement>(`[data-assistant-chrome="${chromePage}"]`);
+    if (chrome && !chrome.closest('[hidden]')) walk(chrome, nodes[0].id, "page");
   }
   if (nodes.length > 8192) throw new Error("page_content_budget");
   if (root && !rootIdentities.has(root)) rootIdentities.set(root,crypto.randomUUID());
