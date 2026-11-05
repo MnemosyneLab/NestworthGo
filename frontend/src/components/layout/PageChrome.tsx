@@ -40,8 +40,8 @@ export function PageChrome({
   const content = (
     <>
       {leading}
-      {title !== undefined && <h1 className="min-w-0 max-w-full truncate font-display text-lg font-semibold tracking-tight text-foreground">{title}</h1>}
-      {actions && <div className="flex max-w-full flex-wrap items-center gap-2 [&_button]:h-9 [&_button]:rounded-lg [&_button]:px-3.5 [&_button]:py-2 [&_button]:text-sm">{actions}</div>}
+      {title !== undefined && <h1 className="min-w-0 max-w-full [overflow-wrap:anywhere] font-display text-lg font-semibold tracking-tight text-foreground">{title}</h1>}
+      {actions && <div className="flex max-w-full flex-wrap items-center gap-2 [&_button]:h-auto [&_button]:min-h-9 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:rounded-lg [&_button]:px-3.5 [&_button]:py-2 [&_button]:text-sm">{actions}</div>}
     </>
   );
 

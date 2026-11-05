@@ -46,7 +46,7 @@ export function NavigationHistoryControls({ canBack, canForward, backTarget, for
   };
   const backLabel = canBack && backTarget ? t("navigationHistory.backTo", { destination: label(backTarget) }) : t("navigationHistory.back");
   const forwardLabel = canForward && forwardTarget ? t("navigationHistory.forwardTo", { destination: label(forwardTarget) }) : t("navigationHistory.forward");
-  return <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={t("navigationHistory.label")}>
+  return <div className="flex max-w-full shrink-0 flex-wrap items-center gap-0.5" role="group" aria-label={t("navigationHistory.label")}>
     <Button variant="ghost" size="icon" disabled={!canBack} onClick={back} aria-label={backLabel} title={backLabel}><ArrowLeft aria-hidden="true" className="size-4" /></Button>
     <Button variant="ghost" size="icon" disabled={!canForward} onClick={forward} aria-label={forwardLabel} title={forwardLabel}><ArrowRight aria-hidden="true" className="size-4" /></Button>
     <ActionMenu label={t("navigationHistory.recent")} icon={History} disabled={recent.length === 0 && sessions.length === 0} sections={[{ label: t("navigationHistory.retainedSessions"), items: sessions.map(entry => ({ id: entry.id, label: `${label(entry.target)} · ${t("navigationHistory.workspace", { number: entry.ordinal })}`, onSelect: entry.onSelect })) }]} items={recent.map(entry => ({ id: entry.id, label: label(entry.target), onSelect: entry.onSelect }))} />

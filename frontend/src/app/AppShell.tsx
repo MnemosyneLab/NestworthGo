@@ -228,13 +228,13 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
         </div>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-2 py-2 backdrop-blur-md sm:px-8">
+        <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-background/85 px-2 py-2 backdrop-blur-md sm:px-8">
           {navigationHistory && <NavigationHistoryControls {...navigationHistory} />}
-          <div ref={setPageBarTarget} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2" />
+          <div ref={setPageBarTarget} className="order-last flex min-w-0 basis-full flex-wrap items-center gap-x-3 gap-y-2 sm:order-none sm:flex-1 sm:basis-auto" />
           {assistant.trigger}
         </header>
         <div className="flex min-h-0 min-w-0 flex-1">
-        <BusinessPageRoot view={captureView} accessIdentity={captureIdentity} occluded={assistant.expanded} id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
+        <BusinessPageRoot view={captureView} accessIdentity={captureIdentity} occluded={assistant.expanded} id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-3 sm:p-8">
           <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </BusinessPageRoot>
         {assistant.panel}

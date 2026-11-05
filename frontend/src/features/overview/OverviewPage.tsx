@@ -340,14 +340,14 @@ export function OverviewPage({
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
       <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row" data-assistant-module="valuation">
-        <Card className="relative overflow-hidden">
+        <Card className="relative min-w-0">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")} <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net /></CardTitle>
           </CardHeader>
           <CardContent className="@container">
-            <p className="num font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl" data-testid="overview-net-worth">
+            <MoneyText wrap size="xl" className="block text-3xl @sm:text-4xl @lg:text-5xl" data-testid="overview-net-worth">
               {valuationTableAmount(t,data.displayValuation?.netWorth,{amount:data.netWorth,currency},true,false)}
-            </p>
+            </MoneyText>
  {!data.complete && (
               <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
             )}
@@ -357,7 +357,7 @@ export function OverviewPage({
                   <TrendingUp aria-hidden="true" className="size-3.5 text-success" strokeWidth={2} />
                   {t("overview.assets")}
                 </dt>
-                <dd className="num truncate text-xl font-semibold text-foreground" data-testid="overview-assets">
+                <dd className="num [overflow-wrap:anywhere] text-xl font-semibold text-foreground" data-testid="overview-assets">
                   {valuationTableAmount(t,data.displayValuation?.assets,{amount:data.assets,currency})}
                 </dd>
               </div>
@@ -366,7 +366,7 @@ export function OverviewPage({
                   <TrendingDown aria-hidden="true" className={cn("size-3.5", hasLiabilities ? "text-destructive" : "text-muted-foreground")} strokeWidth={2} />
                   {t("overview.liabilities")}
                 </dt>
-                <dd className={cn("num truncate text-xl font-semibold", hasLiabilities ? "text-destructive" : "text-foreground")} data-testid="overview-liabilities">
+                <dd className={cn("num [overflow-wrap:anywhere] text-xl font-semibold", hasLiabilities ? "text-destructive" : "text-foreground")} data-testid="overview-liabilities">
                   {valuationTableAmount(t,signedAccountValuation(data.displayValuation?.liabilities,true),{amount:signedAccountAmount(data.liabilities,true),currency})}
                 </dd>
               </div>
