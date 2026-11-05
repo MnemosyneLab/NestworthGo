@@ -30,7 +30,7 @@ type LiquidityOverviewInput struct {
 func (s *Service) productTools(server *toolSet) {
 	products := liquidity.NewService(s.app)
 	generation := s.contextGeneration
-	readTool(server, "list_products", "Read managed deposit/locked contracts, filtered compact rows and same-capture get_read_item details/reservations. Frozen mcp-read/1; follow relevant cursors. Currency, cost/value, revision and policies remain authoritative. GUI actions do not grant MCP permission. Ordinary NAV holdings use list_holdings.", func(ctx context.Context, in ProductListInput) (any, error) {
+	readTool(server, "list_products", "Managed deposit and locked contracts: compact filtered rows, with details and reservations through get_read_item on the same capture. Currency, cost, value, revision and policies are authoritative. Ordinary NAV holdings use list_holdings.", func(ctx context.Context, in ProductListInput) (any, error) {
 		if in.AccountID != nil && strings.TrimSpace(*in.AccountID) == "" {
 			return nil, fail("validation", "accountId must be an existing account UUID when supplied")
 		}
@@ -43,7 +43,7 @@ func (s *Service) productTools(server *toolSet) {
 		}
 		return s.pagedProducts(ctx, generation, ProductListInput{Limit: in.Limit}, &id)
 	})
-	readTool(server, "list_product_operations", "Page live managed-product operations by productId; default 25/max 100, byte-aware. Follow page.nextCursor with get_read_page; refresh after a changed latestRecordedOperationId. Includes reversals and current undo availability, which is not a plan or permission. get_activity shows ledger effects; get_operation uses a different MCP receipt UUID.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
+	readTool(server, "list_product_operations", "Page live managed-product operations by productId, including reversals and current undo availability (which is not a plan or permission). Follow page.nextCursor with get_read_page and refresh after latestRecordedOperationId changes. get_activity shows ledger effects; get_operation uses a different MCP receipt UUID.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
 		if in.Limit < 0 || in.Limit > 100 {
 			return nil, fail("validation", "limit must be 1 to 100, or omitted/zero for 25")
 		}
@@ -60,7 +60,7 @@ func (s *Service) productTools(server *toolSet) {
 			return products.ListOperations(ctx, query)
 		})
 	})
-	readTool(server, "get_liquidity_overview", "Read current household liquidity routes, exact values/FX, forecasts, fees and reservations. fullAvailable/knownAvailableSubtotal precede reservations; fullUnreserved/knownUnreservedSubtotal follow them. Unknown inputs keep totals incomplete; forecasts are not cash/net worth. Frozen sources and unresolvedReservations use independent cursors. Filters affect detail only; household totals stay unchanged. hasRule means saved rule; availableBase sorting requires horizonOn. No provider refresh or financial writes.", func(ctx context.Context, in LiquidityOverviewInput) (any, error) {
+	readTool(server, "get_liquidity_overview", "Current household liquidity routes with exact values and FX, forecasts, fees and reservations. fullAvailable and knownAvailableSubtotal come before reservations; fullUnreserved and knownUnreservedSubtotal after them. Unknown inputs keep totals incomplete; forecasts are not cash or net worth. sources and unresolvedReservations are separate sections; filters narrow detail only and household totals stay unchanged. hasRule means a saved rule; sorting by availableBase needs horizonOn. No provider refresh or writes.", func(ctx context.Context, in LiquidityOverviewInput) (any, error) {
 		return s.pagedLiquidity(ctx, generation, in)
 	})
 }

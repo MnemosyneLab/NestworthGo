@@ -35,6 +35,8 @@ var skillSchemaExamples = map[string]map[string][]string{
 	},
 	"analysis": {
 		"get_historical_overview": {"historical-overview"}, "get_historical_overview_series": {"historical-overview-series"}, "analyze_period": {"analyze-period"},
+	},
+	"financial-context": {
 		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page", "financial-context-item-page", "financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "get_financial_context_item": {"financial-context-item"},
 		"compare_financial_context": {"financial-comparison"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
 	},
@@ -71,7 +73,7 @@ func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 			}
 		}
 	}
-	checked, configs := 0, 0
+	checked := 0
 	for _, file := range files {
 		raw, err := os.ReadFile(file)
 		if err != nil {
@@ -80,10 +82,6 @@ func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 		reference := strings.TrimSuffix(filepath.Base(file), ".md")
 		for _, match := range examples.FindAllStringSubmatch(string(raw), -1) {
 			name := match[1]
-			if reference == "connection" && (name == "inspector-http-config" || name == "task-tool-discovery") {
-				configs++
-				continue
-			}
 			key := reference + "/" + name
 			tool := ""
 			for candidate, names := range skillSchemaExamples[reference] {
@@ -135,10 +133,10 @@ func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 			t.Errorf("mapped example disappeared: %s", key)
 		}
 	}
-	if configs != 2 || checked == 0 {
-		t.Fatal("configuration/tool example classification failed", configs, checked)
+	if checked == 0 {
+		t.Fatal("no tool examples were validated")
 	}
-	t.Logf("registered-schema validation: %d tool examples, %d separately classified client/protocol examples", checked, configs)
+	t.Logf("registered-schema validation: %d tool examples", checked)
 }
 
 func TestSkillToolInventoryCoversRegisteredTools(t *testing.T) {

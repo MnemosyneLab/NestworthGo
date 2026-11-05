@@ -46,7 +46,7 @@ func New(shared Capabilities, page assistant.PageSelection, allowNavigation ...b
 // No analysis that maintains projections, network/provider reads, configuration, previews or writes.
 func allowed(name string) bool {
 	switch name {
-	case "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
+	case "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
 		return true
 	default:
 		return false

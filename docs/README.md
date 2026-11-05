@@ -2,7 +2,7 @@
 
 This directory documents current `main`. The latest published release is
 [v0.3.10 (build 11, 2026-10-28)](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), with skill 2.0.0.
-The repository skill is 3.0.1 (unpublished); see the
+The repository skill is 3.0.2 (unpublished); see the
 [skill guide](user/nestworth-skill.md#skill-version-policy). The
 current version/build and implementation status come from source and tests,
 while release records describe only published artifacts.

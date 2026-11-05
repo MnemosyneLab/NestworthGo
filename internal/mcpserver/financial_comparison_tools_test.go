@@ -104,11 +104,13 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 				productJSONEqual(t, got, full[section])
 			}
 			call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: initial.ComparisonID, Ref: initial.Content.Positions[0].Ref}, true)
-			call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
 			single := decodeContext(t, call(t, client, "get_financial_context", map[string]any{}, false))
-			call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: single.ContextID, Section: "positions", Cursor: single.PositionsPage.NextCursor}, true)
+			// The authenticated cursor selects the context/comparison family, so a
+			// cursor can never be replayed under another package's identity.
+			call(t, client, "get_read_page", ReadPageInput{CaptureID: single.ContextID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: "positions", Cursor: single.PositionsPage.NextCursor}, true)
 			other := decodeComparison(t, call(t, client, "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}, false))
-			call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: other.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{CaptureID: other.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
 			if changes.Load() != 0 {
 				t.Fatal("write event")
 			}

@@ -84,8 +84,8 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(definitions) != 12 {
-		t.Fatalf("combined discovery lost bounded tools: got %d, want 12", len(definitions))
+	if len(definitions) != 10 {
+		t.Fatalf("combined discovery lost bounded tools: got %d, want 10", len(definitions))
 	}
 	outputs := map[string]*jsonschema.Resolved{}
 	for _, d := range definitions {

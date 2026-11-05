@@ -41,10 +41,8 @@ func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
 						switch tool {
 						case "compare_financial_context", "compare_financial_attribution":
 							args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
-						case "get_financial_context_page":
-							args = map[string]any{"contextId": "missing", "section": "positions", "cursor": "missing"}
-						case "get_financial_comparison_page":
-							args = map[string]any{"comparisonId": "missing", "section": "positions", "cursor": "missing"}
+						case "get_read_page":
+							args = map[string]any{"cursor": "missing"}
 						case "get_financial_context_item":
 							args = map[string]any{"contextId": "missing", "ref": "account-1"}
 						}
@@ -104,7 +102,7 @@ func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
 
 func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 	t.Parallel()
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_context"} {
+	for _, tool := range []string{"get_financial_context", "get_read_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			s, app, _ := fixture(t)
 			comparisonFixture(t, s, app)
@@ -122,10 +120,8 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 				switch tool {
 				case "compare_financial_context", "compare_financial_attribution":
 					args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
-				case "get_financial_context_page":
-					args = map[string]any{"contextId": "missing", "section": "positions", "cursor": "missing"}
-				case "get_financial_comparison_page":
-					args = map[string]any{"comparisonId": "missing", "section": "positions", "cursor": "missing"}
+				case "get_read_page":
+					args = map[string]any{"cursor": "missing"}
 				case "get_financial_context_item":
 					args = map[string]any{"contextId": "missing", "ref": "account-1"}
 				}
@@ -156,8 +152,12 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 				if res.StatusCode != 200 || jsoncodec.Unmarshal(body, &reply) != nil || reply.ID != 1 {
 					t.Fatalf("normal SDK behavior changed: status=%d bytes=%d", res.StatusCode, len(body))
 				}
-				missing := strings.HasSuffix(tool, "_page") || strings.HasSuffix(tool, "_item")
-				if reply.Result.IsError != missing || (missing && !strings.Contains(string(body), "context_expired")) {
+				missing := tool == "get_read_page" || strings.HasSuffix(tool, "_item")
+				wantCode := "context_expired"
+				if tool == "get_read_page" {
+					wantCode = "validation"
+				}
+				if reply.Result.IsError != missing || (missing && !strings.Contains(string(body), wantCode)) {
 					t.Fatal("unexpected result/error")
 				}
 				s.contexts.mu.Lock()

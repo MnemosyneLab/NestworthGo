@@ -1,6 +1,7 @@
 # Read-only financial context over MCP
 
-This contract adds `get_financial_context` and `get_financial_context_page` to
+This contract adds `get_financial_context` (continued through `get_read_page`;
+the former `get_financial_context_page` alias was removed) to
 all existing MCP permission modes. It supplies deterministic financial values
 and their local evidence to an external assistant. The App contains no model,
 chat, model key, new authorization system, import, repair or approval workflow.
@@ -233,8 +234,9 @@ The installed skill's source JSON examples are also exercised through the SDK:
 direct minimal after discovery without directory pre-reads, explicit named
 selection, all three page sections, zero-row deferral, expiry/restart with an
 unchanged semantic hash, and row-kind/FX/time-provenance semantics. Standalone
-bundle tests verify those examples and Inspector-specific HTTP configuration
-survive packaging and installation. The current repository skill is 3.0.1
+bundle tests verify those examples (now in the skill's `financial-context.md`
+reference) survive packaging and installation, and that client-specific
+configuration stays out of the bundle. The current repository skill is 3.0.2
 (unpublished); the latest published App v0.3.10 includes skill 2.0.0. Installed
 clients require an explicit update. The historical
 [v0.3.9 release](../releases/v0.3.9.md) includes skill 1.11.0; historical
@@ -305,8 +307,9 @@ and additional evidence not in the package are outside this slice.
 
 ## Two-state comparison
 
-`compare_financial_context` and `get_financial_comparison_page` extend this
-contract with `financial-comparison/1`. Both tools are read-only in every MCP
+`compare_financial_context` (continued through `get_read_page`; the former
+`get_financial_comparison_page` alias was removed) extends this
+contract with `financial-comparison/1`. It is read-only in every MCP
 mode and share the existing context cache's process budgets and revocation.
 
 ```json

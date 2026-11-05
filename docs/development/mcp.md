@@ -846,7 +846,7 @@ preview/commit, durable receipt-first recovery and user-provided provenance.
 Existing financial target reconciliation keeps its original meaning. Optional
 reconciliationLink on ledger target/change and managed-product previews is part
 of the immutable request hash and owning financial transaction. A correction
-never confirms a check. Current repository skill 3.0.1 documents both routes, partial
+never confirms a check. Current repository skill 3.0.2 documents both routes, partial
 completion, source precision and same-operation recovery.
 
 
@@ -990,7 +990,9 @@ Sorting/filtering occurs before projection and cursoring. Future GUI fields do
 not automatically expand these lists. Complete replacement writes need full
 metadata; compact-field omission does not clear a stored value.
 
-get_financial_context_page and get_financial_comparison_page return only
+Financial continuations through get_read_page (the removed
+get_financial_context_page and get_financial_comparison_page aliases returned
+the same shape) return only
 contextId/comparisonId, contentHash, capturedAt, cacheExpiresAt, section, items
 and page. The original content header, attribution/precision and the other
 sections' progress are not repeated. Clients save the initial header, append
@@ -1113,6 +1115,87 @@ Live/version-bound initial responses use items/page, while frozen initial sectio
 and financial disclosure headers keep their owning structure. No caller builds
 triple activity keys, product cursors or last-ID review cursors. Both external
 MCP and built-in AI use the same capability projection and routing. The MCP
-implementation version is 3.0.0; the distributable skill is independently 3.0.1
+implementation version is 3.0.0; the distributable skill is independently 3.0.2
 (unpublished; see the
 [skill version policy](../user/nestworth-skill.md#skill-version-policy)).
+
+## Discovery size and the external contract snapshot
+
+Every client pays the `tools/list` payload and the server instructions on
+connection, so both are bounded by tests rather than by convention:
+
+- `discovery_contract_test.go` compares, per permission mode and tool, a hash of
+  the name, annotations, input schema and output schema against
+  `testdata/discovery-contract.json`. Description prose is excluded, so guidance
+  can be shortened without blessing a changed argument, permission or result
+  shape. The golden file changes only by hand, as a reviewed contract change.
+- `discovery_budget_test.go` bounds the serialized `tools/list` size per mode,
+  the longest tool description and the instructions. Raising a limit needs a
+  stated reason.
+
+Boilerplate that repeated in every tool (permission requirement, receipt
+semantics, operationId retry rules, analysis snapshot side effects) lives once
+in the server instructions; the helper constructors no longer append it.
+
+Slimming measurement (real `tools/list` JSON from `TestDiscoveryBudget`,
+before -> after, bytes):
+
+| Mode | Tools | `tools/list` | Descriptions | Instructions |
+| --- | --- | --- | --- | --- |
+| `read_only` | 55 -> 53 | 108,144 -> 100,397 (-7.2%) | 22,274 -> 16,842 | 3,111 -> 2,188 |
+| `directory_write` | 74 -> 72 | 128,513 -> 118,368 (-7.9%) | 26,377 -> 18,547 | 3,111 -> 2,188 |
+| `ledger_write` | 104 -> 102 | 187,634 -> 171,447 (-8.6%) | 43,889 -> 30,017 | 3,111 -> 2,188 |
+
+These are wire bytes, not model tokens. Output schemas now dominate
+(roughly 45 KB per mode, mostly the `mcp-read/1` envelope repeated per tool);
+shrinking them changes client-visible validation and is therefore evaluated
+as a contract change in the Phase 3 design note, not as a prose edit.
+
+## Client-specific discovery notes
+
+These notes were moved out of the distributable skill, which is loaded into
+agent context, because they concern client configuration and protocol
+parameters rather than ledger workflows.
+
+### Inspector CLI configuration
+
+Inspector CLI 2.10.0 requires its own explicit Streamable HTTP type. Add
+`"type": "http"` to the App-copied entry; a missing type can be interpreted as
+stdio and fail before connection. This is Inspector-specific, not a requirement
+for other clients. The format follows the Inspector's
+[server configuration format](https://github.com/modelcontextprotocol/inspector/blob/main/docs/mcp-server-configuration.md).
+
+```json
+{"mcpServers":{"nestworth":{"type":"http","url":"${endpoint}","headers":{"Authorization":"Bearer ${token}"}}}}
+```
+
+Replace the endpoint and token locally; placeholders are not expanded. Keep the
+file private and out of reports. Then list tools with:
+
+```bash
+npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.json --server nestworth --method tools/list
+```
+
+Inspector may warn about nullable arrays such as `accountIds` with
+`type: ["null", "array"]`. This is a valid nullable schema also used by other
+tools; a portability warning alone does not prove missing permission or an
+unavailable tool. Check discovery and actual call validation, and report a
+client compatibility problem rather than changing disclosure or bypassing
+request validation.
+
+### Task-scoped discovery protocol parameters
+
+The following are `tools/list` protocol parameters, not business-tool input:
+
+```json
+{"_meta":{"nestworth.toolGroups":["summary"]}}
+```
+
+Valid groups are context, summary, analysis, directory, ledger, market,
+products, review, reconciliation and health. Keep the same metadata on every
+`nextCursor` request; cursors are signed and bound to the normalized group set
+and running server. Changing groups, reconnecting to a restarted server or using
+a full-discovery cursor starts from the first page. The filter is not an
+authorization boundary, and a group cannot reveal tools absent from the current
+permission mode. The behavior is covered by `task_tool_discovery_test.go`.
+

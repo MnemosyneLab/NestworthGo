@@ -124,7 +124,7 @@ func (s *Service) instrumentBatchTools(server *toolSet, mode string) {
 	if mode == ReadOnly {
 		return
 	}
-	writeTool(s, server, "update_instruments_batch", "Atomically update metadata for 1 to 100 verified instrument IDs using expectedMetadataVersion from paged list_instruments. Only name/shortName/note; omission preserves, empty shortName clears, note=null clears. Managed or archived instruments and any stale version reject the whole batch. No ledger or quote changes. Short receipt; pending/unknown outcomes require get_operation and current metadata before another intention.", func(ctx context.Context, in application.InstrumentMetadataBatchInput) (any, error) {
+	writeTool(s, server, "update_instruments_batch", "Atomically update name, shortName and note for 1-100 instruments using expectedMetadataVersion from list_instruments. Omission preserves; an empty shortName clears; note=null clears. Managed or archived instruments and any stale version reject the whole batch. No ledger or quote changes.", func(ctx context.Context, in application.InstrumentMetadataBatchInput) (any, error) {
 		if len(in.Items) < 1 || len(in.Items) > 100 {
 			return nil, fail("validation", "batch supports 1 to 100 items")
 		}

@@ -39,8 +39,9 @@ focused item continuations use the same section/items/page shape plus ref, witho
 repeating target/header or unrelated progress. There is no duplicate
 row representation. Financial initial sections remain at most one row; overview
 and period-analysis initial sections retain five rows to prioritize summaries.
-All continuations default to 25. Explicit-scope financial page tools and optional
-captureId/section inputs remain aliases, not a separate required workflow.
+All continuations default to 25. `get_read_page({cursor,limit?})` is the only
+continuation tool: the explicit-scope financial page tools were removed, and the
+optional captureId/section inputs remain aliases, not a separate required workflow.
 
 Repair progress is polling by jobId, not pagination. Exact single-item details
 fail explicitly when oversized. Executed mutation receipts and get_operation are

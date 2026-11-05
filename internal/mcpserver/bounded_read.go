@@ -399,13 +399,13 @@ func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(co
 	return s.reads.store(g, e, limit)
 }
 func (s *Service) boundedReadTools(server *toolSet, g uint64) {
-	readTool(server, "get_read_page", "Continue any business nextCursor with only cursor and optional limit (25/max 100). Scope is signed; only row budget may change. Short/deferred pages remain incomplete while hasMore. Preserve frozen hash/TTL, version_bound staleness and live semantics. Restart related reads after invalidation; oversized items fail explicitly.", func(ctx context.Context, in ReadPageInput) (any, error) {
+	readTool(server, "get_read_page", "Continue any nextCursor with only cursor and an optional limit (default 25, max 100); the signed cursor carries its scope. A page with hasMore, or a deferred zero-row page, is incomplete. Restart the original read after read_expired, read_revoked or a stale cursor; an oversized item fails explicitly.", func(ctx context.Context, in ReadPageInput) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		return s.continuePage(ctx, server, g, in)
 	})
-	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations, directory, instrument or market-comparison capture. Comparison uses section=results and id=clientItemId, with focused child evidence from that same capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Open one item of a frozen capture (products, historical, account valuations, directory, instruments or market comparison) by section and id, with full evidence and independently paged child sections; comparison rows use section=results and id=clientItemId. Does not recapture or renew the TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }

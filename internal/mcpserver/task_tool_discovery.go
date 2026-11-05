@@ -24,7 +24,7 @@ func discoveryGroup(name string) string {
 		return "shared"
 	case "get_context", "get_catalog":
 		return "context"
-	case "get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page":
+	case "get_financial_context", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution":
 		return "summary"
 	case "get_overview", "get_account_valuations", "get_account_snapshot", "get_historical_overview", "get_historical_overview_series", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail", "list_activities", "get_activity":
 		return "analysis"

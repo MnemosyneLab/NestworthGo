@@ -13,13 +13,9 @@ func readOutputSchema(name string) any {
 	case "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_account_snapshot", "get_overview", "get_historical_overview", "get_historical_overview_series", "get_market_data_batch", "list_agent_market_data", "compare_market_data_import", "list_products", "get_product", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions", "get_contribution_item", "get_return_day", "get_asset_driver_detail":
 		return wrapReadOutput(readEnvelopeSchema())
 	case "get_financial_context":
-		return wrapReadOutput(financialOutputEnvelope("contextId", false))
+		return wrapReadOutput(financialOutputEnvelope("contextId"))
 	case "compare_financial_context", "compare_financial_attribution":
-		return wrapReadOutput(financialOutputEnvelope("comparisonId", false))
-	case "get_financial_context_page":
-		return wrapReadOutput(financialOutputEnvelope("contextId", true))
-	case "get_financial_comparison_page":
-		return wrapReadOutput(financialOutputEnvelope("comparisonId", true))
+		return wrapReadOutput(financialOutputEnvelope("comparisonId"))
 	case "get_data_repair_job":
 		fields := map[string]any{}
 		for _, k := range []string{"jobId", "phase", "outcome", "errorCode"} {
@@ -89,25 +85,16 @@ func readEnvelopeSchema() any {
 	return map[string]any{"type": "object", "properties": props, "required": required, "oneOf": []any{map[string]any{"required": []string{"summary"}, "not": map[string]any{"required": []string{"page"}}}, map[string]any{"required": []string{"section", "items", "page"}, "not": map[string]any{"required": []string{"summary"}}}}}
 }
 
-func financialOutputEnvelope(id string, continuation bool) any {
-	required := []string{id, "contentHash", "capturedAt", "cacheExpiresAt"}
+func financialOutputEnvelope(id string) any {
+	required := []string{id, "contentHash", "capturedAt", "cacheExpiresAt", "generatedAt", "content", "positionsPage", "gapsPage", "evidencePage"}
 	props := map[string]any{}
 	for _, k := range required {
 		props[k] = map[string]any{"type": "string"}
 	}
 	page := map[string]any{"$ref": frozenPageSchemaRef}
-	if continuation {
-		required = append(required, "section", "items", "page")
-		props["section"] = map[string]any{"enum": []string{"positions", "gaps", "evidence"}}
-		props["items"] = map[string]any{"type": "array", "items": true}
-		props["page"] = page
-	} else {
-		required = append(required, "generatedAt", "content", "positionsPage", "gapsPage", "evidencePage")
-		props["generatedAt"] = map[string]any{"type": "string"}
-		props["content"] = map[string]any{"type": "object"}
-		for _, k := range []string{"positionsPage", "gapsPage", "evidencePage"} {
-			props[k] = page
-		}
+	props["content"] = map[string]any{"type": "object"}
+	for _, k := range []string{"positionsPage", "gapsPage", "evidencePage"} {
+		props[k] = page
 	}
 	return map[string]any{"type": "object", "properties": props, "required": required}
 }

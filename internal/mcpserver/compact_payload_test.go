@@ -33,17 +33,17 @@ func measureCompactReadJourneys(t *testing.T, c *mcp.ClientSession, rec *payload
 	for _, tool := range []string{"get_financial_context", "compare_financial_context"} {
 		start := rec.total()
 		args := map[string]any{}
-		pageTool, idKey := "get_financial_context_page", "contextId"
+		idKey := "contextId"
 		if tool == "compare_financial_context" {
 			args = map[string]any{"leftAsOf": f.timepoint, "rightAsOf": "current"}
-			pageTool, idKey = "get_financial_comparison_page", "comparisonId"
+			idKey = "comparisonId"
 		}
 		initial := scaleCapture(t, c, tool, args)
 		for _, section := range []string{"positions", "gaps", "evidence"} {
 			info := initial[section+"Page"].(map[string]any)
 			count := int(info["returned"].(float64))
 			for info["hasMore"] == true {
-				page := scaleCapture(t, c, pageTool, map[string]any{idKey: initial[idKey], "section": section, "cursor": info["nextCursor"]})
+				page := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": initial[idKey], "section": section, "cursor": info["nextCursor"]})
 				if page["contentHash"] != initial["contentHash"] || page[idKey] != initial[idKey] {
 					t.Fatal("mixed capture")
 				}
@@ -64,5 +64,5 @@ func measureCompactReadJourneys(t *testing.T, c *mcp.ClientSession, rec *payload
 		rec.journey(tool+" all sections", start, 64, 4<<20)
 	}
 	call(t, c, "list_instruments", map[string]any{"limit": 101}, true)
-	call(t, c, "get_financial_context_page", FinancialContextPageInput{ContextID: "absent", Section: "positions", Cursor: "invalid"}, true)
+	call(t, c, "get_read_page", ReadPageInput{CaptureID: "absent", Section: "positions", Cursor: "invalid"}, true)
 }

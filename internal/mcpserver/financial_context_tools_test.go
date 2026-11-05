@@ -62,12 +62,12 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			count := initial.PositionsPage.Returned
 			positions := append([]application.FinancialContextPosition{}, initial.Content.Positions...)
 			for cursor != "" {
-				page := decodeContext(t, call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
+				page := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
 				if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.PositionsPage.Returned == 0 || page.Content.Summary.NetWorth.Value != nil {
 					t.Fatal(page)
 				}
 				positions = append(positions, page.Content.Positions...)
-				retry := decodeContext(t, call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
+				retry := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
 				productJSONEqual(t, retry, page)
 				count += page.PositionsPage.Returned
 				cursor = page.PositionsPage.NextCursor
@@ -79,7 +79,7 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			if changes.Load() != 0 {
 				t.Fatal("context emitted write event")
 			}
-			call(t, client, "get_financial_context_page", FinancialContextPageInput{ContextID: initial.ContextID, Section: "gaps", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "gaps", Cursor: initial.PositionsPage.NextCursor}, true)
 			call(t, client, "get_financial_context", map[string]any{"unexpected": true}, true)
 		})
 	}
@@ -130,15 +130,13 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 		id   any
 	}{
 		{"unknown-comparison-property", "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current", large: true}, 1},
-		{"unknown-comparison-page-property", "get_financial_comparison_page", map[string]any{"comparisonId": "id", "section": "positions", "cursor": "cursor", large: true}, 1},
 		{"wrong-comparison-type", "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current", "scope": large}, 1},
-		{"wrong-comparison-page-type", "get_financial_comparison_page", map[string]any{"comparisonId": "id", "section": "positions", "cursor": "cursor", "limit": large}, 1},
 		{"unknown-item-property", "get_financial_context_item", map[string]any{"contextId": "id", "ref": "account-1", large: true}, 1},
 		{"wrong-item-type", "get_financial_context_item", map[string]any{"contextId": "id", "ref": "account-1", "limit": large}, 1},
 		{"unknown-context-property", "get_financial_context", map[string]any{large: true}, 1},
-		{"unknown-page-property", "get_financial_context_page", map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor", large: true}, 1},
+		{"unknown-page-property", "get_read_page", map[string]any{"cursor": "cursor", large: true}, 1},
 		{"wrong-context-type", "get_financial_context", map[string]any{"scope": large}, 1},
-		{"wrong-page-type", "get_financial_context_page", map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor", "limit": large}, 1},
+		{"wrong-page-type", "get_read_page", map[string]any{"cursor": "cursor", "limit": large}, 1},
 		{"escaped-property-long-id", "get_financial_context", map[string]any{strings.Repeat("\"\\\n", 20000): true}, strings.Repeat("x", 500)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -190,9 +188,6 @@ func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 						t.Fatal(err)
 					}
 					args := map[string]any{}
-					if tool == "get_financial_context_page" {
-						args = map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor"}
-					}
 					var id any = 1
 					if variant == "large-property" {
 						args[strings.Repeat("x", 70000)] = true
@@ -588,8 +583,8 @@ func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
 	s.contexts.bytes++
 	cursor := s.contexts.cursor("wire-id", "positions", s.contextGeneration, 0)
 	s.contexts.mu.Unlock()
-	args := FinancialContextPageInput{ContextID: "wire-id", Section: "positions", Cursor: cursor, Limit: 100}
-	payload, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_financial_context_page", "arguments": args}})
+	args := ReadPageInput{CaptureID: "wire-id", Section: "positions", Cursor: cursor, Limit: 100}
+	payload, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_read_page", "arguments": args}})
 	req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")

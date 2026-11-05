@@ -32,7 +32,7 @@ func (s *Service) dataHealthTools(server *toolSet, mode string) {
 		}
 		return s.pagedHealth(ctx, generation, in, "data_repair_preview", read, "items", "unresolved")
 	})
-	readTool(server, "get_data_repair_job", "Poll exact process-local jobId. Default progress returns sequence, phase, outcome and counters without a health scan or capture. view=evidence freezes job items/blockers/prerequisites (25/max 100, 64 KiB). After terminal outcome, scan_data_health once for current gaps. Rebuilt days do not prove complete data; not_found after restart leaves completion unknown.", func(ctx context.Context, in DataRepairJobInput) (any, error) {
+	readTool(server, "get_data_repair_job", "Poll the exact process-local jobId. Default progress returns phase, outcome and counters without a health scan; view=evidence freezes items, blockers and prerequisites (25/max 100). After a terminal outcome run scan_data_health once: rebuilt days do not prove complete data, and not_found after a restart leaves the outcome unknown.", func(ctx context.Context, in DataRepairJobInput) (any, error) {
 		id := strings.TrimSpace(in.JobID)
 		if _, err := uuid.Parse(id); err != nil {
 			return nil, fail("validation", "jobId must be a UUID returned by start_data_repair")
@@ -78,7 +78,7 @@ func (s *Service) dataHealthTools(server *toolSet, mode string) {
 	open := true
 	registerTool(server, &agentcapability.Definition{
 		Name:        "start_data_repair",
-		Description: "Start the same repair_all job as the UI, fetching configured provider data and rebuilding derived snapshots. Requires ledger_write. Inspect scan_data_health and preview_data_repair first. Uses provider limits and existing application write guards. Reuse operationId for identical retries. The durable receipt records job submission only: inspect attached/conflict and poll the returned jobId to learn completion and remaining issues. A conflicting job means repair_all was not scheduled. An accepted job continues independently of this request or MCP connection.",
+		Description: "Start the UI's repair_all job: fetch configured provider data and rebuild derived snapshots under provider limits and write guards. Run scan_data_health and preview_data_repair first. The receipt records submission only: check attached and conflict (conflict means nothing was scheduled) and poll the returned jobId with get_data_repair_job. The job continues independently of this request.",
 		Effect:      agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &open},
 	}, func(ctx context.Context, in Mutation[Empty]) (Response, error) {
 		value, err := s.execute(ctx, in.OperationID, "start_data_repair", in.Input, func(ctx context.Context) (any, error) {

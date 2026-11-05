@@ -1,12 +1,12 @@
 # Business pagination and atomic batches
 
-Discover all tool-list pages first, then reuse schemas for this connection. Liquidity, products, instruments, upcoming actions, Agent
+Liquidity, products, instruments, upcoming actions, Agent
 records, account valuations, directory lists/holdings, scan_data_health and
 preview_data_repair return mcp-read/1 by default. get_data_repair_job defaults to
 compact progress without a capture; only view=evidence uses mcp-read/1. There is one contract; do not pass responseMode.
 Historical/current overview reads default to five initial items per section;
 continuations default to 25. Pure minimal financial-context workflows retain
-their disclosure path. Inspect permissions before writes.
+their disclosure path.
 
 ## Completeness and recovery
 
@@ -232,8 +232,7 @@ Limits are upper row counts; complete response bytes may produce fewer rows.
 
 Initial financial headers and focused-item responses retain their established
 disclosure/alias and hash structure, without duplicating rows in a second shape.
-Their section cursors still carry all routing scope. Explicit-scope `get_financial_context_page` and
-`get_financial_comparison_page` remain aliases; they are not required by the shipped workflow.
+Their section cursors carry all routing scope, so `get_read_page({cursor, limit?})` is the only continuation entry.
 
 For mcp-read/1, fixed TTL is 5 minutes; per-capture budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial

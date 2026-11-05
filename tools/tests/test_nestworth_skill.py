@@ -78,7 +78,7 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(bundle.extractfile(prefix + "VERSION").read().decode().strip(), SOURCE_VERSION)
             guide = bundle.extractfile("nestworth-skill/INSTALL.md").read().decode()
             self.assertIn(f"### Current repository skill: {SOURCE_VERSION}; published skill:", guide)
-            analysis = bundle.extractfile(prefix + "references/analysis.md").read()
+            analysis = bundle.extractfile(prefix + "references/financial-context.md").read()
             connection = bundle.extractfile(prefix + "references/connection.md").read()
         examples = {name: json.loads(raw) for name, raw in re.findall(
             r"<!-- example: ([a-z-]+) -->\s*```json\n(.*?)\n```", analysis.decode(), re.S)}
@@ -95,15 +95,10 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("package disclosure: minimal stays free of names/raw IDs", analysis.decode())
         self.assertIn("`get_financial_context_item`", connection.decode())
         self.assertIn("omitting cursor to start each section", analysis.decode())
-        config_match = re.search(r"<!-- example: inspector-http-config -->\s*```json\n(.*?)\n```",
-                                 connection.decode(), re.S)
-        self.assertIsNotNone(config_match)
-        server = json.loads(config_match.group(1))["mcpServers"]["nestworth"]
-        self.assertEqual(server["type"], "http")
-        self.assertEqual(server["url"], "${endpoint}")
-        self.assertEqual(server["headers"]["Authorization"], "Bearer ${token}")
+        self.assertNotIn("inspector-http-config", connection.decode())
+        self.assertNotIn("nestworth.toolGroups", connection.decode())
         self.run_installer("--source", archive)
-        self.assertEqual((self.target / "references/analysis.md").read_bytes(), analysis)
+        self.assertEqual((self.target / "references/financial-context.md").read_bytes(), analysis)
         self.assertEqual((self.target / "references/connection.md").read_bytes(),
                          connection)
         self.assertIn(SOURCE_VERSION, self.run_installer("--status").stdout)

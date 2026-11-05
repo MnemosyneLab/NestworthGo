@@ -275,7 +275,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 				t.Fatal("item not discoverable")
 			}
 			capture := decodeContext(t, call(t, client, "get_financial_context", map[string]any{}, false))
-			args := skillExample(t, "analysis", "financial-context-item", map[string]string{"contextId": capture.ContextID, "ref": capture.Content.Scope.AccountRefs[0]})
+			args := skillExample(t, "financial-context", "financial-context-item", map[string]string{"contextId": capture.ContextID, "ref": capture.Content.Scope.AccountRefs[0]})
 			before := decodeItem(t, call(t, client, "get_financial_context_item", args, false))
 			if before.Position.Complete || len(before.Positions) != 1 || *before.Positions[0].NativeAmount != "100" || before.Positions[0].BaseAmount != nil || len(before.Gaps) != 1 || before.Gaps[0].Code != "missing_fx" {
 				t.Fatal(before)
@@ -300,7 +300,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 				t.Fatal(historicalItem)
 			}
 			named := decodeContext(t, call(t, client, "get_financial_context", map[string]any{"disclosure": "named"}, false))
-			namedItem := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "analysis", "financial-context-item", map[string]string{"contextId": named.ContextID, "ref": named.Content.Scope.AccountRefs[0]}), false))
+			namedItem := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "financial-context", "financial-context-item", map[string]string{"contextId": named.ContextID, "ref": named.Content.Scope.AccountRefs[0]}), false))
 			if namedItem.Disclosure != "named" || namedItem.Position.Name != "PRIVATE NAME" || namedItem.Position.Ref != account.Account.ID.String() {
 				t.Fatal(namedItem)
 			}
@@ -355,11 +355,11 @@ func TestFinancialContextItemSkillPagination(t *testing.T) {
 	s.contexts.bytes = 1
 	s.contexts.mu.Unlock()
 	client := connect(t, s)
-	first := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "analysis", "financial-context-item", map[string]string{"contextId": "package-a", "ref": "account-1"}), false))
+	first := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "financial-context", "financial-context-item", map[string]string{"contextId": "package-a", "ref": "account-1"}), false))
 	for section, info := range map[string]FinancialContextPageInfo{"positions": first.PositionsPage, "gaps": first.GapsPage, "evidence": first.EvidencePage} {
 		count := info.Returned
 		for info.HasMore {
-			page := decodeItem(t, call(t, client, "get_read_page", skillExample(t, "analysis", "financial-context-item-page", map[string]string{"contextId": "package-a", "ref": "account-1", "section": section, "cursor": info.NextCursor}), false))
+			page := decodeItem(t, call(t, client, "get_read_page", skillExample(t, "financial-context", "financial-context-item-page", map[string]string{"contextId": "package-a", "ref": "account-1", "section": section, "cursor": info.NextCursor}), false))
 			switch section {
 			case "positions":
 				info = page.PositionsPage
