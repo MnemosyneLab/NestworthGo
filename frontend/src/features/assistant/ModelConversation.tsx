@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import * as API from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
@@ -206,32 +206,6 @@ export function ModelConversation() {
       )
       .catch(() => setNavigationState("navigationStopped"));
   }, [latest.data, page, epoch, id]);
-  // The provider tool requests a capture; no manual publication or approval.
-  // Poll metadata only. A capture happens synchronously on the UI thread and
-  // includes current field properties (also changes without DOM mutations).
-  const pageReadView = useRef({viewKey: page?.viewKey ?? "", generation: page?.modelStamp ?? ""});
-  useLayoutEffect(() => { pageReadView.current = {viewKey: page?.enabled ? page.viewKey : "", generation: page?.modelStamp ?? ""}; }, [page?.viewKey, page?.enabled, page?.modelStamp]);
-  useEffect(() => {
-    if (!epoch || !page?.enabled) return;
-    let stopped = false;
-    let polling = false;
-    const poll = async () => {
-      if (stopped || polling) return;
-      polling = true;
-      try {
-        const requests = await callService(() => API.PendingPageReads(epoch));
-        for (const request of requests ?? []) {
-          if (stopped) break;
-          const content = capturePageContent(pageReadView.current.viewKey, pageReadView.current.generation);
-          await callService(() => API.DeliverPageContent(epoch, request.id, content));
-        }
-      } catch { /* The requesting tool receives a bounded unavailable result. */ }
-      finally { polling = false; }
-    };
-    const timer = window.setInterval(() => void poll(), running ? 150 : 750);
-    void poll();
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, [epoch, page?.enabled, running]);
   async function action(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;

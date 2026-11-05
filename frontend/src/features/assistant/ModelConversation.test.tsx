@@ -539,3 +539,12 @@ it("revokes analysis navigation when a live filter changes during intent consump
   await screen.findByText(/No page change was applied/);
   expect(navigate).not.toHaveBeenCalled();
 });
+
+
+it("captures the current page even with the local page guide off and no conversation UI mounted", async () => {
+ api.PendingPageReads.mockResolvedValueOnce([{id:"collapsed-sidebar-read"}]).mockResolvedValue([]);
+ render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={()=>false} onNavigate={vi.fn()}><main data-assistant-page="return-analysis"><p>Latest underlying page</p></main></AssistantPageProvider></QueryClientProvider>);
+ await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));
+ expect(JSON.stringify(api.DeliverPageContent.mock.calls[0][2].nodes)).toContain("Latest underlying page");
+ expect(api.GrantNavigation).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
+});

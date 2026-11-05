@@ -369,8 +369,9 @@ navigation, DOM execution or financial-write authority.
 
 Each tool invocation asks the mounted desktop bridge for a synchronous capture
 of the *then-current* active page, including live input properties rather than
-only React/backend state. The bridge polls request IDs (150 ms during a selected
-active run, 750 ms while idle), not page contents. Requests expire after ten
+only React/backend state. The desktop host bridge stays mounted independently of sidebar visibility and
+local page-guide enablement. While configured AI is available it polls request
+IDs (750 ms idle, 150 ms immediately after a delivery), not page contents. Requests expire after ten
 seconds and are checked against the runtime epoch, config revision, live
 workspace validator, run cancellation and enabled state. Nothing is prepublished.
 The current page must have an explicit reviewed root and match the current view
