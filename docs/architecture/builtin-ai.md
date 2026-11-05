@@ -135,6 +135,19 @@ verified message; no provisional executable arguments or live display tokens
 escape. The pinned upstream converter's failures remain separately characterized;
 they are not acceptance of the corrected path.
 
+The desktop Engine uses `Model.Generate` (nonstreaming JSON). The UI publishes
+only complete turns, so SSE provides no incremental display benefit. Generate
+retains bounded whole-body reads, strict successful terminal JSON validation,
+clean EOF, SDK conversion, native checkpoints and the controlled serial tool loop.
+The public Stream adapter remains tested, but is not the ordinary desktop path.
+There is no automatic transport fallback or retry.
+
+Function `status` may be absent inside a verified completed response. Explicit
+null, incomplete, in-progress or mistyped terminal statuses are rejected. An
+initial function argument snapshot seeds accumulation rather than being required
+to be empty. Nonempty provisional identities cannot change; complete matching
+terminal identities remain required for dispatch.
+
 Function argument `done` events contain a complete argument snapshot and do not
 require a preceding partial delta. If deltas were present, their exact bytes must
 match `done`; the finalized arguments must also match `output_item.done` and the

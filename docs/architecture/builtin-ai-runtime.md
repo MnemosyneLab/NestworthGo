@@ -343,3 +343,14 @@ inside the provider. IPC events, durable state and the desktop use the same code
 English, Simplified Chinese and Traditional Chinese guidance provides next steps.
 A failure still leaves the last successful native checkpoint intact and requires
 an explicit new request. Older generic failures cannot be retrospectively classified.
+
+
+Response rejection codes use a closed `provider_response_rejected.<rule>`
+vocabulary for request contract, response headers/body/terminal/item, SSE
+framing/order/lifecycle/added/done/function/arguments/parts/terminal/event/EOF,
+SDK conversion and engine inventory/empty output. These fixed stages/rules survive
+SDK wrapping and durable restart. They contain no response content, field values,
+provider event names, request/account IDs or credentials. The desktop shows only
+exact recognized codes alongside localized reporting guidance; unknown strings
+are never reflected. A successful complete refusal is displayable text from the
+SDK refusal extension, with its original native item preserved in history.
