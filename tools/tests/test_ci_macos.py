@@ -109,7 +109,9 @@ class MacCI(unittest.TestCase):
             child = root / 'child.py'
             child.write_text("import os, signal, time\nfrom pathlib import Path\n"
                              "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-                             "Path('child.pid').write_text(str(os.getpid()))\ntime.sleep(60)\n")
+                             # Publish readiness only after the PID is written and closed.
+                             "Path('child.pid.tmp').write_text(str(os.getpid()))\n"
+                             "Path('child.pid.tmp').replace('child.pid')\ntime.sleep(60)\n")
             leader = ("import subprocess, sys, time\n"
                       f"subprocess.Popen([sys.executable, {str(child)!r}])\ntime.sleep(60)\n")
             process = subprocess.Popen([sys.executable, '-c', leader], cwd=root, start_new_session=True)
@@ -263,7 +265,7 @@ from pathlib import Path
 s = importlib.util.spec_from_file_location('gates', {str(ROOT / 'tools/ci-macos-gates.py')!r})
 m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
 r = Path({directory!r})
-m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after', '.')),), r, r / 'logs', 1)
+m.run_lanes(((('hang', 'echo $$ > child.tmp && mv child.tmp child && sleep 60', '.'), ('after', 'touch after', '.')),), r, r / 'logs', 1)
 """
             process = subprocess.Popen([sys.executable, '-c', script], stdout=subprocess.DEVNULL)
             try:
@@ -327,7 +329,9 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
             child = root / 'detached.py'
             child.write_text("import os, signal, time\nfrom pathlib import Path\n"
                              "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-                             "Path('detached.pid').write_text(str(os.getpid()))\ntime.sleep(60)\n")
+                             # exists() must mean the complete PID is ready to read.
+                             "Path('detached.pid.tmp').write_text(str(os.getpid()))\n"
+                             "Path('detached.pid.tmp').replace('detached.pid')\ntime.sleep(60)\n")
             leaf = ' '.join(map(shlex.quote, [sys.executable,
                 str(ROOT / 'tools/tests/fixtures/portable_timeout.py'), '-k', '1s', '60s',
                 sys.executable, str(child)]))
@@ -408,8 +412,9 @@ m.run_lanes(((('hang', 'echo $$ > child; sleep 60', '.'), ('after', 'touch after
     def test_cancellation_owns_both_parallel_frontend_checks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            lanes = ((('lint', 'echo $$ > lint.pid; sleep 60', '.'),
-                      ('typecheck', 'echo $$ > typecheck.pid; sleep 60', '.'),
+            # Redirecting directly to the readiness path exposes an empty file.
+            lanes = ((('lint', 'echo $$ > lint.pid.tmp && mv lint.pid.tmp lint.pid && sleep 60', '.'),
+                      ('typecheck', 'echo $$ > typecheck.pid.tmp && mv typecheck.pid.tmp typecheck.pid && sleep 60', '.'),
                       ('frontend-tests', 'touch tests-started', '.')),)
             script = ("import importlib.util\nfrom pathlib import Path\n"
                       f"s=importlib.util.spec_from_file_location('gates', {str(ROOT / 'tools/ci-macos-gates.py')!r})\n"
