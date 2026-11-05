@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
-import { AssistantPageProvider } from "./PageContext";
+import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from "./PageContext";
 import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
   PublishPage: vi.fn(),
@@ -524,4 +524,36 @@ it("displays only allowlisted tool names and never a raw source identifier", asy
   await user.click(await screen.findByText(/Data reads · 1/));
   expect(screen.getByText("Ledger read")).toBeVisible();
   expect(screen.queryByText(/private_source_canary/)).not.toBeInTheDocument();
+});
+
+
+it("navigates to a page target with a draft without sending it to the model", async () => {
+  const navigate = vi.fn();
+  const observedAt = Date.now();
+  function Publisher() {
+    const setEnabled = useAssistantPage()?.setEnabled;
+    useLayoutEffect(() => { setEnabled?.(true); }, [setEnabled]);
+    usePublishAssistantPage({
+      viewKey: "accounts:", page: "accounts", scope: { kind: "household", label: "Synthetic household" },
+      timezone: "UTC", basis: "base", currency: "USD", observedAt, state: "available",
+      targets: [{ label: "Synthetic checking", destination: { page: "accounts", accountId: "11111111-1111-4111-8111-111111111111" } }], metrics: [],
+    });
+    return null;
+  }
+  render(<QueryClientProvider client={createTestQueryClient()}>
+    <AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="accounts:" blocked={() => false} onNavigate={navigate}>
+      <Publisher /><ModelConversation />
+    </AssistantPageProvider>
+  </QueryClientProvider>);
+  const user = userEvent.setup();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Do not send this draft");
+  await user.click(screen.getByText("Page navigation"));
+  const target = screen.getByRole("button", { name: "Synthetic checking" });
+  expect(target).toHaveAttribute("type", "button");
+  await user.click(target);
+  expect(navigate).toHaveBeenCalledWith({ page: "accounts", accountId: "11111111-1111-4111-8111-111111111111" });
+  expect(screen.getByLabelText("Message")).toHaveValue("Do not send this draft");
+  expect(api.Start).not.toHaveBeenCalled();
+  expect(api.GrantNavigation).not.toHaveBeenCalled();
 });

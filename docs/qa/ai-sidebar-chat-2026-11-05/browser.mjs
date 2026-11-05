@@ -72,13 +72,14 @@ try{
  const options=page.locator('summary').filter({hasText:await t('aiChat.navigationOptions')});
  await options.focus();await page.keyboard.press('Enter');
  await page.getByRole('button',{name:await t('aiChat.sendNavigate'),exact:true}).waitFor();
+ await page.getByLabel(await t('aiChat.message'),{exact:true}).fill('Keep this synthetic draft private');
  // Guarded navigation is an explicit click; it cannot be supplied by a model.
  await page.evaluate(()=>window.__qa.blocked=true);await page.getByRole('button',{name:'Synthetic checking',exact:true}).click();assert.equal(await page.evaluate(()=>window.__qa.navigated),0);
- await page.evaluate(()=>window.__qa.blocked=false);await page.getByRole('button',{name:'Synthetic checking',exact:true}).click();assert.equal(await page.evaluate(()=>window.__qa.navigated),1);
+ await page.evaluate(()=>window.__qa.blocked=false);await page.getByRole('button',{name:'Synthetic checking',exact:true}).click();assert.equal(await page.evaluate(()=>window.__qa.navigated),1);assert.equal(await page.evaluate(()=>window.__qa.calls.length),1);assert.equal(await page.getByLabel(await t('aiChat.message'),{exact:true}).inputValue(),'Keep this synthetic draft private');
  await page.getByLabel(await t('aiChat.message'),{exact:true}).fill('Second synthetic question');await page.getByRole('button',{name:await t('aiChat.send'),exact:true}).click();await page.getByRole('button',{name:await t('aiChat.stop'),exact:true}).waitFor();await page.context().setOffline(true);await page.getByRole('button',{name:await t('aiChat.stop'),exact:true}).click();await page.getByText(await t('aiChat.run.cancelled'),{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>window.__qa.calls.length),2);assert.equal(await page.evaluate(()=>window.__qa.grants||0),0);await page.context().setOffline(false);
  await page.getByLabel(await t('aiChat.message'),{exact:true}).fill('Open overview');await page.getByRole('button',{name:await t('aiChat.sendNavigate'),exact:true}).click();await page.getByText(await t('aiChat.navigationOpened'),{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.__qa.navigated),2);assert.equal(await page.evaluate(()=>window.__qa.grants),1);assert.equal(await page.evaluate(()=>window.__qa.calls.length),3);
- results.push({width,language,theme,explicitActivation:true,selectorOnly:true,completed:true,cancelled:true,offlineHistoryAndStop:true,explicitModelNavigation:true,navigationGuard:true,noOverflow:true,continuousHistory:true,readingPositionPreserved:true,keyboardDisclosure:true,providerCalls:0});await page.close();
+ results.push({width,language,theme,explicitActivation:true,selectorOnly:true,completed:true,cancelled:true,offlineHistoryAndStop:true,explicitModelNavigation:true,navigationGuard:true,targetKeepsDraftWithoutSending:true,noOverflow:true,continuousHistory:true,readingPositionPreserved:true,keyboardDisclosure:true,providerCalls:0});await page.close();
  }
  assert.deepEqual(errors,[]);writeFileSync(join(output,'results.json'),JSON.stringify({results,errors},null,2));console.log(JSON.stringify({results,errors}));
 }finally{await browser?.close();await server.close();rmSync(scratch,{recursive:true,force:true});}

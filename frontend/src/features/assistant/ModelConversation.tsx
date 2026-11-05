@@ -327,7 +327,7 @@ export function ModelConversation() {
         <div className="flex flex-wrap items-center gap-2">
         <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
           {["scope", "privacy", "pageHint", "retention"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
-          {page?.refresh && <Button variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
+          {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         </div></InfoPopover>
         <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t("aiChat.readOnly")}</span>
         <Button
@@ -367,7 +367,7 @@ export function ModelConversation() {
         >
           {t("aiChat.sendNavigate")}
         </Button>
-        <div className="flex flex-wrap gap-2 pt-2">{page?.context?.targets.map(target => <Button key={target.ref} variant="ghost" className="max-w-full whitespace-normal" disabled={busy} onClick={() => { if (page.navigate(target.ref, page.context!) !== "opened") setFailed(true); }}>{target.label}</Button>)}</div>
+        <div className="flex flex-wrap gap-2 pt-2">{page?.context?.targets.map(target => <Button type="button" key={target.ref} variant="ghost" className="max-w-full whitespace-normal" disabled={busy} onClick={() => { if (page.navigate(target.ref, page.context!) !== "opened") setFailed(true); }}>{target.label}</Button>)}</div>
         </details>
         {navigationState && (
           <p role="status" className="text-xs text-muted-foreground">
