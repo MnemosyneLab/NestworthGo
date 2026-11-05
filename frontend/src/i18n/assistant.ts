@@ -1,6 +1,8 @@
 export const assistantEn = {
   aiChat: {
     writeInstitution: "Institution",
+    writeInstitutionAssigned: "Assigned",
+    writeInstitutionUnassigned: "Not assigned",
     writeOwners: "Owners",
     writeAccountType: "Account type / default currency",
     writeIdentityMissing: "Account identity was not captured. Obtain a fresh preview before confirming.",
@@ -245,6 +247,8 @@ export const assistantEn = {
 export const assistantZhCN = {
   aiChat: {
     writeInstitution: "机构",
+    writeInstitutionAssigned: "已指定",
+    writeInstitutionUnassigned: "未指定",
     writeOwners: "所有人",
     writeAccountType: "账户类型／默认币种",
     writeIdentityMissing: "此预览未保存账户身份信息，请刷新预览后再确认。",
@@ -473,6 +477,8 @@ export const assistantZhCN = {
 export const assistantZhTW = {
   aiChat: {
     writeInstitution: "機構",
+    writeInstitutionAssigned: "已指定",
+    writeInstitutionUnassigned: "未指定",
     writeOwners: "所有人",
     writeAccountType: "帳戶類型／預設幣別",
     writeIdentityMissing: "此預覽未儲存帳戶身分資訊，請更新預覽後再確認。",

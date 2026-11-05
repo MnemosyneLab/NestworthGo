@@ -204,3 +204,37 @@ func TestHostReviewCurrencyFailureDoesNotPersistInvisibleReview(t *testing.T) {
 	}
 	assertActivityCount(t, fx, 0)
 }
+
+func TestHostReviewInstitutionFallbackNameIsDistinctFromUnassigned(t *testing.T) {
+	fx := newHostFixture(t)
+	members, _ := fx.app.ListMembers(t.Context(), false)
+	institution, err := fx.app.CreateInstitution(t.Context(), "没有对应机构", domain.InstitutionBank)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := fx.app.CreateAccount(t.Context(), application.AccountInput{Name: "Checking", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", InstitutionID: institution.ID.String(), OwnerIDs: []domain.MemberID{members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unassigned := hostPreview(t, fx)
+	command := hostCommand(fx)
+	command.AccountID = other.Account.ID.String()
+	assigned, err := fx.local.PreviewHostChange(t.Context(), command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unassigned.Binding.CashAccount.Institution != "" || assigned.Binding.CashAccount.Institution != "没有对应机构" {
+		t.Fatal("assigned/unassigned identity lost")
+	}
+	// The desktop renders an explicit assigned/not-assigned marker from this
+	// digest-bound presence, never a user-controlled name as the missing label.
+	if _, err := fx.app.UpdateAccount(t.Context(), other.Account.ID, application.AccountInput{InstitutionIDSet: true, InstitutionID: ""}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.local.ConfirmHostChange(t.Context(), assigned.Binding.ID, assigned.Digest); err == nil {
+		t.Fatal("institution removal reused old identity")
+	}
+	_, err = fx.local.PreviewHostChange(t.Context(), command)
+	requireLocalError(t, err, "ambiguous_account_identity")
+	assertActivityCount(t, fx, 0)
+}

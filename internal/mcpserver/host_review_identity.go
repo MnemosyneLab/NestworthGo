@@ -44,6 +44,9 @@ func (s *InProcessSession) cashAccountIdentity(ctx context.Context, command hist
 	identities := make([]HostCashAccountIdentity, 0, len(accounts))
 	selected := -1
 	for _, record := range accounts {
+		if record.Account.InstitutionID != nil && strings.TrimSpace(record.InstitutionName) == "" {
+			return nil, fail("review_unavailable", "assigned institution identity unavailable")
+		}
 		owners := []string{}
 		for _, share := range record.Ownership.Shares() {
 			name := names[share.MemberID]

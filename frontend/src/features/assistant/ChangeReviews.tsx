@@ -37,7 +37,7 @@ export function ChangeReviews({ epoch, id, enabled, busy, runKey = "" }: {epoch:
    <p className="font-medium">{displayEnum(t,"history.kind",review.kind)} · {review.account}</p>
    <dl className="grid grid-cols-1 gap-1 break-words">
     {review.accountType ? <>
-     <div><dt className="inline">{t("aiChat.writeInstitution")}: </dt><dd className="inline">{review.accountInstitution || t("accounts.noInstitution")}</dd></div>
+     <div><dt className="inline">{t("aiChat.writeInstitution")}: </dt><dd className="inline"><span className="rounded border border-border px-1">{t(review.accountInstitution ? "aiChat.writeInstitutionAssigned" : "aiChat.writeInstitutionUnassigned")}</span>{review.accountInstitution && <span className="ml-2">{review.accountInstitution}</span>}</dd></div>
      <div><dt className="inline">{t("aiChat.writeOwners")}: </dt><dd><ul>{review.accountOwners?.map((owner,index)=><li key={index}>{owner}</li>)}</ul></dd></div>
      <div><dt className="inline">{t("aiChat.writeAccountType")}: </dt><dd className="inline">{displayEnum(t,"enum",review.accountType)} · {review.accountCurrency}</dd></div>
     </> : <p>{t("aiChat.writeIdentityMissing")}</p>}

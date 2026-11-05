@@ -63,3 +63,17 @@ it("never enables confirmation of a legacy preview missing frozen identity",asyn
  expect(await screen.findByRole("button",{name:"Confirm this ledger change"})).toBeDisabled();
  expect(screen.getByText(/Account identity was not captured/)).toBeVisible();
 });
+
+it.each(["No matching institution","没有对应机构","沒有對應機構","Not assigned"])("distinguishes an unassigned institution from a real institution named %s",async(name)=>{
+ api.Reviews.mockResolvedValue([{...review,accountInstitution:""},{...review,id:"assigned-review",digest:"assigned-digest",accountInstitution:name}]);
+ const user=userEvent.setup();const view=mount();
+ await screen.findByText("Assigned");
+ const cards=view.container.querySelectorAll("article");
+ expect(within(cards[0] as HTMLElement).getByText("Not assigned")).toBeVisible();
+ expect(within(cards[0] as HTMLElement).queryByText("Assigned")).toBeNull();
+ expect(within(cards[1] as HTMLElement).getByText("Assigned")).toBeVisible();
+ expect(within(cards[1] as HTMLElement).getByText(name)).toBeVisible();
+ expect(cards[0].textContent).not.toBe(cards[1].textContent);
+ await user.click(within(cards[1] as HTMLElement).getByRole("button",{name:"Confirm this ledger change"}));
+ expect(api.ReviewAction).toHaveBeenCalledExactlyOnceWith("epoch","conversation","assigned-review","assigned-digest","confirm");
+});
