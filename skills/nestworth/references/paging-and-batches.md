@@ -45,7 +45,7 @@ page. Preserve captureId and contentHash and check complete unions.
 {"cursor":"${cursor}","limit":25}
 ```
 
-Captures have a fixed five-minute TTL without renewal, a 4 MiB capture budget,
+Captures have a fixed five-minute TTL without renewal, a 4 MiB parent JSON budget,
 16 MiB total cache, eight entries, two builders and a ten-second build budget.
 SQL reads also preflight row and payload budgets. Expired or evicted captures
 return read_expired. A revoked generation returns read_revoked. Reconnection,
@@ -125,7 +125,7 @@ disclosure, alias and hash structure, without duplicating rows in a second
 shape. Their section cursors carry all routing scope, so
 `get_read_page({cursor, limit?})` is the only continuation entry.
 
-For mcp-read/1, fixed TTL is 5 minutes; per-capture budget is 4 MiB; its cache
+For mcp-read/1, fixed TTL is 5 minutes; parent JSON budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial
 context and comparison use a separate cache with the same TTL, 4 MiB package and
 16 MiB / 8-entry limits. These are retained-data budgets, distinct from the
@@ -148,3 +148,10 @@ contracts. The envelope does not describe every GUI field, and write or
 `get_operation` receipts gain no extra post-execution schema. Error metadata uses
 the mcp-error/1 shape in [recovery](recovery.md), not a successful data result.
 The SDK sends JSON text and structuredContent. Both count toward wire bytes. Do not add the two copies as separate evidence or treat HTTP bytes as model tokens.
+
+Period drill-down JSON is stored separately but charged to the same 16 MiB
+cache. Parent JSON plus frozen detail bytes, keys and metadata allowance must
+fit 8 MiB per capture; at most 32,768 day/driver entries are retained. Exceeding
+either returns `too_large` before admission; narrow the query. These limits do
+not bound process RSS or temporary analysis allocations. Paging does not renew
+TTL, and eviction requires restarting all sections.

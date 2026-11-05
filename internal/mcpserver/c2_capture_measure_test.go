@@ -345,7 +345,11 @@ func measureC2Window(t *testing.T, app *application.Service, adapter *analysis.S
 
 	folded := attachPeriodDrilldown(t, parent, calendar.Cells, drivers)
 	foldedSize := frozenCaptureSize(t, folded)
-	produced, prodErr := periodReadCapture(AnalyzePeriodInput{Query: query}, period, newPeriodDrilldown(from, to, calendar.Cells, drivers))
+	drill, drillErr := newPeriodDrilldown(from, to, calendar.Cells, drivers)
+	if drillErr != nil {
+		t.Fatal(drillErr)
+	}
+	produced, prodErr := periodReadCapture(AnalyzePeriodInput{Query: query}, period, drill)
 	if prodErr != nil {
 		t.Fatal(prodErr)
 	}

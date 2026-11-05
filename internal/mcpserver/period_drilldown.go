@@ -7,16 +7,20 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-// Return days and asset drivers are frozen with analyze_period, then served by
-// get_read_item. They stay off the marshaled capture: store charges
-// len(jsoncodec.Marshal) against readCaptureLimit, and freezing every return
-// day of a 14-year window exceeded 4 MiB. This pointer is unexported, so the
-// marshal skips it. The values leave memory when the capture expires or is
-// evicted. get_read_item projects one day or driver at a time.
+// Drill-down values are frozen as privately owned JSON, outside the parent
+// capture JSON. Their bytes and a conservative map/key allowance are charged
+// to the capture's retained budget and the shared cache before admission.
+// This is a retained-data budget, not a bound on builder temporaries or RSS.
+const readRetainedCaptureLimit = 8 << 20
+const readDrillEntryLimit = 32768
+const drillEntryOverhead = 128
+const drillBaseOverhead = 256
+
 var assetDriverKeys = []string{
 	"external_flow", "income", "spending", "dividend_interest", "price_change",
 	"fx_impact", "fx_conversion_spread", "fee", "liability_impact", "adjustment", "residual",
@@ -35,8 +39,9 @@ var assetDriverFields = []string{"byInstrument", "byAccount", "residualDetails"}
 
 type periodDrilldown struct {
 	from, to string
-	days     map[string]wire.ReturnDayDTO
-	drivers  map[string]wire.AssetDriverDetailDTO
+	days     map[string]json.RawMessage
+	drivers  map[string]json.RawMessage
+	size     int
 }
 
 type drillItem struct {
@@ -45,19 +50,40 @@ type drillItem struct {
 	sections map[string][]json.RawMessage
 }
 
-func newPeriodDrilldown(from, to string, days []wire.ReturnDayDTO, drivers []wire.AssetDriverDetailDTO) *periodDrilldown {
-	out := &periodDrilldown{
-		from: from, to: to,
-		days:    make(map[string]wire.ReturnDayDTO, len(days)),
-		drivers: make(map[string]wire.AssetDriverDetailDTO, len(drivers)),
+func newPeriodDrilldown(from, to string, days []wire.ReturnDayDTO, drivers []wire.AssetDriverDetailDTO) (*periodDrilldown, error) {
+	if len(days) > readDrillEntryLimit || len(drivers) > readDrillEntryLimit-len(days) {
+		return nil, fail("too_large", "period details exceed retained entry budget; narrow query")
+	}
+	out := &periodDrilldown{from: strings.Clone(from), to: strings.Clone(to),
+		days: make(map[string]json.RawMessage, len(days)), drivers: make(map[string]json.RawMessage, len(drivers)),
+		size: drillBaseOverhead + len(from) + len(to)}
+	add := func(dst map[string]json.RawMessage, key string, value any) error {
+		raw, err := jsoncodec.Marshal(value)
+		if err != nil {
+			return err
+		}
+		charge := len(raw) + len(key) + drillEntryOverhead
+		if charge > readRetainedCaptureLimit-out.size {
+			return fail("too_large", "period details exceed retained byte budget; narrow query")
+		}
+		// Exact-capacity storage does not retain encoder spare capacity or DTO aliases.
+		frozen := make([]byte, len(raw))
+		copy(frozen, raw)
+		dst[strings.Clone(key)] = frozen
+		out.size += charge
+		return nil
 	}
 	for _, day := range days {
-		out.days[day.Date] = day
+		if err := add(out.days, day.Date, day); err != nil {
+			return nil, err
+		}
 	}
 	for _, driver := range drivers {
-		out.drivers[driver.DriverKey] = driver
+		if err := add(out.drivers, driver.DriverKey, driver); err != nil {
+			return nil, err
+		}
 	}
-	return out
+	return out, nil
 }
 
 func loadPeriodAnalysis(ctx context.Context, app *application.Service, adapter *analysis.Service, query PeriodAnalysisQuery) (PeriodAnalysisDTO, *periodDrilldown, error) {
@@ -105,7 +131,8 @@ func loadPeriodAnalysis(ctx context.Context, app *application.Service, adapter *
 	if err != nil {
 		return PeriodAnalysisDTO{}, nil, err
 	}
-	return result, newPeriodDrilldown(string(domainQuery.From), string(domainQuery.To), calendar.Cells, drivers), nil
+	drill, err := newPeriodDrilldown(string(domainQuery.From), string(domainQuery.To), calendar.Cells, drivers)
+	return result, drill, err
 }
 
 func periodReadCapture(in AnalyzePeriodInput, result PeriodAnalysisDTO, drill *periodDrilldown) (readCapture, error) {
@@ -205,13 +232,21 @@ func (d *periodDrilldown) materialize(kind, id string) (drillItem, error) {
 		if !ok {
 			return drillItem{}, fail("not_found", "item not found in capture section")
 		}
-		return sectionItem("returnDays/"+id, day, returnDayFields)
+		var value wire.ReturnDayDTO
+		if err := jsoncodec.Unmarshal(day, &value); err != nil {
+			return drillItem{}, err
+		}
+		return sectionItem("returnDays/"+id, value, returnDayFields)
 	case "assetDrivers":
 		driver, ok := d.drivers[id]
 		if !ok {
 			return drillItem{}, fail("not_found", "item not found in capture section")
 		}
-		return sectionItem("assetDrivers/"+id, driver, assetDriverFields)
+		var value wire.AssetDriverDetailDTO
+		if err := jsoncodec.Unmarshal(driver, &value); err != nil {
+			return drillItem{}, err
+		}
+		return sectionItem("assetDrivers/"+id, value, assetDriverFields)
 	default:
 		return drillItem{}, fail("not_found", "item not found in capture section")
 	}

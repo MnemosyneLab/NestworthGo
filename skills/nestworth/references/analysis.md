@@ -231,7 +231,9 @@ range. Bucket keys are the assetChange keys already returned:
 external_flow, income, spending, dividend_interest, price_change, fx_impact,
 fx_conversion_spread, fee, liability_impact, adjustment, residual. These
 sections are frozen with the period capture and do not renew its TTL. They
-are omitted from the stored capture body so a long range can still be captured.
+are omitted from the parent JSON but count toward the retained-data budget.
+Large day × instrument detail sets can fail `too_large`; narrow the query
+explicitly and never silently drop evidence.
 
 Asset drivers include external flow, income, spending, dividend/interest, price,
 FX impact, conversion spread, fees, liabilities, adjustments and residual.

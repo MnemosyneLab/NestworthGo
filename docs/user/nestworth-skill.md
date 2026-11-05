@@ -53,9 +53,10 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.9; published skill: 2.0.0
+### Current repository skill: 3.0.10; published skill: 2.0.0
 
-Repository skill 3.0.9 gives patch updates one rule: omit a field to keep it,
+Repository skill 3.0.10 bounds retained period details and clarifies recovery and
+conditional instrument clears. It gives patch updates one rule: omit a field to keep it,
 and JSON null clears a clearable field. `update_account` no longer uses
 `<field>Set`. `update_instrument` no longer uses `replace`. An empty string is
 rejected on those updates, including instrument `shortName`, so it neither
@@ -138,7 +139,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.9 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.10 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

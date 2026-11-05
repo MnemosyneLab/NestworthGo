@@ -68,14 +68,23 @@ to the projection itself: 14-year calendar 238 ms and 11 drivers 52 ms on a
 12.2 s period build; 18-year calendar 370 ms and drivers 48 ms on a 16.5 s
 build. Active-year calendar plus drivers was 19 ms on a 1.58 s build.
 
-The retained drill-down is the projected day and driver values, not a second
+At the measured pre-budget head, the retained drill-down was the projected day
+and driver values, not a second
 JSON copy. This run did not isolate the Go heap of that pointer. The naive
 incremental (3,469,019 bytes at 14 years, 4,458,116 at 18 years) is the
 encoded size that is no longer charged. Process VmRSS during the 14-year
 case was 371,528 KiB and during the 18-year case 449,852 KiB, including
 SQLite and the analysis working set. Up to 8 captures can hold a drill-down
-until the 5-minute TTL. That is outside `readCacheLimit`, which still counts
-marshaled bytes only.
+until the 5-minute TTL. That head left details outside `readCacheLimit`.
+
+The subsequent retention fix replaces the DTO graph with privately owned
+per-item JSON. It charges detail bytes, keys, 128 bytes per entry and a 256-byte
+base allowance, together with parent JSON, to an 8 MiB per-capture retained
+budget and the existing 16 MiB shared cache. The 4 MiB parent JSON budget stays
+unchanged. An additional 32,768-entry cap bounds day/driver maps. Oversized
+captures fail before admission; eviction, expiration and revocation release the
+same charge. The historical RSS numbers above are not measurements of this
+representation and do not establish an OOM or an RSS ceiling.
 
 ## Original measurement
 

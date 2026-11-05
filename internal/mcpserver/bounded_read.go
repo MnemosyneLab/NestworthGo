@@ -83,7 +83,8 @@ type readCapture struct {
 	Details         map[string]any               `json:"details,omitempty"`
 	CapturedAt      time.Time                    `json:"capturedAt"`
 	// drilldown is frozen with the capture and omitted from the marshal that
-	// store charges against readCaptureLimit. Reattach it after the JSON
+	// store charges against readCaptureLimit. Its own retained charge is added
+	// to size for admission and eviction. Reattach it after the JSON
 	// round-trip below.
 	drilldown         *periodDrilldown
 	hash, summaryHash string
@@ -363,6 +364,13 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	if len(b) > readCaptureLimit {
 		return ReadEnvelope{}, fail("too_large", "capture exceeds read budget; narrow query")
 	}
+	retainedSize := len(b)
+	if drilldown != nil {
+		retainedSize += drilldown.size
+	}
+	if retainedSize > readRetainedCaptureLimit {
+		return ReadEnvelope{}, fail("too_large", "capture and period details exceed retained budget; narrow query")
+	}
 	// Decode into a fresh capture: Sonic may reuse map values and their slice
 	// storage when decoding into e, which would retain caller-owned aliases.
 	var frozen readCapture
@@ -376,7 +384,7 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	summary, _ := jsoncodec.Marshal(e.Summary)
 	h = sha256.Sum256(summary)
 	e.summaryHash = hex.EncodeToString(h[:])
-	e.size = len(b)
+	e.size = retainedSize
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.revoked || g != c.generation {

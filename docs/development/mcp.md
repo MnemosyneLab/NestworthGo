@@ -210,7 +210,7 @@ the final SDK text, `structuredContent` and JSON-RPC envelope fit 65,536
 bytes. Narrowing the page limit does not fix one oversized item: that fails
 with `too_large` / `single_item`.
 
-Captures are memory only: five-minute TTL, 4 MiB each, 16 MiB and eight
+Captures are memory only: five-minute TTL, 4 MiB parent JSON each, 16 MiB and eight
 entries total, two concurrent builders, ten-second build deadline. They bind
 connection generation, capture type, canonical query and section identity.
 Signed cursors carry version, generation, hash, section and offset. Disable,
@@ -322,8 +322,14 @@ freezes every return day and the eleven asset-change drivers beside the
 capture. section=`returnDays`, id=YYYY-MM-DD opens `composition`,
 `contributors` and `issues`. section=`assetDrivers`, id=the bucket key opens
 `byInstrument`, `byAccount` and `residualDetails`. Those details are not part
-of the marshaled capture, so a long range that fits today still fits. The
-4 MiB cap is unchanged. See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+of the parent JSON, whose 4 MiB cap is unchanged. Frozen detail JSON bytes,
+keys and a conservative metadata allowance are charged with parent JSON to an
+8 MiB retained budget per capture and the same 16 MiB cache. A maximum of
+32,768 day/driver entries also applies. Admission returns `too_large` before
+eviction if either budget is exceeded; narrow the query. Values are privately
+owned JSON with no retained DTO slice aliases. Hashes still describe the parent
+JSON; cursor identity, TTL and revocation remain unchanged. These are retained
+data budgets, not process RSS or builder working-set guarantees. See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
 
 Member is not an analysis scope. Asset-class filters use the instrument's
 current type. Preserve nullable amounts and coverage. Unrealized contribution
