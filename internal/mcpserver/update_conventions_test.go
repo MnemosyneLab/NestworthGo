@@ -108,6 +108,22 @@ func schemaChild(t *testing.T, node map[string]any, keys ...string) map[string]a
 	return node
 }
 
+func schemaTypes(field any) map[string]bool {
+	node, _ := field.(map[string]any)
+	out := map[string]bool{}
+	switch typed := node["type"].(type) {
+	case string:
+		out[typed] = true
+	case []any:
+		for _, item := range typed {
+			if name, ok := item.(string); ok {
+				out[name] = true
+			}
+		}
+	}
+	return out
+}
+
 func requiredSet(node map[string]any) map[string]bool {
 	out := map[string]bool{}
 	list, _ := node["required"].([]any)
@@ -148,13 +164,20 @@ func TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas(t *testing.T) {
 		req := requiredSet(input)
 		switch convention {
 		case "patch_at_least_one":
-			if !req["id"] || req["name"] || req["iconKey"] {
-				t.Errorf("%s: only id is required; name and iconKey are optional patch fields", name)
+			if !req["id"] || req["name"] || req["iconKey"] || req["archived"] {
+				t.Errorf("%s: only id is required; name, iconKey and archived are optional patch fields", name)
 			}
-			for _, field := range []string{"name", "iconKey"} {
-				if _, ok := input["properties"].(map[string]any)[field]; !ok {
+			props, _ := input["properties"].(map[string]any)
+			for _, field := range []string{"name", "iconKey", "archived"} {
+				if _, ok := props[field]; !ok {
 					t.Errorf("%s: missing patch field %s", name, field)
 				}
+			}
+			// Optional scalar pointers are nullable in the generated schema, the
+			// same shape as name and iconKey. Null and omission both keep the
+			// stored archive state; true archives and false restores.
+			if !schemaTypes(props["archived"])["boolean"] || schemaTypes(props["archived"])["array"] {
+				t.Errorf("%s: archived must be an optional boolean, got %v", name, props["archived"])
 			}
 		case "patch_set_flags":
 			changes := schemaChild(t, input, "changes")

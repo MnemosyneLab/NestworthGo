@@ -9,7 +9,7 @@ convention: it must be added to the table and to this document.
 
 | Convention | Tools | Omitted field | How to clear |
 | --- | --- | --- | --- |
-| `patch_at_least_one` | `update_member`, `update_institution`, `update_group` | kept; at least one of `name`, `iconKey` is required, and both apply in one write | not applicable: a name and an icon are never empty |
+| `patch_at_least_one` | `update_member`, `update_institution`, `update_group` | kept; at least one of `name`, `iconKey`, `archived` is required. Supplied name and icon apply in one write. `archived: true` archives and `archived: false` restores | omit `archived` to keep archive state. A name and an icon are never empty |
 | `patch_set_flags` | `update_account` | kept | send `<field>Set:true` with an empty or null value for institutionId, groupId, note, iconKey, openedOn, closedOn. An empty value **without** `Set` keeps the stored value. Ownership is a complete replacement when supplied |
 | `patch_replace_flag` | `update_instrument` | kept when `replace=false`; with `replace=true` the call replaces the whole form state | nullable fields accept null/empty as the instrument schema defines |
 | `patch_versioned_batch` | `update_instruments_batch` | kept per row; every row needs `expectedMetadataVersion`; `changes` needs at least one field | empty `shortName` clears; `note:null` clears |

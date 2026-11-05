@@ -62,7 +62,7 @@ func TestTaskReadNeedsNoContextOrCatalogRoundTrips(t *testing.T) {
 	}
 	t.Logf("known-account current snapshot: calls=%d bytes=%d max=%d", m.Calls, m.Bytes, m.Max)
 	listed, err := listAllTools(t.Context(), client)
-	if err != nil || len(listed.Tools) != 90 {
+	if err != nil || len(listed.Tools) != 87 {
 		t.Fatal("incomplete discovery", err)
 	}
 	if recorder.discoveryCalls < 2 || recorder.discoveryMax > contextWireLimit {

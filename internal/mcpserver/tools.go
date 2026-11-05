@@ -41,9 +41,10 @@ type CreateDirectoryInput struct {
 	InstitutionType string `json:"institutionType,omitempty" jsonschema:"Required for institutions; use get_catalog"`
 }
 type UpdateDirectoryInput struct {
-	ID      string  `json:"id"`
-	Name    *string `json:"name,omitempty" jsonschema:"New non-empty name; omit to keep the stored one"`
-	IconKey *string `json:"iconKey,omitempty" jsonschema:"New non-empty icon key; omit to keep the stored one"`
+	ID       string  `json:"id"`
+	Name     *string `json:"name,omitempty" jsonschema:"New non-empty name; omit to keep the stored one"`
+	IconKey  *string `json:"iconKey,omitempty" jsonschema:"New non-empty icon key; omit to keep the stored one"`
+	Archived *bool   `json:"archived,omitempty" jsonschema:"true archives, false restores; omit to keep the stored archive state. Does not erase history"`
 }
 type ArchiveInput struct {
 	ID       string `json:"id"`
@@ -333,24 +334,15 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 	writeTool(s, server, "create_member", "Create a household member.", func(ctx context.Context, in CreateDirectoryInput) (any, error) {
 		return dir.CreateMember(ctx, in.Name, in.IconKey)
 	})
-	writeTool(s, server, "update_member", "Edit a member: supply name, iconKey or both (at least one). Omitted fields are kept; both apply together.", s.editMember)
-	writeTool(s, server, "archive_member", "Archive or restore a member under existing ownership rules.", func(ctx context.Context, in ArchiveInput) (any, error) {
-		return done(dir.ArchiveMember(ctx, in.ID, in.Archived))
-	})
+	writeTool(s, server, "update_member", "Edit a member: supply name, iconKey, archived or any combination (at least one). Omitted fields are kept; supplied name and icon apply together. archived true archives and false restores, preserving history, the ownership rules and at least one active member.", s.editMember)
 	writeTool(s, server, "create_institution", "Create an institution with an explicit institutionType from get_catalog.", func(ctx context.Context, in CreateDirectoryInput) (any, error) {
 		return dir.CreateInstitution(ctx, in.Name, in.InstitutionType, in.IconKey)
 	})
-	writeTool(s, server, "update_institution", "Edit an institution: supply name, iconKey or both (at least one). Omitted fields are kept; both apply together. Its type is not editable.", s.editInstitution)
-	writeTool(s, server, "archive_institution", "Archive or restore an institution.", func(ctx context.Context, in ArchiveInput) (any, error) {
-		return done(dir.ArchiveInstitution(ctx, in.ID, in.Archived))
-	})
+	writeTool(s, server, "update_institution", "Edit an institution: supply name, iconKey, archived or any combination (at least one). Omitted fields are kept; supplied name and icon apply together. archived true archives and false restores, preserving history. Its type is not editable.", s.editInstitution)
 	writeTool(s, server, "create_group", "Create an account group.", func(ctx context.Context, in CreateDirectoryInput) (any, error) {
 		return dir.CreateGroup(ctx, in.Name, in.IconKey)
 	})
-	writeTool(s, server, "update_group", "Edit a group: supply name, iconKey or both (at least one). Omitted fields are kept; both apply together.", s.editGroup)
-	writeTool(s, server, "archive_group", "Archive or restore an account group.", func(ctx context.Context, in ArchiveInput) (any, error) {
-		return done(dir.ArchiveGroup(ctx, in.ID, in.Archived))
-	})
+	writeTool(s, server, "update_group", "Edit a group: supply name, iconKey, archived or any combination (at least one). Omitted fields are kept; supplied name and icon apply together. archived true archives and false restores, preserving history.", s.editGroup)
 	writeTool(s, server, "create_account", "Create an account with explicit ownership, currency, tracking mode and inclusion flags. Choose a legal combination from get_catalog. initialAmount must be 0 for balance/manual_value accounts and omitted for holdings accounts; with ledger_write, record funding through preview_change and commit_plan after creation.", func(ctx context.Context, in account.CreateAccountRequest) (any, error) {
 		if in.InitialAmount != "" && in.InitialAmount != "0" {
 			return nil, fail("validation", "initialAmount must be empty or zero; funding requires a ledger operation")

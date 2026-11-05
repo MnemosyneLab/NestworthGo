@@ -391,16 +391,19 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 }
 
 // DirectoryEdit is a partial edit of a member, institution or group. Nil fields
-// keep the stored value. Supplied fields are written by one statement, so a
-// name and an icon change together or not at all.
+// keep the stored value. A supplied name and icon are written by one statement,
+// so they change together or not at all. Archived, when set, archives (true) or
+// restores (false) in the same call. Member archive guards run before either
+// write, so a rejected archive does not apply the other fields.
 type DirectoryEdit struct {
-	Name    *string
-	IconKey *string
+	Name     *string
+	IconKey  *string
+	Archived *bool
 }
 
 func (e DirectoryEdit) icon() (*string, error) {
-	if e.Name == nil && e.IconKey == nil {
-		return nil, &domain.Error{Code: domain.ErrValidation, Message: "provide name, iconKey or both"}
+	if e.Name == nil && e.IconKey == nil && e.Archived == nil {
+		return nil, &domain.Error{Code: domain.ErrValidation, Message: "provide name, iconKey, archived or a combination"}
 	}
 	if e.IconKey == nil {
 		return nil, nil
@@ -410,6 +413,26 @@ func (e DirectoryEdit) icon() (*string, error) {
 		return nil, err
 	}
 	return &key, nil
+}
+
+// finishDirectoryEdit persists name and icon, then archive state. Callers run
+// archive guards before this function. Name and icon still share one statement.
+func finishDirectoryEdit[T any](updated T, fields bool, save func(T) error, archived *bool, archive func(bool) error, reload func() (T, error), invalidate func()) (T, error) {
+	var zero T
+	if fields {
+		if err := save(updated); err != nil {
+			return zero, err
+		}
+		invalidate()
+	}
+	if archived == nil {
+		return updated, nil
+	}
+	if err := archive(*archived); err != nil {
+		return zero, err
+	}
+	invalidate()
+	return reload()
 }
 
 func (s *Service) EditMember(ctx context.Context, id domain.MemberID, edit DirectoryEdit) (domain.Member, error) {
@@ -431,22 +454,65 @@ func (s *Service) EditMember(ctx context.Context, id domain.MemberID, edit Direc
 		return domain.Member{}, err
 	}
 	updated := current
-	updated.UpdatedAt = s.clock()
-	if edit.Name != nil {
-		renamed, err := domain.NewMember(current.HouseholdID, *edit.Name, s.clock())
-		if err != nil {
+	if edit.Name != nil || icon != nil {
+		updated.UpdatedAt = s.clock()
+		if edit.Name != nil {
+			renamed, err := domain.NewMember(current.HouseholdID, *edit.Name, s.clock())
+			if err != nil {
+				return domain.Member{}, err
+			}
+			updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
+		}
+		if icon != nil {
+			updated.IconKey = icon
+		}
+	}
+	if edit.Archived != nil && *edit.Archived {
+		if err := s.guardMemberArchive(ctx, household.ID, id); err != nil {
 			return domain.Member{}, err
 		}
-		updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
 	}
-	if icon != nil {
-		updated.IconKey = icon
+	return finishDirectoryEdit(updated, edit.Name != nil || icon != nil, func(member domain.Member) error {
+		return s.repository.UpdateMember(ctx, member)
+	}, edit.Archived, func(archived bool) error {
+		return s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
+	}, func() (domain.Member, error) {
+		return s.repository.Member(ctx, household.ID, id)
+	}, s.invalidateAnalysis)
+}
+
+func (s *Service) guardMemberArchive(ctx context.Context, householdID domain.HouseholdID, id domain.MemberID) error {
+	members, err := s.repository.ListMembers(ctx, true)
+	if err != nil {
+		return err
 	}
-	if err := s.repository.UpdateMember(ctx, updated); err != nil {
-		return domain.Member{}, err
+	active := make(map[domain.MemberID]bool, len(members))
+	activeOthers := 0
+	for _, member := range members {
+		isActive := member.ArchivedAt == nil && member.ID != id
+		active[member.ID] = isActive
+		if isActive {
+			activeOthers++
+		}
 	}
-	s.invalidateAnalysis()
-	return updated, nil
+	accounts, err := s.repository.ListAccountRecords(ctx, householdID, domain.AccountFilter{})
+	if err != nil {
+		return err
+	}
+	for _, account := range accounts {
+		ownedByMember, hasActiveOwner := false, false
+		for _, share := range account.Ownership.Shares() {
+			ownedByMember = ownedByMember || share.MemberID == id
+			hasActiveOwner = hasActiveOwner || active[share.MemberID]
+		}
+		if ownedByMember && !hasActiveOwner {
+			return &domain.Error{Code: domain.ErrConflict, Field: "memberId", Message: "member owns a live account with no other active owner"}
+		}
+	}
+	if activeOthers < 1 {
+		return &domain.Error{Code: domain.ErrConflict, Message: "household must retain at least one active member"}
+	}
+	return nil
 }
 
 func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archived bool) error {
@@ -460,27 +526,8 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 		return err
 	}
 	if archived {
-		members, err := s.repository.ListMembers(ctx, true)
-		if err != nil {
+		if err := s.guardMemberArchive(ctx, household.ID, id); err != nil {
 			return err
-		}
-		active := make(map[domain.MemberID]bool, len(members))
-		for _, member := range members {
-			active[member.ID] = member.ArchivedAt == nil && member.ID != id
-		}
-		accounts, err := s.repository.ListAccountRecords(ctx, household.ID, domain.AccountFilter{})
-		if err != nil {
-			return err
-		}
-		for _, account := range accounts {
-			ownedByMember, hasActiveOwner := false, false
-			for _, share := range account.Ownership.Shares() {
-				ownedByMember = ownedByMember || share.MemberID == id
-				hasActiveOwner = hasActiveOwner || active[share.MemberID]
-			}
-			if ownedByMember && !hasActiveOwner {
-				return &domain.Error{Code: domain.ErrConflict, Field: "memberId", Message: "member owns a live account with no other active owner"}
-			}
 		}
 	}
 	err = s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
@@ -536,22 +583,26 @@ func (s *Service) EditInstitution(ctx context.Context, id domain.InstitutionID, 
 		return domain.Institution{}, err
 	}
 	updated := current
-	updated.UpdatedAt = s.clock()
-	if edit.Name != nil {
-		renamed, err := domain.NewInstitution(current.HouseholdID, *edit.Name, current.InstitutionType, s.clock())
-		if err != nil {
-			return domain.Institution{}, err
+	if edit.Name != nil || icon != nil {
+		updated.UpdatedAt = s.clock()
+		if edit.Name != nil {
+			renamed, err := domain.NewInstitution(current.HouseholdID, *edit.Name, current.InstitutionType, s.clock())
+			if err != nil {
+				return domain.Institution{}, err
+			}
+			updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
 		}
-		updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
+		if icon != nil {
+			updated.IconKey = icon
+		}
 	}
-	if icon != nil {
-		updated.IconKey = icon
-	}
-	if err := s.repository.UpdateInstitution(ctx, updated); err != nil {
-		return domain.Institution{}, err
-	}
-	s.invalidateAnalysis()
-	return updated, nil
+	return finishDirectoryEdit(updated, edit.Name != nil || icon != nil, func(institution domain.Institution) error {
+		return s.repository.UpdateInstitution(ctx, institution)
+	}, edit.Archived, func(archived bool) error {
+		return s.repository.SetInstitutionArchive(ctx, household.ID, id, archived, s.clock())
+	}, func() (domain.Institution, error) {
+		return s.repository.Institution(ctx, household.ID, id)
+	}, s.invalidateAnalysis)
 }
 
 func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionID, archived bool) error {
@@ -617,22 +668,26 @@ func (s *Service) EditGroup(ctx context.Context, id domain.GroupID, edit Directo
 		return domain.Group{}, err
 	}
 	updated := current
-	updated.UpdatedAt = s.clock()
-	if edit.Name != nil {
-		renamed, err := domain.NewGroup(current.HouseholdID, *edit.Name, s.clock())
-		if err != nil {
-			return domain.Group{}, err
+	if edit.Name != nil || icon != nil {
+		updated.UpdatedAt = s.clock()
+		if edit.Name != nil {
+			renamed, err := domain.NewGroup(current.HouseholdID, *edit.Name, s.clock())
+			if err != nil {
+				return domain.Group{}, err
+			}
+			updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
 		}
-		updated.Name, updated.UpdatedAt = renamed.Name, renamed.UpdatedAt
+		if icon != nil {
+			updated.IconKey = icon
+		}
 	}
-	if icon != nil {
-		updated.IconKey = icon
-	}
-	if err := s.repository.UpdateGroup(ctx, updated); err != nil {
-		return domain.Group{}, err
-	}
-	s.invalidateAnalysis()
-	return updated, nil
+	return finishDirectoryEdit(updated, edit.Name != nil || icon != nil, func(group domain.Group) error {
+		return s.repository.UpdateGroup(ctx, group)
+	}, edit.Archived, func(archived bool) error {
+		return s.repository.SetGroupArchive(ctx, household.ID, id, archived, s.clock())
+	}, func() (domain.Group, error) {
+		return s.repository.Group(ctx, household.ID, id)
+	}, s.invalidateAnalysis)
 }
 
 func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived bool) error {

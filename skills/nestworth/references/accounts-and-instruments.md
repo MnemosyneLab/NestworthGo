@@ -86,10 +86,13 @@ allocation. `update_account` clears institutionId, groupId, note, iconKey,
 openedOn or closedOn only with the matching `<field>Set:true` (for example
 `{"note":"","noteSet":true}`); an empty value without `Set` keeps the stored one.
 Use `update_member`, `update_institution` or `update_group` with the record's
-`id` and at least one of `name` and `iconKey`. These are partial updates:
-omitted fields keep their stored values, and when both fields are supplied they
-apply together. Use a non-empty name and a supported non-empty icon key.
-An institution's `institutionType` cannot be edited.
+`id` and at least one of `name`, `iconKey` and `archived`. These are partial
+updates: omitted fields keep their stored values, and when name and icon are
+both supplied they apply together. `archived: true` archives and
+`archived: false` restores; omit `archived` to keep the stored archive state.
+A household must keep at least one active member, and a member who is the only
+active owner of a live account cannot be archived. Use a non-empty name and a
+supported non-empty icon key. An institution's `institutionType` cannot be edited.
 
 Example `update_institution` to change only the icon:
 
@@ -100,8 +103,10 @@ Example `update_institution` to change only the icon:
 
 Instrument `replace=true` requires the complete form, so prefer partial changes
 for a narrow edit. Account and instrument icons use their update tools. Use
-`archive_*` with `archived:true/false` to archive or restore while preserving
-history and references.
+`archive_account` or `archive_instrument` with `archived:true/false` to archive
+or restore while preserving history and references. Member, institution and
+group archive uses `archived` on `update_member`, `update_institution` or
+`update_group`.
 
 App-managed term deposits and locked/closed wealth products have specialized
 cash, maturity, reservation and redemption rules. MCP exposes dedicated

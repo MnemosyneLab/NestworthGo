@@ -2,10 +2,7 @@
   "directory_write": {
     "analyze_period": "5899a025534d0c1b002197df9e2312746a300cd0d62cd6d9b0d357140f4b8885",
     "archive_account": "5c7d919e1f32bf67744fa56835f81dfffbe027a6caa0f8051e48fb29538caf61",
-    "archive_group": "76424772fd31c86dda156c6d0da33b76b787acf719875042918e748f1fe23cf3",
-    "archive_institution": "6ac1daa02f293d5c6530ac8c1dc1cabb7e048a857f42c1d54270ea010b4c87fe",
     "archive_instrument": "3f52820841063b564702ca6962b3aafd1426cc8b5e7b7e24876974a46a6cbfa1",
-    "archive_member": "17424bd3e7269719a97f6252a455b4495778c98b66f97fd80c6efa2fbd81f0d8",
     "compare_financial_attribution": "bd233b13842d8ec678e80648c1bbd764e118e17b249e5b93bfdf1c2548d59dad",
     "compare_financial_context": "09e6c969cb71259c43ab1d5dfaaceb81dda4b54453e526f8091662062d794516",
     "compare_market_data_import": "bffa1e572aebe8f9c2588cdd70f6001ec9cc40ef5912a9d58caec46fde02e055",
@@ -64,21 +61,18 @@
     "scan_data_health": "716408b34189bdbb6ce05b42a3802cbdd747dd40869d4039a22c051131bb0daa",
     "search_market_instruments": "d911d6a3af2233a5c141f917bcfff4bf7cf19bf92ea9c04b3250e0580055468d",
     "update_account": "019e12aba748bab84b035a73a9b59d5b8d36f84689372b57214563ad2c11a1ef",
-    "update_group": "55b41a8e4736d8138172088ee618310e440fd83308579d3b3472aca3bf091a1d",
-    "update_institution": "7adc315beaa320a372e92c41fe6fece4d0569ccdd046f8d5d7f82e1848b01f87",
+    "update_group": "20c9cacd5b2e1d66b2bae54ae49f8649236dd642014fa8518a3673ada0f2e021",
+    "update_institution": "3597642925802c474c0dde58173b55f64b321f09a86c3758e289c479e44ff6ba",
     "update_instrument": "04fde8d0b78a7a721ccad1405310be14f625ec4d37b74e8b414ec162188d5059",
     "update_instruments_batch": "1214befd07e83162a7a6fcc4b875c2521e66c8021f9d9506e5084de799e59ef5",
-    "update_member": "e8d92d77d300b5ea8ac5a534027bff3c79ad79679b03bb8e1269154d94cb85a7"
+    "update_member": "961f08a2fcc04a450be31d9ff1fb63b5229c7c69b63999210db5b6fa97cd9946"
   },
   "ledger_write": {
     "acknowledge_investment_review_alert": "3e1c7c6d35482e7d31aee015bf5739288706963383f1ce030e697ef4b64ca331",
     "analyze_period": "5899a025534d0c1b002197df9e2312746a300cd0d62cd6d9b0d357140f4b8885",
     "archive_account": "5c7d919e1f32bf67744fa56835f81dfffbe027a6caa0f8051e48fb29538caf61",
-    "archive_group": "76424772fd31c86dda156c6d0da33b76b787acf719875042918e748f1fe23cf3",
-    "archive_institution": "6ac1daa02f293d5c6530ac8c1dc1cabb7e048a857f42c1d54270ea010b4c87fe",
     "archive_instrument": "3f52820841063b564702ca6962b3aafd1426cc8b5e7b7e24876974a46a6cbfa1",
     "archive_investment_review_rule": "b5be38adcce79f4099e084021719672fac9bb0942ea5015c8dd327494b2d0a56",
-    "archive_member": "17424bd3e7269719a97f6252a455b4495778c98b66f97fd80c6efa2fbd81f0d8",
     "clear_investment_review_suppression": "f838de7930c41504f16ac99b83d7f2bc3effb624eefa7637f34ca3cb3570fd4a",
     "commit_plan": "2e8017e41639cf4d7f5a3ad31da36f57414599bc57a72e926915006a56b4c0f7",
     "compare_financial_attribution": "bd233b13842d8ec678e80648c1bbd764e118e17b249e5b93bfdf1c2548d59dad",
@@ -155,12 +149,12 @@
     "set_investment_review_suppression": "de65f7fb79eb669b5e77b77eab8cdeb7f2615add1072a3687ecd24348f68b9d9",
     "start_data_repair": "ef49cbca8afda9d0225e6302e6c4b837b34df6301bf72389b56b305b68cb9185",
     "update_account": "019e12aba748bab84b035a73a9b59d5b8d36f84689372b57214563ad2c11a1ef",
-    "update_group": "55b41a8e4736d8138172088ee618310e440fd83308579d3b3472aca3bf091a1d",
-    "update_institution": "7adc315beaa320a372e92c41fe6fece4d0569ccdd046f8d5d7f82e1848b01f87",
+    "update_group": "20c9cacd5b2e1d66b2bae54ae49f8649236dd642014fa8518a3673ada0f2e021",
+    "update_institution": "3597642925802c474c0dde58173b55f64b321f09a86c3758e289c479e44ff6ba",
     "update_instrument": "04fde8d0b78a7a721ccad1405310be14f625ec4d37b74e8b414ec162188d5059",
     "update_instruments_batch": "1214befd07e83162a7a6fcc4b875c2521e66c8021f9d9506e5084de799e59ef5",
     "update_investment_review_rule": "347f3bf2843fee3a177bf11f5caefec855e2ad43b9987ac40cc7fc0745b1dbac",
-    "update_member": "e8d92d77d300b5ea8ac5a534027bff3c79ad79679b03bb8e1269154d94cb85a7"
+    "update_member": "961f08a2fcc04a450be31d9ff1fb63b5229c7c69b63999210db5b6fa97cd9946"
   },
   "read_only": {
     "analyze_period": "5899a025534d0c1b002197df9e2312746a300cd0d62cd6d9b0d357140f4b8885",

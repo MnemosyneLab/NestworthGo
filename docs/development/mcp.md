@@ -1286,3 +1286,21 @@ a full-discovery cursor starts from the first page. The filter is not an
 authorization boundary, and a group cannot reveal tools absent from the current
 permission mode. The behavior is covered by `task_tool_discovery_test.go`.
 
+### Directory archive folded into update
+
+`archive_member`, `archive_institution` and `archive_group` are removed.
+`update_member`, `update_institution` and `update_group` take optional
+`archived`: omit it to keep the stored state, `true` archives and `false`
+restores. Name and icon stay partial fields and still apply in one statement.
+The call still requires `directory_write`, still returns one receipt, and still
+enforces the member archive rules (at least one active member, and a member
+who is the only active owner of a live account cannot be archived). A rejected
+archive does not apply a name or icon sent in the same call. `archive_account`
+and `archive_instrument` are unchanged.
+
+Measured `tools/list` bytes on this change, same fixture as
+`TestDiscoveryBudget`: read_only stayed 53 tools / 65160 bytes; directory_write
+69 → 66 tools and 82029 → 80583 bytes; ledger_write 90 → 87 tools and
+126422 → 124976 bytes. Budgets were not raised. Skill reference text names the
+folded tools; `skills/nestworth/VERSION` is left for the coordinator's PATCH.
+
