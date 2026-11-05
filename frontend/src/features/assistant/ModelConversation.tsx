@@ -11,6 +11,7 @@ import { callService } from "@/lib/wails";
 import { formatTimestamp } from "@/lib/time";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
+import { capturePageContent } from "./pageContent";
 
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
 const diagnosticKeys: Record<string, string> = {
@@ -198,6 +199,32 @@ export function ModelConversation() {
       )
       .catch(() => setNavigationState("navigationStopped"));
   }, [latest.data, page, epoch, id]);
+  // The provider tool requests a capture; no manual publication or approval.
+  // Poll metadata only. A capture happens synchronously on the UI thread and
+  // includes current field properties (also changes without DOM mutations).
+  const pageReadView = useRef(page?.viewKey ?? "");
+  pageReadView.current = page?.viewKey ?? "";
+  useEffect(() => {
+    if (!epoch || !page?.enabled) return;
+    let stopped = false;
+    let polling = false;
+    const poll = async () => {
+      if (stopped || polling) return;
+      polling = true;
+      try {
+        const requests = await callService(() => API.PendingPageReads(epoch));
+        for (const request of requests ?? []) {
+          if (stopped) break;
+          const content = capturePageContent(pageReadView.current);
+          await callService(() => API.DeliverPageContent(epoch, request.id, content));
+        }
+      } catch { /* The requesting tool receives a bounded unavailable result. */ }
+      finally { polling = false; }
+    };
+    const timer = window.setInterval(() => void poll(), running ? 150 : 750);
+    void poll();
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [epoch, page?.enabled, running]);
   async function action(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;

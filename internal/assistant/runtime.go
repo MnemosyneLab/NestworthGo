@@ -172,6 +172,7 @@ type Options struct {
 	Timeout             time.Duration
 }
 type Runtime struct {
+	pageReads            map[string]pendingPageRead
 	navigationGeneration uint64
 	pageLease            *DesktopPageLease
 	navigationGrants     map[string]modelNavigationGrant
@@ -634,6 +635,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		return Run{}, e
 	}
 	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
+	runCtx = context.WithValue(runCtx, pageContentKey{}, r.pageReader(runCtx, q.Revision))
 	if grant.requestID != "" {
 		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
 	}

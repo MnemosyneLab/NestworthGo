@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
-import { AssistantPageProvider } from "./PageContext";
+import { AssistantPageProvider, useAssistantPage } from "./PageContext";
 import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
+  PendingPageReads: vi.fn(),
+  DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
   GrantNavigation: vi.fn(),
   ConsumeNavigation: vi.fn(),
@@ -41,6 +43,8 @@ const run = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  api.PendingPageReads.mockResolvedValue([]);
+  api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
   api.GrantNavigation.mockResolvedValue(undefined);
   api.ConsumeNavigation.mockResolvedValue({ kind: "overview", accountId: "" });
@@ -466,4 +470,22 @@ it.each([
   }
   expect(alert).not.toHaveTextContent("private-canary");
   expect(api.Start).not.toHaveBeenCalled();
+});
+
+
+it("fulfills a tool capture automatically with the latest supported page, without navigation approval", async () => {
+ function EnabledPage() {
+  const page=useAssistantPage();
+  useLayoutEffect(()=>{page?.setEnabled(true)},[page?.setEnabled]);
+  return <><main data-assistant-page="return-analysis"><section data-assistant-module="filters"><label htmlFor="analysis-from">From</label><input id="analysis-from" defaultValue="2026-10-01" /></section></main><ModelConversation /></>;
+ }
+ api.PendingPageReads.mockResolvedValueOnce([{id:"capture-first"}]).mockResolvedValue([]);
+ render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={()=>false} onNavigate={vi.fn()}><EnabledPage /></AssistantPageProvider></QueryClientProvider>);
+ await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));
+ expect(api.DeliverPageContent.mock.calls[0][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-01"})]));
+ fireEvent.change(screen.getByLabelText("From"),{target:{value:"2026-10-02"}});
+ api.PendingPageReads.mockResolvedValueOnce([{id:"capture-second"}]);
+ await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(2));
+ expect(api.DeliverPageContent.mock.calls[1][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-02"})]));
+ expect(api.GrantNavigation).not.toHaveBeenCalled(); expect(api.Start).not.toHaveBeenCalled();
 });
