@@ -18,18 +18,22 @@ type CashProposal struct {
 	Note        string `json:"note,omitempty"`
 }
 type ChangeReview struct {
-	ID              string `json:"id"`
-	Digest          string `json:"digest"`
-	State           string `json:"state"`
-	ExpiresAt       string `json:"expiresAt"`
-	Kind            string `json:"kind"`
-	Account         string `json:"account"`
-	Amount          string `json:"amount"`
-	Currency        string `json:"currency"`
-	EffectiveAt     string `json:"effectiveAt"`
-	Reason          string `json:"reason"`
-	Note            string `json:"note"`
-	ResultingAmount string `json:"resultingAmount"`
+	ID                 string   `json:"id"`
+	Digest             string   `json:"digest"`
+	State              string   `json:"state"`
+	ExpiresAt          string   `json:"expiresAt"`
+	Kind               string   `json:"kind"`
+	Account            string   `json:"account"`
+	AccountInstitution string   `json:"accountInstitution"`
+	AccountOwners      []string `json:"accountOwners"`
+	AccountType        string   `json:"accountType"`
+	AccountCurrency    string   `json:"accountCurrency"`
+	Amount             string   `json:"amount"`
+	Currency           string   `json:"currency"`
+	EffectiveAt        string   `json:"effectiveAt"`
+	Reason             string   `json:"reason"`
+	Note               string   `json:"note"`
+	ResultingAmount    string   `json:"resultingAmount"`
 }
 type ReviewRef struct {
 	ID       string `json:"id"`

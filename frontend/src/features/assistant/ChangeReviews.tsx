@@ -36,6 +36,11 @@ export function ChangeReviews({ epoch, id, enabled, busy, runKey = "" }: {epoch:
   {items.map(review=><article key={review.id} className="my-2 space-y-2 rounded border border-border p-3">
    <p className="font-medium">{displayEnum(t,"history.kind",review.kind)} · {review.account}</p>
    <dl className="grid grid-cols-1 gap-1 break-words">
+    {review.accountType ? <>
+     <div><dt className="inline">{t("aiChat.writeInstitution")}: </dt><dd className="inline">{review.accountInstitution || t("accounts.noInstitution")}</dd></div>
+     <div><dt className="inline">{t("aiChat.writeOwners")}: </dt><dd><ul>{review.accountOwners?.map((owner,index)=><li key={index}>{owner}</li>)}</ul></dd></div>
+     <div><dt className="inline">{t("aiChat.writeAccountType")}: </dt><dd className="inline">{displayEnum(t,"enum",review.accountType)} · {review.accountCurrency}</dd></div>
+    </> : <p>{t("aiChat.writeIdentityMissing")}</p>}
     <div><dt className="inline">{t("aiChat.writeAmount")}: </dt><dd className="inline num">{review.amount} {review.currency}</dd></div>
     <div><dt className="inline">{t("aiChat.writeResult")}: </dt><dd className="inline num">{review.resultingAmount} {review.currency}</dd></div>
     <div><dt className="inline">{t("aiChat.writeTime")}: </dt><dd className="inline">{review.effectiveAt}</dd></div>
@@ -44,7 +49,7 @@ export function ChangeReviews({ epoch, id, enabled, busy, runKey = "" }: {epoch:
    </dl>
    <p role="status">{t(`aiChat.writeState.${review.state}`)}</p>
    <div className="flex flex-wrap gap-2">
-    {review.state==="awaiting_confirmation"&&<Button type="button" disabled={!enabled||busy||pending||reviews.isError||uncertain} onClick={()=>void act(review,"confirm")}>{t("aiChat.writeConfirm")}</Button>}
+    {review.state==="awaiting_confirmation"&&<Button type="button" disabled={!enabled||busy||pending||reviews.isError||uncertain||!review.accountType} onClick={()=>void act(review,"confirm")}>{t("aiChat.writeConfirm")}</Button>}
     {review.state==="needs_preview"&&<Button type="button" disabled={!enabled||busy||pending||reviews.isError} onClick={()=>void act(review,"repreview")}>{t("aiChat.writeRepreview")}</Button>}
     {["awaiting_confirmation","needs_preview"].includes(review.state)&&<Button type="button" variant="outline" disabled={busy||pending||reviews.isError} onClick={()=>void act(review,"cancel")}>{t("aiChat.writeCancel")}</Button>}
    </div>

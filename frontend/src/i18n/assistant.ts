@@ -1,5 +1,10 @@
 export const assistantEn = {
   aiChat: {
+    writeInstitution: "Institution",
+    writeOwners: "Owners",
+    writeAccountType: "Account type / default currency",
+    writeIdentityMissing: "Account identity was not captured. Obtain a fresh preview before confirming.",
+
 
   "writeReview": "Ledger change review",
   "writeReviewHelp": "Frozen server preview. Only Confirm below posts this exact change. Chat messages never approve a write.",
@@ -239,6 +244,11 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    writeInstitution: "机构",
+    writeOwners: "所有人",
+    writeAccountType: "账户类型／默认币种",
+    writeIdentityMissing: "此预览未保存账户身份信息，请刷新预览后再确认。",
+
 
   "writeReview": "账本变更审阅",
   "writeReviewHelp": "服务端冻结预览。只有点击下方确认才会提交这笔变更，聊天文本不能批准写入。",
@@ -462,6 +472,11 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    writeInstitution: "機構",
+    writeOwners: "所有人",
+    writeAccountType: "帳戶類型／預設幣別",
+    writeIdentityMissing: "此預覽未儲存帳戶身分資訊，請更新預覽後再確認。",
+
 
   "writeReview": "帳本變更審閱",
   "writeReviewHelp": "伺服器凍結預覽。只有點擊下方確認才會提交這筆變更，聊天文字不能批准寫入。",

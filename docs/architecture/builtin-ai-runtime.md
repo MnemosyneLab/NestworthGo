@@ -89,12 +89,23 @@ A provider failure/cancellation after proposing does not grant approval or erase
 that review. Stop stops generation; Cancel in the review panel only dismisses an
 unsubmitted change. Chat text, summaries and page content cannot confirm.
 
-The desktop displays the frozen account name, exact amount/currency, resulting
-balance, effective time, reason and note. Confirm submits only the review ID and
+The desktop displays the frozen account name, institution, owner names, account
+type and default currency alongside exact amount/currency, resulting balance,
+effective time, reason and note. These readable identities are captured under
+the same application gate as the plan and included in its host review digest;
+there is no display-time live metadata join or exposed account UUID. The host
+compares normalized readable identities and rejects a proposal if another
+account remains indistinguishable, requiring a distinct account name. Account,
+member and institution writes invalidate the version and require repreview.
+Legacy reviews without identity cannot confirm but retain receipt recovery.
+Cash currency is normalized through the domain parser before persisting the
+command/plan/review; projection also normalizes legacy currency inputs. Invalid
+currencies fail before creating private review state. Confirm submits only the review ID and
 exact displayed digest, bound by the runtime to that conversation and live
 permission. Session acquisition occurs before a second runtime revision check;
 revocation then cancels that exact session, including requests waiting on the
-application gate. No runtime lock is held across application review/write gates.
+application gate. Host review admission checks session cancellation/generation
+synchronously after acquiring that gate, independently of AfterFunc delivery. No runtime lock is held across application review/write gates.
 The host core durably admits before dispatch and uses the existing application
 Service, version validation, mutation transaction and idempotent receipt. No
 financial formula is implemented in the UI. Repeated confirmations reconcile the
@@ -117,7 +128,9 @@ or claim live-provider/native macOS GUI acceptance. Unit/integration evidence
 uses synthetic SQLite ledgers and local fake models. Polling adds bounded private
 review reads (up to 64 references per selected conversation every 1.5 seconds
 while generating or unresolved; settled views stop polling);
-no global latency or RSS claim is made.
+no global latency or RSS claim is made. Cash identity capture adds one account
+list and one member list per preview, with a linear ambiguity check; these run
+under the existing operation gate and are not repeated by display polling.
 
 ## Strictly read-only period analysis
 

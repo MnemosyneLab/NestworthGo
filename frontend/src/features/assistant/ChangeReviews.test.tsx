@@ -1,12 +1,12 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { ChangeReviews } from "./ChangeReviews";
 const api=vi.hoisted(()=>({Reviews:vi.fn(),ReviewAction:vi.fn()}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service",()=>api);
-const review={id:"host-review",digest:"frozen-digest",state:"awaiting_confirmation",kind:"money_added",account:"Synthetic cash",amount:"12.3456789",currency:"USD",resultingAmount:"22.3456789",effectiveAt:"2026-09-28T12:00:00Z",reason:"income",note:"Synthetic note"};
+const review={id:"host-review",digest:"frozen-digest",state:"awaiting_confirmation",kind:"money_added",account:"Synthetic cash",accountInstitution:"Synthetic bank A",accountOwners:["Alice"],accountType:"bank_account",accountCurrency:"USD",amount:"12.3456789",currency:"USD",resultingAmount:"22.3456789",effectiveAt:"2026-09-28T12:00:00Z",reason:"income",note:"Synthetic note"};
 beforeEach(()=>{vi.clearAllMocks();api.Reviews.mockResolvedValue([review]);api.ReviewAction.mockResolvedValue(undefined);});
 function mount(enabled=true){const client=createTestQueryClient();return render(<QueryClientProvider client={client}><ChangeReviews epoch="epoch" id="conversation" enabled={enabled} busy={false}/></QueryClientProvider>);}
 it("renders the exact frozen amounts and confirms only on an explicit keyboard action",async()=>{
@@ -43,4 +43,23 @@ it("conflicts require a new preview and never auto-confirm it",async()=>{
  await user.click(await screen.findByRole("button",{name:"Refresh preview for review"}));
  await screen.findByRole("button",{name:"Confirm this ledger change"});
  expect(api.ReviewAction).toHaveBeenCalledExactlyOnceWith("epoch","conversation","host-review","frozen-digest","repreview");
+});
+
+it("shows distinct frozen identities for same-name accounts and submits the chosen digest",async()=>{
+ api.Reviews.mockResolvedValue([review,{...review,id:"other-review",digest:"other-digest",accountInstitution:"Synthetic bank B",accountOwners:["Bob"]}]);
+ const user=userEvent.setup();const view=mount();
+ await screen.findByText("Synthetic bank B");
+ const cards=view.container.querySelectorAll("article");
+ expect(cards).toHaveLength(2);
+ expect(within(cards[0] as HTMLElement).getByText("Alice")).toBeVisible();
+ expect(within(cards[1] as HTMLElement).getByText("Bob")).toBeVisible();
+ expect(view.container.textContent).not.toContain("other-review");
+ expect(view.container.textContent).not.toContain("other-digest");
+ await user.click(within(cards[1] as HTMLElement).getByRole("button",{name:"Confirm this ledger change"}));
+ expect(api.ReviewAction).toHaveBeenCalledExactlyOnceWith("epoch","conversation","other-review","other-digest","confirm");
+});
+it("never enables confirmation of a legacy preview missing frozen identity",async()=>{
+ api.Reviews.mockResolvedValue([{...review,accountType:"",accountOwners:[]}]);mount();
+ expect(await screen.findByRole("button",{name:"Confirm this ledger change"})).toBeDisabled();
+ expect(screen.getByText(/Account identity was not captured/)).toBeVisible();
 });

@@ -21,21 +21,27 @@ import (
 )
 
 type lostResponseProvider struct {
-	pool *Pool
-	lose *atomic.Bool
+	pool    *Pool
+	lose    *atomic.Bool
+	entered chan struct{}
 }
 
 func (p lostResponseProvider) AcquireReview(ctx context.Context, id string) (assistant.ReviewSession, error) {
 	s, e := p.pool.AcquireReview(ctx, id)
-	return lostResponseSession{s, p.lose}, e
+	return lostResponseSession{s, p.lose, p.entered}, e
 }
 
 type lostResponseSession struct {
 	assistant.ReviewSession
-	lose *atomic.Bool
+	lose    *atomic.Bool
+	entered chan struct{}
 }
 
 func (s lostResponseSession) Confirm(ctx context.Context, id, digest string) (assistant.ChangeReview, error) {
+	select {
+	case s.entered <- struct{}{}:
+	default:
+	}
 	v, e := s.ReviewSession.Confirm(ctx, id, digest)
 	if e == nil && s.lose.Swap(false) {
 		return assistant.ChangeReview{}, assistant.ErrUnavailable
@@ -89,15 +95,16 @@ func TestDesktopReviewedCashLifecycle(t *testing.T) {
 	if err := creds.Put(t.Context(), []byte("synthetic-review-secret-123456")); err != nil {
 		t.Fatal(err)
 	}
-	proposal, _ := jsoncodec.Marshal(assistant.CashProposal{Kind: "money_added", AccountID: account.Account.ID.String(), Amount: "12.34", Currency: "USD", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"})
+	proposal, _ := jsoncodec.Marshal(assistant.CashProposal{Kind: "money_added", AccountID: account.Account.ID.String(), Amount: "12.34", Currency: " usd ", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"})
 	var lose atomic.Bool
+	confirmEntered := make(chan struct{}, 1)
 	open := func() (*assistant.Runtime, *airuntime.Service) {
 		store, err := aistate.Open(filepath.Join(dir, "state"), "synthetic-ledger")
 		if err != nil {
 			t.Fatal(err)
 		}
 		pool := NewPool(app, filepath.Join(dir, "caps"), config)
-		r, err := assistant.NewRuntime(assistant.Options{Ledger: "synthetic-ledger", Store: store, Credentials: creds, Capabilities: pool, Reviews: lostResponseProvider{pool, &lose}, Validate: func(context.Context) bool { return true }, Factory: func(ctx context.Context, _ assistant.ModelConfig, _ []byte, id string) (assistant.Engine, error) {
+		r, err := assistant.NewRuntime(assistant.Options{Ledger: "synthetic-ledger", Store: store, Credentials: creds, Capabilities: pool, Reviews: lostResponseProvider{pool, &lose, confirmEntered}, Validate: func(context.Context) bool { return true }, Factory: func(ctx context.Context, _ assistant.ModelConfig, _ []byte, id string) (assistant.Engine, error) {
 			shared, err := pool.Get(ctx, id)
 			if err != nil {
 				return nil, err
@@ -171,7 +178,7 @@ func TestDesktopReviewedCashLifecycle(t *testing.T) {
 	}
 	first := send()
 	count(0)
-	if first.Account != "Synthetic cash" || first.Amount != "12.34" || first.ResultingAmount != "12.34" {
+	if first.Account != "Synthetic cash" || first.Amount != "12.34" || first.ResultingAmount != "12.34" || first.Currency != "USD" || first.AccountType != "bank_account" || len(first.AccountOwners) != 1 || first.AccountOwners[0] != "Synthetic owner" {
 		t.Fatalf("wrong frozen view: %+v", first)
 	}
 	other, _ := ipc.Create(ipc.Status().Epoch)
@@ -258,17 +265,69 @@ func TestDesktopReviewedCashLifecycle(t *testing.T) {
 		t.Fatal("cancel failed")
 	}
 	count(1)
-	proposal, _ = jsoncodec.Marshal(assistant.CashProposal{Kind: "money_removed", AccountID: account.Account.ID.String(), Amount: "2.34", Currency: "USD", Reason: "expense", EffectiveAt: "2026-09-28T13:00:00Z"})
+	proposal, _ = jsoncodec.Marshal(assistant.CashProposal{Kind: "money_removed", AccountID: account.Account.ID.String(), Amount: "2.34", Currency: "usd", Reason: "expense", EffectiveAt: "2026-09-28T13:00:00Z"})
 	withdrawal := send()
-	if withdrawal.ResultingAmount != "10" || withdrawal.Kind != "money_removed" {
+	if withdrawal.ResultingAmount != "10" || withdrawal.Kind != "money_removed" || withdrawal.Currency != "USD" {
 		t.Fatalf("withdrawal preview: %+v", withdrawal)
 	}
 	if err := ipc.ReviewAction(ipc.Status().Epoch, c.ID, withdrawal.ID, withdrawal.Digest, "confirm"); err != nil {
 		t.Fatal(err)
 	}
 	count(2)
-	if err := r.FenceForRestore(); err != nil {
-		t.Fatal(err)
+	for _, kind := range []string{"disable", "restore"} {
+		if _, err := ipc.Reviews(ipc.Status().Epoch, c.ID); err != nil {
+			t.Fatal(err)
+		}
+		pending := send()
+		select {
+		case <-confirmEntered:
+		default:
+		}
+		entered, release, gateDone := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+		go func() {
+			gateDone <- app.WithPrivateConfiguration(context.Background(), func(context.Context) error { close(entered); <-release; return nil })
+		}()
+		<-entered
+		done := make(chan error, 1)
+		go func() { done <- ipc.ReviewAction(ipc.Status().Epoch, c.ID, pending.ID, pending.Digest, "confirm") }()
+		select {
+		case <-confirmEntered:
+		case <-time.After(time.Second):
+			close(release)
+			t.Fatal("confirmation did not enter adapter")
+		}
+		status := ipc.Status()
+		if kind == "disable" {
+			err = ipc.SetWritePermission(status.Epoch, status.Revision, false)
+		} else {
+			err = r.FenceForRestore()
+		}
+		close(release)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := <-gateDone; err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case err := <-done:
+			if err == nil {
+				t.Fatal("revoked confirmation succeeded")
+			}
+		case <-time.After(time.Second):
+			t.Fatal("revoked confirmation stalled")
+		}
+		count(2)
+		if kind == "disable" {
+			reviews, err := ipc.Reviews(status.Epoch, c.ID)
+			if err != nil || reviews[len(reviews)-1].State != "needs_preview" {
+				t.Fatalf("revoked pending state: %v %v", reviews, err)
+			}
+			if err := ipc.ReviewAction(status.Epoch, c.ID, pending.ID, pending.Digest, "cancel"); err != nil {
+				t.Fatal(err)
+			}
+			enable()
+		}
 	}
 	if err := ipc.ReviewAction(ipc.Status().Epoch, c.ID, first.ID, first.Digest, "confirm"); err == nil {
 		t.Fatal("restore allowed late confirmation")
