@@ -123,7 +123,7 @@ func (r *Runtime) observe(ctx context.Context, id, runID string, key []byte, eve
 }
 func progressSource(s string) bool {
 	switch s {
-	case "read_page_content", "get_current_page", "get_navigation_targets", "open_page", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
+	case "read_page_content", "get_current_page", "get_navigation_targets", "open_page", "open_return_trend", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
 		return true
 	}
 	return false

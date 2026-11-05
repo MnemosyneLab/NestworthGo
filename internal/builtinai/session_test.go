@@ -52,12 +52,15 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	// The external/shared registry never discovers or dispatches this UI tool.
 	externalDefinitions, _ := shared.Definitions()
 	for _, d := range externalDefinitions {
-		if d.Name == "read_page_content" {
+		if d.Name == "read_page_content" || d.Name == "open_return_trend" {
 			t.Fatal("internal page tool leaked into MCP discovery")
 		}
 	}
 	if _, err := shared.Call(t.Context(), "read_page_content", []byte(`{}`)); err == nil {
 		t.Fatal("external MCP invoked page content")
+	}
+	if _, err := shared.Call(t.Context(), "open_return_trend", []byte(`{}`)); err == nil {
+		t.Fatal("external MCP invoked a desktop action")
 	}
 	internal := New(shared, assistant.PageSelection{}).WithPageReader(func(context.Context, json.RawMessage) (json.RawMessage, error) {
 		return json.RawMessage(`{"hasMore":false,"complete":false}`), nil

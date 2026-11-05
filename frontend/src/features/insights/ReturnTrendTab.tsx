@@ -1,7 +1,7 @@
 import { addDays } from "date-fns";
 import { parseYmd, ymd } from "./calendar";
 import { AnalysisHealthLink } from "./AnalysisHealthLink";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,9 @@ import { useAnalysisProjectionContext } from "@/features/insights/analysisProjec
 import { compareCanonical, formatAmount, formatDecimalRatioPercent } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { signToneClass } from "@/components/ui/money-text";
+import { useAssistantPage } from "@/features/assistant/PageContext";
+import { useAccounts } from "@/queries/accounts";
+import { useCatalog } from "@/queries/catalog";
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
@@ -83,11 +86,36 @@ function sourceLabel(t: (key: string) => string, key: string): string {
 
 export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   const { t } = useTranslation();
-  const [display, setDisplay] = useState("cumulative_amount");
+  const display = session.trendDisplay;
+  const setDisplay = (trendDisplay: typeof session.trendDisplay) => session.setFilters({ trendDisplay });
   const context = useAnalysisProjectionContext(session);
   const trend = useReturnTrend(context.request, display, context.enabled);
   const data = trend.data;
   const originData = context.origin.data;
+  const reportTrend = useAssistantPage()?.reportTrend;
+  const accounts = useAccounts();
+  const catalog = useCatalog();
+  // A committed render reports the effective request and the real control/data
+  // state. This also catches clamped dates, disappeared accounts and query errors.
+  useLayoutEffect(() => {
+    if (!reportTrend) return;
+    const filters = session.moreFilters;
+    const invalid = session.returnTab !== "trend" || !context.enabled ||
+      context.origin.isError || accounts.isError || catalog.isError || trend.isError ||
+      Boolean(data?.valuationForced) || (data && data.display !== display) ||
+      (session.scope !== "portfolio" && session.scope !== "account") ||
+      (session.scope === "account" && !accounts.data?.some(row => row.account.id === session.scopeId)) ||
+      Object.entries(filters).some(([key, value]) => value !== undefined && value !== "" && key !== "currency" && key !== "assetClass") ||
+      (filters.currency && !catalog.data?.currencies.includes(String(filters.currency))) ||
+      (filters.assetClass && filters.assetClass !== "cash" && !catalog.data?.instrumentTypes.includes(String(filters.assetClass)));
+    const loading = context.origin.isLoading || accounts.isLoading || catalog.isLoading || trend.isLoading || trend.isFetching;
+    reportTrend({ accountId: session.scope === "account" ? session.scopeId : "", from: context.request.from, to: context.request.to,
+      valuation: session.valuation, includeCash: session.includeCash, display,
+      currency: String(filters.currency ?? ""), assetClass: String(filters.assetClass ?? ""),
+      status: loading ? "loading" : invalid || !data?.available ? "unavailable" : "ready" });
+  }, [reportTrend, session, context.enabled, context.origin.isError, context.origin.isLoading, context.request.from, context.request.to,
+    accounts.data, accounts.isError, accounts.isLoading, catalog.data, catalog.isError, catalog.isLoading,
+    trend.isError, trend.isLoading, trend.isFetching, data, display]);
   const chartPoints = useMemo(() => (data?.points ?? []).filter((point) => display === "linked_rate" ? point.rate != null : point.value != null), [data?.points, display]);
   const currency = data?.amount?.currency ?? chartPoints.find((point) => point.value?.currency)?.value?.currency ?? "";
   const chartAmountText = (value: string | null | undefined) => amountText(value == null ? null : { amount: value, currency });
@@ -123,7 +151,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   return (
     <div className="flex flex-col gap-4" data-testid="return-trend">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col gap-1.5"><label htmlFor="return-trend-display" className="text-sm font-medium">{t("insights.display")}</label><NativeSelect id="return-trend-display" value={display} onChange={(event) => setDisplay(event.target.value)}><option value="cumulative_amount">{t("insights.returnTrendCumulative")}</option><option value="linked_rate">{t("insights.returnTrendLinked")}</option><option value="period_return_amount">{t("insights.returnTrendPeriod")}</option></NativeSelect></div>
+        <div className="flex flex-col gap-1.5"><label htmlFor="return-trend-display" className="text-sm font-medium">{t("insights.display")}</label><NativeSelect id="return-trend-display" value={display} onChange={(event) => setDisplay(event.target.value as typeof display)}><option value="cumulative_amount">{t("insights.returnTrendCumulative")}</option><option value="linked_rate">{t("insights.returnTrendLinked")}</option><option value="period_return_amount">{t("insights.returnTrendPeriod")}</option></NativeSelect></div>
         <p className="max-w-md text-sm text-muted-foreground">{display === "linked_rate" ? t("insights.dailyRateHint") : t("insights.returnTrendHint")}</p>
       </div>
       {data && (data.status === "partial" || data.ratedDays < data.totalDays) && <AnalysisHealthLink from={context.request.from} to={context.request.to} />}

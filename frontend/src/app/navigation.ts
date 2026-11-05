@@ -24,6 +24,7 @@ export type UpcomingActionsTab = "recent" | "review";
 export type TasksTab = "upcoming" | "review" | "reconciliation";
 
 export interface AnalysisNavigationContext {
+	trendDisplay?: "cumulative_amount" | "linked_rate" | "period_return_amount";
   scope?: "portfolio" | "account" | "instrument";
   scopeId?: string;
   valuation?: "native" | "base";
