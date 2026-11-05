@@ -1,3 +1,6 @@
+import { createElement } from "react";
+import { render } from "@testing-library/react";
+import { DatePickerControl } from "@/components/ui/date-picker-control";
 import { afterEach, expect, it } from "vitest";
 import { capturePageContent } from "./pageContent";
 afterEach(() => { document.body.innerHTML = ""; });
@@ -39,4 +42,20 @@ it("reads the active page under the assistant modal but excludes retained hidden
  const page=capturePageContent("return-analysis:"); expect(page.page).toBe("return-analysis");
  expect(page.nodes[0].state).toContain("inert=true"); expect(page.limitations.join(" ")).toContain("overlay");
  root.setAttribute("hidden", ""); expect(capturePageContent("return-analysis:").page).toBe("unsupported");
+});
+
+
+it("revokes a snapshot after route return or root remount even when text and values match", () => {
+ fixture(); const first=capturePageContent("return-analysis:","visit-one");
+ expect(capturePageContent("return-analysis:","visit-two").id).not.toBe(first.id);
+ const second=capturePageContent("return-analysis:","visit-two");
+ fixture(); expect(capturePageContent("return-analysis:","visit-two").id).not.toBe(second.id);
+});
+
+
+it("captures the real shared date picker label, displayed value and popup state using a stable control ID", () => {
+ render(createElement("main", {"data-assistant-page":"return-analysis"}, createElement("section", {"data-assistant-module":"filters"}, createElement("label",{htmlFor:"analysis-from"},"From date"), createElement(DatePickerControl,{id:"analysis-from",value:"2026-10-01",dateFormat:"iso",onChange:()=>{}}))));
+ const date=capturePageContent("return-analysis:").nodes.find(n=>n.id==="filters/analysis-from");
+ expect(date).toMatchObject({role:"button",name:"From date",value:"2026-10-01"});
+ expect(date?.state).toContain("expanded=false");
 });

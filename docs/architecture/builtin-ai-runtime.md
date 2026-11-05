@@ -389,7 +389,8 @@ control IDs; password, hidden, file, unknown and textarea inputs are redacted.
 raw HTML and SVG/canvas geometry are excluded. Known configured credential
 material is also rejected by the backend, including strings escaped in JSON.
 
-Native select option labels/selection, search combobox text/expanded state,
+Native select option labels/selection, shared date-picker labels/displayed values,
+search combobox text/expanded state,
 checkbox/radio values, disabled/read-only/invalid/pressed states, headings,
 tables, statuses, alerts and disclosure state are represented. Collapsed
 in-root disclosures retain available semantic contents. Portal popovers and
@@ -413,6 +414,8 @@ Continue with the same `snapshotId`, module and next offset. Every continuation
 captures the current semantic state again before returning the original frozen
 snapshot's next slice. A changed semantic generation rejects continuation; a new
 initial read without a snapshot ID captures the latest state automatically.
+Generation fingerprints include the host visit and root identity, so leaving and
+returning or remounting a page revokes old snapshots even when content matches.
 Snapshot state is run-local and memory-only; tool results may enter the normal
 successful model history under the existing conversation retention rules.
 Financial assertions must still use authoritative controlled ledger reads.

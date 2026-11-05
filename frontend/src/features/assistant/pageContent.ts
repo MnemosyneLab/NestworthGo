@@ -10,6 +10,7 @@ export type SemanticPage = {
 };
 let lastEncoding = "";
 let lastID = "";
+const rootIdentities = new WeakMap<Element,string>();
 const allowedFields = /^(analysis-(scope|scope-id|from|to|valuation|cash|filter-(account|currency|asset-class|member|instrument))|return-trend-display)$/;
 const roles: Record<string, string> = {
   BUTTON: "button", A: "link", SELECT: "combobox", OPTION: "option",
@@ -18,7 +19,7 @@ const roles: Record<string, string> = {
 };
 const excluded = 'script,style,svg,canvas,[hidden],[inert],[aria-hidden="true"],[data-assistant-private]';
 const semanticRoles = new Set(["region", "heading", "button", "link", "textbox", "combobox", "checkbox", "radio", "switch", "tab", "tablist", "option", "table", "row", "cell", "columnheader", "status", "alert", "group", "img", "slider", "spinbutton"]);
-export function capturePageContent(viewKey: string): SemanticPage {
+export function capturePageContent(viewKey: string, generation = viewKey): SemanticPage {
   const limitations: string[] = [];
   const nodes: SemanticNode[] = [];
   const root = viewKey === "return-analysis:" ? document.querySelector<HTMLElement>('[data-assistant-page="return-analysis"]') : null;
@@ -55,6 +56,8 @@ export function capturePageContent(viewKey: string): SemanticPage {
       let role = semanticRoles.has(roleAttribute) ? roleAttribute : roles[el.tagName];
       if (el.hasAttribute("data-assistant-module") || el === root) role = "region";
       const field = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
+      const fieldButton = el instanceof HTMLButtonElement && allowedFields.test(el.id);
+      const labelledControl = field || fieldButton;
       const sensitive = field && (!allowedFields.test(el.id) || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && ["password", "hidden", "file"].includes(el.type)));
       if (sensitive) { add({ parent, module, role: "textbox", name: "Protected input", value: "", state: ["redacted"], actions: [] }); return; }
       if (el instanceof HTMLInputElement && ["checkbox", "radio"].includes(el.type)) role = el.type;
@@ -68,7 +71,7 @@ export function capturePageContent(viewKey: string): SemanticPage {
         if (el instanceof HTMLInputElement) { if (el.type === "checkbox" || el.type === "radio") state.push(`checked=${el.checked}`); if (el.readOnly) state.push("readonly=true"); }
         if (el instanceof HTMLOptionElement) {state.push(`selected=${el.selected}`); if (el.disabled) state.push("disabled=true");}
         if (el.tagName === "SUMMARY") state.push(`expanded=${(el.parentElement as HTMLDetailsElement).open}`);
-        let name = el.getAttribute("aria-label") || (field ? Array.from(el.labels || []).filter(label => root!.contains(label)).map(visibleText).join(" ") : "");
+        let name = el.getAttribute("aria-label") || (labelledControl ? Array.from((el as HTMLInputElement | HTMLButtonElement | HTMLSelectElement).labels || []).filter(label => root!.contains(label)).map(visibleText).join(" ") : "");
         if (!name && el.hasAttribute("aria-labelledby")) {
           name = (el.getAttribute("aria-labelledby") || "").split(/\s+/).map(id => document.getElementById(id)).filter((label): label is HTMLElement => !!label && !!root?.contains(label)).map(visibleText).join(" ");
         }
@@ -77,10 +80,10 @@ export function capturePageContent(viewKey: string): SemanticPage {
         if (!name && el.tagName === "IMG") name = el.getAttribute("alt") || "";
         if (!name && (role === "region")) name = module;
         if (name.length > 400) { limitations.push("An accessible label was shortened; its remaining text is unavailable."); name = name.slice(0, 400); }
-        const value = el instanceof HTMLSelectElement ? Array.from(el.selectedOptions).map(o => o.label).join(", ") : el instanceof HTMLInputElement ? el.value : "";
+        const value = el instanceof HTMLSelectElement ? Array.from(el.selectedOptions).map(o => o.label).join(", ") : el instanceof HTMLInputElement ? el.value : fieldButton ? visibleText(el).trim() : "";
         if (value.length > 2048) throw new Error("page_content_budget");
         const actions = ["button", "link", "disclosure", "tab"].includes(role) ? ["activate (description only)"] : field ? ["edit/select (description only)"] : [];
-        nextParent = add({ parent, module, role, name: name.trim(), value, state, actions }, field && el.id ? `${module}/${el.id}` : el.hasAttribute("data-assistant-module") ? module : undefined);
+        nextParent = add({ parent, module, role, name: name.trim(), value, state, actions }, labelledControl && el.id ? `${module}/${el.id}` : el.hasAttribute("data-assistant-module") ? module : undefined);
       }
       for (const child of el.childNodes) {
         if (child.nodeType === Node.TEXT_NODE) {
@@ -92,7 +95,8 @@ export function capturePageContent(viewKey: string): SemanticPage {
     walk(root!, "", "page");
   }
   if (nodes.length > 8192) throw new Error("page_content_budget");
-  const encoding = JSON.stringify({ page, nodes, limitations });
+  if (root && !rootIdentities.has(root)) rootIdentities.set(root,crypto.randomUUID());
+  const encoding = JSON.stringify({ page, nodes, limitations, generation, rootIdentity: root ? rootIdentities.get(root) : "" });
   if (new TextEncoder().encode(encoding).length > 512 * 1024) throw new Error("page_content_budget");
   if (encoding !== lastEncoding) { lastEncoding = encoding; lastID = crypto.randomUUID(); }
   return { id: lastID, page, capturedAt: new Date().toISOString(), nodes, limitations };

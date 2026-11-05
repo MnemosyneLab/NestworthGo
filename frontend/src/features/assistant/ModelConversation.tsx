@@ -13,9 +13,9 @@ import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 import { capturePageContent } from "./pageContent";
 
-function samePageContent(generation: string | null, viewKey: string) {
+function samePageContent(generation: string | null, viewKey: string, hostGeneration: string) {
   if (generation === null) return true;
-  try { return capturePageContent(viewKey).id === generation; } catch { return false; }
+  try { return capturePageContent(viewKey, hostGeneration).id === generation; } catch { return false; }
 }
 
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
@@ -183,7 +183,7 @@ export function ModelConversation() {
       intent.leaseId !== grant.leaseID ||
       intent.requestId !== grant.requestID ||
       !page ||
-      !samePageContent(grant.contentGeneration, page.viewKey)
+      !samePageContent(grant.contentGeneration, page.viewKey, page.modelStamp)
     ) {
       setNavigationState("navigationStopped");
       return;
@@ -194,7 +194,7 @@ export function ModelConversation() {
         callService(() =>
           API.ConsumeNavigation(epoch, id, run.id, intent.id, intent.leaseId),
         ).then((target) => {
-          if (navigationAttempt.current !== grant.requestID || !samePageContent(grant.contentGeneration, page.viewKey))
+          if (navigationAttempt.current !== grant.requestID || !samePageContent(grant.contentGeneration, page.viewKey, page.modelStamp))
             throw new Error("assistant_navigation_withdrawn");
           return target;
         }),
@@ -209,8 +209,8 @@ export function ModelConversation() {
   // The provider tool requests a capture; no manual publication or approval.
   // Poll metadata only. A capture happens synchronously on the UI thread and
   // includes current field properties (also changes without DOM mutations).
-  const pageReadView = useRef(page?.viewKey ?? "");
-  useLayoutEffect(() => { pageReadView.current = page?.enabled ? page.viewKey : ""; }, [page?.viewKey, page?.enabled]);
+  const pageReadView = useRef({viewKey: page?.viewKey ?? "", generation: page?.modelStamp ?? ""});
+  useLayoutEffect(() => { pageReadView.current = {viewKey: page?.enabled ? page.viewKey : "", generation: page?.modelStamp ?? ""}; }, [page?.viewKey, page?.enabled, page?.modelStamp]);
   useEffect(() => {
     if (!epoch || !page?.enabled) return;
     let stopped = false;
@@ -222,7 +222,7 @@ export function ModelConversation() {
         const requests = await callService(() => API.PendingPageReads(epoch));
         for (const request of requests ?? []) {
           if (stopped) break;
-          const content = capturePageContent(pageReadView.current);
+          const content = capturePageContent(pageReadView.current.viewKey, pageReadView.current.generation);
           await callService(() => API.DeliverPageContent(epoch, request.id, content));
         }
       } catch { /* The requesting tool receives a bounded unavailable result. */ }
@@ -290,7 +290,7 @@ export function ModelConversation() {
     const text = prompt;
     const stamp = page?.modelStamp ?? "";
     await action(async () => {
-      const contentGeneration = allowNavigation && page?.viewKey === "return-analysis:" ? capturePageContent(page.viewKey).id : null;
+      const contentGeneration = allowNavigation && page?.viewKey === "return-analysis:" ? capturePageContent(page.viewKey, page.modelStamp).id : null;
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
       setOffset(null);
@@ -319,7 +319,7 @@ export function ModelConversation() {
             lease.id,
           ),
         );
-        if (!page.canModelNavigate(stamp) || !samePageContent(contentGeneration, page.viewKey))
+        if (!page.canModelNavigate(stamp) || !samePageContent(contentGeneration, page.viewKey, page.modelStamp))
           throw new Error("assistant_stale_page");
         pageLeaseId = lease.id;
         navigationGrant.current = {
