@@ -74,6 +74,7 @@ export function AIModelConfig({
         {t("aiChat.enable")}
       </Label>
       <p className="text-xs text-muted-foreground">{t("aiChat.consent")}</p>
+      <p className="text-xs text-muted-foreground">{t("aiChat.titlePolicy")}</p>
       <div className="flex flex-wrap gap-2">
         <Button
           className="min-h-11 whitespace-normal xl:min-h-9"

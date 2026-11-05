@@ -18,7 +18,7 @@ import (
 
 func TestInstalledIPCExposesDesktopConfigurationWithoutFinancialWrites(t *testing.T) {
 	typ := reflect.TypeFor[*Service]()
-	expected := map[string]bool{"Reviews": true, "ReviewAction": true, "SetWritePermission": true, "PendingPageReads": true, "DeliverPageContent": true, "PublishPage": true, "GrantNavigation": true, "ConsumeNavigation": true, "Configure": true, "SaveCredential": true, "DeleteCredential": true, "Status": true, "List": true, "Create": true, "Inspect": true, "Messages": true, "Start": true, "Cancel": true, "Events": true, "Delete": true}
+	expected := map[string]bool{"Reviews": true, "ReviewAction": true, "SetWritePermission": true, "Rename": true, "PendingPageReads": true, "DeliverPageContent": true, "PublishPage": true, "GrantNavigation": true, "ConsumeNavigation": true, "Configure": true, "SaveCredential": true, "DeleteCredential": true, "Status": true, "List": true, "Create": true, "Inspect": true, "Messages": true, "Start": true, "Cancel": true, "Events": true, "Delete": true}
 	if typ.NumMethod() != len(expected) {
 		t.Fatal("review IPC inventory")
 	}

@@ -43,7 +43,12 @@ func TestEinoDesktopProposalRequiresSeparateHostConfirmation(t *testing.T) {
 		t.Fatal(err)
 	}
 	pool := builtinai.NewPool(app, filepath.Join(dir, "caps"), sqlite.NewConfigurationRepository(db))
-	runtime, err := assistant.NewRuntime(assistant.Options{Ledger: "synthetic-reviewed-ledger", Store: store, Credentials: runtimeCredentials{}, Capabilities: pool, Reviews: pool, Validate: func(context.Context) bool { return true }, Factory: func(ctx context.Context, cfg assistant.ModelConfig, _ []byte, id string) (assistant.Engine, error) {
+	runtime, err := assistant.NewRuntime(assistant.Options{Ledger: "synthetic-reviewed-ledger", Store: store, Credentials: runtimeCredentials{}, Capabilities: pool, Reviews: pool, TitleGenerator: func(_ context.Context, cfg assistant.ModelConfig, _ []byte, prompt string) (string, error) {
+		if cfg.Model != assistant.TitleModel || !strings.HasPrefix(prompt, "Record synthetic income") {
+			t.Error("title did not use Luna and the original prompt")
+		}
+		return "Synthetic income", nil
+	}, Validate: func(context.Context) bool { return true }, Factory: func(ctx context.Context, cfg assistant.ModelConfig, _ []byte, id string) (assistant.Engine, error) {
 		shared, err := pool.Get(ctx, id)
 		if err != nil {
 			return nil, err
@@ -80,7 +85,7 @@ func TestEinoDesktopProposalRequiresSeparateHostConfirmation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(v.Runs) > 0 && v.Runs[0].Finished != nil {
+		if len(v.Runs) > 0 && v.Runs[0].Finished != nil && v.TitleSource == "luna" {
 			if v.Runs[0].State != "succeeded" {
 				t.Fatalf("run %+v", v.Runs[0])
 			}
@@ -98,6 +103,17 @@ func TestEinoDesktopProposalRequiresSeparateHostConfirmation(t *testing.T) {
 	reviews, err := ipc.Reviews(status.Epoch, conversation.ID)
 	if err != nil || len(reviews) != 1 {
 		t.Fatalf("review %v %v", reviews, err)
+	}
+	if err := ipc.Rename(status.Epoch, conversation.ID, "Reviewed income"); err != nil {
+		t.Fatal(err)
+	}
+	renamed, err := ipc.Inspect(status.Epoch, conversation.ID)
+	if err != nil || renamed.Title != "Reviewed income" || renamed.TitleSource != "manual" {
+		t.Fatal("manual name did not coexist with pending review")
+	}
+	reviews, err = ipc.Reviews(status.Epoch, conversation.ID)
+	if err != nil || len(reviews) != 1 {
+		t.Fatal("renaming lost the frozen review")
 	}
 	review := reviews[0]
 	if review.State != "awaiting_confirmation" || review.Amount != "12.34" {

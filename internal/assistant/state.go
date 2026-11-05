@@ -15,7 +15,7 @@ func ValidateState(s State) error {
 	conversations := map[string]bool{}
 	runs := map[string]bool{}
 	for _, c := range s.Conversations {
-		if !canonicalID(c.ID) || conversations[c.ID] || c.Updated.IsZero() || len(c.History) > MaxHistoryBytes || len(c.Runs) > MaxRuns || len(c.Events) > MaxEvents || c.HistoryDigest != historyDigest(s.Ledger, c.ID, c.History) {
+		if !validTitleState(c) || !canonicalID(c.ID) || conversations[c.ID] || c.Updated.IsZero() || len(c.History) > MaxHistoryBytes || len(c.Runs) > MaxRuns || len(c.Events) > MaxEvents || c.HistoryDigest != historyDigest(s.Ledger, c.ID, c.History) {
 			return ErrStorage
 		}
 		if len(c.Reviews) > MaxRuns {

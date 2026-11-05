@@ -9,7 +9,7 @@ import { NativeSelect } from "@/components/ui/select";
 import { Notice } from "@/components/ui/notice";
 import { callService } from "@/lib/wails";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { Plus, Trash2, ArrowUp, Sparkles } from "lucide-react";
+import { Plus, Trash2, ArrowUp, Sparkles, Pencil } from "lucide-react";
 import { ChangeReviews } from "./ChangeReviews";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
@@ -40,6 +40,7 @@ export function ModelConversation() {
       window.removeEventListener("offline", update);
     };
   }, []);
+  const [rename, setRename] = useState<{ id: string; title: string } | null>(null);
   const [selected, setSelected] = useState("");
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
@@ -54,6 +55,7 @@ export function ModelConversation() {
   } | null>(null);
   const [navigationState, setNavigationState] = useState("");
   const navigationAttempt = useRef<string | null>(null);
+  const navigationCompletion = useRef<string | null>(null);
   const status = useQuery({
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
@@ -65,6 +67,7 @@ export function ModelConversation() {
   const list = useQuery({
     queryKey: ["aiConversations", epoch],
     queryFn: () => callService(() => API.List(epoch)),
+    refetchInterval: 2000,
     enabled: !!epoch,
     networkMode: "always",
     retry: false,
@@ -89,6 +92,7 @@ export function ModelConversation() {
   useEffect(() => {
     if (previousEpoch.current && previousEpoch.current !== epoch) {
       setSelected("");
+      setRename(null);
       setPrompt("");
       setSubmission(null);
     }
@@ -99,6 +103,11 @@ export function ModelConversation() {
   const modelStamp = page?.modelStamp ?? "";
   const configRevision = status.data?.revision ?? 0;
   const modelAvailable = status.data?.available ?? false;
+  useEffect(() => {
+    if (navigationCompletion.current) setNavigationState("navigationUnverified");
+    navigationCompletion.current = null;
+  }, [epoch, configRevision, modelAvailable, id]);
+  useEffect(() => () => { navigationCompletion.current = null; }, []);
   useEffect(() => {
     if (navigationGrant.current) setNavigationState("navigationStopped");
     navigationGrant.current = null;
@@ -139,6 +148,7 @@ export function ModelConversation() {
       return;
     }
     navigationAttempt.current = grant.requestID;
+    navigationCompletion.current = grant.requestID;
     void page
       .navigateModel(grant.stamp, () =>
         callService(() =>
@@ -149,16 +159,23 @@ export function ModelConversation() {
           return target;
         }),
       )
-      .then((result) =>
-        setNavigationState(
-          result === "opened" ? "navigationOpened" : "navigationStopped",
-        ),
-      )
-      .catch(() => setNavigationState("navigationStopped"));
+      .then((result) => {
+        if (navigationCompletion.current !== grant.requestID) return;
+        navigationCompletion.current = null;
+        setNavigationState(result === "opened" ? "navigationOpened" : result === "unverified" ? "navigationUnverified" : "navigationStopped");
+      })
+      .catch(() => {
+        if (navigationCompletion.current === grant.requestID) {
+          navigationCompletion.current = null;
+          setNavigationState("navigationStopped");
+        }
+      });
   }, [latest.data, page, epoch, id]);
   async function action(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;
+    if (navigationCompletion.current) setNavigationState("navigationUnverified");
+    navigationCompletion.current = null;
     // Revoke locally at admission, before Create/Delete (or any other action)
     // can await IPC. A previously approved Consume response may still be in flight.
     if (navigationAttempt.current || navigationGrant.current)
@@ -189,6 +206,8 @@ export function ModelConversation() {
     }
   }
   function cancelRun(runID: string) {
+    if (navigationCompletion.current) setNavigationState("navigationUnverified");
+    navigationCompletion.current = null;
     navigationAttempt.current = null;
     if (navigationGrant.current) {
       navigationGrant.current = null;
@@ -282,6 +301,7 @@ export function ModelConversation() {
         <NativeSelect id="ai-history" className="min-h-11 min-w-0 flex-1 xl:min-h-9" value={id}
           disabled={busy || !list.data?.length}
           onChange={(event) => {
+            navigationCompletion.current = null;
             navigationGrant.current = null;
             navigationAttempt.current = null;
             setNavigationState("");
@@ -290,8 +310,10 @@ export function ModelConversation() {
             setFailed(false);
           }}>
           <option value="" disabled>{t("aiChat.history")}</option>
-          {list.data?.map((c, index) => <option key={c.id} value={c.id}>{t("aiChat.session", { number: index + 1 })}</option>)}
+          {list.data?.map((c, index) => <option key={c.id} value={c.id}>{(c.id === id ? latest.data?.title : "") || c.title || t("aiChat.session", { number: index + 1 })}</option>)}
         </NativeSelect>
+        <Button size="icon" variant="ghost" aria-label={t("aiChat.rename")} title={t("aiChat.rename")}
+          disabled={busy || !id || stale} onClick={() => setRename({ id, title: latest.data?.title || list.data?.find(c => c.id === id)?.title || "" })}><Pencil className="size-4" aria-hidden="true" /></Button>
         <Button size="icon" variant="ghost" aria-label={t("aiChat.new")} title={t("aiChat.new")}
           disabled={busy || stale || !epoch} onClick={() => void action(async () => {
             const c = await callService(() => API.Create(epoch));
@@ -303,6 +325,20 @@ export function ModelConversation() {
             setSelected("");
           })}><Trash2 className="size-4" aria-hidden="true" /></Button>
       </div>
+      {rename?.id === id && <form className="space-y-2 border-b border-border p-3" onSubmit={event => {
+        event.preventDefault();
+        const draft = rename;
+        if (!draft.title.trim() || Array.from(draft.title.trim()).length > 64) return;
+        void action(async () => { await callService(() => API.Rename(epoch, draft.id, draft.title)); setRename(null); });
+      }}>
+        <Label htmlFor="ai-conversation-title">{t("aiChat.titleLabel")}</Label>
+        {/* Native maxlength counts UTF-16 units; 128 allows 64 supplementary code points. */}
+        <Input id="ai-conversation-title" autoFocus value={rename.title} maxLength={128} disabled={busy}
+          onChange={event => setRename({ id, title: Array.from(event.target.value).slice(0, 64).join("") })}
+          onKeyDown={event => { if (event.key === "Escape") setRename(null); if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }} />
+        <div className="flex gap-2"><Button type="submit" disabled={busy || stale || !rename.title.trim()}>{t("aiChat.saveTitle")}</Button>
+        <Button type="button" variant="ghost" disabled={busy} onClick={() => setRename(null)}>{t("aiChat.cancelTitle")}</Button></div>
+      </form>}
       {(status.isPending || offline || !status.data?.available) && <Notice role="status" className="m-3">
         {t(status.isPending ? "assistant.state.loading" : offline ? "aiChat.offlineLocal" : "aiChat.disabled")}
       </Notice>}
@@ -344,7 +380,8 @@ export function ModelConversation() {
         />
         <div className="flex flex-wrap items-center gap-2">
         <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
-          {["scope", "privacy", "pageHint", "retention"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
+          {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
+          {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
           {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         </div></InfoPopover>
         <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t(status.data?.financialWrites ? "aiChat.writeControlled" : "aiChat.readOnly")}</span>

@@ -142,3 +142,11 @@ func (s *Service) ReviewAction(epoch, id, reviewID, digest, action string) error
 	}
 	return s.runtime.ReviewAction(context.Background(), epoch, id, reviewID, digest, action)
 }
+
+// Rename gives explicit desktop naming precedence over pending generation.
+func (s *Service) Rename(epoch, id, title string) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.Rename(context.Background(), epoch, id, title)
+}

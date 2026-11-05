@@ -33,7 +33,7 @@ export type NavigationIntentV1 = {
   version: 1; intentId: string; userTurnId: string; contextId: string;
   pageVersion: number; action: "open_object"; targetRef: string;
 };
-export type NavigationResult = "opened" | "stale_context" | "blocked" | "invalid_target" | "duplicate";
+export type NavigationResult = "opened" | "stale_context" | "blocked" | "invalid_target" | "duplicate" | "unverified";
 
 // This installed boundary is deliberately closed. Unexpected/future values
 // cannot turn on a provider, secret form, writer or context disclosure.
