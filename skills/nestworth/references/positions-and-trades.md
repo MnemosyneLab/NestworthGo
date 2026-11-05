@@ -26,7 +26,7 @@ Example `preview_change`:
 {"kind":"position_import","accountId":"${accountId}","instrumentId":"${instrumentId}","quantity":"10","unitCost":"100","currency":"USD","effectiveAt":"${effectiveAt}"}
 ```
 
-Inspect the no-cash effects, then `commit_change`. Check the holding, cost and
+Inspect the no-cash effects, then `commit_plan`. Check the holding, cost and
 unchanged cash using current queries. Managed-product imports are rejected.
 
 ## Completed purchases and sales
@@ -84,15 +84,14 @@ record can precede a buy; an import can precede a sell. Later commands resolve a
 new holding by account/instrument; preview IDs are provisional. Definitions must
 already exist; directory creation is not part of this atomic batch.
 
-Inspect every preview and use `commit_batch` with the returned `planId`.
+Inspect every preview and use `commit_plan` with the returned `planId`.
 Groups over 100 require separate chronological batches and are not globally
 atomic; report committed batches and stop on unresolved failure. Use actual
 RFC3339 `effectiveAt` or both `effectiveLocalDate`/`effectiveLocalTime` in the
 history timezone. Omitted times share the preview's frozen current instant;
 use omission only when that is what the user means.
 
-Commit arguments (also used with the matching reconciliation/correction/batch
-commit tool):
+Commit arguments (the same for every plan kind):
 
 <!-- example: commit -->
 ```json

@@ -47,7 +47,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 				plan := p["planId"].(string)
 				now = now.Add(time.Minute + 987654*time.Nanosecond)
 				op := uuid.NewString()
-				first := productDataCommitHTTP(t, c, "commit_product_"+tool, plan, op)
+				first := productDataCommitHTTP(t, c, "commit_plan", plan, op)
 				assertTime := func(raw any, want time.Time) {
 					t.Helper()
 					got, err := time.Parse(time.RFC3339Nano, raw.(string))
@@ -115,7 +115,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 					expected[k] = v
 				}
 				expected["replayed"] = true
-				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_product_"+tool, plan, uuid.NewString()), expected)
+				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_plan", plan, uuid.NewString()), expected)
 				// A later revision / quote must not replace the original result.
 				input = ProductValuationInput{nil, id, "1200", ""}
 				if tool == "terms" {
@@ -127,7 +127,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 				now = now.Add(time.Minute + 567891*time.Nanosecond)
 				op2 := uuid.NewString()
 				fx.service.repository = &failProductSuccessReceipt{ConfigurationRepository: fx.service.repository, fail: true}
-				if code := ledgerErrorCode(t, c, "commit_product_"+tool, map[string]any{"operationId": op2, "input": map[string]any{"planId": p2["planId"]}}); code != "operation_outcome_unknown" {
+				if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": op2, "input": map[string]any{"planId": p2["planId"]}}); code != "operation_outcome_unknown" {
 					t.Fatal(code)
 				}
 				path := verify()
@@ -150,8 +150,8 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 					t.Fatal(err)
 				}
 				c = connect(t, s)
-				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_product_"+tool, plan, uuid.NewString()), expected)
-				recovered := productDataCommitHTTP(t, c, "commit_product_"+tool, p2["planId"].(string), op2)
+				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_plan", plan, uuid.NewString()), expected)
+				recovered := productDataCommitHTTP(t, c, "commit_plan", p2["planId"].(string), op2)
 				assertTime(recovered["recordedAt"], now)
 				if recovered["replayed"] != true {
 					t.Fatal(recovered)
@@ -159,7 +159,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 				if err := app.WithExclusive(t.Context(), application.ExclusiveRestore, func(context.Context) error { return nil }); err != nil {
 					t.Fatal(err)
 				}
-				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_product_"+tool, p2["planId"].(string), uuid.NewString()), recovered)
+				productJSONEqual(t, productDataCommitHTTP(t, c, "commit_plan", p2["planId"].(string), uuid.NewString()), recovered)
 			})
 		}
 	}
@@ -185,7 +185,7 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 			p := productDataPreviewHTTP(t, c, "preview_product_"+tool, input)
 			plan := p["planId"].(string)
 			now = now.Add(time.Minute + 987654*time.Nanosecond)
-			first := productDataCommitHTTP(t, c, "commit_product_"+tool, plan, uuid.NewString())
+			first := productDataCommitHTTP(t, c, "commit_plan", plan, uuid.NewString())
 			var raw, key string
 			if tool == "terms" {
 				if err := db.SQL.QueryRow(`SELECT key,value FROM app_configuration WHERE key LIKE ?`, "product.terms-mutation.%."+plan).Scan(&key, &raw); err != nil {
@@ -262,7 +262,7 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 				expected[k] = v
 			}
 			expected["replayed"] = true
-			productJSONEqual(t, productDataCommitHTTP(t, c, "commit_product_"+tool, plan, uuid.NewString()), expected)
+			productJSONEqual(t, productDataCommitHTTP(t, c, "commit_plan", plan, uuid.NewString()), expected)
 			var retained string
 			if tool == "terms" {
 				err = db.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key=?`, key).Scan(&retained)

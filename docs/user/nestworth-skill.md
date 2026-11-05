@@ -73,7 +73,15 @@ The current MCP workflows include breaking changes from the published skill;
 use actual discovery and schemas when connecting to an older App.
 
 Skill 3.0.3 adds update-convention guidance (how `update_account` clears fields and
-which product-terms field is optional). Skill 3.0.2 was a slimming change with no new MCP contract: the entry file no
+which product-terms field is optional) and follows two tool consolidations. First,
+one `commit_plan` replaces the ten per-kind commit tools: it takes the same
+`{operationId, input:{planId}}`, reads the plan kind from the stored plan, and keeps
+each kind's receipt, replay and unknown-outcome rules. Second, `update_member`,
+`update_institution` and `update_group` take `name`, `iconKey` or both, and the
+three `set_*_icon` tools are gone. A 3.0.2 or older skill names tools this App no
+longer registers; the version stays a PATCH step because the policy below does not
+raise MAJOR or MINOR for tool changes alone, and actual discovery is the authority
+when connecting an older App to this skill. Skill 3.0.2 was a slimming change with no new MCP contract: the entry file no
 longer asks the agent to inspect every tool before a task, connection guidance
 drops client-specific configuration (moved to the developer MCP guide), and the
 financial-context, two-state comparison and attribution workflows moved from

@@ -399,7 +399,7 @@ func TestProductHTTPReadsAndLegacySnapshotPreviewCoordination(t *testing.T) {
 	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-27:2026-09-28")); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, client, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": beforeRepair["planId"]}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, client, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": beforeRepair["planId"]}}); code != "stale_preview" {
 		t.Fatal("actual legacy snapshot repair did not fence the pending preview:", code)
 	}
 	warm := preview()

@@ -4,8 +4,8 @@ Read current state or `get_activity` first and choose by intent:
 
 | Intent | Tools | Time/effect |
 | --- | --- | --- |
-| Current balance, quantity or cost should equal an evidenced target | `preview_reconciliation` / `commit_reconciliation` | Current adjustment; does not recreate past trades |
-| A recorded historical transaction was wrong | `preview_correction` / `commit_correction`, action `fix` | Original timestamp, replay later records |
+| Current balance, quantity or cost should equal an evidenced target | `preview_reconciliation` / `commit_plan` | Current adjustment; does not recreate past trades |
+| A recorded historical transaction was wrong | `preview_correction` / `commit_plan`, action `fix` | Original timestamp, replay later records |
 | Reverse a valid prior record now | Same correction tools, action `undo` | Reversal now; original history remains |
 
 ## Current targets
@@ -32,7 +32,7 @@ the entire remaining position** in instrument currency:
 
 Include `targetQuantity` with `totalCost` for a combined quantity/cost target.
 Do not supply both `unitCost` and `totalCost`. The preview can expand one target
-into two commands; inspect all of them, then `commit_reconciliation` atomically.
+into two commands; inspect all of them, then `commit_plan` atomically.
 Unchanged targets, duplicate endpoints, managed/archived targets and missing or
 unrepresentable cost evidence are rejected. Current cost correction changes
 subsequent sale/transfer cost, not earlier realized gains.
@@ -54,7 +54,7 @@ Already corrected/reversed records and managed products can be rejected.
 Cost-adjustment records have no generic fix/undo path; submit a new target cost.
 For a historical mistake in a buy/sell, fix the historical trade instead.
 
-Use only the matching plan/commit tool. Confirm that a proposed correction
+Commit only the plan the preview returned. Confirm that a proposed correction
 matches the user's intended time/reporting effect, commit when authorized,
 then verify the activity links, today's balance and affected analysis/health.
 See [recovery.md](recovery.md) if posting succeeded but derived work did not.
@@ -75,7 +75,7 @@ Only explicitly confirmed scope and required points at current financial
 revisions advance an account's last-success time. A partial session must be
 reported with pending/skipped/unresolved counts, never as all passed.
 
-1. `preview_reconciliation_session` action start, then its matching commit.
+1. `preview_reconciliation_session` action start, then `commit_plan`.
    Omit accountIds only when the user's intent covers every active account.
 2. Read the header with `get_reconciliation_session` (`id`); page accounts and
    items with `get_reconciliation_session_page`. Each row supplies business
@@ -84,7 +84,7 @@ reported with pending/skipped/unresolved counts, never as all passed.
    checks. Page section changes for recorded-order facts since prior success;
    section links is the explicitly linked subset, never inferred from time.
 3. If different, ask whether the user wants an audited direct correction or a
-   missing real transaction. Keep the existing preview/commit tool pair.
+   missing real transaction. Keep the preview, then `commit_plan`.
    Attach `reconciliationLink` from the selected current session/account/item
    and revisions. Direct adjustments never fabricate trades. Use dedicated
    managed-product operation/terms/value tools for managed products.
@@ -105,7 +105,7 @@ reported with pending/skipped/unresolved counts, never as all passed.
 {"action":"start","accountIds":["${accountId}"]}
 ```
 
-Commit the returned plan with `commit_reconciliation_session`:
+Commit the returned plan with `commit_plan`:
 
 <!-- example: session-commit -->
 ```json

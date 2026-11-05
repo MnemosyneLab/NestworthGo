@@ -28,7 +28,7 @@ func batchPreview(t *testing.T, c *mcp.ClientSession, commands ...map[string]any
 
 func batchCommit(t *testing.T, c *mcp.ClientSession, operationID, planID string) map[string]any {
 	t.Helper()
-	data := call(t, c, "commit_batch", map[string]any{
+	data := call(t, c, "commit_plan", map[string]any{
 		"operationId": operationID, "input": map[string]any{"planId": planID},
 	}, false)["data"].(map[string]any)
 	if data["status"] != "succeeded" {
@@ -108,7 +108,7 @@ func TestBatchFundingBuySellAndReplay(t *testing.T) {
 	if got := ledgerActivityCount(t, fx.app); got != 3 {
 		t.Fatalf("retry duplicated activities: %d", got)
 	}
-	if code := ledgerErrorCode(t, c, "commit_batch", map[string]any{"operationId": opID, "input": map[string]any{"planId": uuid.NewString()}}); code != "conflict" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": uuid.NewString()}}); code != "conflict" {
 		t.Fatalf("reused operation with different plan code=%s", code)
 	}
 }
@@ -133,21 +133,15 @@ func TestBatchRejectsInvalidEntryWithoutPosting(t *testing.T) {
 	}
 }
 
-func TestBatchRejectsStaleExpiredAndWrongCommitTool(t *testing.T) {
+func TestBatchRejectsStaleAndExpiredPlans(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "50", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}
 	batch := batchPreview(t, c, command)
-	if code := ledgerErrorCode(t, c, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": batch["planId"]}}); code == "" {
-		t.Fatal("single commit accepted a batch plan")
-	}
 	single := ledgerPreview(t, c, command)
-	if code := ledgerErrorCode(t, c, "commit_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": single["planId"]}}); code == "" {
-		t.Fatal("batch commit accepted a single plan")
-	}
 	ledgerCommit(t, c, uuid.NewString(), single["planId"].(string))
-	if code := ledgerErrorCode(t, c, "commit_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": batch["planId"]}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": batch["planId"]}}); code != "stale_preview" {
 		t.Fatalf("stale batch code=%s", code)
 	}
 	expired := batchPreview(t, c, command)
@@ -165,7 +159,7 @@ func TestBatchRejectsStaleExpiredAndWrongCommitTool(t *testing.T) {
 	if err := fx.service.writePrivate(path, saved); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "stale_preview" {
 		t.Fatalf("expired batch code=%s", code)
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 1 {
@@ -352,7 +346,7 @@ func TestBatchToolsRequireLedgerWrite(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, tool := range listed.Tools {
-			if tool.Name == "preview_batch" || tool.Name == "commit_batch" {
+			if tool.Name == "preview_batch" || tool.Name == "commit_plan" {
 				t.Fatalf("%s exposed %s", mode, tool.Name)
 			}
 		}

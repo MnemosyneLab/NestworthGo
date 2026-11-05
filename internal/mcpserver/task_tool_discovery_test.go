@@ -32,7 +32,7 @@ func TestTaskDiscoveryMeasuredSubsetAndUnchangedPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(focused.Tools) != 7 || focused.NextCursor != "" {
+	if len(focused.Tools) != 8 || focused.NextCursor != "" {
 		t.Fatal("summary tool profile", len(focused.Tools), focused.NextCursor)
 	}
 	originals := map[string]*mcp.Tool{}
@@ -122,7 +122,7 @@ func TestTaskDiscoveryReadOnlyStillRejectsWrites(t *testing.T) {
 			t.Fatal(tool.Name)
 		}
 	}
-	_, err = client.CallTool(t.Context(), &mcp.CallToolParams{Name: "commit_change", Arguments: map[string]any{"operationId": "00000000-0000-4000-8000-000000000001", "input": map[string]any{"planId": "synthetic"}}})
+	_, err = client.CallTool(t.Context(), &mcp.CallToolParams{Name: "commit_plan", Arguments: map[string]any{"operationId": "00000000-0000-4000-8000-000000000001", "input": map[string]any{"planId": "synthetic"}}})
 	if err == nil {
 		t.Fatal("profile broadened permission")
 	}

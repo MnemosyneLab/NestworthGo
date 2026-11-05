@@ -1,11 +1,29 @@
 # MCP interface consolidation: design note (Phase 3)
 
-Status: items 2 (PATCH audit, see [mcp-update-conventions.md](mcp-update-conventions.md))
-and the plan-kind guard in item 3 step 1 are implemented. Everything else is
-design only and needs an explicit decision before code changes. Phases 1 and 2 (alias removal, prose
-slimming, byte-budgeted inlining, `delivery`) are already in this branch and are
-described in [mcp.md](mcp.md#discovery-size-and-the-external-contract-snapshot)
-and [mcp-pagination.md](mcp-pagination.md).
+Status: items 1 (icon merge), 2 (PATCH audit, see [mcp-update-conventions.md](mcp-update-conventions.md)),
+3 (`commit_plan`) and 5 (compact output schemas) are implemented in this branch;
+[mcp.md](mcp.md#phase-3-icon-merge-commit_plan-and-compact-output-schemas) has the
+measurements. Item 4 (financial read merges) is still design only. Phases 1 and 2
+(alias removal, prose slimming, byte-budgeted inlining, `delivery`) are described
+in [mcp.md](mcp.md#discovery-size-and-the-external-contract-snapshot) and
+[mcp-pagination.md](mcp-pagination.md).
+
+Where the implementation departs from the recommendations below (the sections
+keep the original analysis):
+
+- Item 3 recommended stopping after plan-kind verification. The decision was
+  made to unify all ten commit tools. The risk analysis still holds and shaped the
+  implementation: the kind is read from the stored plan, never from the caller;
+  each kind keeps its own recoverable/non-recoverable receipt rule and its
+  historical receipt tool name (so hashes, `get_operation` and the host-review
+  binding are unchanged); pruned plans are routed from receipts.
+- Item 5 recommended waiting for consumer evidence. The built-in AI adapter,
+  skill examples and tests do not depend on the removed detail, so the wire schema
+  was made compact and the strict schema moved into a test oracle. The cost is that
+  clients validating `structuredContent` and the server's own output validation no
+  longer enforce field types or the summary/page exclusion.
+- Item 1 is implemented as proposed: one SQL statement writes the supplied
+  name and icon.
 
 ## Principles
 
@@ -16,7 +34,7 @@ unknown-outcome path behind a larger argument shape. Every item below lists what
 must be preserved, and the discovery contract snapshot
 (`testdata/discovery-contract.json`) turns each change into a reviewed diff.
 
-Current surface (ledger_write): 102 tools. Of these, 10 are `commit_*`, 12 are
+Surface before Phase 3 (ledger_write): 102 tools; now 90. Of these, 10 are `commit_*`, 12 are
 `preview_*`, 3 are `set_*_icon`, 10 are `update_*`, and about 30 are `get_*`.
 Output schemas are the largest discovery cost (about 45 KB per mode, mostly the
 `mcp-read/1` envelope repeated per tool), ahead of descriptions (17-30 KB).

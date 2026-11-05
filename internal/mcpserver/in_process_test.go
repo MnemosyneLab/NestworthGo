@@ -67,7 +67,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
-	}{{ReadOnly, 53}, {DirectoryWrite, 72}, {LedgerWrite, 102}} {
+	}{{ReadOnly, 53}, {DirectoryWrite, 69}, {LedgerWrite, 90}} {
 		local := newLocal(t, fx, test.mode)
 		if local.service.listener != nil || local.service.server != nil || local.service.endpoint != "" || local.service.config.Token != "" {
 			t.Fatal("local session created external transport/credentials")
@@ -90,7 +90,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 				requireLocalError(t, err, "approval_required")
 			}
 		}
-		_, err = local.Call(t.Context(), "commit_change", json.RawMessage(`{}`))
+		_, err = local.Call(t.Context(), "commit_plan", json.RawMessage(`{}`))
 		if test.mode == LedgerWrite {
 			requireLocalError(t, err, "approval_required")
 		} else {
@@ -192,7 +192,7 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 	results := make(chan string, 4)
 	for range 4 {
 		wg.Go(func() {
-			result, err := local.call(t.Context(), "commit_change", rawInput, true)
+			result, err := local.call(t.Context(), "commit_plan", rawInput, true)
 			if err != nil {
 				t.Errorf("commit retry: %v", err)
 			}
@@ -281,13 +281,13 @@ func TestInProcessCancellationDoesNotUndoCommittedReceipt(t *testing.T) {
 	input := mustJSON(t, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": preview["planId"]}})
 	early, earlyCancel := context.WithCancel(t.Context())
 	earlyCancel()
-	_, err = local.call(early, "commit_change", input, true)
+	_, err = local.call(early, "commit_plan", input, true)
 	requireLocalError(t, err, "cancelled")
-	result, err := local.call(ctx, "commit_change", input, true)
+	result, err := local.call(ctx, "commit_plan", input, true)
 	if err != nil || !strings.Contains(string(result), `"status":"succeeded"`) || changed.Load() != 1 || ctx.Err() == nil {
 		t.Fatalf("late cancellation lost committed receipt: %s, %v", result, err)
 	}
-	retry, err := local.call(t.Context(), "commit_change", input, true)
+	retry, err := local.call(t.Context(), "commit_plan", input, true)
 	if err != nil || string(retry) != string(result) || changed.Load() != 1 {
 		t.Fatalf("retry changed committed operation: %s, %v", retry, err)
 	}
@@ -328,7 +328,7 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 	preview := localData(t, local, "preview_change", command, false)
 	uncommitted := localData(t, local, "preview_change", command, false)
 	input := map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": preview["planId"]}}
-	committed := localRaw(t, local, "commit_change", input, true)
+	committed := localRaw(t, local, "commit_plan", input, true)
 	// A directory pending receipt has no transactional recovery proof.
 	pendingID := uuid.NewString()
 	directoryInput := CreateDirectoryInput{Name: "Synthetic pending member"}
@@ -352,10 +352,10 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(reopened.Close)
-	if result := localRaw(t, reopened, "commit_change", input, true); string(result) != string(committed) {
+	if result := localRaw(t, reopened, "commit_plan", input, true); string(result) != string(committed) {
 		t.Fatal("reopened ledger retry lost original receipt")
 	}
-	_, err = reopened.call(t.Context(), "commit_change", mustJSON(t, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": uncommitted["planId"]}}), true)
+	_, err = reopened.call(t.Context(), "commit_plan", mustJSON(t, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": uncommitted["planId"]}}), true)
 	requireLocalError(t, err, "stale_preview")
 	_, err = reopened.call(t.Context(), "create_member", mustJSON(t, Mutation[CreateDirectoryInput]{OperationID: pendingID, Input: directoryInput}), true)
 	requireLocalError(t, err, "operation_outcome_unknown")

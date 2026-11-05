@@ -86,13 +86,13 @@ due_unconfirmed changes display/availability, never automatically writes cash.
 
 ## Write interface and permissions
 
-All three pairs are registered in ledger_write by their respective review units:
+All three previews are registered in ledger_write by their respective review units and commit through `commit_plan`:
 
-| Preview/commit pair | Accepted command |
+| Preview | Accepted command |
 | --- | --- |
-| preview_product_operation / commit_product_operation | Exactly one tagged payload for open, record_existing, receive_interest, settle or undo |
-| preview_product_terms / commit_product_terms | productId, expectedRevision, complete GUI terms and policy |
-| preview_product_valuation / commit_product_valuation | Open locked product, explicit original-currency amount and actual observation time |
+| preview_product_operation | Exactly one tagged payload for open, record_existing, receive_interest, settle or undo |
+| preview_product_terms | productId, expectedRevision, complete GUI terms and policy |
+| preview_product_valuation | Open locked product, explicit original-currency amount and actual observation time |
 
 Only ledger_write may discover or invoke any of these previews or commits.
 directory_write must never authorize financial or product-policy writes.

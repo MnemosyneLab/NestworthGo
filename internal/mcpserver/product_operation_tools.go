@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -98,15 +97,7 @@ func productWriteError(err error) error {
 }
 
 func (s *Service) productOperationTools(server *toolSet) {
-	readTool(server, "preview_product_operation", "Preview one managed-product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, atomic renewal (no reservation changes) or the latest safe operation-group undo. It records completed facts, never bank orders or automatic maturity cash. Supply exactly one matching payload; money is decimal strings in the original currency. record_existing needs the original totalCostBasis and currentValue and cashExcludesProduct=true. effectiveAt may be empty (frozen now), one timestamp, or a local date and time in the history timezone; startOn is descriptive. Settle closes the whole contract, and actual early receipts are allowed. Reservations are never released or restored; use the GUI if they constrain the operation. Inspect normalizedJSON and effects, then commit_product_operation.", s.previewProductOperation)
-	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_product_operation", Description: "Commit a stored preview_product_operation plan (operationId and input.planId only). Financial effects, the lifecycle operation and the immutable business receipt commit atomically; reservations are never released or restored. Retrying the same plan returns the original IDs. get_operation reads the outer receipt; list_product_operations shows business operation IDs.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		value, err := s.executeWithRecovery(ctx, in.OperationID, "commit_product_operation", in.Input, true, func(ctx context.Context) (any, error) { return s.commitProductOperation(ctx, in.Input) })
-		if err != nil {
-			return Response{}, safeError(productWriteError(err))
-		}
-		return Response{Data: value}, nil
-	})
+	readTool(server, "preview_product_operation", "Preview one managed-product lifecycle fact: open, record_existing, receive_interest, whole-contract settle, atomic renewal (no reservation changes) or the latest safe operation-group undo. It records completed facts, never bank orders or automatic maturity cash. Supply exactly one matching payload; money is decimal strings in the original currency. record_existing needs the original totalCostBasis and currentValue and cashExcludesProduct=true. effectiveAt may be empty (frozen now), one timestamp, or a local date and time in the history timezone; startOn is descriptive. Settle closes the whole contract, and actual early receipts are allowed. Reservations are never released or restored; use the GUI if they constrain the operation. Inspect normalizedJSON and effects, then commit_plan.", s.previewProductOperation)
 }
 
 func (s *Service) previewProductOperation(ctx context.Context, in ProductOperationInput) (any, error) {

@@ -111,7 +111,7 @@ source rows to their bucket totals.
 
 ## Writes and recovery
 
-Discover `preview_product_operation` and `commit_product_operation` only with
+Discover `preview_product_operation` and `commit_plan` only with
 ledger_write. GUI permittedActions describe GUI options; tool discovery and
 permission govern MCP. These tools record facts already completed, never bank
 instructions. Open, record_existing, receive_interest, whole-contract settle
@@ -197,7 +197,7 @@ are rejected without echoing their contents.
 
 ## Edit terms and forecast policy
 
-With ledger_write discover preview_product_terms and commit_product_terms.
+With ledger_write discover preview_product_terms; commit with `commit_plan`.
 Read get_product immediately before editing and use summary.detail.product.revision as
 expectedRevision. Supply complete terms and policy, including unchanged financial
 fields and explicit nulls for unknowns. `terms.shortName` is the only optional field: omitted or null keeps it, an empty
@@ -213,7 +213,7 @@ cash, income, quantity, cost or quote and never changes reservations.
 
 Review before/after terms, policy and zero netWorthDelta. Preview metadata times
 are provisional; commit recordedAt/UpdatedAt/ConfirmedAt use actual recording
-time. Commit only the planId using the terms commit tool. Its immutable product
+time. Commit only the planId with `commit_plan`. Its immutable product
 result describes that edit, without the complete active-reservations array;
 read get_product for current facts and all reservations.
 
@@ -233,7 +233,7 @@ with the current product.revision before applying changes.
 
 ## Record actual locked-product value
 
-With ledger_write discover preview_product_valuation and commit_product_valuation.
+With ledger_write discover preview_product_valuation; commit with `commit_plan`.
 Only an open locked_product accepts observations. term_deposit current value must
 not include projected interest. Supply actual total value as a positive decimal
 string in contract currency, not NAV units. observedAt is the actual RFC3339
@@ -267,12 +267,11 @@ not require reposting. The ordinary managed trade/quote-import guards remain.
 Read `get_liquidity_overview` and copy the exact `sourceRef` from a source row.
 Rules belong to an account value, one account/currency cash source, or one
 holding, never a global instrument. With `ledger_write`, discover
-`preview_save_liquidity_policy` / `commit_save_liquidity_policy` and
-`preview_reset_liquidity_policy` / `commit_reset_liquidity_policy`. Neither pair
-is available with directory permission. For `policyOrigin: "assumed"`, create
+`preview_save_liquidity_policy` and `preview_reset_liquidity_policy`; both
+plans commit with `commit_plan`. None is available with directory permission. For `policyOrigin: "assumed"`, create
 with expectedRevision 0; for an explicit policy, use its current revision.
 Managed term_deposit/locked_product rules still use the complete
-`preview_product_terms` / `commit_product_terms` workflow; ordinary writes
+`preview_product_terms` workflow; ordinary writes
 return managed_position_conflict.
 
 Save is a full replacement. Supply every policy field, using null to clear or
@@ -315,8 +314,7 @@ Inspect effective before/after policies and origins, then commit the exact plan:
 {"operationId":"${operationId}","input":{"planId":"${planId}"}}
 ```
 
-Use commit_save_liquidity_policy for save plans, commit_reset_liquidity_policy
-for reset plans. Ten-minute expiry and concurrent writes/restart/restore require
+`commit_plan` reads whether the plan saves or resets. Ten-minute expiry and concurrent writes/restart/restore require
 a fresh preview. A successful same-operation/input retry returns the original
 receipt; changed input conflicts. A used plan with another operationId is stale.
 Unlike managed product business receipts, a pending/unknown ordinary policy
@@ -355,7 +353,7 @@ without changing the head. The GUI opens one 25-row page and uses explicit Load
 more. Reads create no plans/receipts and return no private receipt evidence.
 
 GUI `undo.allowed` never grants MCP write permission or reservation-restoration
-support. Dedicated MCP preview/commit tools require ledger_write and retain their
+support. Dedicated MCP preview tools and `commit_plan` require ledger_write and retain their
 stricter reservation restrictions. Always inspect a fresh supported preview and
 commit when authorized; preview and commit independently revalidate current facts.
 

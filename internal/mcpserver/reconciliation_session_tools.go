@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -146,7 +145,7 @@ func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {
 	if mode != LedgerWrite {
 		return
 	}
-	readTool(server, "preview_reconciliation_session", "Preview a reconciliation session action: start, pause, resume, check or finish. start selects active accountIds (omitted means all, max 100); the others need sessionId and expectedRevision. check needs accountId, itemId, the current financialRevision and an outcome (confirmed, skipped, unresolved or pending). confirmed needs source.asOfDate (optional HH:mm in the ledger timezone; reference optional); skipped and unresolved need a note; a partial finish needs allowPartial and an explanation. Never fabricate an attestation; a correction never confirms an item. Inspect the returned counts, then commit_reconciliation_session.", func(ctx context.Context, in application.ReconciliationAction) (any, error) {
+	readTool(server, "preview_reconciliation_session", "Preview a reconciliation session action: start, pause, resume, check or finish. start selects active accountIds (omitted means all, max 100); the others need sessionId and expectedRevision. check needs accountId, itemId, the current financialRevision and an outcome (confirmed, skipped, unresolved or pending). confirmed needs source.asOfDate (optional HH:mm in the ledger timezone; reference optional); skipped and unresolved need a note; a partial finish needs allowPartial and an explanation. Never fabricate an attestation; a correction never confirms an item. Inspect the returned counts, then commit_plan.", func(ctx context.Context, in application.ReconciliationAction) (any, error) {
 		// The desktop shows every proposed item. The MCP session envelope is
 		// deliberately bounded and has no pageable preview-item protocol yet.
 		if in.Action == "check_account" {
@@ -183,39 +182,6 @@ func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {
 		}
 		return map[string]any{"planId": p.ID, "expiresAt": p.ExpiresAt, "result": result, "action": p.Action, "checkedItem": checked}, nil
 	}, reconciliationActionSchema())
-	closed := false
-	registerTool(server, &agentcapability.Definition{Name: "commit_reconciliation_session", Description: "Commit exactly the saved session preview. Requires ledger_write. Retry same operationId and planId after an unknown outcome. Durable session receipt is checked before expiry, completed-state and revision checks. Returned header is the original committed outcome; reread current evidence separately.", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, in Mutation[CommitChangeInput]) (Response, error) {
-		v, e := s.executeWithRecovery(ctx, in.OperationID, "commit_reconciliation_session", in.Input, true, func(ctx context.Context) (any, error) {
-			raw, e := s.loadPreviewPlan(in.Input.PlanID, "reconciliation_session")
-			if e != nil {
-				if safeError(e).Code != "operation_outcome_unknown" {
-					return nil, e
-				}
-				receipt, lookupErr := s.app.ReconciliationSessionReceipt(ctx, in.Input.PlanID)
-				if lookupErr != nil {
-					return nil, lookupErr
-				}
-				if receipt != nil {
-					receipt.Accounts = nil
-					return receipt, nil
-				}
-				return nil, e
-			}
-			var saved struct {
-				Plan application.ReconciliationSessionPlan `json:"plan"`
-			}
-			if e = jsoncodec.Unmarshal(raw, &saved); e != nil {
-				return nil, e
-			}
-			result, e := s.app.CommitReconciliationSession(ctx, saved.Plan)
-			result.Accounts = nil
-			return result, e
-		})
-		if e != nil {
-			return Response{}, safeError(e)
-		}
-		return Response{Data: v}, nil
-	})
 }
 func (s *Service) listReconciliationSessions(ctx context.Context, in ReconciliationReadInput) (any, error) {
 	for _, date := range []string{in.From, in.To} {

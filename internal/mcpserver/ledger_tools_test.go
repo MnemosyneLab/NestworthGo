@@ -99,7 +99,7 @@ func ledgerPreview(t *testing.T, c *mcp.ClientSession, request map[string]any) m
 
 func ledgerCommit(t *testing.T, c *mcp.ClientSession, operationID, planID string) map[string]any {
 	t.Helper()
-	data := call(t, c, "commit_change", map[string]any{
+	data := call(t, c, "commit_plan", map[string]any{
 		"operationId": operationID, "input": map[string]any{"planId": planID},
 	}, false)["data"].(map[string]any)
 	if data["status"] != "succeeded" {
@@ -186,14 +186,14 @@ func TestLedgerToolsRequireOptIn(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = true
 		}
-		if found["preview_change"] != (mode == LedgerWrite) || found["commit_change"] != (mode == LedgerWrite) {
+		if found["preview_change"] != (mode == LedgerWrite) || found["commit_plan"] != (mode == LedgerWrite) {
 			t.Fatalf("mode=%s ledger tools=%v", mode, found)
 		}
 		if found["create_account"] != (mode != ReadOnly) {
 			t.Fatalf("mode=%s directory permission=%v", mode, found["create_account"])
 		}
 		if mode != LedgerWrite {
-			for _, name := range []string{"preview_change", "commit_change"} {
+			for _, name := range []string{"preview_change", "commit_plan"} {
 				_, err := c.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 				if err == nil {
 					t.Fatalf("%s accepted %s", mode, name)
@@ -246,7 +246,7 @@ func TestLedgerCashIncomeExpenseAndIdempotentCommit(t *testing.T) {
 	if got := ledgerActivityCount(t, fx.app); got != 2 {
 		t.Fatalf("retries duplicated activities: %d", got)
 	}
-	if code := ledgerErrorCode(t, c, "commit_change", map[string]any{"operationId": opID, "input": map[string]any{"planId": remove["planId"]}}); code != "conflict" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": remove["planId"]}}); code != "conflict" {
 		t.Fatalf("changed operation arguments code=%s", code)
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 2 {
@@ -334,7 +334,7 @@ func TestLedgerPlanRejectsStaleAndExpiredCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": stale["planId"]}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": stale["planId"]}}); code != "stale_preview" {
 		t.Fatalf("stale plan code=%s", code)
 	}
 	if got := ledgerCash(t, c, fx.checking); got != "10" {
@@ -355,7 +355,7 @@ func TestLedgerPlanRejectsStaleAndExpiredCommit(t *testing.T) {
 	if err = fx.service.writePrivate(path, plan); err != nil {
 		t.Fatal(err)
 	}
-	if code := ledgerErrorCode(t, c, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "stale_preview" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}}); code != "stale_preview" {
 		t.Fatalf("expired plan code=%s", code)
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 1 {

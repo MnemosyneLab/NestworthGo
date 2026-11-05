@@ -50,11 +50,10 @@ Development and release instances must use distinct database paths. No connectio
 Managed product alignment is documented in [mcp-products.md](mcp-products.md).
 All modes expose list_products, get_product, list_product_operations and
 get_liquidity_overview using GUI DTOs, with gross/after-reservation amounts and
-forecast/unknown evidence preserved. ledger_write adds three typed pairs:
-preview_product_operation/commit_product_operation,
-preview_product_terms/commit_product_terms and
-preview_product_valuation/commit_product_valuation. Each persists its exact
-reviewed command and uses atomic immutable business receipts for recovery.
+forecast/unknown evidence preserved. ledger_write adds three typed previews:
+preview_product_operation, preview_product_terms and preview_product_valuation,
+all committed with `commit_plan`. Each persists its exact reviewed command and
+uses atomic immutable business receipts for recovery.
 Renewal and reservation mutations remain App workflows. See the portable
 [product workflow](../../skills/nestworth/references/products.md).
 
@@ -103,7 +102,7 @@ Successful MCP changes (including recovered ledger receipts) emit `agent.data.ch
   `list_accounts`, `list_instruments`, `list_holdings`,
   `get_account_valuations`, `get_account_snapshot`, `get_overview`.
 - External search: `search_market_instruments` (query text goes to the provider).
-- Members/institutions/groups: `create_*`, `update_*`, `archive_*`, `set_*_icon`.
+- Members/institutions/groups: `create_*`, `update_*` (name, iconKey or both; at least one), `archive_*`.
 - Accounts/instruments: `create_*`, `update_*`, `archive_*`.
 
 Use catalog vocabulary and existing IDs. Match instruments using market and
@@ -305,7 +304,7 @@ With `ledger_write`, use:
    the App; MCP does not choose or reset the starting point.
 2. `preview_change` with a typed change command. The result contains `planId`,
    `expiresAt`, the normalized `command`, and `preview` effects/resulting values.
-3. Inspect the preview, then call `commit_change` with
+3. Inspect the preview, then call `commit_plan` with
    `{ "operationId": "<new UUID>", "input": { "planId": "<returned planId>" } }`.
    Ledger permission authorizes this flow without another App confirmation.
 4. Read the returned operation receipt, or query `get_operation` by operation ID.
@@ -370,7 +369,7 @@ endpoints. Use either:
   `unitCost`. These adjustments have no cash leg or sale proceeds.
 
 The server resolves targets under the preview gate, freezes the current time,
-and returns the requested `targets`, exact `commands`, and their `previews`. `commit_reconciliation`
+and returns the requested `targets`, exact `commands`, and their `previews`. `commit_plan`
 uses the usual operation envelope and commits the stored adjustments atomically.
 It never recomputes differences from a later balance. Duplicate endpoints,
 unchanged targets, archived/managed holdings, unsupported currencies, and missing
@@ -423,7 +422,7 @@ household JSON exports.
 
 For a fix, `preview.resulting` describes the state just after the historical
 replacement, rather than today's balance. Read current valuations after commit.
-Inspect `preview` and submit only `planId` through `commit_correction`. Already
+Inspect `preview` and submit only `planId` through `commit_plan`. Already
 reversed/corrected activities and managed products are rejected. Corrections use
 an atomic database mutation receipt; retries return the original activity even
 with a new operation ID or after expiry/restart. A post-commit snapshot refresh
@@ -457,8 +456,8 @@ Resolve existing member/account/instrument IDs first: this is a ledger batch,
 not an account/directory creation batch. No placeholder IDs are accepted.
 
 The preview returns `planId`, normalized `commands`, and a `previews` array in
-input order. Post it with `commit_batch`, using the same operation envelope as
-`commit_change`. Its receipt returns `result.changes` in input order. All new
+input order. Post it with `commit_plan`, using the same operation envelope as
+any other plan. Its receipt returns `result.changes` in input order. All new
 holdings, activities, derived projections and the batch mutation receipt are
 written in a single SQLite transaction. A failure leaves none of the batch
 posted. Retry the same plan after an interruption; the durable batch mutation
@@ -596,12 +595,12 @@ shared application preparation. All modes read `sources[].sourceRef`, `policy`
 and `policyOrigin` through `get_liquidity_overview`. `ledger_write` additionally
 advertises `liquidity_policy_write` and registers:
 
-| Preview | Commit | Effect |
-| --- | --- | --- |
-| preview_save_liquidity_policy | commit_save_liquidity_policy | Create with expectedRevision 0 or fully replace the explicit revision |
-| preview_reset_liquidity_policy | commit_reset_liquidity_policy | Remove the explicit revision and restore GUI assumed defaults |
+| Preview | Effect (committed with `commit_plan`) |
+| --- | --- |
+| preview_save_liquidity_policy | Create with expectedRevision 0 or fully replace the explicit revision |
+| preview_reset_liquidity_policy | Remove the explicit revision and restore GUI assumed defaults |
 
-Both previews and commits are absent from read_only and directory_write.
+Both previews and `commit_plan` are absent from read_only and directory_write.
 Preview inputs are the GUI SavePolicyRequest/ResetPolicyRequest. Commit input
 is only `{"operationId":"<UUID>","input":{"planId":"<preview UUID>"}}`.
 Copy source identity from the overview: account_value uses accountId;
@@ -609,7 +608,7 @@ account_cash additionally uses currency; holding additionally uses holdingId.
 A rule is never an instrument setting. Only active asset sources in that GUI
 read model are accepted; invalid ownership/currency and archived/liability
 sources fail before mutation. Managed positions retain managed_position_conflict
-and must use atomic full terms+policy preview_product_terms/commit_product_terms.
+and must use atomic full terms+policy preview_product_terms.
 No reservation or investment-review writes are exposed.
 
 Save uses full replacement, not a patch. Every nullable field clears with null;
@@ -1148,10 +1147,9 @@ reductions were -7.2%, -7.9% and -8.6%):
 | `directory_write` | 74 -> 72 | 128,513 -> 124,976 (-2.8%) | 26,377 -> 18,547 | 3,111 -> 2,313 |
 | `ledger_write` | 104 -> 102 | 187,634 -> 178,055 (-5.1%) | 43,889 -> 30,017 | 3,111 -> 2,313 |
 
-These are wire bytes, not model tokens. Output schemas now dominate
+These are wire bytes, not model tokens. Output schemas then dominated
 (roughly 45 KB per mode, mostly the `mcp-read/1` envelope repeated per tool);
-shrinking them changes client-visible validation and is therefore evaluated
-as a contract change in the Phase 3 design note, not as a prose edit.
+Phase 3 below made them compact, a contract change with a stated cost.
 
 ### Paired scenario measurement (headless, synthetic data)
 
@@ -1183,11 +1181,62 @@ Not measured, and therefore not claimed: native macOS app behavior (the
 model tokens (wire bytes are not tokens), and the effect of the shorter skill on
 how many calls a real agent makes.
 
-Follow-up candidates (icon/update merge, PATCH audit, commit plans, financial
-read semantics, output-schema footprint) are analyzed in
-[mcp-consolidation-design.md](mcp-consolidation-design.md); only the update-convention
-audit ([mcp-update-conventions.md](mcp-update-conventions.md)) and the commit plan-kind
-guard are implemented.
+The Phase 3 consolidations are described below and in
+[mcp-consolidation-design.md](mcp-consolidation-design.md); the update-convention
+audit is in [mcp-update-conventions.md](mcp-update-conventions.md).
+
+### Phase 3: icon merge, `commit_plan` and compact output schemas
+
+Three changes remove 13 tools and cut discovery by about 40%. They are breaking
+for clients that call the removed names; actual discovery is the authority.
+
+| Change | Before | After |
+| --- | --- | --- |
+| Icons | `set_member_icon`, `set_institution_icon`, `set_group_icon` | `update_member`, `update_institution`, `update_group` take `{id, name?, iconKey?}`; at least one field; both apply in one SQL statement (`application.EditMember` and siblings); empty `name` or `iconKey` is invalid |
+| Commit | ten per-kind `commit_*` tools | one `commit_plan({operationId, input:{planId}})` |
+| Output schema | fully typed `mcp-read/1` envelope per tool | compact envelope (below) |
+
+`commit_plan` reads the plan kind from the stored plan; a caller can neither
+choose nor mislabel it. Routing is `commitPlanRoutes` in `commit_plan_tool.go`:
+
+- The durable receipt keeps the historical per-kind tool name (`commit_change`,
+  `commit_batch`, ...). Its hash, the replay and conflict rules, the host-review
+  binding and `get_operation` therefore keep their meaning, and a receipt written
+  before the change replays under the new tool.
+- Ledger and managed-product kinds replay a pending or unknown receipt;
+  liquidity-policy kinds never do. Both follow the original per-kind choice.
+- A pruned plan file is routed from the operation receipt, then from the
+  reconciliation database receipts, so receipt-first recovery still works. With no
+  evidence the error is `operation_outcome_unknown`, as before.
+- A `planId` that is not a UUID or has an unknown kind is rejected before any
+  receipt is written, so it does not consume the `operationId`.
+- Staleness and version checks still run under the shared write permit inside
+  each family's commit function; nothing about them moved.
+- A plan of another family can no longer be sent to a wrong tool; the earlier
+  "wrong commit tool" validation errors do not exist any more.
+
+Output schemas. The wire schema of every `mcp-read/1` tool now requires only
+`schemaVersion` (const), `captureId`, `expiresAt` and `contentHash`; page tools
+require `items` and `page.hasMore`/`page.nextCursor`; financial headers require
+their id, `contentHash` and `content`. The strict contract (field types, the
+summary/page exclusion, `delivery`, frozen-page counters) is kept in
+`output_schemas_full_test.go` and real responses are validated against it
+(`TestDeliveryOutputSchemaMatchesResponses`). Cost of the change: the server no
+longer enforces those details at run time, and a client that validates
+`structuredContent` against the discovered schema no longer rejects, for example,
+a non-boolean `hasMore`.
+
+Measurement (real `tools/list` JSON from `TestDiscoveryBudget`; before = the
+Phase 1/2 numbers in the table above):
+
+| Mode | Tools | `tools/list` bytes |
+| --- | --- | --- |
+| `read_only` | 53 -> 53 | 107,005 -> 65,160 (-39.1%) |
+| `directory_write` | 72 -> 69 | 124,976 -> 82,029 (-34.4%) |
+| `ledger_write` | 102 -> 90 | 178,055 -> 125,943 (-29.3%) |
+
+Wire bytes, not model tokens. Not measured: native macOS behavior, real client
+token use, or whether agents make fewer calls with one commit tool.
 
 ## Client-specific discovery notes
 

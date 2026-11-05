@@ -59,12 +59,9 @@ func TestUpdateAccountClearRequiresSetFlag(t *testing.T) {
 // and match its convention's schema shape, so an omitted field cannot silently
 // mean "keep" in one tool and "clear" in another unnoticed.
 var updateConventions = map[string]string{
-	"update_member":                     "required_replacement",
-	"update_institution":                "required_replacement",
-	"update_group":                      "required_replacement",
-	"set_member_icon":                   "required_replacement",
-	"set_institution_icon":              "required_replacement",
-	"set_group_icon":                    "required_replacement",
+	"update_member":                     "patch_at_least_one",
+	"update_institution":                "patch_at_least_one",
+	"update_group":                      "patch_at_least_one",
 	"update_account":                    "patch_set_flags",
 	"update_instrument":                 "patch_replace_flag",
 	"update_instruments_batch":          "patch_versioned_batch",
@@ -150,14 +147,13 @@ func TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas(t *testing.T) {
 		}
 		req := requiredSet(input)
 		switch convention {
-		case "required_replacement":
-			want := []string{"id", "name"}
-			if strings.HasSuffix(name, "_icon") {
-				want = []string{"id", "iconKey"}
+		case "patch_at_least_one":
+			if !req["id"] || req["name"] || req["iconKey"] {
+				t.Errorf("%s: only id is required; name and iconKey are optional patch fields", name)
 			}
-			for _, field := range want {
-				if !req[field] {
-					t.Errorf("%s: %s must be required (no omit-means-keep)", name, field)
+			for _, field := range []string{"name", "iconKey"} {
+				if _, ok := input["properties"].(map[string]any)[field]; !ok {
+					t.Errorf("%s: missing patch field %s", name, field)
 				}
 			}
 		case "patch_set_flags":

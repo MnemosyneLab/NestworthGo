@@ -45,7 +45,7 @@ func productAssertNetWorth(t *testing.T, c *mcp.ClientSession, want string) {
 
 func productCommitHTTP(t *testing.T, c *mcp.ClientSession, planID, operationID string) map[string]any {
 	t.Helper()
-	op := call(t, c, "commit_product_operation", skillExample(t, "products", "product-commit", map[string]string{"operationId": operationID, "planId": planID}), false)["data"].(map[string]any)
+	op := call(t, c, "commit_plan", skillExample(t, "products", "product-commit", map[string]string{"operationId": operationID, "planId": planID}), false)["data"].(map[string]any)
 	if op["status"] != "succeeded" {
 		t.Fatal(op)
 	}
@@ -54,7 +54,7 @@ func productCommitHTTP(t *testing.T, c *mcp.ClientSession, planID, operationID s
 
 func productCommitCode(t *testing.T, c *mcp.ClientSession, planID string) string {
 	t.Helper()
-	return ledgerErrorCode(t, c, "commit_product_operation", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}})
+	return ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": planID}})
 }
 
 func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
@@ -73,7 +73,7 @@ func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 		for _, tool := range list.Tools {
 			found[tool.Name] = tool
 		}
-		for _, name := range []string{"preview_product_operation", "commit_product_operation"} {
+		for _, name := range []string{"preview_product_operation", "commit_plan"} {
 			if (found[name] != nil) != (mode == LedgerWrite) {
 				t.Fatalf("%s: %s", mode, name)
 			}
@@ -207,10 +207,6 @@ func TestProductHTTPPlanSafetyAndReservations(t *testing.T) {
 	c := ledgerSession(t, fx)
 	plan := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
 	id := plan["planId"].(string)
-	// Wrong family never acquires a financial write permit or consumes the plan.
-	if code := ledgerErrorCode(t, c, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": id}}); code != "validation" {
-		t.Fatal(code)
-	}
 	result := productCommitHTTP(t, c, id, uuid.NewString())
 	productID := result["productIds"].([]any)[0].(string)
 	interest := ProductOperationInput{Kind: "receive_interest", ReceiveInterest: &application.ReceiveInterestCommand{ProductID: productID, Amount: "1", RemainingInterest: productString("49")}}
@@ -355,7 +351,7 @@ func TestProductHTTPConcurrentCommitAndAtomicFailure(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			r, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "commit_product_operation", Arguments: map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": id}}})
+			r, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "commit_plan", Arguments: map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": id}}})
 			results <- r
 			errs <- err
 		}()
@@ -393,7 +389,7 @@ func TestProductHTTPConcurrentCommitAndAtomicFailure(t *testing.T) {
 		beforeCounts := counts()
 		opID := uuid.NewString()
 		sqlite.SetProductCommitFailAfter(stage)
-		code := ledgerErrorCode(t, c, "commit_product_operation", map[string]any{"operationId": opID, "input": map[string]any{"planId": p["planId"]}})
+		code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": p["planId"]}})
 		sqlite.SetProductCommitFailAfter("")
 		if code != "unavailable" || ledgerActivityCount(t, fx.app) != before {
 			t.Fatalf("%s %s: partial write", stage, code)
@@ -432,7 +428,7 @@ func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
 	p := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
 	fx.service.repository = &failProductSuccessReceipt{ConfigurationRepository: fx.service.repository, fail: true}
 	opID := uuid.NewString()
-	if code := ledgerErrorCode(t, c, "commit_product_operation", map[string]any{"operationId": opID, "input": map[string]any{"planId": p["planId"]}}); code != "operation_outcome_unknown" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": p["planId"]}}); code != "operation_outcome_unknown" {
 		t.Fatal(code)
 	}
 	if ledgerActivityCount(t, fx.app) != 1 {
@@ -447,7 +443,7 @@ func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
 		t.Fatal(posted)
 	}
 	second := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
-	if code := ledgerErrorCode(t, c, "commit_product_operation", map[string]any{"operationId": opID, "input": map[string]any{"planId": second["planId"]}}); code != "conflict" {
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"operationId": opID, "input": map[string]any{"planId": second["planId"]}}); code != "conflict" {
 		t.Fatal(code)
 	}
 	fx.service.Close()

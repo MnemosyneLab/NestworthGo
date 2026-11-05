@@ -12,9 +12,10 @@ balances; after restore they may refer to changes no longer present.
 
 | Situation | Action |
 | --- | --- |
-| Uncommitted plan expired, App restarted, or state became stale | Read required current data and obtain a fresh preview; use its matching commit tool |
+| Uncommitted plan expired, App restarted, or state became stale | Read required current data and obtain a fresh preview; commit it with `commit_plan` |
 | Single/batch/reconciliation/correction/product lifecycle/terms/value commit may already have posted | Retry the exact original operation/input/plan; atomic ledger mutation recovery prevents duplicate posting even after expiry/restart |
 | A successful receipt exists | Read the affected current state; do not repost merely because today's state differs |
+| A `commit_plan` receipt or `get_operation` shows a per-kind `tool` label (for example a name ending in change, batch or product_terms) | The label names the plan kind, not a tool to call; always commit with `commit_plan` |
 | Agent quote import was interrupted | Reuse the same operation UUID and exact input; durable import batch identity returns original quote IDs; then inspect derived statuses/current quotes/health |
 | Investment review rule/episode/suppression write outcome is unknown | Inspect `get_operation` and the relevant V2 rule, alert or suppression read; retry the same operation and input only when confirming that receipt |
 | Daily v2 rule/alert/suppression/refresh outcome is unknown | Inspect `get_operation` plus the matching v2 list/detail tool; reuse the exact outer operationId and inner mutationId only for the same intended input |
@@ -82,8 +83,8 @@ receipt, which does not establish today's metadata, review state or coverage.
 
 ## Reconciliation session recovery
 
-`commit_reconciliation_session` uses the same receipt-first recovery rule as
-financial commits. Retry the original operationId and planId after an unknown
+A reconciliation session commit through `commit_plan` uses the same receipt-first
+recovery rule as financial commits. Retry the original operationId and planId after an unknown
 outcome; never replace a user's confirmation with a new inferred one. After a
 conflict, reread the session header and item financialRevision and request renewed
 review. A completed session is immutable; changed current facts are a separate

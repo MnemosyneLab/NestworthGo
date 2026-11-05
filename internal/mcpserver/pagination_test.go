@@ -105,7 +105,7 @@ func TestUnifiedPageLiveQueryAuthentication(t *testing.T) {
 	if _, err = changed.decode(token); err == nil {
 		t.Fatal("accepted cross-session cursor")
 	}
-	forged, err := c.encode("commit_change", map[string]any{"operationId": uuid.NewString()})
+	forged, err := c.encode("commit_plan", map[string]any{"operationId": uuid.NewString()})
 	if err != nil {
 		t.Fatal(err)
 	}
