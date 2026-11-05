@@ -211,26 +211,13 @@ two. Infrastructure and all remaining packages also run with the detector.
 Enumeration uses the race build and includes Test, Example, and Fuzz names.
 Each process has an explicit 10-minute test budget, `-parallel 4` for
 application and MCP, and `-p 1` on the heavy shards; each race job has a
-30-minute outer bound including setup. Pull-request `check` bins non-race
-tests into four jobs from measured whole-job times: application in two
-checksum parts (the first paired with continuous backup), one independent
-remainder job, and one job for MCP and sqlite. Vitest runs as six shards using hosted timing weights,
-with HistoryPage isolated and every new test included. One native producer
-reuses validated exact-input bindings or regenerates them; Node consumers share
-that exact-run artifact. Automated checks no longer independently regenerate
-and compare bindings. A separate quality job preserves ESLint, one TypeScript check and the production
-Vite build without regenerating bindings. Locale coverage runs once in the full
-test suite. Fast tooling keeps GNU signals and failure boundaries; the complete
-portable replay and repeated signal/exhaustion matrix use `--tier extended` in
-the existing daily/manual perf workflow. Full local/release unittest discovery
-still runs both tiers. See the [inventory and hosted timing evidence](../qa/ci-five-minute-budget-2026-11-02.md).
-Sequential
-fault-injection and performance tests remain sequential. Matrix regression
-checks require every part exactly once and a complete, disjoint name union.
-There are no automatic test retries. Seven-day
-`race-<package>-<part>-attempt-<attempt>` artifacts retain Go JSON results
-(including elapsed times and failures) for diagnosis, with distinct names
-so a manual rerun cannot collide with an earlier attempt.
+30-minute outer bound including setup. Regular `check.yml` uses the native Mac lanes described in
+[Native Mac CI](ci-macos-trial.md); the old hosted Go/Vitest shard layout is
+archived, not an active fallback. Extended tooling runs in daily/manual perf;
+full local/release unittest discovery still runs both tooling tiers. Sequential
+fault-injection tests remain sequential. Matrix guards require every part once
+and a complete disjoint name union. Race JSON artifacts retain elapsed times and
+failures for seven days, with per-attempt names. There are no automatic retries.
 
 The application partitions address repeated cumulative timeouts, not reported
 data races. Reviewed runs:
@@ -259,30 +246,19 @@ assertion failure before the timeout. The last active test is not established
 as the cause. The other seven application parts completed in 177.702–511.595
 seconds; all other race parts and four perf groups passed.
 
-Twelve application checksum parts replace eight without changing the selector,
-concurrency, test bodies, assertions or either timeout. Re-bucketing completed
-top-level test timings from those eight logs puts the largest recorded serial
-load at 280.7 seconds, versus 538.0 seconds summed in the old bucket. The FX
-production-import oracle (135.20s), prefix memo guards (107.80s) and reconciliation
-refresh (87.81s) now occupy parts 3/12, 7/12 and 11/12 respectively. These are
-projections from available timings: the failed bucket has incomplete parallel
-results, and a different runner or changed test population can alter costs.
-This adds four race jobs (20 total), each with its own setup/build overhead;
-confirm actual wall clock and cache/setup costs on the next heavy run. Retained
-JSON timings remain the source for future rebalancing. A separately reported
-native Mac run passed the exact original 100 tests with race and no skips in
-330.939s under a 20-minute diagnostic ceiling; that is cross-platform diagnostic
-evidence, not a hosted-Linux timing guarantee or a CI budget change.
+Twelve application partitions replaced eight without changing assertions,
+selectors or timeouts. Re-bucketing the recorded serial timings projected a
+largest load of 280.7 s versus 538.0 s; incomplete logs and variable hosts mean
+this is not a measured new wall-clock guarantee. A reported native Mac replay
+of the original 100 tests passed in 330.939 s with a 20-minute diagnostic ceiling;
+it does not establish the hosted Linux budget. Retain exact-run timing artifacts
+when rebalancing rather than raising timeouts or removing assertions.
 
-`perf.yml` race and perf jobs currently use hosted Ubuntu plus the bounded apt
-helper, not the published native CI image. `check.yml` alone consumes the pin
-in `.github/ci-native-image.txt` (currently `aa7b294d67a3a360d9736c66561b53481972af685a844e1679e22b80ac6fd753`).
-Reusing that public Ubuntu/native dependency image is appropriate in principle,
-but needs the same unprivileged runtime guard and image-keyed CGO cache boundary
-as `check.yml`; adding only a container would risk reusing host-built native
-artifacts. Image activation is separate from this shard-budget change. It can
-reduce repeated native setup, but is not evidence that the cumulative race test
-budget is sufficient. See [Linux native CI image](ci-native-image.md).
+`perf.yml` race/performance jobs use hosted Ubuntu and the bounded apt helper.
+Its extended-tooling job resolves the reviewed image pins through
+`ci-native-container.py`. Regular Mac `check.yml` does not consume those Linux
+images. The archived Linux check workflow and image/cache safety rules are in
+[Linux native CI images](ci-native-image.md).
 
 The separate frontend failure was beta.28's 50ms startup interval in
 `drag.js:69` accessing `window` after jsdom teardown on Node 22.23.3. The SDK
