@@ -74,21 +74,27 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   // This component is keyed by runtime epoch and conversation ID by its owner.
   // Retain observed latest attempts while their positional history fetch catches
   // up; a pending/failed read must never erase an already displayed answer.
-  const [retained, setRetained] = useState(new Map<string, { run: NonNullable<Conversation["runs"]>[number]; offset: number }>());
-  const [announcement, setAnnouncement] = useState("");
+  const [observed, setObserved] = useState(() => ({
+    latest: undefined as Conversation | undefined,
+    retained: new Map<string, { run: NonNullable<Conversation["runs"]>[number]; offset: number }>(),
+  }));
+  if (latest && latest !== observed.latest) {
+    const retained = new Map(observed.retained);
+    latest.runs?.forEach((run, index) => retained.set(run.id, { run, offset: latest.offset + index }));
+    setObserved({ latest, retained });
+  }
+  const announcement = useRef<HTMLParagraphElement>(null);
   const announced = useRef(new Set<string>());
   const initialized = useRef(false);
   useEffect(() => {
     if (!latest) return;
-    setRetained(previous => {
-      const next = new Map(previous);
-      latest.runs?.forEach((run, index) => next.set(run.id, { run, offset: latest.offset + index }));
-      return next;
-    });
     for (const run of latest.runs ?? []) {
       if (run.state !== "succeeded" || announced.current.has(run.id)) continue;
       announced.current.add(run.id);
-      if (initialized.current || (!!submittedRequestId && run.requestId === submittedRequestId)) setAnnouncement(t("aiChat.replyReceived", { number: latest.offset + 1 }));
+      // Populate the dedicated live region only after it exists in the DOM,
+      // including an immediate first reply. React owns no children in this node.
+      if ((initialized.current || (!!submittedRequestId && run.requestId === submittedRequestId)) && announcement.current)
+        announcement.current.textContent = t("aiChat.replyReceived", { number: latest.offset + 1 });
     }
     initialized.current = true;
   }, [latest, t, submittedRequestId]);
@@ -101,7 +107,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   }) });
   const loading = history.some(query => query.isPending);
   const failed = history.some(query => query.isError);
-  const visible = new Map(retained);
+  const visible = new Map(observed.retained);
   for (const conversation of [...history.map(query => query.data), latest]) {
     conversation?.runs?.forEach((run, index) => visible.set(run.id, { run, offset: conversation.offset + index }));
   }
@@ -116,7 +122,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   }, [signature, loading, following]);
   const timestamp = (value: string) => formatTimestamp(value, page?.context?.range.timezone ?? "UTC", i18n.language);
   return <div className="relative flex min-h-0 flex-1 flex-col">
-    <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
+    <p ref={announcement} role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
     <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none]"
       role="region" aria-label={t("aiChat.transcript")} tabIndex={0}
       onScroll={event => { const el = event.currentTarget; setFollowing(el.scrollHeight - el.scrollTop - el.clientHeight < 48); }}>
