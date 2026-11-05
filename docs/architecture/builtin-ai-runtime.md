@@ -470,7 +470,9 @@ unmounted content remain excluded.
 The tree contains typed roles, accessible names, parent/module relationships,
 business field values, native checked/selected properties, disabled/readonly/
 invalid/busy/expanded/pressed/current/sort states and descriptive affordances.
-Native selects expose option labels, not stored option IDs; shared date controls
+Native selects expose eligible public option labels, not stored option IDs;
+private/hidden option or optgroup ancestry is inherited, with redacted selection
+state when excluded. Shared date controls
 publish their canonical business date. Ordinary financial amounts, draft values,
 notes and textarea contents are readable; financial data is not classified as a
 credential. No raw HTML, URL attributes, event handlers, DOM commands or machine IDs from
@@ -511,8 +513,21 @@ shared secret boundary, whereas ordinary business forms need no per-field opt-in
 Capture stays bounded to 8,192 semantic nodes and 512 KiB, with bounded structural
 depth/visits and at most 64 published portal candidates. Excess fails closed rather
 than silently claiming completeness. Long text uses bounded Unicode-safe chunks;
-shortened accessible labels are reported. Responses are at most 24 KiB, default
-32 nodes and maximum 64; models select a module and explicit cursor. `complete`
+shortened accessible labels are reported. Individual public control values use a
+Unicode-safe preview of at most 2,048 UTF-8 bytes, matching the Go page-text bound.
+Overlong fields carry `value_truncated=true` plus an explicit limitation, rather
+than making the rest of the page unreadable; the business value is never mutated.
+Complete live property comparison in a weak, element-scoped cache supplies a
+private revision for truncated fields, so edits outside the preview still revoke
+old snapshots. Full values/revisions are not added to tool output or persistence.
+A truncated field never establishes complete selection coverage. Responses are at most 24 KiB, default
+32 nodes and maximum 64; models select a module and explicit cursor. The module
+directory is separately paged at 64 entries: `modules`, `moduleOffset`,
+`moduleCount`, `modulesComplete`, `hasMoreModules` and `nextModuleCursor` describe
+that directory page. `moduleCursor` requires the same snapshot ID after offset
+zero and is revalidated like node continuation. A known module can be selected
+without fetching the entire directory, so a large directory cannot unconditionally
+inflate every response beyond the tool budget. `complete`
 can be true only when the entire requested selection fits and has no limitations.
 An advertised continuation or missingness flag remains per-response evidence.
 

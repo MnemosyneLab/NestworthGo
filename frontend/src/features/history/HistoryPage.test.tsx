@@ -1,3 +1,4 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
 import { capturePageContent } from "@/features/assistant/pageContent";
 import { verifyPageNavigation } from "@/test/assistantNavigation";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
@@ -2367,4 +2368,19 @@ it("reads real starting-point business controls without invoking history writes"
  expect(page.nodes.find(n=>n.id==="starting-point/history-start-date")?.value).not.toBe("");
  expect(page.nodes.some(n=>n.module==="activities")).toBe(false);
  expect(startHistory).not.toHaveBeenCalled();expect(startHistoryOnDate).not.toHaveBeenCalled();
+});
+
+
+it("captures a long ordinary note from the real Record form without blocking the page or submitting it",async()=>{
+ historyOrigin.mockResolvedValue({timezone:"UTC",startedAt:"2026-01-01T00:00:00Z"});scanHealth.mockResolvedValue({issues:[]});
+ render(<QueryClientProvider client={createTestQueryClient()}><BusinessPageRoot view="history:" accessIdentity="synthetic"><HistoryPage /></BusinessPageRoot></QueryClientProvider>);
+ await userEvent.click(await screen.findByRole("button",{name:i18n.t("history.recordButton")}));
+ const input=await screen.findByLabelText(i18n.t("history.note"));const note="中".repeat(1000)+"original tail";
+ fireEvent.change(input,{target:{value:note}});expect(input).toHaveValue(note);
+ const first=capturePageContent("history:");const field=first.nodes.find(n=>n.id.endsWith("/change-note"))!;
+ expect(new TextEncoder().encode(field.value).length).toBeLessThanOrEqual(2048);expect(field.state).toContain("value_truncated=true");
+ expect(first.nodes.some(n=>n.role==="dialog")).toBe(true);expect(first.limitations.join(" ")).toContain("remaining text is unavailable");
+ fireEvent.change(input,{target:{value:"中".repeat(1000)+"changed tail"}});
+ const second=capturePageContent("history:");expect(second.nodes.find(n=>n.id===field.id)?.value).toBe(field.value);expect(second.id).not.toBe(first.id);
+ expect(recordChange).not.toHaveBeenCalled();expect(previewChange).not.toHaveBeenCalled();
 });
