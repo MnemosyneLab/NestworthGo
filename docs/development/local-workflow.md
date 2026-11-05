@@ -299,7 +299,7 @@ cancellation delivery failures remain exercised by the installed SDK tests.
 For Wails v3.1.0, use a checkout on local, non-synchronized storage. Our
 customized Darwin tasks reject symlinked output; the upstream generated
 file-provider relocation task is not applied automatically. See the
-[beta.28 compatibility notes](wails-version-upgrade.md#beta28-compatibility-notes)
+[repository compatibility constraints](wails-version-upgrade.md#repository-compatibility-constraints)
 before building in an iCloud Drive, Dropbox, or similar folder.
 
 
@@ -521,7 +521,7 @@ macOS version acceptance.
 
 See the [latest published v0.3.10 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10)
 for its 2026-10-28 publication, skill 2.0.0, exact-source package/archive startup
-checks and remaining acceptance limits. Repository skill 3.0.3 is unpublished.
+checks and remaining acceptance limits. The repository skill version in [`VERSION`](../../skills/nestworth/VERSION) is unpublished.
 The commands above remain reusable packaging/acceptance procedures, not proof
 that every manual gate passed for a release. Historical v0.3.9 publication and
 owner-waived/deferred gates remain in its [release record](../releases/v0.3.9.md)

@@ -6,7 +6,9 @@ inherit their institution's current icon. The reset control clears only that
 account's override. Without an institution, the account-type icon is shown.
 Existing explicit choices are retained, even if they equal a former default.
 
-`icon_key` already supports an empty string; the business schema stays at 15.
+`icon_key` uses an empty string for inheritance; this feature requires no
+additional schema migration. Current supported schemas are defined in the
+[storage contract](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
 The Account DTO now preserves that sentinel instead of substituting a type
 icon. Create/edit, list, detail and portfolio views share the same resolution
 rule. Verified SQLite snapshots retain both overrides and inheritance. The existing

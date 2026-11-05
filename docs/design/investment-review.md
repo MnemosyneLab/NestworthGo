@@ -92,7 +92,7 @@ Pre21 SQLite migrations are no longer supported.
 
 ## Validation references
 
-Use [real browser acceptance](../development/real-browser-acceptance.md), and the
+Use [real browser acceptance](../development/real-browser-acceptance.md) and the
 [dated synthetic acceptance evidence](../testing/investment-review-daily-acceptance-2026-10-16.md).
 The dated report records earlier implementation-time checks and is historical
 evidence, not a claim that retired V1 interfaces remain available.

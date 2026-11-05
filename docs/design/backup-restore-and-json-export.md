@@ -1,7 +1,7 @@
 # Backup, Restore, and JSON Export
 
 - Status: **Implemented**
-- Database: SQLite schema `22`; only verified schema 21 upgrades to 22
+- Database: SQLite schema `23`; verified 21 → 22 → 23 and 22 → 23 upgrades
 - Platform: Wails v3
 - Companion: [JSON export format](json-export-format.md)
 
@@ -59,7 +59,7 @@ The manifest includes at least:
   "app_name": "Nestworth",
   "app_version": "0.3.9",
   "app_build": "10",
-  "schema_version": 22,
+  "schema_version": 23,
   "created_at": "2026-10-21T00:00:00Z",
   "members": {
     "database.sqlite": {"sha256": "...", "size_bytes": 0},
@@ -95,11 +95,11 @@ Currency, timezone, provider configuration, API keys, and MCP connection state
 and receipts are stored in SQLite and always follow the restored database.
 The preference categories default to preserving current values and are merged
 only after the restored database verifies. A rollback leaves preferences intact.
-Package inspection accepts supported 21/22 manifest versions and independently
+Package inspection accepts supported 21/22/23 manifest versions and independently
 verifies the extracted database. Installation additionally requires the manifest
 and database versions to match.
 Read-only inspection does not upgrade the extracted copy or modify the source
-package. The installed schema 21 copy upgrades on normal open; see the
+package. Installed schema 21/22 copies upgrade in order on normal open; see the
 [storage contract](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery).
 Other older, unversioned, future, or invalid schemas are rejected before replacing
 the live database.
@@ -146,7 +146,7 @@ or modifies schema constraints. The verifier checks, in order:
 2. `format_version` is supported.
 3. The manifest schema version is supported, and member checksums and sizes
    match the payload.
-4. The extracted database independently uses supported schema `21` or `22`
+4. The extracted database independently uses supported schema `21`, `22` or `23`
    and passes that version's table, column, index, and constraint verification.
 5. `foreign_key_check`, `integrity_check`, and required domain invariants pass.
 6. The database can be reopened read-only and representative Household,
@@ -297,7 +297,7 @@ policy remains unchanged.
 
 Settings also offers opt-in app-running SQLite backup to Cloudflare R2, plus
 explicit stream/recovery-point selection. Cloud recovery downloads a separate
-candidate, verifies supported 21/22 and checks its version against the stream
+candidate, verifies supported 21/22/23 and checks its version against the stream
 identity without changing the staged file or source metadata, then feeds the
 existing preview/confirmation/journal installation described above. It keeps
 an original safety copy and pauses backup until restart and explicit re-enable.

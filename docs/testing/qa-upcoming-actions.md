@@ -79,63 +79,6 @@ restoration never displays the previous household's cached results. Check
 native packaging and untagged repository checks. No CI polling, merge, tag,
 release, deployment or production-data modification belongs to this task.
 
-## Changed files
-
-The three binding files below were already tracked at the baseline; their
-changes were generated, not handwritten. No skill package, migration or MCP
-registration is changed.
-
-- `README.md`
-- `docs/README.md`
-- `docs/design/README.md`
-- `docs/design/available-funds.md`
-- `docs/design/household-navigation-and-health.md`
-- `docs/design/upcoming-actions.md`
-- `docs/testing/qa-upcoming-actions.md`
-- `docs/user/nestworth-skill.md`
-- `frontend/bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/index.ts`
-- `frontend/bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models.ts`
-- `frontend/bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/service.ts`
-- `frontend/src/App.test.tsx`
-- `frontend/src/App.tsx`
-- `frontend/src/app/AppShell.tsx`
-- `frontend/src/app/navigation.test.ts`
-- `frontend/src/app/navigation.ts`
-- `frontend/src/features/liquidity/AvailableFundsNavigation.test.tsx`
-- `frontend/src/features/liquidity/AvailableFundsPage.test.tsx`
-- `frontend/src/features/liquidity/AvailableFundsPage.tsx`
-- `frontend/src/features/liquidity/OverviewLiquidityCard.tsx`
-- `frontend/src/features/liquidity/ReservationManager.test.tsx`
-- `frontend/src/features/liquidity/ReservationManager.tsx`
-- `frontend/src/features/liquidity/liquidityDisplay.ts`
-- `frontend/src/features/overview/OverviewPage.test.tsx`
-- `frontend/src/features/overview/OverviewPage.tsx`
-- `frontend/src/features/upcoming-actions/OverviewUpcomingActionsCard.tsx`
-- `frontend/src/features/upcoming-actions/UpcomingActionList.tsx`
-- `frontend/src/features/upcoming-actions/UpcomingActionsPage.test.tsx`
-- `frontend/src/features/upcoming-actions/UpcomingActionsPage.tsx`
-- `frontend/src/features/upcoming-actions/upcomingActionPresentation.test.ts`
-- `frontend/src/features/upcoming-actions/upcomingActionPresentation.ts`
-- `frontend/src/i18n/index.ts`
-- `frontend/src/i18n/localeCoverage.test.ts`
-- `frontend/src/i18n/upcomingActions.ts`
-- `frontend/src/queries/history.mutation.test.ts`
-- `frontend/src/queries/history.ts`
-- `frontend/src/queries/invalidation.test.ts`
-- `frontend/src/queries/keys.ts`
-- `frontend/src/queries/liquidity.test.tsx`
-- `frontend/src/queries/liquidity.ts`
-- `frontend/src/test/upcomingActions.ts`
-- `internal/application/liquidity.go`
-- `internal/application/upcoming_actions.go`
-- `internal/application/upcoming_actions_benchmark_test.go`
-- `internal/application/upcoming_actions_readonly_test.go`
-- `internal/application/upcoming_actions_test.go`
-- `internal/domain/upcoming_actions.go`
-- `internal/domain/upcoming_actions_test.go`
-- `internal/wailsapi/liquidity/upcoming_actions_dto.go`
-- `internal/wailsapi/liquidity/upcoming_actions_test.go`
-
 ## Follow-up: restored navigation requests
 
 The App-level A → list → B → Back → Back regression reproduced the review

@@ -16,6 +16,13 @@ acceptance unless the report explicitly says so.
   Analysis and Asset Changes coverage matrix; shipped behavior follows current
   architecture and code.
 
+## Additional regression contracts
+
+- [Reconciliation UX and liabilities](reconciliation-ux-and-liabilities.md)
+- [Complete AI response contract](builtin-ai-complete-response-contract-2026-11-05.md)
+- [AI Responses follow-up](builtin-ai-responses-followup-2026-11-05.md)
+- [Exact history default-time boundary](../design/history-and-form-defaults-ux.md#exact-default-time-boundary)
+
 ## Dated acceptance evidence
 
 These records document a specific feature or review. Treat pending native or

@@ -1,6 +1,6 @@
 # Native Mac CI trial
 
-The draft migration replaces regular `check.yml` with one native ARM64 macOS
+Regular `check.yml` runs one native ARM64 macOS
 job named `test`. It runs the full non-race `go test ./...` population (including
 examples and newly added packages), gofmt, vet, native desktop compilation,
 skill validation, the unchanged fast tooling tier, and frontend lint, typecheck,

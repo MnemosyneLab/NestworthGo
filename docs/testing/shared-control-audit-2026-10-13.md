@@ -64,19 +64,6 @@ select/dialogs, raw dialog roles, direct primitive imports and Calendar entry
 bypasses outside UI. Guard tests prove rejection and scoped exceptions. Dynamic
 aliases/spreads still require review; the guard is deliberately lightweight.
 
-## Parallel draft coordination
-
-PR60 (`fix/historical-query-cancellation`) overlaps
-`HistoricalOverviewPage.tsx` and `HistoricalOverviewPage.test.tsx`.
-Preserve its cancellation changes when integrating: this branch only replaces
-controls and adapts control testing, not capture cancellation. This branch also
-updates App.test assertions from input values to button text.
-PR59 merged into main as `c257a05`; this branch was rebased onto that main
-without conflict. Its panel/upcoming-action work was inspected and its policy
-select now uses NativeSelect. This is an additional affected screen.
-Neither draft branch was edited, checked out or cherry-picked. PR60 was subsequently merged by its owner and integrated through main as
-described below.
-
 ## Verification
 
 Results and platform limitations are recorded in the draft PR. Chromium checks
@@ -119,11 +106,8 @@ this follow-up; prior frontend/build/browser evidence remains applicable.
 
 ## Combined cancellation integration
 
-Merged main `c779e2e5b3b1fc3e145a98ae0f5a4a03db05c66d` (PR60) into
-this branch with a normal merge, without force-pushing or changing its owner
-branch. Both Historical Overview files merged cleanly. The combined page keeps
-`isActive && validCapture` on overview and series queries, cancellation/late
-reply tests, all four shared DatePicker controls and the button focus fallback.
+The combined Historical Overview page preserved cancellation and late-reply
+handling, all four shared DatePicker controls and the button focus fallback.
 Combined validation passed: 134 frontend tests across seven files (Historical
 Overview orchestration, real picker integration, App navigation, capture and
 Wails cancellation, date/time keyboard behavior and guard contracts); full lint;
@@ -131,10 +115,8 @@ regenerated-binding typecheck; and targeted Go cancellation tests in
 `internal/application` and `internal/wailsapi/analytics` using the headless
 server environment (`CGO_ENABLED=0`). `git diff --check` also passes.
 
-Nonblocking preexisting follow-up: `components/ui/filterable-select.tsx`
-tracks keyboard `activeIndex` and highlights options, but options have no stable
-DOM IDs and the focused combobox has no `aria-activedescendant` pointing to the
-active option. Thus arrow-key highlight changes are not exposed through that
-accessibility relationship. Address this in a separate focused accessibility
-change with option-ID/active-descendant, filtering and keyboard regression
-coverage; no broad redesign is included here.
+The audit also found a missing combobox active-descendant relationship. That
+historical follow-up is now covered by the shared FilterableSelect implementation
+and [frontend-control contract](../development/frontend-controls.md); this dated
+audit is not a current open-issue list. Native accessibility acceptance remains
+separate from the component regressions.

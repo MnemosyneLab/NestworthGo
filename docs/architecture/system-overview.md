@@ -4,7 +4,8 @@
 
 Current `main` identifies as Nestworth `v0.3.10` / build `11`. The latest
 published release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), published
-2026-10-28 with skill 2.0.0; repository skill 3.0.3 remains unpublished. The
+2026-10-28 with skill 2.0.0; the unpublished repository skill version is in
+[`VERSION`](../../skills/nestworth/VERSION). The
 application is a local-first desktop app with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
 provides typed domain contracts, SQLite bootstrap with current schema `23`
@@ -120,7 +121,7 @@ reloads the authoritative application result.
 | Area | Choice | Boundary |
 | --- | --- | --- |
 | Language | Go 1.27.3 | Application, domain, and infrastructure code |
-| Persistence | SQLite, verified schema 22 (verified schema 21 upgrades to 22) | Local durable source of truth |
+| Persistence | SQLite, verified schema 23 (ordered upgrades from verified 21/22) | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |
 | Desktop shell | Wails v3 | Bound Go services + embedded React frontend |

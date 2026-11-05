@@ -14,8 +14,8 @@ the read for retry. Unknown legacy evidence permits a labeled subtotal but does 
 prove full availability. No schema migration or provider calendar is added.
 Additive quality increases serialized response size. The existing MCP wire
 budget is unchanged: captures exceeding it fail with deterministic `too_large`
-instead of truncated dates. Narrow the requested range; pagination remains owned
-by the independent MCP scalability task.
+instead of truncated dates. Narrow the requested range; use the current [MCP pagination contract](mcp-pagination.md)
+for supported continuation behavior.
 
 A carried 10-09 NAV of 2 values 100 units on 10-12 at 200 provisionally. Quantity
 150 values at 300 from its reconstructed quantity, rather than copying 200.

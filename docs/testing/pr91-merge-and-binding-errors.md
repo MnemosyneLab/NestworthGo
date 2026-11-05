@@ -1,25 +1,8 @@
-# PR91 merge and binding error investigation
+# Holdings query cancellation: investigation and evidence
 
-Date: 2026-10-15. Scope: PR91 (`feat/holdings-grouped-redesign`) after merging
-main `3f3d73f` (PR89 reconciliation) into PR head `1c600e1` with normal merge
-commit `713452b`. A final pre-push fetch found main had advanced to `2de0fd6`
-(PR92's standalone actions page); that update was also merged normally without
-conflicts. All data used here is synthetic in disposable SQLite databases
-and jsdom. No user Mac, private database, provider network data, release, or PR
-merge is involved.
-
-## Merge decisions
-
-- `AccountDetail.tsx`: retain PR91's `useInstrumentHoldingGroups` and shared
-  `HoldingGroupsList`, and main's `AccountReconciliation` import and mounted
-  control. Do not restore the obsolete flat holdings imports/table.
-- `en.json`, `zh-CN.json`, `zh-TW.json`: retain both PR91's `holdingGroups` /
-  `holdingPerformance` namespaces and main's `reconciliation` namespace.
-- Backend, schema, audited corrections, reconciliation navigation, bindings
-  registration and documentation merged without content conflicts.
-- Keep performance selection and calculations unchanged: eligible daily closes
-  only, chart/headline from one read, fixed 7/30/90/180/365-day returns, and All
-  as a chart period only. Market Data keeps its raw observation history.
+Historical investigation: PR91, main `3f3d73f`, PR head `1c600e1`,
+merge `713452b`, then main `2de0fd6`. All fixtures were synthetic.
+Current error behavior is owned by the [data/IPC contract](../architecture/data-and-ipc-contracts.md#error-contract).
 
 ## Reported flow
 
@@ -118,50 +101,14 @@ application diagnostics record before further attribution.
 Native macOS desktop, packaging, accessibility and live-provider acceptance have
 not been run. Linux builds and jsdom tests cannot establish those gates.
 
-## Validation commands
+## Historical validation boundary
 
-The checks use Go 1.26.0, generated Wails beta.28 bindings and locked frontend
-dependencies. Linux native headers/libraries, compiler caches and tool setup are
-isolated under `/tmp`; generated bindings/bundles are ignored and uncommitted.
-
-```sh
-go test -p 1 ./...
-go vet ./...
-go build ./cmd/nestworth
-gofmt -l cmd internal
-git diff --check
-go test -race ./internal/wailsapi/quote ./internal/wailsapi/analytics ./internal/wailsapi/apierror ./internal/domain ./internal/diagnostics
-node frontend/scripts/ensure-bindings.mjs --check
-python3 tools/check-nestworth-skill.py
-python3 -m unittest discover -s tools/tests -v
-# From frontend/:
-node node_modules/typescript/bin/tsc --noEmit
-node node_modules/eslint/bin/eslint.js .
-node node_modules/vite/bin/vite.js build --mode production
-node node_modules/vitest/vitest.mjs run --maxWorkers=1
-```
-
-The first overlapping checks exhausted two Go performance budgets and several
-frontend deadlines while initial native compilation and multiple test processes
-shared the runner. Repeat validation bounds package/worker concurrency without
-changing budgets, assertions or application behavior. The overlapping frontend
-run was stopped after the timing failures. The complete Go repeat passed,
-including the same performance-budget tests. Before the final PR92 refresh, the frontend repeat passed all
-1,316 tests across 129 files; the focused expanded-holding component run passed
-all 19 tests. Targeted race checks, binding freshness, typecheck, lint, production
-build, formatting/whitespace checks and all 53 tooling tests passed as well.
-
-After merging PR92 (`2de0fd6`), the final serial frontend run passed 1,314 tests
-and found one deterministic stale assertion in main's `src/app/navigation.test.ts`.
-That test still required Upcoming actions to be absent from the sidebar, while
-PR92 intentionally adds it. The assertion now requires the Activity ordering
-`upcoming-actions`, `history`, `reconciliation`, preserving both PR92 and PR89.
-All four navigation tests passed after this test-only correction; the other
-128 files passed in the complete serial run. No product behavior was changed
-for this correction. The refreshed typecheck, production build, affected-file
-lint, Linux Go build and `go test ./cmd/nestworth` also passed.
-
-Concurrent frontend repeats hit existing account/history/instrument interaction
-deadlines and were stopped. Limits and production behavior were not changed;
-all 61 account-page tests passed in isolation, and the subsequent serial full
-run had no timing failures. CI must run independently on the pushed head.
+Linux Go 1.26.0 and generated Wails beta.28 bindings: full Go tests, vet and
+build, targeted race checks, frontend lint/typecheck/build, binding freshness
+and 53 tooling tests passed. Before the PR92 refresh, 1,316 frontend tests in
+129 files passed. After integration, the full run passed 1,314 tests and found
+a stale navigation expectation; its correction passed all four navigation tests.
+The other 128 files passed in that run. These were not one final all-green
+full-suite invocation. Concurrent runs exceeded existing timing budgets;
+serial repeats retained the same budgets. Exact-head CI and native macOS remained
+separate gates. No claim is made about current runtime performance or current CI.
