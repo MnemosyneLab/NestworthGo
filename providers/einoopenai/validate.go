@@ -329,8 +329,22 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 				item.argsSeen = true
 				item.args.WriteString(delta)
 			} else {
-				if !item.argsSeen || str(obj, "arguments") != item.args.String() {
+				arguments, err := textField(obj, "arguments")
+				if err != nil || len(arguments) > 64<<10 {
 					return errProtocol
+				}
+				if _, err := object([]byte(arguments)); err != nil {
+					return err
+				}
+				if item.argsSeen && arguments != item.args.String() {
+					return errProtocol
+				}
+				// A done event is a complete argument snapshot; partial deltas
+				// are optional. Retain it for comparison with item.done and the
+				// terminal response before any tool is dispatched.
+				if !item.argsSeen {
+					item.args.WriteString(arguments)
+					item.argsSeen = true
 				}
 				item.argsDone = true
 			}
