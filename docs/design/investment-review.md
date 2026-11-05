@@ -508,7 +508,7 @@ Observations strip Go's monotonic clock component before comparison, so a still-
 
 ## Schema21 and recovery
 
-Both supported schemas contain `review_temporal_checkpoints`. Startup verifies
+All supported schemas (21, 22 and 23) contain `review_temporal_checkpoints`. Startup verifies
 its exact definition and checkpoint structure. Unknown nonempty policy versions
 cannot establish reuse and are replaced by full publication. Schema21→22 adds
 closure facts without replaying financial history and retains a verified
@@ -518,7 +518,7 @@ Complete SQLite snapshots preserve certificates consistently. Restore retains di
 
 ### Source journal retention and recovery
 
-Both supported schemas retain the financial source journal. An initial empty
+All supported schemas (21, 22 and 23) retain the financial source journal. An initial empty
 journal is not a historical completeness proof. Each changed source
 row advances its revision and journal atomically with its business transaction.
 At multiples of 256 revisions above 4096, retention advances the floor to at
