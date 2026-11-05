@@ -100,7 +100,10 @@ func (m *Model) prepareInput(in []*schema.AgenticMessage, state *round) ([]*sche
 			continue
 		}
 		s, ok := raw.(string)
-		if !ok || len(s) > m.limits.Bytes || strictJSON([]byte(s)) != nil || msg.Role != schema.AgenticRoleTypeAssistant {
+		if ok && len(s) > m.limits.Bytes {
+			return nil, errLimit
+		}
+		if !ok || strictJSON([]byte(s)) != nil || msg.Role != schema.AgenticRoleTypeAssistant {
 			return nil, errProtocol
 		}
 		nativeBytes += len(s)

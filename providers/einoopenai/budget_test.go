@@ -191,3 +191,20 @@ func TestBudgetSizeAndToolDiagnostics(t *testing.T) {
 		})
 	}
 }
+
+func TestBudgetNativeReplayLimitDoesNotReportCorruptHistory(t *testing.T) {
+	s := &budgetSession{}
+	e := budgetEngine(t, Limits{Items: 1}, s, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
+		writeMode(w, request, []any{budgetText(n)})
+	})
+	first, err := e.Complete(t.Context(), nil, "synthetic first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := e.Complete(t.Context(), first.History, "synthetic second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := e.Complete(t.Context(), second.History, "synthetic third")
+	wantBudget(t, result, err, "provider_payload")
+}
