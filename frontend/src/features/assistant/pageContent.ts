@@ -36,7 +36,7 @@ export function capturePageContent(viewKey: string, generation = viewKey): Seman
   // the mounted account, including during retained-route/background transitions.
   const candidate = kind ? document.querySelector<HTMLElement>(`[data-assistant-page="${kind}"]`) : null;
   const root = candidate && (kind !== "account" || candidate.dataset.assistantView === viewKey) ? candidate : null;
-  const allowedFields = kind === "return-analysis" ? analysisFields : new Set(kind === "accounts" ? ["accounts-show-archived"] : []);
+  const allowedFields = kind === "return-analysis" ? analysisFields : new Set(kind === "accounts" ? ["accounts-show-archived"] : kind === "account" ? ["account-composition-type", "account-composition-detail"] : []);
   // A modal assistant can make the underlying active page inert. Read its
   // reviewed content while describing the overlay; retained hidden routes stay out.
   const page = root && !root.closest('[hidden]') && getComputedStyle(root).display !== "none" ? kind! : "unsupported";

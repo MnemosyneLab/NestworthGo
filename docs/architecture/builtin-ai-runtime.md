@@ -533,9 +533,11 @@ required. External MCP has no page reader or page-content tool.
 
 The active PageChrome toolbar portal is explicitly marked and included in `page`;
 the surrounding app shell and assistant conversation remain excluded. The list's
-archive checkbox is explicitly reviewed; current checked state is
-captured. Other newly introduced inputs remain redacted, and analysis field IDs
-are allowed only on Return analysis. Account detail also verifies the mounted
+archive checkbox and Account detail composition type/detail radios are explicitly
+reviewed; their current checked states are captured. Navigation captures and
+revalidates semantic generations for every supported page, including account
+composition changes before or during intent consumption. Other newly introduced
+inputs remain redacted, and analysis field IDs are allowed only on Return analysis. Account detail also verifies the mounted
 account selection before capture. Hidden retained routes are excluded. Query busy
 states and visible/expanded content changes invalidate continuations, as do route
 generations and root remounts. Modules list actual mounted content; absence does

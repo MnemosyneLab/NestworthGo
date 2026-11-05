@@ -131,6 +131,23 @@ func checkPageCapture(t *testing.T, page string) {
 			t.Fatalf("%s kept an old cursor despite a changed control", control)
 		}
 	}
+	if page == "account" {
+		for _, control := range []string{"account-composition-type", "account-composition-detail"} {
+			snapshot.ID = uuid.NewString()
+			snapshot.Nodes = []ai.PageNode{{ID: "composition/" + control, Module: "composition", Role: "radio", State: []string{"checked=true"}}, {ID: "composition/amount", Module: "composition", Role: "text", Name: "12.34 USD"}}
+			if _, err := capture(`{"module":"composition","limit":1}`, nil); err != nil {
+				t.Fatal(err)
+			}
+			args := fmt.Sprintf(`{"snapshotId":%q,"module":"composition","cursor":1}`, snapshot.ID)
+			if _, err := capture(args, func(p *ai.PageContent) {
+				p.ID = uuid.NewString()
+				p.Nodes = append([]ai.PageNode(nil), p.Nodes...)
+				p.Nodes[0].State = []string{"checked=false"}
+			}); err == nil {
+				t.Fatalf("%s retained an old continuation after selection changed", control)
+			}
+		}
+	}
 	for _, args := range []string{`{"cursor":2}`, `{"html":true}`, `{"limit":65}`, `null`} {
 		if _, err := reader(t.Context(), []byte(args)); err == nil {
 			t.Fatalf("accepted %s", args)

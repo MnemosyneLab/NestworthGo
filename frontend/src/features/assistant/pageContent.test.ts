@@ -92,3 +92,11 @@ it("captures the actual page toolbar portal without exporting app-shell or assis
  expect(page.nodes.find(n=>n.name==="Open Wealth history")).toMatchObject({role:"button",actions:["activate (description only)"]});
  expect(JSON.stringify(page)).not.toContain("private assistant conversation");
 });
+
+
+it("keeps secret and unknown account inputs protected despite reviewed composition IDs", () => {
+ document.body.innerHTML = '<main data-assistant-page="account" data-assistant-view="accounts:synthetic"><input id="account-composition-type" type="password" value="protected-password"><input id="account-composition-detail" type="hidden" value="protected-hidden"><textarea id="account-composition-type">protected-note</textarea><input id="account-composition-future" value="protected-new-field"></main>';
+ const page=capturePageContent("accounts:synthetic");
+ for(const secret of ["protected-password","protected-hidden","protected-note","protected-new-field"]) expect(JSON.stringify(page)).not.toContain(secret);
+ expect(page.nodes.filter(n=>n.state.includes("redacted"))).toHaveLength(3);
+});

@@ -6,10 +6,15 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { queryKeys } from "@/queries/keys";
+import { AssistantPageProvider } from "@/features/assistant/PageContext";
+import { ModelConversation } from "@/features/assistant/ModelConversation";
 import { capturePageContent } from "@/features/assistant/pageContent";
 import { AccountsPage } from "./AccountsPage";
 import i18n from "@/i18n";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
+
+const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => aiAPI);
 
 const listAccounts = vi.fn();
 const accountValuations = vi.fn();
@@ -1960,5 +1965,46 @@ it("reads the real account list and detail live, fences filters and excludes por
  await screen.findByRole("button", {name: i18n.t("common.save")});
  expect(capturePageContent(`accounts:${emptyAccount.account.id}`).limitations.join(" ")).toContain("form values are unavailable");
  expect(capturePageContent(`accounts:${emptyAccount.account.id}`).nodes.some(n => n.name === i18n.t("common.save"))).toBe(false);
+ expect(createAccount).not.toHaveBeenCalled(); expect(updateAccount).not.toHaveBeenCalled();
+});
+
+
+it.each(["before-consume", "during-consume", "unchanged"])("fences real Accounts archive state for granted navigation: %s", async phase => {
+ vi.clearAllMocks();
+ const prior={id:"prior",state:"succeeded",text:"Synthetic prior answer",prompt:"Earlier",model:"mock",created:"2026-11-05T00:00:00Z"};
+ aiAPI.Status.mockResolvedValue({epoch:"host",revision:1,available:true,config:{enabled:true,model:"mock"}});
+ aiAPI.PendingPageReads.mockResolvedValue([]); aiAPI.PublishPage.mockResolvedValue({id:"lease"}); aiAPI.GrantNavigation.mockResolvedValue(undefined);
+ aiAPI.List.mockResolvedValue([{id:"conversation",runCount:1}]); aiAPI.Inspect.mockResolvedValue({id:"conversation",runs:[prior],runCount:1,offset:0});
+ let resolve!: (target:{kind:string;accountId:string})=>void;
+ let completed: unknown;
+ aiAPI.ConsumeNavigation.mockImplementation(()=>new Promise(done=>{resolve=done;}));
+ aiAPI.Start.mockImplementation(async q=>{
+  const run={...prior,id:"run",requestId:q.requestId,prompt:q.prompt,text:"Requested"};
+  completed={id:"conversation",runCount:2,offset:1,runs:[{...run,state:"succeeded"}],navigation:{id:"intent",leaseId:q.pageLeaseId,requestId:q.requestId}};
+  aiAPI.Inspect.mockResolvedValue(phase==="before-consume" ? {id:"conversation",runCount:2,offset:1,runs:[{...run,state:"running"}]} : completed);
+  return {state:"accepted"};
+ });
+ const navigate=vi.fn(); const client=createTestQueryClient();
+ render(<QueryClientProvider client={client}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="accounts:" blocked={()=>false} onNavigate={navigate}><AccountsPage /><ModelConversation /></AssistantPageProvider></QueryClientProvider>);
+ const user=userEvent.setup(); await screen.findByText(emptyAccount.account.name); await screen.findByText("Synthetic prior answer");
+ await waitFor(()=>expect(document.querySelector('[data-assistant-page="accounts"]')).toHaveAttribute("aria-busy","false"));
+ await user.type(screen.getByLabelText("Message"),"Open overview");
+ await user.click(screen.getByText("Page navigation"));
+ await user.click(screen.getByRole("button",{name:"Send and allow one page change"}));
+ if(phase!=="before-consume") await waitFor(()=>expect(aiAPI.ConsumeNavigation).toHaveBeenCalledTimes(1));
+ else await screen.findByText(/Running · reading related data/);
+ if(phase!=="unchanged") {
+  await user.click(screen.getByLabelText(i18n.t("accounts.showArchived")));
+  expect(screen.getByLabelText(i18n.t("accounts.showArchived"))).toBeChecked();
+ }
+ if(phase!=="before-consume") await act(async()=>resolve({kind:"overview",accountId:""}));
+ else {
+  aiAPI.Inspect.mockResolvedValue(completed);
+  await act(async()=>{await client.invalidateQueries({queryKey:["aiConversation","host"]});});
+ }
+ if(phase==="unchanged") await waitFor(()=>expect(navigate).toHaveBeenCalledWith({page:"overview"}));
+ else {await screen.findByText(/No page change was applied/); expect(navigate).not.toHaveBeenCalled();}
+ if(phase==="before-consume") expect(aiAPI.ConsumeNavigation).not.toHaveBeenCalled();
+ expect(aiAPI.GrantNavigation).toHaveBeenCalledTimes(1);
  expect(createAccount).not.toHaveBeenCalled(); expect(updateAccount).not.toHaveBeenCalled();
 });

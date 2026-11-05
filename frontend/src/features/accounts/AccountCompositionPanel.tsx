@@ -46,7 +46,7 @@ export function AccountCompositionPanel({ composition, updatedAt }: { compositio
         <div role="radiogroup" aria-label={t("accounts.compositionView.grouping")} className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
           {(["type", "detail"] as const).map((value) => (
             <label key={value} className="relative cursor-pointer">
-              <input className="peer sr-only" type="radio" name={modeName} value={value} checked={mode === value} onChange={() => { setMode(value); setExpanded(false); }} />
+              <input id={`account-composition-${value}`} className="peer sr-only" type="radio" name={modeName} value={value} checked={mode === value} onChange={() => { setMode(value); setExpanded(false); }} />
               <span className="inline-flex h-9 items-center justify-center rounded-lg px-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-card peer-checked:text-primary peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">
                 {t(`accounts.compositionView.${value}`)}
               </span>
