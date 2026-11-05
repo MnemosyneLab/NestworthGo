@@ -48,6 +48,7 @@ light and 390px Traditional Chinese dark: completion, cancellation while offline
 selector-only Start, continuous history/loading earlier, preserved reading
 position during completion, keyboard disclosure, explicit navigation and its
 review guard, page-target clicks preserving a nonempty draft without sending it,
+polite reply notifications without focus changes or repeated announcements,
 zero provider calls, no horizontal overflow and no browser errors.
 
 - [Desktop light](desktop-light.png), [desktop dark](desktop-dark.png)
