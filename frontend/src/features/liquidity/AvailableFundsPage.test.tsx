@@ -1,3 +1,6 @@
+import { capturePageContent } from "@/features/assistant/pageContent";
+import { verifyPageNavigation } from "@/test/assistantNavigation";
+import { PageChromeProvider } from "@/components/layout/PageChrome";
 import { NavigationContext, type ObjectNavigation } from "@/app/NavigationContext";
 import i18n from "@/i18n";
 import { upcomingData } from "@/test/upcomingActions";
@@ -8,6 +11,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { AvailableFundsPage } from "./AvailableFundsPage";
 import type { LiquidityOverviewDTO, LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
+
+const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => aiAPI);
 
 const upcomingActions = vi.fn(() => Promise.resolve(upcomingData()));
 const overview = vi.fn();
@@ -243,13 +249,23 @@ describe("AvailableFundsPage", () => {
     renderPage();
     await screen.findByTestId("available-funds-page");
     expect(overview).toHaveBeenCalledWith({ customHorizonOn: undefined, includeEarlyWithdrawal: false });
+    const before=capturePageContent("available-funds:");
+    expect(before.nodes.find(n=>n.id==="filters/liquidity-include-early")?.state).toContain("checked=false");
     await userEvent.click(screen.getByLabelText("Consider early withdrawal"));
+    const after=capturePageContent("available-funds:");
+    expect(after.id).not.toBe(before.id);
+    expect(after.nodes.find(n=>n.id==="filters/liquidity-include-early")?.state).toContain("checked=true");
+    expect(after.nodes.some(n=>n.module==="sources" && n.name.includes("Bank cash"))).toBe(true);
+    expect(after.nodes.some(n=>n.module==="comparison")).toBe(true);
     expect(overview).toHaveBeenCalledWith({ customHorizonOn: undefined, includeEarlyWithdrawal: true });
     await userEvent.click(screen.getByLabelText("Custom date"));
     await userEvent.selectOptions(screen.getByRole("combobox", { name: /year/i }), "2026");
     await userEvent.selectOptions(screen.getByRole("combobox", { name: /month/i }), "10");
     await userEvent.click(screen.getByRole("grid").querySelector('[data-day="2026-11-01"] button') as HTMLElement);
     expect(overview.mock.calls.some((call) => call[0].customHorizonOn === "2026-11-01" && call[0].includeEarlyWithdrawal === true)).toBe(true);
+    const custom=capturePageContent("available-funds:");
+    expect(custom.nodes.find(n=>n.id==="filters/custom-horizon")?.value).not.toBe("");
+    expect(custom.id).not.toBe(after.id);
   });
 
   it("selects a horizon card with the keyboard", async () => {
@@ -474,4 +490,35 @@ describe("Available Funds visual hierarchy and interaction", () => {
     }
     await i18n.changeLanguage("en");
   });
+});
+
+
+it.each(["before-consume","during-consume","unchanged"] as const)("fences real Available Funds state: %s", async phase=>{
+ overview.mockResolvedValue(fixtureOverview()); listProducts.mockResolvedValue([]); listAccounts.mockResolvedValue([]);
+ await verifyPageNavigation({api:aiAPI,page:<AvailableFundsPage />,viewKey:"available-funds:",phase,
+  ready:async()=>{await screen.findByTestId("available-funds-page"); await waitFor(()=>expect(document.querySelector('[data-assistant-page="available-funds"]')).toHaveAttribute("aria-busy","false"));},
+  change:async()=>{await userEvent.click(screen.getByLabelText("Consider early withdrawal")); expect(screen.getByLabelText("Consider early withdrawal")).toBeChecked();},
+ });
+});
+
+it("reads real Available Funds loading and error states without claiming totals", async()=>{
+ overview.mockImplementation(()=>new Promise(()=>{}));
+ const view=renderPage(); await screen.findByRole("status");
+ expect(capturePageContent("available-funds:").nodes.some(n=>n.state.includes("busy=true"))).toBe(true);
+ view.unmount(); overview.mockRejectedValue(new Error("synthetic unavailable"));
+ render(<QueryClientProvider client={createTestQueryClient({retry:false})}><AvailableFundsPage /></QueryClientProvider>);
+ await screen.findByRole("alert"); const page=capturePageContent("available-funds:");
+ expect(page.page).toBe("available-funds"); expect(page.nodes.some(n=>n.role==="alert")).toBe(true);
+ expect(page.nodes.some(n=>n.module==="comparison")).toBe(false);
+});
+
+
+it("captures the real funds toolbar and horizon selection without a broader shell export", async()=>{
+ overview.mockResolvedValue(fixtureOverview()); const target=document.createElement("div"); document.body.append(target);
+ const view=render(<QueryClientProvider client={createTestQueryClient()}><PageChromeProvider activePageId="available-funds" target={target}><AvailableFundsPage /></PageChromeProvider></QueryClientProvider>);
+ try {await screen.findByTestId("available-funds-page"); const before=capturePageContent("available-funds:");
+ expect(before.nodes.some(n=>n.role==="heading" && n.module==="page")).toBe(true);
+ await userEvent.click(screen.getByTestId("horizon-2026-09-27")); const after=capturePageContent("available-funds:");
+ expect(after.id).not.toBe(before.id); expect(after.nodes.some(n=>n.module==="comparison" && n.state.includes("pressed=true"))).toBe(true);
+ } finally {view.unmount();target.remove();}
 });

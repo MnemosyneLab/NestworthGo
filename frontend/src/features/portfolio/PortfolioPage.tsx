@@ -60,7 +60,7 @@ function PortfolioOverview({ onOpenAccount, active = true }: { onOpenAccount?: (
   const trendPoints = trend.data?.points ?? [];
 
   return (
-    <div className="flex flex-col gap-6" data-testid="portfolio-page">
+    <div className="flex flex-col gap-6" data-testid="portfolio-page" aria-busy={portfolio.isFetching || trend.isFetching}>
  {portfolio.isFetching && <p role="status">{t("valuation.updating")}</p>}
  {portfolio.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void portfolio.refetch()}>{t("common.retryAction")}</Button></p>}
       {accounts.length === 0 ? (
@@ -68,7 +68,7 @@ function PortfolioOverview({ onOpenAccount, active = true }: { onOpenAccount?: (
       ) : (
         <>
           {allocation.length > 0 && (
-            <Card>
+            <Card data-assistant-module="allocation-breakdown">
               <CardHeader>
                 <CardTitle>{t("portfolio.allocation")}</CardTitle>
               </CardHeader>
@@ -94,7 +94,7 @@ function PortfolioOverview({ onOpenAccount, active = true }: { onOpenAccount?: (
             </Card>
           )}
 
-          <Card>
+          <Card data-assistant-module="allocation-trend">
             <CardHeader>
               <CardTitle>{t("portfolio.trend")}</CardTitle>
             </CardHeader>
@@ -133,7 +133,7 @@ function PortfolioOverview({ onOpenAccount, active = true }: { onOpenAccount?: (
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-assistant-module="allocation-accounts">
             <CardHeader>
               <CardTitle>{t("portfolio.accounts")}</CardTitle>
             </CardHeader>
@@ -201,9 +201,9 @@ export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true
   };
   const summary = portfolio.data;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-assistant-page="portfolio" aria-busy={portfolio.isFetching}>
       <PageChrome pageId="portfolio" enabled={active} title={t("portfolio.pageTitle")} />
-      {summary && <section aria-label={t("investmentAssets.summary")} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-border bg-card px-4 py-3">
+      {summary && <section data-assistant-module="summary" aria-label={t("investmentAssets.summary")} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-border bg-card px-4 py-3">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">{t("investmentAssets.summary")}</p>
           <p className="num text-xl font-semibold" data-testid="portfolio-total">{valuationTableAmount(t, summary.displayValuation, summary.valuedSubtotal)}</p>
@@ -216,20 +216,20 @@ export function PortfolioPage({ onOpenAccount, view, onViewChange, active = true
         {!summary.complete && <p className="basis-full text-xs text-warning-foreground">{t("overview.totalsExcludeMissing")} {t("portfolio.missingQuotes", { count: (summary.missingInputs ?? []).length })}</p>}
       </section>}
       <Tabs value={tab} onValueChange={select}>
-        <TabsList aria-label={t("portfolio.pageTitle")}>
+        <TabsList data-assistant-module="views" aria-label={t("portfolio.pageTitle")}>
           <TabsTrigger value="holdings">{t("investmentAssets.holdings")}</TabsTrigger>
           <TabsTrigger value="instruments">{t("investmentAssets.instruments")}</TabsTrigger>
           <TabsTrigger value="allocation">{t("investmentAssets.allocation")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="holdings" keepMounted>
+        <TabsContent data-assistant-module="holdings" value="holdings" keepMounted>
           <HoldingsTab onOpenAccount={onOpenAccount} active={active && tab === "holdings"} draftRequest={holdingDraftRequest} />
         </TabsContent>
-        <TabsContent value="instruments" keepMounted>
+        <TabsContent data-assistant-module="instruments" value="instruments" keepMounted>
           {(tab === "instruments" || visited.includes("instruments")) && <div className="flex flex-col gap-3">
             <InstrumentManagement pageId="portfolio" active={active && tab === "instruments"} enableSearch browseAll groupTestIdPrefix="investment-assets-group" />
           </div>}
         </TabsContent>
-        <TabsContent value="allocation" keepMounted>
+        <TabsContent data-assistant-module="allocation" value="allocation" keepMounted>
           {(tab === "allocation" || visited.includes("allocation")) && <PortfolioOverview onOpenAccount={onOpenAccount} active={active && tab === "allocation"} />}
         </TabsContent>
       </Tabs>

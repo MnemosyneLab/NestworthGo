@@ -14,7 +14,7 @@ import (
 )
 
 func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) {
-	for _, page := range []string{"return-analysis", "overview", "accounts", "account"} {
+	for _, page := range []string{"return-analysis", "overview", "accounts", "account", "available-funds", "portfolio", "history", "future-business"} {
 		t.Run(page, func(t *testing.T) { checkPageCapture(t, page) })
 	}
 }
@@ -103,6 +103,51 @@ func checkPageCapture(t *testing.T, page string) {
 		t.Fatal(err)
 	}
 
+	// Directory metadata must not make a valid large capture unreadable. Node and
+	// module-directory cursors are independent and both are snapshot-fenced.
+	snapshot.ID = uuid.NewString()
+	snapshot.Nodes = nil
+	for i := range 1000 {
+		module := fmt.Sprintf("section-%04d-%s", i, strings.Repeat("中", 10))
+		snapshot.Nodes = append(snapshot.Nodes, ai.PageNode{ID: fmt.Sprint(i), Module: module, Role: "region", Name: fmt.Sprint("Section ", i)})
+	}
+	directory, err := capture(`{"limit":1}`, nil)
+	if err != nil || directory["moduleCount"] != float64(1000) || len(directory["modules"].([]any)) != 64 || directory["hasMoreModules"] != true || directory["modulesComplete"] != false {
+		t.Fatalf("bounded directory: %v %v", directory, err)
+	}
+	rawDirectory, _ := jsoncodec.Marshal(directory)
+	if len(rawDirectory) > 24<<10 {
+		t.Fatal("directory exceeded response budget")
+	}
+	lastDirectory, err := capture(fmt.Sprintf(`{"snapshotId":%q,"moduleCursor":999,"limit":1}`, snapshot.ID), nil)
+	if err != nil || len(lastDirectory["modules"].([]any)) != 1 || lastDirectory["hasMoreModules"] != false || lastDirectory["modulesComplete"] != false {
+		t.Fatalf("last directory page: %v %v", lastDirectory, err)
+	}
+	specific, err := capture(fmt.Sprintf(`{"snapshotId":%q,"module":%q,"limit":1}`, snapshot.ID, snapshot.Nodes[999].Module), nil)
+	if err != nil || len(specific["nodes"].([]any)) != 1 || specific["hasMore"] != false {
+		t.Fatalf("large-directory module read: %v %v", specific, err)
+	}
+	if _, err := capture(fmt.Sprintf(`{"snapshotId":%q,"moduleCursor":64,"limit":1}`, snapshot.ID), func(p *ai.PageContent) { p.ID = uuid.NewString() }); err == nil {
+		t.Fatal("old module directory cursor survived a state change")
+	}
+	// Public long-field previews use the same UTF-8 byte boundary as pageText.
+	// A truncated value cannot claim complete selection coverage, even if a
+	// publisher omits the explanatory global limitation.
+	preview, err := capture(`{}`, func(p *ai.PageContent) {
+		p.ID = uuid.NewString()
+		p.Nodes = []ai.PageNode{{ID: "note", Module: "page", Role: "textbox", Value: strings.Repeat("中", 682), State: []string{"value_truncated=true"}}}
+	})
+	if err != nil || preview["complete"] != false {
+		t.Fatalf("UTF-8 field preview: %v %v", preview, err)
+	}
+	// Selecting a structural module includes nested automatically derived modules,
+	// but never its sibling module. Node pagination still uses the selected subtree.
+	snapshot.ID = uuid.NewString()
+	snapshot.Nodes = []ai.PageNode{{ID: "parent", Module: "container", Role: "region"}, {ID: "child", Parent: "parent", Module: "automatic-child", Role: "textbox", Value: "12.3400"}, {ID: "sibling", Module: "outside", Role: "text", Name: "not selected"}}
+	nested, err := capture(`{"module":"container","limit":64}`, nil)
+	if err != nil || len(nested["nodes"].([]any)) != 2 {
+		t.Fatalf("nested module: %v %v", nested, err)
+	}
 	// The frontend's real ContributionTab tests prove that these exact control
 	// properties change the semantic generation even when financial rows match.
 	// Continue the same desktop protocol with that new ID: no old slice is returned.
@@ -148,7 +193,7 @@ func checkPageCapture(t *testing.T, page string) {
 			}
 		}
 	}
-	for _, args := range []string{`{"cursor":2}`, `{"html":true}`, `{"limit":65}`, `null`} {
+	for _, args := range []string{`{"moduleCursor":64}`, `{"cursor":2}`, `{"html":true}`, `{"limit":65}`, `null`} {
 		if _, err := reader(t.Context(), []byte(args)); err == nil {
 			t.Fatalf("accepted %s", args)
 		}
@@ -196,10 +241,16 @@ func TestPageContentRejectsSecretsAndMalformedTrees(t *testing.T) {
 	if len(req) != 1 {
 		t.Fatal("missing request")
 	}
-	for _, n := range []ai.PageNode{{ID: "a", Module: "filters", Role: "text", Name: canary}, {ID: "a", Module: "filters", Role: "html", Name: "bad role"}, {ID: "a", Parent: "missing", Module: "filters", Role: "text"}, {ID: "a", Module: "filters", Role: "text", Name: strings.Repeat("x", 2049)}} {
+	for _, n := range []ai.PageNode{{ID: "a", Module: "filters", Role: "textbox", Value: strings.Repeat("中", 683)}, {ID: "a", Module: "filters", Role: "text", Name: canary}, {ID: "a", Module: "filters", Role: "html", Name: "bad role"}, {ID: "a", Parent: "missing", Module: "filters", Role: "text"}, {ID: "a", Module: "filters", Role: "text", Name: strings.Repeat("x", 2049)}} {
 		p := ai.PageContent{ID: uuid.NewString(), Page: "return-analysis", CapturedAt: time.Now(), Nodes: []ai.PageNode{n}}
 		if r.DeliverPageContent(t.Context(), q.Epoch, req[0].ID, p) == nil {
 			t.Fatal("unsafe snapshot accepted")
+		}
+	}
+	for _, page := range []string{"", "../invalid", "UPPERCASE", strings.Repeat("a", 65), "unsupported"} {
+		p := ai.PageContent{ID: uuid.NewString(), Page: page, CapturedAt: time.Now(), Nodes: []ai.PageNode{{ID: "safe", Module: "page", Role: "region"}}}
+		if r.DeliverPageContent(t.Context(), q.Epoch, req[0].ID, p) == nil {
+			t.Fatalf("accepted malformed page identity %q", page)
 		}
 	}
 	cancel()

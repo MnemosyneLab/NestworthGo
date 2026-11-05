@@ -107,7 +107,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" aria-busy={accounts.isFetching || instruments.isFetching || holdings.isFetching || origin.isFetching}>
       <PageChrome
         pageId="portfolio"
         enabled={active}

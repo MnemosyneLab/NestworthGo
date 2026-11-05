@@ -52,7 +52,7 @@ export function FundsComparison({ horizons, selected, onSelect, sources, baseCur
       <div className="divide-y divide-border md:hidden">{rows.map(row => <div key={row.currency} className="py-3 first:pt-0 last:pb-0"><h4 className="mb-2 font-semibold">{row.currency}</h4><dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-sm">{row.values.map((value, index) => <div key={labels[index]} className={cn("contents", index === 3 && "font-semibold")}><dt className="text-muted-foreground">{labels[index]}</dt><dd className="text-right tabular-nums">{value}</dd></div>)}</dl></div>)}</div>
     </>;
   };
-  return <section className="space-y-3" aria-label={t("availableFunds.comparisonTitle")} aria-busy={busy}>
+  return <section data-assistant-module="comparison" className="space-y-3" aria-label={t("availableFunds.comparisonTitle")} aria-busy={busy}>
     <div className="flex items-center gap-2">
       <h2 className="font-semibold">{t("availableFunds.comparisonTitle")}</h2>
       <Badge variant="secondary">{baseCurrency}</Badge>

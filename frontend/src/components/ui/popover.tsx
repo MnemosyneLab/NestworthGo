@@ -1,3 +1,4 @@
+import { useBusinessPortal } from "@/lib/businessCapture";
 import * as React from "react";
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { cn } from "@/lib/utils";
@@ -14,10 +15,12 @@ function PopoverContent({
   ...props
 }: React.ComponentProps<typeof BasePopover.Popup> &
   Pick<React.ComponentProps<typeof BasePopover.Positioner>, "side" | "align" | "sideOffset">) {
+  const capture = useBusinessPortal();
   return (
-    <BasePopover.Portal>
+    <>{capture.origin}<BasePopover.Portal>
       <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} className="z-50">
         <BasePopover.Popup
+          {...capture.props}
           className={cn(
             "z-50 origin-[var(--transform-origin)] rounded-xl border border-border bg-card p-2 text-foreground shadow-lg outline-none",
             "data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
@@ -28,7 +31,7 @@ function PopoverContent({
           {children}
         </BasePopover.Popup>
       </BasePopover.Positioner>
-    </BasePopover.Portal>
+    </BasePopover.Portal></>
   );
 }
 

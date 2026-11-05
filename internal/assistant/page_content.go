@@ -3,6 +3,7 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -44,19 +45,26 @@ func CurrentPageReader(ctx context.Context) PageContentReader {
 	r, _ := ctx.Value(pageContentKey{}).(PageContentReader)
 	return r
 }
+
+var businessPageName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+
 func pageText(s string) bool { return len(s) <= 2048 && !strings.ContainsAny(s, "\x00") }
 func (p PageContent) valid(now time.Time) bool {
 	if !canonicalID(p.ID) || p.CapturedAt.After(now.Add(time.Second)) || now.Sub(p.CapturedAt) >= 10*time.Second || len(p.Nodes) > 8192 || len(p.Limitations) > 16 {
 		return false
 	}
-	if p.Page == "unsupported" && (len(p.Nodes) != 0 || len(p.Limitations) == 0) {
-		return false
-	}
-	if p.Page != "unsupported" && ((p.Page != "return-analysis" && p.Page != "overview" && p.Page != "accounts" && p.Page != "account") || len(p.Nodes) == 0) {
-		return false
+	switch p.Page {
+	case "unsupported":
+		if len(p.Nodes) != 0 || len(p.Limitations) == 0 {
+			return false
+		}
+	default:
+		if !businessPageName.MatchString(p.Page) || len(p.Nodes) == 0 {
+			return false
+		}
 	}
 	ids := map[string]bool{}
-	roles := "|region|text|heading|button|link|textbox|combobox|checkbox|radio|switch|tab|tablist|option|table|row|cell|columnheader|status|alert|group|img|disclosure|slider|spinbutton|"
+	roles := "|region|text|heading|button|link|textbox|combobox|checkbox|radio|switch|tab|tablist|option|table|row|cell|columnheader|status|alert|group|img|disclosure|slider|spinbutton|article|form|navigation|list|listitem|term|definition|tabpanel|radiogroup|dialog|alertdialog|menu|menuitem|menuitemcheckbox|menuitemradio|tooltip|progressbar|separator|tree|treeitem|grid|rowheader|listbox|"
 	for _, n := range p.Nodes {
 		if n.ID == "" || len(n.ID) > 240 || len(n.Module) > 120 || n.Module == "" || ids[n.ID] || (n.Parent != "" && !ids[n.Parent]) || !strings.Contains(roles, "|"+n.Role+"|") || !pageText(n.Name) || !pageText(n.Value) || len(n.State) > 12 || len(n.Actions) > 8 {
 			return false
@@ -160,21 +168,22 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 			return nil, ErrStale
 		}
 		var q struct {
-			SnapshotID string `json:"snapshotId"`
-			Module     string `json:"module"`
-			Cursor     int    `json:"cursor"`
-			Limit      int    `json:"limit"`
+			SnapshotID   string `json:"snapshotId"`
+			ModuleCursor int    `json:"moduleCursor"`
+			Module       string `json:"module"`
+			Cursor       int    `json:"cursor"`
+			Limit        int    `json:"limit"`
 		}
 		var fields map[string]json.RawMessage
 		if len(args) > 2048 || jsoncodec.Unmarshal(args, &fields) != nil || fields == nil {
 			return nil, ErrUnavailable
 		}
 		for k := range fields {
-			if k != "snapshotId" && k != "module" && k != "cursor" && k != "limit" {
+			if k != "snapshotId" && k != "module" && k != "cursor" && k != "limit" && k != "moduleCursor" {
 				return nil, ErrUnavailable
 			}
 		}
-		if jsoncodec.Unmarshal(args, &q) != nil || q.Cursor < 0 || q.Limit < 0 || q.Limit > 64 || (q.Cursor > 0 && q.SnapshotID == "") {
+		if jsoncodec.Unmarshal(args, &q) != nil || q.Cursor < 0 || q.ModuleCursor < 0 || q.Limit < 0 || q.Limit > 64 || ((q.Cursor > 0 || q.ModuleCursor > 0) && q.SnapshotID == "") {
 			return nil, ErrUnavailable
 		}
 		current, err := r.capturePage(ctx, revision)
@@ -195,17 +204,31 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 		nodes := []PageNode{}
 		modules := []string{}
 		seen := map[string]bool{}
+		selected := map[string]bool{}
 		for _, n := range p.Nodes {
 			if !seen[n.Module] {
 				modules = append(modules, n.Module)
 				seen[n.Module] = true
 			}
-			if q.Module == "" || q.Module == n.Module {
+			if q.Module == "" || q.Module == n.Module || selected[n.Parent] {
+				selected[n.ID] = true
 				nodes = append(nodes, n)
 			}
 		}
 		if q.Module != "" && !seen[q.Module] || q.Cursor > len(nodes) {
 			return nil, ErrUnavailable
+		}
+		if q.ModuleCursor > len(modules) {
+			return nil, ErrUnavailable
+		}
+		moduleEnd := min(q.ModuleCursor+64, len(modules))
+		truncated := false
+		for _, n := range nodes {
+			for _, state := range n.State {
+				if state == "value_truncated=true" {
+					truncated = true
+				}
+			}
 		}
 		limit := q.Limit
 		if limit == 0 {
@@ -213,7 +236,10 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 		}
 		end := min(q.Cursor+limit, len(nodes))
 		for {
-			result := map[string]any{"snapshotId": p.ID, "page": p.Page, "capturedAt": p.CapturedAt, "modules": modules, "module": q.Module, "nodes": nodes[q.Cursor:end], "totalNodes": len(nodes), "hasMore": end < len(nodes), "complete": q.Cursor == 0 && end == len(nodes) && len(p.Limitations) == 0, "offset": q.Cursor, "limitations": p.Limitations, "interactionPolicy": "descriptive_only; navigation_requires_separate_grant; no_arbitrary_clicks_or_financial_writes"}
+			result := map[string]any{"snapshotId": p.ID, "page": p.Page, "capturedAt": p.CapturedAt, "modules": modules[q.ModuleCursor:moduleEnd], "moduleCount": len(modules), "moduleOffset": q.ModuleCursor, "hasMoreModules": moduleEnd < len(modules), "modulesComplete": q.ModuleCursor == 0 && moduleEnd == len(modules), "module": q.Module, "nodes": nodes[q.Cursor:end], "totalNodes": len(nodes), "hasMore": end < len(nodes), "complete": q.Cursor == 0 && end == len(nodes) && len(p.Limitations) == 0 && !truncated, "offset": q.Cursor, "limitations": p.Limitations, "interactionPolicy": "descriptive_only; navigation_requires_separate_grant; no_arbitrary_clicks_or_financial_writes"}
+			if moduleEnd < len(modules) {
+				result["nextModuleCursor"] = moduleEnd
+			}
 			if end < len(nodes) {
 				result["nextCursor"] = end
 			}

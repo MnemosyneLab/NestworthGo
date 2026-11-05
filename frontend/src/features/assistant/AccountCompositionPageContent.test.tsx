@@ -29,8 +29,8 @@ it("captures both real composition radios and changes the snapshot using checked
  render(<RealComposition />);
  const user=userEvent.setup();
  const before=capturePageContent(viewKey);
- expect(before.nodes.find(n=>n.id==="composition/account-composition-type")).toMatchObject({role:"radio",name:"By type",value:"type",state:["checked=true"]});
- expect(before.nodes.find(n=>n.id==="composition/account-composition-detail")).toMatchObject({role:"radio",name:"By detail",value:"detail",state:["checked=false"]});
+ expect(before.nodes.find(n=>n.id==="composition/account-composition-type")).toMatchObject({role:"radio",name:"By type",value:"By type",state:["checked=true"]});
+ expect(before.nodes.find(n=>n.id==="composition/account-composition-detail")).toMatchObject({role:"radio",name:"By detail",value:"By detail",state:["checked=false"]});
  await user.click(screen.getByRole("radio",{name:"By detail"}));
  const after=capturePageContent(viewKey);
  expect(after.nodes.find(n=>n.id==="composition/account-composition-type")?.state).toEqual(["checked=false"]);

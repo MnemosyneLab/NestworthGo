@@ -1,3 +1,4 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
 import { useValuationDayBoundary } from "@/queries/useValuationDayBoundary";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -91,6 +92,8 @@ function LanguageSwitcher({ language, disabled, compact, onChange }: { language:
 }
 
 export interface AppShellProps {
+  captureView?: string;
+  captureIdentity?: string;
   navigationHistory?: NavigationHistoryControlsProps;
   activePageId: PageId;
   onNavigate: (target: NavigationTarget) => void;
@@ -103,7 +106,7 @@ export interface AppShellProps {
  * inside. Navigation uses simple page-state rather than a router;
  * DEFAULT_PAGE_ID ("overview") is the product's default landing page.
  */
-export function AppShell({ activePageId, onNavigate, settings, children, navigationHistory }: AppShellProps) {
+export function AppShell({ activePageId, onNavigate, settings, children, navigationHistory, captureView = `${activePageId}:`, captureIdentity = captureView }: AppShellProps) {
  useValuationDayBoundary();
   const { t } = useTranslation();
   useTheme();
@@ -231,9 +234,9 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
           {assistant.trigger}
         </header>
         <div className="flex min-h-0 min-w-0 flex-1">
-        <main id="main-content" hidden={assistant.expanded} tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
+        <BusinessPageRoot view={captureView} accessIdentity={captureIdentity} occluded={assistant.expanded} id="main-content" tabIndex={-1} className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
           <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
-        </main>
+        </BusinessPageRoot>
         {assistant.panel}
         </div>
       </div>

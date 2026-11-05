@@ -14,4 +14,15 @@ else
   npm install --prefix "$prefix" --cache "$cache/npm-bootstrap" --ignore-scripts --no-audit --no-fund --package-lock=false "pnpm@$version"
 fi
 test "$("$binary" --version)" = "$version"
-printf '%s\n' "$(dirname "$binary")" >> "$GITHUB_PATH"
+# pnpm 12's --ignore-scripts placeholder intentionally has no shebang. Bash
+# retries it as shell code, but Task/Go subprocess execution returns ENOEXEC.
+# Keep scripts disabled and expose an executable shim for the official Node entry.
+launcher_dir="$prefix/bin"
+mkdir -p "$launcher_dir"
+cat > "$launcher_dir/pnpm" <<'PNPM_LAUNCHER'
+#!/bin/sh
+exec node "$(dirname "$0")/../node_modules/pnpm/bin/pnpm.mjs" "$@"
+PNPM_LAUNCHER
+chmod +x "$launcher_dir/pnpm"
+test "$("$launcher_dir/pnpm" --version)" = "$version"
+printf '%s\n' "$launcher_dir" >> "$GITHUB_PATH"

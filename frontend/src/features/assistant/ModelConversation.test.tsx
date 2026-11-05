@@ -554,7 +554,7 @@ it("revokes analysis navigation when a live filter changes during intent consump
 });
 
 
-it.each(["return-analysis", "overview", "accounts"])("captures %s with the page guide off and no conversation UI mounted", async (page) => {
+it.each(["return-analysis", "overview", "accounts", "available-funds", "portfolio", "history"])("captures %s with the page guide off and no conversation UI mounted", async (page) => {
  api.PendingPageReads.mockResolvedValueOnce([{id:"collapsed-sidebar-read"}]).mockResolvedValue([]);
  render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey={`${page}:`} blocked={()=>false} onNavigate={vi.fn()}><main data-assistant-page={page}><p>Latest underlying page</p></main></AssistantPageProvider></QueryClientProvider>);
  await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));

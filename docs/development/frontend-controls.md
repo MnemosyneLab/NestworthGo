@@ -261,3 +261,24 @@ instrument-currency replay; no frontend summation or FX conversion is allowed.
 Missing fields remain unavailable independently. A zero quantity is labelled as
 closed/zero, rather than hidden or given an invented value. Account links use the
 ordinary account destination; Portfolio already links to instrument details.
+
+
+## Business-page semantic capture
+
+AppShell provides the current view/object/workspace capture boundary. Ordinary
+business controls, draft financial values and notes are readable by the internal
+assistant without per-page or per-field registration. Passwords, API keys, access
+tokens and connection configuration must use SecretField or the shared
+SecretRegion boundary; the marker must persist when revealed, readonly or rendered
+as text/JSON. Do not rely on input type or readonly to classify a secret, or copy
+credential values into public labels/help/error text outside the boundary.
+
+Shared portals publish a nonvisual source marker through useBusinessPortal.
+Custom portal publishers need the same ownership integration before their content
+can be captured; never broaden capture to arbitrary document.body. Native/shared
+controls should expose labels and live ARIA/native state. Shared date controls
+publish their business value; charts and virtual lists must supply semantic tables
+or truthful mounted/loaded-content limitations. Capture adds no UI execution or
+navigation authorization. Include canary-value and reveal-state coverage when
+changing credential components, and source/hidden-page ownership coverage when
+changing portal wrappers.

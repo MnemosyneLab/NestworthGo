@@ -291,11 +291,16 @@ m.run_lanes(((('hang', 'echo $$ > child.tmp && mv child.tmp child && sleep 60', 
             binaries = root / 'bin'; binaries.mkdir()
             (root / '_temp').mkdir()
             node = binaries / 'node'
-            node.write_text('#!/bin/sh\necho v24.22.0\n'); node.chmod(0o755)
+            node.write_text('#!/bin/sh\n'
+                            'if [ "$1" = --version ]; then echo v24.22.0; '
+                            'else exec /bin/sh "$@"; fi\n')
+            node.chmod(0o755)
             npm = binaries / 'npm'
             npm.write_text('#!/bin/bash\necho called >> "$CALLS"\n'
-                           'prefix="$3"\nmkdir -p "$prefix/node_modules/.bin"\n'
-                           'printf "#!/bin/sh\\necho 12.14.0\\n" > "$prefix/node_modules/.bin/pnpm"\n'
+                           'prefix="$3"\nmkdir -p "$prefix/node_modules/.bin" "$prefix/node_modules/pnpm/bin"\n'
+                           # Match pnpm 12 after --ignore-scripts: no shebang.
+                           'printf "echo 12.14.0\\n" > "$prefix/node_modules/.bin/pnpm"\n'
+                           'cat > "$prefix/node_modules/pnpm/bin/pnpm.mjs" <<\'STUB\'\nif [ "$1" = --version ]; then echo 12.14.0; else printf \'%s\\n\' "$@"; fi\nSTUB\n'
                            'chmod +x "$prefix/node_modules/.bin/pnpm"\n')
             npm.chmod(0o755)
             env = dict(os.environ, PATH=str(binaries) + ':' + os.environ['PATH'],
@@ -303,6 +308,19 @@ m.run_lanes(((('hang', 'echo $$ > child.tmp && mv child.tmp child && sleep 60', 
             for _ in range(2):
                 subprocess.run(['bash', str(ROOT / 'tools/ci-macos-pnpm.sh')], env=env, check=True, capture_output=True)
             self.assertEqual((root / 'calls').read_text().splitlines(), ['called'])
+            launchers = (root / 'path').read_text().splitlines()
+            self.assertEqual(len(launchers), 2)
+            self.assertEqual(launchers[0], launchers[1])
+            launcher = Path(launchers[0]) / 'pnpm'
+            self.assertTrue(launcher.read_text().startswith('#!/bin/sh\n'))
+            # Task uses direct process execution; do not let Bash hide ENOEXEC.
+            result = subprocess.run([str(launcher), '--version'], env=env,
+                                    check=True, capture_output=True, text=True)
+            self.assertEqual(result.stdout.strip(), '12.14.0')
+            arguments = ['exec', 'argument with spaces', '--flag=value']
+            result = subprocess.run([str(launcher), *arguments], env=env,
+                                    check=True, capture_output=True, text=True)
+            self.assertEqual(result.stdout.splitlines(), arguments)
 
     def test_aggregate_rejects_missing_and_failed_lane_results(self):
         gates = load('ci-macos-results').GATES
