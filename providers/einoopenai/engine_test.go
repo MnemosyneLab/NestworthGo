@@ -58,7 +58,7 @@ func TestEngineOnlyDispatchesCompleteSuccessfulResponses(t *testing.T) {
 					<-r.Context().Done()
 				}
 			})
-			engine, e := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, fake.model, observed, nil)
+			engine, e := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, streamCompletionModel{fake.model}, observed, nil)
 			if e != nil {
 				t.Fatal(e)
 			}

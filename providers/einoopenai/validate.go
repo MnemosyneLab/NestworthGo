@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -55,7 +56,9 @@ func same(a, b []byte) bool {
 func nullOrAbsent(v json.RawMessage) bool {
 	return len(v) == 0 || bytes.Equal(bytes.TrimSpace(v), []byte("null"))
 }
-func validateResponse(raw []byte, limits Limits) ([]json.RawMessage, error) {
+func validateResponse(raw []byte, limits Limits) (outputResult []json.RawMessage, failure error) {
+	rule := "response_terminal"
+	defer func() { failure = protocolFailure(rule, failure) }()
 	obj, err := object(raw)
 	if err != nil || str(obj, "object") != "response" || str(obj, "id") == "" || str(obj, "status") != "completed" || !nullOrAbsent(obj["error"]) || !nullOrAbsent(obj["incomplete_details"]) {
 		return nil, errProtocol
@@ -67,6 +70,7 @@ func validateResponse(raw []byte, limits Limits) ([]json.RawMessage, error) {
 	if len(output) > limits.Items {
 		return nil, errLimit
 	}
+	rule = "response_item"
 	ids, calls := map[string]bool{}, map[string]bool{}
 	for _, raw := range output {
 		item, err := validateItem(raw)
@@ -97,7 +101,7 @@ func validateItem(raw []byte) (map[string]json.RawMessage, error) {
 	switch str(item, "type") {
 	case "function_call":
 		args := str(item, "arguments")
-		if status != "completed" || str(item, "name") == "" || str(item, "call_id") == "" || len(args) > 64<<10 {
+		if (len(item["status"]) != 0 && status != "completed") || str(item, "name") == "" || str(item, "call_id") == "" || len(args) > 64<<10 {
 			return nil, errProtocol
 		}
 		if _, err := object([]byte(args)); err != nil {
@@ -177,10 +181,13 @@ type streamItem struct {
 	done               json.RawMessage
 	args               strings.Builder
 	argsSeen, argsDone bool
+	argumentName       string
 	parts              map[string]*streamPart
 }
 
-func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error) {
+func validateStream(raw []byte, limits Limits) (result []byte, outputResult []json.RawMessage, failure error) {
+	rule := "stream_frame"
+	defer func() { failure = protocolFailure(rule, failure) }()
 	if !utf8.Valid(raw) {
 		return nil, nil, errProtocol
 	}
@@ -197,6 +204,7 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 	eventName := ""
 	var data []string
 	process := func() error {
+		rule = "stream_frame"
 		if len(data) == 0 {
 			if eventName != "" {
 				return errProtocol
@@ -230,11 +238,13 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 		if event != "" && event != typ {
 			return errProtocol
 		}
+		rule = "stream_order"
 		seq, err := index(obj, "sequence_number")
 		if err != nil || seq <= sequence {
 			return errProtocol
 		}
 		sequence = seq
+		rule = streamRule(typ)
 		switch typ {
 		case "response.created":
 			resp, err := object(obj["response"])
@@ -272,7 +282,14 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 			if err := validateAdded(item); err != nil {
 				return err
 			}
-			items = append(items, &streamItem{added: item, parts: map[string]*streamPart{}})
+			entry := &streamItem{added: item, parts: map[string]*streamPart{}}
+			if str(item, "type") == "function_call" {
+				// Initial argument snapshots can already contain a prefix or full object.
+				seed := str(item, "arguments")
+				entry.args.WriteString(seed)
+				entry.argsSeen = seed != ""
+			}
+			items = append(items, entry)
 		case "response.output_item.done":
 			idx, err := index(obj, "output_index")
 			if err != nil || idx >= len(items) || items[idx].done != nil {
@@ -284,13 +301,17 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 			}
 			prior := items[idx]
 			for _, key := range []string{"id", "type", "name", "call_id", "role"} {
-				if str(prior.added, key) != str(item, key) {
+				initial := str(prior.added, key)
+				if initial != str(item, key) && !(str(item, "type") == "function_call" && (key == "name" || key == "call_id") && initial == "") {
 					return errProtocol
 				}
 			}
 			// Reasoning encrypted_content at added may be incomplete or null.
 			// The done item is authoritative; it must still match the completed
 			// response and pass all completion/EOF checks before being released.
+			if prior.argumentName != "" && prior.argumentName != str(item, "name") {
+				return errProtocol
+			}
 			if prior.argsSeen && prior.args.String() != str(item, "arguments") {
 				return errProtocol
 			}
@@ -349,6 +370,16 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 					item.args.WriteString(arguments)
 					item.argsSeen = true
 				}
+				if _, exists := obj["name"]; exists {
+					name, err := textField(obj, "name")
+					if err != nil || name == "" {
+						return errProtocol
+					}
+					if initial := str(item.added, "name"); initial != "" && initial != name {
+						return errProtocol
+					}
+					item.argumentName = name
+				}
 				item.argsDone = true
 			}
 		case "response.content_part.added", "response.content_part.done", "response.output_text.delta", "response.output_text.done", "response.refusal.delta", "response.refusal.done", "response.reasoning_summary_part.added", "response.reasoning_summary_part.done", "response.reasoning_summary_text.delta", "response.reasoning_summary_text.done", "response.reasoning_text.delta", "response.reasoning_text.done":
@@ -370,6 +401,7 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 		lines = lines[:len(lines)-1] // EOF is not an SSE blank-line delimiter.
 	}
 	for _, line := range lines {
+		rule = "stream_frame"
 		if line == "" {
 			if err := process(); err != nil {
 				return nil, nil, err
@@ -396,6 +428,7 @@ func validateStream(raw []byte, limits Limits) ([]byte, []json.RawMessage, error
 			return nil, nil, errProtocol
 		}
 	}
+	rule = "stream_eof"
 	if len(data) != 0 || eventName != "" || final == nil {
 		return nil, nil, errProtocol
 	}
@@ -527,15 +560,29 @@ func validateAdded(item map[string]json.RawMessage) error {
 		}
 		return nil
 	}
-	if status != "in_progress" {
-		return errProtocol
-	}
 	if typ == "function_call" {
+		// Function status is optional in the API type and absent in the documented
+		// function-calling stream. A completed initial snapshot is still provisional
+		// here: item.done, matching response.completed and clean EOF remain required.
+		if len(item["status"]) != 0 && status != "in_progress" && status != "completed" {
+			return assistant.ProviderResponseFailure("stream_function_status")
+		}
 		args, err := textField(item, "arguments")
-		if str(item, "name") == "" || str(item, "call_id") == "" || err != nil || args != "" {
-			return errProtocol
+		if err != nil {
+			return assistant.ProviderResponseFailure("stream_function_arguments")
+		}
+		if len(args) > 64<<10 {
+			return errLimit
+		}
+		for _, key := range []string{"name", "call_id"} {
+			if _, err := textField(item, key); err != nil {
+				return assistant.ProviderResponseFailure("stream_function_identity")
+			}
 		}
 	} else {
+		if status != "in_progress" {
+			return errProtocol
+		}
 		var parts []json.RawMessage
 		if str(item, "role") != "assistant" || jsoncodec.Unmarshal(item["content"], &parts) != nil || parts == nil || len(parts) != 0 {
 			return errProtocol

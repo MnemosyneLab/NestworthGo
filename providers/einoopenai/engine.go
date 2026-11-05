@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"strings"
 
 	"github.com/cloudwego/eino/components/model"
@@ -18,7 +17,7 @@ import (
 // No auto-resume, summarizer, retry, approval or writer is installed.
 // Each saved checkpoint is a complete turn, including untouched native items.
 type Engine struct {
-	model      *Model
+	model      model.AgenticModel
 	tools      map[string]tool.InvokableTool
 	infos      []*schema.ToolInfo
 	config     assistant.ModelConfig
@@ -51,7 +50,7 @@ func NewEngine(ctx context.Context, cfg assistant.ModelConfig, key []byte, sessi
 	out.secret = append([]byte(nil), key...)
 	return out, nil
 }
-func engineWithModel(ctx context.Context, cfg assistant.ModelConfig, m *Model, session CapabilitySession, close func()) (*Engine, error) {
+func engineWithModel(ctx context.Context, cfg assistant.ModelConfig, m model.AgenticModel, session CapabilitySession, close func()) (*Engine, error) {
 	tools, err := CapabilityTools(session)
 	if err != nil {
 		return nil, errEngine
@@ -135,22 +134,19 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 		if len(raw) > assistant.MaxHistoryBytes || len(saved.Messages) > 128 {
 			return empty, assistant.ErrBudget
 		}
-		stream, err := e.model.Stream(ctx, saved.Messages, model.WithTools(e.infos))
+		// The UI only publishes a completed turn. Use the SDK's JSON path to
+		// avoid parsing SSE with no incremental output benefit. Model.Generate
+		// still validates terminal success, bounded body and clean EOF before
+		// the SDK converter or any tool dispatch.
+		msg, err := e.model.Generate(ctx, saved.Messages, model.WithTools(e.infos))
 		if err != nil {
 			return empty, err
 		}
-		msg, err := stream.Recv()
-		if err != nil {
-			stream.Close()
-			return empty, err
-		}
-		_, tail := stream.Recv()
-		stream.Close()
 		if ctx.Err() != nil {
 			return empty, ctx.Err()
 		}
-		if tail != io.EOF || msg == nil {
-			return empty, assistant.ErrProviderResponse
+		if msg == nil {
+			return empty, assistant.ProviderResponseFailure("sdk_conversion")
 		}
 		encoded, encodeErr := jsoncodec.Marshal(msg)
 		if encodeErr != nil || e.tainted(encoded) {
@@ -166,7 +162,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if b.Type == schema.ContentBlockTypeFunctionToolCall {
 				call := b.FunctionToolCall
 				if call == nil || call.CallID == "" || seenCalls[call.CallID] || e.tools[call.Name] == nil || len(call.Arguments) > 64<<10 {
-					return empty, assistant.ErrProviderResponse
+					return empty, assistant.ProviderResponseFailure("engine_inventory")
 				}
 				seenCalls[call.CallID] = true
 				pending = append(pending, call)
@@ -182,6 +178,11 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			for _, b := range msg.ContentBlocks {
 				if b.Type == schema.ContentBlockTypeAssistantGenText && b.AssistantGenText != nil {
 					text.WriteString(b.AssistantGenText.Text)
+					// The SDK represents refusal text in an extension rather
+					// than Text. A complete refusal is a displayable answer.
+					if b.AssistantGenText.Text == "" && b.AssistantGenText.OpenAIExtension != nil && b.AssistantGenText.OpenAIExtension.Refusal != nil {
+						text.WriteString(b.AssistantGenText.OpenAIExtension.Refusal.Reason)
+					}
 				}
 			}
 			raw, err := jsoncodec.Marshal(saved)
@@ -192,7 +193,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 				return empty, assistant.ErrBudget
 			}
 			if text.Len() == 0 {
-				return empty, assistant.ErrProviderResponse
+				return empty, assistant.ProviderResponseFailure("engine_empty_text")
 			}
 			result := assistant.Completion{History: raw, Text: text.String()}
 			if e.evidence != nil {
@@ -205,7 +206,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 		}
 		for _, call := range pending {
 			if ctx.Err() != nil {
-				return empty, errEngine
+				return empty, ctx.Err()
 			}
 			result, err := e.tools[call.Name].InvokableRun(ctx, call.Arguments)
 			if errors.Is(err, errCapabilityRefused) && ctx.Err() == nil {

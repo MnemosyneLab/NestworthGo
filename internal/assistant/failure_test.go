@@ -12,7 +12,7 @@ import (
 )
 
 func TestFixedRunDiagnosticsPersistWithoutAdvancingHistory(t *testing.T) {
-	for _, failure := range []error{ai.ErrProviderAuthentication, ai.ErrProviderRateLimited, ai.ErrProviderRequest, ai.ErrProviderUnavailable, ai.ErrProviderConnection, ai.ErrProviderResponse, ai.ErrModelHistory, ai.ErrToolResult, ai.ErrBudget, context.DeadlineExceeded, errors.New(canary)} {
+	for _, failure := range []error{ai.ErrProviderAuthentication, ai.ErrProviderRateLimited, ai.ErrProviderRequest, ai.ErrProviderUnavailable, ai.ErrProviderConnection, ai.ErrProviderResponse, ai.ProviderResponseFailure("stream_item_added"), ai.ProviderResponseFailure("sdk_conversion"), ai.ProviderResponseFailure("private-canary"), ai.ErrModelHistory, ai.ErrToolResult, ai.ErrBudget, context.DeadlineExceeded, errors.New(canary)} {
 		t.Run(ai.FailureCode(failure), func(t *testing.T) {
 			dir := privateTestDirectory(t)
 			f := factory(func(_ context.Context, h []byte, p string) (ai.Completion, error) {

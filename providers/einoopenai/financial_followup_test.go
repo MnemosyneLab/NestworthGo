@@ -49,7 +49,7 @@ func TestGreetingThenCurrentFinancialContext(t *testing.T) {
 			t.Error("unexpected provider request")
 		}
 	})
-	engine, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, fake.model, builtinai.New(observed, assistant.PageSelection{}), nil)
+	engine, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, streamCompletionModel{fake.model}, builtinai.New(observed, assistant.PageSelection{}), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -441,3 +441,29 @@ it.each([
   expect(screen.queryByText(/private-canary/)).not.toBeInTheDocument();
   expect(api.Start).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["provider_response_rejected.stream_function_status", true],
+  ["provider_response_rejected.response_item", true],
+  ["provider_response_rejected.sdk_conversion", true],
+  ["provider_response_rejected.stream_part", true],
+  ["provider_response_rejected.private-canary", false],
+  ["provider_response_rejected.stream_part private-canary", false],
+])("only renders fixed diagnostic rules: %s", async (code, recognized) => {
+  api.Inspect.mockResolvedValue({
+    id: "conversation",
+    runs: [{ ...run, state: "failed", text: "", evidence: [], code }],
+    runCount: 1,
+    offset: 0,
+  });
+  mount();
+  const alert = await screen.findByRole("alert");
+  if (recognized) {
+    expect(alert).toHaveTextContent(`Diagnostic: ${code}`);
+    expect(alert).toHaveTextContent("Include this code and the app version");
+  } else {
+    expect(alert).not.toHaveTextContent("Diagnostic:");
+  }
+  expect(alert).not.toHaveTextContent("private-canary");
+  expect(api.Start).not.toHaveBeenCalled();
+});

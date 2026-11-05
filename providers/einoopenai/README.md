@@ -37,7 +37,11 @@ actual typed agent/runner is used in acceptance tests, with a synthetic mutation
 counter and no approval wrapper. Both `Generate` and `Stream` go through the same
 bounded transport before the SDK or Eino receives a response. Stream requests
 use real SSE on the wire, but deliberately return one complete Eino message.
-Live display-token streaming is deferred; this increases time to first display.
+Live display-token streaming is deferred. The desktop Engine calls Generate
+(nonstreaming JSON), since the UI already publishes only complete turns. Stream
+remains a separately tested adapter, not an automatic fallback. Both paths keep
+bounded whole-body reads and successful terminal validation before tool dispatch.
+No latency/quality equivalence with a live provider is claimed.
 
 1. The adapter reuses agenticopenai's request builder and **nonstream** response
    converter. It never invokes that release's unsafe streaming converter.
@@ -45,7 +49,8 @@ Live display-token streaming is deferred; this increases time to first display.
    the complete JSON or SSE response. A successful HTTP status, valid tool
    argument object, `output_item.done` or `[DONE]` alone is insufficient.
    It requires one successful completed response, consistent response/item IDs,
-   monotonic sequence numbers, completed items and agreement between item-done
+   monotonic sequence numbers (SSE), successful terminal items (function status may
+   be absent; an explicit final status must be completed) and agreement between item-done
    snapshots, observed argument/text fragments and the complete terminal output.
    Failure, incomplete/cancelled/error events, bad framing/JSON, duplicate names,
    unsupported events/items, inconsistent ordering and read errors fail closed.
