@@ -194,6 +194,30 @@ func rejectedUpdate(t *testing.T, c *mcp.ClientSession, tool string, input map[s
 	return string(raw)
 }
 
+func TestDirectoryUpdateRejectsNullOnIdentityFields(t *testing.T) {
+	t.Parallel()
+	s, app, _ := fixture(t)
+	if _, err := s.Enable(DirectoryWrite); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	member := mutate(t, c, "create_member", map[string]string{"name": "Bob"})
+	id := member["id"].(string)
+	for _, input := range []map[string]any{
+		{"id": id, "name": nil},
+		{"id": id, "iconKey": nil},
+		{"id": id, "archived": nil},
+		{"id": id, "name": nil, "archived": true},
+	} {
+		if got := rejectedUpdate(t, c, "update_member", input); !strings.Contains(got, "invalid write arguments") {
+			t.Fatalf("null directory field error=%s", got)
+		}
+		if stored := storedMember(t, app, id); stored.Name != "Bob" || stored.ArchivedAt != nil || stored.IconKey == nil || *stored.IconKey != domain.DefaultMemberIcon {
+			t.Fatalf("null input changed the member: %+v", stored)
+		}
+	}
+}
+
 func TestDirectoryArchiveToolsAreFoldedIntoUpdate(t *testing.T) {
 	t.Parallel()
 	s, _, _ := fixture(t)

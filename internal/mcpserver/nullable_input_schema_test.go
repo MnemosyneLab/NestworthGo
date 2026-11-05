@@ -11,8 +11,8 @@ import (
 )
 
 // Discovered input schemas must not use a nullable type union. Optional
-// pointers and slices omit the field. Required pointers and the instrument
-// batch note keep null through anyOf.
+// pointers and slices omit the field. Required pointers, product-terms
+// shortName, and patch fields that null clears keep null through anyOf.
 func TestDiscoveredInputSchemasHaveNoNullTypeUnion(t *testing.T) {
 	s, _, _ := fixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
@@ -40,11 +40,11 @@ func TestNullableInputSchemaDecisions(t *testing.T) {
 		t.Fatalf("reconciliation accountIds = %#v", sessionIDs)
 	}
 	note := property(t, registry, "update_account", "input", "changes", "note")
-	if note["type"] != "string" || note["anyOf"] != nil {
-		t.Fatalf("update_account note = %#v, want a plain string", note)
+	if !schemaAllowsNull(note) || !schemaAllowsType(note, "string") || note["type"] != nil {
+		t.Fatalf("update_account note = %#v, want string or null", note)
 	}
-	if _, ok := property(t, registry, "update_account", "input", "changes")["properties"].(map[string]any)["noteSet"]; !ok {
-		t.Fatal("update_account noteSet disappeared")
+	if _, ok := property(t, registry, "update_account", "input", "changes")["properties"].(map[string]any)["noteSet"]; ok {
+		t.Fatal("update_account noteSet is still published")
 	}
 	shortName := property(t, registry, "preview_product_terms", "terms", "shortName")
 	if !schemaAllowsNull(shortName) || !schemaAllowsType(shortName, "string") {
@@ -54,18 +54,30 @@ func TestNullableInputSchemaDecisions(t *testing.T) {
 	if !schemaAllowsNull(policyNote) || !schemaAllowsType(policyNote, "string") {
 		t.Fatalf("policy.note = %#v, want required string or null", policyNote)
 	}
+	batchShortName := property(t, registry, "update_instruments_batch", "input", "items", "[]", "changes", "shortName")
+	if !schemaAllowsNull(batchShortName) || !schemaAllowsType(batchShortName, "string") {
+		t.Fatalf("batch shortName = %#v, want string or null", batchShortName)
+	}
 	batchNote := property(t, registry, "update_instruments_batch", "input", "items", "[]", "changes", "note")
 	if !schemaAllowsNull(batchNote) || !schemaAllowsType(batchNote, "string") {
 		t.Fatalf("batch note = %#v, want string or null", batchNote)
 	}
+	batchName := property(t, registry, "update_instruments_batch", "input", "items", "[]", "changes", "name")
+	if schemaAllowsNull(batchName) {
+		t.Fatalf("batch name = %#v, want a string that rejects null", batchName)
+	}
 
 	_, err := registry.Call(t.Context(), "update_account", json.RawMessage(`{"operationId":"00000000-0000-4000-8000-000000000001","input":{"id":"00000000-0000-4000-8000-000000000002","changes":{"note":null,"noteSet":true}}}`))
 	if !errors.Is(err, agentcapability.ErrInvalidArguments) {
-		t.Fatalf("null note with noteSet error=%v, want invalid arguments", err)
+		t.Fatalf("noteSet error=%v, want invalid arguments", err)
 	}
-	_, err = registry.Call(t.Context(), "update_account", json.RawMessage(`{"operationId":"00000000-0000-4000-8000-000000000001","input":{"id":"00000000-0000-4000-8000-000000000002","changes":{"noteSet":true}}}`))
+	_, err = registry.Call(t.Context(), "update_account", json.RawMessage(`{"operationId":"00000000-0000-4000-8000-000000000003","input":{"id":"00000000-0000-4000-8000-000000000002","changes":{"note":null}}}`))
 	if errors.Is(err, agentcapability.ErrInvalidArguments) {
-		t.Fatal("omitted note with noteSet was rejected; Set is the clear signal")
+		t.Fatal("null note was rejected by the schema; it is the clear signal")
+	}
+	_, err = registry.Call(t.Context(), "update_instrument", json.RawMessage(`{"operationId":"00000000-0000-4000-8000-000000000004","input":{"id":"00000000-0000-4000-8000-000000000002","changes":{"replace":true}}}`))
+	if !errors.Is(err, agentcapability.ErrInvalidArguments) {
+		t.Fatalf("replace error=%v, want invalid arguments", err)
 	}
 }
 

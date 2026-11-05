@@ -287,3 +287,36 @@ description 1,137 (`commit_plan`). Mode ceilings moved from 66,500 / 83,500 /
 1,500-byte description cap and the 2,400-byte instruction cap were left in
 place. `skills/nestworth/VERSION` stayed 3.0.5 because F1 had already applied
 the Wave 3 PATCH and this change does not edit skill content.
+
+## E3 one PATCH rule
+
+Patch updates now share one rule. Omit a field to keep it. JSON null clears
+a clearable field. An empty string is rejected, so it neither clears nor
+keeps. `update_account` no longer publishes `institutionIdSet`, `groupIdSet`,
+`noteSet`, `iconKeySet`, `openedOnSet` or `closedOnSet`. `{"note":"","noteSet":true}`
+is rejected; send `{"note":null}`. `update_instrument` no longer publishes
+`replace`. Callers that used `replace: true` to drop omitted optionals send
+null on each field to clear and omit fields to keep. An empty `shortName` no
+longer clears on `update_instrument` or `update_instruments_batch`; send null.
+Null `shortName` on the batch now clears, and a blank batch note no longer
+clears. Directory name, icon and `archived` still cannot be cleared. Review
+rules, liquidity saves and product terms stay full replacements.
+`terms.shortName` still treats omitted and null as keep and an empty string
+as clear. The desktop GUI still uses its own Set flags and `replace`.
+
+`TestDiscoveryBudget` after this change, on the C2 sizes (default discovery,
+investment review management off):
+
+| Mode | Tools | `tools/list` bytes |
+| --- | --- | --- |
+| `read_only` | 48 | 59,137 (unchanged) |
+| `directory_write` | 61 | 74,198 → 75,308 (+1,110) |
+| `ledger_write` | 75 | 109,780 → 110,890 (+1,110) |
+
+Instructions stayed 2,373 bytes. The longest description stayed 1,137 bytes
+(`commit_plan`). Budgets were not raised: the ceilings remain 64,700 /
+80,000 / 116,400. Name, annotation and schema hashes changed only for
+`update_account`, `update_instrument` and `update_instruments_batch`, in both
+`directory_write` and `ledger_write`. `read_only` hashes were unchanged.
+Repository skill 3.0.9 records the rule in the account, instrument and
+directory references. Hidden review-rule updates stay a full replacement.

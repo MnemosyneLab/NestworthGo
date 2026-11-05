@@ -1,7 +1,7 @@
 # MCP Wave 2 deferred items
 
-E3 from [mcp-remaining-work.md](mcp-remaining-work.md) stays deferred.
-D is implemented on this branch.
+D and E3 from [mcp-remaining-work.md](mcp-remaining-work.md) are done on
+this branch.
 
 ## D — investment review default exposure
 
@@ -19,11 +19,13 @@ does not use the switch. How to turn it on is in
 
 ## E3 — one PATCH rule for every update tool
 
-Deferred until the E1 nullable-schema change has been in use. E1 is on this
-branch: optional pointers and slices no longer publish `"type": ["null", ...]`
-unions, while required pointers, `shortName`, and `update_instruments_batch`
-`note` still accept null through `anyOf`. The current update tools still
-differ (`update_account` `<field>Set`, `update_instrument` `replace`, and the
-directory updates' omit-versus-value rules). Collapsing those into
-"omit keeps, null clears" is a breaking contract. This pass does not redefine
-them.
+Done. E1 is on this branch: optional pointers and slices no longer publish
+`"type": ["null", ...]` unions. Patch tools now share one rule. Omit a field
+to keep it. JSON null clears a clearable field. An empty string is rejected,
+so it neither clears nor keeps. `update_account` no longer publishes
+`<field>Set`. `update_instrument` no longer publishes `replace`.
+`update_instruments_batch` clears `shortName` with null, not with an empty
+string. Directory name, icon and `archived` still cannot be cleared. Review
+rules, liquidity saves and product terms stay full replacements;
+`terms.shortName` still treats omitted and null as keep. The inventory and
+the migration are in [mcp-update-conventions.md](mcp-update-conventions.md).

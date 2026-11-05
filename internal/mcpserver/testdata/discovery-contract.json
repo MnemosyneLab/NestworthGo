@@ -55,11 +55,11 @@
     "preview_investment_review_rule": "d28434294f6882ceab41ead23317a70acc2c4b1cbcbc8b280cf3f31fa598f5c6",
     "scan_data_health": "716408b34189bdbb6ce05b42a3802cbdd747dd40869d4039a22c051131bb0daa",
     "search_market_instruments": "d911d6a3af2233a5c141f917bcfff4bf7cf19bf92ea9c04b3250e0580055468d",
-    "update_account": "4cf08260f783205ebbe0c7aedc9aaf4c29325506eb8b6066b3d62b059f676d5d",
+    "update_account": "27a6218f676a813f2cd4b488a849e2d26e11f9cfbb9572300e2a79199e41b8f9",
     "update_group": "2351ec9f88479018696656be3aa1e4f286100c1ce4232b1f800f694d80c0ed69",
     "update_institution": "3f40a04a97cdd802128a87ed9e88f99aa2472197642f3dded2fba852159806f1",
-    "update_instrument": "4fd7a25cc84c1dfc60e075e93455079023ac7614218cd9988aa6c3d143726ea3",
-    "update_instruments_batch": "e61b239668b57284eae76913b1d5e84742e4d7aa7c284017d20dc21369879e53",
+    "update_instrument": "7c65c9176e0cc64c81ba79230d470904cfcbedf7aa0ba290e63278718f2ce9ed",
+    "update_instruments_batch": "0d739f44fcae343c1447bc35e9464ca9cf73544e6f86ad6ce5d66c3f810d1198",
     "update_member": "1c5d11ff50812b4d5eaa31dff3f3499d14c4390e48278ca6b2883b486392fbe1"
   },
   "ledger_write": {
@@ -132,11 +132,11 @@
     "search_market_instruments": "d911d6a3af2233a5c141f917bcfff4bf7cf19bf92ea9c04b3250e0580055468d",
     "set_fx_source": "cf9b334dabc441135dd55d29f5232624bb4dd049eef52068c4ba6d8beac4fba2",
     "start_data_repair": "ef49cbca8afda9d0225e6302e6c4b837b34df6301bf72389b56b305b68cb9185",
-    "update_account": "4cf08260f783205ebbe0c7aedc9aaf4c29325506eb8b6066b3d62b059f676d5d",
+    "update_account": "27a6218f676a813f2cd4b488a849e2d26e11f9cfbb9572300e2a79199e41b8f9",
     "update_group": "2351ec9f88479018696656be3aa1e4f286100c1ce4232b1f800f694d80c0ed69",
     "update_institution": "3f40a04a97cdd802128a87ed9e88f99aa2472197642f3dded2fba852159806f1",
-    "update_instrument": "4fd7a25cc84c1dfc60e075e93455079023ac7614218cd9988aa6c3d143726ea3",
-    "update_instruments_batch": "e61b239668b57284eae76913b1d5e84742e4d7aa7c284017d20dc21369879e53",
+    "update_instrument": "7c65c9176e0cc64c81ba79230d470904cfcbedf7aa0ba290e63278718f2ce9ed",
+    "update_instruments_batch": "0d739f44fcae343c1447bc35e9464ca9cf73544e6f86ad6ce5d66c3f810d1198",
     "update_member": "1c5d11ff50812b4d5eaa31dff3f3499d14c4390e48278ca6b2883b486392fbe1"
   },
   "read_only": {

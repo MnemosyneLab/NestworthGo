@@ -47,8 +47,8 @@ fails, recover that step; do not recreate the account.
 label is trimmed short name, otherwise symbol/code, otherwise full name, for
 every instrument type. Duplicate aliases are allowed: resolve using saved IDs,
 full name, symbol/code, market, currency and ISIN. To edit only an alias, pass
-`changes.shortName` to `update_instrument`; an empty string clears it and omission
-preserves it, including older complete-form requests. Managed product aliases
+`changes.shortName` to `update_instrument`; JSON null clears it and omission
+keeps it. An empty string is rejected. Managed product aliases
 use the product contract's terms-edit path; do not edit its internal instrument
 independently.
 
@@ -84,18 +84,30 @@ Agent observations or the App for manual entry.
 Creating a definition does not create ownership or a trade. Continue with
 [positions-and-trades.md](positions-and-trades.md) or [market-data.md](market-data.md).
 
-For updates, omitted fields are preserved; supplied ownership replaces the
-allocation. `update_account` clears institutionId, groupId, note, iconKey,
-openedOn or closedOn only with the matching `<field>Set:true` (for example
-`{"note":"","noteSet":true}`); an empty value without `Set` keeps the stored one.
+Patch updates share one rule. Omit a field to keep the stored value. JSON null
+clears a clearable field. An empty string is rejected: it does not clear and it
+does not keep. `update_account` clears institutionId, groupId, note, iconKey,
+openedOn or closedOn with null, for example `{"note":null}`. Null and an empty
+string are rejected for name, classification, currency, inclusion flags and
+ownership. Supplied ownership replaces the whole allocation and cannot be
+empty. `initialAmount` does not rewrite balance history.
+
+Example `update_account` clearing only the note:
+
+<!-- example: account-clear-note -->
+```json
+{"operationId":"${operationId}","input":{"id":"${accountId}","changes":{"note":null}}}
+```
+
 Use `update_member`, `update_institution` or `update_group` with the record's
-`id` and at least one of `name`, `iconKey` and `archived`. These are partial
-updates: omitted fields keep their stored values, and when name and icon are
-both supplied they apply together. `archived: true` archives and
-`archived: false` restores; omit `archived` to keep the stored archive state.
-A household must keep at least one active member, and a member who is the only
-active owner of a live account cannot be archived. Use a non-empty name and a
-supported non-empty icon key. An institution's `institutionType` cannot be edited.
+`id` and at least one of `name`, `iconKey` and `archived`. Omitted fields keep
+their stored values, and when name and icon are both supplied they apply
+together. `archived: true` archives and `archived: false` restores; omit
+`archived` to keep the stored archive state. Null is rejected for name, icon
+and archived, because those fields cannot be cleared. A household must keep at
+least one active member, and a member who is the only active owner of a live
+account cannot be archived. Use a non-empty name and a supported non-empty icon
+key. An institution's `institutionType` cannot be edited.
 
 Example `update_institution` to change only the icon:
 
@@ -104,8 +116,11 @@ Example `update_institution` to change only the icon:
 {"operationId":"${operationId}","input":{"id":"${institutionId}","iconKey":"bank"}}
 ```
 
-Instrument `replace=true` requires the complete form, so prefer partial changes
-for a narrow edit. Account and instrument icons use their update tools. Use
+`update_instrument` is the same partial edit. JSON null clears shortName,
+symbol, marketCode, countryCode, isin, note, providerKey and providerSymbol,
+and resets iconKey to the type default. Null is rejected for name, type,
+quoteCurrency, metalTemplate, quantityUnit, quoteSource and sortOrder. There
+is no replace flag. Account and instrument icons use their update tools. Use
 `archive_account` or `archive_instrument` with `archived:true/false` to archive
 or restore while preserving history and references. Member, institution and
 group archive uses `archived` on `update_member`, `update_institution` or
@@ -129,8 +144,9 @@ filter.types/ids and either top-level query or filter.query (not both),
 plus top-level includeArchived. Sort displayName (default asc), name,
 type, updatedAt or id sorting. Each row has metadataVersion and managed status.
 Resolve exact IDs and versions before `update_instruments_batch`. Only name,
-shortName and note are accepted. Omission preserves; empty shortName clears;
-note=null clears; name cannot be empty/null. Duplicate aliases are allowed,
+shortName and note are accepted. Omission keeps a field. JSON null clears
+shortName and note. An empty string is rejected. name cannot be empty or null.
+Duplicate aliases are allowed,
 duplicate targets are rejected. One stale/managed/archived target rejects every
 change. Managed identities require product terms. No quotes, positions, source
 preferences or ledger facts change. directory_write or ledger_write is required.
@@ -139,6 +155,6 @@ preferences or ledger facts change. directory_write or ledger_write is required.
 Directory and instrument lists are compact identity projections. Full notes,
 display metadata and timestamps require `get_read_item` with the original
 captureId, row id and matching section (`instruments` for instruments).
-Read full metadata before a complete replacement; omission from a compact row
-does not mean an empty field. Instrument list metadataVersion remains available
+Read full metadata before an update; omission from a compact row
+does not mean an empty field, and it does not clear one. Instrument list metadataVersion remains available
 for atomic metadata updates. See [directory batches](directory-batches.md).

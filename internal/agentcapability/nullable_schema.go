@@ -12,9 +12,11 @@ import (
 // single type and callers omit them. Required pointers keep null, because
 // omission fails required and null is the explicit unknown or empty value.
 // Arrays never keep null: a required list must be an array, and an optional
-// list's null is the same nil slice as omission. shortName is the exception
-// among optional strings: the published skill says omitted or null keeps it,
-// and this change does not edit the skill, so null stays valid through anyOf.
+// list's null is the same nil slice as omission. An optional pointer named
+// shortName still publishes null: preview_product_terms treats omitted and
+// null as keep, and an empty string as clear. Patch tools do not use that
+// pointer. They use PatchString, where null is a distinct clear. Do not add
+// another optional shortName pointer for a patch tool.
 func normalizeNullableInputSchema(schema *jsonschema.Schema) {
 	walkNullableSchema(schema, false, "")
 }

@@ -164,7 +164,7 @@ func inferSchema[T any](supplied any) (*jsonschema.Schema, error) {
 	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	return jsonschema.ForType(t, &jsonschema.ForOptions{})
+	return jsonschema.ForType(t, &jsonschema.ForOptions{TypeSchemas: patchTypeSchemas()})
 }
 
 func clone(d Definition) Definition {

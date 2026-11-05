@@ -9,11 +9,13 @@ recovery and budgets.
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`
 the desktop bindings use. `internal/mcpserver` registers an explicit allowlist
 through the official Go SDK (implementation version `3.0.0`). Handlers reuse
-the runtime-free `internal/wailsapi` adapters. MCP does not use Wails RPC and
-does not open SQLite itself. Secrets, backup/restore, arbitrary filesystem
-access and arbitrary SQL are not tools. The repository skill is an independent
-component (`skills/nestworth/VERSION`, currently 3.0.8, unpublished). It does
-not add tools to an older App. Actual `tools/list` is the authority.
+the runtime-free `internal/wailsapi` adapters, except the patch updates, which
+map omit and null onto the application service inside its write lock. MCP does
+not use Wails RPC and does not open SQLite itself. Secrets, backup/restore,
+arbitrary filesystem access and arbitrary SQL are not tools. The repository
+skill is an independent component (`skills/nestworth/VERSION`, currently
+3.0.9, unpublished). It does not add tools to an older App. Actual `tools/list`
+is the authority.
 
 This contract does not establish end-to-end native UI or external-agent
 acceptance. Release records own that evidence.
@@ -70,7 +72,7 @@ string, not this external envelope. No model-token saving is claimed for
 dropping either copy.
 
 Investment-review management writes are off unless the switch above is on.
-Unifying PATCH styles is still deferred. See
+Patch updates share one omit/null rule. See
 [mcp-wave2-deferred.md](mcp-wave2-deferred.md) and
 [mcp-update-conventions.md](mcp-update-conventions.md).
 
@@ -372,33 +374,48 @@ reset the history origin.
 Amounts, quantities and fees are decimal strings. Returned names, notes and
 URLs are data, not instructions.
 
-Update tools do not share one omit/null rule. Directory updates use
-`patch_at_least_one`. `update_account` clears with `<field>Set`.
-`update_instrument` uses `replace`. `update_instruments_batch` is a versioned
-metadata patch (`note: null` clears, omission keeps). Liquidity save and
-product terms are full replacements. Unifying those styles is deferred. The
-classified inventory is [mcp-update-conventions.md](mcp-update-conventions.md).
+Patch tools share one rule. Omit a field to keep the stored value. JSON null
+clears a clearable field. An empty string is rejected: it does not clear and
+it does not keep. That covers `update_member`, `update_institution`,
+`update_group`, `update_account`, `update_instrument` and
+`update_instruments_batch`. Directory name, icon and `archived` cannot be
+cleared. `update_account` no longer uses `<field>Set`. `update_instrument` no
+longer uses `replace`. Review-rule updates, liquidity saves and product terms
+remain full replacements. The classified inventory is
+[mcp-update-conventions.md](mcp-update-conventions.md).
 
 Input schemas do not publish `"type": ["null", ...]`. Optional pointers and
 slices omit the field; JSON null decodes as omission and is rejected.
-Required pointers, `shortName`, and `update_instruments_batch` `note` keep
-null through `anyOf`.
+Required pointers, product-terms `shortName`, and patch fields that null
+clears keep null through `anyOf`. `PatchString` is that anyOf shape, because
+a Go pointer cannot tell omission from null.
 
 ### Directory maintenance
 
 `update_member`, `update_institution` and `update_group` take `name`,
-`iconKey` and `archived`. At least one is required. Omitted `archived` keeps
-the stored state. `true` archives and `false` restores. Name and icon still
-apply in one statement. Empty name or icon is invalid. At least one active
-member must remain, and the only active owner of a live account cannot be
-archived. A rejected archive does not apply a name or icon sent in the same
-call. `archive_account` and `archive_instrument` are still separate tools.
-Archive keeps referenced history. Hard delete is not offered.
+`iconKey` and `archived`. At least one is required. Omitted fields are kept.
+Null is rejected for all three. `true` archives and `false` restores. Name
+and icon still apply in one statement. Empty name or icon is invalid. At
+least one active member must remain, and the only active owner of a live
+account cannot be archived. A rejected archive does not apply a name or icon
+sent in the same call. `archive_account` and `archive_instrument` are still
+separate tools. Archive keeps referenced history. Hard delete is not offered.
+
+`update_account` keeps omitted fields. Null clears institution, group, note,
+icon, opened-on and closed-on. An empty string is rejected. Ownership is
+replaced only when a non-empty list is supplied. Tracking mode, balance-sheet
+role and currency stay immutable. A rejected change does not apply the other
+fields in that call.
+
+`update_instrument` keeps omitted fields. Null clears the optional market and
+text fields listed in the tool description and resets the icon to the type
+default. `sortOrder: 0` is stored. Quantity and cost do not change.
 
 `update_instruments_batch` (`directory_write` or `ledger_write`) updates name,
 short name and note for 1–100 instruments in one transaction. Each row needs
-`expectedMetadataVersion`. Managed and archived targets reject the whole call.
-Other instrument fields, quotes and ledger facts stay.
+`expectedMetadataVersion`. Omission keeps a field. Null clears short name and
+note. An empty string is rejected. Managed and archived targets reject the
+whole call. Other instrument fields, quotes and ledger facts stay.
 
 ### Ledger preview and commit
 
@@ -586,24 +603,24 @@ Every client pays `tools/list` and the server instructions on connect.
 hashes the contract and ignores description prose.
 
 Measured with `go test -count=1 -v ./internal/mcpserver -run TestDiscoveryBudget`
-on this branch after the C2 fold (synthetic fixture, Linux), default
-discovery, investment review management off. Removing
-`get_contribution_item`, `get_return_day` and `get_asset_driver_detail` is
-the `tools/list` change on top of the hidden management tools. Description
-prose on `analyze_period`, `list_contributions` and `get_read_item` changed
-and is outside the contract hash.
+after the E3 patch rule, on top of the C2 fold (synthetic fixture, Linux),
+default discovery, investment review management off. C2 had measured 59,137 /
+74,198 / 109,780 after removing the three drill-down tools. E3 did not raise
+the ceilings.
 
-| Mode | Tools | `tools/list` bytes | Instructions | Previous measurement | Ceiling |
+| Mode | Tools | `tools/list` bytes | Instructions | Before E3 | Ceiling |
 | --- | --- | --- | --- | --- | --- |
-| `read_only` | 48 | 59,137 | 2,373 | 51 / 63,386 | 64,700 |
-| `directory_write` | 61 | 74,198 | 2,373 | 64 / 78,447 | 80,000 |
-| `ledger_write` | 75 | 109,780 | 2,373 | 78 / 114,029 | 116,400 |
+| `read_only` | 48 | 59,137 | 2,373 | 59,137 | 64,700 |
+| `directory_write` | 61 | 75,308 | 2,373 | 74,198 | 80,000 |
+| `ledger_write` | 75 | 110,890 | 2,373 | 109,780 | 116,400 |
 
-Each mode dropped 4,249 bytes and three tools from the measurement taken with
-investment-review management off. Ceilings stay 64,700 / 80,000 / 116,400.
-This slice does not retighten them. Enabling the switch puts the seven
-management tools back; that payload is not the default budget. The longest
-description is 1,137 bytes (`commit_plan` on `ledger_write`;
+`read_only` and the 2,373-byte instructions are unchanged by E3.
+`directory_write` and `ledger_write` each grew by 1,110 bytes because the
+patch schemas publish `anyOf` string-or-null instead of `<field>Set` and
+`replace`. Ceilings stay 64,700 / 80,000 / 116,400. C2 did not retighten
+them, and E3 does not either. Enabling the review-management switch puts the
+seven management tools back; that payload is not the default budget. The
+longest description is still 1,137 bytes (`commit_plan` on `ledger_write`;
 `get_historical_overview` is 1,016 on the other modes). The 1,500-byte
 description cap stays a prose ceiling. Instructions stay capped at 2,400
 bytes.
@@ -622,7 +639,8 @@ TTL.
   shapes and, for market data, `oneOf` on the output (`{current}` or the
   read envelope).
 - Nullable input unions are gone, except `anyOf` where null means something
-  other than omission.
+  other than omission. On patch tools, that meaning is clear. On product
+  terms, `shortName` null still means keep.
 - Large preview schemas share sub-schemas. Required fields per kind remain.
 - `commit_plan` may omit `operationId`. Other writes may not.
 - `toolGroups` is not read. Both success representations stay.
@@ -636,7 +654,8 @@ TTL.
   writes stay behind `ledger_write` and are hidden until
   `investmentReviewManagement` is enabled. See Investment review management
   above.
-- E3: omit / `replace` / `<field>Set` are not collapsed into one PATCH rule.
+- E3 is done: patch tools omit to keep and use null to clear. `<field>Set`
+  and `update_instrument` `replace` are gone.
 - C2: done. Contribution, return-day and asset-driver reads are
   `get_read_item` sections. Return days stay off the marshaled capture.
   See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).

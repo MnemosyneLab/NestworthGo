@@ -152,7 +152,7 @@ Wave 3(最后,依赖前面都合并)
 **目标**:所有 patch 工具统一为“省略 = 保留,`null` = 清除”,取代 `<field>Set`、`replace` 开关等三种风格。
 **风险**:破坏性,且 `update_account` 的“空字符串与 null”区别要重新定义;必须有迁移说明和合约快照评审。
 **依赖**:E1(nullable schema 的形式要先定)。
-**需要的决定**:是否值得做。审计已经用测试固定了现状,统一的收益是减少 Agent 误操作,代价是又一次破坏性变更。本轮不做,见 [mcp-wave2-deferred.md](mcp-wave2-deferred.md)。
+**状态**: 已在本分支完成。省略保留, JSON `null` 清除可清空字段, 空字符串拒绝。`<field>Set` 与 `update_instrument` 的 `replace` 已删除。见 [mcp-update-conventions.md](mcp-update-conventions.md) 与 [mcp-wave2-deferred.md](mcp-wave2-deferred.md)。
 **规模**:L。
 
 ### G. `toolGroups` 机制与双份响应
@@ -208,6 +208,6 @@ Wave 3(最后,依赖前面都合并)
 | 目录合并走形态 1(按 kind)还是形态 2(仅归档并入 update) | B | 形态 2 |
 | `operationId` 只对 `commit_plan` 可选,还是所有写工具 | B2 | 已决定:只对 `commit_plan` |
 | review 写工具是否默认隐藏 | D | 已实现选项 1:默认隐藏,设置开关打开后才暴露 |
-| 是否做 PATCH 统一 | E3 | 本轮不做，见 mcp-wave2-deferred.md |
+| 是否做 PATCH 统一 | E3 | 已做：省略保留，null 清除，空字符串拒绝 |
 | 是否删除 `toolGroups` | G | 已删除，见 mcp-wave2-g-toolgroups.md |
 | 破坏性批次 skill 版本用 PATCH 还是 MINOR | 所有工具面变更 | 当前政策是 PATCH,若希望标出不兼容可改 MINOR |

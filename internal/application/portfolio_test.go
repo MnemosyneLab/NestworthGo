@@ -244,3 +244,49 @@ func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(
 		t.Fatalf("full replacement did not clear optional fields: %+v", cleared)
 	}
 }
+
+func TestInstrumentPatchOmitsKeepAndNullClearsInsideTheWrite(t *testing.T) {
+	t.Parallel()
+	database, err := sqlite.Open(t.TempDir() + "/instrument-patch.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	note := "keep me"
+	alias := "Alias"
+	created, err := service.CreateInstrument(ctx, InstrumentInput{
+		Name: "Bound", ShortName: &alias, Type: "stock", QuoteCurrency: "USD", Symbol: "QQQ", Note: &note, SortOrder: 7, QuoteSource: "manual",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	renamed, err := service.PatchInstrument(ctx, created.ID, InstrumentPatch{Name: StringField{Op: FieldSet, Value: "Renamed"}})
+	if err != nil || renamed.Name != "Renamed" || renamed.ShortName != "Alias" || renamed.Symbol == nil || *renamed.Symbol != "QQQ" || renamed.Note == nil || *renamed.Note != note || renamed.SortOrder != 7 {
+		t.Fatalf("omitted fields were not kept: %+v %v", renamed, err)
+	}
+	patched, err := service.PatchInstrument(ctx, created.ID, InstrumentPatch{
+		ShortName: StringField{Op: FieldClear}, Symbol: StringField{Op: FieldClear}, Note: StringField{Op: FieldClear},
+		SortOrder: IntField{Op: FieldSet, Value: 0},
+	})
+	if err != nil || patched.Name != "Renamed" || patched.ShortName != "" || patched.Symbol != nil || patched.Note != nil || patched.SortOrder != 0 || patched.QuoteCurrency != created.QuoteCurrency {
+		t.Fatalf("patch clear = %+v %v", patched, err)
+	}
+	if _, err := service.PatchInstrument(ctx, created.ID, InstrumentPatch{Name: StringField{Op: FieldSet, Value: " "}}); err == nil {
+		t.Fatal("empty name was accepted")
+	}
+	if _, err := service.PatchInstrument(ctx, created.ID, InstrumentPatch{Name: StringField{Op: FieldClear}}); err == nil {
+		t.Fatal("clearing the name was accepted")
+	}
+	if _, err := service.PatchInstrument(ctx, created.ID, InstrumentPatch{QuoteCurrency: StringField{Op: FieldSet, Value: "EUR"}}); err == nil {
+		t.Fatal("currency change was accepted")
+	}
+	stored, err := service.ListInstruments(ctx, true)
+	if err != nil || len(stored) != 1 || stored[0].Name != "Renamed" || stored[0].ShortName != "" || stored[0].Symbol != nil || stored[0].QuoteCurrency.String() != "USD" {
+		t.Fatalf("rejected patch persisted: %+v %v", stored, err)
+	}
+}

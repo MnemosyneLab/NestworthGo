@@ -263,6 +263,33 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 }
 
 func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, input InstrumentInput) (domain.Instrument, error) {
+	return s.editInstrument(ctx, id, func(current domain.Instrument) (InstrumentInput, error) {
+		// Omission remains compatible with older complete-form callers. Clearing is explicit.
+		if input.ShortName == nil {
+			value := current.ShortName
+			input.ShortName = &value
+		}
+		if !input.Replace {
+			mergeInstrumentInput(&input, current)
+		}
+		return input, nil
+	})
+}
+
+// PatchInstrument applies a partial edit inside the account write lock.
+// Omitted fields keep the stored value. FieldClear clears a clearable field.
+// The GUI complete-form path stays on UpdateInstrument and its replace flag.
+func (s *Service) PatchInstrument(ctx context.Context, id domain.InstrumentID, patch InstrumentPatch) (domain.Instrument, error) {
+	return s.editInstrument(ctx, id, func(current domain.Instrument) (InstrumentInput, error) {
+		next := instrumentInputFromCurrent(current)
+		if err := applyInstrumentPatch(&next, patch); err != nil {
+			return InstrumentInput{}, err
+		}
+		return next, nil
+	})
+}
+
+func (s *Service) editInstrument(ctx context.Context, id domain.InstrumentID, merge func(domain.Instrument) (InstrumentInput, error)) (domain.Instrument, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.Instrument{}, err
@@ -279,13 +306,9 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if err := s.rejectManagedInstrument(ctx, id); err != nil {
 		return domain.Instrument{}, err
 	}
-	// Omission remains compatible with older complete-form callers. Clearing is explicit.
-	if input.ShortName == nil {
-		value := current.ShortName
-		input.ShortName = &value
-	}
-	if !input.Replace {
-		mergeInstrumentInput(&input, current)
+	input, err := merge(current)
+	if err != nil {
+		return domain.Instrument{}, err
 	}
 	updated, err := newInstrumentFromInput(current.HouseholdID, input, s.clock())
 	if err != nil {

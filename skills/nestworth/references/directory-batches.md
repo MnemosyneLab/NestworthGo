@@ -17,8 +17,8 @@ Lists omit notes, icons, sort metadata, household IDs and internal timestamps.
 For full metadata, call `get_read_item` with the same captureId, section
 (`instruments`, `members`, `institutions`, `groups`, `accounts` or `holdings`)
 and row id. The response summary is the complete frozen item, including the
-instrument metadataVersion and managed flag. Get editable fields there before a
-complete replacement. Do not treat omitted list fields as empty. Old captures
+instrument metadataVersion and managed flag. Get editable fields there before an
+update. Do not treat omitted list fields as empty. Old captures
 stay frozen after writes. Refresh before a new write intention or when checking
 a stale-version error.
 

@@ -42,42 +42,21 @@ type CreateDirectoryInput struct {
 }
 type UpdateDirectoryInput struct {
 	ID       string  `json:"id"`
-	Name     *string `json:"name,omitempty" jsonschema:"New non-empty name; omit to keep the stored one"`
-	IconKey  *string `json:"iconKey,omitempty" jsonschema:"New non-empty icon key; omit to keep the stored one"`
-	Archived *bool   `json:"archived,omitempty" jsonschema:"true archives, false restores; omit to keep the stored archive state. Does not erase history"`
+	Name     *string `json:"name,omitempty" jsonschema:"Non-empty name. Omit to keep. Null and an empty string are rejected."`
+	IconKey  *string `json:"iconKey,omitempty" jsonschema:"Non-empty icon key. Omit to keep. Null and an empty string are rejected."`
+	Archived *bool   `json:"archived,omitempty" jsonschema:"true archives, false restores. Omit to keep. Null is rejected. Does not erase history."`
 }
 type ArchiveInput struct {
 	ID       string `json:"id"`
 	Archived bool   `json:"archived" jsonschema:"true archives, false restores; does not erase history"`
 }
 type UpdateAccountInput struct {
-	ID      string                       `json:"id"`
-	Changes account.UpdateAccountRequest `json:"changes"`
-}
-
-// Optional fields for patch semantics; the create DTO requires identity fields.
-type InstrumentPatch struct {
-	Replace        bool    `json:"replace,omitempty"`
-	ShortName      *string `json:"shortName,omitempty"`
-	Name           string  `json:"name,omitempty"`
-	Type           string  `json:"type,omitempty"`
-	MetalTemplate  string  `json:"metalTemplate,omitempty"`
-	QuantityUnit   string  `json:"quantityUnit,omitempty"`
-	QuoteCurrency  string  `json:"quoteCurrency,omitempty"`
-	Symbol         *string `json:"symbol,omitempty"`
-	MarketCode     *string `json:"marketCode,omitempty"`
-	CountryCode    *string `json:"countryCode,omitempty"`
-	ISIN           *string `json:"isin,omitempty"`
-	Note           *string `json:"note,omitempty"`
-	IconKey        *string `json:"iconKey,omitempty"`
-	SortOrder      int     `json:"sortOrder,omitempty"`
-	QuoteSource    string  `json:"quoteSource,omitempty"`
-	ProviderKey    *string `json:"providerKey,omitempty"`
-	ProviderSymbol *string `json:"providerSymbol,omitempty"`
+	ID      string         `json:"id"`
+	Changes AccountChanges `json:"changes"`
 }
 type UpdateInstrumentInput struct {
-	ID      string          `json:"id"`
-	Changes InstrumentPatch `json:"changes"`
+	ID      string            `json:"id"`
+	Changes InstrumentChanges `json:"changes"`
 }
 type SearchInput struct {
 	Query          string `json:"query"`
@@ -335,33 +314,29 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 	writeTool(s, server, "create_member", "Create a household member.", func(ctx context.Context, in CreateDirectoryInput) (any, error) {
 		return dir.CreateMember(ctx, in.Name, in.IconKey)
 	})
-	writeTool(s, server, "update_member", "Edit a member: supply name, iconKey, archived or any combination (at least one). Omitted fields are kept; supplied name and icon apply together. archived true archives and false restores, preserving history, the ownership rules and at least one active member.", s.editMember)
+	writeTool(s, server, "update_member", "Partial member edit. Supply name, iconKey, archived, or any combination (at least one). Omitted fields are kept. JSON null and an empty string are rejected: name and icon cannot be cleared, and archived is only true or false. Supplied name and icon apply together. archived true archives and false restores, preserving history, the ownership rules and at least one active member.", s.editMember)
 	writeTool(s, server, "create_institution", "Create an institution with an explicit institutionType from get_catalog.", func(ctx context.Context, in CreateDirectoryInput) (any, error) {
 		return dir.CreateInstitution(ctx, in.Name, in.InstitutionType, in.IconKey)
 	})
-	writeTool(s, server, "update_institution", "Edit an institution: supply name, iconKey, archived or any combination (at least one). Omitted fields are kept; supplied name and icon apply together. archived true archives and false restores, preserving history. Its type is not editable.", s.editInstitution)
+	writeTool(s, server, "update_institution", "Partial institution edit. Supply name, iconKey, archived, or any combination (at least one). Omitted fields are kept. JSON null and an empty string are rejected: name and icon cannot be cleared, and archived is only true or false. Supplied name and icon apply together. archived true archives and false restores, preserving history. Its type is not editable.", s.editInstitution)
 	writeTool(s, server, "create_group", "Create an account group.", func(ctx context.Context, in CreateDirectoryInput) (any, error) {
 		return dir.CreateGroup(ctx, in.Name, in.IconKey)
 	})
-	writeTool(s, server, "update_group", "Edit a group: supply name, iconKey, archived or any combination (at least one). Omitted fields are kept; supplied name and icon apply together. archived true archives and false restores, preserving history.", s.editGroup)
+	writeTool(s, server, "update_group", "Partial group edit. Supply name, iconKey, archived, or any combination (at least one). Omitted fields are kept. JSON null and an empty string are rejected: name and icon cannot be cleared, and archived is only true or false. Supplied name and icon apply together. archived true archives and false restores, preserving history.", s.editGroup)
 	writeTool(s, server, "create_account", "Create an account with explicit ownership, currency, tracking mode and inclusion flags. Choose a legal combination from get_catalog. initialAmount must be 0 for balance/manual_value accounts and omitted for holdings accounts; with ledger_write, record funding through preview_change and commit_plan after creation.", func(ctx context.Context, in account.CreateAccountRequest) (any, error) {
 		if in.InitialAmount != "" && in.InitialAmount != "0" {
 			return nil, fail("validation", "initialAmount must be empty or zero; funding requires a ledger operation")
 		}
 		return accounts.CreateAccount(ctx, in)
 	})
-	writeTool(s, server, "update_account", "Edit only supplied account fields; omitted fields are preserved. To clear institutionId, groupId, note, iconKey, openedOn or closedOn, send its <field>Set=true and omit the value; JSON null is rejected because it is the same as omission. An empty value without Set keeps the stored one. Ownership is a complete replacement when supplied. Tracking mode and balance sheet role follow existing immutability rules.", func(ctx context.Context, in UpdateAccountInput) (any, error) {
-		return accounts.UpdateAccount(ctx, in.ID, in.Changes)
-	})
+	writeTool(s, server, "update_account", "Partial account edit. Omitted fields are kept. JSON null clears institutionId, groupId, note, iconKey, openedOn and closedOn. An empty string is rejected on those fields: it does not clear them and it does not keep the stored value. Null and an empty string are rejected for name, accountType, balanceSheetRole, trackingMode, defaultCurrency, inclusion flags, ownership and initialAmount. A supplied ownership list replaces the whole allocation and cannot be empty. initialAmount does not rewrite balance history. Tracking mode, balance sheet role and currency stay immutable.", s.updateAccount)
 	writeTool(s, server, "archive_account", "Archive or restore an account, preserving history.", func(ctx context.Context, in ArchiveInput) (any, error) {
 		return done(accounts.ArchiveAccount(ctx, in.ID, in.Archived))
 	})
 	writeTool(s, server, "create_instrument", "Create an investment instrument, not a holding or trade. Search existing instruments first; require explicit market/currency when ambiguous.", func(ctx context.Context, in instrument.InstrumentRequest) (any, error) {
 		return instruments.CreateInstrument(ctx, in)
 	})
-	writeTool(s, server, "update_instrument", "Edit an investment instrument. replace=false retains unspecified fields; replace=true replaces complete form state. This changes instrument metadata, not quantity or cost.", func(ctx context.Context, in UpdateInstrumentInput) (any, error) {
-		return instruments.UpdateInstrument(ctx, in.ID, instrument.InstrumentRequest(in.Changes))
-	})
+	writeTool(s, server, "update_instrument", "Partial instrument edit. Omitted fields are kept. JSON null clears shortName, symbol, marketCode, countryCode, isin, note, providerKey and providerSymbol, and resets iconKey to the type default. An empty string is rejected and does not clear. Null is rejected for name, type, quoteCurrency, metalTemplate, quantityUnit, quoteSource and sortOrder. This changes instrument metadata, not quantity or cost.", s.updateInstrument)
 	writeTool(s, server, "archive_instrument", "Archive or restore an instrument under existing holding rules.", func(ctx context.Context, in ArchiveInput) (any, error) {
 		return done(instruments.ArchiveInstrument(ctx, in.ID, in.Archived))
 	})
