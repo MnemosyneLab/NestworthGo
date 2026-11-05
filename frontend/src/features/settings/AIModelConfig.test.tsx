@@ -32,7 +32,7 @@ it("requires explicit desktop opt-in and submits no credential material", async 
   mount();
   expect(screen.getByRole("checkbox")).not.toBeChecked();
   await user.click(
-    screen.getByLabelText("Enable desktop read-only model requests"),
+    screen.getByLabelText("Enable desktop model requests"),
   );
   await user.clear(screen.getByLabelText("Model ID"));
   await user.type(screen.getByLabelText("Model ID"), "test-model");
