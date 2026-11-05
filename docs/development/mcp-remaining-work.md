@@ -213,7 +213,7 @@ Wave 3(最后,依赖前面都合并)
 | --- | --- | --- |
 | 目录合并走形态 1(按 kind)还是形态 2(仅归档并入 update) | B | 形态 2 |
 | `operationId` 只对 `commit_plan` 可选,还是所有写工具 | B2 | 已决定:只对 `commit_plan` |
-| review 写工具是否默认隐藏 | D | 先看 A2 里的实际使用 |
-| 是否做 PATCH 统一 | E3 | 先观察 E1 之后的情况再定 |
-| 是否删除 `toolGroups` | G | 取决于 A2 |
+| review 写工具是否默认隐藏 | D | 本轮不做，见 mcp-wave2-deferred.md |
+| 是否做 PATCH 统一 | E3 | 本轮不做，见 mcp-wave2-deferred.md |
+| 是否删除 `toolGroups` | G | 已删除，见 mcp-wave2-g-toolgroups.md |
 | 破坏性批次 skill 版本用 PATCH 还是 MINOR | 所有工具面变更 | 当前政策是 PATCH,若希望标出不兼容可改 MINOR |
