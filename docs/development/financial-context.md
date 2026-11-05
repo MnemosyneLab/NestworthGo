@@ -262,8 +262,8 @@ Arguments: required `contextId`, `ref`; optional `section` (`positions`, `gaps`,
 `evidence`), `cursor`, `limit` (default 25, maximum 100). Omitted section returns
 at most one row from each related section. An explicit section without cursor
 starts at zero, including for empty sections. Continue using get_read_page with only its matching signed cursor and optional
-limit. The authenticated scope retains contextId, ref and section. Explicit-scope
-financial page tools remain aliases; see [business pagination](mcp-pagination.md). All three page descriptors retain total/returned/
+limit. The authenticated scope retains contextId, ref and section. The explicit-scope
+financial page tools were removed; see [business pagination](mcp-pagination.md). All three page descriptors retain total/returned/
 hasMore/nextCursor semantics; crowded initial sections can defer zero rows, but
 a standalone nonempty continuation must advance or return `too_large`.
 

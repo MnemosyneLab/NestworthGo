@@ -1151,6 +1151,40 @@ These are wire bytes, not model tokens. Output schemas now dominate
 shrinking them changes client-visible validation and is therefore evaluated
 as a contract change in the Phase 3 design note, not as a prose edit.
 
+### Paired scenario measurement (headless, synthetic data)
+
+Measured with the production Streamable HTTP server and the Go MCP SDK client
+over a loopback transport (`payloadRecorder`: complete JSON-RPC response bytes,
+including structuredContent, text fallback and escaping), on a synthetic ledger
+fixture (`MCP ledger`, USD base, one member). Before = `4eaafa6e` (main), after =
+this branch, same call script, one run each (the byte counts are deterministic;
+there is no timing claim). The scripts follow the documented skill examples.
+
+| Scenario | Calls before -> after | Bytes before -> after |
+| --- | --- | --- |
+| Discovery (`initialize` + `tools/list`, 7 calls, ledger_write) | 7 -> 7 | 189,510 -> 175,925 (-7.2%) |
+| 1. Current net worth (`get_financial_context`) | 1 -> 1 | 9,038 -> 9,036 |
+| 2. Record a buy (income + buy previews/commits, holdings read) | 5 -> 5 | 21,183 -> 21,307 (+0.6%) |
+| 3. Balance reconcile (preview + commit) | 2 -> 2 | 7,002 -> 7,002 |
+| 4. Import fund NAV (create instrument, import, read, scan) | 4 -> 4 | 6,506 -> 6,630 |
+| 5a. `get_overview`, every section | 1 -> 1 | 17,285 -> 17,411 (small fixture: already complete) |
+| 5b. `analyze_period`, 28 days, every section | 2 -> 2 | 17,680 -> 17,864 (28 points exceed the 25-row cap) |
+| 5d. `analyze_period`, 20 days, every section | 2 -> 1 | 14,768 -> 13,029 (-11.8%) |
+| 6. Data repair (scan, preview, start, poll) | 4 -> 4 | 7,666 -> 7,916 |
+
+The small per-response increase (about 125 bytes) is the `delivery` object. Gains
+appear only when a result has between six and 25 rows per section; with small
+fixtures or more than 25 rows the call count is unchanged.
+
+Not measured, and therefore not claimed: native macOS app behavior (the
+`com.nestworth.dev` isolated QA flow was not run), real LLM client behavior and
+model tokens (wire bytes are not tokens), and the effect of the shorter skill on
+how many calls a real agent makes.
+
+Follow-up candidates (icon/update merge, PATCH audit, commit plans, financial
+read semantics, output-schema footprint) are analyzed in
+[mcp-consolidation-design.md](mcp-consolidation-design.md); none is implemented.
+
 ## Client-specific discovery notes
 
 These notes were moved out of the distributable skill, which is loaded into
