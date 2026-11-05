@@ -261,7 +261,7 @@ function Workspace() {
       case "available-funds": return { page: "available-funds", accountId: snapshot.liquidityAccount, productId: snapshot.liquidityProduct, focus: snapshot.liquidityFocus };
       case "return-analysis": case "asset-changes": {
         const state = snapshot.analysis;
-        const analysis = { scope: state.scope, scopeId: state.scopeId, valuation: state.valuation, includeCash: state.includeCash, from: state.from, to: state.to, moreFilters: state.moreFilters, returnType: state.contributionReturnType };
+        const analysis = { scope: state.scope, scopeId: state.scopeId, valuation: state.valuation, includeCash: state.includeCash, from: state.from, to: state.to, moreFilters: state.moreFilters, returnType: state.contributionReturnType, trendDisplay: state.trendDisplay };
         return snapshot.page === "return-analysis" ? { page: snapshot.page, tab: state.returnTab, cursor: state.returnCursor, analysis } : { page: snapshot.page, tab: state.assetTab, cursor: state.assetCursor, analysis };
       }
       default: return targetForPage(snapshot.page);

@@ -150,3 +150,11 @@ func (s *Service) SetFullAccess(epoch string, revision uint64, enabled bool) err
 	}
 	return s.runtime.SetFullAccess(context.Background(), epoch, revision, enabled)
 }
+
+// Rename gives explicit desktop naming precedence over pending generation.
+func (s *Service) Rename(epoch, id, title string) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.Rename(context.Background(), epoch, id, title)
+}

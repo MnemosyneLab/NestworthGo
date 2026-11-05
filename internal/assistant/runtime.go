@@ -87,14 +87,17 @@ type State struct {
 	Conversations []ConversationState `json:"conversations"`
 }
 type ConversationState struct {
-	Reviews       []ReviewRef `json:"reviews,omitempty"`
-	ID            string      `json:"id"`
-	Updated       time.Time   `json:"updated"`
-	History       []byte      `json:"history,omitempty"`
-	HistoryDigest string      `json:"historyDigest,omitempty"`
-	Runs          []RunState  `json:"runs"`
-	Events        []Event     `json:"events"`
-	Sequence      uint64      `json:"sequence"`
+	Reviews        []ReviewRef `json:"reviews,omitempty"`
+	Title          string      `json:"title,omitempty"`
+	TitleSource    string      `json:"titleSource,omitempty"`
+	TitleAttempted bool        `json:"titleAttempted,omitempty"`
+	ID             string      `json:"id"`
+	Updated        time.Time   `json:"updated"`
+	History        []byte      `json:"history,omitempty"`
+	HistoryDigest  string      `json:"historyDigest,omitempty"`
+	Runs           []RunState  `json:"runs"`
+	Events         []Event     `json:"events"`
+	Sequence       uint64      `json:"sequence"`
 }
 type RunState struct {
 	Run    Run    `json:"run"`
@@ -136,13 +139,15 @@ type Snapshot struct {
 	Reason          string      `json:"reason"`
 }
 type Conversation struct {
-	Progress   *Progress              `json:"progress,omitempty"`
-	Navigation *ModelNavigationIntent `json:"navigation,omitempty"`
-	ID         string                 `json:"id"`
-	Updated    time.Time              `json:"updated"`
-	Runs       []Run                  `json:"runs"`
-	RunCount   int                    `json:"runCount"`
-	Offset     int                    `json:"offset"`
+	Title       string                 `json:"title,omitempty"`
+	TitleSource string                 `json:"titleSource,omitempty"`
+	Progress    *Progress              `json:"progress,omitempty"`
+	Navigation  *ModelNavigationIntent `json:"navigation,omitempty"`
+	ID          string                 `json:"id"`
+	Updated     time.Time              `json:"updated"`
+	Runs        []Run                  `json:"runs"`
+	RunCount    int                    `json:"runCount"`
+	Offset      int                    `json:"offset"`
 }
 type EventPage struct {
 	Events []Event `json:"events"`
@@ -167,6 +172,8 @@ type CapabilityLifecycle interface {
 
 type Options struct {
 	Reviews             ReviewProvider
+	TitleGenerator      TitleGenerator
+	TitleTimeout        time.Duration
 	NavigationValidator func(context.Context, ModelNavigationTarget) bool
 	NavigationClock     func() time.Time
 	Capabilities        CapabilityLifecycle
@@ -181,6 +188,7 @@ type Runtime struct {
 	fullEnabled          bool
 	writeEnabled         bool
 	reviewBusy           map[string]bool
+	titles               map[string]context.CancelFunc
 	progress             map[string]*Progress
 	pageReads            map[string]pendingPageRead
 	navigationGeneration uint64
@@ -203,6 +211,12 @@ type Runtime struct {
 func NewRuntime(o Options) (*Runtime, error) {
 	if o.Store == nil || o.Credentials == nil || o.Factory == nil || o.Validate == nil || o.Ledger == "" {
 		return nil, ErrUnavailable
+	}
+	if o.TitleTimeout == 0 {
+		o.TitleTimeout = 10 * time.Second
+	}
+	if o.TitleTimeout < 0 || o.TitleTimeout > 10*time.Second {
+		return nil, ErrBudget
 	}
 	if o.Timeout == 0 {
 		o.Timeout = 120 * time.Second
@@ -232,6 +246,15 @@ func NewRuntime(o Options) (*Runtime, error) {
 	r.state.Conversations = kept
 	for i := range r.state.Conversations {
 		c := &r.state.Conversations[i]
+		// Existing untitled history receives a local title without a new provider request.
+		if c.Title == "" && len(c.Runs) > 0 {
+			c.Title = localTitle(c.Runs[0].Run.Prompt)
+			c.TitleSource = "local"
+			c.TitleAttempted = true
+		}
+		if c.TitleSource == "pending" {
+			c.TitleSource = "local"
+		}
 		for j := range c.Runs {
 			run := &c.Runs[j].Run
 			if !terminal(run.State) {
@@ -368,6 +391,7 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 	r.fullEnabled = false
 	r.state.Config = cfg
 	r.clearNavigation()
+	r.cancelTitles()
 	r.state.Revision++
 	return r.persist()
 }
@@ -412,6 +436,7 @@ func (r *Runtime) SetCredential(ctx context.Context, epoch string, key []byte) e
 		r.options.Capabilities.Revoke()
 	}
 	r.clearNavigation()
+	r.cancelTitles()
 	r.state.Revision++
 	return r.persist()
 }
@@ -431,6 +456,7 @@ func (r *Runtime) DeleteCredential(ctx context.Context, epoch string) error {
 	r.fullEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
+	r.cancelTitles()
 	r.state.Revision++
 	if err := r.persist(); err != nil {
 		return err
@@ -481,7 +507,7 @@ func (r *Runtime) find(id string) *ConversationState {
 // JSON escaping). The latest turn is returned by Inspect after reconnect.
 func view(c ConversationState) Conversation { return page(c, len(c.Runs)-1) }
 func page(c ConversationState, offset int) Conversation {
-	v := Conversation{ID: c.ID, Updated: c.Updated, Runs: []Run{}, RunCount: len(c.Runs), Offset: offset}
+	v := Conversation{Title: c.Title, TitleSource: c.TitleSource, ID: c.ID, Updated: c.Updated, Runs: []Run{}, RunCount: len(c.Runs), Offset: offset}
 	if offset >= 0 && offset < len(c.Runs) {
 		run := c.Runs[offset].Run
 		run.Evidence = append([]ReadEvidence(nil), run.Evidence...)
@@ -515,7 +541,7 @@ func (r *Runtime) List(ctx context.Context, epoch string) ([]Conversation, error
 	}
 	out := make([]Conversation, 0, len(r.state.Conversations))
 	for _, c := range r.state.Conversations {
-		out = append(out, Conversation{ID: c.ID, Updated: c.Updated, Runs: []Run{}, RunCount: len(c.Runs)})
+		out = append(out, Conversation{Title: c.Title, TitleSource: c.TitleSource, ID: c.ID, Updated: c.Updated, Runs: []Run{}, RunCount: len(c.Runs)})
 	}
 	return out, nil
 }
@@ -574,6 +600,7 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 			if r.options.Capabilities != nil {
 				r.options.Capabilities.Drop(id)
 			}
+			r.cancelTitle(id)
 			delete(r.progress, id)
 			r.state.Conversations = append(r.state.Conversations[:i], r.state.Conversations[i+1:]...)
 			return r.persist()
@@ -648,6 +675,10 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	run := Run{PageLeaseID: q.PageLeaseID, Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
 	c.Runs = append(c.Runs, RunState{Run: run, Digest: hash})
 	c.Updated = run.Created
+	if c.Title == "" {
+		c.Title = localTitle(q.Prompt)
+		c.TitleSource = "local"
+	}
 	r.event(c, run)
 	if e := r.persist(); e != nil {
 		return Run{}, e
@@ -729,6 +760,7 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 	r.finish(id, runID, result, state, code)
 	if state == "succeeded" {
 		r.offerNavigation(ctx, id, runID, result)
+		r.startTitle(id, cfg, prompt)
 	}
 }
 
@@ -843,6 +875,7 @@ func (r *Runtime) FenceForRestore() error {
 	r.fullEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
+	r.cancelTitles()
 	r.state.Revision++
 	return r.persist()
 }

@@ -36,6 +36,12 @@ export const assistantEn = {
     "unknown": "Outcome unknown. Keep this review and inspect; do not submit again."
   }
 ,
+    rename: "Rename conversation",
+    titleLabel: "Conversation title",
+    saveTitle: "Save title",
+    cancelTitle: "Cancel rename",
+    titlePolicy: "After the first successful reply, we try gpt-6-luna once using your existing provider and key to title the chat. Only the first question (up to 512 characters) is sent, without page or ledger data. This additional request may incur provider charges. If unavailable, a local title is kept. Manual names always take priority.",
+    titleSource: { local: "Title generated locally", pending: "Generating title with Luna…", luna: "Title generated with gpt-6-luna", manual: "Manually named conversation" },
 
     detailOmitted: "Display budget exhausted; value omitted. The complete value was used by the tool/model.",
 
@@ -72,10 +78,11 @@ export const assistantEn = {
 
     sendNavigate: "Send and allow one page change",
     navigationHelp:
-      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview, account or Return analysis page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
+      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview, account or Return analysis page change (including explicit trend dates and supported filters) for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
     navigationPending:
       "One page change authorized for this message; waiting for a successful reply.",
     navigationOpened: "The requested page was opened.",
+    navigationUnverified: "The page may have changed, but the requested trend and filters could not be verified. Check the page before retrying.",
     navigationStopped:
       "No page change was applied. The request, page lease or review guard did not permit it; it will not retry automatically.",
     offlineLocal:
@@ -91,6 +98,7 @@ export const assistantEn = {
       get_current_page: "Current page",
       get_navigation_targets: "Navigation choices",
       open_page: "Request page change",
+      open_return_trend: "Request return trend and filters",
 
       propose_cash_change: "Cash change proposal",
       read_page_content: "Page content",
@@ -288,6 +296,12 @@ export const assistantZhCN = {
     "unknown": "结果尚未确定。请保留审阅并查询，不要重新提交。"
   }
 ,
+    rename: "重命名会话",
+    titleLabel: "会话标题",
+    saveTitle: "保存标题",
+    cancelTitle: "取消重命名",
+    titlePolicy: "首次成功回复后，使用现有提供商和密钥尝试调用一次 gpt-6-luna 生成标题。仅发送首条问题（最多 512 个字符），不附带页面或账本数据。额外请求可能产生提供商费用；不可用时保留本地标题。手动命名始终优先。",
+    titleSource: { local: "本地生成的标题", pending: "正在使用 Luna 生成标题…", luna: "由 gpt-6-luna 生成的标题", manual: "手动命名的会话" },
 
     detailOmitted: "展示额度已用尽，此值未展示。工具和模型使用完整值。",
 
@@ -324,9 +338,10 @@ export const assistantZhCN = {
 
     sendNavigate: "发送并允许一次页面跳转",
     navigationHelp:
-      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览、账户或收益分析页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
+      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览、账户或收益分析页面跳转（包括明确的趋势日期和支持的筛选）；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
     navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
     navigationOpened: "已打开请求的页面。",
+    navigationUnverified: "页面可能已变化，但未能验证请求的收益趋势和筛选。请检查页面后再重试。",
     navigationStopped:
       "未执行页面跳转：请求、页面凭证或审核状态不允许，且不会自动重试。",
     offlineLocal:
@@ -341,6 +356,7 @@ export const assistantZhCN = {
       get_current_page: "当前页面",
       get_navigation_targets: "可导航页面",
       open_page: "请求页面跳转",
+      open_return_trend: "请求收益趋势和筛选",
 
       propose_cash_change: "现金变更提案",
       read_page_content: "页面内容",
@@ -524,6 +540,12 @@ export const assistantZhTW = {
     "unknown": "結果尚未確定。請保留審閱並查詢，不要重新提交。"
   }
 ,
+    rename: "重新命名對話",
+    titleLabel: "對話標題",
+    saveTitle: "儲存標題",
+    cancelTitle: "取消重新命名",
+    titlePolicy: "首次成功回覆後，使用現有供應商和金鑰嘗試呼叫一次 gpt-6-luna 產生標題。僅傳送首條問題（最多 512 個字元），不附帶頁面或帳本資料。額外請求可能產生供應商費用；無法使用時保留本機標題。手動命名始終優先。",
+    titleSource: { local: "本機產生的標題", pending: "正在使用 Luna 產生標題…", luna: "由 gpt-6-luna 產生的標題", manual: "手動命名的對話" },
 
     detailOmitted: "展示額度已用盡，此值未展示。工具和模型使用完整值。",
 
@@ -560,9 +582,10 @@ export const assistantZhTW = {
 
     sendNavigate: "傳送並允許一次頁面跳轉",
     navigationHelp:
-      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽、帳戶或收益分析頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
+      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽、帳戶或收益分析頁面跳轉（包括明確的趨勢日期和支援的篩選）；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
     navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
     navigationOpened: "已開啟請求的頁面。",
+    navigationUnverified: "頁面可能已變更，但未能驗證請求的收益趨勢和篩選。請檢查頁面後再重試。",
     navigationStopped:
       "未執行頁面跳轉：請求、頁面憑據或審核狀態不允許，且不會自動重試。",
     offlineLocal:
@@ -577,6 +600,7 @@ export const assistantZhTW = {
       get_current_page: "目前頁面",
       get_navigation_targets: "可導覽頁面",
       open_page: "請求頁面跳轉",
+      open_return_trend: "請求收益趨勢和篩選",
 
       propose_cash_change: "現金變更提案",
       read_page_content: "頁面內容",

@@ -47,7 +47,7 @@ the existing cropping, page limits, missingness and exact-money contracts.
 `get_read_item`, `compare_financial_context` and `compare_financial_attribution`.
 Continuations use `get_read_page`; the former explicit-scope financial page tools
 were removed. It adds `get_current_page` only for supported
-view selections, and `get_navigation_targets`/`open_page` only for an explicit
+view selections, and `get_navigation_targets`/`open_page`/`open_return_trend` only for an explicit
 per-message host grant. The shared session independently rechecks permissions
 and budgets.
 No configuration, network refresh, projection-maintaining analysis or human
@@ -462,7 +462,7 @@ publishes a fresh backend page lease, records explicit authorization for a
 not-yet-started request and then starts that exact request. A lease/selector alone
 cannot grant authority. Grants bind current epoch/config revision, conversation,
 request, source selection and a fixed two-minute expiry. Backend-issued opaque
-target refs permit only overview, account list and accounts already disclosed by
+target refs permit overview, account list, fixed Return analysis tabs and accounts already disclosed by
 controlled reads. IDs in the target inventory are correlation data, never accepted
 as `open_page` authority. No arbitrary route, URL, coordinate, DOM command, SQL,
 financial proposal or approval flag is accepted.
@@ -485,9 +485,36 @@ after IPC, and honors App navigation rejection. Stop, a newer submission or
 transport uncertainty also withdraws pending frontend application. Full page-
 publication/mobile authorization via the broader Go PageHost port remains separate.
 
-Remaining gates include richer financial evidence cards, analysis filter/date
-navigation, arbitrary page/control coverage, trusted financial proposal/review/
-receipt wiring, mobile/scoped principals, native GUI/accessibility, physical
+`open_return_trend` is a finite internal-desktop presentation action. It resolves
+one disclosed account ref or the current household's trend-root ref, requires an
+explicit inclusive civil `from`/`to`, valuation, cash inclusion and display mode,
+and optionally accepts catalog currency/asset-class filters. It replaces the
+complete filter set; member/instrument filters are not supported by this action.
+The model must clarify ambiguous dates, duplicate account names or unsupported
+filter requests before calling. No arbitrary DOM, route, script or financial
+write capability is added, and external MCP cannot discover or invoke it.
+
+The host rejects ranges outside History Origin and the latest closed household
+local day instead of silently clamping. Consumption rechecks the live account.
+The ordinary App navigation path preserves Back/Forward state, including trend
+display. The mounted ReturnTrendTab then acknowledges its effective query range,
+account, actual controls, supported filters and finished query. Merely setting the
+store is insufficient. Query failure, unavailable results, clamped ranges,
+forced valuation, concurrent filter/page changes or a missing acknowledgement
+within five seconds produce an explicit unverified result (the page may already
+have changed), never a successful application claim. The model's tool result
+remains `requested`; only the desktop reports verified completion. Partial data
+keeps its ordinary visible coverage warnings and is not upgraded to complete
+financial evidence. After an accepted action, every subsequent action attempt
+revokes the pending target and permanently spends that turn, including malformed,
+oversized, cancelled or unknown-target requests and attempts using the other
+navigation tool. Inventory reads do not revoke it. Before any action is accepted,
+an invalid request may be corrected within the still-valid grant. New actions
+after a conflict need a new per-message grant.
+
+Remaining gates include richer financial evidence cards, broader analysis filter
+navigation, arbitrary page/control coverage, financial proposal/review/receipt
+families beyond the reviewed cash path, mobile/scoped principals, native GUI/accessibility, physical
 devices, full power-loss/restore acceptance and real-provider encrypted-signature
 compatibility. Larger periods/households need measured memory/latency evidence
 before budgets are expanded. All unsupported paths stay closed.
@@ -685,3 +712,35 @@ workspace validation and unresolved-review checks are unchanged. In particular,
 generic reading does not add routes, arbitrary UI control or financial writes.
 Native GUI, real-provider and physical-device acceptance require separate evidence
 from component/protocol tests and builds.
+
+### Conversation titles
+
+The host persists an optional title, source (`local`, `pending`, `luna`, or
+`manual`) and one-shot attempt marker in the private conversation sidecar.
+Existing untitled history receives a local title at startup; it is never sent
+back to a provider merely because the app upgraded or restarted. Older app
+versions with strict sidecar decoding may reject the added optional fields;
+do not downgrade against the updated private sidecar.
+
+New conversations immediately receive a whitespace-normalized, 48-code-point
+excerpt of the first question. After the first successful answer the host makes
+at most one separate `gpt-6-luna` Responses request using the existing provider
+and credential. There is no extra key, tool/session access, page content, native
+history, assistant answer, or ledger attachment. Only the first user question,
+limited to 512 code points, accompanies title-only instructions. User-supplied
+question text itself may contain financial details. Provider availability is not
+assumed: unavailable models, errors, malformed/empty results, cancellation and
+a ten-second deadline retain the local title. There are no automatic retries,
+including after restart. This additional request can incur provider charges;
+the settings and conversation information disclose the model and behavior.
+
+The answer is durable before title work starts, and later turns do not wait for
+it. Title workers are isolated by conversation and fenced by runtime/configuration
+revision. Disable, credential replacement/deletion, restore, shutdown and
+conversation deletion cancel outstanding work; late results cannot recreate a
+conversation or replace a manually named title. Desktop Rename persists manual
+ownership even when the text equals the existing automatic title. Names are
+limited to 64 Unicode code points, reject control/format characters and the active
+credential, and render as text. Retention and ledger binding are unchanged.
+The UI polls authoritative title metadata and supports keyboard rename, cancel,
+and localized English, Simplified Chinese and Traditional Chinese labels.
