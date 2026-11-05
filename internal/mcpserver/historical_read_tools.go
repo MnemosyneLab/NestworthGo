@@ -24,7 +24,7 @@ type HistoricalReadFilter struct {
 type HistoricalReadOptions struct {
 	View   string                `json:"view,omitempty" jsonschema:"compact (default) or evidence; full row evidence is also available via get_read_item"`
 	Filter *HistoricalReadFilter `json:"filter,omitempty" jsonschema:"Select endpoint rows only; household monetary totals and series points retain full scope"`
-	Limit  int                   `json:"limit,omitempty" jsonschema:"Initial default 5 per section, maximum 100; continuations default 25; byte-aware pages may contain fewer rows"`
+	Limit  int                   `json:"limit,omitempty" jsonschema:"Initial rows per section; omitted fills small results within a byte budget (at least 5 when they fit, at most 25), maximum 100; continuations default 25; byte-aware pages may contain fewer rows"`
 }
 
 var historicalReasons = []string{"carried_nav", "carried_price", "carried_fx", "history_unverified", "price_missing", "fx_missing", "account_value_missing", "evidence_unavailable", "instrument_price", "missing_instrument", "fx_rate", "account_value", "history_coverage", "holding_amount", "funding_cash_after_product_start"}
@@ -33,9 +33,6 @@ func normalizeHistoricalRead(in HistoricalReadOptions) (HistoricalReadOptions, H
 	f := HistoricalReadFilter{}
 	if in.Filter != nil {
 		f = *in.Filter
-	}
-	if in.Limit == 0 {
-		in.Limit = 5
 	}
 	if in.View == "" {
 		in.View = "compact"
@@ -371,7 +368,7 @@ func (s *Service) pagedHistoricalOverview(ctx context.Context, g uint64, in Hist
 	if err != nil {
 		return ReadEnvelope{}, err
 	}
-	return s.buildRead(ctx, g, options.Limit, func(ctx context.Context) (readCapture, error) {
+	return s.buildRead(ctx, g, autoInlineWhenUnset(options.Limit), func(ctx context.Context) (readCapture, error) {
 		result, e := s.app.HistoricalOverview(ctx, in.Date, in.CompareTo)
 		if e != nil {
 			return readCapture{}, e
@@ -384,7 +381,7 @@ func (s *Service) pagedHistoricalSeries(ctx context.Context, g uint64, in Histor
 	if err != nil {
 		return ReadEnvelope{}, err
 	}
-	return s.buildRead(ctx, g, options.Limit, func(ctx context.Context) (readCapture, error) {
+	return s.buildRead(ctx, g, autoInlineWhenUnset(options.Limit), func(ctx context.Context) (readCapture, error) {
 		result, e := s.app.HistoricalOverviewSeries(ctx, in.From, in.To)
 		if e != nil {
 			return readCapture{}, e

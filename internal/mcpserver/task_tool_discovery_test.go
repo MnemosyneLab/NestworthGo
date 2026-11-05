@@ -22,7 +22,7 @@ func TestTaskDiscoveryMeasuredSubsetAndUnchangedPermissions(t *testing.T) {
 			t.Fatal("uncategorized registered tool", tool.Name)
 		}
 	}
-	arguments := skillExample(t, "connection", "task-tool-discovery", nil)
+	arguments := map[string]any{"_meta": map[string]any{"nestworth.toolGroups": []string{"summary"}}}
 	raw, _ := jsoncodec.Marshal(arguments)
 	var focusedParams mcp.ListToolsParams
 	if err := jsoncodec.Unmarshal(raw, &focusedParams); err != nil {
@@ -32,7 +32,7 @@ func TestTaskDiscoveryMeasuredSubsetAndUnchangedPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(focused.Tools) != 9 || focused.NextCursor != "" {
+	if len(focused.Tools) != 7 || focused.NextCursor != "" {
 		t.Fatal("summary tool profile", len(focused.Tools), focused.NextCursor)
 	}
 	originals := map[string]*mcp.Tool{}

@@ -99,7 +99,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 				t.Fatal(info)
 			}
 			instructions := client.InitializeResult().Instructions
-			if !strings.Contains(instructions, "GUI permittedActions do not grant MCP permission") || !strings.Contains(instructions, "due_unconfirmed does not automatically record cash") {
+			if !strings.Contains(instructions, "GUI permittedActions do not grant MCP permission") || !strings.Contains(instructions, "due_unconfirmed does not record cash") {
 				t.Fatal("missing product routing/boundary instructions")
 			}
 			call(t, client, "list_products", map[string]any{}, false)

@@ -29,7 +29,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			}
 			client := connect(t, s)
 			instructions := client.InitializeResult().Instructions
-			for _, phrase := range []string{"call compare_financial_attribution directly without get_context", "A+1 through B", "new coherent comparisonId", "may maintain derived snapshots and invalidate ledger previews", "even in read_only mode"} {
+			for _, phrase := range []string{"call compare_financial_attribution directly", "A+1 through B", "new coherent comparisonId", "invalidate previews", "even in read_only mode"} {
 				if !strings.Contains(instructions, phrase) {
 					t.Fatal("missing attribution route/side-effect instruction", phrase)
 				}
@@ -51,7 +51,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				t.Fatal("tool not available")
 			}
 			values := map[string]string{"leftDate": "2025-03-02", "rightDate": "2025-03-03", "accountId": accountID}
-			args := skillExample(t, "analysis", "financial-attribution", values)
+			args := skillExample(t, "financial-context", "financial-attribution", values)
 			old := decodeComparison(t, call(t, client, "compare_financial_context", args, false))
 			if _, err := history.NewService(app).RecordChange(t.Context(), history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: accountID, Amount: "10", Currency: "USD", Reason: "income", EffectiveAt: "2025-03-03T13:00:00Z"}); err != nil {
 				t.Fatal(err)
@@ -81,7 +81,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			for _, section := range skillSections {
 				info := states[section]
 				for info.HasMore {
-					page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
+					page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
 					raw, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
 					if page.Content.Attribution != nil || string(raw) != string(original) || page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.CapturedAt != initial.CapturedAt {
 						t.Fatal("link not frozen")
@@ -99,14 +99,14 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				}
 			}
 			// Old package remains a strictly frozen value comparison after recapture.
-			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: old.ComparisonID, Section: "positions", Cursor: old.PositionsPage.NextCursor}, false))
+			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: old.ComparisonID, Section: "positions", Cursor: old.PositionsPage.NextCursor}, false))
 			if page.Content.Attribution != nil || page.ContentHash != old.ContentHash || page.Content.Change.NetWorth.Value != nil {
 				t.Fatal("old cache rewritten")
 			}
-			oldArgs := skillExample(t, "analysis", "financial-attribution", values)
+			oldArgs := skillExample(t, "financial-context", "financial-attribution", values)
 			oldArgs["comparisonId"] = old.ComparisonID
 			call(t, client, "compare_financial_attribution", oldArgs, true)
-			single := decodeComparison(t, call(t, client, "compare_financial_attribution", skillExample(t, "analysis", "financial-attribution-account", values), false))
+			single := decodeComparison(t, call(t, client, "compare_financial_attribution", skillExample(t, "financial-context", "financial-attribution-account", values), false))
 			if single.Content.Attribution.Status != "compatible" || single.Content.Attribution.Scope.AccountCount != 1 || *single.Content.Change.NetWorth.Value != "-15" {
 				t.Fatal("single account mismatch", single)
 			}
@@ -120,12 +120,12 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			s.contexts.mu.Lock()
 			s.contexts.now = func() time.Time { return expired }
 			s.contexts.mu.Unlock()
-			call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
 			restarted := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
 			if restarted.ComparisonID == initial.ComparisonID {
 				t.Fatal("expired package reused")
 			}
-			call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: restarted.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{CaptureID: restarted.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
 		})
 	}
 }
@@ -167,7 +167,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
-	args := skillExample(t, "analysis", "financial-attribution-account", map[string]string{"leftDate": "2026-08-10", "rightDate": "2026-08-11", "accountId": selected.Account.ID.String()})
+	args := skillExample(t, "financial-context", "financial-attribution-account", map[string]string{"leftDate": "2026-08-10", "rightDate": "2026-08-11", "accountId": selected.Account.ID.String()})
 	later := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
 	if later.Content.Attribution.Status != "compatible" {
 		t.Fatal(later)
@@ -191,7 +191,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 	for _, section := range skillSections {
 		info := states[section]
 		for info.HasMore {
-			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
+			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
 			rawLink, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
 			if page.Content.Attribution != nil || string(rawLink) != string(originalLink) || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt || page.CacheExpiresAt != initial.CacheExpiresAt {
 				t.Fatal("precision summary thawed", page)

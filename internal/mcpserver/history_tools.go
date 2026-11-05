@@ -33,7 +33,7 @@ func (in ListActivitiesInput) request() history.ActivityQueryRequest {
 }
 
 type AnalyzePeriodInput struct {
-	Limit int                 `json:"limit,omitempty" jsonschema:"Initial rows per section, default 5, maximum 100"`
+	Limit int                 `json:"limit,omitempty" jsonschema:"Initial rows per section; omitted fills small results within a byte budget (at least 5 when they fit, at most 25), maximum 100"`
 	Query PeriodAnalysisQuery `json:"query" jsonschema:"Inclusive from/to YYYY-MM-DD local dates and optional scope, valuation, and filters"`
 }
 
@@ -100,7 +100,7 @@ func (s *Service) historyTools(server *toolSet) {
 	readTool(server, "get_activity", "Read one recorded activity by UUID, including its effects, trade or dividend details, and correction links. IDs come from list_activities.", func(ctx context.Context, in IDInput) (any, error) {
 		return historyService.Activity(ctx, in.ID)
 	})
-	analysisTool(server, "analyze_period", "Analyze income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the immutable History Origin timezone. The range must end before the current local day; missing prices/FX can leave closed-day results partial or unavailable. Preserve each DTO's available, status, missingReason, nullable amounts/rates and ratedDays/totalDays; missing values are not zero. Frozen mcp-read/1 summary preserves each projection header; income/expenses rows, assetChange waterfall/groups and investmentReturns points/sources have independent sections. Follow get_read_page cursors. This reads local records and does not place brokerage orders.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
+	analysisTool(server, "analyze_period", "Income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the household history timezone; the range must end before the current local day. Missing prices or FX can leave results partial or unavailable: keep available, status, missingReason and nullable amounts and rates, and never read null as zero. Own-account transfers and purchase principal are not income or expenses. Returns a summary plus sections (income, expenses, assetChange, investmentReturns); continue with get_read_page. May refresh derived snapshots.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
 		var result PeriodAnalysisDTO
 		query := in.Query.request()
 		// Keep all four projections on one application revision. Nested snapshot
@@ -125,11 +125,7 @@ func (s *Service) historyTools(server *toolSet) {
 		if err != nil {
 			return nil, err
 		}
-		limit := in.Limit
-		if limit == 0 {
-			limit = 5
-		}
-		return s.buildRead(ctx, generation, limit, func(context.Context) (readCapture, error) {
+		return s.buildRead(ctx, generation, autoInlineWhenUnset(in.Limit), func(context.Context) (readCapture, error) {
 			capture := readCapture{Kind: "period_analysis", Query: in, Summary: map[string]any{}, Sections: map[string][]json.RawMessage{}}
 			projections := []struct {
 				name   string

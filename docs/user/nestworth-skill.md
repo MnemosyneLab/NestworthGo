@@ -53,9 +53,9 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.1; published skill: 2.0.0
+### Current repository skill: 3.0.2; published skill: 2.0.0
 
-Repository skill 3.0.1 includes the unified business continuation entry
+Repository skill 3.0.2 includes the unified business continuation entry
 `get_read_page({cursor, limit?})`, default 25/max 100, including market-import
 comparison guidance. Live and version-bound reads return items/page; review
 inputs use optional limit. Descriptors retain live/version_bound/frozen semantics,
@@ -72,12 +72,20 @@ Embedded and standalone consumers use the same source and schema-checked example
 The current MCP workflows include breaking changes from the published skill;
 use actual discovery and schemas when connecting to an older App.
 
+Skill 3.0.2 is a slimming change with no new MCP contract: the entry file no
+longer asks the agent to inspect every tool before a task, connection guidance
+drops client-specific configuration (moved to the developer MCP guide), and the
+financial-context, two-state comparison and attribution workflows moved from
+`analysis.md` to `financial-context.md` so period-return questions load less
+text. The two explicit-scope financial page aliases were removed from the App;
+`get_read_page({cursor, limit?})` is the only continuation entry.
+
 This is an explicitly requested version normalization from the unreleased 6.0.1
 tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.1 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.2 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 
@@ -91,13 +99,10 @@ App or repository changes. Update explicitly, check `--status` for the intended
 skill version and reopen the chat if discovery is stale. A locally built archive
 is not a published release asset unless uploaded as part of a release.
 
-For Inspector CLI 2.10.0, the shipped connection reference includes a separate
-configuration example with explicit `"type": "http"`; preserve the App's endpoint
-and bearer header. The adaptation follows the Inspector's
-[server configuration format](https://github.com/modelcontextprotocol/inspector/blob/main/docs/mcp-server-configuration.md)
-and does not change the App's copied configuration for other clients. Nullable
-array portability warnings alone do not establish a permissions/tool failure;
-check discovery and actual argument validation.
+For Inspector CLI 2.10.0, add `"type": "http"` to the App-copied entry and
+preserve the endpoint and bearer header; see the
+[Inspector configuration notes](../development/mcp.md#inspector-cli-configuration).
+Other clients keep the App's copied configuration unchanged.
 
 ## Preview, inspect and update
 

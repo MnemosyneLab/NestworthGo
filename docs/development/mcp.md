@@ -846,7 +846,7 @@ preview/commit, durable receipt-first recovery and user-provided provenance.
 Existing financial target reconciliation keeps its original meaning. Optional
 reconciliationLink on ledger target/change and managed-product previews is part
 of the immutable request hash and owning financial transaction. A correction
-never confirms a check. Current repository skill 3.0.1 documents both routes, partial
+never confirms a check. Current repository skill 3.0.2 documents both routes, partial
 completion, source precision and same-operation recovery.
 
 
@@ -947,7 +947,7 @@ It preserves the complete current GUI overview: exact monetary values, complete,
 displayValuation and historyStarted in the summary; independent missingInputs,
 assetsByType/liabilitiesByType, byMember/byInstitution/byGroup/byAccountType,
 recentActivities, accountLabels, instrumentLabels and holdingLabels sections.
-Initial default is five per section, continuation default 25/max 100; all output
+Initial rows: floor of five per section, grown to at most 25 within a 24 KiB response budget when limit is omitted (see mcp-pagination.md), continuation default 25/max 100; all output
 uses mcp-read/1. totalsScope=request_account_filters. Counts describe complete
 section cardinalities. Use get_financial_context for a minimal-disclosure summary and adopted evidence.
 A 200-account regression fetches every section and compares every field with the
@@ -966,7 +966,7 @@ on get_market_data_batch (view=current/coverage/history). No history is discarde
 
 analyze_period returns mcp-read/1 with four projection headers in summary and
 income/rows, expenses/rows, assetChange/waterfall, assetChange/groups,
-investmentReturns/points and investmentReturns/sources sections (initial default 5).
+investmentReturns/points and investmentReturns/sources sections (initial rows as for get_overview).
 list_contributions freezes rows and detail together; get_contribution_item exposes
 rows/<key>/components and rows/<key>/byAccount; get_return_day pages composition,
 contributors/issues; get_asset_driver_detail pages byInstrument/byAccount/residualDetails.
@@ -990,7 +990,9 @@ Sorting/filtering occurs before projection and cursoring. Future GUI fields do
 not automatically expand these lists. Complete replacement writes need full
 metadata; compact-field omission does not clear a stored value.
 
-get_financial_context_page and get_financial_comparison_page return only
+Financial continuations through get_read_page (the removed
+get_financial_context_page and get_financial_comparison_page aliases returned
+the same shape) return only
 contextId/comparisonId, contentHash, capturedAt, cacheExpiresAt, section, items
 and page. The original content header, attribution/precision and the other
 sections' progress are not repeated. Clients save the initial header, append
@@ -1113,6 +1115,123 @@ Live/version-bound initial responses use items/page, while frozen initial sectio
 and financial disclosure headers keep their owning structure. No caller builds
 triple activity keys, product cursors or last-ID review cursors. Both external
 MCP and built-in AI use the same capability projection and routing. The MCP
-implementation version is 3.0.0; the distributable skill is independently 3.0.1
+implementation version is 3.0.0; the distributable skill is independently 3.0.2
 (unpublished; see the
 [skill version policy](../user/nestworth-skill.md#skill-version-policy)).
+
+## Discovery size and the external contract snapshot
+
+Every client pays the `tools/list` payload and the server instructions on
+connection, so both are bounded by tests rather than by convention:
+
+- `discovery_contract_test.go` compares, per permission mode and tool, a hash of
+  the name, annotations, input schema and output schema against
+  `testdata/discovery-contract.json`. Description prose is excluded, so guidance
+  can be shortened without blessing a changed argument, permission or result
+  shape. The golden file changes only by hand, as a reviewed contract change.
+- `discovery_budget_test.go` bounds the serialized `tools/list` size per mode,
+  the longest tool description and the instructions. Raising a limit needs a
+  stated reason.
+
+Boilerplate that repeated in every tool (permission requirement, receipt
+semantics, operationId retry rules, analysis snapshot side effects) lives once
+in the server instructions; the helper constructors no longer append it.
+
+Slimming measurement (real `tools/list` JSON from `TestDiscoveryBudget`,
+before -> after, bytes; "after" includes the exact `delivery` output property (both fields required, string
+array) added to 28 read tools, which costs about 6.6 KB per mode; before it the
+reductions were -7.2%, -7.9% and -8.6%):
+
+| Mode | Tools | `tools/list` | Descriptions | Instructions |
+| --- | --- | --- | --- | --- |
+| `read_only` | 55 -> 53 | 108,144 -> 107,005 (-1.1%) | 22,274 -> 16,842 | 3,111 -> 2,313 |
+| `directory_write` | 74 -> 72 | 128,513 -> 124,976 (-2.8%) | 26,377 -> 18,547 | 3,111 -> 2,313 |
+| `ledger_write` | 104 -> 102 | 187,634 -> 178,055 (-5.1%) | 43,889 -> 30,017 | 3,111 -> 2,313 |
+
+These are wire bytes, not model tokens. Output schemas now dominate
+(roughly 45 KB per mode, mostly the `mcp-read/1` envelope repeated per tool);
+shrinking them changes client-visible validation and is therefore evaluated
+as a contract change in the Phase 3 design note, not as a prose edit.
+
+### Paired scenario measurement (headless, synthetic data)
+
+Measured with the production Streamable HTTP server and the Go MCP SDK client
+over a loopback transport (`payloadRecorder`: complete JSON-RPC response bytes,
+including structuredContent, text fallback and escaping), on a synthetic ledger
+fixture (`MCP ledger`, USD base, one member). Before = `4eaafa6e` (main), after =
+this branch, same call script, one run each (the byte counts are deterministic;
+there is no timing claim). The scripts follow the documented skill examples.
+
+| Scenario | Calls before -> after | Bytes before -> after |
+| --- | --- | --- |
+| Discovery (`initialize` + `tools/list`, 7 calls, ledger_write) | 7 -> 7 | 189,510 -> 175,925 (-7.2%; measured before the exact `delivery` schema, which adds about 3.9 KB per mode) |
+| 1. Current net worth (`get_financial_context`) | 1 -> 1 | 9,038 -> 9,036 |
+| 2. Record a buy (income + buy previews/commits, holdings read) | 5 -> 5 | 21,183 -> 21,307 (+0.6%) |
+| 3. Balance reconcile (preview + commit) | 2 -> 2 | 7,002 -> 7,002 |
+| 4. Import fund NAV (create instrument, import, read, scan) | 4 -> 4 | 6,506 -> 6,630 |
+| 5a. `get_overview`, every section | 1 -> 1 | 17,285 -> 17,411 (small fixture: already complete) |
+| 5b. `analyze_period`, 28 days, every section | 2 -> 2 | 17,680 -> 17,864 (28 points exceed the 25-row cap) |
+| 5d. `analyze_period`, 20 days, every section | 2 -> 1 | 14,768 -> 13,029 (-11.8%) |
+| 6. Data repair (scan, preview, start, poll) | 4 -> 4 | 7,666 -> 7,916 |
+
+The small per-response increase (about 125 bytes) is the `delivery` object, which only top-level initial captures carry. Gains
+appear only when a result has between six and 25 rows per section; with small
+fixtures or more than 25 rows the call count is unchanged.
+
+Not measured, and therefore not claimed: native macOS app behavior (the
+`com.nestworth.dev` isolated QA flow was not run), real LLM client behavior and
+model tokens (wire bytes are not tokens), and the effect of the shorter skill on
+how many calls a real agent makes.
+
+Follow-up candidates (icon/update merge, PATCH audit, commit plans, financial
+read semantics, output-schema footprint) are analyzed in
+[mcp-consolidation-design.md](mcp-consolidation-design.md); none is implemented.
+
+## Client-specific discovery notes
+
+These notes were moved out of the distributable skill, which is loaded into
+agent context, because they concern client configuration and protocol
+parameters rather than ledger workflows.
+
+### Inspector CLI configuration
+
+Inspector CLI 2.10.0 requires its own explicit Streamable HTTP type. Add
+`"type": "http"` to the App-copied entry; a missing type can be interpreted as
+stdio and fail before connection. This is Inspector-specific, not a requirement
+for other clients. The format follows the Inspector's
+[server configuration format](https://github.com/modelcontextprotocol/inspector/blob/main/docs/mcp-server-configuration.md).
+
+```json
+{"mcpServers":{"nestworth":{"type":"http","url":"${endpoint}","headers":{"Authorization":"Bearer ${token}"}}}}
+```
+
+Replace the endpoint and token locally; placeholders are not expanded. Keep the
+file private and out of reports. Then list tools with:
+
+```bash
+npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.json --server nestworth --method tools/list
+```
+
+Inspector may warn about nullable arrays such as `accountIds` with
+`type: ["null", "array"]`. This is a valid nullable schema also used by other
+tools; a portability warning alone does not prove missing permission or an
+unavailable tool. Check discovery and actual call validation, and report a
+client compatibility problem rather than changing disclosure or bypassing
+request validation.
+
+### Task-scoped discovery protocol parameters
+
+The following are `tools/list` protocol parameters, not business-tool input:
+
+```json
+{"_meta":{"nestworth.toolGroups":["summary"]}}
+```
+
+Valid groups are context, summary, analysis, directory, ledger, market,
+products, review, reconciliation and health. Keep the same metadata on every
+`nextCursor` request; cursors are signed and bound to the normalized group set
+and running server. Changing groups, reconnecting to a restarted server or using
+a full-discovery cursor starts from the first page. The filter is not an
+authorization boundary, and a group cannot reveal tools absent from the current
+permission mode. The behavior is covered by `task_tool_discovery_test.go`.
+

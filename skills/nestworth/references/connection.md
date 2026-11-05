@@ -17,34 +17,6 @@ After installing/updating the skill, reopen the Codex chat if it has not appeare
 in skill discovery. Invoke `$nestworth` explicitly or describe a Nestworth task.
 MCP configuration and skill discovery are separate.
 
-## Inspector CLI configuration
-
-Inspector CLI 2.10.0 requires its own explicit Streamable HTTP type. For this
-client, add `"type": "http"` to the App-copied entry; a missing type can be
-interpreted as stdio and fail before connection. This is an Inspector-specific
-adaptation, not a requirement to change other clients' connection formats.
-The following is **client configuration**, not a tool's arguments:
-
-<!-- example: inspector-http-config -->
-```json
-{"mcpServers":{"nestworth":{"type":"http","url":"${endpoint}","headers":{"Authorization":"Bearer ${token}"}}}}
-```
-
-Replace endpoint/token locally with the App's actual values; placeholders are
-not automatically expanded. Keep the file private and omit it from reports.
-With that local file, discover tools using:
-
-```bash
-npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.json --server nestworth --method tools/list
-```
-
-Inspector may report a schema portability warning for nullable arrays such as
-`accountIds` with `type: ["null", "array"]`. This is a valid nullable schema
-also used by existing tools; a portability warning alone is not proof of missing
-permission or an unavailable tool. Check discovery and actual call validation.
-If a client cannot consume that schema, report the client compatibility problem
-rather than changing disclosure or bypassing request validation.
-
 ## Permissions and discovery
 
 | Mode | Available operations |
@@ -53,21 +25,23 @@ rather than changing disclosure or bypassing request validation.
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
 | `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, daily investment-review rule/acknowledgement/suppression/refresh writes, managed lifecycle/terms/value pairs and starting data repair |
 
-Discover all tools/list pages, following nextCursor even when a page is short.
-Cache this connection's tool schemas rather than rediscovering before every call.
-Discover the actual tools before choosing a workflow. An absent tool may reflect
-permissions or an older App. Explain the specific needed setting/update; do not
-attempt another tool to bypass it. `get_context.capabilities` is helpful, but
-actual tool availability and schemas decide whether an operation is supported.
-For a pure minimal summary, discovery followed directly by `get_financial_context`
-is sufficient. Do not require `get_context`: it returns identity-bearing household metadata. Ordinary reads can call their tool directly. Use `get_context` only for needed
-instance/permission/timezone/history metadata and `get_catalog` for unknown
-vocabulary or entity creation; reuse both until their context changes. If the context tools are missing, explain the needed App
-update; an identity-bearing fallback requires an explicit disclosure choice,
-not a silent directory read. Skill updates do not update the App or MCP connection. Analysis tools, including
-`compare_financial_attribution`, can maintain derived snapshots under the existing
-read_only mode and advertise non-read-only, non-destructive annotations. They
-do not grant new ledger permissions or certify old frozen comparison packages.
+Use the tools this client lists; do not rediscover before every call. Follow
+`nextCursor` if the client's tool list is paged. An absent tool may reflect the
+permission mode or an older App: explain the specific setting or update needed
+and do not attempt another tool to bypass it. `get_context.capabilities` helps,
+but actual availability and schemas decide whether an operation is supported.
+There is no need to inspect every tool before a task.
+
+Ordinary reads call their tool directly. For a minimal summary call
+`get_financial_context` directly: `get_context` returns identity-bearing
+household metadata and is only for unknown instance, permission, timezone or
+history-start metadata (`get_catalog` for unknown vocabulary or entity creation);
+reuse both until the context changes. If they are missing, explain the needed App
+update; an identity-bearing fallback requires an explicit disclosure choice.
+Skill updates do not update the App or MCP connection. Analysis tools, including
+`compare_financial_attribution`, can maintain derived snapshots under read_only
+and carry non-read-only annotations; they grant no ledger permission and never
+certify old frozen comparisons.
 
 ## Tool groups
 
@@ -99,9 +73,7 @@ ledger recording requires started history; the MCP does not start/reset it or
 choose opening balances/costs. This is distinct from importing a position later
 in an already started history.
 
-Except explicitly labeled Inspector client configuration and tools/list protocol
-parameters, JSON examples in these references are **business-tool arguments**,
-not raw HTTP requests.
+JSON examples in these references are **business-tool arguments**, not raw HTTP requests.
 `${...}` denotes a value obtained from the user or a previous response. Replace
 all placeholders; never send them as IDs. Values/dates are illustrative, not
 verified market information. Reads/previews usually take arguments directly;
@@ -114,11 +86,10 @@ managed_product_valuation. Daily investment-review reads are available in all
 modes; rule, acknowledgement, suppression and explicit refresh tools require
 ledger_write. These update review rules/episodes and derived projections, not
 financial facts.
-Discover tools and verify the connected permission mode before acting.
 
 ## Scale capabilities and permissions
 
-See [paging and batches](paging-and-batches.md). Discover bounded_read,
+See [paging and batches](paging-and-batches.md). The capabilities are bounded_read,
 instrument_paging and market_data_batch. `get_read_page`/`get_read_item` and
 bounded contracts are available in every permission mode. instrument_metadata_batch
 and `update_instruments_batch` require directory_write or ledger_write.
@@ -126,31 +97,4 @@ Missing tools do not authorize filesystem/provider workarounds. Repository bundl
 
 Reconciliation sessions expose reconciliation_session_read in every permission
 mode and reconciliation_session_write only with ledger_write. Directory access
-does not authorize ledger attestations. Discover the actual session tool names
-before following [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).
-
-
-## Optional task-scoped tool discovery
-
-Clients that expose MCP tools/list metadata can request a smaller discovery
-set with `_meta["nestworth.toolGroups"]`. Valid groups are context, summary,
-analysis, directory, ledger, market, products, review, reconciliation and health.
-The same permission mode still governs every registered call. This is a discovery
-filter, not an authorization boundary or a financial data scope. Shared
-get_read_page/get_read_item/get_operation remain listed for evidence/recovery.
-
-The following is **tools/list protocol parameters**, not business-tool input:
-
-<!-- example: task-tool-discovery -->
-```json
-{"_meta":{"nestworth.toolGroups":["summary"]}}
-```
-
-Keep the same metadata on every nextCursor request; cursors are signed and bound
-to the normalized group set and running server. Changing groups, reconnecting
-to a restarted server or using a full-discovery cursor requires starting from
-the first page. Cache the selected inventory for that connection/group set.
-A group cannot reveal tools absent from the current permission mode. Without
-this metadata, discovery returns the complete existing tool set. Clients that
-hide tools/list metadata use full discovery and cache its schemas; this optional
-extension is not claimed to run automatically in every external assistant.
+does not authorize ledger attestations. Follow [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first) with the actual session tool names.

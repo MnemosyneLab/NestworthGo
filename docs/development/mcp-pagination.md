@@ -37,10 +37,19 @@ contracts. Their descriptors use the same page fields and every cursor uses the
 same continuation entry. Ordinary continuations remain compact section/items/page;
 focused item continuations use the same section/items/page shape plus ref, without
 repeating target/header or unrelated progress. There is no duplicate
-row representation. Financial initial sections remain at most one row; overview
-and period-analysis initial sections retain five rows to prioritize summaries.
-All continuations default to 25. Explicit-scope financial page tools and optional
-captureId/section inputs remain aliases, not a separate required workflow.
+row representation. Financial initial sections remain at most one row; overview,
+historical and period-analysis initial sections keep a floor of five rows per
+section and, when `limit` is omitted, grow round-robin to at most 25 rows per
+section while the whole response stays within a 24 KiB byte budget. An explicit
+`limit` keeps its exact meaning. Every top-level initial `mcp-read/1` capture response carries
+`delivery:{selectionComplete,pendingSections}` (both required inside the object;
+the property is optional on the envelope because continuation pages and focused
+`get_read_item`/comparison item details never carry it): whether every row of the selected
+sections is already inline. It is transport completeness only and is independent
+of `complete`, `missingInputs` and `displayValuation` in the summary.
+All continuations default to 25. `get_read_page({cursor,limit?})` is the only
+continuation tool: the explicit-scope financial page tools were removed, and the
+optional captureId/section inputs remain aliases, not a separate required workflow.
 
 Repair progress is polling by jobId, not pagination. Exact single-item details
 fail explicitly when oversized. Executed mutation receipts and get_operation are

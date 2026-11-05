@@ -521,7 +521,7 @@ macOS version acceptance.
 
 See the [latest published v0.3.10 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10)
 for its 2026-10-28 publication, skill 2.0.0, exact-source package/archive startup
-checks and remaining acceptance limits. Repository skill 3.0.1 is unpublished.
+checks and remaining acceptance limits. Repository skill 3.0.2 is unpublished.
 The commands above remain reusable packaging/acceptance procedures, not proof
 that every manual gate passed for a release. Historical v0.3.9 publication and
 owner-waived/deferred gates remain in its [release record](../releases/v0.3.9.md)

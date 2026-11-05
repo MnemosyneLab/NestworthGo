@@ -37,10 +37,11 @@ external MCP token, generic Wails dispatch or open-world capability is used.
 Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
 `internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
-`get_financial_context`, `get_financial_context_page`, `get_financial_context_item`,
+`get_financial_context`, `get_financial_context_item`,
 `get_overview`, `list_accounts`, `get_account_snapshot`, `get_read_page` and
-`get_read_item`, `compare_financial_context`, `compare_financial_attribution` and
-`get_financial_comparison_page`. It adds `get_current_page` only for supported
+`get_read_item`, `compare_financial_context` and `compare_financial_attribution`.
+Continuations use `get_read_page`; the former explicit-scope financial page tools
+were removed. It adds `get_current_page` only for supported
 view selections, and `get_navigation_targets`/`open_page` only for an explicit
 per-message host grant. The shared session independently rechecks permissions
 and budgets.

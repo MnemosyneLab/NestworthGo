@@ -360,7 +360,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		}
 		count := page.Returned
 		for page.HasMore {
-			next := decodeContext(t, call(t, c, "get_financial_context_page", FinancialContextPageInput{ContextID: context.ContextID, Section: section, Cursor: page.NextCursor}, false))
+			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{CaptureID: context.ContextID, Section: section, Cursor: page.NextCursor}, false))
 			if next.ContentHash != context.ContentHash {
 				t.Fatal("mixed financial context")
 			}
@@ -490,7 +490,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	comparison := call(t, c, "compare_financial_context", comparisonArgs, false)["data"].(map[string]any)
 	page := comparison["positionsPage"].(map[string]any)
 	if cursor, ok := page["nextCursor"].(string); ok && cursor != "" {
-		call(t, c, "get_financial_comparison_page", map[string]any{"comparisonId": comparison["comparisonId"], "section": "positions", "cursor": cursor}, false)
+		call(t, c, "get_read_page", map[string]any{"captureId": comparison["comparisonId"], "section": "positions", "cursor": cursor}, false)
 	}
 	call(t, c, "compare_financial_attribution", comparisonArgs, false)
 	// Two rules, one explicitly selected investment, real persisted review results.

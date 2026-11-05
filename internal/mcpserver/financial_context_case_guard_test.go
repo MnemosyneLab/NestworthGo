@@ -30,7 +30,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 		nameCase{"compare_financial_attribution", "upper-last", "schema-error"},
 		nameCase{"compare_financial_attribution", "upper-last", "normal"},
 	)
-	for _, tool := range []string{"get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
+	for _, tool := range []string{"get_read_page:context", "get_financial_context_item", "compare_financial_context", "get_read_page:comparison"} {
 		cases = append(cases, nameCase{tool, "upper-last", "normal"})
 	}
 	for _, tc := range cases {
@@ -47,12 +47,12 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 			}
 			args := map[string]any{}
 			switch tool {
-			case "get_financial_context_page":
+			case "get_read_page:context":
 				initial, err := s.buildFinancialContext(t.Context(), s.contextGeneration, application.FinancialContextRequest{})
 				if err != nil {
 					t.Fatal(err)
 				}
-				args = map[string]any{"contextId": initial.ContextID, "section": "positions", "cursor": initial.PositionsPage.NextCursor}
+				args = map[string]any{"cursor": initial.PositionsPage.NextCursor}
 			case "get_financial_context_item":
 				initial, err := s.buildFinancialContext(t.Context(), s.contextGeneration, application.FinancialContextRequest{})
 				if err != nil {
@@ -61,23 +61,24 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 				args = map[string]any{"contextId": initial.ContextID, "ref": initial.Content.Scope.AccountRefs[0]}
 			case "compare_financial_context", "compare_financial_attribution":
 				args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
-			case "get_financial_comparison_page":
+			case "get_read_page:comparison":
 				initial, err := s.buildFinancialComparison(t.Context(), s.contextGeneration, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"})
 				if err != nil {
 					t.Fatal(err)
 				}
-				args = map[string]any{"comparisonId": initial.ComparisonID, "section": "positions", "cursor": initial.PositionsPage.NextCursor}
+				args = map[string]any{"cursor": initial.PositionsPage.NextCursor}
 			}
 			if variant == "schema-error" {
 				args[strings.Repeat("x", 70000)] = true
 			}
 			argJSON, _ := jsoncodec.Marshal(args)
-			fields := fmt.Sprintf(`"name":%q,"Name":"get_context"`, tool)
+			name := strings.SplitN(tool, ":", 2)[0]
+			fields := fmt.Sprintf(`"name":%q,"Name":"get_context"`, name)
 			if variant == "null-name-long-id" {
-				fields = fmt.Sprintf(`"name":%q,"name":null,"Name":"get_context"`, tool)
+				fields = fmt.Sprintf(`"name":%q,"name":null,"Name":"get_context"`, name)
 			}
 			if order == "upper-first" {
-				fields = fmt.Sprintf(`"Name":"get_context","name":%q`, tool)
+				fields = fmt.Sprintf(`"Name":"get_context","name":%q`, name)
 			}
 			id := `1`
 			if variant == "long-id" || variant == "null-name-long-id" {
@@ -159,7 +160,7 @@ func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
 		t.Fatal(err)
 	}
 	bigID, _ := jsoncodec.Marshal(strings.Repeat("x", 70000))
-	page := `{"name":"get_financial_comparison_page","arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`
+	page := `{"name":"get_read_page","arguments":{"cursor":"missing"}}`
 	unrelated := `{"name":"get_context","arguments":{}}`
 	for _, tc := range []struct {
 		name, fields string
@@ -170,14 +171,14 @@ func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
 		{"Params-shadow", `"id":` + string(bigID) + `,"params":` + page + `,"Params":` + unrelated, 400, "", true},
 		{"ID-shadow", `"id":` + string(bigID) + `,"ID":1,"params":` + page, 400, "", true},
 		{"ID-shadow-inverse", `"id":1,"ID":` + string(bigID) + `,"params":` + page, 200, "1", true},
-		{"unrelated-Name-shadow", `"id":` + string(bigID) + `,"params":{"name":"get_context","Name":"get_financial_comparison_page","arguments":{}}`, 400, "", true},
+		{"unrelated-Name-shadow", `"id":` + string(bigID) + `,"params":{"name":"get_context","Name":"get_read_page","arguments":{}}`, 400, "", true},
 		{"unrelated-Params-shadow", `"id":` + string(bigID) + `,"params":` + unrelated + `,"Params":` + page, 400, "", true},
-		{"duplicate-name-protected-last", `"id":` + string(bigID) + `,"params":{"name":"get_context","name":"get_financial_comparison_page","arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`, 400, "", true},
-		{"duplicate-name-unrelated-last", `"id":` + string(bigID) + `,"params":{"name":"get_financial_comparison_page","name":"get_context","arguments":{}}`, 400, "", true},
+		{"duplicate-name-protected-last", `"id":` + string(bigID) + `,"params":{"name":"get_context","name":"get_read_page","arguments":{"cursor":"missing"}}`, 400, "", true},
+		{"duplicate-name-unrelated-last", `"id":` + string(bigID) + `,"params":{"name":"get_read_page","name":"get_context","arguments":{}}`, 400, "", true},
 		{"duplicate-params-protected-last", `"id":` + string(bigID) + `,"params":` + unrelated + `,"params":` + page, 400, "", true},
 		{"duplicate-params-unrelated-last", `"id":` + string(bigID) + `,"params":` + page + `,"params":` + unrelated, 400, "", true},
 		{"duplicate-params-no-merge", `"id":` + string(bigID) + `,"params":` + page + `,"params":{"arguments":{}}`, 200, string(bigID), false},
-		{"duplicate-name-null", `"id":` + string(bigID) + `,"params":{"name":"get_financial_comparison_page","name":null,"arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`, 400, "", true},
+		{"duplicate-name-null", `"id":` + string(bigID) + `,"params":{"name":"get_read_page","name":null,"arguments":{"cursor":"missing"}}`, 400, "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			payload := `{"jsonrpc":"2.0","method":"tools/call",` + tc.fields + `}`
@@ -219,7 +220,7 @@ func TestFinancialContextHTTPParamsShadowBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	page := `{"name":"get_financial_comparison_page","arguments":{"comparisonId":"missing","section":"positions","cursor":"missing"}}`
+	page := `{"name":"get_read_page","arguments":{"cursor":"missing"}}`
 	unrelated := `{"name":"get_context","arguments":{}}`
 	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
 		for _, protected := range []bool{false, true} {

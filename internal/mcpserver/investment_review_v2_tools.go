@@ -110,7 +110,7 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 			return s.app.ListReviewRulesV2(ctx, in.Cursor, size)
 		})
 	})
-	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical civil days for one instrument, without saving it or writing projections. Unknown days do not count as hits. expectedSourceToken rejects changed input. Frozen mcp-read/1 summary retains sourceToken/window; days are independently pageable with get_read_page (25/max 100, 64 KiB complete wire).", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
+	readTool(server, "preview_investment_review_rule", "Preview a v2 rule on closed historical days for one instrument without saving it; unknown days are not hits. expectedSourceToken rejects changed input. Days page with get_read_page; sourceToken and window stay in the summary.", func(ctx context.Context, in ReviewV2PreviewInput) (any, error) {
 		spec, err := reviewV2Spec(in.Spec)
 		if err != nil {
 			return nil, err

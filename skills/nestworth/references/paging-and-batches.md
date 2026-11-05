@@ -1,12 +1,21 @@
 # Business pagination and atomic batches
 
-Discover all tool-list pages first, then reuse schemas for this connection. Liquidity, products, instruments, upcoming actions, Agent
+Liquidity, products, instruments, upcoming actions, Agent
 records, account valuations, directory lists/holdings, scan_data_health and
 preview_data_repair return mcp-read/1 by default. get_data_repair_job defaults to
 compact progress without a capture; only view=evidence uses mcp-read/1. There is one contract; do not pass responseMode.
-Historical/current overview reads default to five initial items per section;
-continuations default to 25. Pure minimal financial-context workflows retain
-their disclosure path. Inspect permissions before writes.
+Historical/current overview and period reads inline small results (at least five
+rows per section when they fit, at most 25, within a byte budget); continuations
+default to 25. Every top-level initial `mcp-read/1` capture (the first response of a read; not financial context/comparison packages) carries
+`delivery.selectionComplete` and `delivery.pendingSections`; continuation pages and
+focused item details (`get_read_item`, comparison items) do not. When
+`selectionComplete` is true, every selected row of that capture is already inline
+and no cursor is needed. For `compare_market_data_import` view=summary the
+selection is the `results` section only; deferred detail sections are not reported
+as pending, so it never claims evidence delivery. Data completeness (`complete`, `missingInputs`,
+`displayValuation`) is separate: a fully delivered selection can still describe
+incomplete data. Pure minimal financial-context workflows retain
+their disclosure path.
 
 ## Completeness and recovery
 
@@ -226,14 +235,13 @@ Limits are upper row counts; complete response bytes may produce fewer rows.
 | --- | --- | --- |
 | Tool discovery (protocol exception) | 16 definitions | tools/list nextCursor |
 | Ordinary initial business reads and every continuation | 25 / 100 | get_read_page({cursor, limit?}) |
-| Current/historical overview and analyze_period initial sections | 5 / 100 | get_read_page |
+| Current/historical overview and analyze_period initial sections | 5 floor, 25 within a byte budget / 100 | get_read_page |
 | Financial context/comparison/focused-item initial sections | At most 1 row per section | get_read_page |
 | Repair progress | No capture or pages | Poll exact jobId; view=evidence uses frozen pages |
 
 Initial financial headers and focused-item responses retain their established
 disclosure/alias and hash structure, without duplicating rows in a second shape.
-Their section cursors still carry all routing scope. Explicit-scope `get_financial_context_page` and
-`get_financial_comparison_page` remain aliases; they are not required by the shipped workflow.
+Their section cursors carry all routing scope, so `get_read_page({cursor, limit?})` is the only continuation entry.
 
 For mcp-read/1, fixed TTL is 5 minutes; per-capture budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial

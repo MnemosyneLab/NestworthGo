@@ -63,7 +63,7 @@ func readAttributionTool[I any](server *toolSet, name, description string, enums
 		}
 	}
 	closed, destructive := false, false
-	registerTool(server, &agentcapability.Definition{Name: name, Description: description + " May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode.", InputSchema: schema, Effect: agentcapability.Analysis, Annotations: &agentcapability.Annotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed}}, func(ctx context.Context, in I) (Response, error) {
+	registerTool(server, &agentcapability.Definition{Name: name, Description: description, InputSchema: schema, Effect: agentcapability.Analysis, Annotations: &agentcapability.Annotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed}}, func(ctx context.Context, in I) (Response, error) {
 		value, err := fn(ctx, in)
 		if err != nil {
 			return Response{}, safeError(err)
@@ -74,7 +74,7 @@ func readAttributionTool[I any](server *toolSet, name, description string, enums
 
 func (s *Service) attributionTools(server *toolSet, adapter *analysis.Service) {
 	generation := s.contextGeneration
-	readAttributionTool(server, "list_contributions", "Page investment return contributions by instrument, account, currency or asset class. Realized contributions can be filtered by scope and filters, which intersect: currency selects the native sell-event denomination, asset class selects the instrument's current Type, and account/instrument constraints also intersect. Member filtering remains unsupported. Realized rows group by instrument or account only; currency and asset-class filters do not add grouping modes. The returned rows keep nullable amounts/rates, available, status, missingReason and ratedDays/totalDays. Returns frozen mcp-read/1 rows; continue with get_read_page and use captureId plus row key with get_contribution_item. Default limit 25, maximum 100. All rows and detail share one capture; expiry or revocation requires restarting it. Dates are inclusive closed days in the History Origin timezone.", map[string][]any{
+	readAttributionTool(server, "list_contributions", "Page investment return contributions grouped by instrument, account, currency or asset class (returnType total_return, realized, unrealized or dividend_interest) over an inclusive closed-day range. Realized scope and filters intersect: currency is the native sell denomination, asset class the instrument's current type; realized grouping is instrument or account only; member filters are unsupported. Rows keep nullable amounts and rates, available, status, missingReason and ratedDays/totalDays. One capture holds rows and detail: continue with get_read_page and open a row with get_contribution_item (captureId and groupKey). Restart after expiry. May refresh derived snapshots.", map[string][]any{
 		"returnType": {"total_return", "realized", "unrealized", "dividend_interest"},
 		"groupBy":    {"instrument", "account", "currency", "asset_class"},
 		"ordering":   {"amount_desc", "amount_asc", "rate_desc", "rate_asc", "name_asc"},
@@ -118,14 +118,14 @@ func (s *Service) attributionTools(server *toolSet, adapter *analysis.Service) {
 			return capture, nil
 		})
 	})
-	readTool(server, "get_contribution_item", "Read one contribution from its exact frozen list_contributions captureId and groupKey. No recalculation, database reads or TTL renewal. Components and byAccount are independent get_read_page sections. Related-history hints may cover broader records under currency/asset-class filters; they are not a second amount calculation.", func(ctx context.Context, in GetContributionItemInput) (any, error) {
+	readTool(server, "get_contribution_item", "Read one contribution from its list_contributions capture (captureId and groupKey); no recalculation or TTL renewal. components and byAccount are separate get_read_page sections. Related-history hints can be broader than currency and asset-class filters; they are not a second calculation.", func(ctx context.Context, in GetContributionItemInput) (any, error) {
 		if strings.TrimSpace(in.GroupKey) == "" {
 			return nil, fail("validation", "groupKey must be a non-empty list_contributions row key")
 		}
 		return s.readItem(generation, ReadItemInput{CaptureID: in.CaptureID, Section: "rows", ID: in.GroupKey}, "contributions")
 	})
 
-	readAttributionTool(server, "get_return_day", "Read frozen mcp-read/1 sections with get_read_page continuation for one day's return amount, rate, composition, contributors, coverage and valuation issues. The date must be within the query's inclusive closed-day range. Preserve nullable values and amountStatus; partial amounts are not complete totals.", nil, func(ctx context.Context, in GetReturnDayInput) (any, error) {
+	readAttributionTool(server, "get_return_day", "One day's return amount, rate, composition, contributors, coverage and valuation issues; the date must lie within the query's inclusive closed-day range. Sections page with get_read_page. Keep nullable values and amountStatus: a partial amount is not a complete total. May refresh derived snapshots.", nil, func(ctx context.Context, in GetReturnDayInput) (any, error) {
 		query, err := in.Query.request().ToDomain()
 		if err != nil {
 			return nil, err
@@ -147,7 +147,7 @@ func (s *Service) attributionTools(server *toolSet, adapter *analysis.Service) {
 			return sectionedReadCapture("get_return_day", in, value, "composition", "contributors", "issues")
 		})
 	})
-	readAttributionTool(server, "get_asset_driver_detail", "Read frozen mcp-read/1 sections with get_read_page continuation for instrument and account amounts plus residual source records for one asset-change driver bucket. Use a bucket key from analyze_period.assetChange. Dates are inclusive closed days in the History Origin timezone; preserve available, status, missingReason and nullable amounts.", map[string][]any{
+	readAttributionTool(server, "get_asset_driver_detail", "Instrument and account amounts plus residual source records for one asset-change bucket of analyze_period (use its bucket key and the same inclusive closed-day query). Sections page with get_read_page. Keep available, status, missingReason and nullable amounts. May refresh derived snapshots.", map[string][]any{
 		"driverKey": {"external_flow", "income", "spending", "dividend_interest", "price_change", "fx_impact", "fx_conversion_spread", "fee", "liability_impact", "adjustment", "residual"},
 	}, func(ctx context.Context, in GetAssetDriverDetailInput) (any, error) {
 		if strings.TrimSpace(in.DriverKey) == "" {

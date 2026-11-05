@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -47,6 +48,14 @@ type ReadSection struct {
 	Items []json.RawMessage `json:"items"`
 	Page  ReadPageInfo      `json:"page"`
 }
+
+// ReadDelivery reports whether every row of the selected sections is already in
+// this response. It describes transport completeness only: data completeness,
+// quality and missing inputs stay in the summary and are never implied by it.
+type ReadDelivery struct {
+	SelectionComplete bool     `json:"selectionComplete"`
+	PendingSections   []string `json:"pendingSections"`
+}
 type ReadEnvelope struct {
 	SchemaVersion string                 `json:"schemaVersion"`
 	CaptureID     string                 `json:"captureId"`
@@ -58,6 +67,7 @@ type ReadEnvelope struct {
 	Query         any                    `json:"query,omitempty"`
 	Summary       any                    `json:"summary,omitempty"`
 	Sections      map[string]ReadSection `json:"sections,omitempty"`
+	Delivery      *ReadDelivery          `json:"delivery,omitempty"`
 	Section       string                 `json:"section,omitempty"`
 	Items         []json.RawMessage      `json:"items,omitempty"`
 	Page          *ReadPageInfo          `json:"page,omitempty"`
@@ -116,6 +126,28 @@ func (c *boundedReadCache) revoke() {
 	c.entries = map[string]readCapture{}
 	c.bytes = 0
 }
+
+// Reads whose first response used to carry five rows per section choose
+// their initial rows from a byte budget when the caller gave no limit. An
+// explicit limit keeps its exact meaning. The sentinel is internal and never
+// reaches the wire.
+const (
+	autoInlineLimit      = math.MinInt
+	autoInlineFloorRows  = 5
+	autoInlineMaxRows    = 25
+	autoInlineWireBudget = 24 << 10
+)
+
+func autoInlineWhenUnset(n int) int {
+	switch n {
+	case 0:
+		return autoInlineLimit
+	case autoInlineLimit:
+		return -1 // an explicit sentinel value is just another invalid limit
+	}
+	return n
+}
+
 func readLimit(n int) (int, error) {
 	if n == 0 {
 		return 25, nil
@@ -231,19 +263,30 @@ func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnv
 	for _, k := range names {
 		r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: c.pageInfo(id, k, e, 0, 0)}
 	}
+	selected := make([]string, 0, len(names))
+	for _, k := range names {
+		if !comparisonSummary(e) || k == "results" {
+			selected = append(selected, k)
+		}
+	}
+	// Reserve the worst-case delivery object before any wire-budget check.
+	r.Delivery = &ReadDelivery{SelectionComplete: false, PendingSections: selected}
 	if ok, err := readFits(r); err != nil {
 		return r, err
 	} else if !ok {
 		return r, fail("too_large", "summary exceeds read wire budget; narrow query")
 	}
-	for _, k := range names {
-		if comparisonSummary(e) && k != "results" {
-			continue
-		}
+	auto := limit == autoInlineLimit
+	if auto {
+		limit = autoInlineFloorRows
+	}
+	allRows := map[string][]json.RawMessage{}
+	for _, k := range selected {
 		rows, _, err := readSectionRows(e, k)
 		if err != nil {
 			return r, err
 		}
+		allRows[k] = rows
 		for n := 0; n < min(limit, len(rows)); n++ {
 			old := r.Sections[k]
 			items, err := c.outputRows(id, e, k, rows, 0, n+1)
@@ -261,6 +304,45 @@ func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnv
 			}
 		}
 	}
+	if auto {
+		// Extend one row per section per pass so a large early section cannot
+		// starve later ones. A section that fails to grow stays stalled; the
+		// floor above is never reduced.
+		for pass := autoInlineFloorRows; pass < autoInlineMaxRows; pass++ {
+			progressed := false
+			for _, k := range selected {
+				rows := allRows[k]
+				if len(r.Sections[k].Items) != pass || pass >= len(rows) {
+					continue
+				}
+				old := r.Sections[k]
+				items, err := c.outputRows(id, e, k, rows, 0, pass+1)
+				if err != nil {
+					return r, err
+				}
+				r.Sections[k] = ReadSection{Items: items, Page: c.pageInfoSize(id, k, e, len(rows), 0, pass+1)}
+				size, err := financialContextWireSize(r)
+				if err != nil {
+					return r, err
+				}
+				if size > autoInlineWireBudget {
+					r.Sections[k] = old
+					continue
+				}
+				progressed = true
+			}
+			if !progressed {
+				break
+			}
+		}
+	}
+	pending := []string{}
+	for _, k := range selected {
+		if r.Sections[k].Page.HasMore {
+			pending = append(pending, k)
+		}
+	}
+	r.Delivery = &ReadDelivery{SelectionComplete: len(pending) == 0, PendingSections: pending}
 	return r, nil
 }
 func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelope, error) {
@@ -371,9 +453,11 @@ func (c *boundedReadCache) page(g uint64, in ReadPageInput) (ReadEnvelope, error
 	return r, nil
 }
 func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(context.Context) (readCapture, error)) (ReadEnvelope, error) {
-	limit, err := readLimit(limit)
-	if err != nil {
-		return ReadEnvelope{}, err
+	if limit != autoInlineLimit {
+		var err error
+		if limit, err = readLimit(limit); err != nil {
+			return ReadEnvelope{}, err
+		}
 	}
 	ctx, cancel := context.WithTimeout(domain.WithBoundedRead(ctx), readBuildTimeout)
 	defer cancel()
@@ -399,13 +483,13 @@ func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(co
 	return s.reads.store(g, e, limit)
 }
 func (s *Service) boundedReadTools(server *toolSet, g uint64) {
-	readTool(server, "get_read_page", "Continue any business nextCursor with only cursor and optional limit (25/max 100). Scope is signed; only row budget may change. Short/deferred pages remain incomplete while hasMore. Preserve frozen hash/TTL, version_bound staleness and live semantics. Restart related reads after invalidation; oversized items fail explicitly.", func(ctx context.Context, in ReadPageInput) (any, error) {
+	readTool(server, "get_read_page", "Continue any nextCursor with only cursor and an optional limit (default 25, max 100); the signed cursor carries its scope. A page with hasMore, or a deferred zero-row page, is incomplete. Restart the original read after read_expired, read_revoked or a stale cursor; an oversized item fails explicitly.", func(ctx context.Context, in ReadPageInput) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		return s.continuePage(ctx, server, g, in)
 	})
-	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations, directory, instrument or market-comparison capture. Comparison uses section=results and id=clientItemId, with focused child evidence from that same capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Open one item of a frozen capture (products, historical, account valuations, directory, instruments or market comparison) by section and id, with full evidence and independently paged child sections; comparison rows use section=results and id=clientItemId. Does not recapture or renew the TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }
