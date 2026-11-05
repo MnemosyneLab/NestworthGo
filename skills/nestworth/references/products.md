@@ -200,7 +200,8 @@ are rejected without echoing their contents.
 With ledger_write discover preview_product_terms and commit_product_terms.
 Read get_product immediately before editing and use summary.detail.product.revision as
 expectedRevision. Supply complete terms and policy, including unchanged financial
-fields and explicit nulls for unknowns. Kind and startOn cannot change. For a
+fields and explicit nulls for unknowns. `terms.shortName` is the only optional field: omitted or null keeps it, an empty
+string clears it. Kind and startOn cannot change. For a
 closed product only name/note may change; financial terms and policy must match
 current facts. Original currency is fixed. annualRate is a fraction, or use
 annualRatePercent as specified by the App schema; keep actual/365 versus actual/360

@@ -82,7 +82,10 @@ Creating a definition does not create ownership or a trade. Continue with
 [positions-and-trades.md](positions-and-trades.md) or [market-data.md](market-data.md).
 
 For updates, omitted fields are preserved; supplied ownership replaces the
-allocation. Instrument `replace=true` requires the complete form, so prefer
+allocation. `update_account` clears institutionId, groupId, note, iconKey,
+openedOn or closedOn only with the matching `<field>Set:true` (for example
+`{"note":"","noteSet":true}`); an empty value without `Set` keeps the stored one.
+Member, institution and group updates require `name`; they are not patches. Instrument `replace=true` requires the complete form, so prefer
 partial changes for a narrow edit. Institution updates currently rename only.
 Use the relevant `set_*_icon` tools for member/institution/group icons; account
 and instrument icons use updates. Archive/restore uses `archive_*` with

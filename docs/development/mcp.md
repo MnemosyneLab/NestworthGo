@@ -846,7 +846,7 @@ preview/commit, durable receipt-first recovery and user-provided provenance.
 Existing financial target reconciliation keeps its original meaning. Optional
 reconciliationLink on ledger target/change and managed-product previews is part
 of the immutable request hash and owning financial transaction. A correction
-never confirms a check. Current repository skill 3.0.2 documents both routes, partial
+never confirms a check. Current repository skill 3.0.3 documents both routes, partial
 completion, source precision and same-operation recovery.
 
 
@@ -1115,7 +1115,7 @@ Live/version-bound initial responses use items/page, while frozen initial sectio
 and financial disclosure headers keep their owning structure. No caller builds
 triple activity keys, product cursors or last-ID review cursors. Both external
 MCP and built-in AI use the same capability projection and routing. The MCP
-implementation version is 3.0.0; the distributable skill is independently 3.0.2
+implementation version is 3.0.0; the distributable skill is independently 3.0.3
 (unpublished; see the
 [skill version policy](../user/nestworth-skill.md#skill-version-policy)).
 
@@ -1185,7 +1185,9 @@ how many calls a real agent makes.
 
 Follow-up candidates (icon/update merge, PATCH audit, commit plans, financial
 read semantics, output-schema footprint) are analyzed in
-[mcp-consolidation-design.md](mcp-consolidation-design.md); none is implemented.
+[mcp-consolidation-design.md](mcp-consolidation-design.md); only the update-convention
+audit ([mcp-update-conventions.md](mcp-update-conventions.md)) and the commit plan-kind
+guard are implemented.
 
 ## Client-specific discovery notes
 

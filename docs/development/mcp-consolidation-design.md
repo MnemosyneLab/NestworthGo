@@ -1,7 +1,8 @@
 # MCP interface consolidation: design note (Phase 3)
 
-Status: design only. Nothing in this note is implemented; each item needs an
-explicit decision before code changes. Phases 1 and 2 (alias removal, prose
+Status: items 2 (PATCH audit, see [mcp-update-conventions.md](mcp-update-conventions.md))
+and the plan-kind guard in item 3 step 1 are implemented. Everything else is
+design only and needs an explicit decision before code changes. Phases 1 and 2 (alias removal, prose
 slimming, byte-budgeted inlining, `delivery`) are already in this branch and are
 described in [mcp.md](mcp.md#discovery-size-and-the-external-contract-snapshot)
 and [mcp-pagination.md](mcp-pagination.md).
@@ -49,19 +50,14 @@ failure semantics).
 
 ## 2. PATCH semantics audit (recommended before any merge)
 
-The update tools do not share one convention:
+The update tools do not share one convention (the first draft of this section
+contained a table that was wrong in two rows; the audited table now lives only in
+[mcp-update-conventions.md](mcp-update-conventions.md)).
 
-| Tool | Omitted field | Empty value | Notes |
-| --- | --- | --- | --- |
-| `update_member/institution/group` | name is required | invalid | no patch |
-| `update_account` | preserved | empty string clears optional fields | ownership is full replacement when supplied |
-| `update_instrument` | preserved when `replace=false` | n/a | `replace=true` replaces the form state |
-| `update_instruments_batch` | preserved | empty `shortName` clears; `note:null` clears | `expectedMetadataVersion` per row |
-| `update_investment_review_rule` | to audit | to audit | |
-| `preview_save_liquidity_policy` | clears (full replacement) | null clears | omission never keeps |
-| `preview_product_terms` | full replacement | null = unknown | |
-
-The mix of patch, replace and clear conventions is the likeliest source of
+*Audited; see [mcp-update-conventions.md](mcp-update-conventions.md) for the corrected
+table. The audit found that the `update_account` description misstated how fields
+are cleared and that `terms.shortName` is an optional exception in an otherwise
+full-replacement tool; both are fixed.* The mix of patch, replace and clear conventions is the likeliest source of
 agent mistakes (an omitted field silently clears in one tool and is preserved in
 another). Proposed audit output, no code change: a table of every writable field
 with its omit / empty / null meaning and its version guard, generated from the
@@ -91,8 +87,10 @@ recovery.
 
 Incremental path if it is pursued:
 
-1. Add a server-side `kind` to every stored plan and have each existing commit
-   tool verify it (a safety improvement with no tool-count change).
+1. Verify the stored plan `kind` in every commit tool. *Implemented before this
+   note was written: `loadPreviewPlan(planID, kind)` already rejects a plan of
+   another kind. `TestCommitToolsRejectPlansOfAnotherKind` now guards it across all
+   ten commit tools without writing anything.*
 2. Introduce `commit_plan` for the families whose commit input is exactly
    `{operationId, planId}` and whose retry semantics are identical (single,
    batch, reconciliation, correction), keeping the other families separate.
@@ -105,7 +103,7 @@ write permit, the outer `{operationId, input}` envelope, durable receipts, and
 and infers the recovery policy from a caller-supplied field.
 
 Expected gain: about 4 tools and 3 KB of descriptions, with real regression risk
-in the highest-stakes path. Recommendation: step 1 only, now.
+in the highest-stakes path. Recommendation: step 1 is done; do not proceed to step 2 now.
 
 ## 4. Financial reads: merge by semantics, not by count
 

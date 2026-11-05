@@ -375,7 +375,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		}
 		return accounts.CreateAccount(ctx, in)
 	})
-	writeTool(s, server, "update_account", "Edit only supplied account fields. Omitted fields are preserved. Empty string clears optional fields; ownership is a complete replacement when supplied. Tracking mode and balance sheet role follow existing immutability rules.", func(ctx context.Context, in UpdateAccountInput) (any, error) {
+	writeTool(s, server, "update_account", "Edit only supplied account fields; omitted fields are preserved. To clear institutionId, groupId, note, iconKey, openedOn or closedOn, send its <field>Set=true with an empty or null value; an empty value without Set keeps the stored one. Ownership is a complete replacement when supplied. Tracking mode and balance sheet role follow existing immutability rules.", func(ctx context.Context, in UpdateAccountInput) (any, error) {
 		return accounts.UpdateAccount(ctx, in.ID, in.Changes)
 	})
 	writeTool(s, server, "archive_account", "Archive or restore an account, preserving history.", func(ctx context.Context, in ArchiveInput) (any, error) {

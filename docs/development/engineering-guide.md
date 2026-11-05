@@ -4,7 +4,7 @@
 
 Current development identifies as Nestworth `v0.3.10` / build `11`; the latest published
 release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), published 2026-10-28 with
-skill 2.0.0. Repository skill 3.0.2 remains unpublished. The project
+skill 2.0.0. Repository skill 3.0.3 remains unpublished. The project
 is a Go 1.27.3 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and

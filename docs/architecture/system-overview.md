@@ -4,7 +4,7 @@
 
 Current `main` identifies as Nestworth `v0.3.10` / build `11`. The latest
 published release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), published
-2026-10-28 with skill 2.0.0; repository skill 3.0.2 remains unpublished. The
+2026-10-28 with skill 2.0.0; repository skill 3.0.3 remains unpublished. The
 application is a local-first desktop app with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
 provides typed domain contracts, SQLite bootstrap with current schema `23`
