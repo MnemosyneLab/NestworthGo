@@ -144,6 +144,9 @@ func propertyNames(node map[string]any) []string {
 
 func TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas(t *testing.T) {
 	fx := newLedgerFixture(t)
+	// Management writes are off by default. The convention still applies when
+	// Settings enables them.
+	enableInvestmentReviewManagement(t, fx.service)
 	registry := fx.service.toolRegistry(LedgerWrite)
 	for _, d := range registry.Definitions() {
 		covered := strings.HasPrefix(d.Name, "update_") || strings.HasPrefix(d.Name, "set_") || d.Name == "preview_save_liquidity_policy" || d.Name == "preview_product_terms"
