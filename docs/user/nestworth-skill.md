@@ -64,6 +64,8 @@ Historical overview and market data each keep one tool with two input shapes.
 This pass removes the optional `tools/list` `_meta.nestworth.toolGroups`
 filter. Clients do not send it, and a missing group never changed `tools/call`
 permission. Default discovery stays the full list for the permission mode.
+`commit_plan` may omit `operationId`; the server derives one from `planId`.
+Other writes still require `operationId`, and an explicit id remains valid.
 Success results still carry both `structuredContent` and JSON text.
 `get_account_snapshot` and `get_account_valuations` stay separate tools on one
 current-valuation capture: one required id with not_found, versus filtered rows

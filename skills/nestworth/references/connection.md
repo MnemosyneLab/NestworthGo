@@ -73,7 +73,7 @@ JSON examples in these references are **business-tool arguments**, not raw HTTP 
 `${...}` denotes a value obtained from the user or a previous response. Replace
 all placeholders; never send them as IDs. Values/dates are illustrative, not
 verified market information. Reads/previews usually take arguments directly;
-mutations take `operationId` and `input`. Use UUIDs from successful receipts,
+mutations take `operationId` and `input`. `commit_plan` may omit `operationId`; other writes still require it. Use UUIDs from successful receipts,
 not provisional IDs in a preview.
 
 Managed capabilities are managed_product_read, liquidity_read and, only with

@@ -1383,15 +1383,16 @@ missing snapshot id is `not_found` while an unmatched valuations filter is an
 empty page. That prose is the only `tools/list` size change. The optional
 `_meta.nestworth.toolGroups` middleware is gone and was not on the default
 list path, so it adds no tools and no bytes. `TestDiscoveryBudget` on this
-change, against the nullable-schema sizes above:
+change, against the B2 sizes (ledger_write 120,224 and instructions 2,373;
+read_only and directory_write were unchanged by B2):
 
 | Mode | Tools | `tools/list` bytes |
 | --- | --- | --- |
 | `read_only` | 51 | 63,022 → 63,347 (+325) |
 | `directory_write` | 64 | 78,083 → 78,408 (+325) |
-| `ledger_write` | 85 | 120,426 → 120,751 (+325) |
+| `ledger_write` | 85 | 120,224 → 120,549 (+325) |
 
-Instructions stayed 2,300 bytes. Budgets were not raised. Name, annotation and
+Instructions stayed 2,373 bytes. Budgets were not raised. Name, annotation and
 schema hashes are unchanged because the contract snapshot excludes description
 prose. Both `structuredContent` and JSON text stay on success results.
 

@@ -30,8 +30,10 @@ key. Correctness does not depend on sending it.
 Removal behavior:
 
 - Default discovery is unchanged: same tools, same page size of 16, same
-  instructions (2,300 bytes). `TestDiscoveryBudget` bytes moved only because
-  the C3 description edits added 325 bytes in each mode.
+  instructions (2,373 bytes, already set by the `commit_plan` operationId
+  text). `TestDiscoveryBudget` bytes moved only because the C3 description
+  edits added 325 bytes in each mode. Ledger write is 120,549 bytes; read_only
+  is 63,347 and directory_write is 78,408.
 - A client that still sends the key gets that same full list.
   `TestToolGroupMetadataDoesNotFilterDiscovery` checks a `summary` value and
   an unrecognized group against a request with no metadata.
