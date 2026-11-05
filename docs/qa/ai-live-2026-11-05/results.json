@@ -1,0 +1,27 @@
+{
+  "results": [
+    {
+      "theme": "light",
+      "followChunks": true,
+      "followToolDisclosure": true,
+      "followWidth": true,
+      "pauseOnScroll": true,
+      "resumeLatest": true,
+      "narrowNoOverflow": true,
+      "sessionIsolation": true,
+      "syntheticOnly": true
+    },
+    {
+      "theme": "dark",
+      "followChunks": true,
+      "followToolDisclosure": true,
+      "followWidth": true,
+      "pauseOnScroll": true,
+      "resumeLatest": true,
+      "narrowNoOverflow": true,
+      "sessionIsolation": true,
+      "syntheticOnly": true
+    }
+  ],
+  "errors": []
+}
