@@ -25,6 +25,33 @@ const diagnosticKeys: Record<string, string> = {
   tool_result_rejected: "aiChat.toolResultRejected",
   assistant_budget_exceeded: "aiChat.runBudgetExceeded",
 };
+// Only exact, code-owned diagnostic rules may be rendered; never reflect an
+// unknown backend code (which could contain data from another implementation).
+const responseRules = [
+  "request_contract",
+  "response_headers",
+  "response_body",
+  "response_terminal",
+  "response_item",
+  "stream_frame",
+  "stream_order",
+  "stream_lifecycle",
+  "stream_item_added",
+  "stream_item_done",
+  "stream_function_status",
+  "stream_function_arguments",
+  "stream_function_identity",
+  "stream_arguments",
+  "stream_part",
+  "stream_terminal",
+  "stream_event",
+  "stream_eof",
+  "sdk_conversion",
+  "engine_inventory",
+  "engine_empty_text",
+];
+const responseDiagnostic = (code: string) =>
+  responseRules.some((rule) => code === `provider_response_rejected.${rule}`);
 const active = (state: string) => state === "accepted" || state === "running";
 
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
@@ -474,7 +501,8 @@ export function ModelConversation() {
             )}
             {run.code && (
               <p role="alert" className="text-sm">
-                {t(diagnosticKeys[run.code] ?? "aiChat.runError")}
+                {t(responseDiagnostic(run.code) ? "aiChat.providerResponseRejected" : (diagnosticKeys[run.code] ?? "aiChat.runError"))}
+                {responseDiagnostic(run.code) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}
               </p>
             )}
             {active(run.state) && (

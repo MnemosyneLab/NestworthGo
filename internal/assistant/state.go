@@ -52,6 +52,9 @@ func ValidateState(s State) error {
 }
 func knownState(s string) bool { return s == "accepted" || s == "running" || terminal(s) }
 func knownCode(s string) bool {
+	if IsResponseFailureCode(s) {
+		return true
+	}
 	switch s {
 	case "provider_authentication", "provider_rate_limited", "provider_request_rejected", "provider_unavailable", "provider_connection", "provider_response_rejected", "model_history_rejected", "tool_result_rejected", "assistant_budget_exceeded":
 		return true

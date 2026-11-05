@@ -20,6 +20,10 @@ var (
 
 // safeFailure discards wrappers, even when a provider error wraps a known code.
 func safeFailure(err error) error {
+	var detail responseFailure
+	if errors.As(err, &detail) && responseRules[detail.rule] {
+		return responseFailure{detail.rule}
+	}
 	for _, fixed := range []error{ErrProviderAuthentication, ErrProviderRateLimited, ErrProviderRequest, ErrProviderUnavailable, ErrProviderConnection, ErrProviderResponse, ErrModelHistory, ErrToolResult, ErrBudget, context.DeadlineExceeded} {
 		if errors.Is(err, fixed) {
 			return fixed

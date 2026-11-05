@@ -230,18 +230,18 @@ func (m *Model) generate(ctx context.Context, in []*schema.AgenticMessage, strea
 		if state.failure != nil {
 			return nil, state.failure
 		}
-		return nil, assistant.ErrProviderResponse
+		return nil, assistant.ProviderResponseFailure("sdk_conversion")
 	} // SDK errors may contain provider bodies.
 	if msg == nil {
-		return nil, errProtocol
+		return nil, assistant.ProviderResponseFailure("sdk_conversion")
 	}
 	seal, err := nativeSeal(msg, state.output)
 	if err != nil {
-		return nil, err
+		return nil, assistant.ProviderResponseFailure("sdk_conversion")
 	}
 	raw, err := jsoncodec.Marshal(nativeState{Output: state.output, ContentSHA256: seal})
 	if err != nil {
-		return nil, errProtocol
+		return nil, assistant.ProviderResponseFailure("sdk_conversion")
 	}
 	if msg.Extra == nil {
 		msg.Extra = map[string]any{}
@@ -258,6 +258,7 @@ type transport struct {
 }
 
 func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, failure error) {
+	phase := "request_contract"
 	// The SDK may wrap/replace transport errors. Keep only our fixed classification
 	// in the request-local round, never arbitrary SDK or provider text.
 	defer func() {
@@ -267,7 +268,7 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 				case errors.Is(failure, errLimit):
 					state.failure = assistant.ErrBudget
 				case errors.Is(failure, errProtocol):
-					state.failure = assistant.ErrProviderResponse
+					state.failure = assistant.ProviderResponseFailure(phase)
 				default:
 					state.failure = failure
 				}
@@ -360,6 +361,7 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 		}
 		return nil, assistant.ErrProviderConnection
 	}
+	phase = "response_headers"
 	if response == nil || response.Body == nil {
 		return nil, errProtocol
 	}
@@ -377,10 +379,12 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 			return nil, assistant.ErrProviderRequest
 		}
 	}
+	phase = "response_headers"
 	typ, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if err != nil || (state.stream && typ != "text/event-stream") || (!state.stream && typ != "application/json") {
 		return nil, errProtocol
 	}
+	phase = "response_body"
 	raw, err := boundedRead(response.Body, t.limits.Bytes)
 	if err != nil {
 		return nil, err
