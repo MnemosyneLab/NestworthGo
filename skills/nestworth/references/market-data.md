@@ -117,7 +117,8 @@ targetKey or displayName; historySort can select quotedAt/effectiveDate and
 asc/desc. Missing/not-found targets remain visible with status/reasons.
 
 `list_agent_market_data` filters instrumentIds, oriented fxPairs,
-operations append/correct/retract, nullable active, observationKinds
+operations append/correct/retract, optional boolean active (omit for no filter;
+true/false are accepted, null is rejected), observationKinds
 (latest/close/nav/closed/daily_reference), civil
 fromDate/toDate and RFC3339 createdFrom/createdTo. Observation date differs from
 creation time. Retractions resolve their targeted observation identity before

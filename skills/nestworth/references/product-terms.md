@@ -46,7 +46,7 @@ explicit id is retried unchanged. Submit the plan within ten minutes. A changed
 fact, restart or restore makes an uncommitted plan stale. The same plan with a
 new explicit operationId returns the original terms receipt and does not write
 again. Reuse the same explicit id and input after an interruption, then call
-`get_operation` with that id, or with the derived id when you omitted it.
+`get_operation` with that id, or with the [locally derived ID](recovery.md#recovering-when-operationid-was-omitted) when you omitted it.
 Read `get_product` afterwards. The receipt is not the current reservation list.
 
 Optional reconciliationLink copies the current session, account, item and

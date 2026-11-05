@@ -31,8 +31,9 @@ are in [paging and batches](paging-and-batches.md). Continue with
 ```
 
 Liquidity source filters support accountIds, typed sourceRefs, sourceKinds,
-instrumentIds, actual instrumentTypes, accessKinds, policyOrigins, nullable
-hasRule and excluded, earlyKinds, currencies and query. Managed sources also
+instrumentIds, actual instrumentTypes, accessKinds, policyOrigins, optional boolean
+hasRule and excluded (omit for no filter; true/false are accepted, null is
+rejected), earlyKinds, currencies and query. Managed sources also
 expose nullable productKind from the same contract capture. It stays separate
 from the actual instrumentType. Cash and value sources have null instrument
 identity, type and productKind. Never invent cash as an instrument type.

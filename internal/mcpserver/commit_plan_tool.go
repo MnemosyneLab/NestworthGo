@@ -84,11 +84,11 @@ func (s *Service) commitPlanTool(server *toolSet) {
 	closed := false
 	registerTool(server, &agentcapability.Definition{
 		Name: "commit_plan",
-		Description: "Commit a stored preview with input.planId. operationId is optional only on this tool: omit it and the server derives UUID v5 from the canonical planId under namespace nestworth:mcp:commit_plan:operation. An explicit operationId is stored and retried unchanged. planId is the atomic idempotency key. " +
+		Description: "Commit a stored preview with input.planId. operationId is optional only on this tool: omit it and the server derives UUID v5 from the canonical planId under namespace f1f65af0-bbb8-5d57-af9c-b624de715dcb (lowercase hyphenated plan UUID as name). An explicit operationId is stored and retried unchanged. planId is the atomic idempotency key. " +
 			"The same operationId and input return the saved receipt; a different input conflicts and does not post, including when a derived id already belongs to another explicit call or tool. The receipt tool names the plan kind. " +
 			"Ledger, batch, correction and managed-product plans deduplicate by planId and can recover with another operationId after expiry. Reconciliation can recover from its database receipt if the plan file is gone. " +
 			"Uncommitted stale or expired previews are rejected. Liquidity save/reset do not replay: a different explicit operationId on a used plan returns stale_preview, and pending or unknown receipts are not replayed. Missing plans without evidence return operation_outcome_unknown. " +
-			"If unclear, call get_operation with that operationId (the derived one when it was omitted) and read current data before a fresh preview.",
+			"If unclear, locally derive the omitted ID without resubmitting, call get_operation with that ID and read current data before a fresh preview. Unknown outcomes do not authorize blind retries.",
 		Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed},
 	}, func(ctx context.Context, in CommitPlanRequest) (Response, error) {
 		operationID, err := commitPlanOperationID(in.OperationID, in.Input.PlanID)

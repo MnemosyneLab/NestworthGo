@@ -452,6 +452,10 @@ in namespace `f1f65af0-bbb8-5d57-af9c-b624de715dcb`. That namespace is itself
 UUID v5 of the name `nestworth:mcp:commit_plan:operation` in the RFC 4122 URL
 namespace. The receipt hash covers the submitted `input` text, so a retry
 must repeat that `planId` spelling. An explicit `operationId` is unchanged.
+For a lost response with an omitted ID, calculate the UUID locally and query
+`get_operation` before considering another write; see the executable
+[recovery recipe](../../skills/nestworth/references/recovery.md#recovering-when-operationid-was-omitted).
+Missing/pending/unknown receipts are not evidence of non-execution.
 
 If the derived id already belongs to another tool or another input, the call
 returns `conflict` and does not post or replace the receipt. The same id and
@@ -633,9 +637,9 @@ bytes.
 
 These are `jsoncodec` bytes of the tool array, not model tokens. Earlier
 before/after tables are in the changelog. Wire response budget, capture
-limits and page size are separate and were not changed: 65,536 bytes per
-JSON-RPC response, 4 MiB per capture, 16 MiB / eight captures, five-minute
-TTL.
+limits and page size are separate: 65,536 bytes per JSON-RPC response,
+4 MiB parent JSON, 8 MiB combined retained period capture, 16 MiB / eight
+captures, five-minute TTL.
 
 ## Schema and response shape
 

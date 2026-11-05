@@ -68,6 +68,36 @@ but are not authentication against coordinated rewriting of a SQLite database.
 Later revisions retain the original recorded result rather than substituting
 current terms, policy, quote or value.
 
+## Recovering when operationId was omitted
+
+Prefer an explicit saved operation UUID for new commits. If an existing
+`commit_plan` omitted it, use receipt `id` when available. If the response was
+lost, compute the same ID locally from the original planId, without submitting
+another write: UUID v5 under namespace `f1f65af0-bbb8-5d57-af9c-b624de715dcb`,
+with the canonical lowercase hyphenated plan UUID as the UTF-8 name. This
+namespace is UUID v5 of `nestworth:mcp:commit_plan:operation` under the RFC URL
+namespace; do not hash the plan directly under the URL namespace.
+
+Python's standard library gives an executable read-only recipe:
+
+```python
+import uuid
+namespace = uuid.UUID("f1f65af0-bbb8-5d57-af9c-b624de715dcb")
+plan_id = "PASTE_THE_ORIGINAL_PLAN_UUID_HERE"
+operation_id = str(uuid.uuid5(namespace, str(uuid.UUID(plan_id))))
+print(operation_id)
+```
+
+Test vector: plan `11111111-1111-4111-8111-111111111111` yields operation
+`ea140a3e-eff3-54df-b11b-7a05f1d01270`. Use `get_operation` with that computed
+UUID as `id`, then inspect current ledger/product/policy facts. Do not pass the
+planId as the operation ID. If local UUID computation is unavailable, preserve
+the plan and request help recovering the ID; do not invent one or resubmit just
+to learn it. Missing/pending/unknown receipts do not prove non-execution. Keep
+the original intent and follow the plan-family recovery rules; liquidity
+save/reset must not be blindly replayed. A fresh preview is appropriate only
+after outcome/state inspection establishes a separate intended write.
+
 ## Frozen capture and batch recovery
 
 See [paging and batches](paging-and-batches.md). read_expired/read_revoked means

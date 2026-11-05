@@ -53,9 +53,12 @@ Inspect effective before/after policies and origins, then commit the exact plan:
 ```
 
 `commit_plan` reads whether the plan saves or resets. It may omit `operationId`.
-The server derives one from `planId`. An explicit id is retried unchanged.
-Ten-minute expiry and a concurrent write, restart or restore require a fresh
-preview. A successful same-operation and same-input retry returns the original
+The server derives one from `planId`. For a lost response,
+[compute the original ID locally](recovery.md#recovering-when-operationid-was-omitted)
+and inspect its receipt without resubmitting. An explicit id is retried unchanged.
+Ten-minute expiry and a concurrent write, restart or restore invalidate an
+uncommitted preview; an uncertain outcome first requires receipt/state inspection.
+A successful same-operation and same-input retry returns the original
 receipt. Changed input conflicts. A used plan with another explicit operationId
 is stale_preview. Unlike managed-product business receipts, a pending or unknown
 ordinary policy receipt is never automatically replayed. Inspect `get_operation`

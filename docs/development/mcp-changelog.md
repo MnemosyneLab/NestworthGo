@@ -258,10 +258,14 @@ closed as measure-only. D and E3 were deferred. See
 removed. `get_read_item` opens the same evidence on the parent capture.
 Contribution rows were already frozen inside `list_contributions`.
 `analyze_period` now also freezes every return day and the eleven asset-change
-drivers, but those values are kept off the marshaled capture. `store` still
-charges only `jsoncodec.Marshal` against the 4 MiB cap, so the 14-year and
+drivers, but those values are kept off the marshaled capture. The original fold
+charged only `jsoncodec.Marshal` against the 4 MiB cap, so the 14-year and
 18-year windows that previously measured 4,473,188 and 5,748,641 folded bytes
-do not start failing `too_large`. See
+did not start failing `too_large`. The retention follow-up now freezes details
+as private per-item JSON, charges bytes/keys/metadata allowance to an 8 MiB
+combined capture budget and the existing 16 MiB cache, and limits day/driver
+entries to 32,768. Queries exceeding either retained budget fail `too_large`
+before admission rather than retaining uncharged details. See
 [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
 
 `TestDiscoveryBudget` after the removal, measured on top of default discovery

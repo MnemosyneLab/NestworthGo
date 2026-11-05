@@ -70,7 +70,8 @@ structuredContent, plus transport allowance, before choosing a page boundary.
 Readers reduce their own row bound under the existing read fence, never trim
 rows after minting a continuation. A single oversized row/group fails too_large;
 it cannot be skipped, truncated or repaired by lowering limit. Native frozen
-cache budgets remain 4 MiB per capture, 16 MiB/eight entries, five-minute TTL,
+cache budgets are 4 MiB parent JSON, 8 MiB combined retained period capture
+(including frozen details and metadata allowance), 16 MiB/eight entries, five-minute TTL,
 two builders and a ten-second build timeout. Financial packages retain their
 separate cache and disclosure semantics.
 
