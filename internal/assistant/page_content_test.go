@@ -14,7 +14,7 @@ import (
 )
 
 func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) {
-	for _, page := range []string{"return-analysis", "overview", "accounts", "account"} {
+	for _, page := range []string{"return-analysis", "overview", "accounts", "account", "available-funds", "portfolio", "history", "future-business"} {
 		t.Run(page, func(t *testing.T) { checkPageCapture(t, page) })
 	}
 }
@@ -103,6 +103,14 @@ func checkPageCapture(t *testing.T, page string) {
 		t.Fatal(err)
 	}
 
+	// Selecting a structural module includes nested automatically derived modules,
+	// but never its sibling module. Node pagination still uses the selected subtree.
+	snapshot.ID = uuid.NewString()
+	snapshot.Nodes = []ai.PageNode{{ID: "parent", Module: "container", Role: "region"}, {ID: "child", Parent: "parent", Module: "automatic-child", Role: "textbox", Value: "12.3400"}, {ID: "sibling", Module: "outside", Role: "text", Name: "not selected"}}
+	nested, err := capture(`{"module":"container","limit":64}`, nil)
+	if err != nil || len(nested["nodes"].([]any)) != 2 {
+		t.Fatalf("nested module: %v %v", nested, err)
+	}
 	// The frontend's real ContributionTab tests prove that these exact control
 	// properties change the semantic generation even when financial rows match.
 	// Continue the same desktop protocol with that new ID: no old slice is returned.
@@ -200,6 +208,12 @@ func TestPageContentRejectsSecretsAndMalformedTrees(t *testing.T) {
 		p := ai.PageContent{ID: uuid.NewString(), Page: "return-analysis", CapturedAt: time.Now(), Nodes: []ai.PageNode{n}}
 		if r.DeliverPageContent(t.Context(), q.Epoch, req[0].ID, p) == nil {
 			t.Fatal("unsafe snapshot accepted")
+		}
+	}
+	for _, page := range []string{"", "../invalid", "UPPERCASE", strings.Repeat("a", 65), "unsupported"} {
+		p := ai.PageContent{ID: uuid.NewString(), Page: page, CapturedAt: time.Now(), Nodes: []ai.PageNode{{ID: "safe", Module: "page", Role: "region"}}}
+		if r.DeliverPageContent(t.Context(), q.Epoch, req[0].ID, p) == nil {
+			t.Fatalf("accepted malformed page identity %q", page)
 		}
 	}
 	cancel()

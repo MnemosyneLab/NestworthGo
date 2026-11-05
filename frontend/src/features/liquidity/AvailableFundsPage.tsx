@@ -154,11 +154,11 @@ export function AvailableFundsPage({
   );
 
   if (overview.isLoading) {
-    return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
+    return <div data-assistant-page="available-funds" aria-busy="true">{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></div>;
   }
   if (overview.isError || !data) {
     return (
-      <>
+      <div data-assistant-page="available-funds" aria-busy="false">
         {pageChrome}
         <ErrorState
           title={t("availableFunds.loadError")}
@@ -166,7 +166,7 @@ export function AvailableFundsPage({
           onRetry={retryOverview}
           retryLabel={t("common.retryAction")}
         />
-      </>
+      </div>
     );
   }
 
@@ -189,14 +189,14 @@ export function AvailableFundsPage({
   </>;
 
   return (
-    <div className="flex flex-col gap-5" aria-busy={overview.isFetching} data-testid="available-funds-page">
+    <div className="flex flex-col gap-5" aria-busy={overview.isFetching} data-testid="available-funds-page" data-assistant-page="available-funds">
       {pageChrome}
 
       {sources.length === 0 ? (
         <EmptyState title={t("availableFunds.emptyTitle")} description={t("availableFunds.emptyDescription")} />
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+          <div data-assistant-module="filters" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarClock className="size-4" aria-hidden="true" />
               {t("availableFunds.asOf", { date: data.localDate, timezone: data.timezone })}
@@ -225,7 +225,7 @@ export function AvailableFundsPage({
           {allExcluded && <EmptyState title={t("availableFunds.allExcludedTitle")} description={t("availableFunds.assetsOnly")} />}
           {!allExcluded && allLocked && <EmptyState title={t("availableFunds.allLockedTitle")} />}
 
-          <section className="flex flex-col gap-3" aria-label={t("availableFunds.assets")}>
+          <section data-assistant-module="sources" className="flex flex-col gap-3" aria-label={t("availableFunds.assets")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold">{t("availableFunds.assetsByDate", { date: horizonOn })}</h2>
@@ -259,7 +259,7 @@ export function AvailableFundsPage({
 
       {navigationMessage && <p role="status">{navigationMessage}</p>}
       {(data.unresolvedReservations ?? []).length > 0 && (
-        <Card>
+        <Card data-assistant-module="unresolved-reservations">
           <CardHeader>
             <CardTitle>{t("availableFunds.unresolvedReservations")}</CardTitle>
           </CardHeader>

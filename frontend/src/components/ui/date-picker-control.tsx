@@ -132,6 +132,8 @@ export const DatePickerControl = forwardRef<
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
+        data-assistant-control="date"
+        data-assistant-value={value || ""}
         ref={ref}
         id={id}
         type="button"

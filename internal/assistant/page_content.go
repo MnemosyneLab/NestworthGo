@@ -3,6 +3,7 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -44,19 +45,26 @@ func CurrentPageReader(ctx context.Context) PageContentReader {
 	r, _ := ctx.Value(pageContentKey{}).(PageContentReader)
 	return r
 }
+
+var businessPageName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+
 func pageText(s string) bool { return len(s) <= 2048 && !strings.ContainsAny(s, "\x00") }
 func (p PageContent) valid(now time.Time) bool {
 	if !canonicalID(p.ID) || p.CapturedAt.After(now.Add(time.Second)) || now.Sub(p.CapturedAt) >= 10*time.Second || len(p.Nodes) > 8192 || len(p.Limitations) > 16 {
 		return false
 	}
-	if p.Page == "unsupported" && (len(p.Nodes) != 0 || len(p.Limitations) == 0) {
-		return false
-	}
-	if p.Page != "unsupported" && ((p.Page != "return-analysis" && p.Page != "overview" && p.Page != "accounts" && p.Page != "account") || len(p.Nodes) == 0) {
-		return false
+	switch p.Page {
+	case "unsupported":
+		if len(p.Nodes) != 0 || len(p.Limitations) == 0 {
+			return false
+		}
+	default:
+		if !businessPageName.MatchString(p.Page) || len(p.Nodes) == 0 {
+			return false
+		}
 	}
 	ids := map[string]bool{}
-	roles := "|region|text|heading|button|link|textbox|combobox|checkbox|radio|switch|tab|tablist|option|table|row|cell|columnheader|status|alert|group|img|disclosure|slider|spinbutton|"
+	roles := "|region|text|heading|button|link|textbox|combobox|checkbox|radio|switch|tab|tablist|option|table|row|cell|columnheader|status|alert|group|img|disclosure|slider|spinbutton|article|form|navigation|list|listitem|term|definition|tabpanel|radiogroup|dialog|alertdialog|menu|menuitem|menuitemcheckbox|menuitemradio|tooltip|progressbar|separator|tree|treeitem|grid|rowheader|listbox|"
 	for _, n := range p.Nodes {
 		if n.ID == "" || len(n.ID) > 240 || len(n.Module) > 120 || n.Module == "" || ids[n.ID] || (n.Parent != "" && !ids[n.Parent]) || !strings.Contains(roles, "|"+n.Role+"|") || !pageText(n.Name) || !pageText(n.Value) || len(n.State) > 12 || len(n.Actions) > 8 {
 			return false
@@ -195,12 +203,14 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 		nodes := []PageNode{}
 		modules := []string{}
 		seen := map[string]bool{}
+		selected := map[string]bool{}
 		for _, n := range p.Nodes {
 			if !seen[n.Module] {
 				modules = append(modules, n.Module)
 				seen[n.Module] = true
 			}
-			if q.Module == "" || q.Module == n.Module {
+			if q.Module == "" || q.Module == n.Module || selected[n.Parent] {
+				selected[n.ID] = true
 				nodes = append(nodes, n)
 			}
 		}

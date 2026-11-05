@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,7 +11,7 @@ const { status, enable, disable, connection, operations } = vi.hoisted(() => ({ 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/agent", () => ({ Service: { Status: status, Enable: enable, Disable: disable, Connection: connection, RecentOperations: operations } }));
 const off = { running: false, mode: "read_only", endpoint: "", instanceId: "test" };
 const on = { ...off, running: true, endpoint: "http://127.0.0.1:1234/mcp" };
-function mount() { const client = createTestQueryClient({ retry: false }); return render(<QueryClientProvider client={client}><AgentSection /></QueryClientProvider>); }
+function mount() { const client = createTestQueryClient({ retry: false }); return render(<QueryClientProvider client={client}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><AgentSection /></BusinessPageRoot></QueryClientProvider>); }
 beforeEach(() => {
   vi.clearAllMocks(); status.mockResolvedValue(off); operations.mockResolvedValue([]);
   enable.mockImplementation(async (mode) => { status.mockResolvedValue({ ...on, mode }); return { ...on, mode }; });
@@ -25,6 +27,7 @@ describe("AgentSection", () => {
     expect(connection).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Show connection configuration" }));
     expect(await screen.findByRole("textbox", { name: "MCP connection configuration" })).toHaveValue('{"token":"test-secret"}');
+    expect(JSON.stringify(capturePageContent("settings:"))).not.toContain("test-secret");
     await user.click(screen.getByRole("button", { name: "Disable and revoke access" }));
     await screen.findByText("MCP is off");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

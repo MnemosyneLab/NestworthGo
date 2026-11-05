@@ -1,3 +1,6 @@
+import { capturePageContent } from "@/features/assistant/pageContent";
+import { verifyPageNavigation } from "@/test/assistantNavigation";
+import { PageChromeProvider } from "@/components/layout/PageChrome";
 import { RecordChangeForm } from "./RecordChangeForm";
 import { activityToInitialCommand } from "./activityToCommand";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -18,6 +21,9 @@ import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import i18n from "@/i18n";
 import { toast } from "sonner";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
+
+const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => aiAPI);
 
 const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
 const historyOrigin = vi.fn();
@@ -2315,4 +2321,50 @@ it("renders card purchase and refund sentences in the Ledger using real translat
   renderPage();
   expect(await screen.findByText("Card purchase US$100.00 on Synthetic card")).toBeInTheDocument();
   expect(await screen.findByText("Card refund US$30.00 on Synthetic card")).toBeInTheDocument();
+});
+
+
+it("captures real history filters and loaded business pages with distinct node-pagination limitations", async()=>{
+ historyOrigin.mockResolvedValue({timezone:"UTC",startedAt:"2026-01-01T00:00:00Z"}); scanHealth.mockResolvedValue({issues:[]});
+ const activity=(id:string,date:string)=>({id,kind:"cash_in",effectiveAt:`${date}T12:00:00Z`,effectiveLocalDate:date,createdAt:`${date}T12:00:00Z`,effects:[{accountId:"acc-1",money:{amount:"12.34",currency:"USD"}}]});
+ listActivityPage.mockImplementation(async(q:{afterId?:string})=>q.afterId ? {activities:[activity("page-two","2026-01-01")],hasMore:false} : {activities:[activity("page-one","2026-01-02")],hasMore:true,next:{id:"page-one",effectiveAt:"2026-01-02T12:00:00Z",createdAt:"2026-01-02T12:00:00Z"}});
+ const target=document.createElement("div");document.body.append(target);
+ const view=render(<QueryClientProvider client={createTestQueryClient()}><PageChromeProvider activePageId="history" target={target}><HistoryPage /></PageChromeProvider></QueryClientProvider>);
+ try {
+ await screen.findByTestId("activity-list"); const first=capturePageContent("history:");
+ expect(first.nodes.some(n=>n.role==="heading" && n.module==="page")).toBe(true);
+ expect(first.nodes.some(n=>n.role==="button" && n.module==="page" && n.name===i18n.t("history.recordButton"))).toBe(true);
+ expect(first.nodes.some(n=>n.name.includes("12.34"))).toBe(true);
+ expect(first.limitations.join(" ")).toContain("unloaded business pages");
+ await userEvent.click(screen.getByTestId("history-load-more"));
+ await waitFor(()=>expect(screen.queryByTestId("history-load-more")).not.toBeInTheDocument());
+ const second=capturePageContent("history:"); expect(second.id).not.toBe(first.id);
+ expect(second.nodes.filter(n=>n.name.includes("12.34")).length).toBeGreaterThan(first.nodes.filter(n=>n.name.includes("12.34")).length);
+ await userEvent.selectOptions(screen.getByLabelText(i18n.t("history.filterAccount")),"acc-1");
+ const filtered=capturePageContent("history:");
+ expect(filtered.nodes.find(n=>n.id==="filters/history-filter-account")?.value).toBe("Checking");
+ expect(JSON.stringify(filtered.nodes)).not.toContain('"value":"acc-1"');
+ expect(filtered.id).not.toBe(second.id);
+ expect(recordChange).not.toHaveBeenCalled(); expect(undoChange).not.toHaveBeenCalled();
+ } finally {view.unmount();target.remove();}
+});
+
+it.each(["before-consume","during-consume","unchanged"] as const)("fences real History filter state: %s", async phase=>{
+ historyOrigin.mockResolvedValue({timezone:"UTC",startedAt:"2026-01-01T00:00:00Z"}); scanHealth.mockResolvedValue({issues:[]});
+ await verifyPageNavigation({api:aiAPI,page:<HistoryPage />,viewKey:"history:",phase,
+  ready:async()=>{await screen.findByLabelText(i18n.t("history.filterKind")); await waitFor(()=>expect(document.querySelector('[data-assistant-module="timeline"]')).toHaveAttribute("aria-busy","false"));},
+  change:async()=>{await userEvent.selectOptions(screen.getByLabelText(i18n.t("history.filterKind")),"cash_in"); expect(screen.getByLabelText(i18n.t("history.filterKind"))).toHaveValue("cash_in");},
+ });
+ expect(recordChange).not.toHaveBeenCalled(); expect(undoChange).not.toHaveBeenCalled();
+});
+
+
+it("reads real starting-point business controls without invoking history writes", async()=>{
+ historyOrigin.mockResolvedValue(null); scanHealth.mockResolvedValue({issues:[]}); settingsLoad.mockResolvedValue({timezone:"UTC"});
+ renderPage(); await screen.findByLabelText(i18n.t("history.timezone"));
+ const page=capturePageContent("history:");
+ expect(page.nodes.find(n=>n.id==="starting-point/history-timezone")).toMatchObject({value:"UTC",state:["readonly=true"]});
+ expect(page.nodes.find(n=>n.id==="starting-point/history-start-date")?.value).not.toBe("");
+ expect(page.nodes.some(n=>n.module==="activities")).toBe(false);
+ expect(startHistory).not.toHaveBeenCalled();expect(startHistoryOnDate).not.toHaveBeenCalled();
 });

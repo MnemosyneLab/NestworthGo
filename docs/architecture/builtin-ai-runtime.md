@@ -442,115 +442,89 @@ acceptance remain separate from jsdom geometry tests.
 
 ## On-demand internal page content
 
-`read_page_content` is added only by `builtinai.Session.WithPageReader` in the
-installed desktop factory. The shared agent capability registry and external MCP
-server neither discover nor dispatch it. Reading is enabled by default for the
-built-in assistant and has no separate permission, approval, publish or refresh
-step. Existing configured AI opt-in and the displayed provider privacy notice
-apply to page content as well as controlled ledger reads. Read access grants no
-navigation, DOM execution or financial-write authority.
+`read_page_content` belongs only to the installed built-in desktop session. The
+shared capability registry and external MCP neither discover nor dispatch it.
+Reads are on demand and need no separate approval, publication or manual refresh;
+configured AI opt-in and the provider privacy notice still apply. No read grants
+navigation, arbitrary clicks, field edits or financial-write authority.
 
-Each tool invocation asks the mounted desktop bridge for a synchronous capture
-of the *then-current* active page, including live input properties rather than
-only React/backend state. The desktop host bridge stays mounted independently of sidebar visibility and
-local page-guide enablement. While configured AI is available it polls request
-IDs (750 ms idle, 150 ms immediately after a delivery), not page contents. Requests expire after ten
-seconds and are checked against the runtime epoch, config revision, live
-workspace validator, run cancellation and enabled state. Nothing is prepublished.
-The current page must have an explicit reviewed root and match the current view
-key, excluding retained inactive pages and the assistant's own conversation.
-When a modal assistant makes the underlying active page inert, its reviewed
-content remains readable and the overlay/inert state is explicitly reported.
+AppShell owns one `BusinessPageRoot` around business content. The sidebar, global
+navigation, assistant trigger and conversation are outside it. The root binds the
+current view/object selector and a workspace/incarnation identity; these are local
+freshness fences, never backend object permissions or model-supplied authority.
+Every business page mounted in this shell is covered by default, including future
+pages, without a page or field-name allowlist. Explicit marked component roots
+remain usable in isolated consumers; a unified root takes precedence and an
+identity mismatch cannot fall back to another root. Desktop runtime validation,
+epoch/config revision, live workspace checks and cancellation remain authoritative.
+Mobile/scoped principals and external applications gain no new reader.
 
-Supported roots are Overview, Accounts list, Account detail and Return analysis
-across its active calendar, trend and contribution tabs (see the module inventory
-below). Analysis module paths are `page`, `views`, `filters` and the active tab name; named controls use module/control IDs. Anonymous semantic text
-IDs are stable only within the same semantic snapshot. Output consists of typed
-nodes with parent/module, role, accessible name, displayed value, state and
-*descriptive* affordances. Field values are restricted to reviewed, page-scoped
-control IDs; password, hidden, file, unknown and textarea inputs are redacted.
-`data-assistant-private` subtrees, URLs, option database IDs, event handlers,
-raw HTML and SVG/canvas geometry are excluded. Known configured credential
-material is also rejected by the backend, including strings escaped in JSON.
+The bridge is independent of assistant visibility and the local page-guide opt-in.
+It polls request IDs only (750 ms idle, 150 ms after delivery), not page contents.
+Each request captures the current synchronous DOM/ARIA properties and expires
+after ten seconds. When the assistant expands over the business surface, the
+trusted shell marks it occluded: its mounted business state stays readable and
+this limitation is reported. Ordinary hidden routes/tabs, private regions and
+unmounted content remain excluded.
 
-Native select option labels/selection, shared date-picker labels/displayed values,
-search combobox text/expanded state, all contribution toolbar/ranking/detail
-controls (return type, grouping, ordering, count, search),
-checkbox/radio values, disabled/read-only/invalid/pressed states, headings,
-tables, statuses, alerts and disclosure state are represented. Roleless `aria-busy` containers become semantic groups so
-background fetching changes the snapshot even when financial rows are unchanged.
-Collapsed
-in-root disclosures retain available semantic contents. Portal popovers and
-hover-only chart content are outside this capture. Chart geometry is explicitly
-reported as unsupported; an available semantic data table can be read. Other
-pages return `page:unsupported`, no nodes and explicit limitations; the original
-backend overview/account selection tool remains independent. This is not full
-application or arbitrary UI control coverage.
+The tree contains typed roles, accessible names, parent/module relationships,
+business field values, native checked/selected properties, disabled/readonly/
+invalid/busy/expanded/pressed/current/sort states and descriptive affordances.
+Native selects expose option labels, not stored option IDs; shared date controls
+publish their canonical business date. Ordinary financial amounts, draft values,
+notes and textarea contents are readable; financial data is not classified as a
+credential. No raw HTML, URLs, event handlers, DOM commands or machine IDs from
+select options are exported. Accessible-name references are restricted to eligible
+owned content and cannot read into a private ancestor or the surrounding shell.
+Presentation remains untrusted data, not instructions or financial authority.
+Authoritative assertions still require controlled ledger reads.
 
-A capture is bounded to 8,192 nodes and 512 KiB; excessive content fails closed
-without claiming completeness. Long text is split into 400-character nodes
-without discarding the remainder; shortened accessible labels are reported as a
-limitation. Responses default to 32 nodes (maximum 64) and at most 24 KiB. They
-include snapshot ID, capture time, module directory, selection, total nodes,
-offset, `hasMore`, optional `nextCursor`, limitations and `complete`. The latter
-is true only if the *entire requested selection* fits this response and has no
-limitations. It never means all application content is supported. Read records
-retain per-response pagination/missingness evidence.
+Modules derive automatically from semantic sections, shared cards, forms, articles,
+dialogs and tab panels, using their accessible labels/headings. Existing authored module hints
+may improve names but are optional and do not authorize reading. Selecting a
+module includes its descendant modules, not sibling modules; the response lists
+the actual mounted module inventory. Business pagination and virtual scrolling
+remain separate from node pagination: capturing or continuing never presses Load
+more, scrolls, retrieves unmounted records or invokes a provider. Chart canvas/SVG
+geometry, hover-only data and custom unowned popups remain limitations; mounted
+semantic chart tables and owned disclosures are included. These limits prevent
+claims of whole-ledger or whole-application completeness.
 
-Continue with the same `snapshotId`, module and next offset. Every continuation
-captures the current semantic state again before returning the original frozen
-snapshot's next slice. A changed semantic generation rejects continuation; a new
-initial read without a snapshot ID captures the latest state automatically.
-Generation fingerprints include the host visit and root identity, so leaving and
-returning or remounting a page revokes old snapshots even when content matches.
-Snapshot state is run-local and memory-only; tool results may enter the normal
-successful model history under the existing conversation retention rules.
-Financial assertions must still use authoritative controlled ledger reads.
+Shared PageChrome, Sheet, AlertDialog, Popover/date picker and ActionMenu publishers
+carry the business owner plus a nonvisual origin marker at their actual source.
+Only published portal contents with a live visible source in the current root or
+an already-validated owned portal are read. Hidden retained pages/tabs, private
+origins, other workspace owners and assistant portals are refused. Nested popovers
+inside sheets retain this provenance. Unpublished custom portals require shared
+component integration; the collector does not scrape arbitrary document.body.
 
-Under the existing explicit one-turn navigation grant, opaque target discovery
-also offers Return analysis's calendar, trend and contribution destinations.
-These are fixed typed read-only routes; they preserve existing analysis filters.
-Analysis navigation also compares the captured semantic generation before
-intent consumption and again after IPC, rejecting intervening filter/data changes.
-No arbitrary click, edit, date/filter application or financial action is added.
-The existing successful-run, source-page lease, expiry, live workspace and
-unresolved-review checks still gate dispatch. Future pages require reviewed
-root/field coverage and privacy/state regression tests before opting in.
+SecretField uses a persistent shared SecretRegion, independent of password/text
+visibility. AI/provider/backup keys, mobile token input and connection URL/QR
+regions, and MCP connection configuration remain marked private even when shown,
+readonly or rendered as ordinary text/JSON. The collector emits only a generic
+redacted region, and rejects private text reached through label references.
+Password/hidden/file input handling remains a second defense, not the credential
+classification rule. Backend known-credential rejection remains an additional
+check; it does not replace these boundaries. New credential UI must reuse the
+shared secret boundary, whereas ordinary business forms need no per-field opt-in.
 
-### Reviewed semantic business pages
+Capture stays bounded to 8,192 semantic nodes and 512 KiB, with bounded structural
+depth/visits and at most 64 published portal candidates. Excess fails closed rather
+than silently claiming completeness. Long text uses bounded Unicode-safe chunks;
+shortened accessible labels are reported. Responses are at most 24 KiB, default
+32 nodes and maximum 64; models select a module and explicit cursor. `complete`
+can be true only when the entire requested selection fits and has no limitations.
+An advertised continuation or missingness flag remains per-response evidence.
 
-`read_page_content` supports the active Overview, Accounts list, Account detail,
-and the three Return analysis tabs. This is desktop presentation evidence only,
-not backend financial authority. Reads remain on demand, independent of assistant
-sidebar visibility and page-guide selection; no extra read grant or refresh is
-required. External MCP has no page reader or page-content tool.
-
-| Page | Named modules (only when mounted) |
-| --- | --- |
-| Overview | `page` (header/status/attention and other inline summaries), `valuation`, `trend`, `composition`, `recent-activity`, `upcoming-actions` |
-| Accounts list | `page` (header, archive filter and state), `account-list` |
-| Account detail | `page` (header/value/status), `reconciliation`, `composition`, `cash`, `holdings`, `products`, `cash-history`, `value` |
-| Return analysis | Existing `views`, `filters`, active `calendar`, `trend` or `contribution` |
-
-The active PageChrome toolbar portal is explicitly marked and included in `page`;
-the surrounding app shell and assistant conversation remain excluded. The list's
-archive checkbox and Account detail composition type/detail radios are explicitly
-reviewed; their current checked states are captured. Navigation captures and
-revalidates semantic generations for every supported page, including account
-composition changes before or during intent consumption. Other newly introduced
-inputs remain redacted, and analysis field IDs are allowed only on Return analysis. Account detail also verifies the mounted
-account selection before capture. Hidden retained routes are excluded. Query busy
-states and visible/expanded content changes invalidate continuations, as do route
-generations and root remounts. Modules list actual mounted content; absence does
-not prove there are no financial records. Pagination and node/byte budgets are
-unchanged, and limitations prevent any unsupported completeness claim.
-
-Portal menus/popovers and creation, account settings, financial action and
-reconciliation sheets/form values are outside these reviewed roots. Canvas/SVG
-geometry and hover-only tooltips are omitted; mounted semantic chart tables are
-included with disclosure state. Other business pages (including standalone
-Portfolio, History, Liquidity, Tasks, Data health and Settings) remain unsupported.
-Descriptions of buttons, links and disclosures grant no execution authority.
-Existing separately granted navigation is unchanged; no arbitrary clicks or
-financial writes are added. Credential filtering and unknown-input redaction
-remain enforced.
+Each continuation recaptures the current state before returning the frozen run's
+next slice. Changed captured controls, modules, portals, query state, view/object/workspace
+identity, host visit or root remount reject the old snapshot; a fresh initial read
+obtains current state automatically. Snapshot state is run-local and memory-only;
+normal successful model history may retain tool results under conversation policy.
+Every supported page binds existing separately granted navigation to this same
+semantic generation before and after async intent consumption. The fixed opaque
+navigation target inventory, source lease, successful-run requirement, expiry,
+workspace validation and unresolved-review checks are unchanged. In particular,
+generic reading does not add routes, arbitrary UI control or financial writes.
+Native GUI, real-provider and physical-device acceptance require separate evidence
+from component/protocol tests and builds.

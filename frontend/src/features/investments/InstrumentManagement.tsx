@@ -335,7 +335,7 @@ export function InstrumentManagement({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" aria-busy={instruments.isFetching || products.isFetching}>
       <PageChrome
         pageId={pageId}
         enabled={active}

@@ -1,3 +1,4 @@
+import { useBusinessPortal } from "@/lib/businessCapture";
 import { createContext, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -35,6 +36,7 @@ export function PageChrome({
   enabled?: boolean;
 }) {
   const context = useContext(PageChromeContext);
+  const capture = useBusinessPortal();
   const content = (
     <>
       {leading}
@@ -58,5 +60,5 @@ export function PageChrome({
   if (!context.target) {
     return <div className="flex min-w-0 flex-wrap items-center gap-3">{content}</div>;
   }
-  return createPortal(<div className="contents" data-assistant-chrome={pageId}>{content}</div>, context.target);
+  return <>{capture.origin}{createPortal(<div className="contents" data-assistant-chrome={pageId} {...capture.props}>{content}</div>, context.target)}</>;
 }
