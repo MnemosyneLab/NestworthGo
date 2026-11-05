@@ -21,7 +21,7 @@ func fitLiveReadPage[T any](ctx context.Context, app *application.Service, limit
 			if err != nil {
 				return err
 			}
-			fits, err := readFits(value)
+			fits, err := readFitsProjected(ctx, value)
 			if err != nil {
 				return err
 			}

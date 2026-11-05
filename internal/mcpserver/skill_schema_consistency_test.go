@@ -35,8 +35,8 @@ var skillSchemaExamples = map[string]map[string][]string{
 	},
 	"analysis": {
 		"get_historical_overview": {"historical-overview"}, "get_historical_overview_series": {"historical-overview-series"}, "analyze_period": {"analyze-period"},
-		"get_financial_context": {"financial-context", "financial-context-named"}, "get_financial_context_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page"}, "get_financial_context_item": {"financial-context-item", "financial-context-item-page"},
-		"compare_financial_context": {"financial-comparison"}, "get_financial_comparison_page": {"financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
+		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page", "financial-context-item-page", "financial-comparison-positions-page", "financial-comparison-gaps-page", "financial-comparison-evidence-page"}, "get_financial_context_item": {"financial-context-item"},
+		"compare_financial_context": {"financial-comparison"}, "compare_financial_attribution": {"financial-attribution", "financial-attribution-account"},
 	},
 	"paging-and-batches": {
 		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item", "compare-import-item"}, "get_read_page": {"scale-page"},
@@ -172,10 +172,31 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"Ordinary get_read_page | 25 / 100", "Import comparison initial capture and pages | 100 / 100", "section/items/page", "5 minutes", "4 MiB", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
+	for _, phrase := range []string{"Ordinary initial business reads and every continuation | 25 / 100", "get_read_page({cursor, limit?})", "items/page", "5 minutes", "4 MiB", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
 		if !strings.Contains(string(guide), phrase) {
 			t.Errorf("contract guidance missing: %s", phrase)
 		}
+	}
+	marketGuide, err := os.ReadFile(filepath.Join("..", "..", "skills", "nestworth", "references", "market-data.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(marketGuide), "Comparison pages default to 25 rows") || !strings.Contains(string(marketGuide), "get_read_page({cursor, limit?})") {
+		t.Error("market comparison guide differs from the shared default/continuation contract")
+	}
+	marketDefinition, err := s.toolRegistry(LedgerWrite).Definition("compare_market_data_import")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(marketDefinition.Description, "Comparison pages default to 25 rows, maximum 100") || !strings.Contains(marketDefinition.Description, "get_read_page({cursor,limit?})") {
+		t.Error("market comparison discovery differs from its schema/runtime default and continuation")
+	}
+	definition, err := s.toolRegistry(LedgerWrite).Definition("compare_financial_attribution")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(definition.Description, "get_read_page({cursor,limit?})") || strings.Contains(definition.Description, "get_financial_comparison_page") {
+		t.Error("financial attribution discovery must direct continuation through get_read_page")
 	}
 	if readTTL != 5*time.Minute || contextTTL != readTTL || readCaptureLimit != 4<<20 || contextPackageLimit != readCaptureLimit || readCacheLimit != 16<<20 || contextCacheLimit != readCacheLimit || readCacheCount != 8 || contextCacheCount != readCacheCount || readBuildConcurrency != 2 || readBuildTimeout != 10*time.Second || contextWireLimit != 65536 {
 		t.Fatal("runtime budgets changed; review skill contract table")
@@ -187,7 +208,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	for _, c := range []struct {
 		kind  string
 		count int
-	}{{"synthetic_contract", 25}, {"market_import_comparison", 100}} {
+	}{{"synthetic_contract", 25}, {"market_import_comparison", 25}} {
 		captured, err := s.reads.store(s.contextGeneration, readCapture{Kind: c.kind, Query: map[string]any{"view": "full"}, Summary: map[string]any{"source": "synthetic"}, Sections: map[string][]json.RawMessage{"rows": rows}}, 1)
 		if err != nil {
 			t.Fatal(err)

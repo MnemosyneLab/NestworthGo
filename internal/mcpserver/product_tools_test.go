@@ -167,21 +167,32 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 	// Check newest-first pagination and reversal links across equal creation times.
 	seen := map[string]bool{}
 	cursor := ""
+	nativeCursor := ""
 	for {
 		args := skillExample(t, "products", "product-history", map[string]string{"productId": id})
-		args["limit"], args["cursor"] = 1, cursor
-		page := call(t, client, "list_product_operations", args, false)["data"].(map[string]any)
-		expected, err := gui.ListOperations(t.Context(), liquidity.ListOperationsRequest{ProductID: id, Limit: 1, Cursor: cursor})
+		args["limit"] = 1
+		name := "list_product_operations"
+		if cursor != "" {
+			name = "get_read_page"
+			args = map[string]any{"cursor": cursor, "limit": 1}
+		}
+		page := call(t, client, name, args, false)["data"].(map[string]any)
+		expected, err := gui.ListOperations(t.Context(), liquidity.ListOperationsRequest{ProductID: id, Limit: 1, Cursor: nativeCursor})
 		if err != nil {
 			t.Fatal(err)
 		}
-		productJSONEqual(t, page, expected)
+		productJSONEqual(t, page["items"], expected.Operations)
+		productJSONEqual(t, page["undo"], expected.Undo)
+		productJSONEqual(t, page["latestRecordedOperationId"], expected.LatestRecordedOperationID)
+		if expected.Next != nil {
+			nativeCursor = *expected.Next
+		}
 		summary := page["undo"].(map[string]any)
 		if summary["operation"] == nil || summary["allowed"] != true || summary["reason"] != nil || page["latestRecordedOperationId"] == nil {
 			t.Fatal("missing global availability", page)
 		}
 
-		for _, raw := range page["operations"].([]any) {
+		for _, raw := range page["items"].([]any) {
 			op := raw.(map[string]any)
 			opID := op["id"].(string)
 			if seen[opID] || op["requestJson"] != nil || op["resultJson"] != nil {
@@ -196,10 +207,10 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 			}
 
 		}
-		if page["next"] == nil {
+		if page["page"].(map[string]any)["nextCursor"] == nil {
 			break
 		}
-		cursor = page["next"].(string)
+		cursor = page["page"].(map[string]any)["nextCursor"].(string)
 	}
 	for _, op := range []string{opened.OperationID, interest.OperationID, settled.OperationID, undo.OperationID} {
 		if !seen[op] {
@@ -523,15 +534,15 @@ func TestProductHTTPLongHistoryDefaultAndMaximumPages(t *testing.T) {
 	}
 	client := connect(t, fx.service)
 	page := call(t, client, "list_product_operations", map[string]any{"productId": id}, false)["data"].(map[string]any)
-	if len(page["operations"].([]any)) != 25 || page["next"] == nil {
+	if len(page["items"].([]any)) != 25 || page["page"].(map[string]any)["nextCursor"] == nil {
 		t.Fatal("default page size/cursor", page)
 	}
-	last := call(t, client, "list_product_operations", map[string]any{"productId": id, "cursor": page["next"]}, false)["data"].(map[string]any)
-	if len(last["operations"].([]any)) != 2 || last["next"] != nil {
+	last := call(t, client, "get_read_page", map[string]any{"cursor": page["page"].(map[string]any)["nextCursor"]}, false)["data"].(map[string]any)
+	if len(last["items"].([]any)) != 2 || last["page"].(map[string]any)["nextCursor"] != nil {
 		t.Fatal("last page/cursor", last)
 	}
 	all := call(t, client, "list_product_operations", map[string]any{"productId": id, "limit": 100}, false)["data"].(map[string]any)
-	if len(all["operations"].([]any)) != 27 || all["next"] != nil {
+	if len(all["items"].([]any)) != 27 || all["page"].(map[string]any)["nextCursor"] != nil {
 		t.Fatal("maximum page size", all)
 	}
 	if code := ledgerErrorCode(t, client, "list_product_operations", map[string]any{"productId": id, "cursor": "private-invalid-cursor"}); code != "validation" {

@@ -64,15 +64,15 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 		t.Fatal("header embedded all accounts")
 	}
 	page := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "items", "limit": 1}, false)["data"].(map[string]any)
-	if page["total"].(float64) != 2 {
+	if page["page"].(map[string]any)["total"].(float64) != 2 {
 		t.Fatal(page)
 	}
-	cursor := page["nextCursor"].(string)
+	cursor := page["page"].(map[string]any)["nextCursor"].(string)
 	item := page["items"].([]any)[0].(map[string]any)["item"].(map[string]any)
 	link := map[string]any{"sessionId": id, "accountId": fx.checking, "itemId": item["id"], "expectedRevision": header["revision"], "financialRevision": item["financialRevision"]}
 	correction := call(t, c, "preview_reconciliation", map[string]any{"reconciliationLink": link, "targets": []any{map[string]any{"accountId": fx.checking, "targetBalance": "25", "currency": "USD"}}}, false)["data"].(map[string]any)
 	reconciliationCommit(t, c, uuid.NewString(), correction["planId"].(string))
-	if code := ledgerErrorCode(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "items", "limit": 1, "cursor": cursor}); code != "stale_cursor" {
+	if code := ledgerErrorCode(t, c, "get_read_page", map[string]any{"limit": 1, "cursor": cursor}); code != "stale_cursor" {
 		t.Fatalf("stale paging: %s", code)
 	}
 	full := call(t, c, "get_reconciliation_item", map[string]any{"sessionId": id, "accountId": fx.checking, "itemId": item["id"]}, false)["data"].(map[string]any)
@@ -85,7 +85,7 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 	missing := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "2", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z", "reconciliationLink": link})
 	ledgerCommit(t, c, uuid.NewString(), missing["planId"].(string))
 	links := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "links"}, false)["data"].(map[string]any)
-	if links["total"].(float64) != 2 {
+	if links["page"].(map[string]any)["total"].(float64) != 2 {
 		t.Fatal(links)
 	}
 	header = sessionHeader(t, c, id)
@@ -141,7 +141,7 @@ func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 	if _, err = pageReconciliation(in, rows, 4); err == nil {
 		t.Fatal("stale cursor accepted")
 	}
-	in.Limit = 51
+	in.Limit = 101
 	if _, err = pageReconciliation(in, rows, 3); err == nil {
 		t.Fatal("oversized page accepted")
 	}
@@ -158,7 +158,7 @@ func TestReconciliationLinkedBatchUsesOneAtomicScope(t *testing.T) {
 	p := call(t, c, "preview_batch", map[string]any{"reconciliationLink": link, "commands": []any{map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "2", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}}}, false)["data"].(map[string]any)
 	call(t, c, "commit_batch", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": p["planId"]}}, false)
 	links := call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "links"}, false)["data"].(map[string]any)
-	if links["total"].(float64) != 2 {
+	if links["page"].(map[string]any)["total"].(float64) != 2 {
 		t.Fatal(links)
 	}
 }

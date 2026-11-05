@@ -91,9 +91,17 @@ func TestReconciliationPageActualHTTPWireBudget(t *testing.T) {
 		items[i] = map[string]any{"id": fmt.Sprint(i), "evidence": strings.Repeat("\"数据\\", 700)}
 	}
 	set := newToolSet("synthetic pagination regression", true)
-	readTool(set, "get_reconciliation_session_page", "synthetic", func(_ context.Context, in ReconciliationReadInput) (any, error) {
-		return pageReconciliation(in, items, 7)
+	readTool(set, "get_reconciliation_session_page", "synthetic", func(ctx context.Context, in ReconciliationReadInput) (any, error) {
+		return pageReconciliation(in, items, 7, ctx)
 	})
+	readTool(set, "get_read_page", "synthetic unified continuation", func(ctx context.Context, in ReadPageInput) (any, error) {
+		route, err := set.paging.decode(in.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		return set.pages[route.Tool](ctx, route.Query, reviewPageLimit(in.Limit))
+	})
+
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return set.server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
 	server := httptest.NewServer(financialContextEnvelope(handler))
 	t.Cleanup(server.Close)
@@ -106,7 +114,15 @@ func TestReconciliationPageActualHTTPWireBudget(t *testing.T) {
 	cursor := ""
 	seen := 0
 	for {
-		page := call(t, client, "get_reconciliation_session_page", ReconciliationReadInput{Section: "links", Cursor: cursor, Limit: 12}, false)["data"].(map[string]any)
+
+		name := "get_reconciliation_session_page"
+		args := any(ReconciliationReadInput{Section: "links", Limit: 12})
+		if cursor != "" {
+			name = "get_read_page"
+			args = ReadPageInput{Cursor: cursor, Limit: 12}
+		}
+		page := call(t, client, name, args, false)["data"].(map[string]any)
+
 		rows := page["items"].([]any)
 		if len(rows) == 0 {
 			t.Fatal("empty continuation")
@@ -117,7 +133,7 @@ func TestReconciliationPageActualHTTPWireBudget(t *testing.T) {
 			}
 			seen++
 		}
-		next, ok := page["nextCursor"].(string)
+		next, ok := page["page"].(map[string]any)["nextCursor"].(string)
 		if !ok || next == "" {
 			break
 		}

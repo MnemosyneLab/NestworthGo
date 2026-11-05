@@ -72,7 +72,7 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 				_, rows := skillPageState(t, initial)
 				got := rows[section]
 				for info.HasMore {
-					page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 2}, false))
+					page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{Cursor: info.NextCursor, Limit: 2}, false))
 					if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.Content.Change.NetWorth.Value != nil {
 						t.Fatal(page)
 					}

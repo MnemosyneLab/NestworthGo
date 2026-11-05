@@ -291,7 +291,7 @@ func TestProductHTTPValuationFrozenObservationImmutableReceiptAndHistory(t *test
 	productDataCommitHTTP(t, c, "commit_product_valuation", historical["planId"].(string), uuid.NewString())
 	productAssertNetWorth(t, c, "1200")
 	page := call(t, c, "list_product_operations", liquidity.ListOperationsRequest{ProductID: id, Limit: 100}, false)["data"].(map[string]any)
-	if len(page["operations"].([]any)) != 4 {
+	if len(page["items"].([]any)) != 4 {
 		t.Fatal(page)
 	}
 }

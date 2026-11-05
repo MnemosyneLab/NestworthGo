@@ -26,8 +26,8 @@ const readBuildTimeout = 10 * time.Second
 const readBuildConcurrency = 2
 
 type ReadPageInput struct {
-	CaptureID string `json:"captureId"`
-	Section   string `json:"section"`
+	CaptureID string `json:"captureId,omitempty"`
+	Section   string `json:"section,omitempty"`
 	Cursor    string `json:"cursor"`
 	Limit     int    `json:"limit,omitempty"`
 }
@@ -37,10 +37,11 @@ type ReadItemInput struct {
 	ID        string `json:"id"`
 }
 type ReadPageInfo struct {
-	Total      int     `json:"total"`
-	Returned   int     `json:"returned"`
-	HasMore    bool    `json:"hasMore"`
-	NextCursor *string `json:"nextCursor"`
+	Total       int     `json:"total"`
+	Returned    int     `json:"returned"`
+	HasMore     bool    `json:"hasMore"`
+	NextCursor  *string `json:"nextCursor"`
+	Consistency string  `json:"consistency"`
 }
 type ReadSection struct {
 	Items []json.RawMessage `json:"items"`
@@ -194,7 +195,7 @@ func (c *boundedReadCache) pageInfo(id, section string, e readCapture, start, n 
 	return c.pageInfoSize(id, section, e, len(rows), start, n)
 }
 func (c *boundedReadCache) pageInfoSize(id, section string, e readCapture, total, start, n int) ReadPageInfo {
-	p := ReadPageInfo{Total: total, Returned: n, HasMore: start+n < total}
+	p := ReadPageInfo{Total: total, Returned: n, HasMore: start+n < total, Consistency: "frozen"}
 	if p.HasMore {
 		v := c.cursor(id, section, e, start+n)
 		p.NextCursor = &v
@@ -328,9 +329,7 @@ func (c *boundedReadCache) page(g uint64, in ReadPageInput) (ReadEnvelope, error
 	if err != nil {
 		return ReadEnvelope{}, err
 	}
-	if in.Limit == 0 && e.Kind == "market_import_comparison" {
-		limit = 100
-	}
+
 	cur, err := c.decode(in.Cursor)
 	if err != nil || cur.CaptureID != in.CaptureID || cur.Section != in.Section || cur.Hash != e.hash || cur.Generation != g || cur.Offset < 0 {
 		return ReadEnvelope{}, fail("validation", "cursor must match capture, section and query")
@@ -400,11 +399,11 @@ func (s *Service) buildRead(ctx context.Context, g uint64, limit int, fn func(co
 	return s.reads.store(g, e, limit)
 }
 func (s *Service) boundedReadTools(server *toolSet, g uint64) {
-	readTool(server, "get_read_page", "Continue a frozen mcp-read/1 section with its exact captureId and signed cursor. Default limit 25; market-comparison captures default to 100. Maximum 100, with the final byte cap always enforced. Follow requested section cursors before claiming those sections complete; unread evidence remains deferred. Restart all sections after read_expired/read_revoked. No DB reads or TTL renewal.", func(ctx context.Context, in ReadPageInput) (any, error) {
+	readTool(server, "get_read_page", "Continue any business nextCursor with only cursor and optional limit (25/max 100). Scope is signed; only row budget may change. Short/deferred pages remain incomplete while hasMore. Preserve frozen hash/TTL, version_bound staleness and live semantics. Restart related reads after invalidation; oversized items fail explicitly.", func(ctx context.Context, in ReadPageInput) (any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		return s.reads.page(g, in)
+		return s.continuePage(ctx, server, g, in)
 	})
 	readTool(server, "get_read_item", "Read full item evidence from a frozen products, historical, account-valuations, directory, instrument or market-comparison capture. Comparison uses section=results and id=clientItemId, with focused child evidence from that same capture. Supply the row id and section. Returned child sections have independent signed cursors; follow them before claiming completeness. Does not recapture or renew TTL.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")

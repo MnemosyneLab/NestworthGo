@@ -28,7 +28,7 @@ type ReconciliationReadInput struct {
 	To        string `json:"to,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone (UTC before History Origin)"`
 	Sort      string `json:"sort,omitempty" jsonschema:"asc or desc; default desc for sessions, asc for detail"`
 	Cursor    string `json:"cursor,omitempty"`
-	Limit     int    `json:"limit,omitempty" jsonschema:"Default 25; maximum 50"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"Default 25; maximum 100"`
 }
 type reconciliationPage struct {
 	Items      []any  `json:"items"`
@@ -41,13 +41,17 @@ type reconciliationCursor struct {
 	Offset int    `json:"offset"`
 }
 
-func pageReconciliation(in ReconciliationReadInput, items []any, revision int64) (any, error) {
+func pageReconciliation(in ReconciliationReadInput, items []any, revision int64, contexts ...context.Context) (any, error) {
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
 	limit := in.Limit
 	if limit == 0 {
 		limit = 25
 	}
-	if limit < 1 || limit > 50 {
-		return nil, fail("validation", "limit must be 1 to 50")
+	if limit < 1 || limit > 100 {
+		return nil, fail("validation", "limit must be 1 to 100")
 	}
 	query := in
 	query.Cursor = ""
@@ -94,7 +98,7 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 			}
 			result.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
 		}
-		fits, err := readFits(result)
+		fits, err := readFitsProjected(ctx, result)
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +114,7 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64)
 	return result, nil
 }
 func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {
-	readTool(server, "list_reconciliation_sessions", "Bounded reconciliation history and in-progress sessions. Filter status, accountId and started civil date from/to; sort asc/desc. Default 25, max 50, stable content-bound cursor with stale_cursor on change.", s.listReconciliationSessions)
+	readTool(server, "list_reconciliation_sessions", "Bounded reconciliation history and in-progress sessions. Filter status, accountId and started civil date from/to; sort asc/desc. Default 25, max 100, stable content-bound cursor with stale_cursor on change.", s.listReconciliationSessions)
 	readTool(server, "get_reconciliation_session", "Read a reconciliation header and explicit outcome counts. No account/item histories are embedded. Use get_reconciliation_session_page and get_reconciliation_item for complete evidence; completed records remain immutable and recheck status is separate.", func(ctx context.Context, in IDInput) (any, error) {
 		v, e := s.app.GetReconciliationSession(ctx, in.ID)
 		if e != nil {
@@ -276,7 +280,7 @@ func (s *Service) listReconciliationSessions(ctx context.Context, in Reconciliat
 			rows[i], rows[j] = rows[j], rows[i]
 		}
 	}
-	return pageReconciliation(in, rows, 0)
+	return pageReconciliation(in, rows, 0, ctx)
 }
 func (s *Service) reconciliationSessionPage(ctx context.Context, in ReconciliationReadInput) (any, error) {
 	if in.Sort != "" && in.Sort != "asc" && in.Sort != "desc" {
@@ -353,7 +357,7 @@ func (s *Service) reconciliationSessionPage(ctx context.Context, in Reconciliati
 			rows[i], rows[j] = rows[j], rows[i]
 		}
 	}
-	return pageReconciliation(in, rows, v.Revision)
+	return pageReconciliation(in, rows, v.Revision, ctx)
 }
 
 // Keep persisted source JSON stable for existing plans and receipts. Only the

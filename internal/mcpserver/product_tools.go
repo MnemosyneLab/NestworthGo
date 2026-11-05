@@ -43,7 +43,7 @@ func (s *Service) productTools(server *toolSet) {
 		}
 		return s.pagedProducts(ctx, generation, ProductListInput{Limit: in.Limit}, &id)
 	})
-	readTool(server, "list_product_operations", "Page live managed-product operations by productId; default 25/max 100, byte-aware. Pass next as cursor for that product; refresh after a changed latestRecordedOperationId. Includes reversals and current undo availability, which is not a plan or permission. get_activity shows ledger effects; get_operation uses a different MCP receipt UUID.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
+	readTool(server, "list_product_operations", "Page live managed-product operations by productId; default 25/max 100, byte-aware. Follow page.nextCursor with get_read_page; refresh after a changed latestRecordedOperationId. Includes reversals and current undo availability, which is not a plan or permission. get_activity shows ledger effects; get_operation uses a different MCP receipt UUID.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
 		if in.Limit < 0 || in.Limit > 100 {
 			return nil, fail("validation", "limit must be 1 to 100, or omitted/zero for 25")
 		}

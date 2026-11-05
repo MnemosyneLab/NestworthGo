@@ -37,7 +37,7 @@ financial-context captures.
 | --- | --- | --- |
 | list_products | Optional accountId and includeClosed (default false) | ListProducts; GUI ProductDetailDTO array, including policy and active reservations |
 | get_product | id (committed contract UUID) | Product; same detail, revision and GUI action reasons |
-| list_product_operations | productId, optional cursor and limit | ListProductOperations; metadata page and nullable next cursor |
+| list_product_operations | productId, optional limit | ListProductOperations; items/page plus metadata; get_read_page continues its signed nextCursor |
 | get_liquidity_overview | Optional customHorizonOn and includeEarlyWithdrawal | LiquidityOverview; entire GUI overview, evidence, assumptions and unresolved reservations |
 
 The server advertises managed_product_read and liquidity_read capabilities.
@@ -295,8 +295,7 @@ request/result JSON and receipt evidence remain excluded, and the existing 64 Ki
 whole-response budget fails closed without truncating metadata or rows.
 
 `latestRecordedOperationId` is an optional change hint, not a financial version,
-preview, cursor, authorization token or frozen snapshot guarantee. Keep productId
-with next/cursor. Refresh from the first page after relevant changes; the App
+preview, cursor, authorization token or frozen snapshot guarantee. The signed page.nextCursor retains productId; continue with get_read_page. Refresh from the first page after relevant changes; the App
 restarts when loading more detects a changed head. Terms, cash, reservation and
 archive changes can change eligibility without appending a history row.
 

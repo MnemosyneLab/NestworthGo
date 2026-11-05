@@ -93,7 +93,7 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 			classified := recorder.total()
 			if view == "summary" {
 				want := 3
-				if limit == 25 {
+				if limit == 0 || limit == 25 {
 					want = 10
 				}
 				if classified.Calls-start.Calls != want {

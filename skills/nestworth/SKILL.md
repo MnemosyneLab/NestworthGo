@@ -24,9 +24,9 @@ for unknown instance/permission/timezone/history metadata; reuse until reconnect
 or permission/instance change. Use `get_catalog` for entity creation or unknown
 vocabulary. Neither is a prerequisite for ordinary reads. Prefer actual schemas.
 
-Fetch only needed detail. Complete-list, absence and audit claims require all
-relevant cursors; preserve capture/hash, disclosure and deferred scope. See
-[paging and batches](references/paging-and-batches.md).
+Business cursors use `get_read_page({cursor,limit?})`, default 25/max 100.
+Complete-list/absence/audit claims require all relevant cursors; preserve
+consistency, capture/hash and disclosure. See [paging](references/paging-and-batches.md).
 
 If the connection, household setup or required history start is missing, follow
 [connection.md](references/connection.md). Guide the user through the App;

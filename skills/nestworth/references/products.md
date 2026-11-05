@@ -74,8 +74,8 @@ assume an earlier capture is still current.
 {"productId":"${productId}","limit":25}
 ```
 
-Continue with `cursor` equal to `next`, keeping the same productId; stop when
-next is null. Limit defaults to 25, maximum 100. Rows are ordered by creation
+Rows are in items; continue page.nextCursor with get_read_page({cursor, limit?});
+stop when page.hasMore=false and nextCursor=null. The cursor retains productId. Limit defaults to 25, maximum 100. Rows are ordered by creation
 timestamp then UUID, newest first. These are live pages; concurrent GUI changes
 can affect later pages. Re-read after changes before asserting completeness.
 Operation rows include actual kind, effective/creation times and reversal links;

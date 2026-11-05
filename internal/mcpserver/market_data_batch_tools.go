@@ -92,7 +92,7 @@ func (s *Service) marketBatchTools(server *toolSet, g uint64) {
 			return nil, fail("validation", "records layout requires view=history")
 		}
 		if unified && in.Limit == 0 {
-			in.Limit = 100
+			in.Limit = 25
 		}
 		order := ReadSort{}
 		if in.Sort != nil {

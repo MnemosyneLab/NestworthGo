@@ -10,13 +10,13 @@ import (
 
 type ReviewV2PageInput struct {
 	Cursor   string `json:"cursor,omitempty"`
-	PageSize int    `json:"pageSize" jsonschema:"1–100; follow the returned cursor until empty"`
+	PageSize int    `json:"limit,omitempty" jsonschema:"1–100; follow the returned cursor until empty"`
 }
 
 type ReviewV2AlertPageInput struct {
 	Filter   domain.ReviewAlertFilter `json:"filter"`
 	Cursor   string                   `json:"cursor,omitempty"`
-	PageSize int                      `json:"pageSize" jsonschema:"1–100 complete investment groups"`
+	PageSize int                      `json:"limit,omitempty" jsonschema:"1–100 complete investment groups"`
 }
 
 type ReviewV2AlertInput struct {
@@ -26,25 +26,25 @@ type ReviewV2AlertInput struct {
 type ReviewV2EvidenceInput struct {
 	EpisodeID string `json:"episodeId"`
 	Cursor    string `json:"cursor,omitempty"`
-	PageSize  int    `json:"pageSize" jsonschema:"1–100 closed daily votes"`
+	PageSize  int    `json:"limit,omitempty" jsonschema:"1–100 closed daily votes"`
 }
 
 type ReviewV2HistoryInput struct {
 	RuleID   string `json:"ruleId"`
 	Cursor   string `json:"cursor,omitempty"`
-	PageSize int    `json:"pageSize" jsonschema:"1–100 episodes for one rule"`
+	PageSize int    `json:"limit,omitempty" jsonschema:"1–100 episodes for one rule"`
 }
 
 type ReviewV2EventInput struct {
 	EpisodeID string `json:"episodeId"`
 	Cursor    string `json:"cursor,omitempty"`
-	PageSize  int    `json:"pageSize" jsonschema:"1–100 events for one episode"`
+	PageSize  int    `json:"limit,omitempty" jsonschema:"1–100 events for one episode"`
 }
 
 type ReviewV2CoverageInput struct {
 	Filter   domain.ReviewCoverageFilter `json:"filter"`
 	Cursor   string                      `json:"cursor,omitempty"`
-	PageSize int                         `json:"pageSize" jsonschema:"1–100 current positive-holding investment groups"`
+	PageSize int                         `json:"limit,omitempty" jsonschema:"1–100 current positive-holding investment groups"`
 }
 
 type ReviewV2PreviewInput struct {
@@ -105,8 +105,8 @@ type ReviewV2ClearSuppressionInput struct {
 // Daily investment review tools use the V2 rule projection. Read tools return
 // only the last complete publication and leave the database untouched.
 func (s *Service) reviewV2Tools(server *toolSet, mode string) {
-	readTool(server, "list_investment_review_rules", "Page live daily rules (1\u2013100, byte-aware). Continue every nonempty array using its last rule ID as cursor until an empty array; a short page may still have more. Rules are reminders, not sell recommendations.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) ([]domain.ReviewRule, error) {
+	readTool(server, "list_investment_review_rules", "Page live daily rules (1\u2013100, byte-aware). Follow page.nextCursor with get_read_page, even after a short page. Rules are reminders, not sell recommendations.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) ([]domain.ReviewRule, error) {
 			return s.app.ListReviewRulesV2(ctx, in.Cursor, size)
 		})
 	})
@@ -124,7 +124,7 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 		})
 	})
 	readTool(server, "list_investment_review_alerts", "Read a published rule-aware investment review report v2. Groups are paged by instrument, never split by rule; cursor is bound to report revision and filters. This read does not reconcile or update data.", func(ctx context.Context, in ReviewV2AlertPageInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewAlertPage, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) (domain.ReviewAlertPage, error) {
 			return s.app.ListReviewAlertGroupsV2(ctx, in.Filter, in.Cursor, size)
 		})
 	})
@@ -132,27 +132,27 @@ func (s *Service) reviewV2Tools(server *toolSet, mode string) {
 		return s.app.GetReviewAlertV2(ctx, in.EpisodeID)
 	})
 	readTool(server, "list_investment_review_daily_evidence", "Page persisted closed-day T/F/U evidence for one current open review episode. A changed publication expires the cursor. This read never reconciles or writes.", func(ctx context.Context, in ReviewV2EvidenceInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewDailyEvidencePage, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) (domain.ReviewDailyEvidencePage, error) {
 			return s.app.ListReviewDailyEvidenceV2(ctx, in.EpisodeID, in.Cursor, size)
 		})
 	})
 	readTool(server, "list_investment_review_episode_history", "Page open and resolved daily review episodes for one rule, including archived rules. Returns original trigger, condition version, handling and resolution without reinterpreting old evidence. Pure read with a revision-bound cursor.", func(ctx context.Context, in ReviewV2HistoryInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewEpisodeHistoryPage, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) (domain.ReviewEpisodeHistoryPage, error) {
 			return s.app.ListReviewEpisodeHistoryV2(ctx, in.RuleID, in.Cursor, size)
 		})
 	})
 	readTool(server, "list_investment_review_episode_events", "Page persisted opening, acknowledgement, evidence-correction and resolution events for one open or historical daily review episode. Pure read with a revision-bound cursor.", func(ctx context.Context, in ReviewV2EventInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewEpisodeEventPage, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) (domain.ReviewEpisodeEventPage, error) {
 			return s.app.ListReviewEpisodeEventsV2(ctx, in.EpisodeID, in.Cursor, size)
 		})
 	})
 	readTool(server, "get_investment_review_coverage", "Page every current positive-holding investment's published daily rule outcomes, including unknown and uncomputed states with no open alert. No evaluation or write occurs. Filter by rule status; a group may contain several states.", func(ctx context.Context, in ReviewV2CoverageInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) (domain.ReviewCoveragePage, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) (domain.ReviewCoveragePage, error) {
 			return s.app.ListReviewCoverageV2(ctx, in.Filter, in.Cursor, size)
 		})
 	})
-	readTool(server, "list_investment_review_suppressions", "Page live ignored scopes with absolute resume dates (1\u2013100, byte-aware). Continue every nonempty array using its last suppression ID until empty, including short pages. Suppressions are separate from acknowledgements.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
-		return fitLiveReadPage(ctx, s.app, in.PageSize, func(ctx context.Context, size int) ([]domain.ReviewSuppression, error) {
+	readTool(server, "list_investment_review_suppressions", "Page live ignored scopes with absolute resume dates (1\u2013100, byte-aware). Follow page.nextCursor with get_read_page, including short pages. Suppressions are separate from acknowledgements.", func(ctx context.Context, in ReviewV2PageInput) (any, error) {
+		return fitLiveReadPage(ctx, s.app, reviewPageLimit(in.PageSize), func(ctx context.Context, size int) ([]domain.ReviewSuppression, error) {
 			return s.app.ListReviewSuppressionsV2(ctx, in.Cursor, size)
 		})
 	})

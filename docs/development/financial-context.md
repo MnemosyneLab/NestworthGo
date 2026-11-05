@@ -149,10 +149,10 @@ certificate.
 ## Pagination, revocation and resource budgets
 
 ```json
-{"contextId":"<returned id>","section":"positions","cursor":"<nextCursor>","limit":50}
+{"cursor":"<nextCursor>","limit":25}
 ```
 
-Sections are `positions`, `gaps`, `evidence`; limit defaults to 50 and is 1–100.
+Sections are `positions`, `gaps`, `evidence`; limit defaults to 25 and is 1–100.
 Cursors authenticate context, section, generation and offset. Wrong/tampered or
 past-end cursors are rejected. Every nonempty continuation advances. Expired or
 evicted results return `context_expired`; they are never silently recreated.
@@ -256,10 +256,11 @@ and row IDs. No new identity fields, private ID mapping, token, disclosure
 upgrade or identity lookup is introduced.
 
 Arguments: required `contextId`, `ref`; optional `section` (`positions`, `gaps`,
-`evidence`), `cursor`, `limit` (default 50, maximum 100). Omitted section returns
+`evidence`), `cursor`, `limit` (default 25, maximum 100). Omitted section returns
 at most one row from each related section. An explicit section without cursor
-starts at zero, including for empty sections. Continuations require both their
-section and matching cursor. All three page descriptors retain total/returned/
+starts at zero, including for empty sections. Continue using get_read_page with only its matching signed cursor and optional
+limit. The authenticated scope retains contextId, ref and section. Explicit-scope
+financial page tools remain aliases; see [business pagination](mcp-pagination.md). All three page descriptors retain total/returned/
 hasMore/nextCursor semantics; crowded initial sections can defer zero rows, but
 a standalone nonempty continuation must advance or return `too_large`.
 

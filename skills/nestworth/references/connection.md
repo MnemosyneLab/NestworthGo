@@ -74,9 +74,9 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Area | Tools |
 | --- | --- |
 | Context and recovery | `get_context`, `get_catalog`, `get_operation` |
-| Consistent financial summary and gaps | `get_financial_context`, `get_financial_context_page`, `get_financial_context_item` |
-| Coherent comparison and attribution link | `compare_financial_attribution`, `get_financial_comparison_page` |
-| Two-state differences, not returns | `compare_financial_context`, `get_financial_comparison_page` |
+| Consistent financial summary and gaps | `get_financial_context`, `get_read_page`, `get_financial_context_item` |
+| Coherent comparison and attribution link | `compare_financial_attribution`, `get_read_page` |
+| Two-state differences, not returns | `compare_financial_context`, `get_read_page` |
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; `create_institution`, `update_institution`, `archive_institution`, `set_institution_icon`; `create_group`, `update_group`, `archive_group`, `set_group_icon`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
