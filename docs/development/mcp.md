@@ -525,7 +525,8 @@ application write gate for a consistent result and may rebuild derived snapshots
 
 ## Write receipts and interruption semantics
 
-Every write requires `operationId` (UUID) and a typed `input` object. Before the
+Every write except `commit_plan` requires `operationId` (UUID) and a typed
+`input` object. `commit_plan` may omit `operationId`. Before the
 business call, a private pending receipt is saved to the configuration store. A duplicate UUID with
 identical normalized typed arguments returns the original successful receipt;
 changed arguments are rejected. Successful receipts include the returned object.
@@ -1213,8 +1214,23 @@ choose nor mislabel it. Routing is `commitPlanRoutes` in `commit_plan_tool.go`:
 - A pruned plan file is routed from the operation receipt, then from the
   reconciliation database receipts, so receipt-first recovery still works. With no
   evidence the error is `operation_outcome_unknown`, as before.
+- `operationId` is optional only on `commit_plan`. When it is omitted or blank,
+  the server derives UUID v5 (SHA-1) of the canonical lowercase `planId` in
+  namespace `f1f65af0-bbb8-5d57-af9c-b624de715dcb` (itself UUID v5 of
+  `nestworth:mcp:commit_plan:operation` in the RFC 4122 URL namespace). The
+  receipt hash still covers the submitted `input` text, so a retry must repeat
+  that `planId` spelling. An explicit `operationId` is unchanged.
+- If that derived id already has a receipt for a different tool or different
+  input, the call returns `conflict` and does not post or replace the receipt.
+  The same explicit id with the same input replays that receipt, including a
+  pending or unknown liquidity receipt, which is still not replayed.
+- A different explicit `operationId` for the same `planId` is unchanged: ledger
+  and managed-product plans still deduplicate by `planId`; liquidity save/reset
+  still return `stale_preview` for a new operation id on a used plan.
 - A `planId` that is not a UUID or has an unknown kind is rejected before any
-  receipt is written, so it does not consume the `operationId`.
+  receipt is written, so it does not consume the `operationId`. An omitted
+  `operationId` with an invalid `planId` is the same validation failure and
+  writes no receipt.
 - Staleness and version checks still run under the shared write permit inside
   each family's commit function; nothing about them moved.
 - A plan of another family can no longer be sent to a wrong tool; the earlier

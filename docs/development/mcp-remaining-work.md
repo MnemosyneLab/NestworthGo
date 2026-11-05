@@ -130,7 +130,7 @@ Wave 3(最后,依赖前面都合并)
 - 用相同 `planId` 但不同显式 `operationId` 仍返回 `stale_preview`。
 - 派生 ID 与显式 ID 冲突时的行为要明确并有测试。
 
-**需要的决定**:是否只对 `commit_plan` 放宽,还是所有写工具。建议只做 `commit_plan`。
+**决定**(Walt):只对 `commit_plan` 放宽。缺省或空白 `operationId` 派生为 UUID v5:命名空间 `f1f65af0-bbb8-5d57-af9c-b624de715dcb`(URL 命名空间下名称 `nestworth:mcp:commit_plan:operation` 的 v5),名字是规范化小写 `planId`。回执哈希仍覆盖提交的 `input` 文本。派生 ID 若已属于另一工具或另一输入,返回 `conflict` 且不落账、不覆盖原回执;同一 ID 与同一输入则重放该回执。其它写工具的 `operationId` 仍必填。
 **破坏性**:否(放宽必填),但会改合约快照。**规模**:M。风险高(最敏感的写路径)。
 
 ### C3. 净值/估值入口收敛
@@ -210,7 +210,7 @@ Wave 3(最后,依赖前面都合并)
 | 决定 | 影响的工作流 | 建议 |
 | --- | --- | --- |
 | 目录合并走形态 1(按 kind)还是形态 2(仅归档并入 update) | B | 形态 2 |
-| `operationId` 只对 `commit_plan` 可选,还是所有写工具 | B2 | 只对 `commit_plan` |
+| `operationId` 只对 `commit_plan` 可选,还是所有写工具 | B2 | 已决定:只对 `commit_plan` |
 | review 写工具是否默认隐藏 | D | 先看 A2 里的实际使用 |
 | 是否做 PATCH 统一 | E3 | 先观察 E1 之后的情况再定 |
 | 是否删除 `toolGroups` | G | 取决于 A2 |
