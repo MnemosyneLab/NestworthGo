@@ -59,6 +59,7 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 		f = newLedgerFixtureWithClock(t, func() time.Time { return now })
 	}
 	now = time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	enableInvestmentReviewManagement(t, f.service)
 	client := ledgerSession(t, f)
 	bootstrap, err := f.app.Bootstrap(t.Context())
 	if err != nil {
@@ -181,10 +182,18 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 				t.Fatalf("%s missing pure read tool %s", mode, name)
 			}
 		}
-		for _, name := range []string{"create_investment_review_rule", "update_investment_review_rule", "archive_investment_review_rule", "acknowledge_investment_review_alert", "set_investment_review_suppression", "clear_investment_review_suppression", "refresh_investment_reviews"} {
-			if (found[name] != nil) != (mode == LedgerWrite) {
-				t.Fatalf("%s write tool visibility: %s", mode, name)
+		for _, name := range investmentReviewManagementTools {
+			if found[name] != nil {
+				t.Fatalf("%s default discovery listed management tool %s", mode, name)
 			}
+		}
+		info := call(t, client, "get_context", Empty{}, false)["data"].(map[string]any)
+		if info["investmentReviewManagement"] != false {
+			t.Fatalf("%s investmentReviewManagement = %v", mode, info["investmentReviewManagement"])
+		}
+		caps, _ := jsoncodec.Marshal(info["capabilities"])
+		if strings.Contains(string(caps), "investment_review_v2_write") {
+			t.Fatalf("%s advertised review management: %s", mode, caps)
 		}
 		for _, name := range []string{
 			"get_investment_reviews",
@@ -206,26 +215,211 @@ func TestReviewV2MCPModesAndStrictRuleInput(t *testing.T) {
 		if mode != LedgerWrite {
 			continue
 		}
-		spec := testReviewV2Spec()
-		raw, _ := jsoncodec.Marshal(spec)
-		var object map[string]any
-		if err := jsoncodec.Unmarshal(raw, &object); err != nil {
-			t.Fatal(err)
+		hidden, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "create_investment_review_rule", Arguments: map[string]any{"operationId": uuid.NewString(), "input": map[string]any{}}})
+		if err == nil || !strings.Contains(err.Error(), "unknown tool") {
+			t.Fatalf("default ledger_write accepted management call: %v %v", err, hidden)
 		}
-		input := ReviewV2RuleInput{RuleID: uuid.NewString(), MutationID: uuid.NewString(), Name: "Synthetic MCP review", Enabled: true, Severity: "notice", Spec: object}
-		created := call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": input}, false)
-		if created["data"] == nil {
-			t.Fatal("missing create receipt")
+	}
+}
+
+// Previous ledger_write contract hashes for the management tools. Enabling the
+// switch must restore these schemas, not a new permission shape.
+var investmentReviewManagementContract = map[string]string{
+	"acknowledge_investment_review_alert": "3e1c7c6d35482e7d31aee015bf5739288706963383f1ce030e697ef4b64ca331",
+	"archive_investment_review_rule":      "b5be38adcce79f4099e084021719672fac9bb0942ea5015c8dd327494b2d0a56",
+	"clear_investment_review_suppression": "f838de7930c41504f16ac99b83d7f2bc3effb624eefa7637f34ca3cb3570fd4a",
+	"create_investment_review_rule":       "a8e8d32632624b5b6b4c72489df2d512815171a8ebc18f9dd5a02c2d1b03fa02",
+	"refresh_investment_reviews":          "4d84af6afddbf95acbd09d665cb3dbc22166d53350e6b8c6f068e62bccced0a0",
+	"set_investment_review_suppression":   "de65f7fb79eb669b5e77b77eab8cdeb7f2615add1072a3687ecd24348f68b9d9",
+	"update_investment_review_rule":       "347f3bf2843fee3a177bf11f5caefec855e2ad43b9987ac40cc7fc0745b1dbac",
+}
+
+func enableInvestmentReviewManagement(t *testing.T, s *Service) {
+	t.Helper()
+	if _, err := s.SetInvestmentReviewManagement(true); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInvestmentReviewManagementSwitchRestoresLedgerWrites(t *testing.T) {
+	fx := newLedgerFixture(t)
+	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+		t.Fatal(err)
+	}
+	before, err := fx.service.Connection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultListed, err := listAllTools(t.Context(), connect(t, fx.service))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultNames := map[string]bool{}
+	for _, tool := range defaultListed.Tools {
+		defaultNames[tool.Name] = true
+	}
+	for _, name := range investmentReviewManagementTools {
+		if defaultNames[name] {
+			t.Fatalf("default discovery listed %s", name)
 		}
-		rules := call(t, client, "list_investment_review_rules", ReviewV2PageInput{PageSize: 10}, false)
-		serialized, _ := jsoncodec.Marshal(rules)
-		if !strings.Contains(string(serialized), "Synthetic MCP review") {
-			t.Fatal("created rule not visible", string(serialized))
+	}
+	enableInvestmentReviewManagement(t, fx.service)
+	after, err := fx.service.Connection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Token == "" || after.Token == before.Token {
+		t.Fatal("enabling review management did not replace the access token")
+	}
+	client := connect(t, fx.service)
+	listed, err := listAllTools(t.Context(), client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := map[string]*mcp.Tool{}
+	for _, tool := range listed.Tools {
+		found[tool.Name] = tool
+	}
+	if len(found) != len(defaultNames)+len(investmentReviewManagementTools) {
+		t.Fatalf("enabled discovery = %d tools, default %d", len(found), len(defaultNames))
+	}
+	hashes := discoveryContractHashes(t, listed.Tools)
+	for _, name := range investmentReviewManagementTools {
+		if found[name] == nil {
+			t.Fatalf("enabled discovery missing %s", name)
 		}
-		object["sustainDays"] = 5
-		bad := input
-		bad.RuleID, bad.MutationID, bad.Spec = uuid.NewString(), uuid.NewString(), object
-		call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": bad}, true)
+		if hashes[name] != investmentReviewManagementContract[name] {
+			t.Fatalf("%s contract hash = %s", name, hashes[name])
+		}
+	}
+	info := call(t, client, "get_context", Empty{}, false)["data"].(map[string]any)
+	if info["mode"] != LedgerWrite || info["investmentReviewManagement"] != true {
+		t.Fatal(info)
+	}
+	caps, _ := jsoncodec.Marshal(info["capabilities"])
+	if !strings.Contains(string(caps), "investment_review_v2_write") {
+		t.Fatal(string(caps))
+	}
+	spec := testReviewV2Spec()
+	raw, _ := jsoncodec.Marshal(spec)
+	var object map[string]any
+	if err := jsoncodec.Unmarshal(raw, &object); err != nil {
+		t.Fatal(err)
+	}
+	input := ReviewV2RuleInput{RuleID: uuid.NewString(), MutationID: uuid.NewString(), Name: "Synthetic MCP review", Enabled: true, Severity: "notice", Spec: object}
+	created := call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": input}, false)
+	if created["data"] == nil {
+		t.Fatal("missing create receipt")
+	}
+	rules := call(t, client, "list_investment_review_rules", ReviewV2PageInput{PageSize: 10}, false)
+	serialized, _ := jsoncodec.Marshal(rules)
+	if !strings.Contains(string(serialized), "Synthetic MCP review") {
+		t.Fatal("created rule not visible", string(serialized))
+	}
+	object["sustainDays"] = 5
+	bad := input
+	bad.RuleID, bad.MutationID, bad.Spec = uuid.NewString(), uuid.NewString(), object
+	call(t, client, "create_investment_review_rule", map[string]any{"operationId": uuid.NewString(), "input": bad}, true)
+
+	// The same flag does not grant management tools without ledger_write.
+	if _, err := fx.service.Enable(DirectoryWrite); err != nil {
+		t.Fatal(err)
+	}
+	directory := connect(t, fx.service)
+	directoryListed, err := listAllTools(t.Context(), directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range directoryListed.Tools {
+		for _, name := range investmentReviewManagementTools {
+			if tool.Name == name {
+				t.Fatalf("directory_write listed %s with the switch on", name)
+			}
+		}
+	}
+	directoryInfo := call(t, directory, "get_context", Empty{}, false)["data"].(map[string]any)
+	if directoryInfo["investmentReviewManagement"] != true {
+		t.Fatal(directoryInfo)
+	}
+	directoryCaps, _ := jsoncodec.Marshal(directoryInfo["capabilities"])
+	if strings.Contains(string(directoryCaps), "investment_review_v2_write") {
+		t.Fatal(string(directoryCaps))
+	}
+
+	// Returning to ledger_write keeps the saved switch and the prior tools.
+	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+		t.Fatal(err)
+	}
+	restored := connect(t, fx.service)
+	restoredListed, err := listAllTools(t.Context(), restored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredNames := map[string]bool{}
+	for _, tool := range restoredListed.Tools {
+		restoredNames[tool.Name] = true
+	}
+	for _, name := range investmentReviewManagementTools {
+		if !restoredNames[name] {
+			t.Fatalf("ledger_write lost %s after the switch stayed on", name)
+		}
+	}
+	if _, err := fx.service.Disable(); err != nil {
+		t.Fatal(err)
+	}
+	resumed := New(fx.app, fx.service.dir, nil)
+	t.Cleanup(resumed.Close)
+	if err := resumed.Resume(); err != nil {
+		t.Fatal(err)
+	}
+	if resumed.Status().InvestmentReviewManagement != true || resumed.Status().Running {
+		t.Fatal(resumed.Status())
+	}
+	if _, err := resumed.Enable(LedgerWrite); err != nil {
+		t.Fatal(err)
+	}
+	resumedClient := connect(t, resumed)
+	resumedListed, err := listAllTools(t.Context(), resumedClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumedNames := map[string]bool{}
+	for _, tool := range resumedListed.Tools {
+		resumedNames[tool.Name] = true
+	}
+	for _, name := range investmentReviewManagementTools {
+		if !resumedNames[name] {
+			t.Fatalf("resumed ledger_write hid %s", name)
+		}
+	}
+	same, err := resumed.SetInvestmentReviewManagement(true)
+	if err != nil || !same.InvestmentReviewManagement {
+		t.Fatal(same, err)
+	}
+	unchanged, err := resumed.Connection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resumed.SetInvestmentReviewManagement(false); err != nil {
+		t.Fatal(err)
+	}
+	hiddenToken, err := resumed.Connection()
+	if err != nil || hiddenToken.Token == unchanged.Token {
+		t.Fatal("disabling review management did not replace the token", err)
+	}
+	hiddenClient := connect(t, resumed)
+	hiddenListed, err := listAllTools(t.Context(), hiddenClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range hiddenListed.Tools {
+		if _, managed := investmentReviewManagementContract[tool.Name]; managed {
+			t.Fatalf("disabled discovery still listed %s", tool.Name)
+		}
+	}
+	rejected, err := hiddenClient.CallTool(t.Context(), &mcp.CallToolParams{Name: "refresh_investment_reviews", Arguments: map[string]any{"operationId": uuid.NewString(), "input": map[string]any{}}})
+	if err == nil || !strings.Contains(err.Error(), "unknown tool") {
+		t.Fatalf("hidden management call: %v %v", err, rejected)
 	}
 }
 

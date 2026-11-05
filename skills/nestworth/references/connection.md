@@ -23,7 +23,7 @@ MCP configuration and skill discovery are separate.
 | --- | --- |
 | `read_only` | Financial context and frozen pages, current valuation, managed products/history, liquidity and upcoming-action reads, daily investment-review reads, historical overview/series, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
-| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, daily investment-review rule/acknowledgement/suppression/refresh writes, managed lifecycle/terms/value pairs and starting data repair |
+| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, managed lifecycle/terms/value pairs and starting data repair. Daily investment-review management writes stay hidden until Settings enables investment review management |
 
 Use the tools this client lists; do not rediscover before every call. Follow
 `nextCursor` if the client's tool list is paged. An absent tool may reflect the
@@ -55,7 +55,7 @@ certify old frozen comparisons.
 | Definition maintenance | `create_member`, `update_member`; `create_institution`, `update_institution`; `create_group`, `update_group`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument`. Member, institution and group archive is `archived` on the matching `update_*` tool |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
-| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`; ledger_write: create/update/archive rule, acknowledge alert, set/clear suppression, refresh |
+| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`. Management tools are hidden by default. With `ledger_write` and investment review management enabled: `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
 | Read-only historical view | `get_historical_overview` (`{date, compareTo}` or `{from, to}`) |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Previews (ledger_write) | `preview_change`, `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
@@ -79,9 +79,14 @@ not provisional IDs in a preview.
 Managed capabilities are managed_product_read, liquidity_read and, only with
 ledger_write, managed_product_lifecycle, managed_product_terms and
 managed_product_valuation. Daily investment-review reads are available in all
-modes; rule, acknowledgement, suppression and explicit refresh tools require
-ledger_write. These update review rules/episodes and derived projections, not
-financial facts.
+modes. Rule, acknowledgement, suppression and explicit refresh tools also
+require the investment review management switch, which is off by default.
+`get_context.investmentReviewManagement` reports it, and
+`investment_review_v2_write` appears in capabilities only when both that
+switch and ledger_write are on. Enable it in Settings → AI / MCP, then apply;
+a running connection gets a new access token. These tools update review
+rules, episodes and derived projections, not financial facts. The App's own
+review screen does not use this switch.
 
 ## Scale capabilities and permissions
 

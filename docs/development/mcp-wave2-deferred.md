@@ -1,17 +1,21 @@
 # MCP Wave 2 deferred items
 
-This pass does not implement D or E3 from
-[mcp-remaining-work.md](mcp-remaining-work.md).
+E3 from [mcp-remaining-work.md](mcp-remaining-work.md) stays deferred.
+D is implemented on this branch.
 
 ## D — investment review default exposure
 
-Deferred. The 16 `investment_review` management tools stay registered for
-`ledger_write` as they are today. A2's measured tasks were net worth, a buy,
-a reconciliation and a fund NAV import. That script did not call review
-tools, and no model host was attached, so there is still no usage data for
-hiding or re-permissioning them. Choosing a capability switch, a grouping-only
-change, or a new write mode needs that product evidence. It also touches
-permission modes, which this pass does not change.
+Done. Product choice is option 1: a settings switch, default off.
+
+The nine investment-review reads stay in every MCP mode. The seven management
+tools (`create_investment_review_rule`, `update_investment_review_rule`,
+`archive_investment_review_rule`, `acknowledge_investment_review_alert`,
+`set_investment_review_suppression`, `clear_investment_review_suppression`,
+`refresh_investment_reviews`) are absent from discovery until
+`investmentReviewManagement` is enabled, and they still require
+`ledger_write`. There is no new permission mode. The desktop review screen
+does not use the switch. How to turn it on is in
+[mcp.md](mcp.md#investment-review-management).
 
 ## E3 — one PATCH rule for every update tool
 

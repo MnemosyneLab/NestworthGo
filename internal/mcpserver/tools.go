@@ -200,13 +200,14 @@ Writes: they record completed facts and never place orders. A preview writes not
 Analysis reads may maintain derived snapshots and invalidate previews even in read_only mode, so run them before previewing. Repair start records submission only: poll get_data_repair_job, then scan_data_health. GUI permittedActions do not grant MCP permission, and due_unconfirmed does not record cash automatically. Permission never authorizes unrelated changes; resolve ambiguous identity, ownership or currency before writing.`
 
 func (s *Service) buildToolSet(mode string, external bool) *toolSet {
+	reviewManagement := s.config.InvestmentReviewManagement
 	server := newToolSet(serverInstructions, external)
 	server.paging = &pageCodec{key: s.reads.key, generation: s.contextGeneration}
 	s.boundedReadTools(server, s.contextGeneration)
 	s.financialContextTools(server, s.contextGeneration)
 	s.financialComparisonTools(server, s.contextGeneration)
 	s.featureTools(server)
-	s.reviewV2Tools(server, mode)
+	s.reviewV2Tools(server, mode, reviewManagement)
 	s.productTools(server)
 	s.instrumentBatchTools(server, mode)
 	generation := s.contextGeneration
@@ -214,7 +215,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 	accounts := account.NewService(s.app)
 	instruments := instrument.NewService(s.app)
 	instanceID := s.config.InstanceID
-	readTool(server, "get_context", "Read instance, permission mode, household metadata and history timezone/start when needed. Directory names use bounded list tools. No credentials. Not a prerequisite for ordinary reads or minimal-disclosure summaries.", func(ctx context.Context, _ Empty) (any, error) {
+	readTool(server, "get_context", "Read instance, permission mode, the investmentReviewManagement switch, household metadata and history timezone/start when needed. Directory names use bounded list tools. No credentials. Not a prerequisite for ordinary reads or minimal-disclosure summaries.", func(ctx context.Context, _ Empty) (any, error) {
 		household, err := household.NewService(s.app).Bootstrap(ctx)
 		if err != nil {
 			return nil, err
@@ -223,7 +224,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"instanceId": instanceID, "mode": mode, "now": time.Now().UTC().Format(time.RFC3339), "household": household.Household, "directories": []string{"list_members", "list_institutions", "list_groups", "list_accounts"}, "historyOrigin": origin, "capabilities": capabilities(mode)}, nil
+		return map[string]any{"instanceId": instanceID, "mode": mode, "now": time.Now().UTC().Format(time.RFC3339), "household": household.Household, "directories": []string{"list_members", "list_institutions", "list_groups", "list_accounts"}, "historyOrigin": origin, "capabilities": capabilities(mode, reviewManagement), "investmentReviewManagement": reviewManagement}, nil
 	})
 	readTool(server, "get_catalog", "Read business vocabulary when creating entities or selecting unknown enum values. Reuse within the same App contract; not a prerequisite for reads.", func(context.Context, Empty) (any, error) { return catalog.NewService().Catalog(), nil })
 	readTool(server, "get_operation", "Read a durable receipt by operation UUID. unknown requires checking actual data; receipts describe past execution, not current state.", func(_ context.Context, in IDInput) (any, error) { return s.GetOperation(in.ID) })
@@ -367,14 +368,18 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 	return server
 }
 
-func capabilities(mode string) []string {
+func capabilities(mode string, reviewManagement bool) []string {
 	result := []string{"directory", "accounts", "instruments", "current_valuation", "financial_context", "financial_comparison", "activity_history", "period_analysis", "return_attribution", "data_health", "data_repair_preview", "data_repair_status", "market_data", "agent_market_data_history", "managed_product_read", "liquidity_read"}
 	result = append(result, "bounded_read", "instrument_paging", "market_data_batch", "investment_review_v2_read", "upcoming_action_read", "historical_overview_read", "reconciliation_session_read")
 	if mode != ReadOnly {
 		result = append(result, "instrument_metadata_batch")
 	}
 	if mode == LedgerWrite {
-		result = append(result, "reconciliation_session_write", "investment_review_v2_write", "liquidity_policy_write", "managed_product_lifecycle", "managed_product_terms", "managed_product_valuation", "ledger_preview_commit", "ledger_batch", "position_import", "reconciliation", "cost_reconciliation", "position_transfer", "activity_correction", "data_repair", "agent_market_data_import")
+		result = append(result, "reconciliation_session_write")
+		if reviewManagement {
+			result = append(result, "investment_review_v2_write")
+		}
+		result = append(result, "liquidity_policy_write", "managed_product_lifecycle", "managed_product_terms", "managed_product_valuation", "ledger_preview_commit", "ledger_batch", "position_import", "reconciliation", "cost_reconciliation", "position_transfer", "activity_correction", "data_repair", "agent_market_data_import")
 	}
 	return result
 }

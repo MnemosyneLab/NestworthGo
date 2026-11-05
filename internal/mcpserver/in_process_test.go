@@ -67,7 +67,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
-	}{{ReadOnly, 51}, {DirectoryWrite, 64}, {LedgerWrite, 85}} {
+	}{{ReadOnly, 51}, {DirectoryWrite, 64}, {LedgerWrite, 78}} {
 		local := newLocal(t, fx, test.mode)
 		if local.service.listener != nil || local.service.server != nil || local.service.endpoint != "" || local.service.config.Token != "" {
 			t.Fatal("local session created external transport/credentials")

@@ -145,15 +145,7 @@ Wave 3(最后,依赖前面都合并)
 
 ### D. investment review 默认暴露策略
 
-**问题**:16 个 `investment_review` 管理类工具默认暴露,更适合在 GUI 里做。
-**选项**:
-1. 加一个能力开关,默认只暴露只读工具;
-2. 保持现状,仅改善分组;
-3. 把写入类(创建/更新/归档规则、确认告警、屏蔽)放到新的权限模式。
-
-**需要产品决定**:选哪种。涉及设置项和权限模型,不属于纯 MCP 改动。本轮不做,见 [mcp-wave2-deferred.md](mcp-wave2-deferred.md)。
-**注意**:权限模式变化会触及 `Mode` 与外部授权流程,需单独评审。
-**规模**:M-L。
+**状态**: 已实现,选项 1。默认不把 7 个管理写入工具放进发现;只读工具仍在每个模式里。`ledger_write` 不变。设置项 `investmentReviewManagement` 默认关闭,打开后才注册 `create/update/archive` 规则、确认告警、屏蔽/恢复和 `refresh_investment_reviews`。没有新的权限模式。桌面复核页面不读这个开关。说明见 [mcp.md](mcp.md#investment-review-management)。
 
 ### E3. PATCH 语义统一
 
@@ -215,7 +207,7 @@ Wave 3(最后,依赖前面都合并)
 | --- | --- | --- |
 | 目录合并走形态 1(按 kind)还是形态 2(仅归档并入 update) | B | 形态 2 |
 | `operationId` 只对 `commit_plan` 可选,还是所有写工具 | B2 | 已决定:只对 `commit_plan` |
-| review 写工具是否默认隐藏 | D | 本轮不做，见 mcp-wave2-deferred.md |
+| review 写工具是否默认隐藏 | D | 已实现选项 1:默认隐藏,设置开关打开后才暴露 |
 | 是否做 PATCH 统一 | E3 | 本轮不做，见 mcp-wave2-deferred.md |
 | 是否删除 `toolGroups` | G | 已删除，见 mcp-wave2-g-toolgroups.md |
 | 破坏性批次 skill 版本用 PATCH 还是 MINOR | 所有工具面变更 | 当前政策是 PATCH,若希望标出不兼容可改 MINOR |

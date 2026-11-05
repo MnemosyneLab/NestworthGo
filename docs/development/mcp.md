@@ -12,7 +12,7 @@ through the official Go SDK (implementation version `3.0.0`). Handlers reuse
 the runtime-free `internal/wailsapi` adapters. MCP does not use Wails RPC and
 does not open SQLite itself. Secrets, backup/restore, arbitrary filesystem
 access and arbitrary SQL are not tools. The repository skill is an independent
-component (`skills/nestworth/VERSION`, currently 3.0.5, unpublished). It does
+component (`skills/nestworth/VERSION`, currently 3.0.7, unpublished). It does
 not add tools to an older App. Actual `tools/list` is the authority.
 
 This contract does not establish end-to-end native UI or external-agent
@@ -28,13 +28,35 @@ recovered ledger receipt, emits `agent.data.changed`.
 | --- | --- |
 | `read_only` | Financial context and comparisons, current valuation, history, analysis, market and audit reads, health scans, repair preview and job status, products, liquidity, upcoming actions, investment-review reads, reconciliation-session reads |
 | `directory_write` | Account, instrument, member, institution and group maintenance, including `update_instruments_batch` |
-| `ledger_write` | Ledger preview and `commit_plan`, quote import and FX source selection, reconciliation and corrections, investment-review writes, managed-product lifecycle/terms/valuation, liquidity-policy writes, `start_data_repair` |
+| `ledger_write` | Ledger preview and `commit_plan`, quote import and FX source selection, reconciliation and corrections, managed-product lifecycle/terms/valuation, liquidity-policy writes, `start_data_repair`. Investment-review management writes stay hidden until the switch below is on |
 
 `get_context.capabilities` names the same split (`instrument_metadata_batch`
-from `directory_write`; ledger, repair, review-write, product-write,
-liquidity-policy and reconciliation-session write only on `ledger_write`).
-A missing tool means this mode or this App build does not offer it. Do not
-route around it. GUI `permittedActions` do not grant MCP permission.
+from `directory_write`; ledger, repair, product-write, liquidity-policy and
+reconciliation-session write only on `ledger_write`).
+`investment_review_v2_write` is added only when `ledger_write` and
+`investmentReviewManagement` are both on. `get_context` reports that boolean.
+A missing tool means this mode, this switch or this App build does not offer
+it. Do not route around it. GUI `permittedActions` do not grant MCP permission.
+
+### Investment review management
+
+Default: off. MCP discovery lists the investment-review reads in every mode
+and does not list the seven management tools:
+
+`create_investment_review_rule`, `update_investment_review_rule`,
+`archive_investment_review_rule`, `acknowledge_investment_review_alert`,
+`set_investment_review_suppression`, `clear_investment_review_suppression`,
+`refresh_investment_reviews`.
+
+Turn it on in **Settings → AI / MCP**. Choose **Read, maintain directories
+and record activity**, check **Investment review management**, then enable
+MCP or apply permissions. The preference is stored on the MCP connection
+(`investmentReviewManagement` in the private connection record) and survives
+disable and restart. It does not add a permission mode. Without
+`ledger_write`, the tools stay unregistered even if the switch is on.
+Applying the switch while MCP is running replaces the access token, the same
+way a mode change does. The Nestworth review screen keeps its own actions and
+does not read this switch.
 
 `tools/list` is paged at 16 tools. Follow every `nextCursor`. There is no
 `toolGroups` filter. `_meta.nestworth.toolGroups` is ignored, including an
@@ -47,8 +69,8 @@ with the same payload. The built-in assistant receives one capability JSON
 string, not this external envelope. No model-token saving is claimed for
 dropping either copy.
 
-Investment-review management writes stay on `ledger_write`. Hiding them, and
-unifying PATCH styles, are deferred. See
+Investment-review management writes are off unless the switch above is on.
+Unifying PATCH styles is still deferred. See
 [mcp-wave2-deferred.md](mcp-wave2-deferred.md) and
 [mcp-update-conventions.md](mcp-update-conventions.md).
 
@@ -93,7 +115,9 @@ npx @modelcontextprotocol/inspector@2.10.0 --cli --config nestworth-inspector.js
 
 ## Tool inventory
 
-Counts below are the `tools/list` inventory for each mode. Hashes of name,
+Counts below are the default `tools/list` inventory for each mode.
+Investment-review management is off, so `ledger_write` has 78 tools rather
+than 85. Hashes of name,
 annotations and input/output schema are in
 `internal/mcpserver/testdata/discovery-contract.json`. Description prose is
 not part of that hash.
@@ -131,7 +155,7 @@ It does not create an instrument.
 | Commit | `commit_plan` |
 | Market writes | `import_market_data`, `set_fx_source` |
 | Repair | `start_data_repair` |
-| Review writes | `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
+| Review writes, only when investment review management is enabled | `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
 
 Names that are not tools: `archive_member`, `archive_institution`,
 `archive_group` (use `archived` on the matching `update_*`);
@@ -559,25 +583,27 @@ Every client pays `tools/list` and the server instructions on connect.
 `discovery_budget_test.go` bounds that payload. `discovery_contract_test.go`
 hashes the contract and ignores description prose.
 
-Measured with `go test -count=1 ./internal/mcpserver -run TestDiscoveryBudget`
-on `7e69c660` (synthetic fixture, Linux). This documentation rewrite does not
-change tool schemas, so the same bytes are the sizes after the rewrite.
-Re-running the test after the ceiling edit confirms the bytes and that the
-new ceilings still pass.
+Measured with `go test -count=1 -v ./internal/mcpserver -run TestDiscoveryBudget`
+on this branch (synthetic fixture, Linux), default discovery, investment
+review management off.
 
 | Mode | Tools | `tools/list` bytes | Instructions | Previous ceiling | Ceiling |
 | --- | --- | --- | --- | --- | --- |
-| `read_only` | 51 | 63,347 | 2,373 | 66,500 | 64,700 |
-| `directory_write` | 64 | 78,408 | 2,373 | 83,500 | 80,000 |
-| `ledger_write` | 85 | 120,549 | 2,373 | 128,000 | 123,000 |
+| `read_only` | 51 | 63,386 | 2,373 | 64,700 | 64,700 |
+| `directory_write` | 64 | 78,447 | 2,373 | 80,000 | 80,000 |
+| `ledger_write` | 78 | 114,029 | 2,373 | 123,000 | 116,400 |
 
-The mode ceilings are about 2% above those measurements
-(`63347 * 1.02 = 64614`, `78408 * 1.02 = 79976`, `120549 * 1.02 = 122960`,
-each rounded up to the next hundred). The longest description is 1,137 bytes
-(`commit_plan` on `ledger_write`; `get_historical_overview` is 1,016 on the
-other modes). The 1,500-byte description cap stays a prose ceiling, not a
-fitted total. Instructions stay capped at 2,400 bytes, which is already
-inside 2% of 2,373 and was not raised.
+`read_only` and `directory_write` grew by 39 bytes because `get_context`
+mentions `investmentReviewManagement`. Those ceilings stay: 63,386 and 78,447
+still fit the previous 2% caps. `ledger_write` dropped seven management tools
+(85 tools / 120,549 bytes before this switch). Its ceiling is about 2% above
+the new default (`114029 * 1.02 = 116310`, rounded up to 116,400). Enabling
+the switch puts those seven tools back; that payload is not the default
+budget. The longest description is 1,137 bytes (`commit_plan` on
+`ledger_write`; `get_historical_overview` is 1,016 on the other modes). The
+1,500-byte description cap stays a prose ceiling, not a fitted total.
+Instructions stay capped at 2,400 bytes, which is already inside 2% of 2,373
+and was not raised.
 
 These are `jsoncodec` bytes of the tool array, not model tokens. Earlier
 before/after tables are in the changelog. Wire response budget, capture
@@ -602,8 +628,10 @@ TTL.
 
 ## Deferred
 
-- D: investment-review reads stay in every mode. The seven review writes
-  stay on `ledger_write`. No capability switch in this contract.
+- D: done. Investment-review reads stay in every mode. The seven management
+  writes stay behind `ledger_write` and are hidden until
+  `investmentReviewManagement` is enabled. See Investment review management
+  above.
 - E3: omit / `replace` / `<field>Set` are not collapsed into one PATCH rule.
 - C2: drill-down fold is closed as measure-only.
 

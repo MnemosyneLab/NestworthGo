@@ -16,6 +16,7 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
   const operations = useAgentOperations(active);
   const client = useQueryClient();
   const [mode, setMode] = useState<string | null>(null);
+  const [reviewChoice, setReviewChoice] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<string | null>(null);
@@ -25,6 +26,9 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
   // Collapse transient plaintext on panel exit; keep permission and request state.
   if (!active && connection !== null) { setConnection(null); setCopied(false); }
   const selected = mode ?? status.data?.mode ?? "read_only";
+  const savedReview = status.data?.investmentReviewManagement === true;
+  const reviewSelected = reviewChoice ?? savedReview;
+  const reviewChanged = selected === "ledger_write" && reviewSelected !== savedReview;
   async function run(action: () => Promise<unknown>) {
     if (request.current || !active) return;
     request.current = true; onBusyChange?.(true);
@@ -34,7 +38,16 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
     finally { request.current = false; setBusy(false); }
   }
   const running = status.data?.running === true;
-  const permissionChanged = running && selected !== status.data?.mode;
+  const permissionChanged = running && (selected !== status.data?.mode || reviewChanged);
+  async function applyPermissions() {
+    if (selected === "ledger_write" && reviewSelected !== savedReview) {
+      await callService(() => AgentService.SetInvestmentReviewManagement(reviewSelected));
+    }
+    if (!running || selected !== status.data?.mode) {
+      await callService(() => AgentService.Enable(selected));
+    }
+    setReviewChoice(null);
+  }
   return <section id="settings-agent" aria-labelledby="settings-agent-title" className="@container space-y-5">
     <header className="space-y-2">
       <h2 id="settings-agent-title" className="text-base font-semibold">{t("agent.title")}</h2>
@@ -55,7 +68,7 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
           </div>
           {running
             ? <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(async () => { const value = await callService(() => AgentService.Connection()); setConnection(value.json); })}><Terminal className="size-4" aria-hidden="true" />{t("agent.showConnection")}</Button>
-            : <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}><Power className="size-4" aria-hidden="true" />{t("agent.enable")}</Button>}
+            : <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(applyPermissions)}><Power className="size-4" aria-hidden="true" />{t("agent.enable")}</Button>}
         </div>
         {running && <div className="space-y-3 border-t border-border bg-muted/25 px-5 py-4">
           <div className="flex min-w-0 flex-col gap-1.5 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:gap-5">
@@ -79,9 +92,16 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
           </NativeSelect>
         </div>
         <p id="agent-permission-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t(selected === "ledger_write" ? "agent.ledgerHelp" : selected === "directory_write" ? "agent.writeHelp" : "agent.readHelp")}</p>
+        {selected === "ledger_write" && <div className="space-y-2 border-t border-border pt-4">
+          <Label htmlFor="agent-review-management" className="flex items-start gap-2 text-sm font-semibold">
+            <input id="agent-review-management" type="checkbox" className="mt-0.5 size-4 accent-primary" checked={reviewSelected} disabled={busy} aria-describedby="agent-review-management-help" onChange={(event) => setReviewChoice(event.target.checked)} />
+            {t("agent.reviewManagement")}
+          </Label>
+          <p id="agent-review-management-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("agent.reviewManagementHelp")}</p>
+        </div>}
         {permissionChanged && <div className="flex flex-col gap-3 border-t border-border pt-4 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:justify-between">
           <p className="text-xs text-muted-foreground">{t("agent.permissionChangeHelp")}</p>
-          <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}>{t("agent.apply")}</Button>
+          <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(applyPermissions)}>{t("agent.apply")}</Button>
         </div>}
       </div>
     </>}

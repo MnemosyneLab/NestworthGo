@@ -147,10 +147,13 @@ acknowledgement, evidence-correction and resolution events. These historical
 reads preserve the original condition version and never reinterpret it as the
 current rule; a changed publication expires their cursors.
 
-With `ledger_write`, v2 uses `create_investment_review_rule`,
-`update_investment_review_rule`, `archive_investment_review_rule`,
-`acknowledge_investment_review_alert`, `set_investment_review_suppression`,
-`clear_investment_review_suppression` and `refresh_investment_reviews`.
+Management tools are hidden unless Settings enables investment review
+management. With that switch and `ledger_write`, v2 uses
+`create_investment_review_rule`, `update_investment_review_rule`,
+`archive_investment_review_rule`, `acknowledge_investment_review_alert`,
+`set_investment_review_suppression`, `clear_investment_review_suppression`
+and `refresh_investment_reviews`. The switch is off by default. Reads above
+stay listed either way. The App review screen is separate.
 Rule/alert/suppression edits require their own `expectedRevision` and inner
 `mutationId`; the MCP envelope also requires `operationId`. Reuse both IDs and
 the exact input on a retry. Inspect `get_operation` and the relevant v2 read

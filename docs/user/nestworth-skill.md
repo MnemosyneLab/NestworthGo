@@ -53,7 +53,12 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.6; published skill: 2.0.0
+### Current repository skill: 3.0.7; published skill: 2.0.0
+
+Repository skill 3.0.7 tells agents that investment-review management tools are
+hidden unless Settings enables that switch on a `ledger_write` connection.
+Review reads stay available. No tool was added or removed from the App; default
+MCP discovery omits the seven management tools until the switch is on.
 
 Repository skill 3.0.6 splits the long product, financial-context and paging
 references into one file per task. Each file keeps that task's steps, failure
