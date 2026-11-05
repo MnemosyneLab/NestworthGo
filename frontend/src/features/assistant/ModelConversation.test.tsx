@@ -4,7 +4,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
-import { AssistantPageProvider, useAssistantPage } from "./PageContext";
+import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from "./PageContext";
+
 import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
   PendingPageReads: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock(
 );
 const run = {
   id: "run",
+  requestId: "saved-request",
   prompt: "Synthetic saved question",
   text: "Synthetic prior answer",
   evidence: [
@@ -73,9 +75,9 @@ beforeEach(() => {
   api.Create.mockResolvedValue({ id: "new-conversation" });
   api.Delete.mockResolvedValue(undefined);
 });
-function mount(viewKey = "overview:") {
+function mount(viewKey = "overview:", client = createTestQueryClient()) {
   return render(
-    <QueryClientProvider client={createTestQueryClient()}>
+    <QueryClientProvider client={client}>
       <AssistantPageProvider
         householdId="synthetic"
         incarnation="synthetic"
@@ -94,9 +96,11 @@ it("restores history without replay and sends only the question and selector", a
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(api.Start).not.toHaveBeenCalled();
-  await user.click(screen.getByText("Data evidence"));
+  await user.click(screen.getByText(/Data reads · 1/));
   expect(screen.getByText(/Account snapshot/)).toBeVisible();
   expect(screen.getByText(/This response advertised more pages/)).toBeVisible();
+  expect(screen.getByText(/Read started/)).toBeVisible();
+  expect(screen.queryByText(/Read completed/)).not.toBeInTheDocument();
   await user.type(screen.getByLabelText("Message"), "Read my current page");
   await user.click(screen.getByRole("button", { name: "Send to model" }));
   await waitFor(() => expect(api.Start).toHaveBeenCalledTimes(1));
@@ -170,21 +174,16 @@ it("keeps an off runtime closed and prevents byte-overflow submission", async ()
   expect(screen.getByLabelText("Message")).toBeDisabled();
   expect(api.Start).not.toHaveBeenCalled();
 });
-it("retrieves paged history and returns to the latest turn", async () => {
-  api.Inspect.mockResolvedValue({
-    id: "conversation",
-    runs: [{ ...run, text: "Latest answer" }],
-    runCount: 2,
-    offset: 1,
-  });
-  const user = userEvent.setup();
+it("shows consecutive messages together without turn navigation", async () => {
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [{ ...run, id: "latest", prompt: "Latest question", text: "Latest answer" }], runCount: 2, offset: 1 });
   mount();
   await screen.findByText("Latest answer");
-  await user.click(screen.getByRole("button", { name: "Previous turn" }));
   await screen.findByText("Synthetic prior answer");
   expect(api.Messages).toHaveBeenCalledWith("host", "conversation", 0);
-  await user.click(screen.getByRole("button", { name: "Latest turn" }));
-  await screen.findByText("Latest answer");
+  const exchanges = screen.getAllByRole("article");
+  expect(exchanges[0]).toHaveTextContent("Synthetic saved question");
+  expect(exchanges[1]).toHaveTextContent("Latest question");
+  expect(screen.queryByRole("button", { name: "Previous turn" })).not.toBeInTheDocument();
   expect(api.Start).not.toHaveBeenCalled();
 });
 
@@ -201,13 +200,11 @@ it("loads local status/history/pages while the browser is offline", async () => 
     runCount: 2,
     offset: 1,
   });
-  const user = userEvent.setup();
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(api.Status).toHaveBeenCalled();
   expect(api.List).toHaveBeenCalled();
   expect(api.Inspect).toHaveBeenCalled();
-  await user.click(screen.getByRole("button", { name: "Previous turn" }));
   await waitFor(() =>
     expect(api.Messages).toHaveBeenCalledWith("host", "conversation", 0),
   );
@@ -270,6 +267,7 @@ it("executes one typed navigation only after the explicit per-message grant", as
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open the account list");
+  await user.click(screen.getByText("Page navigation"));
   await user.click(
     screen.getByRole("button", { name: "Send and allow one page change" }),
   );
@@ -333,6 +331,7 @@ it("does not navigate when the page changes during intent consumption", async ()
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open overview");
+  await user.click(screen.getByText("Page navigation"));
   await user.click(
     screen.getByRole("button", { name: "Send and allow one page change" }),
   );
@@ -399,6 +398,7 @@ it.each([
     const user = userEvent.setup();
     await screen.findByText("Synthetic prior answer");
     await user.type(screen.getByLabelText("Message"), "Open overview");
+    await user.click(screen.getByText("Page navigation"));
     await user.click(
       screen.getByRole("button", { name: "Send and allow one page change" }),
     );
@@ -432,6 +432,15 @@ it.each([
   ["model_history_rejected", "Start a new conversation"],
   ["tool_result_rejected", "Try a narrower financial question"],
   ["assistant_budget_exceeded", "run reached a resource limit"],
+  ["assistant_budget_exceeded.model_rounds", "model round limit"],
+  ["assistant_budget_exceeded.tool_calls", "tool call limit"],
+  ["assistant_budget_exceeded.history_bytes", "context limit"],
+  ["assistant_budget_exceeded.history_messages", "context limit"],
+  ["assistant_budget_exceeded.prompt_bytes", "input size limit"],
+  ["assistant_budget_exceeded.text_bytes", "display size limit"],
+  ["assistant_budget_exceeded.provider_payload", "payload limit"],
+  ["assistant_budget_exceeded.tool_result_bytes", "result size limit"],
+  ["assistant_budget_exceeded.read_evidence", "read evidence limit"],
   ["private-canary-unknown-code", "No new model history was saved"],
 ])("shows safe actionable diagnostic for %s", async (code, message) => {
   api.Inspect.mockResolvedValue({
@@ -453,6 +462,10 @@ it.each([
   ["provider_response_rejected.stream_part", true],
   ["provider_response_rejected.private-canary", false],
   ["provider_response_rejected.stream_part private-canary", false],
+  ["assistant_budget_exceeded.model_rounds", true],
+  ["assistant_budget_exceeded.tool_calls", true],
+  ["assistant_budget_exceeded.private-canary", false],
+  ["assistant_budget_exceeded.model_rounds private-canary", false],
 ])("only renders fixed diagnostic rules: %s", async (code, recognized) => {
   api.Inspect.mockResolvedValue({
     id: "conversation",
@@ -547,4 +560,184 @@ it("captures the current page even with the local page guide off and no conversa
  await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));
  expect(JSON.stringify(api.DeliverPageContent.mock.calls[0][2].nodes)).toContain("Latest underlying page");
  expect(api.GrantNavigation).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
+
+});
+
+it("loads older messages in bounded batches and retains them when a new run arrives", async () => {
+  const saved = (n: number) => ({ ...run, id: `run-${n}`, prompt: `Question ${n}`, text: `Answer ${n}`, evidence: [] });
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [saved(7)], runCount: 8, offset: 7 });
+  api.Messages.mockImplementation(async (_epoch, _id, offset) => ({ id: "conversation", runs: [saved(offset)], runCount: 8, offset }));
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Answer 2");
+  expect(api.Messages).toHaveBeenCalledTimes(5);
+  expect(screen.queryByText("Answer 0")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Load earlier messages" }));
+  await screen.findByText("Answer 0");
+  expect(screen.getByText("Answer 7")).toBeVisible();
+  api.Start.mockImplementation(async () => {
+    api.Inspect.mockResolvedValue({ id: "conversation", runs: [saved(8)], runCount: 9, offset: 8 });
+    return saved(8);
+  });
+  await user.type(screen.getByLabelText("Message"), "Next question{Enter}");
+  await screen.findByText("Answer 8");
+  expect(screen.getByText("Answer 0")).toBeVisible();
+  expect(screen.getByText("Answer 7")).toBeVisible();
+  expect(screen.getAllByRole("article")).toHaveLength(9);
+});
+
+it("retries only failed history reads without replaying the model request", async () => {
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [{ ...run, id: "latest", text: "Latest answer" }], runCount: 2, offset: 1 });
+  api.Messages.mockRejectedValueOnce(new Error("private-history-payload"));
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText(/Earlier messages could not be loaded/);
+  expect(screen.getByText("Latest answer")).toBeVisible();
+  expect(screen.queryByText(/private-history-payload/)).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByText("Synthetic prior answer");
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("keeps privacy and navigation details keyboard accessible without granting on disclosure", async () => {
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  const info = screen.getByRole("button", { name: "AI provider and privacy" });
+  info.focus();
+  await user.keyboard("{Enter}");
+  expect(await screen.findByText(/Sending a message sends your question/)).toBeVisible();
+  await user.keyboard("{Escape}");
+  expect(info).toHaveFocus();
+  const options = screen.getByText("Page navigation");
+  await user.click(options);
+  expect(screen.getByRole("button", { name: "Send and allow one page change" })).toBeVisible();
+  expect(api.GrantNavigation).not.toHaveBeenCalled();
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("displays only allowlisted tool names and never a raw source identifier", async () => {
+  api.Inspect.mockResolvedValue({ id: "conversation", runs: [{ ...run, evidence: [{ ...run.evidence[0], source: "private_source_canary" }] }], runCount: 1, offset: 0 });
+  const user = userEvent.setup();
+  mount();
+  await user.click(await screen.findByText(/Data reads · 1/));
+  expect(screen.getByText("Ledger read")).toBeVisible();
+  expect(screen.queryByText(/private_source_canary/)).not.toBeInTheDocument();
+});
+
+
+it("navigates to a page target with a draft without sending it to the model", async () => {
+  const navigate = vi.fn();
+  const observedAt = Date.now();
+  function Publisher() {
+    const setEnabled = useAssistantPage()?.setEnabled;
+    useLayoutEffect(() => { setEnabled?.(true); }, [setEnabled]);
+    usePublishAssistantPage({
+      viewKey: "accounts:", page: "accounts", scope: { kind: "household", label: "Synthetic household" },
+      timezone: "UTC", basis: "base", currency: "USD", observedAt, state: "available",
+      targets: [{ label: "Synthetic checking", destination: { page: "accounts", accountId: "11111111-1111-4111-8111-111111111111" } }], metrics: [],
+    });
+    return null;
+  }
+  render(<QueryClientProvider client={createTestQueryClient()}>
+    <AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="accounts:" blocked={() => false} onNavigate={navigate}>
+      <Publisher /><ModelConversation />
+    </AssistantPageProvider>
+  </QueryClientProvider>);
+  const user = userEvent.setup();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Do not send this draft");
+  await user.click(screen.getByText("Page navigation"));
+  const target = screen.getByRole("button", { name: "Synthetic checking" });
+  expect(target).toHaveAttribute("type", "button");
+  await user.click(target);
+  expect(navigate).toHaveBeenCalledWith({ page: "accounts", accountId: "11111111-1111-4111-8111-111111111111" });
+  expect(screen.getByLabelText("Message")).toHaveValue("Do not send this draft");
+  expect(api.Start).not.toHaveBeenCalled();
+  expect(api.GrantNavigation).not.toHaveBeenCalled();
+});
+
+
+it("retains observed answers while history is pending or failed and isolates other sessions", async () => {
+  let rejectHistory!: (reason: Error) => void;
+  api.Messages.mockImplementation(() => new Promise((_resolve, reject) => { rejectHistory = reject; }));
+  api.List.mockResolvedValue([{ id: "conversation", updated: "2026-11-05", runCount: 1 }, { id: "other", updated: "2026-11-04", runCount: 1 }]);
+  let current = { id: "conversation", runs: [run], runCount: 1, offset: 0 };
+  api.Inspect.mockImplementation(async (_epoch, id) => id === "other"
+    ? { id: "other", runs: [{ ...run, id: "other-run", prompt: "Other question", text: "Other session answer" }], runCount: 1, offset: 0 }
+    : current);
+  api.Start.mockImplementation(async q => {
+    current = { id: "conversation", runs: [{ ...run, id: "new-run", prompt: q.prompt, text: "New answer" }], runCount: 2, offset: 1 };
+    return current.runs[0];
+  });
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Next question");
+  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  await screen.findByText("New answer");
+  expect(screen.getByText("Synthetic prior answer")).toBeVisible();
+  expect(screen.getByText("Loading messages…")).toBeVisible();
+  await act(async () => rejectHistory(new Error("private-history-error")));
+  await screen.findByText(/Earlier messages could not be loaded/);
+  expect(screen.getByText("Synthetic prior answer")).toBeVisible();
+  expect(screen.getByText("New answer")).toBeVisible();
+  expect(screen.getAllByRole("article")[0]).toHaveTextContent("Synthetic prior answer");
+  await user.selectOptions(screen.getByLabelText("Conversations"), "other");
+  await screen.findByText("Other session answer");
+  expect(screen.queryByText("Synthetic prior answer")).not.toBeInTheDocument();
+  expect(screen.queryByText("New answer")).not.toBeInTheDocument();
+});
+
+it("announces a new successful reply once without moving focus or announcing loaded history", async () => {
+  const client = createTestQueryClient();
+  let current = { id: "conversation", runs: [run], runCount: 1, offset: 0 };
+  api.Inspect.mockImplementation(async () => current);
+  api.Start.mockImplementation(async q => {
+    current = { id: "conversation", runs: [{ ...run, id: "new-run", requestId: q.requestId, state: "running", text: "" }], runCount: 2, offset: 1 };
+    return current.runs[0];
+  });
+  const user = userEvent.setup();
+  mount("overview:", client);
+  await screen.findByText("Synthetic prior answer");
+  const notification = screen.getByRole("status");
+  expect(notification).toHaveAttribute("aria-live", "polite");
+  expect(notification).toHaveAttribute("aria-atomic", "true");
+  expect(notification).toBeEmptyDOMElement();
+  await user.type(screen.getByLabelText("Message"), "New question");
+  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  await screen.findByRole("button", { name: "Stop model run" });
+  const input = screen.getByLabelText("Message");
+  await waitFor(() => expect(input).toBeEnabled());
+  input.focus();
+  current = { ...current, runs: [{ ...current.runs[0], state: "succeeded", text: "Fresh successful answer" }] };
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  await screen.findByText("AI reply received for message 2.");
+  expect(input).toHaveFocus();
+  const mutations = vi.fn();
+  const observer = new MutationObserver(mutations);
+  observer.observe(notification, { childList: true, characterData: true, subtree: true });
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  await client.invalidateQueries({ queryKey: ["aiConversation"] });
+  expect(mutations).not.toHaveBeenCalled();
+  expect(input).toHaveFocus();
+  observer.disconnect();
+});
+
+
+it("announces an immediate first reply from a newly created conversation", async () => {
+  api.List.mockResolvedValue([]);
+  api.Start.mockImplementation(async q => {
+    const reply = { ...run, id: "first-run", requestId: q.requestId, text: "Immediate first reply" };
+    api.Inspect.mockResolvedValue({ id: "new-conversation", runs: [reply], runCount: 1, offset: 0 });
+    return reply;
+  });
+  const user = userEvent.setup();
+  mount();
+  await waitFor(() => expect(screen.getByLabelText("Message")).toBeEnabled());
+  await user.type(screen.getByLabelText("Message"), "First question");
+  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  await screen.findByText("Immediate first reply");
+  expect(await screen.findByText("AI reply received for message 1.")).toHaveAttribute("aria-live", "polite");
+
 });

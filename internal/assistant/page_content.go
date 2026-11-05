@@ -226,7 +226,7 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 			}
 			end--
 			if end <= q.Cursor {
-				return nil, ErrBudget
+				return nil, BudgetFailure("tool_result_bytes")
 			}
 		}
 	}

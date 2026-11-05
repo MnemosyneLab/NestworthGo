@@ -201,7 +201,14 @@ conflicts until the active run finishes.
 | `interrupted` | Restart, revocation or lost completion requires a new explicit request |
 
 The Eino engine uses a serial loop with at most 8 model rounds, 16 tool calls,
-128 messages and a total run deadline of at most 120 seconds. Each model round
+128 messages and a total run deadline of at most 120 seconds. The eighth response
+is reserved for a final answer with `tool_choice: none`; reaching exactly 16 tool
+calls starts this final-answer phase earlier. A transient host policy asks the
+model to summarize only evidence read for the current request and disclose missing
+or partial coverage. It is not stored in the checkpoint. Any tool call returned
+during this phase fails before dispatch. An over-limit call inventory is rejected
+as a whole, without partial dispatch. These limits are not increased, and a final
+answer still must pass all response/history/display and deadline checks. Each model round
 keeps #201's own byte/event/item/60-second limits. A response yields an executable
 message only after terminal success, full item/framing validation and clean EOF.
 The whole call inventory is checked before dispatch; a response mixing a valid
@@ -257,7 +264,20 @@ cursor returns `reset`; refresh metadata/history. Generated bindings expose
 write-only credential input and bounded configuration,
 never stored secrets, history internals or host review methods. The desktop polls
 status every two seconds and the selected latest turn every second while mounted.
-History pages load on explicit selection. No poll invokes a model. Offline state
+The sidebar presents a chronological transcript: the latest attempt and up to
+five preceding turns load on session selection. “Load earlier messages” prepends
+five more bounded `Messages` reads without replacing the visible transcript.
+New attempts retain already displayed history. Scrolling away from the bottom
+pauses following; “Latest messages” resumes it. Failed history reads have a
+local retry that never replays `Start`.
+Completed host read evidence appears in a collapsed disclosure attached to its
+answer, with allowlisted localized source names, capture time and conservative
+coverage/missingness. The current API has no per-tool live lifecycle events;
+working indicators describe the run only and never invent tool progress.
+Privacy/scope/retention information lives behind an accessible info popover.
+Single-message navigation remains a separate explicit send action inside the
+page-navigation disclosure; opening it grants nothing. Closing the assistant
+retains the session and does not delete its persisted history. No poll invokes a model. Offline state
 pauses only new model submissions. All local Status/List/Inspect/Messages queries
 use `networkMode:always`; Stop and local history remain available under a browser
 offline hint. Reconnect/reload reads persisted state instead of replaying Start.
@@ -355,6 +375,19 @@ provider event names, request/account IDs or credentials. The desktop shows only
 exact recognized codes alongside localized reporting guidance; unknown strings
 are never reflected. A successful complete refusal is displayable text from the
 SDK refusal extension, with its original native item preserved in history.
+
+Budget diagnostics use the closed `assistant_budget_exceeded.<rule>` vocabulary:
+`model_rounds`, `tool_calls`, `history_bytes`, `history_messages`, `prompt_bytes`,
+`text_bytes`, `provider_payload`, `tool_result_bytes`, and `read_evidence`.
+These identify the actual host guard, rather than API credit balance or an inferred
+fixed timeout. `provider_payload` covers the provider adapter's request/response
+byte, event or item guards; it does not assert which wire dimension was exceeded.
+Known tool budget failures survive the controlled-read refusal boundary after
+wrappers are discarded; other read failures retain their existing safe refusal.
+The desktop uses exact allowlisted codes for localized next steps and reporting.
+No raw sizes, content, prompts, account names, IDs, keys or arbitrary error text
+are added. Old generic budget failures remain generic. Failed runs keep the last
+successful checkpoint, emit no partial answer/evidence/navigation and can reopen.
 
 
 ## On-demand internal page content

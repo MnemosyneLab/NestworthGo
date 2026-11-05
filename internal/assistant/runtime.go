@@ -855,7 +855,13 @@ func (r *Runtime) invoke(ctx context.Context, cfg ModelConfig, id string, histor
 	if encodeErr != nil || !validEvidence(result.Evidence) || strings.Contains(string(evidence), string(key)) {
 		return Completion{}, ErrUnavailable
 	}
-	if len(result.History) == 0 || len(result.History) > MaxHistoryBytes || len(result.Text) > MaxTextBytes || strings.Contains(result.Text, string(key)) || strings.Contains(string(result.History), string(key)) {
+	if len(result.History) > MaxHistoryBytes {
+		return Completion{}, BudgetFailure("history_bytes")
+	}
+	if len(result.Text) > MaxTextBytes {
+		return Completion{}, BudgetFailure("text_bytes")
+	}
+	if len(result.History) == 0 || strings.Contains(result.Text, string(key)) || strings.Contains(string(result.History), string(key)) {
 		return Completion{}, ErrUnavailable
 	}
 	return result, err

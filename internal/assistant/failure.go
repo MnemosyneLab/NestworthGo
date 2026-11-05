@@ -20,6 +20,9 @@ var (
 
 // safeFailure discards wrappers, even when a provider error wraps a known code.
 func safeFailure(err error) error {
+	if budget := NormalizeBudgetFailure(err); budget != nil {
+		return budget
+	}
 	var detail responseFailure
 	if errors.As(err, &detail) && responseRules[detail.rule] {
 		return responseFailure{detail.rule}

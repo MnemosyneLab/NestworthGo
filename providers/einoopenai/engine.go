@@ -94,8 +94,11 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 	if ctx.Err() != nil {
 		return empty, ctx.Err()
 	}
-	if len(prompt) > assistant.MaxPromptBytes || len(history) > assistant.MaxHistoryBytes {
-		return empty, assistant.ErrBudget
+	if len(prompt) > assistant.MaxPromptBytes {
+		return empty, assistant.BudgetFailure("prompt_bytes")
+	}
+	if len(history) > assistant.MaxHistoryBytes {
+		return empty, assistant.BudgetFailure("history_bytes")
 	}
 	if e.model == nil || e.tainted([]byte(prompt)) || e.tainted(history) {
 		return empty, errEngine
@@ -126,19 +129,35 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			}
 		}
 	}
-	for range 8 {
+	for round := range 8 {
 		raw, err := jsoncodec.Marshal(saved)
 		if err != nil || e.tainted(raw) {
 			return empty, errEngine
 		}
-		if len(raw) > assistant.MaxHistoryBytes || len(saved.Messages) > 128 {
-			return empty, assistant.ErrBudget
+		if len(raw) > assistant.MaxHistoryBytes {
+			return empty, assistant.BudgetFailure("history_bytes")
+		}
+		if len(saved.Messages) > 128 {
+			return empty, assistant.BudgetFailure("history_messages")
 		}
 		// The UI only publishes a completed turn. Use the SDK's JSON path to
 		// avoid parsing SSE with no incremental output benefit. Model.Generate
 		// still validates terminal success, bounded body and clean EOF before
 		// the SDK converter or any tool dispatch.
-		msg, err := e.model.Generate(ctx, saved.Messages, model.WithTools(e.infos))
+		// Keep the existing eight-response limit, reserving its last response
+		// for a final answer. Hitting the tool cap also ends further reads.
+		// Add policy to a detached request so it never becomes saved history.
+		final := round == 7 || calls == 16
+		input := saved.Messages
+		options := []model.Option{model.WithTools(e.infos)}
+		if final {
+			input = append(append([]*schema.AgenticMessage(nil), saved.Messages...), schema.SystemAgenticMessage("The controlled read budget for this request is exhausted. No more tools are available. Answer using only evidence already read for this request. Explicitly disclose incomplete pages, missing evidence and unresolved questions; ask for a narrower question where needed. Never present partial results as complete or invent financial facts."))
+			options = append(options, model.WithAgenticToolChoice(&schema.AgenticToolChoice{Type: schema.ToolChoiceForbidden}))
+		}
+		if len(input) > 128 {
+			return empty, assistant.BudgetFailure("history_messages")
+		}
+		msg, err := e.model.Generate(ctx, input, options...)
 		if err != nil {
 			return empty, err
 		}
@@ -168,11 +187,21 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 				pending = append(pending, call)
 			}
 		}
+		if final && len(pending) > 0 {
+			rule := "model_rounds"
+			if calls == 16 {
+				rule = "tool_calls"
+			}
+			return empty, assistant.BudgetFailure(rule)
+		}
 		calls += len(pending)
 		if calls > 16 {
-			return empty, assistant.ErrBudget
+			return empty, assistant.BudgetFailure("tool_calls")
 		}
 		saved.Messages = append(saved.Messages, msg)
+		if len(saved.Messages) > 128 {
+			return empty, assistant.BudgetFailure("history_messages")
+		}
 		if len(pending) == 0 {
 			var text strings.Builder
 			for _, b := range msg.ContentBlocks {
@@ -189,8 +218,11 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if err != nil {
 				return empty, errEngine
 			}
-			if len(raw) > assistant.MaxHistoryBytes || text.Len() > assistant.MaxTextBytes {
-				return empty, assistant.ErrBudget
+			if len(raw) > assistant.MaxHistoryBytes {
+				return empty, assistant.BudgetFailure("history_bytes")
+			}
+			if text.Len() > assistant.MaxTextBytes {
+				return empty, assistant.BudgetFailure("text_bytes")
 			}
 			if text.Len() == 0 {
 				return empty, assistant.ProviderResponseFailure("engine_empty_text")
@@ -216,6 +248,9 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if ctx.Err() != nil {
 				return empty, ctx.Err()
 			}
+			if budget := assistant.NormalizeBudgetFailure(err); budget != nil {
+				return empty, budget
+			}
 			if err != nil {
 				return empty, assistant.ErrToolResult
 			}
@@ -224,7 +259,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			}})
 		}
 	}
-	return empty, assistant.ErrBudget
+	return empty, assistant.BudgetFailure("model_rounds")
 }
 
 var _ assistant.Engine = (*Engine)(nil)
