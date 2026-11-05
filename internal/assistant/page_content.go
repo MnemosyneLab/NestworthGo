@@ -52,7 +52,7 @@ func (p PageContent) valid(now time.Time) bool {
 	if p.Page == "unsupported" && (len(p.Nodes) != 0 || len(p.Limitations) == 0) {
 		return false
 	}
-	if p.Page != "unsupported" && (p.Page != "return-analysis" || len(p.Nodes) == 0) {
+	if p.Page != "unsupported" && ((p.Page != "return-analysis" && p.Page != "overview" && p.Page != "accounts" && p.Page != "account") || len(p.Nodes) == 0) {
 		return false
 	}
 	ids := map[string]bool{}

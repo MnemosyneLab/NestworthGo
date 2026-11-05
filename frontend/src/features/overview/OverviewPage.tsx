@@ -191,11 +191,11 @@ export function OverviewPage({
   const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button id="open-historical-overview" className="min-[960px]:hidden" variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;
 
   if (overview.isLoading) {
-    return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
+    return <div data-assistant-page="overview" aria-busy="true">{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></div>;
   }
   if (!overview.data) {
     return (
-      <>
+      <div data-assistant-page="overview" aria-busy="false">
         {pageChrome}
         <ErrorState
           title={t("overview.loadError")}
@@ -203,7 +203,7 @@ export function OverviewPage({
           onRetry={() => overview.refetch()}
           retryLabel={t("common.retryAction")}
         />
-      </>
+      </div>
     );
   }
 
@@ -228,7 +228,7 @@ export function OverviewPage({
 
   if (data.accountCount === 0) {
     return (
-      <div className="flex flex-col gap-6" data-testid="overview-page">
+      <div className="flex flex-col gap-6" data-testid="overview-page" data-assistant-page="overview" aria-busy={overview.isFetching}>
         {pageChrome}
         <PageIntro description={t("overview.description")} status={headerStatus} />
         <EmptyState
@@ -333,13 +333,13 @@ export function OverviewPage({
   }
 
   return (
-    <div className="flex flex-col gap-6" data-testid="overview-page">
+    <div className="flex flex-col gap-6" data-testid="overview-page" data-assistant-page="overview" aria-busy={overview.isFetching}>
       {pageChrome}
  {overview.isFetching && <p role="status">{t("valuation.updating")}</p>}
  {overview.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void overview.refetch()}>{t("common.retryAction")}</Button></p>}
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
-      <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row">
+      <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row" data-assistant-module="valuation">
         <Card className="relative overflow-hidden">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")} <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net /></CardTitle>
@@ -418,12 +418,12 @@ export function OverviewPage({
             <TasksHomeSummary isActive={isActive} />
           </CardContent>
         </Card>
-        <OverviewUpcomingActionsCard isActive={isActive} presentation="homepage" />
+        <section data-assistant-module="upcoming-actions"><OverviewUpcomingActionsCard isActive={isActive} presentation="homepage" /></section>
       </div>
 
-      <NetWorthTrendCard active={isActive} />
+      <section data-assistant-module="trend"><NetWorthTrendCard active={isActive} /></section>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4" data-assistant-module="composition">
         {(showAssetComposition || showLiabilityComposition) && (
           <div className={cn("grid grid-cols-1 gap-4", showAssetComposition && showLiabilityComposition && "xl:grid-cols-2")}>
             {showAssetComposition && (
@@ -503,7 +503,7 @@ export function OverviewPage({
         </div>
       </div>
 
-      <Card>
+      <Card data-assistant-module="recent-activity">
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <CardTitle>{t("overview.recentActivity")}</CardTitle>
           {onOpenHistory && (

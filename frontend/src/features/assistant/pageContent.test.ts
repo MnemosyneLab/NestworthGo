@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { render } from "@testing-library/react";
+import { PageChrome, PageChromeProvider } from "@/components/layout/PageChrome";
 import { DatePickerControl } from "@/components/ui/date-picker-control";
 import { afterEach, expect, it } from "vitest";
 import { capturePageContent } from "./pageContent";
@@ -65,5 +66,37 @@ it("never turns a reviewed contribution ID into permission to read secret input 
  document.body.innerHTML = '<main data-assistant-page="return-analysis"><section data-assistant-module="contribution"><input id="contribution-search" type="password" value="protected-password"><textarea id="contribution-sort">protected-note</textarea><input id="contribution-secret" value="protected-new-field"></section></main>';
  const page=capturePageContent("return-analysis:");const raw=JSON.stringify(page);
  for(const secret of ["protected-password","protected-note","protected-new-field"])expect(raw).not.toContain(secret);
+ expect(page.nodes.filter(n=>n.state.includes("redacted"))).toHaveLength(3);
+});
+
+
+it("keeps the field allowlist scoped to the reviewed page and rejects hidden ancestors", () => {
+ document.body.innerHTML = '<div hidden><main data-assistant-page="overview">retained overview</main></div><main data-assistant-page="accounts"><input id="analysis-from" value="not-reviewed-on-accounts"><label for="accounts-show-archived">Archived</label><input id="accounts-show-archived" type="checkbox" checked><div data-assistant-module="account-list">Synthetic bank</div></main>';
+ expect(capturePageContent("overview:").page).toBe("unsupported");
+ const page=capturePageContent("accounts:");
+ expect(JSON.stringify(page)).not.toContain("not-reviewed-on-accounts");
+ expect(page.nodes.find(n=>n.id==="page/accounts-show-archived")?.state).toContain("checked=true");
+ expect(capturePageContent("settings:").page).toBe("unsupported");
+});
+
+
+it("captures the actual page toolbar portal without exporting app-shell or assistant content", () => {
+ const toolbar=document.createElement("div"); document.body.append(toolbar);
+ render(createElement(PageChromeProvider, { activePageId: "overview", target: toolbar, children:
+  createElement("main", {"data-assistant-page":"overview"},
+   createElement(PageChrome, {pageId:"overview",title:"Synthetic overview title",actions:createElement("button",null,"Open Wealth history")}),
+   createElement("p",null,"Synthetic body")) }));
+ const unrelated=document.createElement("aside"); unrelated.textContent="private assistant conversation"; toolbar.append(unrelated);
+ const page=capturePageContent("overview:");
+ expect(page.nodes.find(n=>n.name==="Synthetic overview title")).toMatchObject({role:"heading",module:"page"});
+ expect(page.nodes.find(n=>n.name==="Open Wealth history")).toMatchObject({role:"button",actions:["activate (description only)"]});
+ expect(JSON.stringify(page)).not.toContain("private assistant conversation");
+});
+
+
+it("keeps secret and unknown account inputs protected despite reviewed composition IDs", () => {
+ document.body.innerHTML = '<main data-assistant-page="account" data-assistant-view="accounts:synthetic"><input id="account-composition-type" type="password" value="protected-password"><input id="account-composition-detail" type="hidden" value="protected-hidden"><textarea id="account-composition-type">protected-note</textarea><input id="account-composition-future" value="protected-new-field"></main>';
+ const page=capturePageContent("accounts:synthetic");
+ for(const secret of ["protected-password","protected-hidden","protected-note","protected-new-field"]) expect(JSON.stringify(page)).not.toContain(secret);
  expect(page.nodes.filter(n=>n.state.includes("redacted"))).toHaveLength(3);
 });

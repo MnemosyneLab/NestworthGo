@@ -13,7 +13,7 @@ let lastID = "";
 const rootIdentities = new WeakMap<Element,string>();
 // Explicit reviewed semantic controls, never a prefix-based permission for
 // future inputs. IDs are owned by the real page/shared control triggers.
-const allowedFields = new Set([
+const analysisFields = new Set([
   "analysis-scope", "analysis-scope-id", "analysis-from", "analysis-to",
   "analysis-valuation", "analysis-cash", "analysis-filter-account",
   "analysis-filter-currency", "analysis-filter-asset-class", "analysis-filter-member",
@@ -31,13 +31,18 @@ const semanticRoles = new Set(["region", "heading", "button", "link", "textbox",
 export function capturePageContent(viewKey: string, generation = viewKey): SemanticPage {
   const limitations: string[] = [];
   const nodes: SemanticNode[] = [];
-  const root = viewKey === "return-analysis:" ? document.querySelector<HTMLElement>('[data-assistant-page="return-analysis"]') : null;
+  const kind = viewKey === "overview:" ? "overview" : viewKey === "accounts:" ? "accounts" : viewKey.startsWith("accounts:") && viewKey.length > 9 ? "account" : viewKey === "return-analysis:" ? "return-analysis" : null;
+  // Never interpolate selection hints into selectors. Detail identity must match
+  // the mounted account, including during retained-route/background transitions.
+  const candidate = kind ? document.querySelector<HTMLElement>(`[data-assistant-page="${kind}"]`) : null;
+  const root = candidate && (kind !== "account" || candidate.dataset.assistantView === viewKey) ? candidate : null;
+  const allowedFields = kind === "return-analysis" ? analysisFields : new Set(kind === "accounts" ? ["accounts-show-archived"] : kind === "account" ? ["account-composition-type", "account-composition-detail"] : []);
   // A modal assistant can make the underlying active page inert. Read its
   // reviewed content while describing the overlay; retained hidden routes stay out.
-  const page = root && !root.closest('[hidden]') && getComputedStyle(root).display !== "none" ? "return-analysis" : "unsupported";
-  if (page === "unsupported") limitations.push("This page is not supported. Only the active return-analysis page is currently available.");
+  const page = root && !root.closest('[hidden]') && getComputedStyle(root).display !== "none" ? kind! : "unsupported";
+  if (page === "unsupported") limitations.push("This page is not supported. Supported pages are overview, accounts, account detail and return-analysis.");
   else {
-    limitations.push("Semantic content of the active analysis tab only. Canvas/SVG geometry, hover-only tooltips and portal popovers are not exported. Collapsed disclosures retain their state and available semantic contents. No arbitrary UI control.");
+    limitations.push("Semantic content of the active reviewed business page only. Canvas/SVG geometry, hover-only tooltips and portal popovers are not exported (the reviewed page toolbar is included). Collapsed disclosures retain their state and available semantic contents. No arbitrary UI control. Portal menus, creation/edit/reconciliation sheets and their form values are unavailable; only mounted inline content is included.");
     const overlay = !!root?.closest('[inert], [aria-hidden="true"]');
     if (overlay) limitations.push("The active page is blocked by an overlay; its controls are descriptive only.");
     const used = new Set<string>();
@@ -105,6 +110,11 @@ export function capturePageContent(viewKey: string, generation = viewKey): Seman
       }
     };
     walk(root!, "", "page");
+    // PageChrome is rendered into AppShell's toolbar through a portal. Read only
+    // its explicitly marked, active-page publisher, never the surrounding shell.
+    const chromePage = kind === "account" ? "accounts" : kind;
+    const chrome = document.querySelector<HTMLElement>(`[data-assistant-chrome="${chromePage}"]`);
+    if (chrome && !chrome.closest('[hidden]')) walk(chrome, nodes[0].id, "page");
   }
   if (nodes.length > 8192) throw new Error("page_content_budget");
   if (root && !rootIdentities.has(root)) rootIdentities.set(root,crypto.randomUUID());

@@ -213,7 +213,8 @@ export function ModelConversation() {
     const text = prompt;
     const stamp = page?.modelStamp ?? "";
     await action(async () => {
-      const contentGeneration = allowNavigation && page?.viewKey === "return-analysis:" ? capturePageContent(page.viewKey, page.modelStamp).id : null;
+      const content = allowNavigation && page ? capturePageContent(page.viewKey, page.modelStamp) : null;
+      const contentGeneration = content && content.page !== "unsupported" ? content.id : null;
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
       // Only a selector crosses IPC. No frontend metrics/labels/permission claims.

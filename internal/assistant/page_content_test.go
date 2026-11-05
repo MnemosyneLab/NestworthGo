@@ -14,6 +14,12 @@ import (
 )
 
 func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) {
+	for _, page := range []string{"return-analysis", "overview", "accounts", "account"} {
+		t.Run(page, func(t *testing.T) { checkPageCapture(t, page) })
+	}
+}
+
+func checkPageCapture(t *testing.T, page string) {
 	calls := make(chan ai.PageContentReader, 1)
 	done := make(chan error, 1)
 	f := func(ctx context.Context, _ ai.ModelConfig, _ []byte, _ string) (ai.Engine, error) {
@@ -35,7 +41,7 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 	if reader == nil {
 		t.Fatal("missing internal page reader")
 	}
-	snapshot := ai.PageContent{ID: uuid.NewString(), Page: "return-analysis", CapturedAt: time.Now(), Nodes: []ai.PageNode{}}
+	snapshot := ai.PageContent{ID: uuid.NewString(), Page: page, CapturedAt: time.Now(), Nodes: []ai.PageNode{}}
 	for i := range 80 {
 		snapshot.Nodes = append(snapshot.Nodes, ai.PageNode{ID: fmt.Sprint(i), Module: "filters", Role: "text", Name: fmt.Sprintf("合成 Synthetic %d", i)})
 	}
@@ -123,6 +129,23 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 			}
 		}); err == nil {
 			t.Fatalf("%s kept an old cursor despite a changed control", control)
+		}
+	}
+	if page == "account" {
+		for _, control := range []string{"account-composition-type", "account-composition-detail"} {
+			snapshot.ID = uuid.NewString()
+			snapshot.Nodes = []ai.PageNode{{ID: "composition/" + control, Module: "composition", Role: "radio", State: []string{"checked=true"}}, {ID: "composition/amount", Module: "composition", Role: "text", Name: "12.34 USD"}}
+			if _, err := capture(`{"module":"composition","limit":1}`, nil); err != nil {
+				t.Fatal(err)
+			}
+			args := fmt.Sprintf(`{"snapshotId":%q,"module":"composition","cursor":1}`, snapshot.ID)
+			if _, err := capture(args, func(p *ai.PageContent) {
+				p.ID = uuid.NewString()
+				p.Nodes = append([]ai.PageNode(nil), p.Nodes...)
+				p.Nodes[0].State = []string{"checked=false"}
+			}); err == nil {
+				t.Fatalf("%s retained an old continuation after selection changed", control)
+			}
 		}
 	}
 	for _, args := range []string{`{"cursor":2}`, `{"html":true}`, `{"limit":65}`, `null`} {

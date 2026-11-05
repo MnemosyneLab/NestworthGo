@@ -58,5 +58,5 @@ export function PageChrome({
   if (!context.target) {
     return <div className="flex min-w-0 flex-wrap items-center gap-3">{content}</div>;
   }
-  return createPortal(content, context.target);
+  return createPortal(<div className="contents" data-assistant-chrome={pageId}>{content}</div>, context.target);
 }

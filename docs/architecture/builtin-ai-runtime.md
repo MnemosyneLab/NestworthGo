@@ -461,12 +461,12 @@ key, excluding retained inactive pages and the assistant's own conversation.
 When a modal assistant makes the underlying active page inert, its reviewed
 content remains readable and the overlay/inert state is explicitly reported.
 
-The first supported root is Return analysis, across its active calendar, trend
-and contribution tabs. Stable module paths are `page`, `views`, `filters` and the
-active tab name; named controls use module/control IDs. Anonymous semantic text
+Supported roots are Overview, Accounts list, Account detail and Return analysis
+across its active calendar, trend and contribution tabs (see the module inventory
+below). Analysis module paths are `page`, `views`, `filters` and the active tab name; named controls use module/control IDs. Anonymous semantic text
 IDs are stable only within the same semantic snapshot. Output consists of typed
 nodes with parent/module, role, accessible name, displayed value, state and
-*descriptive* affordances. Field values are restricted to reviewed analysis
+*descriptive* affordances. Field values are restricted to reviewed, page-scoped
 control IDs; password, hidden, file, unknown and textarea inputs are redacted.
 `data-assistant-private` subtrees, URLs, option database IDs, event handlers,
 raw HTML and SVG/canvas geometry are excluded. Known configured credential
@@ -515,3 +515,41 @@ No arbitrary click, edit, date/filter application or financial action is added.
 The existing successful-run, source-page lease, expiry, live workspace and
 unresolved-review checks still gate dispatch. Future pages require reviewed
 root/field coverage and privacy/state regression tests before opting in.
+
+### Reviewed semantic business pages
+
+`read_page_content` supports the active Overview, Accounts list, Account detail,
+and the three Return analysis tabs. This is desktop presentation evidence only,
+not backend financial authority. Reads remain on demand, independent of assistant
+sidebar visibility and page-guide selection; no extra read grant or refresh is
+required. External MCP has no page reader or page-content tool.
+
+| Page | Named modules (only when mounted) |
+| --- | --- |
+| Overview | `page` (header/status/attention and other inline summaries), `valuation`, `trend`, `composition`, `recent-activity`, `upcoming-actions` |
+| Accounts list | `page` (header, archive filter and state), `account-list` |
+| Account detail | `page` (header/value/status), `reconciliation`, `composition`, `cash`, `holdings`, `products`, `cash-history`, `value` |
+| Return analysis | Existing `views`, `filters`, active `calendar`, `trend` or `contribution` |
+
+The active PageChrome toolbar portal is explicitly marked and included in `page`;
+the surrounding app shell and assistant conversation remain excluded. The list's
+archive checkbox and Account detail composition type/detail radios are explicitly
+reviewed; their current checked states are captured. Navigation captures and
+revalidates semantic generations for every supported page, including account
+composition changes before or during intent consumption. Other newly introduced
+inputs remain redacted, and analysis field IDs are allowed only on Return analysis. Account detail also verifies the mounted
+account selection before capture. Hidden retained routes are excluded. Query busy
+states and visible/expanded content changes invalidate continuations, as do route
+generations and root remounts. Modules list actual mounted content; absence does
+not prove there are no financial records. Pagination and node/byte budgets are
+unchanged, and limitations prevent any unsupported completeness claim.
+
+Portal menus/popovers and creation, account settings, financial action and
+reconciliation sheets/form values are outside these reviewed roots. Canvas/SVG
+geometry and hover-only tooltips are omitted; mounted semantic chart tables are
+included with disclosure state. Other business pages (including standalone
+Portfolio, History, Liquidity, Tasks, Data health and Settings) remain unsupported.
+Descriptions of buttons, links and disclosures grant no execution authority.
+Existing separately granted navigation is unchanged; no arbitrary clicks or
+financial writes are added. Credential filtering and unknown-input redaction
+remain enforced.

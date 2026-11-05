@@ -372,3 +372,19 @@ it("renders recent card purchase and refund sentences using real translations", 
   expect(await screen.findByText("Card purchase US$100.00 on Synthetic card")).toBeInTheDocument();
   expect(await screen.findByText("Card refund US$30.00 on Synthetic card")).toBeInTheDocument();
 });
+
+
+it("captures real overview modules, authoritative displayed values and descriptive controls", async () => {
+ await renderWithMockedOverview({ ...defaultHeadlines, currency: "USD", accountCount: 1, complete: false,
+  assets: "1000", liabilities: "300", netWorth: "700", missingInputs: [{kind:"account_value",accountId:"acc-1"}],
+  byInstitution: [{ key: "bank", label: "Synthetic bank", amount: "1000", shareBps: 10000 }] });
+ await screen.findByTestId("overview-net-worth");
+ const { capturePageContent } = await import("@/features/assistant/pageContent");
+ const page = capturePageContent("overview:");
+ expect(page.page).toBe("overview");
+ expect(page.nodes.filter(n => n.module === "valuation").map(n=>n.name).join(" ")).toContain("700.00");
+ expect(page.nodes.some(n=>n.module === "composition" && n.name.includes("Synthetic bank"))).toBe(true);
+ expect(page.nodes.some(n=>n.module === "recent-activity")).toBe(true);
+ expect(page.nodes.some(n=>n.module === "trend")).toBe(true);
+ expect(page.limitations.join(" ")).toContain("Canvas/SVG");
+});
