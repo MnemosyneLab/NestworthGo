@@ -2,7 +2,7 @@ import { afterEach, expect, it } from "vitest";
 import { capturePageContent } from "./pageContent";
 afterEach(() => { document.body.innerHTML = ""; });
 function fixture() {
-  document.body.innerHTML = `<aside>assistant transcript secret</aside><main data-assistant-page="return-analysis"><h1>收益分析 Return analysis</h1><section data-assistant-module="filters"><label for="analysis-from">开始日期</label><input id="analysis-from" value="2026-10-01"><select id="analysis-scope"><option value="internal-uuid">Synthetic account</option><option value="other">All</option></select><input id="analysis-filter-instrument" role="combobox" value="Synthetic fund" aria-expanded="false"><button disabled aria-label="Reset">Reset</button><input type="password" value="never-export"><input id="unknown" value="private-notes"><textarea>private textarea</textarea><div data-assistant-private>hidden key material</div></section><div data-assistant-module="trend"><div role="status">Loading…</div><details><summary>Data table</summary><table><tbody><tr><td>12.34 USD</td></tr></tbody></table></details><button aria-pressed="true">Selected view</button><div hidden>retained page</div><canvas></canvas></div></main>`;
+  document.body.innerHTML = `<aside>assistant transcript secret</aside><main data-assistant-page="return-analysis"><h1>收益分析 Return analysis</h1><section data-assistant-module="filters"><label for="analysis-from">开始日期</label><input id="analysis-from" value="2026-10-01"><select id="analysis-scope"><option value="internal-uuid">Synthetic account</option><option value="other">All</option></select><input id="analysis-filter-instrument" role="combobox" value="Synthetic fund" aria-expanded="false"><button disabled aria-label="Reset">Reset</button><input id="analysis-cash" type="checkbox" checked><input id="analysis-to" value="2026-10-31" readonly aria-invalid="true"><input type="password" value="never-export"><input id="unknown" value="private-notes"><textarea>private textarea</textarea><div data-assistant-private>hidden key material</div></section><div data-assistant-module="trend"><div role="status">Loading…</div><details><summary>Data table</summary><table><tbody><tr><td>12.34 USD</td></tr></tbody></table></details><button aria-pressed="true">Selected view</button><div hidden>retained page</div><canvas></canvas></div></main>`;
 }
 it("exports scoped semantic text, labels, field properties and descriptive affordances without HTML or private values", () => {
   fixture(); const p = capturePageContent("return-analysis:"); const raw = JSON.stringify(p);
@@ -12,6 +12,8 @@ it("exports scoped semantic text, labels, field properties and descriptive affor
   expect(p.nodes.find(n => n.id === "filters/analysis-filter-instrument")).toMatchObject({ value: "Synthetic fund", state: ["expanded=false"] });
   expect(p.nodes.find(n => n.name === "Reset")?.state).toContain("disabled=true");
   expect(p.nodes.find(n => n.role === "disclosure")?.state).toContain("expanded=false");
+  expect(p.nodes.find(n=>n.id==="filters/analysis-cash")?.state).toContain("checked=true");
+  expect(p.nodes.find(n=>n.id==="filters/analysis-to")?.state).toEqual(expect.arrayContaining(["readonly=true", "invalid=true"]));
   expect(p.limitations.length).toBeGreaterThan(0);
 });
 it("captures current input properties, filtering state and async results; same-state continuation uses one generation", () => {
@@ -26,7 +28,7 @@ it("captures current input properties, filtering state and async results; same-s
   expect(capturePageContent("return-analysis:").id).not.toBe(second.id);
 });
 it("splits long text losslessly and rejects excessive content without advertising completeness", () => {
-  fixture(); const paragraph = document.createElement("p"); paragraph.textContent = "中".repeat(2000); document.querySelector("main")!.append(paragraph);
+  fixture(); const paragraph = document.createElement("p"); paragraph.textContent = "中".repeat(399) + "🌏" + "中".repeat(1600); document.querySelector("main")!.append(paragraph);
   const p = capturePageContent("return-analysis:"); expect(p.nodes.filter(n => n.name.includes("中")).map(n => n.name).join("")).toBe(paragraph.textContent);
   paragraph.textContent = "x".repeat(400 * 8193); expect(() => capturePageContent("return-analysis:")).toThrow("page_content_budget");
 });

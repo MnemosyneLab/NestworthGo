@@ -418,6 +418,8 @@ Financial assertions must still use authoritative controlled ledger reads.
 Under the existing explicit one-turn navigation grant, opaque target discovery
 also offers Return analysis's calendar, trend and contribution destinations.
 These are fixed typed read-only routes; they preserve existing analysis filters.
+Analysis navigation also compares the captured semantic generation before
+intent consumption and again after IPC, rejecting intervening filter/data changes.
 No arbitrary click, edit, date/filter application or financial action is added.
 The existing successful-run, source-page lease, expiry, live workspace and
 unresolved-review checks still gate dispatch. Future pages require reviewed

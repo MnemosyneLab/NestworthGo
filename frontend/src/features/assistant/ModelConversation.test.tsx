@@ -476,7 +476,8 @@ it.each([
 it("fulfills a tool capture automatically with the latest supported page, without navigation approval", async () => {
  function EnabledPage() {
   const page=useAssistantPage();
-  useLayoutEffect(()=>{page?.setEnabled(true)},[page?.setEnabled]);
+  const enablePage=page?.setEnabled;
+  useLayoutEffect(()=>{enablePage?.(true)},[enablePage]);
   return <><main data-assistant-page="return-analysis"><section data-assistant-module="filters"><label htmlFor="analysis-from">From</label><input id="analysis-from" defaultValue="2026-10-01" /></section></main><ModelConversation /></>;
  }
  api.PendingPageReads.mockResolvedValueOnce([{id:"capture-first"}]).mockResolvedValue([]);
@@ -488,4 +489,53 @@ it("fulfills a tool capture automatically with the latest supported page, withou
  await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(2));
  expect(api.DeliverPageContent.mock.calls[1][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-02"})]));
  expect(api.GrantNavigation).not.toHaveBeenCalled(); expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("revokes analysis navigation when a live filter changes during intent consumption", async () => {
+  let finish!: (target: { kind: string; accountId: string }) => void;
+  api.ConsumeNavigation.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  api.Start.mockImplementation(async (q) => {
+    api.Inspect.mockResolvedValue({
+      id: "conversation",
+      runs: [{ ...run, requestId: q.requestId, state: "succeeded" }],
+      runCount: 2,
+      offset: 1,
+      navigation: {
+        id: "host-intent",
+        leaseId: q.pageLeaseId,
+        requestId: q.requestId,
+        runId: "run",
+        conversationId: "conversation",
+      },
+    });
+    return { ...run, state: "accepted" };
+  });
+  const navigate = vi.fn();
+  function Shell() {
+    return <AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={()=>false} onNavigate={navigate}>
+      <main data-assistant-page="return-analysis"><label htmlFor="analysis-from">From</label><input id="analysis-from" defaultValue="2026-10-01" /></main>
+      <ModelConversation />
+    </AssistantPageProvider>;
+  }
+  render(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <Shell />
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await screen.findByText("Synthetic prior answer");
+  await user.type(screen.getByLabelText("Message"), "Open overview");
+  await user.click(
+    screen.getByRole("button", { name: "Send and allow one page change" }),
+  );
+  await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
+  fireEvent.change(screen.getByLabelText("From"), {target:{value:"2026-10-02"}});
+  finish({ kind: "overview", accountId: "" });
+  await screen.findByText(/No page change was applied/);
+  expect(navigate).not.toHaveBeenCalled();
 });

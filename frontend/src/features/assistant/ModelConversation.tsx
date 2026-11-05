@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import * as API from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
@@ -12,6 +12,11 @@ import { formatTimestamp } from "@/lib/time";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 import { capturePageContent } from "./pageContent";
+
+function samePageContent(generation: string | null, viewKey: string) {
+  if (generation === null) return true;
+  try { return capturePageContent(viewKey).id === generation; } catch { return false; }
+}
 
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
 const diagnosticKeys: Record<string, string> = {
@@ -82,6 +87,7 @@ export function ModelConversation() {
     requestID: string;
     leaseID: string;
     stamp: string;
+    contentGeneration: string | null;
   } | null>(null);
   const [navigationState, setNavigationState] = useState("");
   const navigationAttempt = useRef<string | null>(null);
@@ -176,7 +182,8 @@ export function ModelConversation() {
       !intent ||
       intent.leaseId !== grant.leaseID ||
       intent.requestId !== grant.requestID ||
-      !page
+      !page ||
+      !samePageContent(grant.contentGeneration, page.viewKey)
     ) {
       setNavigationState("navigationStopped");
       return;
@@ -187,7 +194,7 @@ export function ModelConversation() {
         callService(() =>
           API.ConsumeNavigation(epoch, id, run.id, intent.id, intent.leaseId),
         ).then((target) => {
-          if (navigationAttempt.current !== grant.requestID)
+          if (navigationAttempt.current !== grant.requestID || !samePageContent(grant.contentGeneration, page.viewKey))
             throw new Error("assistant_navigation_withdrawn");
           return target;
         }),
@@ -203,7 +210,7 @@ export function ModelConversation() {
   // Poll metadata only. A capture happens synchronously on the UI thread and
   // includes current field properties (also changes without DOM mutations).
   const pageReadView = useRef(page?.viewKey ?? "");
-  pageReadView.current = page?.viewKey ?? "";
+  useLayoutEffect(() => { pageReadView.current = page?.enabled ? page.viewKey : ""; }, [page?.viewKey, page?.enabled]);
   useEffect(() => {
     if (!epoch || !page?.enabled) return;
     let stopped = false;
@@ -283,6 +290,7 @@ export function ModelConversation() {
     const text = prompt;
     const stamp = page?.modelStamp ?? "";
     await action(async () => {
+      const contentGeneration = allowNavigation && page?.viewKey === "return-analysis:" ? capturePageContent(page.viewKey).id : null;
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
       setOffset(null);
@@ -311,13 +319,14 @@ export function ModelConversation() {
             lease.id,
           ),
         );
-        if (!page.canModelNavigate(stamp))
+        if (!page.canModelNavigate(stamp) || !samePageContent(contentGeneration, page.viewKey))
           throw new Error("assistant_stale_page");
         pageLeaseId = lease.id;
         navigationGrant.current = {
           requestID: requestId,
           leaseID: lease.id,
           stamp,
+          contentGeneration,
         };
         setNavigationState("navigationPending");
       } else {

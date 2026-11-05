@@ -234,7 +234,7 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 
 func contentContains(p PageContent, secret string) bool {
 	for _, n := range p.Nodes {
-		for _, v := range append([]string{n.ID, n.Parent, n.Module, n.Role, n.Name, n.Value}, append(n.State, n.Actions...)...) {
+		for _, v := range append(append([]string{n.ID, n.Parent, n.Module, n.Role, n.Name, n.Value}, n.State...), n.Actions...) {
 			if strings.Contains(v, secret) {
 				return true
 			}

@@ -27,7 +27,8 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 	defer r.Close()
 	enable(t, r)
 	q := request(t, r)
-	if _, err := r.Start(t.Context(), q); err != nil {
+	run, err := r.Start(t.Context(), q)
+	if err != nil {
 		t.Fatal(err)
 	}
 	reader := <-calls
@@ -38,6 +39,7 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 	for i := range 80 {
 		snapshot.Nodes = append(snapshot.Nodes, ai.PageNode{ID: fmt.Sprint(i), Module: "filters", Role: "text", Name: fmt.Sprintf("合成 Synthetic %d", i)})
 	}
+	snapshot.Nodes = append(snapshot.Nodes, ai.PageNode{ID: "trend-secret", Module: "trend", Role: "text", Name: "unrequested module data"})
 	capture := func(args string, mutate func(*ai.PageContent)) (map[string]any, error) {
 		t.Helper()
 		result := make(chan json.RawMessage, 1)
@@ -72,9 +74,13 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 		}
 		return data, err
 	}
-	first, err := capture(`{"limit":20}`, nil)
+	first, err := capture(`{"module":"filters","limit":20}`, nil)
 	if err != nil || first["hasMore"] != true || first["complete"] != false || first["nextCursor"] != float64(20) {
 		t.Fatalf("first: %v %v", first, err)
+	}
+	firstRaw, _ := jsoncodec.Marshal(first)
+	if strings.Contains(string(firstRaw), "unrequested module data") {
+		t.Fatal("module read widened disclosure")
 	}
 	args := fmt.Sprintf(`{"snapshotId":%q,"module":"filters","cursor":20,"limit":64}`, snapshot.ID)
 	last, err := capture(args, nil)
@@ -97,6 +103,15 @@ func TestPageToolCapturesOnDemandPaginatesAndRejectsChangedScreen(t *testing.T) 
 	}
 	if _, err := r.PendingPageReads(t.Context(), "wrong-epoch"); err == nil {
 		t.Fatal("wrong desktop epoch")
+	}
+	if err := r.Cancel(t.Context(), q.Epoch, q.ConversationID, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reader(t.Context(), []byte(`{}`)); err == nil {
+		t.Fatal("finished/canceled run retained reader authority")
+	}
+	if pending, _ := r.PendingPageReads(t.Context(), q.Epoch); len(pending) != 0 {
+		t.Fatal("canceled run requested capture")
 	}
 }
 

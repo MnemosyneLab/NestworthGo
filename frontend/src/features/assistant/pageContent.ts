@@ -16,6 +16,7 @@ const roles: Record<string, string> = {
   INPUT: "textbox", TEXTAREA: "textbox", H1: "heading", H2: "heading", H3: "heading", H4: "heading",
   TABLE: "table", TR: "row", TD: "cell", TH: "columnheader", SUMMARY: "disclosure", IMG: "img",
 };
+const excluded = 'script,style,svg,canvas,[hidden],[inert],[aria-hidden="true"],[data-assistant-private]';
 const semanticRoles = new Set(["region", "heading", "button", "link", "textbox", "combobox", "checkbox", "radio", "switch", "tab", "tablist", "option", "table", "row", "cell", "columnheader", "status", "alert", "group", "img", "slider", "spinbutton"]);
 export function capturePageContent(viewKey: string): SemanticPage {
   const limitations: string[] = [];
@@ -33,11 +34,17 @@ export function capturePageContent(viewKey: string): SemanticPage {
       used.add(id); nodes.push({ id, ...n }); return id;
     };
     const text = (value: string, parent: string, module: string) => {
-      const valueText = value.replace(/\s+/g, " ").trim();
-      for (let i = 0; i < valueText.length; i += 400) add({ parent, module, role: "text", name: valueText.slice(i, i + 400), value: "", state: [], actions: [] });
+      const codepoints = Array.from(value.replace(/\s+/g, " ").trim());
+      for (let i = 0; i < codepoints.length; i += 400) add({ parent, module, role: "text", name: codepoints.slice(i, i + 400).join(""), value: "", state: [], actions: [] });
+    };
+    const visibleText = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+      if (!(node instanceof Element) || node.matches(`${excluded},input,textarea,select`)) return "";
+      if (getComputedStyle(node).display === "none" || getComputedStyle(node).visibility === "hidden") return "";
+      return Array.from(node.childNodes).map(visibleText).join("");
     };
     const walk = (el: Element, parent: string, module: string) => {
-      if (el.matches('script,style,svg,canvas,[hidden],[inert],[aria-hidden="true"],[data-assistant-private]')) return;
+      if (el.matches(excluded)) return;
       if (getComputedStyle(el).display === "none" || getComputedStyle(el).visibility === "hidden") return;
       module = el.getAttribute("data-assistant-module") || module;
       const roleAttribute = el.getAttribute("role") || "";
@@ -57,7 +64,12 @@ export function capturePageContent(viewKey: string): SemanticPage {
         if (el instanceof HTMLInputElement) { if (el.type === "checkbox" || el.type === "radio") state.push(`checked=${el.checked}`); if (el.readOnly) state.push("readonly=true"); }
         if (el instanceof HTMLOptionElement) {state.push(`selected=${el.selected}`); if (el.disabled) state.push("disabled=true");}
         if (el.tagName === "SUMMARY") state.push(`expanded=${(el.parentElement as HTMLDetailsElement).open}`);
-        let name = el.getAttribute("aria-label") || (field ? Array.from(el.labels || []).map(l => l.textContent).join(" ") : "");
+        let name = el.getAttribute("aria-label") || (field ? Array.from(el.labels || []).map(visibleText).join(" ") : "");
+        if (!name && el.hasAttribute("aria-labelledby")) {
+          name = (el.getAttribute("aria-labelledby") || "").split(/\s+/).map(id => document.getElementById(id)).filter((label): label is HTMLElement => !!label && !!root?.contains(label)).map(visibleText).join(" ");
+        }
+        const textNamed = ["button", "link", "tab", "option", "heading", "disclosure", "cell", "columnheader"].includes(role);
+        if (!name && textNamed) name = visibleText(el).replace(/\s+/g, " ").trim();
         if (!name && el.tagName === "IMG") name = el.getAttribute("alt") || "";
         if (!name && (role === "region")) name = module;
         if (name.length > 400) { limitations.push("An accessible label was shortened; its remaining text is unavailable."); name = name.slice(0, 400); }
@@ -67,7 +79,9 @@ export function capturePageContent(viewKey: string): SemanticPage {
         nextParent = add({ parent, module, role, name: name.trim(), value, state, actions }, field && el.id ? `${module}/${el.id}` : el.hasAttribute("data-assistant-module") ? module : undefined);
       }
       for (const child of el.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) text(child.textContent || "", nextParent, module);
+        if (child.nodeType === Node.TEXT_NODE) {
+          if (!role || !["button", "link", "tab", "option", "heading", "disclosure", "cell", "columnheader"].includes(role)) text(child.textContent || "", nextParent, module);
+        }
         else if (child instanceof Element) walk(child, nextParent, module);
       }
     };
