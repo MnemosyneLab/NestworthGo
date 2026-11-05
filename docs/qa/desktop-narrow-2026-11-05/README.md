@@ -64,11 +64,27 @@ underlying frontend tools were run without redundant regeneration:
 - `node node_modules/typescript/bin/tsc --noEmit`: PASS.
 - `node node_modules/vite/bin/vite.js build --mode production`: PASS; existing
   large ECharts vendor chunk warning remains.
-- Focused `PageChrome` / `MoneyText` Vitest checks: 4 / 4 PASS.
-- Full Vitest suite: pending at report preparation; final result is in the PR.
+- Focused final `NavigationHistoryControls` / `PageChrome` / `MoneyText`
+  Vitest checks: 7 / 7 PASS on `f632cdd144a91e130879c62b9c5374950b3fe923`.
+- Full Vitest suite: 181 files / 1966 tests PASS in 278.24s. The full run
+  began on the implementation tree before the final navigation wrapping edit;
+  the affected navigation tests were rerun above after that edit.
+- Final browser matrix and production rebuild: PASS on the final implementation
+  tree in `f632cdd144a91e130879c62b9c5374950b3fe923`. Subsequent changes are
+  this evidence update only.
 - `git diff --check`: PASS.
 
 Native macOS WebView, native packaging, full-stack ledger flows and OS-level
 accessibility acceptance were not run. No financial calculations or API contracts
 change. The changes are CSS layout and an opt-in `MoneyText wrap` presentation
 prop; no new dependency, polling or measured performance claim.
+
+## Concurrent change check
+
+At completion the open PR list contained #239 (`fix/mcp-plan-contracts`,
+`e50491b7fed0d8a32dd5892cdbb27e27fe6838d8`) and #242
+(`docs/consolidate-current-guidance`,
+`0dcbf9b99cdd50c3cef0c82e91edd31c4bccde19`). Neither shares changed file
+paths with this branch. `git merge-tree --write-tree HEAD <head>` returned a
+clean tree for each; no branch was merged or changed. This is a point-in-time
+textual conflict check, not integrated behavioral acceptance.
