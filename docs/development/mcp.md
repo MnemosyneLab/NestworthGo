@@ -1138,13 +1138,14 @@ semantics, operationId retry rules, analysis snapshot side effects) lives once
 in the server instructions; the helper constructors no longer append it.
 
 Slimming measurement (real `tools/list` JSON from `TestDiscoveryBudget`,
-before -> after, bytes):
+before -> after, bytes; "after" includes the `delivery` output property added by
+the read-envelope change, which costs about 2.7 KB per mode):
 
 | Mode | Tools | `tools/list` | Descriptions | Instructions |
 | --- | --- | --- | --- | --- |
-| `read_only` | 55 -> 53 | 108,144 -> 100,397 (-7.2%) | 22,274 -> 16,842 | 3,111 -> 2,188 |
-| `directory_write` | 74 -> 72 | 128,513 -> 118,368 (-7.9%) | 26,377 -> 18,547 | 3,111 -> 2,188 |
-| `ledger_write` | 104 -> 102 | 187,634 -> 171,447 (-8.6%) | 43,889 -> 30,017 | 3,111 -> 2,188 |
+| `read_only` | 55 -> 53 | 108,144 -> 103,057 (-4.7%) | 22,274 -> 16,842 | 3,111 -> 2,313 |
+| `directory_write` | 74 -> 72 | 128,513 -> 121,028 (-5.8%) | 26,377 -> 18,547 | 3,111 -> 2,313 |
+| `ledger_write` | 104 -> 102 | 187,634 -> 174,107 (-7.2%) | 43,889 -> 30,017 | 3,111 -> 2,313 |
 
 These are wire bytes, not model tokens. Output schemas now dominate
 (roughly 45 KB per mode, mostly the `mcp-read/1` envelope repeated per tool);
