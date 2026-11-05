@@ -23,6 +23,7 @@ type Session struct {
 	navigationAllowed bool
 	targets           map[string]navigationTarget
 	requested         *assistant.ModelNavigationTarget
+	navigationUsed    bool
 	mu                sync.Mutex
 	evidence          []assistant.ReadEvidence
 	shared            Capabilities
@@ -120,7 +121,7 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 		s.evidence = append(s.evidence, assistant.ReadEvidence{Source: name, CapturedAt: time.Now().UTC(), HasMore: result.HasMore, Missing: missing})
 		return raw, nil
 	}
-	if name == "get_navigation_targets" || name == "open_page" {
+	if name == "get_navigation_targets" || name == "open_page" || name == "open_return_trend" {
 		return s.navigationCall(ctx, name, args)
 	}
 	if name != "get_current_page" {

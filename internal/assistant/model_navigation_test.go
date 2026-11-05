@@ -12,6 +12,14 @@ import (
 )
 
 func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T) {
+	for _, target := range []ai.ModelNavigationTarget{
+		{Kind: "overview"},
+		{Kind: "return-trend", Trend: &ai.ReturnTrendAction{From: "2026-01-01", To: "2026-02-28", Valuation: "base", IncludeCash: true, Display: "linked_rate"}},
+	} {
+		t.Run(target.Kind, func(t *testing.T) { navigationFences(t, target) })
+	}
+}
+func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 	now := time.Now().UTC()
 	c := &credentials{available: true}
 	dir := filepath.Join(t.TempDir(), "private")
@@ -20,7 +28,7 @@ func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T)
 	factory := func(ctx context.Context, _ ai.ModelConfig, _ []byte, _ string) (ai.Engine, error) {
 		enabled = ai.ModelNavigationEnabled(ctx)
 		return &engine{fn: func(context.Context, []byte, string) (ai.Completion, error) {
-			return ai.Completion{Text: "Navigation requested", History: []byte("synthetic-native"), Navigation: &ai.ModelNavigationTarget{Kind: "overview"}}, nil
+			return ai.Completion{Text: "Navigation requested", History: []byte("synthetic-native"), Navigation: &requested}, nil
 		}}, nil
 	}
 	openRuntime := func() *ai.Runtime {
@@ -86,7 +94,7 @@ func TestNavigationRequiresGrantAndFencesPageExpiryConfigAndReplay(t *testing.T)
 		t.Fatal("wrong page lease accepted")
 	}
 	target, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID)
-	if err != nil || target.Kind != "overview" {
+	if err != nil || target.Kind != requested.Kind {
 		t.Fatal("valid intent failed", err)
 	}
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {

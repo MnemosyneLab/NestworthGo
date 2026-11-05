@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"path/filepath"
+	"time"
 
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/assistant"
@@ -60,10 +61,16 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 			if !target.Valid() || ctx.Err() != nil || app.MobileWorkspace() != incarnation {
 				return false
 			}
-			if target.Kind != "account" {
+			if target.Kind == "return-trend" {
+				origin, err := app.HistoryOrigin(ctx)
+				if err != nil || !target.Trend.WithinHistory(origin, time.Now()) {
+					return false
+				}
+			}
+			if target.AccountID == "" {
 				return true
 			}
-			accounts, err := app.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{domain.AccountID(target.AccountID)}, IncludeArchived: true})
+			accounts, err := app.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{domain.AccountID(target.AccountID)}, IncludeArchived: target.Kind != "return-trend"})
 			return err == nil && len(accounts) == 1 && accounts[0].Account.ID.String() == target.AccountID
 		},
 		Validate: func(ctx context.Context) bool { return ctx.Err() == nil && app.MobileWorkspace() == incarnation },

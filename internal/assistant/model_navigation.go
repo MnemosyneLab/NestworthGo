@@ -2,21 +2,66 @@ package assistant
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 // Navigation grants are ephemeral desktop host state. Neither native model
 // history nor a client page selector can mint a grant. Each explicit grant is
 // bound to one not-yet-started request, config revision and current page lease.
 type ModelNavigationTarget struct {
-	Tab       string `json:"tab,omitempty"`
-	Kind      string `json:"kind"`
-	AccountID string `json:"accountId"`
+	Trend     *ReturnTrendAction `json:"trend,omitempty"`
+	Tab       string             `json:"tab,omitempty"`
+	Kind      string             `json:"kind"`
+	AccountID string             `json:"accountId"`
+}
+
+// ReturnTrendAction is a finite presentation command, never a DOM instruction or
+// financial mutation. Account identity is resolved from a run-local targetRef.
+type ReturnTrendAction struct {
+	From        string `json:"from"`
+	To          string `json:"to"`
+	Valuation   string `json:"valuation"`
+	IncludeCash bool   `json:"includeCash"`
+	Currency    string `json:"currency,omitempty"`
+	AssetClass  string `json:"assetClass,omitempty"`
+	Display     string `json:"display"`
+}
+
+func (a ReturnTrendAction) Valid() bool {
+	from, err := time.Parse("2006-01-02", a.From)
+	if err != nil || from.Format("2006-01-02") != a.From || a.From < "0001-01-01" {
+		return false
+	}
+	to, err := time.Parse("2006-01-02", a.To)
+	if err != nil || to.Format("2006-01-02") != a.To || a.To < a.From {
+		return false
+	}
+	return (a.Valuation == "base" || a.Valuation == "native") &&
+		(a.Currency == "" || slices.Contains(domain.SupportedCurrencies(), domain.CurrencyCode(a.Currency))) &&
+		(a.AssetClass == "" || a.AssetClass == "cash" || slices.Contains(domain.AllInstrumentTypes(), domain.InstrumentType(a.AssetClass))) &&
+		(a.Display == "cumulative_amount" || a.Display == "linked_rate" || a.Display == "period_return_amount")
+}
+
+// Refuse rather than silently clamp the user's explicit inclusive civil range.
+func (a ReturnTrendAction) WithinHistory(origin *domain.HistoryOrigin, now time.Time) bool {
+	if origin == nil || !a.Valid() {
+		return false
+	}
+	zone, err := time.LoadLocation(origin.Timezone)
+	return err == nil && a.From >= origin.StartedAt.In(zone).Format("2006-01-02") && a.To < now.In(zone).Format("2006-01-02")
 }
 
 func (t ModelNavigationTarget) Valid() bool {
+	if t.Kind == "return-trend" {
+		return t.Tab == "" && (t.AccountID == "" || canonicalID(t.AccountID)) && t.Trend != nil && t.Trend.Valid()
+	}
+	if t.Trend != nil {
+		return false
+	}
 	if t.Kind == "return-analysis" {
 		return t.AccountID == "" && (t.Tab == "calendar" || t.Tab == "trend" || t.Tab == "contribution")
 	}

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { PageHost } from "./pageHost";
 import { PageContentBridge } from "./PageContentBridge";
+import { TrendVerification, type TrendObservation } from "./trendVerification";
 import {
   localId,
   type PageContextV1,
@@ -25,6 +26,7 @@ import {
 } from "./modelNavigation";
 
 type ContextValue = {
+  reportTrend: (value: TrendObservation) => void;
   modelStamp: string;
   canModelNavigate: (stamp: string) => boolean;
   navigateModel: (
@@ -124,6 +126,15 @@ export function AssistantPageProvider({
     [host, context?.contextId],
   );
   const modelStamp = modelBinding.stamp;
+  const trendVerification = useMemo(() => new TrendVerification(), []);
+  useLayoutEffect(() => () => trendVerification.cancel(), [trendVerification, principal]);
+  useLayoutEffect(() => {
+    if (viewKey.split(":")[0] !== "return-analysis") trendVerification.cancel();
+  }, [viewKey, trendVerification]);
+  const reportTrend = useCallback((value: TrendObservation) => {
+    if (viewKey.split(":")[0] !== "return-analysis" || blocked()) trendVerification.cancel();
+    else trendVerification.observe(value);
+  }, [viewKey, blocked, trendVerification]);
   const modelState = useRef<ModelPageState>({
     stamp: "",
     surface,
@@ -136,12 +147,18 @@ export function AssistantPageProvider({
       surface,
       blocked,
       dispatch: (target) => onNavigate(target),
+      verifyTrend: async (target, expected) => {
+        const result = trendVerification.begin(expected);
+        try { if (onNavigate(target) === false) trendVerification.cancel(); }
+        catch { trendVerification.cancel(); }
+        return result;
+      },
     };
     return () => {
       if (modelState.current.stamp === modelStamp)
         modelState.current = { ...modelState.current, stamp: "" };
     };
-  }, [modelStamp, surface, blocked, onNavigate]);
+  }, [modelStamp, surface, blocked, onNavigate, trendVerification]);
   const canModelNavigate = useCallback(
     (stamp: string) => modelNavigationAllowed(stamp, modelState.current),
     [],
@@ -154,6 +171,7 @@ export function AssistantPageProvider({
   return (
     <PageContext.Provider
       value={{
+        reportTrend,
         modelStamp,
         canModelNavigate,
         navigateModel,

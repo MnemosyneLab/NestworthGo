@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { AnalysisNavigationContext, AnalysisTab, AssetChangesTab } from "@/app/navigation";
 
 export interface AnalysisSessionState {
+  trendDisplay: NonNullable<AnalysisNavigationContext["trendDisplay"]>;
   scope: AnalysisNavigationContext["scope"];
   scopeId: string;
   valuation: NonNullable<AnalysisNavigationContext["valuation"]>;
@@ -24,6 +25,7 @@ export interface AnalysisSessionState {
 }
 
 const initialSession = {
+  trendDisplay: "cumulative_amount" as const,
   scope: "portfolio" as const,
   scopeId: "",
   valuation: "base" as const,
@@ -41,6 +43,7 @@ const initialSession = {
 export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
   ...initialSession,
   replaceFilters: (filters) => set({
+    trendDisplay: filters.trendDisplay ?? initialSession.trendDisplay,
     scope: filters.scope ?? initialSession.scope,
     scopeId: filters.scopeId ?? "",
     valuation: filters.valuation ?? "base",
@@ -51,6 +54,7 @@ export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
     contributionReturnType: filters.returnType ?? "total_return",
   }),
   setFilters: (filters) => set((state) => ({
+    trendDisplay: filters.trendDisplay ?? state.trendDisplay,
     scope: filters.scope ?? state.scope,
     scopeId: filters.scopeId ?? state.scopeId,
     valuation: filters.valuation ?? state.valuation,

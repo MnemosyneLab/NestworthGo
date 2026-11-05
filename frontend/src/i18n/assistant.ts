@@ -35,10 +35,11 @@ export const assistantEn = {
 
     sendNavigate: "Send and allow one page change",
     navigationHelp:
-      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview, account or Return analysis page change for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
+      "Ordinary Send cannot navigate. This button explicitly permits one model-selected overview, account or Return analysis page change (including explicit trend dates and supported filters) for this message only, within two minutes. Page refresh/change, restart or an unresolved financial review blocks it.",
     navigationPending:
       "One page change authorized for this message; waiting for a successful reply.",
     navigationOpened: "The requested page was opened.",
+    navigationUnverified: "The page may have changed, but the requested trend and filters could not be verified. Check the page before retrying.",
     navigationStopped:
       "No page change was applied. The request, page lease or review guard did not permit it; it will not retry automatically.",
     offlineLocal:
@@ -54,6 +55,7 @@ export const assistantEn = {
       get_current_page: "Current page",
       get_navigation_targets: "Navigation choices",
       open_page: "Request page change",
+      open_return_trend: "Request return trend and filters",
 
       read_page_content: "Page content",
       compare_financial_context: "Financial state comparison",
@@ -249,9 +251,10 @@ export const assistantZhCN = {
 
     sendNavigate: "发送并允许一次页面跳转",
     navigationHelp:
-      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览、账户或收益分析页面跳转；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
+      "普通发送不能跳转。此按钮仅为本条消息授权模型在两分钟内选择一次总览、账户或收益分析页面跳转（包括明确的趋势日期和支持的筛选）；页面变化、刷新、重启或未完成财务审核都会阻止执行。",
     navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
     navigationOpened: "已打开请求的页面。",
+    navigationUnverified: "页面可能已变化，但未能验证请求的收益趋势和筛选。请检查页面后再重试。",
     navigationStopped:
       "未执行页面跳转：请求、页面凭证或审核状态不允许，且不会自动重试。",
     offlineLocal:
@@ -266,6 +269,7 @@ export const assistantZhCN = {
       get_current_page: "当前页面",
       get_navigation_targets: "可导航页面",
       open_page: "请求页面跳转",
+      open_return_trend: "请求收益趋势和筛选",
 
       read_page_content: "页面内容",
       compare_financial_context: "财务状态对比",
@@ -447,9 +451,10 @@ export const assistantZhTW = {
 
     sendNavigate: "傳送並允許一次頁面跳轉",
     navigationHelp:
-      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽、帳戶或收益分析頁面跳轉；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
+      "一般傳送不能跳轉。此按鈕僅為本則訊息授權模型在兩分鐘內選擇一次總覽、帳戶或收益分析頁面跳轉（包括明確的趨勢日期和支援的篩選）；頁面變更、重新整理、重啟或未完成財務審核都會阻止執行。",
     navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
     navigationOpened: "已開啟請求的頁面。",
+    navigationUnverified: "頁面可能已變更，但未能驗證請求的收益趨勢和篩選。請檢查頁面後再重試。",
     navigationStopped:
       "未執行頁面跳轉：請求、頁面憑據或審核狀態不允許，且不會自動重試。",
     offlineLocal:
@@ -464,6 +469,7 @@ export const assistantZhTW = {
       get_current_page: "目前頁面",
       get_navigation_targets: "可導覽頁面",
       open_page: "請求頁面跳轉",
+      open_return_trend: "請求收益趨勢和篩選",
 
       read_page_content: "頁面內容",
       compare_financial_context: "財務狀態比較",

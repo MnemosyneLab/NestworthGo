@@ -17,9 +17,21 @@ import (
 )
 
 func TestFakeProviderNavigationRequiresExplicitGrantAndKnownTarget(t *testing.T) {
+	for _, trend := range []bool{false, true} {
+		name := "account"
+		if trend {
+			name = "return-trend"
+		}
+		t.Run(name, func(t *testing.T) { providerNavigation(t, trend) })
+	}
+}
+func providerNavigation(t *testing.T, trend bool) {
 	app, _, accountID := ledgerSession(t)
 	var targetRef string
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+		if trend && request["stream"] != true {
+			t.Error("trend path did not stream")
+		}
 		switch round {
 		case 0:
 			writeMode(w, request, []any{liveCallItem(round, "get_account_snapshot", obj{"id": accountID})})
@@ -46,11 +58,16 @@ func TestFakeProviderNavigationRequiresExplicitGrantAndKnownTarget(t *testing.T)
 			if targetRef == "" {
 				t.Error("disclosed account did not become an opaque target")
 			}
-			writeMode(w, request, []any{liveCallItem(round, "open_page", obj{"targetRef": targetRef})})
+			name, args := "open_page", obj{"targetRef": targetRef}
+			if trend {
+				name = "open_return_trend"
+				args = obj{"targetRef": targetRef, "from": "2026-01-01", "to": "2026-02-28", "valuation": "base", "includeCash": true, "display": "linked_rate"}
+			}
+			writeMode(w, request, []any{liveCallItem(round, name, args)})
 			return
 		case 3:
-			if latestToolOutput(t, request) == "" {
-				t.Error("navigation request result missing")
+			if !strings.Contains(latestToolOutput(t, request), "requested") {
+				t.Error("navigation result claimed completion instead of request")
 			}
 		default:
 			t.Errorf("unexpected navigation provider round %d", round)
@@ -64,13 +81,13 @@ func TestFakeProviderNavigationRequiresExplicitGrantAndKnownTarget(t *testing.T)
 		t.Fatal(err)
 	}
 	runtime, err := assistant.NewRuntime(assistant.Options{Ledger: "synthetic-navigation", Store: store, Credentials: runtimeCredentials{}, Capabilities: pool, Validate: func(context.Context) bool { return true }, NavigationValidator: func(_ context.Context, target assistant.ModelNavigationTarget) bool {
-		return target.Kind == "account" && target.AccountID == accountID
+		return target.Valid() && (target.Kind == "account" || target.Kind == "return-trend") && target.AccountID == accountID
 	}, Factory: func(ctx context.Context, cfg assistant.ModelConfig, key []byte, id string) (assistant.Engine, error) {
 		shared, err := pool.Get(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		return engineWithModel(ctx, cfg, f.model, builtinai.New(shared, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)), nil)
+		return engineWithModel(ctx, cfg, completionMode(f.model, trend), builtinai.New(shared, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)), nil)
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +123,7 @@ func TestFakeProviderNavigationRequiresExplicitGrantAndKnownTarget(t *testing.T)
 		t.Fatal("completed model request did not offer typed intent")
 	}
 	target, err := service.ConsumeNavigation(q.Epoch, q.ConversationID, view.Navigation.RunID, view.Navigation.ID, lease.ID)
-	if err != nil || target.Kind != "account" || target.AccountID != accountID {
+	if err != nil || target.AccountID != accountID || (trend && (target.Kind != "return-trend" || target.Trend == nil || target.Trend.To != "2026-02-28")) || (!trend && target.Kind != "account") {
 		t.Fatal("host did not resolve live account", err)
 	}
 	if _, err := service.ConsumeNavigation(q.Epoch, q.ConversationID, view.Navigation.RunID, view.Navigation.ID, lease.ID); err == nil {

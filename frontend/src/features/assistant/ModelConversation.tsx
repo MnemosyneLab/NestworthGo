@@ -53,6 +53,7 @@ export function ModelConversation() {
   } | null>(null);
   const [navigationState, setNavigationState] = useState("");
   const navigationAttempt = useRef<string | null>(null);
+  const navigationCompletion = useRef<string | null>(null);
   const status = useQuery({
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
@@ -99,6 +100,11 @@ export function ModelConversation() {
   const configRevision = status.data?.revision ?? 0;
   const modelAvailable = status.data?.available ?? false;
   useEffect(() => {
+    if (navigationCompletion.current) setNavigationState("navigationUnverified");
+    navigationCompletion.current = null;
+  }, [epoch, configRevision, modelAvailable, id]);
+  useEffect(() => () => { navigationCompletion.current = null; }, []);
+  useEffect(() => {
     if (navigationGrant.current) setNavigationState("navigationStopped");
     navigationGrant.current = null;
     navigationAttempt.current = null;
@@ -138,6 +144,7 @@ export function ModelConversation() {
       return;
     }
     navigationAttempt.current = grant.requestID;
+    navigationCompletion.current = grant.requestID;
     void page
       .navigateModel(grant.stamp, () =>
         callService(() =>
@@ -148,16 +155,23 @@ export function ModelConversation() {
           return target;
         }),
       )
-      .then((result) =>
-        setNavigationState(
-          result === "opened" ? "navigationOpened" : "navigationStopped",
-        ),
-      )
-      .catch(() => setNavigationState("navigationStopped"));
+      .then((result) => {
+        if (navigationCompletion.current !== grant.requestID) return;
+        navigationCompletion.current = null;
+        setNavigationState(result === "opened" ? "navigationOpened" : result === "unverified" ? "navigationUnverified" : "navigationStopped");
+      })
+      .catch(() => {
+        if (navigationCompletion.current === grant.requestID) {
+          navigationCompletion.current = null;
+          setNavigationState("navigationStopped");
+        }
+      });
   }, [latest.data, page, epoch, id]);
   async function action(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;
+    if (navigationCompletion.current) setNavigationState("navigationUnverified");
+    navigationCompletion.current = null;
     // Revoke locally at admission, before Create/Delete (or any other action)
     // can await IPC. A previously approved Consume response may still be in flight.
     if (navigationAttempt.current || navigationGrant.current)
@@ -188,6 +202,8 @@ export function ModelConversation() {
     }
   }
   function cancelRun(runID: string) {
+    if (navigationCompletion.current) setNavigationState("navigationUnverified");
+    navigationCompletion.current = null;
     navigationAttempt.current = null;
     if (navigationGrant.current) {
       navigationGrant.current = null;
@@ -281,6 +297,7 @@ export function ModelConversation() {
         <NativeSelect id="ai-history" className="min-h-11 min-w-0 flex-1 xl:min-h-9" value={id}
           disabled={busy || !list.data?.length}
           onChange={(event) => {
+            navigationCompletion.current = null;
             navigationGrant.current = null;
             navigationAttempt.current = null;
             setNavigationState("");
