@@ -61,6 +61,10 @@ func (s *observedSession) Call(ctx context.Context, name string, args json.RawMe
 }
 
 func ledgerSession(t *testing.T) (*application.Service, *observedSession, string) {
+	app, session, id, _ := ledgerSessionDatabase(t)
+	return app, session, id
+}
+func ledgerSessionDatabase(t *testing.T) (*application.Service, *observedSession, string, *sqlite.DB) {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "synthetic.db")
@@ -88,7 +92,7 @@ func ledgerSession(t *testing.T) (*application.Service, *observedSession, string
 		t.Fatal(err)
 	}
 	t.Cleanup(session.Close)
-	return app, &observedSession{InProcessSession: session}, account.Account.ID.String()
+	return app, &observedSession{InProcessSession: session}, account.Account.ID.String(), db
 }
 
 // Actual guarded model + Eino runner + shared local handlers; the synthetic

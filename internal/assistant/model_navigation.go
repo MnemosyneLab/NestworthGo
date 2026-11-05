@@ -168,7 +168,7 @@ func (r *Runtime) ConsumeNavigation(ctx context.Context, epoch, conversationID, 
 		return ModelNavigationTarget{}, err
 	}
 	intent, ok := r.navigationIntents[intentID]
-	if !ok || intent.generation != r.navigationGeneration || !r.hasNavigationRun(intent) || !r.currentLease(leaseID) || intent.LeaseID != leaseID || intent.ConversationID != conversationID || intent.RunID != runID || r.options.NavigationValidator == nil {
+	if r.anyPendingReview() || !ok || intent.generation != r.navigationGeneration || !r.hasNavigationRun(intent) || !r.currentLease(leaseID) || intent.LeaseID != leaseID || intent.ConversationID != conversationID || intent.RunID != runID || r.options.NavigationValidator == nil {
 		r.mu.Unlock()
 		return ModelNavigationTarget{}, ErrStale
 	}

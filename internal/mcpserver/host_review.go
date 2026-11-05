@@ -29,8 +29,8 @@ const (
 )
 
 // HostChangeReview is private host state, never a model tool or chat message.
-// It is not registered with Wails or mobile. A future trusted UI must display
-// Binding.Preview and explicitly confirm that exact Digest. The digest detects
+// The desktop runtime projects Binding.Preview for explicit UI confirmation;
+// mobile and model tools never receive this host API. The digest detects
 // changed reviews; possession of it is not an approval credential.
 type HostChangeReview struct {
 	Binding HostChangeReviewBinding `json:"binding"`

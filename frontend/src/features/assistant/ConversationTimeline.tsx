@@ -62,7 +62,7 @@ const budgetDiagnostic = (code: string) =>
   code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
-const sources = new Set(["read_page_content", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
+const sources = new Set(["propose_cash_change", "read_page_content", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
 export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "" }: {
   epoch: string; id: string; latest?: Conversation; submittedRequestId?: string; busy: boolean; onCancel: (runID: string) => void;
 }) {

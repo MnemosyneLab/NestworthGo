@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -86,13 +87,14 @@ type State struct {
 	Conversations []ConversationState `json:"conversations"`
 }
 type ConversationState struct {
-	ID            string     `json:"id"`
-	Updated       time.Time  `json:"updated"`
-	History       []byte     `json:"history,omitempty"`
-	HistoryDigest string     `json:"historyDigest,omitempty"`
-	Runs          []RunState `json:"runs"`
-	Events        []Event    `json:"events"`
-	Sequence      uint64     `json:"sequence"`
+	Reviews       []ReviewRef `json:"reviews,omitempty"`
+	ID            string      `json:"id"`
+	Updated       time.Time   `json:"updated"`
+	History       []byte      `json:"history,omitempty"`
+	HistoryDigest string      `json:"historyDigest,omitempty"`
+	Runs          []RunState  `json:"runs"`
+	Events        []Event     `json:"events"`
+	Sequence      uint64      `json:"sequence"`
 }
 type RunState struct {
 	Run    Run    `json:"run"`
@@ -129,7 +131,7 @@ type Snapshot struct {
 	Config          ModelConfig `json:"config"`
 	Available       bool        `json:"available"`
 	Credentials     string      `json:"credentials"`
-	FinancialWrites bool        `json:"financialWrites"` // always false in this delivery
+	FinancialWrites bool        `json:"financialWrites"` // explicit desktop permission; every change still requires review
 	Reason          string      `json:"reason"`
 }
 type Conversation struct {
@@ -163,6 +165,7 @@ type CapabilityLifecycle interface {
 }
 
 type Options struct {
+	Reviews             ReviewProvider
 	NavigationValidator func(context.Context, ModelNavigationTarget) bool
 	NavigationClock     func() time.Time
 	Capabilities        CapabilityLifecycle
@@ -174,6 +177,8 @@ type Options struct {
 	Timeout             time.Duration
 }
 type Runtime struct {
+	writeEnabled         bool
+	reviewBusy           map[string]bool
 	progress             map[string]*Progress
 	pageReads            map[string]pendingPageRead
 	navigationGeneration uint64
@@ -214,11 +219,11 @@ func NewRuntime(o Options) (*Runtime, error) {
 		return nil, ErrStorage
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &Runtime{state: state, options: o, epoch: uuid.NewString(), ctx: ctx, cancel: cancel, active: map[string]context.CancelFunc{}}
+	r := &Runtime{reviewBusy: map[string]bool{}, state: state, options: o, epoch: uuid.NewString(), ctx: ctx, cancel: cancel, active: map[string]context.CancelFunc{}}
 	now := time.Now().UTC()
 	kept := r.state.Conversations[:0]
 	for _, c := range r.state.Conversations {
-		if c.Updated.After(now.Add(-30 * 24 * time.Hour)) {
+		if c.Updated.After(now.Add(-30*24*time.Hour)) || r.pendingReview(&c) {
 			kept = append(kept, c)
 		}
 	}
@@ -299,7 +304,7 @@ func (r *Runtime) Snapshot() Snapshot {
 			}
 		}
 	}
-	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
+	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, FinancialWrites: live && r.writeEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
 }
 func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, cfg ModelConfig) error {
 	r.mu.Lock()
@@ -357,6 +362,7 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}
+	r.writeEnabled = false
 	r.state.Config = cfg
 	r.clearNavigation()
 	r.state.Revision++
@@ -418,6 +424,7 @@ func (r *Runtime) DeleteCredential(ctx context.Context, epoch string) error {
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}
+	r.writeEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
 	r.state.Revision++
@@ -440,7 +447,7 @@ func (r *Runtime) Create(ctx context.Context, epoch string) (Conversation, error
 	cutoff := time.Now().Add(-30 * 24 * time.Hour)
 	kept := r.state.Conversations[:0]
 	for _, c := range r.state.Conversations {
-		if c.Updated.After(cutoff) || r.active[c.ID] != nil {
+		if c.Updated.After(cutoff) || r.active[c.ID] != nil || r.reviewBusy[c.ID] || r.pendingReview(&c) {
 			kept = append(kept, c)
 		} else if r.options.Capabilities != nil {
 			r.options.Capabilities.Drop(c.ID)
@@ -554,7 +561,7 @@ func (r *Runtime) Delete(ctx context.Context, epoch, id string) error {
 	if e := r.valid(ctx, epoch); e != nil {
 		return e
 	}
-	if r.active[id] != nil {
+	if r.active[id] != nil || r.reviewBusy[id] || (r.find(id) != nil && r.pendingReview(r.find(id))) {
 		return ErrConflict
 	}
 	for i, c := range r.state.Conversations {
@@ -603,7 +610,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	if q.Revision != r.state.Revision {
 		return Run{}, ErrStale
 	}
-	if r.active[c.ID] != nil {
+	if r.active[c.ID] != nil || r.reviewBusy[c.ID] {
 		return Run{}, ErrConflict
 	}
 	if len(r.active) >= 2 || len(c.Runs) >= MaxRuns {
@@ -642,6 +649,11 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		return Run{}, e
 	}
 	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
+	if r.writeEnabled && r.options.Reviews != nil {
+		runCtx = context.WithValue(runCtx, proposalKey{}, ProposalHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+			return r.propose(ctx, q.Epoch, c.ID, run.ID, q.Revision, raw)
+		}))
+	}
 	runCtx = context.WithValue(runCtx, pageContentKey{}, r.pageReader(runCtx, q.Revision))
 	if grant.requestID != "" {
 		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
@@ -818,6 +830,7 @@ func (r *Runtime) FenceForRestore() error {
 		clear(r.state.Conversations[i].History)
 	}
 	r.state.Conversations = []ConversationState{}
+	r.writeEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
 	r.state.Revision++

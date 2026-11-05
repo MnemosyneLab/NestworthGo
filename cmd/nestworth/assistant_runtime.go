@@ -43,19 +43,19 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		return nil, assistant.ErrStorage
 	}
 	incarnation := app.MobileWorkspace()
-	pool := builtinai.NewPool(app, filepath.Join(directory, "capabilities"))
+	pool := builtinai.NewPool(app, filepath.Join(directory, "capabilities"), sqlite.NewConfigurationRepository(database))
 	factory := func(ctx context.Context, cfg assistant.ModelConfig, key []byte, conversationID string) (assistant.Engine, error) {
 		session, err := pool.Get(ctx, conversationID)
 		if err != nil {
 			return nil, assistant.ErrUnavailable
 		}
-		engine, err := einoopenai.NewEngine(ctx, cfg, key, builtinai.New(session, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)).WithPageReader(assistant.CurrentPageReader(ctx)), nil)
+		engine, err := einoopenai.NewEngine(ctx, cfg, key, builtinai.New(session, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)).WithPageReader(assistant.CurrentPageReader(ctx)).WithProposals(assistant.CurrentProposalHandler(ctx)), nil)
 		if err != nil {
 			return nil, assistant.ErrUnavailable
 		}
 		return engine, nil
 	}
-	r, err := assistant.NewRuntime(assistant.Options{Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory,
+	r, err := assistant.NewRuntime(assistant.Options{Reviews: pool, Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory,
 		NavigationValidator: func(ctx context.Context, target assistant.ModelNavigationTarget) bool {
 			if !target.Valid() || ctx.Err() != nil || app.MobileWorkspace() != incarnation {
 				return false

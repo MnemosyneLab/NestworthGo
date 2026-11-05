@@ -8,6 +8,9 @@ import { AssistantPageProvider, useAssistantPage, usePublishAssistantPage } from
 
 import { ModelConversation } from "./ModelConversation";
 const api = vi.hoisted(() => ({
+  Reviews: vi.fn(),
+  SetWritePermission: vi.fn(),
+  ReviewAction: vi.fn(),
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
@@ -45,6 +48,7 @@ const run = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  api.Reviews.mockResolvedValue([]);
   api.PendingPageReads.mockResolvedValue([]);
   api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });

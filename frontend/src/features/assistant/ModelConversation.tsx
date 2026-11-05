@@ -10,6 +10,7 @@ import { Notice } from "@/components/ui/notice";
 import { callService } from "@/lib/wails";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { Plus, Trash2, ArrowUp, Sparkles } from "lucide-react";
+import { ChangeReviews } from "./ChangeReviews";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
@@ -320,6 +321,7 @@ export function ModelConversation() {
       {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
         submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
         busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
+      <ChangeReviews key={`reviews:${epoch}:${id}`} epoch={epoch} id={id} enabled={status.data?.financialWrites === true} busy={busy || running} runKey={`${latest.data?.runs?.[0]?.id}:${latest.data?.runs?.[0]?.state}`} />
       <form
         className="shrink-0 space-y-3 border-t border-border p-3"
         onSubmit={(event) => {
@@ -345,7 +347,7 @@ export function ModelConversation() {
           {["scope", "privacy", "pageHint", "retention"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
           {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         </div></InfoPopover>
-        <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t("aiChat.readOnly")}</span>
+        <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t(status.data?.financialWrites ? "aiChat.writeControlled" : "aiChat.readOnly")}</span>
         <Button
           className={actionClass}
           aria-label={t("aiChat.send")}
@@ -363,6 +365,11 @@ export function ModelConversation() {
           <ArrowUp className="size-4" aria-hidden="true" />{t("aiChat.send")}
         </Button>
         </div>
+        <label className="flex items-start gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={status.data?.financialWrites === true} disabled={busy || (!status.data?.financialWrites && (!status.data?.available || running))}
+            onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetWritePermission(epoch,configRevision,enabled)));}} />
+          {t("aiChat.writePermission")}
+        </label>
         <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.navigationOptions")}</summary>
         <p className="py-2 leading-relaxed">{t("aiChat.navigationHelp")}</p>

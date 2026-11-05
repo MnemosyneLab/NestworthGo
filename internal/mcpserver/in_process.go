@@ -32,7 +32,7 @@ var inProcessOwners = struct {
 // assistant. It never listens, creates an MCP client or reads an external token.
 // It is household-wide: never expose it to scoped/mobile callers. Public Call
 // deliberately refuses writers. The separate host review API supports only
-// single ledger changes and is not installed in Wails or mobile.
+// single ledger changes; only the desktop runtime adapts it, never mobile.
 type InProcessSession struct {
 	mu          sync.Mutex
 	reviewMu    sync.Mutex

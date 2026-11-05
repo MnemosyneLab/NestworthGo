@@ -7,12 +7,14 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/mcpserver"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 // Pool preserves frozen captures across live turns of one conversation, never
 // across conversations, process restarts, configuration revisions or restore.
 // Existing fixed capture TTL/budget and session permission checks still apply.
 type Pool struct {
+	repository settings.ConfigurationRepository
 	mu         sync.Mutex
 	drains     sync.WaitGroup
 	app        *application.Service
@@ -23,8 +25,12 @@ type Pool struct {
 	retired    map[string][]*mcpserver.InProcessSession
 }
 
-func NewPool(app *application.Service, directory string) *Pool {
-	return &Pool{app: app, directory: directory, sessions: map[string]*mcpserver.InProcessSession{}, retired: map[string][]*mcpserver.InProcessSession{}}
+func NewPool(app *application.Service, directory string, repositories ...settings.ConfigurationRepository) *Pool {
+	var repository settings.ConfigurationRepository
+	if len(repositories) > 0 {
+		repository = repositories[0]
+	}
+	return &Pool{repository: repository, app: app, directory: directory, sessions: map[string]*mcpserver.InProcessSession{}, retired: map[string][]*mcpserver.InProcessSession{}}
 }
 func (p *Pool) Get(ctx context.Context, id string) (*mcpserver.InProcessSession, error) {
 	p.mu.Lock()
@@ -47,7 +53,11 @@ func (p *Pool) Get(ctx context.Context, id string) (*mcpserver.InProcessSession,
 	if ctx.Err() != nil {
 		return nil, assistant.ErrUnavailable
 	}
-	session, err := mcpserver.NewInProcessSession(ctx, p.app, p.directory, id, mcpserver.ReadOnly, nil)
+	mode := mcpserver.ReadOnly
+	if p.repository != nil {
+		mode = mcpserver.LedgerWrite
+	}
+	session, err := mcpserver.NewInProcessSession(ctx, p.app, p.directory, id, mode, nil, p.repository)
 	if err != nil {
 		return nil, assistant.ErrUnavailable
 	}
