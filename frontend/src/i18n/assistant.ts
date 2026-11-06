@@ -24,8 +24,8 @@ export const assistantEn = {
   "fullAwaiting": "Prepared; nothing posted yet. An interrupted operation is not automatically resumed.",
   "fullNeedsPreview": "Preview expired or changed; nothing newly posted. Dismiss this operation before explicitly requesting a new one.",
   "fullSucceeded": "Recorded successfully under Full permission.",
-  "fullActive": "Full access · cash and transfers",
-  "fullPermission": "Full for this app session: AI can directly record cash changes and transfers without individual confirmation. Turn off anytime. Resets on restart. Other write families are not yet available.",
+  "fullActive": "Full access",
+  "fullPermission": "Full for this app session: AI can use all available ledger tools, including directory, investment, reconciliation and market-data writes, without individual confirmation. Preview and validation rules still apply. Turn off anytime. Resets on restart.",
   "writePermission": "Allow cash change proposals for this app session. Every write requires a separate confirmation.",
   "writeState": {
     "awaiting_confirmation": "Awaiting your confirmation; nothing posted.",
@@ -33,6 +33,7 @@ export const assistantEn = {
     "succeeded": "Recorded successfully. Repeated confirmation does not record it again.",
     "needs_preview": "The preview is stale. Refresh it and review again before confirming.",
     "cancelled": "Cancelled before submission.",
+    "failed": "The operation failed. Inspect the saved result before a new request.",
     "unknown": "Outcome unknown. Keep this review and inspect; do not submit again."
   }
 ,
@@ -285,8 +286,8 @@ export const assistantZhCN = {
   "fullAwaiting": "已准备，尚未记账。中断的操作不会自动续执行。",
   "fullNeedsPreview": "预览已过期或变更，未新增记账。请取消此操作后再明确提出新请求。",
   "fullSucceeded": "已依据 Full 权限成功记账。",
-  "fullActive": "Full 权限 · 现金和转账",
-  "fullPermission": "本次应用会话启用 Full：AI 可直接记录现金变更和转账，无需逐笔确认。可随时关闭，重启后关闭。其他写入类型尚未开放。",
+  "fullActive": "Full 权限",
+  "fullPermission": "本次应用会话启用 Full：AI 可使用所有可用账本工具，包括目录、投资、对账和市场数据写入，无需逐笔确认。仍遵循预览和校验规则。可随时关闭，重启后关闭。",
   "writePermission": "允许本次应用会话提出现金变更。每次写入仍须单独确认。",
   "writeState": {
     "awaiting_confirmation": "等待你确认，尚未入账。",
@@ -294,6 +295,7 @@ export const assistantZhCN = {
     "succeeded": "已成功入账，重复确认不会重复记账。",
     "needs_preview": "预览已失效，请刷新预览后重新审阅确认。",
     "cancelled": "已在提交前取消。",
+    "failed": "操作失败。发起新请求前请检查保存的结果。",
     "unknown": "结果尚未确定。请保留审阅并查询，不要重新提交。"
   }
 ,
@@ -530,8 +532,8 @@ export const assistantZhTW = {
   "fullAwaiting": "已準備，尚未記帳。中斷的操作不會自動續執行。",
   "fullNeedsPreview": "預覽已過期或變更，未新增記帳。請取消此操作後再明確提出新請求。",
   "fullSucceeded": "已依據 Full 權限成功記帳。",
-  "fullActive": "Full 權限 · 現金與轉帳",
-  "fullPermission": "本次應用程式工作階段啟用 Full：AI 可直接記錄現金變更與轉帳，無需逐筆確認。可隨時關閉，重新啟動後關閉。其他寫入類型尚未開放。",
+  "fullActive": "Full 權限",
+  "fullPermission": "本次應用程式工作階段啟用 Full：AI 可使用所有可用帳本工具，包括目錄、投資、對帳和市場資料寫入，無需逐筆確認。仍遵循預覽與驗證規則。可隨時關閉，重新啟動後關閉。",
   "writePermission": "允許本次應用程式工作階段提出現金變更。每次寫入仍須單獨確認。",
   "writeState": {
     "awaiting_confirmation": "等待你確認，尚未入帳。",
@@ -539,6 +541,7 @@ export const assistantZhTW = {
     "succeeded": "已成功入帳，重複確認不會重複記帳。",
     "needs_preview": "預覽已失效，請更新預覽後重新審閱確認。",
     "cancelled": "已在提交前取消。",
+    "failed": "操作失敗。發起新請求前請檢查儲存的結果。",
     "unknown": "結果尚未確定。請保留審閱並查詢，不要重新提交。"
   }
 ,

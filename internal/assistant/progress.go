@@ -123,10 +123,22 @@ func (r *Runtime) observe(ctx context.Context, id, runID string, key []byte, eve
 }
 func progressSource(s string) bool {
 	switch s {
+	case "get_financial_context_page", "get_financial_comparison_page":
+		return false
 	case "execute_ledger_change", "propose_cash_change", "read_page_content", "get_current_page", "get_navigation_targets", "open_page", "open_return_trend", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
 		return true
 	}
-	return false
+	// Provider progress sources are names from the controlled discovered registry.
+	// Keep persistence bounded and reject arbitrary display text.
+	if len(s) == 0 || len(s) > 96 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z') && c != '_' && !(c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // Preserve financial values exactly; remove credential fields only. Details are

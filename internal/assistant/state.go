@@ -23,7 +23,7 @@ func ValidateState(s State) error {
 		}
 		reviewIDs := map[string]bool{}
 		for _, ref := range c.Reviews {
-			if !canonicalID(ref.ID) || reviewIDs[ref.ID] {
+			if !canonicalID(ref.ID) || reviewIDs[ref.ID] || (ref.Tool != "" && !progressSource(ref.Tool)) || (ref.Unsubmitted && (ref.Tool == "" || !ref.Resolved)) {
 				return ErrStorage
 			}
 			reviewIDs[ref.ID] = true

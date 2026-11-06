@@ -258,7 +258,7 @@ describe("ReturnAnalysisPage", () => {
     const base = await returnCalendar();
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
     returnCalendar.mockImplementation((_request, cursor) => Boolean(cursor) === (failed === "summary") ? Promise.reject(new Error("synthetic read failure")) : Promise.resolve(base));
-    renderPage();
+    renderPage(undefined, { retry: false });
     const region = await screen.findByRole("region", { name: failed === "grid" ? "Calendar view" : "Return summary" });
     await within(region).findByRole("alert");
     if (failed === "grid") expect(within(screen.getByRole("region", { name: "Return summary" })).getByText("+US$1.00")).toBeInTheDocument();

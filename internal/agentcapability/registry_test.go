@@ -125,3 +125,34 @@ func TestValidationNumberFormsAreExactAndBounded(t *testing.T) {
 		}
 	}
 }
+
+// Cancel exactly at either registry context check, without a timing race.
+type registryCancelAt struct {
+	context.Context
+	checks, at int
+}
+
+func (c *registryCancelAt) Err() error {
+	c.checks++
+	if c.checks >= c.at {
+		return context.Canceled
+	}
+	return nil
+}
+func TestDispatchObservationDistinguishesPreHandlerCancellation(t *testing.T) {
+	registry := New("synthetic")
+	calls := 0
+	Add(registry, &Definition{Name: "write", Effect: Write}, func(context.Context, struct{}) (any, error) { calls++; return nil, context.Canceled })
+	for _, at := range []int{1, 2} {
+		entered := false
+		_, err := registry.CallObserved(&registryCancelAt{Context: context.Background(), at: at}, "write", []byte(`{}`), &entered)
+		if !errors.Is(err, context.Canceled) || entered || calls != 0 {
+			t.Fatalf("cancel at %d entered handler: %v/%v/%d", at, err, entered, calls)
+		}
+	}
+	entered := false
+	_, err := registry.CallObserved(t.Context(), "write", []byte(`{}`), &entered)
+	if !errors.Is(err, context.Canceled) || !entered || calls != 1 {
+		t.Fatal("handler cancellation incorrectly marked unsubmitted")
+	}
+}

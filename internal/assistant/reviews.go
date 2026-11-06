@@ -38,8 +38,10 @@ type ChangeReview struct {
 	ResultingAmount    string   `json:"resultingAmount"`
 }
 type ReviewRef struct {
-	ID       string `json:"id"`
-	Resolved bool   `json:"resolved"`
+	Unsubmitted bool   `json:"unsubmitted,omitempty"`
+	Tool        string `json:"tool,omitempty"`
+	ID          string `json:"id"`
+	Resolved    bool   `json:"resolved"`
 }
 
 // Acquiring a session precedes runtime revalidation. Revocation thereafter
@@ -204,7 +206,19 @@ func (r *Runtime) Reviews(ctx context.Context, epoch, id string) ([]ChangeReview
 	}
 	out := make([]ChangeReview, 0, len(refs))
 	for _, ref := range refs {
-		review, err := s.Inspect(ctx, ref.ID)
+		var review ChangeReview
+		var err error
+		if ref.Tool != "" && ref.Unsubmitted {
+			review = ChangeReview{ID: ref.ID, Source: "ai_full", State: "cancelled", Kind: "capability", Summary: ref.Tool}
+		} else if ref.Tool != "" {
+			full, ok := s.(FullCapabilitySession)
+			if !ok {
+				return nil, ErrUnavailable
+			}
+			review, err = full.InspectCapability(ctx, ref.ID, ref.Tool)
+		} else {
+			review, err = s.Inspect(ctx, ref.ID)
+		}
 		if err != nil {
 			return nil, ErrUnavailable
 		}
@@ -220,7 +234,7 @@ func (r *Runtime) Reviews(ctx context.Context, epoch, id string) ([]ChangeReview
 		for _, review := range out {
 			ref := &r.find(id).Reviews[i]
 			if ref.ID == review.ID {
-				resolved := review.State == "succeeded" || review.State == "cancelled"
+				resolved := review.State == "succeeded" || review.State == "cancelled" || (ref.Tool != "" && review.State == "failed")
 				if ref.Resolved != resolved {
 					ref.Resolved = resolved
 					changed = true
@@ -250,6 +264,10 @@ func (r *Runtime) ReviewAction(ctx context.Context, epoch, id, reviewID, digest,
 	c := r.find(id)
 	found := false
 	for _, ref := range c.Reviews {
+		if ref.ID == reviewID && ref.Tool != "" {
+			r.mu.Unlock()
+			return ErrUnavailable
+		}
 		found = found || ref.ID == reviewID
 	}
 	if !found || r.reviewBusy[id] || r.active[id] != nil {
