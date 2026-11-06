@@ -127,7 +127,7 @@ The small per-response increase (about 125 bytes) is the `delivery` object on
 top-level initial captures. Not measured: native macOS (`com.nestworth.dev`
 isolated QA was not run), real LLM client behavior, and model tokens. A later
 external-client baseline is in
-[mcp-wave1-a-baseline.md](mcp-wave1-a-baseline.md) and is not this table.
+[historical external-client measurement](https://github.com/MnemosyneLab/NestworthGo/blob/d59f3d9c7ef4f629f748137cb11bdb85aa7653d7/docs/development/mcp-wave1-a-baseline.md) and is not this table.
 
 ### Phase 3: icon merge, `commit_plan` and compact output schemas
 
@@ -248,9 +248,9 @@ and schema hashes were unchanged. Both `structuredContent` and JSON text
 stayed on success results. C2 (folding drill-down into `get_read_item`) was
 closed as measure-only. D and E3 were deferred at that point and landed later;
 see [Closed and open items in mcp.md](mcp.md#closed-and-open-items). See
-[mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md),
-[mcp-wave2-c3-nav-entries.md](mcp-wave2-c3-nav-entries.md) and
-[mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md).
+[capture retention and paging](mcp-pagination.md#period-drill-down-retention),
+[account valuation reads](mcp.md) and
+[MCP discovery contract](mcp.md).
 
 ## C2 drill-down fold
 
@@ -266,7 +266,7 @@ as private per-item JSON, charges bytes/keys/metadata allowance to an 8 MiB
 combined capture budget and the existing 16 MiB cache, and limits day/driver
 entries to 32,768. Queries exceeding either retained budget fail `too_large`
 before admission rather than retaining uncharged details. See
-[mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+[capture retention and paging](mcp-pagination.md#period-drill-down-retention).
 
 `TestDiscoveryBudget` after the removal, measured on top of default discovery
 with investment-review management off:

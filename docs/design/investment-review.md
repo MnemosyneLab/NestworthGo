@@ -93,9 +93,9 @@ Pre21 SQLite migrations are no longer supported.
 ## Validation references
 
 Use [real browser acceptance](../development/real-browser-acceptance.md) and the
-[dated synthetic acceptance evidence](../testing/investment-review-daily-acceptance-2026-10-16.md).
-The dated report records earlier implementation-time checks and is historical
-evidence, not a claim that retired V1 interfaces remain available.
+[testing guide](../testing/README.md). Application review/oracle and SQLite
+integrity tests define regression coverage; old V1 acceptance does not establish
+current interface support.
 
 
 ## Financial source tracking maintenance

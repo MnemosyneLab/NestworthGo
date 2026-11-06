@@ -113,7 +113,7 @@ managed-product confirmation actions.
 
 ## Validation boundary
 
-See [synthetic QA and remaining native gates](../testing/qa-upcoming-actions.md).
+See [regression methods and native gates](../testing/README.md).
 Automated Linux/headless checks do not establish macOS GUI, VoiceOver, zoom,
 window resume or platform packaging behavior. The feature shipped in v0.3.8;
 the [release record](../releases/v0.3.8.md) owns its acceptance status.

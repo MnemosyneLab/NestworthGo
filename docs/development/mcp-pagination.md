@@ -91,3 +91,31 @@ Both HTTP MCP and the built-in AI use this projection and routing in the same
 capability registry. No provider calls, database writes or financial arithmetic
 are added by pagination. HTTP-byte savings are not measured model-token savings;
 external clients determine which SDK representation reaches the model.
+
+## Period drill-down retention
+
+`analyze_period` freezes return days and eleven asset-driver details on the same
+read fence as its summary. `get_read_item` selects `returnDays` by `YYYY-MM-DD`
+or `assetDrivers` by bucket key; child sections use `get_read_page`.
+Contribution detail uses the already frozen parent row. None of these reads
+refreshes snapshots or extends expiry.
+
+Period details are privately owned per-item JSON, outside the marshaled parent.
+They are not uncharged DTO pointers: detail bytes, keys, 128 bytes per entry and
+256 bytes of base allowance count toward the combined 8 MiB retained budget
+and the 16 MiB shared cache. At most 32,768 day/driver entries are retained.
+Admission fails before publication when limits are exceeded; expiry, eviction
+and revocation release the same charge. This is not an RSS/working-set ceiling.
+
+The opt-in `TestMeasureC2ParentCaptureExtremes` compares production parent bytes
+with a naive all-details-in-parent representation:
+
+```sh
+NESTWORTH_C2_MEASURE=1 go test ./internal/mcpserver \
+  -run '^TestMeasureC2ParentCaptureExtremes$' -count=1 -timeout 30m -v
+```
+
+Run it only for relevant retention/performance work, recording source, host and
+fixture. `period_drilldown_test.go` is the ordinary retention/ownership/budget
+regression suite. Old pre-budget measurements do not establish current memory
+usage, model-token savings or native-client acceptance.

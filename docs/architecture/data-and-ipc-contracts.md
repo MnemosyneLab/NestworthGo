@@ -343,7 +343,7 @@ context is cancelled. Their JavaScript promises have already been abandoned;
 no partial data or second error is delivered. Live requests still use the normal
 sanitized wire-error contract, and mutation errors are unaffected. The frontend
 retains its scoped handling for late beta.28 native errors already in transit.
-See [PR91 cancellation evidence](../testing/pr91-merge-and-binding-errors.md).
+See the [cancellation regression guide](../testing/historical-query-cancellation.md).
 
 ## Compatibility evidence
 

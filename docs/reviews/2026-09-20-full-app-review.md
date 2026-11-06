@@ -1,5 +1,8 @@
 # Nestworth 全面 Review（2026-09-20）
 
+历史排查记录，仅对应下列 source；未逐项在当前版本复验，不是当前缺陷清单。
+引用的旧报告可从 Git 历史查阅，当前约定见 [文档入口](../README.md)。
+
 ## 摘要
 
 - **范围**：对 Nestworth-go（Wails v3 桌面应用：Go + SQLite 为权威源，React/TypeScript 前端）做只读全应用复查。对照当前源码与 2026-09-17 之后的提交（HEAD `cdd4eab`，2026-09-19：Insights UX、Wails beta.23、instrument holdings 聚合、设置/导航精简、v0.3.4、CoinGecko、贵金属模板、历史修复、市场数据 repair details）。不把 `frontend/bindings` 当作手写缺陷。

@@ -155,7 +155,7 @@ Mergeable on semantics:
   Implemented: the three tools are removed. Return days and asset
   drivers are frozen with `analyze_period` but omitted from the marshaled capture
   so the 4 MiB cap still accepts the ranges it accepted before. See
-  [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+  [capture retention and paging](mcp-pagination.md#period-drill-down-retention).
 
 Not merged: context versus comparison versus attribution (different write
 behavior and permission-adjacent side effects), and returns versus endpoint

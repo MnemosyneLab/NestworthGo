@@ -126,9 +126,9 @@ with that promise. Live errors, other runtime calls, programming errors and
 cancellation-callback failures retain their normal reporting. The pinned-runtime
 regression test covers both late resolve and reject orderings.
 
-Automated acceptance and native checks are recorded in
-[Historical panorama P1 acceptance](../testing/historical-panorama-p1.md) and
-[query cancellation evidence](../testing/historical-query-cancellation.md).
+Reusable regression and native checks are in the
+[testing guide](../testing/README.md) and
+[cancellation guide](../testing/historical-query-cancellation.md).
 
 ## Meaning and scope
 
@@ -442,8 +442,9 @@ The application imposes a 10-second deadline. Context cancellation is checked
 through SQL, effect replay, historical replay, indexing, date iteration and
 valuation entry/account loops. Budget/deadline errors return no partial bundle;
 explicit caller cancellation remains cancellation. The serialized-input cap
-is **not** a hard heap/RSS cap. See the measured memory and dense-history timing
-in [P2a acceptance](../testing/historical-panorama-p2a.md).
+is **not** a hard heap/RSS cap. Use the opt-in historical series benchmarks for new measurements;
+[historical P2a observations](https://github.com/MnemosyneLab/NestworthGo/blob/d59f3d9c7ef4f629f748137cb11bdb85aa7653d7/docs/testing/historical-panorama-p2a.md)
+apply only to their original source and host.
 
 The trend tab is enabled explicitly with a new whole-range capture. During
 loading/failure no old financial data is labelled with the new range. Switching

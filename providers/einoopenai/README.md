@@ -1,34 +1,16 @@
 # Completion-gated Eino Responses adapter
 
-This module resolves the two provider gates from [experiment PR #192](https://github.com/MnemosyneLab/NestworthGo/pull/192).
-The guarded `model.AgenticModel` remains independent of MCP, SQLite and Wails.
-The module also supplies `CapabilityTools` for direct model-facing local calls
-and a synthetic ledger/host-review acceptance gate. It is **not installed in the
-application**; no model writer or App assistant entry point becomes available.
-Existing external MCP behavior is unchanged.
+This nested module supplies the completion-gated Responses model, direct local
+capability adapter and Engine used by `cmd/nestworth/assistant_runtime.go`.
+The root module references it through a local replacement. Desktop activation,
+credential storage, permission modes and page-operation authority are owned by
+the [runtime contract](../../docs/architecture/builtin-ai-runtime.md); the provider
+adapter does not independently grant financial or UI authority.
 
-## Baseline and dependency order
-
-Created from main `1701e5d5d9bb10ec9db846245766bab6f7a740e5` on 2026-11-04.
-At inspection, #192 was draft at `c13313237f279dc56d9237047e187d1787882e95`;
-its `experiments/eino-v0922/README.md` and source were read. The capability
-prerequisite [#199](https://github.com/MnemosyneLab/NestworthGo/pull/199) was also
-unmerged/draft at `192323f67d0a4f94ba2007533be018bbe90982fa`. Its
-[design](https://github.com/MnemosyneLab/NestworthGo/blob/192323f67d0a4f94ba2007533be018bbe90982fa/docs/architecture/builtin-ai.md)
-requires provider completion checks separately from trusted host approval.
-
-The original provider stage (#201) and capability stage (#199) are now merged.
-The host-review integration stage uses main
-`76722b33477f45aed4babffaa0d33664098c3f7d`, including desktop navigation #200.
-The nested module still uses the repository JSON wrapper via a local replacement and does not add root runtime
-dependencies. Its additional indirect SQLite/MCP dependencies are used by the
-synthetic shared-handler acceptance fixture; it does not construct an MCP
-transport. The executable still needs a module/dependency decision, durable
-runtime/principals, credentials and trusted desktop/mobile UI before activation.
-
-The Go module proxy's `@latest` still resolved Eino **v0.9.22** and agenticopenai
-**v0.2.4** on 2026-11-04. This module pins those releases and OpenAI Go SDK
-**v3.44.0**, matching the experiment. It does not claim an upstream fix.
+Dependencies are pinned in this module's `go.mod` and `go.sum`. Its synthetic
+acceptance suite exercises the real pinned SDK request builder and response
+converter through loopback fake providers. Historical experiment/PR stage order
+is available in Git history, not a prerequisite for current activation.
 
 ## Actual path and guarantees
 
@@ -138,12 +120,20 @@ success receipt; they do not implement an Eino checkpoint store. Existing
 #201 acceptance still checks zero synthetic mutation dispatch independently of
 host approval, full native history serialization/replay and error/key canaries.
 
-This is a backend integration test, not a UI flow. Model tool choice, explanation
-quality, native key storage, mobile permissions, durable conversation/run state,
-structured page-context capture, semantic navigation and real-model compatibility
-are unimplemented or unverified. No API key or paid provider is needed to run it.
+This is a backend integration test, not UI or live-model acceptance. Desktop
+conversation state, page context and navigation are implemented by the owning
+runtime; their behavior is not established by this test alone. Mobile model
+access remains closed. No API key or paid provider is needed to run it.
 
 ## Provider contract and synthetic coverage
+
+Function schemas explicitly send `strict:false` so optional capability fields
+retain omission semantics. Complete refusals are displayable and replay their
+native items. Fixed stage/rule diagnostic codes cross SDK/runtime boundaries;
+raw provider errors, keys and ledger content never become diagnostic text.
+Unknown codes remain generic. A synthetic compatibility reproduction is not
+proof of the cause of an uncaptured live incident.
+
 
 The official [streaming contract](https://developers.openai.com/api/reference/resources/responses/streaming-events#response.output_item.added)
 marks added reasoning ciphertext as provisional. Added ciphertext may be absent,
@@ -185,8 +175,8 @@ vet and a separate build. The dedicated `Eino provider acceptance` workflow runs
 the same command on GitHub-hosted Ubuntu 24.04 on trusted origin pushes;
 ordinary root `check` remains intact.
 Module download is the only required non-loopback network access for these tests.
-All requests, keys, opaque reasoning and counters are synthetic. Tests never open
-a ledger or make a paid/provider request.
+All requests, keys, opaque reasoning and counters are synthetic. Any ledger fixtures are isolated and synthetic; tests never open a personal
+ledger or make a paid/provider request.
 
 The default suite strictly requires zero dispatch for broken streams and failed
 nonstream responses. Positive controls dispatch exactly once and carry reasoning
@@ -205,10 +195,8 @@ option overrides, full native-history serialization/replay and concurrent round
 isolation. Workflow guards retain the exact active-workflow inventory, nonrunning
 Linux rollback archive and the dedicated gate's trusted-origin/hosted-Linux rules.
 
-No real OpenAI compatibility, encrypted-signature validity, arbitrary compatible
-provider, model quality, credential/keychain, financial-schema migration, full
-database/backup/restore acceptance, built-in read/write UI, native GUI/a11y, Wails
-packaging or complete assistant acceptance is claimed. The bounded host recovery
-tests above do not establish those gates. Scopes/principals, durable runtime and
-conversation state, trusted UI and the #199 follow-ups remain required before
-activating the full assistant.
+These synthetic checks do not establish real-provider compatibility, encrypted
+signature validity, model quality, native GUI/accessibility or packaging. The
+installed desktop's credential, persistence, permissions and UI gates require
+their owning runtime/application tests and relevant native acceptance. A passing
+provider suite alone does not establish complete assistant acceptance.
