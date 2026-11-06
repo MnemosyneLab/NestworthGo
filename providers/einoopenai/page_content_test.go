@@ -62,7 +62,7 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 		if err != nil {
 			return nil, err
 		}
-		return engineWithModel(ctx, cfg, f.model, builtinai.New(shared, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)).WithPageReader(assistant.CurrentPageReader(ctx)), nil)
+		return engineWithModel(ctx, cfg, f.model, builtinai.New(shared, assistant.SelectedPage(ctx), assistant.ModelNavigationEnabled(ctx)).WithPageReader(assistant.CurrentPageReader(ctx)).WithPageOperator(assistant.CurrentPageOperator(ctx)), nil)
 	}})
 	if err != nil {
 		t.Fatal(err)

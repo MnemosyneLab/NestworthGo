@@ -1,8 +1,23 @@
 /** Semantic presentation only: app-owned business roots and their published portals.
  * Page names/field IDs are not read permissions. Secret boundaries are persistent. */
-export type SemanticNode = { id:string; parent:string; module:string; role:string; name:string; value:string; state:string[]; actions:string[] };
+export type SemanticNode = { id:string; parent:string; module:string; role:string; name:string; value:string; state:string[]; actions:string[]; targetRef?:string };
 export type SemanticPage = { id:string; page:string; capturedAt:string; nodes:SemanticNode[]; limitations:string[] };
 let lastEncoding="", lastID="";
+const controlIdentities=new WeakMap<Element,string>();
+let capturedControls=new Map<string,HTMLElement>();
+export function capturedPageControl(ref:string) { return capturedControls.get(ref); }
+export function controlOperations(el:Element):string[] {
+ if(el instanceof HTMLInputElement){
+  if(["checkbox","radio"].includes(el.type)) return ["activate"];
+  if(["text","search","email","tel","url","number","date","time","datetime-local","month","week","range"].includes(el.type)) return ["set_value"];
+  return [];
+ }
+ if(el instanceof HTMLTextAreaElement) return ["set_value"];
+ if(el instanceof HTMLSelectElement && !el.multiple) return ["select_option"];
+ if(el instanceof HTMLButtonElement || el.tagName==="SUMMARY" || ["tab","option","menuitem","menuitemcheckbox","menuitemradio","checkbox","radio","switch"].includes(el.getAttribute("role") || "")) return ["activate"];
+ // Links can launch external URLs/native integrations; retain controlled navigation.
+ return [];
+}
 const rootIdentities=new WeakMap<Element,string>();
 // Only public, truncated fields enter this weak cache. Compare the complete live
 // property so edits outside the exported preview still revoke old snapshots.
@@ -30,6 +45,7 @@ function visibleWithin(el:Element,boundary:Element,styles:WeakMap<Element,CSSSty
 }
 export function capturePageContent(viewKey:string,generation=viewKey):SemanticPage {
  const nodes:SemanticNode[]=[];
+ const controls=new Map<string,HTMLElement>();
  const styles=new WeakMap<Element,CSSStyleDeclaration>();
  const visibility=new WeakMap<Element,WeakMap<Element,boolean>>();
  const visible=(el:Element,boundary:Element)=>{
@@ -167,12 +183,17 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
     }
     const value=preview.value;
     if(state.size>12 || Array.from(state).some(s=>s.length>2048 || new TextEncoder().encode(s).length>2048)) throw new Error("page_content_budget");
-    const actions=["button","link","disclosure","tab","menuitem","menuitemcheckbox","menuitemradio"].includes(role) ? ["activate (description only)"] : field ? ["edit/select (description only)"] : [];
+    const actions=controlOperations(el);
+    let targetRef:string|undefined;
+    if((actions.length || el instanceof HTMLOptionElement) && el instanceof HTMLElement){
+     if(!controlIdentities.has(el)) controlIdentities.set(el,crypto.randomUUID());
+     targetRef=controlIdentities.get(el)!; controls.set(targetRef,el);
+    }
     // Prefer authored business IDs, never generated instance IDs/UUIDs as UI labels.
     const authoredNamespace=el.closest('[data-assistant-module]')?.getAttribute("data-assistant-module") || "page";
     const namespace=/^[a-z][a-z0-9/-]{0,119}$/.test(authoredNamespace) ? authoredNamespace : "page";
     const stableID=labelled && /^[a-z][a-z0-9-]{0,95}$/.test(el.id) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(el.id) ? `${namespace}/${el.id}` : hint && module===hint ? module : undefined;
-    nextParent=add({parent,module,role,name:name.trim(),value,state:[...state],actions},stableID);
+    nextParent=add({parent,module,role,name:name.trim(),value,state:[...state],actions,...(targetRef ? {targetRef} : {})},stableID);
    }
    for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE){if(!field && (!role || !namedText.has(role))) text(child.textContent || "",nextParent,module);}else if(child instanceof Element) walk(child,nextParent,module,depth+1);}
   };
@@ -193,5 +214,6 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
  const encoding=JSON.stringify({page,nodes,limitations,generation,viewKey,valueRevisions,owner:root?.dataset.assistantOwner,rootIdentity:root ? rootIdentities.get(root) : ""});
  if(new TextEncoder().encode(encoding).length>512*1024) throw new Error("page_content_budget");
  if(encoding!==lastEncoding){lastEncoding=encoding;lastID=crypto.randomUUID();}
+ capturedControls=controls;
  return {id:lastID,page,capturedAt:new Date().toISOString(),nodes,limitations};
 }

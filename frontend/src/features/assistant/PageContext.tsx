@@ -189,7 +189,7 @@ export function AssistantPageProvider({
             : undefined,
       }}
     >
-      {surface === "desktop" && <PageContentBridge viewKey={viewKey} generation={modelStamp} />}
+      {surface === "desktop" && <PageContentBridge viewKey={viewKey} generation={modelStamp} blocked={blocked} />}
       {children}
     </PageContext.Provider>
   );

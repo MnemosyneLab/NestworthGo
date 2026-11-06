@@ -158,3 +158,22 @@ func (s *Service) Rename(epoch, id, title string) error {
 	}
 	return s.runtime.Rename(context.Background(), epoch, id, title)
 }
+
+func (s *Service) PendingPageOperations(epoch string) ([]assistant.PageReadRequest, error) {
+	if s.runtime == nil {
+		return nil, assistant.ErrUnavailable
+	}
+	return s.runtime.PendingPageOperations(context.Background(), epoch)
+}
+func (s *Service) ClaimPageOperation(epoch, id string) (assistant.PageOperation, error) {
+	if s.runtime == nil {
+		return assistant.PageOperation{}, assistant.ErrUnavailable
+	}
+	return s.runtime.ClaimPageOperation(context.Background(), epoch, id)
+}
+func (s *Service) DeliverPageOperation(epoch, id string, result assistant.PageOperationResult) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.DeliverPageOperation(context.Background(), epoch, id, result)
+}

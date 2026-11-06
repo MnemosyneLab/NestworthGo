@@ -191,6 +191,7 @@ type Runtime struct {
 	titles               map[string]context.CancelFunc
 	progress             map[string]*Progress
 	pageReads            map[string]pendingPageRead
+	pageOperations       map[string]pendingPageOperation
 	navigationGeneration uint64
 	pageLease            *DesktopPageLease
 	navigationGrants     map[string]modelNavigationGrant
@@ -697,6 +698,9 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		}))
 	}
 	runCtx = context.WithValue(runCtx, pageContentKey{}, r.pageReader(runCtx, q.Revision))
+	if r.fullEnabled {
+		runCtx = context.WithValue(runCtx, pageOperatorKey{}, r.pageOperator(runCtx, q.Epoch, q.Revision))
+	}
 	if grant.requestID != "" {
 		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
 	}
