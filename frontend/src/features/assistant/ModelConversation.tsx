@@ -18,6 +18,7 @@ import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 import { capturePageContent } from "./pageContent";
 import { VoiceInput } from "./VoiceInput";
+import { pausePageOperations } from "./pageOperationAuthority";
 
 function samePageContent(generation: string | null, viewKey: string, hostGeneration: string) {
   if (generation === null) return true;
@@ -228,6 +229,10 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
     }
     return callService(() => API.Cancel(epoch, id, runID));
   }
+  function changeFullAccess(enabled: boolean) {
+    const resume = pausePageOperations(client);
+    void action(() => callService(() => API.SetFullAccess(epoch, configRevision, enabled))).finally(resume);
+  }
   async function send() {
     if (
       !status.data?.available ||
@@ -390,7 +395,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
           <NativeSelect id="ai-permission" className="min-h-11 max-w-full text-xs xl:min-h-9" title={t("aiChat.fullPermission")} aria-description={t("aiChat.fullPermission")}
             value={status.data?.fullAccess ? "full" : "readOnly"}
             disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running || stale))}
-            onChange={event => {const enabled=event.target.value === "full";void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}}>
+            onChange={event => changeFullAccess(event.target.value === "full")}>
             <option value="readOnly">{t("aiChat.readOnly")}</option>
             <option value="full">{t("aiChat.full")}</option>
           </NativeSelect>

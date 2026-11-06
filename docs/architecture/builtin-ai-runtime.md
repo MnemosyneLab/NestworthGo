@@ -805,6 +805,12 @@ view and workspace generation. Additional input/change events recheck the same
 fence; a refusal after a setter or earlier event returns `unverified`, since a
 partial effect cannot be called definitely undispatched. These synchronous
 checks do not promise to observe backend revocation before it reaches host state.
+Human changes to the desktop permission select additionally revoke frontend
+dispatch authority synchronously, before IPC. Operations stay paused through
+status reconciliation; claims from before or during that change cannot dispatch
+later, even if the permission request fails. New claims still require the
+backend's current revision and permission, and Read-only presentation operations
+resume after reconciliation. Already dispatched handlers cannot be undone.
 
 `set_value` accepts at most 2,048 Unicode code points and 8,192 UTF-8 bytes, with
 no NUL; empty strings are allowed. JSON Schema `maxLength`, frontend code-point

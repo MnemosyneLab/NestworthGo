@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as API from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
 import { callService } from "@/lib/wails";
 import { pollPageOperations } from "./pageOperationBridge";
 import { capturePageContent } from "./pageContent";
+import { capturePageOperationAuthority } from "./pageOperationAuthority";
 
 /** Desktop host bridge, independent of sidebar visibility and local page-guide
  * opt-in. Polls request IDs only; semantic contents are captured only on demand. */
 export function PageContentBridge({ viewKey, generation, blocked }: { viewKey: string; generation: string; blocked: () => boolean }) {
+  const client = useQueryClient();
   const status = useQuery({
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
@@ -33,16 +35,17 @@ export function PageContentBridge({ viewKey, generation, blocked }: { viewKey: s
           await callService(() => API.DeliverPageContent(epoch, request.id, content));
           delay = 150;
         }
+        const hasAuthority = capturePageOperationAuthority(client);
         await pollPageOperations({
           pending: () => callService(() => API.PendingPageOperations(epoch)),
           claim: id => callService(() => API.ClaimPageOperation(epoch, id)),
           deliver: (id, result) => callService(() => API.DeliverPageOperation(epoch, id, result)),
-        }, () => current.current, () => stopped);
+        }, () => current.current, () => stopped || !hasAuthority());
       } catch { /* The requesting tool receives a bounded unavailable result. */ }
       finally { if (!stopped) timer = window.setTimeout(() => void poll(), delay); }
     };
     void poll();
     return () => { stopped = true; window.clearTimeout(timer); };
-  }, [epoch, available]);
+  }, [client, epoch, available]);
   return null;
 }
