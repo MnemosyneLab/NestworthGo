@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -102,7 +103,7 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 		}
 		var op PageOperation
 		var fields map[string]json.RawMessage
-		if len(args) > 16<<10 || jsoncodec.Unmarshal(args, &fields) != nil || fields == nil || jsoncodec.Unmarshal(args, &op) != nil || !canonicalID(op.SnapshotID) || !canonicalID(op.TargetRef) {
+		if len(args) > 32<<10 || jsoncodec.Unmarshal(args, &fields) != nil || fields == nil || jsoncodec.Unmarshal(args, &op) != nil || !canonicalID(op.SnapshotID) || !canonicalID(op.TargetRef) {
 			return nil, ErrUnavailable
 		}
 		for k, v := range fields {
@@ -116,7 +117,7 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 				return nil, ErrUnavailable
 			}
 		case "set_value":
-			if op.Value == nil || len(*op.Value) > 8192 || strings.ContainsRune(*op.Value, 0) || op.OptionRef != "" {
+			if op.Value == nil || !validPageOperationValue(*op.Value) || op.OptionRef != "" {
 				return nil, ErrUnavailable
 			}
 		case "select_option":
@@ -222,4 +223,10 @@ func (r *Runtime) expirePageOperation(id, snapshotID string, response chan PageO
 		return PageOperationResult{State: "not_dispatched", SnapshotID: snapshotID}
 	}
 	return PageOperationResult{State: "unverified", SnapshotID: snapshotID}
+}
+
+// Match JSON Schema maxLength (Unicode code points), not UTF-16 code units.
+// The byte cap bounds IPC payloads; these limits do not alter business validation.
+func validPageOperationValue(value string) bool {
+	return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 2048 && len(value) <= 8192 && !strings.ContainsRune(value, 0)
 }

@@ -15,7 +15,7 @@ function operation(name:string,action="activate",extra:Partial<PageOperation>={}
  const p=capturePageContent(view,"generation");
  return {snapshotId:p.id,targetRef:p.nodes.find(n=>n.name===name && n.targetRef)!.targetRef!,action,...extra};
 }
-const execute=(op:PageOperation,full=true,blocked=false)=>operatePageControl(view,"generation",op,full,blocked);
+const execute=(op:PageOperation,full=true,blocked=false)=>operatePageControl(view,"generation",op,()=>!full || blocked ? "blocked" : undefined);
 it("uses real shared React handlers and exact option identities without exposing internal values",()=>{
  function Form(){const [amount,setAmount]=useState("1.0000");const [choice,setChoice]=useState("a");return <BusinessPageRoot view={view} accessIdentity="synthetic"><Input aria-label="Exact amount" value={amount} onChange={e=>setAmount(e.target.value)}/><NativeSelect aria-label="Account" value={choice} onChange={e=>setChoice(e.target.value)}><option value="a">Synthetic A</option><option value="b">Synthetic B</option></NativeSelect><p>{amount} {choice}</p></BusinessPageRoot>;}
  render(<Form/>);
@@ -36,8 +36,8 @@ it("rejects a replaced same-label node, live edits, wrong view and workspace gen
  const click=vi.fn();const element=(key:string)=><BusinessPageRoot view={view} accessIdentity="synthetic"><Button key={key} onClick={click}>Same</Button><Input aria-label="Draft" defaultValue="1"/></BusinessPageRoot>;
  const r=render(element("one"));const old=operation("Same");r.rerender(element("two"));expect(execute(old)).toEqual({state:"stale",snapshotId:old.snapshotId});
  const op=operation("Same");(screen.getByLabelText("Draft") as HTMLInputElement).value="2";expect(execute(op).state).toBe("stale");
- expect(operatePageControl("other:","generation",operation("Same"),true,false).state).toBe("stale");
- expect(operatePageControl(view,"new-workspace",operation("Same"),true,false).state).toBe("stale");expect(click).not.toHaveBeenCalled();
+ expect(operatePageControl("other:","generation",operation("Same"),()=>undefined).state).toBe("stale");
+ expect(operatePageControl(view,"new-workspace",operation("Same"),()=>undefined).state).toBe("stale");expect(click).not.toHaveBeenCalled();
 });
 it("keeps assistant-occluded controls readable but never executes them",()=>{
  const click=vi.fn();render(<BusinessPageRoot view={view} accessIdentity="synthetic" occluded><Button onClick={click}>Record</Button></BusinessPageRoot>);
@@ -82,4 +82,24 @@ it("reports unverified when a real shared React click handler throws through win
 it("revokes a formerly ordinary target and excludes external submit controls for protected forms",()=>{
  const click=vi.fn();const content=(protectedNow:boolean)=><BusinessPageRoot view={view} accessIdentity="synthetic"><div data-assistant-operation={protectedNow ? "protected" : undefined}><form id="security-form" onSubmit={e=>{e.preventDefault();click();}}><Input aria-label="Public setting"/></form></div><Button form="security-form">Save access</Button><Button type="button" onClick={click}>Ordinary business</Button></BusinessPageRoot>;
  const r=render(content(false));const old=operation("Save access");r.rerender(content(true));expect(execute(old)).toEqual({state:"stale",snapshotId:old.snapshotId});const page=capturePageContent(view,"generation");expect(page.nodes.find(n=>n.name==="Save access")?.targetRef).toBeUndefined();expect(click).not.toHaveBeenCalled();act(()=>{expect(execute(operation("Ordinary business")).state).toBe("dispatched");});expect(click).toHaveBeenCalledOnce();
+});
+
+it.each([{value:"",valid:true},{value:"a".repeat(2048),valid:true},{value:"a".repeat(2049),valid:false},{value:"😀".repeat(2048),valid:true},{value:"😀".repeat(2049),valid:false},{value:"a\0b",valid:false}])("matches code-point input limits (case %#)",({value,valid})=>{
+ const changed=vi.fn();
+ function Form(){const [text,setText]=useState("original");return <BusinessPageRoot view={view} accessIdentity="synthetic"><Input aria-label="Unicode value" value={text} onChange={e=>{changed();setText(e.target.value);}}/></BusinessPageRoot>;}
+ render(<Form/>);
+ act(()=>{expect(execute(operation("Unicode value","set_value",{value})).state).toBe(valid ? "dispatched" : "invalid_target");});
+ expect(screen.getByLabelText("Unicode value")).toHaveValue(valid ? value : "original");
+ expect(changed).toHaveBeenCalledTimes(valid ? 1 : 0);
+});
+it("rechecks live authority just before mutation and treats mid-event revocation as uncertain",()=>{
+ let allowed=true;
+ const changed=vi.fn();
+ render(<BusinessPageRoot view={view} accessIdentity="synthetic"><Input aria-label="Live" defaultValue="original" onChange={()=>{changed();allowed=false;}}/></BusinessPageRoot>);
+ const op=operation("Live","set_value",{value:"changed"});
+ const refusal=vi.fn().mockReturnValueOnce(undefined).mockReturnValue("blocked");
+ expect(operatePageControl(view,"generation",op,refusal).state).toBe("blocked");
+ expect(screen.getByLabelText("Live")).toHaveValue("original");expect(changed).not.toHaveBeenCalled();
+ act(()=>{expect(operatePageControl(view,"generation",op,()=>allowed ? undefined : "blocked").state).toBe("unverified");});
+ expect(changed).toHaveBeenCalledOnce();
 });

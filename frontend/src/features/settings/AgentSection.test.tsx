@@ -108,11 +108,11 @@ it("keeps MCP authority controls human-only even for Full generic operations",as
  for(const name of ["Agent permissions","Enable MCP"]){const node=page.nodes.find(n=>n.role!=="text" && n.name===name)!;expect(node).toBeDefined();expect(node.targetRef).toBeUndefined();expect(node.actions).toEqual([]);expect(node.state).toContain("operation_protected=true");}
  // Neither a semantic ID nor a fabricated target confers execution authority.
  const select=page.nodes.find(n=>n.role==="combobox" && n.name==="Agent permissions")!;
- expect(operatePageControl("settings:","settings:",{snapshotId:page.id,targetRef:select.id,action:"select_option",optionRef:page.nodes.find(n=>n.name==="Full ledger write")?.id ?? "ledger_write"},true,false).state).toBe("invalid_target");
+ expect(operatePageControl("settings:","settings:",{snapshotId:page.id,targetRef:select.id,action:"select_option",optionRef:page.nodes.find(n=>n.name==="Full ledger write")?.id ?? "ledger_write"},()=>undefined).state).toBe("invalid_target");
  expect(enable).not.toHaveBeenCalled();expect(connection).not.toHaveBeenCalled();expect(setReview).not.toHaveBeenCalled();
  await user.selectOptions(screen.getByLabelText("Agent permissions"),"ledger_write");
  const changed=capturePageContent("settings:");const button=changed.nodes.find(n=>n.name==="Enable MCP")!;
- expect(operatePageControl("settings:","settings:",{snapshotId:changed.id,targetRef:button.id,action:"activate"},true,false).state).toBe("invalid_target");expect(enable).not.toHaveBeenCalled();
+ expect(operatePageControl("settings:","settings:",{snapshotId:changed.id,targetRef:button.id,action:"activate"},()=>undefined).state).toBe("invalid_target");expect(enable).not.toHaveBeenCalled();
  await user.click(screen.getByRole("button",{name:"Enable MCP"}));await waitFor(()=>expect(enable).toHaveBeenCalledWith("ledger_write"));
  await screen.findByRole("button",{name:"Show connection configuration"});
  const running=capturePageContent("settings:");expect(running.nodes.find(n=>n.name==="Show connection configuration")?.targetRef).toBeUndefined();

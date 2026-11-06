@@ -843,3 +843,18 @@ without an accepted result stays `unverified`, even after its lease expires.
 A result accepted concurrently with timeout takes precedence. Only unknown
 outcomes fence the rest of the run; definite refusal requires fresh discovery
 before any new intentional operation and never triggers automatic replay.
+
+The bridge rechecks its claim deadline and live host authority after semantic
+capture and immediately before the first DOM effect (click or native value/index
+setter). The live check covers stopped host, Full access, unresolved flow,
+view and workspace generation. Additional input/change events recheck the same
+fence; a refusal after a setter or earlier event returns `unverified`, since a
+partial effect cannot be called definitely undispatched. These synchronous
+checks do not promise to observe backend revocation before it reaches host state.
+
+`set_value` accepts at most 2,048 Unicode code points and 8,192 UTF-8 bytes, with
+no NUL; empty strings are allowed. JSON Schema `maxLength`, frontend code-point
+counting and backend rune counting use the same limit. The bounded raw argument
+envelope is 32 KiB so equivalent literal or JSON surrogate-escaped emoji at the
+limit are both accepted. Existing financial/business field validation remains
+unchanged; the semantic read preview still has its separate 2,048-byte limit.

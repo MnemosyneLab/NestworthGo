@@ -20,7 +20,7 @@ it("does not dispatch late claim after host stops",async()=>{
 });
 it("rechecks current host authority after awaiting claim",async()=>{
  let resolve!:(value:typeof command)=>void;let fullAccess=true;api.claim.mockImplementation(()=>new Promise(r=>{resolve=r;}));
- const pending=pollPageOperations(api,()=>({...current(),fullAccess}),()=>false);await vi.waitFor(()=>expect(api.claim).toHaveBeenCalledOnce());fullAccess=false;resolve(command);await pending;expect(dispatch.mock.calls[0][3]).toBe(false);
+ const pending=pollPageOperations(api,()=>({...current(),fullAccess}),()=>false);await vi.waitFor(()=>expect(api.claim).toHaveBeenCalledOnce());fullAccess=false;resolve(command);await pending;expect(dispatch.mock.calls[0][3]()).toBe("blocked");
 });
 it("reports unverified for handler exception",async()=>{
  dispatch.mockImplementation(()=>{throw new Error("handler failed");});await pollPageOperations(api,current,()=>false);expect(api.deliver).toHaveBeenCalledWith("once",{state:"unverified",snapshotId:"snapshot"});expect(dispatch).toHaveBeenCalledOnce();

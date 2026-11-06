@@ -3,6 +3,7 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,5 +182,56 @@ func TestPageOperationDeliveryRejectsUnseenSnapshot(t *testing.T) {
 	}
 	if err := r.DeliverPageOperation(t.Context(), r.epoch, "request", PageOperationResult{State: "stale", SnapshotID: snapshot}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPageOperationValueBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name, value string
+		valid       bool
+	}{
+		{"empty", "", true}, {"ascii_limit", strings.Repeat("a", 2048), true},
+		{"ascii_over", strings.Repeat("a", 2049), false},
+		{"emoji_limit", strings.Repeat("😀", 2048), true},
+		{"emoji_over", strings.Repeat("😀", 2049), false}, {"nul", "a\x00b", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if validPageOperationValue(tc.value) != tc.valid {
+				t.Fatal("wrong value boundary")
+			}
+		})
+	}
+}
+
+func TestPageOperationEscapedEmojiEnvelope(t *testing.T) {
+	for _, escaped := range []bool{false, true} {
+		t.Run(map[bool]string{false: "literal", true: "escaped"}[escaped], func(t *testing.T) {
+			r := operationRuntime()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			value := strings.Repeat("😀", 2048)
+			args, _ := jsoncodec.Marshal(PageOperation{SnapshotID: uuid.NewString(), TargetRef: uuid.NewString(), Action: "set_value", Value: &value})
+			if escaped {
+				args = []byte(strings.ReplaceAll(string(args), "😀", `\ud83d\ude00`))
+			}
+			done := make(chan error, 1)
+			go func() { _, err := r.pageOperator(ctx, r.epoch, 1)(ctx, args); done <- err }()
+			deadline := time.Now().Add(time.Second)
+			for time.Now().Before(deadline) {
+				select {
+				case err := <-done:
+					t.Fatalf("valid value rejected before capture: %v", err)
+				default:
+				}
+				reads, _ := r.PendingPageReads(ctx, r.epoch)
+				if len(reads) > 0 {
+					cancel()
+					<-done
+					return
+				}
+				time.Sleep(time.Millisecond)
+			}
+			t.Fatal("valid value did not reach capture")
+		})
 	}
 }
