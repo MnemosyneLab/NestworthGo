@@ -1,3 +1,4 @@
+import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,7 @@ export function ContinuousBackupSection({ active = true, onInteractionBusyChange
   const timestamp = (value: string) => value ? formatTimestamp(value) : t("cloudBackup.never");
   const ready = Boolean(preview?.token) && acknowledged && confirmation.trim().toLowerCase() === "restore";
   const restoreState = restore.isPending || restarting ? "installing" : inspect.isPending ? "downloading" : open ? "preview" : inspect.isError || restore.isError ? "error" : "";
-  return <section className="@container space-y-4" aria-labelledby="cloud-backup-title">
+  return <SecurityOperationRegion className="contents"><section className="@container space-y-4" aria-labelledby="cloud-backup-title">
     <div><h2 id="cloud-backup-title" className="text-base font-semibold">{t("cloudBackup.title")}</h2><p className="text-sm text-muted-foreground">{t("cloudBackup.description")}</p></div>
     <p className="text-sm text-muted-foreground">{t("cloudBackup.sensitive")}</p>
     <form aria-label={t("cloudBackup.form")} onSubmit={(event) => { event.preventDefault(); persist(); }} className="space-y-4">
@@ -121,5 +122,5 @@ export function ContinuousBackupSection({ active = true, onInteractionBusyChange
         <AlertDialogFooter>{!restarting && <><AlertDialogCancel disabled={restore.isPending}>{t("common.cancel")}</AlertDialogCancel><Button type="button" disabled={!ready || restore.isPending} onClick={() => { if (ready && preview && !busy && !restoreRequest.current) { restoreRequest.current = true; restore.mutate({ token: preview.token ?? "", confirmation, acknowledged, restoreChrome: false, restoreFormat: false, restoreRouting: false }, { onSuccess: (result) => setRestarting(result.restartRequired), onSettled: () => { restoreRequest.current = false; } }); } }}>{t("settings.data.restoreConfirm")}</Button></>}</AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </section>;
+  </section></SecurityOperationRegion>;
 }

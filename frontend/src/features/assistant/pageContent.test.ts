@@ -91,7 +91,7 @@ it("captures the actual page toolbar portal without exporting app-shell or assis
  const unrelated=document.createElement("aside"); unrelated.textContent="private assistant conversation"; toolbar.append(unrelated);
  const page=capturePageContent("overview:");
  expect(page.nodes.find(n=>n.name==="Synthetic overview title")).toMatchObject({role:"heading",module:"page"});
- expect(page.nodes.find(n=>n.name==="Open Wealth history")).toMatchObject({role:"button",actions:["activate (description only)"]});
+ expect(page.nodes.find(n=>n.name==="Open Wealth history")).toMatchObject({role:"button",actions:["activate"]});
  expect(page.nodes.filter(n=>n.name==="Second toolbar action")).toHaveLength(1);
  expect(JSON.stringify(page)).not.toContain("private assistant conversation");
 });

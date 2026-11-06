@@ -27,6 +27,11 @@ func (r *Runtime) executeFull(ctx context.Context, epoch, id, runID string, revi
 	if jsoncodec.Unmarshal(input, &request) == nil && request.Name != "" {
 		return r.executeCapability(ctx, epoch, id, runID, revision, request)
 	}
+	release, err := acquireRunWrite(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release(false)
 	if len(input) > 4096 {
 		return nil, ErrUnavailable
 	}

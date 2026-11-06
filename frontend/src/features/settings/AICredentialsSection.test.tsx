@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -14,7 +16,7 @@ beforeEach(() => {
 });
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return { client, ...render(<QueryClientProvider client={client}><AICredentialsSection /></QueryClientProvider>) };
+  return { client, ...render(<QueryClientProvider client={client}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><AICredentialsSection /></BusinessPageRoot></QueryClientProvider>) };
 }
 it("saves, replaces and removes new input without retaining secrets in caches", async () => {
   const user = userEvent.setup(); const { client } = mount();
@@ -83,4 +85,10 @@ it.each([
   fireEvent.submit(screen.getByRole("button", { name: "Save AI key" }).closest("form")!);
   expect(api.SaveCredential).not.toHaveBeenCalled();
   expect(api.DeleteCredential).not.toHaveBeenCalled();
+});
+
+it("keeps an enabled credential submit human-only after manual draft entry",async()=>{
+ const user=userEvent.setup();mount();await screen.findByText("No AI key saved");await user.type(screen.getByLabelText("OpenAI API key"),"synthetic-security-canary");
+ expect(screen.getByRole("button",{name:"Save AI key"})).toBeEnabled();
+ const page=capturePageContent("settings:");const save=page.nodes.find(n=>n.name==="Save AI key")!;expect(save.targetRef).toBeUndefined();expect(save.actions).toEqual([]);expect(save.state).toContain("operation_protected=true");expect(JSON.stringify(page)).not.toContain("synthetic-security-canary");expect(api.SaveCredential).not.toHaveBeenCalled();
 });

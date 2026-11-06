@@ -285,3 +285,22 @@ or truthful mounted/loaded-content limitations. Capture adds no UI execution or
 navigation authorization. Include canary-value and reveal-state coverage when
 changing credential components, and source/hidden-page ownership coverage when
 changing portal wrappers.
+
+Generic desktop assistant operations reuse this capture boundary and the existing
+control handlers. Capture may expose opaque `targetRef` and `activate`,
+`set_value` or `select_option` affordances; these are not authority. The host
+requires current Full permission and a single-use live claim, then rejects stale,
+private, disabled, readonly, busy, inert and assistant-occluded targets. Do not
+add a per-page operation registry or mark arbitrary callbacks read-only based on
+their visual role. Keep meaningful labels, live native/ARIA state and portal
+ownership on shared controls. Event dispatch is not financial success; retain
+normal validation, confirmation, mutation recovery and authoritative refresh.
+
+Wrap security/access administration in `SecurityOperationRegion`, including
+credential generation, reveal triggers outside SecretField, connection destination
+changes, permission/configuration saves and credential-bearing backup/restore.
+This shared boundary blocks generic operations while preserving public semantic
+status. Keep `SecretRegion` for confidential values. Owned portals inherit both
+source provenance and operation protection; do not put an external submit control
+on an unprotected path to a protected form. Ordinary business forms and display
+preferences should not be placed in a security boundary.

@@ -45,6 +45,13 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 		return nil, err
 	}
 	writing := definition.Effect == agentcapability.Write
+	if writing {
+		release, err := acquireRunWrite(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer release(false)
+	}
 	var previous *ReviewRef
 	r.mu.Lock()
 	c := r.find(id)

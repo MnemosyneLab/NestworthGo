@@ -1,4 +1,4 @@
-import { SecretRegion } from "@/lib/businessCapture";
+import { SecretRegion, SecurityOperationRegion } from "@/lib/businessCapture";
 import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,7 +52,7 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
     if (config) setDraft({ ...config, [key]: value });
   };
   return (
-    <section
+    <SecurityOperationRegion className="contents"><section
       className="space-y-5 rounded-2xl border border-border bg-card p-5"
       aria-labelledby="mobile-access-title"
     >
@@ -179,6 +179,6 @@ export function MobileAccessSection({ active = true }: { active?: boolean }) {
         </SecretRegion>
       )}
       <p className="text-sm text-muted-foreground">{t("mobile.connectionHelp")}</p>
-    </section>
+    </section></SecurityOperationRegion>
   );
 }

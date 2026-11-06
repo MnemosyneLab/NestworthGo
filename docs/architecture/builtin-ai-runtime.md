@@ -10,7 +10,10 @@ Full permission described below; Full does not require per-change confirmation. 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
 Cash deposits/withdrawals can be proposed through the bounded review flow below.
-Full exposes the existing MCP LedgerWrite registry, including preview/commit, directory, investment, reconciliation, market-data and repair capabilities. Arbitrary UI automation and mobile model access remain unavailable. Existing explicit
+Full exposes the existing MCP LedgerWrite registry, including preview/commit,
+directory, investment, reconciliation, market-data and repair capabilities, plus
+the scoped generic page operations described below. Unrestricted UI automation
+and mobile model access remain unavailable. Existing explicit
 account buttons retain their page-host guards; model navigation has independent
 backend and frontend fences described below.
 
@@ -727,3 +730,132 @@ limited to 64 Unicode code points, reject control/format characters and the acti
 credential, and render as text. Retention and ledger binding are unchanged.
 The UI polls authoritative title metadata and supports keyboard rename, cancel,
 and localized English, Simplified Chinese and Traditional Chinese labels.
+
+### Generic current-page operations
+
+The desktop's `read_page_content` tree also discovers native/shared interactive
+controls. `targetRef` is an opaque identity for the actual mounted element, held
+only in the host's weak map; it is neither a selector nor a business ID. Replacing
+a same-label element changes the snapshot. The same business root, workspace/view
+generation, secret boundaries and recursively owned portal rules govern reading
+and operation discovery. Hidden/unmounted content, foreign portals and credentials
+never become operation targets. Native select options have separate opaque refs,
+so selection does not require exposing internal option values or guessing names.
+
+`operate_page_control` is an internal desktop capability, unavailable to external
+MCP and ReadOnly or reviewed-write sessions. Existing Full mode enables it without
+another approval prompt. **All generic operations conservatively require Full**:
+roles such as tab, filter and disclosure do not prove that an application callback
+has no durable effect. The existing explicitly controlled read-only navigation
+and return-trend tools remain available with their original grants and verification.
+This extends the shared bridge rather than adding a per-page tool registry.
+
+Supported operations are button/shared-role activation, native text/number/date
+input and textarea values, and exact single-select option selection. They invoke
+normal React/native handlers; business validation, queries, form preview,
+confirmation and transaction protection remain owned by the application. Custom
+comboboxes and date pickers can be operated through their mounted triggers,
+search fields and published options/calendar buttons. Links (including external
+and native integrations), files, arbitrary keyboard/event injection, arbitrary
+routes, HTML, canvas/SVG targets, contenteditable, multiselect and unmounted list
+items are unsupported. Controls still need meaningful accessible names and states.
+No synthetic financial calculations or direct service calls are introduced.
+
+Each tool call validates a fresh complete semantic generation before enqueueing.
+The desktop claims the request once, rechecking current runtime epoch, revision,
+Full permission, run cancellation and unresolved review state. Claims carry a pre-dispatch expiry of at
+most two seconds and are never republished. Expiry is checked before dispatch;
+it cannot cancel a handler that has already started. Immediately before synchronous
+dispatch the frontend recaptures the page, resolves the exact target, checks the
+current view/workspace generation and rejects disabled, readonly, busy, inert,
+secret or occluded controls. An assistant modal or expanded assistant can leave
+business content readable while making its controls inoperable; use the visible
+side-by-side desktop surface for operations. Nothing clears modal/inert guards.
+Existing unresolved Sheet confirmations and assistant financial reviews block
+page operations, including attempts to close/navigate away or replay submission;
+the user resolves these through the existing recovery/review flow. Generic page
+operations do not replace or widen the dedicated Full ledger command contract.
+
+The result states are `dispatched`, `blocked`, `stale`, `invalid_target`,
+`not_dispatched` and `unverified`. `snapshotId` in that result names the **source
+observation**, not a post-action snapshot. `dispatched` proves event delivery only: it is never proof
+of validation, query completion, successful navigation or a financial commit.
+The model must read fresh page state afterward, observe loading/error/validation
+feedback, and verify financial success with authoritative records. Identical
+gestures on one snapshot are not replayed; freshly observed state permits an
+intentional further step (for example advancing a second calendar month). A lost
+response, dispatch exception or timeout fences further operations for that run;
+unknown financial outcomes must be inspected, never retried automatically.
+Cancellation before claim prevents dispatch; after an accepted claim, cancellation
+cannot undo an already dispatched UI handler or financial transaction. A stopped
+frontend does not dispatch a late claim response. Existing financial idempotency
+and recovery rules remain authoritative across runs and process restarts.
+
+The bridge returns bounded metadata and polls only pending IDs; full semantic
+capture occurs on demand, not every polling interval. Each operation adds one
+runtime freshness read and one frontend pre-dispatch capture. No whole-ledger
+scan, background provider request or persistent operation queue is introduced.
+
+Security administration is outside generic page-operation authority even in Full
+mode. `SecurityOperationRegion` keeps non-secret status and labels readable, but
+omits operation targets/actions and marks `operation_protected=true`. It covers
+MCP/mobile access and token generation, AI credentials/model configuration and
+permission switches, provider credential submission, cloud backup destinations
+and access operations, and credential-bearing backup/export/restore controls.
+Ordinary formatting preferences and business controls remain operable. This is an
+operation boundary, distinct from `SecretRegion` value redaction: revealing a
+credential still never publishes its value. Full ledger permission cannot be used
+to grant or reconfigure another access channel or to administer its own authority.
+
+Shared portal context and source provenance propagate operation protection through
+nested portals. External controls associated with a protected form also cannot
+submit/edit it. Assistant occlusion propagates from the owning business root to
+already-mounted owned portals; removing occlusion requires a fresh snapshot.
+Synchronous React handler failures can be reported through `window.error` rather
+than thrown by `click`; the dispatcher observes that event only for the dispatch
+interval, returns `unverified`, and always removes its observer. This does not
+suppress application error reporting. Later asynchronous failures still require
+fresh page/authoritative reads: `dispatched` remains event delivery, never task or
+financial success.
+
+Operation refusals always echo the requested source snapshot ID, including stale
+refusals; they never disclose an unseen replacement observation. Delivery checks
+that source ID against the claimed request. A stopped host or expired lease
+observed before dispatch delivers `not_dispatched` once. If that acknowledgement
+is lost, the claimed request remains uncertain. On timeout, the runtime atomically
+removes an unclaimed request and reports `not_dispatched`; a claimed request
+without an accepted result stays `unverified`, even after its lease expires.
+A result accepted concurrently with timeout takes precedence. Only unknown
+outcomes fence the rest of the run; definite refusal requires fresh discovery
+before any new intentional operation and never triggers automatic replay.
+
+The bridge rechecks its claim deadline and live host authority after semantic
+capture and immediately before the first DOM effect (click or native value/index
+setter). The live check covers stopped host, Full access, unresolved flow,
+view and workspace generation. Additional input/change events recheck the same
+fence; a refusal after a setter or earlier event returns `unverified`, since a
+partial effect cannot be called definitely undispatched. These synchronous
+checks do not promise to observe backend revocation before it reaches host state.
+
+`set_value` accepts at most 2,048 Unicode code points and 8,192 UTF-8 bytes, with
+no NUL; empty strings are allowed. JSON Schema `maxLength`, frontend code-point
+counting and backend rune counting use the same limit. The bounded raw argument
+envelope is 32 KiB so equivalent literal or JSON surrogate-escaped emoji at the
+limit are both accepted. Existing financial/business field validation remains
+unchanged; the semantic read preview still has its separate 2,048-byte limit.
+
+Full MCP writes, the legacy direct ledger wrapper and generic page operations
+share one in-memory run write gate. It serializes admission through outcome
+classification. An uncertain page result fences both Full write routes for the
+remainder of that run with a recovery-required diagnostic, while read-only MCP
+inspection remains available. Full MCP unresolved recovery references and busy
+admission also refuse page claims. This gate does not persist across runs and
+does not replace the MCP operation identity, durable recovery reference or
+cancelled-before-commit proof.
+
+Explicit page argument/schema rejection, stale source snapshots and absent
+advertised targets carry a per-attempt not-dispatched proof before enqueue. The
+provider reports `write_not_submitted` for these refusals instead of inventing an
+operation receipt to inspect. Cancelled capture, prior gesture conflicts, shared
+run uncertainty and every post-enqueue failure retain conservative diagnostics;
+the proof never resolves an older uncertain operation.

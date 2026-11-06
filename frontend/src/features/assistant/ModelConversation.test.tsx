@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "./pageContent";
 import { useLayoutEffect, useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -762,6 +764,8 @@ it("enables reviewed writes only through the separate session permission switch"
 
  it("requires explicit Full opt-in and never invokes a model or human confirmation",async()=>{
  const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");
+ render(<BusinessPageRoot view="synthetic:" accessIdentity="synthetic"><p>Ordinary business content</p></BusinessPageRoot>);
+ const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Full for this app session");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.role==="checkbox")).toBe(false);
  const control=screen.getByRole("checkbox",{name:/Full for this app session/});expect(control).not.toBeChecked();
  control.focus();await user.keyboard(" ");
  await waitFor(()=>expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host",3,true));

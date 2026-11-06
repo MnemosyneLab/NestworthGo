@@ -1,3 +1,4 @@
+import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,11 +48,11 @@ export function DataManagementSection({ onRestoreBusyChange }: { onRestoreBusyCh
           ? t("settings.data.lastBackupSummary", { fileName: status.data.backupFileName, schema: status.data.schemaVersion, result: status.data.verificationResult })
           : t("settings.data.lastBackupNone")}
       </p>
-      <div className="flex flex-wrap gap-2">
+      <SecurityOperationRegion className="flex flex-wrap gap-2">
         <Button type="button" onClick={runBackup} disabled={createBackup.isPending}>{t(createBackup.isPending ? "common.pending" : "settings.data.backup")}</Button>
         <RestoreBackupButton onBusyChange={onRestoreBusyChange} />
         <Button type="button" variant="outline" onClick={runExport} disabled={exportJSON.isPending}>{t(exportJSON.isPending ? "settings.data.exporting" : "settings.data.export")}</Button>
-      </div>
+      </SecurityOperationRegion>
       <div className="mt-3 flex flex-col gap-3 border-t pt-5">
         <div>
           <h3 className="text-sm font-semibold">{t("settings.data.rebuildTitle")}</h3>

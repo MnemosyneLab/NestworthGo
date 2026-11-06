@@ -1,3 +1,4 @@
+import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -46,7 +47,7 @@ export function AIModelConfig({
     }
   }
   return (
-    <form
+    <SecurityOperationRegion className="contents"><form
       className="max-w-xl space-y-3 border-t border-border pt-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -101,6 +102,6 @@ export function AIModelConfig({
         )}
       </div>
       {failed && <p role="alert">{t("aiChat.configError")}</p>}
-    </form>
+    </form></SecurityOperationRegion>
   );
 }

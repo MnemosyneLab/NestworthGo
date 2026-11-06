@@ -191,6 +191,7 @@ type Runtime struct {
 	titles               map[string]context.CancelFunc
 	progress             map[string]*Progress
 	pageReads            map[string]pendingPageRead
+	pageOperations       map[string]pendingPageOperation
 	navigationGeneration uint64
 	pageLease            *DesktopPageLease
 	navigationGrants     map[string]modelNavigationGrant
@@ -686,9 +687,10 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		return Run{}, e
 	}
 	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
+	runCtx = context.WithValue(runCtx, runWriteFenceKey{}, &runWriteFence{})
 	if r.fullEnabled && r.options.Reviews != nil {
 		runCtx = context.WithValue(runCtx, fullKey{}, ProposalHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
-			return r.executeFull(ctx, q.Epoch, c.ID, run.ID, q.Revision, raw)
+			return r.executeFull(context.WithValue(ctx, runWriteFenceKey{}, runCtx.Value(runWriteFenceKey{})), q.Epoch, c.ID, run.ID, q.Revision, raw)
 		}))
 	}
 	if r.writeEnabled && !r.fullEnabled && r.options.Reviews != nil {
@@ -697,6 +699,9 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		}))
 	}
 	runCtx = context.WithValue(runCtx, pageContentKey{}, r.pageReader(runCtx, q.Revision))
+	if r.fullEnabled {
+		runCtx = context.WithValue(runCtx, pageOperatorKey{}, r.pageOperator(runCtx, q.Epoch, q.Revision))
+	}
 	if grant.requestID != "" {
 		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
 	}

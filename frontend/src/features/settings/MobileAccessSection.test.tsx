@@ -161,3 +161,13 @@ it("keeps revealed token and token-bearing connection URLs private while reading
  await userEvent.click(screen.getByRole("button",{name:"Show token"}));expect(screen.getByLabelText(i18n.t("mobile.token"))).toHaveAttribute("type","text");
  const raw=JSON.stringify(capturePageContent("settings:"));expect(raw).not.toContain("synthetic-link-canary");expect(raw).not.toContain("SYNTHETIC1");expect(raw).toContain("192.168.1.20:9443");
 });
+
+it("does not publish token generation or persistent mobile access operations",async()=>{
+ mount();await screen.findByText("Running");
+ const page=capturePageContent("settings:");
+ const controls=page.nodes.filter(n=>["button","textbox","checkbox"].includes(n.role) && !n.state.includes("redacted"));
+ expect(controls.length).toBeGreaterThan(3);
+ for(const node of controls){expect(node.targetRef).toBeUndefined();expect(node.actions).toEqual([]);expect(node.state).toContain("operation_protected=true");}
+ expect(JSON.stringify(page)).not.toContain("SYNTHETIC1");expect(JSON.stringify(page)).toContain("Running");
+ expect(mobile.GenerateToken).not.toHaveBeenCalled();expect(mobile.Configure).not.toHaveBeenCalled();
+});

@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -589,4 +591,12 @@ it("discards typed AI credentials when leaving the Agent settings section", asyn
   await user.click(screen.getByRole("tab", { name: "AI · MCP" }));
   expect(screen.getByLabelText("OpenAI API key")).toHaveValue("");
   expect(ai.SaveCredential).not.toHaveBeenCalled();
+});
+
+it("protects provider credential submission while retaining ordinary preference targets",async()=>{
+ render(<QueryClientProvider client={createTestQueryClient({retry:false})}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><SettingsPage/></BusinessPageRoot></QueryClientProvider>);
+ await screen.findByRole("combobox",{name:"Appearance"});const general=capturePageContent("settings:");expect(general.nodes.find(n=>n.role==="combobox" && n.name==="Appearance")?.targetRef).toBeDefined();
+ await selectTab("Market data");await userEvent.type(screen.getByLabelText("CoinGecko API key"),"synthetic-provider-canary");
+ const page=capturePageContent("settings:");const save=page.nodes.find(n=>n.role==="button" && n.name===screen.getByRole("button",{name:/Save.*key/}).textContent)!;
+ expect(save).toBeDefined();expect(save.targetRef).toBeUndefined();expect(save.state).toContain("operation_protected=true");expect(JSON.stringify(page)).not.toContain("synthetic-provider-canary");expect(page.nodes.find(n=>n.role==="combobox" && n.name==="Quote cache duration")?.targetRef).toBeDefined();
 });
