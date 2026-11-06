@@ -392,7 +392,7 @@ export function ModelConversation() {
             disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running || stale))}
             onChange={event => {const enabled=event.target.value === "full";void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}}>
             <option value="readOnly">{t("aiChat.readOnly")}</option>
-            <option value="full">Full</option>
+            <option value="full">{t("aiChat.full")}</option>
           </NativeSelect>
         </SecurityOperationRegion>
         <Button

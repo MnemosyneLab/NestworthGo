@@ -1,5 +1,6 @@
 export const assistantEn = {
   aiChat: {
+    full: "Full",
     unknownTool: "Tool call",
     permission: "Permissions",
     "fullPermission": "Full · Edit the ledger without per-change confirmation",
@@ -298,6 +299,7 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    full: "Full",
     unknownTool: "工具调用",
     permission: "权限",
     "fullPermission": "Full · 直接修改账本，无需逐笔确认",
@@ -580,6 +582,7 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    full: "Full",
     unknownTool: "工具呼叫",
     permission: "權限",
     "fullPermission": "Full · 直接修改帳本，無需逐筆確認",
