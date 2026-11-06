@@ -13,12 +13,13 @@ import (
 )
 
 type PageOperation struct {
-	ExpiresAt  *time.Time `json:"expiresAt,omitempty"`
-	SnapshotID string     `json:"snapshotId"`
-	TargetRef  string     `json:"targetRef"`
-	Action     string     `json:"action"`
-	Value      *string    `json:"value,omitempty"`
-	OptionRef  string     `json:"optionRef,omitempty"`
+	RequiresFull bool       `json:"-"`
+	ExpiresAt    *time.Time `json:"expiresAt,omitempty"`
+	SnapshotID   string     `json:"snapshotId"`
+	TargetRef    string     `json:"targetRef"`
+	Action       string     `json:"action"`
+	Value        *string    `json:"value,omitempty"`
+	OptionRef    string     `json:"optionRef,omitempty"`
 }
 type PageOperationResult struct {
 	State      string `json:"state"`
@@ -37,8 +38,8 @@ func CurrentPageOperator(ctx context.Context) ToolHandler {
 	h, _ := ctx.Value(pageOperatorKey{}).(ToolHandler)
 	return h
 }
-func (r *Runtime) pageOperationAllowed(ctx context.Context, epoch string, revision uint64) bool {
-	return ctx.Err() == nil && r.valid(ctx, epoch) == nil && r.state.Revision == revision && r.state.Config.Enabled && r.fullEnabled && !r.anyPendingReview() && len(r.reviewBusy) == 0
+func (r *Runtime) pageOperationAllowed(ctx context.Context, epoch string, revision uint64, requiresFull bool) bool {
+	return ctx.Err() == nil && r.valid(ctx, epoch) == nil && r.state.Revision == revision && r.state.Config.Enabled && (!requiresFull || r.fullEnabled) && !r.anyPendingReview() && len(r.reviewBusy) == 0
 }
 func (r *Runtime) PendingPageOperations(ctx context.Context, epoch string) ([]PageReadRequest, error) {
 	r.mu.Lock()
@@ -48,7 +49,7 @@ func (r *Runtime) PendingPageOperations(ctx context.Context, epoch string) ([]Pa
 	}
 	out := []PageReadRequest{}
 	for id, p := range r.pageOperations {
-		if !p.claimed && r.pageOperationAllowed(p.ctx, epoch, p.revision) {
+		if !p.claimed && r.pageOperationAllowed(p.ctx, epoch, p.revision, p.operation.RequiresFull) {
 			out = append(out, PageReadRequest{ID: id})
 		}
 	}
@@ -61,7 +62,7 @@ func (r *Runtime) ClaimPageOperation(ctx context.Context, epoch, id string) (Pag
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	p, ok := r.pageOperations[id]
-	if !ok || p.claimed || ctx.Err() != nil || !r.pageOperationAllowed(p.ctx, epoch, p.revision) {
+	if !ok || p.claimed || ctx.Err() != nil || !r.pageOperationAllowed(p.ctx, epoch, p.revision, p.operation.RequiresFull) {
 		return PageOperation{}, ErrStale
 	}
 	if p.operation.ExpiresAt != nil && !time.Now().Before(*p.operation.ExpiresAt) {
@@ -142,17 +143,19 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 		}
 		current, err := r.capturePage(ctx, revision)
 		if err != nil {
-			return nil, err
+			return nil, pagePreflightRefusal(ctx, runCtx, err)
 		}
 		if current.ID != op.SnapshotID {
 			return nil, pagePreflightRefusal(ctx, runCtx, ErrStale)
 		}
 		found := false
+		op.RequiresFull = true
 		for _, n := range current.Nodes {
 			if n.TargetRef == op.TargetRef {
 				for _, a := range n.Actions {
 					if a == op.Action {
 						found = true
+						op.RequiresFull = n.Effect != "presentation"
 					}
 				}
 			}
@@ -161,9 +164,9 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 			return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 		}
 		r.mu.Lock()
-		if !r.pageOperationAllowed(runCtx, epoch, revision) || ctx.Err() != nil || len(r.pageOperations) > 0 {
+		if !r.pageOperationAllowed(runCtx, epoch, revision, op.RequiresFull) || ctx.Err() != nil || len(r.pageOperations) > 0 {
 			r.mu.Unlock()
-			return nil, ErrStale
+			return nil, pagePreflightRefusal(ctx, runCtx, ErrStale)
 		}
 		if r.options.Credentials.With(ctx, func(secret []byte) error {
 			if len(secret) > 0 && (strings.Contains(string(args), string(secret)) || op.Value != nil && strings.Contains(*op.Value, string(secret))) {

@@ -48,7 +48,7 @@ the existing cropping, page limits, missingness and exact-money contracts.
 Continuations use `get_read_page`; the former explicit-scope financial page tools
 were removed. It adds `get_current_page` only for supported
 view selections, and `get_navigation_targets`/`open_page`/`open_return_trend` only for an explicit
-per-message host grant. The shared session independently rechecks permissions
+current desktop page lease. The shared session independently rechecks permissions
 and budgets.
 In read-only mode no configuration, network refresh or projection-maintaining analysis is available. Human approval methods are never model tools. Direct financial writes exist only
 through the explicitly enabled Full stage below. The retired cash-proposal and human-confirmation endpoints are no longer exposed.
@@ -336,7 +336,7 @@ database path/household switch selects a separate namespace.
 
 The desktop IPC inventory is `Status`, `List`, `Create`, `Inspect`, `Messages`,
 `Start`, `Cancel`, `Events`, `Delete`, `SaveCredential`, `DeleteCredential` and
-`Configure`, `PublishPage`, `GrantNavigation` and `ConsumeNavigation`.
+`Configure`, `PublishPage` and `ConsumeNavigation`.
 Configuration/navigation authority is desktop-only and uses the current epoch/revision.
 `Inspect` returns the latest attempted
 turn; `Messages` takes an explicit zero-based offset and returns one turn plus
@@ -397,22 +397,19 @@ separate tool disclosures show credential-filtered input/output values. Private 
 
 ## One-shot model navigation
 
-Ordinary Send has no navigation tools/grant. The separate Send-and-allow button
-publishes a fresh backend page lease, records explicit authorization for a
-not-yet-started request and then starts that exact request. A lease/selector alone
-cannot grant authority. Grants bind current epoch/config revision, conversation,
+Ordinary Send publishes a fresh page lease and starts the request; there is no
+per-message navigation approval. Leases bind epoch/config revision, conversation,
 request, source selection and a fixed two-minute expiry. Backend-issued opaque
-target refs permit overview, account list, fixed Return analysis tabs and accounts already disclosed by
-controlled reads. IDs in the target inventory are correlation data, never accepted
-as `open_page` authority. No arbitrary route, URL, coordinate, DOM command, SQL,
-financial proposal or approval flag is accepted.
+target refs permit desktop root pages, fixed Return analysis tabs and accounts
+already disclosed by controlled reads. No arbitrary route, URL, coordinate,
+SQL, financial proposal or approval flag is accepted.
 
 `open_page` records a request, not a completed action. Only successful full model
 completion can offer an intent. Grants, intents and navigation generations live
 only in runtime memory; stored run lease IDs are non-authoritative audit metadata.
-Creation/deletion, new grants/turns, Stop, configuration/key changes, page changes,
+Creation/deletion, new page leases/turns, Stop, configuration/key changes, page changes,
 restore and shutdown revoke earlier navigation authority. Publication replaces the
-page lease; navigation generations additionally invalidate new-authorization and
+page lease; navigation generations additionally invalidate new-publication and
 new-turn races on the same page lease. Native history/restart cannot restore a
 grant or automatically navigate.
 
@@ -450,7 +447,7 @@ revokes the pending target and permanently spends that turn, including malformed
 oversized, cancelled or unknown-target requests and attempts using the other
 navigation tool. Inventory reads do not revoke it. Before any action is accepted,
 an invalid request may be corrected within the still-valid grant. New actions
-after a conflict need a new per-message grant.
+after a conflict need a fresh page lease.
 
 Remaining gates include richer financial evidence cards, broader analysis filter
 navigation, arbitrary page/control coverage, financial proposal/review/receipt
@@ -664,7 +661,7 @@ next slice. Changed captured controls, modules, portals, query state, view/objec
 identity, host visit or root remount reject the old snapshot; a fresh initial read
 obtains current state automatically. Snapshot state is run-local and memory-only;
 normal successful model history may retain tool results under conversation policy.
-Every supported page binds existing separately granted navigation to this same
+Every supported page binds default navigation to this same
 semantic generation before and after async intent consumption. The fixed opaque
 navigation target inventory, source lease, successful-run requirement, expiry,
 workspace validation and unresolved-review checks are unchanged. In particular,
@@ -716,11 +713,10 @@ never become operation targets. Native select options have separate opaque refs,
 so selection does not require exposing internal option values or guessing names.
 
 `operate_page_control` is an internal desktop capability, unavailable to external
-MCP and Read-only sessions. Existing Full mode enables it without
-another approval prompt. **All generic operations conservatively require Full**:
-roles such as tab, filter and disclosure do not prove that an application callback
-has no durable effect. The existing explicitly controlled read-only navigation
-and return-trend tools remain available with their original grants and verification.
+MCP. Audited presentation controls are enabled in Read-only; other controls require
+Full. Roles such as tab, filter and disclosure do not prove a callback has no
+durable effect. Dedicated navigation and return-trend tools retain freshness and
+completion verification without per-message approval.
 This extends the shared bridge rather than adding a per-page tool registry.
 
 Supported operations are button/shared-role activation, native text/number/date
@@ -736,7 +732,7 @@ No synthetic financial calculations or direct service calls are introduced.
 
 Each tool call validates a fresh complete semantic generation before enqueueing.
 The desktop claims the request once, rechecking current runtime epoch, revision,
-Full permission, run cancellation and unresolved review state. Claims carry a pre-dispatch expiry of at
+the target effect and required financial permission, run cancellation and unresolved review state. Claims carry a pre-dispatch expiry of at
 most two seconds and are never republished. Expiry is checked before dispatch;
 it cannot cancel a handler that has already started. Immediately before synchronous
 dispatch the frontend recaptures the page, resolves the exact target, checks the
@@ -832,3 +828,37 @@ provider reports `write_not_submitted` for these refusals instead of inventing a
 operation receipt to inspect. Cancelled capture, prior gesture conflicts, shared
 run uncertainty and every post-enqueue failure retain conservative diagnostics;
 the proof never resolves an older uncertain operation.
+
+
+### Default desktop page interaction
+
+Ordinary Send publishes a fresh page lease and admits built-in navigation without
+an approval button or GrantNavigation IPC. Leases, cancellation, generation,
+workspace identity, unresolved financial recovery and one-shot consumption still
+protect against stale dispatch; they are freshness checks, not user approvals.
+Fixed root targets include asset changes and historical overview. Read-only / Full
+remain the financial modes selected in the desktop UI.
+
+`operate_page_control` has the `interaction` effect, not a blanket financial write
+effect. The host classifies a fresh semantic target: audited presentation regions
+(time/range/scope filters and analysis tabs) permit interaction in Read-only;
+unclassified controls require Full. DOM roles alone never establish read-only
+semantics. Published owned portals inherit their source's presentation effect.
+Security/credential boundaries override both modes. A model cannot submit the
+classification: backend admission reads the current host capture and frontend
+dispatch independently checks the fresh DOM. Dispatch still is not a receipt.
+The existing run write fence serializes interactions with mutations and preserves
+uncertain outcomes, single-use claims and same-ID financial recovery.
+
+A proven pre-dispatch page refusal is returned as `page_operation_refused` with
+`not_dispatched`, permitting fresh discovery. Unknown write results still stop
+the turn. Generic tool failure copy does not call every tool a local read.
+
+Page context is optional at ordinary Send admission. Capture budget errors,
+publication failure or a changed observation drop the deferred navigation lease
+without dropping the question or retrying Start. A lease replaced or expired
+between publication and Start is likewise ignored by runtime admission. Epoch,
+configuration, conversation and financial permission checks remain mandatory.
+Only a fresh accepted lease may produce/consume a deferred navigation intent;
+on-demand page reads and control operations retain their independent current
+snapshot checks. An unavailable observation never becomes navigation authority.

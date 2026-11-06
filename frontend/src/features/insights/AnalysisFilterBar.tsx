@@ -69,7 +69,7 @@ export function AnalysisFilterBar({
   const toMin = session.from && (!originDate || session.from > originDate) ? session.from : originDate;
 
   return (
-    <section data-assistant-module="filters" aria-label={t("insights.filters")} className={`flex flex-col rounded-2xl border border-border bg-card shadow-xs ${compact ? "gap-2 p-3" : "gap-4 p-4"}`}>
+    <section data-assistant-effect="presentation" data-assistant-module="filters" aria-label={t("insights.filters")} className={`flex flex-col rounded-2xl border border-border bg-card shadow-xs ${compact ? "gap-2 p-3" : "gap-4 p-4"}`}>
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-scope">{t("insights.scope")}</Label>

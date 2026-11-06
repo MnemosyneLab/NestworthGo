@@ -18,3 +18,12 @@ func TestFullInstructionsUseAdvertisedAnalysisAuthority(t *testing.T) {
 		}
 	}
 }
+
+func TestNavigationDoesNotRequestPerMessageApproval(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		text := modelInstructions(full)
+		if !strings.Contains(text, "available by default") || !strings.Contains(text, "read fresh content before setting") || strings.Contains(text, "Ordinary messages have no navigation authority") {
+			t.Fatal("navigation policy contradicts default page interaction")
+		}
+	}
+}

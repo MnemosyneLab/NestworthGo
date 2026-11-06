@@ -25,10 +25,10 @@ export async function pollPageOperations(api:PageOperationAPI,current:()=>{viewK
     snapshotId:operation.snapshotId,targetRef:operation.targetRef,action:operation.action,
     ...(operation.value!=null ? {value:operation.value}:{}),
     ...(operation.optionRef ? {optionRef:operation.optionRef}:{}),
-   },()=>{
+   },(effect)=>{
     const live=current();
     if(stopped() || !operation.expiresAt || !(Date.parse(operation.expiresAt)>Date.now())) return "not_dispatched";
-    if(live.viewKey!==host.viewKey || live.generation!==host.generation || !live.fullAccess || live.blocked()) return "blocked";
+    if(live.viewKey!==host.viewKey || live.generation!==host.generation || (!live.fullAccess && effect!=="presentation") || live.blocked()) return "blocked";
     return undefined;
    });
   } catch {result={state:"unverified",snapshotId:operation.snapshotId};}

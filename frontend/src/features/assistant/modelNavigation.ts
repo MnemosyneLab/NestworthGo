@@ -65,6 +65,9 @@ export async function applyModelNavigation(
     return state.dispatch({page: "return-analysis", tab: target.tab}) === false ? "blocked" : "opened";
   }
   if (target.tab) return "invalid_target";
+  if ((target.kind === "historical-overview" || target.kind === "asset-changes" || target.kind === "history" || target.kind === "portfolio" || target.kind === "available-funds" || target.kind === "tasks" || target.kind === "directory" || target.kind === "market-data" || target.kind === "data-health" || target.kind === "settings") && target.accountId === "") {
+ return state.dispatch({page:target.kind}) === false ? "blocked" : "opened";
+ }
   if (target.kind === "overview" && target.accountId === "") {
     return state.dispatch({ page: "overview" }) === false
       ? "blocked"

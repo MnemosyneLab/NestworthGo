@@ -281,15 +281,14 @@ Custom portal publishers need the same ownership integration before their conten
 can be captured; never broaden capture to arbitrary document.body. Native/shared
 controls should expose labels and live ARIA/native state. Shared date controls
 publish their business value; charts and virtual lists must supply semantic tables
-or truthful mounted/loaded-content limitations. Capture adds no UI execution or
-navigation authorization. Include canary-value and reveal-state coverage when
+or truthful mounted/loaded-content limitations. Capture records affordances; the host revalidates freshness and actual operation effect. Include canary-value and reveal-state coverage when
 changing credential components, and source/hidden-page ownership coverage when
 changing portal wrappers.
 
 Generic desktop assistant operations reuse this capture boundary and the existing
 control handlers. Capture may expose opaque `targetRef` and `activate`,
 `set_value` or `select_option` affordances; these are not authority. The host
-requires current Full permission and a single-use live claim, then rejects stale,
+requires a single-use live claim and current Full permission for controls outside audited presentation regions, then rejects stale,
 private, disabled, readonly, busy, inert and assistant-occluded targets. Do not
 add a per-page operation registry or mark arbitrary callbacks read-only based on
 their visual role. Keep meaningful labels, live native/ARIA state and portal
@@ -304,3 +303,12 @@ status. Keep `SecretRegion` for confidential values. Owned portals inherit both
 source provenance and operation protection; do not put an external submit control
 on an unprotected path to a protected form. Ordinary business forms and display
 preferences should not be placed in a security boundary.
+
+AppShell publishes its main navigation area paired to the current business view
+and access identity. Only route buttons are presentation controls; task refresh,
+footer settings and security controls do not inherit navigation permission.
+`data-assistant-effect="presentation"` is an app-owned effect declaration, not a
+visual-role heuristic. Keep it on audited local selection/navigation handlers;
+never wrap financial submissions, provider refresh, configuration or an arbitrary
+form. Shared portals inherit their source effect and security boundary. Changes
+to a declared region must preserve this contract and its Read-only regression.

@@ -16,13 +16,13 @@ const composition = { currency: "USD", totalExact: "0", complete: true, status: 
 function RealComposition() {
  return <main data-assistant-page="account" data-assistant-view={viewKey}><section data-assistant-module="composition"><AccountCompositionPanel composition={composition} /></section></main>;
 }
-const api = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+const api = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
 const priorRun = {id:"prior",state:"succeeded",text:"Synthetic prior answer",prompt:"Earlier",model:"mock",created:"2026-11-05T00:00:00Z"};
 beforeEach(() => {
  vi.clearAllMocks();
  api.Status.mockResolvedValue({epoch:"host",revision:1,available:true,config:{enabled:true,model:"mock"}});
- api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id:"lease"}); api.GrantNavigation.mockResolvedValue(undefined);
+ api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id:"lease"});
  api.List.mockResolvedValue([{id:"conversation",runCount:1}]); api.Inspect.mockResolvedValue({id:"conversation",runs:[priorRun],runCount:1,offset:0});
 });
 it("captures both real composition radios and changes the snapshot using checked state alone", async () => {
@@ -54,8 +54,7 @@ it.each(["before-consume","during-consume","unchanged"])("rejects navigation whe
  render(<QueryClientProvider client={client}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey={viewKey} blocked={()=>false} onNavigate={navigate}><RealComposition /><ModelConversation /></AssistantPageProvider></QueryClientProvider>);
  const user=userEvent.setup(); await screen.findByText("Synthetic prior answer");
  await user.type(screen.getByLabelText("Message"),"Open overview");
- await user.click(screen.getByText("Page navigation"));
- await user.click(screen.getByRole("button",{name:"Send and allow one page change"}));
+ await user.click(screen.getByRole("button",{name:"Send to model"}));
  if(phase!=="before-consume") await waitFor(()=>expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
  else await screen.findByText(/Running · reading related data/);
  if(phase!=="unchanged") await user.click(screen.getByRole("radio",{name:"By detail"}));
@@ -67,5 +66,4 @@ it.each(["before-consume","during-consume","unchanged"])("rejects navigation whe
  if(phase==="unchanged") await waitFor(()=>expect(navigate).toHaveBeenCalledWith({page:"overview"}));
  else { await screen.findByText(/No page change was applied/); expect(navigate).not.toHaveBeenCalled(); }
  if(phase==="before-consume") expect(api.ConsumeNavigation).not.toHaveBeenCalled();
- expect(api.GrantNavigation).toHaveBeenCalledTimes(1);
 });

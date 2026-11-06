@@ -23,10 +23,11 @@ import (
 type Effect string
 
 const (
-	Read     Effect = "read"
-	Analysis Effect = "analysis" // Derived snapshots only; may invalidate previews.
-	Preview  Effect = "preview"  // Private plan only, never approval.
-	Write    Effect = "write"
+	Interaction Effect = "interaction" // Desktop control; host classifies its actual side effects.
+	Read        Effect = "read"
+	Analysis    Effect = "analysis" // Derived snapshots only; may invalidate previews.
+	Preview     Effect = "preview"  // Private plan only, never approval.
+	Write       Effect = "write"
 )
 
 // Annotations preserve the existing external discovery contract. Effect is the

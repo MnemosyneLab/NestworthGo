@@ -8,7 +8,7 @@ const BusinessCaptureContext = createContext<Owner | null>(null);
  * Access identity is a freshness fence, never backend permission or navigation authority. */
 export function BusinessPageRoot({ view, accessIdentity, occluded = false, children, ...props }: HTMLAttributes<HTMLElement> & { view: string; accessIdentity: string; occluded?: boolean; children: ReactNode }) {
  const owner=useMemo(()=>({id:crypto.randomUUID(),view,accessIdentity}),[view,accessIdentity]);
- return <BusinessCaptureContext.Provider value={owner}><main {...props} hidden={occluded} data-assistant-root="business" data-assistant-view={view} data-assistant-owner={owner.id} data-assistant-occluded={occluded ? "assistant" : undefined}>{children}</main></BusinessCaptureContext.Provider>;
+ return <BusinessCaptureContext.Provider value={owner}><main {...props} hidden={occluded} data-assistant-root="business" data-assistant-view={view} data-assistant-owner={owner.id} data-assistant-identity={accessIdentity} data-assistant-occluded={occluded ? "assistant" : undefined}>{children}</main></BusinessCaptureContext.Provider>;
 }
 
 /** Portal publishers leave a nonvisual origin in their actual React/DOM page.

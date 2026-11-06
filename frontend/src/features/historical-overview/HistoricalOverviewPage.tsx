@@ -287,7 +287,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
 
   return <div className="flex min-w-0 flex-col gap-4">
     {chrome}
-    <section aria-label={t("historicalOverview.controls")} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+    <section data-assistant-effect="presentation" aria-label={t("historicalOverview.controls")} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SegmentedControl size="md" label={t("historicalOverview.mode")} value={comparison} onChange={chooseComparison} options={[
           { value: "none", label: t("historicalOverview.singleMode") },
@@ -360,7 +360,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
           {data.right.date === data.left.date && !data.right.current && <p role="status" className="text-sm text-muted-foreground">{t("historicalOverview.sameDate")}</p>}
         </>}
         <Tabs value={view} onValueChange={value => setView(value as typeof view)} className="min-w-0">
-        <TabsList aria-label={t("historicalOverview.views")} activateOnFocus className="flex h-auto w-fit max-w-full flex-wrap gap-2">
+        <TabsList data-assistant-effect="presentation" aria-label={t("historicalOverview.views")} activateOnFocus className="flex h-auto w-fit max-w-full flex-wrap gap-2">
           {(data.right ? ["delta", "allocation", "accounts", "trend"] as const : ["allocation", "accounts", "trend"] as const).map(value => <TabsTrigger key={value} value={value} ref={value === "accounts" ? accountsTab : undefined}>{t(data.right && value === "allocation" ? "historicalOverview.categoryCompare" : `historicalOverview.view.${value}`)}</TabsTrigger>)}
         </TabsList>
         <TabsContent value="trend" className="min-w-0">

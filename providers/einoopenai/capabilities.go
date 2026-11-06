@@ -46,7 +46,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 	out := make([]tool.BaseTool, 0, len(definitions))
 	seen := map[string]bool{}
 	for _, d := range definitions {
-		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
+		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page_control" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
 			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || (*d.Annotations.OpenWorldHint && !full) {
 			return nil, errors.New("unsafe local capability inventory")
 		}
@@ -63,7 +63,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 		if err != nil || !sameSchemaJSON(raw, roundtrip) {
 			return nil, errors.New("lossy local capability schema conversion")
 		}
-		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw, writing: d.Effect == agentcapability.Write})
+		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw, writing: d.Effect == agentcapability.Write || d.Effect == agentcapability.Interaction})
 	}
 	return out, nil
 }
@@ -111,6 +111,9 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		return "", errors.New("local capability request cancelled")
 	}
 	if len(arguments) > 64<<10 {
+		if t.name == "operate_page_control" {
+			return "", errPageOperationRefused
+		}
 		if t.writing {
 			return "", errCapabilityWriteRejected
 		}
@@ -129,6 +132,9 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 			}
 			var unsubmitted interface{ NotDispatched() bool }
 			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
+				if t.name == "operate_page_control" {
+					return "", errPageOperationRefused
+				}
 				return "", errCapabilityWriteRejected
 			}
 			return "", errCapabilityWriteRefused
@@ -146,3 +152,7 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 
 // Shared with the engine so proof diagnostics are tested without a live provider.
 const writeNotSubmittedDiagnostic = `{"error":{"code":"write_not_submitted","recovery":"This attempt was rejected before business dispatch. Review the arguments and permission before a new request. This does not resolve an older operation's uncertain receipt."}}`
+
+var errPageOperationRefused = errors.New("page operation refused before dispatch")
+
+const pageOperationRefusedDiagnostic = `{"state":"not_dispatched","error":{"code":"page_operation_refused","recovery":"No event was dispatched. Read fresh page content and check the target, action and current permission before a new intentional operation. Do not replay an uncertain earlier submission."}}`

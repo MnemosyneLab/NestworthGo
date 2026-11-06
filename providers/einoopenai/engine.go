@@ -290,6 +290,11 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 				// Stop this turn: subsequent model calls must not reconstruct a mutation
 				// after a missing response. The desktop retains its recovery reference.
 			}
+			if errors.Is(err, errPageOperationRefused) && ctx.Err() == nil {
+				status = "refused"
+				result = pageOperationRefusedDiagnostic
+				err = nil
+			}
 			if errors.Is(err, errCapabilityRefused) && ctx.Err() == nil {
 				result = `{"error":{"code":"controlled_read_refused","recovery":"No financial fact was returned. The capture may be expired/revoked, arguments invalid, or the read unavailable. Re-capture the initial read and restart relevant pages; never mix old and new capture IDs or treat refusal as zero. Do not widen permissions or disclosure."}}`
 				err = nil

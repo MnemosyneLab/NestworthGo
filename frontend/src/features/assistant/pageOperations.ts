@@ -5,10 +5,11 @@ export type PageOperationResult = { state:string; snapshotId:string };
 
 /** Dispatch only to the exact live node observed by semantic capture. This is
  * deliberately synchronous after the IPC claim: never schedule a later click. */
-export function operatePageControl(viewKey:string, generation:string, operation:PageOperation, dispatchRefusal:()=> "blocked" | "not_dispatched" | undefined):PageOperationResult {
+export function operatePageControl(viewKey:string, generation:string, operation:PageOperation, dispatchRefusal:(effect?:string)=> "blocked" | "not_dispatched" | undefined):PageOperationResult {
  const before=capturePageContent(viewKey,generation);
  const result=(state:string)=>({state,snapshotId:operation.snapshotId});
- const initialRefusal=dispatchRefusal();
+ const effect=before.nodes.find(n=>n.targetRef===operation.targetRef)?.effect;
+ const initialRefusal=dispatchRefusal(effect);
  if(initialRefusal) return result(initialRefusal);
  if(before.id!==operation.snapshotId) return result("stale");
  const el=capturedPageControl(operation.targetRef);
@@ -26,26 +27,26 @@ export function operatePageControl(viewKey:string, generation:string, operation:
  if(operation.action==="activate") {
   if(operation.value!==undefined || operation.optionRef!==undefined) return result("invalid_target");
   // No synthetic keyboard, arbitrary event names, routes or code are accepted.
-  const refusal=dispatchRefusal();
+  const refusal=dispatchRefusal(effect);
   if(refusal) return result(refusal);
   el.click();
  } else if(operation.action==="set_value") {
   if(typeof operation.value!=="string" || Array.from(operation.value).length>2048 || new TextEncoder().encode(operation.value).length>8192 || operation.value.includes("\0") || operation.optionRef!==undefined || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return result("invalid_target");
   const prototype=el instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
-  const refusal=dispatchRefusal();
+  const refusal=dispatchRefusal(effect);
   if(refusal) return result(refusal);
   Object.getOwnPropertyDescriptor(prototype,"value")!.set!.call(el,operation.value);
-  if(dispatchRefusal()) return result("unverified");
+  if(dispatchRefusal(effect)) return result("unverified");
   el.dispatchEvent(new Event("input",{bubbles:true}));
-  if(dispatchRefusal()) return result("unverified");
+  if(dispatchRefusal(effect)) return result("unverified");
   el.dispatchEvent(new Event("change",{bubbles:true}));
  } else if(operation.action==="select_option") {
   const option=operation.optionRef ? capturedPageControl(operation.optionRef) : undefined;
   if(operation.value!==undefined || !(el instanceof HTMLSelectElement) || el.multiple || !(option instanceof HTMLOptionElement) || option.closest("select")!==el || option.disabled || option.closest("optgroup[disabled]") || !before.nodes.some(n=>n.targetRef===operation.optionRef)) return result("invalid_target");
-  const refusal=dispatchRefusal();
+  const refusal=dispatchRefusal(effect);
   if(refusal) return result(refusal);
   Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"selectedIndex")!.set!.call(el,Array.from(el.options).indexOf(option));
-  if(dispatchRefusal()) return result("unverified");
+  if(dispatchRefusal(effect)) return result("unverified");
   el.dispatchEvent(new Event("change",{bubbles:true}));
  } else return result("invalid_target");
  // Dispatch is not a receipt. Async validation, queries and financial commits

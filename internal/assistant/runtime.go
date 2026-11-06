@@ -193,7 +193,6 @@ type Runtime struct {
 	pageOperations       map[string]pendingPageOperation
 	navigationGeneration uint64
 	pageLease            *DesktopPageLease
-	navigationGrants     map[string]modelNavigationGrant
 	navigationIntents    map[string]ModelNavigationIntent
 	mu                   sync.Mutex
 	state                State
@@ -665,7 +664,6 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	}
 	r.navigationGeneration++
 	r.navigationIntents = nil
-	r.navigationGrants = nil
 	if grant.requestID == "" {
 		r.clearNavigation()
 	} else {
@@ -690,9 +688,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 		}))
 	}
 	runCtx = context.WithValue(runCtx, pageContentKey{}, r.pageReader(runCtx, q.Revision))
-	if r.fullEnabled {
-		runCtx = context.WithValue(runCtx, pageOperatorKey{}, r.pageOperator(runCtx, q.Epoch, q.Revision))
-	}
+	runCtx = context.WithValue(runCtx, pageOperatorKey{}, r.pageOperator(runCtx, q.Epoch, q.Revision))
 	if grant.requestID != "" {
 		runCtx = context.WithValue(runCtx, modelNavigationGrantKey{}, grant)
 	}

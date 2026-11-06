@@ -14,7 +14,7 @@ const fixture = vi.hoisted(() => ({ fetching: false, data: {
   available: true, status: "ok", rows: [{key: "synthetic", label: "Synthetic row", amount: {amount: "12.34", currency: "USD"}, status: "ok", ratedDays: 1, totalDays: 1}],
   summary: {total: {amount: "12.34", currency: "USD"}, positive: {amount: "12.34", currency: "USD"}, negative: {amount: "0", currency: "USD"}},
 } }));
-const api = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+const api = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
 vi.mock("@/queries/returnAnalysis", () => ({useContribution: () => ({data: fixture.data, isLoading: false, isError: false, isFetching: fixture.fetching}), useContributionItem: () => ({})}));
 vi.mock("@/queries/accounts", () => ({useAccounts: () => ({data: []})}));
@@ -27,7 +27,7 @@ function RealContribution() {
 beforeEach(() => {
   useAnalysisStore.getState().reset(); fixture.fetching = false; vi.clearAllMocks();
   api.Status.mockResolvedValue({epoch: "host", revision: 1, available: true, config: {enabled: true, model: "mock"}});
-  api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id: "lease"}); api.GrantNavigation.mockResolvedValue(undefined);
+  api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id: "lease"});
   api.List.mockResolvedValue([{id: "conversation", runCount: 1}]);
   api.Inspect.mockResolvedValue({id: "conversation", runs: [{id: "run", state: "succeeded", text: "Synthetic prior answer", prompt: "Earlier", created: "2026-11-05T00:00:00Z", model: "mock"}], runCount: 1, offset: 0});
 });
@@ -64,8 +64,7 @@ it.each([...changes, ["contribution-loading", "true"]] as const)("blocks a grant
   render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="return-analysis:" blocked={() => false} onNavigate={navigate}><RealContribution /><ModelConversation /></AssistantPageProvider></QueryClientProvider>);
   const user = userEvent.setup(); await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open overview");
-  await user.click(screen.getByText("Page navigation"));
-  await user.click(screen.getByRole("button", {name: "Send and allow one page change"}));
+  await user.click(screen.getByRole("button", {name: "Send to model"}));
   await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
   if (id === "contribution-loading") {
     act(() => { fixture.fetching = true; useAnalysisStore.getState().setReturnView({cursor: "2026-10"}); });

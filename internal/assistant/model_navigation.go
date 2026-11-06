@@ -9,9 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// Navigation grants are ephemeral desktop host state. Neither native model
-// history nor a client page selector can mint a grant. Each explicit grant is
-// bound to one not-yet-started request, config revision and current page lease.
+// Navigation uses ephemeral host leases. Persisted history cannot restore them.
 type ModelNavigationTarget struct {
 	Trend     *ReturnTrendAction `json:"trend,omitempty"`
 	Tab       string             `json:"tab,omitempty"`
@@ -69,7 +67,7 @@ func (t ModelNavigationTarget) Valid() bool {
 		return false
 	}
 	switch t.Kind {
-	case "overview", "accounts":
+	case "overview", "accounts", "historical-overview", "asset-changes", "history", "portfolio", "available-funds", "tasks", "directory", "market-data", "data-health", "settings":
 		return t.AccountID == ""
 	case "account":
 		return canonicalID(t.AccountID)
@@ -115,7 +113,6 @@ func (r *Runtime) navigationNow() time.Time {
 func (r *Runtime) clearNavigation() {
 	r.navigationGeneration++
 	r.pageLease = nil
-	r.navigationGrants = nil
 	r.navigationIntents = nil
 }
 func (r *Runtime) currentLease(id string) bool {
@@ -138,43 +135,20 @@ func (r *Runtime) PublishPage(ctx context.Context, epoch string, revision uint64
 	r.pageLease = &lease
 	return lease, nil
 }
-func (r *Runtime) GrantNavigation(ctx context.Context, epoch string, revision uint64, conversationID, requestID, leaseID string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if err := r.valid(ctx, epoch); err != nil {
-		return err
-	}
-	if revision != r.state.Revision || !r.currentLease(leaseID) || !canonicalID(requestID) || r.options.NavigationValidator == nil {
-		return ErrStale
-	}
-	c := r.find(conversationID)
-	if c == nil || r.active[conversationID] != nil {
-		return ErrConflict
-	}
-	for _, item := range c.Runs {
-		if item.Run.RequestID == requestID {
-			return ErrConflict
-		}
-	}
-	// One outstanding explicit intent per page; a newer authorization revokes it.
-	r.navigationGeneration++
-	r.navigationIntents = nil
-	r.navigationGrants = map[string]modelNavigationGrant{requestID: {lease: *r.pageLease, conversationID: conversationID, requestID: requestID, generation: r.navigationGeneration}}
-	return nil
-}
+
+// A current desktop observation admits navigation automatically. This lease is
+// freshness metadata, not user approval; financial permissions remain separate.
 func (r *Runtime) grantForStart(q StartRequest) (modelNavigationGrant, error) {
-	if q.PageLeaseID != "" && (!r.currentLease(q.PageLeaseID) || r.pageLease.Page != q.Page) {
-		return modelNavigationGrant{}, ErrStale
-	}
-	grant, ok := r.navigationGrants[q.RequestID]
-	if !ok {
+	if q.PageLeaseID == "" {
 		return modelNavigationGrant{}, nil
 	}
-	delete(r.navigationGrants, q.RequestID)
-	if grant.generation != r.navigationGeneration || grant.conversationID != q.ConversationID || grant.lease.ID != q.PageLeaseID || !r.currentLease(grant.lease.ID) {
-		return modelNavigationGrant{}, ErrStale
+	// Publication can race Start even after the frontend checks its observation.
+	// Drop optional navigation authority, not the conversation. Runtime epoch and
+	// configuration admission are still checked independently by Start.
+	if !r.currentLease(q.PageLeaseID) || r.pageLease.Page != q.Page {
+		return modelNavigationGrant{}, nil
 	}
-	return grant, nil
+	return modelNavigationGrant{lease: *r.pageLease, conversationID: q.ConversationID, requestID: q.RequestID, generation: r.navigationGeneration}, nil
 }
 func (r *Runtime) offerNavigation(ctx context.Context, id, runID string, result Completion) {
 	grant, ok := ctx.Value(modelNavigationGrantKey{}).(modelNavigationGrant)

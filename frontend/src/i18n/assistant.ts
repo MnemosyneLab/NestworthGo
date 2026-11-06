@@ -44,12 +44,7 @@ export const assistantEn = {
     jumpLatest: "Latest messages",
     placeholder: "Ask a question…",
     readOnly: "Read-only",
-    navigationOptions: "Page navigation",
 
-    sendNavigate: "Send and allow one page change",
-    navigationHelp: "Allow one page change with this message.",
-    navigationPending:
-      "One page change authorized for this message; waiting for a successful reply.",
     navigationOpened: "The requested page was opened.",
     navigationUnverified: "The page may have changed, but the requested trend and filters could not be verified. Check the page before retrying.",
     navigationStopped:
@@ -187,7 +182,7 @@ export const assistantEn = {
     responseDiagnostic: "Diagnostic: {{code}}. Include this code and the app version when reporting the failure.",
     providerResponseRejected: "The provider response was incomplete or unsupported. No new model history was saved. Try a new request; if it repeats, report this diagnostic with the app version.",
     modelHistoryRejected: "Saved model history could not be reused. Start a new conversation; existing displayed messages remain available.",
-    toolResultRejected: "A local read result could not be used. Try a narrower financial question; if it repeats, report this diagnostic with the app version.",
+    toolResultRejected: "A local tool operation failed. Check its result before retrying; an uncertain write must not be repeated.",
     runBudgetExceeded: "The run reached a resource limit. Start a new conversation or ask a narrower question.",
     budgetModelRounds: "The request reached the model round limit. Ask a narrower question; the previous successful conversation is preserved.",
     budgetToolCalls: "The request reached the tool call limit. Ask about fewer accounts or a shorter period; the previous successful conversation is preserved.",
@@ -346,11 +341,7 @@ export const assistantZhCN = {
     jumpLatest: "最新消息",
     placeholder: "问点什么…",
     readOnly: "只读",
-    navigationOptions: "页面跳转",
 
-    sendNavigate: "发送并允许一次页面跳转",
-    navigationHelp: "允许本条消息切换一次页面。",
-    navigationPending: "已为本条消息授权一次跳转，正在等待成功回复。",
     navigationOpened: "已打开请求的页面。",
     navigationUnverified: "页面可能已变化，但未能验证请求的收益趋势和筛选。请检查页面后再重试。",
     navigationStopped:
@@ -486,7 +477,7 @@ export const assistantZhCN = {
     responseDiagnostic: "诊断：{{code}}。反馈问题时请附上此代码和应用版本。",
     providerResponseRejected: "模型响应不完整或包含不支持的内容，未保存新的模型历史。请发送新请求；若反复出现，请反馈此诊断与应用版本。",
     modelHistoryRejected: "已保存的模型历史无法继续使用。请新建对话；已有显示消息仍可查看。",
-    toolResultRejected: "本地读取结果无法使用。请缩小财务问题范围；若反复出现，请反馈此诊断与应用版本。",
+    toolResultRejected: "本地工具操作失败。请先检查操作结果；结果不确定时不要重复提交写入。",
     runBudgetExceeded: "运行达到资源限制，请新建对话或缩小问题范围。",
     budgetModelRounds: "本次请求达到模型轮次上限。请缩小问题范围；此前成功的对话记录已保留。",
     budgetToolCalls: "本次请求达到工具调用次数上限。请减少账户或缩短时间范围；此前成功的对话记录已保留。",
@@ -632,11 +623,7 @@ export const assistantZhTW = {
     jumpLatest: "最新訊息",
     placeholder: "問點什麼…",
     readOnly: "唯讀",
-    navigationOptions: "頁面導覽",
 
-    sendNavigate: "傳送並允許一次頁面跳轉",
-    navigationHelp: "允許本則訊息切換一次頁面。",
-    navigationPending: "已為本則訊息授權一次跳轉，正在等待成功回覆。",
     navigationOpened: "已開啟請求的頁面。",
     navigationUnverified: "頁面可能已變更，但未能驗證請求的收益趨勢和篩選。請檢查頁面後再重試。",
     navigationStopped:
@@ -772,7 +759,7 @@ export const assistantZhTW = {
     responseDiagnostic: "診斷：{{code}}。回報問題時請附上此代碼和應用程式版本。",
     providerResponseRejected: "模型回應不完整或包含不支援的內容，未儲存新的模型歷史。請傳送新請求；若反覆出現，請回報此診斷與應用程式版本。",
     modelHistoryRejected: "已儲存的模型歷史無法繼續使用。請建立新對話；現有顯示訊息仍可查看。",
-    toolResultRejected: "本機讀取結果無法使用。請縮小財務問題範圍；若反覆出現，請回報此診斷與應用程式版本。",
+    toolResultRejected: "本機工具操作失敗。請先檢查操作結果；結果不確定時不要重複提交寫入。",
     runBudgetExceeded: "執行達到資源限制，請建立新對話或縮小問題範圍。",
     budgetModelRounds: "本次請求達到模型輪次上限。請縮小問題範圍；此前成功的對話記錄已保留。",
     budgetToolCalls: "本次請求達到工具呼叫次數上限。請減少帳戶或縮短時間範圍；此前成功的對話記錄已保留。",
