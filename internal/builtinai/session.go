@@ -28,6 +28,7 @@ type Session struct {
 	navigationUsed    bool
 	mu                sync.Mutex
 	evidence          []assistant.ReadEvidence
+	readsInFlight     int
 	shared            Capabilities
 	page              assistant.PageSelection
 }
@@ -142,6 +143,11 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 		if s.pageReader == nil {
 			return nil, assistant.ErrUnavailable
 		}
+		release, err := s.reserveRead()
+		if err != nil {
+			return nil, err
+		}
+		defer release()
 		raw, err := s.pageReader(ctx, args)
 		if err != nil {
 			return nil, err
@@ -170,6 +176,13 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 			definition, err := s.fullCapabilityDefinition(name)
 			if err != nil {
 				return nil, err
+			}
+			if definition.Effect == agentcapability.Read || definition.Effect == agentcapability.Analysis {
+				release, err := s.reserveRead()
+				if err != nil {
+					return nil, err
+				}
+				defer release()
 			}
 			captured := time.Now().UTC()
 			raw, err := jsoncodec.Marshal(assistant.FullCapabilityRequest{Name: name, Arguments: args})
@@ -231,6 +244,11 @@ func (s *Session) Evidence() []assistant.ReadEvidence {
 	return append([]assistant.ReadEvidence(nil), s.evidence...)
 }
 func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
+	release, err := s.reserveRead()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	captured := time.Now().UTC()
 	if name == "compare_financial_attribution" {
 		ctx = application.WithReadOnlyFinancialAttribution(ctx)
@@ -314,4 +332,16 @@ func (s *Session) fullCapabilityDefinition(name string) (agentcapability.Definit
 		}
 	}
 	return agentcapability.Definition{}, assistant.ErrUnavailable
+}
+
+// Reserve evidence capacity before a provider read or projection-maintaining
+// analysis executes. Failed reads release the reservation without adding evidence.
+func (s *Session) reserveRead() (func(), error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.evidence)+s.readsInFlight >= 16 {
+		return nil, assistant.BudgetFailure("read_evidence")
+	}
+	s.readsInFlight++
+	return func() { s.mu.Lock(); s.readsInFlight--; s.mu.Unlock() }, nil
 }

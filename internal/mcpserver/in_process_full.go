@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
@@ -68,8 +69,9 @@ func (s *InProcessSession) ValidateFull(name string, args json.RawMessage) error
 	return s.fullTools().ValidateArguments(name, args)
 }
 
-// This marker is emitted only before the registry is entered. It must never be
-// inferred merely from cancellation or a missing operation receipt.
+// This marker proves that the current attempt did not enter business mutation.
+// It is emitted before registry dispatch or by explicit shared route rejection,
+// never inferred merely from cancellation, error codes or a missing receipt.
 type unsubmittedCapability struct{ error }
 
 func (e unsubmittedCapability) Unwrap() error     { return e.error }
@@ -89,4 +91,12 @@ func (s *InProcessSession) FullDefinition(name string) (agentcapability.Definiti
 func (s *InProcessSession) fullTools() *agentcapability.Registry {
 	s.fullOnce.Do(func() { s.fullRegistry = s.service.buildToolSetWithPolicy(s.service.config.Mode, false, true).Registry })
 	return s.fullRegistry
+}
+
+func capabilityError(err error) error {
+	var unsubmitted unsubmittedCapability
+	if errors.As(err, &unsubmitted) {
+		return unsubmitted
+	}
+	return safeError(err)
 }

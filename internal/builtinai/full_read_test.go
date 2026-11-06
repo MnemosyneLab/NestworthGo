@@ -88,7 +88,9 @@ func TestFullReadPostprocessingUsesTrustedEffectAndPreservesBounds(t *testing.T)
 			accountID := uuid.NewString()
 			output := json.RawMessage(`{"data":{"section":"accounts","items":[{"id":"` + accountID + `","name":"Synthetic"}],"hasMore":true,"missingInputs":["synthetic"]}}`)
 			fail := true
+			calls := 0
 			s := New(fullReadInventory{agentcapability.Definition{Name: "synthetic_capability", Effect: effect}}, assistant.PageSelection{}, true).WithFullAccess(func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				calls++
 				if fail {
 					return nil, assistant.ErrUnavailable
 				}
@@ -123,9 +125,79 @@ func TestFullReadPostprocessingUsesTrustedEffectAndPreservesBounds(t *testing.T)
 			if _, err := s.Call(t.Context(), "synthetic_capability", []byte(`{}`)); assistant.NormalizeBudgetFailure(err) == nil {
 				t.Fatalf("read evidence budget lost: %v", err)
 			}
+			if calls != 17 {
+				t.Fatalf("over-budget read executed: calls=%d", calls)
+			}
 			if len(s.Evidence()) != 16 {
 				t.Fatal("evidence exceeded bound")
 			}
 		})
+	}
+}
+
+func TestFullReadReservesCapacityForConcurrentAnalysis(t *testing.T) {
+	entered, finish := make(chan struct{}), make(chan struct{})
+	calls := 0
+	s := New(fullReadInventory{agentcapability.Definition{Name: "analyze_period", Effect: agentcapability.Analysis}}, assistant.PageSelection{}).WithFullAccess(func(context.Context, json.RawMessage) (json.RawMessage, error) {
+		calls++
+		if calls == 16 {
+			close(entered)
+			<-finish
+		}
+		return []byte(`{"data":{}}`), nil
+	})
+	for range 15 {
+		if _, err := s.Call(t.Context(), "analyze_period", []byte(`{}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	done := make(chan error, 1)
+	go func() { _, err := s.Call(t.Context(), "analyze_period", []byte(`{}`)); done <- err }()
+	<-entered
+	_, err := s.Call(t.Context(), "analyze_period", []byte(`{}`))
+	close(finish)
+	if assistant.NormalizeBudgetFailure(err) == nil {
+		t.Fatalf("concurrent capacity not reserved: %v", err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if calls != 16 || len(s.Evidence()) != 16 {
+		t.Fatalf("unexpected executions/evidence: %d/%d", calls, len(s.Evidence()))
+	}
+}
+
+type countedReadInventory struct {
+	fullReadInventory
+	calls int
+}
+
+func (s *countedReadInventory) Call(context.Context, string, json.RawMessage) (json.RawMessage, error) {
+	s.calls++
+	return []byte(`{"data":{}}`), nil
+}
+func TestReadOnlyAndPageReadBudgetRejectBeforeDispatch(t *testing.T) {
+	for _, page := range []bool{false, true} {
+		shared := &countedReadInventory{}
+		s := New(shared, assistant.PageSelection{})
+		name := "list_accounts"
+		if page {
+			name = "read_page_content"
+			s.WithPageReader(func(context.Context, json.RawMessage) (json.RawMessage, error) {
+				shared.calls++
+				return []byte(`{"complete":true}`), nil
+			})
+		}
+		for range 16 {
+			if _, err := s.Call(t.Context(), name, []byte(`{}`)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := s.Call(t.Context(), name, []byte(`{}`)); assistant.NormalizeBudgetFailure(err) == nil {
+			t.Fatal("budget not enforced", err)
+		}
+		if shared.calls != 16 {
+			t.Fatalf("over-budget execution: %d", shared.calls)
+		}
 	}
 }

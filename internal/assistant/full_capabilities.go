@@ -22,7 +22,13 @@ type FullCapabilitySession interface {
 	InspectCapability(context.Context, string, string) (ChangeReview, error)
 }
 
-func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string, revision uint64, q FullCapabilityRequest) (json.RawMessage, error) {
+func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string, revision uint64, q FullCapabilityRequest) (output json.RawMessage, failure error) {
+	dispatched := false
+	defer func() {
+		if failure != nil && !dispatched {
+			failure = unsubmittedFullCapability{failure}
+		}
+	}()
 	if len(q.Arguments) > 64<<10 {
 		return nil, ErrUnavailable
 	}
@@ -91,6 +97,7 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 		defer func() { r.mu.Lock(); delete(r.reviewBusy, id); r.mu.Unlock() }()
 	}
 	// Revocation fences this acquired session, including queued domain writes.
+	dispatched = true
 	result, callErr := s.CallCapability(ctx, q.Name, q.Arguments)
 	if writing {
 		// Inspection is read-only and uses the original identity even after cancellation.
@@ -116,3 +123,10 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 	}
 	return result, callErr
 }
+
+// Runtime preflight performs no business dispatch. The marker describes only
+// this attempt; it does not resolve an older operation's uncertain receipt.
+type unsubmittedFullCapability struct{ error }
+
+func (e unsubmittedFullCapability) Unwrap() error     { return e.error }
+func (unsubmittedFullCapability) NotDispatched() bool { return true }

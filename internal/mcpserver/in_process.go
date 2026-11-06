@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -169,6 +170,10 @@ func (s *InProcessSession) callObserved(ctx context.Context, name string, argume
 	}
 	result, err := registry.Call(callContext, name, arguments)
 	if err != nil {
+		var unsubmitted unsubmittedCapability
+		if errors.As(err, &unsubmitted) {
+			return nil, unsubmitted
+		}
 		if callContext.Err() != nil {
 			if d.Effect == agentcapability.Write {
 				return nil, fail("operation_outcome_unknown", "request cancelled during a write; inspect the original operation receipt")

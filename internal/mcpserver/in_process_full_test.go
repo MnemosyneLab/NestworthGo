@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -118,5 +119,36 @@ func TestFullCancellationBeforeDispatchIsExplicitlyUnsubmitted(t *testing.T) {
 	var marker interface{ NotDispatched() bool }
 	if !errors.As(err, &marker) || !marker.NotDispatched() {
 		t.Fatalf("missing pre-dispatch evidence: %v", err)
+	}
+}
+
+func TestFullCommitRouteRejectsOnlyProvenUnsubmittedPlans(t *testing.T) {
+	s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+	unsupported := uuid.NewString()
+	if err := s.service.writePrivate(filepath.Join(s.service.dir, "plans", unsupported+".json"), map[string]string{"type": "not_a_commit_plan"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		plan        string
+		unsubmitted bool
+		code        string
+	}{
+		{"invalid-plan", true, "validation"}, {unsupported, true, "validation"}, {uuid.NewString(), false, "operation_outcome_unknown"},
+	} {
+		operation := uuid.NewString()
+		args := []byte(`{"operationId":"` + operation + `","input":{"planId":"` + tc.plan + `"}}`)
+		if err := s.ValidateFull("commit_plan", args); err != nil {
+			t.Fatal("fixture must pass schema validation", err)
+		}
+		_, err := s.CallFull(t.Context(), "commit_plan", args)
+		requireLocalError(t, err, tc.code)
+		var marker interface{ NotDispatched() bool }
+		proven := errors.As(err, &marker) && marker.NotDispatched()
+		if proven != tc.unsubmitted {
+			t.Fatalf("plan %s: incorrect dispatch inference: %v", tc.plan, err)
+		}
+		if _, err := s.InspectFullOperation(operation); err == nil {
+			t.Fatal("route rejection wrote an operation receipt")
+		}
 	}
 }

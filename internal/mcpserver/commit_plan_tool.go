@@ -97,7 +97,7 @@ func (s *Service) commitPlanTool(server *toolSet) {
 		}
 		route, err := s.resolveCommitPlanRoute(ctx, operationID, in.Input.PlanID)
 		if err != nil {
-			return Response{}, safeError(err)
+			return Response{}, capabilityError(err)
 		}
 		value, err := s.executeWithRecovery(ctx, operationID, route.receiptTool, in.Input, route.recoverable, func(ctx context.Context) (any, error) { return route.run(s, ctx, in.Input) })
 		if err != nil {
@@ -117,7 +117,7 @@ func (s *Service) commitPlanTool(server *toolSet) {
 func (s *Service) resolveCommitPlanRoute(ctx context.Context, operationID, planID string) (commitPlanRoute, error) {
 	id, err := uuid.Parse(planID)
 	if err != nil {
-		return commitPlanRoute{}, fail("validation", "planId must be a UUID returned by a preview tool")
+		return commitPlanRoute{}, unsubmittedCapability{fail("validation", "planId must be a UUID returned by a preview tool")}
 	}
 	raw, err := s.readPrivate(filepath.Join(s.dir, "plans", id.String()+".json"))
 	if err == nil {
@@ -132,7 +132,7 @@ func (s *Service) resolveCommitPlanRoute(ctx context.Context, operationID, planI
 		}
 		route, ok := commitPlanRoutes[header.Type]
 		if !ok {
-			return commitPlanRoute{}, fail("validation", "planId does not reference a committable preview plan")
+			return commitPlanRoute{}, unsubmittedCapability{fail("validation", "planId does not reference a committable preview plan")}
 		}
 		return route, nil
 	}

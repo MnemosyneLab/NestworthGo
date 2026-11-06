@@ -88,7 +88,7 @@ explicit operation UUID as MCP. The original session/run/revision is checked;
 revocation fences the acquired session, including writes queued on application
 authority. Concurrent write callbacks in one conversation are serialized.
 
-A cancellation proven to precede registry dispatch is recorded as unsubmitted; cancellation alone never proves rollback. Unknown or missing receipts after possible dispatch leave an unresolved reference that blocks subsequent
+An attempt proven to precede business dispatch is recorded as unsubmitted; cancellation alone never proves rollback. The shared commit-plan router marks malformed plan IDs and known noncommittable plan types as definite rejections. Missing valid plans retain unknown-outcome semantics. Runtime argument/permission preflight rejections report write_not_submitted rather than implying an unknown new write. Unknown or missing receipts after possible dispatch leave an unresolved reference that blocks subsequent
 writes, deletion, retention and navigation in that conversation. Inspection,
 polling, reconnect and restart never dispatch a mutation. Generic Full records
 cannot be confirmed, cancelled or repreviewed through human review actions.
@@ -102,7 +102,7 @@ plus source-attributed operation status. Unknown tool display names use readable
 words derived from the registry name. Successful inspected writes invalidate
 business queries. The existing 128-tool inventory, 64 KiB input/output, 16-call
 and model/history budgets remain; larger workflows must use existing MCP paging
-and batch limits. Full does not expand those budgets.
+and batch limits. Full does not expand those budgets. Evidence capacity is reserved before read, page-content or analysis execution, including concurrent calls; failed reads release their reservation without adding evidence.
 
 Business receipts remain in the private household/conversation capability
 namespace; deleting chat does not delete receipts or reverse financial activity.

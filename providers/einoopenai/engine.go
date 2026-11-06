@@ -280,6 +280,10 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if errors.Is(err, errCapabilityRefused) {
 				status = "refused"
 			}
+			if errors.Is(err, errCapabilityWriteRejected) {
+				status = "refused"
+				result = `{"error":{"code":"write_not_submitted","recovery":"This attempt was rejected before business dispatch. Review the arguments and permission before a new request. This does not resolve an older operation's uncertain receipt."}}`
+			}
 			if errors.Is(err, errCapabilityWriteRefused) {
 				result = `{"error":{"code":"write_requires_inspection","recovery":"Inspect the original operation receipt. This failure is not evidence of rollback. Do not retry, create another operation identity or prepare a replacement mutation."}}`
 				// Stop this turn: subsequent model calls must not reconstruct a mutation

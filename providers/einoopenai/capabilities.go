@@ -81,6 +81,8 @@ func sameSchemaJSON(a, b []byte) bool {
 	return errA == nil && errB == nil && reflect.DeepEqual(x, y)
 }
 
+var errCapabilityWriteRejected = errors.New("local write rejected before dispatch")
+
 var errCapabilityWriteRefused = errors.New("local write outcome requires inspection")
 
 var errCapabilityRefused = errors.New("local capability request refused")
@@ -107,6 +109,9 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		return "", errors.New("local capability request cancelled")
 	}
 	if len(arguments) > 64<<10 {
+		if t.writing {
+			return "", errCapabilityWriteRejected
+		}
 		return "", errors.New("local capability arguments exceed budget")
 	}
 	result, err := t.session.Call(ctx, t.name, json.RawMessage(arguments))
@@ -117,6 +122,10 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		// Do not reflect submitted content or arbitrary implementation errors
 		// into model history. Application-facing errors belong to the host.
 		if t.writing {
+			var unsubmitted interface{ NotDispatched() bool }
+			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
+				return "", errCapabilityWriteRejected
+			}
 			return "", errCapabilityWriteRefused
 		}
 		return "", errCapabilityRefused

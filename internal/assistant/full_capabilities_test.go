@@ -24,6 +24,7 @@ func (capabilityTestCredentials) With(_ context.Context, f func([]byte) error) e
 }
 
 type capabilityTestSession struct {
+	preflightError error
 	ReviewSession
 	id     string
 	state  string
@@ -35,6 +36,9 @@ func (s *capabilityTestSession) AcquireReview(context.Context, string) (ReviewSe
 	return s, nil
 }
 func (s *capabilityTestSession) Capability(_ context.Context, name string, _ json.RawMessage) (agentcapability.Definition, string, error) {
+	if s.preflightError != nil {
+		return agentcapability.Definition{}, "", s.preflightError
+	}
 	effect := agentcapability.Write
 	if name == "get_operation" {
 		effect = agentcapability.Read
@@ -120,5 +124,18 @@ func TestSharedFullOnlyProvenUnsubmittedReleasesMissingReceipt(t *testing.T) {
 		if ref.Resolved != proven || ref.Unsubmitted != proven {
 			t.Fatalf("incorrect cancellation inference for %v: %+v", err, ref)
 		}
+	}
+}
+
+func TestSharedFullArgumentRejectionHasNoRecoveryFence(t *testing.T) {
+	s := &capabilityTestSession{id: uuid.NewString(), preflightError: agentcapability.ErrInvalidArguments}
+	r, id, run, store := capabilityRuntime(t, s)
+	_, err := r.executeCapability(t.Context(), r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "create_member", Arguments: []byte(`{}`)})
+	var marker interface{ NotDispatched() bool }
+	if !errors.As(err, &marker) || !marker.NotDispatched() {
+		t.Fatalf("preflight lacks submission proof: %v", err)
+	}
+	if s.calls != 0 || store.saves != 0 || len(r.find(id).Reviews) != 0 {
+		t.Fatal("argument rejection created an unresolved operation")
 	}
 }
