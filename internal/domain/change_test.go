@@ -446,3 +446,33 @@ func TestLiabilityPurchaseAndRefundKeepPositiveDebtAndEconomicClassification(t *
 		t.Fatal("purchase reduced debt")
 	}
 }
+
+func TestManualValueContributionsTransferWithoutExternalIncome(t *testing.T) {
+	for _, incoming := range []bool{true, false} {
+		t.Run(map[bool]string{true: "contribution", false: "withdrawal"}[incoming], func(t *testing.T) {
+			state, bank, _, _, _ := changeTestState(t)
+			pension := NewAccountID()
+			balance, _ := ParseMoney("1000", "CNY")
+			state.Accounts[pension] = ChangeAccountState{ID: pension, Name: "Synthetic pension", Currency: "CNY", Mode: TrackingManualValue, Current: balance}
+			from, to := bank, pension
+			wantFrom, wantTo := "9875", "1125"
+			if !incoming {
+				from, to = pension, bank
+				wantFrom, wantTo = "875", "10125"
+			}
+			amount, _ := ParseMoney("125", "CNY")
+			preview, err := PreviewChange(state, CashTransferInput{HouseholdID: state.HouseholdID, FromAccountID: from, ToAccountID: to, Sent: amount, Received: amount})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(preview.Effects) != 2 || preview.Resulting[0].Amount != wantFrom || preview.Resulting[1].Amount != wantTo {
+				t.Fatalf("transfer: %+v", preview)
+			}
+			for _, effect := range preview.Effects {
+				if effect.Classification != ClassificationInternalTransfer || effect.Target != EffectTargetAccountValue {
+					t.Fatalf("transfer misclassified as income/expense: %+v", effect)
+				}
+			}
+		})
+	}
+}
