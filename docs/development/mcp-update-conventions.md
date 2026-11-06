@@ -24,7 +24,8 @@ Directory name, icon and `archived` cannot be cleared. At least one of those
 fields is required. `archived: true` archives and `archived: false` restores.
 A household keeps at least one active member, and the only active owner of a
 live account cannot be archived. A rejected archive does not apply the other
-fields in that call.
+fields in that call. Name, icon, archive state and the update timestamp commit
+atomically; a SQL failure or cancellation before commit keeps every stored field.
 
 `update_account` clears `institutionId`, `groupId`, `note`, `iconKey`,
 `openedOn` and `closedOn` with null. A note has no distinct empty stored

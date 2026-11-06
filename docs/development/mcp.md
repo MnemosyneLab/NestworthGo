@@ -400,12 +400,19 @@ a Go pointer cannot tell omission from null.
 
 `update_member`, `update_institution` and `update_group` take `name`,
 `iconKey` and `archived`. At least one is required. Omitted fields are kept.
-Null is rejected for all three. `true` archives and `false` restores. Name
-and icon still apply in one statement. Empty name or icon is invalid. At
+Null is rejected for all three. `true` archives and `false` restores. Name,
+icon, archive state and the update timestamp apply atomically in one write. Empty name or icon is invalid. At
 least one active member must remain, and the only active owner of a live
 account cannot be archived. A rejected archive does not apply a name or icon
 sent in the same call. `archive_account` and `archive_instrument` are still
 separate tools. Archive keeps referenced history. Hard delete is not offered.
+
+SQLite failures and cancellation before commit retain the complete stored row.
+Directory writes retain conservative MCP receipts: mapped member constraints can
+be `failed`, while unexpected SQL/I/O failures remain `unknown`. A process exit
+after the directory commit can leave an unknown outer receipt with all fields
+saved. Restart and identical operation IDs never automatically replay it; the
+application write gate supplies serialization, not cross-statement atomicity.
 
 `update_account` keeps omitted fields. Null clears institution, group, note,
 icon, opened-on and closed-on. An empty string is rejected. Ownership is
