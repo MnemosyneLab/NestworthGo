@@ -86,7 +86,7 @@ schema and saves the operation identity in the conversation. `commit_plan` uses
 the shared deterministic identity when omitted. Other writers require the same
 explicit operation UUID as MCP. The original session/run/revision is checked;
 revocation fences the acquired session, including writes queued on application
-authority. Concurrent write callbacks in one conversation are serialized.
+authority. Concurrent write callbacks in one conversation are serialized. If the pre-dispatch reference save fails, the runtime closes and restores the exact prior in-memory references before normal run completion can persist them. This removes a proven never-dispatched attempt and preserves prior resolved retry metadata. If a save actually landed but the process dies before a successful repair save, the durable unresolved reference still remains conservatively fenced.
 
 An attempt proven to precede business dispatch is recorded as unsubmitted; cancellation alone never proves rollback. The shared commit-plan router marks malformed plan IDs and known noncommittable plan types as definite rejections. Missing valid plans retain unknown-outcome semantics. Runtime argument/permission preflight rejections report write_not_submitted rather than implying an unknown new write. Unknown or missing receipts after possible dispatch leave an unresolved reference that blocks subsequent
 writes, deletion, retention and navigation in that conversation. Inspection,

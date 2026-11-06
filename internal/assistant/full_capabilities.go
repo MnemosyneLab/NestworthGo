@@ -66,6 +66,7 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 			r.mu.Unlock()
 			return nil, ErrConflict
 		}
+		priorReviews := append([]ReviewRef(nil), c.Reviews...)
 		found := false
 		for i, ref := range c.Reviews {
 			if ref.ID == operationID {
@@ -87,6 +88,11 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 		r.clearNavigation()
 		err = r.persist()
 		if err != nil {
+			// CallCapability has not run. Restore the exact pre-admission references
+			// so a later successful finish save cannot create a permanently unknown
+			// attempt or erase a previous resolved receipt. A save-then-error followed
+			// by process death still leaves its durable reference conservatively fenced.
+			c.Reviews = priorReviews
 			delete(r.reviewBusy, id)
 			r.mu.Unlock()
 			return nil, err
