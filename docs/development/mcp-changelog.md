@@ -246,11 +246,11 @@ list path. `TestDiscoveryBudget` against the B2 sizes:
 Instructions stayed 2,373 bytes. Budgets were not raised. Name, annotation
 and schema hashes were unchanged. Both `structuredContent` and JSON text
 stayed on success results. C2 (folding drill-down into `get_read_item`) was
-closed as measure-only. D and E3 were deferred. See
+closed as measure-only. D and E3 were deferred at that point and landed later;
+see [Closed and open items in mcp.md](mcp.md#closed-and-open-items). See
 [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md),
-[mcp-wave2-c3-nav-entries.md](mcp-wave2-c3-nav-entries.md),
-[mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md) and
-[mcp-wave2-deferred.md](mcp-wave2-deferred.md).
+[mcp-wave2-c3-nav-entries.md](mcp-wave2-c3-nav-entries.md) and
+[mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md).
 
 ## C2 drill-down fold
 

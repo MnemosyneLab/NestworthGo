@@ -73,7 +73,7 @@ dropping either copy.
 
 Investment-review management writes are off unless the switch above is on.
 Patch updates share one omit/null rule. See
-[mcp-wave2-deferred.md](mcp-wave2-deferred.md) and
+[Investment review management](#investment-review-management) and
 [mcp-update-conventions.md](mcp-update-conventions.md).
 
 ## Connect
@@ -665,17 +665,36 @@ captures, five-minute TTL.
   sections on the parent capture. The three former drill-down tools are gone.
 - Snapshot and valuations are not merged.
 
-## Deferred
+## Closed and open items
 
-- D: done. Investment-review reads stay in every mode. The seven management
-  writes stay behind `ledger_write` and are hidden until
-  `investmentReviewManagement` is enabled. See Investment review management
-  above.
-- E3 is done: patch tools omit to keep and use null to clear. `<field>Set`
-  and `update_instrument` `replace` are gone.
-- C2: done. Contribution, return-day and asset-driver reads are
-  `get_read_item` sections. Return days stay off the marshaled capture.
-  See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+Closed:
+
+- Investment-review management exposure: the nine reads stay in every mode;
+  the seven management writes stay behind `ledger_write` and are hidden until
+  `investmentReviewManagement` is enabled. See
+  [Investment review management](#investment-review-management).
+- One PATCH rule: patch tools omit to keep and use null to clear. `<field>Set`
+  and `update_instrument` `replace` are gone. Review rules, liquidity saves and
+  product terms stay full replacements. Inventory in
+  [mcp-update-conventions.md](mcp-update-conventions.md).
+- Contribution, return-day and asset-driver reads are `get_read_item`
+  sections. Return days stay off the marshaled capture. See
+  [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+
+Open:
+
+- No native macOS verification of the MCP connection and a write flow under the
+  `com.nestworth.dev` identity. See [mcp-wave1-a-baseline.md](mcp-wave1-a-baseline.md).
+- No measurement with a real model host. Token and call-count figures come from
+  an in-process Go client and an external TypeScript client only.
+- CI phase timing was recorded for one cancelled run only.
+- `preview_product_operation` still has the largest input schema, and
+  `ledger_write` discovery is the largest of the three modes. See
+  [Discovery budgets](#discovery-budgets).
+- Member, institution and group still have separate create and update tools.
+  Merging by `kind` was judged low value and is not planned.
+- `skills/nestworth/SKILL.md` is close to its 900-word limit. Put new rules in
+  `references/`.
 
 ## Related documents
 
@@ -686,7 +705,6 @@ captures, five-minute TTL.
 - [financial-context.md](financial-context.md) — disclosure and hashes
 - [account-reconciliation.md](account-reconciliation.md) — session writes
 - [mcp-consolidation-design.md](mcp-consolidation-design.md) — Phase 3 design
-- [mcp-remaining-work.md](mcp-remaining-work.md) — stream split and deferred items
 
 Instrument PATCH clears are checked against the final domain-normalized
 configuration before persistence. Gold/silver template providerKey,
