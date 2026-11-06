@@ -128,15 +128,14 @@ type Event struct {
 	Code     string `json:"code,omitempty"`
 }
 type Snapshot struct {
-	Version         int         `json:"version"`
-	Epoch           string      `json:"epoch"`
-	Revision        uint64      `json:"revision"`
-	Config          ModelConfig `json:"config"`
-	Available       bool        `json:"available"`
-	Credentials     string      `json:"credentials"`
-	FullAccess      bool        `json:"fullAccess"`
-	FinancialWrites bool        `json:"financialWrites"` // explicit desktop permission; every change still requires review
-	Reason          string      `json:"reason"`
+	Version     int         `json:"version"`
+	Epoch       string      `json:"epoch"`
+	Revision    uint64      `json:"revision"`
+	Config      ModelConfig `json:"config"`
+	Available   bool        `json:"available"`
+	Credentials string      `json:"credentials"`
+	FullAccess  bool        `json:"fullAccess"`
+	Reason      string      `json:"reason"`
 }
 type Conversation struct {
 	Title       string                 `json:"title,omitempty"`
@@ -187,7 +186,6 @@ type Options struct {
 }
 type Runtime struct {
 	fullEnabled          bool
-	writeEnabled         bool
 	reviewBusy           map[string]bool
 	titles               map[string]context.CancelFunc
 	progress             map[string]*Progress
@@ -331,7 +329,7 @@ func (r *Runtime) Snapshot() Snapshot {
 			}
 		}
 	}
-	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, FullAccess: live && r.fullEnabled && r.state.Config.Enabled, FinancialWrites: live && r.writeEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
+	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, FullAccess: live && r.fullEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
 }
 func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, cfg ModelConfig) error {
 	r.mu.Lock()
@@ -389,7 +387,6 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}
-	r.writeEnabled = false
 	r.fullEnabled = false
 	r.state.Config = cfg
 	r.clearNavigation()
@@ -434,7 +431,6 @@ func (r *Runtime) SetCredential(ctx context.Context, epoch string, key []byte) e
 	if r.options.Credentials.Put(ctx, key) != nil {
 		return ErrUnavailable
 	}
-	r.writeEnabled = false
 	r.fullEnabled = false
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
@@ -456,7 +452,6 @@ func (r *Runtime) DeleteCredential(ctx context.Context, epoch string) error {
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}
-	r.writeEnabled = false
 	r.fullEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()
@@ -690,13 +685,8 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	runCtx, cancel := context.WithTimeout(context.WithValue(r.ctx, pageSelectionKey{}, q.Page), r.options.Timeout)
 	runCtx = context.WithValue(runCtx, runWriteFenceKey{}, &runWriteFence{})
 	if r.fullEnabled && r.options.Reviews != nil {
-		runCtx = context.WithValue(runCtx, fullKey{}, ProposalHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+		runCtx = context.WithValue(runCtx, fullKey{}, ToolHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 			return r.executeFull(context.WithValue(ctx, runWriteFenceKey{}, runCtx.Value(runWriteFenceKey{})), q.Epoch, c.ID, run.ID, q.Revision, raw)
-		}))
-	}
-	if r.writeEnabled && !r.fullEnabled && r.options.Reviews != nil {
-		runCtx = context.WithValue(runCtx, proposalKey{}, ProposalHandler(func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
-			return r.propose(ctx, q.Epoch, c.ID, run.ID, q.Revision, raw)
 		}))
 	}
 	runCtx = context.WithValue(runCtx, pageContentKey{}, r.pageReader(runCtx, q.Revision))
@@ -879,7 +869,6 @@ func (r *Runtime) FenceForRestore() error {
 		clear(r.state.Conversations[i].History)
 	}
 	r.state.Conversations = []ConversationState{}
-	r.writeEnabled = false
 	r.fullEnabled = false
 	r.state.Config.Enabled = false
 	r.clearNavigation()

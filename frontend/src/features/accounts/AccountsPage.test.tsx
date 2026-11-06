@@ -712,7 +712,10 @@ describe("AccountsPage", () => {
     renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
     const detail = within(await screen.findByTestId("account-detail"));
     expect(detail.getByText(i18n.t(translationKey))).toBeInTheDocument();
-    if (archived) expect(detail.getByText(i18n.t("accounts.archivedReadOnly"))).toBeInTheDocument();
+    if (archived) {
+      expect(detail.getByText(i18n.t("accounts.archivedReadOnly"))).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: i18n.t("history.recordTitle") })).not.toBeInTheDocument();
+    }
   });
 
   it("shows cash, holdings, and completeness on a composite account", async () => {
@@ -1877,7 +1880,7 @@ it("keeps a priced holding's native amount visible when household FX is missing"
 });
 
 
-it.each(["deposit", "simple"])("retains ordinary account %s submission through child replacement and read failure", async entry => {
+it.each(["deposit", "simple", "record"])("retains ordinary account %s submission through child replacement and read failure", async entry => {
   historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
   listAccounts.mockResolvedValue([entry === "deposit" ? brokerageAccount : emptyAccount]);
   previewChange.mockResolvedValue({ resulting: [{ name: "Synthetic account", amount: "1125", currency: "USD" }] });
@@ -1885,9 +1888,9 @@ it.each(["deposit", "simple"])("retains ordinary account %s submission through c
   recordChange.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; })).mockResolvedValue({});
   const { queryClient } = renderPage();
   await userEvent.click(await screen.findByRole("button", { name: entry === "deposit" ? /MooMoo/ : /Checking.*Bank account/ }));
-  await userEvent.click(await screen.findByRole("button", { name: entry === "deposit" ? "Deposit or withdraw" : "Update balance" }));
+  await userEvent.click(await screen.findByRole("button", { name: entry === "record" ? "Record a change" : entry === "deposit" ? "Deposit or withdraw" : "Update balance" }));
   const form = await screen.findByRole("form", { name: "Record change" });
-  const amount = within(form).getByLabelText(entry === "deposit" ? "Amount" : "New value");
+  const amount = within(form).getByLabelText(entry === "simple" ? "New value" : "Amount");
   await userEvent.click(amount); await userEvent.keyboard("{Control>}a{/Control}1125");
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
   await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
@@ -2008,4 +2011,137 @@ it.each(["before-consume", "during-consume", "unchanged"])("fences real Accounts
  if(phase==="before-consume") expect(aiAPI.ConsumeNavigation).not.toHaveBeenCalled();
  expect(aiAPI.GrantNavigation).toHaveBeenCalledTimes(1);
  expect(createAccount).not.toHaveBeenCalled(); expect(updateAccount).not.toHaveBeenCalled();
+});
+
+// All 25 legal combinations from internal/domain/account_type.go.
+const accountActionMatrix = [
+  ...["cash_on_hand", "bank_account", "digital_wallet", "receivable", "other"].map(accountType => ({ accountType, trackingMode: "balance", balanceSheetRole: "asset" })),
+  ...["cash_on_hand", "bank_account", "brokerage", "investment_account", "crypto_exchange", "digital_wallet", "pension", "other"].map(accountType => ({ accountType, trackingMode: "holdings", balanceSheetRole: "asset" })),
+  ...["brokerage", "investment_account", "pension", "insurance_policy", "property", "vehicle", "collectible", "receivable", "other"].map(accountType => ({ accountType, trackingMode: "manual_value", balanceSheetRole: "asset" })),
+  ...["credit_card", "loan", "other"].map(accountType => ({ accountType, trackingMode: "balance", balanceSheetRole: "liability" })),
+];
+
+it.each(accountActionMatrix)("offers supported recording choices for $accountType / $trackingMode / $balanceSheetRole", async combination => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ ...emptyAccount, account: { ...emptyAccount.account, ...combination } }]);
+  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+  const entry = await screen.findByRole("button", { name: i18n.t("history.recordTitle") });
+  entry.focus();
+  await userEvent.keyboard("{Enter}");
+  const form = await screen.findByRole("form", { name: i18n.t("history.formLabel") });
+  await within(form).findByText(/Checking/);
+  const kinds = within(within(form).getByRole("radiogroup", { name: i18n.t("history.changeType") }));
+  const investment = combination.trackingMode === "holdings" && combination.accountType !== "cash_on_hand";
+  const liability = combination.balanceSheetRole === "liability";
+  const expected = [
+    liability ? combination.accountType === "credit_card" ? "reconciliation.cardPurchase" : "reconciliation.debtIncrease" : "history.kind.money_added",
+    liability ? combination.accountType === "credit_card" ? "reconciliation.cardRefund" : "reconciliation.debtDecrease" : "history.kind.money_removed",
+    ...(investment ? ["history.kind.cash_dividend", "history.kind.position_transfer", "history.kind.position_adjustment", "history.kind.trade"] : []),
+    ...(!liability ? ["history.kind.cash_transfer"] : []),
+    ...(!liability && combination.trackingMode !== "manual_value" ? ["history.kind.debt_draw", "history.kind.debt_payment"] : []),
+    ...(liability ? ["history.kind.debt_draw", "history.kind.debt_payment"] : []),
+    ...(combination.trackingMode === "holdings" ? ["history.kind.fx_conversion"] : [liability ? "reconciliation.cardBalanceCorrection" : "history.kind.value_update"]),
+  ].map(key => i18n.t(key));
+  expect(kinds.getAllByRole("radio").map(radio => radio.textContent)).toEqual(expect.arrayContaining(expected));
+  expect(kinds.getAllByRole("radio")).toHaveLength(expected.length);
+  if (liability && combination.accountType !== "credit_card") expect(kinds.getByRole("radio", { name: i18n.t("history.kind.debt_draw") })).toHaveAttribute("aria-checked", "true");
+  expect(within(form).queryByLabelText(i18n.t("history.accountSelect"))).not.toBeInTheDocument();
+});
+
+it.each(["en", "zh-CN", "zh-TW"])("records card purchase, refund and principal payment in %s", async language => {
+  await i18n.changeLanguage(language);
+  try {
+    historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+    const card = { ...emptyAccount, account: { ...emptyAccount.account, accountType: "credit_card", balanceSheetRole: "liability" } };
+    const bank = { ...emptyAccount, account: { ...emptyAccount.account, id: "bank", name: "Synthetic bank" } };
+    listAccounts.mockResolvedValue([card, bank]);
+    previewChange.mockResolvedValue({ resulting: [] });
+    recordChange.mockResolvedValue({});
+    const { queryClient } = renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    for (const [kind, reason] of [["money_added", "card_purchase"], ["money_removed", "card_refund"], ["debt_payment", "other"]]) {
+      await userEvent.click(await screen.findByRole("button", { name: i18n.t("history.recordTitle") }));
+      const form = await screen.findByRole("form", { name: i18n.t("history.formLabel") });
+      if (kind !== "money_added") await userEvent.click(await within(form).findByRole("radio", { name: i18n.t(kind === "money_removed" ? "reconciliation.cardRefund" : "history.kind.debt_payment") }));
+      if (kind === "debt_payment") await userEvent.selectOptions(within(form).getByLabelText(i18n.t("history.cashAccount")), "bank");
+      await userEvent.type(within(form).getByLabelText(i18n.t(kind === "debt_payment" ? "history.principal" : "history.amount")), "20");
+      await userEvent.click(within(form).getByRole("button", { name: i18n.t("common.preview") }));
+      await userEvent.click(await within(form).findByRole("button", { name: i18n.t("common.confirm") }));
+      await waitFor(() => expect(screen.queryByRole("form", { name: i18n.t("history.formLabel") })).not.toBeInTheDocument());
+      expect(recordChange).toHaveBeenLastCalledWith(expect.objectContaining(kind === "debt_payment" ? { kind, debtAccountId: "acc-1", cashAccountId: "bank", principal: "20" } : { kind, reason, accountId: "acc-1", amount: "20", currency: "USD" }));
+    }
+    expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.accounts.all }));
+    expect(recordChange).toHaveBeenCalledTimes(3);
+  } finally { await i18n.changeLanguage("en"); }
+});
+
+it("starts history from the unified entry and cancels without writing", async () => {
+  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
+  expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(startHistory).not.toHaveBeenCalled();
+  expect(recordChange).not.toHaveBeenCalled();
+});
+
+it("continues unified recording with the selected pension and currency after starting history", async () => {
+  listAccounts.mockResolvedValue([{ ...emptyAccount, account: { ...emptyAccount.account, accountType: "pension", trackingMode: "manual_value", defaultCurrency: "CNY" } }]);
+  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Start history" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByText(/Checking/)).toBeInTheDocument();
+  expect(within(form).getByLabelText("Currency")).toHaveValue("CNY");
+  expect(recordChange).not.toHaveBeenCalled();
+});
+
+it("retries a failed origin read before offering to start history", async () => {
+  historyOrigin.mockRejectedValue(new Error("synthetic origin read failure"));
+  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("accounts.loadError"));
+  expect(screen.queryByRole("button", { name: "Start history" })).not.toBeInTheDocument();
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
+  expect(await screen.findByRole("form", { name: "Record change" })).toBeInTheDocument();
+  expect(startHistory).not.toHaveBeenCalled();
+});
+
+it("transfers a pension contribution from a bank without recording external income", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { ...emptyAccount, account: { ...emptyAccount.account, accountType: "pension", trackingMode: "manual_value" } },
+    { ...emptyAccount, account: { ...emptyAccount.account, id: "bank", name: "Synthetic bank" } },
+  ]);
+  previewChange.mockResolvedValue({ resulting: [] });
+  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(await within(form).findByRole("radio", { name: i18n.t("history.kind.cash_transfer") }));
+  await userEvent.click(within(form).getByRole("radio", { name: i18n.t("reconciliation.transferIncoming") }));
+  await userEvent.selectOptions(within(form).getByLabelText(i18n.t("history.fromAccount")), "bank");
+  await userEvent.type(within(form).getByLabelText(i18n.t("history.sent")), "20");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "cash_transfer", fromAccountId: "bank", toAccountId: "acc-1", sent: "20", received: "20" })));
+});
+
+it.each([
+  ["bank_account", "balance", "money_added", "income"],
+  ["bank_account", "balance", "money_removed", "expense"],
+  ["pension", "manual_value", "money_added", "contribution"],
+])("records %s / %s / %s with its chosen financial reason", async (accountType, trackingMode, kind, reason) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([{ ...emptyAccount, account: { ...emptyAccount.account, accountType, trackingMode } }]);
+  previewChange.mockResolvedValue({ resulting: [] });
+  recordChange.mockResolvedValue({});
+  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
+  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  if (kind === "money_removed") await userEvent.click(await within(form).findByRole("radio", { name: i18n.t("history.kind.money_removed") }));
+  await userEvent.selectOptions(within(form).getByLabelText(i18n.t("history.reasonLabel")), reason);
+  await userEvent.type(within(form).getByLabelText("Amount"), "20");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acc-1", kind, reason, amount: "20", currency: "USD" })));
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
 });

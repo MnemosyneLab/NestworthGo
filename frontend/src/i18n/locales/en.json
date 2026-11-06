@@ -1878,6 +1878,8 @@
     "confirmedItems_one": "Confirmed items ({{count}})",
     "confirmedItems_other": "Confirmed items ({{count}})",
 
+    "debtIncrease": "Increase debt",
+    "debtDecrease": "Reduce debt",
     "cardPurchase": "Card purchase / increase debt",
     "cardRefund": "Card refund / reduce debt",
 

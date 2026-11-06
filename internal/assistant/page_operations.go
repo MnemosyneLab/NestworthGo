@@ -33,8 +33,8 @@ type pendingPageOperation struct {
 }
 type pageOperatorKey struct{}
 
-func CurrentPageOperator(ctx context.Context) ProposalHandler {
-	h, _ := ctx.Value(pageOperatorKey{}).(ProposalHandler)
+func CurrentPageOperator(ctx context.Context) ToolHandler {
+	h, _ := ctx.Value(pageOperatorKey{}).(ToolHandler)
 	return h
 }
 func (r *Runtime) pageOperationAllowed(ctx context.Context, epoch string, revision uint64) bool {
@@ -91,7 +91,7 @@ func (r *Runtime) DeliverPageOperation(ctx context.Context, epoch, id string, re
 	p.response <- result
 	return nil
 }
-func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision uint64) ProposalHandler {
+func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision uint64) ToolHandler {
 	var mu sync.Mutex
 	uncertain := false
 	used := map[string]bool{}

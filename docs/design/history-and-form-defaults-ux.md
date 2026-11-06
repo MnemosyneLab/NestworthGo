@@ -375,3 +375,42 @@ frontend run passed 76 tests; Wails history/race and binding/type checks were
 reported separately. This evidence does not establish final whole-suite or
 native IPC acceptance. The initial defect submitted `12:34:00` after an origin
 of `12:34:45.123`; no backend boundary relaxation was needed.
+
+## Account detail recording entry
+
+Every active account detail exposes the same **Record a change** action. It opens
+`RecordChangeForm` in account context, preserving the account and its currency
+while the user chooses a supported operation. Existing balance reconciliation,
+valuation, product, and opening-position actions remain available. Archived
+accounts expose no new recording entry. An already submitted confirmation retains
+its recovery identity if account state changes while it is pending.
+
+| Account capability | Recording choices |
+| --- | --- |
+| Asset, balance | Money added/removed, cash transfer, value update, debt draw/payment with this account as cash endpoint |
+| Asset, manual value | Money added/removed, cash transfer, value update |
+| Asset, holdings, cash on hand | Money added/removed, cash transfer, FX, debt draw/payment with this account as cash endpoint |
+| Asset, holdings, all other types | The preceding cash choices plus trade, dividend, position transfer and adjustment; existing position import remains a separate action |
+| Liability, balance | Debt increase/decrease, balance correction, debt draw/payment with this account as debt endpoint |
+
+The matrix applies to every legal account combination, including pension,
+insurance, receivable and other accounts. Provident funds have no separate account
+type; their selected account type and tracking mode determine their actions.
+Manual-value assets can receive contributions or transfers without inventing
+holdings. Transfer counterpart choices include all active asset accounts, matching
+the domain transfer capability; debt settlement cash choices remain restricted to
+balance and holdings accounts.
+
+Credit cards default to `money_added` with reason `card_purchase`; choosing refund
+uses `money_removed` with `card_refund`. Loan and other liability recording starts
+with `debt_draw`. Principal repayment uses `debt_payment`, reducing both debt and
+paying cash; principal is not another expense. Optional interest/fees retain their
+existing separate financial treatment. Amounts remain positive inputs; the domain
+owns signed effects and validation, including unsupported credit balances.
+
+Recording requires a history origin. An absent origin opens the existing history
+start flow and returns to the requested action after starting. Loading or failed
+origin reads do not imply absence; errors offer Retry. Preview, confirmation,
+uncertain-write recovery, and authoritative query invalidation use the existing
+shared form and mutation hooks. English, Simplified Chinese and Traditional
+Chinese reuse existing localized labels.

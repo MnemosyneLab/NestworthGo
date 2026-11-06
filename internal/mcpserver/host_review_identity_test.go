@@ -38,12 +38,12 @@ func TestHostReviewFreezesReadableCashIdentity(t *testing.T) {
 	command := hostCommand(fx)
 	command.AccountID = a.Account.ID.String()
 	command.Currency = " usd "
-	first, err := fx.local.PreviewHostChange(t.Context(), command)
+	first, err := fx.local.PreviewFullChange(t.Context(), command)
 	if err != nil {
 		t.Fatal(err)
 	}
 	command.AccountID = b.Account.ID.String()
-	second, err := fx.local.PreviewHostChange(t.Context(), command)
+	second, err := fx.local.PreviewFullChange(t.Context(), command)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,26 +72,26 @@ func TestHostReviewFreezesReadableCashIdentity(t *testing.T) {
 	if err != nil || frozen.State != ReviewNeedsPreview || frozen.Binding.CashAccount.Institution != "Bank A" {
 		t.Fatal("live label changed frozen review or failed to invalidate")
 	}
-	if _, err := fx.local.ConfirmHostChange(t.Context(), first.Binding.ID, first.Digest); err == nil {
+	if _, err := fx.local.ExecuteFullChange(t.Context(), first.Binding.ID); err == nil {
 		t.Fatal("changed identity committed")
 	}
 	assertActivityCount(t, fx, 0)
 	command.AccountID = a.Account.ID.String()
-	fresh, err := fx.local.PreviewHostChange(t.Context(), command)
+	fresh, err := fx.local.PreviewFullChange(t.Context(), command)
 	if err != nil || fresh.Binding.CashAccount.Institution != "Renamed bank" || fresh.Digest == first.Digest {
 		t.Fatal("fresh identity not captured")
 	}
 	if _, err := fx.app.UpdateMember(t.Context(), alice.ID, "Renamed Alice"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fx.local.ConfirmHostChange(t.Context(), fresh.Binding.ID, fresh.Digest); err == nil {
+	if _, err := fx.local.ExecuteFullChange(t.Context(), fresh.Binding.ID); err == nil {
 		t.Fatal("owner rename did not invalidate")
 	}
 	assertActivityCount(t, fx, 0)
 	// Even metadata cannot distinguish completely identical readable identities.
 	_ = makeAccount(bankB, bob)
 	command.AccountID = b.Account.ID.String()
-	_, err = fx.local.PreviewHostChange(t.Context(), command)
+	_, err = fx.local.PreviewFullChange(t.Context(), command)
 	requireLocalError(t, err, "ambiguous_account_identity")
 	assertActivityCount(t, fx, 0)
 }
@@ -108,13 +108,13 @@ func TestHostReviewLegacyIdentityRequiresPreviewButKeepsRecovery(t *testing.T) {
 	if err != nil || got.State != ReviewNeedsPreview {
 		t.Fatalf("legacy: %s %v", got.State, err)
 	}
-	if _, err := fx.local.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest); err == nil {
+	if _, err := fx.local.ExecuteFullChange(t.Context(), review.Binding.ID); err == nil {
 		t.Fatal("legacy identity confirmed")
 	}
 	assertActivityCount(t, fx, 0)
 	// Completed legacy receipts are still recoverable, not converted to new work.
 	completed := hostPreview(t, fx)
-	completed, err = fx.local.ConfirmHostChange(t.Context(), completed.Binding.ID, completed.Digest)
+	completed, err = fx.local.ExecuteFullChange(t.Context(), completed.Binding.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestHostReviewRevokedWhileWaitingForApplicationGate(t *testing.T) {
 	}()
 	done := make(chan error, 1)
 	go func() {
-		_, err := fx.local.ConfirmHostChange(context.Background(), review.Binding.ID, review.Digest)
+		_, err := fx.local.ExecuteFullChange(context.Background(), review.Binding.ID)
 		done <- err
 	}()
 	deadline := time.Now().Add(time.Second)
@@ -194,7 +194,7 @@ func TestHostReviewCurrencyFailureDoesNotPersistInvisibleReview(t *testing.T) {
 	for _, currency := range []string{"", "US D", "ZZZ"} {
 		command := hostCommand(fx)
 		command.Currency = currency
-		if _, err := fx.local.PreviewHostChange(t.Context(), command); err == nil {
+		if _, err := fx.local.PreviewFullChange(t.Context(), command); err == nil {
 			t.Fatal("invalid currency accepted")
 		}
 	}
@@ -219,7 +219,7 @@ func TestHostReviewInstitutionFallbackNameIsDistinctFromUnassigned(t *testing.T)
 	unassigned := hostPreview(t, fx)
 	command := hostCommand(fx)
 	command.AccountID = other.Account.ID.String()
-	assigned, err := fx.local.PreviewHostChange(t.Context(), command)
+	assigned, err := fx.local.PreviewFullChange(t.Context(), command)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,10 +231,10 @@ func TestHostReviewInstitutionFallbackNameIsDistinctFromUnassigned(t *testing.T)
 	if _, err := fx.app.UpdateAccount(t.Context(), other.Account.ID, application.AccountInput{InstitutionIDSet: true, InstitutionID: ""}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fx.local.ConfirmHostChange(t.Context(), assigned.Binding.ID, assigned.Digest); err == nil {
+	if _, err := fx.local.ExecuteFullChange(t.Context(), assigned.Binding.ID); err == nil {
 		t.Fatal("institution removal reused old identity")
 	}
-	_, err = fx.local.PreviewHostChange(t.Context(), command)
+	_, err = fx.local.PreviewFullChange(t.Context(), command)
 	requireLocalError(t, err, "ambiguous_account_identity")
 	assertActivityCount(t, fx, 0)
 }

@@ -4,6 +4,7 @@ import { formatQuotePrice } from "@/lib/money";
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { LoadingState, ErrorState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
 import { hasUnresolvedSheetConfirmation, useSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ import { QuoteHint } from "@/features/history/QuoteHint";
 import { compareCanonical, formatAuditMoney, formatAmount, sameCanonicalDecimal } from "@/lib/money";
 
 export type AccountAction =
+  | "record"
   | "cash"
   | "deposit"
   | "withdraw"
@@ -44,7 +46,7 @@ export type AccountAction =
   | "settings"
   | null;
 
-const HISTORY_ACTIONS: AccountAction[] = ["deposit", "withdraw", "fx", "transfer", "buy", "sell", "dividend"];
+const HISTORY_ACTIONS: AccountAction[] = ["record", "deposit", "withdraw", "fx", "transfer", "buy", "sell", "dividend"];
 
 export function actionNeedsHistory(action: AccountAction): boolean {
   return action !== null && HISTORY_ACTIONS.includes(action);
@@ -74,10 +76,15 @@ export function AccountActionSheet({
   const [startedInSheet, setStartedInSheet] = useState(false);
   const [startedOrigin, setStartedOrigin] = useState<HistoryOriginDTO>();
   const needsHistory = actionNeedsHistory(action);
+  const recordKind = record.account.balanceSheetRole === "liability" && record.account.accountType !== "credit_card"
+    ? ChangeCommandKind.ChangeDebtDraw
+    : ChangeCommandKind.ChangeMoneyAdded;
   const historyReady = historyStarted || Boolean(origin.data) || startedInSheet;
-  const waitingForHistory = needsHistory && !historyReady && !hasUnresolvedSheetConfirmation();
+  const waitingForHistory = needsHistory && !historyReady && !origin.isLoading && !origin.isError && !hasUnresolvedSheetConfirmation();
   const title =
-    action === "cash"
+    action === "record"
+      ? t("history.recordTitle")
+      : action === "cash"
       ? historyStarted
         ? t("accounts.reconcileBalance")
         : t("accounts.addCashBalance")
@@ -107,7 +114,13 @@ export function AccountActionSheet({
           {waitingForHistory && <SheetDescription>{t("accounts.historyRequiredDescription")}</SheetDescription>}
         </SheetHeader>
         <div>
-          {waitingForHistory ? (
+          {record.account.archivedAt && !hasUnresolvedSheetConfirmation() ? (
+            <p className="text-sm text-muted-foreground">{t("accounts.archivedReadOnly")}</p>
+          ) : needsHistory && !historyReady && origin.isLoading ? (
+            <LoadingState label={t("common.loading")} />
+          ) : needsHistory && !historyReady && origin.isError ? (
+            <ErrorState title={t("accounts.loadError")} description={displayError(origin.error, t("accounts.loadError"))} onRetry={() => origin.refetch()} retryLabel={t("common.retryAction")} />
+          ) : waitingForHistory ? (
             <StartHistoryForm
               compact
               onCancel={onClose}
@@ -115,6 +128,19 @@ export function AccountActionSheet({
                 setStartedOrigin(nextOrigin);
                 setStartedInSheet(true);
               }}
+            />
+          ) : action === "record" ? (
+            <RecordChangeForm
+              initial={{
+                ...emptyChangeRequest(recordKind, record.account.defaultCurrency),
+                accountId: record.account.id,
+                debtAccountId: recordKind === ChangeCommandKind.ChangeDebtDraw ? record.account.id : undefined,
+                reason: record.account.accountType === "credit_card" ? "card_purchase" : "other",
+              }}
+              lock={{ accountId: record.account.id }}
+              prefill={{ account: record.account }}
+              originOverride={startedOrigin}
+              onRecorded={onRecorded}
             />
           ) : action === "cash" ? (
             <CashBalanceForm record={record} valuation={valuation} historyStarted={historyReady} onDone={onRecorded} />
@@ -449,7 +475,7 @@ function LockedChangeForm({
   onDone,
   originOverride,
 }: {
-  action: Exclude<AccountAction, "cash" | "position" | "simple" | "settings" | null>;
+  action: Exclude<AccountAction, "record" | "cash" | "position" | "simple" | "settings" | null>;
   holdingId?: string;
   record: AccountRecordDTO;
   onDone: () => void;

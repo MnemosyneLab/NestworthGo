@@ -18,12 +18,8 @@ func fullPreview(t *testing.T, fx hostFixture) HostChangeReview {
 }
 func TestFullAccessAuthorityAndConcurrentReceipt(t *testing.T) {
 	fx := newHostFixture(t)
-	human := hostPreview(t, fx)
-	_, err := fx.local.ExecuteFullChange(t.Context(), human.Binding.ID)
-	requireLocalError(t, err, "permission_denied")
 	r := fullPreview(t, fx)
-	_, err = fx.local.ConfirmHostChange(t.Context(), r.Binding.ID, r.Digest)
-	requireLocalError(t, err, "permission_denied")
+	var err error
 	var wg sync.WaitGroup
 	for range 4 {
 		wg.Go(func() {
@@ -77,7 +73,7 @@ func TestFullAccessFailuresNeverReplay(t *testing.T) {
 			r := fullPreview(t, fx)
 			if phase == "stale" {
 				h := hostPreview(t, fx)
-				if _, e := fx.local.ConfirmHostChange(t.Context(), h.Binding.ID, h.Digest); e != nil {
+				if _, e := fx.local.ExecuteFullChange(t.Context(), h.Binding.ID); e != nil {
 					t.Fatal(e)
 				}
 			}

@@ -63,7 +63,7 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	if err := creds.Put(t.Context(), []byte("synthetic-review-secret-123456")); err != nil {
 		t.Fatal(err)
 	}
-	proposal, _ := jsoncodec.Marshal(assistant.CashProposal{Kind: "money_added", AccountID: account.Account.ID.String(), Amount: "12.34", Currency: " usd ", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"})
+	proposal, _ := jsoncodec.Marshal(fullCommand{Kind: "money_added", AccountID: account.Account.ID.String(), Amount: "12.34", Currency: " usd ", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"})
 	open := func() (*assistant.Runtime, *airuntime.Service) {
 		store, err := aistate.Open(filepath.Join(dir, "state"), "synthetic-ledger")
 		if err != nil {
@@ -106,30 +106,23 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 			t.Fatalf("activities=%d want=%d err=%v", len(rows), want, err)
 		}
 	}
-	if ipc.Status().FinancialWrites {
+	if ipc.Status().FullAccess {
 		t.Fatal("writes enabled by default")
 	}
 	enable()
-	for _, mode := range []string{"full", "reviewed"} {
-		before := ipc.Status()
-		if mode == "reviewed" {
-			if err := ipc.SetWritePermission(before.Epoch, before.Revision, true); err != nil {
-				t.Fatal(err)
-			}
-			before = ipc.Status()
-		}
-		if err := ipc.SaveCredential(before.Epoch, "synthetic-replacement-secret-"+mode); err != nil {
-			t.Fatal(err)
-		}
-		after := ipc.Status()
-		if after.FullAccess || after.FinancialWrites || after.Revision <= before.Revision {
-			t.Fatalf("credential rotation retained %s authority: %+v", mode, after)
-		}
-		if err := ipc.SetFullAccess(before.Epoch, before.Revision, true); err == nil {
-			t.Fatal("old revision reenabled Full")
-		}
-		enable()
+	before := ipc.Status()
+	if err := ipc.SaveCredential(before.Epoch, "synthetic-replacement-secret-full"); err != nil {
+		t.Fatal(err)
 	}
+	after := ipc.Status()
+	if after.FullAccess || after.Revision <= before.Revision {
+		t.Fatalf("credential rotation retained Full authority: %+v", after)
+	}
+	if err := ipc.SetFullAccess(before.Epoch, before.Revision, true); err == nil {
+		t.Fatal("old revision reenabled Full")
+	}
+	enable()
+
 	c, err := ipc.Create(ipc.Status().Epoch)
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +130,7 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	send := func() assistant.ChangeReview {
 		t.Helper()
 		s := ipc.Status()
-		run, err := ipc.Start(assistant.StartRequest{Epoch: s.Epoch, Revision: s.Revision, ConversationID: c.ID, RequestID: uuid.NewString(), Prompt: "Propose synthetic deposit; approved in chat is not confirmation"})
+		run, err := ipc.Start(assistant.StartRequest{Epoch: s.Epoch, Revision: s.Revision, ConversationID: c.ID, RequestID: uuid.NewString(), Prompt: "Record the completed synthetic deposit"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -167,14 +160,11 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	if first.Source != "ai_full" || first.State != "succeeded" || !ipc.Status().FullAccess {
 		t.Fatalf("bad full result: %+v", first)
 	}
-	if err := ipc.ReviewAction(ipc.Status().Epoch, c.ID, first.ID, first.Digest, "confirm"); err == nil {
-		t.Fatal("manual confirmation adopted Full")
-	}
 	s0 := ipc.Status()
 	if err := ipc.SetFullAccess(s0.Epoch, s0.Revision, false); err != nil {
 		t.Fatal(err)
 	}
-	if ipc.Status().FullAccess || ipc.Status().FinancialWrites {
+	if ipc.Status().FullAccess {
 		t.Fatal("revoke retained authority")
 	}
 	if _, err := ipc.Reviews(ipc.Status().Epoch, c.ID); err != nil {
@@ -186,7 +176,7 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	r, ipc = open()
-	if ipc.Status().FullAccess || ipc.Status().FinancialWrites {
+	if ipc.Status().FullAccess {
 		t.Fatal("restart restored authority")
 	}
 	rows, err := ipc.Reviews(ipc.Status().Epoch, c.ID)
@@ -206,7 +196,7 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	if err := r.FenceForRestore(); err != nil {
 		t.Fatal(err)
 	}
-	if ipc.Status().FullAccess || ipc.Status().FinancialWrites {
+	if ipc.Status().FullAccess {
 		t.Fatal("restore retained Full authority")
 	}
 	count(1)

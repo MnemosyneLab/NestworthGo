@@ -211,6 +211,7 @@ export function AccountDetail({
         title={<span aria-current="page" className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-6 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
+            {!readOnly && <Button type="button" size="sm" onClick={() => setAction("record")}>{t("history.recordTitle")}</Button>}
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />
             <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-border sm:block" />
             <Button type="button" variant="outline" size="sm" onClick={() => { setSettingsError(undefined); setAction("settings"); }}>
