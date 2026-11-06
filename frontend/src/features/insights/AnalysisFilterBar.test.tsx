@@ -1,5 +1,8 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
+import { pollPageOperations } from "@/features/assistant/pageOperationBridge";
 import { beforeEach, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AnalysisFilterBar } from "./AnalysisFilterBar";
 import { useAnalysisStore } from "@/stores/analysis";
@@ -125,4 +128,23 @@ it("offers localized rounding help by keyboard without changing analysis filters
   await userEvent.keyboard("{Escape}");
   expect(help).toHaveFocus();
   expect(onChange).not.toHaveBeenCalled();
+});
+
+
+it("lets the read-only assistant set last week and household scope using real controls", async()=>{
+ vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-08T12:00:00Z"));
+ try {
+ useAnalysisStore.getState().setFilters({scope:"account",scopeId:"a1"});
+ function Page(){const session=useAnalysisStore();return <BusinessPageRoot view="asset-changes:" accessIdentity="synthetic"><AnalysisFilterBar session={session} onChange={session.setFilters} onReset={session.resetFilters}/></BusinessPageRoot>;}
+ render(<Page/>);
+ async function gesture(name:string,action:string,optionName?:string){const page=capturePageContent("asset-changes:","generation");const node=page.nodes.find(n=>n.name===name && n.targetRef)!;expect(node.effect).toBe("presentation");const deliver=vi.fn();await act(()=>pollPageOperations({pending:async()=>[{id:"once"}],claim:async()=>({snapshotId:page.id,targetRef:node.targetRef!,action,expiresAt:"2099-01-01T00:00:00Z",...(optionName ? {optionRef:page.nodes.find(n=>n.name===optionName && n.role==="option")!.targetRef}: {})}),deliver},()=>({viewKey:"asset-changes:",generation:"generation",fullAccess:false,blocked:()=>false}),()=>false));expect(deliver.mock.calls[0][1].state).toBe("dispatched");}
+ await gesture("Last week","activate");
+ expect(useAnalysisStore.getState()).toMatchObject({from:"2026-10-01",to:"2026-10-07"});
+ const scope=screen.getByLabelText("Scope") as HTMLSelectElement;
+ await gesture("Scope","select_option",scope.options[0].textContent!);
+ expect(useAnalysisStore.getState()).toMatchObject({scope:"portfolio",scopeId:"",from:"2026-10-01",to:"2026-10-07"});
+ await gesture("From","activate");
+ const popup=capturePageContent("asset-changes:","generation");
+ expect(popup.nodes.some(n=>n.role==="button" && n.effect==="presentation" && /2026/.test(n.name))).toBe(true);
+ } finally {vi.useRealTimers();}
 });

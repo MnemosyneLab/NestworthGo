@@ -35,3 +35,19 @@ it.each(["activate","set_value","select_option"].flatMap(action=>["expiry","full
  expect(deliver).toHaveBeenCalledWith("request",{state:fence==="expiry" || fence==="stopped" ? "not_dispatched" : "blocked",snapshotId:page.id});
  expect(changed).not.toHaveBeenCalled();expect(screen.getByLabelText("Value")).toHaveValue("original");expect(screen.getByLabelText("Choice")).toHaveValue("a");
 });
+
+
+it("allows a read-only navigation then fresh page interaction, but fences unknown side effects", async()=>{
+ const write=vi.fn();
+ function App(){const [page,setPage]=useState("overview");const [value,setValue]=useState("before");return <>
+  <nav data-assistant-navigation={`${page}:`} data-assistant-identity="synthetic"><Button data-assistant-effect="presentation" onClick={()=>setPage("asset-changes")}>Asset changes</Button><Button onClick={write}>Refresh provider</Button></nav>
+  <BusinessPageRoot view={`${page}:`} accessIdentity="synthetic"><section data-assistant-effect="presentation"><Input aria-label="Filter" value={value} onChange={e=>setValue(e.target.value)}/></section><Button onClick={write}>Save money</Button></BusinessPageRoot>
+ </>;}
+ render(<App/>);
+ let viewKey="overview:";
+ const host=()=>({viewKey,generation:"generation",fullAccess:false,blocked:()=>false});
+ async function dispatch(name:string,action:string,value?:string){const page=pageContent.capturePageContent(viewKey,"generation");const deliver=vi.fn();await act(()=>pollPageOperations({pending:async()=>[{id:"once"}],claim:async()=>({snapshotId:page.id,targetRef:page.nodes.find(n=>n.name===name)!.targetRef!,action,value,expiresAt:"2099-01-01T00:00:00Z"}),deliver},host,()=>false));return deliver.mock.calls[0][1].state;}
+ expect(await dispatch("Asset changes","activate")).toBe("dispatched");viewKey="asset-changes:";
+ expect(await dispatch("Filter","set_value","last week")).toBe("dispatched");expect(screen.getByLabelText("Filter")).toHaveValue("last week");
+ expect(await dispatch("Save money","activate")).toBe("blocked");expect(await dispatch("Refresh provider","activate")).toBe("blocked");expect(write).not.toHaveBeenCalled();
+});

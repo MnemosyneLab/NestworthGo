@@ -1,6 +1,6 @@
 /** Semantic presentation only: app-owned business roots and their published portals.
  * Page names/field IDs are not read permissions. Secret boundaries are persistent. */
-export type SemanticNode = { id:string; parent:string; module:string; role:string; name:string; value:string; state:string[]; actions:string[]; targetRef?:string };
+export type SemanticNode = { id:string; parent:string; module:string; role:string; name:string; value:string; state:string[]; actions:string[]; targetRef?:string; effect?:"presentation" };
 export type SemanticPage = { id:string; page:string; capturedAt:string; nodes:SemanticNode[]; limitations:string[] };
 let lastEncoding="", lastID="";
 const controlIdentities=new WeakMap<Element,string>();
@@ -51,6 +51,7 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
  const nodes:SemanticNode[]=[];
  const controls=new Map<string,HTMLElement>();
  const protectedPortals=new Set<Element>();
+ const presentationPortals=new Set<Element>();
  const styles=new WeakMap<Element,CSSStyleDeclaration>();
  const visibility=new WeakMap<Element,WeakMap<Element,boolean>>();
  const visible=(el:Element,boundary:Element)=>{
@@ -97,7 +98,7 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
    for(const portal of pending){
     const origin=origins.get(portal.dataset.assistantPortal || "");
     const source=origin?.parentElement;
-    if(source && ownedBoundaries.some(boundary=>visible(source,boundary)) && visible(portal,portal) && exposedAncestors(portal,false)) {if(source.closest('[data-assistant-operation="protected"]') || ownedBoundaries.some(boundary=>protectedPortals.has(boundary) && boundary.contains(source))) protectedPortals.add(portal);ownedBoundaries.push(portal);pending.delete(portal);added=true;}
+    if(source && ownedBoundaries.some(boundary=>visible(source,boundary)) && visible(portal,portal) && exposedAncestors(portal,false)) {if(source.closest('[data-assistant-operation="protected"]') || ownedBoundaries.some(boundary=>protectedPortals.has(boundary) && boundary.contains(source))) protectedPortals.add(portal);if(source.closest('[data-assistant-effect="presentation"]') || ownedBoundaries.some(boundary=>presentationPortals.has(boundary) && boundary.contains(source))) presentationPortals.add(portal);ownedBoundaries.push(portal);pending.delete(portal);added=true;}
    }
    if(!added) break;
   }
@@ -110,6 +111,10 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
    const chromePage=page==="account" ? "accounts" : page;
    for(const chrome of document.querySelectorAll<HTMLElement>('[data-assistant-chrome]')) if(chrome.dataset.assistantChrome===chromePage && visible(chrome,chrome) && !chrome.closest('[hidden]') && !root!.contains(chrome) && exposedAncestors(chrome)) boundaries.push(chrome);
   }
+  // The shell publishes only its navigation area, paired to this business identity.
+  // Footer settings, assistant controls and unrelated document content stay excluded.
+  const navigation=Array.from(document.querySelectorAll<HTMLElement>("nav[data-assistant-navigation]"));
+  for(const nav of navigation) if(root!.dataset.assistantIdentity && nav.dataset.assistantNavigation===viewKey && nav.dataset.assistantIdentity===root!.dataset.assistantIdentity && exposedAncestors(nav) && !root!.contains(nav)) boundaries.push(nav);
   const safe=(el:Element)=>boundaries.some(boundary=>visible(el,boundary));
   const used=new Set<string>(); let elements=0,moduleNumber=0;
   const add=(node:Omit<SemanticNode,"id">,preferred?:string)=>{
@@ -200,7 +205,7 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
     const authoredNamespace=el.closest('[data-assistant-module]')?.getAttribute("data-assistant-module") || "page";
     const namespace=/^[a-z][a-z0-9/-]{0,119}$/.test(authoredNamespace) ? authoredNamespace : "page";
     const stableID=labelled && /^[a-z][a-z0-9-]{0,95}$/.test(el.id) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(el.id) ? `${namespace}/${el.id}` : hint && module===hint ? module : undefined;
-    nextParent=add({parent,module,role,name:name.trim(),value,state:[...state],actions,...(targetRef ? {targetRef} : {})},stableID);
+    nextParent=add({parent,module,role,name:name.trim(),value,state:[...state],actions,...(targetRef ? {targetRef} : {}),...(el.closest('[data-assistant-effect="presentation"]') || boundaries.some(boundary=>presentationPortals.has(boundary) && boundary.contains(el)) ? {effect:"presentation" as const} : {})},stableID);
    }
    for(const child of el.childNodes){if(child.nodeType===Node.TEXT_NODE){if(!field && (!role || !namedText.has(role))) text(child.textContent || "",nextParent,module);}else if(child instanceof Element) walk(child,nextParent,module,depth+1);}
   };

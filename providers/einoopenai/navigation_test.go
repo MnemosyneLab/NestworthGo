@@ -16,7 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/airuntime"
 )
 
-func TestFakeProviderNavigationRequiresExplicitGrantAndKnownTarget(t *testing.T) {
+func TestFakeProviderNavigationUsesCurrentLeaseAndKnownTarget(t *testing.T) {
 	for _, trend := range []bool{false, true} {
 		name := "account"
 		if trend {
@@ -112,9 +112,6 @@ func providerNavigation(t *testing.T, trend bool) {
 		t.Fatal(err)
 	}
 	q.PageLeaseID = lease.ID
-	if err := service.GrantNavigation(status.Epoch, status.Revision, conversation.ID, q.RequestID, lease.ID); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := service.Start(q); err != nil {
 		t.Fatal(err)
 	}

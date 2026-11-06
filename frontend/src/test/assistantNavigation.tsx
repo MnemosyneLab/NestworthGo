@@ -9,7 +9,7 @@ import { AssistantPageProvider } from "@/features/assistant/PageContext";
 import { ModelConversation } from "@/features/assistant/ModelConversation";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
 
-type APIs = Record<"Status" | "PendingPageReads" | "PublishPage" | "GrantNavigation" | "List" | "Inspect" | "Start" | "ConsumeNavigation", Mock>;
+type APIs = Record<"Status" | "PendingPageReads" | "PublishPage" | "List" | "Inspect" | "Start" | "ConsumeNavigation", Mock>;
 /** Exercise the real page with deferred desktop IPC, without a provider or ledger. */
 export async function verifyPageNavigation({api, page, viewKey, phase, ready, change}: {
  api: APIs; page: ReactNode; viewKey: string;
@@ -18,10 +18,10 @@ export async function verifyPageNavigation({api, page, viewKey, phase, ready, ch
 }) {
  const prior={id:"prior",state:"succeeded",text:"Synthetic prior answer",prompt:"Earlier",model:"mock",created:"2026-11-05T00:00:00Z"};
  api.Status.mockResolvedValue({epoch:"host",revision:1,available:true,config:{enabled:true,model:"mock"}});
- api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id:"lease"}); api.GrantNavigation.mockResolvedValue(undefined);
+ api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id:"lease"});
  api.List.mockResolvedValue([{id:"conversation",runCount:1}]); api.Inspect.mockResolvedValue({id:"conversation",runs:[prior],runCount:1,offset:0});
  let resolve!: (target:{kind:string;accountId:string})=>void; let completed: unknown;
- api.ConsumeNavigation.mockClear(); api.GrantNavigation.mockClear();
+ api.ConsumeNavigation.mockClear();
  api.ConsumeNavigation.mockImplementation(()=>new Promise(done=>{resolve=done;}));
  api.Start.mockImplementation(async q=>{
   const run={...prior,id:"run",requestId:q.requestId,prompt:q.prompt,text:"Requested"};
@@ -35,8 +35,7 @@ export async function verifyPageNavigation({api, page, viewKey, phase, ready, ch
  try {
   await ready(); await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"),"Open overview");
-  await user.click(screen.getByText("Page navigation"));
-  await user.click(screen.getByRole("button",{name:"Send and allow one page change"}));
+  await user.click(screen.getByRole("button",{name:"Send to model"}));
   if(phase!=="before-consume") await waitFor(()=>expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
   else await screen.findByText(/Running · reading related data/);
   if(phase!=="unchanged") await change();
@@ -45,6 +44,5 @@ export async function verifyPageNavigation({api, page, viewKey, phase, ready, ch
   if(phase==="unchanged") await waitFor(()=>expect(navigate).toHaveBeenCalledWith({page:"overview"}));
   else {await screen.findByText(/No page change was applied/); expect(navigate).not.toHaveBeenCalled();}
   if(phase==="before-consume") expect(api.ConsumeNavigation).not.toHaveBeenCalled();
-  expect(api.GrantNavigation).toHaveBeenCalledTimes(1);
  } finally { rendered.unmount(); toolbar.remove(); }
 }

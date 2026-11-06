@@ -53,7 +53,7 @@ it("allows only controlled read-only pages, never arbitrary routes or mobile", a
     await applyModelNavigation(
       "current",
       () => current,
-      async () => ({ kind: "settings", accountId: "" }),
+      async () => ({ kind: "arbitrary-route", accountId: "" }),
     ),
   ).toBe("invalid_target");
   expect(current.dispatch).not.toHaveBeenCalled();
@@ -88,3 +88,5 @@ it("maps only authorized fixed analysis views to semantic navigation", async () 
   expect(await applyModelNavigation("current", () => current, async () => ({kind: "return-analysis", accountId: "", tab: "write"}))).toBe("invalid_target");
   expect(current.dispatch).not.toHaveBeenCalled();
 });
+
+it.each(["asset-changes", "historical-overview", "settings"])("opens the fixed %s root without a financial permission claim",async(kind)=>{const current=state();expect(await applyModelNavigation("current",()=>current,async()=>({kind,accountId:""}))).toBe("opened");expect(current.dispatch).toHaveBeenCalledWith({page:kind});});

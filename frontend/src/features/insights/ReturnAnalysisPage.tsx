@@ -45,7 +45,7 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
     <div className="flex flex-col gap-4" data-assistant-page="return-analysis">
       <PageChrome pageId="return-analysis" title={t("insights.returnAnalysis")} />
       <Tabs className="flex flex-col gap-4" value={session.returnTab} onValueChange={(value) => changeTab(value as typeof session.returnTab)}>
-        <TabsList className="self-start" data-assistant-module="views">
+        <TabsList data-assistant-effect="presentation" className="self-start" data-assistant-module="views">
           <TabsTrigger value="calendar">{t("insights.calendar")}</TabsTrigger>
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>

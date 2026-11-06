@@ -14,7 +14,7 @@ const fixture = vi.hoisted(() => ({
   account: "00000000-0000-4000-8000-000000000001", other: "00000000-0000-4000-8000-000000000002",
   trend: vi.fn(), origin: vi.fn(), accounts: vi.fn(), dispatch: vi.fn(), blocked: false,
 }));
-const api = vi.hoisted(() => ({ Status: vi.fn(), PendingPageReads: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn(), Messages: vi.fn() }));
+const api = vi.hoisted(() => ({ Status: vi.fn(), PendingPageReads: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn(), Messages: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis", () => ({ Service: {
   ReturnTrend: (...args: unknown[]) => fixture.trend(...args), ReturnCalendar: vi.fn().mockResolvedValue({available: false}),
@@ -114,7 +114,7 @@ it.each(["scope", "leave", "review"])("rejects a late query after concurrent %s 
 
 it("completes the authorized chat flow only after the real trend page acknowledges the request", async () => {
   api.Status.mockResolvedValue({epoch: "host", revision: 1, available: true, config: {enabled: true, model: "mock"}});
-  api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id: "lease"}); api.GrantNavigation.mockResolvedValue(undefined);
+  api.PendingPageReads.mockResolvedValue([]); api.PublishPage.mockResolvedValue({id: "lease"});
   const prior = {id: "prior", state: "succeeded", text: "Synthetic prior answer", prompt: "Earlier", model: "mock", created: "2026-11-05T00:00:00Z"};
   api.List.mockResolvedValue([{id: "conversation", runCount: 1}]); api.Inspect.mockResolvedValue({id: "conversation", runs: [prior], runCount: 1, offset: 0});
   api.ConsumeNavigation.mockResolvedValue(target());
@@ -126,13 +126,11 @@ it("completes the authorized chat flow only after the real trend page acknowledg
   fixture.trend.mockImplementation(() => new Promise(resolve => {finish = resolve;}));
   mount(target(), true); const user = userEvent.setup(); await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open synthetic brokerage trend February 1–28, 2026, base USD, stocks, exclude cash, linked rate");
-  await user.click(screen.getByText("Page navigation"));
-  await user.click(screen.getByRole("button", {name: "Send and allow one page change"}));
+  await user.click(screen.getByRole("button", {name: "Send to model"}));
   await waitFor(() => expect(fixture.trend).toHaveBeenCalled());
   expect(screen.queryByText("The requested page was opened.")).not.toBeInTheDocument();
   await act(async () => finish(result()));
-  await screen.findByText("The requested page was opened.");
-  expect(api.GrantNavigation).toHaveBeenCalledTimes(1); expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1);
+  await screen.findByText("The requested page was opened."); expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1);
 });
 
 

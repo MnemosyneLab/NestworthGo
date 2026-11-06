@@ -155,7 +155,7 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </Button>
         </div>
-        <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-3 pt-1" aria-label={t("ui.navigation.main")}>
+        <nav data-assistant-navigation={captureView} data-assistant-identity={captureIdentity} className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-3 pt-1" aria-label={t("ui.navigation.main")}>
           {NAV_GROUPS.map((group) => (
             <div key={group.id} className={cn("flex flex-col gap-0.5", group.id === "manage" && "mt-auto border-t border-border pt-4")}>
               {!collapsed && group.translationKey && (
@@ -179,6 +179,7 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
                     aria-label={ariaLabel}
                     title={collapsed ? label : undefined}
                     aria-current={active ? "page" : undefined}
+                    data-assistant-effect="presentation"
                     data-nav-id={item.id}
                     className={cn(
                       "group relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",

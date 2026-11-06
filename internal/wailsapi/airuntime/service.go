@@ -98,12 +98,6 @@ func (s *Service) PublishPage(epoch string, revision uint64, page assistant.Page
 	}
 	return s.runtime.PublishPage(context.Background(), epoch, revision, page)
 }
-func (s *Service) GrantNavigation(epoch string, revision uint64, conversationID, requestID, leaseID string) error {
-	if s.runtime == nil {
-		return assistant.ErrUnavailable
-	}
-	return s.runtime.GrantNavigation(context.Background(), epoch, revision, conversationID, requestID, leaseID)
-}
 func (s *Service) ConsumeNavigation(epoch, conversationID, runID, intentID, leaseID string) (assistant.ModelNavigationTarget, error) {
 	if s.runtime == nil {
 		return assistant.ModelNavigationTarget{}, assistant.ErrUnavailable

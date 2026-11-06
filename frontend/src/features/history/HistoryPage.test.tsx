@@ -23,7 +23,7 @@ import i18n from "@/i18n";
 import { toast } from "sonner";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
-const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => aiAPI);
 
 const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));

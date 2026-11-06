@@ -15,6 +15,7 @@ import (
 // PageNode is a presentation fact, never HTML, a route or UI execution authority.
 // Module/control IDs are stable publisher paths; anonymous text IDs are snapshot scoped.
 type PageNode struct {
+	Effect    string   `json:"effect,omitempty"`
 	ID        string   `json:"id"`
 	TargetRef string   `json:"targetRef,omitempty"`
 	Parent    string   `json:"parent,omitempty"`
@@ -68,7 +69,7 @@ func (p PageContent) valid(now time.Time) bool {
 	targets := map[string]bool{}
 	roles := "|region|text|heading|button|link|textbox|combobox|checkbox|radio|switch|tab|tablist|option|table|row|cell|columnheader|status|alert|group|img|disclosure|slider|spinbutton|article|form|navigation|list|listitem|term|definition|tabpanel|radiogroup|dialog|alertdialog|menu|menuitem|menuitemcheckbox|menuitemradio|tooltip|progressbar|separator|tree|treeitem|grid|rowheader|listbox|"
 	for _, n := range p.Nodes {
-		if (n.TargetRef != "" && (!canonicalID(n.TargetRef) || targets[n.TargetRef])) || n.ID == "" || len(n.ID) > 240 || len(n.Module) > 120 || n.Module == "" || ids[n.ID] || (n.Parent != "" && !ids[n.Parent]) || !strings.Contains(roles, "|"+n.Role+"|") || !pageText(n.Name) || !pageText(n.Value) || len(n.State) > 12 || len(n.Actions) > 8 {
+		if (n.Effect != "" && n.Effect != "presentation") || (n.TargetRef != "" && (!canonicalID(n.TargetRef) || targets[n.TargetRef])) || n.ID == "" || len(n.ID) > 240 || len(n.Module) > 120 || n.Module == "" || ids[n.ID] || (n.Parent != "" && !ids[n.Parent]) || !strings.Contains(roles, "|"+n.Role+"|") || !pageText(n.Name) || !pageText(n.Value) || len(n.State) > 12 || len(n.Actions) > 8 {
 			return false
 		}
 		ids[n.ID] = true
@@ -241,7 +242,7 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 		}
 		end := min(q.Cursor+limit, len(nodes))
 		for {
-			result := map[string]any{"snapshotId": p.ID, "page": p.Page, "capturedAt": p.CapturedAt, "modules": modules[q.ModuleCursor:moduleEnd], "moduleCount": len(modules), "moduleOffset": q.ModuleCursor, "hasMoreModules": moduleEnd < len(modules), "modulesComplete": q.ModuleCursor == 0 && moduleEnd == len(modules), "module": q.Module, "nodes": nodes[q.Cursor:end], "totalNodes": len(nodes), "hasMore": end < len(nodes), "complete": q.Cursor == 0 && end == len(nodes) && len(p.Limitations) == 0 && !truncated, "offset": q.Cursor, "limitations": p.Limitations, "interactionPolicy": "targets_are_not_authority; operate_page_control_requires_Full_and_live_claim; dispatch_is_not_financial_success"}
+			result := map[string]any{"snapshotId": p.ID, "page": p.Page, "capturedAt": p.CapturedAt, "modules": modules[q.ModuleCursor:moduleEnd], "moduleCount": len(modules), "moduleOffset": q.ModuleCursor, "hasMoreModules": moduleEnd < len(modules), "modulesComplete": q.ModuleCursor == 0 && moduleEnd == len(modules), "module": q.Module, "nodes": nodes[q.Cursor:end], "totalNodes": len(nodes), "hasMore": end < len(nodes), "complete": q.Cursor == 0 && end == len(nodes) && len(p.Limitations) == 0 && !truncated, "offset": q.Cursor, "limitations": p.Limitations, "interactionPolicy": "targets_are_not_authority; presentation_allowed_by_default; other_controls_require_Full; live_claim_required; dispatch_is_not_financial_success"}
 			if moduleEnd < len(modules) {
 				result["nextModuleCursor"] = moduleEnd
 			}

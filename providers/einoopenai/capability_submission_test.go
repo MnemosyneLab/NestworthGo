@@ -56,10 +56,10 @@ func TestPagePreflightProofDoesNotRequestNonexistentReceipt(t *testing.T) {
 	s := &submissionTestSession{err: submissionTestRejection{}}
 	page := capabilityTool{session: s, name: "operate_page_control", writing: true}
 	_, err := page.InvokableRun(t.Context(), `{}`)
-	if !errors.Is(err, errCapabilityWriteRejected) {
+	if !errors.Is(err, errPageOperationRefused) {
 		t.Fatal("lost page preflight proof", err)
 	}
-	if !strings.Contains(writeNotSubmittedDiagnostic, `"code":"write_not_submitted"`) || strings.Contains(writeNotSubmittedDiagnostic, "Inspect the original operation receipt") || strings.Contains(writeNotSubmittedDiagnostic, "write_requires_inspection") {
+	if !strings.Contains(pageOperationRefusedDiagnostic, `"code":"page_operation_refused"`) || strings.Contains(pageOperationRefusedDiagnostic, "Inspect the original operation receipt") || strings.Contains(pageOperationRefusedDiagnostic, "write_requires_inspection") {
 		t.Fatal("preflight diagnostic invented a submitted receipt")
 	}
 	s.err = assistant.ErrStale

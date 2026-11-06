@@ -36,7 +36,7 @@ func TestPageOperationRequiresRuntimeInjectedOperator(t *testing.T) {
 		for _, d := range defs {
 			if d.Name == "operate_page_control" {
 				found = true
-				if d.Effect != agentcapability.Write || d.Annotations.ReadOnlyHint {
+				if d.Effect != agentcapability.Interaction || d.Annotations.ReadOnlyHint {
 					t.Fatal("operator mislabeled read-only")
 				}
 			}

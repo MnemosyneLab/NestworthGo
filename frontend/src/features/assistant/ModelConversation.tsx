@@ -48,7 +48,7 @@ export function ModelConversation() {
   const [failed, setFailed] = useState(false);
   const [submission, setSubmission] = useState<{ conversationId: string; requestId: string } | null>(null);
   const pending = useRef(false);
-  const navigationGrant = useRef<{
+  const navigationLease = useRef<{
     requestID: string;
     leaseID: string;
     stamp: string;
@@ -111,8 +111,8 @@ export function ModelConversation() {
   }, [epoch, configRevision, modelAvailable, id]);
   useEffect(() => () => { navigationCompletion.current = null; }, []);
   useEffect(() => {
-    if (navigationGrant.current) setNavigationState("navigationStopped");
-    navigationGrant.current = null;
+    if (navigationLease.current) setNavigationState("navigationStopped");
+    navigationLease.current = null;
     navigationAttempt.current = null;
     if (!epoch || !modelAvailable || !modelStamp) return;
     const [kind, accountId = ""] = (page?.viewKey ?? "").split(":");
@@ -127,7 +127,7 @@ export function ModelConversation() {
     ).catch(() => {});
   }, [modelStamp, epoch, configRevision, modelAvailable, page?.viewKey]);
   useEffect(() => {
-    const grant = navigationGrant.current;
+    const grant = navigationLease.current;
     const run = latest.data?.runs?.[0];
     if (
       !grant ||
@@ -136,8 +136,9 @@ export function ModelConversation() {
       active(run.state)
     )
       return;
-    navigationGrant.current = null;
+    navigationLease.current = null;
     const intent = latest.data?.navigation;
+    if (!intent) { setNavigationState(""); return; }
     if (
       run.state !== "succeeded" ||
       !intent ||
@@ -179,19 +180,19 @@ export function ModelConversation() {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
     navigationCompletion.current = null;
     // Revoke locally at admission, before Create/Delete (or any other action)
-    // can await IPC. A previously approved Consume response may still be in flight.
-    if (navigationAttempt.current || navigationGrant.current)
+    // can await IPC. A previously admitted Consume response may still be in flight.
+    if (navigationAttempt.current || navigationLease.current)
       setNavigationState("navigationStopped");
     navigationAttempt.current = null;
-    navigationGrant.current = null;
+    navigationLease.current = null;
     setBusy(true);
     setFailed(false);
     try {
       await work();
     } catch {
       navigationAttempt.current = null;
-      if (navigationGrant.current) {
-        navigationGrant.current = null;
+      if (navigationLease.current) {
+        navigationLease.current = null;
         setNavigationState("navigationStopped");
       }
       setFailed(true);
@@ -211,13 +212,13 @@ export function ModelConversation() {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
     navigationCompletion.current = null;
     navigationAttempt.current = null;
-    if (navigationGrant.current) {
-      navigationGrant.current = null;
+    if (navigationLease.current) {
+      navigationLease.current = null;
       setNavigationState("navigationStopped");
     }
     return callService(() => API.Cancel(epoch, id, runID));
   }
-  async function send(allowNavigation = false) {
+  async function send() {
     if (
       !status.data?.available ||
       offline ||
@@ -227,10 +228,7 @@ export function ModelConversation() {
       utf8ByteLength(prompt) > 16384
     )
       return;
-    if (allowNavigation && (!page || !page.canModelNavigate(page.modelStamp))) {
-      setNavigationState("navigationStopped");
-      return;
-    }
+    const allowNavigation = !!page?.canModelNavigate(page.modelStamp);
     navigationAttempt.current = null;
     const text = prompt;
     const stamp = page?.modelStamp ?? "";
@@ -255,27 +253,18 @@ export function ModelConversation() {
         );
         if (!page?.canModelNavigate(stamp))
           throw new Error("assistant_stale_page");
-        await callService(() =>
-          API.GrantNavigation(
-            epoch,
-            status.data!.revision,
-            current,
-            requestId,
-            lease.id,
-          ),
-        );
         if (!page.canModelNavigate(stamp) || !samePageContent(contentGeneration, page.viewKey, page.modelStamp))
           throw new Error("assistant_stale_page");
         pageLeaseId = lease.id;
-        navigationGrant.current = {
+        navigationLease.current = {
           requestID: requestId,
           leaseID: lease.id,
           stamp,
           contentGeneration,
         };
-        setNavigationState("navigationPending");
+        setNavigationState("");
       } else {
-        navigationGrant.current = null;
+        navigationLease.current = null;
         setNavigationState("");
       }
       setSubmission({ conversationId: current, requestId });
@@ -304,7 +293,7 @@ export function ModelConversation() {
           disabled={busy || !list.data?.length}
           onChange={(event) => {
             navigationCompletion.current = null;
-            navigationGrant.current = null;
+            navigationLease.current = null;
             navigationAttempt.current = null;
             setNavigationState("");
             setSubmission(null);
@@ -413,28 +402,6 @@ export function ModelConversation() {
           <ArrowUp className="size-4" aria-hidden="true" />{t("aiChat.send")}
         </Button>
         </div>
-        <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.navigationOptions")}</summary>
-        <p className="py-2 leading-relaxed">{t("aiChat.navigationHelp")}</p>
-        <Button
-          className={`${actionClass} max-w-full`}
-          type="button"
-          variant="outline"
-          disabled={
-            busy ||
-            offline ||
-            running ||
-            !status.data?.available ||
-            stale ||
-            !prompt.trim() ||
-            utf8ByteLength(prompt) > 16384
-          }
-          onClick={() => void send(true)}
-        >
-          {t("aiChat.sendNavigate")}
-        </Button>
-        <div className="flex flex-wrap gap-2 pt-2">{page?.context?.targets.map(target => <Button type="button" key={target.ref} variant="ghost" className="max-w-full whitespace-normal" disabled={busy} onClick={() => { if (page.navigate(target.ref, page.context!) !== "opened") setFailed(true); }}>{target.label}</Button>)}</div>
-        </details>
         {navigationState && (
           <p role="status" className="text-xs text-muted-foreground">
             {t(`aiChat.${navigationState}`)}

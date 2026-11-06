@@ -61,35 +61,31 @@ func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 	}
 	lease := publish()
 	q.PageLeaseID = lease.ID
-	// A lease/selector alone gives no model navigation authority, even if an
-	// adversarial engine returns a typed target anyway.
+	// A fresh page lease admits navigation without a separate approval.
 	if _, err := r.Start(t.Context(), q); err != nil {
 		t.Fatal(err)
 	}
 	waitRun(t, r, q)
 	v, _ := r.Inspect(t.Context(), q.Epoch, q.ConversationID)
-	if enabled || v.Navigation != nil {
-		t.Fatal("client page lease granted navigation")
+	if !enabled || v.Navigation == nil {
+		t.Fatal("fresh page lease did not allow navigation")
 	}
-	startGranted := func() ai.ModelNavigationIntent {
+	startNavigation := func() ai.ModelNavigationIntent {
 		q.RequestID = uuid.NewString()
 		q.Revision = r.Snapshot().Revision
 		lease = publish()
 		q.PageLeaseID = lease.ID
-		if err := r.GrantNavigation(t.Context(), q.Epoch, q.Revision, q.ConversationID, q.RequestID, lease.ID); err != nil {
-			t.Fatal(err)
-		}
 		if _, err := r.Start(t.Context(), q); err != nil {
 			t.Fatal(err)
 		}
 		waitRun(t, r, q)
 		view, err := r.Inspect(t.Context(), q.Epoch, q.ConversationID)
 		if err != nil || view.Navigation == nil || !enabled {
-			t.Fatal("explicit grant did not offer navigation")
+			t.Fatal("current lease did not offer navigation")
 		}
 		return *view.Navigation
 	}
-	intent := startGranted()
+	intent := startNavigation()
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, "wrong-lease"); err == nil {
 		t.Fatal("wrong page lease accepted")
 	}
@@ -100,24 +96,24 @@ func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
 		t.Fatal("intent replayed")
 	}
-	intent = startGranted()
+	intent = startNavigation()
 	if err := r.Cancel(t.Context(), q.Epoch, q.ConversationID, intent.RunID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
 		t.Fatal("Stop left a completed navigation intent executable")
 	}
-	intent = startGranted()
+	intent = startNavigation()
 	publish()
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
 		t.Fatal("old page navigated after refresh")
 	}
-	intent = startGranted()
+	intent = startNavigation()
 	now = now.Add(3 * time.Minute)
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
 		t.Fatal("expired page navigated")
 	}
-	intent = startGranted()
+	intent = startNavigation()
 	status := r.Snapshot()
 	cfg := status.Config
 	cfg.Enabled = false
@@ -132,24 +128,18 @@ func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 	if err := r.Configure(t.Context(), status.Epoch, status.Revision, cfg); err != nil {
 		t.Fatal(err)
 	}
-	intent = startGranted()
-	if err := r.GrantNavigation(t.Context(), q.Epoch, r.Snapshot().Revision, q.ConversationID, uuid.NewString(), intent.LeaseID); err != nil {
-		t.Fatal(err)
-	}
+	intent = startNavigation()
+	publish()
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
-		t.Fatal("new authorization retained old intent")
+		t.Fatal("new page retained old intent")
 	}
-	intent = startGranted()
-	duringValidation = func() {
-		if err := r.GrantNavigation(t.Context(), q.Epoch, r.Snapshot().Revision, q.ConversationID, uuid.NewString(), intent.LeaseID); err != nil {
-			t.Fatal(err)
-		}
-	}
+	intent = startNavigation()
+	duringValidation = func() { publish() }
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
-		t.Fatal("new grant during validation retained in-flight intent")
+		t.Fatal("new publication during validation retained in-flight intent")
 	}
 	duringValidation = nil
-	intent = startGranted()
+	intent = startNavigation()
 	q.RequestID = uuid.NewString()
 	q.PageLeaseID = ""
 	q.Revision = r.Snapshot().Revision
@@ -160,7 +150,7 @@ func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 	if _, err := r.ConsumeNavigation(t.Context(), q.Epoch, q.ConversationID, intent.RunID, intent.ID, intent.LeaseID); err == nil {
 		t.Fatal("new ordinary turn retained old intent")
 	}
-	intent = startGranted()
+	intent = startNavigation()
 	if err := r.Delete(t.Context(), q.Epoch, q.ConversationID); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +162,7 @@ func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 		t.Fatal(err)
 	}
 	q.ConversationID = conversation.ID
-	intent = startGranted()
+	intent = startNavigation()
 	duringValidation = func() {
 		if err := r.Delete(t.Context(), q.Epoch, q.ConversationID); err != nil {
 			t.Fatal(err)
@@ -187,7 +177,7 @@ func navigationFences(t *testing.T, requested ai.ModelNavigationTarget) {
 		t.Fatal(err)
 	}
 	q.ConversationID = conversation.ID
-	intent = startGranted()
+	intent = startNavigation()
 	if err := r.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -228,9 +218,6 @@ func TestPageChangeDuringModelRunSuppressesNavigation(t *testing.T) {
 		t.Fatal(err)
 	}
 	q.PageLeaseID = lease.ID
-	if err := r.GrantNavigation(t.Context(), q.Epoch, q.Revision, q.ConversationID, q.RequestID, lease.ID); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := r.Start(t.Context(), q); err != nil {
 		t.Fatal(err)
 	}
@@ -279,9 +266,6 @@ func TestReturnTrendBlockedByRestoredReviewAfterRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	q := ai.StartRequest{Epoch: status.Epoch, Revision: status.Revision, ConversationID: id, RequestID: uuid.NewString(), Prompt: "Open return trend", Page: ai.PageSelection{Kind: "overview"}, PageLeaseID: lease.ID}
-	if err := r.GrantNavigation(t.Context(), q.Epoch, q.Revision, id, q.RequestID, lease.ID); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := r.Start(t.Context(), q); err != nil {
 		t.Fatal(err)
 	}

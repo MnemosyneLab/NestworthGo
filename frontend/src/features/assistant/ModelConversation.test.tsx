@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
-  GrantNavigation: vi.fn(),
+
   ConsumeNavigation: vi.fn(),
   Status: vi.fn(),
   List: vi.fn(),
@@ -55,7 +55,6 @@ beforeEach(() => {
   api.PendingPageReads.mockResolvedValue([]);
   api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
-  api.GrantNavigation.mockResolvedValue(undefined);
   api.ConsumeNavigation.mockResolvedValue({ kind: "overview", accountId: "" });
   api.Status.mockResolvedValue({
     epoch: "host",
@@ -119,7 +118,6 @@ it("restores history without replay and sends only the question and selector", a
     prompt: "Read my current page",
     page: { kind: "overview", accountId: "" },
   });
-  expect(api.GrantNavigation).not.toHaveBeenCalled();
   expect(api.ConsumeNavigation).not.toHaveBeenCalled();
   expect(Object.keys(api.Start.mock.calls[0][0]).sort()).toEqual([
     "conversationId",
@@ -239,7 +237,7 @@ it("keeps local Stop available during a browser offline hint", async () => {
   expect(api.Start).not.toHaveBeenCalled();
 });
 
-it("executes one typed navigation only after the explicit per-message grant", async () => {
+it("executes one typed navigation automatically with a current page lease", async () => {
   const navigate = vi.fn();
   api.Start.mockImplementation(async (q) => {
     api.Inspect.mockResolvedValue({
@@ -275,14 +273,12 @@ it("executes one typed navigation only after the explicit per-message grant", as
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open the account list");
-  await user.click(screen.getByText("Page navigation"));
   await user.click(
-    screen.getByRole("button", { name: "Send and allow one page change" }),
+    screen.getByRole("button", { name: "Send to model" }),
   );
   await waitFor(() =>
     expect(navigate).toHaveBeenCalledWith({ page: "overview" }),
   );
-  expect(api.GrantNavigation).toHaveBeenCalledTimes(1);
   expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1);
   expect(navigate).toHaveBeenCalledTimes(1);
   await client.invalidateQueries({ queryKey: ["aiConversation"] });
@@ -339,9 +335,8 @@ it("does not navigate when the page changes during intent consumption", async ()
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open overview");
-  await user.click(screen.getByText("Page navigation"));
   await user.click(
-    screen.getByRole("button", { name: "Send and allow one page change" }),
+    screen.getByRole("button", { name: "Send to model" }),
   );
   await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
   await user.click(
@@ -406,9 +401,8 @@ it.each([
     const user = userEvent.setup();
     await screen.findByText("Synthetic prior answer");
     await user.type(screen.getByLabelText("Message"), "Open overview");
-    await user.click(screen.getByText("Page navigation"));
     await user.click(
-      screen.getByRole("button", { name: "Send and allow one page change" }),
+      screen.getByRole("button", { name: "Send to model" }),
     );
     await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
     const action = screen.getByRole("button", { name: label });
@@ -438,7 +432,7 @@ it.each([
   ["provider_connection", "Check your network or proxy"],
   ["provider_response_rejected", "response was incomplete or unsupported"],
   ["model_history_rejected", "Start a new conversation"],
-  ["tool_result_rejected", "Try a narrower financial question"],
+  ["tool_result_rejected", "Check its result before retrying"],
   ["assistant_budget_exceeded", "run reached a resource limit"],
   ["assistant_budget_exceeded.model_rounds", "model round limit"],
   ["assistant_budget_exceeded.tool_calls", "tool call limit"],
@@ -508,8 +502,7 @@ it("fulfills a tool capture automatically with the latest supported page, withou
  fireEvent.change(screen.getByLabelText("From"),{target:{value:"2026-10-02"}});
  api.PendingPageReads.mockResolvedValueOnce([{id:"capture-second"}]);
  await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(2));
- expect(api.DeliverPageContent.mock.calls[1][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-02"})]));
- expect(api.GrantNavigation).not.toHaveBeenCalled(); expect(api.Start).not.toHaveBeenCalled();
+ expect(api.DeliverPageContent.mock.calls[1][2].nodes).toEqual(expect.arrayContaining([expect.objectContaining({id:"filters/analysis-from",value:"2026-10-02"})])); expect(api.Start).not.toHaveBeenCalled();
 });
 
 it("revokes analysis navigation when a live filter changes during intent consumption", async () => {
@@ -552,7 +545,7 @@ it("revokes analysis navigation when a live filter changes during intent consump
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Open overview");
   await user.click(
-    screen.getByRole("button", { name: "Send and allow one page change" }),
+    screen.getByRole("button", { name: "Send to model" }),
   );
   await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
   fireEvent.change(screen.getByLabelText("From"), {target:{value:"2026-10-02"}});
@@ -566,8 +559,7 @@ it.each(["return-analysis", "overview", "accounts", "available-funds", "portfoli
  api.PendingPageReads.mockResolvedValueOnce([{id:"collapsed-sidebar-read"}]).mockResolvedValue([]);
  render(<QueryClientProvider client={createTestQueryClient()}><AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey={`${page}:`} blocked={()=>false} onNavigate={vi.fn()}><main data-assistant-page={page}><p>Latest underlying page</p></main></AssistantPageProvider></QueryClientProvider>);
  await waitFor(()=>expect(api.DeliverPageContent).toHaveBeenCalledTimes(1));
- expect(JSON.stringify(api.DeliverPageContent.mock.calls[0][2].nodes)).toContain("Latest underlying page");
- expect(api.GrantNavigation).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
+ expect(JSON.stringify(api.DeliverPageContent.mock.calls[0][2].nodes)).toContain("Latest underlying page");expect(api.Start).not.toHaveBeenCalled();
 
 });
 
@@ -617,11 +609,7 @@ it("keeps privacy and navigation details keyboard accessible without granting on
   expect(await screen.findByText(/Sending a message sends your question/)).toBeVisible();
   await user.keyboard("{Escape}");
   expect(info).toHaveFocus();
-  const options = screen.getByText("Page navigation");
-  await user.click(options);
-  expect(screen.getByRole("button", { name: "Send and allow one page change" })).toBeVisible();
-  expect(api.GrantNavigation).not.toHaveBeenCalled();
-  expect(api.Start).not.toHaveBeenCalled();
+  expect(screen.queryByText("Page navigation")).not.toBeInTheDocument();
 });
 
 it("displays only allowlisted tool names and never a raw source identifier", async () => {
@@ -655,14 +643,10 @@ it("navigates to a page target with a draft without sending it to the model", as
   const user = userEvent.setup();
   await screen.findByText("Synthetic prior answer");
   await user.type(screen.getByLabelText("Message"), "Do not send this draft");
-  await user.click(screen.getByText("Page navigation"));
-  const target = screen.getByRole("button", { name: "Synthetic checking" });
-  expect(target).toHaveAttribute("type", "button");
-  await user.click(target);
-  expect(navigate).toHaveBeenCalledWith({ page: "accounts", accountId: "11111111-1111-4111-8111-111111111111" });
+  expect(screen.queryByRole("button", { name: "Synthetic checking" })).not.toBeInTheDocument();
+  expect(navigate).not.toHaveBeenCalled();
   expect(screen.getByLabelText("Message")).toHaveValue("Do not send this draft");
   expect(api.Start).not.toHaveBeenCalled();
-  expect(api.GrantNavigation).not.toHaveBeenCalled();
 });
 
 

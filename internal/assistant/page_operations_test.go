@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func TestPageOperationClaimFences(t *testing.T) {
 			r := operationRuntime()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
-			op := PageOperation{SnapshotID: uuid.NewString(), TargetRef: uuid.NewString(), Action: "activate"}
+			op := PageOperation{RequiresFull: true, SnapshotID: uuid.NewString(), TargetRef: uuid.NewString(), Action: "activate"}
 			r.pageOperations["request"] = pendingPageOperation{operation: op, revision: 1, ctx: ctx, response: make(chan PageOperationResult, 1)}
 			epoch := r.epoch
 			switch mode {
@@ -298,5 +299,116 @@ func TestPagePreflightProofScope(t *testing.T) {
 				t.Fatal("preflight refusal queued a command")
 			}
 		})
+	}
+}
+
+func TestReadOnlyPresentationClaimAndSideEffectFence(t *testing.T) {
+	r := operationRuntime()
+	r.fullEnabled = false
+	for _, requiresFull := range []bool{false, true} {
+		r.pageOperations["request"] = pendingPageOperation{operation: PageOperation{RequiresFull: requiresFull, SnapshotID: uuid.NewString()}, revision: 1, ctx: t.Context(), response: make(chan PageOperationResult, 1)}
+		_, err := r.ClaimPageOperation(t.Context(), r.epoch, "request")
+		if (err != nil) != requiresFull {
+			t.Fatalf("requiresFull=%v: %v", requiresFull, err)
+		}
+	}
+}
+
+func TestPageOperationClassifiesFreshHostTarget(t *testing.T) {
+	for _, effect := range []string{"", "presentation"} {
+		for _, full := range []bool{false, true} {
+			t.Run(effect+fmt.Sprint(full), func(t *testing.T) {
+				r := operationRuntime()
+				r.fullEnabled = full
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
+				snapshot := PageContent{ID: uuid.NewString(), Page: "synthetic", CapturedAt: time.Now(), Nodes: []PageNode{{ID: "target", Module: "page", Role: "button", Effect: effect, TargetRef: uuid.NewString(), Actions: []string{"activate"}}}}
+				args, _ := jsoncodec.Marshal(PageOperation{SnapshotID: snapshot.ID, TargetRef: snapshot.Nodes[0].TargetRef, Action: "activate"})
+				done := make(chan error, 1)
+				go func() { _, err := r.pageOperator(ctx, r.epoch, 1)(ctx, args); done <- err }()
+				deadline := time.Now().Add(time.Second)
+				delivered := false
+				for time.Now().Before(deadline) {
+					reads, _ := r.PendingPageReads(ctx, r.epoch)
+					if len(reads) > 0 {
+						if err := r.DeliverPageContent(ctx, r.epoch, reads[0].ID, snapshot); err != nil {
+							t.Fatal(err)
+						}
+						delivered = true
+						break
+					}
+					time.Sleep(time.Millisecond)
+				}
+				if !delivered {
+					t.Fatal("missing capture")
+				}
+				if effect == "" && !full {
+					select {
+					case err := <-done:
+						var proof interface{ NotDispatched() bool }
+						if !errors.As(err, &proof) || !proof.NotDispatched() {
+							t.Fatal("missing refusal proof", err)
+						}
+					case <-time.After(time.Second):
+						t.Fatal("readonly mutation was not refused")
+					}
+					requests, _ := r.PendingPageOperations(ctx, r.epoch)
+					if len(requests) != 0 {
+						t.Fatal("mutation queued")
+					}
+					return
+				}
+				dispatched := false
+				for time.Now().Before(deadline) {
+					requests, _ := r.PendingPageOperations(ctx, r.epoch)
+					if len(requests) > 0 {
+						op, err := r.ClaimPageOperation(ctx, r.epoch, requests[0].ID)
+						if err != nil || op.RequiresFull != (effect != "presentation") {
+							t.Fatal("incorrect host classification", op, err)
+						}
+						if err := r.DeliverPageOperation(ctx, r.epoch, requests[0].ID, PageOperationResult{State: "dispatched", SnapshotID: snapshot.ID}); err != nil {
+							t.Fatal(err)
+						}
+						dispatched = true
+						break
+					}
+					time.Sleep(time.Millisecond)
+				}
+				if !dispatched {
+					t.Fatal("permitted operation not queued")
+				}
+				if err := <-done; err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	}
+}
+
+func TestNavigationLeaseNeedsNoSeparateApproval(t *testing.T) {
+	r := operationRuntime()
+	r.fullEnabled = false
+	r.options.NavigationValidator = func(context.Context, ModelNavigationTarget) bool { return true }
+	page := PageSelection{Kind: "overview"}
+	lease, err := r.PublishPage(t.Context(), r.epoch, 1, page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := StartRequest{Epoch: r.epoch, Revision: 1, Page: page, PageLeaseID: lease.ID, ConversationID: uuid.NewString(), RequestID: uuid.NewString()}
+	grant, err := r.grantForStart(q)
+	if err != nil || grant.requestID != q.RequestID {
+		t.Fatal("navigation required approval", err)
+	}
+	r.clearNavigation()
+	if _, err = r.grantForStart(q); err == nil {
+		t.Fatal("stale lease admitted")
+	}
+	for _, kind := range []string{"asset-changes", "historical-overview", "settings"} {
+		if !(ModelNavigationTarget{Kind: kind}).Valid() {
+			t.Fatal("root unavailable", kind)
+		}
+	}
+	if (ModelNavigationTarget{Kind: "arbitrary-url"}).Valid() {
+		t.Fatal("arbitrary route admitted")
 	}
 }

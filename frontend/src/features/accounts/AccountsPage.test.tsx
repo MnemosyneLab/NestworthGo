@@ -14,7 +14,7 @@ import { AccountsPage } from "./AccountsPage";
 import i18n from "@/i18n";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
-const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(), GrantNavigation: vi.fn(), ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
+const aiAPI = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => aiAPI);
 
 const listAccounts = vi.fn();
@@ -1977,7 +1977,7 @@ it.each(["before-consume", "during-consume", "unchanged"])("fences real Accounts
  vi.clearAllMocks();
  const prior={id:"prior",state:"succeeded",text:"Synthetic prior answer",prompt:"Earlier",model:"mock",created:"2026-11-05T00:00:00Z"};
  aiAPI.Status.mockResolvedValue({epoch:"host",revision:1,available:true,config:{enabled:true,model:"mock"}});
- aiAPI.PendingPageReads.mockResolvedValue([]); aiAPI.PublishPage.mockResolvedValue({id:"lease"}); aiAPI.GrantNavigation.mockResolvedValue(undefined);
+ aiAPI.PendingPageReads.mockResolvedValue([]); aiAPI.PublishPage.mockResolvedValue({id:"lease"});
  aiAPI.List.mockResolvedValue([{id:"conversation",runCount:1}]); aiAPI.Inspect.mockResolvedValue({id:"conversation",runs:[prior],runCount:1,offset:0});
  let resolve!: (target:{kind:string;accountId:string})=>void;
  let completed: unknown;
@@ -1993,8 +1993,7 @@ it.each(["before-consume", "during-consume", "unchanged"])("fences real Accounts
  const user=userEvent.setup(); await screen.findByText(emptyAccount.account.name); await screen.findByText("Synthetic prior answer");
  await waitFor(()=>expect(document.querySelector('[data-assistant-page="accounts"]')).toHaveAttribute("aria-busy","false"));
  await user.type(screen.getByLabelText("Message"),"Open overview");
- await user.click(screen.getByText("Page navigation"));
- await user.click(screen.getByRole("button",{name:"Send and allow one page change"}));
+ await user.click(screen.getByRole("button",{name:"Send to model"}));
  if(phase!=="before-consume") await waitFor(()=>expect(aiAPI.ConsumeNavigation).toHaveBeenCalledTimes(1));
  else await screen.findByText(/Running · reading related data/);
  if(phase!=="unchanged") {
@@ -2009,7 +2008,7 @@ it.each(["before-consume", "during-consume", "unchanged"])("fences real Accounts
  if(phase==="unchanged") await waitFor(()=>expect(navigate).toHaveBeenCalledWith({page:"overview"}));
  else {await screen.findByText(/No page change was applied/); expect(navigate).not.toHaveBeenCalled();}
  if(phase==="before-consume") expect(aiAPI.ConsumeNavigation).not.toHaveBeenCalled();
- expect(aiAPI.GrantNavigation).toHaveBeenCalledTimes(1);
+ expect(aiAPI.PublishPage).toHaveBeenCalled();
  expect(createAccount).not.toHaveBeenCalled(); expect(updateAccount).not.toHaveBeenCalled();
 });
 
