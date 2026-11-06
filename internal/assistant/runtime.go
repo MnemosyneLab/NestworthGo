@@ -170,6 +170,7 @@ type CapabilityLifecycle interface {
 }
 
 type Options struct {
+	Transcriber         Transcriber
 	Reviews             ReviewProvider
 	TitleGenerator      TitleGenerator
 	TitleTimeout        time.Duration

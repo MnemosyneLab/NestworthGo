@@ -11,6 +11,7 @@ import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./u
 import { homepageEn, homepageZhCN, homepageZhTW } from "./homepage";
 import { investmentAssetsEn, investmentAssetsZhCN, investmentAssetsZhTW } from "./investmentAssets";
 import { assistantEn, assistantZhCN, assistantZhTW } from "./assistant";
+import { voiceEn, voiceZhCN, voiceZhTW } from "./voice";
 import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { deepMerge } from "./deepMerge";
 
@@ -23,9 +24,9 @@ export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
 
 void i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, assistantEn), additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodesEn },
-    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodesZhCN },
-    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodesZhTW },
+    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, voiceEn), assistantEn), additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodesEn },
+    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, voiceZhCN), assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodesZhCN },
+    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, voiceZhTW), assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodesZhTW },
   },
   lng: DEFAULT_LANGUAGE,
   fallbackLng: DEFAULT_LANGUAGE,
