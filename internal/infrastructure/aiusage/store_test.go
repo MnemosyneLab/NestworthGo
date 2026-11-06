@@ -29,6 +29,11 @@ func TestUsageSurvivesReopenAndUpserts(t *testing.T) {
 	c.Status = "succeeded"
 	now := time.Now().UTC()
 	c.Finished = &now
+	c.ServiceTier = "default"
+	c.PricingScope = "openai-public"
+	c.Cost = &assistant.UsageCost{Status: "estimated", USD: "0.0032", CachedUSD: "0.00005", CacheWriteUSD: "0.00035", Price: &assistant.PriceSnapshot{
+		Version: "synthetic-version", Source: "https://developers.openai.com/api/docs/pricing", VerifiedAt: "2026-11-06", ValidFrom: now.Add(-time.Hour), ValidUntil: now.Add(time.Hour), Model: "test-model", ModelBasis: "response", Currency: "USD", ServiceTier: "default", Input: "2", Cached: "0.1", Write30m: "2.5", Write12h: "5", Output: "10",
+	}}
 	if err = s.Record(c); err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +48,9 @@ func TestUsageSurvivesReopenAndUpserts(t *testing.T) {
 	calls, err := s.Calls()
 	if err != nil || len(calls) != 1 || calls[0].Status != "succeeded" || calls[0].Input != nil {
 		t.Fatalf("%+v %v", calls, err)
+	}
+	if calls[0].Cost == nil || calls[0].Cost.USD != "0.0032" || calls[0].Cost.Price.Version != "synthetic-version" || calls[0].ServiceTier != "default" {
+		t.Fatal("lost immutable cost snapshot")
 	}
 	info, _ := os.Stat(filepath.Join(dir, "usage.db"))
 	if info.Mode().Perm() != 0600 {
