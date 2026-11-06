@@ -20,7 +20,7 @@ func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	defs, err := s.FullDefinitions()
-	if err != nil || !reflect.DeepEqual(defs, s.service.toolRegistry(LedgerWrite).Definitions()) {
+	if err != nil || !reflect.DeepEqual(defs, s.service.buildToolSetWithPolicy(LedgerWrite, true, true).Definitions()) {
 		t.Fatal("Full differs from shared MCP registry", err)
 	}
 	rawGolden, err := os.ReadFile(discoveryContractGolden)
@@ -31,12 +31,21 @@ func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
 	if err := jsoncodec.Unmarshal(rawGolden, &golden); err != nil {
 		t.Fatal(err)
 	}
-	if len(defs) != len(golden[LedgerWrite]) {
+	if len(defs) != len(golden[LedgerWrite])+len(investmentReviewManagementTools) {
 		t.Fatal("Full inventory count drift")
 	}
 	for _, d := range defs {
-		if golden[LedgerWrite][d.Name] != contractHash(t, sdkTool(d)) {
+		if hash, exists := golden[LedgerWrite][d.Name]; exists && hash != contractHash(t, sdkTool(d)) {
 			t.Fatalf("Full contract drift: %s", d.Name)
+		}
+	}
+	for _, name := range investmentReviewManagementTools {
+		d, err := s.FullDefinition(name)
+		if err != nil || d.Effect != agentcapability.Write {
+			t.Fatalf("missing Full review management writer: %s", name)
+		}
+		if _, err := s.registry.Definition(name); err == nil {
+			t.Fatal("Full changed ordinary in-process inventory")
 		}
 	}
 	counts := map[agentcapability.Effect]int{}

@@ -34,17 +34,19 @@ var inProcessOwners = struct {
 // deliberately refuses writers. The desktop runtime alone adapts the separate
 // Full and host review APIs after checking explicit session authority, never mobile.
 type InProcessSession struct {
-	mu          sync.Mutex
-	reviewMu    sync.Mutex
-	closed      bool
-	inflight    sync.WaitGroup
-	ctx         context.Context
-	cancel      context.CancelFunc
-	service     *Service
-	registry    *agentcapability.Registry
-	householdID string
-	owner       inProcessOwner
-	release     sync.Once
+	mu           sync.Mutex
+	reviewMu     sync.Mutex
+	closed       bool
+	inflight     sync.WaitGroup
+	ctx          context.Context
+	cancel       context.CancelFunc
+	service      *Service
+	registry     *agentcapability.Registry
+	fullRegistry *agentcapability.Registry
+	fullOnce     sync.Once
+	householdID  string
+	owner        inProcessOwner
+	release      sync.Once
 }
 
 // NewInProcessSession uses a host-owned stable session UUID for receipt storage
@@ -120,9 +122,9 @@ func (s *InProcessSession) Call(ctx context.Context, name string, arguments json
 // call's trusted branch is used by adapter equivalence tests and the host review
 // coordinator. It stays unexported and is never registered as a model tool.
 func (s *InProcessSession) call(ctx context.Context, name string, arguments json.RawMessage, trusted bool) (json.RawMessage, error) {
-	return s.callObserved(ctx, name, arguments, trusted, nil)
+	return s.callObserved(ctx, name, arguments, trusted, nil, s.registry)
 }
-func (s *InProcessSession) callObserved(ctx context.Context, name string, arguments json.RawMessage, trusted bool, dispatched *bool) (json.RawMessage, error) {
+func (s *InProcessSession) callObserved(ctx context.Context, name string, arguments json.RawMessage, trusted bool, dispatched *bool, registry *agentcapability.Registry) (json.RawMessage, error) {
 	s.mu.Lock()
 	if s.closed || !s.service.contexts.active(s.service.contextGeneration) {
 		s.mu.Unlock()
@@ -138,7 +140,7 @@ func (s *InProcessSession) callObserved(ctx context.Context, name string, argume
 	if err := callContext.Err(); err != nil {
 		return nil, fail("cancelled", "request cancelled before capability dispatch")
 	}
-	d, err := s.registry.Definition(name)
+	d, err := registry.Definition(name)
 	if err != nil {
 		return nil, fail("not_found", "capability unavailable for this permission")
 	}
@@ -165,7 +167,7 @@ func (s *InProcessSession) callObserved(ctx context.Context, name string, argume
 	if dispatched != nil {
 		*dispatched = true
 	}
-	result, err := s.registry.Call(callContext, name, arguments)
+	result, err := registry.Call(callContext, name, arguments)
 	if err != nil {
 		if callContext.Err() != nil {
 			if d.Effect == agentcapability.Write {

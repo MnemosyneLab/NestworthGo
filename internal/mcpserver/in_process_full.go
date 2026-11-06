@@ -17,12 +17,12 @@ func (s *InProcessSession) FullDefinitions() ([]agentcapability.Definition, erro
 	if s.closed || !s.service.contexts.active(s.service.contextGeneration) {
 		return nil, fail("session_revoked", "in-process session revoked")
 	}
-	return s.registry.Definitions(), nil
+	return s.fullTools().Definitions(), nil
 }
 
 func (s *InProcessSession) CallFull(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	dispatched := false
-	raw, err := s.callObserved(ctx, name, args, true, &dispatched)
+	raw, err := s.callObserved(ctx, name, args, true, &dispatched, s.fullTools())
 	if err != nil && !dispatched {
 		return raw, unsubmittedCapability{err}
 	}
@@ -65,7 +65,7 @@ func (s *InProcessSession) InspectFullOperation(id string) (Operation, error) {
 }
 
 func (s *InProcessSession) ValidateFull(name string, args json.RawMessage) error {
-	return s.registry.ValidateArguments(name, args)
+	return s.fullTools().ValidateArguments(name, args)
 }
 
 // This marker is emitted only before the registry is entered. It must never be
@@ -81,5 +81,12 @@ func (s *InProcessSession) FullDefinition(name string) (agentcapability.Definiti
 	if s.closed || !s.service.contexts.active(s.service.contextGeneration) {
 		return agentcapability.Definition{}, fail("session_revoked", "in-process session revoked")
 	}
-	return s.registry.Definition(name)
+	return s.fullTools().Definition(name)
+}
+
+// Read-only conversations never pay for a second schema registry. Session mode
+// is immutable; Full discovery/dispatch share this once-built registry.
+func (s *InProcessSession) fullTools() *agentcapability.Registry {
+	s.fullOnce.Do(func() { s.fullRegistry = s.service.buildToolSetWithPolicy(s.service.config.Mode, false, true).Registry })
+	return s.fullRegistry
 }

@@ -73,8 +73,8 @@ both write modes. No model argument, chat approval or restored history enables i
 Full discovery reuses the complete `LedgerWrite` registry and its exact input
 schemas, descriptions and effects. Dispatch uses that same in-process registry;
 there is no loopback HTTP, duplicate financial implementation or additional
-per-write approval. The registry's feature gates still apply. External MCP
-transport, permission modes, schemas and operation namespaces are unchanged.
+per-write approval. The Full grant includes the seven investment-review management writers (82 shared tools including the 75-tool baseline). External MCP
+transport, its independent investment-review-management opt-in, permission modes, schemas and operation namespaces are unchanged.
 The #248 atomic directory edit fix is part of this baseline. The legacy
 `execute_ledger_change` cash/transfer convenience tool remains available for
 existing conversations, using its original host preview/commit flow.
