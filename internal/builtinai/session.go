@@ -167,11 +167,23 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	}
 	if name != "get_current_page" {
 		if s.full != nil {
+			definition, err := s.fullCapabilityDefinition(name)
+			if err != nil {
+				return nil, err
+			}
+			captured := time.Now().UTC()
 			raw, err := jsoncodec.Marshal(assistant.FullCapabilityRequest{Name: name, Arguments: args})
 			if err != nil {
 				return nil, assistant.ErrUnavailable
 			}
-			return s.full(ctx, raw)
+			result, err := s.full(ctx, raw)
+			if err != nil {
+				return nil, err
+			}
+			if definition.Effect == agentcapability.Read || definition.Effect == agentcapability.Analysis {
+				return s.recordRead(name, result, captured)
+			}
+			return result, nil
 		}
 		if !allowed(name) {
 			return nil, assistant.ErrUnavailable
@@ -227,6 +239,12 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 	if err != nil {
 		return nil, err
 	}
+	return s.recordRead(name, raw, captured)
+}
+
+// Both permission modes record successful authoritative reads after their own
+// dispatcher returns. Preview/write receipts never enter this evidence path.
+func (s *Session) recordRead(name string, raw json.RawMessage, captured time.Time) (json.RawMessage, error) {
 	if len(raw) > 64<<10 {
 		return nil, assistant.BudgetFailure("tool_result_bytes")
 	}
@@ -279,3 +297,21 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 
 // FullAccessEnabled describes this run's host grant; dispatch revalidates it.
 func (s *Session) FullAccessEnabled() bool { return s.full != nil }
+
+func (s *Session) fullCapabilityDefinition(name string) (agentcapability.Definition, error) {
+	if shared, ok := s.shared.(interface {
+		FullDefinition(string) (agentcapability.Definition, error)
+	}); ok {
+		return shared.FullDefinition(name)
+	}
+	definitions, err := s.shared.Definitions()
+	if err != nil {
+		return agentcapability.Definition{}, err
+	}
+	for _, d := range definitions {
+		if d.Name == name {
+			return d, nil
+		}
+	}
+	return agentcapability.Definition{}, assistant.ErrUnavailable
+}
