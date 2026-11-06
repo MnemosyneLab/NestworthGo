@@ -143,3 +143,6 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 	}
 	return string(result), nil
 }
+
+// Shared with the engine so proof diagnostics are tested without a live provider.
+const writeNotSubmittedDiagnostic = `{"error":{"code":"write_not_submitted","recovery":"This attempt was rejected before business dispatch. Review the arguments and permission before a new request. This does not resolve an older operation's uncertain receipt."}}`

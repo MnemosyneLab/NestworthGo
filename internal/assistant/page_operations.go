@@ -109,28 +109,28 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 		var op PageOperation
 		var fields map[string]json.RawMessage
 		if len(args) > 32<<10 || jsoncodec.Unmarshal(args, &fields) != nil || fields == nil || jsoncodec.Unmarshal(args, &op) != nil || !canonicalID(op.SnapshotID) || !canonicalID(op.TargetRef) {
-			return nil, ErrUnavailable
+			return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 		}
 		for k, v := range fields {
 			if string(v) == "null" || k != "snapshotId" && k != "targetRef" && k != "action" && k != "value" && k != "optionRef" {
-				return nil, ErrUnavailable
+				return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 			}
 		}
 		switch op.Action {
 		case "activate":
 			if op.Value != nil || op.OptionRef != "" {
-				return nil, ErrUnavailable
+				return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 			}
 		case "set_value":
 			if op.Value == nil || !validPageOperationValue(*op.Value) || op.OptionRef != "" {
-				return nil, ErrUnavailable
+				return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 			}
 		case "select_option":
 			if op.Value != nil || !canonicalID(op.OptionRef) {
-				return nil, ErrUnavailable
+				return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 			}
 		default:
-			return nil, ErrUnavailable
+			return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 		}
 		// Repeating an identical gesture is never automatic recovery. A lost result
 		// fences this operator for the rest of the run, even with a new snapshot.
@@ -145,7 +145,7 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 			return nil, err
 		}
 		if current.ID != op.SnapshotID {
-			return nil, ErrStale
+			return nil, pagePreflightRefusal(ctx, runCtx, ErrStale)
 		}
 		found := false
 		for _, n := range current.Nodes {
@@ -158,7 +158,7 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 			}
 		}
 		if !found {
-			return nil, ErrUnavailable
+			return nil, pagePreflightRefusal(ctx, runCtx, ErrUnavailable)
 		}
 		r.mu.Lock()
 		if !r.pageOperationAllowed(runCtx, epoch, revision) || ctx.Err() != nil || len(r.pageOperations) > 0 {
@@ -235,3 +235,17 @@ func (r *Runtime) expirePageOperation(id, snapshotID string, response chan PageO
 func validPageOperationValue(value string) bool {
 	return utf8.ValidString(value) && utf8.RuneCountInString(value) <= 2048 && len(value) <= 8192 && !strings.ContainsRune(value, 0)
 }
+
+// This proof covers only explicit preflight rejection before enqueue. Cancellation,
+// prior gestures and post-enqueue outcomes deliberately do not use this helper.
+func pagePreflightRefusal(ctx, runCtx context.Context, err error) error {
+	if ctx.Err() != nil || runCtx.Err() != nil {
+		return err
+	}
+	return unsubmittedPageOperation{err}
+}
+
+type unsubmittedPageOperation struct{ error }
+
+func (e unsubmittedPageOperation) Unwrap() error     { return e.error }
+func (unsubmittedPageOperation) NotDispatched() bool { return true }

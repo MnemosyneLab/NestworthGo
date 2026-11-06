@@ -852,3 +852,10 @@ inspection remains available. Full MCP unresolved recovery references and busy
 admission also refuse page claims. This gate does not persist across runs and
 does not replace the MCP operation identity, durable recovery reference or
 cancelled-before-commit proof.
+
+Explicit page argument/schema rejection, stale source snapshots and absent
+advertised targets carry a per-attempt not-dispatched proof before enqueue. The
+provider reports `write_not_submitted` for these refusals instead of inventing an
+operation receipt to inspect. Cancelled capture, prior gesture conflicts, shared
+run uncertainty and every post-enqueue failure retain conservative diagnostics;
+the proof never resolves an older uncertain operation.

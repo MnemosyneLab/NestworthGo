@@ -3,6 +3,7 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -75,56 +76,67 @@ func TestPageOperationClaimFences(t *testing.T) {
 	}
 }
 func TestPageOperationFreshCaptureAndUnknownFence(t *testing.T) {
-	r := operationRuntime()
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-	operator := r.pageOperator(ctx, r.epoch, 1)
-	snapshot := PageContent{ID: uuid.NewString(), Page: "synthetic", CapturedAt: time.Now(), Nodes: []PageNode{{ID: "button", Module: "page", Role: "button", TargetRef: uuid.NewString(), Actions: []string{"activate"}}}}
-	op := PageOperation{SnapshotID: snapshot.ID, TargetRef: snapshot.Nodes[0].TargetRef, Action: "activate"}
-	args, _ := jsoncodec.Marshal(op)
-	done := make(chan json.RawMessage, 1)
-	fail := make(chan error, 1)
-	go func() { raw, err := operator(ctx, args); done <- raw; fail <- err }()
-	deadline := time.Now().Add(time.Second)
-	var reads []PageReadRequest
-	for time.Now().Before(deadline) {
-		reads, _ = r.PendingPageReads(ctx, r.epoch)
-		if len(reads) > 0 {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
-	if len(reads) != 1 {
-		t.Fatal("missing fresh capture")
-	}
-	if err := r.DeliverPageContent(ctx, r.epoch, reads[0].ID, snapshot); err != nil {
-		t.Fatal(err)
-	}
-	var requests []PageReadRequest
-	for time.Now().Before(deadline) {
-		requests, _ = r.PendingPageOperations(ctx, r.epoch)
-		if len(requests) > 0 {
-			break
-		}
-		time.Sleep(time.Millisecond)
-	}
-	if len(requests) != 1 {
-		t.Fatal("missing operation")
-	}
-	if _, err := r.ClaimPageOperation(ctx, r.epoch, requests[0].ID); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.DeliverPageOperation(ctx, r.epoch, requests[0].ID, PageOperationResult{State: "unverified", SnapshotID: snapshot.ID}); err != nil {
-		t.Fatal(err)
-	}
-	<-done
-	if err := <-fail; err != nil {
-		t.Fatal(err)
-	}
-	op.SnapshotID = uuid.NewString()
-	args, _ = jsoncodec.Marshal(op)
-	if _, err := operator(ctx, args); err == nil {
-		t.Fatal("unknown outcome permitted another dispatch")
+	for _, state := range []string{"unverified", "dispatched"} {
+		t.Run(state, func(t *testing.T) {
+			r := operationRuntime()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			operator := r.pageOperator(ctx, r.epoch, 1)
+			snapshot := PageContent{ID: uuid.NewString(), Page: "synthetic", CapturedAt: time.Now(), Nodes: []PageNode{{ID: "button", Module: "page", Role: "button", TargetRef: uuid.NewString(), Actions: []string{"activate"}}}}
+			op := PageOperation{SnapshotID: snapshot.ID, TargetRef: snapshot.Nodes[0].TargetRef, Action: "activate"}
+			args, _ := jsoncodec.Marshal(op)
+			done := make(chan json.RawMessage, 1)
+			fail := make(chan error, 1)
+			go func() { raw, err := operator(ctx, args); done <- raw; fail <- err }()
+			deadline := time.Now().Add(time.Second)
+			var reads []PageReadRequest
+			for time.Now().Before(deadline) {
+				reads, _ = r.PendingPageReads(ctx, r.epoch)
+				if len(reads) > 0 {
+					break
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if len(reads) != 1 {
+				t.Fatal("missing fresh capture")
+			}
+			if err := r.DeliverPageContent(ctx, r.epoch, reads[0].ID, snapshot); err != nil {
+				t.Fatal(err)
+			}
+			var requests []PageReadRequest
+			for time.Now().Before(deadline) {
+				requests, _ = r.PendingPageOperations(ctx, r.epoch)
+				if len(requests) > 0 {
+					break
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if len(requests) != 1 {
+				t.Fatal("missing operation")
+			}
+			if _, err := r.ClaimPageOperation(ctx, r.epoch, requests[0].ID); err != nil {
+				t.Fatal(err)
+			}
+			if err := r.DeliverPageOperation(ctx, r.epoch, requests[0].ID, PageOperationResult{State: state, SnapshotID: snapshot.ID}); err != nil {
+				t.Fatal(err)
+			}
+			<-done
+			if err := <-fail; err != nil {
+				t.Fatal(err)
+			}
+			if state == "unverified" {
+				op.SnapshotID = uuid.NewString()
+			}
+			args, _ = jsoncodec.Marshal(op)
+			_, err := operator(ctx, args)
+			if err == nil {
+				t.Fatal("prior dispatched or unknown gesture permitted another dispatch")
+			}
+			var proof interface{ NotDispatched() bool }
+			if errors.As(err, &proof) {
+				t.Fatal("prior outcome mislabeled fresh preflight refusal", err)
+			}
+		})
 	}
 }
 
@@ -232,6 +244,59 @@ func TestPageOperationEscapedEmojiEnvelope(t *testing.T) {
 				time.Sleep(time.Millisecond)
 			}
 			t.Fatal("valid value did not reach capture")
+		})
+	}
+}
+
+func TestPagePreflightProofScope(t *testing.T) {
+	for _, mode := range []string{"arguments", "stale", "target", "cancelled"} {
+		t.Run(mode, func(t *testing.T) {
+			r := operationRuntime()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			operator := r.pageOperator(ctx, r.epoch, 1)
+			args := []byte("{}")
+			var err error
+			if mode == "cancelled" {
+				cancel()
+			}
+			if mode == "arguments" || mode == "cancelled" {
+				_, err = operator(ctx, args)
+			} else {
+				snapshot := PageContent{ID: uuid.NewString(), Page: "synthetic", CapturedAt: time.Now(), Nodes: []PageNode{{ID: "button", Module: "page", Role: "button", TargetRef: uuid.NewString(), Actions: []string{"activate"}}}}
+				op := PageOperation{SnapshotID: snapshot.ID, TargetRef: uuid.NewString(), Action: "activate"}
+				if mode == "stale" {
+					op.SnapshotID = uuid.NewString()
+				}
+				args, _ = jsoncodec.Marshal(op)
+				done := make(chan error, 1)
+				go func() { _, err := operator(ctx, args); done <- err }()
+				deadline := time.Now().Add(time.Second)
+				delivered := false
+				for time.Now().Before(deadline) {
+					reads, _ := r.PendingPageReads(ctx, r.epoch)
+					if len(reads) > 0 {
+						if e := r.DeliverPageContent(ctx, r.epoch, reads[0].ID, snapshot); e != nil {
+							t.Fatal(e)
+						}
+						delivered = true
+						break
+					}
+					time.Sleep(time.Millisecond)
+				}
+				if !delivered {
+					t.Fatal("missing preflight capture")
+				}
+				err = <-done
+			}
+			var proof interface{ NotDispatched() bool }
+			proved := errors.As(err, &proof) && proof.NotDispatched()
+			if err == nil || proved != (mode != "cancelled") {
+				t.Fatalf("wrong proof scope: %v", err)
+			}
+			if len(r.pageOperations) != 0 {
+				t.Fatal("preflight refusal queued a command")
+			}
 		})
 	}
 }
