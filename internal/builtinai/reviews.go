@@ -66,20 +66,6 @@ func reviewView(r mcpserver.HostChangeReview) (assistant.ChangeReview, error) {
 	}
 	return v, nil
 }
-func (s reviewSession) Preview(ctx context.Context, p assistant.CashProposal) (assistant.ChangeReview, error) {
-	if p.Kind != "money_added" && p.Kind != "money_removed" {
-		return assistant.ChangeReview{}, assistant.ErrUnavailable
-	}
-	command := history.ChangeCommandRequest{Kind: history.ChangeCommandKind(p.Kind), AccountID: p.AccountID, Amount: p.Amount, Currency: p.Currency, Reason: p.Reason, EffectiveAt: p.EffectiveAt}
-	if p.Note != "" {
-		command.Note = &p.Note
-	}
-	r, err := s.session.PreviewHostChange(ctx, command)
-	if err != nil {
-		return assistant.ChangeReview{}, err
-	}
-	return reviewView(r)
-}
 func (s reviewSession) Inspect(ctx context.Context, id string) (assistant.ChangeReview, error) {
 	r, err := s.session.InspectHostChange(ctx, id)
 	if err != nil {
@@ -87,33 +73,10 @@ func (s reviewSession) Inspect(ctx context.Context, id string) (assistant.Change
 	}
 	return reviewView(r)
 }
-func (s reviewSession) Confirm(ctx context.Context, id, digest string) (assistant.ChangeReview, error) {
-	r, err := s.session.ConfirmHostChange(ctx, id, digest)
-	if err != nil {
-		return assistant.ChangeReview{}, err
-	}
-	return reviewView(r)
-}
-func (s reviewSession) Cancel(ctx context.Context, id string) error {
-	return s.session.CancelHostChange(ctx, id)
-}
-func (s reviewSession) Repreview(ctx context.Context, id string) (assistant.ChangeReview, error) {
-	r, err := s.session.InspectHostChange(ctx, id)
-	if err != nil {
-		return assistant.ChangeReview{}, err
-	}
-	if r.Binding.Source == "ai_full" || r.State != mcpserver.ReviewNeedsPreview {
-		return assistant.ChangeReview{}, assistant.ErrConflict
-	}
-	if _, err := reviewView(r); err != nil {
-		return assistant.ChangeReview{}, err
-	}
+
+func (s reviewSession) RetireUnsubmitted(ctx context.Context, id string) (assistant.ChangeReview, error) {
 	if err := s.session.CancelHostChange(ctx, id); err != nil {
 		return assistant.ChangeReview{}, err
 	}
-	next, err := s.session.PreviewHostChange(ctx, r.Binding.Preview.Command)
-	if err != nil {
-		return assistant.ChangeReview{}, err
-	}
-	return reviewView(next)
+	return s.Inspect(ctx, id)
 }

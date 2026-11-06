@@ -4,12 +4,10 @@ The desktop right-hand assistant supports explicit OpenAI Responses model reques
 controlled local financial reads, run feedback, cancellation and paged persistent
 history. Activation defaults off. Desktop Settings → Built-in AI credentials saves
 a write-only key, a model ID and an explicit enable flag. There are no startup,
-reconnect or implicit retry model calls. Desktop writes default off. The user can opt into reviewed cash changes or the
-Full permission described below; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
+reconnect or implicit retry model calls. Desktop writes default off. The only permission modes are Read-only and Full; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
-Cash deposits/withdrawals can be proposed through the bounded review flow below.
 Full exposes the existing MCP LedgerWrite registry, including preview/commit,
 directory, investment, reconciliation, market-data and repair capabilities, plus
 the scoped generic page operations described below. Unrestricted UI automation
@@ -53,8 +51,7 @@ view selections, and `get_navigation_targets`/`open_page`/`open_return_trend` on
 per-message host grant. The shared session independently rechecks permissions
 and budgets.
 In read-only mode no configuration, network refresh or projection-maintaining analysis is available. Human approval methods are never model tools. Direct financial writes exist only
-through the explicitly enabled Full stage below. The host review
-methods from #203 are adapted only by the desktop runtime review endpoints.
+through the explicitly enabled Full stage below. The retired cash-proposal and human-confirmation endpoints are no longer exposed.
 Their operation receipts remain in their existing household/session namespaces;
 chat deletion neither deletes those receipts nor reverses a financial operation.
 
@@ -65,13 +62,12 @@ approval from text, a summary, a digest, a page snapshot or a saved conversation
 
 ## Explicit Full access — shared MCP capabilities
 
-Full is an optional desktop, household-wide, app-session permission. It is shown
-separately from reviewed writes; choosing either replaces the other. Startup,
-configuration/credential changes, restore and shutdown clear both permissions.
+Full is an optional desktop, household-wide, app-session permission. The sidebar has one shared select with Read-only and Full options. Startup,
+configuration/credential changes, restore and shutdown return to Read-only.
 Enabling requires an idle configured runtime and the current epoch/revision;
 disabling remains available during a run. Every mode change revokes existing
 capability sessions and navigation grants. A failed permission-state save closes
-both write modes. No model argument, chat approval or restored history enables it.
+Full access. No model argument, chat approval or restored history enables it.
 
 Full discovery reuses the complete `LedgerWrite` registry and its exact input
 schemas, descriptions and effects. Dispatch uses that same in-process registry;
@@ -101,7 +97,7 @@ instructions, rather than read-recapture advice. There is no cross-request
 semantic deduplication of a deliberately repeated new instruction.
 
 The desktop displays shared tool inputs, bounded outputs, errors and progress,
-plus source-attributed operation status. Unknown tool display names use readable
+with operation results in the normal conversation/tool disclosures, without a separate review panel. Unknown tool display names use readable
 words derived from the registry name. Successful inspected writes invalidate
 business queries. The existing 128-tool inventory, 64 KiB input/output, 16-call
 and model/history budgets remain; larger workflows must use existing MCP paging
@@ -113,76 +109,29 @@ Single-process ownership remains: no cross-process CAS or concurrent app-process
 authority is added. All tests use synthetic SQLite and fake providers. Native
 Mac GUI acceptance remains separate from Linux, jsdom and provider tests.
 
-## Reviewed single cash changes
+## Operation recovery and retired cash proposals
 
-The conversation panel has an explicit session write switch. It defaults off on
-startup, is reset by model configuration/credential deletion, and cannot be
-turned on during an active model run. Disabling it fences live sessions; each
-reviewed write still requires a separate user click on the frozen preview.
-Changing permission increments the configuration revision and revokes prior
-sessions. Merely saving a key never enables writes. Normal shutdown preserves
-review references but not permission; restore fences the old runtime and purges
-its conversation namespace before replacing the database.
+The reviewed-write mode, `SetWritePermission`, `ReviewAction` and
+`propose_cash_change` have been removed. The sole desktop setter is
+`SetFullAccess`: false is Read-only, true enables the existing shared MCP
+LedgerWrite registry. It does not introduce a per-action approval step.
+Permission is never persisted; existing configuration and conversations reopen
+in Read-only, without enabling writes from history or old model text.
 
-Only `propose_cash_change` is added to a permitted model run. Its strict bounded
-input accepts `money_added` or `money_removed`, an account ID, exact amount,
-currency, reason, effective RFC3339 time and optional note. It cannot carry a
-plan, operation ID, mutation key, approval, holding, reconciliation link or other
-command fields. The shared ledger validator still decides valid reasons,
-accounts, amounts, dates and effects. Unknown kinds and fields fail closed.
-Directory edits, batches, transfers, securities and other change families stay
-closed. This does not use or extend MCP's composite directory PATCH path.
+Private operation references and receipts remain readable. Inspection retires
+provably unsubmitted legacy human proposals; submitted/succeeded/unknown records
+retain their original receipt identity and never dispatch a mutation. A stopped
+Full convenience operation's unsubmitted preview is also retired during idle
+inspection. Unknown outcomes remain fenced until authoritative receipt recovery;
+chat deletion never rolls back a write or discards an unresolved identity.
+The legacy proposal source name remains accepted only when validating saved
+historical evidence, so old conversations can still be opened.
 
-The callback obtains a new host-authoritative preview and persists its reference
-in the conversation before acknowledging the proposal. Model history receives
-only “awaiting user review”, never a confirmation method or digest. Each
-conversation permits one unresolved proposal and at most 64 review references.
-A provider failure/cancellation after proposing does not grant approval or erase
-that review. Stop stops generation; Cancel in the review panel only dismisses an
-unsubmitted change. Chat text, summaries and page content cannot confirm.
-
-The desktop displays the frozen account name, institution, owner names, account
-type and default currency alongside exact amount/currency, resulting balance,
-effective time, reason and note. These readable identities are captured under
-the same application gate as the plan and included in its host review digest;
-there is no display-time live metadata join or exposed account UUID. The host
-compares normalized readable identities and rejects a proposal if another
-account remains indistinguishable, requiring a distinct account name. Account,
-member and institution writes invalidate the version and require repreview.
-Legacy reviews without identity cannot confirm but retain receipt recovery.
-Cash currency is normalized through the domain parser before persisting the
-command/plan/review; projection also normalizes legacy currency inputs. Invalid
-currencies fail before creating private review state. Confirm submits only the review ID and
-exact displayed digest, bound by the runtime to that conversation and live
-permission. Session acquisition occurs before a second runtime revision check;
-revocation then cancels that exact session, including requests waiting on the
-application gate. Host review admission checks session cancellation/generation
-synchronously after acquiring that gate, independently of AfterFunc delivery. No runtime lock is held across application review/write gates.
-The host core durably admits before dispatch and uses the existing application
-Service, version validation, mutation transaction and idempotent receipt. No
-financial formula is implemented in the UI. Repeated confirmations reconcile the
-same operation. Conflicts/expiry/restart require a fresh preview and a new user
-confirmation; refreshing never confirms automatically.
-
-`Reviews` only inspects/reconciles; polling, reconnect and restart never dispatch
-a writer. A lost response retains the original reference. Pending/unknown results
-have no cancel, repreview or replacement-proposal path. They stay visible for
-inspection and block conversation deletion/retention and model navigation until
-resolved. Unsubmitted stale reviews may be cancelled or explicitly refreshed.
-A crash between refreshed-preview creation and reference persistence can leave
-an unreachable private *unsubmitted* preview; it cannot execute. Existing host
-receipt recovery covers commit-success/outer-receipt loss. Genuine unresolved
-outcomes remain unresolved rather than being blindly retried.
-
-This delivery does not feed confirmed results back into the model automatically,
-resume a model after approval, add Eino checkpoints, implement mobile writes,
-or claim live-provider/native macOS GUI acceptance. Unit/integration evidence
-uses synthetic SQLite ledgers and local fake models. Polling adds bounded private
-review reads (up to 64 references per selected conversation every 1.5 seconds
-while generating or unresolved; settled views stop polling);
-no global latency or RSS claim is made. Cash identity capture adds one account
-list and one member list per preview, with a linear ambiguity check; these run
-under the existing operation gate and are not repeated by display polling.
+The sidebar reconciles these references in the background and invalidates
+business queries after success. It polls while a run is active, a result is
+unresolved, or inspection failed; settled results stop polling. Replies and
+expandable tool inputs/outputs are the visible result surface. Preview, schema,
+version/expiry, transaction and idempotency checks remain in the shared backend.
 
 ## Strictly read-only period analysis
 
@@ -390,8 +339,7 @@ run count. Events contain only sequence, run ID, state and fixed code: at most
 the latest epoch instead of resubmitting a new paid request. A rolled-over/future
 cursor returns `reset`; refresh metadata/history. Generated bindings expose
 write-only credential input and bounded configuration,
-never stored secrets or history internals. `SetWritePermission`, `Reviews` and
-`ReviewAction` are desktop-only, bounded endpoints; none is a model tool. The desktop polls
+never stored secrets or history internals. `SetFullAccess` and `Reviews` are desktop-only, bounded endpoints; none is a model tool. The desktop polls
 status every two seconds and the selected latest turn every second while mounted (every 200 ms during an active run).
 The sidebar presents a chronological transcript: the latest attempt and up to
 five preceding turns load on session selection. “Load earlier messages” prepends
@@ -762,7 +710,7 @@ never become operation targets. Native select options have separate opaque refs,
 so selection does not require exposing internal option values or guessing names.
 
 `operate_page_control` is an internal desktop capability, unavailable to external
-MCP and ReadOnly or reviewed-write sessions. Existing Full mode enables it without
+MCP and Read-only sessions. Existing Full mode enables it without
 another approval prompt. **All generic operations conservatively require Full**:
 roles such as tab, filter and disclosure do not prove that an application callback
 has no durable effect. The existing explicitly controlled read-only navigation
@@ -792,7 +740,7 @@ business content readable while making its controls inoperable; use the visible
 side-by-side desktop surface for operations. Nothing clears modal/inert guards.
 Existing unresolved Sheet confirmations and assistant financial reviews block
 page operations, including attempts to close/navigate away or replay submission;
-the user resolves these through the existing recovery/review flow. Generic page
+ordinary Sheets retain their recovery flow; assistant receipts reconcile through background inspection. Generic page
 operations do not replace or widen the dedicated Full ledger command contract.
 
 The result states are `dispatched`, `blocked`, `stale`, `invalid_target`,

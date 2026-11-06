@@ -274,7 +274,7 @@ func TestFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			if _, err := ipc.Start(q); err == nil {
 				t.Fatal("new run admitted after storage failure")
 			}
-			if ipc.Status().FullAccess || ipc.Status().FinancialWrites {
+			if ipc.Status().FullAccess {
 				t.Fatal("closed runtime advertised writes")
 			}
 			if err := runtime.Close(); err != nil {
@@ -302,7 +302,7 @@ func TestFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			defer next.Close()
 			fresh := airuntime.NewService(next)
 			status := fresh.Status()
-			if status.FullAccess || status.FinancialWrites {
+			if status.FullAccess {
 				t.Fatal("restart retained Full")
 			}
 			reviews, err := fresh.Reviews(status.Epoch, c.ID)
@@ -385,7 +385,7 @@ func TestSharedFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			if _, err := ipc.Start(q); err == nil {
 				t.Fatal("new run admitted after storage failure")
 			}
-			if ipc.Status().FullAccess || ipc.Status().FinancialWrites {
+			if ipc.Status().FullAccess {
 				t.Fatal("closed runtime advertised writes")
 			}
 			if err := runtime.Close(); err != nil {
@@ -425,7 +425,7 @@ func TestSharedFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			defer next.Close()
 			fresh := airuntime.NewService(next)
 			status := fresh.Status()
-			if status.FullAccess || status.FinancialWrites {
+			if status.FullAccess {
 				t.Fatal("restart retained Full")
 			}
 			reviews, err := fresh.Reviews(status.Epoch, c.ID)

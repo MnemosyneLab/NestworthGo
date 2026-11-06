@@ -18,7 +18,7 @@ import (
 
 func TestInstalledIPCExposesDesktopConfigurationWithoutFinancialWrites(t *testing.T) {
 	typ := reflect.TypeFor[*Service]()
-	expected := map[string]bool{"PendingPageOperations": true, "ClaimPageOperation": true, "DeliverPageOperation": true, "SetFullAccess": true, "Reviews": true, "ReviewAction": true, "SetWritePermission": true, "Rename": true, "PendingPageReads": true, "DeliverPageContent": true, "PublishPage": true, "GrantNavigation": true, "ConsumeNavigation": true, "Configure": true, "SaveCredential": true, "DeleteCredential": true, "Status": true, "List": true, "Create": true, "Inspect": true, "Messages": true, "Start": true, "Cancel": true, "Events": true, "Delete": true}
+	expected := map[string]bool{"PendingPageOperations": true, "ClaimPageOperation": true, "DeliverPageOperation": true, "SetFullAccess": true, "Reviews": true, "Rename": true, "PendingPageReads": true, "DeliverPageContent": true, "PublishPage": true, "GrantNavigation": true, "ConsumeNavigation": true, "Configure": true, "SaveCredential": true, "DeleteCredential": true, "Status": true, "List": true, "Create": true, "Inspect": true, "Messages": true, "Start": true, "Cancel": true, "Events": true, "Delete": true}
 	if typ.NumMethod() != len(expected) {
 		t.Fatal("review IPC inventory")
 	}
@@ -28,7 +28,7 @@ func TestInstalledIPCExposesDesktopConfigurationWithoutFinancialWrites(t *testin
 		}
 	}
 	s := NewService(nil)
-	if s.Status().Available || s.Status().FinancialWrites {
+	if s.Status().Available || s.Status().FullAccess {
 		t.Fatal("closed service advertised authority")
 	}
 	if _, e := s.Start(assistant.StartRequest{}); e == nil {
@@ -79,7 +79,7 @@ func TestDatabaseCredentialsThroughDesktopIPCKeepActivationClosed(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(string(raw), key) || status.Credentials != "present" || status.Available || status.FinancialWrites || status.Config.Enabled {
+		if strings.Contains(string(raw), key) || status.Credentials != "present" || status.Available || status.FullAccess || status.Config.Enabled {
 			t.Fatal("credential leaked or activation opened")
 		}
 	}
@@ -118,7 +118,7 @@ func TestNilRuntimeStatusWireContract(t *testing.T) {
 	if !bytes.Equal(actual, bytes.TrimSpace(fixture)) {
 		t.Fatalf("nil-runtime wire fixture differs: %s", actual)
 	}
-	if status.Credentials != "unavailable" || status.Epoch != "" || status.Available || status.FinancialWrites || status.Config.Enabled {
+	if status.Credentials != "unavailable" || status.Epoch != "" || status.Available || status.FullAccess || status.Config.Enabled {
 		t.Fatalf("nil runtime must report closed configuration: %s", actual)
 	}
 	if !errors.Is(service.SaveCredential(status.Epoch, "synthetic-key"), assistant.ErrUnavailable) || !errors.Is(service.DeleteCredential(status.Epoch), assistant.ErrUnavailable) {

@@ -10,8 +10,8 @@ import (
 
 type fullKey struct{}
 
-func CurrentFullHandler(ctx context.Context) ProposalHandler {
-	h, _ := ctx.Value(fullKey{}).(ProposalHandler)
+func CurrentFullHandler(ctx context.Context) ToolHandler {
+	h, _ := ctx.Value(fullKey{}).(ToolHandler)
 	return h
 }
 

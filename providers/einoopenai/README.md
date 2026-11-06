@@ -118,21 +118,21 @@ use the actual in-process session; it remains household-wide and is not suitable
 for current mobile/scoped principals.
 
 The interface contains no confirm, approve, broad writer dispatch or key input.
-Single ledger write reviews live separately in the root host coordinator; see
+Full writes use the root host coordinator and shared MCP contracts; see
 [the integration contract](../../docs/architecture/builtin-ai.md). A model-created
-preview cannot be adopted as approval. The host obtains and displays a new
-authoritative preview, then deliberately confirms its immutable identity/digest.
+preview cannot be adopted as approval. The Full convenience writer obtains a new authoritative preview and submits
+its immutable identity under the session grant, without a human confirmation step.
 
 `TestCapabilityRunnerLedgerHostReviewLoop` runs the real guarded model and typed
 Eino runner against a local-only fake provider and real synthetic SQLite. It
 checks local account evidence, a completed proposal, a distinct host preview,
-explicit synthetic host confirmation, one exact 12.34 posting and authoritative
+synthetic Full submission, one exact 12.34 posting and authoritative
 readback. Complete proposal arguments followed by EOF before item done, EOF
 before response completed, failure or incomplete completion invoke no preview
 handler. Done-only opaque reasoning survives the actual next request. A separate
 positive variant uses real Eino summarization middleware with deliberately false
-99999 balance/blanket-approval text: authoritative cash stays 0 before host
-confirmation, and a fresh host preview still binds the requested exact 12.34.
+99999 balance/blanket-approval text: authoritative cash stays 0 before Full
+submission, and a fresh host preview still binds the requested exact 12.34.
 Root host tests separately exercise real child-process restart and a lost outer
 success receipt; they do not implement an Eino checkpoint store. Existing
 #201 acceptance still checks zero synthetic mutation dispatch independently of

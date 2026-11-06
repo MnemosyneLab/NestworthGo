@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
@@ -118,4 +119,22 @@ it.each(["succeeded","refused","failed"])("shows Full %s and its subsequent read
  expect(screen.getByText(full.input)).toBeVisible();expect(screen.getByText(full.output)).toBeVisible();
  expect(screen.getByText(read.output)).toBeInTheDocument();expect(screen.queryByText("Ledger read")).toBeNull();
  expect(api.Inspect).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["en", "Activity history", "Running", "Completed", "Tool call"],
+  ["zh-CN", "账务记录", "执行中", "已完成", "工具调用"],
+  ["zh-TW", "帳務紀錄", "執行中", "已完成", "工具呼叫"],
+])("localizes live and saved tool names in %s", async (language, label, running, completed, unknown) => {
+  await i18n.changeLanguage(language);
+  const client = createTestQueryClient();
+  const tools = [{ ...initial.progress.tools[0], source: "list_activities" }, { ...initial.progress.tools[0], source: "future_unknown_tool" }];
+  const view = (latest: unknown) => <QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={latest as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()} /></QueryClientProvider>;
+  const { rerender } = render(view({ ...initial, progress: { ...initial.progress, tools } }));
+  expect(screen.getByText(`${label} · ${running}`)).toBeVisible();
+  expect(screen.getByText(`${unknown} · ${running}`)).toBeVisible();
+  rerender(view({ ...initial, progress: undefined, runs: [{ ...run, state: "succeeded", tools: tools.map(tool => ({ ...tool, state: "succeeded" })) }] }));
+  expect(screen.getByText(`${label} · ${completed}`)).toBeVisible();
+  expect(screen.getByText(`${unknown} · ${completed}`)).toBeVisible();
+  expect(screen.queryByText(/list activities|future unknown tool/)).not.toBeInTheDocument();
 });

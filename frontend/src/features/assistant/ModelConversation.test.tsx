@@ -12,9 +12,7 @@ import { ModelConversation } from "./ModelConversation";
 import i18n from "@/i18n";
 const api = vi.hoisted(() => ({
   Reviews: vi.fn(),
-  SetWritePermission: vi.fn(),
   SetFullAccess: vi.fn(),
-  ReviewAction: vi.fn(),
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
@@ -631,7 +629,7 @@ it("displays only allowlisted tool names and never a raw source identifier", asy
   const user = userEvent.setup();
   mount();
   await user.click(await screen.findByText(/Data reads · 1/));
-  expect(screen.getByText("Ledger read")).toBeVisible();
+  expect(screen.getByText("Tool call")).toBeVisible();
   expect(screen.queryByText(/private_source_canary/)).not.toBeInTheDocument();
 });
 
@@ -752,24 +750,15 @@ it("announces an immediate first reply from a newly created conversation", async
 
 });
 
-it("enables reviewed writes only through the separate session permission switch", async () => {
- const user=userEvent.setup();mount();
- await screen.findByText("Synthetic prior answer");
- expect(api.SetWritePermission).not.toHaveBeenCalled();
- await user.click(screen.getByRole("checkbox",{name:/Allow cash change proposals/}));
- await waitFor(()=>expect(api.SetWritePermission).toHaveBeenCalledExactlyOnceWith("host",3,true));
- expect(api.Start).not.toHaveBeenCalled();
- expect(api.ReviewAction).not.toHaveBeenCalled();
-});
-
  it("requires explicit Full opt-in and never invokes a model or human confirmation",async()=>{
  const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");
  render(<BusinessPageRoot view="synthetic:" accessIdentity="synthetic"><p>Ordinary business content</p></BusinessPageRoot>);
- const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Full for this app session");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.role==="checkbox")).toBe(false);
- const control=screen.getByRole("checkbox",{name:/Full for this app session/});expect(control).not.toBeChecked();
- control.focus();await user.keyboard(" ");
+ const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Full · Edit the ledger");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.name==="Permissions")).toBe(false);
+ expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+ const control=screen.getByRole("combobox",{name:"Permissions"});expect(control).toHaveValue("readOnly");
+ control.focus();expect(control).toHaveFocus();await user.selectOptions(control, "full");
  await waitFor(()=>expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host",3,true));
- expect(api.SetWritePermission).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();expect(api.ReviewAction).not.toHaveBeenCalled();
+ expect(api.Start).not.toHaveBeenCalled();
  });
 
 it("displays generated titles and saves manual names using keyboard controls", async () => {
@@ -842,4 +831,64 @@ it("limits mixed Unicode titles to 64 code points on paste", async () => {
   expect(input).toHaveValue(title);
   await user.click(screen.getByRole("button", { name: "Save title" }));
   await waitFor(() => expect(api.Rename).toHaveBeenCalledWith("host", "conversation", title));
+});
+
+it.each([
+  ["en", "Full · Edit the ledger without per-change confirmation"],
+  ["zh-CN", "Full · 直接修改账本，无需逐笔确认"],
+  ["zh-TW", "Full · 直接修改帳本，無需逐筆確認"],
+])("shows only Read-only and Full modes with inline results in %s", async (locale, label) => {
+  await i18n.changeLanguage(locale);
+  api.Status.mockResolvedValue({ epoch: "host", revision: 3, available: true, fullAccess: true });
+  api.Reviews.mockResolvedValue([{ id: "receipt", source: "ai_full", state: "succeeded", summary: "Duplicate result" }]);
+  api.Inspect.mockResolvedValue({ id: "conversation", offset: 0, runCount: 1, runs: [{ ...run,
+    tools: [{ source: "execute_ledger_change", state: "succeeded", input: '{"amount":"12.34567890"}', output: '{"status":"succeeded"}' }],
+  }] });
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  const checkbox = screen.getByLabelText(i18n.t("aiChat.permission"));
+  expect(screen.getByRole("option", { name: "Full" })).toBeInTheDocument();
+  expect(checkbox).toHaveAttribute("title", label);
+  expect(checkbox.querySelectorAll("option")).toHaveLength(2);
+  expect(checkbox).toHaveValue("full");
+  expect(screen.queryByText("Duplicate result")).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: /Ledger change review|账本变更审阅|帳本變更審閱/ })).not.toBeInTheDocument();
+  const output = screen.getByText('{"status":"succeeded"}');
+  await user.click(output.closest("details")!.querySelector("summary")!);
+  expect(output).toBeVisible();
+  await user.click(output.closest("details")!.querySelector("summary")!);
+  expect(output).not.toBeVisible();
+  checkbox.focus();
+  await user.selectOptions(checkbox, "readOnly");
+  await waitFor(() => expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host", 3, false));
+
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("Full permission enabled=%s can only be revoked during a run", async enabled => {
+  api.Status.mockResolvedValue({ epoch: "host", revision: 3, available: true, fullAccess: enabled });
+  api.Inspect.mockResolvedValue({ id: "conversation", offset: 0, runCount: 1, runs: [{ ...run, state: "running" }] });
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  const checkbox = screen.getByRole("combobox", { name: "Permissions" });
+  if (enabled) {
+    expect(checkbox).toBeEnabled();
+    await userEvent.selectOptions(checkbox, "readOnly");
+    await waitFor(() => expect(api.SetFullAccess).toHaveBeenCalledWith("host", 3, false));
+  } else {
+    expect(checkbox).toBeDisabled();
+    expect(api.SetFullAccess).not.toHaveBeenCalled();
+  }
+});
+
+it("keeps the authoritative permission and reports a failed toggle", async () => {
+  api.SetFullAccess.mockRejectedValueOnce(new Error("permission save failed"));
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Permissions" }), "full");
+  await screen.findByRole("alert");
+  expect(screen.getByRole("combobox", { name: "Permissions" })).toHaveValue("readOnly");
+  expect(api.Start).not.toHaveBeenCalled();
 });

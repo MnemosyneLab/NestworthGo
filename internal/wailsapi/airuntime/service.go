@@ -1,5 +1,5 @@
 // Package airuntime is the bounded desktop conversation adapter. Model
-// configuration and explicit reviewed writes are desktop-only. Mobile
+// configuration and Full writes are desktop-only. Mobile
 // is not registered here and cannot obtain a household-wide host principal.
 package airuntime
 
@@ -124,23 +124,11 @@ func (s *Service) DeliverPageContent(epoch, requestID string, content assistant.
 	return s.runtime.DeliverPageContent(context.Background(), epoch, requestID, content)
 }
 
-func (s *Service) SetWritePermission(epoch string, revision uint64, enabled bool) error {
-	if s.runtime == nil {
-		return assistant.ErrUnavailable
-	}
-	return s.runtime.SetWritePermission(context.Background(), epoch, revision, enabled)
-}
 func (s *Service) Reviews(epoch, id string) ([]assistant.ChangeReview, error) {
 	if s.runtime == nil {
 		return nil, assistant.ErrUnavailable
 	}
 	return s.runtime.Reviews(context.Background(), epoch, id)
-}
-func (s *Service) ReviewAction(epoch, id, reviewID, digest, action string) error {
-	if s.runtime == nil {
-		return assistant.ErrUnavailable
-	}
-	return s.runtime.ReviewAction(context.Background(), epoch, id, reviewID, digest, action)
 }
 
 // SetFullAccess is desktop-only explicit session authority; never model-callable.

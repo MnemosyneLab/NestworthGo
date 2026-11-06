@@ -68,12 +68,7 @@ func TestHostReviewProcessChild(t *testing.T) {
 		}
 		t.Cleanup(local.Close)
 		fixture := hostFixture{ledgerFixture: fx, local: local, db: db, dir: root, id: id}
-		var review HostChangeReview
-		if os.Getenv("NESTWORTH_AI_PROCESS_FULL") == "1" {
-			review = fullPreview(t, fixture)
-		} else {
-			review = hostPreview(t, fixture)
-		}
+		review := fullPreview(t, fixture)
 		metadata = processReviewMetadata{SessionID: id, ReviewID: review.Binding.ID, Digest: review.Digest}
 		raw, err := jsoncodec.Marshal(metadata)
 		if err != nil {
@@ -134,20 +129,12 @@ func TestHostReviewProcessChild(t *testing.T) {
 	}
 }
 
-func processSubmit(t *testing.T, local *InProcessSession, id, digest string) (HostChangeReview, error) {
-	if os.Getenv("NESTWORTH_AI_PROCESS_FULL") == "1" {
-		return local.ExecuteFullChange(t.Context(), id)
-	}
-	return local.ConfirmHostChange(t.Context(), id, digest)
+func processSubmit(t *testing.T, local *InProcessSession, id, _ string) (HostChangeReview, error) {
+	return local.ExecuteFullChange(t.Context(), id)
 }
 
 func TestHostReviewAcrossProcessRestart(t *testing.T) {
-	for _, full := range []string{"0", "1"} {
-		t.Run("full="+full, func(t *testing.T) {
-			t.Setenv("NESTWORTH_AI_PROCESS_FULL", full)
-			hostReviewAcrossProcessRestart(t)
-		})
-	}
+	hostReviewAcrossProcessRestart(t)
 }
 func hostReviewAcrossProcessRestart(t *testing.T) {
 	for _, scenario := range []struct{ prepare, resume string }{{"prepare", "resume_unconfirmed"}, {"commit_drop", "resume_committed"}} {

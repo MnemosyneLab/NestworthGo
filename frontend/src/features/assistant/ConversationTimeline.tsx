@@ -8,6 +8,7 @@ import { callService } from "@/lib/wails";
 import { formatTimestamp } from "@/lib/time";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { useAssistantPage } from "./PageContext";
+import { toolDisplayName } from "./toolDisplayName";
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
 const diagnosticKeys: Record<string, string> = {
   timeout: "aiChat.timeout",
@@ -62,7 +63,6 @@ const budgetDiagnostic = (code: string) =>
   code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
-const sources = new Set(["propose_cash_change", "read_page_content", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item"]);
 export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "" }: {
   epoch: string; id: string; latest?: Conversation; submittedRequestId?: string; busy: boolean; onCancel: (runID: string) => void;
 }) {
@@ -168,9 +168,9 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                 <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                   <Check className="size-3.5 shrink-0" aria-hidden="true" /><span className="flex-1">{t("aiChat.toolReads", { total: run.evidence.length })}</span><ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
                 </summary>
-                <div className="space-y-3 border-t border-border p-3"><p>{t("aiChat.traceHelp")}</p>
+                <div className="space-y-3 border-t border-border p-3">
                   {run.evidence.map((entry, index) => <div key={index} className="space-y-1">
-                    <p className="font-medium text-foreground">{t(sources.has(entry.source) ? `aiChat.source.${entry.source}` : "aiChat.unknownRead")}</p>
+                    <p className="font-medium text-foreground">{toolDisplayName(t, entry.source)}</p>
                     <p>{t("aiChat.readStarted")} · {timestamp(String(entry.capturedAt))}</p>
                     <p>{t(entry.hasMore ? "aiChat.morePages" : "aiChat.responseEnd")}</p><p>{t(entry.missing === "reported" ? "aiChat.missingReported" : "aiChat.missingUnknown")}</p>
                   </div>)}
@@ -180,14 +180,13 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                 {tools.map((tool, index) => <details key={index} className="rounded-lg border border-border">
                   <summary className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     {tool.state === "running" ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
-                    <span role="status" aria-live="polite" aria-atomic="true">{t(`aiChat.source.${tool.source}`, { defaultValue: tool.source.replace(/_/g, " ") })} · {t(`aiChat.toolState.${tool.state}`)}</span>
+                    <span role="status" aria-live="polite" aria-atomic="true">{toolDisplayName(t, tool.source)} · {t(`aiChat.toolState.${tool.state}`)}</span>
                   </summary>
                   <div className="space-y-2 border-t border-border p-3">
                     <p>{t("aiChat.toolInput")}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.input || (tool.inputTruncated ? t("aiChat.detailOmitted") : "")}</pre>
                     {tool.inputTruncated && !!tool.input && <p>{t("aiChat.detailTruncated")}</p>}
                     <p>{t("aiChat.toolOutput")}</p>{tool.output ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.output}</pre> : <p>{t(tool.outputTruncated ? "aiChat.detailOmitted" : "aiChat.noToolOutput")}</p>}
                     {tool.outputTruncated && !!tool.output && <p>{t("aiChat.detailTruncated")}</p>}
-                    <p>{t("aiChat.liveDetailHelp")}</p>
                   </div>
                 </details>)}
               </div>}

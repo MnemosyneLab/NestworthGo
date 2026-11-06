@@ -10,8 +10,8 @@ import { NativeSelect } from "@/components/ui/select";
 import { Notice } from "@/components/ui/notice";
 import { callService } from "@/lib/wails";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { Plus, Trash2, ArrowUp, Sparkles, Pencil } from "lucide-react";
-import { ChangeReviews } from "./ChangeReviews";
+import { Plus, Trash2, ArrowUp, Pencil } from "lucide-react";
+import { useOperationResults } from "./useOperationResults";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
@@ -85,6 +85,7 @@ export function ModelConversation() {
     retry: false,
     refetchInterval: (query) => query.state.data?.runs?.some((run) => active(run.state)) ? 200 : 1000,
   });
+  useOperationResults(epoch, id, busy, latest.data?.runs?.[0]);
   const running = latest.data?.runs?.some((run) => active(run.state)) ?? false;
   const stale = status.isError || list.isError || latest.isError;
   // An epoch identifies a process/ledger incarnation. Never carry an old ID or
@@ -358,7 +359,6 @@ export function ModelConversation() {
       {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
         submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
         busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
-      <ChangeReviews key={`reviews:${epoch}:${id}`} epoch={epoch} id={id} enabled={status.data?.financialWrites === true} busy={busy || running} runKey={`${latest.data?.runs?.[0]?.id}:${latest.data?.runs?.[0]?.state}`} />
       <form
         className="shrink-0 space-y-3 border-t border-border p-3"
         onSubmit={(event) => {
@@ -385,7 +385,16 @@ export function ModelConversation() {
           {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
           {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         </div></InfoPopover>
-        <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t(status.data?.fullAccess ? "aiChat.fullActive" : status.data?.financialWrites ? "aiChat.writeControlled" : "aiChat.readOnly")}</span>
+        <SecurityOperationRegion className="mr-auto min-w-0 flex-1">
+          <Label htmlFor="ai-permission" className="sr-only">{t("aiChat.permission")}</Label>
+          <NativeSelect id="ai-permission" className="min-h-11 max-w-full text-xs xl:min-h-9" title={t("aiChat.fullPermission")} aria-description={t("aiChat.fullPermission")}
+            value={status.data?.fullAccess ? "full" : "readOnly"}
+            disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running || stale))}
+            onChange={event => {const enabled=event.target.value === "full";void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}}>
+            <option value="readOnly">{t("aiChat.readOnly")}</option>
+            <option value="full">Full</option>
+          </NativeSelect>
+        </SecurityOperationRegion>
         <Button
           className={actionClass}
           aria-label={t("aiChat.send")}
@@ -403,16 +412,6 @@ export function ModelConversation() {
           <ArrowUp className="size-4" aria-hidden="true" />{t("aiChat.send")}
         </Button>
         </div>
-        <SecurityOperationRegion className="contents"><label className="flex items-start gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={status.data?.financialWrites === true && !status.data?.fullAccess} disabled={busy || (!status.data?.financialWrites && (!status.data?.available || running))}
-            onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetWritePermission(epoch,configRevision,enabled)));}} />
-          {t("aiChat.writePermission")}
-        </label>
-        <label className="flex items-start gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={status.data?.fullAccess === true} disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running))}
-            onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}} />
-          {t("aiChat.fullPermission")}
-        </label></SecurityOperationRegion>
         <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.navigationOptions")}</summary>
         <p className="py-2 leading-relaxed">{t("aiChat.navigationHelp")}</p>

@@ -10,7 +10,7 @@ const api = vi.hoisted(() => ({ Status: vi.fn(), SaveCredential: vi.fn(), Delete
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
 beforeEach(() => {
   vi.clearAllMocks();
-  api.Status.mockResolvedValue({ epoch: "host-epoch", credentials: "missing", financialWrites: false, available: false });
+  api.Status.mockResolvedValue({ epoch: "host-epoch", credentials: "missing", fullAccess: false, available: false });
   api.SaveCredential.mockImplementation(async () => { api.Status.mockResolvedValue({ epoch: "host-epoch", credentials: "present" }); });
   api.DeleteCredential.mockImplementation(async () => { api.Status.mockResolvedValue({ epoch: "host-epoch", credentials: "missing" }); });
 });
