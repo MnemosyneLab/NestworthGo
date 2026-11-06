@@ -10,8 +10,8 @@ import (
 
 type fullKey struct{}
 
-func CurrentFullHandler(ctx context.Context) ProposalHandler {
-	h, _ := ctx.Value(fullKey{}).(ProposalHandler)
+func CurrentFullHandler(ctx context.Context) ToolHandler {
+	h, _ := ctx.Value(fullKey{}).(ToolHandler)
 	return h
 }
 
@@ -71,7 +71,7 @@ func (r *Runtime) executeFull(ctx context.Context, epoch, id, runID string, revi
 		r.mu.Unlock()
 		return nil, ErrStale
 	}
-	c.Reviews = append(c.Reviews, ReviewRef{ID: review.ID})
+	c.Reviews = append(c.Reviews, r.operationRef(id, runID, review.ID, "execute_ledger_change"))
 	r.clearNavigation()
 	// Save the recovery identity before any business dispatch. On persistence
 	// failure leave the in-memory fence in place; the unsubmitted preview is inert.

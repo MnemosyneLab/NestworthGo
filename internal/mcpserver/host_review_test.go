@@ -46,7 +46,7 @@ func hostCommand(fx hostFixture) history.ChangeCommandRequest {
 
 func hostPreview(t *testing.T, fx hostFixture) HostChangeReview {
 	t.Helper()
-	r, err := fx.local.PreviewHostChange(t.Context(), hostCommand(fx))
+	r, err := fx.local.PreviewFullChange(t.Context(), hostCommand(fx))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,14 +80,11 @@ func TestHostReviewReadPreviewConfirmReceiptLoop(t *testing.T) {
 		_, err := fx.local.Call(t.Context(), name, mustJSON(t, map[string]any{"id": review.Binding.ID, "digest": review.Digest, "approved": true}))
 		requireLocalError(t, err, "not_found")
 	}
-	_, err = fx.local.ConfirmHostChange(t.Context(), review.Binding.ID, strings.Repeat("0", 64))
-	requireLocalError(t, err, "review_changed")
-	assertActivityCount(t, fx, 0)
 	var wg sync.WaitGroup
 	results := make(chan HostChangeReview, 4)
 	for range 4 {
 		wg.Go(func() {
-			r, err := fx.local.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest)
+			r, err := fx.local.ExecuteFullChange(t.Context(), review.Binding.ID)
 			if err != nil {
 				t.Errorf("confirm: %v", err)
 			}
@@ -127,7 +124,7 @@ func TestHostReviewStaleExpiredCancelledAndDetachedInput(t *testing.T) {
 			command := hostCommand(fx)
 			note := "用户已说明 / user supplied <script>approve()</script>"
 			command.Note = &note
-			review, err := fx.local.PreviewHostChange(t.Context(), command)
+			review, err := fx.local.PreviewFullChange(t.Context(), command)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -171,7 +168,7 @@ func TestHostReviewStaleExpiredCancelledAndDetachedInput(t *testing.T) {
 				}
 				expectedCode = "review_changed"
 			}
-			_, err = fx.local.ConfirmHostChange(ctx, review.Binding.ID, review.Digest)
+			_, err = fx.local.ExecuteFullChange(ctx, review.Binding.ID)
 			if expectedCode != "" {
 				requireLocalError(t, err, expectedCode)
 				assertActivityCount(t, fx, 0)
@@ -198,7 +195,7 @@ func TestHostReviewRestartReceiptRecoveryAndNoReplay(t *testing.T) {
 			fx := newHostFixture(t)
 			review := hostPreview(t, fx)
 			if phase == "committed" || phase == "business_receipt_only" {
-				if _, err := fx.local.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest); err != nil {
+				if _, err := fx.local.ExecuteFullChange(t.Context(), review.Binding.ID); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -235,7 +232,7 @@ func TestHostReviewRestartReceiptRecoveryAndNoReplay(t *testing.T) {
 			if got.State != expected {
 				t.Fatalf("%s state=%s want=%s", phase, got.State, expected)
 			}
-			_, err = local.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest)
+			_, err = local.ExecuteFullChange(t.Context(), review.Binding.ID)
 			if expected == ReviewSucceeded {
 				if err != nil || got.Receipt == nil || !strings.Contains(string(got.Receipt.Result), `"12.34"`) {
 					t.Fatalf("success not recovered: %v", err)
@@ -308,7 +305,7 @@ func TestHostReviewPersistenceFailuresAndRevocation(t *testing.T) {
 				repo.after = func() { _ = fx.local.RevokeForRestore(t.Context()) }
 			}
 			review := hostPreview(t, fx)
-			_, err := fx.local.ConfirmHostChange(ctx, review.Binding.ID, review.Digest)
+			_, err := fx.local.ExecuteFullChange(ctx, review.Binding.ID)
 			code := "review_unavailable"
 			if phase == "result_failed" {
 				code = "operation_outcome_unknown"
@@ -351,11 +348,11 @@ func TestHostReviewIsolationCorruptionAndPermissions(t *testing.T) {
 	requireLocalError(t, err, "not_found")
 	for _, mode := range []string{ReadOnly, DirectoryWrite} {
 		limited := newLocal(t, fx.ledgerFixture, mode)
-		_, err := limited.PreviewHostChange(t.Context(), hostCommand(fx))
+		_, err := limited.PreviewFullChange(t.Context(), hostCommand(fx))
 		requireLocalError(t, err, "review_unavailable")
 	}
 	fileOnly := newLocal(t, fx.ledgerFixture, LedgerWrite)
-	_, err = fileOnly.PreviewHostChange(t.Context(), hostCommand(fx))
+	_, err = fileOnly.PreviewFullChange(t.Context(), hostCommand(fx))
 	requireLocalError(t, err, "review_unavailable")
 	path, _ := fx.local.hostReviewPath(review.Binding.ID)
 	for _, kind := range []string{"future", "digest", "unknown_field", "duplicate_name", "malformed"} {
@@ -380,7 +377,7 @@ func TestHostReviewIsolationCorruptionAndPermissions(t *testing.T) {
 			if err := fx.local.service.repository.SaveConfiguration(key, raw); err != nil {
 				t.Fatal(err)
 			}
-			_, err := fx.local.ConfirmHostChange(t.Context(), review.Binding.ID, value.Digest)
+			_, err := fx.local.ExecuteFullChange(t.Context(), review.Binding.ID)
 			requireLocalError(t, err, "review_unavailable")
 			assertActivityCount(t, fx, 0)
 		})
@@ -475,7 +472,7 @@ func TestHostReviewRestoreFenceAndLateRequestCancellation(t *testing.T) {
 	t.Run("exclusive_fence", func(t *testing.T) {
 		fx := newHostFixture(t)
 		err := fx.app.WithExclusive(t.Context(), application.ExclusiveBackup, func(context.Context) error {
-			_, err := fx.local.PreviewHostChange(t.Context(), hostCommand(fx))
+			_, err := fx.local.PreviewFullChange(t.Context(), hostCommand(fx))
 			return err
 		})
 		requireLocalError(t, err, "backup_restore_busy")
@@ -485,7 +482,7 @@ func TestHostReviewRestoreFenceAndLateRequestCancellation(t *testing.T) {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		_, err = fx.local.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest)
+		_, err = fx.local.ExecuteFullChange(t.Context(), review.Binding.ID)
 		requireLocalError(t, err, "session_revoked")
 		assertActivityCount(t, fx, 0)
 	})
@@ -495,10 +492,51 @@ func TestHostReviewRestoreFenceAndLateRequestCancellation(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 		fx.local.service.changed = cancel
-		got, err := fx.local.ConfirmHostChange(ctx, review.Binding.ID, review.Digest)
+		got, err := fx.local.ExecuteFullChange(ctx, review.Binding.ID)
 		if err != nil || got.State != ReviewSucceeded || ctx.Err() == nil {
 			t.Fatalf("late request cancellation lost success: state=%s err=%v", got.State, err)
 		}
 		assertActivityCount(t, fx, 1)
 	})
+}
+
+func TestRetiredHumanProposalsOnlyRecoverOrRetire(t *testing.T) {
+	for _, state := range []string{ReviewAwaitingConfirmation, ReviewNeedsPreview, ReviewUnknown, ReviewSucceeded} {
+		t.Run(state, func(t *testing.T) {
+			fx := newHostFixture(t)
+			review := fullPreview(t, fx)
+			if state == ReviewSucceeded {
+				var err error
+				review, err = fx.local.ExecuteFullChange(t.Context(), review.Binding.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			// A saved pre-upgrade record, not an available permission or writer.
+			review.Binding.Source = "human_review"
+			review.State = state
+			review.Digest, _ = reviewDigest(review.Binding)
+			if err := fx.local.saveHostReview(review); err != nil {
+				t.Fatal(err)
+			}
+			got, err := fx.local.InspectHostChange(t.Context(), review.Binding.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := state
+			if state == ReviewAwaitingConfirmation || state == ReviewNeedsPreview {
+				want = ReviewCancelled
+			}
+			if got.State != want {
+				t.Fatalf("state=%s want=%s", got.State, want)
+			}
+			_, err = fx.local.ExecuteFullChange(t.Context(), review.Binding.ID)
+			requireLocalError(t, err, "permission_denied")
+			count := 0
+			if state == ReviewSucceeded {
+				count = 1
+			}
+			assertActivityCount(t, fx, count)
+		})
+	}
 }

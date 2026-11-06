@@ -33,7 +33,7 @@ func TestDesktopRuntimeStartsClosedInAnIsolatedHousehold(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := r.Snapshot()
-	if s.Available || s.FinancialWrites || s.Config.Enabled || s.Credentials != "missing" {
+	if s.Available || s.FullAccess || s.Config.Enabled || s.Credentials != "missing" {
 		t.Fatal("test/ad-hoc runtime gained authority")
 	}
 	if err := r.SetCredential(t.Context(), s.Epoch, []byte("synthetic-desktop-key")); err != nil {
@@ -55,7 +55,7 @@ func TestDesktopRuntimeStartsClosedInAnIsolatedHousehold(t *testing.T) {
 	}
 	defer r.Close()
 	newStatus := r.Snapshot()
-	if newStatus.Credentials != "present" || newStatus.Available || newStatus.FinancialWrites {
+	if newStatus.Credentials != "present" || newStatus.Available || newStatus.FullAccess {
 		t.Fatal("credential restart/closed gate regression")
 	}
 	if newStatus.Epoch == s.Epoch {

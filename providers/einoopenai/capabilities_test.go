@@ -213,13 +213,13 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 			if err := jsoncodec.Unmarshal(proposal, &proposed); err != nil {
 				t.Fatal(err)
 			}
-			review, err := session.PreviewHostChange(t.Context(), proposed)
+			review, err := session.PreviewFullChange(t.Context(), proposed)
 			if err != nil || review.State != mcpserver.ReviewAwaitingConfirmation || review.Binding.Plan.ID == modelPlan || review.Binding.Plan.Command.Amount != "12.34" {
 				t.Fatalf("host adopted model preview/approval: %v", err)
 			}
-			committed, err := session.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest)
+			committed, err := session.ExecuteFullChange(t.Context(), review.Binding.ID)
 			if err != nil || committed.State != mcpserver.ReviewSucceeded {
-				t.Fatalf("synthetic host confirmation failed: %v", err)
+				t.Fatalf("synthetic Full submission failed: %v", err)
 			}
 			read, err := session.Call(t.Context(), "get_account_snapshot", json.RawMessage(encode(obj{"id": accountID})))
 			activities, listErr := app.ListActivities(t.Context(), 10)

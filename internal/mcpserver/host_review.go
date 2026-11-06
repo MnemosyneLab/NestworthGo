@@ -30,9 +30,8 @@ const (
 )
 
 // HostChangeReview is private host state, never a model tool or chat message.
-// The desktop runtime projects Binding.Preview for explicit UI confirmation;
-// mobile and model tools never receive this host API. The digest detects
-// changed reviews; possession of it is not an approval credential.
+// The Full convenience writer uses the frozen preview for validation. Mobile
+// and model tools never receive this host API; the digest detects changed plans.
 type HostChangeReview struct {
 	Binding HostChangeReviewBinding `json:"binding"`
 	Digest  string                  `json:"digest"`
@@ -116,13 +115,6 @@ func (s *InProcessSession) withHostReview(ctx context.Context, fn func(context.C
 	return nil
 }
 
-// PreviewHostChange always obtains its own authoritative plan. Model-created
-// previews, plan IDs, mutation IDs and approval assertions cannot be adopted.
-// Only single ledger changes are supported; directory/market writers stay closed.
-func (s *InProcessSession) PreviewHostChange(ctx context.Context, command history.ChangeCommandRequest) (HostChangeReview, error) {
-	return s.previewHostChange(ctx, command, "human_review")
-}
-
 // PreviewFullChange binds a host-owned Full principal, never a model approval.
 func (s *InProcessSession) PreviewFullChange(ctx context.Context, command history.ChangeCommandRequest) (HostChangeReview, error) {
 	if command.Kind != history.ChangeMoneyAdded && command.Kind != history.ChangeMoneyRemoved && command.Kind != history.ChangeCashTransfer {
@@ -131,10 +123,10 @@ func (s *InProcessSession) PreviewFullChange(ctx context.Context, command histor
 	if command.MutationID != "" || command.ReconciliationLink != nil || command.HoldingID != "" {
 		return HostChangeReview{}, fail("validation", "unsupported Full fields")
 	}
-	return s.previewHostChange(ctx, command, "ai_full")
+	return s.previewHostChange(ctx, command)
 }
 
-func (s *InProcessSession) previewHostChange(ctx context.Context, command history.ChangeCommandRequest, source string) (HostChangeReview, error) {
+func (s *InProcessSession) previewHostChange(ctx context.Context, command history.ChangeCommandRequest) (HostChangeReview, error) {
 	var review HostChangeReview
 	// Canonicalize at the authoritative boundary, before the command/plan/digest
 	// are persisted. Projection must agree with domain-normalized endpoint codes.
@@ -189,7 +181,7 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 			return err
 		}
 		review = HostChangeReview{State: ReviewAwaitingConfirmation, Binding: HostChangeReviewBinding{
-			Source: source, Version: 1, ID: uuid.NewString(), HouseholdID: s.householdID, SessionID: s.owner.sessionID,
+			Source: "ai_full", Version: 1, ID: uuid.NewString(), HouseholdID: s.householdID, SessionID: s.owner.sessionID,
 			LedgerIncarnation: s.service.app.MobileWorkspace(),
 			IncarnationID:     s.service.config.InstanceID, PermissionRevision: s.service.config.InstanceID,
 			Permission: LedgerWrite, Tool: "commit_change", OperationID: uuid.NewString(),
@@ -291,6 +283,10 @@ func (s *InProcessSession) InspectHostChange(ctx context.Context, id string) (Ho
 		if review.State == ReviewCommitting || review.State == ReviewUnknown || review.State == ReviewSucceeded {
 			return s.reconcileHostReview(ctx, &review)
 		}
+		if review.Binding.Source != "ai_full" && (review.State == ReviewAwaitingConfirmation || review.State == ReviewNeedsPreview) {
+			review.State = ReviewCancelled
+			return s.saveHostReview(review)
+		}
 		if review.State == ReviewAwaitingConfirmation && !s.hostReviewCurrent(review) {
 			review.State = ReviewNeedsPreview
 			return s.saveHostReview(review)
@@ -303,20 +299,13 @@ func (s *InProcessSession) InspectHostChange(ctx context.Context, id string) (Ho
 	return review, nil
 }
 
-// ConfirmHostChange is host-only. It accepts no tool name, command, plan or
-// operation identity from the caller. Never register this method as a model
-// capability or invoke it because a chat/model message says "approved".
-func (s *InProcessSession) ConfirmHostChange(ctx context.Context, id, expectedDigest string) (HostChangeReview, error) {
-	return s.submitHostChange(ctx, id, expectedDigest, "")
-}
-
 // ExecuteFullChange is a host-only submission under an explicitly enabled Full
 // principal. It cannot adopt an ordinary user-confirmation review.
 func (s *InProcessSession) ExecuteFullChange(ctx context.Context, id string) (HostChangeReview, error) {
-	return s.submitHostChange(ctx, id, "", "ai_full")
+	return s.submitHostChange(ctx, id)
 }
 
-func (s *InProcessSession) submitHostChange(ctx context.Context, id, expectedDigest, source string) (HostChangeReview, error) {
+func (s *InProcessSession) submitHostChange(ctx context.Context, id string) (HostChangeReview, error) {
 	var review HostChangeReview
 	err := s.withHostReview(ctx, func(ctx context.Context) error {
 		var err error
@@ -324,11 +313,8 @@ func (s *InProcessSession) submitHostChange(ctx context.Context, id, expectedDig
 		if err != nil {
 			return err
 		}
-		if review.Binding.Source != source && !(source == "" && review.Binding.Source == "human_review") {
+		if review.Binding.Source != "ai_full" {
 			return fail("permission_denied", "operation belongs to another authority")
-		}
-		if source == "" && expectedDigest != review.Digest {
-			return fail("review_changed", "displayed review changed; inspect it before confirming")
 		}
 		if review.State == ReviewCommitting || review.State == ReviewUnknown || review.State == ReviewSucceeded {
 			if err := s.reconcileHostReview(ctx, &review); err != nil {
@@ -340,14 +326,14 @@ func (s *InProcessSession) submitHostChange(ctx context.Context, id, expectedDig
 			return nil
 		}
 		if review.State != ReviewAwaitingConfirmation {
-			return fail("review_required", "a fresh preview and explicit confirmation are required")
+			return fail("review_required", "a fresh preview is required")
 		}
 		if !s.hostReviewCurrent(review) {
 			review.State = ReviewNeedsPreview
 			if err := s.saveHostReview(review); err != nil {
 				return err
 			}
-			return fail("review_required", "a fresh preview and explicit confirmation are required")
+			return fail("review_required", "a fresh preview is required")
 		}
 		// Check the immutable stored plan before admitting the submission.
 		raw, err := s.service.loadPreviewPlan(review.Binding.Plan.ID, "change")
@@ -359,7 +345,7 @@ func (s *InProcessSession) submitHostChange(ctx context.Context, id, expectedDig
 			return fail("review_changed", "authoritative plan changed; obtain a fresh preview")
 		}
 		if ctx.Err() != nil {
-			return fail("cancelled", "request cancelled before confirmation")
+			return fail("cancelled", "request cancelled before submission")
 		}
 		review.State = ReviewCommitting
 		if err := s.saveHostReview(review); err != nil {

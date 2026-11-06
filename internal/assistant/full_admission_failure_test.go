@@ -72,7 +72,7 @@ type admissionCredentials struct{ capabilityTestCredentials }
 func (admissionCredentials) Available() bool { return true }
 
 type admissionEngine struct {
-	handler ProposalHandler
+	handler ToolHandler
 	input   []byte
 }
 

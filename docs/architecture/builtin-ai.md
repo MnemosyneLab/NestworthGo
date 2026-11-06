@@ -18,7 +18,10 @@ Credentials use the main SQLite configuration repository, without field encrypti
 and enter full database backups. No Keychain or signed-build dependency is used.
 Conversation state remains in its separate private sidecar. Saving a key alone
 does not enable requests. Mobile retains its local [page guide](builtin-ai-page-guide.md);
-mobile model access and every built-in financial write remain closed.
+mobile model access remains closed. Desktop permissions are Read-only or Full;
+Full uses the shared MCP write tools without per-change confirmation. The
+reviewed-write mode and its proposal/confirmation endpoints have been removed.
+See the runtime contract for current behavior and legacy receipt recovery.
 
 The sections below retain the broader target architecture and historical host-review
 integration evidence. They do not grant currently unsupported product authority.
