@@ -111,7 +111,7 @@ export function ModelConversation() {
   }, [epoch, configRevision, modelAvailable, id]);
   useEffect(() => () => { navigationCompletion.current = null; }, []);
   useEffect(() => {
-    if (navigationLease.current) setNavigationState("navigationStopped");
+    if (navigationAttempt.current) setNavigationState("navigationStopped");
     navigationLease.current = null;
     navigationAttempt.current = null;
     if (!epoch || !modelAvailable || !modelStamp) return;
@@ -138,7 +138,7 @@ export function ModelConversation() {
       return;
     navigationLease.current = null;
     const intent = latest.data?.navigation;
-    if (!intent) { setNavigationState(""); return; }
+    if (!intent) return;
     if (
       run.state !== "succeeded" ||
       !intent ||
@@ -181,7 +181,7 @@ export function ModelConversation() {
     navigationCompletion.current = null;
     // Revoke locally at admission, before Create/Delete (or any other action)
     // can await IPC. A previously admitted Consume response may still be in flight.
-    if (navigationAttempt.current || navigationLease.current)
+    if (navigationAttempt.current)
       setNavigationState("navigationStopped");
     navigationAttempt.current = null;
     navigationLease.current = null;
