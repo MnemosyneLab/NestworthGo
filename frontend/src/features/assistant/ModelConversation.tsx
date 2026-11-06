@@ -29,6 +29,13 @@ const active = (state: string) => state === "accepted" || state === "running";
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
  * storage. Refresh/reconnect reads state; it never replays Start. */
 export function ModelConversation({ visible = true }: { visible?: boolean }) {
+  return useModelConversation({ visible });
+}
+
+/** The desktop shell owns this controller across dock/Sheet remounts. Keep the
+ * draft together with its conversation and in-flight admission guard, in memory
+ * only. The rendered voice control still cancels on hide or unmount. */
+export function useModelConversation({ visible = true, enabled = true }: { visible?: boolean; enabled?: boolean }) {
   const { t } = useTranslation();
   const page = useAssistantPage();
   const client = useQueryClient();
@@ -62,11 +69,12 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
   const status = useQuery({
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
+    enabled,
     refetchInterval: 2000,
     networkMode: "always",
     retry: false,
   });
-  const epoch = status.data?.epoch ?? "";
+  const epoch = enabled ? status.data?.epoch ?? "" : "";
   const list = useQuery({
     queryKey: ["aiConversations", epoch],
     queryFn: () => callService(() => API.List(epoch)),
