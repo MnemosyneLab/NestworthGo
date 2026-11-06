@@ -54,7 +54,9 @@ No latency/quality equivalence with a live provider is claimed.
    It requires one successful completed response, consistent response/item IDs,
    monotonic sequence numbers (SSE), successful terminal items (function status may
    be absent; an explicit final status must be completed) and agreement between item-done
-   snapshots, observed argument/text fragments and the complete terminal output.
+   snapshots, observed argument/text fragments and the complete terminal output,
+   except for the narrow reasoning ciphertext refresh described below. The
+   validated terminal snapshot is authoritative for conversion, sealing and replay.
    Failure, incomplete/cancelled/error events, bad framing/JSON, duplicate names,
    unsupported events/items, inconsistent ordering and read errors fail closed.
 3. Only the validated final response object goes to the official SDK and the
@@ -144,10 +146,19 @@ are unimplemented or unverified. No API key or paid provider is needed to run it
 ## Provider contract and synthetic coverage
 
 The official [streaming contract](https://developers.openai.com/api/reference/resources/responses/streaming-events#response.output_item.added)
-marks added reasoning ciphertext as provisional; done is the authoritative item
-for continuation. Added ciphertext may be absent, null, partial or already final.
-A differing added/done value is therefore accepted, while done and the terminal
-completed response must still agree. The [reasoning/message schemas](https://developers.openai.com/api/reference/resources/responses)
+marks added reasoning ciphertext as provisional. Added ciphertext may be absent,
+null, partial or already final, so a differing added/done value is accepted.
+The `response.output_item.done` item and `response.completed` output must still
+agree, with one narrow exception: a reasoning item's nonempty `encrypted_content`
+string may refresh to another nonempty string. Both snapshots must independently
+validate; all other fields, including IDs, type, status, summary, reasoning text
+and unknown native fields, must match. The exception does not apply to messages
+or function calls, and does not allow missing, null, empty or malformed ciphertext
+transitions. The validated terminal response's original ciphertext bytes are
+authoritative for SDK conversion, checkpoint sealing and replay after clean EOF;
+no decryption or plaintext-equivalence claim is made. Missing completion events,
+trailing events and incomplete EOF still prevent history publication and tool
+dispatch. The [reasoning/message schemas](https://developers.openai.com/api/reference/resources/responses)
 allow optional nullable encrypted content and assistant phase; these are preserved
 exactly. Reasoning `content` is documented as an optional array, without null;
 `content:null` remains unsupported and is refused. No real provider capture or
@@ -155,6 +166,8 @@ request was used to infer additional nullable behavior.
 
 Tests exercise all provisional-ciphertext forms followed by success, failed,
 incomplete and truncated responses. The latter still produce zero dispatch.
+Terminal-refresh tests verify exact terminal snapshot replay and zero dispatch
+for changes outside the exception or missing/invalid completion.
 Stream and nonstream tests also round-trip absent/null final ciphertext and
 preserve multipart text/refusal grouping and commentary/final_answer/null phase
 through four actual adapter requests, with serialization between rounds.

@@ -531,6 +531,15 @@ exact recognized codes alongside localized reporting guidance; unknown strings
 are never reflected. A successful complete refusal is displayable text from the
 SDK refusal extension, with its original native item preserved in history.
 
+SSE rejection also writes a warning through the existing application `slog`
+logger, with the fixed failure code and a code-owned `terminal_check` category
+(response validation/identity, item count, missing item completion, item mismatch,
+matched, or not reached). No provider field names, values, IDs, text, ciphertext
+or credentials are logged. Accepted reasoning ciphertext refreshes emit one Info
+record per completed stream with only the refreshed item count, after clean EOF.
+These records use the configured log level and existing bounded, rotating
+`logs/nestworth.log` file beside settings; logging off remains off.
+
 Budget diagnostics use the closed `assistant_budget_exceeded.<rule>` vocabulary:
 `model_rounds`, `tool_calls`, `history_bytes`, `history_messages`, `prompt_bytes`,
 `text_bytes`, `provider_payload`, `tool_result_bytes`, and `read_evidence`.
@@ -553,6 +562,16 @@ the provisional display channel. Reasoning and tool argument fragments do not.
 The SDK still receives only the fully verified terminal JSON after clean EOF;
 its streaming converter is not used. Existing model-round, tool-inventory,
 capability validation, authority, timeout and checkpoint gates remain in place.
+Item completion and response completion must agree on all native fields, with
+one narrow exception: a reasoning item's nonempty `encrypted_content` string may
+be refreshed to another nonempty string in the final response. Both snapshots
+must independently validate; IDs, type, status, summary, reasoning text, unknown
+native fields, message text and tool identity/arguments remain exact. Missing,
+null, empty or malformed ciphertext transitions do not receive this exception.
+The final response's original ciphertext bytes are authoritative for SDK
+conversion, checkpoint sealing and replay; no decryption or plaintext-equivalence
+claim is made. Missing completion events, trailing events and incomplete EOF
+still prevent history publication and tool dispatch.
 Each model round resets the provisional text snapshot. Text is coalesced to at
 most 20 updates/second, and the engine withholds a credential-sized suffix to
 prevent an API key split across chunks from escaping. Short replies may therefore
