@@ -9,6 +9,7 @@ import { formatTimestamp } from "@/lib/time";
 import { AssistantMarkdown } from "./AssistantMarkdown";
 import { useAssistantPage } from "./PageContext";
 import { toolDisplayName } from "./toolDisplayName";
+import { matchesOperation, operationStateKey, type OperationResult } from "./operationResults";
 type Conversation = Awaited<ReturnType<typeof API.Inspect>>;
 const diagnosticKeys: Record<string, string> = {
   timeout: "aiChat.timeout",
@@ -63,8 +64,9 @@ const budgetDiagnostic = (code: string) =>
   code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
-export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "" }: {
+export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "", operations = [], operationsError = false }: {
   epoch: string; id: string; latest?: Conversation; submittedRequestId?: string; busy: boolean; onCancel: (runID: string) => void;
+  operations?: OperationResult[]; operationsError?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const page = useAssistantPage();
@@ -115,7 +117,9 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
     conversation?.runs?.forEach((run, index) => visible.set(run.id, { run, offset: conversation.offset + index }));
   }
   const runs = [...visible.values()].sort((a, b) => a.offset - b.offset).map(entry => entry.run);
-  const signature = `${latest?.progress?.revision ?? 0}:` + runs.map(run => `${run.id}:${run.state}:${run.text?.length}:${run.evidence?.length}:${run.tools?.length}`).join("|");
+  const toolsFor = (run: NonNullable<Conversation["runs"]>[number]) => active(run.state) && latest?.progress?.runId === run.id ? latest.progress.tools : run.tools;
+  const unmatched = operations.filter(result => !runs.some(run => toolsFor(run)?.some((tool, index) => matchesOperation(result, run.id, index, tool))));
+  const signature = operations.map(result => `${result.id}:${result.state}`).join("|") + `${latest?.progress?.revision ?? 0}:` + runs.map(run => `${run.id}:${run.state}:${run.text?.length}:${run.evidence?.length}:${run.tools?.length}`).join("|");
   useLayoutEffect(() => {
     const el = viewport.current;
     if (!el) return;
@@ -177,18 +181,19 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                 </div>
               </details>}
               {!!tools?.length && <div className="space-y-2 text-xs text-muted-foreground">
-                {tools.map((tool, index) => <details key={index} className="rounded-lg border border-border">
+                {tools.map((tool, index) => { const result = operations.find(result => matchesOperation(result, run.id, index, tool)); return <details key={index} className="rounded-lg border border-border">
                   <summary className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    {tool.state === "running" ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
-                    <span role="status" aria-live="polite" aria-atomic="true">{toolDisplayName(t, tool.source)} · {t(`aiChat.toolState.${tool.state}`)}</span>
+                    {tool.state === "running" && !result ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
+                    <span role="status" aria-live="polite" aria-atomic="true">{toolDisplayName(t, tool.source)} · {t(result ? operationStateKey(result.state) : `aiChat.toolState.${tool.state}`)}</span>
                   </summary>
                   <div className="space-y-2 border-t border-border p-3">
                     <p>{t("aiChat.toolInput")}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.input || (tool.inputTruncated ? t("aiChat.detailOmitted") : "")}</pre>
                     {tool.inputTruncated && !!tool.input && <p>{t("aiChat.detailTruncated")}</p>}
                     <p>{t("aiChat.toolOutput")}</p>{tool.output ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-foreground [overflow-wrap:anywhere]">{tool.output}</pre> : <p>{t(tool.outputTruncated ? "aiChat.detailOmitted" : "aiChat.noToolOutput")}</p>}
                     {tool.outputTruncated && !!tool.output && <p>{t("aiChat.detailTruncated")}</p>}
+                    {result && <p role="status">{t("aiChat.operationResult")} · {t(operationStateKey(result.state))}</p>}
                   </div>
-                </details>)}
+                </details>; })}
               </div>}
               {run.text && <AssistantMarkdown text={run.text} />}
               {active(run.state) && latest?.progress?.runId === run.id && latest.progress.text && <div aria-busy="true"><p className="text-xs text-muted-foreground">{t("aiChat.preview")}</p><AssistantMarkdown text={latest.progress.text} /></div>}
@@ -201,7 +206,12 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
             </div>
           </div>
         </article>; })}
-        {!latest ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p> : !runs.length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><Sparkles className="size-7 text-primary" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p></div>}
+        {unmatched.map(result => <details key={result.id} className="rounded-lg border border-border text-xs text-muted-foreground">
+          <summary className="cursor-pointer rounded-lg px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{toolDisplayName(t, result.toolName ?? "")} · {t(operationStateKey(result.state))}</summary>
+          <p role="status" className="border-t border-border p-3">{t("aiChat.operationResult")} · {t(operationStateKey(result.state))}</p>
+        </details>)}
+        {operationsError && <p role="alert" className="text-xs text-muted-foreground">{t("aiChat.operationRefreshError")}</p>}
+        {!latest ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p> : !runs.length && !operations.length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><Sparkles className="size-7 text-primary" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p></div>}
       </div>
     </div>
     {!following && <Button variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm" onClick={() => { anchor.current = null; followingRef.current = true; setFollowing(true); }}><ArrowDown className="size-3.5" aria-hidden="true" />{t("aiChat.jumpLatest")}</Button>}

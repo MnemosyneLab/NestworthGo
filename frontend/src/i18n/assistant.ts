@@ -1,5 +1,8 @@
 export const assistantEn = {
   aiChat: {
+    operationResult: "Operation result",
+    operationRefreshError: "Could not refresh operation results.",
+    operationState: {"succeeded": "Recorded", "failed": "Failed", "cancelled": "Not submitted", "committing": "Submitting", "awaiting_confirmation": "Not submitted", "needs_preview": "Preview expired", "unknown": "Outcome unknown"},
     full: "Full",
     unknownTool: "Tool call",
     permission: "Permissions",
@@ -299,6 +302,9 @@ export const assistantEn = {
 };
 export const assistantZhCN = {
   aiChat: {
+    operationResult: "操作结果",
+    operationRefreshError: "暂时无法刷新操作结果。",
+    operationState: {"succeeded": "已记录", "failed": "失败", "cancelled": "未提交", "committing": "提交中", "awaiting_confirmation": "未提交", "needs_preview": "预览已过期", "unknown": "结果待确认"},
     full: "Full",
     unknownTool: "工具调用",
     permission: "权限",
@@ -582,6 +588,9 @@ export const assistantZhCN = {
 };
 export const assistantZhTW = {
   aiChat: {
+    operationResult: "操作結果",
+    operationRefreshError: "暫時無法重新整理操作結果。",
+    operationState: {"succeeded": "已記錄", "failed": "失敗", "cancelled": "未提交", "committing": "提交中", "awaiting_confirmation": "未提交", "needs_preview": "預覽已過期", "unknown": "結果待確認"},
     full: "Full",
     unknownTool: "工具呼叫",
     permission: "權限",

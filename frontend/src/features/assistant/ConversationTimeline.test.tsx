@@ -138,3 +138,14 @@ it.each([
   expect(screen.getByText(`${unknown} · ${completed}`)).toBeVisible();
   expect(screen.queryByText(/list activities|future unknown tool/)).not.toBeInTheDocument();
 });
+
+it("shows legacy receipts without a saved tool trace and keeps inspection failures visible", () => {
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={{ ...initial, progress: undefined, runs: [] } as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()}
+    operations={[{ id: "old-receipt", toolName: "create_member", state: "succeeded" }]} operationsError /></QueryClientProvider>);
+  const recovered = screen.getByText("Create member · Recorded");
+  fireEvent.click(recovered.closest("summary")!);
+  expect(screen.getByText("Operation result · Recorded")).toBeVisible();
+  expect(screen.getByRole("alert")).toHaveTextContent("Could not refresh operation results.");
+  expect(screen.queryByText("old-receipt")).not.toBeInTheDocument();
+});

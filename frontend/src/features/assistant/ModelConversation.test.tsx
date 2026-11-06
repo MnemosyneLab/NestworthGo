@@ -892,3 +892,20 @@ it("keeps the authoritative permission and reports a failed toggle", async () =>
   expect(screen.getByRole("combobox", { name: "Permissions" })).toHaveValue("readOnly");
   expect(api.Start).not.toHaveBeenCalled();
 });
+
+it.each([["succeeded", "Recorded"], ["failed", "Failed"]])("shows a recovered %s receipt on its failed tool call without replaying the write", async (state, label) => {
+  api.Inspect.mockResolvedValue({ id: "conversation", offset: 0, runCount: 1, runs: [{ ...run,
+    state: "failed", text: "", tools: [{ source: "execute_ledger_change", state: "failed", input: '{"amount":"12.34"}', output: '{"error":"lost reply"}' }],
+  }] });
+  const result = { id: "receipt", source: "ai_full", runId: "run", toolIndex: 0, toolName: "execute_ledger_change", state: "unknown" };
+  let recoveredReceipt = false;
+  api.Reviews.mockImplementation(async () => [{ ...result, state: recoveredReceipt ? state : "unknown" }]);
+  mount();
+  await screen.findByText("Full ledger change · Outcome unknown");
+  recoveredReceipt = true;
+  const recovered = await screen.findByText(`Full ledger change · ${label}`, {}, { timeout: 3000 });
+  await userEvent.click(recovered.closest("summary")!);
+  expect(screen.getByText(`Operation result · ${label}`)).toBeVisible();
+  expect(screen.getByText('{"error":"lost reply"}')).toBeVisible();
+  expect(api.Start).not.toHaveBeenCalled();
+});

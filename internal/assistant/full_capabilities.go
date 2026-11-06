@@ -93,7 +93,9 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 			}
 		}
 		if !found {
-			c.Reviews = append(c.Reviews, ReviewRef{ID: operationID, Tool: q.Name})
+			ref := r.operationRef(id, runID, operationID, q.Name)
+			ref.Tool = q.Name
+			c.Reviews = append(c.Reviews, ref)
 		}
 		r.reviewBusy[id] = true
 		r.clearNavigation()

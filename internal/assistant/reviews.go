@@ -6,6 +6,9 @@ import (
 )
 
 type ChangeReview struct {
+	RunID              string   `json:"runId,omitempty"`
+	ToolName           string   `json:"toolName,omitempty"`
+	ToolIndex          *int     `json:"toolIndex,omitempty"`
 	Summary            string   `json:"summary"`
 	Source             string   `json:"source"`
 	ID                 string   `json:"id"`
@@ -26,10 +29,25 @@ type ChangeReview struct {
 	ResultingAmount    string   `json:"resultingAmount"`
 }
 type ReviewRef struct {
+	RunID       string `json:"runId,omitempty"`
+	ToolIndex   *int   `json:"toolIndex,omitempty"`
 	Unsubmitted bool   `json:"unsubmitted,omitempty"`
 	Tool        string `json:"tool,omitempty"`
 	ID          string `json:"id"`
 	Resolved    bool   `json:"resolved"`
+}
+
+// Bind a receipt to the actual observed tool invocation before business dispatch.
+// Older references remain inspectable even when no display trace was saved.
+func (r *Runtime) operationRef(id, runID, operationID, name string) ReviewRef {
+	ref := ReviewRef{ID: operationID, RunID: runID}
+	if p := r.progress[id]; p != nil && p.RunID == runID && len(p.Tools) > 0 {
+		index := len(p.Tools) - 1
+		if p.Tools[index].Source == name && p.Tools[index].State == "running" {
+			ref.ToolIndex = &index
+		}
+	}
+	return ref
 }
 
 // Acquiring a session precedes runtime revalidation. Revocation thereafter
@@ -149,6 +167,11 @@ func (r *Runtime) Reviews(ctx context.Context, epoch, id string) ([]ChangeReview
 		}
 		if err != nil {
 			return nil, ErrUnavailable
+		}
+		review.RunID, review.ToolIndex = ref.RunID, ref.ToolIndex
+		review.ToolName = ref.Tool
+		if review.ToolName == "" && review.Source == "ai_full" {
+			review.ToolName = "execute_ledger_change"
 		}
 		out = append(out, review)
 	}

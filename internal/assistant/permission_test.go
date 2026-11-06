@@ -75,3 +75,33 @@ func TestIdlePreviewCleanupPreservesActiveAndUnknownOperations(t *testing.T) {
 		}
 	}
 }
+
+func TestRecoveredReceiptKeepsItsOriginalToolInvocation(t *testing.T) {
+	session := &capabilityTestSession{id: uuid.NewString(), state: "unknown"}
+	r, id, runID, _ := capabilityRuntime(t, session)
+	r.progress = map[string]*Progress{id: {RunID: runID, Tools: []ToolProgress{
+		{Source: "create_member", State: "succeeded"},
+		{Source: "create_member", State: "running"},
+	}}}
+	_, err := r.executeCapability(t.Context(), r.epoch, id, runID, r.state.Revision, FullCapabilityRequest{Name: "create_member", Arguments: []byte(`{}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := r.find(id).Reviews[0]
+	if ref.RunID != runID || ref.ToolIndex == nil || *ref.ToolIndex != 1 {
+		t.Fatalf("wrong invocation: %+v", ref)
+	}
+	delete(r.active, id)
+	result, err := r.Reviews(t.Context(), r.epoch, id)
+	if err != nil || len(result) != 1 || result[0].State != "unknown" {
+		t.Fatalf("unknown result: %+v %v", result, err)
+	}
+	session.state = "succeeded"
+	result, err = r.Reviews(t.Context(), r.epoch, id)
+	if err != nil || len(result) != 1 || result[0].State != "succeeded" || result[0].RunID != runID || result[0].ToolIndex == nil || *result[0].ToolIndex != 1 || result[0].ToolName != "create_member" {
+		t.Fatalf("recovered result lost invocation: %+v %v", result, err)
+	}
+	if session.calls != 1 {
+		t.Fatalf("inspection replayed write: %d", session.calls)
+	}
+}

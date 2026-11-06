@@ -130,7 +130,13 @@ historical evidence, so old conversations can still be opened.
 The sidebar reconciles these references in the background and invalidates
 business queries after success. It polls while a run is active, a result is
 unresolved, or inspection failed; settled results stop polling. Replies and
-expandable tool inputs/outputs are the visible result surface. Preview, schema,
+expandable tool inputs/outputs are the visible result surface. Receipt references
+persist the originating run and tool ordinal; recovered authoritative status
+overlays that invocation without rewriting its original transport output. Legacy
+references match only exact operation identities, never a tool name alone. A
+receipt whose original trace is absent appears as an ordinary collapsed tool
+result in the transcript. Inspection failures are visible and retried; none of
+these display paths resubmit writes. Preview, schema,
 version/expiry, transaction and idempotency checks remain in the shared backend.
 
 ## Strictly read-only period analysis

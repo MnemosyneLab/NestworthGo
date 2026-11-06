@@ -21,4 +21,5 @@ export function useOperationResults(epoch: string, id: string, busy: boolean, ru
   useEffect(() => {
     if (completed) void client.invalidateQueries({ predicate: query => !String(query.queryKey[0]).startsWith("ai") });
   }, [client, epoch, id, completed]);
+  return results;
 }

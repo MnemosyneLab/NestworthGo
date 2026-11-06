@@ -85,7 +85,7 @@ export function ModelConversation() {
     retry: false,
     refetchInterval: (query) => query.state.data?.runs?.some((run) => active(run.state)) ? 200 : 1000,
   });
-  useOperationResults(epoch, id, busy, latest.data?.runs?.[0]);
+  const operations = useOperationResults(epoch, id, busy, latest.data?.runs?.[0]);
   const running = latest.data?.runs?.some((run) => active(run.state)) ?? false;
   const stale = status.isError || list.isError || latest.isError;
   // An epoch identifies a process/ledger incarnation. Never carry an old ID or
@@ -357,6 +357,7 @@ export function ModelConversation() {
           </Notice>
         )}
       {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
+        operations={operations.data} operationsError={operations.isError}
         submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
         busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
       <form
