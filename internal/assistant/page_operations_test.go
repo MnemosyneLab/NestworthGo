@@ -400,8 +400,8 @@ func TestNavigationLeaseNeedsNoSeparateApproval(t *testing.T) {
 		t.Fatal("navigation required approval", err)
 	}
 	r.clearNavigation()
-	if _, err = r.grantForStart(q); err == nil {
-		t.Fatal("stale lease admitted")
+	if stale, err := r.grantForStart(q); err != nil || stale.requestID != "" {
+		t.Fatal("stale optional lease blocked conversation or retained navigation", err)
 	}
 	for _, kind := range []string{"asset-changes", "historical-overview", "settings"} {
 		if !(ModelNavigationTarget{Kind: kind}).Valid() {
@@ -410,5 +410,72 @@ func TestNavigationLeaseNeedsNoSeparateApproval(t *testing.T) {
 	}
 	if (ModelNavigationTarget{Kind: "arbitrary-url"}).Valid() {
 		t.Fatal("arbitrary route admitted")
+	}
+}
+
+type optionalLeaseEngine struct{}
+
+func (optionalLeaseEngine) Close() {}
+func (optionalLeaseEngine) Complete(context.Context, []byte, string) (Completion, error) {
+	return Completion{Text: "Synthetic ordinary answer", History: []byte("synthetic-history"), Navigation: &ModelNavigationTarget{Kind: "accounts"}}, nil
+}
+
+func TestStartDropsStaleOptionalNavigationWithoutDroppingQuestion(t *testing.T) {
+	for _, mode := range []string{"fresh", "replaced", "expired", "selection-changed", "revision-changed"} {
+		t.Run(mode, func(t *testing.T) {
+			r, id, _, _ := capabilityRuntime(t, &capabilityTestSession{})
+			r.find(id).Runs = nil
+			delete(r.active, id)
+			r.fullEnabled = false
+			r.options.Credentials = operationCredentials{}
+			r.options.Timeout = 5 * time.Second
+			r.options.NavigationValidator = func(context.Context, ModelNavigationTarget) bool { return true }
+			now := time.Now()
+			r.options.NavigationClock = func() time.Time { return now }
+			observed := make(chan bool, 1)
+			r.options.Factory = func(ctx context.Context, _ ModelConfig, _ []byte, _ string) (Engine, error) {
+				observed <- ModelNavigationEnabled(ctx)
+				return optionalLeaseEngine{}, nil
+			}
+			page := PageSelection{Kind: "overview"}
+			lease, err := r.PublishPage(t.Context(), r.epoch, r.state.Revision, page)
+			if err != nil {
+				t.Fatal(err)
+			}
+			q := StartRequest{Epoch: r.epoch, Revision: r.state.Revision, ConversationID: id, RequestID: uuid.NewString(), Prompt: "Explain saving and investing", Page: page, PageLeaseID: lease.ID}
+			switch mode {
+			case "replaced":
+				if _, err = r.PublishPage(t.Context(), r.epoch, r.state.Revision, page); err != nil {
+					t.Fatal(err)
+				}
+			case "expired":
+				now = now.Add(3 * time.Minute)
+			case "selection-changed":
+				q.Page = PageSelection{Kind: "accounts"}
+			case "revision-changed":
+				r.state.Revision++
+			}
+			_, err = r.Start(t.Context(), q)
+			if mode == "revision-changed" {
+				if !errors.Is(err, ErrStale) {
+					t.Fatal("configuration admission weakened", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal("optional navigation blocked ordinary question", err)
+			}
+			r.wg.Wait()
+			if enabled := <-observed; enabled != (mode == "fresh") {
+				t.Fatal("wrong navigation authority", enabled)
+			}
+			view, err := r.Inspect(t.Context(), r.epoch, id)
+			if err != nil || len(view.Runs) != 1 || view.Runs[0].State != "succeeded" {
+				t.Fatal("ordinary conversation failed", view, err)
+			}
+			if (view.Navigation != nil) != (mode == "fresh") {
+				t.Fatal("stale observation granted navigation", view.Navigation)
+			}
+		})
 	}
 }

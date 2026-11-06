@@ -233,8 +233,6 @@ export function ModelConversation() {
     const text = prompt;
     const stamp = page?.modelStamp ?? "";
     await action(async () => {
-      const content = allowNavigation && page ? capturePageContent(page.viewKey, page.modelStamp) : null;
-      const contentGeneration = content && content.page !== "unsupported" ? content.id : null;
       const current = id || (await callService(() => API.Create(epoch))).id;
       setSelected(current);
       // Only a selector crosses IPC. No frontend metrics/labels/permission claims.
@@ -247,25 +245,23 @@ export function ModelConversation() {
             : { kind: "", accountId: "" };
       const requestId = crypto.randomUUID();
       let pageLeaseId = "";
-      if (allowNavigation) {
-        const lease = await callService(() =>
-          API.PublishPage(epoch, status.data!.revision, selection),
-        );
-        if (!page?.canModelNavigate(stamp))
-          throw new Error("assistant_stale_page");
-        if (!page.canModelNavigate(stamp) || !samePageContent(contentGeneration, page.viewKey, page.modelStamp))
-          throw new Error("assistant_stale_page");
-        pageLeaseId = lease.id;
-        navigationLease.current = {
-          requestID: requestId,
-          leaseID: lease.id,
-          stamp,
-          contentGeneration,
-        };
-        setNavigationState("");
-      } else {
-        navigationLease.current = null;
-        setNavigationState("");
+      // Page context is optional for conversation admission. A capture budget,
+      // publication failure or changing page may disable this turn's deferred
+      // navigation, but must not discard an unrelated question or replay Start.
+      navigationLease.current = null;
+      setNavigationState("");
+      if (allowNavigation && page) {
+        try {
+          const content = capturePageContent(page.viewKey, page.modelStamp);
+          const contentGeneration = content.page !== "unsupported" ? content.id : null;
+          const lease = await callService(() =>
+            API.PublishPage(epoch, status.data!.revision, selection),
+          );
+          if (page.canModelNavigate(stamp) && samePageContent(contentGeneration, page.viewKey, page.modelStamp)) {
+            pageLeaseId = lease.id;
+            navigationLease.current = { requestID: requestId, leaseID: lease.id, stamp, contentGeneration };
+          }
+        } catch { /* On-demand page tools retain their own fresh capture checks. */ }
       }
       setSubmission({ conversationId: current, requestId });
       await callService(() =>

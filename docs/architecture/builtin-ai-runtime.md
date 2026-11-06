@@ -853,3 +853,12 @@ uncertain outcomes, single-use claims and same-ID financial recovery.
 A proven pre-dispatch page refusal is returned as `page_operation_refused` with
 `not_dispatched`, permitting fresh discovery. Unknown write results still stop
 the turn. Generic tool failure copy does not call every tool a local read.
+
+Page context is optional at ordinary Send admission. Capture budget errors,
+publication failure or a changed observation drop the deferred navigation lease
+without dropping the question or retrying Start. A lease replaced or expired
+between publication and Start is likewise ignored by runtime admission. Epoch,
+configuration, conversation and financial permission checks remain mandatory.
+Only a fresh accepted lease may produce/consume a deferred navigation intent;
+on-demand page reads and control operations retain their independent current
+snapshot checks. An unavailable observation never becomes navigation authority.

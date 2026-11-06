@@ -142,8 +142,11 @@ func (r *Runtime) grantForStart(q StartRequest) (modelNavigationGrant, error) {
 	if q.PageLeaseID == "" {
 		return modelNavigationGrant{}, nil
 	}
+	// Publication can race Start even after the frontend checks its observation.
+	// Drop optional navigation authority, not the conversation. Runtime epoch and
+	// configuration admission are still checked independently by Start.
 	if !r.currentLease(q.PageLeaseID) || r.pageLease.Page != q.Page {
-		return modelNavigationGrant{}, ErrStale
+		return modelNavigationGrant{}, nil
 	}
 	return modelNavigationGrant{lease: *r.pageLease, conversationID: q.ConversationID, requestID: q.RequestID, generation: r.navigationGeneration}, nil
 }

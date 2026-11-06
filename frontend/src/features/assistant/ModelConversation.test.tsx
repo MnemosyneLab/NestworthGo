@@ -893,3 +893,36 @@ it.each([["succeeded", "Recorded"], ["failed", "Failed"]])("shows a recovered %s
   expect(screen.getByText('{"error":"lost reply"}')).toBeVisible();
   expect(api.Start).not.toHaveBeenCalled();
 });
+
+
+it.each(["stable", "publication-race", "capture-budget", "publication-failure"])("sends an ordinary question with optional page context: %s", async scenario => {
+ const user=userEvent.setup();
+ render(<QueryClientProvider client={createTestQueryClient()}>
+  <AssistantPageProvider householdId="synthetic" incarnation="synthetic" surface="desktop" viewKey="overview:" blocked={()=>false} onNavigate={vi.fn()}>
+   <BusinessPageRoot view="overview:" accessIdentity="synthetic"><div data-testid="optional-page-state">Initial page</div></BusinessPageRoot>
+   <ModelConversation/>
+  </AssistantPageProvider>
+ </QueryClientProvider>);
+ await screen.findByText("Synthetic prior answer");
+ await waitFor(()=>expect(api.PublishPage).toHaveBeenCalled());
+ api.PublishPage.mockClear();
+ const content=screen.getByTestId("optional-page-state");
+ if(scenario==="capture-budget") {
+  let parent=content;
+  for(let i=0;i<130;i++){const child=document.createElement("div");parent.append(child);parent=child;}
+  expect(()=>capturePageContent("overview:")).toThrow("page_content_budget");
+ }
+ if(scenario==="publication-race") api.PublishPage.mockImplementationOnce(async()=>{
+  await Promise.resolve();content.textContent="An asynchronous query changed the page";
+  return {id:"raced-lease"};
+ });
+ if(scenario==="publication-failure") api.PublishPage.mockRejectedValueOnce(new Error("optional page publication unavailable"));
+ await user.type(screen.getByLabelText("Message"),"Explain the difference between saving and investing");
+ await user.click(screen.getByRole("button",{name:"Send to model"}));
+ await waitFor(()=>expect(api.Start).toHaveBeenCalledTimes(1));
+ expect(api.Start.mock.calls[0][0]).toMatchObject({prompt:"Explain the difference between saving and investing",pageLeaseId:scenario==="stable" ? "host-page-lease" : ""});
+ await waitFor(()=>expect(screen.getByLabelText("Message")).toHaveValue(""));
+ expect(api.ConsumeNavigation).not.toHaveBeenCalled();
+ expect(screen.queryByText(i18n.t("aiChat.error"))).not.toBeInTheDocument();
+ if(scenario==="capture-budget") expect(api.PublishPage).not.toHaveBeenCalled();
+});
