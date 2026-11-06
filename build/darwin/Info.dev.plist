@@ -27,6 +27,8 @@
 			<key>NSAllowsLocalNetworking</key>
 			<true/>
 		</dict>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Record a question for AI voice input. Audio is sent to OpenAI for transcription when you stop recording.</string>
 		<key>NSHighResolutionCapable</key>
 		<string>true</string>
 		<key>NSHumanReadableCopyright</key>

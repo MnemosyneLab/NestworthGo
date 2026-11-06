@@ -19,7 +19,7 @@ export function useDesktopAssistant() {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (open && wide) headingRef.current?.focus(); }, [open, wide]);
-  const conversation = <ModelConversation />;
+  const conversation = <ModelConversation visible={open} />;
   const trigger = <Button ref={triggerRef} variant={open ? "soft" : "outline"} aria-label={t("assistant.open")} aria-expanded={open} aria-controls="desktop-assistant"
     onClick={() => { if (!hasUnresolvedSheetConfirmation()) { setOpened(true); setOpen(value => !value); } }}><Sparkles aria-hidden className="size-4" /><span className="hidden sm:inline">{t("assistant.title")}</span></Button>;
   const panel = wide ? <aside id="desktop-assistant" hidden={!open} aria-label={t("assistant.title")}

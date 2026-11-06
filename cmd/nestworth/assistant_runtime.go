@@ -13,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aistate"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/aitranscription"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/providers/einoopenai"
 )
@@ -57,6 +58,7 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		return engine, nil
 	}
 	r, err := assistant.NewRuntime(assistant.Options{Reviews: pool, Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory, TitleGenerator: einoopenai.GenerateTitle,
+		Transcriber: aitranscription.Transcribe,
 		NavigationValidator: func(ctx context.Context, target assistant.ModelNavigationTarget) bool {
 			if !target.Valid() || ctx.Err() != nil || app.MobileWorkspace() != incarnation {
 				return false

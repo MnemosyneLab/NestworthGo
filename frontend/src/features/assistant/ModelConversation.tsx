@@ -16,6 +16,7 @@ import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 import { capturePageContent } from "./pageContent";
+import { VoiceInput } from "./VoiceInput";
 
 function samePageContent(generation: string | null, viewKey: string, hostGeneration: string) {
   if (generation === null) return true;
@@ -26,7 +27,7 @@ const active = (state: string) => state === "accepted" || state === "running";
 
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
  * storage. Refresh/reconnect reads state; it never replays Start. */
-export function ModelConversation() {
+export function ModelConversation({ visible = true }: { visible?: boolean }) {
   const { t } = useTranslation();
   const page = useAssistantPage();
   const client = useQueryClient();
@@ -380,6 +381,9 @@ export function ModelConversation() {
           onChange={(event) => setPrompt(event.target.value)}
           disabled={busy || !status.data?.available || stale}
         />
+        <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
+          disabled={!visible || busy || running || offline || stale || !modelAvailable}
+          onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
         <div className="flex flex-wrap items-center gap-2">
         <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
           {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}

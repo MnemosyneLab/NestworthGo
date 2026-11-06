@@ -22,6 +22,8 @@
 		<string>11</string>
 		<key>LSMinimumSystemVersion</key>
 		<string>27.0</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Record a question for AI voice input. Audio is sent to OpenAI for transcription when you stop recording.</string>
 		<key>NSHighResolutionCapable</key>
 		<string>true</string>
 		<key>NSHumanReadableCopyright</key>
