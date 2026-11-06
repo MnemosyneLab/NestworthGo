@@ -179,7 +179,12 @@ Writes: they record completed facts and never place orders. A preview writes not
 Analysis reads may maintain derived snapshots and invalidate previews even in read_only mode, so run them before previewing. Repair start records submission only: poll get_data_repair_job, then scan_data_health. GUI permittedActions do not grant MCP permission, and due_unconfirmed does not record cash automatically. Permission never authorizes unrelated changes; resolve ambiguous identity, ownership or currency before writing.`
 
 func (s *Service) buildToolSet(mode string, external bool) *toolSet {
-	reviewManagement := s.config.InvestmentReviewManagement
+	return s.buildToolSetWithPolicy(mode, external, s.config.InvestmentReviewManagement)
+}
+
+// The built-in Full grant includes review management; external discovery retains
+// its independent persisted opt-in. Both paths register the same handlers.
+func (s *Service) buildToolSetWithPolicy(mode string, external, reviewManagement bool) *toolSet {
 	server := newToolSet(serverInstructions, external)
 	server.paging = &pageCodec{key: s.reads.key, generation: s.contextGeneration}
 	s.boundedReadTools(server, s.contextGeneration)

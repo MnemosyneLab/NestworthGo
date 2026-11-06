@@ -5,14 +5,15 @@ controlled local financial reads, run feedback, cancellation and paged persisten
 history. Activation defaults off. Desktop Settings → Built-in AI credentials saves
 a write-only key, a model ID and an explicit enable flag. There are no startup,
 reconnect or implicit retry model calls. Desktop writes default off. The user can opt into reviewed cash changes or the
-Full stage described below; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
+Full permission described below; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
 Cash deposits/withdrawals can be proposed through the bounded review flow below.
-Full additionally supports direct cash transfers and the scoped generic page
-operations described below. Other direct ledger commands, provider refresh tools,
-arbitrary UI automation and mobile model access remain unavailable. Existing explicit
+Full exposes the existing MCP LedgerWrite registry, including preview/commit,
+directory, investment, reconciliation, market-data and repair capabilities, plus
+the scoped generic page operations described below. Unrestricted UI automation
+and mobile model access remain unavailable. Existing explicit
 account buttons retain their page-host guards; model navigation has independent
 backend and frontend fences described below.
 
@@ -30,7 +31,7 @@ restart; onboarding does not silently activate it.
 Each live conversation owns a direct `InProcessSession` through
 `builtinai.Pool`; the installed desktop uses a durable configuration repository
 and a host-owned `LedgerWrite` session, while the model adapter retains its
-fixed read allowlist plus the separately enabled reviewed/Full callback. The model
+fixed read allowlist by default, or the complete shared registry through the separately enabled Full callback. The model
 never receives the host review methods. Read-only test/integration pools remain
 `ReadOnly` when no repository is supplied. The engine and credential lease remain per-run. This
 preserves frozen captures across turns within the original fixed five-minute TTL.
@@ -39,7 +40,7 @@ most 20 conversations. Delete/retention drops the conversation session; config/k
 changes, disable, restore and shutdown revoke all sessions. Revocation is
 nonblocking under runtime/restore locks; draining occurs outside the restore gate.
 No local HTTP,
-external MCP token, generic Wails dispatch or open-world capability is used.
+external MCP token or generic Wails dispatch is used. Full includes the shared provider-search capability; its existing disclosure contract remains authoritative.
 Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
 `internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
@@ -51,8 +52,7 @@ were removed. It adds `get_current_page` only for supported
 view selections, and `get_navigation_targets`/`open_page`/`open_return_trend` only for an explicit
 per-message host grant. The shared session independently rechecks permissions
 and budgets.
-No configuration, network refresh, projection-maintaining analysis or human
-approval method is available to the model. Direct financial writes exist only
+In read-only mode no configuration, network refresh or projection-maintaining analysis is available. Human approval methods are never model tools. Direct financial writes exist only
 through the explicitly enabled Full stage below. The host review
 methods from #203 are adapted only by the desktop runtime review endpoints.
 Their operation receipts remain in their existing household/session namespaces;
@@ -60,10 +60,10 @@ chat deletion neither deletes those receipts nor reverses a financial operation.
 
 The current authority is desktop and household-wide. No mobile/scoped principal
 may receive it. Live mobile permission intersection, per-account authorization
-and other write families remain unimplemented. The model cannot manufacture host
+remain unimplemented. The model cannot manufacture host
 approval from text, a summary, a digest, a page snapshot or a saved conversation.
 
-## Explicit Full access — cash and transfers stage
+## Explicit Full access — shared MCP capabilities
 
 Full is an optional desktop, household-wide, app-session permission. It is shown
 separately from reviewed writes; choosing either replaces the other. Startup,
@@ -73,60 +73,45 @@ disabling remains available during a run. Every mode change revokes existing
 capability sessions and navigation grants. A failed permission-state save closes
 both write modes. No model argument, chat approval or restored history enables it.
 
-Only a Full run receives `execute_ledger_change`. This stage supports completed
-`money_added`, `money_removed` and `cash_transfer` commands with exact decimal
-strings, explicit currencies and RFC3339 effective time. Transfers use the shared
-multi-leg transaction. The strict adapter excludes caller mutation IDs,
-reconciliation links, holdings, directory fields and batch commands. The shared
-MCP command validator and application Service still own semantic validation;
-there is no direct database writer. The known composite directory PATCH
-atomicity defect from #239 is **not fixed here and that path is not exposed**.
-FX, security trades/transfers, debt, reconciliation, correction, directory,
-market-data and batches remain future stages, each requiring transaction and
-recovery acceptance. Full is a permission model, not a claim of all-family parity.
+Full discovery reuses the complete `LedgerWrite` registry and its exact input
+schemas, descriptions and effects. Dispatch uses that same in-process registry;
+there is no loopback HTTP, duplicate financial implementation or additional
+per-write approval. The Full grant includes the seven investment-review management writers (82 shared tools including the 75-tool baseline). External MCP
+transport, its independent investment-review-management opt-in, permission modes, schemas and operation namespaces are unchanged.
+The #248 atomic directory edit fix is part of this baseline. The legacy
+`execute_ledger_change` cash/transfer convenience tool remains available for
+existing conversations, using its original host preview/commit flow.
 
-The host obtains its own preview and durable operation identity, then persists a
-conversation recovery reference **before** dispatch. `ExecuteFullChange` accepts
-only that reference, uses a separate `ai_full` binding, and cannot submit a human
-review. Conversely, human confirmation cannot adopt a Full record. The common
-submission kernel checks session cancellation/generation under the application
-gate, workspace incarnation, preview version/expiry and immutable stored plan,
-then durably admits before calling shared commit/transaction/receipt logic.
-Revocation never replaces a captured session with a newly authorized one.
-An active callback must still match the original live conversation/run/revision.
-Concurrent calls are serialized/fenced; unresolved records block new Full writes
-in that conversation, deletion, retention and navigation. Account scope remains
-household-wide, not per-account; switching conversations cannot adopt another
-conversation's operation. A model continuation is not proof that the visible UI
-still shows the original conversation.
+All shared preview/commit rules, transaction boundaries, version/expiry checks,
+operation IDs, idempotency and receipt recovery remain authoritative. Before a
+shared writer is dispatched, the runtime validates its arguments with the same
+schema and saves the operation identity in the conversation. `commit_plan` uses
+the shared deterministic identity when omitted. Other writers require the same
+explicit operation UUID as MCP. The original session/run/revision is checked;
+revocation fences the acquired session, including writes queued on application
+authority. Concurrent write callbacks in one conversation are serialized. If the pre-dispatch reference save fails, the runtime closes and restores the exact prior in-memory references before normal run completion can persist them. This removes a proven never-dispatched attempt and preserves prior resolved retry metadata. If a save actually landed but the process dies before a successful repair save, the durable unresolved reference still remains conservatively fenced.
 
-A failed or lost response retains the same reference. Polling, reconnect and
-restart only inspect; they never dispatch. Unknown receipts cannot be cancelled,
-repreviewed or replaced. A verified transaction receipt can recover success even
-when the outer response/receipt was lost. If a crash occurred before dispatch,
-the saved preview becomes stale after restart and may only be dismissed; it is
-not automatically resumed. Version conflicts require an explicitly new request,
-not automatic retry. Stop does not undo a completed transaction. There is no
-cross-request semantic deduplication of a deliberately repeated new instruction.
-No automatic financial retry or continuation is introduced.
+An attempt proven to precede business dispatch is recorded as unsubmitted; cancellation alone never proves rollback. The shared commit-plan router marks malformed plan IDs and known noncommittable plan types as definite rejections. Missing valid plans retain unknown-outcome semantics. Runtime argument/permission preflight rejections report write_not_submitted rather than implying an unknown new write. An existing unresolved reference instead reports write_blocked_pending_operation. Registry observation tracks actual handler entry. Cancellation at the shared receipt gate is proven unsubmitted only when no prior receipt exists; existing uncertain receipts retain their fence. Unknown or missing receipts after possible dispatch leave an unresolved reference that blocks subsequent
+writes, deletion, retention and navigation in that conversation. Inspection,
+polling, reconnect and restart never dispatch a mutation. Generic Full records
+cannot be confirmed, cancelled or repreviewed through human review actions.
+Known failed receipts release the fence; unknown outcomes do not. Stop is not
+rollback. Write errors terminate the provider turn with explicit inspection
+instructions, rather than read-recapture advice. There is no cross-request
+semantic deduplication of a deliberately repeated new instruction.
 
-Business audit is the existing durable household/session host-operation record
-in ledger configuration, with immutable command/plan/operation identity and a
-receipt linked to the financial activity. New records distinguish `ai_full` from
-`human_review`; legacy empty-source records retain manual-review semantics.
-External MCP keeps its separate operation namespace and unchanged permissions.
-These records are not chat history: deleting a conversation leaves the business
-audit and financial activity intact. An audit browser/export and centralized
-source labels for all historical manual/MCP activity rows are not added. Existing
-single-process ownership remains: these private records do not implement a
-cross-process CAS or authorize concurrent app processes over one ledger.
+The desktop displays shared tool inputs, bounded outputs, errors and progress,
+plus source-attributed operation status. Unknown tool display names use readable
+words derived from the registry name. Successful inspected writes invalidate
+business queries. The existing 128-tool inventory, 64 KiB input/output, 16-call
+and model/history budgets remain; larger workflows must use existing MCP paging
+and batch limits. Full does not expand those budgets. Evidence capacity is reserved before read, page-content or analysis execution, including concurrent calls; failed reads release their reservation without adding evidence.
 
-The desktop shows Full's supported scope, an immediate revocation switch and
-source-attributed operation results. It never offers human confirm/repreview for
-Full records. Successful observed writes invalidate business queries. All local
-acceptance uses synthetic temporary SQLite ledgers and fake models; no real
-provider or household data is used. Native Mac GUI and cross-process concurrent
-writer acceptance remain separate from Linux and subprocess restart tests.
+Business receipts remain in the private household/conversation capability
+namespace; deleting chat does not delete receipts or reverse financial activity.
+Single-process ownership remains: no cross-process CAS or concurrent app-process
+authority is added. All tests use synthetic SQLite and fake providers. Native
+Mac GUI acceptance remains separate from Linux, jsdom and provider tests.
 
 ## Reviewed single cash changes
 
@@ -858,3 +843,12 @@ counting and backend rune counting use the same limit. The bounded raw argument
 envelope is 32 KiB so equivalent literal or JSON surrogate-escaped emoji at the
 limit are both accepted. Existing financial/business field validation remains
 unchanged; the semantic read preview still has its separate 2,048-byte limit.
+
+Full MCP writes, the legacy direct ledger wrapper and generic page operations
+share one in-memory run write gate. It serializes admission through outcome
+classification. An uncertain page result fences both Full write routes for the
+remainder of that run with a recovery-required diagnostic, while read-only MCP
+inspection remains available. Full MCP unresolved recovery references and busy
+admission also refuse page claims. This gate does not persist across runs and
+does not replace the MCP operation identity, durable recovery reference or
+cancelled-before-commit proof.

@@ -23,6 +23,15 @@ type FullReviewSession interface {
 }
 
 func (r *Runtime) executeFull(ctx context.Context, epoch, id, runID string, revision uint64, input json.RawMessage) (json.RawMessage, error) {
+	var request FullCapabilityRequest
+	if jsoncodec.Unmarshal(input, &request) == nil && request.Name != "" {
+		return r.executeCapability(ctx, epoch, id, runID, revision, request)
+	}
+	release, err := acquireRunWrite(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release(false)
 	if len(input) > 4096 {
 		return nil, ErrUnavailable
 	}

@@ -131,6 +131,14 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 	s.operationMu.Lock()
 	defer s.operationMu.Unlock()
 	if err = ctx.Err(); err != nil {
+		if _, observing := ctx.Value(fullSubmissionKey{}).(*fullSubmissionObservation); observing {
+			if _, priorErr := s.GetOperation(id); priorErr != nil {
+				var wire *apierror.WireError
+				if errors.As(priorErr, &wire) && wire.Code == "not_found" {
+					observeCancelledBeforeNewOperation(ctx)
+				}
+			}
+		}
 		return nil, err
 	}
 	createdAt := time.Now().UTC().Format(time.RFC3339Nano)

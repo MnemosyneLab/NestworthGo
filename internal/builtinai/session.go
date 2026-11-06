@@ -29,6 +29,7 @@ type Session struct {
 	navigationUsed    bool
 	mu                sync.Mutex
 	evidence          []assistant.ReadEvidence
+	readsInFlight     int
 	shared            Capabilities
 	page              assistant.PageSelection
 }
@@ -68,11 +69,22 @@ func (s *Session) WithProposals(h assistant.ProposalHandler) *Session  { s.propo
 func (s *Session) WithFullAccess(h assistant.ProposalHandler) *Session { s.full = h; return s }
 func (s *Session) Definitions() ([]agentcapability.Definition, error) {
 	defs, err := s.shared.Definitions()
+	if s.full != nil {
+		if shared, ok := s.shared.(interface {
+			FullDefinitions() ([]agentcapability.Definition, error)
+		}); ok {
+			defs, err = shared.FullDefinitions()
+		}
+	}
 	if err != nil {
 		return nil, assistant.ErrUnavailable
 	}
 	out := []agentcapability.Definition{}
 	for _, d := range defs {
+		if s.full != nil {
+			out = append(out, d)
+			continue
+		}
 		if allowed(d.Name) && (d.Effect == agentcapability.Read || (d.Name == "compare_financial_attribution" && d.Effect == agentcapability.Analysis)) {
 			if d.Name == "compare_financial_attribution" {
 				d.Effect = agentcapability.Read
@@ -145,6 +157,11 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 		if s.pageReader == nil {
 			return nil, assistant.ErrUnavailable
 		}
+		release, err := s.reserveRead()
+		if err != nil {
+			return nil, err
+		}
+		defer release()
 		raw, err := s.pageReader(ctx, args)
 		if err != nil {
 			return nil, err
@@ -169,6 +186,32 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 		return raw, nil
 	}
 	if name != "get_current_page" {
+		if s.full != nil {
+			definition, err := s.fullCapabilityDefinition(name)
+			if err != nil {
+				return nil, err
+			}
+			if definition.Effect == agentcapability.Read || definition.Effect == agentcapability.Analysis {
+				release, err := s.reserveRead()
+				if err != nil {
+					return nil, err
+				}
+				defer release()
+			}
+			captured := time.Now().UTC()
+			raw, err := jsoncodec.Marshal(assistant.FullCapabilityRequest{Name: name, Arguments: args})
+			if err != nil {
+				return nil, assistant.ErrUnavailable
+			}
+			result, err := s.full(ctx, raw)
+			if err != nil {
+				return nil, err
+			}
+			if definition.Effect == agentcapability.Read || definition.Effect == agentcapability.Analysis {
+				return s.recordRead(name, result, captured)
+			}
+			return result, nil
+		}
 		if !allowed(name) {
 			return nil, assistant.ErrUnavailable
 		}
@@ -215,6 +258,11 @@ func (s *Session) Evidence() []assistant.ReadEvidence {
 	return append([]assistant.ReadEvidence(nil), s.evidence...)
 }
 func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
+	release, err := s.reserveRead()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	captured := time.Now().UTC()
 	if name == "compare_financial_attribution" {
 		ctx = application.WithReadOnlyFinancialAttribution(ctx)
@@ -223,6 +271,12 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 	if err != nil {
 		return nil, err
 	}
+	return s.recordRead(name, raw, captured)
+}
+
+// Both permission modes record successful authoritative reads after their own
+// dispatcher returns. Preview/write receipts never enter this evidence path.
+func (s *Session) recordRead(name string, raw json.RawMessage, captured time.Time) (json.RawMessage, error) {
 	if len(raw) > 64<<10 {
 		return nil, assistant.BudgetFailure("tool_result_bytes")
 	}
@@ -271,4 +325,37 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 	}
 	s.evidence = append(s.evidence, item)
 	return raw, nil
+}
+
+// FullAccessEnabled describes this run's host grant; dispatch revalidates it.
+func (s *Session) FullAccessEnabled() bool { return s.full != nil }
+
+func (s *Session) fullCapabilityDefinition(name string) (agentcapability.Definition, error) {
+	if shared, ok := s.shared.(interface {
+		FullDefinition(string) (agentcapability.Definition, error)
+	}); ok {
+		return shared.FullDefinition(name)
+	}
+	definitions, err := s.shared.Definitions()
+	if err != nil {
+		return agentcapability.Definition{}, err
+	}
+	for _, d := range definitions {
+		if d.Name == name {
+			return d, nil
+		}
+	}
+	return agentcapability.Definition{}, assistant.ErrUnavailable
+}
+
+// Reserve evidence capacity before a provider read or projection-maintaining
+// analysis executes. Failed reads release the reservation without adding evidence.
+func (s *Session) reserveRead() (func(), error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.evidence)+s.readsInFlight >= 16 {
+		return nil, assistant.BudgetFailure("read_evidence")
+	}
+	s.readsInFlight++
+	return func() { s.mu.Lock(); s.readsInFlight--; s.mu.Unlock() }, nil
 }

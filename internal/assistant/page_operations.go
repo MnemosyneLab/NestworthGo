@@ -96,6 +96,11 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 	uncertain := false
 	used := map[string]bool{}
 	return func(ctx context.Context, args json.RawMessage) (json.RawMessage, error) {
+		release, err := acquireRunWrite(runCtx)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { release(uncertain) }()
 		mu.Lock()
 		defer mu.Unlock()
 		if uncertain || runCtx.Err() != nil {

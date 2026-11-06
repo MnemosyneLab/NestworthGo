@@ -24,8 +24,8 @@ type CapabilitySession interface {
 	Call(context.Context, string, json.RawMessage) (json.RawMessage, error)
 }
 
-// CapabilityTools constructs Eino tools only from local, non-writing
-// definitions. The session must also enforce its current permissions at every
+// CapabilityTools constructs Eino tools from local definitions. The desktop
+// Full adapter can advertise the complete shared registry. The session must also enforce its current permissions at every
 // Call; a discovery snapshot is never authorization. Unsupported/lossy schema
 // conversion fails closed, while the session remains the argument validator.
 func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
@@ -36,14 +36,18 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 	if err != nil {
 		return nil, errors.New("local capability discovery unavailable")
 	}
+	full := false
+	if granted, ok := session.(interface{ FullAccessEnabled() bool }); ok {
+		full = granted.FullAccessEnabled()
+	}
 	if len(definitions) > 128 {
 		return nil, errors.New("local capability inventory exceeds budget")
 	}
 	out := make([]tool.BaseTool, 0, len(definitions))
 	seen := map[string]bool{}
 	for _, d := range definitions {
-		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !((d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
-			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || *d.Annotations.OpenWorldHint {
+		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
+			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || (*d.Annotations.OpenWorldHint && !full) {
 			return nil, errors.New("unsafe local capability inventory")
 		}
 		seen[d.Name] = true
@@ -59,7 +63,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 		if err != nil || !sameSchemaJSON(raw, roundtrip) {
 			return nil, errors.New("lossy local capability schema conversion")
 		}
-		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw})
+		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw, writing: d.Effect == agentcapability.Write})
 	}
 	return out, nil
 }
@@ -77,9 +81,16 @@ func sameSchemaJSON(a, b []byte) bool {
 	return errA == nil && errB == nil && reflect.DeepEqual(x, y)
 }
 
+var errCapabilityWriteRecoveryRequired = errors.New("existing operation requires recovery")
+
+var errCapabilityWriteRejected = errors.New("local write rejected before dispatch")
+
+var errCapabilityWriteRefused = errors.New("local write outcome requires inspection")
+
 var errCapabilityRefused = errors.New("local capability request refused")
 
 type capabilityTool struct {
+	writing     bool
 	session     CapabilitySession
 	name        string
 	description string
@@ -100,6 +111,9 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		return "", errors.New("local capability request cancelled")
 	}
 	if len(arguments) > 64<<10 {
+		if t.writing {
+			return "", errCapabilityWriteRejected
+		}
 		return "", errors.New("local capability arguments exceed budget")
 	}
 	result, err := t.session.Call(ctx, t.name, json.RawMessage(arguments))
@@ -109,6 +123,16 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 	if err != nil {
 		// Do not reflect submitted content or arbitrary implementation errors
 		// into model history. Application-facing errors belong to the host.
+		if t.writing {
+			if errors.Is(err, assistant.ErrRecoveryRequired) {
+				return "", errCapabilityWriteRecoveryRequired
+			}
+			var unsubmitted interface{ NotDispatched() bool }
+			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
+				return "", errCapabilityWriteRejected
+			}
+			return "", errCapabilityWriteRefused
+		}
 		return "", errCapabilityRefused
 	}
 	if len(result) > 64<<10 {
