@@ -34,7 +34,7 @@ it("rejects ReadOnly, unresolved flow and readonly/disabled/busy controls",()=>{
 });
 it("rejects a replaced same-label node, live edits, wrong view and workspace generation",()=>{
  const click=vi.fn();const element=(key:string)=><BusinessPageRoot view={view} accessIdentity="synthetic"><Button key={key} onClick={click}>Same</Button><Input aria-label="Draft" defaultValue="1"/></BusinessPageRoot>;
- const r=render(element("one"));const old=operation("Same");r.rerender(element("two"));expect(execute(old).state).toBe("stale");
+ const r=render(element("one"));const old=operation("Same");r.rerender(element("two"));expect(execute(old)).toEqual({state:"stale",snapshotId:old.snapshotId});
  const op=operation("Same");(screen.getByLabelText("Draft") as HTMLInputElement).value="2";expect(execute(op).state).toBe("stale");
  expect(operatePageControl("other:","generation",operation("Same"),true,false).state).toBe("stale");
  expect(operatePageControl(view,"new-workspace",operation("Same"),true,false).state).toBe("stale");expect(click).not.toHaveBeenCalled();
@@ -81,5 +81,5 @@ it("reports unverified when a real shared React click handler throws through win
 });
 it("revokes a formerly ordinary target and excludes external submit controls for protected forms",()=>{
  const click=vi.fn();const content=(protectedNow:boolean)=><BusinessPageRoot view={view} accessIdentity="synthetic"><div data-assistant-operation={protectedNow ? "protected" : undefined}><form id="security-form" onSubmit={e=>{e.preventDefault();click();}}><Input aria-label="Public setting"/></form></div><Button form="security-form">Save access</Button><Button type="button" onClick={click}>Ordinary business</Button></BusinessPageRoot>;
- const r=render(content(false));const old=operation("Save access");r.rerender(content(true));expect(execute(old).state).toBe("stale");const page=capturePageContent(view,"generation");expect(page.nodes.find(n=>n.name==="Save access")?.targetRef).toBeUndefined();expect(click).not.toHaveBeenCalled();act(()=>{expect(execute(operation("Ordinary business")).state).toBe("dispatched");});expect(click).toHaveBeenCalledOnce();
+ const r=render(content(false));const old=operation("Save access");r.rerender(content(true));expect(execute(old)).toEqual({state:"stale",snapshotId:old.snapshotId});const page=capturePageContent(view,"generation");expect(page.nodes.find(n=>n.name==="Save access")?.targetRef).toBeUndefined();expect(click).not.toHaveBeenCalled();act(()=>{expect(execute(operation("Ordinary business")).state).toBe("dispatched");});expect(click).toHaveBeenCalledOnce();
 });

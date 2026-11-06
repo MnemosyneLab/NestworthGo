@@ -13,8 +13,11 @@ export async function pollPageOperations(api:PageOperationAPI,current:()=>{viewK
  for(const request of operations ?? []) {
   if(stopped()) return;
   const operation=await api.claim(request.id);
-  if(stopped()) return;
-  if(!operation.expiresAt || !(Date.parse(operation.expiresAt)>Date.now())) continue;
+  if(stopped() || !operation.expiresAt || !(Date.parse(operation.expiresAt)>Date.now())) {
+   await api.deliver(request.id,{state:"not_dispatched",snapshotId:operation.snapshotId});
+   if(stopped()) return;
+   continue;
+  }
   const host=current();
   let result:PageOperationResult;
   try {

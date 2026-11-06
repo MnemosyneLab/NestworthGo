@@ -126,3 +126,60 @@ func TestPageOperationFreshCaptureAndUnknownFence(t *testing.T) {
 		t.Fatal("unknown outcome permitted another dispatch")
 	}
 }
+
+func TestPageOperationTimeoutClassification(t *testing.T) {
+	for _, mode := range []string{"unclaimed", "claimed", "expired_claim", "accepted", "acknowledged_no_dispatch"} {
+		t.Run(mode, func(t *testing.T) {
+			r := operationRuntime()
+			snapshot := uuid.NewString()
+			response := make(chan PageOperationResult, 1)
+			expiry := time.Now().Add(time.Second)
+			if mode == "expired_claim" {
+				expiry = time.Now().Add(-time.Second)
+			}
+			r.pageOperations["request"] = pendingPageOperation{
+				operation: PageOperation{SnapshotID: snapshot, ExpiresAt: &expiry}, revision: 1,
+				ctx: t.Context(), claimed: mode != "unclaimed", response: response,
+			}
+			want := "unverified"
+			switch mode {
+			case "unclaimed":
+				want = "not_dispatched"
+			case "accepted", "acknowledged_no_dispatch":
+				want = "dispatched"
+				if mode == "acknowledged_no_dispatch" {
+					want = "not_dispatched"
+				}
+				if err := r.DeliverPageOperation(t.Context(), r.epoch, "request", PageOperationResult{State: want, SnapshotID: snapshot}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result := r.expirePageOperation("request", snapshot, response)
+			if result.State != want || result.SnapshotID != snapshot {
+				t.Fatalf("got %+v, want %s", result, want)
+			}
+			if _, err := r.ClaimPageOperation(t.Context(), r.epoch, "request"); err == nil {
+				t.Fatal("timeout left request claimable")
+			}
+			if err := r.DeliverPageOperation(t.Context(), r.epoch, "request", PageOperationResult{State: "dispatched", SnapshotID: snapshot}); err == nil {
+				t.Fatal("late result accepted")
+			}
+		})
+	}
+}
+
+func TestPageOperationDeliveryRejectsUnseenSnapshot(t *testing.T) {
+	r := operationRuntime()
+	snapshot := uuid.NewString()
+	response := make(chan PageOperationResult, 1)
+	r.pageOperations["request"] = pendingPageOperation{operation: PageOperation{SnapshotID: snapshot}, revision: 1, ctx: t.Context(), claimed: true, response: response}
+	if err := r.DeliverPageOperation(t.Context(), r.epoch, "request", PageOperationResult{State: "stale", SnapshotID: uuid.NewString()}); err == nil {
+		t.Fatal("accepted unseen replacement snapshot")
+	}
+	if len(response) != 0 {
+		t.Fatal("published unseen observation")
+	}
+	if err := r.DeliverPageOperation(t.Context(), r.epoch, "request", PageOperationResult{State: "stale", SnapshotID: snapshot}); err != nil {
+		t.Fatal(err)
+	}
+}

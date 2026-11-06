@@ -78,11 +78,11 @@ func (r *Runtime) DeliverPageOperation(ctx context.Context, epoch, id string, re
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	p, ok := r.pageOperations[id]
-	if !ok || !p.claimed || r.valid(ctx, epoch) != nil || p.ctx.Err() != nil || p.revision != r.state.Revision || !canonicalID(result.SnapshotID) {
+	if !ok || !p.claimed || r.valid(ctx, epoch) != nil || p.ctx.Err() != nil || p.revision != r.state.Revision || result.SnapshotID != p.operation.SnapshotID {
 		return ErrStale
 	}
 	switch result.State {
-	case "dispatched", "blocked", "stale", "invalid_target", "unverified":
+	case "dispatched", "blocked", "stale", "invalid_target", "unverified", "not_dispatched":
 	default:
 		return ErrUnavailable
 	}
@@ -181,8 +181,7 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 		defer func() { r.mu.Lock(); delete(r.pageOperations, id); r.mu.Unlock() }()
 		timer := time.NewTimer(10 * time.Second)
 		defer timer.Stop()
-		select {
-		case result := <-response:
+		finish := func(result PageOperationResult) (json.RawMessage, error) {
 			if result.State == "dispatched" || result.State == "unverified" {
 				used[string(key)] = true
 			}
@@ -190,6 +189,10 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 				uncertain = true
 			}
 			return jsoncodec.Marshal(result)
+		}
+		select {
+		case result := <-response:
+			return finish(result)
 		case <-runCtx.Done():
 			uncertain = true
 			return nil, ErrStale
@@ -197,8 +200,26 @@ func (r *Runtime) pageOperator(runCtx context.Context, epoch string, revision ui
 			uncertain = true
 			return nil, ErrStale
 		case <-timer.C:
-			uncertain = true
-			return jsoncodec.Marshal(map[string]string{"state": "unverified", "snapshotId": op.SnapshotID, "detail": "Delivery or completion unknown; do not retry. Inspect current page and authoritative records."})
+			return finish(r.expirePageOperation(id, op.SnapshotID, response))
 		}
 	}
+}
+
+// expirePageOperation serializes timeout with claim and delivery. Only an
+// unclaimed request proves no dispatch; an expired host lease cannot prove that.
+// Prefer a result already accepted by Deliver even if the timer won the select.
+func (r *Runtime) expirePageOperation(id, snapshotID string, response chan PageOperationResult) PageOperationResult {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	select {
+	case result := <-response:
+		return result
+	default:
+	}
+	p, ok := r.pageOperations[id]
+	delete(r.pageOperations, id)
+	if ok && !p.claimed {
+		return PageOperationResult{State: "not_dispatched", SnapshotID: snapshotID}
+	}
+	return PageOperationResult{State: "unverified", SnapshotID: snapshotID}
 }

@@ -791,9 +791,9 @@ page operations, including attempts to close/navigate away or replay submission;
 the user resolves these through the existing recovery/review flow. Generic page
 operations do not replace or widen the dedicated Full ledger command contract.
 
-The result states are `dispatched`, `blocked`, `stale`, `invalid_target` and
-`unverified`. `snapshotId` in that result names the **source observation**, not a
-post-action snapshot. `dispatched` proves event delivery only: it is never proof
+The result states are `dispatched`, `blocked`, `stale`, `invalid_target`,
+`not_dispatched` and `unverified`. `snapshotId` in that result names the **source
+observation**, not a post-action snapshot. `dispatched` proves event delivery only: it is never proof
 of validation, query completion, successful navigation or a financial commit.
 The model must read fresh page state afterward, observe loading/error/validation
 feedback, and verify financial success with authoritative records. Identical
@@ -832,3 +832,14 @@ interval, returns `unverified`, and always removes its observer. This does not
 suppress application error reporting. Later asynchronous failures still require
 fresh page/authoritative reads: `dispatched` remains event delivery, never task or
 financial success.
+
+Operation refusals always echo the requested source snapshot ID, including stale
+refusals; they never disclose an unseen replacement observation. Delivery checks
+that source ID against the claimed request. A stopped host or expired lease
+observed before dispatch delivers `not_dispatched` once. If that acknowledgement
+is lost, the claimed request remains uncertain. On timeout, the runtime atomically
+removes an unclaimed request and reports `not_dispatched`; a claimed request
+without an accepted result stays `unverified`, even after its lease expires.
+A result accepted concurrently with timeout takes precedence. Only unknown
+outcomes fence the rest of the run; definite refusal requires fresh discovery
+before any new intentional operation and never triggers automatic replay.

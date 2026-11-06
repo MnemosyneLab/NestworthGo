@@ -7,7 +7,7 @@ export type PageOperationResult = { state:string; snapshotId:string };
  * deliberately synchronous after the IPC claim: never schedule a later click. */
 export function operatePageControl(viewKey:string, generation:string, operation:PageOperation, fullAccess:boolean, blocked:boolean):PageOperationResult {
  const before=capturePageContent(viewKey,generation);
- const result=(state:string)=>({state,snapshotId:before.id});
+ const result=(state:string)=>({state,snapshotId:operation.snapshotId});
  if(!fullAccess || blocked) return result("blocked");
  if(before.id!==operation.snapshotId) return result("stale");
  const el=capturedPageControl(operation.targetRef);
