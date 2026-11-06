@@ -41,7 +41,7 @@ func NewEngine(ctx context.Context, cfg assistant.ModelConfig, key []byte, sessi
 	if !cfg.Valid() {
 		return nil, errEngine
 	}
-	m, err := New(ctx, Config{APIKey: string(key), Model: cfg.Model})
+	m, err := New(ctx, Config{APIKey: string(key), Model: cfg.Model, ReasoningEffort: cfg.ReasoningEffort})
 	if err != nil {
 		return nil, errEngine
 	}
@@ -110,6 +110,19 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 	if len(history) > 0 {
 		if strictJSON(history) != nil || jsoncodec.Unmarshal(history, &saved) != nil || saved.Version != 1 || saved.Provider != e.config.Provider || saved.Model != e.config.Model || len(saved.Messages) == 0 {
 			return empty, assistant.ErrModelHistory
+		}
+	}
+	if len(history) == 0 {
+		size := 0
+		for _, turn := range assistant.PortableHistory(ctx) {
+			size += len(turn.Prompt) + len(turn.Text)
+			if size > assistant.MaxHistoryBytes {
+				return empty, assistant.BudgetFailure("history_bytes")
+			}
+			if e.tainted([]byte(turn.Prompt)) || e.tainted([]byte(turn.Text)) {
+				return empty, assistant.ErrModelHistory
+			}
+			saved.Messages = append(saved.Messages, schema.UserAgenticMessage(turn.Prompt), &schema.AgenticMessage{Role: schema.AgenticRoleTypeAssistant, ContentBlocks: []*schema.ContentBlock{schema.NewContentBlock(&schema.AssistantGenText{Text: turn.Text})}})
 		}
 	}
 	// Refresh only host-owned policy, never assistant-native items or reasoning.

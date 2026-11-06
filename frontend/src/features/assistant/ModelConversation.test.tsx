@@ -13,6 +13,7 @@ import i18n from "@/i18n";
 const api = vi.hoisted(() => ({
   Reviews: vi.fn(),
   SetFullAccess: vi.fn(),
+  SelectModel: vi.fn(),
   PendingPageReads: vi.fn(),
   DeliverPageContent: vi.fn(),
   PublishPage: vi.fn(),
@@ -52,6 +53,7 @@ const run = {
 beforeEach(() => {
   vi.clearAllMocks();
   api.Reviews.mockResolvedValue([]);
+  api.SelectModel.mockResolvedValue(undefined);
   api.PendingPageReads.mockResolvedValue([]);
   api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
@@ -122,9 +124,11 @@ it("restores history without replay and sends only the question and selector", a
   expect(Object.keys(api.Start.mock.calls[0][0]).sort()).toEqual([
     "conversationId",
     "epoch",
+    "model",
     "page",
     "pageLeaseId",
     "prompt",
+    "reasoningEffort",
     "requestId",
     "revision",
   ]);
@@ -925,4 +929,27 @@ it.each(["stable", "publication-race", "capture-budget", "publication-failure"])
  expect(api.ConsumeNavigation).not.toHaveBeenCalled();
  expect(screen.queryByText(i18n.t("aiChat.error"))).not.toBeInTheDocument();
  if(scenario==="capture-budget") expect(api.PublishPage).not.toHaveBeenCalled();
+});
+
+it("persists explicit model/effort choices and sends the selected values",async()=>{
+ const user=userEvent.setup();
+ let selection={model:"gpt-6-sol",reasoningEffort:"max"};
+ api.Status.mockImplementation(async()=>({epoch:"host",revision:3,available:true,credentials:"present",selection,config:{provider:"openai-responses",model:"gpt-6-sol",enabledModels:["gpt-6-sol","gpt-6.1-sol"],enabled:true},modelCatalog:[{id:"gpt-6-sol",efforts:["none","high","max"]},{id:"gpt-6.1-sol",efforts:["high","max"]}]}));
+ api.SelectModel.mockImplementation(async(_epoch,_revision,next)=>{selection=next;});
+ mount();await screen.findByText("Synthetic prior answer");
+ await user.selectOptions(screen.getByLabelText("Model ID"),"gpt-6.1-sol");
+ await waitFor(()=>expect(screen.getByLabelText("Reasoning effort")).toHaveValue(""));
+ expect(api.SelectModel).toHaveBeenCalledWith("host",3,{model:"gpt-6.1-sol",reasoningEffort:""});
+ await waitFor(()=>expect(screen.getByLabelText("Reasoning effort")).not.toBeDisabled());
+ await user.selectOptions(screen.getByLabelText("Reasoning effort"),"high");
+ await waitFor(()=>expect(screen.getByLabelText("Reasoning effort")).toHaveValue("high"));
+ await user.type(screen.getByLabelText("Message"),"Synthetic model choice");
+ await user.click(screen.getByRole("button",{name:"Send to model"}));
+ await waitFor(()=>expect(api.Start).toHaveBeenCalledWith(expect.objectContaining({model:"gpt-6.1-sol",reasoningEffort:"high"})));
+ expect(api.SetFullAccess).not.toHaveBeenCalled();
+});
+it("blocks a removed selection without replacing it or sending",async()=>{
+ api.Status.mockResolvedValue({epoch:"host",revision:4,available:true,credentials:"present",selection:{model:"removed-model",reasoningEffort:""},config:{provider:"openai-responses",model:"gpt-6-sol",enabledModels:["gpt-6-sol"],enabled:true},modelCatalog:[]});
+ const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");await user.type(screen.getByLabelText("Message"),"Synthetic question");
+ expect(screen.getByLabelText("Model ID")).toHaveValue("removed-model");expect(screen.getByRole("button",{name:"Send to model"})).toBeDisabled();expect(api.SelectModel).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
 });

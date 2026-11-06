@@ -67,13 +67,15 @@ type Completion struct {
 type EngineFactory func(context.Context, ModelConfig, []byte, string) (Engine, error)
 
 type ModelConfig struct {
-	Provider string `json:"provider"`
-	Model    string `json:"model"`
-	Enabled  bool   `json:"enabled"`
+	EnabledModels   []string `json:"enabledModels,omitempty"`
+	ReasoningEffort string   `json:"reasoningEffort,omitempty"`
+	Provider        string   `json:"provider"`
+	Model           string   `json:"model"`
+	Enabled         bool     `json:"enabled"`
 }
 
 func (c ModelConfig) Valid() bool {
-	return c.Provider == "openai-responses" && modelName.MatchString(c.Model) && !strings.HasPrefix(c.Model, "sk-") && (!c.Enabled || c.Model != "unconfigured")
+	return validModelConfig(c)
 }
 
 var modelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$`)
@@ -81,6 +83,7 @@ var modelName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$`)
 // State is private persistence, never an IPC result, backup or operation receipt.
 // It contains neither credentials nor host approval authority.
 type State struct {
+	Selection     ModelSelection      `json:"selection,omitempty"`
 	Version       int                 `json:"version"`
 	Ledger        string              `json:"ledger"`
 	Config        ModelConfig         `json:"config"`
@@ -105,22 +108,24 @@ type RunState struct {
 	Digest string `json:"digest"`
 }
 type Run struct {
-	Tools          []ToolProgress `json:"tools,omitempty"`
-	PageLeaseID    string         `json:"pageLeaseId,omitempty"`
-	Evidence       []ReadEvidence `json:"evidence,omitempty"`
-	Page           PageSelection  `json:"page"`
-	ID             string         `json:"id"`
-	RequestID      string         `json:"requestId"`
-	ConversationID string         `json:"conversationId"`
-	State          string         `json:"state"`
-	Code           string         `json:"code,omitempty"`
-	Prompt         string         `json:"prompt"`
-	Text           string         `json:"text,omitempty"`
-	Created        time.Time      `json:"created"`
-	Finished       *time.Time     `json:"finished,omitempty"`
-	Provider       string         `json:"provider"`
-	Model          string         `json:"model"`
-	ConfigRevision uint64         `json:"configRevision"`
+	RequestedModel  string         `json:"requestedModel,omitempty"`
+	ReasoningEffort string         `json:"reasoningEffort,omitempty"`
+	Tools           []ToolProgress `json:"tools,omitempty"`
+	PageLeaseID     string         `json:"pageLeaseId,omitempty"`
+	Evidence        []ReadEvidence `json:"evidence,omitempty"`
+	Page            PageSelection  `json:"page"`
+	ID              string         `json:"id"`
+	RequestID       string         `json:"requestId"`
+	ConversationID  string         `json:"conversationId"`
+	State           string         `json:"state"`
+	Code            string         `json:"code,omitempty"`
+	Prompt          string         `json:"prompt"`
+	Text            string         `json:"text,omitempty"`
+	Created         time.Time      `json:"created"`
+	Finished        *time.Time     `json:"finished,omitempty"`
+	Provider        string         `json:"provider"`
+	Model           string         `json:"model"`
+	ConfigRevision  uint64         `json:"configRevision"`
 }
 type Event struct {
 	Sequence uint64 `json:"sequence"`
@@ -129,14 +134,16 @@ type Event struct {
 	Code     string `json:"code,omitempty"`
 }
 type Snapshot struct {
-	Version     int         `json:"version"`
-	Epoch       string      `json:"epoch"`
-	Revision    uint64      `json:"revision"`
-	Config      ModelConfig `json:"config"`
-	Available   bool        `json:"available"`
-	Credentials string      `json:"credentials"`
-	FullAccess  bool        `json:"fullAccess"`
-	Reason      string      `json:"reason"`
+	Selection    ModelSelection `json:"selection"`
+	ModelCatalog []ModelOption  `json:"modelCatalog"`
+	Version      int            `json:"version"`
+	Epoch        string         `json:"epoch"`
+	Revision     uint64         `json:"revision"`
+	Config       ModelConfig    `json:"config"`
+	Available    bool           `json:"available"`
+	Credentials  string         `json:"credentials"`
+	FullAccess   bool           `json:"fullAccess"`
+	Reason       string         `json:"reason"`
 }
 type Conversation struct {
 	Title       string                 `json:"title,omitempty"`
@@ -155,13 +162,15 @@ type EventPage struct {
 	Reset  bool    `json:"reset"` // fetch Conversation if journal rolled over
 }
 type StartRequest struct {
-	PageLeaseID    string        `json:"pageLeaseId,omitempty"`
-	Page           PageSelection `json:"page"`
-	Epoch          string        `json:"epoch"`
-	Revision       uint64        `json:"revision"`
-	ConversationID string        `json:"conversationId"`
-	RequestID      string        `json:"requestId"`
-	Prompt         string        `json:"prompt"`
+	Model           string        `json:"model,omitempty"`
+	ReasoningEffort string        `json:"reasoningEffort,omitempty"`
+	PageLeaseID     string        `json:"pageLeaseId,omitempty"`
+	Page            PageSelection `json:"page"`
+	Epoch           string        `json:"epoch"`
+	Revision        uint64        `json:"revision"`
+	ConversationID  string        `json:"conversationId"`
+	RequestID       string        `json:"requestId"`
+	Prompt          string        `json:"prompt"`
 }
 
 type CapabilityLifecycle interface {
@@ -172,7 +181,6 @@ type CapabilityLifecycle interface {
 
 type Options struct {
 	Usage               UsageStore
-	ModelLister         ModelLister
 	Transcriber         Transcriber
 	Reviews             ReviewProvider
 	TitleGenerator      TitleGenerator
@@ -332,7 +340,9 @@ func (r *Runtime) Snapshot() Snapshot {
 			}
 		}
 	}
-	return Snapshot{Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: r.state.Config, FullAccess: live && r.fullEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
+	config := r.state.Config
+	config.EnabledModels = config.Models()
+	return Snapshot{Selection: r.selection(), ModelCatalog: ModelCatalog(), Version: 1, Epoch: r.epoch, Revision: r.state.Revision, Config: config, FullAccess: live && r.fullEnabled && r.state.Config.Enabled, Available: reason == "ready", Credentials: credentialStatus, Reason: reason}
 }
 func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, cfg ModelConfig) error {
 	r.mu.Lock()
@@ -357,7 +367,7 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 	if r.options.Credentials.Available() {
 		tainted := false
 		_ = r.options.Credentials.With(ctx, func(key []byte) error {
-			if validSecret(key) && strings.Contains(cfg.Model, string(key)) {
+			if raw, err := jsoncodec.Marshal(cfg); err != nil || (validSecret(key) && strings.Contains(string(raw), string(key))) {
 				tainted = true
 			}
 			return nil
@@ -379,18 +389,15 @@ func (r *Runtime) Configure(ctx context.Context, epoch string, revision uint64, 
 			return ErrUnavailable
 		}
 	}
-	// Native provider history is bound to its provider/model. Keep display history
-	// but start a fresh model context after a model change.
-	if cfg.Provider != r.state.Config.Provider || cfg.Model != r.state.Config.Model {
-		for i := range r.state.Conversations {
-			r.state.Conversations[i].History = nil
-			r.state.Conversations[i].HistoryDigest = ""
-		}
-	}
 	if r.options.Capabilities != nil {
 		r.options.Capabilities.Revoke()
 	}
 	r.fullEnabled = false
+	// Preserve the previous explicit choice when its model is removed.
+	if r.state.Selection.Model == "" && r.state.Config.Model != "unconfigured" {
+		r.state.Selection = r.selection()
+	}
+	cfg.EnabledModels = cfg.Models()
 	r.state.Config = cfg
 	r.clearNavigation()
 	r.cancelTitles()
@@ -627,7 +634,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	}
 	for _, saved := range c.Runs {
 		if saved.Run.RequestID == q.RequestID {
-			if saved.Digest != hash {
+			if saved.Digest != hash || saved.Run.RequestedModel != q.Model || saved.Run.ReasoningEffort != q.ReasoningEffort {
 				return Run{}, ErrConflict
 			}
 			out := saved.Run
@@ -652,6 +659,18 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	if !r.state.Config.Enabled || !r.options.Credentials.Available() {
 		return Run{}, ErrUnavailable
 	}
+	cfg := r.state.Config
+	cfg.EnabledModels = cfg.Models()
+	if q.Model == "" && len(cfg.EnabledModels) > 1 {
+		return Run{}, ErrUnavailable
+	}
+	if q.Model != "" {
+		cfg.Model = q.Model
+	}
+	cfg.ReasoningEffort = q.ReasoningEffort
+	if !r.state.Config.allows(cfg.Model) || !ValidReasoning(cfg.Model, cfg.ReasoningEffort) {
+		return Run{}, ErrUnavailable
+	}
 	// Validate secret taint before persisting user text. Credential-store failures
 	// cannot leak their implementation errors or cause a provider request.
 	if e := r.options.Credentials.With(ctx, func(key []byte) error {
@@ -673,7 +692,7 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	} else {
 		grant.generation = r.navigationGeneration
 	}
-	run := Run{PageLeaseID: q.PageLeaseID, Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: r.state.Config.Model, ConfigRevision: r.state.Revision}
+	run := Run{RequestedModel: q.Model, ReasoningEffort: cfg.ReasoningEffort, PageLeaseID: q.PageLeaseID, Page: q.Page, ID: uuid.NewString(), RequestID: q.RequestID, ConversationID: c.ID, State: "accepted", Prompt: q.Prompt, Created: time.Now().UTC(), Provider: r.state.Config.Provider, Model: cfg.Model, ConfigRevision: r.state.Revision}
 	c.Runs = append(c.Runs, RunState{Run: run, Digest: hash})
 	c.Updated = run.Created
 	if c.Title == "" {
@@ -698,7 +717,10 @@ func (r *Runtime) Start(ctx context.Context, q StartRequest) (Run, error) {
 	}
 	r.active[c.ID] = cancel
 	history := append([]byte(nil), c.History...)
-	cfg := r.state.Config
+	if turns, switched := portableTurns(c, cfg.Model); switched {
+		history = nil
+		runCtx = context.WithValue(runCtx, portableHistoryKey{}, turns)
+	}
 	r.wg.Add(1)
 	go r.execute(runCtx, cancel, c.ID, run.ID, cfg, history, q.Prompt)
 	return run, nil
@@ -751,7 +773,7 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 			code = "timeout"
 		}
 	}
-	if r.valid(context.Background(), r.epoch) != nil || !r.state.Config.Enabled || r.state.Config.Provider != cfg.Provider || r.state.Config.Model != cfg.Model {
+	if r.valid(context.Background(), r.epoch) != nil || !r.state.Config.Enabled || r.state.Config.Provider != cfg.Provider || r.state.Revision != run.ConfigRevision {
 		state = "interrupted"
 		code = "authority_revoked"
 	}

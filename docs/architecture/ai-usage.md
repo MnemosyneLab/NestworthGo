@@ -109,15 +109,13 @@ regression fixtures, and close the previous interval if necessary. Never rewrite
 persisted snapshots or extend a review deadline without verification. Overlapping
 catalogues fail closed to unknown. This is an auditable estimate, not actual billing.
 
-## Account model discovery
+## Offline model selection
 
-An explicit **Load models** action uses the saved key with `GET /v1/models`,
-a ten-second deadline, bounded response, no redirects and no prompt/history.
-The host returns sorted, deduplicated model IDs only. This endpoint reports
-account-visible models, not a Responses/function-tool capability guarantee.
-The UI keeps the existing value even if absent from the catalogue and retains
-manual input. Empty lists and failures never install a fixed fallback model or
-silently change the selection. Discovery is separate from enabling AI requests.
+Settings uses the maintained [offline model catalogue](ai-model-selection.md).
+There is no `GET /v1/models` request. The catalogue does not prove account access;
+selected IDs remain explicit on each run and the wire usage record. Provider
+rejections never trigger another-model fallback. Title and transcription calls
+retain their own models and accounting independent of the sidebar preference.
 
 ## Official references
 

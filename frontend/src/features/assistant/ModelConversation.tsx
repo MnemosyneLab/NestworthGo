@@ -1,3 +1,5 @@
+import { ModelSelector } from "./ModelSelector";
+import { configuredModels } from "./modelSelection";
 import { ConversationUsage } from "./AIUsage";
 import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useEffect, useRef, useState } from "react";
@@ -107,6 +109,9 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
   const modelStamp = page?.modelStamp ?? "";
   const configRevision = status.data?.revision ?? 0;
   const modelAvailable = status.data?.available ?? false;
+  const enabledModels = configuredModels(status.data?.config);
+  const modelSelection = status.data?.selection ?? {model:status.data?.config?.model ?? "unconfigured", reasoningEffort:""};
+  const selectionValid = enabledModels.includes(modelSelection.model);
   useEffect(() => {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
     navigationCompletion.current = null;
@@ -223,6 +228,7 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
   async function send() {
     if (
       !status.data?.available ||
+      !selectionValid ||
       offline ||
       stale ||
       running ||
@@ -274,6 +280,8 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
           requestId,
           pageLeaseId,
           prompt: text,
+          model: modelSelection.model,
+          reasoningEffort: modelSelection.reasoningEffort,
           page: selection,
         }),
       );
@@ -355,6 +363,9 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
           void send();
         }}
       >
+        <ModelSelector models={enabledModels} catalog={status.data?.modelCatalog ?? []} selection={modelSelection}
+          disabled={busy || running || stale || !epoch}
+          onChange={selection => void action(() => callService(() => API.SelectModel(epoch, configRevision, selection)))} />
         <Label className="sr-only" htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
         <Input
           className="min-h-11 text-base xl:min-h-9 xl:text-sm"
@@ -374,6 +385,7 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
         <div className="flex flex-wrap items-center gap-2">
         <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
           {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
+          <p>{t("aiModels.history")}</p>
           {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
           {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         </div></InfoPopover>
@@ -396,6 +408,7 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
             offline ||
             running ||
             !status.data?.available ||
+            !selectionValid ||
             stale ||
             !prompt.trim() ||
             utf8ByteLength(prompt) > 16384

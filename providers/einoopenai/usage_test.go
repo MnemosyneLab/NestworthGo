@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/cloudwego/eino/schema"
@@ -72,27 +71,5 @@ func TestFailedStreamRetainsUsageWithoutAdmittingOutput(t *testing.T) {
 	}
 	if record.Status != "failed" || record.Input == nil || *record.Input != 100 || record.Output == nil || *record.Output != 7 {
 		t.Fatalf("lost failed usage: %+v", record)
-	}
-}
-
-type modelListTransport func(*http.Request) (*http.Response, error)
-
-func (f modelListTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
-func TestModelCatalogueUsesAccountAndNeverInventsAvailability(t *testing.T) {
-	models, err := listModels(context.Background(), []byte("synthetic-key"), modelListTransport(func(r *http.Request) (*http.Response, error) {
-		if r.URL.String() != "https://api.openai.com/v1/models" || r.Method != "GET" || r.Header.Get("Authorization") != "Bearer synthetic-key" {
-			t.Fatal("wrong catalogue request")
-		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"object":"list","data":[{"id":"z-custom"},{"id":"a-model"},{"id":"z-custom"},{"id":"sk-secret"}]}`)), Header: http.Header{}}, nil
-	}))
-	if err != nil || len(models) != 2 || models[0] != "a-model" || models[1] != "z-custom" {
-		t.Fatalf("%v %v", models, err)
-	}
-	for _, body := range []string{`{}`, `{"object":"list","data":null}`, `malformed`} {
-		if _, err = listModels(context.Background(), []byte("synthetic-key"), modelListTransport(func(*http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: http.Header{}}, nil
-		})); err == nil {
-			t.Fatal("malformed catalogue accepted")
-		}
 	}
 }
