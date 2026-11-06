@@ -211,6 +211,56 @@ func (r *Registry) Call(ctx context.Context, name string, raw json.RawMessage) (
 	if !ok {
 		return nil, ErrUnknownTool
 	}
+	input, err := r.validatedInput(name, raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	result, err := e.handler(ctx, input)
+	if err != nil || e.output == nil {
+		return result, err
+	}
+	encoded, err := jsoncodec.Marshal(result)
+	if err != nil {
+		return nil, ErrInvalidResult
+	}
+	var output any
+	if err := decodeExact(encoded, &output); err != nil {
+		return nil, ErrInvalidResult
+	}
+	if _, ok := output.(map[string]any); ok {
+		if err := e.output.ApplyDefaults(&output); err != nil {
+			return nil, ErrInvalidResult
+		}
+	}
+	validation, err := validationView(output)
+	if err != nil {
+		return nil, ErrInvalidResult
+	}
+	if err := e.output.Validate(&validation); err != nil {
+		return nil, ErrInvalidResult
+	}
+	// Return the validated/defaulted JSON as an immutable capture, detached from
+	// application pointers and from the next invocation's destination values.
+	encoded, err = jsoncodec.Marshal(output)
+	if err != nil {
+		return nil, ErrInvalidResult
+	}
+	return json.RawMessage(encoded), nil
+}
+
+// ValidateArguments checks the same defaults/schema as dispatch without invoking a handler.
+func (r *Registry) ValidateArguments(name string, raw json.RawMessage) error {
+	_, err := r.validatedInput(name, raw)
+	return err
+}
+func (r *Registry) validatedInput(name string, raw json.RawMessage) ([]byte, error) {
+	e, ok := r.entries[name]
+	if !ok {
+		return nil, ErrUnknownTool
+	}
 	values := map[string]any{}
 	if len(raw) > 0 {
 		if err := decodeExact(raw, &values); err != nil {
@@ -235,40 +285,7 @@ func (r *Registry) Call(ctx context.Context, name string, raw json.RawMessage) (
 	if err != nil {
 		return nil, ErrInvalidArguments
 	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	result, err := e.handler(ctx, input)
-	if err != nil || e.output == nil {
-		return result, err
-	}
-	encoded, err := jsoncodec.Marshal(result)
-	if err != nil {
-		return nil, ErrInvalidResult
-	}
-	var output any
-	if err := decodeExact(encoded, &output); err != nil {
-		return nil, ErrInvalidResult
-	}
-	if _, ok := output.(map[string]any); ok {
-		if err := e.output.ApplyDefaults(&output); err != nil {
-			return nil, ErrInvalidResult
-		}
-	}
-	validation, err = validationView(output)
-	if err != nil {
-		return nil, ErrInvalidResult
-	}
-	if err := e.output.Validate(&validation); err != nil {
-		return nil, ErrInvalidResult
-	}
-	// Return the validated/defaulted JSON as an immutable capture, detached from
-	// application pointers and from the next invocation's destination values.
-	encoded, err = jsoncodec.Marshal(output)
-	if err != nil {
-		return nil, ErrInvalidResult
-	}
-	return json.RawMessage(encoded), nil
+	return input, nil
 }
 
 func decodeExact(raw []byte, target any) error {

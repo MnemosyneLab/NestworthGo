@@ -63,11 +63,22 @@ func (s *Session) WithProposals(h assistant.ProposalHandler) *Session  { s.propo
 func (s *Session) WithFullAccess(h assistant.ProposalHandler) *Session { s.full = h; return s }
 func (s *Session) Definitions() ([]agentcapability.Definition, error) {
 	defs, err := s.shared.Definitions()
+	if s.full != nil {
+		if shared, ok := s.shared.(interface {
+			FullDefinitions() ([]agentcapability.Definition, error)
+		}); ok {
+			defs, err = shared.FullDefinitions()
+		}
+	}
 	if err != nil {
 		return nil, assistant.ErrUnavailable
 	}
 	out := []agentcapability.Definition{}
 	for _, d := range defs {
+		if s.full != nil {
+			out = append(out, d)
+			continue
+		}
 		if allowed(d.Name) && (d.Effect == agentcapability.Read || (d.Name == "compare_financial_attribution" && d.Effect == agentcapability.Analysis)) {
 			if d.Name == "compare_financial_attribution" {
 				d.Effect = agentcapability.Read
@@ -155,6 +166,13 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 		return raw, nil
 	}
 	if name != "get_current_page" {
+		if s.full != nil {
+			raw, err := jsoncodec.Marshal(assistant.FullCapabilityRequest{Name: name, Arguments: args})
+			if err != nil {
+				return nil, assistant.ErrUnavailable
+			}
+			return s.full(ctx, raw)
+		}
 		if !allowed(name) {
 			return nil, assistant.ErrUnavailable
 		}
@@ -258,3 +276,6 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 	s.evidence = append(s.evidence, item)
 	return raw, nil
 }
+
+// FullAccessEnabled describes this run's host grant; dispatch revalidates it.
+func (s *Session) FullAccessEnabled() bool { return s.full != nil }
