@@ -41,6 +41,7 @@ type HostChangeReview struct {
 }
 
 type HostChangeReviewBinding struct {
+	Source             string                   `json:"source,omitempty"`
 	Version            int                      `json:"version"`
 	ID                 string                   `json:"id"`
 	HouseholdID        string                   `json:"householdId"`
@@ -119,6 +120,21 @@ func (s *InProcessSession) withHostReview(ctx context.Context, fn func(context.C
 // previews, plan IDs, mutation IDs and approval assertions cannot be adopted.
 // Only single ledger changes are supported; directory/market writers stay closed.
 func (s *InProcessSession) PreviewHostChange(ctx context.Context, command history.ChangeCommandRequest) (HostChangeReview, error) {
+	return s.previewHostChange(ctx, command, "human_review")
+}
+
+// PreviewFullChange binds a host-owned Full principal, never a model approval.
+func (s *InProcessSession) PreviewFullChange(ctx context.Context, command history.ChangeCommandRequest) (HostChangeReview, error) {
+	if command.Kind != history.ChangeMoneyAdded && command.Kind != history.ChangeMoneyRemoved && command.Kind != history.ChangeCashTransfer {
+		return HostChangeReview{}, fail("validation", "Full stage supports cash changes and transfers only")
+	}
+	if command.MutationID != "" || command.ReconciliationLink != nil || command.HoldingID != "" {
+		return HostChangeReview{}, fail("validation", "unsupported Full fields")
+	}
+	return s.previewHostChange(ctx, command, "ai_full")
+}
+
+func (s *InProcessSession) previewHostChange(ctx context.Context, command history.ChangeCommandRequest, source string) (HostChangeReview, error) {
 	var review HostChangeReview
 	// Canonicalize at the authoritative boundary, before the command/plan/digest
 	// are persisted. Projection must agree with domain-normalized endpoint codes.
@@ -173,7 +189,7 @@ func (s *InProcessSession) PreviewHostChange(ctx context.Context, command histor
 			return err
 		}
 		review = HostChangeReview{State: ReviewAwaitingConfirmation, Binding: HostChangeReviewBinding{
-			Version: 1, ID: uuid.NewString(), HouseholdID: s.householdID, SessionID: s.owner.sessionID,
+			Source: source, Version: 1, ID: uuid.NewString(), HouseholdID: s.householdID, SessionID: s.owner.sessionID,
 			LedgerIncarnation: s.service.app.MobileWorkspace(),
 			IncarnationID:     s.service.config.InstanceID, PermissionRevision: s.service.config.InstanceID,
 			Permission: LedgerWrite, Tool: "commit_change", OperationID: uuid.NewString(),
@@ -241,7 +257,7 @@ func (s *InProcessSession) loadHostReview(id string) (HostChangeReview, error) {
 	parsed, _ := uuid.Parse(id)
 	valid := encodeErr == nil && bytes.Equal(canonical, raw) && digestErr == nil && digest == review.Digest &&
 		parameterErr == nil && previewErr == nil && parameters == b.ParameterDigest && parameters == previewParameters &&
-		b.Version == 1 && b.ID == parsed.String() && b.HouseholdID == s.householdID && b.SessionID == s.owner.sessionID &&
+		(b.Source == "" || b.Source == "human_review" || b.Source == "ai_full") && b.Version == 1 && b.ID == parsed.String() && b.HouseholdID == s.householdID && b.SessionID == s.owner.sessionID &&
 		len(b.LedgerIncarnation) == 64 &&
 		b.Permission == LedgerWrite && b.Tool == "commit_change" && uuid.Validate(b.OperationID) == nil &&
 		uuid.Validate(b.IncarnationID) == nil && b.PermissionRevision == b.IncarnationID && !b.CreatedAt.IsZero() &&
@@ -291,6 +307,16 @@ func (s *InProcessSession) InspectHostChange(ctx context.Context, id string) (Ho
 // operation identity from the caller. Never register this method as a model
 // capability or invoke it because a chat/model message says "approved".
 func (s *InProcessSession) ConfirmHostChange(ctx context.Context, id, expectedDigest string) (HostChangeReview, error) {
+	return s.submitHostChange(ctx, id, expectedDigest, "")
+}
+
+// ExecuteFullChange is a host-only submission under an explicitly enabled Full
+// principal. It cannot adopt an ordinary user-confirmation review.
+func (s *InProcessSession) ExecuteFullChange(ctx context.Context, id string) (HostChangeReview, error) {
+	return s.submitHostChange(ctx, id, "", "ai_full")
+}
+
+func (s *InProcessSession) submitHostChange(ctx context.Context, id, expectedDigest, source string) (HostChangeReview, error) {
 	var review HostChangeReview
 	err := s.withHostReview(ctx, func(ctx context.Context) error {
 		var err error
@@ -298,7 +324,10 @@ func (s *InProcessSession) ConfirmHostChange(ctx context.Context, id, expectedDi
 		if err != nil {
 			return err
 		}
-		if expectedDigest != review.Digest {
+		if review.Binding.Source != source && !(source == "" && review.Binding.Source == "human_review") {
+			return fail("permission_denied", "operation belongs to another authority")
+		}
+		if source == "" && expectedDigest != review.Digest {
 			return fail("review_changed", "displayed review changed; inspect it before confirming")
 		}
 		if review.State == ReviewCommitting || review.State == ReviewUnknown || review.State == ReviewSucceeded {

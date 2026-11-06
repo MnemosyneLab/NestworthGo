@@ -20,6 +20,12 @@ export const assistantEn = {
   "writeCancel": "Cancel unsubmitted change",
   "writeInspect": "Check original result",
   "writeControlled": "Reviewed writes · OpenAI",
+  "fullHelp": "Full operations execute under your session permission. These are saved operation results; checking them never submits again.",
+  "fullAwaiting": "Prepared; nothing posted yet. An interrupted operation is not automatically resumed.",
+  "fullNeedsPreview": "Preview expired or changed; nothing newly posted. Dismiss this operation before explicitly requesting a new one.",
+  "fullSucceeded": "Recorded successfully under Full permission.",
+  "fullActive": "Full access · cash and transfers",
+  "fullPermission": "Full for this app session: AI can directly record cash changes and transfers without individual confirmation. Turn off anytime. Resets on restart. Other write families are not yet available.",
   "writePermission": "Allow cash change proposals for this app session. Every write requires a separate confirmation.",
   "writeState": {
     "awaiting_confirmation": "Awaiting your confirmation; nothing posted.",
@@ -49,7 +55,7 @@ export const assistantEn = {
         "running": "Running",
         "succeeded": "Completed",
         "failed": "Failed",
-        "refused": "Read refused",
+        "refused": "Tool refused",
         "interrupted": "Interrupted"
     }
 ,
@@ -94,6 +100,7 @@ export const assistantEn = {
       open_page: "Request page change",
       open_return_trend: "Request return trend and filters",
 
+      execute_ledger_change: "Full ledger change",
       propose_cash_change: "Cash change proposal",
       read_page_content: "Page content",
       compare_financial_context: "Financial state comparison",
@@ -274,6 +281,12 @@ export const assistantZhCN = {
   "writeCancel": "取消未提交的变更",
   "writeInspect": "查询原操作结果",
   "writeControlled": "确认后写入 · OpenAI",
+  "fullHelp": "Full 操作依据本次会话权限直接执行。这里显示已保存的操作结果，查询不会再次提交。",
+  "fullAwaiting": "已准备，尚未记账。中断的操作不会自动续执行。",
+  "fullNeedsPreview": "预览已过期或变更，未新增记账。请取消此操作后再明确提出新请求。",
+  "fullSucceeded": "已依据 Full 权限成功记账。",
+  "fullActive": "Full 权限 · 现金和转账",
+  "fullPermission": "本次应用会话启用 Full：AI 可直接记录现金变更和转账，无需逐笔确认。可随时关闭，重启后关闭。其他写入类型尚未开放。",
   "writePermission": "允许本次应用会话提出现金变更。每次写入仍须单独确认。",
   "writeState": {
     "awaiting_confirmation": "等待你确认，尚未入账。",
@@ -303,7 +316,7 @@ export const assistantZhCN = {
         "running": "执行中",
         "succeeded": "已完成",
         "failed": "失败",
-        "refused": "读取被拒绝",
+        "refused": "工具调用被拒绝",
         "interrupted": "已中断"
     }
 ,
@@ -346,6 +359,7 @@ export const assistantZhCN = {
       open_page: "请求页面跳转",
       open_return_trend: "请求收益趋势和筛选",
 
+      execute_ledger_change: "Full 账本变更",
       propose_cash_change: "现金变更提案",
       read_page_content: "页面内容",
       compare_financial_context: "财务状态对比",
@@ -512,6 +526,12 @@ export const assistantZhTW = {
   "writeCancel": "取消未提交的變更",
   "writeInspect": "查詢原操作結果",
   "writeControlled": "確認後寫入 · OpenAI",
+  "fullHelp": "Full 操作依據本次工作階段權限直接執行。這裡顯示已儲存的操作結果，查詢不會再次提交。",
+  "fullAwaiting": "已準備，尚未記帳。中斷的操作不會自動續執行。",
+  "fullNeedsPreview": "預覽已過期或變更，未新增記帳。請取消此操作後再明確提出新請求。",
+  "fullSucceeded": "已依據 Full 權限成功記帳。",
+  "fullActive": "Full 權限 · 現金與轉帳",
+  "fullPermission": "本次應用程式工作階段啟用 Full：AI 可直接記錄現金變更與轉帳，無需逐筆確認。可隨時關閉，重新啟動後關閉。其他寫入類型尚未開放。",
   "writePermission": "允許本次應用程式工作階段提出現金變更。每次寫入仍須單獨確認。",
   "writeState": {
     "awaiting_confirmation": "等待你確認，尚未入帳。",
@@ -541,7 +561,7 @@ export const assistantZhTW = {
         "running": "執行中",
         "succeeded": "已完成",
         "failed": "失敗",
-        "refused": "讀取被拒絕",
+        "refused": "工具呼叫被拒絕",
         "interrupted": "已中斷"
     }
 ,
@@ -584,6 +604,7 @@ export const assistantZhTW = {
       open_page: "請求頁面跳轉",
       open_return_trend: "請求收益趨勢和篩選",
 
+      execute_ledger_change: "Full 帳本變更",
       propose_cash_change: "現金變更提案",
       read_page_content: "頁面內容",
       compare_financial_context: "財務狀態比較",

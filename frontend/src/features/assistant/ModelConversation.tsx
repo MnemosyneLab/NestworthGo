@@ -384,7 +384,7 @@ export function ModelConversation() {
           {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
           {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
         </div></InfoPopover>
-        <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t(status.data?.financialWrites ? "aiChat.writeControlled" : "aiChat.readOnly")}</span>
+        <span className="mr-auto flex items-center gap-1 text-xs text-muted-foreground"><Sparkles className="size-3" aria-hidden="true" />{t(status.data?.fullAccess ? "aiChat.fullActive" : status.data?.financialWrites ? "aiChat.writeControlled" : "aiChat.readOnly")}</span>
         <Button
           className={actionClass}
           aria-label={t("aiChat.send")}
@@ -403,9 +403,14 @@ export function ModelConversation() {
         </Button>
         </div>
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={status.data?.financialWrites === true} disabled={busy || (!status.data?.financialWrites && (!status.data?.available || running))}
+          <input type="checkbox" checked={status.data?.financialWrites === true && !status.data?.fullAccess} disabled={busy || (!status.data?.financialWrites && (!status.data?.available || running))}
             onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetWritePermission(epoch,configRevision,enabled)));}} />
           {t("aiChat.writePermission")}
+        </label>
+        <label className="flex items-start gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={status.data?.fullAccess === true} disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running))}
+            onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}} />
+          {t("aiChat.fullPermission")}
         </label>
         <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.navigationOptions")}</summary>

@@ -67,7 +67,13 @@ func TestHostReviewProcessChild(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(local.Close)
-		review := hostPreview(t, hostFixture{ledgerFixture: fx, local: local, db: db, dir: root, id: id})
+		fixture := hostFixture{ledgerFixture: fx, local: local, db: db, dir: root, id: id}
+		var review HostChangeReview
+		if os.Getenv("NESTWORTH_AI_PROCESS_FULL") == "1" {
+			review = fullPreview(t, fixture)
+		} else {
+			review = hostPreview(t, fixture)
+		}
 		metadata = processReviewMetadata{SessionID: id, ReviewID: review.Binding.ID, Digest: review.Digest}
 		raw, err := jsoncodec.Marshal(metadata)
 		if err != nil {
@@ -78,7 +84,7 @@ func TestHostReviewProcessChild(t *testing.T) {
 		}
 		if phase == "commit_drop" {
 			local.service.repository = dropSuccessfulReceipt{local.service.repository, filepath.Join(root, "DROPPED")}
-			_, err := local.ConfirmHostChange(t.Context(), review.Binding.ID, review.Digest)
+			_, err := processSubmit(t, local, review.Binding.ID, review.Digest)
 			t.Fatalf("expected process exit after business commit, got %v", err)
 		}
 		// Preserve the pending preview through a real process exit, skipping
@@ -111,14 +117,14 @@ func TestHostReviewProcessChild(t *testing.T) {
 		if review.State != ReviewNeedsPreview {
 			t.Fatal("process restart retained uncommitted review authority")
 		}
-		_, err := local.ConfirmHostChange(t.Context(), metadata.ReviewID, metadata.Digest)
+		_, err := processSubmit(t, local, metadata.ReviewID, metadata.Digest)
 		requireLocalError(t, err, "review_required")
 	} else {
 		count = 1
 		if review.State != ReviewSucceeded || review.Receipt == nil || !strings.Contains(string(review.Receipt.Result), `"12.34"`) {
 			t.Fatal("transaction-backed success not recovered after abrupt exit")
 		}
-		if _, err := local.ConfirmHostChange(t.Context(), metadata.ReviewID, metadata.Digest); err != nil || version != app.MobileDataVersion() {
+		if _, err := processSubmit(t, local, metadata.ReviewID, metadata.Digest); err != nil || version != app.MobileDataVersion() {
 			t.Fatalf("repeated confirmation redispatched after restart: %v", err)
 		}
 	}
@@ -128,7 +134,22 @@ func TestHostReviewProcessChild(t *testing.T) {
 	}
 }
 
+func processSubmit(t *testing.T, local *InProcessSession, id, digest string) (HostChangeReview, error) {
+	if os.Getenv("NESTWORTH_AI_PROCESS_FULL") == "1" {
+		return local.ExecuteFullChange(t.Context(), id)
+	}
+	return local.ConfirmHostChange(t.Context(), id, digest)
+}
+
 func TestHostReviewAcrossProcessRestart(t *testing.T) {
+	for _, full := range []string{"0", "1"} {
+		t.Run("full="+full, func(t *testing.T) {
+			t.Setenv("NESTWORTH_AI_PROCESS_FULL", full)
+			hostReviewAcrossProcessRestart(t)
+		})
+	}
+}
+func hostReviewAcrossProcessRestart(t *testing.T) {
 	for _, scenario := range []struct{ prepare, resume string }{{"prepare", "resume_unconfirmed"}, {"commit_drop", "resume_committed"}} {
 		t.Run(scenario.resume, func(t *testing.T) {
 			root := t.TempDir()

@@ -143,6 +143,14 @@ func (s *Service) ReviewAction(epoch, id, reviewID, digest, action string) error
 	return s.runtime.ReviewAction(context.Background(), epoch, id, reviewID, digest, action)
 }
 
+// SetFullAccess is desktop-only explicit session authority; never model-callable.
+func (s *Service) SetFullAccess(epoch string, revision uint64, enabled bool) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.SetFullAccess(context.Background(), epoch, revision, enabled)
+}
+
 // Rename gives explicit desktop naming precedence over pending generation.
 func (s *Service) Rename(epoch, id, title string) error {
 	if s.runtime == nil {

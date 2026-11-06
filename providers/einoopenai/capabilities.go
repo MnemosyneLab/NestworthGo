@@ -42,7 +42,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 	out := make([]tool.BaseTool, 0, len(definitions))
 	seen := map[string]bool{}
 	for _, d := range definitions {
-		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview) ||
+		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "execute_ledger_change" && d.Effect == agentcapability.Write)) ||
 			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || *d.Annotations.OpenWorldHint {
 			return nil, errors.New("unsafe local capability inventory")
 		}
