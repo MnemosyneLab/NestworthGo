@@ -1,7 +1,7 @@
 # MCP Wave 1 A baseline
 
 Measurement record for stream A in
-[mcp-remaining-work.md](mcp-remaining-work.md). This file is separate from the
+the Wave 1 plan (stream A: verification and baseline; the plan document was retired). This file is separate from the
 headless Go SDK pairing table in
 [mcp-changelog.md](mcp-changelog.md#paired-scenario-measurement-headless-synthetic-data). Those
 figures used `payloadRecorder` and an in-process Go client. The figures below
@@ -42,7 +42,7 @@ stateless, JSON responses. It reported server name `Nestworth`, version
 
 ## A1 — CI
 
-PARTIAL. One check on this branch ran its steps far enough to separate queue,
+PARTIAL. One check on the measured branch ran its steps far enough to separate queue,
 setup, build, cache, and test time. That run's recorded conclusion is
 `cancelled`. The branch tip's own run had not started a step when this document
 was written.
