@@ -1878,6 +1878,8 @@
     "confirmedItems_one": "已確認項目（{{count}}）",
     "confirmedItems_other": "已確認項目（{{count}}）",
 
+    "debtIncrease": "增加負債",
+    "debtDecrease": "減少負債",
     "cardPurchase": "刷卡消費／增加欠款",
     "cardRefund": "消費退款／減少欠款",
 

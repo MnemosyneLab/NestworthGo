@@ -1795,13 +1795,14 @@ it.each(["success", "uncertain"])("retains a deferred Repeat confirmation across
 });
 
 
-it("offers only cash assets for ordinary transfer endpoints", async () => {
+it("offers active assets including manual values for transfers, excluding debt", async () => {
   historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
   listAccounts.mockResolvedValue([
     { account: { id: "bank", name: "Bank", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "USD" } },
     { account: { id: "broker", name: "Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "USD" } },
     { account: { id: "loan", name: "Loan", trackingMode: "balance", balanceSheetRole: "liability", defaultCurrency: "USD" } },
     { account: { id: "house", name: "House", trackingMode: "manual_value", balanceSheetRole: "asset", defaultCurrency: "USD" } },
+    { account: { id: "archived", name: "Archived", trackingMode: "balance", balanceSheetRole: "asset", defaultCurrency: "USD", archivedAt: "2026-01-01T00:00:00Z" } },
   ]);
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
@@ -1809,7 +1810,7 @@ it("offers only cash assets for ordinary transfer endpoints", async () => {
   await userEvent.click(within(form).getByRole("radio", { name: "Cash transfer" }));
   for (const label of [i18n.t("history.fromAccount"), i18n.t("history.toAccount")]) {
     const select = within(form).getByLabelText(label);
-    expect(within(select).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["", "bank", "broker"]);
+    expect(within(select).getAllByRole("option").map(option => option.getAttribute("value"))).toEqual(["", "bank", "broker", "house"]);
   }
 });
 

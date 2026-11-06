@@ -1878,6 +1878,8 @@
     "confirmedItems_one": "已确认项目（{{count}}）",
     "confirmedItems_other": "已确认项目（{{count}}）",
 
+    "debtIncrease": "增加负债",
+    "debtDecrease": "减少负债",
     "cardPurchase": "刷卡消费／增加欠款",
     "cardRefund": "消费退款／减少欠款",
 
