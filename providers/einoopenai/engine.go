@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -11,6 +12,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
@@ -22,6 +24,7 @@ type Engine struct {
 	model      model.AgenticModel
 	tools      map[string]tool.InvokableTool
 	infos      []*schema.ToolInfo
+	catalog    func(bool) ([]agentcapability.Definition, error)
 	config     assistant.ModelConfig
 	secret     []byte
 	close      func()
@@ -29,10 +32,11 @@ type Engine struct {
 	navigation func() *assistant.ModelNavigationTarget
 }
 type checkpoint struct {
-	Version  int                      `json:"version"`
-	Provider string                   `json:"provider"`
-	Model    string                   `json:"model"`
-	Messages []*schema.AgenticMessage `json:"messages"`
+	CatalogFull bool                     `json:"catalog_full,omitempty"`
+	Version     int                      `json:"version"`
+	Provider    string                   `json:"provider"`
+	Model       string                   `json:"model"`
+	Messages    []*schema.AgenticMessage `json:"messages"`
 }
 
 var errEngine = errors.New("assistant model run refused")
@@ -58,6 +62,11 @@ func engineWithModel(ctx context.Context, cfg assistant.ModelConfig, m model.Age
 		return nil, errEngine
 	}
 	out := &Engine{model: m, config: cfg, tools: map[string]tool.InvokableTool{}, close: close}
+	if catalog, ok := session.(interface {
+		CatalogDefinitions(bool) ([]agentcapability.Definition, error)
+	}); ok {
+		out.catalog = catalog.CatalogDefinitions
+	}
 	if trace, ok := session.(interface {
 		Evidence() []assistant.ReadEvidence
 	}); ok {
@@ -105,20 +114,54 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 	if e.model == nil || e.tainted([]byte(prompt)) || e.tainted(history) {
 		return empty, errEngine
 	}
-	instructions := modelInstructions(e.tools["commit_plan"] != nil)
+	instructions := commonInstructions()
 	saved := checkpoint{Version: 1, Provider: e.config.Provider, Model: e.config.Model, Messages: []*schema.AgenticMessage{schema.SystemAgenticMessage(instructions)}}
 	if len(history) > 0 {
-		if strictJSON(history) != nil || jsoncodec.Unmarshal(history, &saved) != nil || saved.Version != 1 || saved.Provider != e.config.Provider || saved.Model != e.config.Model || len(saved.Messages) == 0 {
+		if strictJSON(history) != nil || jsoncodec.Unmarshal(history, &saved) != nil || (saved.Version != 1 && saved.Version != 2) || saved.Provider != e.config.Provider || saved.Model != e.config.Model || len(saved.Messages) == 0 {
 			return empty, assistant.ErrModelHistory
 		}
 	}
 	// Refresh only host-owned policy, never assistant-native items or reasoning.
-	// Older successful conversations must not retain a superseded capability claim.
+	// Legacy v1 conversations migrate once; thereafter this prefix is invariant.
+	// Native items, reasoning and earlier per-turn mode messages remain untouched.
 	if saved.Messages[0] == nil || saved.Messages[0].Role != schema.AgenticRoleTypeSystem {
 		return empty, assistant.ErrModelHistory
 	}
 	saved.Messages[0] = schema.SystemAgenticMessage(instructions)
-	saved.Messages = append(saved.Messages, schema.UserAgenticMessage(prompt))
+	saved.Version = 2
+	saved.CatalogFull = saved.CatalogFull || e.tools["commit_plan"] != nil
+	infos := e.infos
+	if e.catalog != nil {
+		definitions, err := e.catalog(saved.CatalogFull)
+		if err != nil {
+			return empty, errEngine
+		}
+		infos, err = catalogInfos(definitions)
+		if err != nil {
+			return empty, errEngine
+		}
+	}
+	catalogNames := make(map[string]bool, len(infos))
+	for _, info := range infos {
+		catalogNames[info.Name] = true
+	}
+	allowed := make([]string, 0, len(e.tools))
+	for name := range e.tools {
+		if !catalogNames[name] {
+			return empty, errEngine
+		}
+		allowed = append(allowed, name)
+	}
+	sort.Strings(allowed)
+	allowedTools := make([]*schema.AllowedTool, 0, len(allowed))
+	for _, name := range allowed {
+		allowedTools = append(allowedTools, &schema.AllowedTool{FunctionName: name})
+	}
+	choice := &schema.AgenticToolChoice{Type: schema.ToolChoiceAllowed, Allowed: &schema.AgenticAllowedToolChoice{Tools: allowedTools}}
+	if len(allowedTools) == 0 {
+		choice = &schema.AgenticToolChoice{Type: schema.ToolChoiceForbidden}
+	}
+	saved.Messages = append(saved.Messages, schema.SystemAgenticMessage(modeInstructions(e.tools["commit_plan"] != nil)), schema.UserAgenticMessage(prompt))
 	seenCalls := map[string]bool{}
 	calls := 0
 	executed := 0
@@ -173,7 +216,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 		// Add policy to a detached request so it never becomes saved history.
 		final := round == 7 || calls == 16
 		input := saved.Messages
-		options := []model.Option{model.WithTools(e.infos)}
+		options := []model.Option{model.WithTools(infos), model.WithAgenticToolChoice(choice)}
 		if final {
 			input = append(append([]*schema.AgenticMessage(nil), saved.Messages...), schema.SystemAgenticMessage("The controlled read budget for this request is exhausted. No more tools are available. Answer using only evidence already read for this request. Explicitly disclose incomplete pages, missing evidence and unresolved questions; ask for a narrower question where needed. Never present partial results as complete or invent financial facts."))
 			options = append(options, model.WithAgenticToolChoice(&schema.AgenticToolChoice{Type: schema.ToolChoiceForbidden}))

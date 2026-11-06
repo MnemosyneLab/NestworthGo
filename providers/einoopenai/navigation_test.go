@@ -174,8 +174,14 @@ func TestNewTurnRefreshesHostPolicyWithoutReconstructingNativeHistory(t *testing
 	if jsoncodec.Unmarshal(first.History, &old) != nil {
 		t.Fatal("bad native checkpoint")
 	}
+	// Construct the actual v1 layout: common system, user, native assistant.
+	old.Version = 1
+	old.Messages = append(old.Messages[:1], old.Messages[2:]...)
 	old.Messages[0] = schema.SystemAgenticMessage("obsolete-host-policy: period returns are unavailable")
 	native := old.Messages[2].Extra[nativeKey]
+	if native == nil {
+		t.Fatal("legacy fixture lost native payload")
+	}
 	history, err := jsoncodec.Marshal(old)
 	if err != nil {
 		t.Fatal(err)
