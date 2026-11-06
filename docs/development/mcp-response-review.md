@@ -322,14 +322,14 @@ same-capture get_read_item metadata. Financial context/comparison continuations
 return only the requested section and capture identity/hash/expiry; initial
 headers retain attribution, precision and disclosure. This breaking response
 change is documented in skill 4.0.0. Paired real SDK wire/call measurements and
-coverage limits are in [the compact-read report](../qa/mcp-compact-reads-2026-11-04.md).
+coverage limits are in [the historical compact-read report](https://github.com/MnemosyneLab/NestworthGo/blob/d59f3d9c7ef4f629f748137cb11bdb85aa7653d7/docs/qa/mcp-compact-reads-2026-11-04.md).
 
 
 ## Remaining-audit contract completion (skill 5.0.0)
 
 The follow-up integrates main `82dd932` (#220) after #212/#215/#216/#217.
 [Current contracts](mcp.md#schema-and-response-shape)
-and [follow-up measurements](../qa/mcp-audit-followups-2026-11-04.md) supersede
+and [historical follow-up measurements](https://github.com/MnemosyneLab/NestworthGo/blob/d59f3d9c7ef4f629f748137cb11bdb85aa7653d7/docs/qa/mcp-audit-followups-2026-11-04.md) supersede
 older shape/discovery/repair-polling descriptions above. Historical measurements
 remain evidence for their named sources, not current single-page guarantees.
 

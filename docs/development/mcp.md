@@ -63,8 +63,7 @@ does not read this switch.
 `tools/list` is paged at 16 tools. Follow every `nextCursor`. There is no
 `toolGroups` filter. `_meta.nestworth.toolGroups` is ignored, including an
 unrecognized group name; the pages match a request that omits the key.
-`tools/call` permission is the mode allowlist. See
-[mcp-wave2-g-toolgroups.md](mcp-wave2-g-toolgroups.md).
+`tools/call` permission is the mode allowlist.
 
 Success results still carry both `structuredContent` and a JSON text fallback
 with the same payload. The built-in assistant receives one capability JSON
@@ -250,7 +249,7 @@ accepts account filters and `limit`; an unmatched filter is an empty page.
 `get_read_item` on section `accounts` opens the evidence sections. Neither
 tool is a return or an endpoint move. `get_overview` stays the household GUI
 overview (`ValueAccounts`, archived accounts included). The tools were not
-merged. See [mcp-wave2-c3-nav-entries.md](mcp-wave2-c3-nav-entries.md).
+merged because their required inputs and empty-result semantics differ.
 
 ### Historical overview
 
@@ -329,7 +328,7 @@ keys and a conservative metadata allowance are charged with parent JSON to an
 eviction if either budget is exceeded; narrow the query. Values are privately
 owned JSON with no retained DTO slice aliases. Hashes still describe the parent
 JSON; cursor identity, TTL and revocation remain unchanged. These are retained
-data budgets, not process RSS or builder working-set guarantees. See [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+data budgets, not process RSS or builder working-set guarantees. See [capture retention and paging](mcp-pagination.md#period-drill-down-retention).
 
 Member is not an analysis scope. Asset-class filters use the instrument's
 current type. Preserve nullable amounts and coverage. Unrealized contribution
@@ -679,15 +678,15 @@ Closed:
   [mcp-update-conventions.md](mcp-update-conventions.md).
 - Contribution, return-day and asset-driver reads are `get_read_item`
   sections. Return days stay off the marshaled capture. See
-  [mcp-wave2-c2-measure.md](mcp-wave2-c2-measure.md).
+  [capture retention and paging](mcp-pagination.md#period-drill-down-retention).
 
 Open:
 
 - No native macOS verification of the MCP connection and a write flow under the
-  `com.nestworth.dev` identity. See [mcp-wave1-a-baseline.md](mcp-wave1-a-baseline.md).
+  `com.nestworth.dev` identity in the retained external-client measurement. Use
+  [isolated native QA](local-workflow.md#isolated-native-development-qa) for new evidence.
 - No measurement with a real model host. Token and call-count figures come from
   an in-process Go client and an external TypeScript client only.
-- CI phase timing was recorded for one cancelled run only.
 - `preview_product_operation` still has the largest input schema, and
   `ledger_write` discovery is the largest of the three modes. See
   [Discovery budgets](#discovery-budgets).

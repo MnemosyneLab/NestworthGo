@@ -77,5 +77,5 @@ constant SQLite VM visits, page reads, latency, or memory use. Broad account rea
 and the legacy full Agent audit API retain their existing behavior.
 
 No MCP input schema, installed skill, financial facts or provider preferences are
-changed. See [the paired synthetic evidence](../qa/mcp-target-pushdown-2026-11-04.md)
+changed. See [historical paired synthetic evidence](https://github.com/MnemosyneLab/NestworthGo/blob/d59f3d9c7ef4f629f748137cb11bdb85aa7653d7/docs/qa/mcp-target-pushdown-2026-11-04.md)
 for request wire sizes, SQL result rows/calls and unverified cases.

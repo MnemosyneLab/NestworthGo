@@ -1,7 +1,9 @@
 # Historical review replay reproducer
 
 This docs-only harness reproduces the PR101/PR102 investment-review preview
-failure with a fresh, synthetic household on the current checkout. `seed.go`
+failure at source `5cb76c849ec0cc5af0c467ac9903aa74a11fb55a`.
+Its expected-failure assertion is historical, not a claim that current main is
+broken or a current correctness gate. Use a fresh synthetic household. `seed.go`
 creates onboarding, History, account, instrument, contribution, fee-bearing buy
 and daily NAV observations through real `application.Service` methods. It does
 not write SQLite rows directly. `preview.py` then enters a two-condition rule

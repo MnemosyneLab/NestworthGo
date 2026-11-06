@@ -41,13 +41,6 @@ If the CLI is absent, install the exact Wails version from `go.mod`:
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 ```
 
-The historical PR101/PR102 run used Linux/amd64 Go 1.26.0, Wails beta.28,
-Node 24.19.0, pnpm 12.2.1, Vite 8.2.1, Python Playwright 1.62.0 and Chromium
-151.0.7922.173. Its Go archive SHA-256 was
-`aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235`.
-Those values describe [historical evidence](../qa/post-merge-pr101-pr102-2026-10-17/REPORT.md),
-not a supported installation recipe for current main.
-
 Do not let a mismatched package-manager wrapper silently determine the build.
 Use the cloud environment's browser executable. The verified Chromium was
 `/usr/bin/chromium`. Playwright's `chromium_sandbox` launch option defaults to
@@ -256,7 +249,7 @@ use the browser to verify integration and presentation and say that explicitly.
 
 ## Evidence, failure recovery and cleanup
 
-Keep a dated report with at least the tested source SHA, PR ancestry, exact
+Attach a report to the PR or CI artifact with at least the tested source SHA, PR ancestry, exact
 build and browser commands, tool versions, isolated fixture description,
 scenario table (`PASS` / `FAIL` / `NOT RUN`), observed values, screenshots,
 console/network failures, reproducible steps, severity and suggested fix.
@@ -266,14 +259,10 @@ in-app navigation button.
 
 After stopping the app, validate the disposable database read-only (for
 example, SQLite `PRAGMA integrity_check`) and remove only that run's temporary
-directory. Never use broad deletion globs. Preserve the report and selected
-screenshots in the repository's QA archive if the review requests retained
-evidence.
+directory. Never use broad deletion globs. Keep generated reports/screenshots outside the repository unless they serve
+a maintained guide or necessary release record.
 
 HTTP-only browser acceptance cannot exercise native window lifecycle, system
 menus, OS file dialogs, or native WebView rendering. It can prove the real
 application services, frontend/backend transport, user-visible web flow, and
 synthetic SQLite persistence. Keep those boundaries explicit in the result.
-
-The worked example for this process is the [PR101/PR102 post-merge browser
-acceptance report](../qa/post-merge-pr101-pr102-2026-10-17/REPORT.md).

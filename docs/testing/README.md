@@ -1,49 +1,50 @@
-# Testing and Acceptance Evidence
+# Testing guide
 
-Use synthetic databases and isolated settings paths for local validation. Follow
-[repository QA isolation rules](../../AGENTS.md) and the
-[development workflow](../development/local-workflow.md). Dated evidence applies
-only to its named source revision; it does not establish current CI or native
-acceptance unless the report explicitly says so.
+Start with the [local workflow](../development/local-workflow.md) for the pinned
+toolchain and affected checks. Use isolated synthetic databases/settings and fake
+providers; follow [native QA isolation](../development/local-workflow.md#isolated-native-development-qa).
+Test code and fixtures are the executable regression authority. This guide is a
+map of reusable methods, not a record of prior passes.
 
-## Reusable methods and matrices
+## Choose the relevant boundary
 
-- [Account reconciliation](account-reconciliation.md) — synthetic regression
-  matrix for session, financial-link, recovery, and migration boundaries.
-- [Historical reconciliation](historical-reconciliation.md) — accounting and
-  replay evidence for historical changes.
-- [Analytics test plan](nestworth-analytics-test-plan.md) — reusable Return
-  Analysis and Asset Changes coverage matrix; shipped behavior follows current
-  architecture and code.
+| Area | Contract and regression entry points |
+| --- | --- |
+| Account reconciliation | [Matrix](account-reconciliation.md), [UX and liabilities](reconciliation-ux-and-liabilities.md); application, SQLite, MCP and desktop reconciliation suites |
+| Historical values and analytics | [Endpoint reconciliation](historical-reconciliation.md), [analytics matrix](nestworth-analytics-test-plan.md), [query cancellation](historical-query-cancellation.md); application historical/analysis and frontend historical-overview/insights tests |
+| Investment review | [Daily policy and source integrity](../design/investment-review.md), [dependency/suffix fallback](../design/review-dependency-suffix.md); application review and SQLite integrity tests |
+| Cash, products and upcoming actions | [Cash adjustments/Repeat](../user/cash-adjustments-and-repeat.md), [upcoming contract](../design/upcoming-actions.md); preview/commit/receipt, linked-history and frontend navigation regressions |
+| Shared controls and localization | [Control contract](../development/frontend-controls.md); actual resource-bundle locale coverage, keyboard/focus, dirty/pending form and stale-response tests |
+| Built-in assistant | [Runtime](../architecture/builtin-ai-runtime.md), [provider module](../../providers/einoopenai/README.md); assistant/builtinai/airuntime suites and `providers/einoopenai/check.sh` |
+| MCP | [Protocol](../development/mcp.md), [paging](../development/mcp-pagination.md); MCP HTTP permission, schema, wire-budget, revocation and recovery suites; `tools/check-nestworth-skill.py` |
+| Mobile | [Access and recovery](../design/mobile-web-access.md); `internal/mobileapi`, frontend mobile tests and `tools/mobile-confirm-reconnect.py` |
+| Backup and migration | [Storage compatibility](../architecture/data-and-ipc-contracts.md#database-support-and-storage-recovery), [backup recovery](../development/continuous-backup.md); SQLite, backup and continuous-backup tests |
+| Browser integration | [Real server workflow](../development/real-browser-acceptance.md), [retained harnesses](../qa/README.md) |
 
-## Additional regression contracts
+Completion gates must cover failure as well as success. AI tests use loopback
+fake providers and verify clean EOF/terminal validation before tool dispatch,
+exact native history replay, cancellation, bounded retention and safe diagnostics.
+Provisional text is not executable authority. MCP reads must preserve missingness,
+exact values, scope, fixed expiry and complete continuation semantics.
+Financial writes must retain atomicity, review/permission boundaries and durable
+operation identity across an unknown outcome; never blindly repeat a write.
 
-- [Reconciliation UX and liabilities](reconciliation-ux-and-liabilities.md)
-- [Complete AI response contract](builtin-ai-complete-response-contract-2026-11-05.md)
-- [AI Responses follow-up](builtin-ai-responses-followup-2026-11-05.md)
-- [Exact history default-time boundary](../design/history-and-form-defaults-ux.md#exact-default-time-boundary)
+## Evidence and limits
 
-## Dated acceptance evidence
+Record the exact SHA, environment, command, fixture and observed result in the
+PR or CI artifact. Keep screenshots/logs out of this tree unless they serve a
+maintained guide or an indispensable release record. Historical reports and
+removed artifacts remain in Git history; deletion is not a claim that every old
+finding was fixed. The unresolved [September review](../reviews/2026-09-20-full-app-review.md)
+remains historical triage input, not a current defect list.
 
-These records document a specific feature or review. Treat pending native or
-external-client checks as open until the owning release record confirms them.
+Linux, jsdom and browser results do not establish native macOS GUI/IPC, VoiceOver,
+window/menu lifecycle, OS file dialogs, signing/notarization, physical mobile
+browsers or live-provider compatibility. Verify those separately when relevant.
+Published release waivers are not passing checks and do not waive future work;
+see the [release records](../releases/README.md).
 
-- [Investment review daily acceptance — 2026-10-16](investment-review-daily-acceptance-2026-10-16.md)
-- [Upcoming actions QA](qa-upcoming-actions.md)
-- [Real MCP and skill acceptance — v0.3.7](qa-mcp-skill-acceptance-2026-10-09.md)
-- [v0.3.7 package acceptance](qa-v0.3.7-release-package-2026-10-09.md)
-- [Historical panorama P1](historical-panorama-p1.md) and [P2a](historical-panorama-p2a.md)
-- [Historical query cancellation](historical-query-cancellation.md)
-- [Account composition](qa-account-composition.md)
-- [Cash adjustments and Repeat](qa-cash-adjustments-and-repeat.md)
-- [First increment polish](qa-first-increment-polish.md)
-- [Homepage refinement](qa-homepage-refinement.md)
-- [Legacy snapshot coverage](qa-legacy-snapshot-coverage-2026-10-08.md)
-- [Delayed NAV display](delayed-nav-display-2026-10-13.md)
-- [PR91 merge and binding errors](pr91-merge-and-binding-errors.md)
-- [Shared-control audit](shared-control-audit-2026-10-13.md)
-- [Account and liquidity QA fixes](qa-account-liquidity-2026-10-02.md)
-
-The current post-merge browser result and release package evidence are indexed
-under [QA](../qa/README.md). Do not infer acceptance for a later source revision
-from these older records.
+Use affected ordinary tests first. Race, stress and large benchmarks are opt-in
+or belong to `perf`; do not reproduce obsolete full-suite commands from old
+reports. Documentation-only changes need link, reference and consistency checks,
+not a new application benchmark or native acceptance run.

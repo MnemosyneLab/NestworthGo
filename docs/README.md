@@ -16,15 +16,15 @@ end-user skill lives in [`skills/nestworth/VERSION`](../skills/nestworth/VERSION
 | Built-in assistant | [Architecture and authority](architecture/builtin-ai.md), [desktop read-only runtime](architecture/builtin-ai-runtime.md), [page guide](architecture/builtin-ai-page-guide.md), [voice input](architecture/ai-voice-input.md) |
 | Screens and interaction contracts | [Design index](design/README.md) |
 | Development, build and recovery procedures | [Development index](development/README.md) |
-| Regression methods and acceptance limits | [Testing index](testing/README.md), [QA evidence](qa/README.md) |
+| Regression methods and acceptance limits | [Testing index](testing/README.md), [browser harnesses](qa/README.md) |
 | Published compatibility and release evidence | [Release index](releases/README.md), [changelog](../CHANGELOG.md) |
 
 ## Authority and maintenance
 
 Current code, manifests, schema and tests define implemented behavior.
 Architecture owns technical and financial contracts; design owns user-visible
-flows. Roadmap proposals do not imply implementation. Release records and dated
-QA reports establish evidence only for their named source and environment.
+flows. Roadmap proposals do not imply implementation. Release records and retained historical
+evidence apply only to their named source and environment.
 Passing Linux, browser or jsdom checks does not establish native macOS acceptance.
 
 Keep one owning document per contract and link to it. Prefer durable decisions,

@@ -1,9 +1,0 @@
-
- RUN  v4.1.11 /workspace/NestworthGo/frontend
-
-
- Test Files  173 passed (173)
-      Tests  1830 passed (1830)
-   Start at  15:26:41
-   Duration  351.87s (transform 13.35s, setup 42.27s, import 146.37s, tests 361.98s, environment 124.31s)
-
