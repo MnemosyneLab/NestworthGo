@@ -364,6 +364,17 @@ pauses only new model submissions. All local Status/List/Inspect/Messages querie
 use `networkMode:always`; Stop and local history remain available under a browser
 offline hint. Reconnect/reload reads persisted state instead of replaying Start.
 
+At desktop widths of at least 1280px, the dock's left edge adjusts its width:
+400px initially, bounded to 320–720px and leaving at least 480px of the available
+workspace for the business page. ResizeObserver accounts for window and navigation
+rail changes; a temporary clamp preserves the user's preferred width. That choice
+uses the sidebar's session-only UI store, with no persistent setting. The shared
+splitter supports Left/Right (16px, or 64px with Shift), Home/End, Enter to close
+and Escape to cancel a drag, with localized accessible width and bounds. Expanding
+and returning restores the dock width. Narrow windows keep the shared Sheet.
+Resizing keeps the conversation and recording mounted; closing or switching to
+the Sheet preserves the draft while voice controls retain their cancellation rules.
+
 `PageHost`, `PageBinding`, `PageSnapshot` and `NavigationIntent` are a Go port for
 later structured publishers. `MatchesCurrentPage` is only a prerequisite fence:
 ledger, epoch, conversation, permission revision, surface, exact page generation
