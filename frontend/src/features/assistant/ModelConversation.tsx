@@ -357,7 +357,7 @@ export function ModelConversation() {
           </Notice>
         )}
       {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
-        operations={operations.data} operationsError={operations.isError}
+        operations={operations.data ?? []} operationsError={operations.isError}
         submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
         busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
       <form

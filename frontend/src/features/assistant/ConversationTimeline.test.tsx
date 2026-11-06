@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({ Inspect: vi.fn(), Messages: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
 afterEach(() => vi.unstubAllGlobals());
 const run = { id: "run", requestId: "request", prompt: "Synthetic question", state: "running", text: "", created: "2026-11-05T00:00:00Z", model: "mock" };
-const initial = { id: "conversation", offset: 0, runCount: 1, runs: [run], progress: { runId: "run", revision: 1, text: "**Synthetic preview**", tools: [{ source: "get_financial_context", state: "running", input: '{"disclosure":"minimal"}', output: "", inputTruncated: false, outputTruncated: false }] } };
+const initial = { id: "conversation", updated: "2026-11-05T00:00:00Z", offset: 0, runCount: 1, runs: [run], progress: { runId: "run", revision: 1, text: "**Synthetic preview**", tools: [{ source: "get_financial_context", state: "running", input: '{"disclosure":"minimal"}', output: "", inputTruncated: false, outputTruncated: false }] } };
 it("renders per-step details and provisional Markdown, then removes cancelled preview", () => {
   const client = createTestQueryClient();
   const props = { epoch: "epoch", id: "conversation", busy: false, onCancel: vi.fn() };
@@ -141,7 +141,7 @@ it.each([
 
 it("shows legacy receipts without a saved tool trace and keeps inspection failures visible", () => {
   const client = createTestQueryClient();
-  render(<QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={{ ...initial, progress: undefined, runs: [] } as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()}
+  render(<QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={{ ...initial, progress: undefined, runs: [] }} busy={false} onCancel={vi.fn()}
     operations={[{ id: "old-receipt", toolName: "create_member", state: "succeeded" }]} operationsError /></QueryClientProvider>);
   const recovered = screen.getByText("Create member · Recorded");
   fireEvent.click(recovered.closest("summary")!);
