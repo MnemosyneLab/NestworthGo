@@ -8,9 +8,10 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AIModelConfig } from "./AIModelConfig";
 import type * as API from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
 const configure = vi.hoisted(() => vi.fn());
+const models = vi.hoisted(() => vi.fn());
 vi.mock(
   "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service",
-  () => ({ Configure: configure }),
+  () => ({ Configure: configure, Models: models }),
 );
 beforeEach(() => {
   vi.clearAllMocks();
@@ -71,4 +72,27 @@ it("keeps model configuration readable without granting generic edit or activati
  mount();const page=capturePageContent("settings:");
  for(const name of ["Model ID","Enable desktop model requests","Save model configuration"]){const node=page.nodes.find(n=>n.role!=="text" && n.name===name)!;expect(node).toBeDefined();expect(node.targetRef).toBeUndefined();expect(node.actions).toEqual([]);expect(node.state).toContain("operation_protected=true");}
  expect(JSON.stringify(page)).toContain("mock");expect(configure).not.toHaveBeenCalled();
+});
+
+it("loads account models, preserves manual selection on network errors, and supports keyboard selection", async()=>{
+ const user=userEvent.setup();models.mockResolvedValue(["a-model","z-custom"]);mount();
+ await user.click(screen.getByRole("button",{name:"Load models"}));
+ await waitFor(()=>expect(models).toHaveBeenCalledWith("host",4));
+ await user.selectOptions(screen.getByLabelText("Account models"),"z-custom");
+ expect(screen.getByLabelText("Model ID")).toHaveValue("z-custom");
+ models.mockRejectedValue(new Error("network"));
+ await user.click(screen.getByRole("button",{name:"Load models"}));
+ await screen.findByRole("alert");
+ expect(screen.getByLabelText("Model ID")).toHaveValue("z-custom");
+ await user.clear(screen.getByLabelText("Model ID"));await user.type(screen.getByLabelText("Model ID"),"manual-model");
+ await user.click(screen.getByRole("button",{name:"Save model configuration"}));
+ expect(configure).toHaveBeenCalledWith("host",4,expect.objectContaining({model:"manual-model"}));
+});
+
+it("treats a nullable model list as empty and preserves the configured model", async()=>{
+ const user=userEvent.setup();models.mockResolvedValue(null);mount();
+ await user.click(screen.getByRole("button",{name:"Load models"}));
+ await waitFor(()=>expect(models).toHaveBeenCalledWith("host",4));
+ expect(screen.getByLabelText("Model ID")).toHaveValue("mock");
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

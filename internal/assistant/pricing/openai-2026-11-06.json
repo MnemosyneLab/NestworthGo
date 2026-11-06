@@ -1,0 +1,14 @@
+{
+  "version": "openai-public-2026-11-06.v1",
+  "source": "https://developers.openai.com/api/docs/pricing",
+  "verifiedAt": "2026-11-06",
+  "validFrom": "2026-11-06T00:00:00Z",
+  "validUntil": "2026-12-01T00:00:00Z",
+  "models": [
+    {"model":"gpt-6-astra","input":"10","cached":"1","write30m":"12.5","write12h":"25","output":"50","longContextThreshold":272000},
+    {"model":"gpt-6.1-sol","input":"2","cached":"0.1","write30m":"2.5","write12h":"5","output":"10","longContextThreshold":272000},
+    {"model":"gpt-6.1-terra","input":"1","cached":"0.05","write30m":"1.25","write12h":"2.5","output":"5","longContextThreshold":272000},
+    {"model":"gpt-6-luna","input":"0.1","cached":"0.01","write30m":"0.125","write12h":"0.25","output":"0.5","longContextThreshold":272000},
+    {"model":"gpt-transcribe","perMinute":"0.0045"}
+  ]
+}

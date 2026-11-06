@@ -6,7 +6,7 @@ import { ModelConversation } from "./ModelConversation";
 
 const api = vi.hoisted(() => ({ Status: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Reviews: vi.fn(), Start: vi.fn(), Transcribe: vi.fn() }));
 const voice = vi.hoisted(() => ({ result: (_: string) => {}, cancel: vi.fn() }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ ...api, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }));
 vi.mock("./voiceRecorder", () => ({
   recordingType: () => ({ mimeType: "audio/mp4", format: "mp4" }),
   VoiceRecorder: class {

@@ -30,7 +30,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock(
   "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service",
-  () => api,
+  () => ({ ...api, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }),
 );
 const run = {
   id: "run",

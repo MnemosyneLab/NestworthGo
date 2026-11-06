@@ -15,7 +15,7 @@ const fixture = vi.hoisted(() => ({
   trend: vi.fn(), origin: vi.fn(), accounts: vi.fn(), dispatch: vi.fn(), blocked: false,
 }));
 const api = vi.hoisted(() => ({ Status: vi.fn(), PendingPageReads: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn(), Messages: vi.fn() }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ ...api, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis", () => ({ Service: {
   ReturnTrend: (...args: unknown[]) => fixture.trend(...args), ReturnCalendar: vi.fn().mockResolvedValue({available: false}),
   Contribution: vi.fn().mockResolvedValue({available: false}), ContributionItem: vi.fn(), ReturnDay: vi.fn(),

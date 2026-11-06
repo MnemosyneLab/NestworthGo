@@ -59,7 +59,7 @@ func (r *Runtime) Transcribe(caller context.Context, q AudioInput) (string, erro
 			return ErrUnavailable
 		}
 		var e error
-		text, e = r.options.Transcriber(ctx, key, audio, q.Format)
+		text, e = r.options.Transcriber(r.usageContext(ctx, "", "", "transcription"), key, audio, q.Format)
 		if strings.Contains(text, string(key)) {
 			return ErrUnavailable
 		}

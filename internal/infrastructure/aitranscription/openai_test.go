@@ -68,3 +68,14 @@ func TestCancellationAndLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestTranscriptionRecordsUsageWithoutTextOrAudio(t *testing.T) {
+	var records []assistant.UsageCall
+	ctx := assistant.WithUsage(context.Background(), func(c assistant.UsageCall) { records = append(records, c) })
+	_, err := transcribe(ctx, []byte("synthetic-key"), []byte("synthetic-audio"), "wav", roundTrip(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"text":"synthetic transcript","usage":{"type":"tokens","input_tokens":15,"output_tokens":4}}`))}, nil
+	}))
+	if err != nil || len(records) != 2 || records[1].Input == nil || *records[1].Input != 15 || records[1].Status != "succeeded" {
+		t.Fatalf("%+v %v", records, err)
+	}
+}

@@ -862,3 +862,6 @@ configuration, conversation and financial permission checks remain mandatory.
 Only a fresh accepted lease may produce/consume a deferred navigation intent;
 on-demand page reads and control operations retain their independent current
 snapshot checks. An unavailable observation never becomes navigation authority.
+
+Usage accounting, coverage limits, cost basis and account model selection are
+specified in [Built-in AI usage and account models](ai-usage.md).
