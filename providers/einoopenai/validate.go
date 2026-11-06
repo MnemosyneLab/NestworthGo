@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"reflect"
 	"sort"
 	"strconv"
@@ -55,6 +56,37 @@ func same(a, b []byte) bool {
 	da.UseNumber()
 	db.UseNumber()
 	return da.Decode(&av) == nil && db.Decode(&bv) == nil && reflect.DeepEqual(av, bv)
+}
+
+// The provider can refresh opaque reasoning ciphertext between item.done and
+// response.completed. Only two nonempty strings may differ; all other fields
+// (including unknown native fields) remain exact. The terminal bytes are kept
+// unchanged for SDK conversion, sealing and replay after clean EOF.
+func sameTerminalItem(done, terminal []byte) (matches, refreshed bool) {
+	if same(done, terminal) {
+		return true, false
+	}
+	a, errA := object(done)
+	b, errB := object(terminal)
+	if errA != nil || errB != nil || str(a, "type") != "reasoning" || str(b, "type") != "reasoning" {
+		return false, false
+	}
+	oldCipher, oldErr := textField(a, "encrypted_content")
+	newCipher, newErr := textField(b, "encrypted_content")
+	if oldErr != nil || newErr != nil || oldCipher == "" || newCipher == "" {
+		return false, false
+	}
+	delete(a, "encrypted_content")
+	delete(b, "encrypted_content")
+	if len(a) != len(b) {
+		return false, false
+	}
+	for key, value := range a {
+		if !same(value, b[key]) {
+			return false, false
+		}
+	}
+	return true, true
 }
 func nullOrAbsent(v json.RawMessage) bool {
 	return len(v) == 0 || bytes.Equal(bytes.TrimSpace(v), []byte("null"))
@@ -195,7 +227,17 @@ func validateStream(raw []byte, limits Limits) (result []byte, outputResult []js
 // Only provisional display text escapes before terminal validation and clean EOF.
 func validateStreamReader(reader io.Reader, limits Limits, display func(string)) (result []byte, outputResult []json.RawMessage, failure error) {
 	rule := "stream_frame"
-	defer func() { failure = protocolFailure(rule, failure) }()
+	terminalCheck := "not_reached"
+	refreshedItems := 0
+	defer func() {
+		failure = protocolFailure(rule, failure)
+		if failure != nil {
+			// Only code-owned categories, never provider values, IDs or payloads.
+			slog.Warn("AI provider stream rejected", "code", assistant.FailureCode(failure), "terminal_check", terminalCheck)
+		} else if refreshedItems > 0 {
+			slog.Info("AI provider reasoning ciphertext refreshed", "items", refreshedItems)
+		}
+	}()
 	if limits.Bytes == 0 {
 		limits.Bytes = 4 << 20
 	}
@@ -313,8 +355,8 @@ func validateStreamReader(reader io.Reader, limits Limits, display func(string))
 				}
 			}
 			// Reasoning encrypted_content at added may be incomplete or null.
-			// The done item is authoritative; it must still match the completed
-			// response and pass all completion/EOF checks before being released.
+			// The done item must match the completed response except for a
+			// refreshed opaque cipher; all completion/EOF gates still apply.
 			if prior.argumentName != "" && prior.argumentName != str(item, "name") {
 				return errProtocol
 			}
@@ -326,19 +368,35 @@ func validateStreamReader(reader io.Reader, limits Limits, display func(string))
 			}
 			prior.done = obj["item"]
 		case "response.completed":
+			terminalCheck = "response_validation"
 			output, err := validateResponse(obj["response"], limits)
 			if err != nil {
 				return err
 			}
 			resp, _ := object(obj["response"])
-			if responseID == "" || str(resp, "id") != responseID || len(output) != len(items) {
+			terminalCheck = "response_identity"
+			if responseID == "" || str(resp, "id") != responseID {
+				return errProtocol
+			}
+			terminalCheck = "item_count"
+			if len(output) != len(items) {
 				return errProtocol
 			}
 			for i, item := range items {
-				if item.done == nil || !same(item.done, output[i]) {
+				terminalCheck = "item_done_missing"
+				if item.done == nil {
 					return errProtocol
 				}
+				terminalCheck = "item_mismatch"
+				matches, refreshed := sameTerminalItem(item.done, output[i])
+				if !matches {
+					return errProtocol
+				}
+				if refreshed {
+					refreshedItems++
+				}
 			}
+			terminalCheck = "matched"
 			final = append([]byte(nil), obj["response"]...)
 		case "response.function_call_arguments.delta", "response.function_call_arguments.done":
 			item, err := liveItem(obj, items, "function_call")
