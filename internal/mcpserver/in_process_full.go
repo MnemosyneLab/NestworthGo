@@ -23,8 +23,23 @@ func (s *InProcessSession) FullDefinitions() ([]agentcapability.Definition, erro
 
 func (s *InProcessSession) CallFull(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	dispatched := false
+	observation := &fullSubmissionObservation{}
+	ctx = context.WithValue(ctx, fullSubmissionKey{}, observation)
 	raw, err := s.callObserved(ctx, name, args, true, &dispatched, s.fullTools())
-	if err != nil && !dispatched {
+	if err != nil && (!dispatched || observation.unsubmitted) {
+		// No dispatch in this attempt cannot erase an older ambiguous receipt.
+		// At the receipt gate this check is already made while holding operationMu.
+		if !dispatched {
+			if id, identityErr := FullOperationID(name, args); identityErr == nil {
+				if prior, priorErr := s.service.GetOperation(id); priorErr == nil {
+					if prior.Status == "unknown" {
+						return raw, err
+					}
+				} else if safeError(priorErr).Code != "not_found" {
+					return raw, err
+				}
+			}
+		}
 		return raw, unsubmittedCapability{err}
 	}
 	return raw, err
@@ -99,4 +114,15 @@ func capabilityError(err error) error {
 		return unsubmitted
 	}
 	return safeError(err)
+}
+
+type fullSubmissionKey struct{}
+type fullSubmissionObservation struct{ unsubmitted bool }
+
+// Called at the shared execute gate only when cancellation precedes business
+// execution AND no prior receipt exists. A pre-existing unknown stays unknown.
+func observeCancelledBeforeNewOperation(ctx context.Context) {
+	if observation, ok := ctx.Value(fullSubmissionKey{}).(*fullSubmissionObservation); ok {
+		observation.unsubmitted = true
+	}
 }

@@ -204,6 +204,12 @@ func (r *Registry) Definition(name string) (Definition, error) {
 // defaults match the existing SDK object-schema semantics. Authorization and
 // lifetime fences belong to the owning session, before this dispatcher.
 func (r *Registry) Call(ctx context.Context, name string, raw json.RawMessage) (any, error) {
+	return r.CallObserved(ctx, name, raw, nil)
+}
+
+// CallObserved reports actual handler entry, not merely arrival at dispatch.
+// The observation belongs to this serial call and grants no additional authority.
+func (r *Registry) CallObserved(ctx context.Context, name string, raw json.RawMessage, entered *bool) (any, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -217,6 +223,9 @@ func (r *Registry) Call(ctx context.Context, name string, raw json.RawMessage) (
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if entered != nil {
+		*entered = true
 	}
 	result, err := e.handler(ctx, input)
 	if err != nil || e.output == nil {

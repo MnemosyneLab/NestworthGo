@@ -165,10 +165,7 @@ func (s *InProcessSession) callObserved(ctx context.Context, name string, argume
 	if err := callContext.Err(); err != nil {
 		return nil, fail("cancelled", "request cancelled before capability dispatch")
 	}
-	if dispatched != nil {
-		*dispatched = true
-	}
-	result, err := registry.Call(callContext, name, arguments)
+	result, err := registry.CallObserved(callContext, name, arguments, dispatched)
 	if err != nil {
 		var unsubmitted unsubmittedCapability
 		if errors.As(err, &unsubmitted) {

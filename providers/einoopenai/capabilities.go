@@ -81,6 +81,8 @@ func sameSchemaJSON(a, b []byte) bool {
 	return errA == nil && errB == nil && reflect.DeepEqual(x, y)
 }
 
+var errCapabilityWriteRecoveryRequired = errors.New("existing operation requires recovery")
+
 var errCapabilityWriteRejected = errors.New("local write rejected before dispatch")
 
 var errCapabilityWriteRefused = errors.New("local write outcome requires inspection")
@@ -122,6 +124,9 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		// Do not reflect submitted content or arbitrary implementation errors
 		// into model history. Application-facing errors belong to the host.
 		if t.writing {
+			if errors.Is(err, assistant.ErrRecoveryRequired) {
+				return "", errCapabilityWriteRecoveryRequired
+			}
 			var unsubmitted interface{ NotDispatched() bool }
 			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
 				return "", errCapabilityWriteRejected

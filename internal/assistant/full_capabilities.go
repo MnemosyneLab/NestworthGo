@@ -25,7 +25,7 @@ type FullCapabilitySession interface {
 func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string, revision uint64, q FullCapabilityRequest) (output json.RawMessage, failure error) {
 	dispatched := false
 	defer func() {
-		if failure != nil && !dispatched {
+		if failure != nil && !dispatched && !errors.Is(failure, ErrRecoveryRequired) {
 			failure = unsubmittedFullCapability{failure}
 		}
 	}()
@@ -62,7 +62,11 @@ func (r *Runtime) executeCapability(ctx context.Context, epoch, id, runID string
 		return nil, ErrUnavailable
 	}
 	if writing {
-		if r.pendingReview(c) || r.reviewBusy[id] || len(c.Reviews) >= MaxRuns {
+		if r.pendingReview(c) {
+			r.mu.Unlock()
+			return nil, ErrRecoveryRequired
+		}
+		if r.reviewBusy[id] || len(c.Reviews) >= MaxRuns {
 			r.mu.Unlock()
 			return nil, ErrConflict
 		}
@@ -136,3 +140,7 @@ type unsubmittedFullCapability struct{ error }
 
 func (e unsubmittedFullCapability) Unwrap() error     { return e.error }
 func (unsubmittedFullCapability) NotDispatched() bool { return true }
+
+// ErrRecoveryRequired describes an existing unresolved operation, not a newly
+// rejected mutation. It must not become a new-write argument diagnostic.
+var ErrRecoveryRequired = errors.New("assistant_operation_recovery_required")

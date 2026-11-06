@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
+	"github.com/waltwang/nestworth-go/internal/assistant"
 )
 
 type submissionTestSession struct {
@@ -32,6 +33,7 @@ func TestWriteDiagnosticsRequireSubmissionEvidence(t *testing.T) {
 		want error
 	}{
 		{submissionTestRejection{}, errCapabilityWriteRejected},
+		{assistant.ErrRecoveryRequired, errCapabilityWriteRecoveryRequired},
 		{errors.New("validation"), errCapabilityWriteRefused},
 		{context.Canceled, errCapabilityWriteRefused},
 	} {

@@ -98,8 +98,13 @@ func TestSharedFullAdmissionAndRecoveryFence(t *testing.T) {
 			}
 			s.invoke = nil
 			if state == "unknown" {
-				if _, err := r.executeCapability(t.Context(), r.epoch, id, run, r.state.Revision, q); err == nil {
-					t.Fatal("unknown write retried")
+				if _, err := r.executeCapability(t.Context(), r.epoch, id, run, r.state.Revision, q); !errors.Is(err, ErrRecoveryRequired) {
+					t.Fatalf("unknown write needs existing-operation diagnostic: %v", err)
+				} else {
+					var marker interface{ NotDispatched() bool }
+					if errors.As(err, &marker) {
+						t.Fatal("prior uncertainty mislabeled as new argument rejection")
+					}
 				}
 				if _, err := r.executeCapability(t.Context(), r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "get_operation", Arguments: []byte(`{}`)}); err != nil {
 					t.Fatal("receipt inspection blocked", err)

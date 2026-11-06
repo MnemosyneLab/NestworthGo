@@ -38,7 +38,7 @@ export function ChangeReviews({ epoch, id, enabled, busy, runKey = "" }: {epoch:
    {review.source==="ai_full"&&<p className="font-medium">{t("aiChat.fullActive")}</p>}
    <p className="py-1 text-xs text-muted-foreground">{t(review.source==="ai_full" ? "aiChat.fullHelp" : "aiChat.writeReviewHelp")}</p>
    {review.kind!=="capability"&&<p className="font-medium">{displayEnum(t,"history.kind",review.kind)} · {review.account}</p>}
-   {review.summary ? <p className="whitespace-pre-wrap num">{review.kind === "capability" ? t(`aiChat.source.${review.summary}`, {defaultValue: review.summary.replaceAll("_", " ")}) : review.summary}</p> : <dl className="grid grid-cols-1 gap-1 break-words">
+   {review.summary ? <p className="whitespace-pre-wrap num">{review.kind === "capability" ? t(`aiChat.source.${review.summary}`, {defaultValue: review.summary.replace(/_/g, " ")}) : review.summary}</p> : <dl className="grid grid-cols-1 gap-1 break-words">
     {review.accountType ? <>
      <div><dt className="inline">{t("aiChat.writeInstitution")}: </dt><dd className="inline"><span className="rounded border border-border px-1">{t(review.accountInstitution ? "aiChat.writeInstitutionAssigned" : "aiChat.writeInstitutionUnassigned")}</span>{review.accountInstitution && <span className="ml-2">{review.accountInstitution}</span>}</dd></div>
      <div><dt className="inline">{t("aiChat.writeOwners")}: </dt><dd><ul>{review.accountOwners?.map((owner,index)=><li key={index}>{owner}</li>)}</ul></dd></div>

@@ -3,14 +3,19 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
@@ -150,5 +155,147 @@ func TestFullCommitRouteRejectsOnlyProvenUnsubmittedPlans(t *testing.T) {
 		if _, err := s.InspectFullOperation(operation); err == nil {
 			t.Fatal("route rejection wrote an operation receipt")
 		}
+	}
+}
+
+func TestFullCancellationWhileWaitingForReceiptGate(t *testing.T) {
+	for _, prior := range []bool{false, true} {
+		t.Run(fmt.Sprint("prior=", prior), func(t *testing.T) {
+			s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+			operation := uuid.NewString()
+			if prior {
+				path, _ := s.service.operationPath(operation)
+				if err := s.service.writePrivate(path, Operation{ID: operation, Tool: "synthetic_write", Status: "pending"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			entered := make(chan struct{})
+			calls := 0
+			set := newToolSet("synthetic", false)
+			registerTool(set, &agentcapability.Definition{Name: "synthetic_write", Effect: agentcapability.Write}, func(ctx context.Context, in Mutation[Empty]) (Response, error) {
+				close(entered)
+				value, err := s.service.execute(ctx, in.OperationID, "synthetic_write", in.Input, func(context.Context) (any, error) { calls++; return map[string]bool{"posted": true}, nil })
+				if err != nil {
+					return Response{}, safeError(err)
+				} // production-style wrapping must not lose the observation
+				return Response{Data: value}, nil
+			})
+			s.fullOnce.Do(func() { s.fullRegistry = set.Registry })
+			s.service.operationMu.Lock()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() {
+				_, err := s.CallFull(ctx, "synthetic_write", []byte(`{"operationId":"`+operation+`","input":{}}`))
+				done <- err
+			}()
+			<-entered
+			cancel()
+			s.service.operationMu.Unlock()
+			err := <-done
+			var marker interface{ NotDispatched() bool }
+			proof := errors.As(err, &marker) && marker.NotDispatched()
+			if proof == prior || calls != 0 {
+				t.Fatalf("wrong queued cancellation proof=%v prior=%v calls=%d error=%v", proof, prior, calls, err)
+			}
+			receipt, lookup := s.InspectFullOperation(operation)
+			if prior && (lookup != nil || receipt.Status != "unknown") {
+				t.Fatal("old pending receipt lost", lookup)
+			}
+			if !prior && lookup == nil {
+				t.Fatal("cancelled new call created receipt")
+			}
+		})
+	}
+}
+
+func TestFullPreRegistryCancellationKeepsPriorUnknownReceipt(t *testing.T) {
+	s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+	operation := uuid.NewString()
+	path, _ := s.service.operationPath(operation)
+	if err := s.service.writePrivate(path, Operation{ID: operation, Tool: "create_member", Status: "pending"}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err := s.CallFull(ctx, "create_member", []byte(`{"operationId":"`+operation+`","input":{"name":"Synthetic"}}`))
+	var marker interface{ NotDispatched() bool }
+	if err == nil || errors.As(err, &marker) {
+		t.Fatalf("prior unknown receipt was marked unsubmitted: %v", err)
+	}
+	receipt, err := s.InspectFullOperation(operation)
+	if err != nil || receipt.Status != "unknown" {
+		t.Fatal("prior pending receipt lost", err)
+	}
+}
+
+type cancelLoadedPlanRepository struct {
+	settings.ConfigurationRepository
+	planID                     string
+	cancel                     context.CancelFunc
+	planReads, operationWrites int
+}
+
+func (r *cancelLoadedPlanRepository) LoadConfiguration(key string) ([]byte, bool, error) {
+	raw, found, err := r.ConfigurationRepository.LoadConfiguration(key)
+	if err == nil && found && r.cancel != nil && strings.HasSuffix(key, ".plan."+r.planID) {
+		r.planReads++
+		r.cancel()
+	}
+	return raw, found, err
+}
+func (r *cancelLoadedPlanRepository) SaveConfiguration(key string, value []byte) error {
+	if strings.Contains(key, ".operation.") {
+		r.operationWrites++
+	}
+	return r.ConfigurationRepository.SaveConfiguration(key, value)
+}
+func TestFullCommitCancelledWhileLoadingValidPreview(t *testing.T) {
+	for _, prior := range []bool{false, true} {
+		t.Run(fmt.Sprint("prior=", prior), func(t *testing.T) {
+			directory := t.TempDir()
+			app, db := openLocalApp(t, filepath.Join(directory, "synthetic.db"))
+			fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+			repository := &cancelLoadedPlanRepository{ConfigurationRepository: sqlite.NewConfigurationRepository(db)}
+			s, err := NewInProcessSession(t.Context(), app, directory, uuid.NewString(), LedgerWrite, nil, repository)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			preview := localData(t, s, "preview_change", map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}, false)
+			planID := preview["planId"].(string)
+			operation := uuid.NewString()
+			if prior {
+				path, _ := s.service.operationPath(operation)
+				if err := s.service.writePrivate(path, Operation{ID: operation, Tool: "commit_change", Status: "pending"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := app.ListActivities(t.Context(), 100)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			repository.planID, repository.cancel = planID, cancel
+			repository.operationWrites = 0
+			_, err = s.CallFull(ctx, "commit_plan", mustJSON(t, map[string]any{"operationId": operation, "input": map[string]any{"planId": planID}}))
+			var marker interface{ NotDispatched() bool }
+			proof := errors.As(err, &marker) && marker.NotDispatched()
+			if err == nil || proof == prior || repository.planReads != 1 || repository.operationWrites != 0 {
+				t.Fatalf("valid-plan cancellation proof=%v prior=%v reads=%d writes=%d err=%v", proof, prior, repository.planReads, repository.operationWrites, err)
+			}
+			after, err := app.ListActivities(t.Context(), 100)
+			if err != nil || len(after) != len(before) {
+				t.Fatal("cancelled valid plan posted activities", err)
+			}
+			receipt, lookup := s.InspectFullOperation(operation)
+			if prior && (lookup != nil || receipt.Status != "unknown") {
+				t.Fatal("old pending commit lost", lookup)
+			}
+			if !prior && lookup == nil {
+				t.Fatal("new pending receipt unexpectedly saved")
+			}
+		})
 	}
 }
