@@ -112,3 +112,13 @@ func TestUsageFailureIsIndependentAndAudioIsNotTokens(t *testing.T) {
 	ctx := WithUsage(context.Background(), func(UsageCall) { panic("observer failed") })
 	FinishUsage(ctx, BeginUsage(ctx, "mock"), true)
 }
+
+func TestUsageDurationRejectsUnboundedDecimalExponent(t *testing.T) {
+	for _, raw := range []string{`{"usage":{"type":"duration","seconds":1e-999999999}}`, `{"usage":{"type":"duration","seconds":1e999999999}}`} {
+		c := UsageCall{}
+		CaptureUsage(&c, []byte(raw))
+		if c.AudioSeconds != nil {
+			t.Fatal("unbounded duration accepted")
+		}
+	}
+}

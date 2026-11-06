@@ -2,9 +2,12 @@
 package aiusage
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"errors"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -45,7 +48,15 @@ func Open(directory string) (*Store, error) {
 	if err != nil {
 		return nil, errStore
 	}
+	header := make([]byte, 100)
+	n, readErr := f.ReadAt(header, 0)
 	_ = f.Close()
+	if n != 0 && (readErr != nil || !bytes.Equal(header[:16], []byte("SQLite format 3\x00")) || binary.BigEndian.Uint32(header[60:64]) != 1) {
+		return nil, errStore
+	}
+	if n == 0 && readErr != io.EOF {
+		return nil, errStore
+	}
 	u := url.URL{Scheme: "file", Path: path}
 	db, err := sql.Open("sqlite", u.String())
 	if err != nil {
@@ -79,6 +90,11 @@ func Open(directory string) (*Store, error) {
 			return fail()
 		}
 	} else if version != 1 {
+		return fail()
+	}
+	var schema string
+	var objects int
+	if db.QueryRow("SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").Scan(&objects) != nil || objects != 1 || db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='usage_calls'").Scan(&schema) != nil || schema != "CREATE TABLE usage_calls(id TEXT PRIMARY KEY, payload BLOB NOT NULL CHECK(length(payload)<4096))" {
 		return fail()
 	}
 	s := &Store{db: db, incompletePath: filepath.Join(directory, "usage-incomplete")}

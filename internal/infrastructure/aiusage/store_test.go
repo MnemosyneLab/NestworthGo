@@ -1,6 +1,7 @@
 package aiusage
 
 import (
+	"bytes"
 	"context"
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/assistant"
@@ -56,5 +57,46 @@ func TestUsageRejectsSymlinks(t *testing.T) {
 	}
 	if _, err := Open(dir); err == nil {
 		t.Fatal("accepted symlink")
+	}
+}
+
+func TestUsageRejectsFutureBeforeWritableSQLiteOpen(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	_ = os.Mkdir(dir, 0700)
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.Exec("PRAGMA user_version=99"); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	before, _ := os.ReadFile(filepath.Join(dir, "usage.db"))
+	if _, err = Open(dir); err == nil {
+		t.Fatal("accepted future version")
+	}
+	after, _ := os.ReadFile(filepath.Join(dir, "usage.db"))
+	if !bytes.Equal(before, after) {
+		t.Fatal("modified unsupported database")
+	}
+}
+func TestUsageFailureMarkerSurvivesRestart(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	_ = os.Mkdir(dir, 0700)
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Record(assistant.UsageCall{}) == nil || !s.Incomplete() {
+		t.Fatal("hidden invalid record")
+	}
+	_ = s.Close()
+	s, err = Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if !s.Incomplete() {
+		t.Fatal("lost coverage marker")
 	}
 }

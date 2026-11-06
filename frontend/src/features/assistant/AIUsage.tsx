@@ -37,7 +37,7 @@ export function ConversationUsage({ epoch, id, runID, stamp }: { epoch: string; 
   return <details className="shrink-0 border-t border-border px-3 py-2 text-xs" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
     <summary className="cursor-pointer">{t("aiUsage.title")} · {t("aiUsage.current")} {current.data?.available ? count(current.data.total.tokens, current.data.total.missingTokens, current.data.total.calls) : "—"} · {t("aiUsage.total")} {total.data?.available ? count(total.data.total.tokens, total.data.total.missingTokens, total.data.total.calls) : "—"}</summary>
     <div className="mt-2 max-h-48 space-y-3 overflow-auto">
-      {total.isError || (!total.isPending && !total.data?.available) ? <p role="status">{t("aiUsage.unavailable")}</p> : total.isPending ? <p>{t("aiUsage.loading")}</p> : <>
+      {total.isPending ? <p>{t("aiUsage.loading")}</p> : total.isError || !total.data?.available ? <p role="status">{t("aiUsage.unavailable")}</p> : <>
         {current.data?.available && <div><p className="mb-1 font-medium">{t("aiUsage.current")}</p><UsageNumbers total={current.data.total} /></div>}
         <div><p className="mb-1 font-medium">{t("aiUsage.total")}</p><UsageNumbers total={total.data.total} /></div>
         {total.data.groups.map(g => <div key={g.key}><p className="mb-1 font-medium">{g.label}</p><UsageNumbers total={g.total} /></div>)}
@@ -57,6 +57,7 @@ export function AIUsageSettings({ epoch }: { epoch: string }) {
   const localZone = timezone();
   const report = useQuery({ queryKey: ["aiUsageSettings", epoch, from, to, groupBy, model, zone, conversation], enabled: !!epoch, retry: false, networkMode: "always",
     queryFn: () => callService(() => API.Usage(epoch, { from, to, groupBy, model, timezone: zone, conversationId: conversation, runId: "" })) });
+  const conversations = report.data?.conversations ?? [];
   return <section className="space-y-3 border-t border-border pt-4" aria-label={t("aiUsage.title")}>
     <div className="flex items-center justify-between"><h3 className="font-medium">{t("aiUsage.title")}</h3><Button type="button" variant="ghost" disabled={report.isFetching} onClick={() => void report.refetch()}>{t("aiUsage.refresh")}</Button></div>
     <div className="flex flex-wrap items-end gap-2">
@@ -72,7 +73,7 @@ export function AIUsageSettings({ epoch }: { epoch: string }) {
       <UsageNumbers total={report.data.total} />
       {report.data.incomplete && <p role="status">{t("aiUsage.incomplete")}</p>}
       {!report.data.total.calls && <p>{t("aiUsage.empty")}</p>}
-      <div className="max-h-96 space-y-2 overflow-auto">{report.data.groups.map(g => <details key={g.key} className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm">{groupBy === "kind" ? t(`aiUsage.${g.label === "title" ? "titleKind" : g.label}`) : g.deleted ? t("aiUsage.deleted") : g.label || t("aiUsage.unassigned")} · {t("aiUsage.requestCount", { count: g.total.calls })}</summary><div className="pt-2"><UsageNumbers total={g.total} /></div></details>)}</div>
+      <div className="max-h-96 space-y-2 overflow-auto">{report.data.groups.map(g => <details key={g.key} className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm">{groupBy === "kind" ? t(`aiUsage.${g.label === "title" ? "titleKind" : g.label}`) : g.deleted ? `${t("aiUsage.deleted")} ${conversations.findIndex(c => c.key === g.key) + 1}` : g.label || t("aiUsage.unassigned")} · {t("aiUsage.requestCount", { count: g.total.calls })}</summary><div className="pt-2"><UsageNumbers total={g.total} /></div></details>)}</div>
     </>}
     <p className="text-xs text-muted-foreground">{t("aiUsage.settingsCoverage")}</p>
     <p className="text-xs text-muted-foreground">{t("aiUsage.costUnknown")}</p>

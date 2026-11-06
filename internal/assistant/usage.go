@@ -109,7 +109,7 @@ func CaptureUsage(c *UsageCall, raw []byte) {
 	if string(u["type"]) == `"duration"` {
 		raw := string(u["seconds"])
 		if len(raw) > 0 && len(raw) < 32 && raw[0] != '"' {
-			if seconds, err := decimal.NewFromString(raw); err == nil && !seconds.IsNegative() && seconds.LessThanOrEqual(decimal.NewFromInt(1_000_000)) {
+			if seconds, err := decimal.NewFromString(raw); err == nil && seconds.Exponent() >= -9 && seconds.Exponent() <= 6 && !seconds.IsNegative() && seconds.LessThanOrEqual(decimal.NewFromInt(1_000_000)) {
 				value := seconds.String()
 				c.AudioSeconds = &value
 			}
@@ -380,8 +380,11 @@ func ValidateUsageCall(c UsageCall) bool {
 		}
 	}
 	if c.AudioSeconds != nil {
+		if len(*c.AudioSeconds) > 32 {
+			return false
+		}
 		d, err := decimal.NewFromString(*c.AudioSeconds)
-		if err != nil || d.IsNegative() || d.GreaterThan(decimal.NewFromInt(1_000_000)) {
+		if err != nil || d.Exponent() < -9 || d.Exponent() > 6 || d.IsNegative() || d.GreaterThan(decimal.NewFromInt(1_000_000)) {
 			return false
 		}
 	}
