@@ -17,6 +17,12 @@ import (
 // Each nullable counter preserves provider omission. Details are subsets, not
 // additional tokens. No current price is applied to historical requests.
 type UsageCall struct {
+	CacheWrite30m  *int64     `json:"cacheWrite30m"`
+	CacheWrite12h  *int64     `json:"cacheWrite12h"`
+	ServiceTier    string     `json:"serviceTier"`
+	PricingScope   string     `json:"pricingScope"`
+	UsageInvalid   bool       `json:"usageInvalid"`
+	Cost           *UsageCost `json:"cost,omitempty"`
 	ID             string     `json:"id"`
 	ConversationID string     `json:"conversationId"`
 	RunID          string     `json:"runId"`
@@ -69,8 +75,9 @@ func FinishUsage(ctx context.Context, c UsageCall, succeeded bool) {
 // unknown. Only explicitly allowlisted metadata leaves the response boundary.
 func CaptureUsage(c *UsageCall, raw []byte) {
 	var response struct {
-		Model string                     `json:"model"`
-		Usage map[string]json.RawMessage `json:"usage"`
+		Model       string                     `json:"model"`
+		ServiceTier string                     `json:"service_tier"`
+		Usage       map[string]json.RawMessage `json:"usage"`
 	}
 	if jsoncodec.Unmarshal(raw, &response) != nil {
 		return
@@ -85,6 +92,10 @@ func CaptureUsage(c *UsageCall, raw []byte) {
 		}
 		return &n
 	}
+	switch response.ServiceTier {
+	case "default", "flex", "priority", "scale", "auto":
+		c.ServiceTier = response.ServiceTier
+	}
 	u := response.Usage
 	c.Input = number(u["input_tokens"])
 	c.Output = number(u["output_tokens"])
@@ -93,14 +104,30 @@ func CaptureUsage(c *UsageCall, raw []byte) {
 	_ = jsoncodec.Unmarshal(u["output_tokens_details"], &out)
 	c.CachedInput = number(in["cached_tokens"])
 	c.CacheWrite = number(in["cache_write_tokens"])
+	var lifetimes map[string]json.RawMessage
+	_ = jsoncodec.Unmarshal(in["cache_write_tokens_details"], &lifetimes)
+	c.CacheWrite30m = number(lifetimes["ttl_30m_tokens"])
+	c.CacheWrite12h = number(lifetimes["ttl_12h_tokens"])
 	c.Reasoning = number(out["reasoning_tokens"])
 	if c.Input != nil {
 		if c.CachedInput != nil && *c.CachedInput > *c.Input {
 			c.CachedInput = nil
+			c.UsageInvalid = true
 		}
 		if c.CacheWrite != nil && *c.CacheWrite > *c.Input {
 			c.CacheWrite = nil
+			c.UsageInvalid = true
 		}
+	}
+	if c.Input != nil && c.CachedInput != nil && c.CacheWrite != nil && *c.CachedInput+*c.CacheWrite > *c.Input {
+		c.CachedInput = nil
+		c.CacheWrite = nil
+		c.UsageInvalid = true
+	}
+	if c.CacheWrite != nil && c.CacheWrite30m != nil && c.CacheWrite12h != nil && *c.CacheWrite30m+*c.CacheWrite12h != *c.CacheWrite {
+		c.CacheWrite30m = nil
+		c.CacheWrite12h = nil
+		c.UsageInvalid = true
 	}
 	if c.Output != nil && c.Reasoning != nil && *c.Reasoning > *c.Output {
 		c.Reasoning = nil
@@ -126,6 +153,9 @@ func (r *Runtime) usageContext(ctx context.Context, conversation, run, kind stri
 		c.ConversationID = conversation
 		c.RunID = run
 		c.Kind = kind
+		if c.Status != "pending" {
+			c.Cost = estimateUsage(c, usagePrices)
+		}
 		if r.options.Usage == nil || r.options.Usage.Record(c) != nil {
 			r.usageFailed.Store(true)
 		}
@@ -142,6 +172,11 @@ type UsageQuery struct {
 	GroupBy        string `json:"groupBy"`
 }
 type UsageTotal struct {
+	EstimatedUSD     string `json:"estimatedUsd"`
+	CachedUSD        string `json:"cachedUsd"`
+	CacheWriteUSD    string `json:"cacheWriteUsd"`
+	PricedCalls      int    `json:"pricedCalls"`
+	UnpricedCalls    int    `json:"unpricedCalls"`
 	AudioSeconds     string `json:"audioSeconds"`
 	AudioCalls       int    `json:"audioCalls"`
 	MissingAudio     int    `json:"missingAudio"`
@@ -168,17 +203,31 @@ type UsageGroup struct {
 	Total   UsageTotal `json:"total"`
 }
 type UsageReport struct {
-	Conversations []UsageGroup `json:"conversations"`
-	Total         UsageTotal   `json:"total"`
-	Groups        []UsageGroup `json:"groups"`
-	Models        []string     `json:"models"`
-	Available     bool         `json:"available"`
-	Incomplete    bool         `json:"incomplete"`
-	CostStatus    string       `json:"costStatus"`
+	Prices        []PriceSnapshot `json:"prices"`
+	Conversations []UsageGroup    `json:"conversations"`
+	Total         UsageTotal      `json:"total"`
+	Groups        []UsageGroup    `json:"groups"`
+	Models        []string        `json:"models"`
+	Available     bool            `json:"available"`
+	Incomplete    bool            `json:"incomplete"`
+	CostStatus    string          `json:"costStatus"`
 }
 
 func (s *UsageTotal) add(c UsageCall) {
 	s.Calls++
+	if c.Cost != nil && c.Cost.Status == "estimated" {
+		s.PricedCalls++
+		for _, pair := range []struct {
+			dst   *string
+			value string
+		}{{&s.EstimatedUSD, c.Cost.USD}, {&s.CachedUSD, c.Cost.CachedUSD}, {&s.CacheWriteUSD, c.Cost.CacheWriteUSD}} {
+			old, _ := decimal.NewFromString(*pair.dst)
+			v, _ := decimal.NewFromString(pair.value)
+			*pair.dst = old.Add(v).String()
+		}
+	} else {
+		s.UnpricedCalls++
+	}
 	if c.Kind == "transcription" {
 		s.AudioCalls++
 		if c.AudioSeconds == nil {
@@ -214,7 +263,7 @@ func (s *UsageTotal) add(c UsageCall) {
 	add(c.Reasoning, &s.Reasoning, &s.MissingReasoning)
 }
 func (r *Runtime) Usage(ctx context.Context, epoch string, q UsageQuery) (UsageReport, error) {
-	report := UsageReport{Conversations: []UsageGroup{}, Groups: []UsageGroup{}, Models: []string{}, CostStatus: "unknown_price"}
+	report := UsageReport{Prices: []PriceSnapshot{}, Conversations: []UsageGroup{}, Groups: []UsageGroup{}, Models: []string{}, CostStatus: "unavailable"}
 	r.mu.Lock()
 	if err := r.valid(ctx, epoch); err != nil {
 		r.mu.Unlock()
@@ -297,6 +346,19 @@ func (r *Runtime) Usage(ctx context.Context, epoch string, q UsageQuery) (UsageR
 		}
 		groups[key].Total.add(c)
 		report.Total.add(c)
+		if c.Cost != nil && c.Cost.Price != nil {
+			p := *c.Cost.Price
+			found := false
+			for _, prior := range report.Prices {
+				if prior == p {
+					found = true
+					break
+				}
+			}
+			if !found {
+				report.Prices = append(report.Prices, p)
+			}
+		}
 	}
 	for _, g := range groups {
 		report.Groups = append(report.Groups, *g)
@@ -310,6 +372,22 @@ func (r *Runtime) Usage(ctx context.Context, epoch string, q UsageQuery) (UsageR
 		report.Models = append(report.Models, m)
 	}
 	sort.Strings(report.Models)
+	sort.Slice(report.Prices, func(i, j int) bool {
+		a, b := report.Prices[i], report.Prices[j]
+		if a.Model != b.Model {
+			return a.Model < b.Model
+		}
+		if a.Version != b.Version {
+			return a.Version < b.Version
+		}
+		return !a.LongContext && b.LongContext
+	})
+	if report.Total.PricedCalls > 0 {
+		report.CostStatus = "estimated"
+		if report.Total.UnpricedCalls > 0 {
+			report.CostStatus = "partial"
+		}
+	}
 	return report, nil
 }
 
@@ -374,7 +452,7 @@ func ValidateUsageCall(c UsageCall) bool {
 	if (c.Status == "pending") != (c.Finished == nil) {
 		return false
 	}
-	for _, n := range []*int64{c.Input, c.Output, c.CachedInput, c.CacheWrite, c.Reasoning} {
+	for _, n := range []*int64{c.Input, c.Output, c.CachedInput, c.CacheWrite, c.CacheWrite30m, c.CacheWrite12h, c.Reasoning} {
 		if n != nil && (*n < 0 || *n > 1_000_000_000) {
 			return false
 		}
@@ -388,5 +466,5 @@ func ValidateUsageCall(c UsageCall) bool {
 			return false
 		}
 	}
-	return true
+	return validUsageCost(c.Cost)
 }

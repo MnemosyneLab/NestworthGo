@@ -6,6 +6,7 @@ import { callService } from "@/lib/wails";
 import { NativeSelect } from "@/components/ui/select";
 import { DatePickerControl } from "@/components/ui/date-picker-control";
 import { Button } from "@/components/ui/button";
+import { formatAmount } from "@/lib/money";
 import { Label } from "@/components/ui/label";
 
 type Total = Awaited<ReturnType<typeof API.Usage>>["total"];
@@ -21,6 +22,9 @@ export function UsageNumbers({ total }: { total: Total }) {
       ["cached", total.cachedInput, total.missingCached], ["cacheWrite", total.cacheWrite, total.missingWrite],
       ["reasoning", total.reasoning, total.missingReasoning],
     ] as const).map(([key, value, missing]) => <div className="flex justify-between gap-2" key={key}><dt>{t(`aiUsage.${key}`)}</dt><dd>{count(value, missing, total.calls)}</dd></div>)}
+    <div className="flex justify-between gap-2"><dt>{t("aiUsage.estimatedCost")}</dt><dd title={total.estimatedUsd}>{total.pricedCalls ? `${formatAmount(total.estimatedUsd, "USD")}${total.unpricedCalls ? " + ?" : ""}` : "—"}</dd></div>
+    {total.pricedCalls > 0 && <div className="col-span-2 text-muted-foreground">{t("aiUsage.cacheCosts", { read: formatAmount(total.cachedUsd, "USD"), write: formatAmount(total.cacheWriteUsd, "USD") })}</div>}
+    {total.unpricedCalls > 0 && <div className="col-span-2 text-muted-foreground">{t("aiUsage.unpriced", { count: total.unpricedCalls })}</div>}
     <div className="flex justify-between gap-2"><dt>{t("aiUsage.calls")}</dt><dd>{total.calls}</dd></div>
     {total.audioCalls > 0 && <div className="flex justify-between gap-2"><dt>{t("aiUsage.audioSeconds")}</dt><dd>{count(total.audioSeconds, total.missingAudio, total.audioCalls)}</dd></div>}
     {(total.failed > 0 || total.pending > 0) && <p className="col-span-2 text-muted-foreground">{t("aiUsage.outcomes", { failed: total.failed, pending: total.pending })}</p>}
@@ -40,11 +44,11 @@ export function ConversationUsage({ epoch, id, runID, stamp }: { epoch: string; 
       {total.isPending ? <p>{t("aiUsage.loading")}</p> : total.isError || !total.data?.available ? <p role="status">{t("aiUsage.unavailable")}</p> : <>
         {current.data?.available && <div><p className="mb-1 font-medium">{t("aiUsage.current")}</p><UsageNumbers total={current.data.total} /></div>}
         <div><p className="mb-1 font-medium">{t("aiUsage.total")}</p><UsageNumbers total={total.data.total} /></div>
-        {total.data.groups.map(g => <div key={g.key}><p className="mb-1 font-medium">{g.label}</p><UsageNumbers total={g.total} /></div>)}
+        {(total.data.groups ?? []).map(g => <div key={g.key}><p className="mb-1 font-medium">{g.label}</p><UsageNumbers total={g.total} /></div>)}
         {total.data.incomplete && <p role="status">{t("aiUsage.incomplete")}</p>}
       </>}
       <p className="text-muted-foreground">{t("aiUsage.coverage")}</p>
-      <p className="text-muted-foreground">{t("aiUsage.costUnknown")}</p>
+      <p className="text-muted-foreground">{t("aiUsage.costBasis")}</p>
     </div>
   </details>;
 }
@@ -65,17 +69,18 @@ export function AIUsageSettings({ epoch }: { epoch: string }) {
       <div><Label htmlFor="usage-to">{t("aiUsage.to")}</Label><DatePickerControl id="usage-to" value={to} onChange={setTo} /></div>
       <div><Label htmlFor="usage-zone">{t("aiUsage.timezone")}</Label><NativeSelect id="usage-zone" value={zone} onChange={e => setZone(e.target.value)}>{[...new Set([localZone, "UTC"])].map(z => <option key={z}>{z}</option>)}</NativeSelect></div>
       <div><Label htmlFor="usage-group">{t("aiUsage.group")}</Label><NativeSelect id="usage-group" value={groupBy} onChange={e => setGroupBy(e.target.value)}>{["day", "conversation", "model", "kind"].map(v => <option key={v} value={v}>{t(`aiUsage.${v}`)}</option>)}</NativeSelect></div>
-      <div><Label htmlFor="usage-conversation">{t("aiUsage.conversation")}</Label><NativeSelect id="usage-conversation" value={conversation} onChange={e => setConversation(e.target.value)}><option value="">{t("aiUsage.allConversations")}</option>{report.data?.conversations.map((c, i) => <option key={c.key} value={c.key}>{c.deleted ? `${t("aiUsage.deleted")} ${i + 1}` : c.label}</option>)}</NativeSelect></div>
-      <div><Label htmlFor="usage-model">{t("aiUsage.model")}</Label><NativeSelect id="usage-model" value={model} onChange={e => setModel(e.target.value)}><option value="">{t("aiUsage.allModels")}</option>{report.data?.models.map(m => <option key={m}>{m}</option>)}</NativeSelect></div>
+      <div><Label htmlFor="usage-conversation">{t("aiUsage.conversation")}</Label><NativeSelect id="usage-conversation" value={conversation} onChange={e => setConversation(e.target.value)}><option value="">{t("aiUsage.allConversations")}</option>{conversations.map((c, i) => <option key={c.key} value={c.key}>{c.deleted ? `${t("aiUsage.deleted")} ${i + 1}` : c.label}</option>)}</NativeSelect></div>
+      <div><Label htmlFor="usage-model">{t("aiUsage.model")}</Label><NativeSelect id="usage-model" value={model} onChange={e => setModel(e.target.value)}><option value="">{t("aiUsage.allModels")}</option>{(report.data?.models ?? []).map(m => <option key={m}>{m}</option>)}</NativeSelect></div>
       <Button type="button" variant="ghost" onClick={() => {setFrom("");setTo("");setModel("");setConversation("");}}>{t("aiUsage.clear")}</Button>
     </div>
     {report.isPending ? <p role="status">{t("aiUsage.loading")}</p> : report.isError || !report.data?.available ? <p role="alert">{t("aiUsage.unavailable")}</p> : <>
       <UsageNumbers total={report.data.total} />
+      {!!report.data.prices?.length && <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">{t("aiUsage.prices")}</summary><ul className="space-y-1 pt-2">{report.data.prices.map((p, i) => <li key={i}>{p.model} · {p.serviceTier || "ASR"} · {p.version}<br />{p.perMinute ? t("aiUsage.minuteRate", { rate: p.perMinute }) : t("aiUsage.tokenRates", { input: p.input, cached: p.cached, short: p.write30m, long: p.write12h, output: p.output })} · <a href={p.source} target="_blank" rel="noreferrer" className="underline">{p.verifiedAt}</a></li>)}</ul></details>}
       {report.data.incomplete && <p role="status">{t("aiUsage.incomplete")}</p>}
       {!report.data.total.calls && <p>{t("aiUsage.empty")}</p>}
-      <div className="max-h-96 space-y-2 overflow-auto">{report.data.groups.map(g => <details key={g.key} className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm">{groupBy === "kind" ? t(`aiUsage.${g.label === "title" ? "titleKind" : g.label}`) : g.deleted ? `${t("aiUsage.deleted")} ${conversations.findIndex(c => c.key === g.key) + 1}` : g.label || t("aiUsage.unassigned")} · {t("aiUsage.requestCount", { count: g.total.calls })}</summary><div className="pt-2"><UsageNumbers total={g.total} /></div></details>)}</div>
+      <div className="max-h-96 space-y-2 overflow-auto">{(report.data.groups ?? []).map(g => <details key={g.key} className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm">{groupBy === "kind" ? t(`aiUsage.${g.label === "title" ? "titleKind" : g.label}`) : g.deleted ? `${t("aiUsage.deleted")} ${conversations.findIndex(c => c.key === g.key) + 1}` : g.label || t("aiUsage.unassigned")} · {t("aiUsage.requestCount", { count: g.total.calls })}</summary><div className="pt-2"><UsageNumbers total={g.total} /></div></details>)}</div>
     </>}
     <p className="text-xs text-muted-foreground">{t("aiUsage.settingsCoverage")}</p>
-    <p className="text-xs text-muted-foreground">{t("aiUsage.costUnknown")}</p>
+    <p className="text-xs text-muted-foreground">{t("aiUsage.costBasis")}</p>
   </section>;
 }

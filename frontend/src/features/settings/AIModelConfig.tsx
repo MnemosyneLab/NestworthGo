@@ -28,7 +28,7 @@ export function AIModelConfig({
   const [listFailed, setListFailed] = useState(false);
   async function refreshModels() {
     setListing(true); setListFailed(false);
-    try { setModels(await callService(() => API.Models(status.epoch, status.revision))); }
+    try { setModels((await callService(() => API.Models(status.epoch, status.revision))) ?? []); }
     catch {setListFailed(true);}
     finally {setListing(false);}
   }

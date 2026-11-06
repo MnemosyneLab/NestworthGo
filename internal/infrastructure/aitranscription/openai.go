@@ -48,6 +48,7 @@ func transcribe(ctx context.Context, key, audio []byte, format string, transport
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	client := &http.Client{Transport: transport, Timeout: 60 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	usage := assistant.BeginUsage(ctx, assistant.TranscriptionModel)
+	usage.PricingScope = "openai-public"
 	success := false
 	defer func() { assistant.FinishUsage(ctx, usage, success) }()
 	response, err := client.Do(req)

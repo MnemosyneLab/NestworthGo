@@ -100,3 +100,44 @@ func TestUsageFailureMarkerSurvivesRestart(t *testing.T) {
 		t.Fatal("lost coverage marker")
 	}
 }
+
+// A report holds a SQLite read snapshot while new attempts are recorded. This
+// deterministically reproduces the former single-connection pool starvation.
+func TestReportSnapshotDoesNotBlockAccounting(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "private")
+	if err := os.Mkdir(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	c := assistant.BeginUsage(context.Background(), "test-model")
+	c.Kind = "conversation"
+	if err = s.Record(c); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.reader.Query("SELECT payload FROM usage_calls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		t.Fatal("no snapshot")
+	}
+	for i := 0; i < 20; i++ {
+		c := assistant.BeginUsage(context.Background(), "test-model")
+		c.Kind = "conversation"
+		if err = s.Record(c); err != nil {
+			t.Fatalf("write during snapshot: %v", err)
+		}
+	}
+	if err = rows.Close(); err != nil {
+		t.Fatal(err)
+	}
+	calls, err := s.Calls()
+	if err != nil || len(calls) != 21 || s.Incomplete() {
+		t.Fatalf("calls=%d incomplete=%v error=%v", len(calls), s.Incomplete(), err)
+	}
+}

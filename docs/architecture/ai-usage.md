@@ -43,7 +43,7 @@ billing duration. Audio and transcript text are never stored in usage metadata.
 
 `assistant-private/<ledger>/usage.db` is independent of `state.db` and the
 financial database. It uses a private 0700 directory, 0600 SQLite file, FULL sync,
-DELETE journaling, the parent conversation directory's exclusive lock, and
+WAL journaling with a dedicated read connection, the parent conversation directory's exclusive lock, and
 versioned bootstrap. Existing nonprivate files and symlinks are refused. No
 financial schema migration or backup/export selection changes are required.
 Conversation deletion and automatic conversation retention remove content but
@@ -60,6 +60,8 @@ local observed usage, never a complete provider invoice. Crashes before the
 pending write, missing provider usage, and pre-feature requests cannot be
 reconstructed. No existing history is backfilled with fabricated zeros.
 
+Readers use a separate connection and WAL snapshot, so scanning a report cannot
+consume the single writer connection or lock out new accounting writes.
 Reports are local reads with a three-second storage deadline; they scan metadata
 and aggregate on the backend. Only an expanded conversation disclosure polls
 (every ten seconds). Settings refreshes explicitly or when filters change.
@@ -77,15 +79,35 @@ IANA timezone, including daylight-saving transitions. Unknown or partially known
 values render as `—` or a known subtotal plus `?`; failed and unconfirmed request
 counts are visible. Historical usage survives app restarts.
 
-Cost status is explicitly `unknown_price`. No static price table, current-price
-retroactive conversion, account-wide billing API or dollar total is implemented.
-The request APIs do not return an authoritative charge, and model aliases,
-service tiers, account terms, cache retention and pricing changes prevent a
-verified historical invoice from token counts alone. The UI therefore shows
-cost as unavailable, **not zero**. A future estimate must persist an immutable,
-effective-dated price source/rate snapshot and distinguish estimates, partial
-known cost and actual billing; changing a price must not rewrite historical
-cost. Provider billing remains the source of actual charges.
+Public USD estimates use versioned observations in `internal/assistant/pricing`.
+Each terminal call freezes the source, verification date, applicability window,
+actual model, tier, applied rates and exact decimal amount. Reports sum stored
+estimates; they never reprice old calls. Old records without snapshots remain
+unpriced. The UI separates known estimated subtotal from unpriced request count,
+and exposes rates in a collapsed price-basis disclosure. Estimates exclude
+account discounts, taxes and other invoice adjustments.
+
+The initial catalogue is verified on 2026-11-06 and expires for new estimates on
+2026-12-01 (our review deadline, not a provider price guarantee). It covers exact
+listed model IDs on the public OpenAI endpoint, Standard (`default`) responses,
+and provider-duration `gpt-transcribe` ASR. Unknown models, missing actual text
+model/tier, other endpoints/tiers, expired prices or incomplete usage remain
+unpriced. ASR uses the requested model when the response omits it; this basis is
+saved. Browser duration and token-to-audio conversions are never substituted.
+
+Ordinary input = input − cached input − cache writes; the latter two must be
+nonoverlapping. Separate 30-minute and 12-hour write counts and service tier are
+retained. Nonzero writes without complete lifetime counts remain unpriced.
+Reasoning is included in output and never charged twice. For listed text models,
+input over 272,000 applies the documented entire-request 2× input/cache rates
+and 1.5× output rate. The snapshot stores these applied rates. ASR uses exact
+provider seconds × USD/minute ÷ 60. Decimal arithmetic avoids binary floats.
+
+To update prices, verify official pricing and model long-context documentation,
+add a new versioned catalogue with nonoverlapping applicability intervals and
+regression fixtures, and close the previous interval if necessary. Never rewrite
+persisted snapshots or extend a review deadline without verification. Overlapping
+catalogues fail closed to unknown. This is an auditable estimate, not actual billing.
 
 ## Account model discovery
 
@@ -102,6 +124,9 @@ silently change the selection. Discovery is separate from enabling AI requests.
 Checked 2026-11-06 against the pinned SDK/converter source and:
 
 - [Responses usage schema](https://developers.openai.com/api/reference/resources/responses/methods/create)
+- [Public pricing](https://developers.openai.com/api/docs/pricing)
+- [Prompt caching and nonoverlapping counts](https://developers.openai.com/api/docs/guides/prompt-caching#monitor-cache-performance)
+- [Model long-context pricing](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
 - [Account models](https://developers.openai.com/api/reference/resources/models/methods/list)
 - [Transcription usage variants](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create)
 

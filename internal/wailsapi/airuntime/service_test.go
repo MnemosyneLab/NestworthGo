@@ -18,7 +18,7 @@ import (
 
 func TestInstalledIPCExposesDesktopConfigurationWithoutFinancialWrites(t *testing.T) {
 	typ := reflect.TypeFor[*Service]()
-	expected := map[string]bool{"Transcribe": true, "PendingPageOperations": true, "ClaimPageOperation": true, "DeliverPageOperation": true, "SetFullAccess": true, "Reviews": true, "Rename": true, "PendingPageReads": true, "DeliverPageContent": true, "PublishPage": true, "ConsumeNavigation": true, "Configure": true, "SaveCredential": true, "DeleteCredential": true, "Status": true, "List": true, "Create": true, "Inspect": true, "Messages": true, "Start": true, "Cancel": true, "Events": true, "Delete": true}
+	expected := map[string]bool{"Usage": true, "Models": true, "Transcribe": true, "PendingPageOperations": true, "ClaimPageOperation": true, "DeliverPageOperation": true, "SetFullAccess": true, "Reviews": true, "Rename": true, "PendingPageReads": true, "DeliverPageContent": true, "PublishPage": true, "ConsumeNavigation": true, "Configure": true, "SaveCredential": true, "DeleteCredential": true, "Status": true, "List": true, "Create": true, "Inspect": true, "Messages": true, "Start": true, "Cancel": true, "Events": true, "Delete": true}
 	if typ.NumMethod() != len(expected) {
 		t.Fatal("review IPC inventory")
 	}
@@ -28,6 +28,12 @@ func TestInstalledIPCExposesDesktopConfigurationWithoutFinancialWrites(t *testin
 		}
 	}
 	s := NewService(nil)
+	if _, err := s.Usage("", assistant.UsageQuery{}); err == nil {
+		t.Fatal("unavailable runtime exposed usage")
+	}
+	if _, err := s.Models("", 0); err == nil {
+		t.Fatal("unavailable runtime listed models")
+	}
 	if s.Status().Available || s.Status().FullAccess {
 		t.Fatal("closed service advertised authority")
 	}

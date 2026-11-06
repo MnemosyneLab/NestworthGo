@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"errors"
 	"io"
 	"net/url"
@@ -23,6 +22,7 @@ var errStore = errors.New("assistant_usage_unavailable")
 
 type Store struct {
 	db             *sql.DB
+	reader         *sql.DB
 	incompletePath string
 	incomplete     atomic.Bool
 }
@@ -35,7 +35,7 @@ func Open(directory string) (*Store, error) {
 		return nil, errStore
 	}
 	path := filepath.Join(directory, "usage.db")
-	for _, p := range []string{path, path + "-journal", filepath.Join(directory, "usage-incomplete")} {
+	for _, p := range []string{path, path + "-journal", path + "-wal", path + "-shm", filepath.Join(directory, "usage-incomplete")} {
 		if i, e := os.Lstat(p); e == nil {
 			if !i.Mode().IsRegular() || i.Mode().Perm() != 0600 {
 				return nil, errStore
@@ -51,20 +51,33 @@ func Open(directory string) (*Store, error) {
 	header := make([]byte, 100)
 	n, readErr := f.ReadAt(header, 0)
 	_ = f.Close()
-	if n != 0 && (readErr != nil || !bytes.Equal(header[:16], []byte("SQLite format 3\x00")) || binary.BigEndian.Uint32(header[60:64]) != 1) {
+	if n != 0 && (readErr != nil || !bytes.Equal(header[:16], []byte("SQLite format 3\x00"))) {
 		return nil, errStore
 	}
 	if n == 0 && readErr != io.EOF {
 		return nil, errStore
 	}
 	u := url.URL{Scheme: "file", Path: path}
+	// Read the committed version including WAL before any writable open.
+	if n != 0 {
+		probe, e := sql.Open("sqlite", u.String()+"?mode=ro")
+		if e != nil {
+			return nil, errStore
+		}
+		var v int
+		e = probe.QueryRow("PRAGMA user_version").Scan(&v)
+		_ = probe.Close()
+		if e != nil || v != 1 {
+			return nil, errStore
+		}
+	}
 	db, err := sql.Open("sqlite", u.String())
 	if err != nil {
 		return nil, errStore
 	}
 	db.SetMaxOpenConns(1)
 	fail := func() (*Store, error) { _ = db.Close(); return nil, errStore }
-	for _, q := range []string{"PRAGMA journal_mode=DELETE", "PRAGMA synchronous=FULL", "PRAGMA busy_timeout=50"} {
+	for _, q := range []string{"PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", "PRAGMA busy_timeout=50"} {
 		if _, err = db.Exec(q); err != nil {
 			return fail()
 		}
@@ -97,7 +110,12 @@ func Open(directory string) (*Store, error) {
 	if db.QueryRow("SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").Scan(&objects) != nil || objects != 1 || db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='usage_calls'").Scan(&schema) != nil || schema != "CREATE TABLE usage_calls(id TEXT PRIMARY KEY, payload BLOB NOT NULL CHECK(length(payload)<4096))" {
 		return fail()
 	}
-	s := &Store{db: db, incompletePath: filepath.Join(directory, "usage-incomplete")}
+	reader, err := sql.Open("sqlite", u.String()+"?mode=ro")
+	if err != nil {
+		return fail()
+	}
+	reader.SetMaxOpenConns(1)
+	s := &Store{db: db, reader: reader, incompletePath: filepath.Join(directory, "usage-incomplete")}
 	if _, err := os.Stat(s.incompletePath); err == nil {
 		s.incomplete.Store(true)
 	}
@@ -131,7 +149,7 @@ func (s *Store) Record(c assistant.UsageCall) (err error) {
 func (s *Store) Calls() ([]assistant.UsageCall, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	rows, err := s.db.QueryContext(ctx, "SELECT payload FROM usage_calls")
+	rows, err := s.reader.QueryContext(ctx, "SELECT payload FROM usage_calls")
 	if err != nil {
 		return nil, errStore
 	}
@@ -150,6 +168,6 @@ func (s *Store) Calls() ([]assistant.UsageCall, error) {
 	}
 	return result, nil
 }
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error { return errors.Join(s.reader.Close(), s.db.Close()) }
 
 func (s *Store) Incomplete() bool { return s.incomplete.Load() }

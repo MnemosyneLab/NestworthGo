@@ -88,3 +88,11 @@ it("loads account models, preserves manual selection on network errors, and supp
  await user.click(screen.getByRole("button",{name:"Save model configuration"}));
  expect(configure).toHaveBeenCalledWith("host",4,expect.objectContaining({model:"manual-model"}));
 });
+
+it("treats a nullable model list as empty and preserves the configured model", async()=>{
+ const user=userEvent.setup();models.mockResolvedValue(null);mount();
+ await user.click(screen.getByRole("button",{name:"Load models"}));
+ await waitFor(()=>expect(models).toHaveBeenCalledWith("host",4));
+ expect(screen.getByLabelText("Model ID")).toHaveValue("mock");
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});

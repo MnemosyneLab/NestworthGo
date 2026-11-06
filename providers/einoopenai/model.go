@@ -365,6 +365,9 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 	wire.ContentLength = int64(len(body))
 	wire.GetBody = nil
 	usage := assistant.BeginUsage(req.Context(), str(fields, "model"))
+	if req.URL.Scheme == "https" && req.URL.Host == "api.openai.com" && req.URL.Path == "/v1/responses" {
+		usage.PricingScope = "openai-public"
+	}
 	defer func() { assistant.FinishUsage(req.Context(), usage, failure == nil) }()
 	response, err := t.inner.RoundTrip(wire)
 	if err != nil {
