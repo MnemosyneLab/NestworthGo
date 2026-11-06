@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -161,7 +162,8 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 	if len(allowedTools) == 0 {
 		choice = &schema.AgenticToolChoice{Type: schema.ToolChoiceForbidden}
 	}
-	saved.Messages = append(saved.Messages, schema.SystemAgenticMessage(modeInstructions(e.tools["commit_plan"] != nil)), schema.UserAgenticMessage(prompt))
+	saved.Messages = appendModeSnapshot(saved.Messages, e.tools["commit_plan"] != nil)
+	saved.Messages = append(saved.Messages, schema.UserAgenticMessage(prompt))
 	seenCalls := map[string]bool{}
 	calls := 0
 	executed := 0
@@ -363,3 +365,20 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 var _ assistant.Engine = (*Engine)(nil)
 
 func (e *Engine) tainted(raw []byte) bool { return len(e.secret) > 0 && bytes.Contains(raw, e.secret) }
+
+// A snapshot only saves prompt space; it is never execution authority. Compare
+// the latest system message (not a checkpoint flag or any earlier matching
+// message) with the exact current host policy. Legacy/changed/unknown policy
+// gets a new snapshot. Preserve existing history, including old duplicates.
+func appendModeSnapshot(messages []*schema.AgenticMessage, full bool) []*schema.AgenticMessage {
+	current := schema.SystemAgenticMessage(modeInstructions(full))
+	for i := len(messages) - 1; i > 0; i-- {
+		if message := messages[i]; message != nil && message.Role == schema.AgenticRoleTypeSystem {
+			if reflect.DeepEqual(message, current) {
+				return messages
+			}
+			break
+		}
+	}
+	return append(messages, current)
+}

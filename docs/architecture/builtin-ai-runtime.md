@@ -309,7 +309,9 @@ opaque reasoning, tool call/result order and provider/model identity. It is neve
 rebuilt from display text. The next actual SDK request validates/replays those
 native groups in place. The first host-owned system policy contains stable common
 instructions; current mode policy is appended at the end of prior history before
-the new user message. Version-1 provider checkpoints migrate that first policy
+the new user message only on the first turn or when the latest system snapshot
+differs from the current host policy. Unchanged mode adds no snapshot; current
+execution authority is still rebuilt every run. Version-1 provider checkpoints migrate that first policy
 once; version 2 retains a metadata-only Full catalog high-water mark. Desktop
 catalog definitions stay stable across page changes and, after the first Full
 upgrade, permission downgrades. The execution map and wire `allowed_tools` still

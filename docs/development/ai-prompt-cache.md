@@ -30,9 +30,15 @@ The desktop now supplies two independent surfaces:
   definitions, and ordered by name. No Full tool enters a Read-only execution map.
 
 The initial common system policy is independent of mode/page. Current host mode
-is appended before each new user message, after existing history; earlier mode
-messages and complete native output/reasoning stay in place. Each turn therefore
-adds one bounded system message and consumes the existing history/message budget.
+is appended on the first turn or when the latest system snapshot differs from
+the current host mode/policy, before the new user message; earlier mode
+messages and complete native output/reasoning stay in place. Unchanged mode adds no repeated system messages. Snapshot reuse compares the
+latest system message with the exact current policy, ignoring user/assistant text
+and the catalog marker. No extra permission or mode flag is restored. A constant
+mode supports 63 complete no-tool turns within the 128-message budget (two initial
+system messages plus 126 user/assistant messages); genuine transitions consume
+one additional message each. Existing duplicate snapshots are preserved rather
+than compacted, so old checkpoints do not retroactively recover capacity.
 The latest host mode explicitly overrides earlier claims and retained descriptions.
 Final budget-exhausted rounds retain the catalog and send `tool_choice: "none"`.
 
@@ -117,6 +123,11 @@ tools across page/downgrade/recreated engines, observes `allowed_tools` on the
 wire, checks remote-storage settings, and refuses whole mixed call batches before
 any read. A forged Full catalog checkpoint marker cannot authorize `commit_plan`.
 The v1 migration regression verifies opaque native reasoning survives unchanged.
+A real-wire boundary regression recreates the engine for each of 63 completed
+no-tool turns in both Read-only and Full, then refuses turn 64 before HTTP.
+Mode/page switching asserts snapshot counts; old duplicate snapshots, obsolete
+policy, later unknown system messages and user text cannot suppress a required
+mode update. Existing histories are never rewritten to reclaim capacity.
 Existing Full/revocation/receipt/page tests exercise the unchanged host gates.
 
 The same wire tests return explicitly synthetic cached/write token fields through

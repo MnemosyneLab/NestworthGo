@@ -29,6 +29,12 @@ func TestPromptCacheWireModePageRestoreAndInventory(t *testing.T) {
 			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
 				tools := encode(request["tools"])
 				input := request["input"].([]any)
+				if malicious == "" {
+					wantSnapshots := []int{1, 1, 2, 3, 3}[n]
+					if got := strings.Count(encode(input), "Current host mode:"); got != wantSnapshots {
+						t.Errorf("mode snapshots = %d, want %d", got, wantSnapshots)
+					}
+				}
 				if len(priorInput) > 0 && encode(input[:len(priorInput)]) != encode(priorInput) {
 					t.Error("earlier wire input changed")
 				}
@@ -219,5 +225,95 @@ func TestPromptCacheCatalogFlagCannotGrantPermission(t *testing.T) {
 	}
 	if _, err = e.Complete(t.Context(), raw, "synthetic"); err == nil {
 		t.Fatal("checkpoint flag authorized write")
+	}
+}
+
+func TestPromptCacheUnchangedModeRetains63TurnCapacity(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		t.Run(fmt.Sprint(full), func(t *testing.T) {
+			_, shared, _ := ledgerSession(t)
+			session := builtinai.New(shared, assistant.PageSelection{})
+			if full {
+				session.WithFullAccess(func(context.Context, json.RawMessage) (json.RawMessage, error) {
+					t.Error("unexpected dispatch")
+					return nil, assistant.ErrUnavailable
+				})
+			}
+			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
+				if n >= 63 {
+					t.Error("exhausted history reached provider")
+				}
+				input := request["input"].([]any)
+				if len(input) != 3+2*n || strings.Count(encode(input), "Current host mode:") != 1 {
+					t.Errorf("turn %d: repeated mode snapshot or lost history", n+1)
+				}
+				item := textItem()
+				item["id"] = fmt.Sprintf("msg_capacity_%d", n)
+				writeMode(w, request, []any{item})
+			})
+			var history []byte
+			for n := 0; n < 64; n++ {
+				e, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, f.model, session, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				result, err := e.Complete(t.Context(), history, "synthetic capacity")
+				e.Close()
+				if n == 63 {
+					wantBudget(t, result, err, "history_messages")
+					break
+				}
+				if err != nil {
+					t.Fatalf("turn %d: %v", n+1, err)
+				}
+				history = result.History
+			}
+			var saved checkpoint
+			if err := jsoncodec.Unmarshal(history, &saved); err != nil {
+				t.Fatal(err)
+			}
+			if len(saved.Messages) != 128 {
+				t.Fatalf("last complete checkpoint has %d messages", len(saved.Messages))
+			}
+		})
+	}
+}
+
+func TestModeSnapshotUsesLatestExactHostPolicy(t *testing.T) {
+	common := schema.SystemAgenticMessage(commonInstructions())
+	read := schema.SystemAgenticMessage(modeInstructions(false))
+	full := schema.SystemAgenticMessage(modeInstructions(true))
+	for _, tc := range []struct {
+		name     string
+		messages []*schema.AgenticMessage
+		want     int
+	}{
+		{"legacy", []*schema.AgenticMessage{common, schema.UserAgenticMessage("old")}, 3},
+		{"same", []*schema.AgenticMessage{common, read, schema.UserAgenticMessage("old")}, 3},
+		{"old duplicates", []*schema.AgenticMessage{common, read, read, schema.UserAgenticMessage("old")}, 4},
+		{"downgrade", []*schema.AgenticMessage{common, read, full, schema.UserAgenticMessage("old")}, 5},
+		{"user cannot suppress downgrade", []*schema.AgenticMessage{common, full, schema.UserAgenticMessage(modeInstructions(false))}, 4},
+		{"policy update", []*schema.AgenticMessage{common, schema.SystemAgenticMessage("Current host mode: Read-only. obsolete policy")}, 3},
+		{"unknown later system", []*schema.AgenticMessage{common, read, schema.SystemAgenticMessage("unknown")}, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := encode(tc.messages)
+			got := appendModeSnapshot(tc.messages, false)
+			if len(got) != tc.want {
+				t.Fatalf("messages=%d want=%d", len(got), tc.want)
+			}
+			if encode(got[:len(tc.messages)]) != before {
+				t.Fatal("earlier history changed")
+			}
+			// Round-tripped checkpoints must deduplicate equally without extra flags.
+			raw := encode(got)
+			var restored []*schema.AgenticMessage
+			if err := jsoncodec.Unmarshal([]byte(raw), &restored); err != nil {
+				t.Fatal(err)
+			}
+			if len(appendModeSnapshot(restored, false)) != len(got) {
+				t.Fatal("restore duplicated snapshot")
+			}
+		})
 	}
 }
