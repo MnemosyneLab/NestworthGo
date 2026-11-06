@@ -38,6 +38,21 @@ function responsiveViewport(initial = true) {
   return (next: boolean) => act(() => { wide = next; for (const listener of [...listeners]) listener(); });
 }
 
+function workspaceSize(initial: number) {
+  let width = initial;
+  const observers = new Set<() => void>();
+  const measure = HTMLElement.prototype.getBoundingClientRect;
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    return this.dataset.testid === "assistant-workspace" ? new DOMRect(0, 0, width, 900) : measure.call(this);
+  });
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(private callback: () => void) {}
+    observe(element: HTMLElement) { if (element.dataset.testid === "assistant-workspace") observers.add(this.callback); }
+    disconnect() { observers.delete(this.callback); }
+  });
+  return (next: number) => act(() => { width = next; for (const update of observers) update(); });
+}
+
 function mount() {
   const client = createTestQueryClient();
   render(<QueryClientProvider client={client}><Shell /></QueryClientProvider>);
@@ -158,17 +173,7 @@ it("cancels audio when the composer hides or remounts without discarding its dra
 
 it("resizes the dock without remounting the draft or recording and restores its preferred width", async () => {
   const resizeViewport = responsiveViewport();
-  let workspaceWidth = 1216;
-  const observers = new Set<() => void>();
-  const measure = HTMLElement.prototype.getBoundingClientRect;
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
-    return this.dataset.testid === "assistant-workspace" ? new DOMRect(0, 0, workspaceWidth, 900) : measure.call(this);
-  });
-  vi.stubGlobal("ResizeObserver", class {
-    constructor(private callback: () => void) {}
-    observe(element: HTMLElement) { if (element.dataset.testid === "assistant-workspace") observers.add(this.callback); }
-    disconnect() { observers.delete(this.callback); }
-  });
+  const resizeWorkspace = workspaceSize(1216);
   mount();
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
@@ -198,11 +203,11 @@ it("resizes the dock without remounting the draft or recording and restores its 
   expect(voice.cancel).not.toHaveBeenCalled();
   // Window or navigation-rail changes clamp the rendered width, not the saved
   // preference, leaving at least 480px of this workspace for the business page.
-  act(() => { workspaceWidth = 1056; for (const update of observers) update(); });
+  resizeWorkspace(1056);
   expect(dock).toHaveStyle({ width: "576px" });
   expect(screen.getByRole("separator")).toHaveAttribute("aria-valuemax", "576");
   expect(useUiStore.getState().assistantWidth).toBe(600);
-  act(() => { workspaceWidth = 1216; for (const update of observers) update(); });
+  resizeWorkspace(1216);
   expect(dock).toHaveStyle({ width: "600px" });
   screen.getByRole("separator").focus();
   await user.keyboard("{Enter}");
@@ -217,6 +222,38 @@ it("resizes the dock without remounting the draft or recording and restores its 
   resizeViewport(true);
   expect(screen.getByRole("complementary", { name: "AI assistant" })).toHaveStyle({ width: "600px" });
   expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
+  expect(api.Start).not.toHaveBeenCalled();
+});
+
+it.each(["before", "during"])("restores the saved width on Escape when the workspace shrinks %s a drag", async timing => {
+  responsiveViewport();
+  const resizeWorkspace = workspaceSize(timing === "before" ? 1056 : 1216);
+  useUiStore.setState({ assistantWidth: 600 });
+  mount();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
+  const input = screen.getByLabelText("Message");
+  await waitFor(() => expect(input).toBeEnabled());
+  fireEvent.change(input, { target: { value: "Keep draft while cancelling" } });
+  const dock = screen.getByRole("complementary", { name: "AI assistant" });
+  const handle = screen.getByRole("separator", { name: "AI assistant" });
+  expect(dock).toHaveStyle({ width: timing === "before" ? "576px" : "600px" });
+  expect(useUiStore.getState().assistantWidth).toBe(600);
+  handle.setPointerCapture = vi.fn();
+  handle.hasPointerCapture = () => false;
+  fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 1000, isPrimary: true });
+  fireEvent.pointerMove(handle, { pointerId: 1, clientX: 1080 });
+  expect(dock).toHaveStyle({ width: timing === "before" ? "496px" : "520px" });
+  if (timing === "during") resizeWorkspace(1056);
+  await user.keyboard("{Escape}");
+  expect(useUiStore.getState().assistantWidth).toBe(600);
+  expect(dock).toHaveStyle({ width: "576px" });
+  expect(handle).toHaveAttribute("aria-valuenow", "576");
+  resizeWorkspace(1216);
+  expect(dock).toHaveStyle({ width: "600px" });
+  expect(screen.getByLabelText("Message")).toBe(input);
+  expect(input).toHaveValue("Keep draft while cancelling");
+  expect(document.body.style.cursor).toBe("");
   expect(api.Start).not.toHaveBeenCalled();
 });
 

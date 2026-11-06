@@ -43,7 +43,7 @@ export function useDesktopAssistant() {
   const panel = wide ? <aside ref={dockRef} id="desktop-assistant" hidden={!open} aria-label={t("assistant.title")}
     style={expanded ? undefined : { width }}
     className={`${open ? "flex" : "hidden"} relative min-h-0 min-w-0 shrink-0 flex-col border-l border-border bg-card ${expanded ? "flex-1" : ""}`}>
-    {open && !expanded && <PanelResizeHandle value={width} min={320} max={maxWidth} onValueChange={setWidth} onCollapse={collapse}
+    {open && !expanded && <PanelResizeHandle value={preferredWidth} min={320} max={maxWidth} onValueChange={setWidth} onCollapse={collapse}
       aria-labelledby="desktop-assistant-heading" aria-controls="desktop-assistant" title={t("assistant.resize")} aria-valuetext={t("assistant.width", { width })} />}
     <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border px-4">
       <Sparkles aria-hidden className="size-5 text-primary" /><h2 id="desktop-assistant-heading" ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 font-semibold">{t("assistant.title")}</h2>

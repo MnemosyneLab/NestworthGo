@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentProps, type KeyboardEvent, type PointerEvent } from "react";
 
 type Props = Pick<ComponentProps<"div">, "aria-label" | "aria-labelledby" | "aria-controls" | "aria-valuetext" | "title"> & {
+  /** Saved preference; the visible width may be temporarily clamped by bounds. */
   value: number;
   min: number;
   max: number;
@@ -11,9 +12,10 @@ type Props = Pick<ComponentProps<"div">, "aria-label" | "aria-labelledby" | "ari
 /** A vertical splitter on the left edge of a right-hand panel. Its owner keeps
  * the preferred width and supplies bounds from the available workspace. */
 export function PanelResizeHandle({ value, min, max, onValueChange, onCollapse, ...labelProps }: Props) {
-  const drag = useRef<{ id: number; x: number; width: number } | null>(null);
+  const drag = useRef<{ id: number; x: number; width: number; preferredWidth: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const clamp = (width: number) => Math.max(min, Math.min(max, Math.round(width)));
+  const width = clamp(value);
   useEffect(() => {
     if (!dragging) return;
     const style = document.body.style;
@@ -34,7 +36,7 @@ export function PanelResizeHandle({ value, min, max, onValueChange, onCollapse, 
     event.preventDefault();
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { id: event.pointerId, x: event.clientX, width: value };
+    drag.current = { id: event.pointerId, x: event.clientX, width, preferredWidth: value };
     setDragging(true);
   }
   function move(event: PointerEvent<HTMLDivElement>) {
@@ -48,14 +50,16 @@ export function PanelResizeHandle({ value, min, max, onValueChange, onCollapse, 
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     const step = event.shiftKey ? 64 : 16;
     switch (event.key) {
-      case "ArrowLeft": onValueChange(clamp(value + step)); break;
-      case "ArrowRight": onValueChange(clamp(value - step)); break;
+      case "ArrowLeft": onValueChange(clamp(width + step)); break;
+      case "ArrowRight": onValueChange(clamp(width - step)); break;
       case "Home": onValueChange(min); break;
       case "End": onValueChange(max); break;
       case "Enter": stop(event.currentTarget); onCollapse(); break;
       case "Escape":
         if (!drag.current) return;
-        onValueChange(clamp(drag.current.width));
+        // Roll back the preference, not a temporary viewport constraint. The
+        // owner and aria-valuenow still render the restored value within bounds.
+        onValueChange(drag.current.preferredWidth);
         stop(event.currentTarget);
         break;
       default: return;
@@ -63,7 +67,7 @@ export function PanelResizeHandle({ value, min, max, onValueChange, onCollapse, 
     event.preventDefault();
   }
   return <div {...labelProps} role="separator" aria-orientation="vertical" tabIndex={0}
-    aria-valuenow={value} aria-valuemin={min} aria-valuemax={max}
+    aria-valuenow={width} aria-valuemin={min} aria-valuemax={max}
     data-dragging={dragging || undefined}
     className="group absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize touch-none select-none outline-none hover:bg-primary/10 focus-visible:bg-primary/15 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50 data-[dragging]:bg-primary/15"
     onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish} onKeyDown={keyDown}>

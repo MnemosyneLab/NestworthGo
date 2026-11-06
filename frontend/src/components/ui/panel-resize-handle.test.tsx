@@ -4,9 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { PanelResizeHandle } from "./panel-resize-handle";
 
-function mount(onCollapse = vi.fn()) {
+function mount(onCollapse = vi.fn(), initialWidth = 400) {
   function Panel() {
-    const [width, setWidth] = useState(400);
+    const [width, setWidth] = useState(initialWidth);
     return <PanelResizeHandle aria-label="Assistant" aria-controls="panel" value={width} min={320} max={600} onValueChange={setWidth} onCollapse={onCollapse} />;
   }
   const view = render(<Panel />);
@@ -73,6 +73,15 @@ it("restores the initial width when Escape cancels a drag", () => {
   expect(handle).toHaveAttribute("aria-valuenow", "400");
   expect(handle.releasePointerCapture).toHaveBeenCalledWith(1);
   expect(document.body.style.cursor).toBe("");
+});
+
+it("uses the visible width for accessibility and keyboard steps when the preference exceeds the limit", async () => {
+  const { handle } = mount(vi.fn(), 680);
+  const user = userEvent.setup();
+  await user.tab();
+  expect(handle).toHaveAttribute("aria-valuenow", "600");
+  await user.keyboard("{ArrowRight}");
+  expect(handle).toHaveAttribute("aria-valuenow", "584");
 });
 
 it.each(["pointerCancel", "lostPointerCapture", "unmount"])("cleans up an interrupted drag on %s", event => {
