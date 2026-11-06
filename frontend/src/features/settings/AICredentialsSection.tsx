@@ -1,3 +1,4 @@
+import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -31,7 +32,7 @@ export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: b
     } catch { setFailed(true); await status.refetch(); }
     finally { pending.current = false; setBusy(false); onBusyChange?.(false); }
   }
-  return <section className="mb-5 space-y-4 rounded-2xl border border-border bg-card p-5" aria-labelledby="ai-credentials-title">
+  return <SecurityOperationRegion className="contents"><section className="mb-5 space-y-4 rounded-2xl border border-border bg-card p-5" aria-labelledby="ai-credentials-title">
     <h2 id="ai-credentials-title" className="font-semibold">{t("aiCredentials.title")}</h2>
     <p className="text-sm text-muted-foreground">{t("aiCredentials.help")}</p>
     <p className="text-sm text-muted-foreground">{t("aiCredentials.backup")}</p>
@@ -42,5 +43,5 @@ export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: b
       {(failed || status.isError) && <p role="alert">{t("aiCredentials.error")}</p>}
     </form>
     {status.data?.config && <AIModelConfig key={status.data.revision} status={status.data} unavailable={unavailable || busy} onBusyChange={onBusyChange} />}
-  </section>;
+  </section></SecurityOperationRegion>;
 }

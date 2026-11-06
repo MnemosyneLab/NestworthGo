@@ -1,7 +1,8 @@
+import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { act, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { BusinessPageRoot, SecretRegion } from "@/lib/businessCapture";
+import { BusinessPageRoot, SecretRegion, SecurityOperationRegion } from "@/lib/businessCapture";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -58,4 +59,27 @@ it("reports delivery only for asynchronous handlers, preserving pending and erro
  function Form(){const [state,setState]=useState("ready");return <BusinessPageRoot view={view} accessIdentity="synthetic"><Button disabled={state==="pending"} onClick={async()=>{setState("pending");await new Promise<void>(r=>{finish=r;});setState("failed validation");}}>Submit</Button><p role="status">{state}</p></BusinessPageRoot>;}
  render(<Form/>);act(()=>{expect(execute(operation("Submit")).state).toBe("dispatched");});expect(screen.getByRole("status")).toHaveTextContent("pending");
  expect(execute(operation("Submit")).state).toBe("blocked");await act(async()=>finish());expect(screen.getByRole("status")).toHaveTextContent("failed validation");
+});
+
+it("inherits a protected security source through real nested shared portals",async()=>{
+ const click=vi.fn();render(<BusinessPageRoot view={view} accessIdentity="synthetic"><SecurityOperationRegion><p>Public access status</p><Popover><PopoverTrigger>Security options</PopoverTrigger><PopoverContent><Popover><PopoverTrigger>Nested security options</PopoverTrigger><PopoverContent><Button onClick={click}>Change access</Button></PopoverContent></Popover></PopoverContent></Popover></SecurityOperationRegion><Button onClick={click}>Ordinary business</Button></BusinessPageRoot>);
+ await userEvent.click(screen.getByRole("button",{name:"Security options"}));await userEvent.click(await screen.findByRole("button",{name:"Nested security options"}));await screen.findByRole("button",{name:"Change access"});
+ const page=capturePageContent(view,"generation");const node=page.nodes.find(n=>n.name==="Change access")!;expect(node).toBeDefined();expect(node.state).toContain("operation_protected=true");expect(node.actions).toEqual([]);expect(node.targetRef).toBeUndefined();expect(JSON.stringify(page)).toContain("Public access status");expect(click).not.toHaveBeenCalled();
+});
+it("revokes already-mounted owned popup controls when their business owner becomes occluded",async()=>{
+ const click=vi.fn();const content=(occluded:boolean)=><BusinessPageRoot view={view} accessIdentity="synthetic" occluded={occluded}><Popover open><PopoverTrigger>Options</PopoverTrigger><PopoverContent><Button onClick={click}>Popup action</Button></PopoverContent></Popover></BusinessPageRoot>;
+ const r=render(content(false));await screen.findByRole("button",{name:"Popup action"});const before=operation("Popup action");r.rerender(content(true));
+ expect(execute(before).state).toBe("stale");const fresh=operation("Popup action");expect(execute(fresh).state).toBe("blocked");expect(click).not.toHaveBeenCalled();r.rerender(content(false));act(()=>{expect(execute(operation("Popup action")).state).toBe("dispatched");});expect(click).toHaveBeenCalledOnce();
+});
+it("reports unverified when a real shared React click handler throws through window.error",()=>{
+ const failure=new Error("synthetic React handler failure");const click=vi.fn(()=>{throw failure;});
+ // Keep jsdom's test-level uncaught-error reporter from treating the deliberately
+ // induced handler failure as a suite error. Production dispatch does not cancel it.
+ const observed:unknown[]=[];const onError=(event:ErrorEvent)=>{observed.push(event.error);event.preventDefault();};window.addEventListener("error",onError);
+ try {render(<BusinessPageRoot view={view} accessIdentity="synthetic"><Button onClick={click}>Failing action</Button></BusinessPageRoot>);expect(execute(operation("Failing action")).state).toBe("unverified");expect(click).toHaveBeenCalled();expect(observed).toContain(failure);}
+ finally {window.removeEventListener("error",onError);}
+});
+it("revokes a formerly ordinary target and excludes external submit controls for protected forms",()=>{
+ const click=vi.fn();const content=(protectedNow:boolean)=><BusinessPageRoot view={view} accessIdentity="synthetic"><div data-assistant-operation={protectedNow ? "protected" : undefined}><form id="security-form" onSubmit={e=>{e.preventDefault();click();}}><Input aria-label="Public setting"/></form></div><Button form="security-form">Save access</Button><Button type="button" onClick={click}>Ordinary business</Button></BusinessPageRoot>;
+ const r=render(content(false));const old=operation("Save access");r.rerender(content(true));expect(execute(old).state).toBe("stale");const page=capturePageContent(view,"generation");expect(page.nodes.find(n=>n.name==="Save access")?.targetRef).toBeUndefined();expect(click).not.toHaveBeenCalled();act(()=>{expect(execute(operation("Ordinary business")).state).toBe("dispatched");});expect(click).toHaveBeenCalledOnce();
 });

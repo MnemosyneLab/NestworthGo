@@ -1,3 +1,4 @@
+import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -402,7 +403,7 @@ export function ModelConversation() {
           <ArrowUp className="size-4" aria-hidden="true" />{t("aiChat.send")}
         </Button>
         </div>
-        <label className="flex items-start gap-2 text-xs text-muted-foreground">
+        <SecurityOperationRegion className="contents"><label className="flex items-start gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={status.data?.financialWrites === true && !status.data?.fullAccess} disabled={busy || (!status.data?.financialWrites && (!status.data?.available || running))}
             onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetWritePermission(epoch,configRevision,enabled)));}} />
           {t("aiChat.writePermission")}
@@ -411,7 +412,7 @@ export function ModelConversation() {
           <input type="checkbox" checked={status.data?.fullAccess === true} disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running))}
             onChange={event => {const enabled=event.target.checked;void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}} />
           {t("aiChat.fullPermission")}
-        </label>
+        </label></SecurityOperationRegion>
         <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.navigationOptions")}</summary>
         <p className="py-2 leading-relaxed">{t("aiChat.navigationHelp")}</p>

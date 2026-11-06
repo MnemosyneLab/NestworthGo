@@ -810,3 +810,25 @@ The bridge returns bounded metadata and polls only pending IDs; full semantic
 capture occurs on demand, not every polling interval. Each operation adds one
 runtime freshness read and one frontend pre-dispatch capture. No whole-ledger
 scan, background provider request or persistent operation queue is introduced.
+
+Security administration is outside generic page-operation authority even in Full
+mode. `SecurityOperationRegion` keeps non-secret status and labels readable, but
+omits operation targets/actions and marks `operation_protected=true`. It covers
+MCP/mobile access and token generation, AI credentials/model configuration and
+permission switches, provider credential submission, cloud backup destinations
+and access operations, and credential-bearing backup/export/restore controls.
+Ordinary formatting preferences and business controls remain operable. This is an
+operation boundary, distinct from `SecretRegion` value redaction: revealing a
+credential still never publishes its value. Full ledger permission cannot be used
+to grant or reconfigure another access channel or to administer its own authority.
+
+Shared portal context and source provenance propagate operation protection through
+nested portals. External controls associated with a protected form also cannot
+submit/edit it. Assistant occlusion propagates from the owning business root to
+already-mounted owned portals; removing occlusion requires a fresh snapshot.
+Synchronous React handler failures can be reported through `window.error` rather
+than thrown by `click`; the dispatcher observes that event only for the dispatch
+interval, returns `unverified`, and always removes its observer. This does not
+suppress application error reporting. Later asynchronous failures still require
+fresh page/authoritative reads: `dispatched` remains event delivery, never task or
+financial success.

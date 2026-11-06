@@ -1,4 +1,4 @@
-import { capturePageContent, capturedPageControl, controlOperations } from "./pageContent";
+import { capturePageContent, capturedPageControl, controlOperations, protectedOperationElement } from "./pageContent";
 
 export type PageOperation = { snapshotId:string; targetRef:string; action:string; value?:string; optionRef?:string };
 export type PageOperationResult = { state:string; snapshotId:string };
@@ -13,8 +13,15 @@ export function operatePageControl(viewKey:string, generation:string, operation:
  const el=capturedPageControl(operation.targetRef);
  const node=before.nodes.find(n=>n.targetRef===operation.targetRef);
  if(!el || !el.isConnected || !node || !controlOperations(el).includes(operation.action)) return result("invalid_target");
- if(node.state.some(s=>["inert=true","disabled=true","readonly=true","busy=true","redacted","value_redacted=true"].includes(s)) ||
-   el.closest('[inert],[aria-hidden="true"],[aria-busy="true"],[aria-disabled="true"],[data-assistant-private],[data-assistant-occluded="assistant"]') || el.matches(":disabled")) return result("blocked");
+ if(protectedOperationElement(el) || node.state.some(s=>["inert=true","disabled=true","readonly=true","busy=true","redacted","value_redacted=true"].includes(s)) ||
+   el.closest('[inert],[aria-hidden="true"],[aria-busy="true"],[aria-disabled="true"],[data-assistant-private],[data-assistant-operation="protected"],[data-assistant-occluded="assistant"]') || el.matches(":disabled")) return result("blocked");
+ let handlerFailed=false;
+ // Browser event dispatch reports React handler exceptions through window.error
+ // instead of throwing from click()/dispatchEvent(). Observe this synchronous
+ // dispatch interval without suppressing the application's normal reporting.
+ const onError=()=>{handlerFailed=true;};
+ window.addEventListener("error",onError);
+ try {
  if(operation.action==="activate") {
   if(operation.value!==undefined || operation.optionRef!==undefined) return result("invalid_target");
   // No synthetic keyboard, arbitrary event names, routes or code are accepted.
@@ -33,5 +40,6 @@ export function operatePageControl(viewKey:string, generation:string, operation:
  } else return result("invalid_target");
  // Dispatch is not a receipt. Async validation, queries and financial commits
  // remain owned by the existing UI. The next read observes their current state.
- return result("dispatched");
+ return result(handlerFailed ? "unverified" : "dispatched");
+ } finally { window.removeEventListener("error",onError); }
 }

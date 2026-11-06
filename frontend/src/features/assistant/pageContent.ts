@@ -6,6 +6,10 @@ let lastEncoding="", lastID="";
 const controlIdentities=new WeakMap<Element,string>();
 let capturedControls=new Map<string,HTMLElement>();
 export function capturedPageControl(ref:string) { return capturedControls.get(ref); }
+export function protectedOperationElement(el:Element):boolean {
+ const form=el instanceof HTMLButtonElement || el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement || el instanceof HTMLOptionElement ? el.form : null;
+ return !!el.closest('[data-assistant-operation="protected"]') || !!form?.closest('[data-assistant-operation="protected"]');
+}
 export function controlOperations(el:Element):string[] {
  if(el instanceof HTMLInputElement){
   if(["checkbox","radio"].includes(el.type)) return ["activate"];
@@ -46,6 +50,7 @@ function visibleWithin(el:Element,boundary:Element,styles:WeakMap<Element,CSSSty
 export function capturePageContent(viewKey:string,generation=viewKey):SemanticPage {
  const nodes:SemanticNode[]=[];
  const controls=new Map<string,HTMLElement>();
+ const protectedPortals=new Set<Element>();
  const styles=new WeakMap<Element,CSSStyleDeclaration>();
  const visibility=new WeakMap<Element,WeakMap<Element,boolean>>();
  const visible=(el:Element,boundary:Element)=>{
@@ -92,7 +97,7 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
    for(const portal of pending){
     const origin=origins.get(portal.dataset.assistantPortal || "");
     const source=origin?.parentElement;
-    if(source && ownedBoundaries.some(boundary=>visible(source,boundary)) && visible(portal,portal) && exposedAncestors(portal,false)) {ownedBoundaries.push(portal);pending.delete(portal);added=true;}
+    if(source && ownedBoundaries.some(boundary=>visible(source,boundary)) && visible(portal,portal) && exposedAncestors(portal,false)) {if(source.closest('[data-assistant-operation="protected"]') || ownedBoundaries.some(boundary=>protectedPortals.has(boundary) && boundary.contains(source))) protectedPortals.add(portal);ownedBoundaries.push(portal);pending.delete(portal);added=true;}
    }
    if(!added) break;
   }
@@ -157,7 +162,7 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
    let nextParent=parent;
    if(role){
     const state=new Set<string>();
-    if(el.closest('[inert]') || el.closest('[aria-hidden="true"]') || root!.dataset.assistantOccluded==="assistant" && root!.contains(el)) state.add("inert=true");
+    if(el.closest('[inert]') || el.closest('[aria-hidden="true"]') || root!.dataset.assistantOccluded==="assistant") state.add("inert=true");
     for(const key of ["expanded","selected","checked","pressed","invalid","busy","readonly","disabled","sort","current","valuenow","valuemin","valuemax"]){const value=el.getAttribute(`aria-${key}`);if(value!==null) state.add(`${key}=${value}`);}
     if(el.matches(":disabled")) state.add("disabled=true");
     if(el instanceof HTMLInputElement){if(["checkbox","radio"].includes(el.type)) state.add(`checked=${el.checked}`);if(el.readOnly) state.add("readonly=true");}
@@ -182,10 +187,12 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
      valueRevisions.push(prior.revision);
     }
     const value=preview.value;
+    const protectedOperation=protectedOperationElement(el) || boundaries.some(boundary=>protectedPortals.has(boundary) && boundary.contains(el));
+    if(protectedOperation) state.add("operation_protected=true");
     if(state.size>12 || Array.from(state).some(s=>s.length>2048 || new TextEncoder().encode(s).length>2048)) throw new Error("page_content_budget");
-    const actions=controlOperations(el);
+    const actions=protectedOperation ? [] : controlOperations(el);
     let targetRef:string|undefined;
-    if((actions.length || el instanceof HTMLOptionElement) && el instanceof HTMLElement){
+    if(!protectedOperation && (actions.length || el instanceof HTMLOptionElement) && el instanceof HTMLElement){
      if(!controlIdentities.has(el)) controlIdentities.set(el,crypto.randomUUID());
      targetRef=controlIdentities.get(el)!; controls.set(targetRef,el);
     }

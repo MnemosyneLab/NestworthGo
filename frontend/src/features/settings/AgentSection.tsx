@@ -1,4 +1,4 @@
-import { SecretRegion } from "@/lib/businessCapture";
+import { SecretRegion, SecurityOperationRegion } from "@/lib/businessCapture";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, History, Plug, Power, ShieldCheck, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -48,7 +48,7 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
     }
     setReviewChoice(null);
   }
-  return <section id="settings-agent" aria-labelledby="settings-agent-title" className="@container space-y-5">
+  return <SecurityOperationRegion className="contents"><section id="settings-agent" aria-labelledby="settings-agent-title" className="@container space-y-5">
     <header className="space-y-2">
       <h2 id="settings-agent-title" className="text-base font-semibold">{t("agent.title")}</h2>
       <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("agent.description")}</p>
@@ -130,5 +130,5 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
       <p className="text-xs leading-5 text-muted-foreground">{t("agent.keepOpen")}</p>
       <Button type="button" variant="ghost" className="self-start text-muted-foreground hover:text-destructive @min-[32rem]:self-auto" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Disable()))}><Power className="size-4" aria-hidden="true" />{t("agent.disable")}</Button>
     </div>}
-  </section>;
+  </section></SecurityOperationRegion>;
 }

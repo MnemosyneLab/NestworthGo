@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -13,7 +15,7 @@ const preview = { token: "candidate-token", currentHousehold: "Current family", 
 function renderSection(configured = false) {
   api.Status.mockResolvedValue({ ...initial, credentialsConfigured: configured });
   const client = createTestQueryClient({ retry: false });
-  return render(<QueryClientProvider client={client}><ContinuousBackupSection /></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><ContinuousBackupSection /></BusinessPageRoot></QueryClientProvider>);
 }
 beforeEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset());
@@ -185,4 +187,13 @@ it("rejects a repeated continuation while retaining the previous page", async ()
   await screen.findByRole("alert");
   expect(screen.getByLabelText("Recovery point").querySelectorAll("option")).toHaveLength(2);
   expect(api.RecoveryPointPage).toHaveBeenCalledTimes(2);
+});
+
+it("cannot generically redirect existing backup credentials or invoke backup connection actions",async()=>{
+ const user=userEvent.setup();renderSection(true);await screen.findByLabelText("Bucket name");
+ await user.clear(screen.getByLabelText("Bucket name"));await user.type(screen.getByLabelText("Bucket name"),"changed-by-human");
+ expect(screen.getByRole("button",{name:"Save backup settings"})).toBeEnabled();
+ const page=capturePageContent("settings:");
+ for(const node of page.nodes.filter(n=>["button","textbox","checkbox","combobox","option"].includes(n.role) && !n.state.includes("redacted"))){expect(node.targetRef).toBeUndefined();expect(node.actions).toEqual([]);expect(node.state).toContain("operation_protected=true");}
+ expect(JSON.stringify(page)).toContain("changed-by-human");expect(api.Configure).not.toHaveBeenCalled();expect(api.TestConnection).not.toHaveBeenCalled();expect(api.BackupNow).not.toHaveBeenCalled();
 });

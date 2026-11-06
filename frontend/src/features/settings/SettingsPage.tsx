@@ -1,3 +1,4 @@
+import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -394,7 +395,7 @@ export function SettingsPage() {
         <p className="text-sm text-muted-foreground">{t("settings.sections.credentialsHelp")}</p>
         <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
           <div className="p-5"><h3 className="font-medium">{t("settings.sections.coinGecko")}</h3>
-        <form onSubmit={submitCoinGeckoKey} className="mt-4 flex max-w-xl flex-col gap-2">
+        <SecurityOperationRegion className="contents"><form onSubmit={submitCoinGeckoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <SecretField key={`coinGecko-${saveCoinGeckoKey.submittedAt}-${activeSection === "market"}`} id="settings-coinGecko-key" label={t("settings.coinGeckoKey")} hasValue={Boolean(coinGeckoKeyStatus.data?.configured)} value={coinGeckoKey} onChange={setCoinGeckoKey} disabled={saveCoinGeckoKey.isPending || deleteCoinGeckoKey.isPending} onRemove={() => deleteCoinGeckoKey.mutate()} removeLabel={t("settings.removeCoinGeckoKey")} />
           <Button type="submit" disabled={!coinGeckoKey.trim() || saveCoinGeckoKey.isPending}>{saveCoinGeckoKey.isPending ? t("common.pending") : t("settings.saveCoinGeckoKey")}</Button>
           {coinGeckoKeyStatus.data?.configured ? (
@@ -408,7 +409,7 @@ export function SettingsPage() {
               {t("settings.coinGeckoKeyError")}
             </p>
           )}
-        </form>
+        </form></SecurityOperationRegion>
           </div>
         </div>
       </section>

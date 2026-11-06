@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -27,7 +29,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/re
 }));
 function renderSection() {
   const client = createTestQueryClient({ retry: false });
-  return { ...render(<QueryClientProvider client={client}><DataManagementSection /></QueryClientProvider>), client };
+  return { ...render(<QueryClientProvider client={client}><BusinessPageRoot view="settings:" accessIdentity="synthetic"><DataManagementSection /></BusinessPageRoot></QueryClientProvider>), client };
 }
 beforeEach(() => { exportJSON.mockReset(); rebuildDerivedData.mockReset(); success.mockReset(); errorToast.mockReset(); });
 describe("Data export", () => {
@@ -97,4 +99,10 @@ describe("Derived data rebuild", () => {
     expect(await screen.findByText("Period: 2026-09-29.")).toBeInTheDocument();
     expect(rebuildDerivedData).toHaveBeenCalledTimes(2);
   });
+});
+
+it("protects credential-bearing backup and restore actions without blocking derived-data controls",async()=>{
+ renderSection();await screen.findByRole("button",{name:"Back up data"});const page=capturePageContent("settings:");
+ for(const name of ["Back up data","Restore from backup","Export data"]){const node=page.nodes.find(n=>n.role==="button" && n.name===name)!;expect(node.targetRef).toBeUndefined();expect(node.state).toContain("operation_protected=true");}
+ expect(page.nodes.some(n=>n.role==="button" && n.targetRef)).toBe(true);expect(exportJSON).not.toHaveBeenCalled();expect(rebuildDerivedData).not.toHaveBeenCalled();
 });

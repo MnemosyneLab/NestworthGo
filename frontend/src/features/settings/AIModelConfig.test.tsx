@@ -1,3 +1,5 @@
+import { BusinessPageRoot } from "@/lib/businessCapture";
+import { capturePageContent } from "@/features/assistant/pageContent";
 import { beforeEach, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -23,7 +25,7 @@ function mount(credentials = "present", enabled = false) {
   } as Awaited<ReturnType<typeof API.Status>>;
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
-      <AIModelConfig status={status} unavailable={false} />
+      <BusinessPageRoot view="settings:" accessIdentity="synthetic"><AIModelConfig status={status} unavailable={false} /></BusinessPageRoot>
     </QueryClientProvider>,
   );
 }
@@ -63,4 +65,10 @@ it("leaves activation unavailable without a key and allows explicit shutdown", a
       enabled: false,
     }),
   );
+});
+
+it("keeps model configuration readable without granting generic edit or activation targets",()=>{
+ mount();const page=capturePageContent("settings:");
+ for(const name of ["Model ID","Enable desktop model requests","Save model configuration"]){const node=page.nodes.find(n=>n.role!=="text" && n.name===name)!;expect(node).toBeDefined();expect(node.targetRef).toBeUndefined();expect(node.actions).toEqual([]);expect(node.state).toContain("operation_protected=true");}
+ expect(JSON.stringify(page)).toContain("mock");expect(configure).not.toHaveBeenCalled();
 });

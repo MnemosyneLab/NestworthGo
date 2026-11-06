@@ -100,3 +100,22 @@ describe("AgentSection", () => {
     expect(screen.queryByRole("button", { name: "Show connection configuration" })).not.toBeInTheDocument();
   });
 });
+
+it("keeps MCP authority controls human-only even for Full generic operations",async()=>{
+ const { operatePageControl }=await import("@/features/assistant/pageOperations");
+ const user=userEvent.setup();mount();await screen.findByRole("button",{name:"Enable MCP"});
+ const page=capturePageContent("settings:");
+ for(const name of ["Agent permissions","Enable MCP"]){const node=page.nodes.find(n=>n.role!=="text" && n.name===name)!;expect(node).toBeDefined();expect(node.targetRef).toBeUndefined();expect(node.actions).toEqual([]);expect(node.state).toContain("operation_protected=true");}
+ // Neither a semantic ID nor a fabricated target confers execution authority.
+ const select=page.nodes.find(n=>n.role==="combobox" && n.name==="Agent permissions")!;
+ expect(operatePageControl("settings:","settings:",{snapshotId:page.id,targetRef:select.id,action:"select_option",optionRef:page.nodes.find(n=>n.name==="Full ledger write")?.id ?? "ledger_write"},true,false).state).toBe("invalid_target");
+ expect(enable).not.toHaveBeenCalled();expect(connection).not.toHaveBeenCalled();expect(setReview).not.toHaveBeenCalled();
+ await user.selectOptions(screen.getByLabelText("Agent permissions"),"ledger_write");
+ const changed=capturePageContent("settings:");const button=changed.nodes.find(n=>n.name==="Enable MCP")!;
+ expect(operatePageControl("settings:","settings:",{snapshotId:changed.id,targetRef:button.id,action:"activate"},true,false).state).toBe("invalid_target");expect(enable).not.toHaveBeenCalled();
+ await user.click(screen.getByRole("button",{name:"Enable MCP"}));await waitFor(()=>expect(enable).toHaveBeenCalledWith("ledger_write"));
+ await screen.findByRole("button",{name:"Show connection configuration"});
+ const running=capturePageContent("settings:");expect(running.nodes.find(n=>n.name==="Show connection configuration")?.targetRef).toBeUndefined();
+ await user.click(screen.getByRole("button",{name:"Show connection configuration"}));await screen.findByRole("textbox",{name:"MCP connection configuration"});
+ expect(JSON.stringify(capturePageContent("settings:"))).not.toContain("test-secret");
+});
