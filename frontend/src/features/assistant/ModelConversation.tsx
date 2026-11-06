@@ -1,3 +1,4 @@
+import { ConversationUsage } from "./AIUsage";
 import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -346,6 +347,7 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
         operations={operations.data ?? []} operationsError={operations.isError}
         submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
         busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
+      {id && <ConversationUsage epoch={epoch} id={id} runID={latest.data?.runs?.[0]?.id ?? ""} stamp={`${latest.data?.updated ?? ""}:${latest.data?.runs?.[0]?.state ?? ""}:${latest.data?.titleSource ?? ""}`} />}
       <form
         className="shrink-0 space-y-3 border-t border-border p-3"
         onSubmit={(event) => {

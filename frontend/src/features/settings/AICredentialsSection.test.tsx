@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import nilRuntimeStatus from "../../../../testdata/assistant/nil-runtime-status.json";
 import { AICredentialsSection } from "./AICredentialsSection";
 const api = vi.hoisted(() => ({ Status: vi.fn(), SaveCredential: vi.fn(), DeleteCredential: vi.fn() }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ ...api, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }));
 beforeEach(() => {
   vi.clearAllMocks();
   api.Status.mockResolvedValue({ epoch: "host-epoch", credentials: "missing", fullAccess: false, available: false });

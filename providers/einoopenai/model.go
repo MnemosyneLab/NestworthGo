@@ -364,6 +364,8 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 	wire.Body = io.NopCloser(bytes.NewReader(body))
 	wire.ContentLength = int64(len(body))
 	wire.GetBody = nil
+	usage := assistant.BeginUsage(req.Context(), str(fields, "model"))
+	defer func() { assistant.FinishUsage(req.Context(), usage, failure == nil) }()
 	response, err := t.inner.RoundTrip(wire)
 	if err != nil {
 		if response != nil && response.Body != nil {
@@ -398,10 +400,11 @@ func (t *transport) RoundTrip(req *http.Request) (responseOut *http.Response, fa
 	var raw []byte
 	var output []json.RawMessage
 	if state.stream {
-		raw, output, err = validateStreamReader(response.Body, t.limits, state.display)
+		raw, output, err = validateStreamReader(response.Body, t.limits, state.display, func(raw []byte) { assistant.CaptureUsage(&usage, raw) })
 	} else {
 		raw, err = boundedRead(response.Body, t.limits.Bytes)
 		if err == nil {
+			assistant.CaptureUsage(&usage, raw)
 			output, err = validateResponse(raw, t.limits)
 		}
 	}

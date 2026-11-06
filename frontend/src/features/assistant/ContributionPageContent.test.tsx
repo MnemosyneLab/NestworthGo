@@ -15,7 +15,7 @@ const fixture = vi.hoisted(() => ({ fetching: false, data: {
   summary: {total: {amount: "12.34", currency: "USD"}, positive: {amount: "12.34", currency: "USD"}, negative: {amount: "0", currency: "USD"}},
 } }));
 const api = vi.hoisted(() => ({Status: vi.fn(), PendingPageReads: vi.fn(), DeliverPageContent: vi.fn(), PublishPage: vi.fn(),  ConsumeNavigation: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Messages: vi.fn(), Start: vi.fn(), Cancel: vi.fn(), Create: vi.fn(), Delete: vi.fn()}));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ ...api, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }));
 vi.mock("@/queries/returnAnalysis", () => ({useContribution: () => ({data: fixture.data, isLoading: false, isError: false, isFetching: fixture.fetching}), useContributionItem: () => ({})}));
 vi.mock("@/queries/accounts", () => ({useAccounts: () => ({data: []})}));
 vi.mock("@/queries/investments", () => ({useInstruments: () => ({data: []})}));

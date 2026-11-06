@@ -97,7 +97,7 @@ func (r *Runtime) startTitle(id string, cfg ModelConfig, prompt string) {
 	go func() {
 		defer r.wg.Done()
 		defer cancel()
-		title, err := r.generateTitle(ctx, cfg, revision, titleText(prompt, 512))
+		title, err := r.generateTitle(r.usageContext(ctx, id, "", "title"), cfg, revision, titleText(prompt, 512))
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		delete(r.titles, id)

@@ -159,3 +159,16 @@ func (s *Service) DeliverPageOperation(epoch, id string, result assistant.PageOp
 	}
 	return s.runtime.DeliverPageOperation(context.Background(), epoch, id, result)
 }
+
+func (s *Service) Usage(epoch string, q assistant.UsageQuery) (assistant.UsageReport, error) {
+	if s.runtime == nil {
+		return assistant.UsageReport{}, assistant.ErrUnavailable
+	}
+	return s.runtime.Usage(context.Background(), epoch, q)
+}
+func (s *Service) Models(epoch string, revision uint64) ([]string, error) {
+	if s.runtime == nil {
+		return nil, assistant.ErrUnavailable
+	}
+	return s.runtime.Models(context.Background(), epoch, revision)
+}

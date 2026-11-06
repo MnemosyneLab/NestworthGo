@@ -21,7 +21,7 @@ const inspectBackup = vi.fn();
 const confirmRestore = vi.fn();
 const cloud = vi.hoisted(() => ({ Status: vi.fn(), RetentionStatus: vi.fn(), Configure: vi.fn(), RecoveryPointPage: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn(), BackupNow: vi.fn() }));
 const ai = vi.hoisted(() => ({ Status: vi.fn(), SaveCredential: vi.fn(), DeleteCredential: vi.fn() }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ai);
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ ...ai, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }));
 const agent = vi.hoisted(() => ({ Status: vi.fn(), RecentOperations: vi.fn(), Connection: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup", () => ({ Service: cloud }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/agent", () => ({ Service: agent }));

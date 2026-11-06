@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -170,6 +171,8 @@ type CapabilityLifecycle interface {
 }
 
 type Options struct {
+	Usage               UsageStore
+	ModelLister         ModelLister
 	Transcriber         Transcriber
 	Reviews             ReviewProvider
 	TitleGenerator      TitleGenerator
@@ -185,6 +188,7 @@ type Options struct {
 	Timeout             time.Duration
 }
 type Runtime struct {
+	usageFailed          atomic.Bool
 	fullEnabled          bool
 	reviewBusy           map[string]bool
 	titles               map[string]context.CancelFunc
@@ -729,7 +733,7 @@ func (r *Runtime) execute(ctx context.Context, cancel context.CancelFunc, id, ru
 	r.mu.Unlock()
 	result := Completion{}
 	if err == nil {
-		result, err = r.invoke(ctx, cfg, id, runID, history, prompt)
+		result, err = r.invoke(r.usageContext(ctx, id, runID, "conversation"), cfg, id, runID, history, prompt)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -840,6 +844,9 @@ func (r *Runtime) Close() error {
 		r.wg.Wait()
 		if r.options.Capabilities != nil {
 			r.options.Capabilities.Close()
+		}
+		if r.options.Usage != nil {
+			_ = r.options.Usage.Close()
 		}
 		r.closeErr = r.options.Store.Close()
 	})

@@ -225,7 +225,7 @@ func validateStream(raw []byte, limits Limits) (result []byte, outputResult []js
 }
 
 // Only provisional display text escapes before terminal validation and clean EOF.
-func validateStreamReader(reader io.Reader, limits Limits, display func(string)) (result []byte, outputResult []json.RawMessage, failure error) {
+func validateStreamReader(reader io.Reader, limits Limits, display func(string), usage ...func([]byte)) (result []byte, outputResult []json.RawMessage, failure error) {
 	rule := "stream_frame"
 	terminalCheck := "not_reached"
 	refreshedItems := 0
@@ -294,6 +294,11 @@ func validateStreamReader(reader io.Reader, limits Limits, display func(string))
 		sequence = seq
 		rule = streamRule(typ)
 		switch typ {
+		case "response.failed", "response.incomplete", "response.cancelled":
+			if len(usage) > 0 {
+				usage[0](obj["response"])
+			}
+			return errProtocol
 		case "response.created":
 			resp, err := object(obj["response"])
 			if err != nil || responseID != "" || len(items) != 0 || str(resp, "object") != "response" || str(resp, "status") != "in_progress" || str(resp, "id") == "" || !nullOrAbsent(resp["error"]) || !nullOrAbsent(resp["incomplete_details"]) {
@@ -368,6 +373,9 @@ func validateStreamReader(reader io.Reader, limits Limits, display func(string))
 			}
 			prior.done = obj["item"]
 		case "response.completed":
+			if len(usage) > 0 {
+				usage[0](obj["response"])
+			}
 			terminalCheck = "response_validation"
 			output, err := validateResponse(obj["response"], limits)
 			if err != nil {

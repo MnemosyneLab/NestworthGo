@@ -14,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aicredentials"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aistate"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/aitranscription"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/aiusage"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/providers/einoopenai"
 )
@@ -44,6 +45,11 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 	if err != nil {
 		return nil, assistant.ErrStorage
 	}
+	usage, _ := aiusage.Open(directory) // Usage failure must not disable chat.
+	var usageStore assistant.UsageStore
+	if usage != nil {
+		usageStore = usage
+	}
 	incarnation := app.MobileWorkspace()
 	pool := builtinai.NewPool(app, filepath.Join(directory, "capabilities"), sqlite.NewConfigurationRepository(database))
 	factory := func(ctx context.Context, cfg assistant.ModelConfig, key []byte, conversationID string) (assistant.Engine, error) {
@@ -57,7 +63,7 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		}
 		return engine, nil
 	}
-	r, err := assistant.NewRuntime(assistant.Options{Reviews: pool, Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory, TitleGenerator: einoopenai.GenerateTitle,
+	r, err := assistant.NewRuntime(assistant.Options{Usage: usageStore, ModelLister: einoopenai.ListModels, Reviews: pool, Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory, TitleGenerator: einoopenai.GenerateTitle,
 		Transcriber: aitranscription.Transcribe,
 		NavigationValidator: func(ctx context.Context, target assistant.ModelNavigationTarget) bool {
 			if !target.Valid() || ctx.Err() != nil || app.MobileWorkspace() != incarnation {
@@ -79,6 +85,9 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 	})
 	if err != nil {
 		pool.Close()
+		if usage != nil {
+			_ = usage.Close()
+		}
 		_ = state.Close()
 		return nil, err
 	}

@@ -1,3 +1,4 @@
+import { AIUsageSettings } from "@/features/assistant/AIUsage";
 import { SecurityOperationRegion } from "@/lib/businessCapture";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -43,5 +44,6 @@ export function AICredentialsSection({ onBusyChange }: { onBusyChange?: (busy: b
       {(failed || status.isError) && <p role="alert">{t("aiCredentials.error")}</p>}
     </form>
     {status.data?.config && <AIModelConfig key={status.data.revision} status={status.data} unavailable={unavailable || busy} onBusyChange={onBusyChange} />}
+    {status.data?.epoch && <AIUsageSettings epoch={status.data.epoch} />}
   </section></SecurityOperationRegion>;
 }
