@@ -18,6 +18,7 @@ import { utf8ByteLength } from "@/lib/utf8";
 import { useAssistantPage } from "./PageContext";
 import { capturePageContent } from "./pageContent";
 import { VoiceInput } from "./VoiceInput";
+import { pausePageOperations } from "./pageOperationAuthority";
 
 function samePageContent(generation: string | null, viewKey: string, hostGeneration: string) {
   if (generation === null) return true;
@@ -29,6 +30,13 @@ const active = (state: string) => state === "accepted" || state === "running";
 /** Desktop IPC only. No secrets, transcript or provider payload in browser
  * storage. Refresh/reconnect reads state; it never replays Start. */
 export function ModelConversation({ visible = true }: { visible?: boolean }) {
+  return useModelConversation({ visible });
+}
+
+/** The desktop shell owns this controller across dock/Sheet remounts. Keep the
+ * draft together with its conversation and in-flight admission guard, in memory
+ * only. The rendered voice control still cancels on hide or unmount. */
+export function useModelConversation({ visible = true, enabled = true }: { visible?: boolean; enabled?: boolean }) {
   const { t } = useTranslation();
   const page = useAssistantPage();
   const client = useQueryClient();
@@ -62,11 +70,12 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
   const status = useQuery({
     queryKey: ["aiCredentialStatus"],
     queryFn: () => callService(() => API.Status()),
+    enabled,
     refetchInterval: 2000,
     networkMode: "always",
     retry: false,
   });
-  const epoch = status.data?.epoch ?? "";
+  const epoch = enabled ? status.data?.epoch ?? "" : "";
   const list = useQuery({
     queryKey: ["aiConversations", epoch],
     queryFn: () => callService(() => API.List(epoch)),
@@ -219,6 +228,10 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
       setNavigationState("navigationStopped");
     }
     return callService(() => API.Cancel(epoch, id, runID));
+  }
+  function changeFullAccess(enabled: boolean) {
+    const resume = pausePageOperations(client);
+    void action(() => callService(() => API.SetFullAccess(epoch, configRevision, enabled))).finally(resume);
   }
   async function send() {
     if (
@@ -382,7 +395,7 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
           <NativeSelect id="ai-permission" className="min-h-11 max-w-full text-xs xl:min-h-9" title={t("aiChat.fullPermission")} aria-description={t("aiChat.fullPermission")}
             value={status.data?.fullAccess ? "full" : "readOnly"}
             disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running || stale))}
-            onChange={event => {const enabled=event.target.value === "full";void action(()=>callService(()=>API.SetFullAccess(epoch,configRevision,enabled)));}}>
+            onChange={event => changeFullAccess(event.target.value === "full")}>
             <option value="readOnly">{t("aiChat.readOnly")}</option>
             <option value="full">{t("aiChat.full")}</option>
           </NativeSelect>

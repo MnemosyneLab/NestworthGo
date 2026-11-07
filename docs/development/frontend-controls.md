@@ -11,6 +11,11 @@ or FilterableSelect for choices, Button/Input/Label/FieldError for forms,
 Sheet for panels, AlertDialog for confirmations, Popover for anchored content,
 and PageChrome/PageState for page framing and loading/empty/error states.
 Extend these wrappers before adding a new primitive dependency or local clone.
+Use PanelResizeHandle for the left edge of a resizable right-hand panel. Its owner
+supplies measured width bounds, localized accessible names/value text and collapse
+behavior; pass the saved width preference as its value, not a temporary layout
+clamp, so Escape can restore that preference. The shared control owns pointer
+capture, keyboard resizing and cleanup.
 
 ## Dates and forms
 
