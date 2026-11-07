@@ -11,6 +11,11 @@ import i18n from "@/i18n";
 const api = vi.hoisted(() => ({ Status: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Reviews: vi.fn(), Start: vi.fn() }));
 const voice = vi.hoisted(() => ({ cancel: vi.fn() }));
 const status = api.Status;
+const configuredStatus = {
+  epoch: "synthetic", revision: 1, available: true,
+  config: { provider: "openai-responses", model: "mock", enabledModels: ["mock"], enabled: true },
+  selection: { model: "mock", reasoningEffort: "" },
+};
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => ({ ...api, Usage: async () => (await import("@/test/aiUsage")).emptyUsageReport }));
 vi.mock("./voiceRecorder", () => ({
   recordingType: () => ({ mimeType: "audio/mp4", format: "mp4" }),
@@ -20,7 +25,7 @@ function Shell() { const assistant = useDesktopAssistant(); return <div data-tes
 beforeEach(() => {
   vi.resetAllMocks();
   useUiStore.setState({ assistantWidth: 400 });
-  status.mockResolvedValue({ epoch: "synthetic", revision: 1, available: true });
+  status.mockResolvedValue(configuredStatus);
   api.List.mockResolvedValue([{ id: "one", title: "Recent", updated: "2026-11-06" }, { id: "two", title: "Earlier", updated: "2026-11-05" }]);
   api.Inspect.mockImplementation(async (_epoch: string, id: string) => ({ id, runs: [], runCount: 0 }));
   api.Reviews.mockResolvedValue([]);
@@ -126,7 +131,7 @@ it("keeps the draft and selected conversation across layout changes and Sheet di
   expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
   // A replacement runtime still discards the old ledger's ephemeral state.
   await user.click(screen.getByRole("button", { name: "Collapse assistant" }));
-  act(() => client.setQueryData(["aiCredentialStatus"], { epoch: "replacement", revision: 1, available: true }));
+  act(() => client.setQueryData(["aiCredentialStatus"], { ...configuredStatus, epoch: "replacement" }));
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
   expect(screen.getByLabelText("Message")).toHaveValue("");
   expect(screen.getByRole("combobox", { name: "Conversations" })).not.toHaveValue("two");
@@ -142,8 +147,11 @@ it("retains the submission guard while an accepted Start response crosses a layo
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
   await screen.findByRole("option", { name: "Recent" });
   fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Send once" } });
-  await user.click(screen.getByRole("button", { name: "Send to model" }));
+  const send = screen.getByRole("button", { name: "Send to model" });
+  expect(send).toBeEnabled();
+  await user.click(send);
   await waitFor(() => expect(api.Start).toHaveBeenCalledOnce());
+  expect(api.Start).toHaveBeenCalledWith(expect.objectContaining({ model: "mock", reasoningEffort: "" }));
   resize(false);
   expect(screen.getByLabelText("Message")).toHaveValue("Send once");
   expect(screen.getByRole("button", { name: "Send to model" })).toBeDisabled();

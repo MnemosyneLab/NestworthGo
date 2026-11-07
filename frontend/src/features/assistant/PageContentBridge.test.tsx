@@ -16,7 +16,10 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service", () => api);
 
-const initialStatus = { epoch: "synthetic", revision: 1, available: true, fullAccess: true };
+const initialStatus = {
+  epoch: "synthetic", revision: 1, available: true, fullAccess: true,
+  config: { provider: "openai-responses", model: "mock", enabled: true },
+};
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>(done => { resolve = done; });
