@@ -22,8 +22,9 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		switch round {
 		case 0:
-			tools := encode(request["tools"])
-			if !strings.Contains(tools, "read_page_content") || strings.Contains(tools, `"name":"open_page"`) {
+			// Metadata is stable; only the current allowed subset grants access.
+			tools := encode(request["tool_choice"])
+			if !strings.Contains(encode(request["tools"]), "read_page_content") || !strings.Contains(tools, "read_page_content") || strings.Contains(tools, `"name":"open_page"`) {
 				t.Error("page reading requires or mints navigation grant")
 			}
 			writeMode(w, request, []any{liveCallItem(round, "read_page_content", obj{"module": "filters", "limit": 1})})

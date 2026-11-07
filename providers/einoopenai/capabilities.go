@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"sort"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -66,6 +67,37 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw, writing: d.Effect == agentcapability.Write || d.Effect == agentcapability.Interaction})
 	}
 	return out, nil
+}
+
+// catalogInfos deliberately constructs no invokable tools and has no session.
+// Metadata comes from the host catalog, never from saved tool descriptions.
+func catalogInfos(definitions []agentcapability.Definition) ([]*schema.ToolInfo, error) {
+	if len(definitions) > 128 {
+		return nil, errors.New("catalog exceeds budget")
+	}
+	infos := make([]*schema.ToolInfo, 0, len(definitions))
+	seen := map[string]bool{}
+	for _, d := range definitions {
+		if d.Name == "" || seen[d.Name] {
+			return nil, errors.New("invalid catalog")
+		}
+		seen[d.Name] = true
+		raw, err := jsoncodec.Marshal(d.InputSchema)
+		if err != nil || len(raw) > 64<<10 {
+			return nil, errors.New("invalid catalog schema")
+		}
+		var parameters jsonschema.Schema
+		if jsoncodec.Unmarshal(raw, &parameters) != nil {
+			return nil, errors.New("invalid catalog schema")
+		}
+		roundtrip, err := jsoncodec.Marshal(&parameters)
+		if err != nil || !sameSchemaJSON(raw, roundtrip) {
+			return nil, errors.New("lossy catalog schema")
+		}
+		infos = append(infos, &schema.ToolInfo{Name: d.Name, Desc: d.Description, ParamsOneOf: schema.NewParamsOneOfByJSONSchema(&parameters)})
+	}
+	sort.Slice(infos, func(i, j int) bool { return infos[i].Name < infos[j].Name })
+	return infos, nil
 }
 
 func sameSchemaJSON(a, b []byte) bool {
