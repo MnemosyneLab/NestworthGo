@@ -50,6 +50,10 @@ const run = {
   model: "mock",
   created: "2026-11-04T10:00:00Z",
 };
+const configuredStatus = {
+  epoch: "host", revision: 3, available: true, credentials: "present",
+  config: { provider: "openai-responses", model: "mock", enabled: true },
+};
 beforeEach(() => {
   vi.clearAllMocks();
   api.Reviews.mockResolvedValue([]);
@@ -58,13 +62,7 @@ beforeEach(() => {
   api.DeliverPageContent.mockResolvedValue(undefined);
   api.PublishPage.mockResolvedValue({ id: "host-page-lease" });
   api.ConsumeNavigation.mockResolvedValue({ kind: "overview", accountId: "" });
-  api.Status.mockResolvedValue({
-    epoch: "host",
-    revision: 3,
-    available: true,
-    credentials: "present",
-    config: { provider: "openai-responses", model: "mock", enabled: true },
-  });
+  api.Status.mockResolvedValue(configuredStatus);
   api.List.mockResolvedValue([{ id: "conversation", runCount: 1 }]);
   api.Inspect.mockResolvedValue({
     id: "conversation",
@@ -827,7 +825,7 @@ it.each([
   ["zh-TW", "Full · 直接修改帳本，無需逐筆確認"],
 ])("shows only Read-only and Full modes with inline results in %s", async (locale, label) => {
   await i18n.changeLanguage(locale);
-  api.Status.mockResolvedValue({ epoch: "host", revision: 3, available: true, fullAccess: true });
+  api.Status.mockResolvedValue({ ...configuredStatus, fullAccess: true });
   api.Reviews.mockResolvedValue([{ id: "receipt", source: "ai_full", state: "succeeded", summary: "Duplicate result" }]);
   api.Inspect.mockResolvedValue({ id: "conversation", offset: 0, runCount: 1, runs: [{ ...run,
     tools: [{ source: "execute_ledger_change", state: "succeeded", input: '{"amount":"12.34567890"}', output: '{"status":"succeeded"}' }],
@@ -856,7 +854,7 @@ it.each([
 });
 
 it.each([false, true])("Full permission enabled=%s can only be revoked during a run", async enabled => {
-  api.Status.mockResolvedValue({ epoch: "host", revision: 3, available: true, fullAccess: enabled });
+  api.Status.mockResolvedValue({ ...configuredStatus, fullAccess: enabled });
   api.Inspect.mockResolvedValue({ id: "conversation", offset: 0, runCount: 1, runs: [{ ...run, state: "running" }] });
   mount();
   await screen.findByText("Synthetic prior answer");
