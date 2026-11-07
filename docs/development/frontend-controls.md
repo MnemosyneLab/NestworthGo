@@ -86,6 +86,11 @@ Layout and display conventions from the "Ledger" visual direction:
   `TrendChart` hides a single-series legend that only repeats the series name,
   and labels that repeat the page-level selection become `sr-only` rather
   than being removed from the accessible structure.
+- The assistant composer groups icon-only voice and send buttons, with the
+  microphone immediately before Send. Recording, waiting and cancellation use
+  icons; localized names, descriptions and live state remain accessible without
+  permanent help text. Voice failures use the shared error toast and remain in
+  the microphone's description and title until retry or session replacement.
 - `EmptyState size="compact"` is for empty sections inside a card or panel.
 - Language and appearance preferences live in the sidebar footer; when the
   sidebar is collapsed, Settings remains the route to them.
