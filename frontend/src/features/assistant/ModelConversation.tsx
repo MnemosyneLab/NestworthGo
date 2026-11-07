@@ -392,9 +392,6 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
           onChange={(event) => setPrompt(event.target.value)}
           disabled={busy || !status.data?.available || stale}
         />
-        <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
-          disabled={!visible || busy || running || offline || stale || !modelAvailable}
-          onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
         <div className="flex flex-wrap items-center gap-2">
         <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
           {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
@@ -412,9 +409,15 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
             <option value="full">{t("aiChat.full")}</option>
           </NativeSelect>
         </SecurityOperationRegion>
+        <div className="flex shrink-0 items-center gap-1">
+        <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
+          disabled={!visible || busy || running || offline || stale || !modelAvailable}
+          onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
         <Button
-          className={actionClass}
+          size="icon"
+          className="size-11 shrink-0 xl:size-9"
           aria-label={t("aiChat.send")}
+          title={t("aiChat.send")}
           type="submit"
           disabled={
             busy ||
@@ -427,8 +430,9 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
             utf8ByteLength(prompt) > 16384
           }
         >
-          <ArrowUp className="size-4" aria-hidden="true" />{t("aiChat.send")}
+          <ArrowUp className="size-4" aria-hidden="true" />
         </Button>
+        </div>
         </div>
         {navigationState && (
           <p role="status" className="text-xs text-muted-foreground">

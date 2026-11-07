@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Mic, Square, X } from "lucide-react";
+import { LoaderCircle, Mic, Square, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { transcribeVoice } from "./voiceTranscription";
 import { VoiceRecorder, recordingType, type VoiceError, type VoiceState } from "./voiceRecorder";
@@ -13,6 +14,8 @@ function VoiceInputSession({ epoch, revision, disabled, onText }: Props) {
   const { t } = useTranslation();
   const [state, setState] = useState<VoiceState>("idle");
   const [error, setError] = useState<VoiceError | "">("");
+  const descriptionId = useId();
+  const errorId = useId();
   const recorder = useRef<VoiceRecorder>();
   const currentText = useRef(onText);
   useEffect(() => { currentText.current = onText; }, [onText]);
@@ -28,25 +31,36 @@ function VoiceInputSession({ epoch, revision, disabled, onText }: Props) {
     if (disabled || state !== "idle") return;
     setError("");
     recorder.current?.cancel();
-    recorder.current = new VoiceRecorder(setState, setError,
+    recorder.current = new VoiceRecorder(setState, failure => {
+      setError(failure);
+      toast.error(t(`voice.${failure}`));
+    },
       (recording, signal) => transcribeVoice(recording, epoch, revision, signal),
       text => currentText.current(text));
     void recorder.current.start();
   }
   const supported = !!recordingType();
-  return <div className="space-y-1">
-    <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" size="sm" variant="ghost" disabled={disabled || !supported || state === "permission" || state === "transcribing"}
-        onClick={() => state === "recording" ? recorder.current?.stop() : start()}>
-        {state === "recording" ? <Square className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
-        {t(state === "recording" ? "voice.stop" : "voice.start")}
-      </Button>
-      {state !== "idle" && <Button type="button" size="sm" variant="ghost" onClick={() => { recorder.current?.cancel(); setState("idle"); }}>
-        <X className="size-4" aria-hidden="true" />{t("voice.cancel")}
-      </Button>}
-      <span role={state === "idle" ? undefined : "status"} aria-live="polite" aria-atomic="true" className="text-xs text-muted-foreground">{state !== "idle" ? t(`voice.${state}`) : ""}</span>
-    </div>
-    <p className="text-xs text-muted-foreground">{t(supported ? "voice.privacy" : "voice.unsupported")}</p>
-    {error && <p role="alert" className="text-xs text-destructive">{t(`voice.${error}`)}</p>}
+  const waiting = state === "permission" || state === "transcribing";
+  const label = t(state === "recording" ? "voice.stop" : waiting ? `voice.${state}` : "voice.start");
+  const iconClass = "size-11 shrink-0 xl:size-9";
+  return <div className="flex shrink-0 items-center gap-1" title={!supported ? t("voice.unsupported") : undefined}>
+    {state !== "idle" && <Button type="button" size="icon" variant="ghost" className={iconClass}
+      aria-label={t("voice.cancel")} title={t("voice.cancel")}
+      onClick={() => { recorder.current?.cancel(); setState("idle"); }}>
+      <X className="size-4" aria-hidden="true" />
+    </Button>}
+    <Button type="button" size="icon" variant="ghost" className={iconClass}
+      aria-label={label} title={error ? t(`voice.${error}`) : supported ? label : t("voice.unsupported")}
+      aria-pressed={state === "recording"} aria-busy={waiting}
+      aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
+      disabled={disabled || !supported || waiting}
+      onClick={() => state === "recording" ? recorder.current?.stop() : start()}>
+      {waiting ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        : state === "recording" ? <Square className="size-4 text-destructive" aria-hidden="true" />
+        : <Mic className={error ? "size-4 text-destructive" : "size-4"} aria-hidden="true" />}
+    </Button>
+    <span role={state === "idle" ? undefined : "status"} aria-live="polite" aria-atomic="true" className="sr-only">{state !== "idle" ? t(`voice.${state}`) : ""}</span>
+    <span id={descriptionId} className="sr-only">{t(supported ? "voice.privacy" : "voice.unsupported")}</span>
+    {error && <span id={errorId} className="sr-only">{t(`voice.${error}`)}</span>}
   </div>;
 }
