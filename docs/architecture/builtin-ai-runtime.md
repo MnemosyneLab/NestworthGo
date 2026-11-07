@@ -3,7 +3,10 @@
 The desktop right-hand assistant supports explicit OpenAI Responses model requests,
 controlled local financial reads, run feedback, cancellation and paged persistent
 history. Activation defaults off. Desktop Settings → Built-in AI credentials saves
-a write-only key, a model ID and an explicit enable flag. There are no startup,
+a write-only key, an enabled model set and an explicit enable flag.
+The sidebar selects the per-request model and supported reasoning effort; see
+[model selection](ai-model-selection.md) for the offline catalogue, history and
+account-access rules. There are no startup,
 reconnect or implicit retry model calls. Desktop writes default off. The only permission modes are Read-only and Full; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
@@ -890,3 +893,5 @@ snapshot checks. An unavailable observation never becomes navigation authority.
 
 Usage accounting, coverage limits, cost basis and account model selection are
 specified in [Built-in AI usage and account models](ai-usage.md).
+
+The current model catalogue and selection contract is [offline model selection](ai-model-selection.md); Settings no longer fetches `/v1/models`.

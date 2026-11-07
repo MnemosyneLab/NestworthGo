@@ -1,4 +1,24 @@
 export const assistantEn = {
+ aiModels: {
+  "enabled": "Enabled models",
+  "catalogHelp": "Built-in OpenAI 5.6, 6 and 6.1 models. Availability depends on your account. No online model lookup.",
+  "customSaved": "Custom / previously configured models",
+  "customHelp": "Add an exact model ID only if your account supports Responses and function tools. Unknown models use provider defaults.",
+  "add": "Add model",
+  "reasoning": "Reasoning effort",
+  "default": "Default effort",
+  "unspecified": "Provider default",
+  "chooseEnabled": "Choose an enabled model. The previous selection is no longer enabled.",
+  "history": "Switching models carries the visible conversation, without private reasoning or tool state.",
+  "efforts": {
+    "none": "None",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "xhigh": "Extra high",
+    "max": "Maximum"
+  }
+},
  aiUsage: {
 "audioSeconds":"Audio seconds", "allConversations":"All conversations",
   "title": "Usage · tokens",
@@ -248,7 +268,7 @@ export const assistantEn = {
     model: "Model ID",
     enable: "Enable desktop model requests",
     consent:
-      "Model requests may incur provider charges. Enabling allows only explicit message submissions, never automatic startup requests. Your key stays in the household database and backups. Related financial data is sent to the provider. Disabling cancels active runs. Changing models starts fresh model context while preserving display history.",
+      "Model requests may incur provider charges. Enabling allows only explicit message submissions, never automatic startup requests. Your key stays in the household database and backups. Related financial data is sent to the provider. Disabling cancels active runs. Switching models carries the visible conversation without private reasoning or tool state.",
     saveConfig: "Save model configuration",
     disable: "Disable AI and stop runs",
     configError:
@@ -347,6 +367,26 @@ export const assistantEn = {
   },
 };
 export const assistantZhCN = {
+ aiModels: {
+  "enabled": "启用的模型",
+  "catalogHelp": "内置 OpenAI 5.6、6 和 6.1 系列。实际可用性取决于账号权限，不在线获取模型列表。",
+  "customSaved": "自定义／原有配置的模型",
+  "customHelp": "仅添加账号支持 Responses 和工具调用的准确模型 ID。未知型号使用服务商默认参数。",
+  "add": "添加模型",
+  "reasoning": "思考强度",
+  "default": "默认强度",
+  "unspecified": "服务商默认",
+  "chooseEnabled": "请选择已启用的模型。原选择已不在启用列表中。",
+  "history": "切换模型会保留可见对话，不传递私有推理或工具状态。",
+  "efforts": {
+    "none": "不思考",
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "xhigh": "超高",
+    "max": "最高"
+  }
+},
  aiUsage: {
 "audioSeconds":"音频秒数", "allConversations":"全部会话",
   "title": "用量 · Token",
@@ -593,7 +633,7 @@ export const assistantZhCN = {
     model: "模型 ID",
     enable: "开启桌面模型请求",
     consent:
-      "模型调用可能产生提供商费用。开启后仅在你显式发送消息时调用，不会在启动时自动请求。密钥保存在家庭数据库和备份中，相关财务数据会发给提供商。关闭会取消运行；切换模型会清空模型上下文，保留显示历史。",
+      "模型调用可能产生提供商费用。开启后仅在你显式发送消息时调用，不会在启动时自动请求。密钥保存在家庭数据库和备份中，相关财务数据会发给提供商。关闭会取消运行；切换模型会保留可见对话，不传递私有推理或工具状态。",
     saveConfig: "保存模型配置",
     disable: "关闭 AI 并停止运行",
     configError: "无法保存配置。请先停止运行并刷新后重试。",
@@ -680,6 +720,26 @@ export const assistantZhCN = {
   },
 };
 export const assistantZhTW = {
+ aiModels: {
+  "enabled": "啟用的模型",
+  "catalogHelp": "內建 OpenAI 5.6、6 和 6.1 系列。實際可用性取決於帳號權限，不線上取得模型清單。",
+  "customSaved": "自訂／原有設定的模型",
+  "customHelp": "僅新增帳號支援 Responses 與工具呼叫的準確模型 ID。未知型號使用服務商預設參數。",
+  "add": "新增模型",
+  "reasoning": "思考強度",
+  "default": "預設強度",
+  "unspecified": "服務商預設",
+  "chooseEnabled": "請選擇已啟用的模型。原選擇已不在啟用清單中。",
+  "history": "切換模型會保留可見對話，不傳遞私有推理或工具狀態。",
+  "efforts": {
+    "none": "不思考",
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "xhigh": "超高",
+    "max": "最高"
+  }
+},
  aiUsage: {
 "audioSeconds":"音訊秒數", "allConversations":"全部會話",
   "title": "用量 · Token",
@@ -926,7 +986,7 @@ export const assistantZhTW = {
     model: "模型 ID",
     enable: "開啟桌面模型請求",
     consent:
-      "模型呼叫可能產生提供商費用。開啟後僅在你明確傳送訊息時呼叫，不會在啟動時自動請求。金鑰儲存在家庭資料庫和備份中，相關財務資料會傳給提供商。關閉會取消執行；切換模型會清空模型上下文，保留顯示歷史。",
+      "模型呼叫可能產生提供商費用。開啟後僅在你明確傳送訊息時呼叫，不會在啟動時自動請求。金鑰儲存在家庭資料庫和備份中，相關財務資料會傳給提供商。關閉會取消執行；切換模型會保留可見對話，不傳遞私有推理或工具狀態。",
     saveConfig: "儲存模型設定",
     disable: "關閉 AI 並停止執行",
     configError: "無法儲存設定。請先停止執行並重新整理後再試。",

@@ -680,6 +680,7 @@ func TestDesktopDisableCancelsActiveRunAndModelChangeResetsNativeHistory(t *test
 	}
 	status = r.Snapshot()
 	cfg.Model = "second-model"
+	cfg.EnabledModels = []string{"second-model"} // explicitly replace the enabled set
 	cfg.Enabled = true
 	if err := r.Configure(t.Context(), status.Epoch, status.Revision, cfg); err != nil {
 		t.Fatal(err)

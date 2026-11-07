@@ -172,3 +172,10 @@ func (s *Service) Models(epoch string, revision uint64) ([]string, error) {
 	}
 	return s.runtime.Models(context.Background(), epoch, revision)
 }
+
+func (s *Service) SelectModel(epoch string, revision uint64, selection assistant.ModelSelection) error {
+	if s.runtime == nil {
+		return assistant.ErrUnavailable
+	}
+	return s.runtime.SelectModel(context.Background(), epoch, revision, selection)
+}

@@ -35,11 +35,12 @@ type Limits struct {
 }
 
 type Config struct {
-	BaseURL   string // HTTPS; defaults to https://api.openai.com/v1.
-	APIKey    string // Host-owned secret; never place it in messages or checkpoints.
-	Model     string
-	Limits    Limits
-	Transport http.RoundTripper // nil uses http.DefaultTransport (including its proxy).
+	ReasoningEffort string
+	BaseURL         string // HTTPS; defaults to https://api.openai.com/v1.
+	APIKey          string // Host-owned secret; never place it in messages or checkpoints.
+	Model           string
+	Limits          Limits
+	Transport       http.RoundTripper // nil uses http.DefaultTransport (including its proxy).
 }
 
 // Model implements Eino's AgenticModel. Stream buffers the provider stream and
@@ -160,6 +161,9 @@ func nativeSeal(msg *schema.AgenticMessage, output []json.RawMessage) (string, e
 func New(ctx context.Context, cfg Config) (*Model, error) { return newModel(ctx, cfg, false) }
 
 func newModel(ctx context.Context, cfg Config, testHTTP bool) (*Model, error) {
+	if !assistant.ValidReasoning(cfg.Model, cfg.ReasoningEffort) {
+		return nil, assistant.ErrUnavailable
+	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.openai.com/v1"
 	}
@@ -195,10 +199,14 @@ func newModel(ctx context.Context, cfg Config, testHTTP bool) (*Model, error) {
 	}
 	client := &http.Client{Transport: &transport{inner: inner, target: target.String(), limits: limits}, Timeout: limits.Timeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	extra := map[string]any{}
+	if cfg.ReasoningEffort != "" {
+		extra["reasoning"] = map[string]string{"effort": cfg.ReasoningEffort}
+	}
 	store, retries := false, 0
 	upstream, err := ao.NewResponsesModel(ctx, &ao.ResponsesConfig{APIKey: cfg.APIKey, BaseURL: cfg.BaseURL,
 		Model: cfg.Model, Store: &store, EnableAutoCache: false, Include: []responses.ResponseIncludable{"reasoning.encrypted_content"},
-		MaxRetries: &retries, HTTPClient: client})
+		ExtraFields: extra, MaxRetries: &retries, HTTPClient: client})
 	if err != nil {
 		return nil, errors.New("provider configuration rejected")
 	}

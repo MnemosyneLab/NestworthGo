@@ -9,7 +9,7 @@ import (
 // or treating its dedup records/history as recoverable. This is corruption
 // detection, not authentication against the owner of the private database.
 func ValidateState(s State) error {
-	if s.Version != StateVersion || s.Ledger == "" || s.Revision == 0 || !s.Config.Valid() || len(s.Conversations) > MaxConversations {
+	if (s.Selection.Model != "" && (!validModelID(s.Selection.Model) || !ValidReasoning(s.Selection.Model, s.Selection.ReasoningEffort))) || (s.Selection.Model == "" && s.Selection.ReasoningEffort != "") || s.Version != StateVersion || s.Ledger == "" || s.Revision == 0 || !s.Config.Valid() || len(s.Conversations) > MaxConversations {
 		return ErrStorage
 	}
 	conversations := map[string]bool{}
@@ -40,7 +40,7 @@ func ValidateState(s State) error {
 			if (r.PageLeaseID != "" && !canonicalID(r.PageLeaseID)) || !validTools(r.Tools) || !validEvidence(r.Evidence) || !r.Page.Valid() || !canonicalID(r.ID) || runs[r.ID] || !canonicalID(r.RequestID) || requests[r.RequestID] || r.ConversationID != c.ID || r.Created.IsZero() || len(r.Prompt) == 0 || len(r.Prompt) > MaxPromptBytes || len(r.Text) > MaxTextBytes || saved.Digest != hex.EncodeToString(sum[:]) || !knownState(r.State) || !knownCode(r.Code) {
 				return ErrStorage
 			}
-			if !((ModelConfig{Provider: r.Provider, Model: r.Model}).Valid()) || r.ConfigRevision == 0 {
+			if (r.RequestedModel != "" && r.RequestedModel != r.Model) || !ValidReasoning(r.Model, r.ReasoningEffort) || !((ModelConfig{Provider: r.Provider, Model: r.Model}).Valid()) || r.ConfigRevision == 0 {
 				return ErrStorage
 			}
 			if terminal(r.State) != (r.Finished != nil) || (r.State != "succeeded" && (r.Text != "" || len(r.Evidence) != 0)) {

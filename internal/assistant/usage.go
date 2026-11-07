@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -389,50 +388,6 @@ func (r *Runtime) Usage(ctx context.Context, epoch string, q UsageQuery) (UsageR
 		}
 	}
 	return report, nil
-}
-
-type ModelLister func(context.Context, []byte) ([]string, error)
-
-func (r *Runtime) Models(caller context.Context, epoch string, revision uint64) ([]string, error) {
-	r.mu.Lock()
-	if r.valid(caller, epoch) != nil || r.state.Revision != revision || r.options.ModelLister == nil {
-		r.mu.Unlock()
-		return nil, ErrUnavailable
-	}
-	ctx, cancel := context.WithTimeout(r.ctx, 10*time.Second)
-	stop := context.AfterFunc(caller, cancel)
-	var key []byte
-	err := r.options.Credentials.With(ctx, func(value []byte) error {
-		if !validSecret(value) {
-			return ErrUnavailable
-		}
-		key = append([]byte(nil), value...)
-		return nil
-	})
-	r.wg.Add(1)
-	r.mu.Unlock()
-	defer r.wg.Done()
-	defer cancel()
-	defer stop()
-	defer clear(key)
-	if err != nil {
-		return nil, ErrUnavailable
-	}
-	result, err := r.options.ModelLister(ctx, key)
-	if err != nil {
-		return nil, ErrUnavailable
-	}
-	for _, m := range result {
-		if strings.Contains(m, string(key)) || !(ModelConfig{Provider: "openai-responses", Model: m}).Valid() {
-			return nil, ErrUnavailable
-		}
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.valid(ctx, epoch) != nil || r.state.Revision != revision {
-		return nil, ErrStale
-	}
-	return result, nil
 }
 
 // ValidateUsageCall rejects corrupt accounting metadata independently of chat state.

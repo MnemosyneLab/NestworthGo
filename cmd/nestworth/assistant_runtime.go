@@ -63,7 +63,7 @@ func openAssistantRuntime(app *nestworthapp.Service, databasePath, settingsPath 
 		}
 		return engine, nil
 	}
-	r, err := assistant.NewRuntime(assistant.Options{Usage: usageStore, ModelLister: einoopenai.ListModels, Reviews: pool, Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory, TitleGenerator: einoopenai.GenerateTitle,
+	r, err := assistant.NewRuntime(assistant.Options{Usage: usageStore, Reviews: pool, Capabilities: pool, Ledger: ledger, Store: state, Credentials: aicredentials.New(sqlite.NewConfigurationRepository(database)), Factory: factory, TitleGenerator: einoopenai.GenerateTitle,
 		Transcriber: aitranscription.Transcribe,
 		NavigationValidator: func(ctx context.Context, target assistant.ModelNavigationTarget) bool {
 			if !target.Valid() || ctx.Err() != nil || app.MobileWorkspace() != incarnation {

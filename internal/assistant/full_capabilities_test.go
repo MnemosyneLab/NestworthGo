@@ -71,6 +71,7 @@ func capabilityRuntime(t *testing.T, s *capabilityTestSession) (*Runtime, string
 	store := &capabilityTestStore{}
 	r := &Runtime{ctx: ctx, cancel: cancel, epoch: uuid.NewString(), fullEnabled: true, reviewBusy: map[string]bool{}, active: map[string]context.CancelFunc{id: func() {}}, state: InitialState("synthetic"), options: Options{Reviews: s, Store: store, Credentials: capabilityTestCredentials{}, Validate: func(context.Context) bool { return true }}}
 	r.state.Config.Enabled = true
+	r.state.Config.Model = "mock" // Start now validates enabled model membership.
 	r.state.Conversations = []ConversationState{{ID: id, Runs: []RunState{{Run: Run{ID: runID, State: "running"}}}}}
 	return r, id, runID, store
 }

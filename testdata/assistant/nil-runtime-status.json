@@ -1,1 +1,1 @@
-{"version":1,"epoch":"","revision":0,"config":{"provider":"","model":"","enabled":false},"available":false,"credentials":"unavailable","fullAccess":false,"reason":"secure_runtime_unavailable"}
+{"selection":{"model":"","reasoningEffort":""},"modelCatalog":null,"version":1,"epoch":"","revision":0,"config":{"provider":"","model":"","enabled":false},"available":false,"credentials":"unavailable","fullAccess":false,"reason":"secure_runtime_unavailable"}

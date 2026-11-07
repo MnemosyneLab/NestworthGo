@@ -140,6 +140,8 @@ func (r *Runtime) generateTitle(ctx context.Context, cfg ModelConfig, revision u
 		return "", ErrUnavailable
 	}
 	cfg.Model = TitleModel
+	cfg.EnabledModels = nil
+	cfg.ReasoningEffort = ""
 	title, err = r.options.TitleGenerator(ctx, cfg, key, prompt)
 	if err != nil || len(title) > 1024 || !utf8.ValidString(title) || strings.Contains(title, string(key)) {
 		return "", ErrUnavailable

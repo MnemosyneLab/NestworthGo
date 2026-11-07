@@ -202,7 +202,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
               </p>}
               {run.code && <p role="alert" className="text-sm text-destructive">{t(responseDiagnostic(run.code) ? "aiChat.providerResponseRejected" : (diagnosticKeys[run.code] ?? "aiChat.runError"))}{(responseDiagnostic(run.code) || budgetDiagnostic(run.code)) && <> {t("aiChat.responseDiagnostic", { code: run.code })}</>}</p>}
               {active(run.state) && <Button variant="outline" size="sm" disabled={busy} onClick={() => onCancel(run.id)}>{t("aiChat.stop")}</Button>}
-              <details className="text-xs text-muted-foreground"><summary className="w-fit cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.messageDetails")}</summary><p className="pt-2 break-words">{run.model} · {timestamp(String(run.created))}</p></details>
+              <details className="text-xs text-muted-foreground"><summary className="w-fit cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("aiChat.messageDetails")}</summary><p className="pt-2 break-words">{run.model} · {run.reasoningEffort ? t(`aiModels.efforts.${run.reasoningEffort}`) : t("aiModels.default")} · {timestamp(String(run.created))}</p></details>
             </div>
           </div>
         </article>; })}
