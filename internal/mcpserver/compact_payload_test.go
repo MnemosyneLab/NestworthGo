@@ -38,18 +38,35 @@ func measureCompactReadJourneys(t *testing.T, c *mcp.ClientSession, rec *payload
 			args = map[string]any{"leftAsOf": f.timepoint, "rightAsOf": "current"}
 			idKey = "comparisonId"
 		}
+		// A complete audit intentionally requests bulk continuations. The unified
+		// default is 25, not the former financial-only 50; keep the original
+		// call/byte budgets without changing that normal-read contract.
 		initial := scaleCapture(t, c, tool, args)
+		f.service.contexts.mu.Lock()
+		entry := f.service.contexts.entries[initial[idKey].(string)]
+		f.service.contexts.mu.Unlock()
+		var full any = entry.result.Content
+		if entry.comparison != nil {
+			full = entry.comparison.Content
+		}
+		want, err := readSummary(full)
+		if err != nil {
+			t.Fatal(err)
+		}
 		for _, section := range []string{"positions", "gaps", "evidence"} {
+			rows := append([]any{}, initial["content"].(map[string]any)[section].([]any)...)
 			info := initial[section+"Page"].(map[string]any)
 			count := int(info["returned"].(float64))
 			for info["hasMore"] == true {
-				page := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": initial[idKey], "section": section, "cursor": info["nextCursor"]})
+				page := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": initial[idKey], "section": section, "cursor": info["nextCursor"], "limit": 100})
 				if page["contentHash"] != initial["contentHash"] || page[idKey] != initial[idKey] {
 					t.Fatal("mixed capture")
 				}
 				if page["page"] != nil {
+					rows = append(rows, page["items"].([]any)...)
 					info = page["page"].(map[string]any)
 				} else {
+					rows = append(rows, page["content"].(map[string]any)[section].([]any)...)
 					info = page[section+"Page"].(map[string]any)
 				}
 				if info["returned"].(float64) <= 0 {
@@ -57,6 +74,8 @@ func measureCompactReadJourneys(t *testing.T, c *mcp.ClientSession, rec *payload
 				}
 				count += int(info["returned"].(float64))
 			}
+			t.Logf("%s audit section=%s rows=%d", tool, section, count)
+			featureJSONEqual(t, rows, want[section])
 			if count != int(info["total"].(float64)) {
 				t.Fatal("incomplete section", section)
 			}
