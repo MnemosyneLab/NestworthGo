@@ -362,7 +362,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		}
 		count := page.Returned
 		for page.HasMore {
-			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{CaptureID: context.ContextID, Section: section, Cursor: page.NextCursor}, false))
+			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{CaptureID: context.ContextID, Section: section, Cursor: page.NextCursor, Limit: 100}, false))
 			if next.ContentHash != context.ContentHash {
 				t.Fatal("mixed financial context")
 			}
