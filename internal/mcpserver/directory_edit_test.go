@@ -17,7 +17,7 @@ import (
 func TestDirectoryUpdateAcceptsNameAndIconTogether(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -52,7 +52,7 @@ func TestDirectoryUpdateAcceptsNameAndIconTogether(t *testing.T) {
 func TestDirectoryUpdateRejectsInvalidInputWithoutPartialWrite(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -94,7 +94,7 @@ func storedMember(t *testing.T, app *application.Service, id string) domain.Memb
 func TestDirectoryUpdateArchivesAndRestores(t *testing.T) {
 	t.Parallel()
 	s, app, changes := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -135,7 +135,7 @@ func TestDirectoryUpdateArchivesAndRestores(t *testing.T) {
 func TestDirectoryUpdateRejectsArchivingLastActiveMember(t *testing.T) {
 	t.Parallel()
 	s, app, changes := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -197,7 +197,7 @@ func rejectedUpdate(t *testing.T, c *mcp.ClientSession, tool string, input map[s
 func TestDirectoryUpdateRejectsNullOnIdentityFields(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -221,7 +221,7 @@ func TestDirectoryUpdateRejectsNullOnIdentityFields(t *testing.T) {
 func TestDirectoryArchiveToolsAreFoldedIntoUpdate(t *testing.T) {
 	t.Parallel()
 	s, _, _ := fixture(t)
-	registry := s.toolRegistry(LedgerWrite)
+	registry := s.toolRegistry(ReadWrite)
 	for _, name := range []string{"archive_member", "archive_institution", "archive_group"} {
 		if _, err := registry.Definition(name); err == nil {
 			t.Fatalf("%s should be folded into its update tool", name)
@@ -239,14 +239,14 @@ func TestDirectoryArchiveToolsAreFoldedIntoUpdate(t *testing.T) {
 		}
 	}
 	if _, err := s.toolRegistry(ReadOnly).Definition("update_member"); err == nil {
-		t.Fatal("member updates must require directory_write")
+		t.Fatal("member updates must require read_write")
 	}
 }
 
 func TestDirectoryIconToolsAreRemoved(t *testing.T) {
 	t.Parallel()
 	s, _, _ := fixture(t)
-	registry := s.toolRegistry(LedgerWrite)
+	registry := s.toolRegistry(ReadWrite)
 	for _, name := range []string{"set_member_icon", "set_institution_icon", "set_group_icon"} {
 		if _, err := registry.Definition(name); err == nil {
 			t.Fatalf("%s should be merged into its update tool", name)

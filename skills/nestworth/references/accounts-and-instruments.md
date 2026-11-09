@@ -182,7 +182,7 @@ shortName and note. An empty string is rejected. name cannot be empty or null.
 Duplicate aliases are allowed,
 duplicate targets are rejected. One stale/managed/archived target rejects every
 change. Managed identities require product terms. No quotes, positions, source
-preferences or ledger facts change. directory_write or ledger_write is required.
+preferences or ledger facts change. read_write is required.
 
 
 Directory and instrument lists are compact identity projections. Full notes,

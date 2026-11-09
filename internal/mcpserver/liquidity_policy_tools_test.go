@@ -48,7 +48,7 @@ func assertPolicyGUIParity(t *testing.T, fx ledgerFixture, c *mcp.ClientSession)
 func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -62,10 +62,10 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 			found[tool.Name] = tool
 		}
 		for _, name := range []string{"preview_save_liquidity_policy", "preview_reset_liquidity_policy", "commit_plan"} {
-			if (found[name] != nil) != (mode == LedgerWrite) {
+			if (found[name] != nil) != (mode == ReadWrite) {
 				t.Fatalf("%s %s", mode, name)
 			}
-			if mode != LedgerWrite {
+			if mode != ReadWrite {
 				// An unknown tool ends the HTTP session, so probe it on a throwaway client.
 				probe := connect(t, fx.service)
 				r, e := probe.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
@@ -91,7 +91,7 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 			}
 		}
 		caps, _ := jsoncodec.Marshal(call(t, c, "get_context", Empty{}, false)["data"].(map[string]any)["capabilities"])
-		if strings.Contains(string(caps), "liquidity_policy_write") != (mode == LedgerWrite) {
+		if strings.Contains(string(caps), "liquidity_policy_write") != (mode == ReadWrite) {
 			t.Fatal(string(caps))
 		}
 	}

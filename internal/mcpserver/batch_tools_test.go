@@ -334,19 +334,17 @@ func TestBatchPendingReceiptRecoversWithoutReposting(t *testing.T) {
 func TestBatchToolsRequireLedgerWrite(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite} {
-		if _, err := fx.service.Enable(mode); err != nil {
-			t.Fatal(err)
-		}
-		c := connect(t, fx.service)
-		listed, err := listAllTools(context.Background(), c)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, tool := range listed.Tools {
-			if tool.Name == "preview_batch" || tool.Name == "commit_plan" {
-				t.Fatalf("%s exposed %s", mode, tool.Name)
-			}
+	if _, err := fx.service.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, fx.service)
+	listed, err := listAllTools(context.Background(), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range listed.Tools {
+		if tool.Name == "preview_batch" || tool.Name == "commit_plan" {
+			t.Fatalf("read_only exposed %s", tool.Name)
 		}
 	}
 }

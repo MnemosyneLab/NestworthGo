@@ -1,6 +1,6 @@
 # Record an actual locked-product value
 
-With ledger_write, discover `preview_product_valuation` and commit with
+With read_write, discover `preview_product_valuation` and commit with
 `commit_plan`. Read the contract in [products](products.md). Only an open
 locked_product accepts observations. A term_deposit current value must not
 include projected interest. Supply the actual total value as a positive decimal

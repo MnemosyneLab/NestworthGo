@@ -79,7 +79,7 @@ func newLedgerFixtureWithApp(t *testing.T, app *application.Service, clock func(
 
 func ledgerSession(t *testing.T, fx ledgerFixture) *mcp.ClientSession {
 	t.Helper()
-	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	return connect(t, fx.service)
@@ -199,7 +199,7 @@ func ledgerCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 func TestLedgerToolsRequireOptIn(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -212,13 +212,13 @@ func TestLedgerToolsRequireOptIn(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = true
 		}
-		if found["preview_change"] || found["preview_batch"] != (mode == LedgerWrite) || found["commit_plan"] != (mode == LedgerWrite) {
+		if found["preview_change"] || found["preview_batch"] != (mode == ReadWrite) || found["commit_plan"] != (mode == ReadWrite) {
 			t.Fatalf("mode=%s ledger tools=%v", mode, found)
 		}
 		if found["create_account"] != (mode != ReadOnly) {
 			t.Fatalf("mode=%s directory permission=%v", mode, found["create_account"])
 		}
-		if mode != LedgerWrite {
+		if mode != ReadWrite {
 			for _, name := range []string{"preview_batch", "commit_plan"} {
 				_, err := c.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 				if err == nil {
@@ -233,7 +233,7 @@ func TestLedgerToolsRequireOptIn(t *testing.T) {
 	if err := resumed.Resume(); err != nil {
 		t.Fatal(err)
 	}
-	if got := resumed.Status(); !got.Running || got.Mode != LedgerWrite {
+	if got := resumed.Status(); !got.Running || got.Mode != ReadWrite {
 		t.Fatalf("ledger opt-in did not persist: %+v", got)
 	}
 }

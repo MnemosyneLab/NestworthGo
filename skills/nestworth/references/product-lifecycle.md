@@ -1,6 +1,6 @@
 # Record a completed managed-product fact
 
-Discover `preview_product_operation` and `commit_plan` only with ledger_write.
+Discover `preview_product_operation` and `commit_plan` only with read_write.
 Read the contract first in [products](products.md). GUI permittedActions describe
 GUI options. Tool discovery and permission govern MCP. These tools record facts
 already completed. They never send bank instructions. Open, record_existing,

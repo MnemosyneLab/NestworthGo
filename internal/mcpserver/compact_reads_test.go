@@ -10,7 +10,7 @@ import (
 )
 
 func TestCompactInstrumentIdentityFrozenDetailAndPermissions(t *testing.T) {
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, _ := fixture(t)
 			note := strings.Repeat("Synthetic private note 数据 ", 30)

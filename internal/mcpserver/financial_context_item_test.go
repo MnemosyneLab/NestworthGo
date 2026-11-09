@@ -234,7 +234,7 @@ func TestFinancialContextItemConcurrentRevocation(t *testing.T) {
 }
 func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
 			now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)

@@ -62,7 +62,7 @@ func TestHostReviewProcessChild(t *testing.T) {
 	if phase == "prepare" || phase == "commit_drop" {
 		fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 		id := uuid.NewString()
-		local, err := NewInProcessSession(t.Context(), app, root, id, LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+		local, err := NewInProcessSession(t.Context(), app, root, id, ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +97,7 @@ func TestHostReviewProcessChild(t *testing.T) {
 	if err != nil || bootstrap.Household == nil || bootstrap.Household.Name != "MCP ledger" {
 		t.Fatal("synthetic household verification failed")
 	}
-	local, err := NewInProcessSession(t.Context(), app, root, metadata.SessionID, LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+	local, err := NewInProcessSession(t.Context(), app, root, metadata.SessionID, ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 	if err != nil {
 		t.Fatal(err)
 	}

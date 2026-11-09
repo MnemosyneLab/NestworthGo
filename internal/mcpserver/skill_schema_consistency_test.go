@@ -61,7 +61,7 @@ var skillSchemaExamples = map[string]map[string][]string{
 
 func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 	s, _, _ := fixture(t)
-	registry := s.toolRegistry(LedgerWrite)
+	registry := s.toolRegistry(ReadWrite)
 	root := filepath.Join("..", "..", "skills", "nestworth", "references")
 	files, err := filepath.Glob(filepath.Join(root, "*.md"))
 	if err != nil {
@@ -166,7 +166,7 @@ func TestSkillToolInventoryCoversRegisteredTools(t *testing.T) {
 		}
 		text += "\n" + string(raw)
 	}
-	for _, tool := range s.toolRegistry(LedgerWrite).Definitions() {
+	for _, tool := range s.toolRegistry(ReadWrite).Definitions() {
 		if !regexp.MustCompile(`\b` + regexp.QuoteMeta(tool.Name) + `\b`).MatchString(text) {
 			t.Errorf("actual tool absent from skill references: %s", tool.Name)
 		}
@@ -175,7 +175,7 @@ func TestSkillToolInventoryCoversRegisteredTools(t *testing.T) {
 
 func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	s, _, _ := fixture(t)
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
@@ -195,14 +195,14 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if !strings.Contains(string(marketGuide), "Comparison pages default to 25 rows") || !strings.Contains(string(marketGuide), "get_read_page({cursor, limit?})") {
 		t.Error("market comparison guide differs from the shared default/continuation contract")
 	}
-	marketDefinition, err := s.toolRegistry(LedgerWrite).Definition("compare_market_data_import")
+	marketDefinition, err := s.toolRegistry(ReadWrite).Definition("compare_market_data_import")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(marketDefinition.Description, "Comparison pages default to 25 rows, maximum 100") || !strings.Contains(marketDefinition.Description, "get_read_page({cursor,limit?})") {
 		t.Error("market comparison discovery differs from its schema/runtime default and continuation")
 	}
-	definition, err := s.toolRegistry(LedgerWrite).Definition("compare_financial_attribution")
+	definition, err := s.toolRegistry(ReadWrite).Definition("compare_financial_attribution")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +251,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 		}
 		params.Cursor = page.NextCursor
 	}
-	if total != len(s.toolRegistry(LedgerWrite).Definitions()) || pages < 2 {
+	if total != len(s.toolRegistry(ReadWrite).Definitions()) || pages < 2 {
 		t.Fatal("incomplete tool discovery", total, pages)
 	}
 }

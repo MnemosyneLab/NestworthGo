@@ -199,7 +199,7 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 func connectPayload(t *testing.T, s *Service) (*mcp.ClientSession, *payloadRecorder) {
 	t.Helper()
-	if _, e := s.Enable(LedgerWrite); e != nil {
+	if _, e := s.Enable(ReadWrite); e != nil {
 		t.Fatal(e)
 	}
 	cfg, e := s.Connection()
@@ -262,8 +262,7 @@ func payloadSection(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 func TestMCPPayloadBudgetsRepresentative(t *testing.T) { runPayloadBudgets(t, false) }
 func runPayloadBudgets(t *testing.T, large bool) {
 	f := newPayloadHousehold(t, large)
-	// This journey calls review management tools. Default discovery hides them.
-	enableInvestmentReviewManagement(t, f.service)
+
 	c, rec := connectPayload(t, f.service)
 	tools, err := listAllTools(t.Context(), c)
 	if err != nil {

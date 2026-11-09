@@ -415,7 +415,7 @@ func TestBusinessOutputSchemasMatchInitialAndContinuation(t *testing.T) {
 
 func TestRepairOutputSchemasMatchStartAndProgress(t *testing.T) {
 	s, app := dataHealthFixture(t, true)
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	client := connect(t, s)

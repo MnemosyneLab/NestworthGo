@@ -166,7 +166,7 @@ func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {
 		}
 		return nil, fail("not_found", "reconciliation item not found")
 	})
-	if mode != LedgerWrite {
+	if mode != ReadWrite {
 		return
 	}
 	readTool(server, "preview_reconciliation_session", "Preview a reconciliation session action: start, pause, resume, check or finish. start selects active accountIds (omitted means all, max 100); the others need sessionId and expectedRevision. check needs accountId, itemId, the current financialRevision and an outcome (confirmed, skipped, unresolved or pending). confirmed needs source.asOfDate (optional HH:mm in the ledger timezone; reference optional); skipped and unresolved need a note; a partial finish needs allowPartial and an explanation. Never fabricate an attestation; a correction never confirms an item. Inspect the returned counts, then commit_plan.", func(ctx context.Context, in application.ReconciliationAction) (any, error) {

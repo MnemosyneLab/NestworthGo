@@ -48,7 +48,7 @@ func correctionCommit(t *testing.T, c *mcp.ClientSession, operationID, planID st
 func TestCorrectionToolsRequireLedgerWrite(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +61,7 @@ func TestCorrectionToolsRequireLedgerWrite(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = true
 		}
-		if found["preview_correction"] != (mode == LedgerWrite) || found["commit_plan"] != (mode == LedgerWrite) {
+		if found["preview_correction"] != (mode == ReadWrite) || found["commit_plan"] != (mode == ReadWrite) {
 			t.Fatalf("mode=%s correction tools=%v", mode, found)
 		}
 	}

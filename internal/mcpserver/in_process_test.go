@@ -67,7 +67,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
-	}{{ReadOnly, 46}, {DirectoryWrite, 59}, {LedgerWrite, 72}} {
+	}{{ReadOnly, 46}, {ReadWrite, 79}} {
 		local := newLocal(t, fx, test.mode)
 		if local.service.listener != nil || local.service.server != nil || local.service.endpoint != "" || local.service.config.Token != "" {
 			t.Fatal("local session created external transport/credentials")
@@ -91,7 +91,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 			}
 		}
 		_, err = local.Call(t.Context(), "commit_plan", json.RawMessage(`{}`))
-		if test.mode == LedgerWrite {
+		if test.mode == ReadWrite {
 			requireLocalError(t, err, "approval_required")
 		} else {
 			requireLocalError(t, err, "not_found")
@@ -99,7 +99,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 		localRaw(t, local, "get_catalog", map[string]any{}, false)
 	}
 	for _, id := range []string{"", uuid.Nil.String(), "../escape"} {
-		_, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), id, LedgerWrite, nil)
+		_, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), id, ReadWrite, nil)
 		requireLocalError(t, err, "validation")
 	}
 }
@@ -171,7 +171,7 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 	t.Parallel()
 	fx := newLedgerFixture(t)
 	external := ledgerSession(t, fx)
-	local := newLocal(t, fx, LedgerWrite)
+	local := newLocal(t, fx, ReadWrite)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
 	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	externalPreview := ledgerPreview(t, external, command)
@@ -220,7 +220,7 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 		t.Fatalf("authoritative postcommit cash is %s, expected exact 12.34", amount)
 	}
 	call(t, external, "get_operation", IDInput{operationID}, true)
-	other := newLocal(t, fx, LedgerWrite)
+	other := newLocal(t, fx, ReadWrite)
 	_, err = other.Call(t.Context(), "get_operation", mustJSON(t, IDInput{operationID}))
 	requireLocalError(t, err, "not_found")
 	localData(t, local, "get_operation", IDInput{operationID}, false)
@@ -271,7 +271,7 @@ func TestInProcessCancellationDoesNotUndoCommittedReceipt(t *testing.T) {
 	fx := newLedgerFixture(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	var changed atomic.Int32
-	local, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), uuid.NewString(), LedgerWrite, func() { changed.Add(1); cancel() })
+	local, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), uuid.NewString(), ReadWrite, func() { changed.Add(1); cancel() })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,12 +317,12 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 	fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	repository := sqlite.NewConfigurationRepository(db)
 	id := uuid.NewString()
-	local, err := NewInProcessSession(t.Context(), app, directory, id, LedgerWrite, nil, repository)
+	local, err := NewInProcessSession(t.Context(), app, directory, id, ReadWrite, nil, repository)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(local.Close)
-	_, err = NewInProcessSession(t.Context(), app, t.TempDir(), id, LedgerWrite, nil, repository)
+	_, err = NewInProcessSession(t.Context(), app, t.TempDir(), id, ReadWrite, nil, repository)
 	requireLocalError(t, err, "conflict")
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
 	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
@@ -347,7 +347,7 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	app, db = openLocalApp(t, path)
-	reopened, err := NewInProcessSession(t.Context(), app, directory, id, LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+	reopened, err := NewInProcessSession(t.Context(), app, directory, id, ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 	if err != nil {
 		t.Fatal(err)
 	}

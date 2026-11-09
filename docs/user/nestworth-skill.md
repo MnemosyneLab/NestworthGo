@@ -53,7 +53,11 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.12; published skill: 2.0.0
+### Current repository skill: 3.0.13; published skill: 2.0.0
+
+Repository skill 3.0.13 documents the two MCP modes, `read_only` and
+`read_write`. The read-write mode includes directory, ledger and
+investment-review management operations.
 
 Repository skill 3.0.12 uses a compact overview with opt-in detail, one
 managed-product read, one ledger preview for 1–100 commands, and a reconciliation

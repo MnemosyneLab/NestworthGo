@@ -45,7 +45,7 @@ func comparisonFixture(t *testing.T, s *Service, app *application.Service) domai
 }
 func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
 			first := comparisonFixture(t, s, app)
@@ -203,7 +203,7 @@ func TestFinancialComparisonRevocationPreventsInflightPublication(t *testing.T) 
 			case "disable":
 				_, err = s.Disable()
 			case "enable":
-				_, err = s.Enable(DirectoryWrite)
+				_, err = s.Enable(ReadWrite)
 			case "close":
 				s.Close()
 			case "restore":

@@ -55,7 +55,7 @@ func TestDerivedCommitPlanOperationIDIsStable(t *testing.T) {
 func TestCommitPlanOperationIDIsOptionalOnlyThere(t *testing.T) {
 	t.Parallel()
 	s, _, _ := fixture(t)
-	registry := s.toolRegistry(LedgerWrite)
+	registry := s.toolRegistry(ReadWrite)
 	sawCommit := false
 	for _, definition := range registry.Definitions() {
 		root := schemaObject(t, definition.InputSchema)
@@ -79,7 +79,7 @@ func TestCommitPlanOperationIDIsOptionalOnlyThere(t *testing.T) {
 	if !sawCommit {
 		t.Fatal("commit_plan is not registered")
 	}
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)

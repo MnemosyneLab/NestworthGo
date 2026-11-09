@@ -61,7 +61,7 @@ func productCommitCode(t *testing.T, c *mcp.ClientSession, planID string) string
 func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -75,10 +75,10 @@ func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 			found[tool.Name] = tool
 		}
 		for _, name := range []string{"preview_product_operation", "commit_plan"} {
-			if (found[name] != nil) != (mode == LedgerWrite) {
+			if (found[name] != nil) != (mode == ReadWrite) {
 				t.Fatalf("%s: %s", mode, name)
 			}
-			if mode != LedgerWrite {
+			if mode != ReadWrite {
 				result, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 				if err == nil && (result == nil || !result.IsError) {
 					t.Fatal(err)

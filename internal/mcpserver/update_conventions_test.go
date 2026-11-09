@@ -96,7 +96,7 @@ func TestUpdateAccountPatchOmitsKeepAndNullClears(t *testing.T) {
 		t.Fatalf("rejected edits persisted: %+v", stored)
 	}
 
-	definition, err := fx.service.toolRegistry(LedgerWrite).Definition("update_account")
+	definition, err := fx.service.toolRegistry(ReadWrite).Definition("update_account")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,10 +233,8 @@ func propertyNames(node map[string]any) []string {
 
 func TestWriteToolUpdateConventionsAreClassifiedAndMatchSchemas(t *testing.T) {
 	fx := newLedgerFixture(t)
-	// Management writes are off by default. The convention still applies when
-	// Settings enables them.
-	enableInvestmentReviewManagement(t, fx.service)
-	registry := fx.service.toolRegistry(LedgerWrite)
+
+	registry := fx.service.toolRegistry(ReadWrite)
 	for _, d := range registry.Definitions() {
 		covered := strings.HasPrefix(d.Name, "update_") || strings.HasPrefix(d.Name, "set_") || d.Name == "preview_save_liquidity_policy" || d.Name == "preview_product_terms"
 		if _, ok := updateConventions[d.Name]; covered && !ok {
@@ -399,7 +397,7 @@ func schemaChild2(node map[string]any, key string) (map[string]any, bool) {
 
 func TestProductTermsDescriptionStatesOptionalShortName(t *testing.T) {
 	fx := newLedgerFixture(t)
-	d, err := fx.service.toolRegistry(LedgerWrite).Definition("preview_product_terms")
+	d, err := fx.service.toolRegistry(ReadWrite).Definition("preview_product_terms")
 	if err != nil {
 		t.Fatal(err)
 	}

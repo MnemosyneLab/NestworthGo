@@ -64,7 +64,7 @@ func productJSONEqual(t *testing.T, actual, expected any) {
 func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			if _, err := fx.service.Enable(mode); err != nil {
 				t.Fatal(err)
@@ -263,7 +263,7 @@ func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	client := connect(t, fx.service)

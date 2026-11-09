@@ -19,7 +19,7 @@ func TestAgentSkippedMidnightImportHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
@@ -48,7 +48,7 @@ func TestAgentSkippedMidnightImportHTTP(t *testing.T) {
 
 func TestAgentMarketDataPermissions(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, _, _ := fixture(t)
 			if _, err := s.Enable(mode); err != nil {
@@ -63,10 +63,10 @@ func TestAgentMarketDataPermissions(t *testing.T) {
 			for _, tool := range list.Tools {
 				found[tool.Name] = true
 			}
-			if !found["get_market_data"] || !found["list_agent_market_data"] || found["import_market_data"] != (mode == LedgerWrite) || found["set_fx_source"] != (mode == LedgerWrite) {
+			if !found["get_market_data"] || !found["list_agent_market_data"] || found["import_market_data"] != (mode == ReadWrite) || found["set_fx_source"] != (mode == ReadWrite) {
 				t.Fatalf("bad mode tools: %s %v", mode, found)
 			}
-			if mode != LedgerWrite {
+			if mode != ReadWrite {
 				_, err := c.CallTool(context.Background(), &mcp.CallToolParams{Name: "import_market_data", Arguments: map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{}}}})
 				if err == nil {
 					t.Fatal("read/directory mode accepted quote mutation")

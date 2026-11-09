@@ -103,7 +103,7 @@ func directoryAtomicFixture(t *testing.T, dir string) (*Service, *sqlite.DB, *di
 	changes := &atomic.Int32{}
 	s := New(app, dir, func() { changes.Add(1) })
 	t.Cleanup(s.Close)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	return s, db, repo, changes

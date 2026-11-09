@@ -63,7 +63,7 @@ See [recovery.md](recovery.md) if posting succeeded but derived work did not.
 
 Session checks are separate from financial target adjustments. Require the
 `reconciliation_session_read` capability for saved evidence and
-`reconciliation_session_write` / ledger_write for attestations. Read
+`reconciliation_session_write` / read_write for attestations. Read
 `list_reconciliation_sessions` before starting another session; offer resume
 when a matching in-progress or paused session exists. A session selects a fixed
 subset of active accounts. An empty account still needs its completeness check.

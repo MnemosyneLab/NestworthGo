@@ -87,7 +87,7 @@ func ledgerSessionDatabase(t *testing.T) (*application.Service, *observedSession
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := mcpserver.NewInProcessSession(t.Context(), app, dir, uuid.NewString(), mcpserver.LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+	session, err := mcpserver.NewInProcessSession(t.Context(), app, dir, uuid.NewString(), mcpserver.ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 	if err != nil {
 		t.Fatal(err)
 	}

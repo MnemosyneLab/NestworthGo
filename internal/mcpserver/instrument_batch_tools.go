@@ -121,7 +121,7 @@ func (s *Service) pagedInstruments(ctx context.Context, g uint64, in InstrumentR
 	})
 }
 func (s *Service) instrumentBatchTools(server *toolSet, mode string) {
-	if mode == ReadOnly {
+	if mode != ReadWrite {
 		return
 	}
 	writeTool(s, server, "update_instruments_batch", "Atomically update name, shortName and note for 1-100 instruments using expectedMetadataVersion from list_instruments. Omission keeps a field. JSON null clears shortName and note. An empty string is rejected. Null and an empty name are rejected. Managed or archived instruments and any stale version reject the whole batch. No ledger or quote changes.", func(ctx context.Context, in application.InstrumentMetadataBatchInput) (any, error) {

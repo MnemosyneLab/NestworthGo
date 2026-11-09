@@ -15,7 +15,7 @@ import (
 // shortName, and patch fields that null clears keep null through anyOf.
 func TestDiscoveredInputSchemasHaveNoNullTypeUnion(t *testing.T) {
 	s, _, _ := fixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		for _, definition := range s.toolRegistry(mode).Definitions() {
 			raw, err := jsoncodec.Marshal(definition.InputSchema)
 			if err != nil {
@@ -30,7 +30,7 @@ func TestDiscoveredInputSchemasHaveNoNullTypeUnion(t *testing.T) {
 
 func TestNullableInputSchemaDecisions(t *testing.T) {
 	fx := newLedgerFixture(t)
-	registry := fx.service.toolRegistry(LedgerWrite)
+	registry := fx.service.toolRegistry(ReadWrite)
 	accountIDs := property(t, registry, "get_account_valuations", "accountIds")
 	if accountIDs["type"] != "array" {
 		t.Fatalf("accountIds = %#v", accountIDs)

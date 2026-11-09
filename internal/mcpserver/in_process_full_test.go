@@ -21,12 +21,12 @@ import (
 func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
 	fx := newLedgerFixture(t)
 	dir, id := t.TempDir(), uuid.NewString()
-	s, err := NewInProcessSession(t.Context(), fx.app, dir, id, LedgerWrite, nil)
+	s, err := NewInProcessSession(t.Context(), fx.app, dir, id, ReadWrite, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defs, err := s.FullDefinitions()
-	if err != nil || !reflect.DeepEqual(defs, s.service.buildToolSetWithPolicy(LedgerWrite, true, true).Definitions()) {
+	if err != nil || !reflect.DeepEqual(defs, s.service.buildToolSet(ReadWrite, true).Definitions()) {
 		t.Fatal("Full differs from shared MCP registry", err)
 	}
 	rawGolden, err := os.ReadFile(discoveryContractGolden)
@@ -37,11 +37,11 @@ func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
 	if err := jsoncodec.Unmarshal(rawGolden, &golden); err != nil {
 		t.Fatal(err)
 	}
-	if len(defs) != len(golden[LedgerWrite])+len(investmentReviewManagementTools) {
+	if len(defs) != len(golden[ReadWrite]) {
 		t.Fatal("Full inventory count drift")
 	}
 	for _, d := range defs {
-		if hash, exists := golden[LedgerWrite][d.Name]; exists && hash != contractHash(t, sdkTool(d)) {
+		if hash, exists := golden[ReadWrite][d.Name]; !exists || hash != contractHash(t, sdkTool(d)) {
 			t.Fatalf("Full contract drift: %s", d.Name)
 		}
 	}
@@ -50,8 +50,8 @@ func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
 		if err != nil || d.Effect != agentcapability.Write {
 			t.Fatalf("missing Full review management writer: %s", name)
 		}
-		if _, err := s.registry.Definition(name); err == nil {
-			t.Fatal("Full changed ordinary in-process inventory")
+		if _, err := s.Call(t.Context(), name, nil); err == nil {
+			t.Fatal("ordinary in-process dispatch accepted Full write")
 		}
 	}
 	counts := map[agentcapability.Effect]int{}
@@ -80,7 +80,7 @@ func TestFullRegistryParityAndDurableDirectoryReceipt(t *testing.T) {
 		t.Fatal("missing receipt", err)
 	}
 	s.Close()
-	s, err = NewInProcessSession(t.Context(), fx.app, dir, id, LedgerWrite, nil)
+	s, err = NewInProcessSession(t.Context(), fx.app, dir, id, ReadWrite, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestFullOperationIdentityMatchesCommitPlan(t *testing.T) {
 }
 
 func TestFullCancellationBeforeDispatchIsExplicitlyUnsubmitted(t *testing.T) {
-	s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+	s := newLocal(t, newLedgerFixture(t), ReadWrite)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	_, err := s.CallFull(ctx, "create_member", []byte(`{"operationId":"`+uuid.NewString()+`","input":{"name":"Synthetic cancelled"}}`))
@@ -128,7 +128,7 @@ func TestFullCancellationBeforeDispatchIsExplicitlyUnsubmitted(t *testing.T) {
 }
 
 func TestFullCommitRouteRejectsOnlyProvenUnsubmittedPlans(t *testing.T) {
-	s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+	s := newLocal(t, newLedgerFixture(t), ReadWrite)
 	unsupported := uuid.NewString()
 	if err := s.service.writePrivate(filepath.Join(s.service.dir, "plans", unsupported+".json"), map[string]string{"type": "not_a_commit_plan"}); err != nil {
 		t.Fatal(err)
@@ -161,7 +161,7 @@ func TestFullCommitRouteRejectsOnlyProvenUnsubmittedPlans(t *testing.T) {
 func TestFullCancellationWhileWaitingForReceiptGate(t *testing.T) {
 	for _, prior := range []bool{false, true} {
 		t.Run(fmt.Sprint("prior=", prior), func(t *testing.T) {
-			s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+			s := newLocal(t, newLedgerFixture(t), ReadWrite)
 			operation := uuid.NewString()
 			if prior {
 				path, _ := s.service.operationPath(operation)
@@ -180,7 +180,7 @@ func TestFullCancellationWhileWaitingForReceiptGate(t *testing.T) {
 				} // production-style wrapping must not lose the observation
 				return Response{Data: value}, nil
 			})
-			s.fullOnce.Do(func() { s.fullRegistry = set.Registry })
+			s.registry = set.Registry
 			s.service.operationMu.Lock()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -210,7 +210,7 @@ func TestFullCancellationWhileWaitingForReceiptGate(t *testing.T) {
 }
 
 func TestFullPreRegistryCancellationKeepsPriorUnknownReceipt(t *testing.T) {
-	s := newLocal(t, newLedgerFixture(t), LedgerWrite)
+	s := newLocal(t, newLedgerFixture(t), ReadWrite)
 	operation := uuid.NewString()
 	path, _ := s.service.operationPath(operation)
 	if err := s.service.writePrivate(path, Operation{ID: operation, Tool: "create_member", Status: "pending"}); err != nil {
@@ -257,7 +257,7 @@ func TestFullCommitCancelledWhileLoadingValidPreview(t *testing.T) {
 			app, db := openLocalApp(t, filepath.Join(directory, "synthetic.db"))
 			fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 			repository := &cancelLoadedPlanRepository{ConfigurationRepository: sqlite.NewConfigurationRepository(db)}
-			s, err := NewInProcessSession(t.Context(), app, directory, uuid.NewString(), LedgerWrite, nil, repository)
+			s, err := NewInProcessSession(t.Context(), app, directory, uuid.NewString(), ReadWrite, nil, repository)
 			if err != nil {
 				t.Fatal(err)
 			}

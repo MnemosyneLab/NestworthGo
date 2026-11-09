@@ -32,7 +32,7 @@ func newHostFixture(t *testing.T) hostFixture {
 	app, db := openLocalApp(t, filepath.Join(dir, "synthetic.db"))
 	fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	id := uuid.NewString()
-	local, err := NewInProcessSession(t.Context(), app, dir, id, LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+	local, err := NewInProcessSession(t.Context(), app, dir, id, ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestHostReviewRestartReceiptRecoveryAndNoReplay(t *testing.T) {
 				t.Fatal(err)
 			}
 			app, db := openLocalApp(t, filepath.Join(fx.dir, "synthetic.db"))
-			local, err := NewInProcessSession(t.Context(), app, fx.dir, fx.id, LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+			local, err := NewInProcessSession(t.Context(), app, fx.dir, fx.id, ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -346,19 +346,17 @@ func TestHostReviewIsolationCorruptionAndPermissions(t *testing.T) {
 	t.Parallel()
 	fx := newHostFixture(t)
 	review := hostPreview(t, fx)
-	other, err := NewInProcessSession(t.Context(), fx.app, fx.dir, uuid.NewString(), LedgerWrite, nil, sqlite.NewConfigurationRepository(fx.db))
+	other, err := NewInProcessSession(t.Context(), fx.app, fx.dir, uuid.NewString(), ReadWrite, nil, sqlite.NewConfigurationRepository(fx.db))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(other.Close)
 	_, err = other.InspectHostChange(t.Context(), review.Binding.ID)
 	requireLocalError(t, err, "not_found")
-	for _, mode := range []string{ReadOnly, DirectoryWrite} {
-		limited := newLocal(t, fx.ledgerFixture, mode)
-		_, err := limited.PreviewFullChange(t.Context(), hostCommand(fx))
-		requireLocalError(t, err, "review_unavailable")
-	}
-	fileOnly := newLocal(t, fx.ledgerFixture, LedgerWrite)
+	limited := newLocal(t, fx.ledgerFixture, ReadOnly)
+	_, err = limited.PreviewFullChange(t.Context(), hostCommand(fx))
+	requireLocalError(t, err, "review_unavailable")
+	fileOnly := newLocal(t, fx.ledgerFixture, ReadWrite)
 	_, err = fileOnly.PreviewFullChange(t.Context(), hostCommand(fx))
 	requireLocalError(t, err, "review_unavailable")
 	path, _ := fx.local.hostReviewPath(review.Binding.ID)
@@ -399,7 +397,7 @@ func TestInProcessMarketDataBusinessReceiptsArePrincipalBound(t *testing.T) {
 	t.Parallel()
 	fx := newHostFixture(t)
 	external := ledgerSession(t, fx.ledgerFixture)
-	other := newLocal(t, fx.ledgerFixture, LedgerWrite)
+	other := newLocal(t, fx.ledgerFixture, ReadWrite)
 	operationID := uuid.NewString()
 	input := application.AgentMarketDataInput{Items: []application.AgentMarketDataItem{{InstrumentID: fx.instrument, Currency: "USD", Value: "1.01", Kind: "close", Date: "2026-09-28", SourceTitle: "Synthetic source"}}}
 	args := Mutation[application.AgentMarketDataInput]{OperationID: operationID, Input: input}
@@ -457,7 +455,7 @@ func TestInProcessMarketDataBusinessReceiptsArePrincipalBound(t *testing.T) {
 		t.Fatal(err)
 	}
 	fx.local.Close()
-	reopened, err := NewInProcessSession(t.Context(), fx.app, fx.dir, fx.id, LedgerWrite, nil, sqlite.NewConfigurationRepository(fx.db))
+	reopened, err := NewInProcessSession(t.Context(), fx.app, fx.dir, fx.id, ReadWrite, nil, sqlite.NewConfigurationRepository(fx.db))
 	if err != nil {
 		t.Fatal(err)
 	}

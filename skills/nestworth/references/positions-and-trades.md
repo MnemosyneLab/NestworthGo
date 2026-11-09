@@ -8,7 +8,7 @@ MCP `preview_batch` takes a `commands` array with 1–100 records and supports p
 cash_dividend, cash_transfer, fx_conversion, position_transfer, trade, debt_draw
 and debt_payment. For target quantity/value adjustments use
 preview_reconciliation; GUI DTO variants position_adjustment/value_update are
-not supported preview_batch kinds. All ledger writes require ledger_write.
+not supported preview_batch kinds. All ledger writes require read_write.
 
 ## Already owned
 

@@ -35,7 +35,7 @@ func decodeContext(t *testing.T, obj map[string]any) FinancialContextResponse {
 }
 func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
 			members, err := app.ListMembers(t.Context(), false)
@@ -447,7 +447,7 @@ func TestFinancialContextRevocationPreventsInflightPublication(t *testing.T) {
 			case "disable":
 				_, err = s.Disable()
 			case "enable":
-				_, err = s.Enable(DirectoryWrite)
+				_, err = s.Enable(ReadWrite)
 			case "close":
 				s.Close()
 			case "restore":

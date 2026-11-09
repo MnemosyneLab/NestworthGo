@@ -12,7 +12,7 @@ import (
 
 func TestMCPInstrumentOptionalShortNamePatchAndClear(t *testing.T) {
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -52,7 +52,7 @@ func TestMCPInstrumentOptionalShortNamePatchAndClear(t *testing.T) {
 
 func TestInstrumentBatchNullClearsAndEmptyStringRejects(t *testing.T) {
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -97,7 +97,7 @@ func instrumentMetadataVersion(t *testing.T, c *mcp.ClientSession, id string) st
 
 func TestMCPInstrumentSearchAliasNameCodeAndDuplicates(t *testing.T) {
 	s, _, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -129,7 +129,7 @@ func TestMCPInstrumentSearchAliasNameCodeAndDuplicates(t *testing.T) {
 
 func TestMCPInstrumentBindingNullClearRejectsAtomically(t *testing.T) {
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)

@@ -28,8 +28,9 @@ import (
 const ChangedEvent = "agent.data.changed"
 const ReconciliationChangedEvent = "agent.reconciliation.changed"
 const ReadOnly = "read_only"
-const DirectoryWrite = "directory_write"
-const LedgerWrite = "ledger_write"
+const ReadWrite = "read_write"
+
+func validMode(mode string) bool { return mode == ReadOnly || mode == ReadWrite }
 
 type Config struct {
 	Enabled    bool   `json:"enabled"`
@@ -37,19 +38,13 @@ type Config struct {
 	Port       int    `json:"port"`
 	Token      string `json:"token"`
 	InstanceID string `json:"instanceId"`
-	// InvestmentReviewManagement exposes the seven investment-review
-	// management tools. Default false. It does not replace ledger_write:
-	// those tools stay unregistered in every other mode. The desktop review
-	// screen does not read this flag.
-	InvestmentReviewManagement bool `json:"investmentReviewManagement"`
 }
 type Status struct {
-	Running                    bool   `json:"running"`
-	Mode                       string `json:"mode"`
-	Endpoint                   string `json:"endpoint"`
-	InstanceID                 string `json:"instanceId"`
-	Error                      string `json:"error,omitempty"`
-	InvestmentReviewManagement bool   `json:"investmentReviewManagement"`
+	Running    bool   `json:"running"`
+	Mode       string `json:"mode"`
+	Endpoint   string `json:"endpoint"`
+	InstanceID string `json:"instanceId"`
+	Error      string `json:"error,omitempty"`
 }
 type Connection struct {
 	Endpoint string `json:"endpoint"`
@@ -115,7 +110,7 @@ func (s *Service) Resume() error {
 		s.lastError = "invalid_configuration"
 		return err
 	}
-	if config.Mode != ReadOnly && config.Mode != DirectoryWrite && config.Mode != LedgerWrite {
+	if !validMode(config.Mode) {
 		s.lastError = "invalid_configuration"
 		return fmt.Errorf("invalid agent mode")
 	}
@@ -133,7 +128,7 @@ func (s *Service) Resume() error {
 func (s *Service) Enable(mode string) (Status, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if mode != ReadOnly && mode != DirectoryWrite && mode != LedgerWrite {
+	if !validMode(mode) {
 		return s.statusLocked(), fmt.Errorf("invalid agent permission")
 	}
 	if s.server != nil && s.config.Mode == mode && s.contexts.active(s.contextGeneration) {
@@ -155,38 +150,6 @@ func (s *Service) Enable(mode string) (Status, error) {
 	return s.statusLocked(), err
 }
 
-// SetInvestmentReviewManagement persists whether ledger_write discovery
-// includes investment-review management tools. The default is off. Other
-// modes keep the preference but do not register those tools. Changing it on
-// a running ledger_write listener replaces the token, same as a mode change.
-func (s *Service) SetInvestmentReviewManagement(enabled bool) (Status, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.config.InvestmentReviewManagement == enabled {
-		return s.statusLocked(), nil
-	}
-	running := s.server != nil && s.contexts.active(s.contextGeneration)
-	// Only ledger_write discovery changes. Other running modes keep the same
-	// tool list, so persist the preference without replacing the token.
-	if running && s.config.Mode == LedgerWrite {
-		s.closeLocked()
-		token := make([]byte, 32)
-		if _, err := rand.Read(token); err != nil {
-			return s.statusLocked(), err
-		}
-		s.config.Token = hex.EncodeToString(token)
-		s.config.InvestmentReviewManagement = enabled
-		err := s.startLocked()
-		return s.statusLocked(), err
-	}
-	s.config.InvestmentReviewManagement = enabled
-	if err := s.writePrivate(filepath.Join(s.dir, "connection.json"), s.config); err != nil {
-		s.lastError = "configuration_unavailable"
-		return s.statusLocked(), err
-	}
-	s.lastError = ""
-	return s.statusLocked(), nil
-}
 func (s *Service) startLocked() error {
 	if s.app == nil {
 		s.lastError = "database_unavailable"
@@ -277,7 +240,7 @@ func (s *Service) closeLocked() {
 }
 func (s *Service) Status() Status { s.mu.Lock(); defer s.mu.Unlock(); return s.statusLocked() }
 func (s *Service) statusLocked() Status {
-	return Status{Running: s.server != nil && s.contexts.active(s.contextGeneration), Mode: s.config.Mode, Endpoint: s.endpoint, InstanceID: s.config.InstanceID, Error: s.lastError, InvestmentReviewManagement: s.config.InvestmentReviewManagement}
+	return Status{Running: s.server != nil && s.contexts.active(s.contextGeneration), Mode: s.config.Mode, Endpoint: s.endpoint, InstanceID: s.config.InstanceID, Error: s.lastError}
 }
 func (s *Service) Connection() (Connection, error) {
 	s.mu.Lock()

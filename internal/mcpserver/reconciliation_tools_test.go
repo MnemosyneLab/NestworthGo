@@ -42,7 +42,7 @@ func reconciliationCommit(t *testing.T, c *mcp.ClientSession, operationID, planI
 func TestReconciliationToolsRequireLedgerPermission(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -56,7 +56,7 @@ func TestReconciliationToolsRequireLedgerPermission(t *testing.T) {
 			found[tool.Name] = true
 		}
 		for _, name := range []string{"preview_reconciliation", "commit_plan"} {
-			if found[name] != (mode == LedgerWrite) {
+			if found[name] != (mode == ReadWrite) {
 				t.Fatalf("%s exposed=%v in mode %s", name, found[name], mode)
 			}
 		}

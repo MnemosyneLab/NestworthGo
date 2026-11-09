@@ -87,7 +87,7 @@ func productEditPlan(t *testing.T, s *Service, id string, change func(map[string
 func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -101,10 +101,10 @@ func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 			found[tool.Name] = tool
 		}
 		for _, name := range []string{"preview_product_terms", "preview_product_valuation", "commit_plan"} {
-			if (found[name] != nil) != (mode == LedgerWrite) {
+			if (found[name] != nil) != (mode == ReadWrite) {
 				t.Fatalf("%s %s", mode, name)
 			}
-			if mode != LedgerWrite {
+			if mode != ReadWrite {
 				// An unknown tool ends the HTTP session, so probe it on a throwaway client.
 				probe := connect(t, fx.service)
 				r, e := probe.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
@@ -125,7 +125,7 @@ func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 		info := call(t, c, "get_context", Empty{}, false)["data"].(map[string]any)
 		caps, _ := jsoncodec.Marshal(info["capabilities"])
 		for _, cap := range []string{"managed_product_terms", "managed_product_valuation"} {
-			if strings.Contains(string(caps), cap) != (mode == LedgerWrite) {
+			if strings.Contains(string(caps), cap) != (mode == ReadWrite) {
 				t.Fatal(info)
 			}
 		}

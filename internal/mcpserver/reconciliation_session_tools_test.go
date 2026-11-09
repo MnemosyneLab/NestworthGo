@@ -28,7 +28,7 @@ func sessionHeader(t *testing.T, c *mcp.ClientSession, id string) map[string]any
 }
 func TestReconciliationSessionToolPermissions(t *testing.T) {
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func TestReconciliationSessionToolPermissions(t *testing.T) {
 			}
 		}
 		for _, name := range []string{"preview_reconciliation_session", "commit_plan"} {
-			if names[name] != (mode == LedgerWrite) {
+			if names[name] != (mode == ReadWrite) {
 				t.Fatalf("%s in %s", name, mode)
 			}
 		}

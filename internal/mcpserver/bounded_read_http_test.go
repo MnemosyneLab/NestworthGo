@@ -88,7 +88,7 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 	if _, err := fx.service.reads.page(g, ReadPageInput{CaptureID: id, Section: "instruments", Cursor: "anything"}); err == nil || !strings.Contains(err.Error(), "read_revoked") {
 		t.Fatal(err)
 	}
-	if _, err := fx.service.Enable(DirectoryWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fx.service.reads.page(g, ReadPageInput{CaptureID: id, Section: "instruments", Cursor: "anything"}); err == nil || !strings.Contains(err.Error(), "read_revoked") {

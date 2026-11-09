@@ -11,7 +11,7 @@ reconnect or implicit retry model calls. Desktop writes default off. The UI perm
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
-Full exposes the existing MCP LedgerWrite registry, including preview/commit,
+Full exposes the existing MCP ReadWrite registry, including preview/commit,
 directory, investment, reconciliation, market-data and repair capabilities, plus
 the scoped generic page operations described below. Unrestricted UI automation
 and mobile model access remain unavailable. Existing explicit
@@ -31,7 +31,7 @@ restart; onboarding does not silently activate it.
 
 Each live conversation owns a direct `InProcessSession` through
 `builtinai.Pool`; the installed desktop uses a durable configuration repository
-and a host-owned `LedgerWrite` session, while the model adapter retains its
+and a host-owned `ReadWrite` session, while the model adapter retains its
 fixed read allowlist by default, or the complete shared registry through the separately enabled Full callback. The model
 never receives the host review methods. Read-only test/integration pools remain
 `ReadOnly` when no repository is supplied. The engine and credential lease remain per-run. This
@@ -72,11 +72,12 @@ disabling remains available during a run. Every mode change revokes existing
 capability sessions and navigation grants. A failed permission-state save closes
 Full access. No model argument, chat approval or restored history enables it.
 
-Full discovery reuses the complete `LedgerWrite` registry and its exact input
+Full discovery reuses the complete `ReadWrite` registry and its exact input
 schemas, descriptions and effects. Dispatch uses that same in-process registry;
 there is no loopback HTTP, duplicate financial implementation or additional
-per-write approval. The Full grant includes the seven investment-review management writers (82 shared tools including the 75-tool baseline). External MCP
-transport, its independent investment-review-management opt-in, permission modes, schemas and operation namespaces are unchanged.
+per-write approval. Full and external MCP read-write mode share the same
+79-tool registry, including investment-review management. External MCP has
+its own permission setting, credentials and operation namespace.
 The #248 atomic directory edit fix is part of this baseline. The legacy
 `execute_ledger_change` cash/transfer convenience tool remains available for
 existing conversations, using its original host preview/commit flow.
@@ -117,7 +118,7 @@ Mac GUI acceptance remains separate from Linux, jsdom and provider tests.
 The reviewed-write mode, `SetWritePermission`, `ReviewAction` and
 `propose_cash_change` have been removed. The sole desktop setter is
 `SetFullAccess`: false is Read-only, true enables the existing shared MCP
-LedgerWrite registry. It does not introduce a per-action approval step.
+ReadWrite registry. It does not introduce a per-action approval step.
 Permission is never persisted; existing configuration and conversations reopen
 in Read-only, without enabling writes from history or old model text.
 

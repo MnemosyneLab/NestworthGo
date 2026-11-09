@@ -1,6 +1,6 @@
 # Edit managed-product terms and forecast policy
 
-With ledger_write, discover `preview_product_terms` and commit with `commit_plan`.
+With read_write, discover `preview_product_terms` and commit with `commit_plan`.
 Read the contract in [products](products.md). Lifecycle facts use
 [product lifecycle](product-lifecycle.md). Ordinary non-managed access rules use
 [liquidity policy](liquidity-policy.md).

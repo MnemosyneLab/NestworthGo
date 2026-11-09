@@ -77,7 +77,7 @@ func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 			t.Fatalf("registered feature %s is missing from the HTTP guard allowlist", name)
 		}
 	}
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, _, _ := fixture(t)
 			if _, err := s.Enable(mode); err != nil {
@@ -96,7 +96,7 @@ func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 			}
 			for _, name := range writeTools {
 				tool, ok := tools[name]
-				if ok != (mode == LedgerWrite) {
+				if ok != (mode == ReadWrite) {
 					t.Fatalf("%s availability in %s = %t", name, mode, ok)
 				}
 				if ok {

@@ -9,7 +9,8 @@ App's loopback address without a separately configured relay.
 
 Normal App restarts retain the port and token. Disabling MCP revokes the token;
 enabling again or changing permission mode issues a new token, requiring updated
-client configuration. Connection failures can mean a stopped App, stale token,
+client configuration. Previously saved write modes require enabling MCP again
+and copying the new connection configuration. Connection failures can mean a stopped App, stale token,
 wrong instance, or occupied port. Ask the user to inspect App settings rather
 than scanning databases or silently attaching to another instance.
 
@@ -22,8 +23,7 @@ MCP configuration and skill discovery are separate.
 | Mode | Available operations |
 | --- | --- |
 | `read_only` | Financial context and frozen pages, current valuation, managed products/history, liquidity and upcoming-action reads, daily investment-review reads, historical overview/series, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
-| `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
-| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, managed lifecycle/terms/value pairs and starting data repair. Daily investment-review management writes stay hidden until Settings enables investment review management |
+| `read_write` | All reads plus directory maintenance, ledger previews and commits, quote imports and source selection, reconciliation, corrections, managed products, liquidity policies, data repair and investment-review management |
 
 Use the tools this client lists; do not rediscover before every call. Follow
 `nextCursor` if the client's tool list is paged. An absent tool may reflect the
@@ -55,11 +55,11 @@ certify old frozen comparisons.
 | Definition maintenance | `create_member`, `update_member`; `create_institution`, `update_institution`; `create_group`, `update_group`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument`. Member, institution and group archive is `archived` on the matching `update_*` tool |
 | Current state | `get_overview`, `get_account_valuations` |
 | Managed contracts/history and liquidity | `get_products`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
-| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`. Management tools are hidden by default. With `ledger_write` and investment review management enabled: `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
+| Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`. With `read_write`: `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
 | Read-only historical view | `get_historical_overview` (`{date, compareTo}` or `{from, to}`) |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
-| Previews (ledger_write) | `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
-| Commit any preview (ledger_write) | `commit_plan` with the returned `planId`; the server reads the plan kind |
+| Previews (read_write) | `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
+| Commit any preview (read_write) | `commit_plan` with the returned `planId`; the server reads the plan kind |
 | History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_read_item` |
 | Quotes and audit | `get_market_data`, `compare_market_data_import`, `list_agent_market_data`, `import_market_data`, `set_fx_source` |
 | Data repair | `scan_data_health`, `preview_data_repair`, `start_data_repair`, `get_data_repair_job` |
@@ -77,25 +77,19 @@ mutations take `operationId` and `input`. `commit_plan` may omit `operationId`; 
 not provisional IDs in a preview.
 
 Managed capabilities are managed_product_read, liquidity_read and, only with
-ledger_write, managed_product_lifecycle, managed_product_terms and
+read_write, managed_product_lifecycle, managed_product_terms and
 managed_product_valuation. Daily investment-review reads are available in all
 modes. Rule, acknowledgement, suppression and explicit refresh tools also
-require the investment review management switch, which is off by default.
-`get_context.investmentReviewManagement` reports it, and
-`investment_review_v2_write` appears in capabilities only when both that
-switch and ledger_write are on. Enable it in Settings → AI / MCP, then apply;
-a running connection gets a new access token. These tools update review
-rules, episodes and derived projections, not financial facts. The App's own
-review screen does not use this switch.
+require `read_write`, which adds `investment_review_v2_write` to capabilities.
+These tools update review rules, episodes and derived projections.
 
 ## Scale capabilities and permissions
 
 See [paging and batches](paging-and-batches.md). The capabilities are bounded_read,
 instrument_paging and market_data_batch. `get_read_page`/`get_read_item` and
 bounded contracts are available in every permission mode. instrument_metadata_batch
-and `update_instruments_batch` require directory_write or ledger_write.
+and `update_instruments_batch` require read_write.
 Missing tools do not authorize filesystem/provider workarounds. Repository bundle updates do not install or enable a real client.
 
 Reconciliation sessions expose reconciliation_session_read in every permission
-mode and reconciliation_session_write only with ledger_write. Directory access
-does not authorize ledger attestations. Follow [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first) with the actual session tool names.
+mode and reconciliation_session_write only with read_write. Follow [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first) with the actual session tool names.

@@ -19,7 +19,7 @@ var featureHTTPTools = []string{
 func TestFeatureHTTPBoundaries(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 

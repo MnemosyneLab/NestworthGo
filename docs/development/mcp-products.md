@@ -26,7 +26,7 @@ desktop, external-client and R2/live-ledger work are separate acceptance gates.
 
 ## Implemented minimal read interface
 
-All modes, including read_only and directory_write, expose these four tools
+Both permission modes expose these tools
 with readOnlyHint=true, destructiveHint=false and openWorldHint=false. They do
 not refresh providers, materialize analysis snapshots, create plans/receipts or
 invalidate existing ledger previews. Product names, account IDs, notes and
@@ -85,7 +85,7 @@ due_unconfirmed changes display/availability, never automatically writes cash.
 
 ## Write interface and permissions
 
-All three previews are registered in ledger_write by their respective review units and commit through `commit_plan`:
+All three previews are registered in read_write by their respective review units and commit through `commit_plan`:
 
 | Preview | Accepted command |
 | --- | --- |
@@ -93,8 +93,7 @@ All three previews are registered in ledger_write by their respective review uni
 | preview_product_terms | productId, expectedRevision, complete GUI terms and policy |
 | preview_product_valuation | Open locked product, explicit original-currency amount and actual observation time |
 
-Only ledger_write may discover or invoke any of these previews or commits.
-directory_write must never authorize financial or product-policy writes.
+Only read_write may discover or invoke any of these previews or commits.
 Previews are local no-financial-write operations that may persist a private
 plan. Commit input is only operationId plus input.planId; no editable command,
 state hash, reservation IDs or explanation text is accepted as authorization.
@@ -299,7 +298,7 @@ restarts when loading more detects a changed head. Terms, cash, reservation and
 archive changes can change eligibility without appending a history row.
 
 **GUI availability is not MCP permission.** `undo.allowed` does not grant
-ledger_write or provide MCP reservation restoration. Existing MCP lifecycle
+read_write or provide MCP reservation restoration. Existing MCP lifecycle
 restrictions and all preview/commit validation, reservation CAS, receipt retries
 and atomic writes still apply. See [the App history contract](product-operation-history.md).
 
