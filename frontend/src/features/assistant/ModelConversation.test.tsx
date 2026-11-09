@@ -957,15 +957,16 @@ it("persists explicit model/effort choices and sends the selected values",async(
  api.Status.mockImplementation(async()=>({epoch:"host",revision:3,available:true,credentials:"present",selection,config:{provider:"openai-responses",model:"gpt-6-sol",enabledModels:["gpt-6-sol","gpt-6.1-sol"],enabled:true},modelCatalog:[{id:"gpt-6-sol",efforts:["none","high","max"]},{id:"gpt-6.1-sol",efforts:["high","max"]}]}));
  api.SelectModel.mockImplementation(async(_epoch,_revision,next)=>{selection=next;});
  mount();await screen.findByText("Synthetic prior answer");
- await user.click(screen.getByRole("button",{name:/^Model ID:/}));await user.click(await screen.findByRole("menuitemradio",{name:"gpt-6.1-sol"}));
- await waitFor(()=>expect(screen.getByRole("button",{name:"Reasoning effort: Default effort"})).toBeInTheDocument());
- expect(api.SelectModel).toHaveBeenCalledWith("host",3,{model:"gpt-6.1-sol",reasoningEffort:""});
- await waitFor(()=>expect(screen.getByRole("button",{name:/^Reasoning effort:/})).not.toBeDisabled());
- await user.click(screen.getByRole("button",{name:/^Reasoning effort:/}));await user.click(await screen.findByRole("menuitemradio",{name:"High"}));
- await waitFor(()=>expect(screen.getByRole("button",{name:"Reasoning effort: High"})).toBeInTheDocument());
+ await user.click(screen.getByRole("button",{name:/^Model ID:/}));await user.click(await screen.findByRole("button",{name:"gpt-6.1-sol"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Reasoning effort: High$/})).toBeInTheDocument());
+ expect(api.SelectModel).toHaveBeenCalledWith("host",3,{model:"gpt-6.1-sol",reasoningEffort:"high"});
+ await waitFor(()=>expect(screen.getByRole("button",{name:/^Model ID:/})).not.toBeDisabled());
+ if(!screen.queryByRole("button",{name:"Maximum"}))await user.click(screen.getByRole("button",{name:/^Model ID:/}));
+ await user.click(await screen.findByRole("button",{name:"Maximum"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Reasoning effort: Maximum$/})).toBeInTheDocument());
  await user.type(screen.getByLabelText("Message"),"Synthetic model choice");
  await user.click(screen.getByRole("button",{name:"Send to model"}));
- await waitFor(()=>expect(api.Start).toHaveBeenCalledWith(expect.objectContaining({model:"gpt-6.1-sol",reasoningEffort:"high"})));
+ await waitFor(()=>expect(api.Start).toHaveBeenCalledWith(expect.objectContaining({model:"gpt-6.1-sol",reasoningEffort:"max"})));
  expect(api.SetFullAccess).not.toHaveBeenCalled();
 });
 it("blocks a removed selection without replacing it or sending",async()=>{

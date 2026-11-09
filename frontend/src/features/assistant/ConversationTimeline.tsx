@@ -146,7 +146,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   const timestamp = (value: string) => formatTimestamp(value, page?.context?.range.timezone ?? "UTC", i18n.language);
   return <div className="relative flex min-h-0 flex-1 flex-col">
     <p ref={announcement} role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
-    <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none]"
+    <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none] @max-xs:p-3"
       role="region" aria-label={t("aiChat.transcript")} tabIndex={0}
       onScroll={event => { const el = event.currentTarget;
         if (anchor.current) anchor.current.offset = anchor.current.element.getBoundingClientRect().top - el.getBoundingClientRect().top;
@@ -164,10 +164,10 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
         {loading && <p role="status" className="text-center text-xs text-muted-foreground">{t("aiChat.loadingHistory")}</p>}
         {failed && <div role="alert" className="text-sm text-destructive">{t("aiChat.historyError")} <Button variant="ghost" size="sm" onClick={() => history.filter(q => q.isError).forEach(q => void q.refetch())}>{t("common.retryAction")}</Button></div>}
         {runs.map(run => { const tools = active(run.state) && latest?.progress?.runId === run.id ? latest.progress.tools : run.tools; return <article key={run.id} className="space-y-4" aria-label={t("aiChat.exchange")}>
-          <div className="ml-8 flex justify-end"><div className="max-w-full rounded-2xl rounded-tr-sm bg-primary/10 px-4 py-2.5">
+          <div className="ml-8 flex justify-end @max-xs:ml-3"><div className="max-w-full rounded-2xl rounded-tr-sm bg-primary/10 px-4 py-2.5">
             <span className="sr-only">{t("aiChat.you")}</span><p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{run.prompt}</p>
           </div></div>
-          <div className="flex min-w-0 gap-3"><span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Sparkles className="size-3.5" /></span>
+          <div className="flex min-w-0 gap-3 @max-xs:gap-2"><span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Sparkles className="size-3.5" /></span>
             <div className="min-w-0 flex-1 space-y-3"><span className="sr-only">{t("assistant.title")}</span>
               {!!run.evidence?.length && <details className="group rounded-xl border border-border bg-muted/30 text-xs text-muted-foreground">
                 <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">

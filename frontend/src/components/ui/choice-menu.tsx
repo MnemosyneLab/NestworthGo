@@ -4,12 +4,20 @@ import { Check, ChevronDown, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+/** Shared pill trigger styling for composer-style choosers (see ModelSelector). */
+export const choicePillClass = (tone: "default" | "warning" = "default") => cn(
+  "inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[color,background-color,border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-8",
+  tone === "warning"
+    ? "border-warning/40 bg-warning/15 text-warning-foreground hover:bg-warning/25"
+    : "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted/60",
+);
+
 export type ChoiceMenuOption = { value: string; label: string; description?: string; disabled?: boolean };
 
 /** Compact pill chooser for toolbars and composers with a short option set
  * (model, effort, permission). Forms keep NativeSelect/FilterableSelect. The
  * selected option is exposed as a menu radio item, never by color alone. */
-export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone = "default", disabled = false, className, align = "start" }: {
+export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone = "default", disabled = false, className, align = "start", iconOnly = false }: {
   /** Localized name of the setting; the selected option is appended for assistive technology. */
   label: string;
   value: string;
@@ -20,6 +28,9 @@ export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone =
   disabled?: boolean;
   className?: string;
   align?: "start" | "end";
+  /** Show only the icon (requires `icon`). The accessible name and title keep the value, and a
+   * warning state is still carried by the tone and by the icon the caller chooses. */
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Forget an open menu immediately when its owner blocks interaction.
@@ -27,6 +38,7 @@ export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone =
   const capture = useBusinessPortal();
   const current = options.find(option => option.value === value);
   const text = current?.label ?? value;
+  const compact = iconOnly && !!Icon;
   return (
     <Menu.Root open={open && !disabled} onOpenChange={next => setOpen(next && !disabled)}>
       <Menu.Trigger
@@ -34,16 +46,14 @@ export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone =
         aria-label={`${label}: ${text}`}
         title={current?.description ? `${label}: ${text} · ${current.description}` : `${label}: ${text}`}
         className={cn(
-          "inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-[color,background-color,border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-8",
-          tone === "warning"
-            ? "border-warning/40 bg-warning/15 text-warning-foreground hover:bg-warning/25"
-            : "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted/60",
+          choicePillClass(tone),
+          compact && "justify-center px-0 min-w-11 xl:min-w-8",
           className,
         )}
       >
-        {Icon && <Icon aria-hidden="true" className="size-3.5 shrink-0" />}
-        <span className="min-w-0 truncate">{text}</span>
-        <ChevronDown aria-hidden="true" className="size-3 shrink-0 opacity-60" />
+        {Icon && <Icon aria-hidden="true" className={cn("shrink-0", compact ? "size-4" : "size-3.5")} />}
+        {!compact && <span className="min-w-0 truncate">{text}</span>}
+        {!compact && <ChevronDown aria-hidden="true" className="size-3 shrink-0 opacity-60" />}
       </Menu.Trigger>
       {open && capture.origin}<Menu.Portal>
         <Menu.Positioner side="top" sideOffset={6} align={align} className="z-50">

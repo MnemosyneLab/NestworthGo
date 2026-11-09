@@ -1,4 +1,5 @@
 import { ModelSelector } from "./ModelSelector";
+import { effectiveEffort } from "./modelSelection";
 import { configuredModels } from "./modelSelection";
 import { ConversationUsage } from "./AIUsage";
 import { SecurityOperationRegion } from "@/lib/businessCapture";
@@ -120,6 +121,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
   const modelAvailable = status.data?.available ?? false;
   const enabledModels = configuredModels(status.data?.config);
   const modelSelection = status.data?.selection ?? {model:status.data?.config?.model ?? "unconfigured", reasoningEffort:""};
+  const modelEfforts = (status.data?.modelCatalog ?? []).find(option => option.id === modelSelection.model)?.efforts;
   const selectionValid = enabledModels.includes(modelSelection.model);
   useEffect(() => {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
@@ -298,7 +300,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
           pageLeaseId,
           prompt: text,
           model: modelSelection.model,
-          reasoningEffort: modelSelection.reasoningEffort,
+          reasoningEffort: effectiveEffort(modelEfforts, modelSelection.reasoningEffort),
           page: selection,
         }),
       );
@@ -315,7 +317,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
   const permissionFull = !!status.data?.fullAccess;
   return (
     <div
-      className="flex h-full min-h-0 flex-col"
+      className="@container flex h-full min-h-0 flex-col"
       data-testid="model-conversation"
     >
       <ConversationSwitcher key={epoch} currentId={id} disabled={busy} mutationDisabled={busy || running || stale || !epoch}
@@ -372,65 +374,67 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
           void send();
         }}
       >
-        <div className="rounded-2xl border border-border bg-card shadow-xs transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/30">
-          <Label className="sr-only" htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
-          <Input
-            className="min-h-11 rounded-2xl border-0 bg-transparent px-4 text-base shadow-none focus-visible:border-transparent focus-visible:ring-0 xl:min-h-10 xl:text-sm"
-            id="ai-model-prompt"
-            value={prompt}
-            maxBytes={16384}
-            byteCountVisibility="sr-only"
-            placeholder={t("aiChat.placeholder")}
-            onKeyDown={(event) => { if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }}
-            autoComplete="off"
-            onChange={(event) => setPrompt(event.target.value)}
-            disabled={busy || !status.data?.available || stale}
-          />
-          <div className="flex items-end gap-2 px-2 pb-2">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-              <ModelSelector models={enabledModels} catalog={status.data?.modelCatalog ?? []} selection={modelSelection}
-                disabled={busy || running || stale || !epoch}
-                onChange={selection => void action(() => callService(() => API.SelectModel(epoch, configRevision, selection)))} />
-              <SecurityOperationRegion className="contents">
-                <ChoiceMenu label={t("aiChat.permission")} icon={permissionFull ? ShieldAlert : ShieldCheck} tone={permissionFull ? "warning" : "default"}
-                  value={permissionFull ? "full" : "readOnly"}
-                  options={[
-                    { value: "readOnly", label: t("aiChat.readOnly"), description: t("aiChat.readOnlyHint") },
-                    { value: "full", label: t("aiChat.full"), description: t("aiChat.fullHint") },
-                  ]}
-                  disabled={busy || (!permissionFull && (!status.data?.available || running || stale))}
-                  onChange={value => changeFullAccess(value === "full")} />
-              </SecurityOperationRegion>
-              <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
-                {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
-                <p>{t("aiModels.history")}</p>
-                {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
-                {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
-              </div></InfoPopover>
+        <div className="@container rounded-2xl border border-border bg-card shadow-xs transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/30">
+          <div>
+            <Label className="sr-only" htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
+            <div className="min-w-0">
+              <Input
+                className="min-h-11 rounded-2xl border-0 bg-transparent px-4 text-base shadow-none focus-visible:border-transparent focus-visible:ring-0 xl:min-h-10 xl:text-sm"
+                id="ai-model-prompt"
+                value={prompt}
+                maxBytes={16384}
+                byteCountVisibility="sr-only"
+                placeholder={t("aiChat.placeholder")}
+                onKeyDown={(event) => { if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }}
+                autoComplete="off"
+                onChange={(event) => setPrompt(event.target.value)}
+                disabled={busy || !status.data?.available || stale}
+              />
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
-                disabled={!visible || busy || running || offline || stale || !modelAvailable}
-                onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
-              <Button
-                size="icon"
-                className="size-11 shrink-0 rounded-full xl:size-9"
-                aria-label={t("aiChat.send")}
-                title={t("aiChat.send")}
-                type="submit"
-                disabled={
-                  busy ||
-                  offline ||
-                  running ||
-                  !status.data?.available ||
-                  !selectionValid ||
-                  stale ||
-                  !prompt.trim() ||
-                  utf8ByteLength(prompt) > 16384
-                }
-              >
-                <ArrowUp className="size-4" aria-hidden="true" />
-              </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
+            <ModelSelector models={enabledModels} catalog={status.data?.modelCatalog ?? []} selection={modelSelection}
+              disabled={busy || running || stale || !epoch}
+              onChange={selection => void action(() => callService(() => API.SelectModel(epoch, configRevision, selection)))} />
+            <SecurityOperationRegion className="contents">
+              <ChoiceMenu label={t("aiChat.permission")} icon={permissionFull ? ShieldAlert : ShieldCheck} tone={permissionFull ? "warning" : "default"} iconOnly
+                value={permissionFull ? "full" : "readOnly"}
+                options={[
+                  { value: "readOnly", label: t("aiChat.readOnly"), description: t("aiChat.readOnlyHint") },
+                  { value: "full", label: t("aiChat.full"), description: t("aiChat.fullHint") },
+                ]}
+                disabled={busy || (!permissionFull && (!status.data?.available || running || stale))}
+                onChange={value => changeFullAccess(value === "full")} />
+            </SecurityOperationRegion>
+            <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
+              {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
+              <p>{t("aiModels.history")}</p>
+              {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
+              {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
+            </div></InfoPopover>
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+            <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
+              disabled={!visible || busy || running || offline || stale || !modelAvailable}
+              onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
+            <Button
+              size="icon"
+              className="size-11 shrink-0 rounded-full xl:size-9"
+              aria-label={t("aiChat.send")}
+              title={t("aiChat.send")}
+              type="submit"
+              disabled={
+                busy ||
+                offline ||
+                running ||
+                !status.data?.available ||
+                !selectionValid ||
+                stale ||
+                !prompt.trim() ||
+                utf8ByteLength(prompt) > 16384
+              }
+            >
+              <ArrowUp className="size-4" aria-hidden="true" />
+            </Button>
             </div>
           </div>
         </div>
