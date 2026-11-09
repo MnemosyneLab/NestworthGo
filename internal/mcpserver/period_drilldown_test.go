@@ -69,7 +69,7 @@ func TestPeriodDrilldownStaysOutOfCaptureJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if item.CaptureID != env.CaptureID || item.ContentHash != env.ContentHash || item.ExpiresAt != env.ExpiresAt {
+	if item.CaptureID != env.CaptureID {
 		t.Fatalf("item envelope changed identity or TTL: %+v", item)
 	}
 	section := item.Sections["returnDays/2024-01-02/issues"]
@@ -80,7 +80,7 @@ func TestPeriodDrilldownStaysOutOfCaptureJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page.ContentHash != env.ContentHash || page.ExpiresAt != env.ExpiresAt || len(page.Items) != 1 || !strings.Contains(string(page.Items[0]), "synthetic-drilldown-marker") {
+	if page.CaptureID != env.CaptureID || len(page.Items) != 1 || !strings.Contains(string(page.Items[0]), "synthetic-drilldown-marker") {
 		t.Fatalf("page: %+v", page)
 	}
 
@@ -192,7 +192,7 @@ func TestPeriodDrilldownRetainedBudgets(t *testing.T) {
 	}
 	cursor := *item.Sections["returnDays/2024-01-01/contributors"].Page.NextCursor
 	page, err := cache.page(1, ReadPageInput{CaptureID: third.CaptureID, Section: "returnDays/2024-01-01/contributors", Cursor: cursor, Limit: 1})
-	if err != nil || page.ExpiresAt != third.ExpiresAt || page.ContentHash != third.ContentHash || len(page.Items) != 1 {
+	if err != nil || page.CaptureID != third.CaptureID || len(page.Items) != 1 {
 		t.Fatalf("frozen page: %+v %v", page, err)
 	}
 	now = now.Add(readTTL)
@@ -226,7 +226,7 @@ func TestPeriodDrilldownConcurrentAdmission(t *testing.T) {
 				item, err = cache.periodItem(env.CaptureID, entry, ReadItemInput{Section: "returnDays", ID: "2024-01-01"})
 			}
 			cache.mu.Unlock()
-			if err == nil && (item.ContentHash != env.ContentHash || item.ExpiresAt != env.ExpiresAt) {
+			if err == nil && (item.CaptureID != env.CaptureID) {
 				t.Error("identity changed")
 			}
 		}()

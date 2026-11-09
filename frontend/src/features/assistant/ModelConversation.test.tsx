@@ -40,7 +40,7 @@ const run = {
   text: "Synthetic prior answer",
   evidence: [
     {
-      source: "get_account_snapshot",
+      source: "get_account_valuations",
       capturedAt: "2026-11-04T10:00:00Z",
       hasMore: true,
       missing: "reported",
@@ -114,7 +114,7 @@ it("restores history without replay and sends only the question and selector", a
   await screen.findByText("Synthetic prior answer");
   expect(api.Start).not.toHaveBeenCalled();
   await user.click(screen.getByText(/Data reads · 1/));
-  expect(screen.getByText(/Account snapshot/)).toBeVisible();
+  expect(screen.getByText(/Account valuations/)).toBeVisible();
   expect(screen.getByText(/This response advertised more pages/)).toBeVisible();
   expect(screen.getByText(/Read started/)).toBeVisible();
   expect(screen.queryByText(/Read completed/)).not.toBeInTheDocument();

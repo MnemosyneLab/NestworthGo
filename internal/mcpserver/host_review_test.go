@@ -64,7 +64,7 @@ func assertActivityCount(t *testing.T, fx hostFixture, count int) {
 func TestHostReviewReadPreviewConfirmReceiptLoop(t *testing.T) {
 	t.Parallel()
 	fx := newHostFixture(t)
-	read := localRaw(t, fx.local, "get_account_snapshot", IDInput{fx.checking}, false)
+	read := localRaw(t, fx.local, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}}, false)
 	if !strings.Contains(string(read), "Checking") {
 		t.Fatal("authoritative account evidence missing")
 	}
@@ -105,7 +105,7 @@ func TestHostReviewReadPreviewConfirmReceiptLoop(t *testing.T) {
 		}
 	}
 	assertActivityCount(t, fx, 1)
-	after := localRaw(t, fx.local, "get_account_snapshot", IDInput{fx.checking}, false)
+	after := localRaw(t, fx.local, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}}, false)
 	if !strings.Contains(string(after), `"12.34"`) {
 		t.Fatal("postcommit authoritative cash missing")
 	}

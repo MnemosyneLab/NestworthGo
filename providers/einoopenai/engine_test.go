@@ -30,7 +30,7 @@ func TestEngineOnlyDispatchesCompleteSuccessfulResponses(t *testing.T) {
 					writeMode(w, request, []any{textItem()})
 					return
 				}
-				call := obj{"type": "function_call", "id": "fc_read", "call_id": "call_read", "name": "get_account_snapshot", "arguments": encode(obj{"id": accountID}), "status": "completed"}
+				call := obj{"type": "function_call", "id": "fc_read", "call_id": "call_read", "name": "get_account_valuations", "arguments": encode(obj{"accountIds": []string{accountID}}), "status": "completed"}
 				if mode == "writer" {
 					call["name"] = "commit_change"
 				}
@@ -119,7 +119,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 			writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_durable", "summary": []any{}, "encrypted_content": "opaque-durable-reasoning"}, obj{"type": "function_call", "id": "fc_durable", "call_id": "call_durable", "name": "get_current_page", "arguments": `{}`, "status": "completed"}})
 			return
 		}
-		if !strings.Contains(input, "get_account_snapshot") {
+		if !strings.Contains(input, "get_account_valuations") {
 			t.Error("current-page tool did not return backend source evidence")
 		}
 		if !strings.Contains(input, "function_call_output") || !strings.Contains(input, "call_durable") {
@@ -177,7 +177,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 				t.Fatal(e)
 			}
 			if len(v.Runs) > 0 && v.Runs[0].State == "succeeded" {
-				if q.Prompt == "Read synthetic balance; do not write" && (len(v.Runs[0].Evidence) != 1 || v.Runs[0].Evidence[0].Source != "get_account_snapshot") {
+				if q.Prompt == "Read synthetic balance; do not write" && (len(v.Runs[0].Evidence) != 1 || v.Runs[0].Evidence[0].Source != "get_account_valuations") {
 					t.Fatal("host source trace was not persisted")
 				}
 				raw, _ := jsoncodec.Marshal(v)
@@ -241,7 +241,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 func TestEngineRejectsCredentialEchoBeforeCapabilityDispatch(t *testing.T) {
 	_, observed, accountID := ledgerSession(t)
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
-		writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_key", "summary": []any{}, "encrypted_content": "synthetic-canary-key"}, obj{"type": "function_call", "id": "fc_key", "call_id": "call_key", "name": "get_account_snapshot", "arguments": encode(obj{"id": accountID}), "status": "completed"}})
+		writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_key", "summary": []any{}, "encrypted_content": "synthetic-canary-key"}, obj{"type": "function_call", "id": "fc_key", "call_id": "call_key", "name": "get_account_valuations", "arguments": encode(obj{"accountIds": []string{accountID}}), "status": "completed"}})
 	})
 	engine, e := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, f.model, observed, nil)
 	if e != nil {

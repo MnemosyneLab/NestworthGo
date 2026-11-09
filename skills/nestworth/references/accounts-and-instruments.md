@@ -26,20 +26,46 @@ Example `create_account`, choosing a sole owner explicitly:
 {"operationId":"${operationId}","input":{"name":"Example broker","accountType":"brokerage","balanceSheetRole":"asset","trackingMode":"holdings","defaultCurrency":"USD","includeInNetWorth":true,"includeInPortfolio":true,"includeInLiquidAssets":false,"ownerIds":["${memberId}"]}}
 ```
 
-Use the default bounded contracts for list_members, list_institutions,
-list_groups, list_accounts and list_holdings. Existing filters still apply;
-follow every cursor. get_read_item with the section and id preserves full notes
-and metadata from that capture. get_account_valuations uses the bounded contract:
-compact account headers, with separate component/composition/missing/evidence
-sections reached through get_read_item accounts/id. get_account_snapshot is that
-same capture for one required id and returns not_found when the account is
-missing or archived; an unmatched valuations filter is an empty page. Never add
-account rollups to their component amounts. Current account value is not a
-return or an endpoint movement.
+For a named account question, search `list_accounts` with the account or bank
+name. Search matches account, institution and group names. Do not scan all
+accounts or fetch institutions again when the returned identities suffice.
+With known IDs, call `get_account_valuations` directly. It is the only current
+account valuation entry: one or many `accountIds`, optional account filters.
+Unknown/archived IDs and unmatched filters produce an empty accounts section.
 
-After creation query `list_accounts` / `get_account_snapshot`. Directory
-creation is not atomic with subsequent funding or trades. If a later step
-fails, recover that step; do not recreate the account.
+Default `detail="summary"` returns exact totals, inclusion flags, ownership,
+asset types and price-freshness counts/date range. This normally answers account
+status questions without reading each holding. `detail="holdings"` also returns
+the first page of components and missing inputs in the same frozen capture.
+Only follow cursors for relevant unfinished sections. Do not fetch account totals
+again after they have already been read in this turn unless facts changed.
+
+<!-- example: account-summary -->
+```json
+{"accountIds":["${accountId}"],"detail":"summary"}
+```
+
+<!-- example: account-holdings -->
+```json
+{"accountIds":["${accountId}"],"detail":"holdings","limit":25}
+```
+
+`get_read_item` with captureId, section=accounts and id opens frozen full account
+metadata and inlines components/missing inputs. Optional `sections` selects
+child names instead; `availableSections` lists other evidence without minting
+unused cursors. Use those only when the requested analysis needs them.
+
+<!-- example: account-evidence -->
+```json
+{"captureId":"${captureId}","section":"accounts","id":"${accountId}","sections":["display_fxEvidence"],"limit":25}
+```
+
+Directory and holding lists use the same bounded contract. `get_read_item`
+retains full notes and metadata. Never add account rollups to their components;
+current value is not a return or endpoint movement. Freshness counts describe
+price evidence, not bank real-time balances; missing inputs remain unknown.
+After creation read the affected account. Directory creation is not atomic with
+funding or trades: recover a failed later step without recreating the account.
 
 ## Instruments
 

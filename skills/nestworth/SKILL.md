@@ -5,7 +5,7 @@ description: Use a running Nestworth App through its local MCP to manage account
 
 # Nestworth
 
-The App's MCP is the authority for financial records and calculations. Answer in the user's language. Use the tools this client lists; you do not need to inspect all of them first. If the connection, household setup or history start is missing, follow [connection.md](references/connection.md): installing this skill neither enables MCP nor grants write permission.
+The App’s MCP is authoritative. Answer in the user’s language using available tools. For missing connection, household or history setup, see [connection.md](references/connection.md). Installing this skill neither enables MCP nor grants write permission.
 
 ## Intent → first step → reference
 
@@ -14,6 +14,7 @@ Read only the reference for the request.
 | Intent | First step | Reference |
 | --- | --- | --- |
 | Current net worth or one-date summary | `get_financial_context` (minimal disclosure; no `get_context` needed) | [Financial context](references/financial-context.md) |
+| Account status/holdings | `list_accounts` → `get_account_valuations` | [Accounts and instruments](references/accounts-and-instruments.md) |
 | Compare two dates | `compare_financial_context` | [Two-state comparison](references/financial-comparison.md) |
 | Why did it change; was that profit | `compare_financial_attribution` | [Change attribution](references/financial-attribution.md) |
 | Period returns, income/expense, asset drivers, historical endpoints, upcoming actions, investment reviews | `analyze_period`, `get_overview`, `get_historical_overview` | [Analysis](references/analysis.md) |

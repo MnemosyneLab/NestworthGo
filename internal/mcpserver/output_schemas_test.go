@@ -27,7 +27,7 @@ func TestStableReadEnvelopeOutputSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := map[string]any{"schemaVersion": "mcp-read/1", "captureId": "capture", "captureKind": "synthetic", "capturedAt": "time", "expiresAt": "time", "contentHash": "hash", "summaryHash": "summaryhash", "section": "rows", "items": []any{}, "page": map[string]any{"total": 0, "returned": 0, "hasMore": false, "nextCursor": nil, "consistency": "frozen"}}
+	base := map[string]any{"schemaVersion": "mcp-read/2", "captureId": "capture", "captureKind": "synthetic", "capturedAt": "time", "expiresAt": "time", "contentHash": "hash", "summaryHash": "summaryhash", "section": "rows", "items": []any{}, "page": map[string]any{"total": 0, "returned": 0, "hasMore": false, "nextCursor": nil, "consistency": "frozen"}}
 	good := map[string]any{"data": base}
 	if err := resolved.Validate(&good); err != nil {
 		t.Fatal(err)
@@ -36,10 +36,10 @@ func TestStableReadEnvelopeOutputSchema(t *testing.T) {
 	if err := resolved.Validate(&good); err == nil {
 		t.Fatal("wrong envelope version accepted")
 	}
-	base["schemaVersion"] = "mcp-read/1"
-	delete(base, "contentHash")
+	base["schemaVersion"] = "mcp-read/2"
+	delete(base, "captureId")
 	if err := resolved.Validate(&good); err == nil {
-		t.Fatal("capture identity/hash loss accepted")
+		t.Fatal("capture identity loss accepted")
 	}
 	for _, name := range []string{"commit_plan", "update_instruments_batch", "get_operation"} {
 		if readOutputSchema(name) != nil {
@@ -51,7 +51,7 @@ func TestStableReadEnvelopeOutputSchema(t *testing.T) {
 func TestSDKDualRepresentationWireEvidence(t *testing.T) {
 	fx := newLedgerFixture(t)
 	client, recorder := connectPayload(t, fx.service)
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_account_snapshot", Arguments: map[string]any{"id": fx.checking}})
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_account_valuations", Arguments: map[string]any{"accountIds": []string{fx.checking}}})
 	if err != nil || result.IsError || len(result.Content) != 1 {
 		t.Fatal(err, result)
 	}
@@ -84,7 +84,7 @@ func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
 	schemas := discoverOutputSchemas(t, client)
 	// Schema shape: both fields declared and required, array of strings.
 	probe := func(delivery map[string]any) error {
-		out := map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "captureId": "c", "captureKind": "k", "capturedAt": "t", "expiresAt": "t", "contentHash": "h", "summaryHash": "s", "summary": map[string]any{}, "delivery": delivery}}
+		out := map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/2", "captureId": "c", "captureKind": "k", "capturedAt": "t", "expiresAt": "t", "contentHash": "h", "summaryHash": "s", "summary": map[string]any{}, "delivery": delivery}}
 		return schemas["get_overview"].strict.Validate(&out)
 	}
 	if err := probe(map[string]any{"selectionComplete": true, "pendingSections": []any{}}); err != nil {
@@ -131,9 +131,9 @@ func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
 			}
 		}
 	}
-	// Focused item details and continuation pages never carry delivery.
+	// Focused account details now inline selected rows and report delivery.
 	valuations := check("get_account_valuations", map[string]any{"limit": 1}, true)
-	check("get_read_item", map[string]any{"captureId": valuations["captureId"], "section": "accounts", "id": firstItemID(t, valuations, "accounts")}, false)
+	check("get_read_item", map[string]any{"captureId": valuations["captureId"], "section": "accounts", "id": firstItemID(t, valuations, "accounts")}, true)
 	accounts := valuations["sections"].(map[string]any)["accounts"].(map[string]any)
 	page := accounts["page"].(map[string]any)
 	assertSchemaPage(t, page, true, "frozen")
@@ -178,17 +178,16 @@ func TestCompactReadOutputSchemaKeepsRecognitionFields(t *testing.T) {
 	}
 	envelope := resolve(readOutputSchema("get_overview"))
 	good := func() map[string]any {
-		return map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "captureId": "c", "expiresAt": "t", "contentHash": "h", "summary": map[string]any{}}}
+		return map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/2", "captureId": "c", "capturedAt": "t", "summary": map[string]any{}}}
 	}
 	value := good()
 	if err := envelope.Validate(&value); err != nil {
 		t.Fatal(err)
 	}
 	for field, mutate := range map[string]func(map[string]any){
-		"wrong version":  func(d map[string]any) { d["schemaVersion"] = "mcp-read/2" },
-		"no captureId":   func(d map[string]any) { delete(d, "captureId") },
-		"no expiresAt":   func(d map[string]any) { delete(d, "expiresAt") },
-		"no contentHash": func(d map[string]any) { delete(d, "contentHash") },
+		"wrong version": func(d map[string]any) { d["schemaVersion"] = "unexpected" },
+		"no captureId":  func(d map[string]any) { delete(d, "captureId") },
+		"no capturedAt": func(d map[string]any) { delete(d, "capturedAt") },
 	} {
 		value = good()
 		mutate(value["data"].(map[string]any))
@@ -197,11 +196,11 @@ func TestCompactReadOutputSchemaKeepsRecognitionFields(t *testing.T) {
 		}
 	}
 	page := resolve(readOutputSchema("get_read_page"))
-	pageValue := map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "items": []any{}, "page": map[string]any{"hasMore": false, "nextCursor": nil}}}
+	pageValue := map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/2", "items": []any{}, "page": map[string]any{"hasMore": false, "nextCursor": nil}}}
 	if err := page.Validate(&pageValue); err != nil {
 		t.Fatal(err)
 	}
-	pageValue = map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/1", "items": []any{}, "page": map[string]any{"hasMore": false}}}
+	pageValue = map[string]any{"data": map[string]any{"schemaVersion": "mcp-read/2", "items": []any{}, "page": map[string]any{"hasMore": false}}}
 	if page.Validate(&pageValue) == nil {
 		t.Error("compact page schema accepted a page without nextCursor")
 	}

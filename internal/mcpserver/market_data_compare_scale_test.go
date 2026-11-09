@@ -21,7 +21,7 @@ func comparisonWalk(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 	}
 	for p["hasMore"] == true {
 		next := scaleCapture(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: section, Cursor: p["nextCursor"].(string), Limit: limit})
-		if next["contentHash"] != cap["contentHash"] {
+		if next["captureId"] != cap["captureId"] {
 			t.Fatal("capture changed")
 		}
 		if len(next["items"].([]any)) == 0 {
@@ -110,7 +110,7 @@ func TestMarketComparison35Targets233RowsHTTPBudgets(t *testing.T) {
 			if view == "summary" {
 				before := recorder.total()
 				detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: inputs[0].ClientItemID})
-				if detail["contentHash"] != cap["contentHash"] {
+				if detail["captureId"] != cap["captureId"] {
 					t.Fatal("focused detail recaptured")
 				}
 				row := detail["summary"].(map[string]any)["result"].(map[string]any)

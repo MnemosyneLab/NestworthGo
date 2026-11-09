@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"encoding/json"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -18,7 +18,7 @@ import (
 // registered tool, not a duplicated/schema-inferred approximation. State/ID/
 // permission/cursor validity is tested separately by real workflow regressions.
 var skillSchemaExamples = map[string]map[string][]string{
-	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}, "update_account": {"account-clear-note"}},
+	"accounts-and-instruments": {"get_account_valuations": {"account-summary", "account-holdings"}, "get_read_item": {"account-evidence"}, "create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}, "update_account": {"account-clear-note"}},
 	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
 	"cash-and-debt":            {"preview_change": {"income", "expense", "fx-conversion", "debt-payment"}},
 	"market-data":              {"import_market_data": {"fund-nav", "fx-reference", "withdraw-quote"}, "set_fx_source": {"fx-source"}},
@@ -225,7 +225,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 			t.Fatal(err)
 		}
 		page := call(t, client, "get_read_page", ReadPageInput{CaptureID: captured.CaptureID, Section: "rows", Cursor: *captured.Sections["rows"].Page.NextCursor}, false)["data"].(map[string]any)
-		if len(page["items"].([]any)) != c.count || page["section"] != "rows" || page["contentHash"] != captured.ContentHash {
+		if len(page["items"].([]any)) != c.count || page["section"] != "rows" || page["captureId"] != captured.CaptureID {
 			t.Fatalf("%s default/identity differs: %v", c.kind, page)
 		}
 		for _, field := range []string{"summary", "sections", "query"} {

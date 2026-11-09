@@ -7,9 +7,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
+	"encoding/binary"
 	"encoding/json"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -34,9 +35,11 @@ type ReadPageInput struct {
 	Limit     int    `json:"limit,omitempty"`
 }
 type ReadItemInput struct {
-	CaptureID string `json:"captureId"`
-	Section   string `json:"section"`
-	ID        string `json:"id"`
+	CaptureID string   `json:"captureId"`
+	Section   string   `json:"section"`
+	ID        string   `json:"id"`
+	Sections  []string `json:"sections,omitempty" jsonschema:"Child section names to read; omitted selects business details. Use availableSections to request other evidence."`
+	Limit     int      `json:"limit,omitempty"`
 }
 type ReadPageInfo struct {
 	Total       int     `json:"total"`
@@ -58,20 +61,17 @@ type ReadDelivery struct {
 	PendingSections   []string `json:"pendingSections"`
 }
 type ReadEnvelope struct {
-	SchemaVersion string                 `json:"schemaVersion"`
-	CaptureID     string                 `json:"captureId"`
-	CaptureKind   string                 `json:"captureKind"`
-	CapturedAt    string                 `json:"capturedAt"`
-	ExpiresAt     string                 `json:"expiresAt"`
-	ContentHash   string                 `json:"contentHash"`
-	SummaryHash   string                 `json:"summaryHash"`
-	Query         any                    `json:"query,omitempty"`
-	Summary       any                    `json:"summary,omitempty"`
-	Sections      map[string]ReadSection `json:"sections,omitempty"`
-	Delivery      *ReadDelivery          `json:"delivery,omitempty"`
-	Section       string                 `json:"section,omitempty"`
-	Items         []json.RawMessage      `json:"items,omitempty"`
-	Page          *ReadPageInfo          `json:"page,omitempty"`
+	SchemaVersion     string                 `json:"schemaVersion"`
+	CaptureID         string                 `json:"captureId"`
+	CaptureKind       string                 `json:"captureKind"`
+	CapturedAt        string                 `json:"capturedAt"`
+	Summary           any                    `json:"summary,omitempty"`
+	Sections          map[string]ReadSection `json:"sections,omitempty"`
+	Delivery          *ReadDelivery          `json:"delivery,omitempty"`
+	Section           string                 `json:"section,omitempty"`
+	Items             []json.RawMessage      `json:"items,omitempty"`
+	Page              *ReadPageInfo          `json:"page,omitempty"`
+	AvailableSections []string               `json:"availableSections,omitempty"`
 }
 type readCapture struct {
 	DetailSections  map[string][]string          `json:"detailSections,omitempty"`
@@ -87,7 +87,8 @@ type readCapture struct {
 	// to size for admission and eviction. Reattach it after the JSON
 	// round-trip below.
 	drilldown         *periodDrilldown
-	hash, summaryHash string
+	itemSection       string
+	availableSections []string
 	expires           time.Time
 	size              int
 }
@@ -95,7 +96,6 @@ type readCursor struct {
 	Version    int    `json:"v"`
 	CaptureID  string `json:"capture"`
 	Section    string `json:"section"`
-	Hash       string `json:"hash"`
 	Generation uint64 `json:"generation"`
 	Offset     int    `json:"offset"`
 }
@@ -179,32 +179,39 @@ func readRows[T any](values []T) ([]json.RawMessage, error) {
 	}
 	return rows, nil
 }
-func (c *boundedReadCache) cursor(id, section string, e readCapture, offset int) string {
-	b, _ := jsoncodec.Marshal(readCursor{1, id, section, e.hash, c.generation, offset})
+func (c *boundedReadCache) cursor(id, section string, offset int) string {
+	// The immutable capture UUID binds the frozen content in this session.
+	// Binary framing avoids repeating JSON keys, UUID text and a 64-byte hash.
+	capture := uuid.MustParse(id)
+	b := make([]byte, 29, 29+len(section)+sha256.Size)
+	b[0] = 2
+	copy(b[1:17], capture[:])
+	binary.BigEndian.PutUint64(b[17:25], c.generation)
+	binary.BigEndian.PutUint32(b[25:29], uint32(offset))
+	b = append(b, section...)
 	mac := hmac.New(sha256.New, c.key[:])
 	mac.Write(b)
-	return base64.RawURLEncoding.EncodeToString(append(b, mac.Sum(nil)...))
+	return "r2." + base64.RawURLEncoding.EncodeToString(append(b, mac.Sum(nil)...))
 }
 func (c *boundedReadCache) decode(v string) (readCursor, error) {
 	var out readCursor
-	if len(v) > 2048 {
+	if len(v) > 2048 || !strings.HasPrefix(v, "r2.") {
 		return out, fail("validation", "invalid read cursor")
 	}
-	b, err := base64.RawURLEncoding.DecodeString(v)
-	if err != nil || len(b) < 32 {
+	b, err := base64.RawURLEncoding.Strict().DecodeString(strings.TrimPrefix(v, "r2."))
+	if err != nil || len(b) < 30+sha256.Size || b[0] != 2 {
 		return out, fail("validation", "invalid read cursor")
 	}
-	data, sig := b[:len(b)-32], b[len(b)-32:]
+	data, sig := b[:len(b)-sha256.Size], b[len(b)-sha256.Size:]
 	mac := hmac.New(sha256.New, c.key[:])
 	mac.Write(data)
 	if !hmac.Equal(sig, mac.Sum(nil)) {
 		return out, fail("validation", "invalid read cursor")
 	}
-	if jsoncodec.Unmarshal(data, &out) != nil || out.Version != 1 {
-		return out, fail("validation", "invalid read cursor")
-	}
-	return out, nil
+	capture, _ := uuid.FromBytes(data[1:17])
+	return readCursor{Version: 2, CaptureID: capture.String(), Generation: binary.BigEndian.Uint64(data[17:25]), Offset: int(binary.BigEndian.Uint32(data[25:29])), Section: string(data[29:])}, nil
 }
+
 func (c *boundedReadCache) prune() {
 	now := c.now()
 	for id, e := range c.entries {
@@ -226,7 +233,7 @@ func (c *boundedReadCache) entry(g uint64, id string) (readCapture, error) {
 	return e, nil
 }
 func (c *boundedReadCache) base(id string, e readCapture) ReadEnvelope {
-	return ReadEnvelope{SchemaVersion: "mcp-read/1", CaptureID: id, CaptureKind: e.Kind, CapturedAt: e.CapturedAt.UTC().Format(time.RFC3339Nano), ExpiresAt: e.expires.UTC().Format(time.RFC3339Nano), ContentHash: e.hash, SummaryHash: e.summaryHash}
+	return ReadEnvelope{SchemaVersion: "mcp-read/2", CaptureID: id, CaptureKind: e.Kind, CapturedAt: e.CapturedAt.UTC().Format(time.RFC3339Nano)}
 }
 func (c *boundedReadCache) pageInfo(id, section string, e readCapture, start, n int) ReadPageInfo {
 	rows, _, _ := readSectionRows(e, section)
@@ -235,7 +242,7 @@ func (c *boundedReadCache) pageInfo(id, section string, e readCapture, start, n 
 func (c *boundedReadCache) pageInfoSize(id, section string, e readCapture, total, start, n int) ReadPageInfo {
 	p := ReadPageInfo{Total: total, Returned: n, HasMore: start+n < total, Consistency: "frozen"}
 	if p.HasMore {
-		v := c.cursor(id, section, e, start+n)
+		v := c.cursor(id, section, start+n)
 		p.NextCursor = &v
 	}
 	return p
@@ -246,7 +253,7 @@ func readFits(v any) (bool, error) {
 }
 func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnvelope, error) {
 	r := c.base(id, e)
-	r.Query = e.Query
+	r.Section, r.AvailableSections = e.itemSection, e.availableSections
 	r.Summary = e.Summary
 	r.Sections = map[string]ReadSection{}
 	names := make([]string, 0, len(e.Sections))
@@ -379,11 +386,6 @@ func (c *boundedReadCache) store(g uint64, e readCapture, limit int) (ReadEnvelo
 	}
 	e = frozen
 	e.drilldown = drilldown
-	h := sha256.Sum256(b)
-	e.hash = hex.EncodeToString(h[:])
-	summary, _ := jsoncodec.Marshal(e.Summary)
-	h = sha256.Sum256(summary)
-	e.summaryHash = hex.EncodeToString(h[:])
 	e.size = retainedSize
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -428,7 +430,7 @@ func (c *boundedReadCache) page(g uint64, in ReadPageInput) (ReadEnvelope, error
 	}
 
 	cur, err := c.decode(in.Cursor)
-	if err != nil || cur.CaptureID != in.CaptureID || cur.Section != in.Section || cur.Hash != e.hash || cur.Generation != g || cur.Offset < 0 {
+	if err != nil || cur.CaptureID != in.CaptureID || cur.Section != in.Section || cur.Generation != g || cur.Offset < 0 {
 		return ReadEnvelope{}, fail("validation", "cursor must match capture, section and query")
 	}
 	rows, ok, sectionErr := readSectionRows(e, in.Section)
@@ -504,7 +506,7 @@ func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 		}
 		return s.continuePage(ctx, server, g, in)
 	})
-	readTool(server, "get_read_item", "Open one item of a frozen capture (products, historical, account valuations, directory, instruments, contributions, period analysis or market comparison) by section and id, with full evidence and independently paged child sections. Does not recapture or renew the TTL. Comparison rows use section=results and id=clientItemId. Contribution rows use section=rows and id=the row key. A period return day uses section=returnDays and id=YYYY-MM-DD; an asset-change bucket uses section=assetDrivers and id=external_flow, income, spending, dividend_interest, price_change, fx_impact, fx_conversion_spread, fee, liability_impact, adjustment or residual. Those period sections are frozen with analyze_period and omitted from its stored body.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Open one item without recapturing. Account items inline components and missing inputs (limit default 25/max 100); optional sections selects child names from availableSections instead. Read only relevant children. Open one item of a frozen capture (products, historical, account valuations, directory, instruments, contributions, period analysis or market comparison) by section and id, with full evidence and independently paged child sections. Does not recapture or renew the TTL. Comparison rows use section=results and id=clientItemId. Contribution rows use section=rows and id=the row key. A period return day uses section=returnDays and id=YYYY-MM-DD; an asset-change bucket uses section=assetDrivers and id=external_flow, income, spending, dividend_interest, price_change, fx_impact, fx_conversion_spread, fee, liability_impact, adjustment or residual. Those period sections are frozen with analyze_period and omitted from its stored body.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }
@@ -517,6 +519,9 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	}
 	if requiredKind != "" && e.Kind != requiredKind {
 		return nil, fail("validation", "capture kind does not match item tool")
+	}
+	if (e.Kind == "market_import_comparison" || e.Kind == "period_analysis") && (len(in.Sections) > 0 || in.Limit != 0) {
+		return nil, fail("validation", "this item uses get_read_page for child selection and limits")
 	}
 	if e.Kind == "market_import_comparison" {
 		return s.reads.comparisonItem(in.CaptureID, e, in)
@@ -535,14 +540,48 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 		}
 		r := s.reads.base(in.CaptureID, e)
 		r.Section, r.Summary = in.Section, v
-		r.Sections = map[string]ReadSection{}
-		for _, section := range e.DetailSections[key] {
-			r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, section, e, 0, 0)}
+		names := e.DetailSections[key]
+		selected := append([]string(nil), names...)
+		if len(in.Sections) > 0 {
+			selected = nil
+			for _, name := range in.Sections {
+				section := name + "/" + in.ID
+				if !slices.Contains(names, section) {
+					return nil, fail("validation", "unknown child section")
+				}
+				if !slices.Contains(selected, section) {
+					selected = append(selected, section)
+				}
+			}
+		} else if e.Kind == "account_valuations" {
+			selected = []string{"components/" + in.ID, "missingInputs/" + in.ID}
+		}
+		// Reuse the byte-bounded initial-page planner on this same frozen capture.
+		focused := e
+		focused.Summary, focused.InitialSections = v, selected
+		focused.itemSection = in.Section
+		for _, section := range names {
+			if !slices.Contains(selected, section) {
+				focused.availableSections = append(focused.availableSections, strings.TrimSuffix(section, "/"+in.ID))
+			}
+		}
+		limit, err := readLimit(in.Limit)
+		if err != nil {
+			return nil, err
+		}
+		if len(selected) == 0 {
+			r.Sections = map[string]ReadSection{}
+		} else {
+			r, err = s.reads.initial(in.CaptureID, focused, limit)
+			if err != nil {
+				return nil, err
+			}
+			r.Section = in.Section
 		}
 		if ok, err := readFits(r); err != nil {
 			return nil, err
 		} else if !ok {
-			return nil, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
+			return nil, fail("too_large", "single_item detail exceeds read wire budget")
 		}
 		return r, nil
 	}
@@ -553,17 +592,18 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	if !ok {
 		return nil, fail("not_found", "item not found in capture")
 	}
-	r := s.reads.base(in.CaptureID, e)
-	r.Summary = v
-	r.Sections = map[string]ReadSection{}
-	k := "reservations/" + in.ID
-	r.Sections[k] = ReadSection{Items: []json.RawMessage{}, Page: s.reads.pageInfo(in.CaptureID, k, e, 0, 0)}
-	if ok, err := readFits(r); err != nil {
-		return nil, err
-	} else if !ok {
-		return nil, fail("too_large", "single_item product detail exceeds read wire budget")
+	if len(in.Sections) > 0 && (len(in.Sections) != 1 || in.Sections[0] != "reservations") {
+		return nil, fail("validation", "unknown child section")
 	}
-	return r, nil
+	limit, err := readLimit(in.Limit)
+	if err != nil {
+		return nil, err
+	}
+	focused := e
+	focused.Summary = v
+	focused.InitialSections = []string{"reservations/" + in.ID}
+	focused.itemSection = in.Section
+	return s.reads.initial(in.CaptureID, focused, limit)
 }
 
 func isReadScaleTool(name string) bool {

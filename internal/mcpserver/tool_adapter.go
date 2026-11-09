@@ -7,7 +7,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
 )
 
-const mcpImplementationVersion = "3.0.0"
+const mcpImplementationVersion = "4.0.0"
 
 // toolSet is only a construction adapter. Business registrations and handlers
 // use transport-independent definitions; no SDK server exists for local calls.

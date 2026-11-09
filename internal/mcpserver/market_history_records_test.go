@@ -35,7 +35,7 @@ func measuredMarketSection(t *testing.T, c *mcp.ClientSession, cap map[string]an
 			t.Fatal(size, err)
 		}
 		maxBytes = max(maxBytes, size)
-		if next["contentHash"] != cap["contentHash"] {
+		if next["captureId"] != cap["captureId"] {
 			t.Fatal("snapshot changed")
 		}
 		items := next["items"].([]any)
@@ -204,8 +204,7 @@ func TestMarketRecordsValidationStatusesAndWithdrawal(t *testing.T) {
 	}
 	// Existing bounded-cache enforcement also applies to records.
 	fx.service.reads.mu.Lock()
-	entry := fx.service.reads.entries[cap["captureId"].(string)]
-	cur := fx.service.reads.cursor(cap["captureId"].(string), "records", entry, 0)
+	cur := fx.service.reads.cursor(cap["captureId"].(string), "records", 0)
 	fx.service.reads.mu.Unlock()
 	call(t, c, "get_read_page", map[string]any{"captureId": cap["captureId"], "section": "records", "cursor": cur + "x"}, true)
 	fx.service.reads.now = func() time.Time { return time.Now().Add(readTTL + time.Second) }

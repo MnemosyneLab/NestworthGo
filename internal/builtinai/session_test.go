@@ -205,12 +205,12 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	}
 	detail := New(shared, assistant.PageSelection{Kind: "account", AccountID: accountID})
 	raw, err = detail.Call(t.Context(), "get_current_page", []byte(`{}`))
-	if err != nil || !strings.Contains(string(raw), "get_account_snapshot") {
+	if err != nil || !strings.Contains(string(raw), "get_account_valuations") {
 		t.Fatal("account detail failed", err)
 	}
 	unknown := New(shared, assistant.PageSelection{Kind: "account", AccountID: uuid.NewString()})
-	if _, err := unknown.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
-		t.Fatal("nonexistent account accepted")
+	if raw, err := unknown.Call(t.Context(), "get_current_page", []byte(`{}`)); err != nil || !strings.Contains(string(raw), `"matchedAccountCount":0`) {
+		t.Fatal("nonexistent account did not return an empty valuation", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

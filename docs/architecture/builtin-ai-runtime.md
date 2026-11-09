@@ -46,7 +46,7 @@ Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
 `internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
 `get_financial_context`, `get_financial_context_item`,
-`get_overview`, `list_accounts`, `get_account_snapshot`, `get_read_page` and
+`get_overview`, `list_accounts`, `get_account_valuations`, `get_read_page` and
 `get_read_item`, `compare_financial_context` and `compare_financial_attribution`.
 Continuations use `get_read_page`; the former explicit-scope financial page tools
 were removed. It adds `get_current_page` only for supported
@@ -401,7 +401,7 @@ and optional canonical account UUID. It is an untrusted data-selection hint from
 the desktop, not proof of the visible page and not a scoped principal. Runtime
 admission rejects unsupported kinds and binds the selection into request dedup.
 `get_current_page` resolves a new shared `get_overview`, `list_accounts` or
-`get_account_snapshot` capture, with backend capture time and tool source. IDs are
+`get_account_valuations` capture, with backend capture time and tool source. IDs are
 validated against the live household. Client metrics, labels, filters, permission
 claims and routes are never sent through this selector. The separate internal
 `read_page_content` tool below exposes supported semantic presentation facts. The model must not claim exact visible-screen

@@ -53,7 +53,7 @@ func New(shared Capabilities, page assistant.PageSelection, allowNavigation ...b
 // No analysis that maintains projections, network/provider reads, configuration, previews or writes.
 func allowed(name string) bool {
 	switch name {
-	case "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
+	case "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_valuations", "get_read_page", "get_read_item":
 		return true
 	default:
 		return false
@@ -224,8 +224,8 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	case "accounts":
 		tool = "list_accounts"
 	case "account":
-		tool = "get_account_snapshot"
-		input, _ = jsoncodec.Marshal(map[string]string{"id": s.page.AccountID})
+		tool = "get_account_valuations"
+		input, _ = jsoncodec.Marshal(map[string][]string{"accountIds": {s.page.AccountID}})
 	}
 	captured := time.Now().UTC()
 	result, err := s.read(ctx, tool, input)

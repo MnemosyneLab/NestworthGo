@@ -30,7 +30,7 @@ func TestUnifiedPageFrozenScopeAndFinancialItem(t *testing.T) {
 		t.Fatal(err)
 	}
 	next := page.(ReadEnvelope)
-	if next.ContentHash != initial.ContentHash || next.ExpiresAt != initial.ExpiresAt || next.CaptureID != initial.CaptureID || next.Section != "records" || string(next.Items[0]) != string(rows[1]) {
+	if next.CaptureID != initial.CaptureID || next.Section != "records" || string(next.Items[0]) != string(rows[1]) {
 		t.Fatal("lost frozen identity, target or order", next)
 	}
 	if _, err = s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: *next.Page.NextCursor, CaptureID: "other"}); err == nil {

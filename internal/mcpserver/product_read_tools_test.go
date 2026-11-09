@@ -40,7 +40,8 @@ func TestPagedStandaloneProductRequiresCanonicalIdentity(t *testing.T) {
 		if len(products) != 1 || products[0].(map[string]any)["id"] != ids[0] {
 			t.Fatal("single-get became list")
 		}
-		if cap["query"].(map[string]any)["id"] != ids[0] {
+		stored := fx.service.reads.entries[cap["captureId"].(string)]
+		if stored.Query.(map[string]any)["id"] != ids[0] {
 			t.Fatal("query identity not canonical")
 		}
 		summary := cap["summary"].(map[string]any)

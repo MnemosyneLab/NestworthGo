@@ -5,7 +5,7 @@ application reads. Response pagination alone does not bound database input work.
 
 ## Account valuation captures
 
-`get_account_snapshot` and `get_account_valuations.accountIds` intersect the
+`get_account_valuations.accountIds` intersect the
 existing account filters in `domain.AccountFilter` before account hydration and
 valuation. Explicit unknown or excluded IDs produce no account rows; the snapshot
 tool retains its existing not-found response. An omitted/empty ID list retains the

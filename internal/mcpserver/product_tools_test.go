@@ -486,7 +486,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 		args any
 	}{{"list_products", map[string]any{}}, {"get_liquidity_overview", map[string]any{}}} {
 		status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": tc.name, "arguments": tc.args}}, "")
-		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "mcp-read/1") {
+		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "mcp-read/2") {
 			t.Fatalf("default product read did not page: %d %d", status, len(raw))
 		}
 	}

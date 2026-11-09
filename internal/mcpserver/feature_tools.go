@@ -9,7 +9,7 @@ import (
 // HistoricalOverviewInput is one tool with two mutually exclusive shapes.
 // {date, compareTo} is one closed endpoint, optionally compared with another
 // closed date or current. {from, to} is a 1-31 day trend. The result stays an
-// mcp-read/1 envelope; series captures add household points and omit a nested
+// mcp-read/2 envelope; series captures add household points and omit a nested
 // full overview. Endpoint movement is not a return.
 type HistoricalOverviewInput struct {
 	HistoricalReadOptions

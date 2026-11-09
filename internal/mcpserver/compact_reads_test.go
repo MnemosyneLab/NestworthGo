@@ -51,7 +51,7 @@ func TestCompactInstrumentIdentityFrozenDetailAndPermissions(t *testing.T) {
 				}
 				detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: capture["captureId"].(string), Section: "instruments", ID: id})
 				full := detail["summary"].(map[string]any)
-				if detail["contentHash"] != capture["contentHash"] || full["note"] != *original.Note || full["metadataVersion"] != row["metadataVersion"] {
+				if detail["captureId"] != capture["captureId"] || full["note"] != *original.Note || full["metadataVersion"] != row["metadataVersion"] {
 					t.Fatal("detail lost capture or CAS", detail)
 				}
 				for key, value := range row {

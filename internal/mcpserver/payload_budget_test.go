@@ -244,7 +244,7 @@ func payloadSection(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 	page := part["page"].(map[string]any)
 	for page["hasMore"] == true {
 		next := scaleCapture(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: section, Cursor: page["nextCursor"].(string), Limit: 100})
-		if next["contentHash"] != cap["contentHash"] {
+		if next["captureId"] != cap["captureId"] {
 			t.Fatal("mixed issue capture")
 		}
 		items := next["items"].([]any)
@@ -291,7 +291,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	t.Logf("discovery registered=%d raw-HTTP-JSON-RPC-bytes=%d reconstructed-JSON-RPC-bytes=%d", len(tools.Tools), rawDiscoveryBytes, len(discovery))
 	measureCompactReadJourneys(t, c, rec, f)
 	// Management and catalog (including note-preserving full item retrieval).
-	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{}, "list_institutions": map[string]any{}, "list_groups": map[string]any{}, "list_instruments": map[string]any{}, "list_holdings": map[string]any{"accountId": f.brokerage}, "get_account_snapshot": IDInput{f.brokerage}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{}, "preview_data_repair": map[string]any{}} {
+	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{}, "list_institutions": map[string]any{}, "list_groups": map[string]any{}, "list_instruments": map[string]any{}, "list_holdings": map[string]any{"accountId": f.brokerage}, "get_account_valuations": AccountValuationReadInput{AccountIDs: []string{f.brokerage}}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{}, "preview_data_repair": map[string]any{}} {
 		call(t, c, name, args, false)
 	}
 	start := rec.total()

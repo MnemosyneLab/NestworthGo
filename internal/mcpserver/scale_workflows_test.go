@@ -23,7 +23,7 @@ func scaleSection(t *testing.T, c *mcp.ClientSession, capture map[string]any, na
 	page := section["page"].(map[string]any)
 	for page["hasMore"] == true {
 		next := scaleCapture(t, c, "get_read_page", skillExample(t, "paging-and-batches", "scale-page", map[string]string{"captureId": capture["captureId"].(string), "section": name, "cursor": page["nextCursor"].(string)}))
-		if next["contentHash"] != capture["contentHash"] {
+		if next["captureId"] != capture["captureId"] {
 			t.Fatal("mixed capture")
 		}
 		items := next["items"].([]any)
@@ -77,11 +77,11 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 	if len(reserves) != 91 {
 		t.Fatal(len(reserves))
 	}
-	if item["contentHash"] != cap["contentHash"] {
+	if item["captureId"] != cap["captureId"] {
 		t.Fatal("detail recaptured")
 	}
 	one := scaleCapture(t, c, "get_product", map[string]any{"id": id, "limit": 1})
-	if one["query"].(map[string]any)["id"] != id {
+	if fx.service.reads.entries[one["captureId"].(string)].Query.(map[string]any)["id"] != id {
 		t.Fatal("standalone product query identity missing")
 	}
 	if len(scaleSection(t, c, one, "reservations/"+id)) != 91 {
@@ -92,7 +92,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		t.Fatal(err)
 	}
 	liq := scaleCapture(t, c, "get_liquidity_overview", map[string]any{"limit": 1})
-	if liq["query"].(map[string]any)["includeEarlyWithdrawal"] != false {
+	if fx.service.reads.entries[liq["captureId"].(string)].Query.(map[string]any)["includeEarlyWithdrawal"] != false {
 		t.Fatal("liquidity request basis missing from frozen query")
 	}
 	sources := scaleSection(t, c, liq, "sources")

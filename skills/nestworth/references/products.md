@@ -28,7 +28,7 @@ normal instrument/holding path only when they are not App-managed contracts.
 ```
 
 Call `get_product` with the committed contract UUID from that list. Its initial
-mcp-read/1 response holds the full detail under summary.detail. The product and
+mcp-read/2 response holds the full detail under summary.detail. The product and
 its revision are summary.detail.product and summary.detail.product.revision.
 Reservations are separate sections; continue them with `get_read_page`.
 `get_read_item` from a products list places that item detail directly in its
@@ -52,7 +52,7 @@ holding has recorded cost. Do not infer that field from principal or current val
 
 ## Upcoming actions
 
-`get_upcoming_actions` returns mcp-read/1 pages of the GUI `upcoming-actions/1`
+`get_upcoming_actions` returns mcp-read/2 pages of the GUI `upcoming-actions/1`
 projection. Summary holds the header. Sections hold actions and data checks. It
 covers the next 30 household-local civil dates and includes the capture instant,
 local date, timezone, window bounds, base currency, completeness, counts, scope

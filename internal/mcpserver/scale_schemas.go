@@ -7,7 +7,7 @@ import (
 
 func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	fields := map[string][]string{
-		"analyze_period": {}, "get_account_snapshot": {}, "get_overview": {},
+		"analyze_period": {}, "get_overview": {},
 		"scan_data_health": {}, "preview_data_repair": {}, "get_data_repair_job": {},
 		"list_members": {}, "list_institutions": {}, "list_groups": {}, "list_accounts": {}, "list_holdings": {},
 		"get_historical_overview": {}, "get_account_valuations": {},
@@ -37,6 +37,9 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 		if v := p.Properties["direction"]; v != nil {
 			setSchemaEnum(v, []string{"asc", "desc"})
 		}
+	}
+	if name == "get_account_valuations" {
+		setSchemaEnum(schema.Properties["detail"], []string{"summary", "holdings"})
 	}
 	walkScaleSchema(schema)
 	if name == "list_instruments" {

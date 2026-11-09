@@ -128,7 +128,7 @@ func progressSource(s string) bool {
 	// Retired proposal names are accepted only as saved transcript evidence.
 	case "propose_cash_change":
 		return true
-	case "operate_page_control", "execute_ledger_change", "read_page_content", "get_current_page", "get_navigation_targets", "open_page", "open_return_trend", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
+	case "operate_page_control", "execute_ledger_change", "read_page_content", "get_current_page", "get_navigation_targets", "open_page", "open_return_trend", "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_valuations", "get_read_page", "get_read_item":
 		return true
 	}
 	// Provider progress sources are names from the controlled discovered registry.

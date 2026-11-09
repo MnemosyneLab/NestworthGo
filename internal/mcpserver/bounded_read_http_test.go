@@ -55,6 +55,7 @@ func TestBoundedReadEvictionFixedTTLAndImmutableInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	expiry := c.entries[r.CaptureID].expires
 	cursor := *r.Sections["items"].Page.NextCursor
 	rows[1] = json.RawMessage(`"changed"`)
 	query["filter"] = nil
@@ -63,7 +64,7 @@ func TestBoundedReadEvictionFixedTTLAndImmutableInput(t *testing.T) {
 	if err != nil || string(p.Items[0]) != `"b"` {
 		t.Fatal("capture input mutable", err)
 	}
-	if p.ExpiresAt != r.ExpiresAt {
+	if !c.entries[r.CaptureID].expires.Equal(expiry) {
 		t.Fatal("TTL renewed")
 	}
 	for range readCacheCount {

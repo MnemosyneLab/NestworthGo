@@ -8,7 +8,7 @@ recovery and budgets.
 
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`
 the desktop bindings use. `internal/mcpserver` registers an explicit allowlist
-through the official Go SDK (implementation version `3.0.0`). Handlers reuse
+through the official Go SDK (implementation version `4.0.0`). Handlers reuse
 the runtime-free `internal/wailsapi` adapters, except the patch updates, which
 map omit and null onto the application service inside its write lock. MCP does
 not use Wails RPC and does not open SQLite itself. Secrets, backup/restore,
@@ -130,7 +130,7 @@ not part of that hash.
 | Context and recovery | `get_context`, `get_catalog`, `get_operation` |
 | Financial summary | `get_financial_context`, `get_financial_context_item`, `compare_financial_context`, `compare_financial_attribution`, `get_read_page`, `get_read_item` |
 | Directory and holdings | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
-| Current state | `get_overview`, `get_account_snapshot`, `get_account_valuations` |
+| Current state | `get_overview`, `get_account_valuations` |
 | History and analysis | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_read_item`, `get_historical_overview` |
 | Products and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Investment review reads | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions` |
@@ -172,7 +172,7 @@ receipt still uses the historical tool name); `set_member_icon`,
 Known-ID reads do not need `get_context` or `get_catalog`. Call the task's
 read directly. `get_context` is for unknown instance, permission, history
 timezone or history start. `get_catalog` is the static vocabulary and keeps a
-direct object, not an `mcp-read/1` envelope. Directory names and notes come
+direct object, not an `mcp-read/2` envelope. Directory names and notes come
 from the list tools and `get_read_item`, not from bootstrap.
 
 For a minimal-disclosure summary call `get_financial_context` (one state) or
@@ -187,16 +187,15 @@ Analysis reads, including `compare_financial_attribution` and
 preview even in `read_only`. Run them before previewing. They grant no ledger
 permission.
 
-### Bounded reads (mcp-read/1)
+### Bounded reads (mcp-read/2)
 
 Liquidity, products, upcoming actions, instruments, Agent market records,
 directory and holding lists, valuations, overviews, health scans and repair
-previews return only `mcp-read/1`. Unknown arguments fail schema validation.
+previews return only `mcp-read/2`. Unknown arguments fail schema validation.
 There is no full-response fallback.
 
-The envelope carries `schemaVersion=mcp-read/1`, `captureId`, `captureKind`,
-`capturedAt`, `expiresAt`, `contentHash`, `summaryHash`, the normalized query,
-`summary` and `sections`. Each section has `items` and
+The envelope carries `schemaVersion=mcp-read/2`, `captureId`, `captureKind`,
+`capturedAt`, `summary` and `sections`. Each section has `items` and
 `page.total` / `returned` / `hasMore` / `nextCursor`. `nextCursor` is null when
 the section is finished. Arrays are always arrays. A zero-row section that
 still has a cursor is not empty.
@@ -212,14 +211,16 @@ with `too_large` / `single_item`.
 Captures are memory only: five-minute TTL, 4 MiB parent JSON each, 16 MiB and eight
 entries total, two concurrent builders, ten-second build deadline. They bind
 connection generation, capture type, canonical query and section identity.
-Signed cursors carry version, generation, hash, section and offset. Disable,
+Compact r2 cursors authenticate binary capture UUID, generation, offset and
+section with HMAC-SHA256. The immutable UUID identifies the frozen content;
+no client-visible hash or duplicate query echo is needed. Disable,
 mode change, restore and restart revoke the cache. `read_expired` means expiry
 or eviction. `read_revoked` means revocation. A bad or mismatched cursor is a
 validation error. Restart from a fresh capture. Do not mix captures. No
 financial content is logged or persisted for these caches.
 
-The published output schema of an `mcp-read/1` tool requires `schemaVersion`,
-`captureId`, `expiresAt` and `contentHash`. Page tools require `items` and
+The published output schema of an `mcp-read/2` tool requires `schemaVersion`,
+`captureId` and `capturedAt`. Page tools require `items` and
 `page.hasMore` / `page.nextCursor`. Financial headers require their id,
 `contentHash` and `content`. The stricter field rules, including `delivery`,
 are checked by `output_schemas_full_test.go` and
@@ -241,15 +242,28 @@ inside a 24 KiB response budget. `totalsScope=request_account_filters`.
 
 ### Current valuation
 
-`get_account_snapshot` and `get_account_valuations` build one
-current-valuation capture (`pagedAccountValuations` /
-`ValueAccountCompositions`). Snapshot takes the required account id and
-returns `not_found` when that account is missing or archived. Valuations also
-accepts account filters and `limit`; an unmatched filter is an empty page.
-`get_read_item` on section `accounts` opens the evidence sections. Neither
-tool is a return or an endpoint move. `get_overview` stays the household GUI
-overview (`ValueAccounts`, archived accounts included). The tools were not
-merged because their required inputs and empty-result semantics differ.
+`get_account_valuations` is the single current account read. It accepts one or
+many `accountIds`, account filters, `detail=summary|holdings` and `limit`.
+Unknown/archived IDs or unmatched filters return an empty accounts section.
+Default summary keeps exact totals, ownership/inclusion, asset types and quote
+freshness counts plus oldest/newest effective dates. These counts are price
+evidence only; they do not certify bank balances or replace missing-input status.
+Holdings mode also inlines bounded components/missing-input sections from that
+same capture. It does not require an intermediate item call to obtain a cursor.
+
+`get_read_item` on section=accounts returns full metadata and the first page of
+components/missing inputs. `sections` selects child names from `availableSections`
+when an explicit evidence layout is needed. Unselected layouts advertise names,
+not empty arrays with long cursors. Detail reads never renew or recapture state.
+Financial source rows, exact decimals, missing inputs and price/FX evidence remain
+unchanged. The retired single-account tool has no registration or compatibility
+alias. `list_accounts.query` matches account, institution and group names.
+
+Both transports use these shared handlers, schemas and response budgets. This
+is MCP implementation 4.0.0 and ordinary bounded envelope mcp-read/2. Versions 1
+and the retired tool are not supported. Specialized financial disclosure and
+comparison packages keep their own contracts. Current value is not a return or
+endpoint movement; `get_overview` remains the household GUI overview.
 
 ### Historical overview
 
@@ -260,7 +274,7 @@ not combine them.
   default month end. `compareTo` may be another closed date or `current`.
 - `{from, to}`: a forward series of 1–31 closed dates.
 
-Both results are `mcp-read/1` with `summary.responseVersion=historical-read/2`.
+Both results are `mcp-read/2` with `summary.responseVersion=historical-read/2`.
 A series adds household points and does not nest a full overview. Endpoint
 movement is not a return. Dates, calculations and the GUI contract are
 unchanged from the App. There is no legacy `data.rows` / `data.overview` /
@@ -310,7 +324,7 @@ necessarily selected.
 `analyze_period` takes `{query:{from,to}}` on closed local days, plus the
 adapter's optional scope and filters. Own-account transfers and purchase
 principal are not household income or expenses. Unavailable returns stay
-unavailable, not zero. The result is `mcp-read/1` with income, expense, asset
+unavailable, not zero. The result is `mcp-read/2` with income, expense, asset
 change and investment-return sections.
 
 `get_contribution_item`, `get_return_day` and `get_asset_driver_detail` are
@@ -335,7 +349,7 @@ current type. Preserve nullable amounts and coverage. Unrealized contribution
 remains unavailable when the analysis backend says so.
 
 `preview_investment_review_rule` is a read. It freezes the requested policy
-window in `mcp-read/1` and does not publish rules, alerts or valuations.
+window in `mcp-read/2` and does not publish rules, alerts or valuations.
 
 ### Products, liquidity, upcoming actions and review reads
 

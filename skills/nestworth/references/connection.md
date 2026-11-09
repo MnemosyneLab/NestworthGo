@@ -53,7 +53,7 @@ certify old frozen comparisons.
 | Two-state differences, not returns | `compare_financial_context`, `get_read_page` |
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`; `create_institution`, `update_institution`; `create_group`, `update_group`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument`. Member, institution and group archive is `archived` on the matching `update_*` tool |
-| Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
+| Current state | `get_overview`, `get_account_valuations` |
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`. Management tools are hidden by default. With `ledger_write` and investment review management enabled: `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
 | Read-only historical view | `get_historical_overview` (`{date, compareTo}` or `{from, to}`) |

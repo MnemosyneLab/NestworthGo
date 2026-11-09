@@ -2,14 +2,14 @@
 
 Liquidity, products, instruments, upcoming actions, Agent records, account
 valuations, directory lists, holdings, `scan_data_health` and
-`preview_data_repair` return mcp-read/1 by default. `get_data_repair_job`
+`preview_data_repair` return mcp-read/2 by default. `get_data_repair_job`
 defaults to compact progress without a capture. Only view=evidence uses
-mcp-read/1. There is one contract. Do not pass responseMode. Historical and
+mcp-read/2. There is one contract. Do not pass responseMode. Historical and
 current overview and period reads inline small results: at least five rows per
 section when they fit, at most 25, within a byte budget. Continuations default
-to 25. Every top-level initial mcp-read/1 capture carries
+to 25. Every top-level initial mcp-read/2 capture carries
 `delivery.selectionComplete` and `delivery.pendingSections`. Continuation pages
-and focused item details (`get_read_item`, comparison items) do not. When
+do not. Focused ordinary item reads also report delivery when they inline child sections. When
 `selectionComplete` is true, every selected row of that capture is already
 inline and no cursor is needed. For `compare_market_data_import` view=summary
 the selection is the `results` section only. Deferred detail sections are not
@@ -23,14 +23,15 @@ Task arguments live with the task: [product pages](product-pages.md),
 
 ## Completeness and recovery
 
-An initial mcp-read/1 capture has captureId, captureKind, capturedAt, expiresAt,
-contentHash, summaryHash, normalized query, summary and sections. Each section
+An initial mcp-read/2 capture has captureId, captureKind, capturedAt, summary
+and sections. Hashes, expiry and query echo are server-owned metadata and are
+not returned. The agent need not calculate or compare hashes. Each section
 has items and page {total, returned, hasMore, nextCursor}. Empty arrays mean no
 matches only when hasMore is false and nextCursor is null. A deferred section
 may have returned=0 and a cursor. Follow every relevant cursor using
 `get_read_page` with only cursor and optional limit. The signed cursor retains
 capture, section, target and query. Filters and sort cannot change mid-read.
-`get_read_page` returns the same capture identity, hash and expiry plus section,
+`get_read_page` returns the same capture identity and capturedAt plus section,
 items and page. It does not repeat query, summary or unrelated sections. Retain
 the initial header, append only the returned section and update only that
 section's saved page state. Default limit is 25 for all business continuations.
@@ -38,7 +39,7 @@ Maximum is 100. Actual pages may be smaller to fit 65,536 final HTTP bytes,
 including duplicated SDK text and structured content. For a complete bulk
 import or list audit, use limit=100 upfront and on continuations when that
 evidence is needed. Default 25 favors focused reads. Never claim “all” from one
-page. Preserve captureId and contentHash and check complete unions.
+page. Preserve captureId and check complete unions.
 
 <!-- example: scale-page -->
 ```json
@@ -93,7 +94,7 @@ continuation entry. Follow a cursor even after a short or deferred page. Counts
 are not proof that evidence has been delivered. Total is omitted when it is not
 authoritative.
 
-consistency=frozen retains capture, hash and TTL. consistency=version_bound
+consistency=frozen retains immutable capture identity and server-enforced TTL. consistency=version_bound
 retains publication, filter or reconciliation evidence and revision. Restart on
 staleness. consistency=live does not promise a snapshot. Restart after source
 changes before claiming a coherent audit. Rules and suppressions conservatively
@@ -125,14 +126,14 @@ disclosure, alias and hash structure, without duplicating rows in a second
 shape. Their section cursors carry all routing scope, so
 `get_read_page({cursor, limit?})` is the only continuation entry.
 
-For mcp-read/1, fixed TTL is 5 minutes; parent JSON budget is 4 MiB; its cache
+For mcp-read/2, fixed TTL is 5 minutes; parent JSON budget is 4 MiB; its cache
 is 16 MiB / 8 captures, with 2 builders and a 10-second build budget. Financial
 context and comparison use a separate cache with the same TTL, 4 MiB package and
 16 MiB / 8-entry limits. These are retained-data budgets, distinct from the
 65,536-byte complete HTTP response limit. Executed write and recovery receipts
 are excluded from read response interception.
 
-mcp-read/1 lookup errors are read_expired/read_revoked. Financial packages use
+mcp-read/2 lookup errors are read_expired/read_revoked. Financial packages use
 context_expired/context_revoked. Restart the original initial request and all
 requested related sections after either family's invalidation. Published review
 cursors use conflict with cursor_expired on a changed publication. Reconciliation
@@ -141,8 +142,8 @@ validation, read_busy, too_large, not_found or an authentication failure into an
 empty successful result. See [recovery](recovery.md) for pending or unknown write
 outcomes, which are a separate authority from read-cache errors.
 
-Shared read tools advertise the mcp-read/1 envelope, including capture identity,
-hash and expiry and initial-summary versus section-page forms. Repair advertises
+Shared read tools advertise the mcp-read/2 envelope, including capture identity,
+capture time and initial-summary versus section-page forms. Repair advertises
 progress or evidence. Nested rows keep their own exact-money and provenance
 contracts. The envelope does not describe every GUI field, and write or
 `get_operation` receipts gain no extra post-execution schema. Error metadata uses

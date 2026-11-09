@@ -1,6 +1,6 @@
 package mcpserver
 
-// The shipped outputSchema of every mcp-read/1 tool is deliberately compact (see
+// The shipped outputSchema of every mcp-read/2 tool is deliberately compact (see
 // output_schemas.go). This file keeps the strict contract the earlier schemas
 // described as a test oracle: real responses are validated against it, so the
 // wire schema can stay small without letting the response shape drift.
@@ -73,17 +73,16 @@ func fullReadEnvelopeSchema() any {
 	page := map[string]any{"$ref": fullFrozenPageSchemaRef}
 	rows := map[string]any{"type": "array", "items": true}
 	props := map[string]any{}
-	required := []string{"schemaVersion", "captureId", "captureKind", "capturedAt", "expiresAt", "contentHash", "summaryHash"}
+	required := []string{"schemaVersion", "captureId", "captureKind", "capturedAt"}
 	for _, k := range required {
 		props[k] = map[string]any{"type": "string"}
 	}
-	props["schemaVersion"] = map[string]any{"const": "mcp-read/1"}
-	props["query"] = true
+	props["schemaVersion"] = map[string]any{"const": "mcp-read/2"}
 	props["summary"] = true
+	props["availableSections"] = map[string]any{"type": "array", "items": map[string]any{"type": "string"}}
 	props["sections"] = map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "object", "properties": map[string]any{"items": rows, "page": page}, "required": []string{"items", "page"}}}
-	// delivery exists only on a top-level initial capture. Continuation pages and
-	// focused item details (get_read_item, comparison items) never carry it, so the
-	// property is optional on the envelope but exact when present.
+	// Initial captures and inline item details carry delivery; continuation
+	// pages omit it. The property is optional but exact when present.
 	props["delivery"] = map[string]any{"type": "object", "required": []string{"selectionComplete", "pendingSections"}, "properties": map[string]any{"selectionComplete": map[string]any{"type": "boolean"}, "pendingSections": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}, "additionalProperties": false}
 	props["section"] = map[string]any{"type": "string"}
 	props["items"] = rows
@@ -122,8 +121,8 @@ func fullUnifiedPageSchema() any {
 	page := fullBusinessPageSchema().(map[string]any)
 	page["allOf"] = []any{map[string]any{
 		"if":   map[string]any{"properties": map[string]any{"page": map[string]any{"properties": map[string]any{"consistency": map[string]any{"const": "frozen"}}}}},
-		"then": map[string]any{"required": []string{"contentHash", "capturedAt"}, "anyOf": []any{map[string]any{"required": []string{"captureId", "expiresAt"}}, map[string]any{"required": []string{"contextId", "cacheExpiresAt"}}, map[string]any{"required": []string{"comparisonId", "cacheExpiresAt"}}}},
+		"then": map[string]any{"required": []string{"capturedAt"}, "anyOf": []any{map[string]any{"required": []string{"captureId"}}, map[string]any{"required": []string{"contextId", "cacheExpiresAt", "contentHash"}}, map[string]any{"required": []string{"comparisonId", "cacheExpiresAt", "contentHash"}}}},
 	}}
-	page["properties"].(map[string]any)["schemaVersion"] = map[string]any{"const": "mcp-read/1"}
+	page["properties"].(map[string]any)["schemaVersion"] = map[string]any{"const": "mcp-read/2"}
 	return page
 }

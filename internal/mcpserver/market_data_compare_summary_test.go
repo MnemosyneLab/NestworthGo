@@ -56,7 +56,7 @@ func TestMarketComparisonSummaryAndFocusedFrozenDetails(t *testing.T) {
 		t.Fatal(e)
 	}
 	detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: second.ClientItemID})
-	if detail["contentHash"] != cap["contentHash"] || detail["expiresAt"] != cap["expiresAt"] {
+	if detail["captureId"] != cap["captureId"] || detail["expiresAt"] != cap["expiresAt"] {
 		t.Fatal("focused detail recaptured or renewed TTL")
 	}
 	row := detail["summary"].(map[string]any)["result"].(map[string]any)

@@ -1,29 +1,15 @@
 # Current wealth, returns and asset-change explanations
 
-Use `get_overview` and `get_account_valuations` for
-bounded current reads. Overview summary preserves GUI
-exact totals, currency, completeness and display quality; independently page all
-relevant breakdowns, missing inputs, recent activities and identity-label sections
-with get_read_page. Its totals follow the existing account filters. Small results
-come back inline (at least five rows per section when they fit, at most 25);
-continuations are 25/max 100. `delivery.selectionComplete=true` means every selected row is
-already inline; it says nothing about data completeness (`complete`, `missingInputs`). Preserve complete and quality
-when interpreting amounts. get_financial_context remains the
-direct minimal-disclosure summary and evidence path.
+Use `get_overview` or `get_account_valuations` for **current** values.
+Account valuations accept one or many accountIds plus account filters; unmatched
+filters return an empty page. Default summary includes totals, asset types and
+price freshness. Use detail=holdings for component evidence in the same call.
+Do not add rollups to components or repeatedly fetch the same totals.
+Use `analyze_period` for returns and `get_historical_overview` for endpoint
+movement. Preserve ownership, inclusion, currency and incomplete-value indicators.
 
-Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
-**current** net worth/account values, holdings, costs and missing inputs. They
-do not answer last month's income or investment return. Preserve ownership,
-inclusion filters, household base currency and incomplete-value indicators.
-`get_account_snapshot` and `get_account_valuations` are one current-valuation
-capture. Snapshot takes one required account id and returns not_found when that
-account is missing or archived. Valuations takes optional accountIds plus the
-account filters and returns an empty page when nothing matches. Do not add a
-rollup to its components. Neither tool is a return or an endpoint movement;
-use `analyze_period` for returns and `get_historical_overview` for endpoint
-movement. `get_overview` remains the household GUI overview.
-
-From `get_account_valuations`, open `get_read_item` accounts/id. Its
+From `get_account_valuations`, open `get_read_item` accounts/id only for additional evidence. Select child
+names using `sections` from `availableSections`. Its
 composition_types section groups components by instrument type/cash;
 composition_details contains ranked details, and composition_detailSlices
 retains the first ten rows plus an exact grouped
@@ -61,7 +47,7 @@ two historical states (`date` may be empty for the GUI default month end;
 `compareTo` is an optional second closed date or `current`). `{from, to}` reads
 a bounded daily trend with its endpoint views from the same capture. Do not send
 both shapes together. Dates are closed `YYYY-MM-DD` civil labels in
-the household history timezone. Series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/1` envelope: summary,
+the household history timezone. Series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/2` envelope: summary,
 compact endpoint leaves, and independent series points. Initial default is five
 items per section, max 100; continuation default is 25. Follow every relevant
 `get_read_page` cursor. `get_read_item` with section=rows/id returns full row
@@ -131,7 +117,7 @@ rules are unknown, confirming, healthy or uncomputed without an open alert.
 dates. Its nonempty items/page results likewise continue using page.nextCursor
 with get_read_page through a final empty page. All these reads, and `preview_investment_review_rule`, are read-only:
 they never refresh source data or publish an evaluation. Rule previews return
-mcp-read/1: retain sourceToken/latestClosedOn/window from summary, and follow the
+mcp-read/2: retain sourceToken/latestClosedOn/window from summary, and follow the
 frozen days section only for requested daily evidence (default 25/max 100).
 expectedSourceToken rejects a changed source before capture. A full 365-day
 policy window uses get_read_page; never replace it with a different shorter
@@ -198,7 +184,7 @@ outstanding ledger preview; perform analysis before preview/commit.
 | “净资产涨了，究竟是存钱、涨价还是汇率？” | Period assetChange buckets, then `get_read_item` section=`assetDrivers` and id=that bucket key |
 | “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
 
-Contribution lists use `mcp-read/1`: inspect `summary` and `sections.rows`, then
+Contribution lists use `mcp-read/2`: inspect `summary` and `sections.rows`, then
 follow only the rows needed with `get_read_page` (captureId, section=`rows`, signed
 cursor; default limit 25, maximum 100). There is no offset argument. For selected
 row evidence call `get_read_item` with that same captureId, section=`rows` and id=the row key;
@@ -262,7 +248,7 @@ Sort priority (default desc, then sortOn asc), sortOn or displayName, id asc tie
 An extreme single action with many targets may still exceed one page; report
 that explicit error instead of omitting links or inventing posted cash.
 
-Period analysis now returns mcp-read/1: summary.income/expenses/assetChange/
+Period analysis now returns mcp-read/2: summary.income/expenses/assetChange/
 investmentReturns contain headers; sections income/rows, expenses/rows,
 assetChange/waterfall, assetChange/groups, investmentReturns/points and
 investmentReturns/sources hold complete collections. Follow every relevant cursor.

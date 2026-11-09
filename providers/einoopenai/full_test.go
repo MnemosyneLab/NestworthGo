@@ -35,7 +35,7 @@ func TestFakeProviderFullDirectWrite(t *testing.T) {
 			if !strings.Contains(latestToolOutput(t, request), "succeeded") {
 				t.Error("missing actual receipt")
 			}
-			writeMode(w, request, []any{liveCallItem(round, "get_account_snapshot", obj{"id": accountID})})
+			writeMode(w, request, []any{liveCallItem(round, "get_account_valuations", obj{"accountIds": []string{accountID}})})
 			return
 		}
 		writeMode(w, request, []any{textItem()})
@@ -79,7 +79,7 @@ func TestFakeProviderFullDirectWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := waitAssistantRun(t, ipc, q)
-	if len(view.Runs[0].Tools) != 2 || view.Runs[0].Tools[0].Source != "execute_ledger_change" || view.Runs[0].Tools[1].Source != "get_account_snapshot" || view.Runs[0].Tools[0].State != "succeeded" || view.Runs[0].Tools[1].State != "succeeded" || !strings.Contains(view.Runs[0].Tools[0].Input, "12.34") || !strings.Contains(view.Runs[0].Tools[0].Output, "succeeded") {
+	if len(view.Runs[0].Tools) != 2 || view.Runs[0].Tools[0].Source != "execute_ledger_change" || view.Runs[0].Tools[1].Source != "get_account_valuations" || view.Runs[0].Tools[0].State != "succeeded" || view.Runs[0].Tools[1].State != "succeeded" || !strings.Contains(view.Runs[0].Tools[0].Input, "12.34") || !strings.Contains(view.Runs[0].Tools[0].Output, "succeeded") {
 		t.Fatalf("Full/read sequence lost: %+v", view.Runs[0].Tools)
 	}
 	saved, err := store.Load()

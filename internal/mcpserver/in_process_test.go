@@ -67,7 +67,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
-	}{{ReadOnly, 48}, {DirectoryWrite, 61}, {LedgerWrite, 75}} {
+	}{{ReadOnly, 47}, {DirectoryWrite, 60}, {LedgerWrite, 74}} {
 		local := newLocal(t, fx, test.mode)
 		if local.service.listener != nil || local.service.server != nil || local.service.endpoint != "" || local.service.config.Token != "" {
 			t.Fatal("local session created external transport/credentials")
@@ -142,7 +142,7 @@ func TestInProcessFrozenPaginationAndRevocationIsolation(t *testing.T) {
 		if err := jsoncodec.Unmarshal(pageRaw, &page); err != nil {
 			t.Fatal(err)
 		}
-		if page.Data.ContentHash != capture.Data.ContentHash || page.Data.ExpiresAt != capture.Data.ExpiresAt || page.Data.CapturedAt != capture.Data.CapturedAt {
+		if page.Data.CaptureID != capture.Data.CaptureID || page.Data.CapturedAt != capture.Data.CapturedAt {
 			t.Fatal("page changed capture identity, evidence time or TTL")
 		}
 		seen += len(page.Data.Items)
@@ -175,7 +175,7 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
 	preview := localData(t, local, "preview_change", command, false)
 	externalPreview := ledgerPreview(t, external, command)
-	if !strings.Contains(string(localRaw(t, local, "get_account_snapshot", IDInput{fx.checking}, false)), "Checking") {
+	if !strings.Contains(string(localRaw(t, local, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}}, false)), "Checking") {
 		t.Fatal("account read unavailable")
 	}
 	// Resulting endpoint values are authoritative; provisional activity IDs are

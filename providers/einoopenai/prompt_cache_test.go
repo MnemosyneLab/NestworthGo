@@ -77,7 +77,7 @@ func TestPromptCacheWireModePageRestoreAndInventory(t *testing.T) {
 					}
 				}
 				if malicious != "" {
-					writeMode(w, request, []any{liveCallItem(n*2, "get_account_snapshot", obj{"id": accountID}), liveCallItem(n*2+1, malicious, obj{})})
+					writeMode(w, request, []any{liveCallItem(n*2, "get_account_valuations", obj{"accountIds": []string{accountID}}), liveCallItem(n*2+1, malicious, obj{})})
 					return
 				}
 				item := textItem()

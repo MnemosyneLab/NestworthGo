@@ -242,8 +242,8 @@ func TestGenerateEngineCompletionGate(t *testing.T) {
 					return
 				}
 				call := contractCall("gate")
-				call["name"] = "get_account_snapshot"
-				call["arguments"] = encode(obj{"id": accountID})
+				call["name"] = "get_account_valuations"
+				call["arguments"] = encode(obj{"accountIds": []string{accountID}})
 				resp := response([]any{call})
 				switch mode {
 				case "function_incomplete":
@@ -319,8 +319,8 @@ func TestCancellationAfterResponseValidationBeforeToolDispatch(t *testing.T) {
 	_, observed, accountID := ledgerSession(t)
 	fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
 		call := contractCall("cancel")
-		call["name"] = "get_account_snapshot"
-		call["arguments"] = encode(obj{"id": accountID})
+		call["name"] = "get_account_valuations"
+		call["arguments"] = encode(obj{"accountIds": []string{accountID}})
 		writeMode(w, request, []any{call})
 	})
 	ctx, cancel := context.WithCancel(t.Context())

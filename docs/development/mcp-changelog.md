@@ -1,10 +1,20 @@
 # MCP contract changelog
 
+## 2026-11-09 — agent read protocol v2
+
+MCP implementation 4.0.0 uses the same shared compact read handlers for external
+MCP and the built-in assistant. Removed get_account_snapshot; account valuations
+support summary/holdings selection. Search also matches institution/group names.
+Ordinary mcp-read/2 envelopes omit hashes, query echoes and expiry metadata.
+Compact authenticated r2 cursors retain frozen identity, TTL and generation
+checks. Focused account details inline requested child rows; GUI layouts are
+available on demand. Skill 3.0.11 documents the new-only protocol.
+
 This file is the stage, extension and follow-up narrative that used to live in
 [mcp.md](mcp.md). The current rules are that contract. Figures here are the
 measurements recorded when each change landed. They are not a second budget.
 
-The local MCP implementation version is `3.0.0`. Skill versions cited below
+The local MCP implementation version is `4.0.0`. Skill versions cited below
 are the repository skill at that commit, not the published installer.
 
 ## Stage 1 tools

@@ -59,7 +59,7 @@ func batchHoldings(t *testing.T, c *mcp.ClientSession, accountID string) []any {
 
 func batchCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 	t.Helper()
-	snapshot := call(t, c, "get_account_snapshot", IDInput{ID: accountID}, false)["data"].(map[string]any)
+	snapshot := call(t, c, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{accountID}}, false)["data"].(map[string]any)
 	snapshot = scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: snapshot["captureId"].(string), Section: "accounts", ID: accountID})
 	for _, raw := range scaleSection(t, c, snapshot, "components/"+accountID) {
 		component := raw.(map[string]any)

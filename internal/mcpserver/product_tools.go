@@ -36,7 +36,7 @@ func (s *Service) productTools(server *toolSet) {
 		}
 		return s.pagedProducts(ctx, generation, in, nil)
 	})
-	readTool(server, "get_product", "Read one managed product with full contract/terms/policy/revision and separately paged reservations. Frozen mcp-read/1. due_unconfirmed does not record cash or forecast interest as net worth. GUI actions do not grant permission; writes require dedicated preview/commit pairs with ledger_write.", func(ctx context.Context, in ProductGetInput) (any, error) {
+	readTool(server, "get_product", "Read one managed product with full contract/terms/policy/revision and separately paged reservations. Frozen mcp-read/2. due_unconfirmed does not record cash or forecast interest as net worth. GUI actions do not grant permission; writes require dedicated preview/commit pairs with ledger_write.", func(ctx context.Context, in ProductGetInput) (any, error) {
 		id, err := domain.ParseProductContractID(in.ID)
 		if err != nil {
 			return nil, err

@@ -251,14 +251,14 @@ func (s *Service) buildToolSetWithPolicy(mode string, external, reviewManagement
 		}
 		return s.pagedDirectory(ctx, generation, "groups", in, in.Limit, out)
 	})
-	readTool(server, "list_accounts", "List compact account identity, classification, currency, inclusion and ownership with filters, in frozen pages (25/max 100). get_read_item section=accounts id=<accountId> returns full metadata and notes.", func(ctx context.Context, in AccountListInput) (any, error) {
+	readTool(server, "list_accounts", "Search account name, institution name or group name. List compact account identity, classification, currency, inclusion and ownership with filters, in frozen pages (25/max 100). get_read_item section=accounts id=<accountId> returns full metadata and notes.", func(ctx context.Context, in AccountListInput) (any, error) {
 		records, err := accounts.ListAccounts(ctx, in.Filter)
 		if err != nil {
 			return nil, err
 		}
 		out := records[:0]
 		for _, record := range records {
-			if matches(in.Query, record.Account.Name) {
+			if matches(in.Query, record.Account.Name, record.InstitutionName, record.GroupName) {
 				out = append(out, record)
 			}
 		}
@@ -278,23 +278,10 @@ func (s *Service) buildToolSetWithPolicy(mode string, external, reviewManagement
 		}
 		return s.pagedDirectory(ctx, generation, "holdings", in, in.Limit, wire.FromHoldings(values))
 	})
-	readTool(server, "get_account_valuations", "Current account values, holdings, costs and missing valuation inputs as compact account rows from the same capture as get_account_snapshot (rollups: never add them to their holdings). Filter with accountIds and account filters; an unmatched filter is an empty page, not not_found. get_read_item section=accounts id=<accountId> opens components, composition and missing-evidence sections. Never present incomplete values as complete. Current valuation, not a return or an endpoint move.", func(ctx context.Context, in AccountValuationReadInput) (any, error) {
+	readTool(server, "get_account_valuations", "Current account values, holdings, costs and missing valuation inputs as compact account rows from one frozen capture (rollups: never add them to their holdings). Filter with accountIds and account filters; an unmatched filter is an empty page, not not_found. detail=summary (default) returns business totals, asset types and price freshness. detail=holdings also inlines components and missing inputs within the byte budget; continue only remaining cursors. Do not re-read the same account totals. get_read_item opens further frozen evidence. Never present incomplete values as complete. Current valuation, not a return or an endpoint move.", func(ctx context.Context, in AccountValuationReadInput) (any, error) {
 		return s.pagedAccountValuations(ctx, generation, in)
 	})
-	readTool(server, "get_account_snapshot", "One required account from the same current-valuation capture as get_account_valuations. Supply its id from list_accounts; an unknown or archived id is not_found. get_read_item accounts/id opens cash, holdings, composition and missing evidence pages; follow every detail cursor. Current valuation, not a return or an endpoint move.", func(ctx context.Context, in IDInput) (any, error) {
-		id, err := domain.ParseAccountID(in.ID)
-		if err != nil {
-			return nil, err
-		}
-		capture, err := s.pagedAccountValuations(ctx, generation, AccountValuationReadInput{AccountIDs: []string{id.String()}})
-		if err != nil {
-			return nil, err
-		}
-		if capture.Sections["accounts"].Page.Total == 0 {
-			return nil, fail("not_found", "account not found")
-		}
-		return capture, nil
-	})
+
 	readTool(server, "get_overview", "Current household net worth and breakdown: totals, quality, missing inputs, breakdowns by type, member, institution, group and account type, recent activities and labels, using the GUI's calculations and account filters (totals follow the filters). Sections page independently with get_read_page. This is current valuation, not historical return or income and expense reporting.", func(ctx context.Context, in OverviewReadInput) (any, error) {
 		return s.pagedOverview(ctx, generation, in)
 	})
