@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
+import { Brain, Cpu } from "lucide-react";
+import { ChoiceMenu } from "@/components/ui/choice-menu";
 import { SecurityOperationRegion } from "@/lib/businessCapture";
 import type { ModelOption, Selection } from "./modelSelection";
 
+/** Model and reasoning-effort chips for the composer. The backend catalog owns
+ * which efforts exist; a removed model stays visible (warning) but cannot send. */
 export function ModelSelector({ models, catalog, selection, disabled, onChange }: {
   models: string[]; catalog: ModelOption[]; selection: Selection;
   disabled: boolean; onChange: (selection: Selection) => void;
@@ -11,21 +13,20 @@ export function ModelSelector({ models, catalog, selection, disabled, onChange }
   const { t } = useTranslation();
   const efforts = catalog.find(option => option.id === selection.model)?.efforts ?? [];
   const valid = models.includes(selection.model);
-  return <SecurityOperationRegion className="space-y-1">
-    <div className="flex gap-2">
-      <div className="min-w-0 flex-1"><Label htmlFor="ai-request-model" className="sr-only">{t("aiChat.model")}</Label>
-        <NativeSelect id="ai-request-model" className="w-full min-w-0 text-xs" value={selection.model} disabled={disabled} onChange={event => onChange({model:event.target.value, reasoningEffort:""})}>
-          {!valid && <option value={selection.model} disabled>{selection.model === "unconfigured" ? t("aiUsage.chooseModel") : selection.model}</option>}
-          {models.map(id => <option key={id} value={id}>{id}</option>)}
-        </NativeSelect>
-      </div>
-      <div className="min-w-0 flex-1"><Label htmlFor="ai-reasoning" className="sr-only">{t("aiModels.reasoning")}</Label>
-        <NativeSelect id="ai-reasoning" className="w-full min-w-0 text-xs" value={selection.reasoningEffort} disabled={disabled || !valid || efforts.length === 0} onChange={event => onChange({...selection, reasoningEffort:event.target.value})}>
-          <option value="">{t(efforts.length ? "aiModels.default" : "aiModels.unspecified")}</option>
-          {efforts.map(effort => <option key={effort} value={effort}>{t(`aiModels.efforts.${effort}`)}</option>)}
-        </NativeSelect>
-      </div>
-    </div>
-    {!valid && <p role="status" className="text-xs text-muted-foreground">{t("aiModels.chooseEnabled")}</p>}
+  const modelOptions = [
+    ...(valid ? [] : [{ value: selection.model, label: selection.model === "unconfigured" ? t("aiUsage.chooseModel") : selection.model, disabled: true }]),
+    ...models.map(id => ({ value: id, label: id })),
+  ];
+  const effortOptions = [
+    { value: "", label: t(efforts.length ? "aiModels.default" : "aiModels.unspecified") },
+    ...efforts.map(effort => ({ value: effort, label: t(`aiModels.efforts.${effort}`) })),
+  ];
+  // `contents` lets the chips wrap together with sibling chips in the composer row.
+  return <SecurityOperationRegion className="contents">
+    <ChoiceMenu label={t("aiChat.model")} icon={Cpu} tone={valid ? "default" : "warning"} className="max-w-48" value={selection.model} options={modelOptions}
+      disabled={disabled} onChange={model => onChange({ model, reasoningEffort: "" })} />
+    <ChoiceMenu label={t("aiModels.reasoning")} icon={Brain} value={selection.reasoningEffort} options={effortOptions}
+      disabled={disabled || !valid || efforts.length === 0} onChange={reasoningEffort => onChange({ ...selection, reasoningEffort })} />
+    {!valid && <p role="status" className="w-full text-xs text-muted-foreground">{t("aiModels.chooseEnabled")}</p>}
   </SecurityOperationRegion>;
 }

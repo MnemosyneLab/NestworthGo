@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import * as API from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/airuntime/service";
@@ -38,9 +39,9 @@ export function ConversationUsage({ epoch, id, runID, stamp }: { epoch: string; 
     queryFn: () => callService(() => API.Usage(epoch, { timezone: timezone(), from: "", to: "", conversationId: id, runId: "", model: "", groupBy: "model" })), refetchInterval: open ? 10000 : false });
   const current = useQuery({ queryKey: ["aiUsageRun", epoch, id, runID, stamp], enabled: !!epoch && !!id && !!runID, networkMode: "always", retry: false,
     queryFn: () => callService(() => API.Usage(epoch, { timezone: timezone(), from: "", to: "", conversationId: id, runId: runID, model: "", groupBy: "model" })), refetchInterval: open ? 10000 : false });
-  return <details className="shrink-0 border-t border-border px-3 py-2 text-xs" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
-    <summary className="cursor-pointer">{t("aiUsage.title")} · {t("aiUsage.current")} {current.data?.available ? count(current.data.total.tokens, current.data.total.missingTokens, current.data.total.calls) : "—"} · {t("aiUsage.total")} {total.data?.available ? count(total.data.total.tokens, total.data.total.missingTokens, total.data.total.calls) : "—"}</summary>
-    <div className="mt-2 max-h-48 space-y-3 overflow-auto">
+  return <details className="group shrink-0 border-t border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
+    <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span className="min-w-0 flex-1 truncate">{t("aiUsage.title")} · {t("aiUsage.current")} {current.data?.available ? count(current.data.total.tokens, current.data.total.missingTokens, current.data.total.calls) : "—"} · {t("aiUsage.total")} {total.data?.available ? count(total.data.total.tokens, total.data.total.missingTokens, total.data.total.calls) : "—"}</span><ChevronDown aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open:rotate-180" /></summary>
+    <div className="mt-2 max-h-48 space-y-3 overflow-auto text-foreground">
       {total.isPending ? <p>{t("aiUsage.loading")}</p> : total.isError || !total.data?.available ? <p role="status">{t("aiUsage.unavailable")}</p> : <>
         {current.data?.available && <div><p className="mb-1 font-medium">{t("aiUsage.current")}</p><UsageNumbers total={current.data.total} /></div>}
         <div><p className="mb-1 font-medium">{t("aiUsage.total")}</p><UsageNumbers total={total.data.total} /></div>

@@ -114,27 +114,28 @@ it("keeps the draft and selected conversation across layout changes and Sheet di
   expect(api.List).not.toHaveBeenCalled();
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
-  await screen.findByRole("option", { name: "Earlier" });
-  await user.selectOptions(screen.getByRole("combobox", { name: "Conversations" }), "two");
+  await screen.findByRole("button", { name: "Conversations: Recent" });
+  await user.click(screen.getByRole("button", { name: "Conversations: Recent" }));
+  await user.click(await screen.findByRole("button", { name: /^Earlier/ }));
   fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Unsent synthetic draft" } });
   resize(false);
   expect(await screen.findByRole("dialog", { name: "AI assistant" })).toBeVisible();
   expect(screen.getByLabelText("Message")).toHaveValue("Unsent synthetic draft");
-  expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
+  expect(screen.getByRole("button", { name: "Conversations: Earlier" })).toBeVisible();
   await user.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
   expect(screen.getByLabelText("Message")).toHaveValue("Unsent synthetic draft");
-  expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
+  expect(screen.getByRole("button", { name: "Conversations: Earlier" })).toBeVisible();
   resize(true);
   expect(screen.getByLabelText("Message")).toHaveValue("Unsent synthetic draft");
-  expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
+  expect(screen.getByRole("button", { name: "Conversations: Earlier" })).toBeVisible();
   // A replacement runtime still discards the old ledger's ephemeral state.
   await user.click(screen.getByRole("button", { name: "Collapse assistant" }));
   act(() => client.setQueryData(["aiCredentialStatus"], { ...configuredStatus, epoch: "replacement" }));
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
   expect(screen.getByLabelText("Message")).toHaveValue("");
-  expect(screen.getByRole("combobox", { name: "Conversations" })).not.toHaveValue("two");
+  expect(await screen.findByRole("button", { name: "Conversations: Recent" })).toBeVisible();
   expect(api.Start).not.toHaveBeenCalled();
 });
 
@@ -145,7 +146,7 @@ it("retains the submission guard while an accepted Start response crosses a layo
   mount();
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
-  await screen.findByRole("option", { name: "Recent" });
+  await screen.findByRole("button", { name: "Conversations: Recent" });
   fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Send once" } });
   const send = screen.getByRole("button", { name: "Send to model" });
   expect(send).toBeEnabled();
@@ -185,8 +186,9 @@ it("resizes the dock without remounting the draft or recording and restores its 
   mount();
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
-  await screen.findByRole("option", { name: "Earlier" });
-  await user.selectOptions(screen.getByRole("combobox", { name: "Conversations" }), "two");
+  await screen.findByRole("button", { name: "Conversations: Recent" });
+  await user.click(screen.getByRole("button", { name: "Conversations: Recent" }));
+  await user.click(await screen.findByRole("button", { name: /^Earlier/ }));
   const input = screen.getByLabelText("Message");
   fireEvent.change(input, { target: { value: "Keep this draft while resizing" } });
   await user.click(screen.getByRole("button", { name: "Voice input" }));
@@ -200,7 +202,7 @@ it("resizes the dock without remounting the draft or recording and restores its 
   expect(dock).toHaveStyle({ width: "600px" });
   expect(screen.getByLabelText("Message")).toBe(input);
   expect(input).toHaveValue("Keep this draft while resizing");
-  expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
+  expect(screen.getByRole("button", { name: "Conversations: Earlier" })).toBeVisible();
   expect(voice.cancel).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Expand workspace" }));
   expect(screen.queryByRole("separator")).not.toBeInTheDocument();
@@ -229,7 +231,7 @@ it("resizes the dock without remounting the draft or recording and restores its 
   expect(screen.getByLabelText("Message")).toHaveValue("Keep this draft while resizing");
   resizeViewport(true);
   expect(screen.getByRole("complementary", { name: "AI assistant" })).toHaveStyle({ width: "600px" });
-  expect(screen.getByRole("combobox", { name: "Conversations" })).toHaveValue("two");
+  expect(screen.getByRole("button", { name: "Conversations: Earlier" })).toBeVisible();
   expect(api.Start).not.toHaveBeenCalled();
 });
 
