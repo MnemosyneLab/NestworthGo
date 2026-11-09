@@ -45,7 +45,7 @@ jobs:
           cache: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.2
           package-manager-cache: false
       - name: Reuse pinned pnpm executable
         run: bash tools/ci-macos-pnpm.sh

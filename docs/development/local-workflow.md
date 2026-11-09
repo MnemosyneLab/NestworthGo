@@ -7,7 +7,7 @@ cross-compilation tasks for other platforms.
 ## Prerequisites
 
 - Go 1.27.3 or newer;
-- Node.js 24.22.0 with pnpm, as pinned by `.nvmrc` and `.node-version`;
+- Node.js 24.22.2 with pnpm, as pinned by `.nvmrc` and `.node-version`;
 - Wails CLI `v3.1.0` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
 - Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to
@@ -514,8 +514,8 @@ PR refs are unsupported. Checkout uses the dispatch SHA, so a branch advancing
 while queued does not silently change the source being packaged.
 
 The job uses the existing `[self-hosted, macOS, ARM64]` Mac mini runner pool,
-native macOS/SDK 27+, Go and Wails pins from `go.mod`, Node 24.22.0 and pnpm
-12.14.0. It reuses the native prerequisite/cache helpers and invokes
+native macOS/SDK 27+, Go and Wails pins from `go.mod`, Node 24.22.2 and pnpm
+12.18.0. It reuses the native prerequisite/cache helpers and invokes
 `wails3 task package:release`, including skill checks and package verification.
 It does not launch the application. Database/settings overrides point to the
 existing disposable synthetic directory, never a real household ledger.
