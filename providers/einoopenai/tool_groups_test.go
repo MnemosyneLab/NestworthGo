@@ -69,8 +69,8 @@ func TestTaskToolGroupsLoadOnlyCurrentTurnAndKeepEarlierSchemas(t *testing.T) {
 			item["id"] = "msg_catalog_restore"
 			writeMode(w, request, []any{item})
 		case 5:
-			if has(loadToolGroups) || has("get_products") || has("commit_plan") || allowed("get_operation") {
-				t.Error("downgrade exposed groups or allowed a historical receipt read")
+			if !has(loadToolGroups) || has("get_products") || has("commit_plan") || !allowed("get_operation") {
+				t.Error("downgrade lost legitimate reads or inherited loaded groups/writes")
 			}
 			writeMode(w, request, []any{liveCallItem(round, "commit_plan", obj{})})
 		default:
@@ -134,5 +134,76 @@ func TestToolGroupLoadCannotAuthorizeSameResponseCall(t *testing.T) {
 	defer e.Close()
 	if _, err = e.Complete(t.Context(), nil, "Commit a change"); err == nil {
 		t.Fatal("accepted a call to a group not exposed in this response")
+	}
+}
+
+func TestReadOnlyLoadsAllReadGroupsWithoutMutationAuthority(t *testing.T) {
+	_, shared, _ := ledgerSession(t)
+	var core []any
+	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+		tools := request["tools"].([]any)
+		has := func(name string) bool { return strings.Contains(encode(tools), `"name":"`+name+`"`) }
+		allowed := func(name string) bool { return strings.Contains(encode(request["tool_choice"]), `"name":"`+name+`"`) }
+		switch round {
+		case 0:
+			core = tools
+			if !has(loadToolGroups) || has("get_products") || has("get_context") {
+				t.Error("read-only initial catalog is not on demand")
+			}
+			// Deliberately reversed request order must not determine schema order.
+			writeMode(w, request, []any{loadGroupsCall(round, "maintenance", "reconciliation", "market_data", "investments", "history", "accounts", "changes")})
+		case 1:
+			if len(tools) <= len(core) || encode(tools[:len(core)]) != encode(core) {
+				t.Error("read groups changed cacheable core prefix")
+			}
+			for _, name := range []string{"get_context", "get_products", "list_activities", "get_market_data", "list_reconciliation_sessions"} {
+				if !has(name) || !allowed(name) {
+					t.Errorf("missing legitimate read %s", name)
+				}
+			}
+			for _, name := range []string{"commit_plan", "preview_batch", "execute_ledger_change", "analyze_period", "search_market_instruments"} {
+				if has(name) || allowed(name) {
+					t.Errorf("read-only loading added authority: %s", name)
+				}
+			}
+			if !strings.Contains(latestToolOutput(t, request), `"unavailableGroups":["changes"]`) {
+				t.Error("changes group should remain unavailable")
+			}
+			writeMode(w, request, []any{liveCallItem(round, "get_products", obj{})})
+		case 2:
+			writeMode(w, request, []any{textItem()})
+		case 3:
+			if encode(tools) != encode(core) || has("get_products") || allowed("get_products") {
+				t.Error("restored read-only history loaded prior groups")
+			}
+			if !strings.Contains(encode(request["input"]), `"name":"get_products"`) {
+				t.Error("restore lost historical read")
+			}
+			writeMode(w, request, []any{loadGroupsCall(round, "changes")})
+		case 4:
+			if encode(tools) != encode(core) || has("commit_plan") || allowed("commit_plan") {
+				t.Error("requesting changes widened restored permissions")
+			}
+			item := textItem()
+			item["id"] = "msg_readonly_restore"
+			writeMode(w, request, []any{item})
+		default:
+			t.Errorf("unexpected model round %d", round)
+		}
+	})
+	create := func() *Engine {
+		e, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, f.model, builtinai.New(shared, assistant.PageSelection{}), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(e.Close)
+		return e
+	}
+	first, err := create().Complete(t.Context(), nil, "Read investment products")
+	if err != nil || len(first.Evidence) != 1 || first.Evidence[0].Source != "get_products" {
+		t.Fatalf("readonly grouped read failed: evidence=%v err=%v", first.Evidence, err)
+	}
+	if _, err := create().Complete(t.Context(), first.History, "Continue read-only after restore"); err != nil {
+		t.Fatal(err)
 	}
 }

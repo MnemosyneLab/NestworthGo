@@ -19,7 +19,7 @@ type mixedCapabilitySession struct {
 func (s *mixedCapabilitySession) FullAccessEnabled() bool { return s.full }
 func (s *mixedCapabilitySession) Definitions() ([]agentcapability.Definition, error) {
 	closed, open := false, true
-	definitions := []agentcapability.Definition{{Name: "operate_page_control", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: map[string]any{"type": "object"}}}
+	definitions := []agentcapability.Definition{{Name: "operate_page", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: map[string]any{"type": "object"}}}
 	if s.full {
 		definitions = append(definitions, agentcapability.Definition{Name: "refresh_market_data", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{OpenWorldHint: &open}, InputSchema: map[string]any{"type": "object"}})
 	}
@@ -27,7 +27,7 @@ func (s *mixedCapabilitySession) Definitions() ([]agentcapability.Definition, er
 }
 func (s *mixedCapabilitySession) Call(_ context.Context, name string, _ json.RawMessage) (json.RawMessage, error) {
 	s.calls = append(s.calls, name)
-	if name == "operate_page_control" {
+	if name == "operate_page" {
 		return nil, assistant.ErrRecoveryRequired
 	}
 	return []byte(`{"state":"succeeded"}`), nil
@@ -52,7 +52,7 @@ func TestMixedFullAndPageCapabilitiesKeepWriteDiagnostics(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = entry.(tool.InvokableTool).InvokableRun(t.Context(), "{}")
-			if info.Name == "operate_page_control" && !errors.Is(err, errCapabilityWriteRecoveryRequired) {
+			if info.Name == "operate_page" && !errors.Is(err, errCapabilityWriteRecoveryRequired) {
 				t.Fatalf("page refusal suggested retry: %v", err)
 			}
 			if info.Name == "refresh_market_data" && err != nil {

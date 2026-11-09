@@ -200,6 +200,9 @@ export const assistantEn = {
       update_instruments_batch: "Update instruments",
       update_investment_review_rule: "Update investment rule",
       update_member: "Update member",
+      inspect_page: "Inspect page",
+      navigate_page: "Navigate page",
+      operate_page: "Operate page",
       operate_page_control: "Operate page control",
 
       get_current_page: "Current page",
@@ -578,6 +581,9 @@ export const assistantZhCN = {
       update_instruments_batch: "批量更新投资标的",
       update_investment_review_rule: "更新投资提醒规则",
       update_member: "更新成员",
+      inspect_page: "查看页面",
+      navigate_page: "页面导航",
+      operate_page: "操作页面",
       operate_page_control: "操作页面控件",
 
       get_current_page: "当前页面",
@@ -942,6 +948,9 @@ export const assistantZhTW = {
       update_instruments_batch: "批次更新投資標的",
       update_investment_review_rule: "更新投資提醒規則",
       update_member: "更新成員",
+      inspect_page: "檢視頁面",
+      navigate_page: "頁面導覽",
+      operate_page: "操作頁面",
       operate_page_control: "操作頁面控制項",
 
       get_current_page: "目前頁面",

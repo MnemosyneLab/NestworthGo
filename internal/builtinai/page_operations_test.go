@@ -34,7 +34,7 @@ func TestPageOperationRequiresRuntimeInjectedOperator(t *testing.T) {
 		}
 		found := false
 		for _, d := range defs {
-			if d.Name == "operate_page_control" {
+			if d.Name == "operate_page" {
 				found = true
 				if d.Effect != agentcapability.Interaction || d.Annotations.ReadOnlyHint {
 					t.Fatal("operator mislabeled read-only")
@@ -44,7 +44,7 @@ func TestPageOperationRequiresRuntimeInjectedOperator(t *testing.T) {
 		if found != full {
 			t.Fatal("operator inventory differs from runtime grant")
 		}
-		_, err = session.Call(t.Context(), "operate_page_control", []byte(`{}`))
+		_, err = session.callInternal(t.Context(), "operate_page_control", []byte(`{}`))
 		if (err == nil) != full {
 			t.Fatal("dispatch bypassed runtime grant")
 		}

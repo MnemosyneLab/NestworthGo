@@ -241,7 +241,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			if b.Type == schema.ContentBlockTypeFunctionToolCall {
 				call := b.FunctionToolCall
 				if call == nil || call.CallID == "" || seenCalls[call.CallID] || !catalog.active[call.Name] ||
-					(call.Name != loadToolGroups && e.tools[call.Name] == nil) || len(call.Arguments) > 64<<10 {
+					(call.Name != loadToolGroups && e.tools[call.Name] == nil) || len(call.Arguments) > toolArgumentLimit(call.Name) {
 					return empty, assistant.ProviderResponseFailure("engine_inventory")
 				}
 				seenCalls[call.CallID] = true

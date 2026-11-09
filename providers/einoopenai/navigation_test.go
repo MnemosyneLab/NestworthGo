@@ -37,7 +37,7 @@ func providerNavigation(t *testing.T, trend bool) {
 			writeMode(w, request, []any{liveCallItem(round, "get_account_valuations", obj{"accountIds": []string{accountID}})})
 			return
 		case 1:
-			writeMode(w, request, []any{liveCallItem(round, "get_navigation_targets", obj{})})
+			writeMode(w, request, []any{liveCallItem(round, "inspect_page", obj{"source": "navigation"})})
 			return
 		case 2:
 			raw := latestToolOutput(t, request)
@@ -58,10 +58,9 @@ func providerNavigation(t *testing.T, trend bool) {
 			if targetRef == "" {
 				t.Error("disclosed account did not become an opaque target")
 			}
-			name, args := "open_page", obj{"targetRef": targetRef}
+			name, args := "navigate_page", obj{"targetRef": targetRef}
 			if trend {
-				name = "open_return_trend"
-				args = obj{"targetRef": targetRef, "from": "2026-01-01", "to": "2026-02-28", "valuation": "base", "includeCash": true, "display": "linked_rate"}
+				args = obj{"targetRef": targetRef, "trend": obj{"from": "2026-01-01", "to": "2026-02-28", "valuation": "base", "includeCash": true, "display": "linked_rate"}}
 			}
 			writeMode(w, request, []any{liveCallItem(round, name, args)})
 			return
@@ -133,7 +132,7 @@ func providerNavigation(t *testing.T, trend bool) {
 		t.Fatal(err)
 	}
 	ordinary := builtinai.New(shared, q.Page)
-	if _, err := ordinary.Call(t.Context(), "open_page", []byte(`{"targetRef":"`+targetRef+`"}`)); err == nil {
+	if _, err := ordinary.Call(t.Context(), "navigate_page", []byte(`{"targetRef":"`+targetRef+`"}`)); err == nil {
 		t.Fatal("old native-history target granted navigation")
 	}
 	activities, err := app.ListActivities(t.Context(), 10)
@@ -209,7 +208,7 @@ func TestRecoveredNavigationRefusalCannotCompleteAnEarlierAction(t *testing.T) {
 			fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 				switch round {
 				case 0:
-					writeMode(w, request, []any{liveCallItem(round, "get_navigation_targets", obj{})})
+					writeMode(w, request, []any{liveCallItem(round, "inspect_page", obj{"source": "navigation"})})
 				case 1:
 					var inventory struct {
 						Targets []struct {
@@ -228,14 +227,14 @@ func TestRecoveredNavigationRefusalCannotCompleteAnEarlierAction(t *testing.T) {
 					if targetRef == "" {
 						t.Error("missing trend root")
 					}
-					writeMode(w, request, []any{liveCallItem(round, "open_return_trend", obj{"targetRef": targetRef, "from": "2026-01-01", "to": "2026-02-28", "valuation": "base", "includeCash": true, "display": "linked_rate"})})
+					writeMode(w, request, []any{liveCallItem(round, "navigate_page", obj{"targetRef": targetRef, "trend": obj{"from": "2026-01-01", "to": "2026-02-28", "valuation": "base", "includeCash": true, "display": "linked_rate"}})})
 				case 2:
 					if !strings.Contains(latestToolOutput(t, request), "requested") || session.Navigation() == nil {
 						t.Error("first action was not accepted")
 					}
-					// The second tool is deliberately different. The adapter forwards
+					// The second action deliberately omits trend options. The adapter forwards
 					// schema-invalid JSON objects to Session, where refusal is recoverable.
-					call := liveCallItem(round, "open_page", obj{"targetRef": "unknown"})
+					call := liveCallItem(round, "navigate_page", obj{"targetRef": "unknown"})
 					switch mode {
 					case "missing":
 						call["arguments"] = `{}`
@@ -288,7 +287,7 @@ func TestRecoveredNavigationRefusalCannotCompleteAnEarlierAction(t *testing.T) {
 				if err != nil || result.Text == "" || len(result.History) == 0 {
 					t.Fatal("model could not recover to a successful reply", err)
 				}
-				if len(events) != 6 || events[3].Source != "open_return_trend" || events[3].State != "succeeded" || events[5].Source != "open_page" || events[5].State != "refused" {
+				if len(events) != 6 || events[3].Source != "navigate_page" || events[3].State != "succeeded" || events[5].Source != "navigate_page" || events[5].State != "refused" {
 					t.Fatalf("wrong tool events: %+v", events)
 				}
 				if session.Navigation() != nil {

@@ -49,16 +49,14 @@ func New(shared Capabilities, page assistant.PageSelection, allowNavigation ...b
 	return s
 }
 
-// Current valuation and bounded in-memory closed-period attribution only.
-// No analysis that maintains projections, network/provider reads, configuration, previews or writes.
-func allowed(name string) bool {
-	switch name {
-	case "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_valuations", "get_read_page", "get_read_item":
-		return true
-	default:
-		return false
-	}
+// Read-only admits the shared session's legitimate read surface, not a separate
+// name allowlist. Analysis may maintain projections and previews are not reads.
+// Attribution is the one explicit exception: read() forces its in-memory path.
+func readOnlyCapability(d agentcapability.Definition) bool {
+	return d.Effect == agentcapability.Read ||
+		(d.Name == "compare_financial_attribution" && d.Effect == agentcapability.Analysis)
 }
+
 func (s *Session) WithPageReader(reader assistant.PageContentReader) *Session {
 	s.pageReader = reader
 	return s
@@ -97,7 +95,7 @@ func (s *Session) definitions(full, catalog bool) ([]agentcapability.Definition,
 			out = append(out, d)
 			continue
 		}
-		if allowed(d.Name) && (d.Effect == agentcapability.Read || (d.Name == "compare_financial_attribution" && d.Effect == agentcapability.Analysis)) {
+		if readOnlyCapability(d) {
 			if d.Name == "compare_financial_attribution" {
 				d.Effect = agentcapability.Read
 				if d.Annotations != nil {
@@ -127,9 +125,9 @@ func (s *Session) definitions(full, catalog bool) ([]agentcapability.Definition,
 	if full {
 		out = append(out, fullDefinition())
 	}
-	return out, nil
+	return consolidatePageDefinitions(out), nil
 }
-func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
+func (s *Session) callInternal(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	// Navigation admission must observe even cancelled action attempts so a
 	// second request cannot preserve a previously accepted destination.
 	if name == "get_navigation_targets" || name == "open_page" || name == "open_return_trend" {
@@ -209,10 +207,18 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 			}
 			return result, nil
 		}
-		if !allowed(name) {
+		// Consult current restricted discovery on every call. Historical catalogs,
+		// loaded groups and Full metadata cannot restore a revoked permission.
+		definitions, err := s.shared.Definitions()
+		if err != nil {
 			return nil, assistant.ErrUnavailable
 		}
-		return s.read(ctx, name, args)
+		for _, definition := range definitions {
+			if definition.Name == name && readOnlyCapability(definition) {
+				return s.read(ctx, name, args)
+			}
+		}
+		return nil, assistant.ErrUnavailable
 	}
 	// Validate this extra tool's empty argument object before dispatch.
 	var empty map[string]json.RawMessage

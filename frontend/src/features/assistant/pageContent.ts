@@ -3,7 +3,7 @@
 export type SemanticNode = { id:string; parent:string; module:string; role:string; name:string; value:string; state:string[]; actions:string[]; targetRef?:string; effect?:"presentation" };
 export type SemanticPage = { id:string; page:string; capturedAt:string; nodes:SemanticNode[]; limitations:string[] };
 let lastEncoding="", lastID="";
-const controlIdentities=new WeakMap<Element,string>();
+const controlIdentities=new WeakMap<Element,{scope:string;ref:string}>();
 let capturedControls=new Map<string,HTMLElement>();
 export function capturedPageControl(ref:string) { return capturedControls.get(ref); }
 export function protectedOperationElement(el:Element):boolean {
@@ -70,6 +70,10 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
  const root=matching.length===1 ? matching[0] : undefined;
  const ancestorHidden=root && Array.from((function*(){for(let parent=root.parentElement;parent;parent=parent.parentElement)yield parent;})()).some(parent=>{const css=styles.get(parent) || getComputedStyle(parent);styles.set(parent,css);return parent.hasAttribute("hidden") || css.display==="none" || css.visibility==="hidden";});
  const available=!!root && !ancestorHidden && visible(root,root);
+ if(root && !rootIdentities.has(root)) rootIdentities.set(root,crypto.randomUUID());
+ // Exact nodes retain references across field edits, never across view/access
+ // generations or a replaced business root. Batch steps cannot cross scopes.
+ const controlScope=JSON.stringify([viewKey,generation,root?.dataset.assistantOwner,root ? rootIdentities.get(root) : ""]);
  const page=available ? root!.dataset.assistantPage || route : "unsupported";
  if(!available) limits.add("No current app-owned business root matches the current view/object access identity.");
  else {
@@ -198,8 +202,8 @@ export function capturePageContent(viewKey:string,generation=viewKey):SemanticPa
     const actions=protectedOperation ? [] : controlOperations(el);
     let targetRef:string|undefined;
     if(!protectedOperation && (actions.length || el instanceof HTMLOptionElement) && el instanceof HTMLElement){
-     if(!controlIdentities.has(el)) controlIdentities.set(el,crypto.randomUUID());
-     targetRef=controlIdentities.get(el)!; controls.set(targetRef,el);
+     if(controlIdentities.get(el)?.scope!==controlScope) controlIdentities.set(el,{scope:controlScope,ref:crypto.randomUUID()});
+     targetRef=controlIdentities.get(el)!.ref; controls.set(targetRef,el);
     }
     // Prefer authored business IDs, never generated instance IDs/UUIDs as UI labels.
     const authoredNamespace=el.closest('[data-assistant-module]')?.getAttribute("data-assistant-module") || "page";

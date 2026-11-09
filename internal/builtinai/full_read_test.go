@@ -49,7 +49,7 @@ func TestFullReadPreservesEvidenceAndAccountNavigation(t *testing.T) {
 				if calls != 1 || len(evidence) != 1 || evidence[0].Source != name || evidence[0].CapturedAt.IsZero() || !evidence[0].HasMore || evidence[0].Missing != "reported" {
 					t.Fatalf("lost Full read evidence: %+v", evidence)
 				}
-				if _, err := s.Call(t.Context(), "get_navigation_targets", []byte(`{}`)); err != nil {
+				if _, err := s.callInternal(t.Context(), "get_navigation_targets", []byte(`{}`)); err != nil {
 					t.Fatal(err)
 				}
 				ref := ""
@@ -70,7 +70,7 @@ func TestFullReadPreservesEvidenceAndAccountNavigation(t *testing.T) {
 					args["display"] = "linked_rate"
 				}
 				raw, _ := jsoncodec.Marshal(args)
-				if _, err := s.Call(t.Context(), action, raw); err != nil {
+				if _, err := s.callInternal(t.Context(), action, raw); err != nil {
 					t.Fatal(err)
 				}
 				target := s.Navigation()
@@ -178,11 +178,11 @@ func (s *countedReadInventory) Call(context.Context, string, json.RawMessage) (j
 }
 func TestReadOnlyAndPageReadBudgetRejectBeforeDispatch(t *testing.T) {
 	for _, page := range []bool{false, true} {
-		shared := &countedReadInventory{}
+		shared := &countedReadInventory{fullReadInventory: fullReadInventory{definition: agentcapability.Definition{Name: "list_accounts", Effect: agentcapability.Read}}}
 		s := New(shared, assistant.PageSelection{})
 		name := "list_accounts"
 		if page {
-			name = "read_page_content"
+			name = "inspect_page"
 			s.WithPageReader(func(context.Context, json.RawMessage) (json.RawMessage, error) {
 				shared.calls++
 				return []byte(`{"complete":true}`), nil

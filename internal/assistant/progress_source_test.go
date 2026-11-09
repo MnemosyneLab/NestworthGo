@@ -8,7 +8,7 @@ func TestDeletedFinancialPageToolsAreNotProgressSources(t *testing.T) {
 			t.Fatalf("%s is not a registered tool", name)
 		}
 	}
-	for _, name := range []string{"get_financial_context", "get_read_page", "get_account_valuations", "open_return_trend", "operate_page_control", "create_member", "commit_plan", "refresh_market_data"} {
+	for _, name := range []string{"get_financial_context", "get_read_page", "get_account_valuations", "inspect_page", "navigate_page", "operate_page", "open_return_trend", "operate_page_control", "create_member", "commit_plan", "refresh_market_data"} {
 		if !progressSource(name) {
 			t.Fatalf("live read %s dropped from progress", name)
 		}

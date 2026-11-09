@@ -313,13 +313,13 @@ func TestCapabilityToolsRejectUnsafeInventoryAndDetachedSchemas(t *testing.T) {
 
 func TestCapabilityToolsAcceptExplicitPageOperator(t *testing.T) {
 	closed := false
-	session := &unsafeInventory{definitions: []agentcapability.Definition{{Name: "operate_page_control", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: obj{"type": "object", "properties": obj{}, "additionalProperties": false}}}}
+	session := &unsafeInventory{definitions: []agentcapability.Definition{{Name: "operate_page", Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: obj{"type": "object", "properties": obj{}, "additionalProperties": false}}}}
 	tools, err := CapabilityTools(session)
 	if err != nil || len(tools) != 1 {
 		t.Fatalf("page operator rejected: %v", err)
 	}
 	info, err := tools[0].Info(t.Context())
-	if err != nil || info.Name != "operate_page_control" {
+	if err != nil || info.Name != "operate_page" {
 		t.Fatal("page operator renamed")
 	}
 }

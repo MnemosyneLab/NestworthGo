@@ -67,11 +67,11 @@ func TestPromptCacheWireModePageRestoreAndInventory(t *testing.T) {
 					t.Error("allowed_tools not delivered")
 				}
 				allowed := encode(choice["tools"])
-				if strings.Contains(allowed, `"name":"commit_plan"`) || hasLoader != (n == 2) ||
-					strings.Contains(allowed, `"name":"get_operation"`) != (n == 2) {
+				if strings.Contains(allowed, `"name":"commit_plan"`) || !hasLoader ||
+					!strings.Contains(allowed, `"name":"get_operation"`) {
 					t.Error("wrong initial Full allowance")
 				}
-				if strings.Contains(allowed, `"name":"get_current_page"`) != (n == 1 || n == 2) {
+				if strings.Contains(allowed, `"name":"inspect_page"`) != (n == 1 || n == 2) {
 					t.Error("wrong page allowance")
 				}
 				if request["store"] != false {
@@ -141,7 +141,7 @@ func TestPromptCacheWireModePageRestoreAndInventory(t *testing.T) {
 			if fullCatalog == readCatalog {
 				t.Fatal("Full catalog never upgraded")
 			}
-			for _, bad := range []string{"commit_plan", "get_current_page", "read_page_content", "open_page", "operate_page_control", "unknown_tool"} {
+			for _, bad := range []string{"commit_plan", "inspect_page", "navigate_page", "operate_page", "get_current_page", "read_page_content", "get_navigation_targets", "open_page", "open_return_trend", "operate_page_control", "unknown_tool"} {
 				malicious = bad
 				// Reuse unchanged successful history after each refused batch.
 				priorInput = nil
@@ -213,11 +213,12 @@ func TestPromptCacheCatalogFlagCannotGrantPermission(t *testing.T) {
 	_, shared, _ := ledgerSession(t)
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
 		if !strings.Contains(encode(request["tools"]), `"name":"get_operation"`) ||
-			strings.Contains(encode(request["tool_choice"]), `"name":"get_operation"`) ||
-			strings.Contains(encode(request["tools"]), loadToolGroups) {
+			!strings.Contains(encode(request["tool_choice"]), `"name":"get_operation"`) ||
+			!strings.Contains(encode(request["tools"]), loadToolGroups) ||
+			strings.Contains(encode(request["tool_choice"]), `"name":"commit_plan"`) {
 			t.Error("catalog marker became grant")
 		}
-		writeMode(w, request, []any{liveCallItem(n, "get_operation", obj{})})
+		writeMode(w, request, []any{liveCallItem(n, "commit_plan", obj{})})
 	})
 	e, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, f.model, builtinai.New(shared, assistant.PageSelection{}), nil)
 	if err != nil {
@@ -232,7 +233,7 @@ func TestPromptCacheCatalogFlagCannotGrantPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = e.Complete(t.Context(), raw, "synthetic"); err == nil {
-		t.Fatal("checkpoint flag authorized a Full-only receipt read")
+		t.Fatal("checkpoint flag authorized a mutation")
 	}
 }
 

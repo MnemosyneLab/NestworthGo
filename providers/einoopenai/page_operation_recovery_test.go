@@ -16,7 +16,7 @@ type pageRecoverySession struct{ failure error }
 
 func (s pageRecoverySession) Definitions() ([]agentcapability.Definition, error) {
 	closed := false
-	return []agentcapability.Definition{{Name: "operate_page_control", Effect: agentcapability.Interaction, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}}}, nil
+	return []agentcapability.Definition{{Name: "operate_page", Effect: agentcapability.Interaction, Annotations: &agentcapability.Annotations{OpenWorldHint: &closed}, InputSchema: map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}}}, nil
 }
 func (s pageRecoverySession) Call(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 	return nil, s.failure
@@ -33,7 +33,7 @@ func TestPageRefusalContinuesButUncertainOperationStops(t *testing.T) {
 			rounds++
 			if round == 0 {
 				call := callItem()
-				call["name"] = "operate_page_control"
+				call["name"] = "operate_page"
 				call["arguments"] = `{}`
 				writeMode(w, request, []any{call})
 				return
