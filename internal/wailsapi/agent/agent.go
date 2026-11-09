@@ -15,10 +15,6 @@ func (s *Service) Enable(mode string) (mcpserver.Status, error) {
 	v, err := s.server.Enable(mode)
 	return v, apierror.Wrap(err)
 }
-func (s *Service) SetInvestmentReviewManagement(enabled bool) (mcpserver.Status, error) {
-	v, err := s.server.SetInvestmentReviewManagement(enabled)
-	return v, apierror.Wrap(err)
-}
 func (s *Service) Disable() (mcpserver.Status, error) {
 	v, err := s.server.Disable()
 	return v, apierror.Wrap(err)

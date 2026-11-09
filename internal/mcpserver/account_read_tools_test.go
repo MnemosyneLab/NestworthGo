@@ -1,7 +1,6 @@
 package mcpserver
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -25,7 +24,7 @@ func TestAccountReadPreservesAllEvidenceLayouts(t *testing.T) {
 		t.Fatal("accounts omitted")
 	}
 	for _, v := range full {
-		item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "accounts", ID: v.Account.ID})
+		item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "accounts", ID: v.Account.ID, Sections: []string{"components", "missingInputs", "composition_types", "composition_details", "composition_detailSlices", "display_missingInputs", "display_fxEvidence"}})
 		fullMap, err := readSummary(v)
 		if err != nil {
 			t.Fatal(err)
@@ -59,10 +58,10 @@ func TestAccountReadPreservesAllEvidenceLayouts(t *testing.T) {
 	}
 }
 
-func TestDefaultAccountSnapshotEvidenceAndMissingIdentity(t *testing.T) {
+func TestAccountValuationEvidenceAndMissingIdentity(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
-	cap := scaleCapture(t, c, "get_account_snapshot", IDInput{ID: fx.checking})
+	cap := scaleCapture(t, c, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}})
 	rows := scaleSection(t, c, cap, "accounts")
 	if len(rows) != 1 || rows[0].(map[string]any)["id"] != fx.checking {
 		t.Fatal("account lost")
@@ -74,30 +73,10 @@ func TestDefaultAccountSnapshotEvidenceAndMissingIdentity(t *testing.T) {
 	if err := account.NewService(fx.app).ArchiveAccount(t.Context(), fx.checking, true); err != nil {
 		t.Fatal(err)
 	}
-	call(t, c, "get_account_snapshot", IDInput{ID: fx.checking}, true)
-	call(t, c, "get_account_snapshot", IDInput{ID: "00000000-0000-4000-8000-000000000000"}, true)
-}
-
-func TestAccountSnapshotIsSingleAccountValuationCapture(t *testing.T) {
-	fx := newLedgerFixture(t)
-	c := ledgerSession(t, fx)
-	snapshot := scaleCapture(t, c, "get_account_snapshot", IDInput{ID: fx.checking})
-	valuations := scaleCapture(t, c, "get_account_valuations", map[string]any{"accountIds": []string{fx.checking}})
-	if snapshot["schemaVersion"] != "mcp-read/1" || valuations["schemaVersion"] != "mcp-read/1" {
-		t.Fatal("schema", snapshot["schemaVersion"], valuations["schemaVersion"])
-	}
-	if !reflect.DeepEqual(snapshot["summary"], valuations["summary"]) {
-		t.Fatalf("summary\nsnapshot=%v\nvaluations=%v", snapshot["summary"], valuations["summary"])
-	}
-	snapshotRows := scaleSection(t, c, snapshot, "accounts")
-	valuationRows := scaleSection(t, c, valuations, "accounts")
-	if len(snapshotRows) != 1 || !reflect.DeepEqual(snapshotRows, valuationRows) {
-		t.Fatal("single-account rows differ")
-	}
-	missing := "00000000-0000-4000-8000-000000000099"
-	call(t, c, "get_account_snapshot", IDInput{ID: missing}, true)
-	empty := scaleCapture(t, c, "get_account_valuations", map[string]any{"accountIds": []string{missing}})
-	if len(scaleSection(t, c, empty, "accounts")) != 0 {
-		t.Fatal("missing account id was not an empty valuations page")
+	for _, id := range []string{fx.checking, "00000000-0000-4000-8000-000000000000"} {
+		empty := scaleCapture(t, c, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{id}})
+		if len(scaleSection(t, c, empty, "accounts")) != 0 {
+			t.Fatal("archived or unknown account returned")
+		}
 	}
 }

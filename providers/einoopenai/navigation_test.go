@@ -34,7 +34,7 @@ func providerNavigation(t *testing.T, trend bool) {
 		}
 		switch round {
 		case 0:
-			writeMode(w, request, []any{liveCallItem(round, "get_account_snapshot", obj{"id": accountID})})
+			writeMode(w, request, []any{liveCallItem(round, "get_account_valuations", obj{"accountIds": []string{accountID}})})
 			return
 		case 1:
 			writeMode(w, request, []any{liveCallItem(round, "get_navigation_targets", obj{})})

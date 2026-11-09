@@ -64,7 +64,7 @@ func productJSONEqual(t *testing.T, actual, expected any) {
 func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			if _, err := fx.service.Enable(mode); err != nil {
 				t.Fatal(err)
@@ -90,7 +90,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 					}
 				}
 			}
-			if len(found) != 4 {
+			if len(found) != 3 || !found["get_products"] || !found["list_product_operations"] || !found["get_liquidity_overview"] {
 				t.Fatal(found)
 			}
 			info := call(t, client, "get_context", Empty{}, false)["data"].(map[string]any)
@@ -102,7 +102,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 			if !strings.Contains(instructions, "GUI permittedActions do not grant MCP permission") || !strings.Contains(instructions, "due_unconfirmed does not record cash") {
 				t.Fatal("missing product routing/boundary instructions")
 			}
-			call(t, client, "list_products", map[string]any{}, false)
+			call(t, client, "get_products", map[string]any{}, false)
 			call(t, client, "get_liquidity_overview", map[string]any{}, false)
 			for _, name := range []string{"update_product_terms", "append_product_valuation", "save_reservation", "release_reservation"} {
 				_, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
@@ -263,7 +263,7 @@ func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	client := connect(t, fx.service)
@@ -276,7 +276,7 @@ func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
 		t.Fatal(err)
 	}
 	productJSONEqual(t, list, expected)
-	call(t, client, "get_product", skillExample(t, "products", "product-detail", map[string]string{"productId": locked.ProductIDs[0]}), false)
+	call(t, client, "get_products", skillExample(t, "products", "product-detail", map[string]string{"productId": locked.ProductIDs[0]}), false)
 	call(t, client, "list_product_operations", map[string]any{"productId": locked.ProductIDs[0]}, false)
 	actual := sectionEvidence(t, client, "get_liquidity_overview", map[string]any{})
 	overview, err := gui.Overview(t.Context(), liquidity.OverviewRequest{})
@@ -324,9 +324,9 @@ func TestProductHTTPStrictInputsAndPrivateErrors(t *testing.T) {
 		tool string
 		args any
 	}{
-		{"list_products", map[string]any{"accountId": ""}},
-		{"list_products", map[string]any{"accountId": "private-invalid-id"}},
-		{"get_product", map[string]any{"id": "private-invalid-id"}},
+		{"get_products", map[string]any{"accountId": ""}},
+		{"get_products", map[string]any{"accountId": "private-invalid-id"}},
+		{"get_products", map[string]any{"id": "private-invalid-id"}},
 		{"list_product_operations", map[string]any{"productId": uuid.NewString(), "limit": -1}},
 		{"list_product_operations", map[string]any{"productId": uuid.NewString(), "limit": 101}},
 		{"list_product_operations", map[string]any{"productId": uuid.NewString(), "cursor": strings.Repeat("private", 100)}},
@@ -336,7 +336,7 @@ func TestProductHTTPStrictInputsAndPrivateErrors(t *testing.T) {
 			t.Fatalf("%s: %s", tc.tool, code)
 		}
 	}
-	for _, name := range []string{"get_product", "list_product_operations"} {
+	for _, name := range []string{"get_products", "list_product_operations"} {
 		args := map[string]any{"id": uuid.NewString()}
 		if name == "list_product_operations" {
 			args = map[string]any{"productId": uuid.NewString()}
@@ -345,7 +345,7 @@ func TestProductHTTPStrictInputsAndPrivateErrors(t *testing.T) {
 			t.Fatal("missing product must not look like valid empty history", code)
 		}
 	}
-	for _, tool := range []string{"list_products", "get_product", "list_product_operations", "get_liquidity_overview"} {
+	for _, tool := range []string{"get_products", "list_product_operations", "get_liquidity_overview"} {
 		for _, args := range []any{map[string]any{"private-sensitive-property": "private-sensitive-value"}, map[string]any{"includeClosed": "private-sensitive-value"}} {
 			status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": tool, "arguments": args}}, "")
 			if status != http.StatusOK || strings.Contains(string(raw), "private-sensitive") || !strings.Contains(string(raw), `\"code\":\"validation\"`) {
@@ -385,8 +385,8 @@ func TestProductHTTPReadsAndLegacySnapshotPreviewCoordination(t *testing.T) {
 	readProducts := func() {
 		t.Helper()
 		before := state()
-		call(t, client, "list_products", map[string]any{}, false)
-		call(t, client, "get_product", map[string]any{"id": opened.ProductIDs[0]}, false)
+		call(t, client, "get_products", map[string]any{}, false)
+		call(t, client, "get_products", map[string]any{"id": opened.ProductIDs[0]}, false)
 		call(t, client, "list_product_operations", map[string]any{"productId": opened.ProductIDs[0]}, false)
 		call(t, client, "get_liquidity_overview", map[string]any{}, false)
 		productJSONEqual(t, state(), before)
@@ -453,7 +453,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 	}
 	// These reads share isProductReadTool. Oversized list and overview results
 	// below still exercise the two handlers that can exceed the wire budget.
-	for _, name := range []string{"list_products"} {
+	for _, name := range []string{"get_products"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, raw := productHTTP(t, fx.service, payload, "")
 		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "privateprivate") || !strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
@@ -484,9 +484,9 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args any
-	}{{"list_products", map[string]any{}}, {"get_liquidity_overview", map[string]any{}}} {
+	}{{"get_products", map[string]any{}}, {"get_liquidity_overview", map[string]any{}}} {
 		status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": tc.name, "arguments": tc.args}}, "")
-		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "mcp-read/1") {
+		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "mcp-read/2") {
 			t.Fatalf("default product read did not page: %d %d", status, len(raw))
 		}
 	}
@@ -504,11 +504,11 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "get_product", "arguments": map[string]any{"id": productID}}}, "")
+	status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "get_products", "arguments": map[string]any{"id": productID}}}, "")
 	if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "too_large") {
 		t.Fatalf("default reservation detail did not page: %d %d", status, len(raw))
 	}
-	capture := scaleCapture(t, client, "get_product", map[string]any{"id": productID})
+	capture := scaleCapture(t, client, "get_products", map[string]any{"id": productID})
 	if len(scaleSection(t, client, capture, "reservations/"+productID)) != 90 {
 		t.Fatal("reservation evidence lost")
 	}

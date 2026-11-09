@@ -1,7 +1,8 @@
 # Built-in AI prompt-prefix stability
 
-Implemented against main `ac5a9c54` (#258), reviewed 2026-11-06. This is a
-request-shaping optimization, not evidence of an OpenAI cache hit or latency win.
+The built-in model starts each turn with a small core catalog. Full mode can
+load more tools when a task needs them. Local wire measurements do not establish
+provider cache hits, billed input or latency savings.
 
 ## Protocol and scope
 
@@ -21,13 +22,20 @@ The desktop now supplies two independent surfaces:
   snapshot and page-lease checks. The entire returned call inventory is checked
   before any business call, including a valid read mixed with a forbidden write
   or unavailable page tool.
-- `CatalogDefinitions(full)` supplies static metadata without constructing
-  invokable tools. It always includes the six desktop page/navigation definitions.
-  A fresh Read-only conversation uses the small read catalog. The first successful
-  Full turn raises a checkpoint marker; later Read-only turns retain the Full
-  catalog but receive only the Read-only `allowed_tools` subset. The marker never
-  grants execution rights. Metadata is regenerated from host code, not deserialized
-  definitions, and ordered by name. No Full tool enters a Read-only execution map.
+- `CatalogDefinitions(full)` supplies host metadata for the core, including
+  basic financial reads, paging, operation receipts when present, and six
+  desktop page/navigation definitions. A successful Full turn raises a
+  checkpoint marker for metadata only; after downgrade an operation receipt
+  schema can remain in the core without being callable. No Full tool enters a
+  Read-only execution map.
+- `load_tool_groups` is advertised only when there are additional permitted
+  tools. The model selects categories by name: accounts, history, investments,
+  market data, reconciliation, maintenance, and changes. The host validates all
+  selected names before changing the catalog. It appends the permitted schemas
+  in stable order, preserving the previous list as a prefix. A tool can only be
+  called in a later response where the host exposed it. Loaded groups reset on
+  each turn and are not read from checkpoints. A load consumes one tool call
+  and the model needs a later response to use the tools.
 
 The initial common system policy is independent of mode/page. Current host mode
 is appended on the first turn or when the latest system snapshot differs from
@@ -48,19 +56,45 @@ are preserved. A legacy conversation starts with the current run's catalog level
 then records its new high-water mark. The private sidecar format is unchanged.
 Provider/model changes retain the existing history reset behavior.
 
-The first Full upgrade intentionally changes the prefix once. Subsequent
-Full/Read-only and page switches keep the catalog stable. This is not a universal
-cross-version/model guarantee: installed schema/policy changes may change the
-prefix. Full metadata remains after restart, but Full authorization does not.
-A new conversation starts small again. No mode/UI changes are made.
+Page switches preserve core metadata. Permission changes can alter the
+availability of group loading; loading groups can also alter the prefix that the
+provider renders. Installed schema or policy changes may change the prefix.
+The loader is built-in only. External MCP clients still discover the complete
+registry for their current permission using `tools/list`.
 
 `store:false`, `EnableAutoCache:false`, encrypted reasoning replay, no remote
 conversation/previous-response IDs, and no explicit cache-key/retention settings
 remain unchanged. Eino auto-cache is remote conversation reuse, not OpenAI's
-server prompt cache. Model-specific deferred loading, `additional_tools`, explicit
-breakpoints and retention tuning are outside this compatibility-focused change.
+server prompt cache. The host loader uses ordinary tool definitions and calls;
+it does not use model-specific deferred loading, `additional_tools`, explicit
+cache breakpoints or retention tuning.
 
-## Metadata and cost tradeoff
+## Task group wire measurements
+
+`TestPromptCacheCatalogSizes` sends real SDK requests to a local fake provider.
+This paired comparison uses the same synthetic desktop configuration and
+current tool schemas on macOS arm64 with Go 1.27.3. The unscoped control
+disables stable/scoped metadata and sends all executable definitions. It is a
+test control, not a setting. Measurements are compact JSON bytes in the first
+request's `tools` array; messages, allowed-name lists, and later requests are
+outside the comparison.
+
+| Desktop mode | Unscoped tools | Unscoped bytes | Initial core tools | Initial core bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Full | 85 | 107,291 | 17 | 18,876 |
+| Read-only | 14 | 17,256 | 15 | 17,711 |
+
+The Full core is about 82% smaller. The extra Read-only definition holds the
+backend page-selector metadata stable when no page is selected; it is excluded
+from `allowed_tools` in that case. A task that needs additional groups uses an
+extra round and sends more schemas on later requests. The total cost depends on
+the groups loaded, number of rounds and actual provider billing.
+
+## Historical metadata and cost tradeoff
+
+The data below records the earlier prompt prefix experiment at main `ac5a9c54`
+(#258), reviewed 2026-11-06, before task groups. The retained Full catalog and its
+cost illustrations describe that version.
 
 Actual fake-HTTP requests from `TestPromptCacheCatalogSizes`, Linux amd64 / Go
 1.27.3, synthetic ledger, compact tool JSON. The desktop fixture attaches page
@@ -118,10 +152,13 @@ cached prefixes, and provider writes can cost more than ordinary uncached input.
 ## Verification and reproduction
 
 `prompt_cache_test.go` runs real SDK → local HTTP server requests for both JSON
-and SSE. It compares earlier wire input exactly across turns, verifies unchanged
-tools across page/downgrade/recreated engines, observes `allowed_tools` on the
-wire, checks remote-storage settings, and refuses whole mixed call batches before
-any read. A forged Full catalog checkpoint marker cannot authorize `commit_plan`.
+and SSE. It compares earlier wire input exactly across turns, verifies stable
+core schemas across page/downgrade/recreated engines, observes `allowed_tools`
+on the wire, checks remote-storage settings, and refuses whole mixed call
+batches before any read. Task group tests exercise validation, loading and
+dispatch, monotonic catalog expansion within a turn, native history restore
+without loaded groups, and rejection of hidden calls after downgrade.
+A forged Full catalog checkpoint marker cannot authorize a Full-only receipt read.
 The v1 migration regression verifies opaque native reasoning survives unchanged.
 A real-wire boundary regression recreates the engine for each of 63 completed
 no-tool turns in both Read-only and Full, then refuses turn 64 before HTTP.

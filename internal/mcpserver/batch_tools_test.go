@@ -59,7 +59,7 @@ func batchHoldings(t *testing.T, c *mcp.ClientSession, accountID string) []any {
 
 func batchCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 	t.Helper()
-	snapshot := call(t, c, "get_account_snapshot", IDInput{ID: accountID}, false)["data"].(map[string]any)
+	snapshot := call(t, c, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{accountID}}, false)["data"].(map[string]any)
 	snapshot = scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: snapshot["captureId"].(string), Section: "accounts", ID: accountID})
 	for _, raw := range scaleSection(t, c, snapshot, "components/"+accountID) {
 		component := raw.(map[string]any)
@@ -172,28 +172,26 @@ func TestBatchInputBoundsChronologyAndKind(t *testing.T) {
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	base := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}
-	cases := []struct {
-		name     string
-		commands []any
-	}{
-		{"empty", []any{}},
-		{"out of order", []any{base, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-19T12:00:00Z"}}},
-		{"unknown kind", []any{map[string]any{"kind": "balance_reconciliation", "accountId": fx.checking, "amount": "1", "currency": "USD"}}},
-	}
 	oversized := make([]any, 101)
 	for i := range oversized {
 		oversized[i] = base
 	}
-	cases = append(cases, struct {
+	for _, tc := range []struct {
 		name     string
 		commands []any
-	}{"over 100", oversized})
-	for _, tc := range cases {
+	}{
+		{"empty", []any{}},
+		{"unknown kind", []any{map[string]any{"kind": "balance_reconciliation", "accountId": fx.checking, "amount": "1", "currency": "USD"}}},
+		{"over 100", oversized},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if code := ledgerErrorCode(t, c, "preview_batch", map[string]any{"commands": tc.commands}); code == "" {
-				t.Fatal("invalid batch had no error code")
-			}
+			// The external SDK may reject an invalid shape before dispatch.
+			call(t, c, "preview_batch", map[string]any{"commands": tc.commands}, true)
 		})
+	}
+	earlier := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-19T12:00:00Z"}
+	if code := ledgerErrorCode(t, c, "preview_batch", map[string]any{"commands": []any{base, earlier}}); code != "validation" {
+		t.Fatalf("out-of-order commands returned %q", code)
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 0 {
 		t.Fatalf("invalid inputs posted %d activities", got)
@@ -251,7 +249,7 @@ func TestPositionImportPreviewCommitAndDuplicate(t *testing.T) {
 	if len(effects) != 1 || effects[0].(map[string]any)["costUnitPrice"] != "12.5" {
 		t.Fatalf("import cost basis effects=%v", effects)
 	}
-	if code := ledgerErrorCode(t, c, "preview_change", request); code == "" {
+	if code := ledgerErrorCode(t, c, "preview_batch", singleLedgerInput(request)); code == "" {
 		t.Fatal("duplicate active account/instrument import succeeded")
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 1 {
@@ -336,19 +334,17 @@ func TestBatchPendingReceiptRecoversWithoutReposting(t *testing.T) {
 func TestBatchToolsRequireLedgerWrite(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite} {
-		if _, err := fx.service.Enable(mode); err != nil {
-			t.Fatal(err)
-		}
-		c := connect(t, fx.service)
-		listed, err := listAllTools(context.Background(), c)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, tool := range listed.Tools {
-			if tool.Name == "preview_batch" || tool.Name == "commit_plan" {
-				t.Fatalf("%s exposed %s", mode, tool.Name)
-			}
+	if _, err := fx.service.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, fx.service)
+	listed, err := listAllTools(context.Background(), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range listed.Tools {
+		if tool.Name == "preview_batch" || tool.Name == "commit_plan" {
+			t.Fatalf("read_only exposed %s", tool.Name)
 		}
 	}
 }

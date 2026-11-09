@@ -73,7 +73,7 @@ func ptrAuditNote(s string) *string { return &s }
 // HTTP guard and new writes cannot lose a post-execution receipt.
 func TestRegisteredReadCapsPreserveEveryWriteReceipt(t *testing.T) {
 	s, _, _ := fixture(t)
-	set := s.buildToolSet(LedgerWrite, false)
+	set := s.buildToolSet(ReadWrite, false)
 	names := set.readResponseTools()
 	for _, d := range set.Definitions() {
 		body := strings.Repeat("x", contextWireLimit+1)

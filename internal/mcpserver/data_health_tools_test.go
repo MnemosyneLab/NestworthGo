@@ -55,7 +55,7 @@ func decodeDataHealthDTO[T any](t *testing.T, value any) T {
 
 func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app := dataHealthFixture(t, true)
 			if _, err := s.Enable(mode); err != nil {
@@ -79,7 +79,7 @@ func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 					t.Fatalf("%s must describe a local read: %+v", name, tool.Annotations)
 				}
 			}
-			if (found["start_data_repair"] != nil) != (mode == LedgerWrite) {
+			if (found["start_data_repair"] != nil) != (mode == ReadWrite) {
 				t.Fatalf("start_data_repair availability in %s mode: %t", mode, found["start_data_repair"] != nil)
 			}
 			if start := found["start_data_repair"]; start != nil {
@@ -112,7 +112,7 @@ func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 
 			call(t, c, "get_data_repair_job", map[string]any{"jobId": uuid.NewString()}, true)
 			call(t, c, "get_data_repair_job", map[string]any{"jobId": "invalid"}, true)
-			if mode != LedgerWrite {
+			if mode != ReadWrite {
 				if _, err := c.CallTool(context.Background(), &mcp.CallToolParams{Name: "start_data_repair", Arguments: map[string]any{"operationId": uuid.NewString(), "input": map[string]any{}}}); err == nil {
 					t.Fatalf("%s mode accepted start_data_repair", mode)
 				}
@@ -161,7 +161,7 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 			}
 		}
 	})
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)

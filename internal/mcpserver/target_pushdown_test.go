@@ -117,7 +117,7 @@ func testPushdownRequestEvidence(t *testing.T, extra int) {
 	for _, request := range []struct {
 		name string
 		args any
-	}{{"get_account_snapshot", IDInput{ID: fx.checking}}, {"list_agent_market_data", map[string]any{"filter": map[string]any{"instrumentIds": []string{fx.instrument}, "fromDate": "2026-09-28", "toDate": "2026-09-28"}}}} {
+	}{{"get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}}}, {"list_agent_market_data", map[string]any{"filter": map[string]any{"instrumentIds": []string{fx.instrument}, "fromDate": "2026-09-28", "toDate": "2026-09-28"}}}} {
 		result, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: request.name, Arguments: request.args})
 		if err != nil || result.IsError {
 			t.Fatal(result, err)

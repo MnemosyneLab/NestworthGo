@@ -12,7 +12,7 @@ Tool protocol discovery (`tools/list`) remains SDK-owned, with 16 definitions pe
 
 | Reads | Previous continuation | Consistency retained |
 | --- | --- | --- |
-| Directory, instruments, holdings, accounts, products, liquidity, upcoming actions, Agent audits, overview/history, attribution, market history/import comparisons, health/repair evidence, review preview | captureId + section + signed cursor | Frozen capture, hash, fixed TTL, generation |
+| Directory, instruments, holdings, accounts, products, liquidity, upcoming actions, Agent audits, overview/history, attribution, market history/import comparisons, health/repair evidence, review preview | captureId + section + signed cursor | Frozen capture identity, fixed TTL, generation |
 | Financial context, comparison/attribution, focused related evidence | contextId/comparisonId + section/ref + signed cursor | Frozen financial package, disclosure/aliases/ref, hash, fixed TTL, generation |
 | Activities | effectiveAt + createdAt + ID | Live keyset in exact descending order |
 | Product operation history | productId + native cursor | Live product-scoped history and current undo header |
@@ -32,19 +32,19 @@ Never infer completeness from returned < limit or invent a total for live reads.
 
 Financial initial and focused-item initial responses retain `content` (or focused
 positions/gaps/evidence) and positionsPage/gapsPage/evidencePage descriptors.
-These immutable disclosure packages have financial schema/hash and alias
-contracts. Their descriptors use the same page fields and every cursor uses the
-same continuation entry. Ordinary continuations remain compact section/items/page;
-focused item continuations use the same section/items/page shape plus ref, without
-repeating target/header or unrelated progress. There is no duplicate
-row representation. Financial initial sections remain at most one row; overview,
-historical and period-analysis initial sections keep a floor of five rows per
-section and, when `limit` is omitted, grow round-robin to at most 25 rows per
-section while the whole response stays within a 24 KiB byte budget. An explicit
-`limit` keeps its exact meaning. Every top-level initial `mcp-read/1` capture response carries
+The cursor binds disclosure, alias scope, capture identity and an internal
+semantic hash. Financial continuations carry capture identity, capture time,
+section, items and page, plus ref for a focused item. Initial calls use `sections`
+for row selection. Every descriptor retains its total and continuation even
+when rows were deferred. With no explicit limit, selected financial sections
+receive up to 25 rows each within the 24 KiB inline target. An explicit limit
+uses the 64 KiB wire budget. Historical and period analysis grow their initial
+sections from a five-row target to up to 25 per section when they fit. Current
+overview uses that policy only for the sections the caller requests. Every top-level initial `mcp-read/2` capture response carries
 `delivery:{selectionComplete,pendingSections}` (both required inside the object;
-the property is optional on the envelope because continuation pages and focused
-`get_read_item`/comparison item details never carry it): whether every row of the selected
+the property is optional on the envelope because continuation pages and some
+comparison details do not carry it; ordinary focused items also report delivery
+when they inline selected child rows): whether every row of the selected
 sections is already inline. It is transport completeness only and is independent
 of `complete`, `missingInputs` and `displayValuation` in the summary.
 All continuations default to 25. `get_read_page({cursor,limit?})` is the only
@@ -57,8 +57,12 @@ execution/recovery authorities and are never truncated or treated as pages.
 
 ## Integrity and budgets
 
-Frozen native cursors are reused, not wrapped or replaced. Their owners still
-check hashes, section/ref, generation, expiry and cache presence. There is no TTL
+Ordinary frozen reads use compact r2 binary/HMAC cursors binding capture UUID,
+section, generation and offset. Immutable cache entries provide content identity;
+hashes, expiry and query echoes are not sent in mcp-read/2 responses. The owner
+checks signatures, section/ref, generation, expiry and cache presence. Financial
+disclosure cursors retain their internal hash binding and fixed expiry; neither
+field is repeated in the response. There is no TTL
 renewal. Live/version-bound routing uses an HMAC-authenticated query and native
 cursor, bounded to 16 KiB. Routing is allowlisted to read tools; tool, account,
 product, episode, filter and order cannot be substituted. It uses the session's

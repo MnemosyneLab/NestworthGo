@@ -53,16 +53,21 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.10; published skill: 2.0.0
+### Current repository skill: 3.0.14; published skill: 2.0.0
 
-Repository skill 3.0.10 bounds retained period details and clarifies recovery and
-conditional instrument clears. It gives patch updates one rule: omit a field to keep it,
-and JSON null clears a clearable field. `update_account` no longer uses
-`<field>Set`. `update_instrument` no longer uses `replace`. An empty string is
-rejected on those updates, including instrument `shortName`, so it neither
-keeps nor clears. Directory name, icon and archived still cannot be cleared.
-Full replacements are unchanged, including a hidden investment-review rule
-update. No tool was added or removed.
+Repository skill 3.0.14 documents the two MCP modes, `read_only` and
+`read_write`. The read-write mode includes directory, ledger and
+investment-review management operations. Unsupported saved modes fall back to
+read only.
+
+Repository skill 3.0.12 uses a compact overview with opt-in detail, one
+managed-product read, one ledger preview for 1–100 commands, and a reconciliation
+header with the first item page. Financial context and comparison calls select
+initial sections and continue with capture identities and opaque cursors. The
+MCP implementation has its own version.
+
+Repository skill 3.0.11 documents the shared mcp-read/2 protocol, unified
+account valuations, direct holdings selection and focused evidence reads.
 
 Repository skill 3.0.8 removes `get_contribution_item`, `get_return_day` and
 `get_asset_driver_detail`. Open those details with `get_read_item` on the
@@ -92,9 +97,9 @@ permission. Default discovery stays the full list for the permission mode.
 `commit_plan` may omit `operationId`; the server derives one from `planId`.
 Other writes still require `operationId`, and an explicit id remains valid.
 Success results still carry both `structuredContent` and JSON text.
-`get_account_snapshot` and `get_account_valuations` stay separate tools on one
-current-valuation capture: one required id with not_found, versus filtered rows
-with an empty page. Neither is a return or an endpoint movement. The version
+The current protocol unifies current-account reads as `get_account_valuations`,
+with one or many IDs, summary/holdings detail and empty unmatched results. It is
+not a return or an endpoint movement. The version
 stays a PATCH step because the policy below does not raise MAJOR or MINOR for
 tool changes alone, and actual discovery is the authority when connecting an
 older App to this skill.
@@ -139,7 +144,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.10 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.12 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 
@@ -214,7 +219,7 @@ Setup, backups/restores, provider credentials and history resets also remain App
 workflows. No brokerage orders are placed through the skill.
 
 The App version, skill version and returned MCP schema identifiers (including
-`mcp-read/1` and `historical-read/2`) are separate contracts. Installed clients require
+`mcp-read/2` and `historical-read/2`) are separate contracts. Installed clients require
 an explicit skill update. A missing item tool means the connected App lacks this
 capability; do not silently fall back to identity-bearing reads.
 

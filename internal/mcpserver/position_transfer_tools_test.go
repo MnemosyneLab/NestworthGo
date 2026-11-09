@@ -62,7 +62,7 @@ func TestMCPPositionTransferCreatesDestinationAtomically(t *testing.T) {
 	if len(batchHoldings(t, c, destination)) != 0 || ledgerActivityCount(t, fx.app) != before {
 		t.Fatal("transfer preview mutated the ledger")
 	}
-	preview := plan["preview"].(map[string]any)
+	preview := plan["previews"].([]any)[0].(map[string]any)
 	if effects := preview["effects"].([]any); len(effects) != 2 {
 		t.Fatalf("transfer preview effects=%v", effects)
 	}
@@ -101,7 +101,7 @@ func TestMCPPositionTransferCreatesDestinationAtomically(t *testing.T) {
 		"toHoldingId": destinationID,
 		"quantity":    "1", "effectiveAt": "2026-09-29T12:45:00Z",
 	})
-	if existing["preview"] == nil {
+	if existing["previews"] == nil {
 		t.Fatalf("existing destination preview=%v", existing)
 	}
 }

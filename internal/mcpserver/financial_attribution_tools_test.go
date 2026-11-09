@@ -19,7 +19,7 @@ import (
 
 func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, accountID, _ := historyFixture(t)
 			addDividendAttribution(t, app, "private broker", "5")
@@ -52,6 +52,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			}
 			values := map[string]string{"leftDate": "2025-03-02", "rightDate": "2025-03-03", "accountId": accountID}
 			args := skillExample(t, "financial-attribution", "financial-attribution", values)
+			args["limit"] = 1
 			old := decodeComparison(t, call(t, client, "compare_financial_context", args, false))
 			if _, err := history.NewService(app).RecordChange(t.Context(), history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: accountID, Amount: "10", Currency: "USD", Reason: "income", EffectiveAt: "2025-03-03T13:00:00Z"}); err != nil {
 				t.Fatal(err)
@@ -83,7 +84,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				for info.HasMore {
 					page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
 					raw, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
-					if page.Content.Attribution != nil || string(raw) != string(original) || page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.CapturedAt != initial.CapturedAt {
+					if page.Content.Attribution != nil || string(raw) != string(original) || page.ComparisonID != initial.ComparisonID || page.CapturedAt != initial.CapturedAt {
 						t.Fatal("link not frozen")
 					}
 					size, err := financialContextWireSize(page)
@@ -100,7 +101,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			}
 			// Old package remains a strictly frozen value comparison after recapture.
 			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: old.ComparisonID, Section: "positions", Cursor: old.PositionsPage.NextCursor}, false))
-			if page.Content.Attribution != nil || page.ContentHash != old.ContentHash || page.Content.Change.NetWorth.Value != nil {
+			if page.Content.Attribution != nil || page.ComparisonID != old.ComparisonID || page.CapturedAt != old.CapturedAt || page.Content.Change.NetWorth.Value != nil {
 				t.Fatal("old cache rewritten")
 			}
 			oldArgs := skillExample(t, "financial-attribution", "financial-attribution", values)
@@ -116,8 +117,8 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 					t.Fatal("minimal leak", secret)
 				}
 			}
-			expired, _ := time.Parse(time.RFC3339Nano, initial.CacheExpiresAt)
 			s.contexts.mu.Lock()
+			expired := s.contexts.entries[initial.ComparisonID].expires
 			s.contexts.now = func() time.Time { return expired }
 			s.contexts.mu.Unlock()
 			call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
@@ -168,6 +169,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 	}
 	client := connect(t, s)
 	args := skillExample(t, "financial-attribution", "financial-attribution-account", map[string]string{"leftDate": "2026-08-10", "rightDate": "2026-08-11", "accountId": selected.Account.ID.String()})
+	args["limit"] = 1
 	later := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
 	if later.Content.Attribution.Status != "compatible" {
 		t.Fatal(later)
@@ -183,7 +185,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		t.Fatal(err)
 	}
 	revised := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
-	if revised.ComparisonID == initial.ComparisonID || revised.ContentHash == initial.ContentHash || *revised.Content.Change.NetWorth.Value != "0.222222" || *revised.Content.Attribution.PrecisionAdjustment.Value != "0.000022" {
+	if revised.ComparisonID == initial.ComparisonID || s.contexts.entries[revised.ComparisonID].comparison.ContentHash == s.contexts.entries[initial.ComparisonID].comparison.ContentHash || *revised.Content.Change.NetWorth.Value != "0.222222" || *revised.Content.Attribution.PrecisionAdjustment.Value != "0.000022" {
 		t.Fatal(revised)
 	}
 	states, _ := skillPageState(t, initial)
@@ -193,7 +195,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		for info.HasMore {
 			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
 			rawLink, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
-			if page.Content.Attribution != nil || string(rawLink) != string(originalLink) || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt || page.CacheExpiresAt != initial.CacheExpiresAt {
+			if page.Content.Attribution != nil || string(rawLink) != string(originalLink) || page.ComparisonID != initial.ComparisonID || page.CapturedAt != initial.CapturedAt {
 				t.Fatal("precision summary thawed", page)
 			}
 			raw, _ := jsoncodec.Marshal(page)
@@ -255,7 +257,7 @@ func TestFinancialAttributionRevocationPreventsPublicationAfterMaintenance(t *te
 			g := s.contextGeneration
 			done := make(chan error, 1)
 			go func() {
-				_, err := s.buildFinancialAttribution(context.Background(), g, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "2026-08-02"})
+				_, err := s.buildFinancialAttribution(context.Background(), g, FinancialComparisonInput{FinancialComparisonRequest: application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "2026-08-02"}, FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}})
 				done <- err
 			}()
 			<-port.captured
@@ -263,7 +265,7 @@ func TestFinancialAttributionRevocationPreventsPublicationAfterMaintenance(t *te
 			case "disable":
 				_, err = s.Disable()
 			case "enable":
-				_, err = s.Enable(DirectoryWrite)
+				_, err = s.Enable(ReadWrite)
 			case "close":
 				s.Close()
 			case "restore":
@@ -291,7 +293,7 @@ func TestFinancialAttributionWireSummaryAndMalformedRequestPrivacy(t *testing.T)
 	c := newFinancialContextCache()
 	g := c.activate()
 	result := application.FinancialComparisonResult{Content: application.FinancialComparisonContent{Attribution: &application.FinancialAttributionLink{Basis: strings.Repeat("\\\"", contextWireLimit)}}}
-	if _, err := c.comparisonResponse("id", cachedFinancialContext{comparison: &result}, g, "", 0, 1); err == nil {
+	if _, err := c.comparisonResponse(financialFixtureID, cachedFinancialContext{comparison: &result}, g, FinancialInitialPageInput{Sections: financialSections, Limit: 25}); err == nil {
 		t.Fatal("oversized attribution summary")
 	}
 	s, app, _ := fixture(t)

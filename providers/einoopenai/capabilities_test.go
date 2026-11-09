@@ -42,10 +42,10 @@ func (s *observedSession) Call(ctx context.Context, name string, args json.RawMe
 	if err == nil {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if name == "get_account_snapshot" {
+		if name == "get_account_valuations" {
 			s.reads++
 		}
-		if name == "preview_change" {
+		if name == "preview_batch" {
 			s.proposal = append(json.RawMessage{}, args...)
 			var preview struct {
 				Data struct {
@@ -87,7 +87,7 @@ func ledgerSessionDatabase(t *testing.T) (*application.Service, *observedSession
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := mcpserver.NewInProcessSession(t.Context(), app, dir, uuid.NewString(), mcpserver.LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+	session, err := mcpserver.NewInProcessSession(t.Context(), app, dir, uuid.NewString(), mcpserver.ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,11 +113,11 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 					t.Error("native reasoning lost in actual next request")
 				}
 				if round == 0 {
-					writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_read", "summary": []any{}, "encrypted_content": "opaque_read_state"}, obj{"type": "function_call", "id": "fc_read", "call_id": "call_read", "name": "get_account_snapshot", "arguments": encode(obj{"id": accountID}), "status": "completed"}})
+					writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_read", "summary": []any{}, "encrypted_content": "opaque_read_state"}, obj{"type": "function_call", "id": "fc_read", "call_id": "call_read", "name": "get_account_valuations", "arguments": encode(obj{"accountIds": []string{accountID}}), "status": "completed"}})
 					return
 				}
 				if round == 1 {
-					items := []any{obj{"type": "function_call", "id": "fc_proposal", "call_id": "call_proposal", "name": "preview_change", "arguments": encode(command), "status": "completed"}}
+					items := []any{obj{"type": "function_call", "id": "fc_proposal", "call_id": "call_proposal", "name": "preview_batch", "arguments": encode(mcpserver.BatchChangeInput{Commands: []history.ChangeCommandRequest{command}}), "status": "completed"}}
 					es := events(items)
 					switch mode {
 					case "eof_before_done":
@@ -209,11 +209,11 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 			if errorCount != 0 || len(proposal) == 0 {
 				t.Fatalf("positive runner failed: errors=%d", errorCount)
 			}
-			var proposed history.ChangeCommandRequest
-			if err := jsoncodec.Unmarshal(proposal, &proposed); err != nil {
-				t.Fatal(err)
+			var proposed mcpserver.BatchChangeInput
+			if err := jsoncodec.Unmarshal(proposal, &proposed); err != nil || len(proposed.Commands) != 1 {
+				t.Fatalf("bad one-command proposal: %v", err)
 			}
-			review, err := session.PreviewFullChange(t.Context(), proposed)
+			review, err := session.PreviewFullChange(t.Context(), proposed.Commands[0])
 			if err != nil || review.State != mcpserver.ReviewAwaitingConfirmation || review.Binding.Plan.ID == modelPlan || review.Binding.Plan.Command.Amount != "12.34" {
 				t.Fatalf("host adopted model preview/approval: %v", err)
 			}
@@ -221,7 +221,7 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 			if err != nil || committed.State != mcpserver.ReviewSucceeded {
 				t.Fatalf("synthetic Full submission failed: %v", err)
 			}
-			read, err := session.Call(t.Context(), "get_account_snapshot", json.RawMessage(encode(obj{"id": accountID})))
+			read, err := session.Call(t.Context(), "get_account_valuations", json.RawMessage(encode(obj{"accountIds": []string{accountID}})))
 			activities, listErr := app.ListActivities(t.Context(), 10)
 			if err != nil || listErr != nil || len(activities) != 1 || !strings.Contains(string(read), `"12.34"`) {
 				t.Fatal("post-confirmation authoritative read/receipt failed")

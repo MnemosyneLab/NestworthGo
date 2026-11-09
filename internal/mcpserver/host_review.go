@@ -20,6 +20,10 @@ import (
 
 const hostReviewLimit = 256 << 10
 
+// This tag is part of the version 1 private review digest. Live authority is
+// checked against the current mode and session, independently of the tag.
+const hostReviewPermission = "ledger_write"
+
 const (
 	ReviewAwaitingConfirmation = "awaiting_confirmation"
 	ReviewCommitting           = "committing"
@@ -76,9 +80,9 @@ func (s *InProcessSession) withHostReview(ctx context.Context, fn func(context.C
 		s.mu.Unlock()
 		return fail("session_revoked", "in-process session revoked")
 	}
-	if s.service.config.Mode != LedgerWrite || s.service.repository == nil {
+	if s.service.config.Mode != ReadWrite || s.service.repository == nil {
 		s.mu.Unlock()
-		return fail("review_unavailable", "host review requires ledger permission and durable configuration")
+		return fail("review_unavailable", "host review requires read-write permission and durable configuration")
 	}
 	s.inflight.Add(1)
 	callContext, cancel := context.WithCancel(ctx)
@@ -147,17 +151,18 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 		if err != nil {
 			return err
 		}
-		raw, err := s.Call(ctx, "preview_change", arguments)
+		var detached history.ChangeCommandRequest
+		if err := jsoncodec.Unmarshal(arguments, &detached); err != nil {
+			return fail("validation", "invalid host proposal")
+		}
+		if ctx.Err() != nil {
+			return fail("cancelled", "request cancelled before preview")
+		}
+		preview, err := s.service.previewHostLedgerChange(ctx, detached)
 		if err != nil {
 			return err
 		}
-		var result struct {
-			Data ChangePlanPreview `json:"data"`
-		}
-		if jsoncodec.Unmarshal(raw, &result) != nil {
-			return fail("review_unavailable", "authoritative preview unavailable")
-		}
-		planRaw, err := s.service.loadPreviewPlan(result.Data.PlanID, "change")
+		planRaw, err := s.service.loadPreviewPlan(preview.PlanID, "change")
 		if err != nil {
 			return err
 		}
@@ -167,7 +172,7 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 		}
 		if identity != nil {
 			found := false
-			for _, endpoint := range result.Data.Preview.Resulting {
+			for _, endpoint := range preview.Preview.Resulting {
 				if endpoint.AccountID != nil && *endpoint.AccountID == identity.AccountID && endpoint.Currency == command.Currency && endpoint.Amount != "" {
 					found = true
 				}
@@ -184,12 +189,15 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 			Source: "ai_full", Version: 1, ID: uuid.NewString(), HouseholdID: s.householdID, SessionID: s.owner.sessionID,
 			LedgerIncarnation: s.service.app.MobileWorkspace(),
 			IncarnationID:     s.service.config.InstanceID, PermissionRevision: s.service.config.InstanceID,
-			Permission: LedgerWrite, Tool: "commit_change", OperationID: uuid.NewString(),
-			CashAccount: identity, CreatedAt: time.Now().UTC(), ParameterDigest: parameters, Plan: plan, Preview: result.Data,
+			Permission: hostReviewPermission, Tool: "commit_change", OperationID: uuid.NewString(),
+			CashAccount: identity, CreatedAt: time.Now().UTC(), ParameterDigest: parameters, Plan: plan, Preview: preview,
 		}}
 		review.Digest, err = reviewDigest(review.Binding)
 		if err != nil {
 			return err
+		}
+		if ctx.Err() != nil {
+			return fail("cancelled", "request cancelled before saving review")
 		}
 		return s.saveHostReview(review)
 	})
@@ -251,7 +259,7 @@ func (s *InProcessSession) loadHostReview(id string) (HostChangeReview, error) {
 		parameterErr == nil && previewErr == nil && parameters == b.ParameterDigest && parameters == previewParameters &&
 		(b.Source == "" || b.Source == "human_review" || b.Source == "ai_full") && b.Version == 1 && b.ID == parsed.String() && b.HouseholdID == s.householdID && b.SessionID == s.owner.sessionID &&
 		len(b.LedgerIncarnation) == 64 &&
-		b.Permission == LedgerWrite && b.Tool == "commit_change" && uuid.Validate(b.OperationID) == nil &&
+		b.Permission == hostReviewPermission && b.Tool == "commit_change" && uuid.Validate(b.OperationID) == nil &&
 		uuid.Validate(b.IncarnationID) == nil && b.PermissionRevision == b.IncarnationID && !b.CreatedAt.IsZero() &&
 		b.Plan.Type == "change" && uuid.Validate(b.Plan.ID) == nil && b.Plan.ID == b.Preview.PlanID && b.Plan.Version != "" &&
 		b.Preview.ExpiresAt == b.Plan.ExpiresAt.Format(time.RFC3339Nano) && b.Plan.ExpiresAt.After(b.CreatedAt)

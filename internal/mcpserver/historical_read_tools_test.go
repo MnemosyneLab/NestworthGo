@@ -111,7 +111,7 @@ func TestHistoricalReadClientFiltersAndFrozenEvidence(t *testing.T) {
 			t.Fatal("records escaped pagination")
 		}
 		item := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: initial["captureId"].(string), Section: "reconciliationDetails", ID: detail["id"].(string)})
-		if item["contentHash"] != initial["contentHash"] {
+		if item["captureId"] != initial["captureId"] {
 			t.Fatal("detail recaptured")
 		}
 		for section := range item["sections"].(map[string]any) {
@@ -274,7 +274,7 @@ func TestHistoricalFundingCashReasonFilterAndItem(t *testing.T) {
 			for _, rawKey := range scaleSection(t, c, detail, section) {
 				key := rawKey.(string)
 				evidence := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "rows", ID: key})
-				if evidence["contentHash"] != cap["contentHash"] || evidence["summary"].(map[string]any)["id"] != key {
+				if evidence["captureId"] != cap["captureId"] || evidence["summary"].(map[string]any)["id"] != key {
 					t.Fatal("category reference changed capture")
 				}
 				outsideFilter = outsideFilter || !included[key]
@@ -340,7 +340,7 @@ func TestMergedReadShapesStayDistinct(t *testing.T) {
 		t.Fatal(current)
 	}
 	batch := scaleCapture(t, c, "get_market_data", map[string]any{"targets": []any{map[string]any{"instrumentId": fx.instrument}}, "view": "current", "limit": 1})
-	if batch["schemaVersion"] != "mcp-read/1" || batch["captureKind"] != "market_data" {
+	if batch["schemaVersion"] != "mcp-read/2" || batch["captureKind"] != "market_data" {
 		t.Fatalf("batch shape changed: %v", batch["captureKind"])
 	}
 }

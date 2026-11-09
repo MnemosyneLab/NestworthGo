@@ -80,7 +80,7 @@ activity/review/reconciliation APIs keep their distinct domain paging contracts.
 - `product_tools.go`: `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`.
 - `reconciliation_session_tools.go`: `list_reconciliation_sessions`, `get_reconciliation_session`, `get_reconciliation_session_page`, `get_reconciliation_item`, `preview_reconciliation_session`.
 - `reconciliation_tools.go`: `preview_reconciliation`.
-- `tools.go`: `get_context`, `get_catalog`, `get_operation`, `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings`, `get_account_valuations`, `get_account_snapshot`, `get_overview`, `create_member`, `update_member`, `archive_member`, `create_institution`, `update_institution`, `archive_institution`, `create_group`, `update_group`, `archive_group`, `create_account`, `update_account`, `archive_account`, `create_instrument`, `update_instrument`, `archive_instrument`, `search_market_instruments`.
+- `tools.go`: `get_context`, `get_catalog`, `get_operation`, `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings`, `get_account_valuations`, `get_overview`, `create_member`, `update_member`, `archive_member`, `create_institution`, `update_institution`, `archive_institution`, `create_group`, `update_group`, `archive_group`, `create_account`, `update_account`, `archive_account`, `create_instrument`, `update_instrument`, `archive_instrument`, `search_market_instruments`.
 
 ## Shapes and complete read-family inventory
 

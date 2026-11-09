@@ -72,7 +72,7 @@ func (s *Service) dataHealthTools(server *toolSet, mode string) {
 		})
 	})
 
-	if mode != LedgerWrite {
+	if mode != ReadWrite {
 		return
 	}
 	open := true

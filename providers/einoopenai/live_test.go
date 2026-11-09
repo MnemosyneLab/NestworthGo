@@ -99,7 +99,7 @@ func TestLiveToolsEmitActualOrderedDetailsAfterValidation(t *testing.T) {
 	fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		items := []any{textItem()}
 		if round == 0 {
-			items = []any{obj{"type": "function_call", "id": "fc_live", "call_id": "call_live", "name": "get_account_snapshot", "arguments": encode(obj{"id": account}), "status": "completed"}}
+			items = []any{obj{"type": "function_call", "id": "fc_live", "call_id": "call_live", "name": "get_account_valuations", "arguments": encode(obj{"accountIds": []string{account}}), "status": "completed"}}
 		}
 		writeContract(w, request, items, "", nil)
 	})

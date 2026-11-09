@@ -90,7 +90,7 @@ func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 48 {
+	if len(listed.Tools) != 46 {
 		t.Fatalf("tools=%d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {
@@ -112,7 +112,7 @@ func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 func TestDirectoryWritesAndDurableRetries(t *testing.T) {
 	t.Parallel()
 	s, app, changes := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -157,7 +157,7 @@ func TestDirectoryWritesAndDurableRetries(t *testing.T) {
 func TestAccountInstrumentAndDirectoryLifecycle(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -261,7 +261,7 @@ func TestHTTPBoundary(t *testing.T) {
 func TestPermissionChangeRevokesTokenAndDisablePersists(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
-	if _, err := s.Enable(DirectoryWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	old, _ := s.Connection()
@@ -295,6 +295,43 @@ func TestPermissionChangeRevokesTokenAndDisablePersists(t *testing.T) {
 	}
 	if _, err := resumed.Connection(); err == nil {
 		t.Fatal("disabled credential exposed")
+	}
+}
+
+func TestUnsupportedSavedMCPModesFallBackToReadOnly(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"directory_write", "ledger_write", "unknown"} {
+		t.Run(mode, func(t *testing.T) {
+			s, _, _ := fixture(t)
+			old := Config{Enabled: true, Mode: mode, Token: strings.Repeat("a", 64), InstanceID: uuid.NewString()}
+			if err := s.writePrivate(filepath.Join(s.dir, "connection.json"), old); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Resume(); err != nil {
+				t.Fatal(err)
+			}
+			if status := s.Status(); !status.Running || status.Mode != ReadOnly || status.Error != "" {
+				t.Fatalf("saved mode did not resume as read-only: %+v", status)
+			}
+			if _, err := s.Enable(mode); err == nil {
+				t.Fatal("unsupported permission accepted on explicit enable")
+			}
+			conn, err := s.Connection()
+			if err != nil || conn.Token != old.Token {
+				t.Fatal("read-only fallback changed the connection token", err)
+			}
+			client := connect(t, s)
+			info := call(t, client, "get_context", Empty{}, false)["data"].(map[string]any)
+			if info["mode"] != ReadOnly {
+				t.Fatal("MCP did not report read-only mode")
+			}
+			for _, name := range []string{"create_member", "commit_plan", "refresh_investment_reviews"} {
+				_, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: Empty{}})
+				if err == nil || !strings.Contains(err.Error(), "unknown tool") {
+					t.Fatalf("fallback exposes %s: %v", name, err)
+				}
+			}
+		})
 	}
 }
 

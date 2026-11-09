@@ -14,10 +14,14 @@ import (
 type AccountValuationReadInput struct {
 	account.AccountFilterRequest
 	AccountIDs []string `json:"accountIds,omitempty"`
+	Detail     string   `json:"detail,omitempty" jsonschema:"summary (default) or holdings; holdings includes the first page of components and missing inputs."`
 	Limit      int      `json:"limit,omitempty"`
 }
 
 func (s *Service) pagedAccountValuations(ctx context.Context, g uint64, in AccountValuationReadInput) (ReadEnvelope, error) {
+	if in.Detail != "" && in.Detail != "summary" && in.Detail != "holdings" {
+		return ReadEnvelope{}, fail("validation", "detail must be summary or holdings")
+	}
 	if err := validateReadValues(in.AccountIDs, nil, true); err != nil {
 		return ReadEnvelope{}, err
 	}
@@ -92,9 +96,21 @@ func (s *Service) pagedAccountValuations(ctx context.Context, g uint64, in Accou
 				c.DetailSections["accounts/"+id] = append(c.DetailSections["accounts/"+id], section)
 			}
 			c.Details["accounts/"+id] = detail
-			header := map[string]any{"id": id, "name": v.Account.Name, "aggregation": "rollup", "complete": v.Complete, "baseValue": full["baseValue"], "displayValue": detail["displayValue"], "composition": detail["composition"], "componentCount": len(v.Components), "missingInputCount": len(v.MissingInputs)}
-			for _, key := range []string{"defaultCurrency", "trackingMode", "balanceSheetRole", "includeInNetWorth"} {
+			header := map[string]any{"id": id, "name": v.Account.Name, "aggregation": "rollup", "complete": v.Complete, "baseValue": full["baseValue"], "displayValue": detail["displayValue"], "componentCount": len(v.Components), "missingInputCount": len(v.MissingInputs)}
+			for _, key := range []string{"defaultCurrency", "trackingMode", "balanceSheetRole", "includeInNetWorth", "includeInLiquidAssets", "includeInPortfolio"} {
 				header[key] = full["account"].(map[string]any)[key]
+			}
+			header["institutionName"], header["groupName"] = v.InstitutionName, v.GroupName
+			header["ownership"] = v.Ownership
+			header["priceFreshness"] = accountPriceFreshness(v.Components)
+			if v.Composition != nil {
+				header["assetTypes"] = accountAssetTypes(v.Composition)
+				header["compositionStatus"] = v.Composition.Status
+			}
+			// Exact base/display totals; GUI composition totals/layouts stay
+			// available through explicit evidence drilldown, not repeated here.
+			if in.Detail == "holdings" {
+				c.InitialSections = append(c.InitialSections, "components/"+id, "missingInputs/"+id)
 			}
 			rows = append(rows, header)
 		}
@@ -102,4 +118,52 @@ func (s *Service) pagedAccountValuations(ctx context.Context, g uint64, in Accou
 		c.Sections["accounts"], err = readRows(rows)
 		return c, err
 	})
+}
+
+// Summarize quote age without guessing freshness from wall-clock age. Keep
+// manual, missing, delayed and carried evidence separate from completeness.
+func accountPriceFreshness(components []wire.ValuationComponentDTO) map[string]any {
+	counts := map[string]int{}
+	carried, delayed, without := 0, 0, 0
+	oldest, newest := "", ""
+	for _, component := range components {
+		e := component.PriceEvidence
+		if e == nil {
+			without++
+			continue
+		}
+		counts[e.Freshness]++
+		if e.Carried {
+			carried++
+		}
+		if e.Delayed {
+			delayed++
+		}
+		if e.EffectiveDate != nil && *e.EffectiveDate != "" {
+			d := *e.EffectiveDate
+			if oldest == "" || d < oldest {
+				oldest = d
+			}
+			if d > newest {
+				newest = d
+			}
+		}
+	}
+	out := map[string]any{"counts": counts, "carriedCount": carried, "delayedCount": delayed, "withoutPriceEvidenceCount": without}
+	if oldest != "" {
+		out["oldestEffectiveDate"], out["newestEffectiveDate"] = oldest, newest
+	}
+	return out
+}
+
+func accountAssetTypes(composition *wire.AccountCompositionDTO) []map[string]any {
+	rows := make([]map[string]any, 0, len(composition.Types))
+	for _, v := range composition.Types {
+		var amount any
+		if v.BaseAmountExact != "" {
+			amount = v.BaseAmountExact
+		}
+		rows = append(rows, map[string]any{"type": v.TypeKey, "amountExact": amount, "currency": composition.Currency, "shareBps": v.ShareBPS, "valuedCount": v.ValuedCount, "missingCount": v.MissingCount})
+	}
+	return rows
 }

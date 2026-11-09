@@ -25,7 +25,7 @@ For an authorized repair:
 2. Explain inputs requiring App provider settings, identity edits or user price/
    cost evidence. Starting repair replans; the preview is an estimate.
 3. Call `start_data_repair` with a new UUID and empty input. It requires
-   `ledger_write`, can contact configured providers, and persists market data
+   `read_write`, can contact configured providers, and persists market data
    and rebuilt snapshots. It does not change ledger facts/provider settings.
 4. Read `result.job.jobId`, `attached`, `conflict` and `reason`. `attached` joins
    equivalent running work; `conflict` means no repair-all job was scheduled.

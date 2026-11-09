@@ -19,11 +19,18 @@ func TestWorkflowStructuralDependencies(t *testing.T) {
 		{"market targets and windows", workflowSchema[MarketDataInput]("get_market_data"),
 			[]map[string]any{{"instrumentId": "id"}, {"baseCurrency": "USD", "quoteCurrency": "CNY"}, {"targets": []any{map[string]any{"instrumentId": "id"}}}, {"targets": []any{map[string]any{"baseCurrency": "USD", "quoteCurrency": "CNY"}}, "view": "history", "historyLayout": "records", "fromDate": "2026-09-01", "toDate": "2026-09-02"}},
 			[]map[string]any{{}, {"instrumentId": "id", "baseCurrency": "USD", "quoteCurrency": "CNY"}, {"instrumentId": "id", "view": "history"}, {"baseCurrency": "USD"}, {"targets": []any{map[string]any{}}}, {"targets": []any{map[string]any{"instrumentId": "id", "baseCurrency": "USD", "quoteCurrency": "CNY"}}}, {"targets": []any{map[string]any{"baseCurrency": "USD"}}}, {"targets": []any{map[string]any{"instrumentId": "id"}}, "fromDate": "2026-09-01"}, {"targets": []any{map[string]any{"instrumentId": "id"}}, "historyLayout": "records"}, {"targets": []any{map[string]any{"instrumentId": "id"}}, "fromDate": "2026-09-01", "toDate": "2026-09-02", "range": "30d"}, {"instrumentId": "id", "targets": []any{map[string]any{"instrumentId": "id"}}}}},
-		{"ledger kind", workflowSchema[history.ChangeCommandRequest]("preview_change"), nil, nil},
+		{"ledger kind", workflowSchema[BatchChangeInput]("preview_batch"), nil, nil},
 		{"repair view", workflowSchema[DataRepairJobInput]("get_data_repair_job"), []map[string]any{{"jobId": "id"}, {"jobId": "id", "view": "evidence"}}, []map[string]any{{"jobId": "id", "view": "full"}}},
 	}
 	cases[2].valid = []map[string]any{{"kind": "money_added", "accountId": "a", "amount": "1.0001", "currency": "USD", "reason": "income"}, {"kind": "position_transfer", "fromHoldingId": "a", "toAccountId": "b", "quantity": "1"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "note": nil}}
 	cases[2].invalid = []map[string]any{{"kind": "money_added"}, {"kind": "invented"}, {"kind": "position_transfer", "fromHoldingId": "a", "quantity": "1"}, {"kind": "position_transfer", "fromHoldingId": "a", "toHoldingId": "b", "toAccountId": "c", "quantity": "1"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "effectiveLocalDate": "2026-09-01"}, {"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "added": true}, {"kind": "value_update", "accountId": "a", "newValue": "1", "newValueCurrency": "USD"}}
+	for i := range cases[2].valid {
+		cases[2].valid[i] = singleLedgerInput(cases[2].valid[i])
+	}
+	for i := range cases[2].invalid {
+		cases[2].invalid[i] = singleLedgerInput(cases[2].invalid[i])
+	}
+	cases[2].invalid = append(cases[2].invalid, map[string]any{"commands": []any{}}, map[string]any{"commands": make([]any, 101)})
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			resolved, err := c.schema.Resolve(nil)
@@ -46,15 +53,15 @@ func TestWorkflowStructuralDependencies(t *testing.T) {
 
 // Independently enumerate the MCP boundary's supported commands. DTO variants
 // used by the GUI must not become advertised MCP capabilities accidentally.
-func TestPreviewChangeSchemaMatchesHandlerAllowlist(t *testing.T) {
+func TestPreviewBatchSchemaMatchesHandlerAllowlist(t *testing.T) {
 	expected := map[string]bool{"position_import": true, "money_added": true, "money_removed": true, "cash_dividend": true, "cash_transfer": true, "fx_conversion": true, "position_transfer": true, "trade": true, "debt_draw": true, "debt_payment": true}
-	schema := workflowSchema[history.ChangeCommandRequest]("preview_change")
+	schema := workflowSchema[BatchChangeInput]("preview_batch")
 	resolved, err := schema.Resolve(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	seen := map[string]bool{}
-	for _, branch := range schema.OneOf {
+	for _, branch := range schema.Properties["commands"].Items.OneOf {
 		kind := branch.Properties["kind"].Enum[0].(string)
 		if !expected[kind] || seen[kind] {
 			t.Fatal("unexpected/duplicate advertised kind", kind)
@@ -69,7 +76,8 @@ func TestPreviewChangeSchemaMatchesHandlerAllowlist(t *testing.T) {
 		if kind == "position_transfer" {
 			input["toAccountId"] = "synthetic"
 		}
-		if err := resolved.Validate(&input); err != nil {
+		batch := singleLedgerInput(input)
+		if err := resolved.Validate(&batch); err != nil {
 			t.Fatalf("%s: advertised shape invalid: %v", kind, err)
 		}
 		raw, _ := jsoncodec.Marshal(input)

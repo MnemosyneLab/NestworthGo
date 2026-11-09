@@ -67,7 +67,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
-	}{{ReadOnly, 48}, {DirectoryWrite, 61}, {LedgerWrite, 75}} {
+	}{{ReadOnly, 46}, {ReadWrite, 79}} {
 		local := newLocal(t, fx, test.mode)
 		if local.service.listener != nil || local.service.server != nil || local.service.endpoint != "" || local.service.config.Token != "" {
 			t.Fatal("local session created external transport/credentials")
@@ -91,7 +91,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 			}
 		}
 		_, err = local.Call(t.Context(), "commit_plan", json.RawMessage(`{}`))
-		if test.mode == LedgerWrite {
+		if test.mode == ReadWrite {
 			requireLocalError(t, err, "approval_required")
 		} else {
 			requireLocalError(t, err, "not_found")
@@ -99,7 +99,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 		localRaw(t, local, "get_catalog", map[string]any{}, false)
 	}
 	for _, id := range []string{"", uuid.Nil.String(), "../escape"} {
-		_, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), id, LedgerWrite, nil)
+		_, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), id, ReadWrite, nil)
 		requireLocalError(t, err, "validation")
 	}
 }
@@ -142,7 +142,7 @@ func TestInProcessFrozenPaginationAndRevocationIsolation(t *testing.T) {
 		if err := jsoncodec.Unmarshal(pageRaw, &page); err != nil {
 			t.Fatal(err)
 		}
-		if page.Data.ContentHash != capture.Data.ContentHash || page.Data.ExpiresAt != capture.Data.ExpiresAt || page.Data.CapturedAt != capture.Data.CapturedAt {
+		if page.Data.CaptureID != capture.Data.CaptureID || page.Data.CapturedAt != capture.Data.CapturedAt {
 			t.Fatal("page changed capture identity, evidence time or TTL")
 		}
 		seen += len(page.Data.Items)
@@ -171,18 +171,18 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 	t.Parallel()
 	fx := newLedgerFixture(t)
 	external := ledgerSession(t, fx)
-	local := newLocal(t, fx, LedgerWrite)
+	local := newLocal(t, fx, ReadWrite)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
-	preview := localData(t, local, "preview_change", command, false)
+	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	externalPreview := ledgerPreview(t, external, command)
-	if !strings.Contains(string(localRaw(t, local, "get_account_snapshot", IDInput{fx.checking}, false)), "Checking") {
+	if !strings.Contains(string(localRaw(t, local, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}}, false)), "Checking") {
 		t.Fatal("account read unavailable")
 	}
 	// Resulting endpoint values are authoritative; provisional activity IDs are
 	// intentionally different. Compare full commands and resulting endpoints.
-	localPreview := preview["preview"].(map[string]any)
-	remotePreview := externalPreview["preview"].(map[string]any)
-	if !reflect.DeepEqual(preview["command"], externalPreview["command"]) || !reflect.DeepEqual(localPreview["resulting"], remotePreview["resulting"]) {
+	localPreview := preview["previews"].([]any)[0].(map[string]any)
+	remotePreview := externalPreview["previews"].([]any)[0].(map[string]any)
+	if !reflect.DeepEqual(preview["commands"], externalPreview["commands"]) || !reflect.DeepEqual(localPreview["resulting"], remotePreview["resulting"]) {
 		t.Fatal("adapters produced different commands or resulting endpoint values")
 	}
 	operationID := uuid.NewString()
@@ -220,7 +220,7 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 		t.Fatalf("authoritative postcommit cash is %s, expected exact 12.34", amount)
 	}
 	call(t, external, "get_operation", IDInput{operationID}, true)
-	other := newLocal(t, fx, LedgerWrite)
+	other := newLocal(t, fx, ReadWrite)
 	_, err = other.Call(t.Context(), "get_operation", mustJSON(t, IDInput{operationID}))
 	requireLocalError(t, err, "not_found")
 	localData(t, local, "get_operation", IDInput{operationID}, false)
@@ -271,13 +271,13 @@ func TestInProcessCancellationDoesNotUndoCommittedReceipt(t *testing.T) {
 	fx := newLedgerFixture(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	var changed atomic.Int32
-	local, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), uuid.NewString(), LedgerWrite, func() { changed.Add(1); cancel() })
+	local, err := NewInProcessSession(t.Context(), fx.app, t.TempDir(), uuid.NewString(), ReadWrite, func() { changed.Add(1); cancel() })
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(local.Close)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
-	preview := localData(t, local, "preview_change", command, false)
+	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	input := mustJSON(t, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": preview["planId"]}})
 	early, earlyCancel := context.WithCancel(t.Context())
 	earlyCancel()
@@ -317,16 +317,16 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 	fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	repository := sqlite.NewConfigurationRepository(db)
 	id := uuid.NewString()
-	local, err := NewInProcessSession(t.Context(), app, directory, id, LedgerWrite, nil, repository)
+	local, err := NewInProcessSession(t.Context(), app, directory, id, ReadWrite, nil, repository)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(local.Close)
-	_, err = NewInProcessSession(t.Context(), app, t.TempDir(), id, LedgerWrite, nil, repository)
+	_, err = NewInProcessSession(t.Context(), app, t.TempDir(), id, ReadWrite, nil, repository)
 	requireLocalError(t, err, "conflict")
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
-	preview := localData(t, local, "preview_change", command, false)
-	uncommitted := localData(t, local, "preview_change", command, false)
+	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
+	uncommitted := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	input := map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": preview["planId"]}}
 	committed := localRaw(t, local, "commit_plan", input, true)
 	// A directory pending receipt has no transactional recovery proof.
@@ -347,7 +347,7 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	app, db = openLocalApp(t, path)
-	reopened, err := NewInProcessSession(t.Context(), app, directory, id, LedgerWrite, nil, sqlite.NewConfigurationRepository(db))
+	reopened, err := NewInProcessSession(t.Context(), app, directory, id, ReadWrite, nil, sqlite.NewConfigurationRepository(db))
 	if err != nil {
 		t.Fatal(err)
 	}

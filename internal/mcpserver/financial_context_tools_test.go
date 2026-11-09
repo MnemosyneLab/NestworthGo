@@ -21,6 +21,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
+const financialFixtureID = "00000000-0000-4000-8000-000000000001"
+const financialOtherFixtureID = "00000000-0000-4000-8000-000000000002"
+
 func decodeContext(t *testing.T, obj map[string]any) FinancialContextResponse {
 	t.Helper()
 	raw, _ := jsoncodec.Marshal(financialPageTestData(t, obj["data"]))
@@ -32,7 +35,7 @@ func decodeContext(t *testing.T, obj map[string]any) FinancialContextResponse {
 }
 func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
 			members, err := app.ListMembers(t.Context(), false)
@@ -51,7 +54,19 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 			client := connect(t, s)
-			initial := decodeContext(t, call(t, client, "get_financial_context", map[string]any{}, false))
+			defaultPage := decodeContext(t, call(t, client, "get_financial_context", map[string]any{}, false))
+			if defaultPage.PositionsPage.Returned != defaultPage.PositionsPage.Total || defaultPage.PositionsPage.Returned <= 1 || defaultPage.PositionsPage.HasMore {
+				t.Fatal("small positions section should fit inline", defaultPage.PositionsPage)
+			}
+			summary := decodeContext(t, call(t, client, "get_financial_context", map[string]any{"sections": []string{}}, false))
+			if summary.PositionsPage.Total != defaultPage.PositionsPage.Total || summary.PositionsPage.Returned != 0 || !summary.PositionsPage.HasMore {
+				t.Fatal("summary-only capture must preserve totals and continuation", summary.PositionsPage)
+			}
+			productJSONEqual(t, summary.Content.Summary, defaultPage.Content.Summary)
+			initial := decodeContext(t, call(t, client, "get_financial_context", map[string]any{"sections": []string{"positions"}, "limit": 2}, false))
+			if initial.EvidencePage.Total == 0 || initial.EvidencePage.Returned != 0 || !initial.EvidencePage.HasMore || initial.PositionsPage.Returned != 2 {
+				t.Fatal("selected positions must leave frozen evidence available", initial.PositionsPage, initial.EvidencePage)
+			}
 			if initial.PositionsPage.Returned == 0 || !initial.PositionsPage.HasMore || initial.Content.Summary.NetWorth.Value == nil || *initial.Content.Summary.NetWorth.Value != "50" {
 				t.Fatal(initial)
 			}
@@ -63,7 +78,7 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			positions := append([]application.FinancialContextPosition{}, initial.Content.Positions...)
 			for cursor != "" {
 				page := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
-				if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.PositionsPage.Returned == 0 || page.Content.Summary.NetWorth.Value != nil {
+				if page.ContextID != initial.ContextID || page.CapturedAt != initial.CapturedAt || page.PositionsPage.Returned == 0 || page.Content.Summary.NetWorth.Value != nil {
 					t.Fatal(page)
 				}
 				positions = append(positions, page.Content.Positions...)
@@ -79,8 +94,17 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			if changes.Load() != 0 {
 				t.Fatal("context emitted write event")
 			}
+			evidence := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{Cursor: initial.EvidencePage.NextCursor}, false))
+			productJSONEqual(t, evidence.Content.Evidence, s.contexts.entries[initial.ContextID].result.Content.Evidence)
 			call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "gaps", Cursor: initial.PositionsPage.NextCursor}, true)
-			call(t, client, "get_financial_context", map[string]any{"unexpected": true}, true)
+			for _, bad := range []map[string]any{
+				{"unexpected": true},
+				{"sections": []string{"positions", "positions"}},
+				{"sections": []string{"unknown"}},
+				{"limit": 101},
+			} {
+				call(t, client, "get_financial_context", bad, true)
+			}
 		})
 	}
 }
@@ -250,11 +274,11 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	now := time.Now()
 	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: now, ContentHash: "hash", Content: content}, expires: now.Add(contextTTL), size: 1}
 	for _, section := range []string{"positions", "evidence"} {
-		if _, err := c.response("id", entry, g, section, 0, 1); err != nil {
+		if _, err := c.response(financialFixtureID, entry, g, FinancialInitialPageInput{Sections: []string{section}, Limit: 1}); err != nil {
 			t.Fatalf("summary plus %s must fit independently: %v", section, err)
 		}
 	}
-	initial, err := c.response("id", entry, g, "", 0, 1)
+	initial, err := c.response(financialFixtureID, entry, g, FinancialInitialPageInput{Sections: financialSections, Limit: 25})
 	if err != nil {
 		t.Fatalf("individually fitting sections must defer rather than fail: %v", err)
 	}
@@ -265,14 +289,43 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	if err != nil || cursor.Offset != 0 {
 		t.Fatal("deferred cursor must begin at zero", cursor, err)
 	}
-	c.entries["id"] = entry
-	page, err := (&Service{contexts: c}).financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: "id", Section: "evidence", Cursor: initial.EvidencePage.NextCursor})
+	c.entries[financialFixtureID] = entry
+	page, err := (&Service{contexts: c}).financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: financialFixtureID, Section: "evidence", Cursor: initial.EvidencePage.NextCursor})
 	if err != nil || page.Page.Returned != 1 || page.Page.HasMore {
 		t.Fatal("continuation must advance", page.Page, err)
 	}
 	value = strings.Repeat("9", contextWireLimit)
-	if _, err := c.response("id", entry, g, "", 0, 1); err == nil {
+	if _, err := c.response(financialFixtureID, entry, g, FinancialInitialPageInput{Sections: financialSections, Limit: 25}); err == nil {
 		t.Fatal("an individually oversized row must fail, not defer")
+	}
+}
+
+func TestFinancialContextInitialPageFitsOrderedPrefix(t *testing.T) {
+	t.Parallel()
+	c := newFinancialContextCache()
+	g := c.activate()
+	name := strings.Repeat(`"\`, 4500) // Each row fits; the escaped pair exceeds the complete response budget.
+	positions := []application.FinancialContextPosition{
+		{Ref: "first", Name: name}, {Ref: "second", Name: name},
+	}
+	entry := cachedFinancialContext{result: application.FinancialContextResult{
+		Content: application.FinancialContextContent{Positions: positions},
+	}}
+	first, err := c.response(financialFixtureID, entry, g, FinancialInitialPageInput{Sections: financialSections, Limit: 25})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.PositionsPage.Total != len(positions) || first.PositionsPage.Returned != 1 || !first.PositionsPage.HasMore {
+		t.Fatal(first.PositionsPage)
+	}
+	productJSONEqual(t, first.Content.Positions, positions[:1])
+	cursor, err := c.decodeCursor(first.PositionsPage.NextCursor)
+	if err != nil || cursor.Offset != 1 {
+		t.Fatal("continuation skipped a row", cursor, err)
+	}
+	next, err := c.contextSectionResponse(financialFixtureID, entry, g, cursor.Section, cursor.Offset, 25)
+	if err != nil || next.Page.Returned != 1 || next.Page.HasMore || !strings.Contains(string(next.Items[0]), `"ref":"second"`) {
+		t.Fatal("unexpected final row", next.Page, err)
 	}
 }
 
@@ -309,27 +362,27 @@ func TestFinancialContextCacheExpiryEvictionCursorAndOversize(t *testing.T) {
 	result := application.FinancialContextResult{CapturedAt: now, ContentHash: "hash", Content: application.FinancialContextContent{Positions: []application.FinancialContextPosition{{Ref: "a"}, {Ref: "b"}}, Gaps: []application.FinancialContextGap{}, Evidence: []application.FinancialContextEvidence{}}}
 	s := &Service{contexts: c}
 	e := cachedFinancialContext{result: result, expires: now.Add(contextTTL), size: 100}
-	c.entries["id"] = e
+	c.entries[financialFixtureID] = e
 	c.bytes = 100
-	cursor := c.cursor("id", "positions", g, 1)
-	for _, in := range []FinancialContextPageInput{{ContextID: "id", Section: "gaps", Cursor: cursor}, {ContextID: "id", Section: "positions", Cursor: cursor + "x"}, {ContextID: "id", Section: "positions", Cursor: c.cursor("other", "positions", g, 1)}, {ContextID: "id", Section: "positions", Cursor: c.cursor("id", "positions", g+1, 1)}, {ContextID: "id", Section: "positions", Cursor: c.cursor("id", "positions", g, 9)}} {
+	cursor := c.cursor(financialFixtureID, "positions", g, 1)
+	for _, in := range []FinancialContextPageInput{{ContextID: financialFixtureID, Section: "gaps", Cursor: cursor}, {ContextID: financialFixtureID, Section: "positions", Cursor: cursor + "x"}, {ContextID: financialFixtureID, Section: "positions", Cursor: c.cursor(financialOtherFixtureID, "positions", g, 1)}, {ContextID: financialFixtureID, Section: "positions", Cursor: c.cursor(financialFixtureID, "positions", g+1, 1)}, {ContextID: financialFixtureID, Section: "positions", Cursor: c.cursor(financialFixtureID, "positions", g, 9)}} {
 		if _, err := s.financialContextPage(t.Context(), g, in); err == nil {
 			t.Fatal("accepted wrong cursor", in)
 		}
 	}
 	now = now.Add(time.Minute)
-	page, err := s.financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: "id", Section: "positions", Cursor: cursor})
+	page, err := s.financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: financialFixtureID, Section: "positions", Cursor: cursor})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page.CacheExpiresAt != e.expires.UTC().Format(time.RFC3339Nano) {
+	if page.CapturedAt != result.CapturedAt.UTC().Format(time.RFC3339Nano) || !c.entries[financialFixtureID].expires.Equal(e.expires) {
 		t.Fatal("TTL renewed")
 	}
 	now = e.expires
-	if _, err = s.financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: "id", Section: "positions", Cursor: cursor}); err == nil {
+	if _, err = s.financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: financialFixtureID, Section: "positions", Cursor: cursor}); err == nil {
 		t.Fatal("expired cache served")
 	}
-	c.entries["id"] = e
+	c.entries[financialFixtureID] = e
 	c.bytes = 100
 	c.evictOldest()
 	if len(c.entries) != 0 || c.bytes != 0 {
@@ -337,12 +390,12 @@ func TestFinancialContextCacheExpiryEvictionCursorAndOversize(t *testing.T) {
 	}
 	result.Content.Positions[1].Name = strings.Repeat("\"\\", 40000)
 	e.result = result
-	if _, err = c.response("id", e, g, "positions", 1, 100); err == nil {
+	if _, err = c.contextSectionResponse(financialFixtureID, e, g, "positions", 1, 100); err == nil {
 		t.Fatal("oversized row accepted")
 	}
 	result.Content.Scope.AccountRefs = []string{strings.Repeat("x", contextWireLimit)}
 	e.result = result
-	if _, err = c.response("id", e, g, "", 0, 1); err == nil {
+	if _, err = c.response(financialFixtureID, e, g, FinancialInitialPageInput{Sections: financialSections, Limit: 25}); err == nil {
 		t.Fatal("oversized summary accepted")
 	}
 }
@@ -386,7 +439,7 @@ func TestFinancialContextRevocationPreventsInflightPublication(t *testing.T) {
 			g := s.contextGeneration
 			done := make(chan error, 1)
 			go func() {
-				_, err := s.buildFinancialContext(context.Background(), g, application.FinancialContextRequest{})
+				_, err := s.buildFinancialContext(context.Background(), g, FinancialContextInput{FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}})
 				done <- err
 			}()
 			<-port.captured
@@ -394,7 +447,7 @@ func TestFinancialContextRevocationPreventsInflightPublication(t *testing.T) {
 			case "disable":
 				_, err = s.Disable()
 			case "enable":
-				_, err = s.Enable(DirectoryWrite)
+				_, err = s.Enable(ReadWrite)
 			case "close":
 				s.Close()
 			case "restore":
@@ -426,7 +479,7 @@ func TestFinancialContextCancelledBuildAdmission(t *testing.T) {
 	s.contexts.builds <- struct{}{}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := s.buildFinancialContext(ctx, g, application.FinancialContextRequest{}); err == nil {
+	if _, err := s.buildFinancialContext(ctx, g, FinancialContextInput{FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}}); err == nil {
 		t.Fatal("cancelled queue admission accepted")
 	}
 	<-s.contexts.builds
@@ -453,7 +506,7 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := s.contextGeneration
-	if _, err = s.buildFinancialContext(t.Context(), g, application.FinancialContextRequest{}); err != nil {
+	if _, err = s.buildFinancialContext(t.Context(), g, FinancialContextInput{FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}}); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
@@ -462,7 +515,7 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 2)
-	if _, err = s.buildFinancialComparison(t.Context(), g, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); err != nil {
+	if _, err = s.buildFinancialComparison(t.Context(), g, FinancialComparisonInput{FinancialComparisonRequest: application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}, FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}}); err != nil {
 		t.Fatal(err)
 	}
 	copyPath := filepath.Join(dir, "copy.db")
@@ -579,11 +632,11 @@ func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
 	}
 	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: time.Now(), ContentHash: "hash", Content: content}, expires: time.Now().Add(contextTTL), size: 1}
 	s.contexts.mu.Lock()
-	s.contexts.entries["wire-id"] = entry
+	s.contexts.entries[financialFixtureID] = entry
 	s.contexts.bytes++
-	cursor := s.contexts.cursor("wire-id", "positions", s.contextGeneration, 0)
+	cursor := s.contexts.cursor(financialFixtureID, "positions", s.contextGeneration, 0)
 	s.contexts.mu.Unlock()
-	args := ReadPageInput{CaptureID: "wire-id", Section: "positions", Cursor: cursor, Limit: 100}
+	args := ReadPageInput{CaptureID: financialFixtureID, Section: "positions", Cursor: cursor, Limit: 100}
 	payload, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_read_page", "arguments": args}})
 	req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
 	req.Header.Set("Content-Type", "application/json")

@@ -59,7 +59,7 @@ func (s *Service) ReconciliationSessionReceipt(ctx context.Context, id string) (
 
 // This is receipt inspection only. It never executes an ID or relaxes the
 // payload-hash checks on actual submissions.
-func (s *Service) ReconciliationAdjustmentReceipt(ctx context.Context, id string) ([]domain.ChangePreview, error) {
+func (s *Service) ChangeBatchReceipt(ctx context.Context, id string) ([]domain.ChangePreview, error) {
 	mutation, err := domain.ParseMutationID(id)
 	if err != nil {
 		return nil, err

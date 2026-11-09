@@ -55,7 +55,7 @@ func TestDerivedCommitPlanOperationIDIsStable(t *testing.T) {
 func TestCommitPlanOperationIDIsOptionalOnlyThere(t *testing.T) {
 	t.Parallel()
 	s, _, _ := fixture(t)
-	registry := s.toolRegistry(LedgerWrite)
+	registry := s.toolRegistry(ReadWrite)
 	sawCommit := false
 	for _, definition := range registry.Definitions() {
 		root := schemaObject(t, definition.InputSchema)
@@ -79,7 +79,7 @@ func TestCommitPlanOperationIDIsOptionalOnlyThere(t *testing.T) {
 	if !sawCommit {
 		t.Fatal("commit_plan is not registered")
 	}
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	c := connect(t, s)
@@ -98,7 +98,7 @@ func TestCommitPlanOmittedOperationIDUsesDerivedReceipt(t *testing.T) {
 	}
 	args := map[string]any{"input": map[string]any{"planId": planID}}
 	receipt := commitPlanData(t, c, args)
-	if receipt["id"] != derived || receipt["tool"] != "commit_change" {
+	if receipt["id"] != derived || receipt["tool"] != "commit_batch" {
 		t.Fatalf("omitted commit = %v", receipt)
 	}
 	activityID := ledgerActivityID(t, receipt["result"].(map[string]any))
@@ -106,7 +106,7 @@ func TestCommitPlanOmittedOperationIDUsesDerivedReceipt(t *testing.T) {
 		t.Fatalf("omitted retry = %v", retry)
 	}
 	loaded := call(t, c, "get_operation", IDInput{ID: derived}, false)["data"].(map[string]any)
-	if loaded["id"] != derived || loaded["status"] != "succeeded" || loaded["tool"] != "commit_change" {
+	if loaded["id"] != derived || loaded["status"] != "succeeded" || loaded["tool"] != "commit_batch" {
 		t.Fatalf("get_operation = %v", loaded)
 	}
 	// Same planId with a different explicit operationId recovers the ledger
@@ -157,7 +157,7 @@ func TestCommitPlanDerivedIDConflictsWithExplicitReceipt(t *testing.T) {
 		t.Fatalf("collision posted: activities=%d cash=%s", ledgerActivityCount(t, fx.app), ledgerCash(t, c, fx.checking))
 	}
 	kept := call(t, c, "get_operation", IDInput{ID: stolen}, false)["data"].(map[string]any)
-	if kept["tool"] != "commit_change" || kept["status"] != "succeeded" {
+	if kept["tool"] != "commit_batch" || kept["status"] != "succeeded" {
 		t.Fatalf("explicit receipt replaced: %v", kept)
 	}
 	// The matching explicit id and input still replay that receipt.

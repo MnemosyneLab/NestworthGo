@@ -26,7 +26,7 @@ desktop, external-client and R2/live-ledger work are separate acceptance gates.
 
 ## Implemented minimal read interface
 
-All modes, including read_only and directory_write, expose these four tools
+Both permission modes expose these tools
 with readOnlyHint=true, destructiveHint=false and openWorldHint=false. They do
 not refresh providers, materialize analysis snapshots, create plans/receipts or
 invalidate existing ledger previews. Product names, account IDs, notes and
@@ -35,8 +35,7 @@ financial-context captures.
 
 | Tool | Input | Authority/result |
 | --- | --- | --- |
-| list_products | Optional accountId and includeClosed (default false) | ListProducts; GUI ProductDetailDTO array, including policy and active reservations |
-| get_product | id (committed contract UUID) | Product; same detail, revision and GUI action reasons |
+| get_products | Optional accountId, includeClosed, filter and sort for compact rows; or id for one committed contract | `view=summary` returns compact rows. An id defaults to detail with terms, policy, revision, GUI action reasons and paged reservations. |
 | list_product_operations | productId, optional limit | ListProductOperations; items/page plus metadata; get_read_page continues its signed nextCursor |
 | get_liquidity_overview | Optional customHorizonOn and includeEarlyWithdrawal | LiquidityOverview; entire GUI overview, evidence, assumptions and unresolved reservations |
 
@@ -86,7 +85,7 @@ due_unconfirmed changes display/availability, never automatically writes cash.
 
 ## Write interface and permissions
 
-All three previews are registered in ledger_write by their respective review units and commit through `commit_plan`:
+All three previews are registered in read_write by their respective review units and commit through `commit_plan`:
 
 | Preview | Accepted command |
 | --- | --- |
@@ -94,8 +93,7 @@ All three previews are registered in ledger_write by their respective review uni
 | preview_product_terms | productId, expectedRevision, complete GUI terms and policy |
 | preview_product_valuation | Open locked product, explicit original-currency amount and actual observation time |
 
-Only ledger_write may discover or invoke any of these previews or commits.
-directory_write must never authorize financial or product-policy writes.
+Only read_write may discover or invoke any of these previews or commits.
 Previews are local no-financial-write operations that may persist a private
 plan. Commit input is only operationId plus input.planId; no editable command,
 state hash, reservation IDs or explanation text is accepted as authorization.
@@ -174,7 +172,7 @@ precedence when both rate representations are supplied; previews display the
 resolved canonical annualRate. Prefer one representation. Blank/null handling
 follows shared GUI validation.
 The terms receipt returns the recorded-time ProductDTO and revision, not the
-complete detail's reservation array. Read get_product for current facts and
+complete detail's reservation array. Read get_products for current facts and
 complete reserve evidence. Money, including policy fees/early gross amounts, uses explicit decimal-string/
 currency encoding inside durable receipts. Terms evidence retains the complete
 normalized command with its payload SHA-256 and a canonical SHA-256 binding the
@@ -300,26 +298,23 @@ restarts when loading more detects a changed head. Terms, cash, reservation and
 archive changes can change eligibility without appending a history row.
 
 **GUI availability is not MCP permission.** `undo.allowed` does not grant
-ledger_write or provide MCP reservation restoration. Existing MCP lifecycle
+read_write or provide MCP reservation restoration. Existing MCP lifecycle
 restrictions and all preview/commit validation, reservation CAS, receipt retries
 and atomic writes still apply. See [the App history contract](product-operation-history.md).
 
 ## Scalable product and liquidity reads
 
-Use the bounded contracts on list_products, get_product and get_liquidity_overview.
-Legacy responses retain their current full shape. New filters/sort/limit require
-explicit paged mode. The complete envelope, cache/cursor/byte contracts and
-permission matrix are specified in [MCP integration](mcp.md#bounded-reads-mcp-read1).
+The product and liquidity tools use the shared bounded read envelope. See
+[MCP integration](mcp.md#bounded-reads-mcp-read2) for paging and cache rules.
 
-Product filters are productKinds/states/query, with accountId/includeClosed.
-Sort startOn (default desc), maturityOn, displayName or state, productId asc ties.
-Compact rows omit long terms/policy/note and reservations, retaining identity,
-principal/value/cost, state/revision and reservationCount. get_read_item
-{captureId,section:"products",id} returns full same-capture ProductDTO and action
-reasons plus reservations/<productId> cursor. get_product paged mode creates a
-single-product capture; reservations sort createdAt asc then reservationId asc.
-List captures advertise reservations lazily through item detail so their header
-does not grow with every product. No lifecycle/terms/valuation/history changes.
+`get_products` without an ID supports productKinds, states, query, accountId and
+includeClosed. Sort by startOn (default desc), maturityOn, displayName or state.
+Product ID breaks ties. Compact rows retain identity, principal, value, cost,
+state, revision and reservationCount. Use `get_read_item` with
+`{captureId, section:"products", id}` for full detail and reservations from the
+same capture. Pass an ID to `get_products` to capture one product. It defaults
+to detail with terms, policy, revision and a reservations page. Use
+`view=summary` for just its compact row. Reservation order is createdAt then ID.
 
 Liquidity preserves household buckets and unresolved reservations independently
 of source filtering. Filters combine accountIds, typed sourceRefs/sourceKinds,

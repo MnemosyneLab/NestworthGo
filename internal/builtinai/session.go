@@ -53,7 +53,7 @@ func New(shared Capabilities, page assistant.PageSelection, allowNavigation ...b
 // No analysis that maintains projections, network/provider reads, configuration, previews or writes.
 func allowed(name string) bool {
 	switch name {
-	case "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_snapshot", "get_read_page", "get_read_item":
+	case "compare_financial_context", "compare_financial_attribution", "get_financial_context", "get_financial_context_item", "get_overview", "list_accounts", "get_account_valuations", "get_read_page", "get_read_item":
 		return true
 	default:
 		return false
@@ -216,24 +216,24 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	}
 	// Validate this extra tool's empty argument object before dispatch.
 	var empty map[string]json.RawMessage
-	if !s.page.Valid() || s.page.Kind == "" || jsoncodec.Unmarshal(args, &empty) != nil || empty == nil || len(empty) != 0 {
+	if !s.page.Valid() || s.page.Kind == "" {
 		return nil, assistant.ErrUnavailable
+	}
+	if jsoncodec.Unmarshal(args, &empty) != nil || empty == nil || len(empty) != 0 {
+		return nil, agentcapability.ErrInvalidArguments
 	}
 	tool, input := "get_overview", json.RawMessage(`{}`)
 	switch s.page.Kind {
 	case "accounts":
 		tool = "list_accounts"
 	case "account":
-		tool = "get_account_snapshot"
-		input, _ = jsoncodec.Marshal(map[string]string{"id": s.page.AccountID})
+		tool = "get_account_valuations"
+		input, _ = jsoncodec.Marshal(map[string][]string{"accountIds": {s.page.AccountID}})
 	}
 	captured := time.Now().UTC()
 	result, err := s.read(ctx, tool, input)
 	if err != nil {
-		if budget := assistant.NormalizeBudgetFailure(err); budget != nil {
-			return nil, budget
-		}
-		return nil, assistant.ErrUnavailable
+		return nil, err
 	}
 	raw, err := jsoncodec.Marshal(struct {
 		Source     string                  `json:"source"`

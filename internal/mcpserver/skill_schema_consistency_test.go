@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"encoding/json"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -18,13 +18,13 @@ import (
 // registered tool, not a duplicated/schema-inferred approximation. State/ID/
 // permission/cursor validity is tested separately by real workflow regressions.
 var skillSchemaExamples = map[string]map[string][]string{
-	"accounts-and-instruments": {"create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}, "update_account": {"account-clear-note"}},
-	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
-	"cash-and-debt":            {"preview_change": {"income", "expense", "fx-conversion", "debt-payment"}},
+	"accounts-and-instruments": {"get_account_valuations": {"account-summary", "account-holdings"}, "get_read_item": {"account-evidence"}, "create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}, "update_account": {"account-clear-note"}},
+	"positions-and-trades":     {"preview_batch": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
+	"cash-and-debt":            {"preview_batch": {"income", "expense", "fx-conversion", "debt-payment"}},
 	"market-data":              {"import_market_data": {"fund-nav", "fx-reference", "withdraw-quote"}, "set_fx_source": {"fx-source"}},
 	"data-health":              {"get_data_repair_job": {"repair-progress", "repair-evidence"}},
 	"products": {
-		"list_products": {"product-list"}, "get_product": {"product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
+		"get_products": {"product-list", "product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
 	},
 	"product-lifecycle": {
 		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit"},
@@ -35,10 +35,10 @@ var skillSchemaExamples = map[string]map[string][]string{
 		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"}, "commit_plan": {"liquidity-policy-commit"},
 	},
 	"product-pages": {
-		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item"},
+		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "get_products": {"scale-products"}, "get_read_item": {"scale-product-item"},
 	},
 	"reconciliation-and-corrections": {
-		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_change": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
+		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_batch": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
 		"commit_plan": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
 	},
 	"analysis": {
@@ -61,7 +61,7 @@ var skillSchemaExamples = map[string]map[string][]string{
 
 func TestSkillAllToolExamplesMatchRegisteredSchemas(t *testing.T) {
 	s, _, _ := fixture(t)
-	registry := s.toolRegistry(LedgerWrite)
+	registry := s.toolRegistry(ReadWrite)
 	root := filepath.Join("..", "..", "skills", "nestworth", "references")
 	files, err := filepath.Glob(filepath.Join(root, "*.md"))
 	if err != nil {
@@ -166,7 +166,7 @@ func TestSkillToolInventoryCoversRegisteredTools(t *testing.T) {
 		}
 		text += "\n" + string(raw)
 	}
-	for _, tool := range s.toolRegistry(LedgerWrite).Definitions() {
+	for _, tool := range s.toolRegistry(ReadWrite).Definitions() {
 		if !regexp.MustCompile(`\b` + regexp.QuoteMeta(tool.Name) + `\b`).MatchString(text) {
 			t.Errorf("actual tool absent from skill references: %s", tool.Name)
 		}
@@ -175,7 +175,7 @@ func TestSkillToolInventoryCoversRegisteredTools(t *testing.T) {
 
 func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	s, _, _ := fixture(t)
-	if _, err := s.Enable(LedgerWrite); err != nil {
+	if _, err := s.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
@@ -195,14 +195,14 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if !strings.Contains(string(marketGuide), "Comparison pages default to 25 rows") || !strings.Contains(string(marketGuide), "get_read_page({cursor, limit?})") {
 		t.Error("market comparison guide differs from the shared default/continuation contract")
 	}
-	marketDefinition, err := s.toolRegistry(LedgerWrite).Definition("compare_market_data_import")
+	marketDefinition, err := s.toolRegistry(ReadWrite).Definition("compare_market_data_import")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(marketDefinition.Description, "Comparison pages default to 25 rows, maximum 100") || !strings.Contains(marketDefinition.Description, "get_read_page({cursor,limit?})") {
 		t.Error("market comparison discovery differs from its schema/runtime default and continuation")
 	}
-	definition, err := s.toolRegistry(LedgerWrite).Definition("compare_financial_attribution")
+	definition, err := s.toolRegistry(ReadWrite).Definition("compare_financial_attribution")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 			t.Fatal(err)
 		}
 		page := call(t, client, "get_read_page", ReadPageInput{CaptureID: captured.CaptureID, Section: "rows", Cursor: *captured.Sections["rows"].Page.NextCursor}, false)["data"].(map[string]any)
-		if len(page["items"].([]any)) != c.count || page["section"] != "rows" || page["contentHash"] != captured.ContentHash {
+		if len(page["items"].([]any)) != c.count || page["section"] != "rows" || page["captureId"] != captured.CaptureID {
 			t.Fatalf("%s default/identity differs: %v", c.kind, page)
 		}
 		for _, field := range []string{"summary", "sections", "query"} {
@@ -251,7 +251,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 		}
 		params.Cursor = page.NextCursor
 	}
-	if total != len(s.toolRegistry(LedgerWrite).Definitions()) || pages < 2 {
+	if total != len(s.toolRegistry(ReadWrite).Definitions()) || pages < 2 {
 		t.Fatal("incomplete tool discovery", total, pages)
 	}
 }

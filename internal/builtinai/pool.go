@@ -55,7 +55,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*mcpserver.InProcessSession,
 	}
 	mode := mcpserver.ReadOnly
 	if p.repository != nil {
-		mode = mcpserver.LedgerWrite
+		mode = mcpserver.ReadWrite
 	}
 	session, err := mcpserver.NewInProcessSession(ctx, p.app, p.directory, id, mode, nil, p.repository)
 	if err != nil {

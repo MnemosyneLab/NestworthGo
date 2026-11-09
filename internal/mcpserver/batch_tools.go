@@ -17,16 +17,17 @@ import (
 
 type BatchChangeInput struct {
 	Link     *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
-	Commands []history.ChangeCommandRequest `json:"commands" jsonschema:"One to 100 ledger commands in nondecreasing effective-time order. Same-time commands execute in array order. Omitted times share one frozen instant. No per-command mutationId."`
+	Commands []history.ChangeCommandRequest `json:"commands"`
 }
 
 type batchPlan struct {
-	Link      *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
-	Type      string                         `json:"type"`
-	ID        string                         `json:"id"`
-	Commands  []history.ChangeCommandRequest `json:"commands"`
-	Version   string                         `json:"version"`
-	ExpiresAt time.Time                      `json:"expiresAt"`
+	Link       *domain.ReconciliationLink     `json:"reconciliationLink,omitempty"`
+	Type       string                         `json:"type"`
+	ID         string                         `json:"id"`
+	MutationID string                         `json:"mutationId"`
+	Commands   []history.ChangeCommandRequest `json:"commands"`
+	Version    string                         `json:"version"`
+	ExpiresAt  time.Time                      `json:"expiresAt"`
 }
 
 type BatchPlanPreview struct {
@@ -42,7 +43,7 @@ type BatchChangeResult struct {
 }
 
 func (s *Service) batchTools(server *toolSet) {
-	readTool(server, "preview_batch", "Preview an atomic group of 1-100 ledger records (same kinds and fields as preview_change, including position_import and position_transfer); nothing posts. Commands must be in nondecreasing effective-time order (equal times keep array order; omitted times share one frozen instant), so earlier entries can fund later ones. For a buy or sell after a new, imported or transferred position, omit holdingId and give its account and instrument IDs. No directory creation or placeholder IDs; one invalid entry rejects the whole preview. Commit with commit_plan.", s.previewBatch)
+	readTool(server, "preview_batch", "Preview 1-100 completed ledger records atomically; nothing posts. Use exact decimal strings and explicit currencies. position_import uses original unit cost without a cash leg. position_transfer carries cost without profit. Commands must be in nondecreasing effective-time order (equal times keep array order; omitted times share one frozen instant), so earlier entries can fund later ones. For a buy or sell after a new, imported or transferred position, omit holdingId and give its settlementAccountId and instrumentId. No directory creation or placeholder IDs; one invalid entry rejects the whole preview. Commit with commit_plan.", s.previewBatch)
 }
 
 func batchInputError(index int, err error) error {
@@ -86,7 +87,8 @@ func (s *Service) previewBatch(ctx context.Context, in BatchChangeInput) (any, e
 			return nil, batchInputError(i, err)
 		}
 	}
-	plan := batchPlan{Link: in.Link, Type: "batch", ID: uuid.NewString(), Commands: commands, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
+	id := uuid.New()
+	plan := batchPlan{Link: in.Link, Type: "batch", ID: id.String(), MutationID: ledgerBatchMutationID(id, "batch"), Commands: commands, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
 		return nil, err
 	}
@@ -115,14 +117,51 @@ func (s *Service) batchCommands(ctx context.Context, requests []history.ChangeCo
 	return commands, nil
 }
 
+// Distinct plan families write separate mutation IDs in the same durable
+// change-batch table. A generic batch receipt cannot prove reconciliation.
+func ledgerBatchMutationID(planID uuid.UUID, family string) string {
+	namespace := uuid.NewSHA1(uuid.NameSpaceURL, []byte("nestworth:mcp:ledger_receipt:"+family))
+	return uuid.NewSHA1(namespace, []byte(planID.String())).String()
+}
+
+func (s *Service) recoverLedgerBatch(ctx context.Context, planID, family string, cause error) (any, error) {
+	if safeError(cause).Code != "operation_outcome_unknown" {
+		return nil, cause
+	}
+	id, err := uuid.Parse(planID)
+	if err != nil {
+		return nil, cause
+	}
+	receipt, err := s.app.ChangeBatchReceipt(ctx, ledgerBatchMutationID(id, family))
+	if err != nil {
+		return nil, err
+	}
+	if receipt == nil {
+		return nil, cause
+	}
+	return batchChangeResult(receipt), nil
+}
+
+func batchChangeResult(previews []domain.ChangePreview) BatchChangeResult {
+	result := BatchChangeResult{Changes: make([]wire.ChangePreviewDTO, len(previews))}
+	for i, preview := range previews {
+		result.Changes[i] = wire.FromChangePreview(preview)
+	}
+	return result
+}
+
 func (s *Service) commitBatch(ctx context.Context, in CommitChangeInput) (any, error) {
 	raw, err := s.loadPreviewPlan(in.PlanID, "batch")
 	if err != nil {
-		return nil, err
+		return s.recoverLedgerBatch(ctx, in.PlanID, "batch", err)
 	}
 	var plan batchPlan
 	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
+	}
+	id, err := uuid.Parse(plan.ID)
+	if err != nil || plan.MutationID != ledgerBatchMutationID(id, "batch") {
+		return nil, fail("stale_preview", "request a fresh ledger preview")
 	}
 	var result BatchChangeResult
 	err = s.app.WithWrite(ctx, func(ctx context.Context) error {
@@ -130,7 +169,7 @@ func (s *Service) commitBatch(ctx context.Context, in CommitChangeInput) (any, e
 		if err != nil {
 			return err
 		}
-		payload, err := jsoncodec.Marshal(BatchChangeInput{Commands: plan.Commands})
+		payload, err := jsoncodec.Marshal(BatchChangeInput{Commands: plan.Commands, Link: plan.Link})
 		if err != nil {
 			return err
 		}
@@ -139,14 +178,11 @@ func (s *Service) commitBatch(ctx context.Context, in CommitChangeInput) (any, e
 		if !time.Now().Before(plan.ExpiresAt) {
 			version = "expired"
 		}
-		previews, err := s.app.RecordChangesGuarded(domain.WithReconciliationLink(ctx, plan.Link), commands, plan.ID, hex.EncodeToString(digest[:]), version)
+		previews, err := s.app.RecordChangesGuarded(domain.WithReconciliationLink(ctx, plan.Link), commands, plan.MutationID, hex.EncodeToString(digest[:]), version)
 		if err != nil {
 			return err
 		}
-		result.Changes = make([]wire.ChangePreviewDTO, len(previews))
-		for i, preview := range previews {
-			result.Changes[i] = wire.FromChangePreview(preview)
-		}
+		result = batchChangeResult(previews)
 		return nil
 	})
 	return result, err

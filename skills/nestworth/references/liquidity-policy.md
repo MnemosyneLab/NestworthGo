@@ -3,7 +3,7 @@
 Read `get_liquidity_overview` in [products](products.md) and copy the exact
 `sourceRef` from a source row. Rules belong to an account value, one
 account/currency cash source, or one holding. They are never a global instrument
-setting. With `ledger_write`, discover `preview_save_liquidity_policy` and
+setting. With `read_write`, discover `preview_save_liquidity_policy` and
 `preview_reset_liquidity_policy`. Both plans commit with `commit_plan`. Neither
 is available with directory permission. For `policyOrigin: "assumed"`, create
 with expectedRevision 0. For an explicit policy, use its current revision.

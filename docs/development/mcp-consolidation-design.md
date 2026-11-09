@@ -135,7 +135,7 @@ result semantics:
 | One-date consistent summary, gaps, evidence | `get_financial_context` (+ `_item`) | frozen package, minimal or named disclosure |
 | Two-state difference | `compare_financial_context` | right minus left, never a return |
 | Two-state change with return attribution | `compare_financial_attribution` | may write derived snapshots, compatibility link |
-| Current GUI overview and account values | `get_overview`, `get_account_valuations`, `get_account_snapshot` | GUI calculations and filters |
+| Current GUI overview and account values | `get_overview`, `get_account_valuations` | GUI calculations and filters |
 | Historical endpoint view and trend | `get_historical_overview`, `get_historical_overview_series` | endpoint movement, not returns |
 | Period returns, income and expense | `analyze_period` (+ contribution, return-day, driver tools) | closed period, may refresh snapshots |
 
@@ -144,9 +144,9 @@ Mergeable on semantics:
 - `get_historical_overview` and `get_historical_overview_series` share filters,
   views and drill-down; a single tool with `{date, compareTo}` or `{from, to}`
   would work, at the cost of two result shapes under one name. Candidate, low risk.
-- `get_account_snapshot` and `get_account_valuations` overlap on current account
-  values and should be compared before deciding (open question: is the snapshot
-  a single-account projection of the same capture?).
+- Implemented: current account reads use `get_account_valuations` only, with
+  summary/holdings selection and one or many IDs. Both transports share the
+  mcp-read/2 protocol; no single-account alias remains.
 - `get_contribution_item`, `get_return_day`, `get_asset_driver_detail` are
   drill-downs of one report family. They could become `get_read_item` sections of
   the parent capture, which already exists for other families. This removes three

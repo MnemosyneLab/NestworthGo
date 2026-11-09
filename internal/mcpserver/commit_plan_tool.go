@@ -86,7 +86,7 @@ func (s *Service) commitPlanTool(server *toolSet) {
 		Name: "commit_plan",
 		Description: "Commit a stored preview with input.planId. operationId is optional only on this tool: omit it and the server derives UUID v5 from the canonical planId under namespace f1f65af0-bbb8-5d57-af9c-b624de715dcb (lowercase hyphenated plan UUID as name). An explicit operationId is stored and retried unchanged. planId is the atomic idempotency key. " +
 			"The same operationId and input return the saved receipt; a different input conflicts and does not post, including when a derived id already belongs to another explicit call or tool. The receipt tool names the plan kind. " +
-			"Ledger, batch, correction and managed-product plans deduplicate by planId and can recover with another operationId after expiry. Reconciliation can recover from its database receipt if the plan file is gone. " +
+			"Ledger, correction and managed-product plans deduplicate by planId and can recover with another operationId after expiry. Batch and reconciliation plans can recover from their own database receipts if the plan file is gone. " +
 			"Uncommitted stale or expired previews are rejected. Liquidity save/reset do not replay: a different explicit operationId on a used plan returns stale_preview, and pending or unknown receipts are not replayed. Missing plans without evidence return operation_outcome_unknown. " +
 			"If unclear, locally derive the omitted ID without resubmitting, call get_operation with that ID and read current data before a fresh preview. Unknown outcomes do not authorize blind retries.",
 		Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed},
@@ -110,14 +110,25 @@ func (s *Service) commitPlanTool(server *toolSet) {
 	})
 }
 
-// resolveCommitPlanRoute derives the commit family from the stored plan. When
-// the plan file is gone (expired and pruned) it falls back to the same durable
-// evidence the per-kind tools used: the operation receipt, then the database
-// receipts that make reconciliation commits recoverable.
+// A completed operation can replay even when its private plan is gone or
+// obsolete. executeWithRecovery still verifies the exact operation input hash.
+func routeForCommitReceipt(prior Operation) (commitPlanRoute, error) {
+	for _, route := range commitPlanRoutes {
+		if route.receiptTool == prior.Tool {
+			return route, nil
+		}
+	}
+	return commitPlanRoute{}, fail("conflict", "operationId was already used with different arguments")
+}
+
 func (s *Service) resolveCommitPlanRoute(ctx context.Context, operationID, planID string) (commitPlanRoute, error) {
 	id, err := uuid.Parse(planID)
 	if err != nil {
 		return commitPlanRoute{}, unsubmittedCapability{fail("validation", "planId must be a UUID returned by a preview tool")}
+	}
+	prior, receiptErr := s.GetOperation(operationID)
+	if receiptErr == nil && (prior.Status == "succeeded" || prior.Status == "failed") {
+		return routeForCommitReceipt(prior)
 	}
 	raw, err := s.readPrivate(filepath.Join(s.dir, "plans", id.String()+".json"))
 	if err == nil {
@@ -127,11 +138,23 @@ func (s *Service) resolveCommitPlanRoute(ctx context.Context, operationID, planI
 		if err = jsoncodec.Unmarshal(raw, &header); err != nil {
 			return commitPlanRoute{}, err
 		}
-		if header.Type == "" {
-			header.Type = "change" // persisted stage-2 single plans
-		}
 		route, ok := commitPlanRoutes[header.Type]
 		if !ok {
+			if receiptErr == nil {
+				// An unreadable plan cannot disprove a previously admitted write.
+				route, err := routeForCommitReceipt(prior)
+				if err != nil {
+					return commitPlanRoute{}, err
+				}
+				hash, err := operationHash(route.receiptTool, CommitChangeInput{PlanID: planID})
+				if err != nil {
+					return commitPlanRoute{}, err
+				}
+				if hash != prior.Hash {
+					return commitPlanRoute{}, fail("conflict", "operationId was already used with different arguments")
+				}
+				return commitPlanRoute{}, fail("operation_outcome_unknown", "reviewed plan unavailable; inspect the original operation receipt and current data")
+			}
 			return commitPlanRoute{}, unsubmittedCapability{fail("validation", "planId does not reference a committable preview plan")}
 		}
 		return route, nil
@@ -139,18 +162,16 @@ func (s *Service) resolveCommitPlanRoute(ctx context.Context, operationID, planI
 	if !errors.Is(err, os.ErrNotExist) {
 		return commitPlanRoute{}, err
 	}
-	if prior, readErr := s.GetOperation(operationID); readErr == nil {
-		for _, route := range commitPlanRoutes {
-			if route.receiptTool == prior.Tool {
-				return route, nil
-			}
+	if receiptErr == nil {
+		return routeForCommitReceipt(prior)
+	}
+	for _, family := range []string{"batch", "reconciliation"} {
+		receipt, lookupErr := s.app.ChangeBatchReceipt(ctx, ledgerBatchMutationID(id, family))
+		if lookupErr == nil && receipt != nil {
+			return commitPlanRoutes[family], nil
 		}
-		return commitPlanRoute{}, fail("conflict", "operationId was already used with different arguments")
 	}
-	if receipt, lookupErr := s.app.ReconciliationAdjustmentReceipt(ctx, planID); lookupErr == nil && receipt != nil {
-		return commitPlanRoutes["reconciliation"], nil
-	}
-	if receipt, lookupErr := s.app.ReconciliationSessionReceipt(ctx, planID); lookupErr == nil && receipt != nil {
+	if receipt, lookupErr := s.app.ReconciliationSessionReceipt(ctx, id.String()); lookupErr == nil && receipt != nil {
 		return commitPlanRoutes["reconciliation_session"], nil
 	}
 	return commitPlanRoute{}, fail("operation_outcome_unknown", "reviewed plan unavailable; inspect the operation receipt and current data; do not replace an unknown submission")

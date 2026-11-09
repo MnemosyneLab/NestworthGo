@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
@@ -25,31 +26,19 @@ type ErrorRecoveryResult struct {
 // Hints are conservative navigation, never authority to replay or create a new
 // financial intention. Unknown results retain their original code/message.
 func errorRecovery(err apierror.WireError) ErrorRecoveryResult {
-	hint := RecoveryHint{Action: "inspect_error"}
+	action := agentcapability.ReadRetryAction(err.Code, err.Field)
+	if action == "stop" {
+		action = "inspect_error"
+	}
+	hint := RecoveryHint{Action: action}
 	switch err.Code {
 	case "read_expired", "read_revoked", "context_expired", "context_revoked":
-		hint.Action = "restart_read"
 		hint.DiscardCapture = true
-	case "stale_cursor":
-		hint.Action = "restart_read"
 	case "conflict":
-		if err.Field == "cursor" {
-			hint.Action = "restart_read"
-		} else {
-			hint.Action = "inspect_current_state"
-			hint.PreserveIntent = true
-		}
+		hint.PreserveIntent = err.Field != "cursor"
 	case "operation_outcome_unknown", "operation_pending", "operation_unknown", "stale_preview", "integrity_failed":
 		hint.Action = "inspect_operation_and_current_state"
 		hint.PreserveIntent = true
-	case "validation":
-		hint.Action = "correct_input"
-	case "too_large":
-		hint.Action = "inspect_limits_or_narrow_read"
-	case "read_busy", "backup_restore_busy":
-		hint.Action = "retry_later"
-	case "not_found":
-		hint.Action = "inspect_current_state"
 	}
 	return ErrorRecoveryResult{SchemaVersion: "mcp-error/1", Error: err, Recovery: hint}
 }

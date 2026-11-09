@@ -28,7 +28,7 @@ func (fullReadInventory) Call(context.Context, string, json.RawMessage) (json.Ra
 }
 
 func TestFullReadPreservesEvidenceAndAccountNavigation(t *testing.T) {
-	for _, name := range []string{"list_accounts", "get_account_snapshot", "get_read_page"} {
+	for _, name := range []string{"list_accounts", "get_account_valuations", "get_read_page"} {
 		for _, action := range []string{"open_page", "open_return_trend"} {
 			t.Run(name+"/"+action, func(t *testing.T) {
 				accountID := uuid.NewString()

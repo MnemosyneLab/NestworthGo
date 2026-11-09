@@ -24,18 +24,25 @@ func TestFakeProviderFullDirectWrite(t *testing.T) {
 	app, _, accountID, db := ledgerSessionDatabase(t)
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		inventory := encode(request["tools"])
-		if !strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
-			t.Error("wrong Full inventory")
-		}
 		if round == 0 {
+			if strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, loadToolGroups) {
+				t.Error("initial catalog exposed an unloaded write or omitted discovery")
+			}
+			writeMode(w, request, []any{loadGroupsCall(round, "changes")})
+			return
+		}
+		if !strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
+			t.Error("wrong Full inventory after group load")
+		}
+		if round == 1 {
 			writeMode(w, request, []any{liveCallItem(round, "execute_ledger_change", obj{"kind": "money_added", "accountId": accountID, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"})})
 			return
 		}
-		if round == 1 {
+		if round == 2 {
 			if !strings.Contains(latestToolOutput(t, request), "succeeded") {
 				t.Error("missing actual receipt")
 			}
-			writeMode(w, request, []any{liveCallItem(round, "get_account_snapshot", obj{"id": accountID})})
+			writeMode(w, request, []any{liveCallItem(round, "get_account_valuations", obj{"accountIds": []string{accountID}})})
 			return
 		}
 		writeMode(w, request, []any{textItem()})
@@ -79,11 +86,15 @@ func TestFakeProviderFullDirectWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := waitAssistantRun(t, ipc, q)
-	if len(view.Runs[0].Tools) != 2 || view.Runs[0].Tools[0].Source != "execute_ledger_change" || view.Runs[0].Tools[1].Source != "get_account_snapshot" || view.Runs[0].Tools[0].State != "succeeded" || view.Runs[0].Tools[1].State != "succeeded" || !strings.Contains(view.Runs[0].Tools[0].Input, "12.34") || !strings.Contains(view.Runs[0].Tools[0].Output, "succeeded") {
+	if len(view.Runs[0].Tools) != 3 || view.Runs[0].Tools[0].Source != loadToolGroups {
+		t.Fatalf("missing Full discovery sequence: %+v", view.Runs[0].Tools)
+	}
+	operation := view.Runs[0].Tools[1:]
+	if operation[0].Source != "execute_ledger_change" || operation[1].Source != "get_account_valuations" || operation[0].State != "succeeded" || operation[1].State != "succeeded" || !strings.Contains(operation[0].Input, "12.34") || !strings.Contains(operation[0].Output, "succeeded") {
 		t.Fatalf("Full/read sequence lost: %+v", view.Runs[0].Tools)
 	}
 	saved, err := store.Load()
-	if err != nil || len(saved.Conversations[0].Runs[0].Run.Tools) != 2 {
+	if err != nil || len(saved.Conversations[0].Runs[0].Run.Tools) != 3 {
 		t.Fatalf("tool details not durable: %+v %v", saved, err)
 	}
 	rows, err := app.ListActivities(t.Context(), 10)
@@ -101,14 +112,21 @@ func TestFakeProviderFullDirectoryWrite(t *testing.T) {
 	operationID := uuid.NewString()
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		inventory := encode(request["tools"])
-		if !strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
-			t.Error("wrong Full inventory")
-		}
 		if round == 0 {
+			if strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, loadToolGroups) {
+				t.Error("initial catalog exposed an unloaded write or omitted discovery")
+			}
+			writeMode(w, request, []any{loadGroupsCall(round, "changes")})
+			return
+		}
+		if !strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
+			t.Error("wrong Full inventory after group load")
+		}
+		if round == 1 {
 			writeMode(w, request, []any{liveCallItem(round, "create_member", obj{"operationId": operationID, "input": obj{"name": "Synthetic Full member"}})})
 			return
 		}
-		if round == 1 {
+		if round == 2 {
 			if !strings.Contains(latestToolOutput(t, request), "succeeded") {
 				t.Error("missing actual receipt")
 			}
@@ -156,11 +174,15 @@ func TestFakeProviderFullDirectoryWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := waitAssistantRun(t, ipc, q)
-	if len(view.Runs[0].Tools) != 2 || view.Runs[0].Tools[0].Source != "create_member" || view.Runs[0].Tools[1].Source != "get_operation" || view.Runs[0].Tools[0].State != "succeeded" || view.Runs[0].Tools[1].State != "succeeded" || !strings.Contains(view.Runs[0].Tools[0].Input, "Synthetic Full member") || !strings.Contains(view.Runs[0].Tools[0].Output, "succeeded") {
+	if len(view.Runs[0].Tools) != 3 || view.Runs[0].Tools[0].Source != loadToolGroups {
+		t.Fatalf("missing Full discovery sequence: %+v", view.Runs[0].Tools)
+	}
+	operation := view.Runs[0].Tools[1:]
+	if operation[0].Source != "create_member" || operation[1].Source != "get_operation" || operation[0].State != "succeeded" || operation[1].State != "succeeded" || !strings.Contains(operation[0].Input, "Synthetic Full member") || !strings.Contains(operation[0].Output, "succeeded") {
 		t.Fatalf("Full/read sequence lost: %+v", view.Runs[0].Tools)
 	}
 	saved, err := store.Load()
-	if err != nil || len(saved.Conversations[0].Runs[0].Run.Tools) != 2 {
+	if err != nil || len(saved.Conversations[0].Runs[0].Run.Tools) != 3 {
 		t.Fatalf("tool details not durable: %+v %v", saved, err)
 	}
 	rows, err := app.ListMembers(t.Context(), false)
@@ -213,6 +235,10 @@ func TestFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			input := obj{"kind": "money_added", "accountId": accountID, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
 			var rounds atomic.Int32
 			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+				if round == 0 {
+					writeMode(w, request, []any{loadGroupsCall(round, "changes")})
+					return
+				}
 				rounds.Add(1)
 				// Deliberately retry on any recovered tool refusal; no prompt compliance.
 				writeMode(w, request, []any{liveCallItem(round, "execute_ledger_change", input)})
@@ -324,6 +350,10 @@ func TestSharedFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			input := obj{"operationId": uuid.NewString(), "input": obj{"name": "Synthetic shared failure"}}
 			var rounds atomic.Int32
 			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+				if round == 0 {
+					writeMode(w, request, []any{loadGroupsCall(round, "changes")})
+					return
+				}
 				rounds.Add(1)
 				// Deliberately retry on any recovered tool refusal; no prompt compliance.
 				writeMode(w, request, []any{liveCallItem(round, "create_member", input)})

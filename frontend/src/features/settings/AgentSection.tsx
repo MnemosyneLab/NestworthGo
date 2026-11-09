@@ -16,7 +16,6 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
   const operations = useAgentOperations(active);
   const client = useQueryClient();
   const [mode, setMode] = useState<string | null>(null);
-  const [reviewChoice, setReviewChoice] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<string | null>(null);
@@ -26,9 +25,6 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
   // Collapse transient plaintext on panel exit; keep permission and request state.
   if (!active && connection !== null) { setConnection(null); setCopied(false); }
   const selected = mode ?? status.data?.mode ?? "read_only";
-  const savedReview = status.data?.investmentReviewManagement === true;
-  const reviewSelected = reviewChoice ?? savedReview;
-  const reviewChanged = selected === "ledger_write" && reviewSelected !== savedReview;
   async function run(action: () => Promise<unknown>) {
     if (request.current || !active) return;
     request.current = true; onBusyChange?.(true);
@@ -38,15 +34,9 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
     finally { request.current = false; setBusy(false); }
   }
   const running = status.data?.running === true;
-  const permissionChanged = running && (selected !== status.data?.mode || reviewChanged);
-  async function applyPermissions() {
-    if (selected === "ledger_write" && reviewSelected !== savedReview) {
-      await callService(() => AgentService.SetInvestmentReviewManagement(reviewSelected));
-    }
-    if (!running || selected !== status.data?.mode) {
-      await callService(() => AgentService.Enable(selected));
-    }
-    setReviewChoice(null);
+  const permissionChanged = running && selected !== status.data?.mode;
+  function applyPermissions() {
+    return callService(() => AgentService.Enable(selected));
   }
   return <SecurityOperationRegion className="contents"><section id="settings-agent" aria-labelledby="settings-agent-title" className="@container space-y-5">
     <header className="space-y-2">
@@ -87,18 +77,10 @@ export function AgentSection({ active = true, onBusyChange }: { active?: boolean
           <div className="flex items-center gap-2"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /><Label htmlFor="agent-mode" className="text-sm font-semibold">{t("agent.permission")}</Label></div>
           <NativeSelect id="agent-mode" className="min-w-0 w-full @min-[32rem]:w-auto @min-[32rem]:min-w-48" value={selected} disabled={busy} aria-describedby="agent-permission-help" onChange={(event) => setMode(event.target.value)}>
             <option value="read_only">{t("agent.readOnly")}</option>
-            <option value="directory_write">{t("agent.directoryWrite")}</option>
-            <option value="ledger_write">{t("agent.ledgerWrite")}</option>
+            <option value="read_write">{t("agent.readWrite")}</option>
           </NativeSelect>
         </div>
-        <p id="agent-permission-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t(selected === "ledger_write" ? "agent.ledgerHelp" : selected === "directory_write" ? "agent.writeHelp" : "agent.readHelp")}</p>
-        {selected === "ledger_write" && <div className="space-y-2 border-t border-border pt-4">
-          <Label htmlFor="agent-review-management" className="flex items-start gap-2 text-sm font-semibold">
-            <input id="agent-review-management" type="checkbox" className="mt-0.5 size-4 accent-primary" checked={reviewSelected} disabled={busy} aria-describedby="agent-review-management-help" onChange={(event) => setReviewChoice(event.target.checked)} />
-            {t("agent.reviewManagement")}
-          </Label>
-          <p id="agent-review-management-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("agent.reviewManagementHelp")}</p>
-        </div>}
+        <p id="agent-permission-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t(selected === "read_write" ? "agent.writeHelp" : "agent.readHelp")}</p>
         {permissionChanged && <div className="flex flex-col gap-3 border-t border-border pt-4 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:justify-between">
           <p className="text-xs text-muted-foreground">{t("agent.permissionChangeHelp")}</p>
           <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(applyPermissions)}>{t("agent.apply")}</Button>

@@ -10,11 +10,11 @@ import (
 // String fields share one schema. The kind oneOf stays a list of required
 // names: copying each field schema into every branch would repeat it. Fields
 // the handler rejects for every kind are not advertised.
-func slimPreviewChangeSchema(s *jsonschema.Schema) {
+func slimLedgerCommandSchema(s *jsonschema.Schema) {
 	if s == nil || s.Properties == nil {
 		return
 	}
-	for _, name := range []string{"added", "mutationId", "newValue", "newValueCurrency"} {
+	for _, name := range []string{"added", "mutationId", "newValue", "newValueCurrency", "reconciliationLink"} {
 		delete(s.Properties, name)
 	}
 	sharePlainStringProperties(s)

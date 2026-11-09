@@ -29,18 +29,23 @@ func TestPagedStandaloneProductRequiresCanonicalIdentity(t *testing.T) {
 	for _, id := range []string{"", " ", "not-a-uuid"} {
 		args := map[string]any{"id": id}
 		before := len(fx.service.reads.entries)
-		call(t, c, "get_product", args, true)
+		call(t, c, "get_products", args, true)
 		if len(fx.service.reads.entries) != before {
 			t.Fatal("invalid single-get built a list capture")
 		}
 	}
 	for _, input := range []string{strings.ToUpper(ids[0]), "  " + strings.ToUpper(ids[0]) + "  "} {
-		cap := scaleCapture(t, c, "get_product", map[string]any{"id": input, "limit": 1})
-		products := scaleSection(t, c, cap, "products")
+		cap := scaleCapture(t, c, "get_products", map[string]any{"id": input, "limit": 1})
+		if _, ok := cap["sections"].(map[string]any)["products"]; ok {
+			t.Fatal("detail duplicates the compact product row")
+		}
+		compact := scaleCapture(t, c, "get_products", map[string]any{"id": input, "view": "summary"})
+		products := scaleSection(t, c, compact, "products")
 		if len(products) != 1 || products[0].(map[string]any)["id"] != ids[0] {
 			t.Fatal("single-get became list")
 		}
-		if cap["query"].(map[string]any)["id"] != ids[0] {
+		stored := fx.service.reads.entries[cap["captureId"].(string)]
+		if stored.Query.(map[string]any)["id"] != ids[0] {
 			t.Fatal("query identity not canonical")
 		}
 		summary := cap["summary"].(map[string]any)
@@ -51,8 +56,13 @@ func TestPagedStandaloneProductRequiresCanonicalIdentity(t *testing.T) {
 			t.Fatal("canonical reservation entrance missing")
 		}
 	}
+	for _, args := range []map[string]any{
+		{"id": nil}, {"view": "detail"}, {"id": ids[0], "includeClosed": true}, {"id": ids[0], "filter": map[string]any{}},
+	} {
+		call(t, c, "get_products", args, true)
+	}
 	empty := domain.ProductContractID("")
-	if _, err := fx.service.pagedProducts(t.Context(), fx.service.contextGeneration, ProductListInput{}, &empty); err == nil {
+	if _, err := fx.service.pagedProducts(t.Context(), fx.service.contextGeneration, ProductReadInput{}, &empty); err == nil {
 		t.Fatal("internal empty single-get became list")
 	}
 }

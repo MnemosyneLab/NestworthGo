@@ -45,7 +45,7 @@ func comparisonFixture(t *testing.T, s *Service, app *application.Service) domai
 }
 func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
 			first := comparisonFixture(t, s, app)
@@ -53,7 +53,7 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 			client := connect(t, s)
-			initial := decodeComparison(t, call(t, client, "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}, false))
+			initial := decodeComparison(t, call(t, client, "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current", "limit": 1}, false))
 			if initial.ComparisonID == "" || initial.Content.Change.NetWorth.Value == nil || *initial.Content.Change.NetWorth.Value != "0" {
 				t.Fatal(initial)
 			}
@@ -73,7 +73,7 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 				got := rows[section]
 				for info.HasMore {
 					page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{Cursor: info.NextCursor, Limit: 2}, false))
-					if page.ContentHash != initial.ContentHash || page.CacheExpiresAt != initial.CacheExpiresAt || page.Content.Change.NetWorth.Value != nil {
+					if page.ComparisonID != initial.ComparisonID || page.CapturedAt != initial.CapturedAt || page.Content.Change.NetWorth.Value != nil {
 						t.Fatal(page)
 					}
 					_, nextRows := skillPageState(t, page)
@@ -126,32 +126,32 @@ func TestFinancialComparisonCacheBoundsRevocationAndAdmission(t *testing.T) {
 	s := &Service{contexts: c}
 	result := application.FinancialComparisonResult{CapturedAt: now, ContentHash: "hash", Content: application.FinancialComparisonContent{Positions: []application.FinancialComparisonPosition{{Ref: "a"}, {Ref: "b"}}}}
 	entry := cachedFinancialContext{comparison: &result, expires: now.Add(contextTTL), size: 100}
-	c.entries["id"] = entry
+	c.entries[financialFixtureID] = entry
 	c.bytes = 100
-	cursor := c.cursor("id", "positions", g, 1)
-	for _, in := range []FinancialComparisonPageInput{{ComparisonID: "id", Section: "gaps", Cursor: cursor}, {ComparisonID: "id", Section: "positions", Cursor: cursor + "x"}, {ComparisonID: "id", Section: "positions", Cursor: c.cursor("id", "positions", g+1, 1)}, {ComparisonID: "id", Section: "positions", Cursor: c.cursor("id", "positions", g, 9)}} {
+	cursor := c.cursor(financialFixtureID, "positions", g, 1)
+	for _, in := range []FinancialComparisonPageInput{{ComparisonID: financialFixtureID, Section: "gaps", Cursor: cursor}, {ComparisonID: financialFixtureID, Section: "positions", Cursor: cursor + "x"}, {ComparisonID: financialFixtureID, Section: "positions", Cursor: c.cursor(financialFixtureID, "positions", g+1, 1)}, {ComparisonID: financialFixtureID, Section: "positions", Cursor: c.cursor(financialFixtureID, "positions", g, 9)}} {
 		if _, err := s.financialComparisonPage(t.Context(), g, in); err == nil {
 			t.Fatal("accepted invalid cursor")
 		}
 	}
 	now = entry.expires
-	if _, err := s.financialComparisonPage(t.Context(), g, FinancialComparisonPageInput{ComparisonID: "id", Section: "positions", Cursor: cursor}); err == nil {
+	if _, err := s.financialComparisonPage(t.Context(), g, FinancialComparisonPageInput{ComparisonID: financialFixtureID, Section: "positions", Cursor: cursor}); err == nil {
 		t.Fatal("expired served")
 	}
 	result.Content.Positions[1].Left = &application.FinancialContextPosition{Name: strings.Repeat("\"\\", 40000)}
-	if _, err := c.comparisonResponse("id", entry, g, "positions", 1, 50); err == nil {
+	if _, err := c.comparisonSectionResponse(financialFixtureID, entry, g, "positions", 1, 50); err == nil {
 		t.Fatal("oversized row")
 	}
 	result.Content.Left.Scope.AccountRefs = []string{strings.Repeat("x", contextWireLimit)}
-	if _, err := c.comparisonResponse("id", entry, g, "", 0, 1); err == nil {
+	if _, err := c.comparisonResponse(financialFixtureID, entry, g, FinancialInitialPageInput{Sections: financialSections, Limit: 25}); err == nil {
 		t.Fatal("oversized summary")
 	}
-	c.entries["id"] = entry
+	c.entries[financialFixtureID] = entry
 	c.bytes = 100
 	if err := s.RevokeForRestore(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.financialComparisonPage(t.Context(), g, FinancialComparisonPageInput{ComparisonID: "id", Section: "positions", Cursor: cursor}); err == nil {
+	if _, err := s.financialComparisonPage(t.Context(), g, FinancialComparisonPageInput{ComparisonID: financialFixtureID, Section: "positions", Cursor: cursor}); err == nil {
 		t.Fatal("revoked served")
 	}
 	g = c.activate()
@@ -159,7 +159,7 @@ func TestFinancialComparisonCacheBoundsRevocationAndAdmission(t *testing.T) {
 	c.builds <- struct{}{}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := s.buildFinancialComparison(ctx, g, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); err == nil {
+	if _, err := s.buildFinancialComparison(ctx, g, FinancialComparisonInput{FinancialComparisonRequest: application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}, FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}}); err == nil {
 		t.Fatal("cancelled admission")
 	}
 	<-c.builds
@@ -195,7 +195,7 @@ func TestFinancialComparisonRevocationPreventsInflightPublication(t *testing.T) 
 			g := s.contextGeneration
 			done := make(chan error, 1)
 			go func() {
-				_, err := s.buildFinancialComparison(context.Background(), g, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"})
+				_, err := s.buildFinancialComparison(context.Background(), g, FinancialComparisonInput{FinancialComparisonRequest: application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}, FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}})
 				done <- err
 			}()
 			<-port.captured
@@ -203,7 +203,7 @@ func TestFinancialComparisonRevocationPreventsInflightPublication(t *testing.T) 
 			case "disable":
 				_, err = s.Disable()
 			case "enable":
-				_, err = s.Enable(DirectoryWrite)
+				_, err = s.Enable(ReadWrite)
 			case "close":
 				s.Close()
 			case "restore":

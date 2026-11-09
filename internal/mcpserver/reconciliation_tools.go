@@ -53,13 +53,14 @@ type reconciliationCommand struct {
 }
 
 type reconciliationPlan struct {
-	Link      *domain.ReconciliationLink  `json:"reconciliationLink,omitempty"`
-	Type      string                      `json:"type"`
-	ID        string                      `json:"id"`
-	Targets   []ReconciliationTargetInput `json:"targets"`
-	Commands  []reconciliationCommand     `json:"commands"`
-	Version   string                      `json:"version"`
-	ExpiresAt time.Time                   `json:"expiresAt"`
+	Link       *domain.ReconciliationLink  `json:"reconciliationLink,omitempty"`
+	Type       string                      `json:"type"`
+	ID         string                      `json:"id"`
+	MutationID string                      `json:"mutationId"`
+	Targets    []ReconciliationTargetInput `json:"targets"`
+	Commands   []reconciliationCommand     `json:"commands"`
+	Version    string                      `json:"version"`
+	ExpiresAt  time.Time                   `json:"expiresAt"`
 }
 
 type ReconciliationPlanPreview struct {
@@ -225,7 +226,8 @@ func (s *Service) previewReconciliation(ctx context.Context, in ReconciliationIn
 	if err := s.app.ValidateReconciliationLink(ctx, in.Link, previews); err != nil {
 		return nil, err
 	}
-	plan := reconciliationPlan{Link: in.Link, Type: "reconciliation", ID: uuid.NewString(), Targets: in.Targets, Commands: saved, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
+	id := uuid.New()
+	plan := reconciliationPlan{Link: in.Link, Type: "reconciliation", ID: id.String(), MutationID: ledgerBatchMutationID(id, "reconciliation"), Targets: in.Targets, Commands: saved, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
 		return nil, err
 	}
@@ -239,25 +241,15 @@ func (s *Service) previewReconciliation(ctx context.Context, in ReconciliationIn
 func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput) (any, error) {
 	raw, err := s.loadPreviewPlan(in.PlanID, "reconciliation")
 	if err != nil {
-		if safeError(err).Code != "operation_outcome_unknown" {
-			return nil, err
-		}
-		receipt, lookupErr := s.app.ReconciliationAdjustmentReceipt(ctx, in.PlanID)
-		if lookupErr != nil {
-			return nil, lookupErr
-		}
-		if receipt != nil {
-			result := BatchChangeResult{Changes: make([]wire.ChangePreviewDTO, len(receipt))}
-			for i, v := range receipt {
-				result.Changes[i] = wire.FromChangePreview(v)
-			}
-			return result, nil
-		}
-		return nil, err
+		return s.recoverLedgerBatch(ctx, in.PlanID, "reconciliation", err)
 	}
 	var plan reconciliationPlan
 	if err := jsoncodec.Unmarshal(raw, &plan); err != nil {
 		return nil, err
+	}
+	id, err := uuid.Parse(plan.ID)
+	if err != nil || plan.MutationID != ledgerBatchMutationID(id, "reconciliation") {
+		return nil, fail("stale_preview", "request a fresh reconciliation preview")
 	}
 	var result BatchChangeResult
 	err = s.app.WithWrite(ctx, func(ctx context.Context) error {
@@ -290,14 +282,11 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 		if !time.Now().Before(plan.ExpiresAt) {
 			version = "expired"
 		}
-		previews, err := s.app.RecordChangesGuarded(domain.WithReconciliationLink(ctx, plan.Link), commands, plan.ID, hex.EncodeToString(digest[:]), version)
+		previews, err := s.app.RecordChangesGuarded(domain.WithReconciliationLink(ctx, plan.Link), commands, plan.MutationID, hex.EncodeToString(digest[:]), version)
 		if err != nil {
 			return err
 		}
-		result.Changes = make([]wire.ChangePreviewDTO, len(previews))
-		for i, preview := range previews {
-			result.Changes[i] = wire.FromChangePreview(preview)
-		}
+		result = batchChangeResult(previews)
 		return nil
 	})
 	return result, err

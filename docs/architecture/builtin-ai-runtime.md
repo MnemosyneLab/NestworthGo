@@ -11,7 +11,7 @@ reconnect or implicit retry model calls. Desktop writes default off. The UI perm
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
-Full exposes the existing MCP LedgerWrite registry, including preview/commit,
+Full exposes the existing MCP ReadWrite registry, including preview/commit,
 directory, investment, reconciliation, market-data and repair capabilities, plus
 the scoped generic page operations described below. Unrestricted UI automation
 and mobile model access remain unavailable. Existing explicit
@@ -31,7 +31,7 @@ restart; onboarding does not silently activate it.
 
 Each live conversation owns a direct `InProcessSession` through
 `builtinai.Pool`; the installed desktop uses a durable configuration repository
-and a host-owned `LedgerWrite` session, while the model adapter retains its
+and a host-owned `ReadWrite` session, while the model adapter retains its
 fixed read allowlist by default, or the complete shared registry through the separately enabled Full callback. The model
 never receives the host review methods. Read-only test/integration pools remain
 `ReadOnly` when no repository is supplied. The engine and credential lease remain per-run. This
@@ -46,7 +46,7 @@ Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
 `internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
 `get_financial_context`, `get_financial_context_item`,
-`get_overview`, `list_accounts`, `get_account_snapshot`, `get_read_page` and
+`get_overview`, `list_accounts`, `get_account_valuations`, `get_read_page` and
 `get_read_item`, `compare_financial_context` and `compare_financial_attribution`.
 Continuations use `get_read_page`; the former explicit-scope financial page tools
 were removed. It adds `get_current_page` only for supported
@@ -72,11 +72,12 @@ disabling remains available during a run. Every mode change revokes existing
 capability sessions and navigation grants. A failed permission-state save closes
 Full access. No model argument, chat approval or restored history enables it.
 
-Full discovery reuses the complete `LedgerWrite` registry and its exact input
+Full discovery reuses the complete `ReadWrite` registry and its exact input
 schemas, descriptions and effects. Dispatch uses that same in-process registry;
 there is no loopback HTTP, duplicate financial implementation or additional
-per-write approval. The Full grant includes the seven investment-review management writers (82 shared tools including the 75-tool baseline). External MCP
-transport, its independent investment-review-management opt-in, permission modes, schemas and operation namespaces are unchanged.
+per-write approval. Full and external MCP read-write mode share the same
+79-tool registry, including investment-review management. External MCP has
+its own permission setting, credentials and operation namespace.
 The #248 atomic directory edit fix is part of this baseline. The legacy
 `execute_ledger_change` cash/transfer convenience tool remains available for
 existing conversations, using its original host preview/commit flow.
@@ -117,7 +118,7 @@ Mac GUI acceptance remains separate from Linux, jsdom and provider tests.
 The reviewed-write mode, `SetWritePermission`, `ReviewAction` and
 `propose_cash_change` have been removed. The sole desktop setter is
 `SetFullAccess`: false is Read-only, true enables the existing shared MCP
-LedgerWrite registry. It does not introduce a per-action approval step.
+ReadWrite registry. It does not introduce a per-action approval step.
 Permission is never persisted; existing configuration and conversations reopen
 in Read-only, without enabling writes from history or old model text.
 
@@ -300,12 +301,14 @@ message only after terminal success, full item/framing validation and clean EOF.
 The whole call inventory is checked before dispatch; a response mixing a valid
 read with an unavailable tool dispatches neither. Cancellation after `response.completed`
 but before EOF also dispatches nothing. Provisional text is displayed separately and never authorizes a tool or advances history. There is no SDK request retry, automatic run replay,
-remote checkpoint, compactor or summary replacement. A refused controlled tool
-returns a fixed model-visible error without implementation details or financial
-facts. Within the existing 8-round/16-call budget, the model can re-capture an
-initial read and restart its relevant pages; it cannot revive expired references,
-combine old/new capture IDs or widen permissions/disclosure. Provider/framing,
-context cancellation and invalid/oversized result failures still fail closed.
+remote checkpoint, compactor or summary replacement. A refused read returns an
+allowlisted code, an optional allowlisted field name and a fixed `retryAction`.
+Validation asks for corrected input; expired or revoked captures ask for a
+same-scope restart; oversize and busy reads have their own guidance. Permission,
+session and unexpected errors stop the attempted read. No original error text or
+financial facts enter model history. Write recovery still requires receipt
+inspection when the outcome is uncertain. Provider/framing, context cancellation
+and invalid/oversized result failures still fail closed.
 
 A successful checkpoint retains the complete Eino messages, native output groups,
 opaque reasoning, tool call/result order and provider/model identity. It is never
@@ -315,10 +318,15 @@ instructions; current mode policy is appended at the end of prior history before
 the new user message only on the first turn or when the latest system snapshot
 differs from the current host policy. Unchanged mode adds no snapshot; current
 execution authority is still rebuilt every run. Version-1 provider checkpoints migrate that first policy
-once; version 2 retains a metadata-only Full catalog high-water mark. Desktop
-catalog definitions stay stable across page changes and, after the first Full
-upgrade, permission downgrades. The execution map and wire `allowed_tools` still
-contain only the current run's tools. No catalog marker restores Full authority.
+once; version 2 retains a metadata-only Full catalog high-water mark for the
+stable core. The model can use `load_tool_groups` to append task-specific schemas
+from the current execution map. Group selection is validated before loading,
+available from the next model response, and reset at the start of the next turn.
+Loading uses the existing 8-round/16-call budget. Catalog and saved history
+confer no authority: `allowed_tools` and the pre-dispatch check admit only
+currently permitted tools exposed in that response. External MCP clients still
+discover the full registry allowed by their current permission through
+`tools/list`; the built-in loader is specific to the desktop model loop.
 See [prompt-prefix stability and measured tradeoffs](../development/ai-prompt-cache.md).
 Assistant-native outputs and opaque reasoning remain byte-preserved; old capability claims cannot
 suppress newly installed features or grant removed authority. Changing models cannot silently reuse the old model's
@@ -401,7 +409,7 @@ and optional canonical account UUID. It is an untrusted data-selection hint from
 the desktop, not proof of the visible page and not a scoped principal. Runtime
 admission rejects unsupported kinds and binds the selection into request dedup.
 `get_current_page` resolves a new shared `get_overview`, `list_accounts` or
-`get_account_snapshot` capture, with backend capture time and tool source. IDs are
+`get_account_valuations` capture, with backend capture time and tool source. IDs are
 validated against the live household. Client metrics, labels, filters, permission
 claims and routes are never sent through this selector. The separate internal
 `read_page_content` tool below exposes supported semantic presentation facts. The model must not claim exact visible-screen

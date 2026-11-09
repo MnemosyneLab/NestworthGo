@@ -328,13 +328,13 @@ it("collapses MCP configuration while retaining the permission draft", async () 
   renderPage();
   await screen.findByRole("combobox", { name: "Appearance" });
   await selectTab("AI · MCP");
-  await userEvent.selectOptions(await screen.findByLabelText("Agent permissions"), "directory_write");
+  await userEvent.selectOptions(await screen.findByLabelText("Agent permissions"), "read_write");
   await userEvent.click(screen.getByRole("button", { name: "Show connection configuration" }));
   expect(await screen.findByRole("textbox", { name: "MCP connection configuration" })).toHaveValue('{"token":"synthetic-secret"}');
   await selectTab("About");
   await selectTab("AI · MCP");
   expect(screen.queryByRole("textbox", { name: "MCP connection configuration" })).not.toBeInTheDocument();
-  expect(screen.getByLabelText("Agent permissions")).toHaveValue("directory_write");
+  expect(screen.getByLabelText("Agent permissions")).toHaveValue("read_write");
 });
 
 it("locks switching through async local inspection, resets preview on cancel, and returns focus", async () => {

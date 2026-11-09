@@ -37,7 +37,7 @@ current state. The same operationId and identical input return the original
 receipt. Changed input conflicts. Pending or unknown must be checked with
 `get_operation` and fresh reads before another intentional operation. There is
 no automatic replay across the business-write and outer-receipt crash window.
-Metadata requires directory_write or ledger_write. No generic arbitrary
+Metadata requires read_write. No generic arbitrary
 executor, provider refresh or financial posting is introduced.
 
 <!-- example: scale-metadata -->

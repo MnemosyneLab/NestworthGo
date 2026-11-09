@@ -400,8 +400,8 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
               <ChoiceMenu label={t("aiChat.permission")} icon={permissionFull ? ShieldAlert : ShieldCheck} tone={permissionFull ? "warning" : "default"} iconOnly
                 value={permissionFull ? "full" : "readOnly"}
                 options={[
-                  { value: "readOnly", label: t("aiChat.readOnly"), description: t("aiChat.readOnlyHint") },
-                  { value: "full", label: t("aiChat.full"), description: t("aiChat.fullHint") },
+                  { value: "readOnly", label: t("agent.readOnly"), description: t("aiChat.readOnlyHint") },
+                  { value: "full", label: t("agent.readWrite"), description: t("aiChat.fullHint") },
                 ]}
                 disabled={busy || (!permissionFull && (!status.data?.available || running || stale))}
                 onChange={value => changeFullAccess(value === "full")} />

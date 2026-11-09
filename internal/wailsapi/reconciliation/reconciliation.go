@@ -188,7 +188,7 @@ func (s *Service) CommitAdjustment(ctx context.Context, id string) ([]wire.Chang
 	if e != nil {
 		raw, err := s.app.LoadReconciliationPlan(ctx, "adjustment", id)
 		if err != nil {
-			receipt, lookupErr := s.app.ReconciliationAdjustmentReceipt(ctx, id)
+			receipt, lookupErr := s.app.ChangeBatchReceipt(ctx, id)
 			if lookupErr != nil {
 				return nil, apierror.Wrap(lookupErr)
 			}

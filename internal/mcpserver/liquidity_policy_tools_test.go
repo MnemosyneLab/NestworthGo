@@ -48,7 +48,7 @@ func assertPolicyGUIParity(t *testing.T, fx ledgerFixture, c *mcp.ClientSession)
 func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -62,10 +62,10 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 			found[tool.Name] = tool
 		}
 		for _, name := range []string{"preview_save_liquidity_policy", "preview_reset_liquidity_policy", "commit_plan"} {
-			if (found[name] != nil) != (mode == LedgerWrite) {
+			if (found[name] != nil) != (mode == ReadWrite) {
 				t.Fatalf("%s %s", mode, name)
 			}
-			if mode != LedgerWrite {
+			if mode != ReadWrite {
 				// An unknown tool ends the HTTP session, so probe it on a throwaway client.
 				probe := connect(t, fx.service)
 				r, e := probe.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
@@ -91,7 +91,7 @@ func TestLiquidityPolicyHTTPPermissionsAndSchema(t *testing.T) {
 			}
 		}
 		caps, _ := jsoncodec.Marshal(call(t, c, "get_context", Empty{}, false)["data"].(map[string]any)["capabilities"])
-		if strings.Contains(string(caps), "liquidity_policy_write") != (mode == LedgerWrite) {
+		if strings.Contains(string(caps), "liquidity_policy_write") != (mode == ReadWrite) {
 			t.Fatal(string(caps))
 		}
 	}
@@ -111,7 +111,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 	holdings := batchHoldings(t, c, fx.brokerage)
 	holding := holdings[0].(map[string]any)["id"].(string)
 	call(t, c, "import_market_data", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{map[string]any{"instrumentId": fx.instrument, "currency": "USD", "kind": "latest", "value": "20", "quotedAt": "2026-09-29T12:00:00Z", "sourceTitle": "Synthetic price"}}}}, false)
-	factsBefore := sectionEvidence(t, c, "get_overview", Empty{})
+	factsBefore := sectionEvidence(t, c, "get_overview", OverviewReadInput{Sections: overviewSections})
 	holdingsBefore := batchHoldings(t, c, fx.brokerage)
 
 	refs := []liquidity.SourceRefDTO{{Kind: "account_value", AccountID: fx.checking}, {Kind: "account_cash", AccountID: fx.brokerage, Currency: productString("USD")}, {Kind: "holding", AccountID: fx.brokerage, HoldingID: &holding}}
@@ -202,7 +202,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 			}
 		})
 	}
-	if !reflect.DeepEqual(factsBefore, sectionEvidence(t, c, "get_overview", Empty{})) || !reflect.DeepEqual(holdingsBefore, batchHoldings(t, c, fx.brokerage)) {
+	if !reflect.DeepEqual(factsBefore, sectionEvidence(t, c, "get_overview", OverviewReadInput{Sections: overviewSections})) || !reflect.DeepEqual(holdingsBefore, batchHoldings(t, c, fx.brokerage)) {
 		t.Fatal("policy workflow changed ledger/valuation facts")
 	}
 }

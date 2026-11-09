@@ -56,7 +56,7 @@ func TestMarketComparisonSummaryAndFocusedFrozenDetails(t *testing.T) {
 		t.Fatal(e)
 	}
 	detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: second.ClientItemID})
-	if detail["contentHash"] != cap["contentHash"] || detail["expiresAt"] != cap["expiresAt"] {
+	if detail["captureId"] != cap["captureId"] || detail["expiresAt"] != cap["expiresAt"] {
 		t.Fatal("focused detail recaptured or renewed TTL")
 	}
 	row := detail["summary"].(map[string]any)["result"].(map[string]any)
@@ -70,8 +70,8 @@ func TestMarketComparisonSummaryAndFocusedFrozenDetails(t *testing.T) {
 	if _, ok := row["reason"]; ok {
 		t.Fatal("prior result reason leaked")
 	}
-	if detail["summary"].(map[string]any)["globalEvidenceDelivered"] != false {
-		t.Fatal("focused item claimed global delivery")
+	if len(detail["summary"].(map[string]any)) != 1 {
+		t.Fatal("focused item repeats static delivery metadata")
 	}
 	for name, raw := range detail["sections"].(map[string]any) {
 		section := raw.(map[string]any)

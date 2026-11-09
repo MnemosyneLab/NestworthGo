@@ -79,15 +79,34 @@ func newLedgerFixtureWithApp(t *testing.T, app *application.Service, clock func(
 
 func ledgerSession(t *testing.T, fx ledgerFixture) *mcp.ClientSession {
 	t.Helper()
-	if _, err := fx.service.Enable(LedgerWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	return connect(t, fx.service)
 }
 
+func singleLedgerInput(request map[string]any) map[string]any {
+	command := make(map[string]any, len(request))
+	for key, value := range request {
+		if key != "reconciliationLink" {
+			command[key] = value
+		}
+	}
+	input := map[string]any{"commands": []any{command}}
+	if link, ok := request["reconciliationLink"]; ok {
+		input["reconciliationLink"] = link
+	}
+	return input
+}
+
 func ledgerPreview(t *testing.T, c *mcp.ClientSession, request map[string]any) map[string]any {
 	t.Helper()
-	data := call(t, c, "preview_change", request, false)["data"].(map[string]any)
+	return ledgerPreviewInput(t, c, singleLedgerInput(request))
+}
+
+func ledgerPreviewInput(t *testing.T, c *mcp.ClientSession, input map[string]any) map[string]any {
+	t.Helper()
+	data := call(t, c, "preview_batch", input, false)["data"].(map[string]any)
 	if _, err := uuid.Parse(data["planId"].(string)); err != nil {
 		t.Fatalf("invalid plan ID: %v", data)
 	}
@@ -105,12 +124,19 @@ func ledgerCommit(t *testing.T, c *mcp.ClientSession, operationID, planID string
 	if data["status"] != "succeeded" {
 		t.Fatalf("commit receipt: %v", data)
 	}
-	return data["result"].(map[string]any)
+	return singletonLedgerResult(data["result"].(map[string]any))
+}
+
+func singletonLedgerResult(result map[string]any) map[string]any {
+	if changes, ok := result["changes"].([]any); ok && len(changes) == 1 {
+		return changes[0].(map[string]any)
+	}
+	return result
 }
 
 func ledgerActivityID(t *testing.T, result map[string]any) string {
 	t.Helper()
-	activity := result["activity"].(map[string]any)
+	activity := singletonLedgerResult(result)["activity"].(map[string]any)
 	id, ok := activity["id"].(string)
 	if !ok || id == "" {
 		t.Fatalf("missing activity ID: %v", result)
@@ -153,7 +179,7 @@ func ledgerErrorCode(t *testing.T, c *mcp.ClientSession, name string, arguments 
 
 func ledgerAmount(t *testing.T, c *mcp.ClientSession, accountID, currency string) string {
 	t.Helper()
-	snapshot := call(t, c, "get_account_snapshot", IDInput{ID: accountID}, false)["data"].(map[string]any)
+	snapshot := call(t, c, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{accountID}}, false)["data"].(map[string]any)
 	snapshot = scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: snapshot["captureId"].(string), Section: "accounts", ID: accountID})
 	for _, raw := range scaleSection(t, c, snapshot, "components/"+accountID) {
 		component := raw.(map[string]any)
@@ -173,7 +199,7 @@ func ledgerCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 func TestLedgerToolsRequireOptIn(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
 			t.Fatal(err)
 		}
@@ -186,14 +212,14 @@ func TestLedgerToolsRequireOptIn(t *testing.T) {
 		for _, tool := range listed.Tools {
 			found[tool.Name] = true
 		}
-		if found["preview_change"] != (mode == LedgerWrite) || found["commit_plan"] != (mode == LedgerWrite) {
+		if found["preview_change"] || found["preview_batch"] != (mode == ReadWrite) || found["commit_plan"] != (mode == ReadWrite) {
 			t.Fatalf("mode=%s ledger tools=%v", mode, found)
 		}
 		if found["create_account"] != (mode != ReadOnly) {
 			t.Fatalf("mode=%s directory permission=%v", mode, found["create_account"])
 		}
-		if mode != LedgerWrite {
-			for _, name := range []string{"preview_change", "commit_plan"} {
+		if mode != ReadWrite {
+			for _, name := range []string{"preview_batch", "commit_plan"} {
 				_, err := c.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 				if err == nil {
 					t.Fatalf("%s accepted %s", mode, name)
@@ -207,7 +233,7 @@ func TestLedgerToolsRequireOptIn(t *testing.T) {
 	if err := resumed.Resume(); err != nil {
 		t.Fatal(err)
 	}
-	if got := resumed.Status(); !got.Running || got.Mode != LedgerWrite {
+	if got := resumed.Status(); !got.Running || got.Mode != ReadWrite {
 		t.Fatalf("ledger opt-in did not persist: %+v", got)
 	}
 }
@@ -315,8 +341,8 @@ func TestLedgerTransferFXAndDebtBalances(t *testing.T) {
 	if cash, debt := ledgerCash(t, c, fx.checking), ledgerCash(t, c, fx.debt); cash != "568" || debt != "200" {
 		t.Fatalf("debt payment cash=%s debt=%s", cash, debt)
 	}
-	call(t, c, "preview_change", map[string]any{"kind": "money_removed", "accountId": fx.checking, "amount": "9999", "currency": "USD", "reason": "expense", "effectiveAt": at}, true)
-	call(t, c, "preview_change", map[string]any{"kind": "fx_conversion", "accountId": fx.brokerage, "sold": "1", "soldCurrency": "USD", "bought": "1", "boughtCurrency": "EUR", "fee": "1", "effectiveAt": at}, true)
+	call(t, c, "preview_batch", singleLedgerInput(map[string]any{"kind": "money_removed", "accountId": fx.checking, "amount": "9999", "currency": "USD", "reason": "expense", "effectiveAt": at}), true)
+	call(t, c, "preview_batch", singleLedgerInput(map[string]any{"kind": "fx_conversion", "accountId": fx.brokerage, "sold": "1", "soldCurrency": "USD", "bought": "1", "boughtCurrency": "EUR", "fee": "1", "effectiveAt": at}), true)
 	if got := ledgerActivityCount(t, fx.app); got != 6 {
 		t.Fatalf("invalid previews posted activities: %d", got)
 	}
@@ -347,7 +373,7 @@ func TestLedgerPlanRejectsStaleAndExpiredCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var plan changePlan
+	var plan batchPlan
 	if err = jsoncodec.Unmarshal(raw, &plan); err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +414,7 @@ func TestLedgerUnknownReceiptRecoversAfterExpiryAndRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var saved changePlan
+	var saved batchPlan
 	if err = jsoncodec.Unmarshal(raw, &saved); err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +460,7 @@ func TestLedgerHistoricalReplayAndUnionValidation(t *testing.T) {
 		{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z", "effectiveLocalDate": "2026-09-20", "effectiveLocalTime": "12:00"},
 		{"kind": "position_adjustment", "holdingId": uuid.NewString(), "quantity": "1"},
 	} {
-		call(t, c, "preview_change", invalid, true)
+		call(t, c, "preview_batch", singleLedgerInput(invalid), true)
 	}
 	if got := ledgerActivityCount(t, fx.app); got != 3 {
 		t.Fatalf("invalid preview posted %d activities", got)
@@ -467,7 +493,7 @@ func TestLedgerOmittedTimeIsFrozenAtPreview(t *testing.T) {
 	c := ledgerSession(t, fx)
 	before := time.Now().Add(-time.Second)
 	plan := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "10", "currency": "USD", "reason": "income"})
-	command := plan["command"].(map[string]any)
+	command := plan["commands"].([]any)[0].(map[string]any)
 	frozen, err := time.Parse(time.RFC3339Nano, command["effectiveAt"].(string))
 	if err != nil || frozen.Before(before) || frozen.After(time.Now().Add(time.Second)) {
 		t.Fatalf("frozen preview time=%s err=%v", command["effectiveAt"], err)

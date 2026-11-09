@@ -55,6 +55,7 @@ func TestBoundedReadEvictionFixedTTLAndImmutableInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	expiry := c.entries[r.CaptureID].expires
 	cursor := *r.Sections["items"].Page.NextCursor
 	rows[1] = json.RawMessage(`"changed"`)
 	query["filter"] = nil
@@ -63,7 +64,7 @@ func TestBoundedReadEvictionFixedTTLAndImmutableInput(t *testing.T) {
 	if err != nil || string(p.Items[0]) != `"b"` {
 		t.Fatal("capture input mutable", err)
 	}
-	if p.ExpiresAt != r.ExpiresAt {
+	if !c.entries[r.CaptureID].expires.Equal(expiry) {
 		t.Fatal("TTL renewed")
 	}
 	for range readCacheCount {
@@ -87,7 +88,7 @@ func TestBoundedReadRestoreAndPermissionRevocation(t *testing.T) {
 	if _, err := fx.service.reads.page(g, ReadPageInput{CaptureID: id, Section: "instruments", Cursor: "anything"}); err == nil || !strings.Contains(err.Error(), "read_revoked") {
 		t.Fatal(err)
 	}
-	if _, err := fx.service.Enable(DirectoryWrite); err != nil {
+	if _, err := fx.service.Enable(ReadWrite); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fx.service.reads.page(g, ReadPageInput{CaptureID: id, Section: "instruments", Cursor: "anything"}); err == nil || !strings.Contains(err.Error(), "read_revoked") {
@@ -111,7 +112,7 @@ func TestBoundedReadOptionsAndRetiredModes(t *testing.T) {
 			t.Fatalf("retired mode remains discoverable on %s", tool.Name)
 		}
 	}
-	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data", "list_members", "list_institutions", "list_groups", "list_accounts", "get_overview", "get_account_valuations", "scan_data_health", "preview_data_repair"} {
+	for _, name := range []string{"get_liquidity_overview", "get_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data", "list_members", "list_institutions", "list_groups", "list_accounts", "get_overview", "get_account_valuations", "scan_data_health", "preview_data_repair"} {
 		scaleCapture(t, c, name, map[string]any{"limit": 0})
 		for _, mode := range []string{"paged", "full", "legacy", ""} {
 			call(t, c, name, map[string]any{"responseMode": mode}, true)

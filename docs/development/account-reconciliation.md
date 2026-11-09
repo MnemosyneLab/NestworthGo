@@ -173,7 +173,8 @@ not a restorable application database or MCP session.
 ## API and interaction boundaries
 
 Read permissions expose list_reconciliation_sessions, get_reconciliation_session,
-get_reconciliation_session_page and get_reconciliation_item. Only ledger_write
+get_reconciliation_session_page and get_reconciliation_item. The session header
+includes the first compact item page, with its continuation through get_read_page. Only `read_write`
 registers preview_reconciliation_session; its plan commits with commit_plan.
 Directory permission never authorizes attestations. A preview_reconciliation plan
 continues to mean a financial target adjustment, not session completion. Atomic

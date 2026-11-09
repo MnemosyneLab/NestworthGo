@@ -1,6 +1,6 @@
 # Record a completed managed-product fact
 
-Discover `preview_product_operation` and `commit_plan` only with ledger_write.
+Discover `preview_product_operation` and `commit_plan` only with read_write.
 Read the contract first in [products](products.md). GUI permittedActions describe
 GUI options. Tool discovery and permission govern MCP. These tools record facts
 already completed. They never send bank instructions. Open, record_existing,
@@ -83,7 +83,7 @@ explicit id is stored and retried unchanged. Reuse that same id and input to
 recover an interruption. The same plan with a new explicit operationId returns
 the original immutable business receipt and does not post again. Call
 `get_operation` with the id you sent, or the [locally derived ID](recovery.md#recovering-when-operationid-was-omitted) when you omitted it.
-`list_product_operations` returns business operation UUIDs. `get_product` reads
+`list_product_operations` returns business operation UUIDs. `get_products` reads
 current facts. See [recovery](recovery.md).
 
 Undo preserves the original events and adds compensation at the reviewed time.

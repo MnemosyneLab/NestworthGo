@@ -38,8 +38,8 @@ func TestGreetingThenCurrentFinancialContext(t *testing.T) {
 			w.Header().Set("Content-Type", "text/event-stream")
 			fmt.Fprint(w, sse(es))
 		case 2:
-			input := encode(request["input"])
-			if !strings.Contains(input, "contentHash") || strings.Contains(input, "controlled_read_refused") {
+			output := latestToolOutput(t, request)
+			if !strings.Contains(output, `"contextId"`) || strings.Contains(output, `"retryAction"`) {
 				t.Error("financial read did not reach next request")
 			}
 			item := textItem()

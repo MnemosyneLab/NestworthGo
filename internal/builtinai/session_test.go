@@ -138,7 +138,7 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 			t.Fatal("extra tool exposed")
 		}
 	}
-	for _, name := range []string{"commit_plan", "preview_change", "get_context", "get_market_data", "analyze_period", "start_data_repair"} {
+	for _, name := range []string{"commit_plan", "preview_batch", "get_context", "get_market_data", "analyze_period", "start_data_repair"} {
 		if _, err := session.Call(t.Context(), name, []byte(`{}`)); err == nil {
 			t.Fatalf("extra authority: %s", name)
 		}
@@ -205,12 +205,12 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	}
 	detail := New(shared, assistant.PageSelection{Kind: "account", AccountID: accountID})
 	raw, err = detail.Call(t.Context(), "get_current_page", []byte(`{}`))
-	if err != nil || !strings.Contains(string(raw), "get_account_snapshot") {
+	if err != nil || !strings.Contains(string(raw), "get_account_valuations") {
 		t.Fatal("account detail failed", err)
 	}
 	unknown := New(shared, assistant.PageSelection{Kind: "account", AccountID: uuid.NewString()})
-	if _, err := unknown.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
-		t.Fatal("nonexistent account accepted")
+	if raw, err := unknown.Call(t.Context(), "get_current_page", []byte(`{}`)); err != nil || !strings.Contains(string(raw), `"matchedAccountCount":0`) {
+		t.Fatal("nonexistent account did not return an empty valuation", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

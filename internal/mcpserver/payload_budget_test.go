@@ -199,7 +199,7 @@ func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 func connectPayload(t *testing.T, s *Service) (*mcp.ClientSession, *payloadRecorder) {
 	t.Helper()
-	if _, e := s.Enable(LedgerWrite); e != nil {
+	if _, e := s.Enable(ReadWrite); e != nil {
 		t.Fatal(e)
 	}
 	cfg, e := s.Connection()
@@ -244,7 +244,7 @@ func payloadSection(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 	page := part["page"].(map[string]any)
 	for page["hasMore"] == true {
 		next := scaleCapture(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: section, Cursor: page["nextCursor"].(string), Limit: 100})
-		if next["contentHash"] != cap["contentHash"] {
+		if next["captureId"] != cap["captureId"] {
 			t.Fatal("mixed issue capture")
 		}
 		items := next["items"].([]any)
@@ -262,8 +262,7 @@ func payloadSection(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 func TestMCPPayloadBudgetsRepresentative(t *testing.T) { runPayloadBudgets(t, false) }
 func runPayloadBudgets(t *testing.T, large bool) {
 	f := newPayloadHousehold(t, large)
-	// This journey calls review management tools. Default discovery hides them.
-	enableInvestmentReviewManagement(t, f.service)
+
 	c, rec := connectPayload(t, f.service)
 	tools, err := listAllTools(t.Context(), c)
 	if err != nil {
@@ -291,7 +290,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	t.Logf("discovery registered=%d raw-HTTP-JSON-RPC-bytes=%d reconstructed-JSON-RPC-bytes=%d", len(tools.Tools), rawDiscoveryBytes, len(discovery))
 	measureCompactReadJourneys(t, c, rec, f)
 	// Management and catalog (including note-preserving full item retrieval).
-	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{}, "list_institutions": map[string]any{}, "list_groups": map[string]any{}, "list_instruments": map[string]any{}, "list_holdings": map[string]any{"accountId": f.brokerage}, "get_account_snapshot": IDInput{f.brokerage}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{}, "preview_data_repair": map[string]any{}} {
+	for name, args := range map[string]any{"get_context": Empty{}, "get_catalog": Empty{}, "list_members": map[string]any{}, "list_institutions": map[string]any{}, "list_groups": map[string]any{}, "list_instruments": map[string]any{}, "list_holdings": map[string]any{"accountId": f.brokerage}, "get_account_valuations": AccountValuationReadInput{AccountIDs: []string{f.brokerage}}, "get_market_data": map[string]any{"instrumentId": f.instrument}, "scan_data_health": map[string]any{}, "preview_data_repair": map[string]any{}} {
 		call(t, c, name, args, false)
 	}
 	start := rec.total()
@@ -363,7 +362,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		count := page.Returned
 		for page.HasMore {
 			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{CaptureID: context.ContextID, Section: section, Cursor: page.NextCursor, Limit: 100}, false))
-			if next.ContentHash != context.ContentHash {
+			if next.ContextID != context.ContextID || next.CapturedAt != context.CapturedAt {
 				t.Fatal("mixed financial context")
 			}
 			switch section {
@@ -428,8 +427,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	if cursor, ok := activities["page"].(map[string]any)["nextCursor"].(string); ok {
 		call(t, c, "get_read_page", map[string]any{"cursor": cursor, "limit": 5}, false)
 	}
-	// The bounded primary current overview is equivalent to every GUI field,
-	// including evidence/labels, using ordinary default requests.
+	// The compact default and opt-in evidence preserve the GUI results.
 	start = rec.total()
 	guiOverview, err := portfolio.NewService(f.app).Overview(t.Context(), account.AccountFilterRequest{})
 	if err != nil {
@@ -442,15 +440,24 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	overviewStart := rec.total()
 	boundedOverview := scaleCapture(t, c, "get_overview", map[string]any{})
 	initialOverviewBytes := rec.total().Bytes - overviewStart.Bytes
-	if initialOverviewBytes > 32<<10 {
+	if initialOverviewBytes > 8<<10 {
 		t.Fatalf("current overview initial summary grew to %d bytes", initialOverviewBytes)
 	}
 	t.Logf("current overview first page raw-HTTP-JSON-RPC-bytes=%d", initialOverviewBytes)
-	for section := range boundedOverview["sections"].(map[string]any) {
-		rows := payloadSection(t, c, boundedOverview, section)
+	if boundedOverview["sections"] != nil {
+		t.Fatal("overview summary unexpectedly delivered detail")
+	}
+	withSections := scaleCapture(t, c, "get_overview", map[string]any{"sections": overviewSections})
+	for _, section := range overviewSections {
+		rows := payloadSection(t, c, withSections, section)
 		featureJSONEqual(t, rows, wantOverview[section])
 		delete(wantOverview, section)
-		wantOverview[section+"Count"] = len(rows)
+		if section == "missingInputs" {
+			wantOverview["missingInputsCount"] = len(rows)
+		}
+	}
+	for _, key := range []string{"assets", "liabilities", "netWorth"} {
+		delete(wantOverview, key)
 	}
 	wantOverview["totalsScope"] = "request_account_filters"
 	featureJSONEqual(t, boundedOverview["summary"], wantOverview)
@@ -461,9 +468,9 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	ledgerCommit(t, c, op, plan["planId"].(string))
 	call(t, c, "get_operation", IDInput{op}, false)
 	product, _ := productDataSeed(t, f.ledgerFixture, c, "locked_product")
-	products := scaleCapture(t, c, "list_products", map[string]any{})
+	products := scaleCapture(t, c, "get_products", map[string]any{})
 	scaleSection(t, c, products, "products")
-	call(t, c, "get_product", map[string]any{"id": product}, false)
+	call(t, c, "get_products", map[string]any{"id": product}, false)
 	call(t, c, "list_product_operations", map[string]any{"productId": product}, false)
 	liquidity := scaleCapture(t, c, "get_liquidity_overview", map[string]any{})
 	scaleSection(t, c, liquidity, "sources")

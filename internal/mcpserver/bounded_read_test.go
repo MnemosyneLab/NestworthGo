@@ -58,7 +58,7 @@ func TestBoundedReadCompletenessAndFrozenRetry(t *testing.T) {
 		t.Fatalf("total %d", total)
 	}
 	now = now.Add(readTTL)
-	if _, err := c.page(7, ReadPageInput{r.CaptureID, "items", c.cursor(r.CaptureID, "items", c.entries[r.CaptureID], 0), 25}); err == nil || !strings.Contains(err.Error(), "read_expired") {
+	if _, err := c.page(7, ReadPageInput{r.CaptureID, "items", c.cursor(r.CaptureID, "items", 0), 25}); err == nil || !strings.Contains(err.Error(), "read_expired") {
 		t.Fatalf("expiry %v", err)
 	}
 }

@@ -157,9 +157,8 @@ reason, duplicateGroup and batchConflict. Comparison pages default to 25 rows,
 maximum 100, and stop sooner at the 64 KiB final response budget. Continue the
 results cursor with get_read_page({cursor, limit?}) to finish batch classification
 delivery. For complete bulk evidence, request limit=100 upfront and on
-continuations. Server-computed counts and comparisonComputedFromCompleteEvidence do not mean details were delivered.
-Detailed section totals/cursors remain visible with zero delivered rows and
-evidenceDelivery=deferred. Never present unread evidence as empty or complete.
+continuations. Status counts cover the full comparison. Section descriptors
+with zero returned rows and a continuation identify deferred evidence.
 
 Use `get_read_item` with the SAME captureId, section=results and id=clientItemId
 for one original input, normalized comparison, current policy/impact, related

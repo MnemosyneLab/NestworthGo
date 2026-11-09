@@ -1,6 +1,6 @@
 # Page managed products and liquidity sources
 
-Use these filters on `list_products` and `get_liquidity_overview` after the
+Use these filters on `get_products` and `get_liquidity_overview` after the
 read steps in [products](products.md). Shared capture, cursor and expiry rules
 are in [paging and batches](paging-and-batches.md). Continue with
 `get_read_page({cursor, limit?})`.
@@ -57,7 +57,7 @@ states and query. Sort startOn (default desc), maturityOn, displayName or state,
 with productId ascending as the tie. Rows are explicit compact summaries with
 reservationCount. `get_read_item` section products returns the full ProductDTO,
 actions and reasons from that capture. reservations/<productId> pages sort
-createdAt ascending, then reservationId ascending. `get_product` returns bounded
+createdAt ascending, then reservationId ascending. `get_products` returns bounded
 pages. Do not substitute summary rows for complete revisioned terms, and do not
 change live product-operation-history semantics.
 

@@ -1,6 +1,6 @@
 package mcpserver
 
-// Read output schemas are deliberately compact. The same `mcp-read/1` envelope is
+// Read output schemas are deliberately compact. The same `mcp-read/2` envelope is
 // repeated by about thirty tools, so its fully typed form cost roughly 1.4 KB per
 // tool in every tools/list. The wire schema now names only what a client needs to
 // recognise and continue a read: the envelope version, the capture identity and
@@ -13,13 +13,14 @@ package mcpserver
 // schema no longer rejects, for example, a non-boolean hasMore. The server's own
 // tests still do.
 const (
-	readKindEnvelope     = "envelope"
-	readKindBusinessPage = "business_page"
-	readKindUnifiedPage  = "unified_page"
-	readKindContext      = "financial_context"
-	readKindComparison   = "financial_comparison"
-	readKindRepairJob    = "repair_job"
-	readKindMarketData   = "market_data"
+	readKindEnvelope       = "envelope"
+	readKindBusinessPage   = "business_page"
+	readKindUnifiedPage    = "unified_page"
+	readKindContext        = "financial_context"
+	readKindComparison     = "financial_comparison"
+	readKindRepairJob      = "repair_job"
+	readKindMarketData     = "market_data"
+	readKindReconciliation = "reconciliation_session"
 )
 
 // readOutputKind classifies every tool that has a read output schema. It is the
@@ -33,12 +34,14 @@ func readOutputKind(name string) string {
 		return readKindUnifiedPage
 	case "get_market_data":
 		return readKindMarketData
-	case "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_account_snapshot", "get_overview", "get_historical_overview", "list_agent_market_data", "compare_market_data_import", "list_products", "get_product", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions":
+	case "get_read_item", "list_members", "list_institutions", "list_groups", "list_accounts", "list_holdings", "list_instruments", "get_account_valuations", "get_overview", "get_historical_overview", "list_agent_market_data", "compare_market_data_import", "get_products", "get_liquidity_overview", "get_upcoming_actions", "scan_data_health", "preview_data_repair", "preview_investment_review_rule", "analyze_period", "list_contributions":
 		return readKindEnvelope
 	case "get_financial_context":
 		return readKindContext
 	case "compare_financial_context", "compare_financial_attribution":
 		return readKindComparison
+	case "get_reconciliation_session":
+		return readKindReconciliation
 	case "get_data_repair_job":
 		return readKindRepairJob
 	}
@@ -52,6 +55,8 @@ func readOutputSchema(name string) any {
 		data = compactPageSchema(false)
 	case readKindUnifiedPage:
 		data = compactPageSchema(true)
+	case readKindReconciliation:
+		data = reconciliationSessionOutput(compactPageSchema(false))
 	case readKindEnvelope:
 		data = compactEnvelopeSchema()
 	case readKindContext:
@@ -70,7 +75,7 @@ func readOutputSchema(name string) any {
 }
 
 func compactEnvelopeSchema() any {
-	return map[string]any{"type": "object", "required": []string{"schemaVersion", "captureId", "expiresAt", "contentHash"}, "properties": map[string]any{"schemaVersion": map[string]any{"const": "mcp-read/1"}}}
+	return map[string]any{"type": "object", "required": []string{"schemaVersion", "captureId", "capturedAt"}, "properties": map[string]any{"schemaVersion": map[string]any{"const": "mcp-read/2"}}}
 }
 
 // currentQuoteOutputSchema is the single-target get_market_data result.
@@ -85,11 +90,18 @@ func currentQuoteOutputSchema() any {
 func compactPageSchema(versioned bool) any {
 	props := map[string]any{"page": map[string]any{"type": "object", "required": []string{"hasMore", "nextCursor"}}}
 	if versioned {
-		props["schemaVersion"] = map[string]any{"const": "mcp-read/1"}
+		props["schemaVersion"] = map[string]any{"const": "mcp-read/2"}
 	}
 	return map[string]any{"type": "object", "required": []string{"items", "page"}, "properties": props}
 }
 
 func compactFinancialSchema(id string) any {
-	return map[string]any{"type": "object", "required": []string{id, "contentHash", "content"}}
+	return map[string]any{"type": "object", "required": []string{id, "capturedAt", "content"}}
+}
+
+func reconciliationSessionOutput(itemPage any) any {
+	return map[string]any{
+		"type": "object", "required": []string{"id", "revision", "counts", "itemPage"},
+		"properties": map[string]any{"itemPage": itemPage},
+	}
 }

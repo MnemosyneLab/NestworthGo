@@ -55,7 +55,7 @@ func TestScaleMetadataUnknownReceiptAndProtectedTargets(t *testing.T) {
 }
 
 func TestScalePermissionMatrix(t *testing.T) {
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			fx := newLedgerFixture(t)
 			if _, err := fx.service.Enable(mode); err != nil {

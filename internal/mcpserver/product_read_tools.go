@@ -17,10 +17,6 @@ type ProductReadFilter struct {
 	States       []string `json:"states,omitempty"`
 	Query        string   `json:"query,omitempty"`
 }
-type ProductGetInput struct {
-	ID    string `json:"id"`
-	Limit int    `json:"limit,omitempty"`
-}
 type productReadSummary struct {
 	ID               string `json:"id"`
 	AccountID        string `json:"accountId"`
@@ -54,7 +50,7 @@ func compareReadText(a, b string, direction string) int {
 	return v
 }
 func normalizedReadName(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
-func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInput, id *domain.ProductContractID) (ReadEnvelope, error) {
+func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductReadInput, id *domain.ProductContractID) (ReadEnvelope, error) {
 	if id != nil {
 		normalized, err := domain.ParseProductContractID(id.String())
 		if err != nil {
@@ -165,14 +161,12 @@ func (s *Service) pagedProducts(ctx context.Context, g uint64, in ProductListInp
 			return readCapture{}, err
 		}
 		sections["products"] = raw
-		summary := map[string]any{"totalProductCount": total, "matchedProductCount": len(rows), "productsScope": "filtered", "details": "get_read_item returns full detail from this capture; reservations are separate sections"}
-		if id != nil {
-			summary["detail"] = details[id.String()]
-		}
+		summary := map[string]any{"totalProductCount": total, "matchedProductCount": len(rows), "productsScope": "filtered"}
 		initial := []string{"products"}
-		if id != nil {
-			initial = append(initial, "reservations/"+id.String())
+		if in.View == "detail" {
+			summary["detail"] = details[id.String()]
+			initial = []string{"reservations/" + id.String()}
 		}
-		return readCapture{InitialSections: initial, Kind: "products", Query: map[string]any{"accountId": in.AccountID, "includeClosed": in.IncludeClosed, "filter": f, "sort": order, "id": id}, Summary: summary, Sections: sections, Details: details}, nil
+		return readCapture{InitialSections: initial, Kind: "products", Query: map[string]any{"accountId": in.AccountID, "includeClosed": in.IncludeClosed, "filter": f, "sort": order, "id": id, "view": in.View}, Summary: summary, Sections: sections, Details: details}, nil
 	})
 }

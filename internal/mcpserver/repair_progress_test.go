@@ -55,14 +55,14 @@ func TestRepairProgressPollingAvoidsCaptureChurn(t *testing.T) {
 func TestTaskReadNeedsNoContextOrCatalogRoundTrips(t *testing.T) {
 	fx := newLedgerFixture(t)
 	client, recorder := connectPayload(t, fx.service)
-	call(t, client, "get_account_snapshot", map[string]any{"id": fx.checking}, false)
+	call(t, client, "get_account_valuations", map[string]any{"accountIds": []string{fx.checking}}, false)
 	m := recorder.total()
 	if m.Calls != 1 {
 		t.Fatal("targeted read added prerequisite calls", m)
 	}
 	t.Logf("known-account current snapshot: calls=%d bytes=%d max=%d", m.Calls, m.Bytes, m.Max)
 	listed, err := listAllTools(t.Context(), client)
-	if err != nil || len(listed.Tools) != 75 {
+	if err != nil || len(listed.Tools) != 79 {
 		t.Fatal("incomplete discovery", err)
 	}
 	if recorder.discoveryCalls < 2 || recorder.discoveryMax > contextWireLimit {

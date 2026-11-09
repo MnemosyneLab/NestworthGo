@@ -111,7 +111,7 @@ it("anchors an existing message when earlier history and a streaming tail grow t
 it.each(["succeeded","refused","failed"])("shows Full %s and its subsequent read with actual inert details",(state)=>{
  const client=createTestQueryClient();
  const full={source:"execute_ledger_change",state,input:'{"amount":"12.34567890"}',output:'{"status":"'+state+'"}',inputTruncated:false,outputTruncated:false};
- const read={...full,source:"get_account_snapshot",state:"succeeded",input:'{"id":"synthetic"}',output:'{"balance":"12.34567890"}'};
+ const read={...full,source:"get_account_valuations",state:"succeeded",input:'{"id":"synthetic"}',output:'{"balance":"12.34567890"}'};
  const latest={...initial,progress:undefined,runs:[{...run,state:"succeeded",tools:[full,read]}]};
  render(<QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={latest as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()}/></QueryClientProvider>);
  const label=state==="succeeded"?"Completed":state==="refused"?"Tool refused":"Failed";

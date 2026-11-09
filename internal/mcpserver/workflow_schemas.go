@@ -6,7 +6,7 @@ import "github.com/google/jsonschema-go/jsonschema"
 // date, identity, permission, source, and CAS validation remain authoritative.
 func workflowSchema[I any](name string) *jsonschema.Schema {
 	switch name {
-	case "preview_investment_review_rule", "list_activities", "preview_change", "get_data_repair_job", "get_market_data":
+	case "preview_investment_review_rule", "list_activities", "preview_batch", "get_data_repair_job", "get_market_data":
 	default:
 		return nil
 	}
@@ -49,7 +49,12 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			{Required: []string{"baseCurrency", "quoteCurrency"}, Not: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{schemaAnyRequired("instrumentId"), batchOnly()}}},
 			{Required: []string{"targets"}, Not: schemaAnyRequired("instrumentId", "baseCurrency", "quoteCurrency")},
 		}
-	case "preview_change":
+	case "preview_batch":
+		commands := s.Properties["commands"]
+		commands.Type, commands.Types = "array", nil
+		min, max := 1, 100
+		commands.MinItems, commands.MaxItems = &min, &max
+		item := commands.Items
 		variants := []struct {
 			kind     string
 			required []string
@@ -70,10 +75,10 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			if v.kind == "position_transfer" {
 				branch.OneOf = []*jsonschema.Schema{{Required: []string{"toHoldingId"}}, {Required: []string{"toAccountId"}}}
 			}
-			s.OneOf = append(s.OneOf, branch)
+			item.OneOf = append(item.OneOf, branch)
 		}
-		s.DependentRequired = map[string][]string{"fee": {"feeCurrency"}, "effectiveLocalDate": {"effectiveLocalTime"}, "effectiveLocalTime": {"effectiveLocalDate"}, "interestOrFee": {"interestOrFeeCurrency"}}
-		slimPreviewChangeSchema(s)
+		item.DependentRequired = map[string][]string{"fee": {"feeCurrency"}, "effectiveLocalDate": {"effectiveLocalTime"}, "effectiveLocalTime": {"effectiveLocalDate"}, "interestOrFee": {"interestOrFeeCurrency"}}
+		slimLedgerCommandSchema(item)
 	}
 	return s
 }

@@ -47,7 +47,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 	out := make([]tool.BaseTool, 0, len(definitions))
 	seen := map[string]bool{}
 	for _, d := range definitions {
-		if d.Name == "" || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page_control" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
+		if d.Name == "" || d.Name == loadToolGroups || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page_control" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
 			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || (*d.Annotations.OpenWorldHint && !full) {
 			return nil, errors.New("unsafe local capability inventory")
 		}
@@ -64,7 +64,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 		if err != nil || !sameSchemaJSON(raw, roundtrip) {
 			return nil, errors.New("lossy local capability schema conversion")
 		}
-		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw, writing: d.Effect == agentcapability.Write || d.Effect == agentcapability.Interaction})
+		out = append(out, &capabilityTool{session: session, name: d.Name, description: d.Description, parameters: raw, group: d.ToolGroup(), writing: d.Effect == agentcapability.Write || d.Effect == agentcapability.Interaction})
 	}
 	return out, nil
 }
@@ -123,6 +123,7 @@ var errCapabilityRefused = errors.New("local capability request refused")
 
 type capabilityTool struct {
 	writing     bool
+	group       agentcapability.ToolGroup
 	session     CapabilitySession
 	name        string
 	description string
@@ -149,7 +150,7 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		if t.writing {
 			return "", errCapabilityWriteRejected
 		}
-		return "", errors.New("local capability arguments exceed budget")
+		return "", newReadFailure("too_large", "")
 	}
 	result, err := t.session.Call(ctx, t.name, json.RawMessage(arguments))
 	if budget := assistant.NormalizeBudgetFailure(err); budget != nil {
@@ -171,7 +172,7 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 			}
 			return "", errCapabilityWriteRefused
 		}
-		return "", errCapabilityRefused
+		return "", classifyReadFailure(err)
 	}
 	if len(result) > 64<<10 {
 		return "", assistant.BudgetFailure("tool_result_bytes")

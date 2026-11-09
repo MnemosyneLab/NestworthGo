@@ -91,7 +91,10 @@ func TestExternalDiscoveryContractSnapshot(t *testing.T) {
 	if err := jsoncodec.Unmarshal(raw, &golden); err != nil {
 		t.Fatal(err)
 	}
-	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
+	if len(golden) != 2 || golden[ReadOnly] == nil || golden[ReadWrite] == nil {
+		t.Fatal("discovery fixture must cover exactly read_only and read_write")
+	}
+	for _, mode := range []string{ReadOnly, ReadWrite} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			s, _, _ := fixture(t)
