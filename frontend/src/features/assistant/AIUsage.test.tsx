@@ -18,7 +18,7 @@ it("passes timezone, model and conversation filters to the host", async () => {
  const user=userEvent.setup();
  render(<QueryClientProvider client={createTestQueryClient()}><AIUsageSettings epoch="epoch" /></QueryClientProvider>);
  await screen.findByText("100 + ?");
- await user.selectOptions(screen.getByLabelText("Group by"),"model");
+ await user.click(within(screen.getByRole("group",{name:"Group by"})).getByRole("button",{name:"Model"}));
  await user.selectOptions(screen.getByLabelText("Model"),"actual-model");
  await user.selectOptions(screen.getByLabelText("Conversation"),"opaque-id");
  await waitFor(()=>expect(usage).toHaveBeenLastCalledWith("epoch",expect.objectContaining({groupBy:"model",model:"actual-model",conversationId:"opaque-id"})));

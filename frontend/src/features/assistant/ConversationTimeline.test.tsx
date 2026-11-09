@@ -115,7 +115,7 @@ it.each(["succeeded","refused","failed"])("shows Full %s and its subsequent read
  const latest={...initial,progress:undefined,runs:[{...run,state:"succeeded",tools:[full,read]}]};
  render(<QueryClientProvider client={client}><ConversationTimeline epoch="epoch" id="conversation" latest={latest as Parameters<typeof ConversationTimeline>[0]["latest"]} busy={false} onCancel={vi.fn()}/></QueryClientProvider>);
  const label=state==="succeeded"?"Completed":state==="refused"?"Tool refused":"Failed";
- const summary=screen.getByText(`Full ledger change · ${label}`);fireEvent.click(summary.closest("summary")!);
+ const summary=screen.getByText(`Read & Write ledger change · ${label}`);fireEvent.click(summary.closest("summary")!);
  expect(screen.getByText(full.input)).toBeVisible();expect(screen.getByText(full.output)).toBeVisible();
  expect(screen.getByText(read.output)).toBeInTheDocument();expect(screen.queryByText("Ledger read")).toBeNull();
  expect(api.Inspect).not.toHaveBeenCalled();

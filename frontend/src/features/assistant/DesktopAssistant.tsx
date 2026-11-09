@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Maximize2, Minimize2, Sparkles, X } from "lucide-react";
+import { IconTile } from "@/components/ui/icon-tile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -46,7 +47,7 @@ export function useDesktopAssistant() {
     {open && !expanded && <PanelResizeHandle value={preferredWidth} min={320} max={maxWidth} onValueChange={setWidth} onCollapse={collapse}
       aria-labelledby="desktop-assistant-heading" aria-controls="desktop-assistant" title={t("assistant.resize")} aria-valuetext={t("assistant.width", { width })} />}
     <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-      <Sparkles aria-hidden className="size-5 text-primary" /><h2 id="desktop-assistant-heading" ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 font-semibold">{t("assistant.title")}</h2>
+      <IconTile icon={Sparkles} tone={1} size="sm" /><h2 id="desktop-assistant-heading" ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 font-semibold">{t("assistant.title")}</h2>
       <Button variant="ghost" size="icon" onClick={() => setExpanded(value => !value)} aria-label={t(expanded ? "assistant.compact" : "assistant.expand")}>{expanded ? <Minimize2 aria-hidden className="size-4" /> : <Maximize2 aria-hidden className="size-4" />}</Button>
       <Button variant="ghost" size="icon" onClick={collapse} aria-label={t("assistant.collapse")}><X aria-hidden className="size-4" /></Button>
     </header>

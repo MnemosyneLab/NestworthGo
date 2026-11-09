@@ -52,7 +52,7 @@ class NativeImageWorkflowTests(unittest.TestCase):
         self.assertLess(frontend.index("run: node scripts/ensure-bindings.mjs\n"), frontend.index("- name: Share verified bindings"))
         meta = workflow.split('  frontend-bindings:', 1)[0]
         self.assertIn('actions/setup-node@v7', meta)
-        self.assertIn('node-version: 24.22.0', meta)
+        self.assertIn('node-version: 24.22.2', meta)
         self.assertIn('node --version\n', meta)
         self.assertLess(meta.index('node --version'), meta.index('python3 tools/run-tooling-tests.py'))
         for job, end in (("frontend-quality", "frontend"), ("frontend", "go-shard")):

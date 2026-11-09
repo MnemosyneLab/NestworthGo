@@ -7,7 +7,7 @@ a write-only key, an enabled model set and an explicit enable flag.
 The sidebar selects the per-request model and supported reasoning effort; see
 [model selection](ai-model-selection.md) for the offline catalogue, history and
 account-access rules. There are no startup,
-reconnect or implicit retry model calls. Desktop writes default off. The only permission modes are Read-only and Full; Full does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
+reconnect or implicit retry model calls. Desktop writes default off. The UI permission modes are Read-only and Read & Write (可读写 / 可讀寫); the latter retains the internal Full permission and does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation after explicit per-message authorization.
@@ -65,7 +65,7 @@ approval from text, a summary, a digest, a page snapshot or a saved conversation
 
 ## Explicit Full access — shared MCP capabilities
 
-Full is an optional desktop, household-wide, app-session permission. The sidebar has one shared select with Read-only and Full options. Startup,
+Full is an optional desktop, household-wide, app-session permission. The sidebar has one shared choice menu with Read-only and Read & Write options. Startup,
 configuration/credential changes, restore and shutdown return to Read-only.
 Enabling requires an idle configured runtime and the current epoch/revision;
 disabling remains available during a run. Every mode change revokes existing
@@ -376,7 +376,7 @@ use `networkMode:always`; Stop and local history remain available under a browse
 offline hint. Reconnect/reload reads persisted state instead of replaying Start.
 
 At desktop widths of at least 1280px, the dock's left edge adjusts its width:
-400px initially, bounded to 320–720px and leaving at least 480px of the available
+480px initially, bounded to 320–720px and leaving at least 480px of the available
 workspace for the business page. ResizeObserver accounts for window and navigation
 rail changes; a temporary clamp preserves the user's preferred width. That choice
 uses the sidebar's session-only UI store, with no persistent setting. The shared

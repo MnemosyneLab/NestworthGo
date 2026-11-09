@@ -43,7 +43,7 @@ def main():
     go = output('go', 'env', 'GOVERSION')
     node = output('node', '--version')
     pnpm = output('pnpm', '--version')
-    if (go, node, pnpm) != ('go' + versions['go'], 'v24.22.0', '12.14.0'):
+    if (go, node, pnpm) != ('go' + versions['go'], 'v24.22.2', '12.18.0'):
         raise SystemExit('Selected Go/Node/pnpm versions do not match repository pins')
     cpus = int(output('sysctl', '-n', 'hw.logicalcpu'))
     memory = int(output('sysctl', '-n', 'hw.memsize'))

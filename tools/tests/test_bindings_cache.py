@@ -43,7 +43,7 @@ class BindingsCacheTests(unittest.TestCase):
             if args[:2] == ('go', 'list'):
                 return json.dumps({'Dir': str(self.root.resolve()), **self.package_files}).encode()
             if args[:2] == ('node', '--version'):
-                return b'v24.22.0'
+                return b'v24.22.2'
             return original(*args, cwd=cwd)
         self.patches = [patch.object(cache, 'command', side_effect=command),
                         patch.object(cache.shutil, 'which', return_value=str(self.cli)),

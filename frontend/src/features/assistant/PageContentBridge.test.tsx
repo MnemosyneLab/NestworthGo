@@ -65,8 +65,9 @@ it.each(["mutation pending", "status pending", "status settled", "mutation rejec
     // response is delayed; no handler has been dispatched yet.
     const operation = command("Save synthetic money");
     api.Status.mockReturnValue(refresh.promise);
-    const permission = screen.getByRole("combobox", { name: "Permissions" });
-    await userEvent.selectOptions(permission, "readOnly");
+    const permission = screen.getByRole("button", { name: /^Permissions/ });
+    await userEvent.click(permission);
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: /Read-only/ }));
     expect(api.SetFullAccess).toHaveBeenCalledWith("synthetic", 1, false);
     if (timing !== "mutation pending") await act(async () => mutation.resolve());
     const nextStatus = timing === "mutation rejected" ? initialStatus : { ...initialStatus, revision: 2, fullAccess: false };

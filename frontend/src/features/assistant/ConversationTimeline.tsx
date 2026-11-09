@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { callService } from "@/lib/wails";
 import { formatTimestamp } from "@/lib/time";
 import { AssistantMarkdown } from "./AssistantMarkdown";
+import { AssistantEmptyState } from "./AssistantEmptyState";
 import { useAssistantPage } from "./PageContext";
 import { toolDisplayName } from "./toolDisplayName";
 import { matchesOperation, operationStateKey, type OperationResult } from "./operationResults";
@@ -64,9 +65,9 @@ const budgetDiagnostic = (code: string) =>
   code.startsWith("assistant_budget_exceeded.") && Object.prototype.hasOwnProperty.call(diagnosticKeys, code);
 const active = (state: string) => state === "accepted" || state === "running";
 // Host evidence is a completed read trace, not live execution telemetry.
-export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "", operations = [], operationsError = false }: {
+export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submittedRequestId = "", operations = [], operationsError = false, onSuggest }: {
   epoch: string; id: string; latest?: Conversation; submittedRequestId?: string; busy: boolean; onCancel: (runID: string) => void;
-  operations?: OperationResult[]; operationsError?: boolean;
+  operations?: OperationResult[]; operationsError?: boolean; onSuggest?: (text: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const page = useAssistantPage();
@@ -145,7 +146,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
   const timestamp = (value: string) => formatTimestamp(value, page?.context?.range.timezone ?? "UTC", i18n.language);
   return <div className="relative flex min-h-0 flex-1 flex-col">
     <p ref={announcement} role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
-    <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none]"
+    <div ref={viewport} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [overflow-anchor:none] @max-xs:p-3"
       role="region" aria-label={t("aiChat.transcript")} tabIndex={0}
       onScroll={event => { const el = event.currentTarget;
         if (anchor.current) anchor.current.offset = anchor.current.element.getBoundingClientRect().top - el.getBoundingClientRect().top;
@@ -163,12 +164,12 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
         {loading && <p role="status" className="text-center text-xs text-muted-foreground">{t("aiChat.loadingHistory")}</p>}
         {failed && <div role="alert" className="text-sm text-destructive">{t("aiChat.historyError")} <Button variant="ghost" size="sm" onClick={() => history.filter(q => q.isError).forEach(q => void q.refetch())}>{t("common.retryAction")}</Button></div>}
         {runs.map(run => { const tools = active(run.state) && latest?.progress?.runId === run.id ? latest.progress.tools : run.tools; return <article key={run.id} className="space-y-4" aria-label={t("aiChat.exchange")}>
-          <div className="ml-8 flex justify-end"><div className="max-w-full rounded-2xl rounded-tr-sm bg-muted px-4 py-3">
+          <div className="ml-8 flex justify-end @max-xs:ml-3"><div className="max-w-full rounded-2xl rounded-tr-sm bg-primary/10 px-4 py-2.5">
             <span className="sr-only">{t("aiChat.you")}</span><p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{run.prompt}</p>
           </div></div>
-          <div className="flex min-w-0 gap-3"><Sparkles className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <div className="flex min-w-0 gap-3 @max-xs:gap-2"><span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Sparkles className="size-3.5" /></span>
             <div className="min-w-0 flex-1 space-y-3"><span className="sr-only">{t("assistant.title")}</span>
-              {!!run.evidence?.length && <details className="group rounded-lg border border-border text-xs text-muted-foreground">
+              {!!run.evidence?.length && <details className="group rounded-xl border border-border bg-muted/30 text-xs text-muted-foreground">
                 <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                   <Check className="size-3.5 shrink-0" aria-hidden="true" /><span className="flex-1">{t("aiChat.toolReads", { total: run.evidence.length })}</span><ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
                 </summary>
@@ -181,7 +182,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
                 </div>
               </details>}
               {!!tools?.length && <div className="space-y-2 text-xs text-muted-foreground">
-                {tools.map((tool, index) => { const result = operations.find(result => matchesOperation(result, run.id, index, tool)); return <details key={index} className="rounded-lg border border-border">
+                {tools.map((tool, index) => { const result = operations.find(result => matchesOperation(result, run.id, index, tool)); return <details key={index} className="rounded-xl border border-border bg-muted/30">
                   <summary className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     {tool.state === "running" && !result ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
                     <span role="status" aria-live="polite" aria-atomic="true">{toolDisplayName(t, tool.source)} · {t(result ? operationStateKey(result.state) : `aiChat.toolState.${tool.state}`)}</span>
@@ -211,7 +212,7 @@ export function ConversationTimeline({ epoch, id, latest, busy, onCancel, submit
           <p role="status" className="border-t border-border p-3">{t("aiChat.operationResult")} · {t(operationStateKey(result.state))}</p>
         </details>)}
         {operationsError && <p role="alert" className="text-xs text-muted-foreground">{t("aiChat.operationRefreshError")}</p>}
-        {!latest ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p> : !runs.length && !operations.length && <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center"><Sparkles className="size-7 text-primary" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t("aiChat.empty")}</p></div>}
+        {!latest ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p> : !runs.length && !operations.length && <AssistantEmptyState onSuggest={onSuggest} disabled={busy} />}
       </div>
     </div>
     {!following && <Button variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm" onClick={() => { anchor.current = null; followingRef.current = true; setFollowing(true); }}><ArrowDown className="size-3.5" aria-hidden="true" />{t("aiChat.jumpLatest")}</Button>}

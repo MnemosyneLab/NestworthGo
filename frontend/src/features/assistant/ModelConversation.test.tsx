@@ -2,7 +2,7 @@ import { BusinessPageRoot } from "@/lib/businessCapture";
 import { capturePageContent } from "./pageContent";
 import { useLayoutEffect, useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -97,6 +97,16 @@ function mount(viewKey = "overview:", client = createTestQueryClient()) {
       </AssistantPageProvider>
     </QueryClientProvider>,
   );
+}
+const historyTrigger = () => screen.getByRole("button", { name: new RegExp(`^${i18n.t("aiChat.history")}:`) });
+async function openRename(user: ReturnType<typeof userEvent.setup>) {
+  const rename = new RegExp(`^${i18n.t("aiChat.rename")}:`);
+  if (!screen.queryByRole("button", { name: rename })) await user.click(historyTrigger());
+  await user.click(await screen.findByRole("button", { name: rename }));
+}
+async function choosePermission(user: ReturnType<typeof userEvent.setup>, label: string) {
+  await user.click(screen.getByRole("button", { name: new RegExp(`^${i18n.t("aiChat.permission")}:`) }));
+  await user.click(await screen.findByRole("menuitemradio", { name: new RegExp(`^${label}`) }));
 }
 it("restores history without replay and sends only the question and selector", async () => {
   const user = userEvent.setup();
@@ -407,9 +417,15 @@ it.each([
       screen.getByRole("button", { name: "Send to model" }),
     );
     await waitFor(() => expect(api.ConsumeNavigation).toHaveBeenCalledTimes(1));
-    const action = screen.getByRole("button", { name: label });
-    await waitFor(() => expect(action).toBeEnabled());
-    await user.click(action);
+    if (operation === "Delete") {
+      await user.click(screen.getByRole("button", { name: /^Conversations:/ }));
+      await user.click(await screen.findByRole("button", { name: /^Delete conversation:/ }));
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+    } else {
+      const action = screen.getByRole("button", { name: label });
+      await waitFor(() => expect(action).toBeEnabled());
+      await user.click(action);
+    }
     await waitFor(() => expect(api[operation]).toHaveBeenCalledTimes(1));
     // The host already approved this intent, but its IPC response arrives while
     // the conversation mutation is still pending. It must not dispatch.
@@ -677,7 +693,8 @@ it("retains observed answers while history is pending or failed and isolates oth
   expect(screen.getByText("Synthetic prior answer")).toBeVisible();
   expect(screen.getByText("New answer")).toBeVisible();
   expect(screen.getAllByRole("article")[0]).toHaveTextContent("Synthetic prior answer");
-  await user.selectOptions(screen.getByLabelText("Conversations"), "other");
+  await user.click(screen.getByRole("button", { name: /^Conversations:/ }));
+  await user.click(await screen.findByRole("button", { name: /^Conversation 2/ }));
   await screen.findByText("Other session answer");
   expect(screen.queryByText("Synthetic prior answer")).not.toBeInTheDocument();
   expect(screen.queryByText("New answer")).not.toBeInTheDocument();
@@ -739,10 +756,10 @@ it("announces an immediate first reply from a newly created conversation", async
  it("requires explicit Full opt-in and never invokes a model or human confirmation",async()=>{
  const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");
  render(<BusinessPageRoot view="synthetic:" accessIdentity="synthetic"><p>Ordinary business content</p></BusinessPageRoot>);
- const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Full · Edit the ledger");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.name==="Permissions")).toBe(false);
+ const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Read & Write · Edit the ledger");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.name==="Permissions")).toBe(false);
  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
- const control=screen.getByRole("combobox",{name:"Permissions"});expect(control).toHaveValue("readOnly");
- control.focus();expect(control).toHaveFocus();await user.selectOptions(control, "full");
+ const control=screen.getByRole("button",{name:"Permissions: Read-only"});
+ control.focus();expect(control).toHaveFocus();await choosePermission(user,"Read & Write");
  await waitFor(()=>expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host",3,true));
  expect(api.Start).not.toHaveBeenCalled();
  });
@@ -752,8 +769,8 @@ it("displays generated titles and saves manual names using keyboard controls", a
   api.List.mockResolvedValue([{ id: "conversation", title: "资产趋势", titleSource: "luna", runCount: 1 }]);
   api.Inspect.mockResolvedValue({ id: "conversation", title: "资产趋势", titleSource: "luna", runs: [run], runCount: 1, offset: 0 });
   mount();
-  await screen.findByRole("option", { name: "资产趋势" });
-  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await screen.findByRole("button", { name: /^Conversations: 资产趋势/ });
+  await openRename(user);
   const input = screen.getByRole("textbox", { name: "Conversation title" });
   expect(input).toHaveFocus();
   await user.clear(input);
@@ -766,10 +783,10 @@ it("cancels title editing without writing and preserves a failed rename for retr
   const user = userEvent.setup();
   mount();
   await screen.findByText("Synthetic prior answer");
-  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await openRename(user);
   await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Discard{Escape}");
   expect(api.Rename).not.toHaveBeenCalled();
-  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await openRename(user);
   api.Rename.mockRejectedValueOnce(new Error("synthetic storage failure"));
   await user.type(screen.getByRole("textbox", { name: "Conversation title" }), "Keep draft{Enter}");
   await screen.findByRole("alert");
@@ -785,7 +802,8 @@ it.each([
   const user = userEvent.setup();
   mount();
   await screen.findByText("Synthetic prior answer");
-  await user.click(screen.getByRole("button", { name: renameLabel }));
+  await user.click(historyTrigger());
+  await user.click(await screen.findByRole("button", { name: new RegExp(`^${renameLabel}:`) }));
   expect(screen.getByRole("textbox", { name: titleLabel })).toHaveFocus();
   await user.click(screen.getByRole("button", { name: cancelLabel }));
   expect(api.Rename).not.toHaveBeenCalled();
@@ -795,7 +813,7 @@ it.each(["😀", "𠀀"])("accepts 64 Unicode code points when typing %s titles"
   const user = userEvent.setup();
   mount();
   await screen.findByText("Synthetic prior answer");
-  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await openRename(user);
   const input = screen.getByRole("textbox", { name: "Conversation title" });
   const title = character.repeat(64);
   await user.type(input, title);
@@ -810,7 +828,7 @@ it("limits mixed Unicode titles to 64 code points on paste", async () => {
   const user = userEvent.setup();
   mount();
   await screen.findByText("Synthetic prior answer");
-  await user.click(screen.getByRole("button", { name: "Rename conversation" }));
+  await openRename(user);
   const input = screen.getByRole("textbox", { name: "Conversation title" });
   const title = "A".repeat(62) + "😀𠀀";
   await user.paste(title + "extra");
@@ -820,9 +838,9 @@ it("limits mixed Unicode titles to 64 code points on paste", async () => {
 });
 
 it.each([
-  ["en", "Full · Edit the ledger without per-change confirmation"],
-  ["zh-CN", "Full · 直接修改账本，无需逐笔确认"],
-  ["zh-TW", "Full · 直接修改帳本，無需逐筆確認"],
+  ["en", "Can edit the ledger without per-change confirmation."],
+  ["zh-CN", "可直接修改账本，无需逐笔确认。"],
+  ["zh-TW", "可直接修改帳本，無需逐筆確認。"],
 ])("shows only Read-only and Full modes with inline results in %s", async (locale, label) => {
   await i18n.changeLanguage(locale);
   api.Status.mockResolvedValue({ ...configuredStatus, fullAccess: true });
@@ -834,11 +852,15 @@ it.each([
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-  const checkbox = screen.getByLabelText(i18n.t("aiChat.permission"));
-  expect(screen.getByRole("option", { name: "Full" })).toBeInTheDocument();
-  expect(checkbox).toHaveAttribute("title", label);
-  expect(checkbox.querySelectorAll("option")).toHaveLength(2);
-  expect(checkbox).toHaveValue("full");
+  const checkbox = screen.getByRole("button", { name: `${i18n.t("aiChat.permission")}: ${i18n.t("aiChat.full")}` });
+  expect(checkbox.className).toContain("bg-warning/15");
+  await user.click(checkbox);
+  expect(await screen.findAllByRole("menuitemradio")).toHaveLength(2);
+  expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${i18n.t("aiChat.full")}`) })).toHaveAttribute("aria-checked", "true");
+  expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${i18n.t("aiChat.readOnly")}`) })).toHaveAttribute("aria-checked", "false");
+  expect(screen.getByText(label)).toBeVisible();
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   expect(screen.queryByText("Duplicate result")).not.toBeInTheDocument();
   expect(screen.queryByRole("region", { name: /Ledger change review|账本变更审阅|帳本變更審閱/ })).not.toBeInTheDocument();
   const output = screen.getByText('{"status":"succeeded"}');
@@ -847,7 +869,7 @@ it.each([
   await user.click(output.closest("details")!.querySelector("summary")!);
   expect(output).not.toBeVisible();
   checkbox.focus();
-  await user.selectOptions(checkbox, "readOnly");
+  await choosePermission(user, i18n.t("aiChat.readOnly"));
   await waitFor(() => expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host", 3, false));
 
   expect(api.Start).not.toHaveBeenCalled();
@@ -858,10 +880,10 @@ it.each([false, true])("Full permission enabled=%s can only be revoked during a 
   api.Inspect.mockResolvedValue({ id: "conversation", offset: 0, runCount: 1, runs: [{ ...run, state: "running" }] });
   mount();
   await screen.findByText("Synthetic prior answer");
-  const checkbox = screen.getByRole("combobox", { name: "Permissions" });
+  const checkbox = screen.getByRole("button", { name: /^Permissions:/ });
   if (enabled) {
     expect(checkbox).toBeEnabled();
-    await userEvent.selectOptions(checkbox, "readOnly");
+    await choosePermission(userEvent.setup(), "Read-only");
     await waitFor(() => expect(api.SetFullAccess).toHaveBeenCalledWith("host", 3, false));
   } else {
     expect(checkbox).toBeDisabled();
@@ -873,9 +895,9 @@ it("keeps the authoritative permission and reports a failed toggle", async () =>
   api.SetFullAccess.mockRejectedValueOnce(new Error("permission save failed"));
   mount();
   await screen.findByText("Synthetic prior answer");
-  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Permissions" }), "full");
+  await choosePermission(userEvent.setup(), "Read & Write");
   await screen.findByRole("alert");
-  expect(screen.getByRole("combobox", { name: "Permissions" })).toHaveValue("readOnly");
+  expect(screen.getByRole("button", { name: "Permissions: Read-only" })).toBeVisible();
   expect(api.Start).not.toHaveBeenCalled();
 });
 
@@ -887,9 +909,9 @@ it.each([["succeeded", "Recorded"], ["failed", "Failed"]])("shows a recovered %s
   let recoveredReceipt = false;
   api.Reviews.mockImplementation(async () => [{ ...result, state: recoveredReceipt ? state : "unknown" }]);
   mount();
-  await screen.findByText("Full ledger change · Outcome unknown");
+  await screen.findByText("Read & Write ledger change · Outcome unknown");
   recoveredReceipt = true;
-  const recovered = await screen.findByText(`Full ledger change · ${label}`, {}, { timeout: 3000 });
+  const recovered = await screen.findByText(`Read & Write ledger change · ${label}`, {}, { timeout: 3000 });
   await userEvent.click(recovered.closest("summary")!);
   expect(screen.getByText(`Operation result · ${label}`)).toBeVisible();
   expect(screen.getByText('{"error":"lost reply"}')).toBeVisible();
@@ -935,19 +957,80 @@ it("persists explicit model/effort choices and sends the selected values",async(
  api.Status.mockImplementation(async()=>({epoch:"host",revision:3,available:true,credentials:"present",selection,config:{provider:"openai-responses",model:"gpt-6-sol",enabledModels:["gpt-6-sol","gpt-6.1-sol"],enabled:true},modelCatalog:[{id:"gpt-6-sol",efforts:["none","high","max"]},{id:"gpt-6.1-sol",efforts:["high","max"]}]}));
  api.SelectModel.mockImplementation(async(_epoch,_revision,next)=>{selection=next;});
  mount();await screen.findByText("Synthetic prior answer");
- await user.selectOptions(screen.getByLabelText("Model ID"),"gpt-6.1-sol");
- await waitFor(()=>expect(screen.getByLabelText("Reasoning effort")).toHaveValue(""));
- expect(api.SelectModel).toHaveBeenCalledWith("host",3,{model:"gpt-6.1-sol",reasoningEffort:""});
- await waitFor(()=>expect(screen.getByLabelText("Reasoning effort")).not.toBeDisabled());
- await user.selectOptions(screen.getByLabelText("Reasoning effort"),"high");
- await waitFor(()=>expect(screen.getByLabelText("Reasoning effort")).toHaveValue("high"));
+ await user.click(screen.getByRole("button",{name:/^Model ID:/}));await user.click(await screen.findByRole("button",{name:"gpt-6.1-sol"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Reasoning effort: High$/})).toBeInTheDocument());
+ expect(api.SelectModel).toHaveBeenCalledWith("host",3,{model:"gpt-6.1-sol",reasoningEffort:"high"});
+ await waitFor(()=>expect(screen.getByRole("button",{name:/^Model ID:/})).not.toBeDisabled());
+ if(!screen.queryByRole("button",{name:"Maximum"}))await user.click(screen.getByRole("button",{name:/^Model ID:/}));
+ await user.click(await screen.findByRole("button",{name:"Maximum"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Reasoning effort: Maximum$/})).toBeInTheDocument());
  await user.type(screen.getByLabelText("Message"),"Synthetic model choice");
  await user.click(screen.getByRole("button",{name:"Send to model"}));
- await waitFor(()=>expect(api.Start).toHaveBeenCalledWith(expect.objectContaining({model:"gpt-6.1-sol",reasoningEffort:"high"})));
+ await waitFor(()=>expect(api.Start).toHaveBeenCalledWith(expect.objectContaining({model:"gpt-6.1-sol",reasoningEffort:"max"})));
  expect(api.SetFullAccess).not.toHaveBeenCalled();
 });
 it("blocks a removed selection without replacing it or sending",async()=>{
  api.Status.mockResolvedValue({epoch:"host",revision:4,available:true,credentials:"present",selection:{model:"removed-model",reasoningEffort:""},config:{provider:"openai-responses",model:"gpt-6-sol",enabledModels:["gpt-6-sol"],enabled:true},modelCatalog:[]});
  const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");await user.type(screen.getByLabelText("Message"),"Synthetic question");
- expect(screen.getByLabelText("Model ID")).toHaveValue("removed-model");expect(screen.getByRole("button",{name:"Send to model"})).toBeDisabled();expect(api.SelectModel).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
+ expect(screen.getByRole("button",{name:"Model ID: removed-model"})).toBeVisible();expect(screen.getByRole("button",{name:"Send to model"})).toBeDisabled();expect(api.SelectModel).not.toHaveBeenCalled();expect(api.Start).not.toHaveBeenCalled();
+});
+
+it("fills the draft from a suggested question without sending it", async () => {
+  api.List.mockResolvedValue([]);
+  const user = userEvent.setup();
+  mount();
+  const suggestion = await screen.findByRole("button", { name: i18n.t("aiChat.suggestionChange") });
+  expect(screen.getByRole("group", { name: i18n.t("aiChat.suggestionsLabel") })).toBeVisible();
+  await user.click(suggestion);
+  expect(screen.getByLabelText("Message")).toHaveValue(i18n.t("aiChat.suggestionChange"));
+  expect(screen.getByLabelText("Message")).toHaveFocus();
+  expect(api.Start).not.toHaveBeenCalled();
+  expect(api.Create).not.toHaveBeenCalled();
+});
+
+it("deletes a non-selected conversation without clearing the current selection", async () => {
+  api.List.mockResolvedValue([{ id: "conversation", title: "Current", updated: "2026-11-05", runCount: 1 }, { id: "other", title: "Other", updated: "2026-11-04", runCount: 1 }]);
+  const user = userEvent.setup();
+  mount();
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: /^Conversations:/ }));
+  await user.click(await screen.findByRole("button", { name: "Delete conversation: Other" }));
+  await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+  await waitFor(() => expect(api.Delete).toHaveBeenCalledExactlyOnceWith("host", "other"));
+  expect(screen.getByRole("button", { name: "Conversations: Current" })).toBeVisible();
+  expect(screen.getByText("Synthetic prior answer")).toBeVisible();
+});
+
+
+it("closes the permission menu when a background refresh fails", async () => {
+  const user = userEvent.setup();
+  const client = createTestQueryClient();
+  mount("overview:", client);
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: /^Permissions:/ }));
+  await screen.findByRole("menuitemradio", { name: /^Read & Write/ });
+  api.Status.mockRejectedValue(new Error("Synthetic refresh failure"));
+  await act(async () => { await client.invalidateQueries({ queryKey: ["aiCredentialStatus"] }); });
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Permissions:/ })).toBeDisabled());
+  await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  await user.keyboard("{ArrowDown}{Enter}");
+  expect(api.SetFullAccess).not.toHaveBeenCalled();
+});
+
+it("blocks an already-open delete confirmation after a background refresh fails", async () => {
+  const user = userEvent.setup();
+  const client = createTestQueryClient();
+  mount("overview:", client);
+  await screen.findByText("Synthetic prior answer");
+  await user.click(historyTrigger());
+  await user.click(await screen.findByRole("button", { name: /^Delete conversation:/ }));
+  const dialog = await screen.findByRole("alertdialog");
+  api.Status.mockRejectedValue(new Error("Synthetic refresh failure"));
+  await act(async () => { await client.invalidateQueries({ queryKey: ["aiCredentialStatus"] }); });
+  const confirm = within(dialog).getByRole("button", { name: "Delete" });
+  await waitFor(() => expect(confirm).toBeDisabled());
+  await user.click(confirm);
+  expect(api.Delete).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole("button", { name: "Keep" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
 });

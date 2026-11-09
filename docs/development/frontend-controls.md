@@ -56,6 +56,11 @@ selection, dismissal and return focus for changed interactions.
 
 Use NativeSelect for simple lists, FilterableSelect for searchable lists and
 existing ChoiceGrid/SegmentedControl/Tabs for their established patterns.
+`ChoiceMenu` is the compact pill chooser for toolbars and composers with a short
+option set (assistant model, effort and permission). It is a Base UI menu of
+radio items: the trigger name is `<setting>: <selected>`, the selected option has
+`aria-checked`, and `tone="warning"` tints a risky state alongside its icon and
+text. Forms keep NativeSelect.
 Expose selected state semantically (aria-pressed/selected/checked as applicable),
 not only with color. Keep loading, empty, unavailable, stale and error distinct;
 reuse PageState when it fits and preserve retry actions and accessible status.

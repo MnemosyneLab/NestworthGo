@@ -1,4 +1,5 @@
 import { ModelSelector } from "./ModelSelector";
+import { effectiveEffort } from "./modelSelection";
 import { configuredModels } from "./modelSelection";
 import { ConversationUsage } from "./AIUsage";
 import { SecurityOperationRegion } from "@/lib/businessCapture";
@@ -9,11 +10,13 @@ import * as API from "../../../bindings/github.com/waltwang/nestworth-go/interna
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
+import { ChoiceMenu } from "@/components/ui/choice-menu";
 import { Notice } from "@/components/ui/notice";
 import { callService } from "@/lib/wails";
 import { InfoPopover } from "@/components/ui/info-popover";
-import { Plus, Trash2, ArrowUp, Pencil } from "lucide-react";
+import { ArrowUp, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ConversationSwitcher } from "./ConversationSwitcher";
+import { AssistantEmptyState } from "./AssistantEmptyState";
 import { useOperationResults } from "./useOperationResults";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { utf8ByteLength } from "@/lib/utf8";
@@ -53,7 +56,6 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
       window.removeEventListener("offline", update);
     };
   }, []);
-  const [rename, setRename] = useState<{ id: string; title: string } | null>(null);
   const [selected, setSelected] = useState("");
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
@@ -107,7 +109,6 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
   useEffect(() => {
     if (previousEpoch.current && previousEpoch.current !== epoch) {
       setSelected("");
-      setRename(null);
       setPrompt("");
       setSubmission(null);
     }
@@ -120,6 +121,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
   const modelAvailable = status.data?.available ?? false;
   const enabledModels = configuredModels(status.data?.config);
   const modelSelection = status.data?.selection ?? {model:status.data?.config?.model ?? "unconfigured", reasoningEffort:""};
+  const modelEfforts = (status.data?.modelCatalog ?? []).find(option => option.id === modelSelection.model)?.efforts;
   const selectionValid = enabledModels.includes(modelSelection.model);
   useEffect(() => {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
@@ -190,9 +192,11 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
         }
       });
   }, [latest.data, page, epoch, id]);
-  async function action(work: () => Promise<unknown>) {
-    if (pending.current) return;
+  /** Resolves true only when `work` completed without an error. */
+  async function action(work: () => Promise<unknown>): Promise<boolean> {
+    if (pending.current) return false;
     pending.current = true;
+    let succeeded = false;
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
     navigationCompletion.current = null;
     // Revoke locally at admission, before Create/Delete (or any other action)
@@ -205,6 +209,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
     setFailed(false);
     try {
       await work();
+      succeeded = true;
     } catch {
       navigationAttempt.current = null;
       if (navigationLease.current) {
@@ -223,6 +228,7 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
       pending.current = false;
       setBusy(false);
     }
+    return succeeded;
   }
   function cancelRun(runID: string) {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
@@ -294,145 +300,143 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
           pageLeaseId,
           prompt: text,
           model: modelSelection.model,
-          reasoningEffort: modelSelection.reasoningEffort,
+          reasoningEffort: effectiveEffort(modelEfforts, modelSelection.reasoningEffort),
           page: selection,
         }),
       );
       setPrompt("");
     });
   }
+  // Fallback ordinals follow the backend list order so they stay stable when
+  // the display is sorted by recency; no identifier is ever shown.
+  const switcherConversations = (list.data ?? []).map((c, index) => {
+    const savedTitle = (c.id === id ? latest.data?.title : "") || c.title || "";
+    return { id: c.id, updated: String(c.updated ?? ""), savedTitle, title: savedTitle || t("aiChat.session", { number: index + 1 }) };
+  }).sort((a, b) => b.updated.localeCompare(a.updated));
+  const suggest = (text: string) => { setPrompt(text); document.getElementById("ai-model-prompt")?.focus(); };
+  const permissionFull = !!status.data?.fullAccess;
   return (
     <div
-      className="flex h-full min-h-0 flex-col"
+      className="@container flex h-full min-h-0 flex-col"
       data-testid="model-conversation"
     >
-      <div className="flex shrink-0 items-center gap-1 border-b border-border p-3">
-        <Label htmlFor="ai-history" className="sr-only">{t("aiChat.history")}</Label>
-        <NativeSelect id="ai-history" className="min-h-11 min-w-0 flex-1 xl:min-h-9" value={id}
-          disabled={busy || !list.data?.length}
-          onChange={(event) => {
-            navigationCompletion.current = null;
-            navigationLease.current = null;
-            navigationAttempt.current = null;
-            setNavigationState("");
-            setSubmission(null);
-            setSelected(event.target.value);
-            setFailed(false);
-          }}>
-          <option value="" disabled>{t("aiChat.history")}</option>
-          {list.data?.map((c, index) => <option key={c.id} value={c.id}>{(c.id === id ? latest.data?.title : "") || c.title || t("aiChat.session", { number: index + 1 })}</option>)}
-        </NativeSelect>
-        <Button size="icon" variant="ghost" aria-label={t("aiChat.rename")} title={t("aiChat.rename")}
-          disabled={busy || !id || stale} onClick={() => setRename({ id, title: latest.data?.title || list.data?.find(c => c.id === id)?.title || "" })}><Pencil className="size-4" aria-hidden="true" /></Button>
-        <Button size="icon" variant="ghost" aria-label={t("aiChat.new")} title={t("aiChat.new")}
-          disabled={busy || stale || !epoch} onClick={() => void action(async () => {
-            const c = await callService(() => API.Create(epoch));
-            setSelected(c.id);
-          })}><Plus className="size-4" aria-hidden="true" /></Button>
-        <Button size="icon" variant="ghost" aria-label={t("aiChat.delete")} title={t("aiChat.delete")}
-          disabled={busy || running || !id || stale} onClick={() => void action(async () => {
-            await callService(() => API.Delete(epoch, id));
-            setSelected("");
-          })}><Trash2 className="size-4" aria-hidden="true" /></Button>
-      </div>
-      {rename?.id === id && <form className="space-y-2 border-b border-border p-3" onSubmit={event => {
-        event.preventDefault();
-        const draft = rename;
-        if (!draft.title.trim() || Array.from(draft.title.trim()).length > 64) return;
-        void action(async () => { await callService(() => API.Rename(epoch, draft.id, draft.title)); setRename(null); });
-      }}>
-        <Label htmlFor="ai-conversation-title">{t("aiChat.titleLabel")}</Label>
-        {/* Native maxlength counts UTF-16 units; 128 allows 64 supplementary code points. */}
-        <Input id="ai-conversation-title" autoFocus value={rename.title} maxLength={128} disabled={busy}
-          onChange={event => setRename({ id, title: Array.from(event.target.value).slice(0, 64).join("") })}
-          onKeyDown={event => { if (event.key === "Escape") setRename(null); if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }} />
-        <div className="flex gap-2"><Button type="submit" disabled={busy || stale || !rename.title.trim()}>{t("aiChat.saveTitle")}</Button>
-        <Button type="button" variant="ghost" disabled={busy} onClick={() => setRename(null)}>{t("aiChat.cancelTitle")}</Button></div>
-      </form>}
+      <ConversationSwitcher key={epoch} currentId={id} disabled={busy} mutationDisabled={busy || running || stale || !epoch}
+        conversations={switcherConversations}
+        onSelect={next => {
+          navigationCompletion.current = null;
+          navigationLease.current = null;
+          navigationAttempt.current = null;
+          setNavigationState("");
+          setSubmission(null);
+          setSelected(next);
+          setFailed(false);
+        }}
+        createDisabled={busy || stale || !epoch}
+        onCreate={() => void action(async () => {
+          const c = await callService(() => API.Create(epoch));
+          setSelected(c.id);
+        })}
+        onRename={(target, title) => action(() => callService(() => API.Rename(epoch, target, title)))}
+        onDelete={target => {
+          if (busy || running || stale || !epoch) return;
+          void action(async () => {
+            await callService(() => API.Delete(epoch, target));
+            if (target === id) setSelected("");
+          });
+        }} />
       {(status.isPending || offline || !status.data?.available) && <Notice role="status" className="m-3">
         {t(status.isPending ? "assistant.state.loading" : offline ? "aiChat.offlineLocal" : "aiChat.disabled")}
       </Notice>}
-        {(failed || stale) && (
-          <Notice tone="warning" role="alert">
-            {t("aiChat.error")}
-            <Button
-              className={actionClass}
-              variant="outline"
-              onClick={() => void action(async () => {})}
-            >
-              {t("common.retryAction")}
-            </Button>
-          </Notice>
-        )}
+      {(failed || stale) && (
+        <Notice tone="warning" role="alert" className="m-3">
+          {t("aiChat.error")}
+          <Button
+            className={actionClass}
+            variant="outline"
+            onClick={() => void action(async () => {})}
+          >
+            {t("common.retryAction")}
+          </Button>
+        </Notice>
+      )}
       {latest.data ? <ConversationTimeline key={`${epoch}:${id}`} epoch={epoch} id={id} latest={latest.data}
         operations={operations.data ?? []} operationsError={operations.isError}
         submittedRequestId={submission?.conversationId === id ? submission.requestId : ""}
-        busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 p-4"><p role="status" className="text-sm text-muted-foreground">{t(id ? "aiChat.loadingHistory" : "aiChat.empty")}</p></div>}
+        onSuggest={status.data?.available && !stale ? suggest : undefined}
+        busy={busy} onCancel={(runID) => void action(() => cancelRun(runID))} /> : <div className="min-h-0 flex-1 overflow-y-auto p-4">{id
+          ? <p role="status" className="text-sm text-muted-foreground">{t("aiChat.loadingHistory")}</p>
+          : <AssistantEmptyState onSuggest={status.data?.available && !stale ? suggest : undefined} disabled={busy} />}</div>}
       {id && <ConversationUsage epoch={epoch} id={id} runID={latest.data?.runs?.[0]?.id ?? ""} stamp={`${latest.data?.updated ?? ""}:${latest.data?.runs?.[0]?.state ?? ""}:${latest.data?.titleSource ?? ""}`} />}
       <form
-        className="shrink-0 space-y-3 border-t border-border p-3"
+        className="shrink-0 space-y-2 border-t border-border p-3"
         onSubmit={(event) => {
           event.preventDefault();
           void send();
         }}
       >
-        <ModelSelector models={enabledModels} catalog={status.data?.modelCatalog ?? []} selection={modelSelection}
-          disabled={busy || running || stale || !epoch}
-          onChange={selection => void action(() => callService(() => API.SelectModel(epoch, configRevision, selection)))} />
-        <Label className="sr-only" htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
-        <Input
-          className="min-h-11 text-base xl:min-h-9 xl:text-sm"
-          id="ai-model-prompt"
-          value={prompt}
-          maxBytes={16384}
-          byteCountVisibility="sr-only"
-          placeholder={t("aiChat.placeholder")}
-          onKeyDown={(event) => { if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }}
-          autoComplete="off"
-          onChange={(event) => setPrompt(event.target.value)}
-          disabled={busy || !status.data?.available || stale}
-        />
-        <div className="flex flex-wrap items-center gap-2">
-        <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
-          {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
-          <p>{t("aiModels.history")}</p>
-          {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
-          {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
-        </div></InfoPopover>
-        <SecurityOperationRegion className="mr-auto min-w-0 flex-1">
-          <Label htmlFor="ai-permission" className="sr-only">{t("aiChat.permission")}</Label>
-          <NativeSelect id="ai-permission" className="min-h-11 max-w-full text-xs xl:min-h-9" title={t("aiChat.fullPermission")} aria-description={t("aiChat.fullPermission")}
-            value={status.data?.fullAccess ? "full" : "readOnly"}
-            disabled={busy || (!status.data?.fullAccess && (!status.data?.available || running || stale))}
-            onChange={event => changeFullAccess(event.target.value === "full")}>
-            <option value="readOnly">{t("aiChat.readOnly")}</option>
-            <option value="full">{t("aiChat.full")}</option>
-          </NativeSelect>
-        </SecurityOperationRegion>
-        <div className="flex shrink-0 items-center gap-1">
-        <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
-          disabled={!visible || busy || running || offline || stale || !modelAvailable}
-          onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
-        <Button
-          size="icon"
-          className="size-11 shrink-0 xl:size-9"
-          aria-label={t("aiChat.send")}
-          title={t("aiChat.send")}
-          type="submit"
-          disabled={
-            busy ||
-            offline ||
-            running ||
-            !status.data?.available ||
-            !selectionValid ||
-            stale ||
-            !prompt.trim() ||
-            utf8ByteLength(prompt) > 16384
-          }
-        >
-          <ArrowUp className="size-4" aria-hidden="true" />
-        </Button>
-        </div>
+        <div className="@container rounded-2xl border border-border bg-card shadow-xs transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/30">
+          <div>
+            <Label className="sr-only" htmlFor="ai-model-prompt">{t("aiChat.message")}</Label>
+            <div className="min-w-0">
+              <Input
+                className="min-h-11 rounded-2xl border-0 bg-transparent px-4 text-base shadow-none focus-visible:border-transparent focus-visible:ring-0 xl:min-h-10 xl:text-sm"
+                id="ai-model-prompt"
+                value={prompt}
+                maxBytes={16384}
+                byteCountVisibility="sr-only"
+                placeholder={t("aiChat.placeholder")}
+                onKeyDown={(event) => { if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault(); }}
+                autoComplete="off"
+                onChange={(event) => setPrompt(event.target.value)}
+                disabled={busy || !status.data?.available || stale}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
+            <ModelSelector models={enabledModels} catalog={status.data?.modelCatalog ?? []} selection={modelSelection}
+              disabled={busy || running || stale || !epoch}
+              onChange={selection => void action(() => callService(() => API.SelectModel(epoch, configRevision, selection)))} />
+            <SecurityOperationRegion className="contents">
+              <ChoiceMenu label={t("aiChat.permission")} icon={permissionFull ? ShieldAlert : ShieldCheck} tone={permissionFull ? "warning" : "default"} iconOnly
+                value={permissionFull ? "full" : "readOnly"}
+                options={[
+                  { value: "readOnly", label: t("aiChat.readOnly"), description: t("aiChat.readOnlyHint") },
+                  { value: "full", label: t("aiChat.full"), description: t("aiChat.fullHint") },
+                ]}
+                disabled={busy || (!permissionFull && (!status.data?.available || running || stale))}
+                onChange={value => changeFullAccess(value === "full")} />
+            </SecurityOperationRegion>
+            <InfoPopover label={t("assistant.settings")}><div className="space-y-2">
+              {["scope", "privacy", "pageHint", "retention", "titlePolicy"].map(key => <p key={key}>{t(`aiChat.${key}`)}</p>)}
+              <p>{t("aiModels.history")}</p>
+              {latest.data?.titleSource && <p>{t(`aiChat.titleSource.${latest.data.titleSource}`)}</p>}
+              {page?.refresh && <Button type="button" variant="ghost" size="sm" onClick={() => page.refresh?.()}>{t("assistant.refresh")}</Button>}
+            </div></InfoPopover>
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+            <VoiceInput key={`voice:${epoch}:${id}:${configRevision}`} epoch={epoch} revision={configRevision}
+              disabled={!visible || busy || running || offline || stale || !modelAvailable}
+              onText={text => { setPrompt(current => current ? `${current} ${text}` : text); document.getElementById("ai-model-prompt")?.focus(); }} />
+            <Button
+              size="icon"
+              className="size-11 shrink-0 rounded-full xl:size-9"
+              aria-label={t("aiChat.send")}
+              title={t("aiChat.send")}
+              type="submit"
+              disabled={
+                busy ||
+                offline ||
+                running ||
+                !status.data?.available ||
+                !selectionValid ||
+                stale ||
+                !prompt.trim() ||
+                utf8ByteLength(prompt) > 16384
+              }
+            >
+              <ArrowUp className="size-4" aria-hidden="true" />
+            </Button>
+            </div>
+          </div>
         </div>
         {navigationState && (
           <p role="status" className="text-xs text-muted-foreground">
