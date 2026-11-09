@@ -335,10 +335,13 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
           setSelected(c.id);
         })}
         onRename={(target, title) => action(() => callService(() => API.Rename(epoch, target, title)))}
-        onDelete={target => void action(async () => {
-          await callService(() => API.Delete(epoch, target));
-          if (target === id) setSelected("");
-        })} />
+        onDelete={target => {
+          if (busy || running || stale || !epoch) return;
+          void action(async () => {
+            await callService(() => API.Delete(epoch, target));
+            if (target === id) setSelected("");
+          });
+        }} />
       {(status.isPending || offline || !status.data?.available) && <Notice role="status" className="m-3">
         {t(status.isPending ? "assistant.state.loading" : offline ? "aiChat.offlineLocal" : "aiChat.disabled")}
       </Notice>}

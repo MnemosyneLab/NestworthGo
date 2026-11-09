@@ -33,7 +33,8 @@ export function groupKey(value: string, now = new Date()): GroupKey {
   if (!Number.isFinite(time)) return "groupEarlier";
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   if (time >= start) return "groupToday";
-  if (time >= start - 86_400_000) return "groupYesterday";
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
+  if (time >= yesterday) return "groupYesterday";
   return "groupEarlier";
 }
 
@@ -133,7 +134,7 @@ export function ConversationSwitcher({ conversations, currentId, disabled, mutat
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t("aiChat.deleteCancel")}</AlertDialogCancel>
-          <AlertDialogAction onClick={() => { if (pendingDelete) onDelete(pendingDelete.id); }}>{t("aiChat.deleteConfirm")}</AlertDialogAction>
+          <AlertDialogAction disabled={disabled || mutationDisabled} onClick={() => { if (pendingDelete && !disabled && !mutationDisabled) onDelete(pendingDelete.id); }}>{t("aiChat.deleteConfirm")}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

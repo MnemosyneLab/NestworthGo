@@ -101,3 +101,41 @@ it("disables the list while busy or empty and never shows identifiers", () => {
   setup({ conversations: [], currentId: "" });
   expect(screen.getByRole("button", { name: "Conversations" })).toBeDisabled();
 });
+
+
+it.each(["disabled", "mutationDisabled"] as const)("blocks an existing delete confirmation when %s changes", async blocked => {
+  const { props, user, rerender } = setup();
+  await user.click(screen.getByRole("button", { name: /^Conversations:/ }));
+  await user.click(await screen.findByRole("button", { name: "Delete conversation: Conversation 2" }));
+  const dialog = await screen.findByRole("alertdialog");
+  rerender(<ConversationSwitcher {...props} {...{ [blocked]: true }} />);
+  const confirm = within(dialog).getByRole("button", { name: "Delete" });
+  expect(confirm).toBeDisabled();
+  await user.click(confirm);
+  await user.keyboard("{Enter}");
+  expect(props.onDelete).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole("button", { name: "Keep" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+});
+
+
+it("groups by local calendar days across both daylight-saving transitions", () => {
+  vi.stubEnv("TZ", "America/New_York");
+  try {
+    // Fall back: yesterday lasts 25 hours; its first hour must stay Yesterday.
+    const fall = new Date(2026, 10, 2, 12);
+    expect(new Date(2026, 10, 1).getTimezoneOffset()).toBe(240);
+    expect(fall.getTimezoneOffset()).toBe(300);
+    expect(groupKey(new Date(2026, 10, 1, 0, 30).toISOString(), fall)).toBe("groupYesterday");
+    expect(groupKey(new Date(2026, 9, 31, 23, 59).toISOString(), fall)).toBe("groupEarlier");
+    // Spring forward: yesterday lasts 23 hours; the day before stays Earlier.
+    const spring = new Date(2026, 2, 9, 12);
+    expect(new Date(2026, 2, 8).getTimezoneOffset()).toBe(300);
+    expect(spring.getTimezoneOffset()).toBe(240);
+    expect(groupKey(new Date(2026, 2, 7, 23, 30).toISOString(), spring)).toBe("groupEarlier");
+    expect(groupKey(new Date(2026, 2, 8, 0, 0).toISOString(), spring)).toBe("groupYesterday");
+    expect(groupKey(new Date(2026, 2, 9, 0, 0).toISOString(), spring)).toBe("groupToday");
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

@@ -22,11 +22,13 @@ export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone =
   align?: "start" | "end";
 }) {
   const [open, setOpen] = useState(false);
+  // Forget an open menu immediately when its owner blocks interaction.
+  if (disabled && open) setOpen(false);
   const capture = useBusinessPortal();
   const current = options.find(option => option.value === value);
   const text = current?.label ?? value;
   return (
-    <Menu.Root open={open} onOpenChange={setOpen}>
+    <Menu.Root open={open && !disabled} onOpenChange={next => setOpen(next && !disabled)}>
       <Menu.Trigger
         disabled={disabled}
         aria-label={`${label}: ${text}`}
@@ -46,9 +48,9 @@ export function ChoiceMenu({ label, value, options, onChange, icon: Icon, tone =
       {open && capture.origin}<Menu.Portal>
         <Menu.Positioner side="top" sideOffset={6} align={align} className="z-50">
           <Menu.Popup {...capture.props} aria-label={label} className="max-h-[min(24rem,70dvh)] min-w-48 max-w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-1 text-foreground shadow-lg outline-none">
-            <Menu.RadioGroup value={value} onValueChange={next => { if (typeof next === "string" && next !== value) onChange(next); }}>
+            <Menu.RadioGroup value={value} onValueChange={next => { if (!disabled && typeof next === "string" && next !== value) onChange(next); }}>
               {options.map(option => (
-                <Menu.RadioItem key={option.value} value={option.value} disabled={option.disabled} closeOnClick
+                <Menu.RadioItem key={option.value} value={option.value} disabled={disabled || option.disabled} closeOnClick
                   className="flex cursor-default items-start gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-primary/10 data-[disabled]:opacity-50">
                   <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
                     <Menu.RadioItemIndicator keepMounted={false}><Check aria-hidden="true" className="size-4 text-primary" /></Menu.RadioItemIndicator>

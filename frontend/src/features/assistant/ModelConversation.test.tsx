@@ -756,10 +756,10 @@ it("announces an immediate first reply from a newly created conversation", async
  it("requires explicit Full opt-in and never invokes a model or human confirmation",async()=>{
  const user=userEvent.setup();mount();await screen.findByText("Synthetic prior answer");
  render(<BusinessPageRoot view="synthetic:" accessIdentity="synthetic"><p>Ordinary business content</p></BusinessPageRoot>);
- const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Full · Edit the ledger");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.name==="Permissions")).toBe(false);
+ const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Read & Write · Edit the ledger");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.name==="Permissions")).toBe(false);
  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
  const control=screen.getByRole("button",{name:"Permissions: Read-only"});
- control.focus();expect(control).toHaveFocus();await choosePermission(user,"Full");
+ control.focus();expect(control).toHaveFocus();await choosePermission(user,"Read & Write");
  await waitFor(()=>expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host",3,true));
  expect(api.Start).not.toHaveBeenCalled();
  });
@@ -895,7 +895,7 @@ it("keeps the authoritative permission and reports a failed toggle", async () =>
   api.SetFullAccess.mockRejectedValueOnce(new Error("permission save failed"));
   mount();
   await screen.findByText("Synthetic prior answer");
-  await choosePermission(userEvent.setup(), "Full");
+  await choosePermission(userEvent.setup(), "Read & Write");
   await screen.findByRole("alert");
   expect(screen.getByRole("button", { name: "Permissions: Read-only" })).toBeVisible();
   expect(api.Start).not.toHaveBeenCalled();
@@ -909,9 +909,9 @@ it.each([["succeeded", "Recorded"], ["failed", "Failed"]])("shows a recovered %s
   let recoveredReceipt = false;
   api.Reviews.mockImplementation(async () => [{ ...result, state: recoveredReceipt ? state : "unknown" }]);
   mount();
-  await screen.findByText("Full ledger change · Outcome unknown");
+  await screen.findByText("Read & Write ledger change · Outcome unknown");
   recoveredReceipt = true;
-  const recovered = await screen.findByText(`Full ledger change · ${label}`, {}, { timeout: 3000 });
+  const recovered = await screen.findByText(`Read & Write ledger change · ${label}`, {}, { timeout: 3000 });
   await userEvent.click(recovered.closest("summary")!);
   expect(screen.getByText(`Operation result · ${label}`)).toBeVisible();
   expect(screen.getByText('{"error":"lost reply"}')).toBeVisible();
@@ -998,4 +998,38 @@ it("deletes a non-selected conversation without clearing the current selection",
   await waitFor(() => expect(api.Delete).toHaveBeenCalledExactlyOnceWith("host", "other"));
   expect(screen.getByRole("button", { name: "Conversations: Current" })).toBeVisible();
   expect(screen.getByText("Synthetic prior answer")).toBeVisible();
+});
+
+
+it("closes the permission menu when a background refresh fails", async () => {
+  const user = userEvent.setup();
+  const client = createTestQueryClient();
+  mount("overview:", client);
+  await screen.findByText("Synthetic prior answer");
+  await user.click(screen.getByRole("button", { name: /^Permissions:/ }));
+  await screen.findByRole("menuitemradio", { name: /^Read & Write/ });
+  api.Status.mockRejectedValue(new Error("Synthetic refresh failure"));
+  await act(async () => { await client.invalidateQueries({ queryKey: ["aiCredentialStatus"] }); });
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Permissions:/ })).toBeDisabled());
+  await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  await user.keyboard("{ArrowDown}{Enter}");
+  expect(api.SetFullAccess).not.toHaveBeenCalled();
+});
+
+it("blocks an already-open delete confirmation after a background refresh fails", async () => {
+  const user = userEvent.setup();
+  const client = createTestQueryClient();
+  mount("overview:", client);
+  await screen.findByText("Synthetic prior answer");
+  await user.click(historyTrigger());
+  await user.click(await screen.findByRole("button", { name: /^Delete conversation:/ }));
+  const dialog = await screen.findByRole("alertdialog");
+  api.Status.mockRejectedValue(new Error("Synthetic refresh failure"));
+  await act(async () => { await client.invalidateQueries({ queryKey: ["aiCredentialStatus"] }); });
+  const confirm = within(dialog).getByRole("button", { name: "Delete" });
+  await waitFor(() => expect(confirm).toBeDisabled());
+  await user.click(confirm);
+  expect(api.Delete).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole("button", { name: "Keep" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
 });

@@ -5,7 +5,7 @@ import { ChoiceMenu } from "./choice-menu";
 
 const options = [
   { value: "readOnly", label: "Read-only", description: "Reads only" },
-  { value: "full", label: "Full", description: "Edits the ledger" },
+  { value: "full", label: "Read & Write", description: "Edits the ledger" },
 ];
 
 it("opens from the keyboard, selects an option, and returns focus", async () => {
@@ -16,7 +16,7 @@ it("opens from the keyboard, selects an option, and returns focus", async () => 
   trigger.focus();
   await user.keyboard("{Enter}");
   expect(await screen.findByRole("menuitemradio", { name: /Read-only/ })).toHaveAttribute("aria-checked", "true");
-  expect(screen.getByRole("menuitemradio", { name: /Full/ })).toHaveAttribute("aria-checked", "false");
+  expect(screen.getByRole("menuitemradio", { name: /Read & Write/ })).toHaveAttribute("aria-checked", "false");
   expect(screen.getByText("Edits the ledger")).toBeVisible();
   await user.keyboard("{ArrowDown}{Enter}");
   expect(onChange).toHaveBeenCalledExactlyOnceWith("full");
@@ -41,9 +41,28 @@ it("dismisses with Escape without changing the value and does not re-announce th
 it("stays closed when disabled and tints the warning tone", async () => {
   const user = userEvent.setup();
   render(<ChoiceMenu label="Permissions" value="full" options={options} onChange={vi.fn()} tone="warning" disabled />);
-  const trigger = screen.getByRole("button", { name: "Permissions: Full" });
+  const trigger = screen.getByRole("button", { name: "Permissions: Read & Write" });
   expect(trigger).toBeDisabled();
   expect(trigger.className).toContain("bg-warning/15");
   await user.click(trigger);
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+});
+
+
+it("closes an open menu when disabled and does not restore it when enabled", async () => {
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+  const props = { label: "Permissions", value: "readOnly", options, onChange };
+  const view = render(<ChoiceMenu {...props} />);
+  await user.click(screen.getByRole("button", { name: "Permissions: Read-only" }));
+  await screen.findByRole("menuitemradio", { name: /Read & Write/ });
+  view.rerender(<ChoiceMenu {...props} disabled />);
+  await vi.waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  await user.keyboard("{ArrowDown}{Enter}");
+  expect(onChange).not.toHaveBeenCalled();
+  view.rerender(<ChoiceMenu {...props} />);
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Permissions: Read-only" }));
+  await user.click(await screen.findByRole("menuitemradio", { name: /Read & Write/ }));
+  expect(onChange).toHaveBeenCalledExactlyOnceWith("full");
 });

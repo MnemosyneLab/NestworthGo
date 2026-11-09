@@ -24,7 +24,7 @@ vi.mock("./voiceRecorder", () => ({
 function Shell() { const assistant = useDesktopAssistant(); return <div data-testid="assistant-workspace">{assistant.trigger}<main hidden={assistant.expanded}>Synthetic business page<button>Business action</button></main>{assistant.panel}</div>; }
 beforeEach(() => {
   vi.resetAllMocks();
-  useUiStore.setState({ assistantWidth: 400 });
+  useUiStore.setState({ assistantWidth: useUiStore.getInitialState().assistantWidth });
   status.mockResolvedValue(configuredStatus);
   api.List.mockResolvedValue([{ id: "one", title: "Recent", updated: "2026-11-06" }, { id: "two", title: "Earlier", updated: "2026-11-05" }]);
   api.Inspect.mockImplementation(async (_epoch: string, id: string) => ({ id, runs: [], runCount: 0 }));
@@ -197,7 +197,7 @@ it("resizes the dock without remounting the draft or recording and restores its 
   handle.setPointerCapture = vi.fn();
   handle.hasPointerCapture = () => false;
   fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 1000, isPrimary: true });
-  fireEvent.pointerMove(handle, { pointerId: 1, clientX: 800 });
+  fireEvent.pointerMove(handle, { pointerId: 1, clientX: 880 });
   fireEvent.pointerUp(handle, { pointerId: 1 });
   expect(dock).toHaveStyle({ width: "600px" });
   expect(screen.getByLabelText("Message")).toBe(input);
@@ -268,9 +268,9 @@ it.each(["before", "during"])("restores the saved width on Escape when the works
 });
 
 it.each([
-  ["en", "AI assistant", "Resize AI assistant", "Width: 400 pixels"],
-  ["zh-CN", "AI 助手", "调整 AI 助手宽度", "宽度 400 像素"],
-  ["zh-TW", "AI 助手", "調整 AI 助手寬度", "寬度 400 像素"],
+  ["en", "AI assistant", "Resize AI assistant", "Width: 480 pixels"],
+  ["zh-CN", "AI 助手", "调整 AI 助手宽度", "宽度 480 像素"],
+  ["zh-TW", "AI 助手", "調整 AI 助手寬度", "寬度 480 像素"],
 ])("labels the adjustable width in %s", async (locale, label, title, valueText) => {
   responsiveViewport();
   await i18n.changeLanguage(locale);
@@ -280,4 +280,23 @@ it.each([
   expect(handle).toHaveAttribute("title", title);
   expect(handle).toHaveAttribute("aria-valuetext", valueText);
   expect(handle).toHaveAttribute("aria-controls", "desktop-assistant");
+});
+
+
+it("starts wider, clamps to a small workspace and preserves the preferred width", async () => {
+  const resizeViewport = responsiveViewport();
+  const resizeWorkspace = workspaceSize(1216);
+  mount();
+  await userEvent.click(screen.getByRole("button", { name: "Open AI assistant" }));
+  const dock = screen.getByRole("complementary", { name: "AI assistant" });
+  expect(dock).toHaveStyle({ width: "480px" });
+  resizeWorkspace(880);
+  expect(dock).toHaveStyle({ width: "400px" });
+  expect(useUiStore.getState().assistantWidth).toBe(480);
+  resizeViewport(false);
+  expect(await screen.findByRole("dialog", { name: "AI assistant" })).toBeVisible();
+  expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+  resizeWorkspace(1216);
+  resizeViewport(true);
+  expect(screen.getByRole("complementary", { name: "AI assistant" })).toHaveStyle({ width: "480px" });
 });

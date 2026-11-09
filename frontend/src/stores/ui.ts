@@ -29,7 +29,7 @@ export const useUiStore = create<UiState>((set) => ({
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   // Layout choices share the sidebar's session lifetime; no ledger data or
   // browser persistence. Temporary viewport clamps do not replace this choice.
-  assistantWidth: 400,
+  assistantWidth: 480,
   setAssistantWidth: (assistantWidth) => set({ assistantWidth }),
 
   appearance: "system",
