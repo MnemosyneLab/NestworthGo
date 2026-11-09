@@ -298,30 +298,38 @@ func TestPermissionChangeRevokesTokenAndDisablePersists(t *testing.T) {
 	}
 }
 
-func TestObsoleteMCPModesRequireFreshAuthorization(t *testing.T) {
+func TestUnsupportedSavedMCPModesFallBackToReadOnly(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"directory_write", "ledger_write"} {
+	for _, mode := range []string{"directory_write", "ledger_write", "unknown"} {
 		t.Run(mode, func(t *testing.T) {
 			s, _, _ := fixture(t)
 			old := Config{Enabled: true, Mode: mode, Token: strings.Repeat("a", 64), InstanceID: uuid.NewString()}
 			if err := s.writePrivate(filepath.Join(s.dir, "connection.json"), old); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.Resume(); err == nil {
-				t.Fatal("obsolete permissions resumed")
-			}
-			if status := s.Status(); status.Running || status.Mode != ReadOnly || status.Error != "invalid_configuration" {
-				t.Fatalf("obsolete permissions did not fail closed: %+v", status)
-			}
-			if _, err := s.Enable(mode); err == nil {
-				t.Fatal("obsolete permission accepted")
-			}
-			if _, err := s.Enable(ReadWrite); err != nil {
+			if err := s.Resume(); err != nil {
 				t.Fatal(err)
 			}
-			current, err := s.Connection()
-			if err != nil || current.Token == old.Token {
-				t.Fatal("fresh authorization did not issue a fresh token", err)
+			if status := s.Status(); !status.Running || status.Mode != ReadOnly || status.Error != "" {
+				t.Fatalf("saved mode did not resume as read-only: %+v", status)
+			}
+			if _, err := s.Enable(mode); err == nil {
+				t.Fatal("unsupported permission accepted on explicit enable")
+			}
+			conn, err := s.Connection()
+			if err != nil || conn.Token != old.Token {
+				t.Fatal("read-only fallback changed the connection token", err)
+			}
+			client := connect(t, s)
+			info := call(t, client, "get_context", Empty{}, false)["data"].(map[string]any)
+			if info["mode"] != ReadOnly {
+				t.Fatal("MCP did not report read-only mode")
+			}
+			for _, name := range []string{"create_member", "commit_plan", "refresh_investment_reviews"} {
+				_, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: Empty{}})
+				if err == nil || !strings.Contains(err.Error(), "unknown tool") {
+					t.Fatalf("fallback exposes %s: %v", name, err)
+				}
 			}
 		})
 	}

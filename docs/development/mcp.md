@@ -61,8 +61,8 @@ port conflict fails closed; it does not attach to another instance. Disabling
 revokes the token. Enabling again or changing mode issues a new token, so
 recopy the configuration. A normal restart keeps the token and port. Nothing
 is enabled by default. Development and release builds must use distinct
-database paths. Previously saved write modes require re-enabling MCP with a
-current mode and copying the new connection credentials.
+database paths. A saved permission mode this App does not recognize falls back
+to read only at startup. An enabled connection resumes with the same credentials.
 
 Configuration, preview plans and operation receipts live in SQLite, including
 the token, port and instance ID. They are excluded from JSON household exports

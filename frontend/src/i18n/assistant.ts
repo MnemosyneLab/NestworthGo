@@ -74,7 +74,6 @@ export const assistantEn = {
     operationResult: "Operation result",
     operationRefreshError: "Could not refresh operation results.",
     operationState: {"succeeded": "Recorded", "failed": "Failed", "cancelled": "Not submitted", "committing": "Submitting", "awaiting_confirmation": "Not submitted", "needs_preview": "Preview expired", "unknown": "Outcome unknown"},
-    full: "Read & Write",
     unknownTool: "Tool call",
     permission: "Permissions",
     "fullPermission": "Read & Write · Edit the ledger without per-change confirmation",
@@ -114,7 +113,6 @@ export const assistantEn = {
     messageDetails: "Message details",
     jumpLatest: "Latest messages",
     placeholder: "Ask a question…",
-    readOnly: "Read-only",
 
     navigationOpened: "The requested page was opened.",
     navigationUnverified: "The page may have changed, but the requested trend and filters could not be verified. Check the page before retrying.",
@@ -455,7 +453,6 @@ export const assistantZhCN = {
     operationResult: "操作结果",
     operationRefreshError: "暂时无法刷新操作结果。",
     operationState: {"succeeded": "已记录", "failed": "失败", "cancelled": "未提交", "committing": "提交中", "awaiting_confirmation": "未提交", "needs_preview": "预览已过期", "unknown": "结果待确认"},
-    full: "可读写",
     unknownTool: "工具调用",
     permission: "权限",
     "fullPermission": "可读写 · 直接修改账本，无需逐笔确认",
@@ -495,7 +492,6 @@ export const assistantZhCN = {
     messageDetails: "消息详情",
     jumpLatest: "最新消息",
     placeholder: "问点什么…",
-    readOnly: "只读",
 
     navigationOpened: "已打开请求的页面。",
     navigationUnverified: "页面可能已变化，但未能验证请求的收益趋势和筛选。请检查页面后再重试。",
@@ -821,7 +817,6 @@ export const assistantZhTW = {
     operationResult: "操作結果",
     operationRefreshError: "暫時無法重新整理操作結果。",
     operationState: {"succeeded": "已記錄", "failed": "失敗", "cancelled": "未提交", "committing": "提交中", "awaiting_confirmation": "未提交", "needs_preview": "預覽已過期", "unknown": "結果待確認"},
-    full: "可讀寫",
     unknownTool: "工具呼叫",
     permission: "權限",
     "fullPermission": "可讀寫 · 直接修改帳本，無需逐筆確認",
@@ -861,7 +856,6 @@ export const assistantZhTW = {
     messageDetails: "訊息詳情",
     jumpLatest: "最新訊息",
     placeholder: "問點什麼…",
-    readOnly: "唯讀",
 
     navigationOpened: "已開啟請求的頁面。",
     navigationUnverified: "頁面可能已變更，但未能驗證請求的收益趨勢和篩選。請檢查頁面後再重試。",

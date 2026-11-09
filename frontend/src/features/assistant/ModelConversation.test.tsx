@@ -758,8 +758,8 @@ it("announces an immediate first reply from a newly created conversation", async
  render(<BusinessPageRoot view="synthetic:" accessIdentity="synthetic"><p>Ordinary business content</p></BusinessPageRoot>);
  const captured=capturePageContent("synthetic:");expect(JSON.stringify(captured)).not.toContain("Read & Write · Edit the ledger");expect(JSON.stringify(captured)).not.toContain("Allow cash change proposals");expect(captured.nodes.some(node=>node.name==="Permissions")).toBe(false);
  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
- const control=screen.getByRole("button",{name:"Permissions: Read-only"});
- control.focus();expect(control).toHaveFocus();await choosePermission(user,"Read & Write");
+ const control=screen.getByRole("button",{name:"Permissions: Read only"});
+ control.focus();expect(control).toHaveFocus();await choosePermission(user,"Read & write");
  await waitFor(()=>expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host",3,true));
  expect(api.Start).not.toHaveBeenCalled();
  });
@@ -841,7 +841,7 @@ it.each([
   ["en", "Can edit the ledger without per-change confirmation."],
   ["zh-CN", "可直接修改账本，无需逐笔确认。"],
   ["zh-TW", "可直接修改帳本，無需逐筆確認。"],
-])("shows only Read-only and Full modes with inline results in %s", async (locale, label) => {
+])("shows only read-only and read-write modes with inline results in %s", async (locale, label) => {
   await i18n.changeLanguage(locale);
   api.Status.mockResolvedValue({ ...configuredStatus, fullAccess: true });
   api.Reviews.mockResolvedValue([{ id: "receipt", source: "ai_full", state: "succeeded", summary: "Duplicate result" }]);
@@ -852,12 +852,12 @@ it.each([
   mount();
   await screen.findByText("Synthetic prior answer");
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-  const checkbox = screen.getByRole("button", { name: `${i18n.t("aiChat.permission")}: ${i18n.t("aiChat.full")}` });
+  const checkbox = screen.getByRole("button", { name: `${i18n.t("aiChat.permission")}: ${i18n.t("agent.readWrite")}` });
   expect(checkbox.className).toContain("bg-warning/15");
   await user.click(checkbox);
   expect(await screen.findAllByRole("menuitemradio")).toHaveLength(2);
-  expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${i18n.t("aiChat.full")}`) })).toHaveAttribute("aria-checked", "true");
-  expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${i18n.t("aiChat.readOnly")}`) })).toHaveAttribute("aria-checked", "false");
+  expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${i18n.t("agent.readWrite")}`) })).toHaveAttribute("aria-checked", "true");
+  expect(screen.getByRole("menuitemradio", { name: new RegExp(`^${i18n.t("agent.readOnly")}`) })).toHaveAttribute("aria-checked", "false");
   expect(screen.getByText(label)).toBeVisible();
   await user.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
@@ -869,7 +869,7 @@ it.each([
   await user.click(output.closest("details")!.querySelector("summary")!);
   expect(output).not.toBeVisible();
   checkbox.focus();
-  await choosePermission(user, i18n.t("aiChat.readOnly"));
+  await choosePermission(user, i18n.t("agent.readOnly"));
   await waitFor(() => expect(api.SetFullAccess).toHaveBeenCalledExactlyOnceWith("host", 3, false));
 
   expect(api.Start).not.toHaveBeenCalled();
@@ -883,7 +883,7 @@ it.each([false, true])("Full permission enabled=%s can only be revoked during a 
   const checkbox = screen.getByRole("button", { name: /^Permissions:/ });
   if (enabled) {
     expect(checkbox).toBeEnabled();
-    await choosePermission(userEvent.setup(), "Read-only");
+    await choosePermission(userEvent.setup(), "Read only");
     await waitFor(() => expect(api.SetFullAccess).toHaveBeenCalledWith("host", 3, false));
   } else {
     expect(checkbox).toBeDisabled();
@@ -895,9 +895,9 @@ it("keeps the authoritative permission and reports a failed toggle", async () =>
   api.SetFullAccess.mockRejectedValueOnce(new Error("permission save failed"));
   mount();
   await screen.findByText("Synthetic prior answer");
-  await choosePermission(userEvent.setup(), "Read & Write");
+  await choosePermission(userEvent.setup(), "Read & write");
   await screen.findByRole("alert");
-  expect(screen.getByRole("button", { name: "Permissions: Read-only" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Permissions: Read only" })).toBeVisible();
   expect(api.Start).not.toHaveBeenCalled();
 });
 
@@ -1008,7 +1008,7 @@ it("closes the permission menu when a background refresh fails", async () => {
   mount("overview:", client);
   await screen.findByText("Synthetic prior answer");
   await user.click(screen.getByRole("button", { name: /^Permissions:/ }));
-  await screen.findByRole("menuitemradio", { name: /^Read & Write/ });
+  await screen.findByRole("menuitemradio", { name: /^Read & write/ });
   api.Status.mockRejectedValue(new Error("Synthetic refresh failure"));
   await act(async () => { await client.invalidateQueries({ queryKey: ["aiCredentialStatus"] }); });
   await waitFor(() => expect(screen.getByRole("button", { name: /^Permissions:/ })).toBeDisabled());

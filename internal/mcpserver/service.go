@@ -111,8 +111,7 @@ func (s *Service) Resume() error {
 		return err
 	}
 	if !validMode(config.Mode) {
-		s.lastError = "invalid_configuration"
-		return fmt.Errorf("invalid agent mode")
+		config.Mode = ReadOnly
 	}
 	if config.Port < 0 || config.Port > 65535 || (config.Enabled && (len(config.Token) != 64 || uuid.Validate(config.InstanceID) != nil)) {
 		s.lastError = "invalid_configuration"

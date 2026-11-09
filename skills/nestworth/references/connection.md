@@ -9,8 +9,8 @@ App's loopback address without a separately configured relay.
 
 Normal App restarts retain the port and token. Disabling MCP revokes the token;
 enabling again or changing permission mode issues a new token, requiring updated
-client configuration. Previously saved write modes require enabling MCP again
-and copying the new connection configuration. Connection failures can mean a stopped App, stale token,
+client configuration. An unsupported saved mode resumes as read only with the
+same connection credentials. Connection failures can mean a stopped App, stale token,
 wrong instance, or occupied port. Ask the user to inspect App settings rather
 than scanning databases or silently attaching to another instance.
 
