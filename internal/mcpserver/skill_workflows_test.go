@@ -58,7 +58,7 @@ func skillCommit(t *testing.T, c *mcp.ClientSession, name, planID string) map[st
 	if receipt["status"] != "succeeded" {
 		t.Fatalf("skill commit failed: %+v", receipt)
 	}
-	return receipt["result"].(map[string]any)
+	return singletonLedgerResult(receipt["result"].(map[string]any))
 }
 
 func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
@@ -75,7 +75,7 @@ func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
 	values := map[string]string{"accountId": accountID, "instrumentId": fx.instrument, "effectiveAt": "2026-09-29T12:00:00Z"}
 	post := func(reference, name string) map[string]any {
 		t.Helper()
-		preview := ledgerPreview(t, c, skillExample(t, reference, name, values))
+		preview := ledgerPreviewInput(t, c, skillExample(t, reference, name, values))
 		return skillCommit(t, c, "commit_plan", preview["planId"].(string))
 	}
 	post("cash-and-debt", "income")
@@ -114,7 +114,7 @@ func TestSkillCashDebtAndBatchExamples(t *testing.T) {
 	values := map[string]string{"accountId": fx.checking, "effectiveAt": "2026-09-29T12:00:00Z", "debtAccountId": fx.debt}
 	income := skillExample(t, "cash-and-debt", "income", values)
 	expense := skillExample(t, "cash-and-debt", "expense", values)
-	plan := batchPreview(t, c, income, expense)
+	plan := batchPreview(t, c, income["commands"].([]any)[0].(map[string]any), expense["commands"].([]any)[0].(map[string]any))
 	opID := uuid.NewString()
 	arguments := skillExample(t, "positions-and-trades", "commit", map[string]string{"operationId": opID, "planId": plan["planId"].(string)})
 	call(t, c, "commit_plan", arguments, false)
@@ -124,7 +124,7 @@ func TestSkillCashDebtAndBatchExamples(t *testing.T) {
 	}
 	draw := ledgerPreview(t, c, map[string]any{"kind": "debt_draw", "debtAccountId": fx.debt, "cashAccountId": fx.checking, "principal": "300", "principalCurrency": "USD", "effectiveAt": values["effectiveAt"]})
 	skillCommit(t, c, "commit_plan", draw["planId"].(string))
-	repayment := ledgerPreview(t, c, skillExample(t, "cash-and-debt", "debt-payment", values))
+	repayment := ledgerPreviewInput(t, c, skillExample(t, "cash-and-debt", "debt-payment", values))
 	skillCommit(t, c, "commit_plan", repayment["planId"].(string))
 	if cash, debt := ledgerCash(t, c, fx.checking), ledgerCash(t, c, fx.debt); cash != "1140" || debt != "200" {
 		t.Fatalf("documented repayment should separate principal and interest: %s %s", cash, debt)
@@ -196,7 +196,7 @@ func skillContextDetails(t *testing.T, c *mcp.ClientSession, initial FinancialCo
 		for info.HasMore {
 			previous := info.NextCursor
 			page := decodeContext(t, call(t, c, "get_read_page", skillExample(t, "financial-context", "financial-context-"+section+"-page", map[string]string{"contextId": initial.ContextID, "cursor": previous}), false))
-			if page.ContextID != initial.ContextID || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt {
+			if page.ContextID != initial.ContextID || page.CapturedAt != initial.CapturedAt {
 				t.Fatal("mixed financial captures")
 			}
 			info = map[string]FinancialContextPageInfo{"positions": page.PositionsPage, "gaps": page.GapsPage, "evidence": page.EvidencePage}[section]
@@ -264,7 +264,9 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 		t.Fatal("skill route is not discoverable")
 	}
 	// No get_context/catalog/directory call precedes this shipped minimal example.
-	initial := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "financial-context", "financial-context", nil), false))
+	args := skillExample(t, "financial-context", "financial-context", nil)
+	args["limit"] = 1
+	initial := decodeContext(t, call(t, c, "get_financial_context", args, false))
 	if initial.Content.Disclosure != "minimal" || initial.Content.Summary.NetWorth.Value != nil {
 		t.Fatal("minimal example lost nullable complete totals", initial.Content.Summary)
 	}
@@ -279,7 +281,7 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 		}
 	}
 	// A minimal alias is not an account UUID. No directory fallback is performed.
-	args := skillExample(t, "financial-context", "financial-context", nil)
+	args = skillExample(t, "financial-context", "financial-context", nil)
 	args["scope"] = map[string]any{"kind": "accounts", "accountIds": []string{initial.Content.Scope.AccountRefs[0]}}
 	call(t, c, "get_financial_context", args, true)
 	// The test now explicitly chooses named disclosure, following its separate example.
@@ -326,9 +328,9 @@ func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
 		Evidence: []application.FinancialContextEvidence{{Ref: "evidence-1", Kind: "price", Value: &value}},
 	}}, expires: now.Add(contextTTL), size: 1}
 	s.contexts.mu.Lock()
-	deferred, err := s.contexts.response("deferred", entry, s.contextGeneration, "", 0, 1)
+	deferred, err := s.contexts.response(financialFixtureID, entry, s.contextGeneration, FinancialInitialPageInput{Sections: financialSections, Limit: 25})
 	if err == nil {
-		s.contexts.entries["deferred"] = entry
+		s.contexts.entries[financialFixtureID] = entry
 		s.contexts.bytes += entry.size
 	}
 	s.contexts.mu.Unlock()
@@ -339,7 +341,9 @@ func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
 	if page.EvidencePage.Returned != 1 || page.EvidencePage.HasMore {
 		t.Fatal("zero-row section was mistaken for completion")
 	}
-	initial := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "financial-context", "financial-context", nil), false))
+	args := skillExample(t, "financial-context", "financial-context", nil)
+	args["limit"] = 1
+	initial := decodeContext(t, call(t, c, "get_financial_context", args, false))
 	now = now.Add(contextTTL + time.Second)
 	oldArgs := skillExample(t, "financial-context", "financial-context-positions-page", map[string]string{"contextId": initial.ContextID, "cursor": initial.PositionsPage.NextCursor})
 	checkError := func(arguments map[string]any, code string) {
@@ -355,7 +359,7 @@ func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
 	}
 	checkError(oldArgs, "context_expired")
 	fresh := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "financial-context", "financial-context", nil), false))
-	if fresh.ContextID == initial.ContextID || fresh.ContentHash != initial.ContentHash {
+	if fresh.ContextID == initial.ContextID || fresh.Content.Summary.KnownAssets != initial.Content.Summary.KnownAssets {
 		t.Fatal("recapture must have a new ID even for unchanged semantic content")
 	}
 	mixed := skillExample(t, "financial-context", "financial-context-positions-page", map[string]string{"contextId": fresh.ContextID, "cursor": initial.PositionsPage.NextCursor})
@@ -435,7 +439,9 @@ func TestSkillFinancialComparisonExamples(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := connect(t, s)
-	initial := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-comparison", "financial-comparison", nil), false))
+	args := skillExample(t, "financial-comparison", "financial-comparison", nil)
+	args["limit"] = 1
+	initial := decodeComparison(t, call(t, client, "compare_financial_context", args, false))
 	if initial.Content.ChangeBasis != "right_minus_left; not_return_or_attribution" {
 		t.Fatal(initial.Content.ChangeBasis)
 	}
@@ -453,7 +459,7 @@ func TestSkillFinancialComparisonExamples(t *testing.T) {
 		count, total := info.Returned, info.Total
 		for info.HasMore {
 			page := decodeComparison(t, call(t, client, "get_read_page", skillExample(t, "financial-comparison", "financial-comparison-"+section+"-page", map[string]string{"comparisonId": initial.ComparisonID, "cursor": info.NextCursor}), false))
-			if page.ContentHash != initial.ContentHash {
+			if page.ComparisonID != initial.ComparisonID || page.CapturedAt != initial.CapturedAt {
 				t.Fatal("mixed package")
 			}
 			info = page.PositionsPage

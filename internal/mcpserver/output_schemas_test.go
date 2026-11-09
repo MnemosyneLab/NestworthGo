@@ -120,10 +120,18 @@ func TestDeliveryOutputSchemaMatchesResponses(t *testing.T) {
 		}
 		return data
 	}
-	check("get_overview", map[string]any{}, true)
+	overview := check("get_overview", map[string]any{}, true)
+	if overview["sections"] != nil || len(overview["availableSections"].([]any)) != len(overviewSections) {
+		t.Fatalf("default overview did not disclose its optional selectors or sent unrequested evidence: %v", overview)
+	}
+	summary := overview["summary"].(map[string]any)
+	if summary["displayValuation"] == nil || summary["missingInputsCount"] == nil ||
+		summary["assets"] != nil || summary["liabilities"] != nil || summary["netWorth"] != nil {
+		t.Fatalf("overview omitted valuation quality or duplicated amounts: %v", summary)
+	}
 	check("analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-01", "to": "2026-09-28", "scopeKind": "household", "valuation": "base", "basis": "investment"}}, true)
 	// A forced small limit leaves rows pending: delivery names the sections.
-	limited := check("get_overview", map[string]any{"limit": 1}, true)
+	limited := check("get_overview", map[string]any{"limit": 1, "sections": []string{"byAccountType"}}, true)
 	if limited["delivery"].(map[string]any)["selectionComplete"] == true {
 		for name, section := range limited["sections"].(map[string]any) {
 			if section.(map[string]any)["page"].(map[string]any)["hasMore"] == true {
@@ -329,7 +337,9 @@ func TestFinancialOutputSchemasMatchInitialAndContinuation(t *testing.T) {
 		{"compare_financial_attribution", "comparisonId", comparison},
 	} {
 		t.Run(tc.tool, func(t *testing.T) {
-			initial := schemas.call(t, client, tc.tool, tc.args)
+			args := jsonObject(t, tc.args)
+			args["limit"] = 1
+			initial := schemas.call(t, client, tc.tool, args)
 			schemas.rejects(t, tc.tool, initial, tc.id, func(d map[string]any) { delete(d, tc.id) }, true)
 			schemas.rejects(t, tc.tool, initial, "content type", func(d map[string]any) { d["content"] = []any{} }, false)
 
@@ -348,19 +358,31 @@ func TestFinancialOutputSchemasMatchInitialAndContinuation(t *testing.T) {
 			assertSchemaPage(t, next["page"].(map[string]any), true, "frozen")
 			last := schemas.call(t, client, "get_read_page", ReadPageInput{Cursor: next["page"].(map[string]any)["nextCursor"].(string)})
 			assertSchemaPage(t, last["page"].(map[string]any), false, "frozen")
-			if last[tc.id] != initial[tc.id] || last["contentHash"] != initial["contentHash"] ||
+			if last[tc.id] != initial[tc.id] || last["capturedAt"] != initial["capturedAt"] ||
 				len(last["items"].([]any)) == 0 {
 				t.Fatalf("terminal page lost frozen identity or rows: %v", last)
 			}
 			schemas.rejects(t, "get_read_page", last, "page", func(d map[string]any) { delete(d, "page") }, true)
 			schemas.rejects(t, "get_read_page", last, "page type", func(d map[string]any) { d["page"] = "done" }, true)
-			schemas.rejects(t, "get_read_page", last, "frozen contentHash", func(d map[string]any) { delete(d, "contentHash") }, false)
+			schemas.rejects(t, "get_read_page", last, "frozen capturedAt", func(d map[string]any) { delete(d, "capturedAt") }, false)
 		})
 	}
 
 	// Focused financial items only advertise the SDK's generic Response
 	// envelope. Their continuations use get_read_page's read contract.
 	schemas.genericEnvelope(t, "get_financial_context_item")
+	capture := decodeContext(t, call(t, client, "get_financial_context", Empty{}, false))
+	item := call(t, client, "get_financial_context_item", FinancialContextItemInput{
+		ContextID: capture.ContextID, Ref: capture.Content.Scope.AccountRefs[0],
+	}, false)["data"].(map[string]any)
+	if item["schemaVersion"] != "financial-context-item/2" {
+		t.Fatalf("financial item version = %v", item["schemaVersion"])
+	}
+	for _, removed := range []string{"contentHash", "generatedAt", "cacheExpiresAt"} {
+		if _, exists := item[removed]; exists {
+			t.Errorf("financial item still emits %s", removed)
+		}
+	}
 }
 
 func TestBusinessOutputSchemasMatchInitialAndContinuation(t *testing.T) {

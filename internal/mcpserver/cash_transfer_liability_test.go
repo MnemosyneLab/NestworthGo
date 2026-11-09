@@ -44,7 +44,7 @@ func TestCashTransferLiabilityRejectedThroughMCP(t *testing.T) {
 				name      string
 				arguments any
 			}{
-				{"preview_change", invalid},
+				{"preview_batch", singleLedgerInput(invalid)},
 				{"preview_batch", map[string]any{"commands": []any{valid, invalid}}},
 				{"preview_correction", map[string]any{"action": "fix", "activityId": original, "replacement": replacement}},
 			} {

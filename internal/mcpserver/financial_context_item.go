@@ -9,26 +9,24 @@ import (
 
 // Refs are interpreted only inside ContextID. They are not persistent identities.
 type FinancialContextItemInput struct {
-	compactPage bool   // host-owned continuation projection, never a model argument
-	ContextID   string `json:"contextId"`
-	Ref         string `json:"ref"`
-	Section     string `json:"section,omitempty"`
-	Cursor      string `json:"cursor,omitempty"`
-	Limit       int    `json:"limit,omitempty"`
+	compactPage bool     // host-owned continuation projection, never a model argument
+	ContextID   string   `json:"contextId"`
+	Ref         string   `json:"ref"`
+	Section     string   `json:"section,omitempty"`
+	Cursor      string   `json:"cursor,omitempty"`
+	Sections    []string `json:"sections,omitempty" jsonschema:"Related sections to include inline: positions, gaps, evidence. Omit for all or pass [] for the target only."`
+	Limit       int      `json:"limit,omitempty" jsonschema:"Maximum rows per selected section (default 25, max 100). Omitted limit targets 24 KiB for initial overviews. The wire ceiling is 64 KiB."`
 }
 
 type FinancialContextItemResponse struct {
-	ContextID      string                            `json:"contextId"`
-	ContentHash    string                            `json:"contentHash"`
-	CapturedAt     string                            `json:"capturedAt"`
-	GeneratedAt    string                            `json:"generatedAt"`
-	CacheExpiresAt string                            `json:"cacheExpiresAt"`
-	SchemaVersion  string                            `json:"schemaVersion"`
-	Disclosure     string                            `json:"disclosure"`
-	AsOf           application.FinancialContextAsOf  `json:"asOf"`
-	Basis          application.FinancialContextBasis `json:"basis"`
-	Ref            string                            `json:"ref"`
-	Type           string                            `json:"type"`
+	ContextID     string                            `json:"contextId"`
+	CapturedAt    string                            `json:"capturedAt"`
+	SchemaVersion string                            `json:"schemaVersion"`
+	Disclosure    string                            `json:"disclosure"`
+	AsOf          application.FinancialContextAsOf  `json:"asOf"`
+	Basis         application.FinancialContextBasis `json:"basis"`
+	Ref           string                            `json:"ref"`
+	Type          string                            `json:"type"`
 	// The account target is a rollup, never an additional component to sum.
 	Position      *application.FinancialContextPosition  `json:"position,omitempty"`
 	EvidenceItem  *application.FinancialContextEvidence  `json:"evidenceItem,omitempty"`
@@ -45,15 +43,17 @@ func (s *Service) financialContextItem(ctx context.Context, g uint64, in Financi
 	if err := ctx.Err(); err != nil {
 		return empty, err
 	}
-	if in.Limit == 0 {
-		in.Limit = 25
+	if in.Section != "" {
+		if in.Sections != nil {
+			return empty, fail("validation", "section and sections cannot be combined")
+		}
+		in.Sections = []string{in.Section}
 	}
-	if in.Limit < 1 || in.Limit > 100 {
-		return empty, fail("validation", "limit must be 1 to 100")
+	opts, err := (FinancialInitialPageInput{Sections: in.Sections, Limit: in.Limit}).normalized()
+	if err != nil {
+		return empty, err
 	}
-	if in.Section != "" && in.Section != "positions" && in.Section != "gaps" && in.Section != "evidence" {
-		return empty, fail("validation", "unknown section")
-	}
+	in.Sections, in.Limit = opts.Sections, opts.Limit
 	if in.Cursor != "" && in.Section == "" {
 		return empty, fail("validation", "cursor requires section")
 	}
@@ -68,14 +68,13 @@ func (s *Service) financialContextItem(ctx context.Context, g uint64, in Financi
 	if !ok || entry.comparison != nil {
 		return empty, fail("context_expired", "context expired or was evicted; request a new context")
 	}
-	return c.itemResponse(in, entry, g)
+	return c.itemResponse(in, entry, g, opts.defaultLimit && in.Section == "")
 }
 
-func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cachedFinancialContext, g uint64) (FinancialContextItemResponse, error) {
+func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cachedFinancialContext, g uint64, useSoftBudget bool) (FinancialContextItemResponse, error) {
 	full := e.result.Content
-	r := FinancialContextItemResponse{ContextID: in.ContextID, ContentHash: e.result.ContentHash,
-		CapturedAt: e.result.CapturedAt.UTC().Format(time.RFC3339Nano), GeneratedAt: c.now().UTC().Format(time.RFC3339Nano),
-		CacheExpiresAt: e.expires.UTC().Format(time.RFC3339Nano), SchemaVersion: "financial-context-item/1", Disclosure: full.Disclosure,
+	r := FinancialContextItemResponse{ContextID: in.ContextID, CapturedAt: e.result.CapturedAt.UTC().Format(time.RFC3339Nano),
+		SchemaVersion: "financial-context-item/2", Disclosure: full.Disclosure,
 		AsOf: full.AsOf, Basis: full.Basis, Ref: in.Ref,
 		Positions: []application.FinancialContextPosition{}, Gaps: []application.FinancialContextGap{}, Evidence: []application.FinancialContextEvidence{}}
 	// Identity spelling carries no type information: named component refs may
@@ -165,26 +164,23 @@ func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cac
 		}
 		offset = cur.Offset
 	}
-	if size, err := financialItemWireSize(in, r); err != nil {
+	headerSize, err := financialItemWireSize(in, r)
+	if err != nil {
 		return r, err
-	} else if size > contextWireLimit {
+	}
+	if headerSize > contextWireLimit {
 		return r, fail("too_large", "context item target exceeds the MCP wire budget")
 	}
-	sections := []string{in.Section}
-	limit := in.Limit
-	if in.Section == "" {
-		sections = []string{"gaps", "positions", "evidence"}
-		limit = 1
-	}
-	for _, section := range sections {
+	budget := (FinancialInitialPageInput{defaultLimit: useSoftBudget}).inlineBudget(headerSize)
+	for _, section := range in.Sections {
 		var err error
 		switch section {
 		case "positions":
-			err = itemPage(c, in, e, g, section, positions, &r.Positions, &r.PositionsPage, offset, limit, &r)
+			err = itemPage(c, in, e, g, section, positions, &r.Positions, &r.PositionsPage, offset, in.Limit, budget, &r)
 		case "gaps":
-			err = itemPage(c, in, e, g, section, gaps, &r.Gaps, &r.GapsPage, offset, limit, &r)
+			err = itemPage(c, in, e, g, section, gaps, &r.Gaps, &r.GapsPage, offset, in.Limit, budget, &r)
 		case "evidence":
-			err = itemPage(c, in, e, g, section, evidence, &r.Evidence, &r.EvidencePage, offset, limit, &r)
+			err = itemPage(c, in, e, g, section, evidence, &r.Evidence, &r.EvidencePage, offset, in.Limit, budget, &r)
 		}
 		if err != nil {
 			return r, err
@@ -198,7 +194,7 @@ func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cac
 	return r, nil
 }
 
-func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, entry cachedFinancialContext, g uint64, section string, rows []T, output *[]T, info *FinancialContextPageInfo, offset, limit int, r *FinancialContextItemResponse) error {
+func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, entry cachedFinancialContext, g uint64, section string, rows []T, output *[]T, info *FinancialContextPageInfo, offset, limit, budget int, r *FinancialContextItemResponse) error {
 	if offset > len(rows) || (in.Cursor != "" && offset == len(rows)) {
 		return fail("validation", "cursor offset is past the section")
 	}
@@ -212,7 +208,7 @@ func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, ent
 		if err != nil {
 			return err
 		}
-		if size > contextWireLimit {
+		if size > budget {
 			*output = (*output)[:len(*output)-1]
 			if len(*output) == 0 {
 				if in.Section != "" {
@@ -222,8 +218,9 @@ func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, ent
 				// A crowded initial section may defer, but its standalone first page must fit.
 				trial := in
 				trial.Section, trial.Cursor, trial.Limit = section, "", 1
+				trial.Sections = []string{section}
 				trial.compactPage = true // Universal continuation does not repeat the initial target/header.
-				if _, err := c.itemResponse(trial, entry, g); err != nil {
+				if _, err := c.itemResponse(trial, entry, g, false); err != nil {
 					return err
 				}
 			}

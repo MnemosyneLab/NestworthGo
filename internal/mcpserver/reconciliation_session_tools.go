@@ -29,6 +29,17 @@ type ReconciliationReadInput struct {
 	Cursor    string `json:"cursor,omitempty"`
 	Limit     int    `json:"limit,omitempty" jsonschema:"Default 25; maximum 100"`
 }
+type ReconciliationSessionInput struct {
+	ID        string `json:"id" jsonschema:"Committed reconciliation session UUID"`
+	AccountID string `json:"accountId,omitempty" jsonschema:"Filter initial items by account; header counts remain session-wide"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"Initial item rows, default 25, maximum 100"`
+}
+
+type reconciliationSessionRead struct {
+	domain.ReconciliationSession
+	ItemPage any `json:"itemPage"`
+}
+
 type reconciliationPage struct {
 	Items      []any  `json:"items"`
 	Total      int    `json:"total"`
@@ -114,13 +125,26 @@ func pageReconciliation(in ReconciliationReadInput, items []any, revision int64,
 }
 func (s *Service) reconciliationSessionTools(server *toolSet, mode string) {
 	readTool(server, "list_reconciliation_sessions", "Bounded reconciliation history and in-progress sessions. Filter status, accountId and started civil date from/to; sort asc/desc. Default 25, max 100, stable content-bound cursor with stale_cursor on change.", s.listReconciliationSessions)
-	readTool(server, "get_reconciliation_session", "Read a reconciliation header and explicit outcome counts. No account/item histories are embedded. Use get_reconciliation_session_page and get_reconciliation_item for complete evidence; completed records remain immutable and recheck status is separate.", func(ctx context.Context, in IDInput) (any, error) {
-		v, e := s.app.GetReconciliationSession(ctx, in.ID)
-		if e != nil {
-			return nil, e
+	readTool(server, "get_reconciliation_session", "Read a reconciliation header, session-wide outcome counts and the first compact item page. Follow itemPage.page.nextCursor with get_read_page. Use get_reconciliation_session_page for accounts, changes, links and attempts, or get_reconciliation_item for full reviewed facts. Completed records remain immutable and recheck status is separate.", func(ctx context.Context, in ReconciliationSessionInput) (any, error) {
+		session, err := s.app.GetReconciliationSession(ctx, in.ID)
+		if err != nil {
+			return nil, err
 		}
-		v.Accounts = nil
-		return v, nil
+		query := ReconciliationReadInput{SessionID: in.ID, AccountID: in.AccountID, Section: "items", Limit: in.Limit}
+		rows := reconciliationItemRows(session, query)
+		session.Accounts = nil
+		project := func(page any) (any, error) {
+			items, err := server.projectPage("get_reconciliation_session_page", query, page)
+			if err != nil {
+				return nil, err
+			}
+			return reconciliationSessionRead{ReconciliationSession: session, ItemPage: items}, nil
+		}
+		page, err := pageReconciliation(query, rows, session.Revision, context.WithValue(ctx, pageProjectKey{}, pageProjection(project)))
+		if err != nil {
+			return nil, err
+		}
+		return project(page)
 	})
 	readTool(server, "get_reconciliation_session_page", "Page a reconciliation session's accounts, items, changes, links or attempts. changes are those since the prior successful check, including backdated entries, with recorded and effective times. Needs sessionId and section; filter by accountId and item status; attempts also needs accountId and itemId. Item rows omit full detail: get_reconciliation_item returns single-point evidence. Links keep the exact reviewed-before and committed-after evidence. Cursors are bound to the session revision; stale_cursor means restart that traversal.", s.reconciliationSessionPage)
 	readTool(server, "get_reconciliation_item", "Read one complete saved/working check point including product terms, exact values, source precision and reviewed financial revision. Attempts are separate pageable evidence with attemptCount, never silently truncated.", func(ctx context.Context, in ReconciliationReadInput) (any, error) {
@@ -266,27 +290,22 @@ func (s *Service) reconciliationSessionPage(ctx context.Context, in Reconciliati
 			a.Items = nil
 			rows = append(rows, a)
 		}
-	case "items", "attempts":
+	case "items":
+		rows = reconciliationItemRows(v, in)
+	case "attempts":
+		if in.AccountID == "" || in.ItemID == "" {
+			return nil, fail("validation", "attempts requires accountId and itemId")
+		}
 		for _, a := range v.Accounts {
-			if in.AccountID != "" && a.AccountID != in.AccountID {
+			if a.AccountID != in.AccountID {
 				continue
 			}
 			for _, item := range a.Items {
-				if in.ItemID != "" && item.ID != in.ItemID || in.Status != "" && item.Outcome != in.Status {
+				if item.ID != in.ItemID || in.Status != "" && item.Outcome != in.Status {
 					continue
 				}
-				if in.Section == "attempts" {
-					if in.AccountID == "" || in.ItemID == "" {
-						return nil, fail("validation", "attempts requires accountId and itemId")
-					}
-					for _, attempt := range item.Attempts {
-						rows = append(rows, attempt)
-					}
-				} else {
-					item.Detail = nil
-					count := len(item.Attempts)
-					item.Attempts = nil
-					rows = append(rows, map[string]any{"item": item, "attemptCount": count})
+				for _, attempt := range item.Attempts {
+					rows = append(rows, attempt)
 				}
 			}
 		}
@@ -324,6 +343,25 @@ func (s *Service) reconciliationSessionPage(ctx context.Context, in Reconciliati
 		}
 	}
 	return pageReconciliation(in, rows, v.Revision, ctx)
+}
+
+func reconciliationItemRows(session domain.ReconciliationSession, in ReconciliationReadInput) []any {
+	rows := []any{}
+	for _, account := range session.Accounts {
+		if in.AccountID != "" && account.AccountID != in.AccountID {
+			continue
+		}
+		for _, item := range account.Items {
+			if in.ItemID != "" && item.ID != in.ItemID || in.Status != "" && item.Outcome != in.Status {
+				continue
+			}
+			count := len(item.Attempts)
+			item.Attempts = nil
+			item.Detail = nil
+			rows = append(rows, map[string]any{"item": item, "attemptCount": count})
+		}
+	}
+	return rows
 }
 
 // Keep persisted source JSON stable for existing plans and receipts. Only the

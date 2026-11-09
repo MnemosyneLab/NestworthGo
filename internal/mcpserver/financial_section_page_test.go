@@ -11,10 +11,18 @@ import (
 func financialPageTestData(t *testing.T, data any) any {
 	t.Helper()
 	obj, ok := data.(map[string]any)
-	if !ok || obj["section"] == nil {
+	if !ok {
 		return data
 	}
-	allowed := map[string]bool{"ref": true, "contextId": true, "comparisonId": true, "contentHash": true, "capturedAt": true, "cacheExpiresAt": true, "section": true, "items": true, "page": true}
+	for _, key := range []string{"contentHash", "generatedAt", "cacheExpiresAt"} {
+		if _, exists := obj[key]; exists {
+			t.Fatalf("unexpected financial transport metadata %s", key)
+		}
+	}
+	if obj["section"] == nil {
+		return data
+	}
+	allowed := map[string]bool{"ref": true, "contextId": true, "comparisonId": true, "capturedAt": true, "section": true, "items": true, "page": true}
 	for key := range obj {
 		if !allowed[key] {
 			t.Fatalf("continuation repeats header or unrelated progress: %s", key)
@@ -25,8 +33,8 @@ func financialPageTestData(t *testing.T, data any) any {
 	if err != nil || jsoncodec.Unmarshal(raw, &page) != nil {
 		t.Fatal("invalid section page", err)
 	}
-	if page.Page.Returned != len(page.Items) || page.Page.Returned == 0 || page.ContentHash == "" {
+	if page.Page.Returned != len(page.Items) || page.Page.Returned == 0 || page.CapturedAt == "" {
 		t.Fatal("invalid section progress", page)
 	}
-	return map[string]any{"contextId": page.ContextID, "comparisonId": page.ComparisonID, "contentHash": page.ContentHash, "capturedAt": page.CapturedAt, "cacheExpiresAt": page.CacheExpiresAt, "content": map[string]any{page.Section: page.Items}, page.Section + "Page": page.Page}
+	return map[string]any{"contextId": page.ContextID, "comparisonId": page.ComparisonID, "capturedAt": page.CapturedAt, "content": map[string]any{page.Section: page.Items}, page.Section + "Page": page.Page}
 }

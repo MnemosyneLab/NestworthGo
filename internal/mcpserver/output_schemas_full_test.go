@@ -10,6 +10,8 @@ func fullReadOutputSchema(name string) any {
 		return fullWrapReadOutput(fullBusinessPageSchema())
 	case readKindUnifiedPage:
 		return fullWrapReadOutput(fullUnifiedPageSchema())
+	case readKindReconciliation:
+		return fullWrapReadOutput(reconciliationSessionOutput(fullBusinessPageSchema()))
 	case readKindEnvelope:
 		return fullWrapReadOutput(fullReadEnvelopeSchema())
 	case readKindContext:
@@ -91,7 +93,7 @@ func fullReadEnvelopeSchema() any {
 }
 
 func fullFinancialOutputEnvelope(id string) any {
-	required := []string{id, "contentHash", "capturedAt", "cacheExpiresAt", "generatedAt", "content", "positionsPage", "gapsPage", "evidencePage"}
+	required := []string{id, "capturedAt", "content", "positionsPage", "gapsPage", "evidencePage"}
 	props := map[string]any{}
 	for _, k := range required {
 		props[k] = map[string]any{"type": "string"}
@@ -121,7 +123,7 @@ func fullUnifiedPageSchema() any {
 	page := fullBusinessPageSchema().(map[string]any)
 	page["allOf"] = []any{map[string]any{
 		"if":   map[string]any{"properties": map[string]any{"page": map[string]any{"properties": map[string]any{"consistency": map[string]any{"const": "frozen"}}}}},
-		"then": map[string]any{"required": []string{"capturedAt"}, "anyOf": []any{map[string]any{"required": []string{"captureId"}}, map[string]any{"required": []string{"contextId", "cacheExpiresAt", "contentHash"}}, map[string]any{"required": []string{"comparisonId", "cacheExpiresAt", "contentHash"}}}},
+		"then": map[string]any{"required": []string{"capturedAt"}, "anyOf": []any{map[string]any{"required": []string{"captureId"}}, map[string]any{"required": []string{"contextId"}}, map[string]any{"required": []string{"comparisonId"}}}},
 	}}
 	page["properties"].(map[string]any)["schemaVersion"] = map[string]any{"const": "mcp-read/2"}
 	return page

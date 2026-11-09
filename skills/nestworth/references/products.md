@@ -1,6 +1,6 @@
 # Read managed deposits, history and liquidity
 
-Discover `list_products`, `get_product`, `list_product_operations` and
+Discover `get_products`, `list_product_operations` and
 `get_liquidity_overview`. These reads are available in all permission modes in
 Apps implementing this extension. They read the same contracts, history and
 liquidity results as the GUI and expose account/product identities and stored
@@ -27,7 +27,7 @@ normal instrument/holding path only when they are not App-managed contracts.
 {"accountId":"${accountId}","includeClosed":true}
 ```
 
-Call `get_product` with the committed contract UUID from that list. Its initial
+Call `get_products` with `id` set to the committed contract UUID from that list. Its initial
 mcp-read/2 response holds the full detail under summary.detail. The product and
 its revision are summary.detail.product and summary.detail.product.revision.
 Reservations are separate sections; continue them with `get_read_page`.
@@ -59,7 +59,7 @@ local date, timezone, window bounds, base currency, completeness, counts, scope
 warnings, actions and separate data checks. Preserve exact `reasonCodes`,
 assumptions, targets, coverage and amount statuses. Several source rows can
 aggregate into one action. Do not reconstruct the result by concatenating
-`list_products`, operation history or liquidity routes. Known subtotals and
+`get_products`, operation history or liquidity routes. Known subtotals and
 estimated receipt or eligibility dates are not proof of complete coverage or
 posted cash.
 

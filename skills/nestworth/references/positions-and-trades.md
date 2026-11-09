@@ -4,11 +4,11 @@ Read existing instruments, holdings and settlement cash first. Resolve whether
 the user means an existing owned position, a completed buy/sell, a transfer,
 or a current quantity/cost correction. Use a supported holdings account.
 
-MCP `preview_change` supports position_import, money_added, money_removed,
+MCP `preview_batch` takes a `commands` array with 1–100 records and supports position_import, money_added, money_removed,
 cash_dividend, cash_transfer, fx_conversion, position_transfer, trade, debt_draw
 and debt_payment. For target quantity/value adjustments use
 preview_reconciliation; GUI DTO variants position_adjustment/value_update are
-not supported preview_change kinds. All ledger writes require ledger_write.
+not supported preview_batch kinds. All ledger writes require ledger_write.
 
 ## Already owned
 
@@ -19,11 +19,11 @@ required in the instrument currency; unknown cost needs clarification, not
 today's price, total cost or zero. Import is not the App's history starting point.
 If the position already exists use reconciliation, not a second import.
 
-Example `preview_change`:
+Example `preview_batch`:
 
 <!-- example: import-position -->
 ```json
-{"kind":"position_import","accountId":"${accountId}","instrumentId":"${instrumentId}","quantity":"10","unitCost":"100","currency":"USD","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"position_import","accountId":"${accountId}","instrumentId":"${instrumentId}","quantity":"10","unitCost":"100","currency":"USD","effectiveAt":"${effectiveAt}"}]}
 ```
 
 Inspect the no-cash effects, then `commit_plan`. Check the holding, cost and
@@ -36,18 +36,18 @@ consideration before the separately supplied fee**, not a unit price or net
 settlement amount. If the user gives net cash paid/received, reconcile it with
 gross and fee rather than charging the fee twice. Keep fee/currency together.
 
-Example `preview_change` for a first purchase (creates the holding atomically):
+Example `preview_batch` for a first purchase (creates the holding atomically):
 
 <!-- example: buy -->
 ```json
-{"kind":"trade","side":"buy","settlementAccountId":"${accountId}","instrumentId":"${instrumentId}","quantity":"10","gross":"200","grossCurrency":"USD","fee":"5","feeCurrency":"USD","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"trade","side":"buy","settlementAccountId":"${accountId}","instrumentId":"${instrumentId}","quantity":"10","gross":"200","grossCurrency":"USD","fee":"5","feeCurrency":"USD","effectiveAt":"${effectiveAt}"}]}
 ```
 
 Example partial sale, using the committed holding ID:
 
 <!-- example: sell -->
 ```json
-{"kind":"trade","side":"sell","settlementAccountId":"${accountId}","holdingId":"${holdingId}","instrumentId":"${instrumentId}","quantity":"4","gross":"120","grossCurrency":"USD","fee":"2","feeCurrency":"USD","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"trade","side":"sell","settlementAccountId":"${accountId}","holdingId":"${holdingId}","instrumentId":"${instrumentId}","quantity":"4","gross":"120","grossCurrency":"USD","fee":"2","feeCurrency":"USD","effectiveAt":"${effectiveAt}"}]}
 ```
 
 These flows apply to supported ordinary stocks, ETFs, crypto, funds and wealth
@@ -84,7 +84,8 @@ record can precede a buy; an import can precede a sell. Later commands resolve a
 new holding by account/instrument; preview IDs are provisional. Definitions must
 already exist; directory creation is not part of this atomic batch.
 
-Inspect every preview and use `commit_plan` with the returned `planId`.
+Inspect the normalized `commands` and corresponding `previews`, then use
+`commit_plan` with the returned `planId` within the authorized scope.
 Groups over 100 require separate chronological batches and are not globally
 atomic; report committed batches and stop on unresolved failure. Use actual
 RFC3339 `effectiveAt` or both `effectiveLocalDate`/`effectiveLocalTime` in the
@@ -101,7 +102,7 @@ Commit arguments (the same for every plan kind):
 See [recovery.md](recovery.md) before retrying an interrupted commit.
 
 Reconciliation sessions can link an ordinary buy/sell/import/transfer via
-reconciliationLink on preview_change, or a target quantity/cost adjustment via
+a batch-level `reconciliationLink` on `preview_batch`, or a target quantity/cost adjustment via
 preview_reconciliation. Preserve the difference between added-unit unitCost and
 whole-position totalCost. No adjustment invents a trade or automatically confirms
 a check. See [session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).

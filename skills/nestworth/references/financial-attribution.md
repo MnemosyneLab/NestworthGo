@@ -134,10 +134,10 @@ See [analysis](analysis.md).
 Read positions, gaps and evidence with `get_read_page`, saving the three section
 states independently as in [financial context](financial-context.md). Retain the
 initial link and precision summary. Pages return only section, items, page and
-capture identity, hash and expiry. The cached link and fixed five-minute TTL
+capture identity and capture time. The cached link and fixed five-minute TTL
 remain unchanged. On expiry, eviction or revocation, recapture with
 `compare_financial_attribution`, discard all old pages and restart every section
-with new cursors. Never mix old and new IDs, even if hashes coincide. Send one
+with new cursors. Never mix old and new IDs, even when totals match. Send one
 JSON-RPC object. Mixed batches are rejected. The 64 KiB wire and package budgets
 also cover the link. An oversized mandatory summary or row cannot be fixed with
 a smaller page.
@@ -149,3 +149,8 @@ and adds no token permissions. Run it before ledger previews.
 `compare_financial_context` remains the strictly no-write choice for differences
 alone. A repository skill update does not install or update the user's App,
 client skill or MCP connection.
+
+Use `sections` to select which detail rows arrive initially. For a summary, send
+`sections: []`. Each omitted section retains its total and a continuation when
+rows are available. Default delivery fits up to 25 rows per section within a 24 KiB target.
+An explicit `limit` allows up to 100 within the wire budget.

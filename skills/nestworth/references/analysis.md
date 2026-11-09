@@ -1,6 +1,12 @@
 # Current wealth, returns and asset-change explanations
 
 Use `get_overview` or `get_account_valuations` for **current** values.
+The default overview returns `displayValuation`, valuation quality and a
+missing-input count. A nullable `total` and a separate `knownSubtotal` describe
+each amount. Treat the amount as complete only when its quality supports that.
+Request `sections` such as `["missingInputs","byAccountType"]` only when needed.
+`availableSections` lists valid selectors. A new overview request captures fresh
+data. Use `get_read_page` to continue sections from the current capture.
 Account valuations accept one or many accountIds plus account filters; unmatched
 filters return an empty page. Default summary includes totals, asset types and
 price freshness. Use detail=holdings for component evidence in the same call.

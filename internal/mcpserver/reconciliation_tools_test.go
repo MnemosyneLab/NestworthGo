@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -308,7 +309,7 @@ func TestReconciliationRejectsStaleAndExpiredPlans(t *testing.T) {
 	}
 }
 
-func TestReconciliationUnlinkedPlansKeepLegacyDurableReceiptHash(t *testing.T) {
+func TestReconciliationUnlinkedReceiptHashAndPrunedRecovery(t *testing.T) {
 	fx := newLedgerFixture(t)
 	ctx := context.Background()
 	value, err := fx.service.previewReconciliation(ctx, ReconciliationInput{Targets: []ReconciliationTargetInput{{AccountID: fx.checking, TargetBalance: "25", Currency: "USD"}}})
@@ -337,15 +338,26 @@ func TestReconciliationUnlinkedPlansKeepLegacyDurableReceiptHash(t *testing.T) {
 	}
 	payload, _ := jsoncodec.Marshal(plan.Commands)
 	sum := sha256.Sum256(append([]byte("ledger_reconciliation\n"), payload...))
-	if _, err = fx.app.RecordChangesGuarded(ctx, commands, id, hex.EncodeToString(sum[:]), plan.Version); err != nil {
+	if _, err = fx.app.RecordChangesGuarded(ctx, commands, ledgerBatchMutationID(uuid.MustParse(id), "reconciliation"), hex.EncodeToString(sum[:]), plan.Version); err != nil {
 		t.Fatal(err)
 	}
 	before := ledgerActivityCount(t, fx.app)
 	if _, err = fx.service.commitReconciliation(ctx, CommitChangeInput{PlanID: id}); err != nil {
-		t.Fatalf("legacy receipt replay: %v", err)
+		t.Fatalf("unlinked reconciliation receipt replay: %v", err)
 	}
-	if ledgerActivityCount(t, fx.app) != before {
-		t.Fatal("legacy replay duplicated activities")
+	path := filepath.Join(fx.service.dir, "plans", id+".json")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	c := ledgerSession(t, fx)
+	recovered := commitPlanData(t, c, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": id}})
+	if recovered["tool"] != "commit_reconciliation" || ledgerActivityCount(t, fx.app) != before {
+		t.Fatalf("reconciliation receipt recovered under the wrong family or reposted: %v", recovered)
+	}
+	// This UUID exists as a raw batch receipt ID, without a plan of its own.
+	// A raw lookup would wrongly promote it to a reconciliation plan.
+	if code := ledgerErrorCode(t, c, "commit_plan", map[string]any{"input": map[string]any{"planId": plan.MutationID}}); code != "operation_outcome_unknown" {
+		t.Fatalf("raw change batch identity was promoted to a plan: %q", code)
 	}
 }
 

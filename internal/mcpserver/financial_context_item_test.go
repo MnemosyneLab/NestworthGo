@@ -38,7 +38,7 @@ func itemFixture(t *testing.T) (*Service, uint64) {
 		}}
 	now := time.Now()
 	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: now, ContentHash: "synthetic-hash", Content: content}, expires: now.Add(contextTTL), size: 1}
-	c.entries["package-a"] = entry
+	c.entries[financialFixtureID] = entry
 	c.bytes = 1
 	return &Service{contexts: c}, g // No application/DB: item reads can only use the frozen cache.
 }
@@ -55,7 +55,7 @@ func decodeItem(t *testing.T, obj map[string]any) FinancialContextItemResponse {
 	data := obj["data"]
 	if page, ok := data.(map[string]any); ok && page["section"] != nil {
 		financialPageTestData(t, data)
-		data = map[string]any{"contextId": page["contextId"], "ref": page["ref"], "contentHash": page["contentHash"], "capturedAt": page["capturedAt"], "cacheExpiresAt": page["cacheExpiresAt"], page["section"].(string): page["items"], page["section"].(string) + "Page": page["page"]}
+		data = map[string]any{"contextId": page["contextId"], "ref": page["ref"], "capturedAt": page["capturedAt"], page["section"].(string): page["items"], page["section"].(string) + "Page": page["page"]}
 	}
 	raw, _ := jsoncodec.Marshal(data)
 	var r FinancialContextItemResponse
@@ -67,43 +67,43 @@ func decodeItem(t *testing.T, obj map[string]any) FinancialContextItemResponse {
 func TestFinancialContextItemRelations(t *testing.T) {
 	t.Parallel()
 	s, g := itemFixture(t)
-	account := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions"})
+	account := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "positions"})
 	if account.Type != "account" || account.Position.Ref != "account-1" || len(account.Positions) != 3 || account.PositionsPage.Total != 3 {
 		t.Fatal(account)
 	}
 	if *account.Position.BaseAmount != "100" || *account.Positions[0].NativeAmount != "0" || account.Positions[2].Included || account.Positions[2].ExclusionReason != "archived" {
 		t.Fatal("rollup/zero/excluded altered", account)
 	}
-	evidence := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "evidence"})
+	evidence := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "evidence"})
 	if len(evidence.Evidence) != 3 || evidence.Evidence[2].Ref != "evidence-3" {
 		t.Fatal("shared FX not deduplicated", evidence)
 	}
-	gaps := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "gaps"})
+	gaps := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "gaps"})
 	if len(gaps.Gaps) != 2 || gaps.Gaps[1].DependencyRef != "fx:USD/CNY" {
 		t.Fatal("unrelated or missing gaps", gaps)
 	}
-	position := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "position-2", Section: "evidence"})
+	position := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "position-2", Section: "evidence"})
 	if position.Type != "position" || len(position.Positions) != 0 || len(position.Evidence) != 2 || position.GapsPage.Total != 1 {
 		t.Fatal(position)
 	}
-	fx := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "evidence-3", Section: "positions"})
+	fx := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "evidence-3", Section: "positions"})
 	if fx.Type != "evidence" || fx.EvidenceItem.Ref != "evidence-3" || len(fx.Evidence) != 0 || len(fx.Positions) != 3 || fx.GapsPage.Total != 2 {
 		t.Fatal("evidence must show direct users only", fx)
 	}
-	empty := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-3", Section: "positions"})
+	empty := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-3", Section: "positions"})
 	if empty.Position.Status != "not_created" || empty.PositionsPage.HasMore || len(empty.Positions) != 0 {
 		t.Fatal(empty)
 	}
 	for _, r := range []FinancialContextItemResponse{account, evidence, gaps, position, fx, empty} {
-		if r.ContentHash != "synthetic-hash" || r.CapturedAt != account.CapturedAt || r.CacheExpiresAt != account.CacheExpiresAt {
+		if r.ContextID != account.ContextID || r.CapturedAt != account.CapturedAt {
 			t.Fatal("lost capture", r)
 		}
 	}
 	// Historical mode is copied from the same frozen content without rebuilding.
-	entry := s.contexts.entries["package-a"]
+	entry := s.contexts.entries[financialFixtureID]
 	entry.result.Content.AsOf = application.FinancialContextAsOf{Mode: "closed_day", LocalDate: "2026-01-01"}
-	s.contexts.entries["package-a"] = entry
-	historical := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
+	s.contexts.entries[financialFixtureID] = entry
+	historical := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"})
 	if historical.AsOf.Mode != "closed_day" || historical.AsOf.LocalDate != "2026-01-01" {
 		t.Fatal(historical)
 	}
@@ -111,50 +111,51 @@ func TestFinancialContextItemRelations(t *testing.T) {
 func TestFinancialContextItemValidationExpiryAndIsolation(t *testing.T) {
 	t.Parallel()
 	s, g := itemFixture(t)
-	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
+	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Limit: 1})
 	cursor := initial.PositionsPage.NextCursor
-	s.contexts.entries["package-b"] = s.contexts.entries["package-a"]
+	s.contexts.entries[financialOtherFixtureID] = s.contexts.entries[financialFixtureID]
 	for _, in := range []FinancialContextItemInput{
-		{ContextID: "package-a", Ref: "unknown"}, {ContextID: "package-a", Ref: "fx:USD/CNY"}, {ContextID: "package-a", Ref: "account-999"},
-		{ContextID: "package-a", Ref: "account-1", Limit: 101}, {ContextID: "package-a", Ref: "account-1", Limit: -1},
-		{ContextID: "package-a", Ref: "account-1", Section: "transactions"}, {ContextID: "package-a", Ref: "account-1", Cursor: cursor},
-		{ContextID: "package-a", Ref: "account-1", Section: "gaps", Cursor: cursor}, {ContextID: "package-a", Ref: "account-2", Section: "positions", Cursor: cursor},
-		{ContextID: "package-b", Ref: "account-1", Section: "positions", Cursor: cursor},
-		{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: cursor + "x"},
-		{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: s.contexts.cursor("package-a", "positions", g, 1)},
-		{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: s.contexts.cursor("package-a", "item:account-1:positions", g, 3)},
-		{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: s.contexts.cursor("package-a", "item:account-1:positions", g+1, 1)},
+		{ContextID: financialFixtureID, Ref: "unknown"}, {ContextID: financialFixtureID, Ref: "fx:USD/CNY"}, {ContextID: financialFixtureID, Ref: "account-999"},
+		{ContextID: financialFixtureID, Ref: "account-1", Limit: 101}, {ContextID: financialFixtureID, Ref: "account-1", Limit: -1},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Sections: []string{"gaps"}},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "transactions"}, {ContextID: financialFixtureID, Ref: "account-1", Cursor: cursor},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "gaps", Cursor: cursor}, {ContextID: financialFixtureID, Ref: "account-2", Section: "positions", Cursor: cursor},
+		{ContextID: financialOtherFixtureID, Ref: "account-1", Section: "positions", Cursor: cursor},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Cursor: cursor + "x"},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Cursor: s.contexts.cursor(financialFixtureID, "positions", g, 1)},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Cursor: s.contexts.cursor(financialFixtureID, "item:account-1:positions", g, 3)},
+		{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Cursor: s.contexts.cursor(financialFixtureID, "item:account-1:positions", g+1, 1)},
 	} {
 		if _, err := s.financialContextItem(t.Context(), g, in); err == nil || !strings.Contains(err.Error(), "validation") {
 			t.Fatalf("accepted %+v: %v", in, err)
 		}
 	}
 	// An alias unique to A does not resolve in B; identical spellings remain local to each context.
-	entry := s.contexts.entries["package-b"]
+	entry := s.contexts.entries[financialOtherFixtureID]
 	entry.result.Content.Positions = nil
-	s.contexts.entries["package-b"] = entry
-	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-b", Ref: "account-1"}); err == nil {
+	s.contexts.entries[financialOtherFixtureID] = entry
+	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialOtherFixtureID, Ref: "account-1"}); err == nil {
 		t.Fatal("cross-package membership accepted")
 	}
-	entry = s.contexts.entries["package-a"]
+	entry = s.contexts.entries[financialFixtureID]
 	s.contexts.now = func() time.Time { return entry.expires }
-	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"}); err == nil || !strings.Contains(err.Error(), "context_expired") {
+	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"}); err == nil || !strings.Contains(err.Error(), "context_expired") {
 		t.Fatal(err)
 	}
 	s.contexts.revoke()
-	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"}); err == nil || !strings.Contains(err.Error(), "context_revoked") {
+	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"}); err == nil || !strings.Contains(err.Error(), "context_revoked") {
 		t.Fatal(err)
 	}
 }
 func TestFinancialContextItemBudgetAndPagination(t *testing.T) {
 	t.Parallel()
 	s, g := itemFixture(t)
-	entry := s.contexts.entries["package-a"]
+	entry := s.contexts.entries[financialFixtureID]
 	for i := 5; i < 110; i++ {
 		entry.result.Content.Positions = append(entry.result.Content.Positions, application.FinancialContextPosition{Ref: fmt.Sprintf("position-%d", i), ParentRef: "account-1", Kind: "holding"})
 	}
-	s.contexts.entries["package-a"] = entry
-	first := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions", Limit: 100})
+	s.contexts.entries[financialFixtureID] = entry
+	first := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Limit: 100})
 	// Material per-leaf quality makes rows larger. A limit is an upper bound;
 	// validate the complete unique union and final wire budget, not 100/8 packing.
 	seen := map[string]bool{}
@@ -175,24 +176,24 @@ func TestFinancialContextItemBudgetAndPagination(t *testing.T) {
 		if !pageOfPositions.PositionsPage.HasMore {
 			break
 		}
-		pageOfPositions = readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions", Cursor: pageOfPositions.PositionsPage.NextCursor, Limit: 100})
+		pageOfPositions = readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Cursor: pageOfPositions.PositionsPage.NextCursor, Limit: 100})
 	}
 	if len(seen) != 108 {
 		t.Fatalf("lost positions: %d/108", len(seen))
 	}
 	// Use large synthetic decimals to exercise duplicated/escaped SDK wire sizing.
 	s, g = itemFixture(t)
-	entry = s.contexts.entries["package-a"]
+	entry = s.contexts.entries[financialFixtureID]
 	large := strings.Repeat("9", 11500)
 	entry.result.Content.Positions[0].BaseAmount = &large
 	entry.result.Content.Positions[1].BaseAmount = &large
 	entry.result.Content.Evidence[0].Value = &large
-	s.contexts.entries["package-a"] = entry
-	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
+	s.contexts.entries[financialFixtureID] = entry
+	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"})
 	if initial.EvidencePage.Returned != 0 || !initial.EvidencePage.HasMore {
 		t.Fatal("expected zero-row deferral", initial.EvidencePage)
 	}
-	page := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "evidence", Cursor: initial.EvidencePage.NextCursor, Limit: 1})
+	page := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "evidence", Cursor: initial.EvidencePage.NextCursor, Limit: 1})
 	if page.EvidencePage.Returned != 1 {
 		t.Fatal(page.EvidencePage)
 	}
@@ -204,9 +205,9 @@ func TestFinancialContextItemBudgetAndPagination(t *testing.T) {
 	}
 	oversized := strings.Repeat("9", contextWireLimit)
 	entry.result.Content.Evidence[0].Value = &oversized
-	s.contexts.entries["package-a"] = entry
+	s.contexts.entries[financialFixtureID] = entry
 	for _, section := range []string{"", "evidence"} {
-		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: section, Limit: 1}); err == nil || !strings.Contains(err.Error(), "too_large") {
+		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: section, Limit: 1}); err == nil || !strings.Contains(err.Error(), "too_large") {
 			t.Fatal(err)
 		}
 	}
@@ -218,8 +219,8 @@ func TestFinancialContextItemConcurrentRevocation(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		wg.Go(func() {
 			for j := 0; j < 20; j++ {
-				r, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
-				if err == nil && r.ContentHash != "synthetic-hash" {
+				r, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"})
+				if err == nil && r.ContextID != financialFixtureID {
 					t.Error("mixed capture")
 				}
 			}
@@ -227,7 +228,7 @@ func TestFinancialContextItemConcurrentRevocation(t *testing.T) {
 	}
 	s.contexts.revoke()
 	wg.Wait()
-	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"}); err == nil {
+	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"}); err == nil {
 		t.Fatal("revoked read succeeded")
 	}
 }
@@ -284,19 +285,18 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 				t.Fatal(err)
 			}
 			after := decodeItem(t, call(t, client, "get_financial_context_item", args, false))
-			after.GeneratedAt = before.GeneratedAt
 			if !reflect.DeepEqual(before, after) {
 				t.Fatal("ordinary write changed frozen item")
 			}
 			for _, ref := range []string{before.Positions[0].Ref, before.Evidence[0].Ref} {
 				r := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: capture.ContextID, Ref: ref}, false))
-				if r.ContentHash != capture.ContentHash {
+				if r.ContextID != capture.ContextID || r.CapturedAt != capture.CapturedAt {
 					t.Fatal(r)
 				}
 			}
 			historical := decodeContext(t, call(t, client, "get_financial_context", map[string]any{"asOf": "2026-09-01"}, false))
 			historicalItem := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: historical.ContextID, Ref: historical.Content.Scope.AccountRefs[0]}, false))
-			if historicalItem.AsOf.Mode != "closed_day" || *historicalItem.Positions[0].NativeAmount != "100" || historicalItem.ContentHash != historical.ContentHash {
+			if historicalItem.AsOf.Mode != "closed_day" || *historicalItem.Positions[0].NativeAmount != "100" || historicalItem.ContextID != historical.ContextID || historicalItem.CapturedAt != historical.CapturedAt {
 				t.Fatal(historicalItem)
 			}
 			named := decodeContext(t, call(t, client, "get_financial_context", map[string]any{"disclosure": "named"}, false))
@@ -307,7 +307,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 			namedContent := skillContextDetails(t, client, named)
 			for _, p := range namedContent.Positions {
 				item := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: p.Ref}, false))
-				if item.Disclosure != "named" || item.ContentHash != named.ContentHash || item.Position == nil || !reflect.DeepEqual(*item.Position, p) {
+				if item.Disclosure != "named" || item.ContextID != named.ContextID || item.CapturedAt != named.CapturedAt || item.Position == nil || !reflect.DeepEqual(*item.Position, p) {
 					t.Fatal("named position differs from captured projection", item, p)
 				}
 				if (p.Kind == "account") != (item.Type == "account") {
@@ -326,7 +326,6 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 				t.Fatal(err)
 			}
 			frozenNamed := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: namedItem.Ref}, false))
-			frozenNamed.GeneratedAt = namedItem.GeneratedAt
 			if !reflect.DeepEqual(frozenNamed, namedItem) {
 				t.Fatal("named item recaptured after ordinary write")
 			}
@@ -351,15 +350,23 @@ func TestFinancialContextItemSkillPagination(t *testing.T) {
 	}
 	synthetic, _ := itemFixture(t)
 	s.contexts.mu.Lock()
-	s.contexts.entries["package-a"] = synthetic.contexts.entries["package-a"]
+	s.contexts.entries[financialFixtureID] = synthetic.contexts.entries[financialFixtureID]
 	s.contexts.bytes = 1
 	s.contexts.mu.Unlock()
 	client := connect(t, s)
-	first := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "financial-context-item", "financial-context-item", map[string]string{"contextId": "package-a", "ref": "account-1"}), false))
+	args := skillExample(t, "financial-context-item", "financial-context-item", map[string]string{"contextId": financialFixtureID, "ref": "account-1"})
+	args["limit"] = 1
+	first := decodeItem(t, call(t, client, "get_financial_context_item", args, false))
+	args["sections"] = []string{"positions"}
+	selected := decodeItem(t, call(t, client, "get_financial_context_item", args, false))
+	if selected.PositionsPage != first.PositionsPage || selected.EvidencePage.Total != first.EvidencePage.Total ||
+		selected.EvidencePage.Returned != 0 || !selected.EvidencePage.HasMore {
+		t.Fatal("section selection changed target scope or lost evidence", selected.PositionsPage, selected.EvidencePage)
+	}
 	for section, info := range map[string]FinancialContextPageInfo{"positions": first.PositionsPage, "gaps": first.GapsPage, "evidence": first.EvidencePage} {
 		count := info.Returned
 		for info.HasMore {
-			page := decodeItem(t, call(t, client, "get_read_page", skillExample(t, "financial-context-item", "financial-context-item-page", map[string]string{"contextId": "package-a", "ref": "account-1", "section": section, "cursor": info.NextCursor}), false))
+			page := decodeItem(t, call(t, client, "get_read_page", skillExample(t, "financial-context-item", "financial-context-item-page", map[string]string{"contextId": financialFixtureID, "ref": "account-1", "section": section, "cursor": info.NextCursor}), false))
 			switch section {
 			case "positions":
 				info = page.PositionsPage
@@ -415,7 +422,7 @@ func TestFinancialContextItemSourceTextDoesNotLeak(t *testing.T) {
 func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
 	t.Parallel()
 	s, g := itemFixture(t)
-	entry := s.contexts.entries["package-a"]
+	entry := s.contexts.entries[financialFixtureID]
 	entry.result.Content.Disclosure = "named"
 	refs := map[string]string{}
 	for i, p := range entry.result.Content.Positions {
@@ -434,11 +441,11 @@ func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
 			gap.DependencyRef = ref
 		}
 	}
-	s.contexts.entries["package-a"] = entry
-	s.contexts.entries["package-b"] = entry
+	s.contexts.entries[financialFixtureID] = entry
+	s.contexts.entries[financialOtherFixtureID] = entry
 	for _, tc := range []struct{ ref, kind string }{{refs["account-1"], "account"}, {refs["position-2"], "position"}, {"evidence-3", "evidence"}} {
-		r := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: tc.ref, Section: "positions", Limit: 1})
-		if r.Type != tc.kind || r.Disclosure != "named" || r.ContentHash != entry.result.ContentHash {
+		r := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: tc.ref, Section: "positions", Limit: 1})
+		if r.Type != tc.kind || r.Disclosure != "named" || r.ContextID != financialFixtureID || r.CapturedAt != entry.result.CapturedAt.UTC().Format(time.RFC3339Nano) {
 			t.Fatal(r)
 		}
 		if r.Position != nil {
@@ -473,9 +480,9 @@ func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
 			t.Fatal("fixture must page")
 		}
 		for _, input := range []FinancialContextItemInput{
-			{ContextID: "package-b", Ref: tc.ref, Section: "positions", Cursor: r.PositionsPage.NextCursor},
-			{ContextID: "package-a", Ref: tc.ref, Section: "evidence", Cursor: r.PositionsPage.NextCursor},
-			{ContextID: "package-a", Ref: refs["account-2"], Section: "positions", Cursor: r.PositionsPage.NextCursor},
+			{ContextID: financialOtherFixtureID, Ref: tc.ref, Section: "positions", Cursor: r.PositionsPage.NextCursor},
+			{ContextID: financialFixtureID, Ref: tc.ref, Section: "evidence", Cursor: r.PositionsPage.NextCursor},
+			{ContextID: financialFixtureID, Ref: refs["account-2"], Section: "positions", Cursor: r.PositionsPage.NextCursor},
 		} {
 			if _, err := s.financialContextItem(t.Context(), g, input); err == nil {
 				t.Fatal("accepted mismatched named cursor", input)
@@ -483,23 +490,23 @@ func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
 		}
 	}
 	for _, ref := range []string{"account-1", "position-2", "not-present"} {
-		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: ref}); err == nil {
+		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: ref}); err == nil {
 			t.Fatal("inferred membership from ref spelling", ref)
 		}
 	}
 	other := entry
 	other.result.Content.Positions = nil
 	other.result.Content.Evidence = nil
-	s.contexts.entries["package-b"] = other
+	s.contexts.entries[financialOtherFixtureID] = other
 	for _, ref := range []string{refs["account-1"], refs["position-2"], "evidence-3"} {
-		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-b", Ref: ref}); err == nil {
+		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialOtherFixtureID, Ref: ref}); err == nil {
 			t.Fatal("accepted ref absent from this package", ref)
 		}
 	}
 	// An impossible/ambiguous cache member fails rather than choosing by UUID shape.
 	entry.result.Content.Evidence = append(entry.result.Content.Evidence, application.FinancialContextEvidence{Ref: refs["account-1"]})
-	s.contexts.entries["package-a"] = entry
-	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: refs["account-1"]}); err == nil {
+	s.contexts.entries[financialFixtureID] = entry
+	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: refs["account-1"]}); err == nil {
 		t.Fatal("accepted ambiguous ref")
 	}
 }
@@ -509,7 +516,7 @@ func TestFinancialContextItemOversizedSectionDiagnostic(t *testing.T) {
 	for _, oversizedSection := range []string{"positions", "gaps", "evidence"} {
 		t.Run(oversizedSection, func(t *testing.T) {
 			s, g := itemFixture(t)
-			entry := s.contexts.entries["package-a"]
+			entry := s.contexts.entries[financialFixtureID]
 			oversized := strings.Repeat("9", contextWireLimit)
 			switch oversizedSection {
 			case "positions":
@@ -519,9 +526,9 @@ func TestFinancialContextItemOversizedSectionDiagnostic(t *testing.T) {
 			case "evidence":
 				entry.result.Content.Evidence[0].Value = &oversized
 			}
-			s.contexts.entries["package-a"] = entry
+			s.contexts.entries[financialFixtureID] = entry
 			for _, section := range []string{"", oversizedSection} {
-				_, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: section, Limit: 1})
+				_, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: section, Limit: 1})
 				want := fail("too_large", "item "+oversizedSection+" row and required target exceed the MCP wire budget")
 				if !reflect.DeepEqual(err, want) {
 					t.Fatalf("section %q: got %v, want %v", section, err, want)
@@ -532,15 +539,15 @@ func TestFinancialContextItemOversizedSectionDiagnostic(t *testing.T) {
 				if section == oversizedSection {
 					continue
 				}
-				r := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: section, Limit: 1})
-				if r.ContentHash != entry.result.ContentHash {
+				r := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: section, Limit: 1})
+				if r.ContextID != financialFixtureID || r.CapturedAt != entry.result.CapturedAt.UTC().Format(time.RFC3339Nano) {
 					t.Fatal("recovery changed package")
 				}
 			}
 		})
 	}
 	s, g := itemFixture(t)
-	_, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "PRIVATE INPUT"})
+	_, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "PRIVATE INPUT"})
 	if !reflect.DeepEqual(err, fail("validation", "unknown section")) {
 		t.Fatalf("unvalidated section was echoed: %v", err)
 	}

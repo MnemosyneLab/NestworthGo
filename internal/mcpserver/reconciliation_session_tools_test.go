@@ -59,12 +59,12 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 	c := ledgerSession(t, fx)
 	v := sessionAction(t, c, map[string]any{"action": "start", "accountIds": []string{fx.checking}})
 	id := v["id"].(string)
-	header := sessionHeader(t, c, id)
+	schemas := discoverOutputSchemas(t, c)
+	header := schemas.call(t, c, "get_reconciliation_session", ReconciliationSessionInput{ID: id, AccountID: fx.checking, Limit: 1})
 	if _, ok := header["accounts"]; ok {
 		t.Fatal("header embedded all accounts")
 	}
-	schemas := discoverOutputSchemas(t, c)
-	page := schemas.call(t, c, "get_reconciliation_session_page", map[string]any{"sessionId": id, "section": "items", "limit": 1})
+	page := header["itemPage"].(map[string]any)
 	info := page["page"].(map[string]any)
 	assertSchemaPage(t, info, true, "version_bound")
 	if info["total"].(float64) != 2 {

@@ -43,17 +43,38 @@ func TestUnifiedPageFrozenScopeAndFinancialItem(t *testing.T) {
 	if err != nil || last.(ReadEnvelope).Page.HasMore || last.(ReadEnvelope).Page.NextCursor != nil {
 		t.Fatal(last, err)
 	}
-	first := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions", Limit: 1})
+	first := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1", Section: "positions", Limit: 1})
 	item, err := s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: first.PositionsPage.NextCursor, Limit: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	detail := item.(FinancialSectionResponse)
-	if detail.ContextID != first.ContextID || detail.Ref != first.Ref || detail.ContentHash != first.ContentHash || detail.CacheExpiresAt != first.CacheExpiresAt || !strings.Contains(string(detail.Items[0]), `"ref":"position-2"`) {
+	if detail.ContextID != first.ContextID || detail.Ref != first.Ref || detail.CapturedAt != first.CapturedAt || !strings.Contains(string(detail.Items[0]), `"ref":"position-2"`) {
 		t.Fatal("lost item scope", detail)
 	}
 	// Reuse the authenticated whole-package cursor without resending any identity.
-	native := s.contexts.cursor("package-a", "evidence", g, 1)
+	native := s.contexts.cursor(financialFixtureID, "evidence", g, 1)
+	if !strings.HasPrefix(native, financialCursorPrefix) || len(native) >= 100 {
+		t.Fatal("expected compact financial cursor", len(native))
+	}
+	live, err := set.paging.encode("list_activities", map[string]any{"cursor": "example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, foreign := range []string{*initial.Sections["records"].Page.NextCursor, live} {
+		if _, err := s.contexts.decodeCursor(foreign); err == nil {
+			t.Fatal("financial codec accepted a different cursor family")
+		}
+	}
+	if _, err := s.reads.decode(native); err == nil {
+		t.Fatal("bounded codec accepted financial cursor")
+	}
+	if _, err := set.paging.decode(native); err == nil {
+		t.Fatal("live codec accepted financial cursor")
+	}
+	if _, err := newFinancialContextCache().decodeCursor(native); err == nil {
+		t.Fatal("different financial session accepted cursor")
+	}
 	value, err := s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: native, Limit: 1})
 	if err != nil || value.(FinancialSectionResponse).Section != "evidence" {
 		t.Fatal(value, err)
@@ -215,11 +236,11 @@ func TestUnifiedItemDeferredRowUsesCompactBudgetWithoutSkipping(t *testing.T) {
 	s.reads = newBoundedReadCache()
 	s.reads.activate(g)
 	set := newToolSet("synthetic", false)
-	entry := s.contexts.entries["package-a"]
+	entry := s.contexts.entries[financialFixtureID]
 	entry.result.Content.Positions[0].Name = strings.Repeat("target", 2500)
 	entry.result.Content.Positions[1].Name = strings.Repeat("child", 4000)
-	s.contexts.entries["package-a"] = entry
-	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
+	s.contexts.entries[financialFixtureID] = entry
+	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: financialFixtureID, Ref: "account-1"})
 	if initial.PositionsPage.Returned != 0 || !initial.PositionsPage.HasMore {
 		t.Fatal("unread large child mistaken for absence", initial.PositionsPage)
 	}
@@ -243,7 +264,7 @@ func TestUnifiedItemDeferredRowUsesCompactBudgetWithoutSkipping(t *testing.T) {
 	// A truly oversized NEXT row must fail at that exact boundary for every
 	// requested count. It must never advance to the following smaller row.
 	entry.result.Content.Positions[2].Name = strings.Repeat("x", contextWireLimit)
-	s.contexts.entries["package-a"] = entry
+	s.contexts.entries[financialFixtureID] = entry
 	for _, limit := range []int{1, 100} {
 		_, err = s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: page.Page.NextCursor, Limit: limit})
 		if err == nil || !strings.Contains(err.Error(), "too_large") {

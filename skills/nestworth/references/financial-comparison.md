@@ -71,10 +71,15 @@ from the summary change.
 ## When the comparison fails
 
 Send one JSON-RPC object per request, never a batch. Zero rows plus nextCursor
-means deferred, not finished. Use the same comparisonId, hash and matching
+means deferred, not finished. Use the same comparisonId, capture time and matching
 section cursor throughout. Context IDs and cursors cannot be reused here.
 Expiry, eviction or revocation requires a new comparison and restarting every
 section. Discard old pages. The five-minute TTL never renews. A `too_large`
 input, summary or single row may not be fixable by paging. Narrowing scope needs
 actual, authorized account IDs and must not silently change the user's question.
 On `context_expired` or `context_revoked`, restart with `compare_financial_context`.
+
+Use `sections` to select which detail rows arrive initially. For a summary, send
+`sections: []`. Each omitted section retains its total and a continuation when
+rows are available. Default delivery fits up to 25 rows per section within a 24 KiB target.
+An explicit `limit` allows up to 100 within the wire budget.

@@ -38,7 +38,8 @@ func productSkillPlan(t *testing.T, c *mcp.ClientSession, name string, values ma
 func productAssertNetWorth(t *testing.T, c *mcp.ClientSession, want string) {
 	t.Helper()
 	actual := scaleCapture(t, c, "get_overview", Empty{})["summary"].(map[string]any)
-	if actual["netWorth"] != want {
+	net := actual["displayValuation"].(map[string]any)["netWorth"].(map[string]any)
+	if total, _ := net["total"].(map[string]any); total["amount"] != want {
 		t.Fatal(actual)
 	}
 }
@@ -550,8 +551,8 @@ func TestProductHTTPLifecycleWithLegacySnapshotCoordination(t *testing.T) {
 	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-27:2026-09-28")); err != nil {
 		t.Fatal(err)
 	}
-	call(t, c, "list_products", map[string]any{}, false)
-	call(t, c, "get_product", map[string]any{"id": id}, false)
+	call(t, c, "get_products", map[string]any{}, false)
+	call(t, c, "get_products", map[string]any{"id": id}, false)
 	call(t, c, "list_product_operations", map[string]any{"productId": id}, false)
 	call(t, c, "get_liquidity_overview", map[string]any{}, false)
 	afterState, err := fx.app.DailySnapshotState(t.Context(), current.Contract.HouseholdID)

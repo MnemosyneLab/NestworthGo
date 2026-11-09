@@ -111,7 +111,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 	holdings := batchHoldings(t, c, fx.brokerage)
 	holding := holdings[0].(map[string]any)["id"].(string)
 	call(t, c, "import_market_data", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"items": []any{map[string]any{"instrumentId": fx.instrument, "currency": "USD", "kind": "latest", "value": "20", "quotedAt": "2026-09-29T12:00:00Z", "sourceTitle": "Synthetic price"}}}}, false)
-	factsBefore := sectionEvidence(t, c, "get_overview", Empty{})
+	factsBefore := sectionEvidence(t, c, "get_overview", OverviewReadInput{Sections: overviewSections})
 	holdingsBefore := batchHoldings(t, c, fx.brokerage)
 
 	refs := []liquidity.SourceRefDTO{{Kind: "account_value", AccountID: fx.checking}, {Kind: "account_cash", AccountID: fx.brokerage, Currency: productString("USD")}, {Kind: "holding", AccountID: fx.brokerage, HoldingID: &holding}}
@@ -202,7 +202,7 @@ func TestLiquidityPolicyHTTPAllSourcesRoundTrip(t *testing.T) {
 			}
 		})
 	}
-	if !reflect.DeepEqual(factsBefore, sectionEvidence(t, c, "get_overview", Empty{})) || !reflect.DeepEqual(holdingsBefore, batchHoldings(t, c, fx.brokerage)) {
+	if !reflect.DeepEqual(factsBefore, sectionEvidence(t, c, "get_overview", OverviewReadInput{Sections: overviewSections})) || !reflect.DeepEqual(holdingsBefore, batchHoldings(t, c, fx.brokerage)) {
 		t.Fatal("policy workflow changed ledger/valuation facts")
 	}
 }

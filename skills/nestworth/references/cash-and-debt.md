@@ -1,7 +1,7 @@
 # Income, spending, transfers, FX and debt
 
 Use `get_catalog.moneyInReasons` / `moneyOutReasons` and existing account cash.
-All examples below are arguments for `preview_change`; inspect effects and use
+All examples below are arguments for `preview_batch`; inspect effects and use
 `commit_plan` as described in [positions-and-trades.md](positions-and-trades.md).
 
 | Intent | Record |
@@ -18,14 +18,14 @@ Example income:
 
 <!-- example: income -->
 ```json
-{"kind":"money_added","accountId":"${accountId}","amount":"1000","currency":"USD","reason":"income","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"money_added","accountId":"${accountId}","amount":"1000","currency":"USD","reason":"income","effectiveAt":"${effectiveAt}"}]}
 ```
 
 Example expense:
 
 <!-- example: expense -->
 ```json
-{"kind":"money_removed","accountId":"${accountId}","amount":"50","currency":"USD","reason":"expense","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"money_removed","accountId":"${accountId}","amount":"50","currency":"USD","reason":"expense","effectiveAt":"${effectiveAt}"}]}
 ```
 
 Income categories describe economic intent, not the mere presence of a cash
@@ -48,7 +48,7 @@ fees reduce source cash in addition to principal.
 
 <!-- example: fx-conversion -->
 ```json
-{"kind":"fx_conversion","accountId":"${accountId}","sold":"100","soldCurrency":"USD","bought":"90","boughtCurrency":"EUR","fee":"1","feeCurrency":"USD","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"fx_conversion","accountId":"${accountId}","sold":"100","soldCurrency":"USD","bought":"90","boughtCurrency":"EUR","fee":"1","feeCurrency":"USD","effectiveAt":"${effectiveAt}"}]}
 ```
 
 The example consumes 101 USD and adds 90 EUR. Clarify whether charges are
@@ -69,7 +69,7 @@ Example repayment:
 
 <!-- example: debt-payment -->
 ```json
-{"kind":"debt_payment","debtAccountId":"${debtAccountId}","cashAccountId":"${accountId}","principal":"100","principalCurrency":"USD","interestOrFee":"10","interestOrFeeCurrency":"USD","effectiveAt":"${effectiveAt}"}
+{"commands":[{"kind":"debt_payment","debtAccountId":"${debtAccountId}","cashAccountId":"${accountId}","principal":"100","principalCurrency":"USD","interestOrFee":"10","interestOrFeeCurrency":"USD","effectiveAt":"${effectiveAt}"}]}
 ```
 
 Credit-card purchase recording is not an arbitrary cash expense from a liability

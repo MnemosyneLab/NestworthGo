@@ -58,7 +58,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 		}
 	}
 	c := ledgerSession(t, fx)
-	cap := scaleCapture(t, c, "list_products", skillExample(t, "product-pages", "scale-products", nil))
+	cap := scaleCapture(t, c, "get_products", skillExample(t, "product-pages", "scale-products", nil))
 	products := scaleSection(t, c, cap, "products")
 	if len(products) != 12 {
 		t.Fatal(len(products))
@@ -80,7 +80,7 @@ func TestScaleHTTPProductsLiquidityAndReservations(t *testing.T) {
 	if item["captureId"] != cap["captureId"] {
 		t.Fatal("detail recaptured")
 	}
-	one := scaleCapture(t, c, "get_product", map[string]any{"id": id, "limit": 1})
+	one := scaleCapture(t, c, "get_products", map[string]any{"id": id, "limit": 1})
 	if fx.service.reads.entries[one["captureId"].(string)].Query.(map[string]any)["id"] != id {
 		t.Fatal("standalone product query identity missing")
 	}

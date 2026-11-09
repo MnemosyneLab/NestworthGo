@@ -148,19 +148,23 @@ func TestSkillIndependentSectionStateAcrossAllPagingTools(t *testing.T) {
 	// Use an already permitted synthetic projection so the context and item
 	// each have multiple rows in all three sections, including shared evidence.
 	sample, _ := itemFixture(t)
-	entry := sample.contexts.entries["package-a"]
+	entry := sample.contexts.entries[financialFixtureID]
 	s.contexts.mu.Lock()
-	s.contexts.entries["package-a"] = entry
+	s.contexts.entries[financialFixtureID] = entry
 	s.contexts.bytes += entry.size
-	initial, err := s.contexts.response("package-a", entry, s.contextGeneration, "", 0, 1)
+	initial, err := s.contexts.response(financialFixtureID, entry, s.contextGeneration, FinancialInitialPageInput{Sections: financialSections, Limit: 1})
 	s.contexts.mu.Unlock()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Run("context", func(t *testing.T) { skillIndependentPages(t, client, "context", "package-a", "", initial) })
-	item := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "financial-context-item", "financial-context-item", map[string]string{"contextId": "package-a", "ref": "account-1"}), false))
-	t.Run("item", func(t *testing.T) { skillIndependentPages(t, client, "item", "package-a", "account-1", item) })
-	comparison := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "financial-comparison", "financial-comparison", nil), false))
+	t.Run("context", func(t *testing.T) { skillIndependentPages(t, client, "context", financialFixtureID, "", initial) })
+	itemArgs := skillExample(t, "financial-context-item", "financial-context-item", map[string]string{"contextId": financialFixtureID, "ref": "account-1"})
+	itemArgs["limit"] = 1
+	item := decodeItem(t, call(t, client, "get_financial_context_item", itemArgs, false))
+	t.Run("item", func(t *testing.T) { skillIndependentPages(t, client, "item", financialFixtureID, "account-1", item) })
+	comparisonArgs := skillExample(t, "financial-comparison", "financial-comparison", nil)
+	comparisonArgs["limit"] = 1
+	comparison := decodeComparison(t, call(t, client, "compare_financial_context", comparisonArgs, false))
 	t.Run("comparison", func(t *testing.T) {
 		skillIndependentPages(t, client, "comparison", comparison.ComparisonID, "", comparison)
 	})

@@ -216,8 +216,11 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	}
 	// Validate this extra tool's empty argument object before dispatch.
 	var empty map[string]json.RawMessage
-	if !s.page.Valid() || s.page.Kind == "" || jsoncodec.Unmarshal(args, &empty) != nil || empty == nil || len(empty) != 0 {
+	if !s.page.Valid() || s.page.Kind == "" {
 		return nil, assistant.ErrUnavailable
+	}
+	if jsoncodec.Unmarshal(args, &empty) != nil || empty == nil || len(empty) != 0 {
+		return nil, agentcapability.ErrInvalidArguments
 	}
 	tool, input := "get_overview", json.RawMessage(`{}`)
 	switch s.page.Kind {
@@ -230,10 +233,7 @@ func (s *Session) Call(ctx context.Context, name string, args json.RawMessage) (
 	captured := time.Now().UTC()
 	result, err := s.read(ctx, tool, input)
 	if err != nil {
-		if budget := assistant.NormalizeBudgetFailure(err); budget != nil {
-			return nil, budget
-		}
-		return nil, assistant.ErrUnavailable
+		return nil, err
 	}
 	raw, err := jsoncodec.Marshal(struct {
 		Source     string                  `json:"source"`

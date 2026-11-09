@@ -77,8 +77,9 @@ reported with pending/skipped/unresolved counts, never as all passed.
 
 1. `preview_reconciliation_session` action start, then `commit_plan`.
    Omit accountIds only when the user's intent covers every active account.
-2. Read the header with `get_reconciliation_session` (`id`); page accounts and
-   items with `get_reconciliation_session_page`. Each row supplies business
+2. Read the header and first compact item page with `get_reconciliation_session`
+   (`id` and optional `accountId`). Follow `itemPage.page.nextCursor` with
+   `get_read_page`; get account rows through `get_reconciliation_session_page`. Each row supplies business
    identity and financialRevision. Use `get_reconciliation_item` for complete
    single-point evidence and product terms; page section attempts for its prior
    checks. Page section changes for recorded-order facts since prior success;
@@ -124,12 +125,12 @@ Alternative A: `preview_reconciliation` (then its existing commit):
 {"reconciliationLink":{"sessionId":"${sessionId}","accountId":"${accountId}","itemId":"${itemId}","expectedRevision":3,"financialRevision":12},"targets":[{"accountId":"${accountId}","targetBalance":"1250","currency":"USD","note":"${userProvidedReason}"}]}
 ```
 
-Alternative B: `preview_change` (then its existing commit), only when the user
+Alternative B: `preview_batch` (then its existing commit), only when the user
 has supplied the missing real transaction and its actual time:
 
 <!-- example: session-linked-income -->
 ```json
-{"kind":"money_added","accountId":"${accountId}","amount":"25","currency":"USD","reason":"income","effectiveAt":"${actualRFC3339Time}","reconciliationLink":{"sessionId":"${sessionId}","accountId":"${accountId}","itemId":"${itemId}","expectedRevision":3,"financialRevision":12}}
+{"commands":[{"kind":"money_added","accountId":"${accountId}","amount":"25","currency":"USD","reason":"income","effectiveAt":"${actualRFC3339Time}"}],"reconciliationLink":{"sessionId":"${sessionId}","accountId":"${accountId}","itemId":"${itemId}","expectedRevision":3,"financialRevision":12}}
 ```
 
 All example revision numbers are illustrative. Copy fresh revisions, never these

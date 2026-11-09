@@ -5,7 +5,7 @@ Read the contract in [products](products.md). Lifecycle facts use
 [product lifecycle](product-lifecycle.md). Ordinary non-managed access rules use
 [liquidity policy](liquidity-policy.md).
 
-Read `get_product` immediately before editing and use
+Read `get_products` immediately before editing and use
 summary.detail.product.revision as expectedRevision. Supply complete terms and
 policy, including unchanged financial fields and explicit nulls for unknowns.
 `terms.shortName` is the only optional field: omitted or null keeps it, and an
@@ -23,7 +23,7 @@ Review before/after terms, policy and zero netWorthDelta. Preview metadata times
 are provisional. Commit recordedAt, UpdatedAt and ConfirmedAt use actual
 recording time. Commit only the planId with `commit_plan`. Its immutable product
 result describes that edit, without the complete active-reservations array.
-Read `get_product` for current facts and all reservations.
+Read `get_products` for current facts and all reservations.
 
 This example retains the synthetic deposit's manual maturity amount. Real edits
 must copy the user's complete current terms and policy and replace revision 1
@@ -47,7 +47,7 @@ fact, restart or restore makes an uncommitted plan stale. The same plan with a
 new explicit operationId returns the original terms receipt and does not write
 again. Reuse the same explicit id and input after an interruption, then call
 `get_operation` with that id, or with the [locally derived ID](recovery.md#recovering-when-operationid-was-omitted) when you omitted it.
-Read `get_product` afterwards. The receipt is not the current reservation list.
+Read `get_products` afterwards. The receipt is not the current reservation list.
 
 Optional reconciliationLink copies the current session, account, item and
 financial revisions into the immutable command. A correction never confirms a

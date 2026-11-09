@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -182,15 +183,39 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 		}
 		var fields map[string]json.RawMessage
 		if len(args) > 2048 || jsoncodec.Unmarshal(args, &fields) != nil || fields == nil {
-			return nil, ErrUnavailable
+			return nil, agentcapability.ErrInvalidArguments
 		}
-		for k := range fields {
-			if k != "snapshotId" && k != "module" && k != "cursor" && k != "limit" && k != "moduleCursor" {
-				return nil, ErrUnavailable
+		for k, raw := range fields {
+			var target any
+			switch k {
+			case "snapshotId":
+				target = &q.SnapshotID
+			case "module":
+				target = &q.Module
+			case "cursor":
+				target = &q.Cursor
+			case "limit":
+				target = &q.Limit
+			case "moduleCursor":
+				target = &q.ModuleCursor
+			default:
+				return nil, agentcapability.ErrInvalidArguments
+			}
+			if string(raw) == "null" || jsoncodec.Unmarshal(raw, target) != nil {
+				return nil, agentcapability.ReadRejection{Code: "validation", Field: k}
 			}
 		}
-		if jsoncodec.Unmarshal(args, &q) != nil || q.Cursor < 0 || q.ModuleCursor < 0 || q.Limit < 0 || q.Limit > 64 || ((q.Cursor > 0 || q.ModuleCursor > 0) && q.SnapshotID == "") {
-			return nil, ErrUnavailable
+		if q.Cursor < 0 {
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "cursor"}
+		}
+		if q.ModuleCursor < 0 {
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "moduleCursor"}
+		}
+		if fields["limit"] != nil && (q.Limit < 1 || q.Limit > 64) {
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "limit"}
+		}
+		if (q.Cursor > 0 || q.ModuleCursor > 0) && q.SnapshotID == "" {
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "snapshotId"}
 		}
 		current, err := r.capturePage(ctx, revision)
 		if err != nil {
@@ -201,7 +226,7 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 		}
 		if q.SnapshotID != "" {
 			if frozen == nil || frozen.ID != q.SnapshotID || current.ID != q.SnapshotID {
-				return nil, ErrStale
+				return nil, agentcapability.ReadRejection{Code: "stale_cursor", Field: "snapshotId"}
 			}
 		} else {
 			frozen = &current
@@ -221,11 +246,14 @@ func (r *Runtime) pageReader(runCtx context.Context, revision uint64) PageConten
 				nodes = append(nodes, n)
 			}
 		}
-		if q.Module != "" && !seen[q.Module] || q.Cursor > len(nodes) {
-			return nil, ErrUnavailable
+		if q.Module != "" && !seen[q.Module] {
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "module"}
+		}
+		if q.Cursor > len(nodes) {
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "cursor"}
 		}
 		if q.ModuleCursor > len(modules) {
-			return nil, ErrUnavailable
+			return nil, agentcapability.ReadRejection{Code: "validation", Field: "moduleCursor"}
 		}
 		moduleEnd := min(q.ModuleCursor+64, len(modules))
 		truncated := false

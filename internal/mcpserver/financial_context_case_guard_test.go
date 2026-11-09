@@ -48,13 +48,13 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 			args := map[string]any{}
 			switch tool {
 			case "get_read_page:context":
-				initial, err := s.buildFinancialContext(t.Context(), s.contextGeneration, application.FinancialContextRequest{})
+				initial, err := s.buildFinancialContext(t.Context(), s.contextGeneration, FinancialContextInput{FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}})
 				if err != nil {
 					t.Fatal(err)
 				}
 				args = map[string]any{"cursor": initial.PositionsPage.NextCursor}
 			case "get_financial_context_item":
-				initial, err := s.buildFinancialContext(t.Context(), s.contextGeneration, application.FinancialContextRequest{})
+				initial, err := s.buildFinancialContext(t.Context(), s.contextGeneration, FinancialContextInput{FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -62,7 +62,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 			case "compare_financial_context", "compare_financial_attribution":
 				args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
 			case "get_read_page:comparison":
-				initial, err := s.buildFinancialComparison(t.Context(), s.contextGeneration, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"})
+				initial, err := s.buildFinancialComparison(t.Context(), s.contextGeneration, FinancialComparisonInput{FinancialComparisonRequest: application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}, FinancialInitialPageInput: FinancialInitialPageInput{Limit: 1}})
 				if err != nil {
 					t.Fatal(err)
 				}

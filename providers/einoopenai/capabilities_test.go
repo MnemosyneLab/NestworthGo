@@ -45,7 +45,7 @@ func (s *observedSession) Call(ctx context.Context, name string, args json.RawMe
 		if name == "get_account_valuations" {
 			s.reads++
 		}
-		if name == "preview_change" {
+		if name == "preview_batch" {
 			s.proposal = append(json.RawMessage{}, args...)
 			var preview struct {
 				Data struct {
@@ -117,7 +117,7 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 					return
 				}
 				if round == 1 {
-					items := []any{obj{"type": "function_call", "id": "fc_proposal", "call_id": "call_proposal", "name": "preview_change", "arguments": encode(command), "status": "completed"}}
+					items := []any{obj{"type": "function_call", "id": "fc_proposal", "call_id": "call_proposal", "name": "preview_batch", "arguments": encode(mcpserver.BatchChangeInput{Commands: []history.ChangeCommandRequest{command}}), "status": "completed"}}
 					es := events(items)
 					switch mode {
 					case "eof_before_done":
@@ -209,11 +209,11 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 			if errorCount != 0 || len(proposal) == 0 {
 				t.Fatalf("positive runner failed: errors=%d", errorCount)
 			}
-			var proposed history.ChangeCommandRequest
-			if err := jsoncodec.Unmarshal(proposal, &proposed); err != nil {
-				t.Fatal(err)
+			var proposed mcpserver.BatchChangeInput
+			if err := jsoncodec.Unmarshal(proposal, &proposed); err != nil || len(proposed.Commands) != 1 {
+				t.Fatalf("bad one-command proposal: %v", err)
 			}
-			review, err := session.PreviewFullChange(t.Context(), proposed)
+			review, err := session.PreviewFullChange(t.Context(), proposed.Commands[0])
 			if err != nil || review.State != mcpserver.ReviewAwaitingConfirmation || review.Binding.Plan.ID == modelPlan || review.Binding.Plan.Command.Amount != "12.34" {
 				t.Fatalf("host adopted model preview/approval: %v", err)
 			}

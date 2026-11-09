@@ -67,7 +67,9 @@ For a summary answer, inspect the initial totals and coverage. Load detail only
 for requested evidence. For a complete detailed audit, read all three descriptors:
 `positionsPage`, `gapsPage` and `evidencePage`. Follow each `nextCursor` with
 `get_read_page({cursor, limit?})`. The signed cursor retains that package,
-section and target. The initial response has at most one detail row per section.
+section and target. Initial pages include up to 25 rows per selected section within a 24 KiB
+inline target. An explicit `limit` allows up to 100 within the wire budget.
+Use `sections` to select initial rows, or `sections: []` for totals and page descriptors only.
 **Zero returned rows with a nextCursor is a deferred section, not completion.**
 Request its continuation, which must advance. Detail is complete only when the
 three independently saved section states each have `hasMore: false`, not when
@@ -75,9 +77,8 @@ one page response happens to show those flags.
 
 Save the complete initial content header (basis, scope, disclosure, versions,
 summary, coverage and dataAsOf) and all three descriptors independently.
-`get_read_page` for a context section returns contextId, contentHash, capturedAt,
-cacheExpiresAt, section, items and page. It does not repeat content or unrelated
-section descriptors. Match ID and hash to the saved initial header, append items
+`get_read_page` for a context section returns contextId, capturedAt, section, items and page. It does not repeat content or unrelated
+section descriptors. Match contextId and capturedAt to the saved initial header, append items
 to the returned section, and update only that section from page. For a complete
 audit, finish when all three saved states are complete. Limits default to 25 and
 the maximum is 100. A comparison uses the same section, items and page shape with
@@ -109,8 +110,7 @@ capture publication. Eviction, revocation and restore also invalidate them.
 On `context_expired` or revocation, obtain a new package, disclose the new
 capture and restart every section from its new descriptors. Discard the old page
 set. Never combine old and new pages or reuse an old cursor with a new contextId,
-even if the contentHash matches. `contentHash` identifies semantic content, not
-whether it remains up to date.
+even when totals match.
 
 `too_large` can mean an input-read budget, full package, mandatory summary,
 individual row or diagnostic exceeded its limit. A smaller account scope may

@@ -6,23 +6,22 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
 func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
-	change := roundTripSchema(t, workflowSchema[history.ChangeCommandRequest]("preview_change"))
+	change := roundTripSchema(t, workflowSchema[BatchChangeInput]("preview_batch"))
 	changeRaw := mustSchemaJSON(t, change)
-	if len(changeRaw) >= 3221 {
-		t.Fatalf("preview_change schema is %d bytes; measured baseline is 3221", len(changeRaw))
+	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= 3221 {
+		t.Fatalf("preview_batch schema is %d bytes; measured baseline is 3221", len(changeRaw))
 	}
-	if strings.Contains(changeRaw, `"description"`) || strings.Contains(changeRaw, "newValue") || strings.Contains(changeRaw, "mutationId") {
-		t.Fatalf("preview_change schema still publishes removed prose or handler-rejected fields: %s", changeRaw)
+	if strings.Contains(mustSchemaJSON(t, change.Properties["commands"].Items), `"description"`) || strings.Contains(changeRaw, "newValue") || strings.Contains(changeRaw, "mutationId") {
+		t.Fatalf("preview_batch schema still publishes removed prose or handler-rejected fields: %s", changeRaw)
 	}
 	resolved, err := change.Resolve(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := resolved.Validate(&map[string]any{"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "note": nil}); err != nil {
+	if err := resolved.Validate(&map[string]any{"commands": []any{map[string]any{"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "note": nil}}}); err != nil {
 		t.Fatal(err)
 	}
 	for _, invalid := range []map[string]any{
@@ -30,11 +29,13 @@ func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 		{"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "newValue": "1"},
 		{"kind": "money_added", "accountId": "a", "amount": "1", "currency": "USD", "reason": "income", "fee": "1"},
 	} {
-		if err := resolved.Validate(&invalid); err == nil {
+		batch := singleLedgerInput(invalid)
+		if err := resolved.Validate(&batch); err == nil {
 			t.Fatalf("invalid change accepted: %v", invalid)
 		}
 	}
-	if err := resolved.Validate(&map[string]any{"kind": "trade", "settlementAccountId": "a", "instrumentId": "i", "side": "buy", "quantity": "1", "gross": "1", "grossCurrency": "USD", "reconciliationLink": map[string]any{"sessionId": "s", "accountId": "a", "itemId": "i", "expectedRevision": 3, "financialRevision": 12}}); err != nil {
+	batch := singleLedgerInput(map[string]any{"kind": "trade", "settlementAccountId": "a", "instrumentId": "i", "side": "buy", "quantity": "1", "gross": "1", "grossCurrency": "USD", "reconciliationLink": map[string]any{"sessionId": "s", "accountId": "a", "itemId": "i", "expectedRevision": 3, "financialRevision": 12}})
+	if err := resolved.Validate(&batch); err != nil {
 		t.Fatal(err)
 	}
 
@@ -77,7 +78,7 @@ func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 			t.Fatalf("invalid product operation accepted: %v", invalid)
 		}
 	}
-	t.Logf("schema bytes preview_change=%d preview_product_operation=%d", len(changeRaw), len(productRaw))
+	t.Logf("schema bytes preview_batch=%d preview_product_operation=%d", len(changeRaw), len(productRaw))
 }
 
 func productPayload(kind string) map[string]any {

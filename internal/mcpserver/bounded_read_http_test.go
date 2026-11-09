@@ -112,7 +112,7 @@ func TestBoundedReadOptionsAndRetiredModes(t *testing.T) {
 			t.Fatalf("retired mode remains discoverable on %s", tool.Name)
 		}
 	}
-	for _, name := range []string{"get_liquidity_overview", "list_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data", "list_members", "list_institutions", "list_groups", "list_accounts", "get_overview", "get_account_valuations", "scan_data_health", "preview_data_repair"} {
+	for _, name := range []string{"get_liquidity_overview", "get_products", "get_upcoming_actions", "list_instruments", "list_agent_market_data", "list_members", "list_institutions", "list_groups", "list_accounts", "get_overview", "get_account_valuations", "scan_data_health", "preview_data_repair"} {
 		scaleCapture(t, c, name, map[string]any{"limit": 0})
 		for _, mode := range []string{"paged", "full", "legacy", ""} {
 			call(t, c, name, map[string]any{"responseMode": mode}, true)

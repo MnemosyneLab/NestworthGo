@@ -147,17 +147,18 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 		if err != nil {
 			return err
 		}
-		raw, err := s.Call(ctx, "preview_change", arguments)
+		var detached history.ChangeCommandRequest
+		if err := jsoncodec.Unmarshal(arguments, &detached); err != nil {
+			return fail("validation", "invalid host proposal")
+		}
+		if ctx.Err() != nil {
+			return fail("cancelled", "request cancelled before preview")
+		}
+		preview, err := s.service.previewHostLedgerChange(ctx, detached)
 		if err != nil {
 			return err
 		}
-		var result struct {
-			Data ChangePlanPreview `json:"data"`
-		}
-		if jsoncodec.Unmarshal(raw, &result) != nil {
-			return fail("review_unavailable", "authoritative preview unavailable")
-		}
-		planRaw, err := s.service.loadPreviewPlan(result.Data.PlanID, "change")
+		planRaw, err := s.service.loadPreviewPlan(preview.PlanID, "change")
 		if err != nil {
 			return err
 		}
@@ -167,7 +168,7 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 		}
 		if identity != nil {
 			found := false
-			for _, endpoint := range result.Data.Preview.Resulting {
+			for _, endpoint := range preview.Preview.Resulting {
 				if endpoint.AccountID != nil && *endpoint.AccountID == identity.AccountID && endpoint.Currency == command.Currency && endpoint.Amount != "" {
 					found = true
 				}
@@ -185,11 +186,14 @@ func (s *InProcessSession) previewHostChange(ctx context.Context, command histor
 			LedgerIncarnation: s.service.app.MobileWorkspace(),
 			IncarnationID:     s.service.config.InstanceID, PermissionRevision: s.service.config.InstanceID,
 			Permission: LedgerWrite, Tool: "commit_change", OperationID: uuid.NewString(),
-			CashAccount: identity, CreatedAt: time.Now().UTC(), ParameterDigest: parameters, Plan: plan, Preview: result.Data,
+			CashAccount: identity, CreatedAt: time.Now().UTC(), ParameterDigest: parameters, Plan: plan, Preview: preview,
 		}}
 		review.Digest, err = reviewDigest(review.Binding)
 		if err != nil {
 			return err
+		}
+		if ctx.Err() != nil {
+			return fail("cancelled", "request cancelled before saving review")
 		}
 		return s.saveHostReview(review)
 	})

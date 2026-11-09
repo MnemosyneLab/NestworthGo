@@ -262,12 +262,12 @@ func TestFullCommitCancelledWhileLoadingValidPreview(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer s.Close()
-			preview := localData(t, s, "preview_change", map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}, false)
+			preview := localData(t, s, "preview_batch", singleLedgerInput(map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}), false)
 			planID := preview["planId"].(string)
 			operation := uuid.NewString()
 			if prior {
 				path, _ := s.service.operationPath(operation)
-				if err := s.service.writePrivate(path, Operation{ID: operation, Tool: "commit_change", Status: "pending"}); err != nil {
+				if err := s.service.writePrivate(path, Operation{ID: operation, Tool: "commit_batch", Status: "pending"}); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -51,7 +51,7 @@ writes or restore; maturity is not receipt. Product lifecycle commits use the
 same plan-key recovery: identical retries or the same plan/new operation UUID
 return original committed product/activity IDs, not a fresh product query.
 Terms/value commits likewise return their original revision/value/IDs/times;
-get_product reads current facts and full reservations. Business receipts, plans
+get_products reads current facts and full reservations. Business receipts, plans
 and outer execution receipts share the SQLite backup authority. A restored older
 ledger cannot recover absent facts from external cached success; a missing fact
 requires fresh intent and preview after inspecting restored data. JSON household

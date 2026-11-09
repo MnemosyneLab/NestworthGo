@@ -106,18 +106,18 @@ func TestLiveConversationPagingAndRestartRecapture(t *testing.T) {
 				t.Error("paging fixture missing cursor")
 			}
 		case 2, 4:
-			writeMode(w, request, []any{liveCallItem(round, "get_read_page", obj{"captureId": capture, "section": "accounts", "cursor": cursor, "limit": 1})})
+			writeMode(w, request, []any{liveCallItem(round, "get_read_page", obj{"cursor": cursor, "limit": 1})})
 			return
 		case 3:
 			if !strings.Contains(latestToolOutput(t, request), expiry) {
 				t.Error("continuation changed fixed expiry")
 			}
-			if strings.Contains(latestToolOutput(t, request), "controlled_read_refused") {
+			if strings.Contains(latestToolOutput(t, request), "retryAction") {
 				t.Error("live second turn lost its capture")
 			}
 		case 5:
 			raw := latestToolOutput(t, request)
-			if !strings.Contains(raw, "controlled_read_refused") || strings.Contains(raw, "synthetic-canary-key") {
+			if !strings.Contains(raw, `"retryAction":"correct_input"`) || strings.Contains(raw, "synthetic-canary-key") {
 				t.Error("restart did not refuse old capture safely")
 			}
 			writeMode(w, request, []any{liveCallItem(round, "list_accounts", obj{"limit": 1})})

@@ -8,7 +8,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
-type ProductListInput struct {
+type ProductReadInput struct {
+	ID            *string            `json:"id,omitempty" jsonschema:"Committed product UUID; omit for a filtered list"`
+	View          string             `json:"view,omitempty" jsonschema:"summary or detail; defaults to detail with id, summary otherwise. detail requires id"`
 	Filter        *ProductReadFilter `json:"filter,omitempty"`
 	Sort          *ReadSort          `json:"sort,omitempty"`
 	Limit         int                `json:"limit,omitempty"`
@@ -30,18 +32,31 @@ type LiquidityOverviewInput struct {
 func (s *Service) productTools(server *toolSet) {
 	products := liquidity.NewService(s.app)
 	generation := s.contextGeneration
-	readTool(server, "list_products", "Managed deposit and locked contracts: compact filtered rows, with details and reservations through get_read_item on the same capture. Currency, cost, value, revision and policies are authoritative. Ordinary NAV holdings use list_holdings.", func(ctx context.Context, in ProductListInput) (any, error) {
+	readTool(server, "get_products", "Read managed deposit and locked contracts. Omit id for compact filtered rows; supply a committed product id for full terms, policy, revision and paged reservations (view=summary selects a compact row). List filters and sorting require omitting id. Use get_read_item for details from a list capture. due_unconfirmed does not record cash or forecast interest as net worth. Ordinary NAV holdings use list_holdings.", func(ctx context.Context, in ProductReadInput) (any, error) {
 		if in.AccountID != nil && strings.TrimSpace(*in.AccountID) == "" {
 			return nil, fail("validation", "accountId must be an existing account UUID when supplied")
 		}
-		return s.pagedProducts(ctx, generation, in, nil)
-	})
-	readTool(server, "get_product", "Read one managed product with full contract/terms/policy/revision and separately paged reservations. Frozen mcp-read/2. due_unconfirmed does not record cash or forecast interest as net worth. GUI actions do not grant permission; writes require dedicated preview/commit pairs with ledger_write.", func(ctx context.Context, in ProductGetInput) (any, error) {
-		id, err := domain.ParseProductContractID(in.ID)
-		if err != nil {
-			return nil, err
+		var id *domain.ProductContractID
+		if in.ID != nil {
+			if in.AccountID != nil || in.IncludeClosed || in.Filter != nil || in.Sort != nil {
+				return nil, fail("validation", "id cannot be combined with product list filters or sorting")
+			}
+			parsed, err := domain.ParseProductContractID(*in.ID)
+			if err != nil {
+				return nil, err
+			}
+			id = &parsed
 		}
-		return s.pagedProducts(ctx, generation, ProductListInput{Limit: in.Limit}, &id)
+		if in.View == "" {
+			in.View = "summary"
+			if id != nil {
+				in.View = "detail"
+			}
+		}
+		if in.View != "summary" && (in.View != "detail" || id == nil) {
+			return nil, fail("validation", "view must be summary, or detail with a product id")
+		}
+		return s.pagedProducts(ctx, generation, in, id)
 	})
 	readTool(server, "list_product_operations", "Page live managed-product operations by productId, including reversals and current undo availability (which is not a plan or permission). Follow page.nextCursor with get_read_page and refresh after latestRecordedOperationId changes. get_activity shows ledger effects; get_operation uses a different MCP receipt UUID.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
 		if in.Limit < 0 || in.Limit > 100 {
@@ -67,7 +82,7 @@ func (s *Service) productTools(server *toolSet) {
 
 func isProductReadTool(name string) bool {
 	switch name {
-	case "list_products", "get_product", "list_product_operations", "get_liquidity_overview":
+	case "get_products", "list_product_operations", "get_liquidity_overview":
 		return true
 	default:
 		return false

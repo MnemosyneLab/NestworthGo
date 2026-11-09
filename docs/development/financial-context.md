@@ -44,25 +44,23 @@ snapshots; its results are not part of this strictly read-only package.
 
 The initial MCP `{data: ...}` wrapper contains:
 
-- `contextId`, `contentHash`, `capturedAt`, `generatedAt`, `cacheExpiresAt`;
+- `contextId` and `capturedAt`;
 - `content`: schema/calculation/resolver versions, normalized scope, as-of and
   basis, summary, coverage, dataAsOf, positions, gaps and evidence;
 - `positionsPage`, `gapsPage`, `evidencePage`: total, returned, hasMore and
-  nextCursor. The initial response includes up to **one row per section**;
-  follow its cursors for details. A section crowded out by earlier sections may
-  return zero rows with an offset-zero nextCursor; its standalone continuation
-  must advance. Summary and counts are complete immediately.
+  nextCursor. Optional `sections` selects initial rows from positions, gaps and
+  evidence. Omit it for all three, or pass `[]` for the header and descriptors.
+  Default `limit` allows up to 25 rows per selected section within the 24 KiB
+  target. An explicit limit allows up to 100 rows per section within the 64 KiB
+  wire ceiling. A deferred or crowded-out section can return zero rows with an
+  offset-zero nextCursor. Its standalone continuation must advance or fail.
 
-Continuation tools return a distinct projection: contextId (or comparisonId),
-contentHash, capturedAt, cacheExpiresAt, section, items and page. They return only
-the requested section's exact rows and progress. They do not repeat content,
-generatedAt, the financial header or offset-zero descriptors for other sections.
-Clients retain the original header and three independent section states, match
-ID/hash, append items to section, and update that section from page. Comparison
-left/right/change, disclosure and attribution precision remain in the initial
-header and canonical content hash; pages never recompute or upgrade disclosure.
-Expired/revoked captures still require discarding all pages and restarting.
-This is a breaking wire change; initial and item-tool shapes are unchanged.
+A continuation returns `contextId` or `comparisonId`, `capturedAt`, `section`,
+`items` and `page`. Retain the original header and three independent section
+states. Match capture identity, append items and update only the requested
+section. Comparison left/right/change, disclosure and attribution precision stay
+in the initial header. The cursor verifies semantic identity and expiry inside
+the cache. Expiry or revocation requires a new capture and page traversal.
 
 Money, quantities, prices and FX rates are exact decimal strings. Nullable
 assets/liabilities/netWorth are complete totals, never partial subtotals. Missing
@@ -137,7 +135,7 @@ Neither mode is anonymization or token isolation. Existing read_only credentials
 remain household-wide and other tools can return exact values. Amount binning
 is not provided as a false privacy boundary.
 
-`contentHash` is SHA-256 over JSON encoding of a fixed canonical content DTO;
+The internal content hash is SHA-256 over JSON encoding of a fixed canonical content DTO;
 there is no general canonical-JSON framework. Identity-dependent arrays are
 sorted, decimals are canonical strings, and nullable/empty-array semantics are
 fixed. It includes actual amounts, observation dates, freshness categories,
@@ -259,18 +257,18 @@ and row IDs. No new identity fields, private ID mapping, token, disclosure
 upgrade or identity lookup is introduced.
 
 Arguments: required `contextId`, `ref`; optional `section` (`positions`, `gaps`,
-`evidence`), `cursor`, `limit` (default 25, maximum 100). Omitted section returns
-at most one row from each related section. An explicit section without cursor
-starts at zero, including for empty sections. Continue using get_read_page with only its matching signed cursor and optional
+`evidence`), `sections`, `cursor`, and `limit` (default 25, maximum 100).
+Use `sections` for the same initial row selection as the parent. An explicit
+singular `section` without cursor starts at zero, including for empty sections.
+The singular and plural selectors cannot be combined. Continue using get_read_page with only its matching signed cursor and optional
 limit. The authenticated scope retains contextId, ref and section. The explicit-scope
 financial page tools were removed; see [business pagination](mcp-pagination.md). All three page descriptors retain total/returned/
 hasMore/nextCursor semantics; crowded initial sections can defer zero rows, but
 a standalone nonempty continuation must advance or return `too_large`.
 
-The response's `schemaVersion` is `financial-context-item/1`. It retains the
-original `contentHash`, `capturedAt`, `cacheExpiresAt`, `asOf`, `basis`, and
-`disclosure`; `generatedAt` reflects this read. The hash still covers the entire
-original package, not a newly hashed subset. `ref` and `type` identify the target:
+The initial item response uses transport `schemaVersion` `financial-context-item/2`. It retains the
+original `capturedAt`, `asOf`, `basis` and `disclosure`. The internal hash
+still covers the whole package. `ref` and `type` identify the target:
 
 - Account: `position` is the account rollup; `positions` contains direct non-account
   children only. Never add the rollup amount to those children. Gaps are limited
@@ -335,8 +333,8 @@ The same evidence projection supplies each side's scoped coverage, gaps and
 `dataAsOf`. Evidence references have `left:`/`right:` prefixes because freshness
 or replay assertions about an observation can differ between sides.
 
-The response has `comparisonId`, the same capture/hash/cache timestamps, `content`
-and the three page descriptors. Content includes `left`, `right`, `change`,
+The response has `comparisonId`, `capturedAt`, `content` and the three page
+descriptors, with the same initial selection and limits. Content includes `left`, `right`, `change`,
 `positions`, `gaps`, `evidence` and fixed basis declarations. Each side includes
 the existing summary plus cash, investments and otherAssets. These categories
 sum existing included asset components: `cash` uses the engine's cash bucket;

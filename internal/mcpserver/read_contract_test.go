@@ -47,7 +47,7 @@ func sectionEvidence(t *testing.T, c *mcp.ClientSession, name string, args any) 
 	return out
 }
 func productEvidence(t *testing.T, c *mcp.ClientSession, args any) map[string]any {
-	cap := scaleCapture(t, c, "get_product", args)
+	cap := scaleCapture(t, c, "get_products", args)
 	detail := cap["summary"].(map[string]any)["detail"].(map[string]any)
 	id := detail["product"].(map[string]any)["id"].(string)
 	detail["reservations"] = scaleSection(t, c, cap, "reservations/"+id)
@@ -55,7 +55,7 @@ func productEvidence(t *testing.T, c *mcp.ClientSession, args any) map[string]an
 	return detail
 }
 func productListEvidence(t *testing.T, c *mcp.ClientSession, args any) []any {
-	cap := scaleCapture(t, c, "list_products", args)
+	cap := scaleCapture(t, c, "get_products", args)
 	out := []any{}
 	for _, row := range scaleSection(t, c, cap, "products") {
 		id := row.(map[string]any)["id"].(string)

@@ -83,7 +83,7 @@ explicit id is stored and retried unchanged. Reuse that same id and input to
 recover an interruption. The same plan with a new explicit operationId returns
 the original immutable business receipt and does not post again. Call
 `get_operation` with the id you sent, or the [locally derived ID](recovery.md#recovering-when-operationid-was-omitted) when you omitted it.
-`list_product_operations` returns business operation UUIDs. `get_product` reads
+`list_product_operations` returns business operation UUIDs. `get_products` reads
 current facts. See [recovery](recovery.md).
 
 Undo preserves the original events and adds compensation at the reviewed time.

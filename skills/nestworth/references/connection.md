@@ -54,11 +54,11 @@ certify old frozen comparisons.
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`; `create_institution`, `update_institution`; `create_group`, `update_group`; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument`. Member, institution and group archive is `archived` on the matching `update_*` tool |
 | Current state | `get_overview`, `get_account_valuations` |
-| Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
+| Managed contracts/history and liquidity | `get_products`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Daily investment review v2 | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions`. Management tools are hidden by default. With `ledger_write` and investment review management enabled: `create_investment_review_rule`, `update_investment_review_rule`, `archive_investment_review_rule`, `acknowledge_investment_review_alert`, `set_investment_review_suppression`, `clear_investment_review_suppression`, `refresh_investment_reviews` |
 | Read-only historical view | `get_historical_overview` (`{date, compareTo}` or `{from, to}`) |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
-| Previews (ledger_write) | `preview_change`, `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
+| Previews (ledger_write) | `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
 | Commit any preview (ledger_write) | `commit_plan` with the returned `planId`; the server reads the plan kind |
 | History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_read_item` |
 | Quotes and audit | `get_market_data`, `compare_market_data_import`, `list_agent_market_data`, `import_market_data`, `set_fx_source` |

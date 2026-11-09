@@ -160,7 +160,7 @@ func TestFullStreamContractThreeUserTurns(t *testing.T) {
 							}
 							if item["type"] == "function_call_output" {
 								outputs++
-								if !strings.Contains(encode(item), "contentHash") {
+								if !strings.Contains(encode(item), "contextId") {
 									t.Error("controlled result missing")
 								}
 							}

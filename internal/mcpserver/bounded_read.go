@@ -74,23 +74,23 @@ type ReadEnvelope struct {
 	AvailableSections []string               `json:"availableSections,omitempty"`
 }
 type readCapture struct {
-	DetailSections  map[string][]string          `json:"detailSections,omitempty"`
-	InitialSections []string                     `json:"initialSections,omitempty"`
-	Kind            string                       `json:"kind"`
-	Query           any                          `json:"query"`
-	Summary         any                          `json:"summary"`
-	Sections        map[string][]json.RawMessage `json:"sections"`
-	Details         map[string]any               `json:"details,omitempty"`
-	CapturedAt      time.Time                    `json:"capturedAt"`
+	DetailSections    map[string][]string          `json:"detailSections,omitempty"`
+	InitialSections   []string                     `json:"initialSections,omitempty"`
+	Kind              string                       `json:"kind"`
+	Query             any                          `json:"query"`
+	Summary           any                          `json:"summary"`
+	Sections          map[string][]json.RawMessage `json:"sections"`
+	Details           map[string]any               `json:"details,omitempty"`
+	CapturedAt        time.Time                    `json:"capturedAt"`
+	AvailableSections []string                     `json:"availableSections,omitempty"`
 	// drilldown is frozen with the capture and omitted from the marshal that
 	// store charges against readCaptureLimit. Its own retained charge is added
 	// to size for admission and eviction. Reattach it after the JSON
 	// round-trip below.
-	drilldown         *periodDrilldown
-	itemSection       string
-	availableSections []string
-	expires           time.Time
-	size              int
+	drilldown   *periodDrilldown
+	itemSection string
+	expires     time.Time
+	size        int
 }
 type readCursor struct {
 	Version    int    `json:"v"`
@@ -253,7 +253,7 @@ func readFits(v any) (bool, error) {
 }
 func (c *boundedReadCache) initial(id string, e readCapture, limit int) (ReadEnvelope, error) {
 	r := c.base(id, e)
-	r.Section, r.AvailableSections = e.itemSection, e.availableSections
+	r.Section, r.AvailableSections = e.itemSection, e.AvailableSections
 	r.Summary = e.Summary
 	r.Sections = map[string]ReadSection{}
 	names := make([]string, 0, len(e.Sections))
@@ -562,7 +562,7 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 		focused.itemSection = in.Section
 		for _, section := range names {
 			if !slices.Contains(selected, section) {
-				focused.availableSections = append(focused.availableSections, strings.TrimSuffix(section, "/"+in.ID))
+				focused.AvailableSections = append(focused.AvailableSections, strings.TrimSuffix(section, "/"+in.ID))
 			}
 		}
 		limit, err := readLimit(in.Limit)

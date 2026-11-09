@@ -16,7 +16,7 @@ historical quote may leave today's value unchanged. An unknown before value
 means unknown netWorthDelta, never zero. No cash, quantity, cost or reservation
 effect occurs. Commit only the planId. The immutable receipt retains the
 original quote, operation and product IDs, amount and times across repeats,
-later observations and restart. Query `get_product` separately for today's
+later observations and restart. Query `get_products` separately for today's
 facts. Derived analysis can remain dirty after historical observations. Recovery
 does not require reposting. The ordinary managed trade and quote-import guards
 remain.
@@ -38,7 +38,7 @@ explicit id is retried unchanged. A changed fact, restart or restore makes an
 uncommitted plan stale. The same plan with a new explicit operationId returns
 the original valuation receipt and does not write another observation. Reuse
 the same explicit id and input after an interruption. Call `get_operation` with
-that id, or with the [locally derived ID](recovery.md#recovering-when-operationid-was-omitted) when you omitted it, then read `get_product`.
+that id, or with the [locally derived ID](recovery.md#recovering-when-operationid-was-omitted) when you omitted it, then read `get_products`.
 Do not repost because today's value differs from a historical observation.
 
 Optional reconciliationLink copies the current session, account, item and

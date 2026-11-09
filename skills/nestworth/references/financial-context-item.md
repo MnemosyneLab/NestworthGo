@@ -13,8 +13,9 @@ switch to identity-bearing tools to explain a minimal item.
 {"contextId":"${contextId}","ref":"${ref}"}
 ```
 
-The response carries the original contentHash, capturedAt, cacheExpiresAt, asOf
-and basis. `position` is the selected account or position. `evidenceItem` is
+The initial response uses `schemaVersion` `financial-context-item/2` and carries
+the original capturedAt, asOf and basis. `position` is the selected account or
+position. `evidenceItem` is
 selected evidence. `positions`, `gaps` and `evidence` contain only related frozen
 rows. An account's `position` is a rollup and its `positions` are the cash and
 holding components. Never sum the rollup again with those children. A position
@@ -23,8 +24,10 @@ it. Shared FX does not expand each user's account or other evidence. Evidence in
 account and position results is deduplicated by ref. Preserve excluded, archived,
 not_created, measured zero and missing amounts as returned.
 
-The initial response has at most one row per related section. Inspect all three
-page descriptors. Supply section to read a related section, even if empty, then
+Initial pages include up to 25 rows per selected section within a 24 KiB
+inline target. An explicit `limit` allows up to 100 within the wire budget.
+Use `sections` to choose initial rows, or `sections: []` for the item header and
+page descriptors. Use singular `section` by itself to read one related section, then
 follow its nextCursor with `get_read_page({cursor, limit?})`. Its signed scope
 retains contextId, ref and section. A zero-row initial section with hasMore is
 deferred. Limits default to 25 and the maximum is 100. Whole-package page cursors
@@ -43,7 +46,7 @@ history, new identity disclosure, period comparison or recomputation here. If
 the projection lacks an answer, state that boundary. Do not invent a history.
 The original five-minute expiry is fixed. Expired or revoked packages require a
 new capture and a newly selected target. Never attach an old answer to a
-same-spelled alias in the new package, even if the hash matches. Bare aliases
+same-spelled alias in the new package, even when totals match. Bare aliases
 cannot reveal which package they originally came from. Keep their contextId
 throughout. The same single-request, wire-budget and too_large rules as the
 parent package apply.

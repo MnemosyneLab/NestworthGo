@@ -179,7 +179,7 @@ func (c *boundedReadCache) comparisonItem(id string, e readCapture, in ReadItemI
 	}
 	r := c.base(id, e)
 	r.Section = "results"
-	r.Summary = map[string]any{"result": row, "scope": "one_client_item", "evidenceDelivery": "see_child_pages", "globalEvidenceDelivered": false}
+	r.Summary = map[string]any{"result": row}
 	r.Sections = map[string]ReadSection{}
 	names := []string{}
 	sections := map[string][]json.RawMessage{}

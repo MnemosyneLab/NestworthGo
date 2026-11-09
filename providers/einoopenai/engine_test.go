@@ -106,7 +106,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 	fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		requests.Add(1)
 		tools := encode(request["tools"])
-		for _, closed := range []string{"commit_change", "preview_change", "approve", "ConfirmHost", "analyze_period", "get_context", "get_market_data"} {
+		for _, closed := range []string{"commit_change", "preview_batch", "approve", "ConfirmHost", "analyze_period", "get_context", "get_market_data"} {
 			if strings.Contains(tools, `"name":"`+closed+`"`) {
 				t.Error("read-only runtime exposed writer/approval")
 			}

@@ -45,9 +45,7 @@ func (s *Service) ledgerTools(server *toolSet) {
 	s.correctionTools(server)
 	s.reconciliationTools(server)
 	s.commitPlanTool(server)
-	// Persisting a preview stores only a private plan; it never mutates money,
-	// positions, or the activity ledger.
-	readTool(server, "preview_change", "Preview one completed ledger record (kind selects the required fields); nothing posts. Amounts, costs and quantities are exact decimal strings with explicit currencies. position_import needs the original per-unit cost and has no cash leg; position_transfer carries cost without profit. Use effectiveAt or a household-local date and time (an omitted time freezes at preview). Inspect the normalized command and effects, then commit_plan. No brokerage order is placed.", s.previewChange)
+
 }
 
 // Reject fields silently ignored by the UI's tagged-union adapter. The agent
@@ -95,11 +93,12 @@ func validateChangeRequest(in history.ChangeCommandRequest) error {
 	return nil
 }
 
-func (s *Service) previewChange(ctx context.Context, in history.ChangeCommandRequest) (any, error) {
+// previewHostLedgerChange keeps the host-owned review and receipt format private.
+func (s *Service) previewHostLedgerChange(ctx context.Context, in history.ChangeCommandRequest) (ChangePlanPreview, error) {
 	var err error
 	in, err = normalizeChangeRequest(in, time.Now().UTC())
 	if err != nil {
-		return nil, err
+		return ChangePlanPreview{}, err
 	}
 	var resolved any
 	preview, version, err := s.app.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
@@ -114,14 +113,14 @@ func (s *Service) previewChange(ctx context.Context, in history.ChangeCommandReq
 		return resolved, err
 	})
 	if err != nil {
-		return nil, err
+		return ChangePlanPreview{}, err
 	}
 	if err := s.app.ValidateReconciliationCommandLink(ctx, in.ReconciliationLink, resolved, preview); err != nil {
-		return nil, err
+		return ChangePlanPreview{}, err
 	}
 	plan := changePlan{Type: "change", ID: uuid.NewString(), Command: in, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
-		return nil, err
+		return ChangePlanPreview{}, err
 	}
 	return ChangePlanPreview{PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Command: in, Preview: wire.FromChangePreview(preview)}, nil
 }
@@ -259,9 +258,6 @@ func (s *Service) loadPreviewPlan(planID, expectedType string) ([]byte, error) {
 	if err := jsoncodec.Unmarshal(raw, &header); err != nil {
 		return nil, err
 	}
-	if header.Type == "" {
-		header.Type = "change"
-	} // persisted stage-2 single plans
 	if header.Type != expectedType || header.ID != id.String() {
 		return nil, fail("validation", "use the commit tool matching this preview plan")
 	}

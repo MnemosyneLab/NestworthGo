@@ -132,7 +132,7 @@ not part of that hash.
 | Directory and holdings | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Current state | `get_overview`, `get_account_valuations` |
 | History and analysis | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_read_item`, `get_historical_overview` |
-| Products and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
+| Products and liquidity | `get_products`, `list_product_operations`, `get_liquidity_overview`, `get_upcoming_actions` |
 | Investment review reads | `list_investment_review_rules`, `preview_investment_review_rule`, `list_investment_review_alerts`, `get_investment_review_alert`, `get_investment_review_coverage`, `list_investment_review_daily_evidence`, `list_investment_review_episode_history`, `list_investment_review_episode_events`, `list_investment_review_suppressions` |
 | Market | `get_market_data`, `compare_market_data_import`, `list_agent_market_data`, `search_market_instruments` |
 | Health | `scan_data_health`, `preview_data_repair`, `get_data_repair_job` |
@@ -152,7 +152,7 @@ It does not create an instrument.
 
 | Area | Tools |
 | --- | --- |
-| Preview | `preview_change`, `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
+| Preview | `preview_batch`, `preview_correction`, `preview_reconciliation`, `preview_reconciliation_session`, `preview_product_operation`, `preview_product_terms`, `preview_product_valuation`, `preview_save_liquidity_policy`, `preview_reset_liquidity_policy` |
 | Commit | `commit_plan` |
 | Market writes | `import_market_data`, `set_fx_source` |
 | Repair | `start_data_repair` |
@@ -221,8 +221,8 @@ financial content is logged or persisted for these caches.
 
 The published output schema of an `mcp-read/2` tool requires `schemaVersion`,
 `captureId` and `capturedAt`. Page tools require `items` and
-`page.hasMore` / `page.nextCursor`. Financial headers require their id,
-`contentHash` and `content`. The stricter field rules, including `delivery`,
+`page.hasMore` / `page.nextCursor`. Financial headers require their ID,
+`capturedAt` and `content`. The stricter field rules, including `delivery`,
 are checked by `output_schemas_full_test.go` and
 `TestDeliveryOutputSchemaMatchesResponses`. A client that validates
 `structuredContent` against the discovered schema does not re-check those
@@ -234,11 +234,14 @@ Unicode characters. Sorts are global before paging, nulls last, identity
 ascending as the tie. The authoritative parameter and continuation rules are
 in [mcp-pagination.md](mcp-pagination.md).
 
-`get_overview` keeps the GUI overview: exact amounts, `complete`,
-`displayValuation` and `historyStarted` in the summary, with separate sections
-for missing inputs, type and owner breakdowns, recent activities and labels.
-Omitted `limit` starts at about five rows per section and may grow to 25
-inside a 24 KiB response budget. `totalsScope=request_account_filters`.
+`get_overview` returns `displayValuation` for assets, liabilities and net
+worth, plus `complete`, `historyStarted` and the missing-input count.
+Each amount distinguishes its nullable complete total from its known subtotal.
+Account filters determine the totals (`totalsScope=request_account_filters`).
+Use `sections` with names from `availableSections` to include missing inputs,
+breakdowns, recent activities or labels in a new capture. Page those sections
+with `get_read_page`. Omitted `limit` starts at up to five rows per selected
+section and may grow to 25 within a 24 KiB response budget.
 
 ### Current valuation
 
@@ -446,13 +449,13 @@ whole call. Other instrument fields, quotes and ledger facts stay.
 ### Ledger preview and commit
 
 1. Resolve IDs with the filtered reads.
-2. Preview. The result contains `planId`, `expiresAt`, the normalized command
-   and the effects.
+2. Call `preview_batch`. The result contains `planId`, `expiresAt`, normalized
+   `commands` and corresponding `previews`.
 3. `commit_plan` with `input.planId`. Ledger permission is enough. There is
    no second App confirmation.
 4. Read the receipt, or `get_operation` by the operation id.
 
-`preview_change` kinds: `money_added`, `money_removed`, `trade` (`buy` /
+`preview_batch` supports `money_added`, `money_removed`, `trade` (`buy` /
 `sell`), `cash_dividend`, `cash_transfer`, `fx_conversion`, `debt_draw`,
 `debt_payment`, `position_transfer`, `position_import`. For a trade, `gross`
 is the total consideration, not a unit price. Specify RFC3339 `effectiveAt`,
@@ -490,14 +493,17 @@ rejected before a receipt is written.
 it. The durable receipt keeps the historical tool name (`commit_change`,
 `commit_batch`, and the other per-kind names). Ledger, batch, correction,
 reconciliation and managed-product kinds can recover a pending or unknown
-receipt. Liquidity-policy kinds never do. A pruned plan file is routed from
-the operation receipt, then from reconciliation database receipts. With no
+receipt. Liquidity-policy kinds never do. A completed operation replays only
+when its input matches the saved receipt. For a pruned plan and a fresh operation
+ID, the router looks up the family-specific durable receipt for a ledger batch
+or reconciliation adjustment, then the reconciliation session receipt. A raw
+change-batch mutation ID does not identify an MCP plan. With no matching
 evidence the error is `operation_outcome_unknown`.
 
 `preview_product_operation` publishes `productTerms`, `productPolicy` and
 `productSettle` once and points each kind payload at the one it requires.
-`preview_change` keeps a kind `oneOf` of required names and shares one string
-schema. Kind required fields are unchanged. `added`, `mutationId`,
+`preview_batch` publishes a kind `oneOf` for `commands` items and shares one
+string schema. Kind required fields are unchanged. `added`, `mutationId`,
 `newValue` and `newValueCurrency` are not inputs.
 
 ### Reconciliation, corrections, transfers and batches
@@ -527,12 +533,10 @@ Destination is `toHoldingId` or `toAccountId` (created atomically when that
 account has no holding of the instrument). A historical fix must name
 existing holding IDs.
 
-`preview_batch` takes 1–100 commands in nondecreasing effective time. It is
-not a directory-creation batch. Commit writes holdings, activities,
-projections and the batch receipt in one SQLite transaction. Single-change
-and batch plans are not interchangeable. Later commands in the batch may
-refer to a position introduced earlier by account and instrument, omitting
-`holdingId`.
+`preview_batch` takes 1–100 ledger commands in nondecreasing effective time.
+Commit writes holdings, activities, projections and the batch receipt in one
+SQLite transaction. Later commands may refer to a position introduced earlier
+by account and instrument, omitting `holdingId`.
 
 `position_import` records a position already owned: quantity, original
 per-unit `unitCost`, and the instrument currency. Unknown cost is not
@@ -621,16 +625,26 @@ receipts across restarts. Settings lists the latest 20 summaries.
 Automatic retry is never authorized by an error hint. Tool errors keep
 `isError` and the original code, field and message. Result metadata
 `_meta["nestworth.errorRecovery"]` adds `mcp-error/1` with `automaticRetry`
-false. Those hints are not part of `structuredContent`. Protocol and auth
-failures may not use this shape. Success receipts are not rewritten into
+false. Those hints are not part of `structuredContent`. The external SDK
+can reject invalid argument shapes before the shared handler, as it does for
+protocol and authorization failures. Success receipts are not rewritten into
 errors, and write receipts are not replaced by a read-size error after
 execution.
 
 ## Discovery budgets
 
-Every client pays `tools/list` and the server instructions on connect.
+External MCP discovery returns all tools permitted by the current mode and
+settings, paged through `tools/list`. Built-in AI starts with a smaller catalog
+and loads task groups inside the model loop. Both use the same definitions.
 `discovery_budget_test.go` bounds that payload. `discovery_contract_test.go`
 hashes the contract and ignores description prose.
+
+The current synthetic macOS ARM64 run of `TestDiscoveryBudget`, with investment
+review management disabled, measured 46 / 59 / 72 tools in read_only /
+directory_write / ledger_write. Their serialized tool arrays were 60,414 /
+76,715 / 109,542 bytes. Instructions were 2,373 bytes in all modes.
+
+Historical measurements follow.
 
 Measured with `go test -count=1 -v ./internal/mcpserver -run TestDiscoveryBudget`
 after the E3 patch rule, on top of the C2 fold (synthetic fixture, Linux),

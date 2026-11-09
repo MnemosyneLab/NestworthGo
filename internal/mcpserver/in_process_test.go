@@ -67,7 +67,7 @@ func TestInProcessModesHaveNoTransportOrModelWriteAuthority(t *testing.T) {
 	for _, test := range []struct {
 		mode  string
 		count int
-	}{{ReadOnly, 47}, {DirectoryWrite, 60}, {LedgerWrite, 74}} {
+	}{{ReadOnly, 46}, {DirectoryWrite, 59}, {LedgerWrite, 72}} {
 		local := newLocal(t, fx, test.mode)
 		if local.service.listener != nil || local.service.server != nil || local.service.endpoint != "" || local.service.config.Token != "" {
 			t.Fatal("local session created external transport/credentials")
@@ -173,16 +173,16 @@ func TestInProcessLedgerParityConcurrentRetriesAndReceiptIsolation(t *testing.T)
 	external := ledgerSession(t, fx)
 	local := newLocal(t, fx, LedgerWrite)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
-	preview := localData(t, local, "preview_change", command, false)
+	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	externalPreview := ledgerPreview(t, external, command)
 	if !strings.Contains(string(localRaw(t, local, "get_account_valuations", AccountValuationReadInput{AccountIDs: []string{fx.checking}}, false)), "Checking") {
 		t.Fatal("account read unavailable")
 	}
 	// Resulting endpoint values are authoritative; provisional activity IDs are
 	// intentionally different. Compare full commands and resulting endpoints.
-	localPreview := preview["preview"].(map[string]any)
-	remotePreview := externalPreview["preview"].(map[string]any)
-	if !reflect.DeepEqual(preview["command"], externalPreview["command"]) || !reflect.DeepEqual(localPreview["resulting"], remotePreview["resulting"]) {
+	localPreview := preview["previews"].([]any)[0].(map[string]any)
+	remotePreview := externalPreview["previews"].([]any)[0].(map[string]any)
+	if !reflect.DeepEqual(preview["commands"], externalPreview["commands"]) || !reflect.DeepEqual(localPreview["resulting"], remotePreview["resulting"]) {
 		t.Fatal("adapters produced different commands or resulting endpoint values")
 	}
 	operationID := uuid.NewString()
@@ -277,7 +277,7 @@ func TestInProcessCancellationDoesNotUndoCommittedReceipt(t *testing.T) {
 	}
 	t.Cleanup(local.Close)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
-	preview := localData(t, local, "preview_change", command, false)
+	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	input := mustJSON(t, map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": preview["planId"]}})
 	early, earlyCancel := context.WithCancel(t.Context())
 	earlyCancel()
@@ -325,8 +325,8 @@ func TestInProcessSQLiteNamespaceRestartAndUnknownDirectoryWrite(t *testing.T) {
 	_, err = NewInProcessSession(t.Context(), app, t.TempDir(), id, LedgerWrite, nil, repository)
 	requireLocalError(t, err, "conflict")
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
-	preview := localData(t, local, "preview_change", command, false)
-	uncommitted := localData(t, local, "preview_change", command, false)
+	preview := localData(t, local, "preview_batch", singleLedgerInput(command), false)
+	uncommitted := localData(t, local, "preview_batch", singleLedgerInput(command), false)
 	input := map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": preview["planId"]}}
 	committed := localRaw(t, local, "commit_plan", input, true)
 	// A directory pending receipt has no transactional recovery proof.

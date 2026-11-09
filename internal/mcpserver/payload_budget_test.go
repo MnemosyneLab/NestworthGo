@@ -363,7 +363,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		count := page.Returned
 		for page.HasMore {
 			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{CaptureID: context.ContextID, Section: section, Cursor: page.NextCursor, Limit: 100}, false))
-			if next.ContentHash != context.ContentHash {
+			if next.ContextID != context.ContextID || next.CapturedAt != context.CapturedAt {
 				t.Fatal("mixed financial context")
 			}
 			switch section {
@@ -428,8 +428,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	if cursor, ok := activities["page"].(map[string]any)["nextCursor"].(string); ok {
 		call(t, c, "get_read_page", map[string]any{"cursor": cursor, "limit": 5}, false)
 	}
-	// The bounded primary current overview is equivalent to every GUI field,
-	// including evidence/labels, using ordinary default requests.
+	// The compact default and opt-in evidence preserve the GUI results.
 	start = rec.total()
 	guiOverview, err := portfolio.NewService(f.app).Overview(t.Context(), account.AccountFilterRequest{})
 	if err != nil {
@@ -442,15 +441,24 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	overviewStart := rec.total()
 	boundedOverview := scaleCapture(t, c, "get_overview", map[string]any{})
 	initialOverviewBytes := rec.total().Bytes - overviewStart.Bytes
-	if initialOverviewBytes > 32<<10 {
+	if initialOverviewBytes > 8<<10 {
 		t.Fatalf("current overview initial summary grew to %d bytes", initialOverviewBytes)
 	}
 	t.Logf("current overview first page raw-HTTP-JSON-RPC-bytes=%d", initialOverviewBytes)
-	for section := range boundedOverview["sections"].(map[string]any) {
-		rows := payloadSection(t, c, boundedOverview, section)
+	if boundedOverview["sections"] != nil {
+		t.Fatal("overview summary unexpectedly delivered detail")
+	}
+	withSections := scaleCapture(t, c, "get_overview", map[string]any{"sections": overviewSections})
+	for _, section := range overviewSections {
+		rows := payloadSection(t, c, withSections, section)
 		featureJSONEqual(t, rows, wantOverview[section])
 		delete(wantOverview, section)
-		wantOverview[section+"Count"] = len(rows)
+		if section == "missingInputs" {
+			wantOverview["missingInputsCount"] = len(rows)
+		}
+	}
+	for _, key := range []string{"assets", "liabilities", "netWorth"} {
+		delete(wantOverview, key)
 	}
 	wantOverview["totalsScope"] = "request_account_filters"
 	featureJSONEqual(t, boundedOverview["summary"], wantOverview)
@@ -461,9 +469,9 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	ledgerCommit(t, c, op, plan["planId"].(string))
 	call(t, c, "get_operation", IDInput{op}, false)
 	product, _ := productDataSeed(t, f.ledgerFixture, c, "locked_product")
-	products := scaleCapture(t, c, "list_products", map[string]any{})
+	products := scaleCapture(t, c, "get_products", map[string]any{})
 	scaleSection(t, c, products, "products")
-	call(t, c, "get_product", map[string]any{"id": product}, false)
+	call(t, c, "get_products", map[string]any{"id": product}, false)
 	call(t, c, "list_product_operations", map[string]any{"productId": product}, false)
 	liquidity := scaleCapture(t, c, "get_liquidity_overview", map[string]any{})
 	scaleSection(t, c, liquidity, "sources")

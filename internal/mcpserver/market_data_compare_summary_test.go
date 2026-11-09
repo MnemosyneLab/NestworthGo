@@ -70,8 +70,8 @@ func TestMarketComparisonSummaryAndFocusedFrozenDetails(t *testing.T) {
 	if _, ok := row["reason"]; ok {
 		t.Fatal("prior result reason leaked")
 	}
-	if detail["summary"].(map[string]any)["globalEvidenceDelivered"] != false {
-		t.Fatal("focused item claimed global delivery")
+	if len(detail["summary"].(map[string]any)) != 1 {
+		t.Fatal("focused item repeats static delivery metadata")
 	}
 	for name, raw := range detail["sections"].(map[string]any) {
 		section := raw.(map[string]any)

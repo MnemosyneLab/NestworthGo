@@ -3,12 +3,14 @@ package assistant_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	ai "github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
@@ -40,6 +42,10 @@ func checkPageCapture(t *testing.T, page string) {
 	reader := <-calls
 	if reader == nil {
 		t.Fatal("missing internal page reader")
+	}
+	var rejected agentcapability.ReadRejection
+	if _, err := reader(t.Context(), json.RawMessage(`{"cursor":1}`)); !errors.As(err, &rejected) || rejected.Code != "validation" || rejected.Field != "snapshotId" {
+		t.Fatalf("invalid continuation must fail before capture: %v", err)
 	}
 	snapshot := ai.PageContent{ID: uuid.NewString(), Page: page, CapturedAt: time.Now(), Nodes: []ai.PageNode{}}
 	for i := range 80 {
@@ -93,8 +99,8 @@ func checkPageCapture(t *testing.T, page string) {
 	if err != nil || last["hasMore"] != false || len(last["nodes"].([]any)) != 60 || last["complete"] != false {
 		t.Fatalf("continuation: %v %v", last, err)
 	}
-	if _, err = capture(args, func(p *ai.PageContent) { p.ID = uuid.NewString() }); err == nil {
-		t.Fatal("mixed async generation")
+	if _, err = capture(args, func(p *ai.PageContent) { p.ID = uuid.NewString() }); !errors.As(err, &rejected) || rejected.Code != "stale_cursor" || rejected.Field != "snapshotId" {
+		t.Fatalf("mixed async generation did not report stale snapshot: %v", err)
 	}
 	if _, err = capture(`{}`, func(p *ai.PageContent) {
 		p.ID = uuid.NewString()

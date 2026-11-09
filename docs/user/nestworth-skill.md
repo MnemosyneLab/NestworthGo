@@ -53,12 +53,16 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.11; published skill: 2.0.0
+### Current repository skill: 3.0.12; published skill: 2.0.0
+
+Repository skill 3.0.12 uses a compact overview with opt-in detail, one
+managed-product read, one ledger preview for 1–100 commands, and a reconciliation
+header with the first item page. Financial context and comparison calls select
+initial sections and continue with capture identities and opaque cursors. The
+MCP implementation has its own version.
 
 Repository skill 3.0.11 documents the shared mcp-read/2 protocol, unified
-account valuations, direct holdings selection and focused evidence reads. It
-removes the retired account-snapshot workflow. This is the required PATCH bump
-for the distributable guidance; the MCP implementation has its own version.
+account valuations, direct holdings selection and focused evidence reads.
 
 Repository skill 3.0.8 removes `get_contribution_item`, `get_return_day` and
 `get_asset_driver_detail`. Open those details with `get_read_item` on the
@@ -135,7 +139,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.11 is not published: `--version latest` still selects App v0.3.10
+Skill 3.0.12 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

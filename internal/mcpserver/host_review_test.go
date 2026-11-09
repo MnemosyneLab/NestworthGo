@@ -69,12 +69,19 @@ func TestHostReviewReadPreviewConfirmReceiptLoop(t *testing.T) {
 		t.Fatal("authoritative account evidence missing")
 	}
 	beforeVersion := fx.app.MobileDataVersion()
+	irrelevant := hostCommand(fx)
+	irrelevant.UnitCost = "1"
+	invalid, err := fx.local.PreviewFullChange(t.Context(), irrelevant)
+	requireLocalError(t, err, "validation")
+	if invalid.Binding.ID != "" {
+		t.Fatal("irrelevant field produced a host review")
+	}
 	review := hostPreview(t, fx)
 	if fx.app.MobileDataVersion() != beforeVersion || review.State != ReviewAwaitingConfirmation || review.Binding.Tool != "commit_change" || review.Binding.Preview.Command.Amount != "12.34" {
 		t.Fatal("private preview changed business state or lost its immutable command")
 	}
 	assertActivityCount(t, fx, 0)
-	_, err := fx.local.Call(t.Context(), "commit_plan", mustJSON(t, Mutation[CommitChangeInput]{review.Binding.OperationID, CommitChangeInput{review.Binding.Plan.ID}}))
+	_, err = fx.local.Call(t.Context(), "commit_plan", mustJSON(t, Mutation[CommitChangeInput]{review.Binding.OperationID, CommitChangeInput{review.Binding.Plan.ID}}))
 	requireLocalError(t, err, "approval_required")
 	for _, name := range []string{"approve", "confirm", "ConfirmHostChange", "approve_review"} {
 		_, err := fx.local.Call(t.Context(), name, mustJSON(t, map[string]any{"id": review.Binding.ID, "digest": review.Digest, "approved": true}))

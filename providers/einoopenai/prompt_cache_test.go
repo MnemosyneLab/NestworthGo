@@ -27,7 +27,12 @@ func TestPromptCacheWireModePageRestoreAndInventory(t *testing.T) {
 			var readCatalog, fullCatalog string
 			var malicious string
 			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
-				tools := encode(request["tools"])
+				toolList := request["tools"].([]any)
+				hasLoader := toolList[len(toolList)-1].(map[string]any)["name"] == loadToolGroups
+				if hasLoader {
+					toolList = toolList[:len(toolList)-1]
+				}
+				tools := encode(toolList)
 				input := request["input"].([]any)
 				if malicious == "" {
 					wantSnapshots := []int{1, 1, 2, 3, 3}[n]
@@ -62,8 +67,9 @@ func TestPromptCacheWireModePageRestoreAndInventory(t *testing.T) {
 					t.Error("allowed_tools not delivered")
 				}
 				allowed := encode(choice["tools"])
-				if strings.Contains(allowed, `"name":"commit_plan"`) != (n == 2) {
-					t.Error("wrong Full allowance")
+				if strings.Contains(allowed, `"name":"commit_plan"`) || hasLoader != (n == 2) ||
+					strings.Contains(allowed, `"name":"get_operation"`) != (n == 2) {
+					t.Error("wrong initial Full allowance")
 				}
 				if strings.Contains(allowed, `"name":"get_current_page"`) != (n == 1 || n == 2) {
 					t.Error("wrong page allowance")
@@ -206,10 +212,12 @@ func TestPromptCacheCatalogSizes(t *testing.T) {
 func TestPromptCacheCatalogFlagCannotGrantPermission(t *testing.T) {
 	_, shared, _ := ledgerSession(t)
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
-		if !strings.Contains(encode(request["tools"]), `"name":"commit_plan"`) || strings.Contains(encode(request["tool_choice"]), `"name":"commit_plan"`) {
+		if !strings.Contains(encode(request["tools"]), `"name":"get_operation"`) ||
+			strings.Contains(encode(request["tool_choice"]), `"name":"get_operation"`) ||
+			strings.Contains(encode(request["tools"]), loadToolGroups) {
 			t.Error("catalog marker became grant")
 		}
-		writeMode(w, request, []any{liveCallItem(n, "commit_plan", obj{})})
+		writeMode(w, request, []any{liveCallItem(n, "get_operation", obj{})})
 	})
 	e, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, f.model, builtinai.New(shared, assistant.PageSelection{}), nil)
 	if err != nil {
@@ -224,7 +232,7 @@ func TestPromptCacheCatalogFlagCannotGrantPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = e.Complete(t.Context(), raw, "synthetic"); err == nil {
-		t.Fatal("checkpoint flag authorized write")
+		t.Fatal("checkpoint flag authorized a Full-only receipt read")
 	}
 }
 

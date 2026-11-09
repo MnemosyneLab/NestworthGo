@@ -50,17 +50,11 @@ and client ID preserve CSV order and stable identity. Invalid, unknown and
 unavailable rows remain in place. A necessary `same_value_different_source` reason
 prevents numeric equality being mistaken for matching proposed provenance.
 
-The envelope includes capture ID, fixed capture/expiration times, content/summary
-hashes, scoped counts and signed section cursors. `statusCounts` and
-`comparisonComputedFromCompleteEvidence=true` describe all server-computed
-classifications, even before all result pages arrive. `resultsDelivery` requires
-following the results cursor before claiming every row was delivered.
-
-Detailed sections initially contain **zero delivered rows** in summary mode,
-with actual total/returned/hasMore/nextCursor metadata. `evidenceDelivery=deferred`
-means evidence is retained but not yet delivered; unread is not empty, missing,
-or complete. Pages report their own delivery progress. No mutable global
-"client finished reading" flag is stored in the immutable capture.
+The envelope includes capture ID, capture time and signed section cursors.
+`statusCounts` and `batchConflictRowCount` cover every server-computed result.
+Follow the results cursor to read every row. Each section reports total, returned,
+hasMore and nextCursor. An empty section with a continuation is deferred.
+The comparison is read-only, with `writeAuthorized: false`.
 
 | Section | Retained evidence and access |
 | --- | --- |

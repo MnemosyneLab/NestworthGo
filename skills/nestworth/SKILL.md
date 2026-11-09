@@ -19,9 +19,9 @@ Read only the reference for the request.
 | Why did it change; was that profit | `compare_financial_attribution` | [Change attribution](references/financial-attribution.md) |
 | Period returns, income/expense, asset drivers, historical endpoints, upcoming actions, investment reviews | `analyze_period`, `get_overview`, `get_historical_overview` | [Analysis](references/analysis.md) |
 | Add or edit accounts, members, institutions, groups, instruments | `list_*` first, then create/update | [Accounts and instruments](references/accounts-and-instruments.md) |
-| Record buys, sells, dividends, existing holdings, transfers, statement batches | `preview_change` / `preview_batch` | [Positions and trades](references/positions-and-trades.md) |
-| Income, spending, interest, transfers, currency exchange, borrowing | `preview_change` | [Cash and debt](references/cash-and-debt.md) |
-| Read managed deposits, history or liquidity | `list_products`, `get_liquidity_overview` | [Products](references/products.md) |
+| Record buys, sells, dividends, existing holdings, transfers, statement batches | `preview_batch` | [Positions and trades](references/positions-and-trades.md) |
+| Income, spending, interest, transfers, currency exchange, borrowing | `preview_batch` | [Cash and debt](references/cash-and-debt.md) |
+| Read managed deposits, history or liquidity | `get_products`, `get_liquidity_overview` | [Products](references/products.md) |
 | Record a completed managed-product fact | `preview_product_operation` | [Product lifecycle](references/product-lifecycle.md) |
 | Edit managed terms or a locked-product value | `preview_product_terms`, `preview_product_valuation` | [Terms](references/product-terms.md), [value](references/product-valuation.md) |
 | Ordinary liquidity access rules | `preview_save_liquidity_policy` | [Liquidity policy](references/liquidity-policy.md) |

@@ -31,16 +31,16 @@ func TestFinancialAuditPaginationDefaultAndBulk(t *testing.T) {
 				entry.comparison = &result
 				want = result.Content.Gaps
 			}
-			c.entries["audit"] = entry
+			c.entries[financialFixtureID] = entry
 			s := &Service{contexts: c, reads: newBoundedReadCache()}
 			set := newToolSet("synthetic", false)
 			for _, limit := range []int{-1, 101} {
-				if _, err := s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: c.cursor("audit", "gaps", g, 0), Limit: limit}); err == nil {
+				if _, err := s.continuePage(t.Context(), set, g, ReadPageInput{Cursor: c.cursor(financialFixtureID, "gaps", g, 0), Limit: limit}); err == nil {
 					t.Fatalf("accepted invalid limit %d", limit)
 				}
 			}
 			for _, tc := range []struct{ limit, first, calls int }{{0, 25, 6}, {100, 100, 2}} {
-				cursor := c.cursor("audit", "gaps", g, 0)
+				cursor := c.cursor(financialFixtureID, "gaps", g, 0)
 				rows := []json.RawMessage{}
 				calls := 0
 				for cursor != "" {
@@ -52,10 +52,10 @@ func TestFinancialAuditPaginationDefaultAndBulk(t *testing.T) {
 					if calls == 0 && page.Page.Returned != tc.first {
 						t.Fatalf("limit=%d returned=%d want=%d", tc.limit, page.Page.Returned, tc.first)
 					}
-					if page.ContentHash != "frozen-hash" || page.CacheExpiresAt != entry.expires.Format(time.RFC3339Nano) || page.Page.Total != 126 || page.Page.Returned != len(page.Items) || len(page.Items) == 0 {
+					if page.CapturedAt != now.UTC().Format(time.RFC3339Nano) || page.Page.Total != 126 || page.Page.Returned != len(page.Items) || len(page.Items) == 0 {
 						t.Fatal("lost frozen identity or progress", page)
 					}
-					if comparison && page.ComparisonID != "audit" || !comparison && page.ContextID != "audit" {
+					if comparison && page.ComparisonID != financialFixtureID || !comparison && page.ContextID != financialFixtureID {
 						t.Fatal("lost capture identity", page)
 					}
 					rows = append(rows, page.Items...)

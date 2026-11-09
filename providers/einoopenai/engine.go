@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -25,7 +24,9 @@ type Engine struct {
 	model      model.AgenticModel
 	tools      map[string]tool.InvokableTool
 	infos      []*schema.ToolInfo
+	groups     map[string]agentcapability.ToolGroup
 	catalog    func(bool) ([]agentcapability.Definition, error)
+	full       bool
 	config     assistant.ModelConfig
 	secret     []byte
 	close      func()
@@ -62,7 +63,10 @@ func engineWithModel(ctx context.Context, cfg assistant.ModelConfig, m model.Age
 	if err != nil {
 		return nil, errEngine
 	}
-	out := &Engine{model: m, config: cfg, tools: map[string]tool.InvokableTool{}, close: close}
+	out := &Engine{model: m, config: cfg, tools: map[string]tool.InvokableTool{}, groups: map[string]agentcapability.ToolGroup{}, close: close}
+	if grant, ok := session.(interface{ FullAccessEnabled() bool }); ok {
+		out.full = grant.FullAccessEnabled()
+	}
 	if catalog, ok := session.(interface {
 		CatalogDefinitions(bool) ([]agentcapability.Definition, error)
 	}); ok {
@@ -83,12 +87,13 @@ func engineWithModel(ctx context.Context, cfg assistant.ModelConfig, m model.Age
 		if err != nil {
 			return nil, errEngine
 		}
-		invokable, ok := t.(tool.InvokableTool)
+		invokable, ok := t.(*capabilityTool)
 		if !ok {
 			return nil, errEngine
 		}
 		out.infos = append(out.infos, info)
 		out.tools[info.Name] = invokable
+		out.groups[info.Name] = invokable.group
 	}
 	return out, nil
 }
@@ -143,39 +148,12 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 	}
 	saved.Messages[0] = schema.SystemAgenticMessage(instructions)
 	saved.Version = 2
-	saved.CatalogFull = saved.CatalogFull || e.tools["commit_plan"] != nil
-	infos := e.infos
-	if e.catalog != nil {
-		definitions, err := e.catalog(saved.CatalogFull)
-		if err != nil {
-			return empty, errEngine
-		}
-		infos, err = catalogInfos(definitions)
-		if err != nil {
-			return empty, errEngine
-		}
+	saved.CatalogFull = saved.CatalogFull || e.full
+	catalog, err := e.newTurnCatalog(saved.CatalogFull)
+	if err != nil {
+		return empty, err
 	}
-	catalogNames := make(map[string]bool, len(infos))
-	for _, info := range infos {
-		catalogNames[info.Name] = true
-	}
-	allowed := make([]string, 0, len(e.tools))
-	for name := range e.tools {
-		if !catalogNames[name] {
-			return empty, errEngine
-		}
-		allowed = append(allowed, name)
-	}
-	sort.Strings(allowed)
-	allowedTools := make([]*schema.AllowedTool, 0, len(allowed))
-	for _, name := range allowed {
-		allowedTools = append(allowedTools, &schema.AllowedTool{FunctionName: name})
-	}
-	choice := &schema.AgenticToolChoice{Type: schema.ToolChoiceAllowed, Allowed: &schema.AgenticAllowedToolChoice{Tools: allowedTools}}
-	if len(allowedTools) == 0 {
-		choice = &schema.AgenticToolChoice{Type: schema.ToolChoiceForbidden}
-	}
-	saved.Messages = appendModeSnapshot(saved.Messages, e.tools["commit_plan"] != nil)
+	saved.Messages = appendModeSnapshot(saved.Messages, e.full)
 	saved.Messages = append(saved.Messages, schema.UserAgenticMessage(prompt))
 	seenCalls := map[string]bool{}
 	calls := 0
@@ -231,7 +209,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 		// Add policy to a detached request so it never becomes saved history.
 		final := round == 7 || calls == 16
 		input := saved.Messages
-		options := []model.Option{model.WithTools(infos), model.WithAgenticToolChoice(choice)}
+		options := []model.Option{model.WithTools(catalog.infos), model.WithAgenticToolChoice(catalog.choice(e.tools))}
 		if final {
 			input = append(append([]*schema.AgenticMessage(nil), saved.Messages...), schema.SystemAgenticMessage("The controlled read budget for this request is exhausted. No more tools are available. Answer using only evidence already read for this request. Explicitly disclose incomplete pages, missing evidence and unresolved questions; ask for a narrower question where needed. Never present partial results as complete or invent financial facts."))
 			options = append(options, model.WithAgenticToolChoice(&schema.AgenticToolChoice{Type: schema.ToolChoiceForbidden}))
@@ -262,7 +240,8 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			}
 			if b.Type == schema.ContentBlockTypeFunctionToolCall {
 				call := b.FunctionToolCall
-				if call == nil || call.CallID == "" || seenCalls[call.CallID] || e.tools[call.Name] == nil || len(call.Arguments) > 64<<10 {
+				if call == nil || call.CallID == "" || seenCalls[call.CallID] || !catalog.active[call.Name] ||
+					(call.Name != loadToolGroups && e.tools[call.Name] == nil) || len(call.Arguments) > 64<<10 {
 					return empty, assistant.ProviderResponseFailure("engine_inventory")
 				}
 				seenCalls[call.CallID] = true
@@ -327,7 +306,13 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 				assistant.EmitProgress(ctx, assistant.ProgressEvent{Kind: "tool", Tool: executed, Source: call.Name, State: state, Input: call.Arguments})
 			}
 			notify("running")
-			result, err := e.tools[call.Name].InvokableRun(ctx, call.Arguments)
+			var result string
+			var err error
+			if call.Name == loadToolGroups {
+				result, err = catalog.load(call.Arguments)
+			} else {
+				result, err = e.tools[call.Name].InvokableRun(ctx, call.Arguments)
+			}
 			status := "succeeded"
 			if err != nil {
 				status = "failed"
@@ -354,7 +339,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 				err = nil
 			}
 			if errors.Is(err, errCapabilityRefused) && ctx.Err() == nil {
-				result = `{"error":{"code":"controlled_read_refused","recovery":"No financial fact was returned. The capture may be expired/revoked, arguments invalid, or the read unavailable. Re-capture the initial read and restart relevant pages; never mix old and new capture IDs or treat refusal as zero. Do not widen permissions or disclosure."}}`
+				result = readFailureDiagnostic(err)
 				err = nil
 			}
 			assistant.EmitProgress(ctx, assistant.ProgressEvent{Kind: "tool", Tool: executed, Source: call.Name, State: status, Output: result})

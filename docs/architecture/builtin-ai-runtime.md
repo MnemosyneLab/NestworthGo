@@ -300,12 +300,14 @@ message only after terminal success, full item/framing validation and clean EOF.
 The whole call inventory is checked before dispatch; a response mixing a valid
 read with an unavailable tool dispatches neither. Cancellation after `response.completed`
 but before EOF also dispatches nothing. Provisional text is displayed separately and never authorizes a tool or advances history. There is no SDK request retry, automatic run replay,
-remote checkpoint, compactor or summary replacement. A refused controlled tool
-returns a fixed model-visible error without implementation details or financial
-facts. Within the existing 8-round/16-call budget, the model can re-capture an
-initial read and restart its relevant pages; it cannot revive expired references,
-combine old/new capture IDs or widen permissions/disclosure. Provider/framing,
-context cancellation and invalid/oversized result failures still fail closed.
+remote checkpoint, compactor or summary replacement. A refused read returns an
+allowlisted code, an optional allowlisted field name and a fixed `retryAction`.
+Validation asks for corrected input; expired or revoked captures ask for a
+same-scope restart; oversize and busy reads have their own guidance. Permission,
+session and unexpected errors stop the attempted read. No original error text or
+financial facts enter model history. Write recovery still requires receipt
+inspection when the outcome is uncertain. Provider/framing, context cancellation
+and invalid/oversized result failures still fail closed.
 
 A successful checkpoint retains the complete Eino messages, native output groups,
 opaque reasoning, tool call/result order and provider/model identity. It is never
@@ -315,10 +317,15 @@ instructions; current mode policy is appended at the end of prior history before
 the new user message only on the first turn or when the latest system snapshot
 differs from the current host policy. Unchanged mode adds no snapshot; current
 execution authority is still rebuilt every run. Version-1 provider checkpoints migrate that first policy
-once; version 2 retains a metadata-only Full catalog high-water mark. Desktop
-catalog definitions stay stable across page changes and, after the first Full
-upgrade, permission downgrades. The execution map and wire `allowed_tools` still
-contain only the current run's tools. No catalog marker restores Full authority.
+once; version 2 retains a metadata-only Full catalog high-water mark for the
+stable core. The model can use `load_tool_groups` to append task-specific schemas
+from the current execution map. Group selection is validated before loading,
+available from the next model response, and reset at the start of the next turn.
+Loading uses the existing 8-round/16-call budget. Catalog and saved history
+confer no authority: `allowed_tools` and the pre-dispatch check admit only
+currently permitted tools exposed in that response. External MCP clients still
+discover the full registry allowed by their current permission through
+`tools/list`; the built-in loader is specific to the desktop model loop.
 See [prompt-prefix stability and measured tradeoffs](../development/ai-prompt-cache.md).
 Assistant-native outputs and opaque reasoning remain byte-preserved; old capability claims cannot
 suppress newly installed features or grant removed authority. Changing models cannot silently reuse the old model's

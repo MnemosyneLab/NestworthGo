@@ -282,7 +282,7 @@ func (s *Service) buildToolSetWithPolicy(mode string, external, reviewManagement
 		return s.pagedAccountValuations(ctx, generation, in)
 	})
 
-	readTool(server, "get_overview", "Current household net worth and breakdown: totals, quality, missing inputs, breakdowns by type, member, institution, group and account type, recent activities and labels, using the GUI's calculations and account filters (totals follow the filters). Sections page independently with get_read_page. This is current valuation, not historical return or income and expense reporting.", func(ctx context.Context, in OverviewReadInput) (any, error) {
+	readTool(server, "get_overview", "Current household assets, liabilities and net worth with nullable complete totals, known subtotals, valuation quality and missing-input count. Account filters change totals. Request sections for missing inputs, breakdowns, activities or labels; page selected sections with get_read_page. Use analyze_period for returns or income and expense", func(ctx context.Context, in OverviewReadInput) (any, error) {
 		return s.pagedOverview(ctx, generation, in)
 	})
 	open := true
@@ -315,7 +315,7 @@ func (s *Service) buildToolSetWithPolicy(mode string, external, reviewManagement
 		return dir.CreateGroup(ctx, in.Name, in.IconKey)
 	})
 	writeTool(s, server, "update_group", "Partial group edit. Supply name, iconKey, archived, or any combination (at least one). Omitted fields are kept. JSON null and an empty string are rejected: name and icon cannot be cleared, and archived is only true or false. Supplied name and icon apply together. archived true archives and false restores, preserving history.", s.editGroup)
-	writeTool(s, server, "create_account", "Create an account with explicit ownership, currency, tracking mode and inclusion flags. Choose a legal combination from get_catalog. initialAmount must be 0 for balance/manual_value accounts and omitted for holdings accounts; with ledger_write, record funding through preview_change and commit_plan after creation.", func(ctx context.Context, in account.CreateAccountRequest) (any, error) {
+	writeTool(s, server, "create_account", "Create an account with explicit ownership, currency, tracking mode and inclusion flags. Choose a legal combination from get_catalog. initialAmount must be 0 for balance/manual_value accounts and omitted for holdings accounts; with ledger_write, record funding through preview_batch and commit_plan after creation.", func(ctx context.Context, in account.CreateAccountRequest) (any, error) {
 		if in.InitialAmount != "" && in.InitialAmount != "0" {
 			return nil, fail("validation", "initialAmount must be empty or zero; funding requires a ledger operation")
 		}

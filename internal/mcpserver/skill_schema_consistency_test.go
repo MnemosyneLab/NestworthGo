@@ -19,12 +19,12 @@ import (
 // permission/cursor validity is tested separately by real workflow regressions.
 var skillSchemaExamples = map[string]map[string][]string{
 	"accounts-and-instruments": {"get_account_valuations": {"account-summary", "account-holdings"}, "get_read_item": {"account-evidence"}, "create_account": {"create-brokerage"}, "create_instrument": {"create-fund"}, "update_institution": {"institution-icon"}, "update_account": {"account-clear-note"}},
-	"positions-and-trades":     {"preview_change": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
-	"cash-and-debt":            {"preview_change": {"income", "expense", "fx-conversion", "debt-payment"}},
+	"positions-and-trades":     {"preview_batch": {"import-position", "buy", "sell"}, "commit_plan": {"commit"}},
+	"cash-and-debt":            {"preview_batch": {"income", "expense", "fx-conversion", "debt-payment"}},
 	"market-data":              {"import_market_data": {"fund-nav", "fx-reference", "withdraw-quote"}, "set_fx_source": {"fx-source"}},
 	"data-health":              {"get_data_repair_job": {"repair-progress", "repair-evidence"}},
 	"products": {
-		"list_products": {"product-list"}, "get_product": {"product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
+		"get_products": {"product-list", "product-detail"}, "get_upcoming_actions": {"upcoming-actions"}, "list_product_operations": {"product-history"}, "get_liquidity_overview": {"product-liquidity"},
 	},
 	"product-lifecycle": {
 		"preview_product_operation": {"product-open", "product-existing", "product-interest", "product-settle", "product-undo"}, "commit_plan": {"product-commit"},
@@ -35,10 +35,10 @@ var skillSchemaExamples = map[string]map[string][]string{
 		"preview_save_liquidity_policy": {"liquidity-policy-save"}, "preview_reset_liquidity_policy": {"liquidity-policy-reset"}, "commit_plan": {"liquidity-policy-commit"},
 	},
 	"product-pages": {
-		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "list_products": {"scale-products"}, "get_read_item": {"scale-product-item"},
+		"get_liquidity_overview": {"scale-liquidity-funds", "scale-liquidity-unconfigured", "scale-empty-match"}, "get_products": {"scale-products"}, "get_read_item": {"scale-product-item"},
 	},
 	"reconciliation-and-corrections": {
-		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_change": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
+		"preview_reconciliation": {"balance-target", "cost-target", "session-linked-target"}, "preview_batch": {"session-linked-income"}, "preview_reconciliation_session": {"session-start", "session-explicit-check", "session-partial-finish"},
 		"commit_plan": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
 	},
 	"analysis": {
