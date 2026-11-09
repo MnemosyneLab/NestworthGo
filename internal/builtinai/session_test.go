@@ -74,12 +74,12 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	}
 	found := false
 	for _, d := range internalDefs {
-		found = found || d.Name == "read_page_content"
+		found = found || d.Name == "inspect_page"
 	}
 	if !found {
 		t.Fatal("missing internal tool")
 	}
-	if _, err := internal.Call(t.Context(), "read_page_content", []byte(`{}`)); err != nil {
+	if _, err := internal.callInternal(t.Context(), "read_page_content", []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	if len(internal.Evidence()) != 1 || internal.Evidence()[0].Missing != "reported" {
@@ -90,8 +90,14 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(definitions) != 10 {
-		t.Fatalf("combined discovery lost bounded tools: got %d, want 10", len(definitions))
+	wantReads := 1 // desktop-selected backend evidence
+	for _, definition := range externalDefinitions {
+		if readOnlyCapability(definition) {
+			wantReads++
+		}
+	}
+	if len(definitions) != wantReads {
+		t.Fatalf("discovery lost shared reads: got %d, want %d", len(definitions), wantReads)
 	}
 	outputs := map[string]*jsonschema.Resolved{}
 	for _, d := range definitions {
@@ -101,7 +107,7 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 				supplied = d.InputSchema
 			}
 			if supplied == nil {
-				if !input && d.Name == "get_current_page" {
+				if !input && d.Name == "inspect_page" {
 					continue
 				}
 				t.Fatalf("missing schema: %s input=%v", d.Name, input)
@@ -134,16 +140,16 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		}
 	}
 	for _, d := range definitions {
-		if !allowed(d.Name) && d.Name != "get_current_page" {
+		if !readOnlyCapability(d) && d.Name != "inspect_page" {
 			t.Fatal("extra tool exposed")
 		}
 	}
-	for _, name := range []string{"commit_plan", "preview_batch", "get_context", "get_market_data", "analyze_period", "start_data_repair"} {
+	for _, name := range []string{"commit_plan", "preview_batch", "analyze_period", "start_data_repair", "search_market_instruments"} {
 		if _, err := session.Call(t.Context(), name, []byte(`{}`)); err == nil {
 			t.Fatalf("extra authority: %s", name)
 		}
 	}
-	raw, err := session.Call(t.Context(), "get_current_page", []byte(`{}`))
+	raw, err := session.callInternal(t.Context(), "get_current_page", []byte(`{}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,22 +205,22 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		t.Fatalf("lost rows: %d", count)
 	}
 	for _, args := range []string{`{"permission":"ledger_write"}`, `null`, `{"route":"settings"}`} {
-		if _, err := session.Call(t.Context(), "get_current_page", []byte(args)); err == nil {
+		if _, err := session.callInternal(t.Context(), "get_current_page", []byte(args)); err == nil {
 			t.Fatal("client granted page authority")
 		}
 	}
 	detail := New(shared, assistant.PageSelection{Kind: "account", AccountID: accountID})
-	raw, err = detail.Call(t.Context(), "get_current_page", []byte(`{}`))
+	raw, err = detail.callInternal(t.Context(), "get_current_page", []byte(`{}`))
 	if err != nil || !strings.Contains(string(raw), "get_account_valuations") {
 		t.Fatal("account detail failed", err)
 	}
 	unknown := New(shared, assistant.PageSelection{Kind: "account", AccountID: uuid.NewString()})
-	if raw, err := unknown.Call(t.Context(), "get_current_page", []byte(`{}`)); err != nil || !strings.Contains(string(raw), `"matchedAccountCount":0`) {
+	if raw, err := unknown.callInternal(t.Context(), "get_current_page", []byte(`{}`)); err != nil || !strings.Contains(string(raw), `"matchedAccountCount":0`) {
 		t.Fatal("nonexistent account did not return an empty valuation", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := detail.Call(ctx, "get_current_page", []byte(`{}`)); err == nil {
+	if _, err := detail.callInternal(ctx, "get_current_page", []byte(`{}`)); err == nil {
 		t.Fatal("cancelled read dispatched")
 	}
 	if err := shared.RevokeForRestore(t.Context()); err != nil {
@@ -224,21 +230,23 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		t.Fatal("restore retained discovery")
 	}
 	shared.Close()
-	if _, err := detail.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
+	if _, err := detail.callInternal(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
 		t.Fatal("revoked session accepted")
 	}
 }
 
 type brokenShared struct{ raw json.RawMessage }
 
-func (b brokenShared) Definitions() ([]agentcapability.Definition, error) { return nil, nil }
+func (b brokenShared) Definitions() ([]agentcapability.Definition, error) {
+	return []agentcapability.Definition{{Name: "get_overview", Effect: agentcapability.Read}}, nil
+}
 func (b brokenShared) Call(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 	return b.raw, nil
 }
 func TestReadResultOverflowAndMalformedDataFailClosed(t *testing.T) {
 	for _, raw := range []string{`not json`, `"` + strings.Repeat("x", 64<<10) + `"`} {
 		session := New(brokenShared{raw: []byte(raw)}, assistant.PageSelection{Kind: "overview"})
-		if _, err := session.Call(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
+		if _, err := session.callInternal(t.Context(), "get_current_page", []byte(`{}`)); err == nil {
 			t.Fatal("invalid/oversized result reached model")
 		}
 		if len(session.Evidence()) != 0 {
@@ -246,7 +254,7 @@ func TestReadResultOverflowAndMalformedDataFailClosed(t *testing.T) {
 		}
 	}
 	session := New(brokenShared{raw: []byte(`{"page":{"nextCursor":"continuation"},"summary":{"complete":false}}`)}, assistant.PageSelection{Kind: "overview"})
-	if _, err := session.Call(t.Context(), "get_current_page", []byte(`{}`)); err != nil {
+	if _, err := session.callInternal(t.Context(), "get_current_page", []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	evidence := session.Evidence()
@@ -259,7 +267,7 @@ func TestReadBudgetsKeepFixedDiagnostics(t *testing.T) {
 	for _, name := range []string{"get_overview", "get_current_page"} {
 		t.Run(name, func(t *testing.T) {
 			session := New(brokenShared{raw: json.RawMessage(`"` + strings.Repeat("x", 64<<10) + `"`)}, assistant.PageSelection{Kind: "overview"})
-			_, err := session.Call(t.Context(), name, json.RawMessage(`{}`))
+			_, err := session.callInternal(t.Context(), name, json.RawMessage(`{}`))
 			if assistant.FailureCode(err) != "assistant_budget_exceeded.tool_result_bytes" || len(session.Evidence()) != 0 {
 				t.Fatal("oversized read diagnostic lost", err)
 			}

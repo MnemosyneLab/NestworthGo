@@ -32,7 +32,7 @@ restart; onboarding does not silently activate it.
 Each live conversation owns a direct `InProcessSession` through
 `builtinai.Pool`; the installed desktop uses a durable configuration repository
 and a host-owned `ReadWrite` session, while the model adapter retains its
-fixed read allowlist by default, or the complete shared registry through the separately enabled Full callback. The model
+current shared closed-world Read definitions by default, or the complete shared registry through the separately enabled Read & write callback. The model
 never receives the host review methods. Read-only test/integration pools remain
 `ReadOnly` when no repository is supplied. The engine and credential lease remain per-run. This
 preserves frozen captures across turns within the original fixed five-minute TTL.
@@ -44,13 +44,14 @@ No local HTTP,
 external MCP token or generic Wails dispatch is used. Full includes the shared provider-search capability; its existing disclosure contract remains authoritative.
 Capture/cursor state does not gain fresh authority from chat history. Reads use
 the existing cropping, page limits, missingness and exact-money contracts.
-`internal/builtinai` intersects discovery and dispatch with a fixed read allowlist:
-`get_financial_context`, `get_financial_context_item`,
-`get_overview`, `list_accounts`, `get_account_valuations`, `get_read_page` and
-`get_read_item`, `compare_financial_context` and `compare_financial_attribution`.
+`internal/builtinai` intersects discovery and dispatch with the current shared
+closed-world Read definitions and the strictly in-memory attribution adapter.
+Read-only loading now includes directory, history, investment, reconciliation and
+maintenance-status reads rather than a fixed name allowlist. Non-read and
+open-world effects remain unavailable. The shared session remains authoritative.
 Continuations use `get_read_page`; the former explicit-scope financial page tools
-were removed. It adds `get_current_page` only for supported
-view selections, and `get_navigation_targets`/`open_page`/`open_return_trend` only for an explicit
+were removed. It adds `inspect_page` with `source=evidence` only for supported
+view selections, and `inspect_page` with `source=navigation` / `navigate_page` only for an explicit
 current desktop page lease. The shared session independently rechecks permissions
 and budgets.
 In read-only mode no configuration, network refresh or projection-maintaining analysis is available. Human approval methods are never model tools. Direct financial writes exist only
@@ -408,11 +409,11 @@ The narrower `PageSelection` carries only a kind (`overview`, `accounts`, `accou
 and optional canonical account UUID. It is an untrusted data-selection hint from
 the desktop, not proof of the visible page and not a scoped principal. Runtime
 admission rejects unsupported kinds and binds the selection into request dedup.
-`get_current_page` resolves a new shared `get_overview`, `list_accounts` or
+`inspect_page` with `source=evidence` resolves a new shared `get_overview`, `list_accounts` or
 `get_account_valuations` capture, with backend capture time and tool source. IDs are
 validated against the live household. Client metrics, labels, filters, permission
 claims and routes are never sent through this selector. The separate internal
-`read_page_content` tool below exposes supported semantic presentation facts. The model must not claim exact visible-screen
+`inspect_page` with `source=content` tool below exposes supported semantic presentation facts. The model must not claim exact visible-screen
 or filter parity; source timestamps/missingness remain in shared capture data.
 This does not implement the broader trusted page-publication/navigation port.
 
@@ -434,7 +435,7 @@ target refs permit desktop root pages, fixed Return analysis tabs and accounts
 already disclosed by controlled reads. No arbitrary route, URL, coordinate,
 SQL, financial proposal or approval flag is accepted.
 
-`open_page` records a request, not a completed action. Only successful full model
+`navigate_page` records a request, not a completed action. Only successful full model
 completion can offer an intent. Grants, intents and navigation generations live
 only in runtime memory; stored run lease IDs are non-authoritative audit metadata.
 Creation/deletion, new page leases/turns, Stop, configuration/key changes, page changes,
@@ -452,7 +453,7 @@ after IPC, and honors App navigation rejection. Stop, a newer submission or
 transport uncertainty also withdraws pending frontend application. Full page-
 publication/mobile authorization via the broader Go PageHost port remains separate.
 
-`open_return_trend` is a finite internal-desktop presentation action. It resolves
+`navigate_page` with typed `trend` options is a finite internal-desktop presentation action. It resolves
 one disclosed account ref or the current household's trend-root ref, requires an
 explicit inclusive civil `from`/`to`, valuation, cash inclusion and display mode,
 and optionally accepts catalog currency/asset-class filters. It replaces the
@@ -597,7 +598,7 @@ acceptance remain separate from jsdom geometry tests.
 
 ## On-demand internal page content
 
-`read_page_content` belongs only to the installed built-in desktop session. The
+`inspect_page` with `source=content` belongs only to the installed built-in desktop session. The
 shared capability registry and external MCP neither discover nor dispatch it.
 Reads are on demand and need no separate approval, publication or manual refresh;
 configured AI opt-in and the provider privacy notice still apply. No read grants
@@ -733,7 +734,7 @@ and localized English, Simplified Chinese and Traditional Chinese labels.
 
 ### Generic current-page operations
 
-The desktop's `read_page_content` tree also discovers native/shared interactive
+The desktop's `inspect_page` with `source=content` tree also discovers native/shared interactive
 controls. `targetRef` is an opaque identity for the actual mounted element, held
 only in the host's weak map; it is neither a selector nor a business ID. Replacing
 a same-label element changes the snapshot. The same business root, workspace/view
@@ -742,7 +743,7 @@ and operation discovery. Hidden/unmounted content, foreign portals and credentia
 never become operation targets. Native select options have separate opaque refs,
 so selection does not require exposing internal option values or guessing names.
 
-`operate_page_control` is an internal desktop capability, unavailable to external
+`operate_page` is an internal desktop capability, unavailable to external
 MCP. Audited presentation controls are enabled in Read-only; other controls require
 Full. Roles such as tab, filter and disclosure do not prove a callback has no
 durable effect. Dedicated navigation and return-trend tools retain freshness and
@@ -875,7 +876,7 @@ protect against stale dispatch; they are freshness checks, not user approvals.
 Fixed root targets include asset changes and historical overview. Read-only / Full
 remain the financial modes selected in the desktop UI.
 
-`operate_page_control` has the `interaction` effect, not a blanket financial write
+`operate_page` has the `interaction` effect, not a blanket financial write
 effect. The host classifies a fresh semantic target: audited presentation regions
 (time/range/scope filters and analysis tabs) permit interaction in Read-only;
 unclassified controls require Full. DOM roles alone never establish read-only
@@ -903,3 +904,43 @@ Usage accounting, coverage limits, cost basis and account model selection are
 specified in [Built-in AI usage and account models](ai-usage.md).
 
 The current model catalogue and selection contract is [offline model selection](ai-model-selection.md); Settings no longer fetches `/v1/models`.
+
+
+## Consolidated desktop page tools and sequential actions
+
+The built-in catalog exposes exactly three page tools: `inspect_page`,
+`navigate_page` and `operate_page`. Retired identities are not public aliases.
+Inspection selects `source=content` (default semantic page tree), `evidence`
+(authoritative selected-page backend capture), or `navigation` (opaque destinations).
+Only content accepts snapshot/module/pagination fields. Navigation takes an exact
+`targetRef` and optional closed, typed `trend` object preserving the required
+civil dates, valuation, cash inclusion and display plus optional currency/asset class.
+
+`operate_page` takes `{snapshotId, actions}` with 1–20 ordered steps and a
+256 KiB total JSON envelope ceiling. Each step
+has `targetRef`, an advertised action, and the action's value or option ref.
+The entire envelope is validated before the first dispatch. Each step uses a
+fresh host capture and the existing runtime permission, protected-region,
+review, disabled/busy/readonly and single-use checks. Later steps may bind to a
+new snapshot only when the same original mounted element and page authority
+scope still exist. No name/position remapping, arbitrary selectors, automatic
+replay, additional permission mode or per-step approval is introduced.
+
+Results list attempted steps and preserve `partial` progress. A refused,
+replaced, stale or unknown step stops the suffix; earlier effects are not rolled
+back. `dispatched` means delivered UI events, never successful validation or a
+financial commit. A final observation may identify fresh state; inability to
+observe does not erase acknowledged dispatch. Inspect current state and consult
+shared authoritative evidence before claiming completion. Existing unresolved
+financial outcomes continue to fence further financial work.
+
+Read-only now discovers all currently permitted shared closed-world Read tools,
+plus the existing strictly in-memory attribution adapter. Snapshot-maintaining
+Analysis, Preview, Write and open-world tools remain unavailable in read-only.
+Read & write adds shared mutation capabilities. Both modes use the same turn-local
+loader: loading advertises definitions, never grants execution authority. Dispatch
+rechecks the current shared catalog and permissions; restored histories cannot
+recreate a grant. Core schemas and sorted optional group schemas form a stable
+append-only prefix within a turn, while the next turn starts from core again.
+This preserves cache opportunities without claiming measured live cache hits,
+latency or billing savings.

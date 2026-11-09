@@ -103,3 +103,20 @@ it("rechecks live authority just before mutation and treats mid-event revocation
  act(()=>{expect(operatePageControl(view,"generation",op,()=>allowed ? undefined : "blocked").state).toBe("unverified");});
  expect(changed).toHaveBeenCalledOnce();
 });
+it("keeps exact batch targets across edits and revokes them across access generations",()=>{
+ function Form(){const [first,setFirst]=useState("");const [second,setSecond]=useState("");return <BusinessPageRoot view={view} accessIdentity="synthetic"><Input aria-label="First" value={first} onChange={e=>setFirst(e.target.value)}/><Input aria-label="Second" value={second} onChange={e=>setSecond(e.target.value)}/></BusinessPageRoot>;}
+ render(<Form/>);
+ const initial=capturePageContent(view,"generation");
+ const first=initial.nodes.find(n=>n.name==="First")!.targetRef!;
+ const second=initial.nodes.find(n=>n.name==="Second")!.targetRef!;
+ act(()=>{expect(execute({snapshotId:initial.id,targetRef:first,action:"set_value",value:"12.3400"}).state).toBe("dispatched");});
+ const fresh=capturePageContent(view,"generation");
+ expect(fresh.id).not.toBe(initial.id);
+ expect(fresh.nodes.find(n=>n.name==="Second")!.targetRef).toBe(second);
+ act(()=>{expect(execute({snapshotId:fresh.id,targetRef:second,action:"set_value",value:"56.7800"}).state).toBe("dispatched");});
+ expect(screen.getByLabelText("First")).toHaveValue("12.3400");expect(screen.getByLabelText("Second")).toHaveValue("56.7800");
+ const replacedScope=capturePageContent(view,"new-generation");
+ expect(replacedScope.nodes.find(n=>n.name==="Second")!.targetRef).not.toBe(second);
+ expect(operatePageControl(view,"new-generation",{snapshotId:replacedScope.id,targetRef:second,action:"set_value",value:"wrong"},()=>undefined).state).toBe("invalid_target");
+ expect(screen.getByLabelText("Second")).toHaveValue("56.7800");
+});

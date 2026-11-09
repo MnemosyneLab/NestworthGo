@@ -24,10 +24,10 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 		case 0:
 			// Metadata is stable; only the current allowed subset grants access.
 			tools := encode(request["tool_choice"])
-			if !strings.Contains(encode(request["tools"]), "read_page_content") || !strings.Contains(tools, "read_page_content") || strings.Contains(tools, `"name":"open_page"`) {
+			if !strings.Contains(encode(request["tools"]), "inspect_page") || !strings.Contains(tools, "inspect_page") || strings.Contains(tools, `"name":"navigate_page"`) {
 				t.Error("page reading requires or mints navigation grant")
 			}
-			writeMode(w, request, []any{liveCallItem(round, "read_page_content", obj{"module": "filters", "limit": 1})})
+			writeMode(w, request, []any{liveCallItem(round, "inspect_page", obj{"module": "filters", "limit": 1})})
 			return
 		case 1:
 			raw := latestToolOutput(t, request)
@@ -40,7 +40,7 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 				t.Errorf("missing displayed filtered state: %s", raw)
 			}
 			snapshotID = result.SnapshotID
-			writeMode(w, request, []any{liveCallItem(round, "read_page_content", obj{"module": "filters", "snapshotId": snapshotID, "cursor": 1})})
+			writeMode(w, request, []any{liveCallItem(round, "inspect_page", obj{"module": "filters", "snapshotId": snapshotID, "cursor": 1})})
 			return
 		case 2:
 			raw := latestToolOutput(t, request)
@@ -105,7 +105,7 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 					// Capture waits must remain visible through the same Wails
 					// snapshot as the conversation, before page data arrives.
 					active, inspectErr := service.Inspect(status.Epoch, conversation.ID)
-					if inspectErr != nil || active.Progress == nil || len(active.Progress.Tools) == 0 || active.Progress.Tools[len(active.Progress.Tools)-1].Source != "read_page_content" || active.Progress.Tools[len(active.Progress.Tools)-1].State != "running" || active.Runs[0].Text != "" {
+					if inspectErr != nil || active.Progress == nil || len(active.Progress.Tools) == 0 || active.Progress.Tools[len(active.Progress.Tools)-1].Source != "inspect_page" || active.Progress.Tools[len(active.Progress.Tools)-1].State != "running" || active.Runs[0].Text != "" {
 						t.Errorf("page capture lost live tool progress: %+v error=%v", active.Progress, inspectErr)
 					}
 					err := service.DeliverPageContent(status.Epoch, request.ID, assistant.PageContent{ID: captureID, Page: "return-analysis", CapturedAt: time.Now(), Nodes: []assistant.PageNode{{ID: "from", Module: "filters", Role: "textbox", Name: "From", Value: "2026-10-01"}, {ID: "currency", Module: "filters", Role: "combobox", Name: "Currency", Value: "Synthetic USD"}}, Limitations: []string{"Synthetic semantic capture"}})
@@ -126,7 +126,7 @@ func TestProviderInternalPageReadsUseLiveDesktopCaptureWithoutNavigationGrant(t 
 		t.Fatalf("page tools absent from completed conversation: %+v", view.Runs[0].Tools)
 	}
 	for _, detail := range view.Runs[0].Tools {
-		if detail.Source != "read_page_content" || detail.State != "succeeded" || !strings.Contains(detail.Input, `"module":"filters"`) || !strings.Contains(detail.Output, snapshotID) {
+		if detail.Source != "inspect_page" || detail.State != "succeeded" || !strings.Contains(detail.Input, `"module":"filters"`) || !strings.Contains(detail.Output, snapshotID) {
 			t.Fatalf("page tool details mismatch: %+v", detail)
 		}
 	}

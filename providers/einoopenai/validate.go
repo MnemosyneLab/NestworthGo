@@ -136,7 +136,7 @@ func validateItem(raw []byte) (map[string]json.RawMessage, error) {
 	switch str(item, "type") {
 	case "function_call":
 		args := str(item, "arguments")
-		if (len(item["status"]) != 0 && status != "completed") || str(item, "name") == "" || str(item, "call_id") == "" || len(args) > 64<<10 {
+		if (len(item["status"]) != 0 && status != "completed") || str(item, "name") == "" || str(item, "call_id") == "" || len(args) > toolArgumentLimit(str(item, "name")) {
 			return nil, errProtocol
 		}
 		if _, err := object([]byte(args)); err != nil {
@@ -416,7 +416,7 @@ func validateStreamReader(reader io.Reader, limits Limits, display func(string),
 				if err != nil {
 					return errProtocol
 				}
-				if item.args.Len()+len(delta) > 64<<10 {
+				if item.args.Len()+len(delta) > toolArgumentLimit(str(item.added, "name")) {
 					return errLimit
 				}
 				item.argsSeen = true
@@ -426,7 +426,7 @@ func validateStreamReader(reader io.Reader, limits Limits, display func(string),
 				if err != nil {
 					return errProtocol
 				}
-				if len(arguments) > 64<<10 {
+				if len(arguments) > toolArgumentLimit(str(item.added, "name")) {
 					return errLimit
 				}
 				if _, err := object([]byte(arguments)); err != nil {
@@ -674,7 +674,7 @@ func validateAdded(item map[string]json.RawMessage) error {
 		if err != nil {
 			return assistant.ProviderResponseFailure("stream_function_arguments")
 		}
-		if len(args) > 64<<10 {
+		if len(args) > toolArgumentLimit(str(item, "name")) {
 			return errLimit
 		}
 		for _, key := range []string{"name", "call_id"} {

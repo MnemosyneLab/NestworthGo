@@ -18,7 +18,7 @@ const (
 // from model or user text. Unclassified tools stay discoverable in maintenance.
 func (d Definition) ToolGroup() ToolGroup {
 	switch d.Name {
-	case "get_current_page", "read_page_content", "operate_page_control", "get_navigation_targets", "open_page", "open_return_trend",
+	case "inspect_page", "navigate_page", "operate_page",
 		"get_overview", "list_accounts", "get_account_valuations", "get_financial_context", "get_financial_context_item",
 		"compare_financial_context", "compare_financial_attribution", "get_read_page", "get_read_item", "get_operation":
 		return CoreTools

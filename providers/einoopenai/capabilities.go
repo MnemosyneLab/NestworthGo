@@ -47,7 +47,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 	out := make([]tool.BaseTool, 0, len(definitions))
 	seen := map[string]bool{}
 	for _, d := range definitions {
-		if d.Name == "" || d.Name == loadToolGroups || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page_control" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page_control") && d.Effect == agentcapability.Write)) ||
+		if d.Name == "" || d.Name == loadToolGroups || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page") && d.Effect == agentcapability.Write)) ||
 			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || (*d.Annotations.OpenWorldHint && !full) {
 			return nil, errors.New("unsafe local capability inventory")
 		}
@@ -143,8 +143,8 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 	if ctx.Err() != nil {
 		return "", errors.New("local capability request cancelled")
 	}
-	if len(arguments) > 64<<10 {
-		if t.name == "operate_page_control" {
+	if len(arguments) > toolArgumentLimit(t.name) {
+		if t.name == "operate_page" {
 			return "", errPageOperationRefused
 		}
 		if t.writing {
@@ -165,7 +165,7 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 			}
 			var unsubmitted interface{ NotDispatched() bool }
 			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
-				if t.name == "operate_page_control" {
+				if t.name == "operate_page" {
 					return "", errPageOperationRefused
 				}
 				return "", errCapabilityWriteRejected
@@ -189,3 +189,12 @@ const writeNotSubmittedDiagnostic = `{"error":{"code":"write_not_submitted","rec
 var errPageOperationRefused = errors.New("page operation refused before dispatch")
 
 const pageOperationRefusedDiagnostic = `{"state":"not_dispatched","error":{"code":"page_operation_refused","recovery":"No event was dispatched. Read fresh page content and check the target, action and current permission before a new intentional operation. Do not replay an uncertain earlier submission."}}`
+
+// toolArgumentLimit is shared by wire validation and dispatch. A page batch
+// contains up to 20 values of 8192 UTF-8 bytes; ordinary tools stay at 64 KiB.
+func toolArgumentLimit(name string) int {
+	if name == "operate_page" {
+		return 256 << 10
+	}
+	return 64 << 10
+}

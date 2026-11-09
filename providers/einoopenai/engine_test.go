@@ -116,7 +116,7 @@ func TestDurableRuntimeActualEinoHistoryAndRealReadOnlyLedger(t *testing.T) {
 			t.Error("native reasoning lost on actual next provider request")
 		}
 		if round == 0 {
-			writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_durable", "summary": []any{}, "encrypted_content": "opaque-durable-reasoning"}, obj{"type": "function_call", "id": "fc_durable", "call_id": "call_durable", "name": "get_current_page", "arguments": `{}`, "status": "completed"}})
+			writeMode(w, request, []any{obj{"type": "reasoning", "id": "rs_durable", "summary": []any{}, "encrypted_content": "opaque-durable-reasoning"}, obj{"type": "function_call", "id": "fc_durable", "call_id": "call_durable", "name": "inspect_page", "arguments": `{"source":"evidence"}`, "status": "completed"}})
 			return
 		}
 		if !strings.Contains(input, "get_account_valuations") {

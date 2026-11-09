@@ -30,7 +30,7 @@ func TestReturnTrendUsesOnlyAuthorizedFiniteActions(t *testing.T) {
 		s := New(nil, assistant.PageSelection{}, true)
 		args := trendArgs(t, s, account)
 		raw, _ := jsoncodec.Marshal(args)
-		result, err := s.Call(t.Context(), "open_return_trend", raw)
+		result, err := s.callInternal(t.Context(), "open_return_trend", raw)
 		if err != nil || string(result) == "" {
 			t.Fatal(err)
 		}
@@ -41,12 +41,12 @@ func TestReturnTrendUsesOnlyAuthorizedFiniteActions(t *testing.T) {
 		// Conflicts withdraw the first action and permanently spend the turn, even
 		// if a provider attempts a third call after the second failed.
 		for range 3 {
-			if _, err = s.Call(t.Context(), "open_return_trend", raw); err == nil || s.Navigation() != nil {
+			if _, err = s.callInternal(t.Context(), "open_return_trend", raw); err == nil || s.Navigation() != nil {
 				t.Fatal("repeated action survived")
 			}
 		}
 		ordinary := New(nil, assistant.PageSelection{})
-		if _, err = ordinary.Call(t.Context(), "open_return_trend", raw); err == nil {
+		if _, err = ordinary.callInternal(t.Context(), "open_return_trend", raw); err == nil {
 			t.Fatal("ordinary read gained authority")
 		}
 	}
@@ -65,7 +65,7 @@ func TestReturnTrendRejectsAmbiguousMalformedAndInjectedArguments(t *testing.T) 
 			s := New(nil, assistant.PageSelection{}, true)
 			args := trendArgs(t, s, false)
 			args[tc.key] = tc.value
-			if _, err := s.Call(t.Context(), "open_return_trend", mustJSON(t, args)); err == nil || s.Navigation() != nil {
+			if _, err := s.callInternal(t.Context(), "open_return_trend", mustJSON(t, args)); err == nil || s.Navigation() != nil {
 				t.Fatal("invalid action accepted")
 			}
 		})
@@ -73,12 +73,12 @@ func TestReturnTrendRejectsAmbiguousMalformedAndInjectedArguments(t *testing.T) 
 	s := New(nil, assistant.PageSelection{}, true)
 	args := trendArgs(t, s, false)
 	delete(args, "includeCash")
-	if _, err := s.Call(t.Context(), "open_return_trend", mustJSON(t, args)); err == nil {
+	if _, err := s.callInternal(t.Context(), "open_return_trend", mustJSON(t, args)); err == nil {
 		t.Fatal("implicit boolean accepted")
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := s.Call(ctx, "open_return_trend", mustJSON(t, trendArgs(t, s, false))); err == nil {
+	if _, err := s.callInternal(ctx, "open_return_trend", mustJSON(t, trendArgs(t, s, false))); err == nil {
 		t.Fatal("cancelled action accepted")
 	}
 }
@@ -88,7 +88,7 @@ func TestConcurrentTrendCallsCannotLeaveAnIntent(t *testing.T) {
 	raw := mustJSON(t, trendArgs(t, s, false))
 	var wg sync.WaitGroup
 	for range 3 {
-		wg.Go(func() { _, _ = s.Call(t.Context(), "open_return_trend", raw) })
+		wg.Go(func() { _, _ = s.callInternal(t.Context(), "open_return_trend", raw) })
 	}
 	wg.Wait()
 	if s.Navigation() != nil {
@@ -113,7 +113,7 @@ func TestEveryLaterNavigationAttemptRevokesTheAcceptedRequest(t *testing.T) {
 					s := New(nil, assistant.PageSelection{}, true)
 					args := trendArgs(t, s, false)
 					valid := map[string][]byte{"open_page": mustJSON(t, map[string]any{"targetRef": args["targetRef"]}), "open_return_trend": mustJSON(t, args)}
-					if _, err := s.Call(t.Context(), first, valid[first]); err != nil || s.Navigation() == nil {
+					if _, err := s.callInternal(t.Context(), first, valid[first]); err != nil || s.Navigation() == nil {
 						t.Fatal("initial action refused", err)
 					}
 					ctx := t.Context()
@@ -126,13 +126,13 @@ func TestEveryLaterNavigationAttemptRevokesTheAcceptedRequest(t *testing.T) {
 					if tc.name == "valid" {
 						raw = valid[second]
 					}
-					if _, err := s.Call(ctx, second, raw); err == nil {
+					if _, err := s.callInternal(ctx, second, raw); err == nil {
 						t.Fatal("second attempt accepted")
 					}
 					if s.Navigation() != nil {
 						t.Fatal("rejected second attempt retained the old request")
 					}
-					if _, err := s.Call(t.Context(), first, valid[first]); err == nil || s.Navigation() != nil {
+					if _, err := s.callInternal(t.Context(), first, valid[first]); err == nil || s.Navigation() != nil {
 						t.Fatal("third attempt revived a spent turn")
 					}
 				})
@@ -146,14 +146,14 @@ func TestNavigationReadsDoNotSpendOrRevokeAnAction(t *testing.T) {
 	args := mustJSON(t, trendArgs(t, s, false))
 	// Only an accepted action spends the grant. A first malformed attempt may
 	// be corrected while the same run and page lease remain valid.
-	if _, err := s.Call(t.Context(), "open_return_trend", []byte(`{`)); err == nil {
+	if _, err := s.callInternal(t.Context(), "open_return_trend", []byte(`{`)); err == nil {
 		t.Fatal("malformed initial request accepted")
 	}
-	if _, err := s.Call(t.Context(), "open_return_trend", args); err != nil {
+	if _, err := s.callInternal(t.Context(), "open_return_trend", args); err != nil {
 		t.Fatal("initial refusal spent the grant", err)
 	}
 	for _, raw := range []string{`{}`, `{`, `{"unexpected":true}`} {
-		_, _ = s.Call(t.Context(), "get_navigation_targets", []byte(raw))
+		_, _ = s.callInternal(t.Context(), "get_navigation_targets", []byte(raw))
 		if s.Navigation() == nil {
 			t.Fatal("read-only inventory call revoked action")
 		}

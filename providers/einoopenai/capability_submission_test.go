@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/assistant"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 type submissionTestSession struct {
@@ -54,7 +57,7 @@ func TestWriteDiagnosticsRequireSubmissionEvidence(t *testing.T) {
 
 func TestPagePreflightProofDoesNotRequestNonexistentReceipt(t *testing.T) {
 	s := &submissionTestSession{err: submissionTestRejection{}}
-	page := capabilityTool{session: s, name: "operate_page_control", writing: true}
+	page := capabilityTool{session: s, name: "operate_page", writing: true}
 	_, err := page.InvokableRun(t.Context(), `{}`)
 	if !errors.Is(err, errPageOperationRefused) {
 		t.Fatal("lost page preflight proof", err)
@@ -66,5 +69,68 @@ func TestPagePreflightProofDoesNotRequestNonexistentReceipt(t *testing.T) {
 	_, err = page.InvokableRun(t.Context(), `{}`)
 	if !errors.Is(err, errCapabilityWriteRefused) {
 		t.Fatal("unproved page failure became retryable", err)
+	}
+}
+
+func TestPageBatchInputBudgetSupportsBoundedUnicodeValues(t *testing.T) {
+	actions := make([]obj, 20)
+	for i := range actions {
+		actions[i] = obj{"targetRef": "synthetic-target", "action": "set_value", "value": strings.Repeat("😀", 2048)}
+	}
+	raw, err := jsoncodec.Marshal(obj{"snapshotId": "synthetic-snapshot", "actions": actions})
+	if err != nil || len(raw) <= 64<<10 || len(raw) > 256<<10 {
+		t.Fatal("invalid Unicode batch fixture", len(raw), err)
+	}
+	s := &submissionTestSession{err: submissionTestRejection{}}
+	page := capabilityTool{session: s, name: "operate_page", writing: true}
+	if _, err := page.InvokableRun(t.Context(), string(raw)); !errors.Is(err, errPageOperationRefused) || s.calls != 1 {
+		t.Fatal("valid bounded Unicode envelope did not reach host validation", err, s.calls)
+	}
+	if _, err := page.InvokableRun(t.Context(), strings.Repeat(" ", (256<<10)+1)); !errors.Is(err, errPageOperationRefused) || s.calls != 1 {
+		t.Fatal("oversized batch reached host", err, s.calls)
+	}
+	ordinary := capabilityTool{session: s, name: "commit_plan", writing: true}
+	if _, err := ordinary.InvokableRun(t.Context(), string(raw)); !errors.Is(err, errCapabilityWriteRejected) || s.calls != 1 {
+		t.Fatal("page envelope limit broadened ordinary tool limits", err, s.calls)
+	}
+}
+
+type unicodeBatchSession struct {
+	pageRecoverySession
+	calls int
+}
+
+func (s *unicodeBatchSession) Call(_ context.Context, name string, raw json.RawMessage) (json.RawMessage, error) {
+	if name != "operate_page" || len(raw) <= 64<<10 || len(raw) > 256<<10 {
+		return nil, errors.New("unexpected batch")
+	}
+	s.calls++
+	return json.RawMessage(`{"state":"dispatched"}`), nil
+}
+
+func TestPageUnicodeBatchPassesStreamingAndNonStreamingWireLimits(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(fmt.Sprint(stream), func(t *testing.T) {
+			actions := make([]obj, 20)
+			for i := range actions {
+				actions[i] = obj{"targetRef": "synthetic-target", "action": "set_value", "value": strings.Repeat("😀", 2048)}
+			}
+			session := &unicodeBatchSession{}
+			fake := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
+				if round == 0 {
+					writeMode(w, request, []any{liveCallItem(round, "operate_page", obj{"snapshotId": "synthetic-snapshot", "actions": actions})})
+					return
+				}
+				writeMode(w, request, []any{textItem()})
+			})
+			e, err := engineWithModel(t.Context(), assistant.ModelConfig{Provider: "openai-responses", Model: "mock"}, completionMode(fake.model, stream), session, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer e.Close()
+			if _, err := e.Complete(t.Context(), nil, "Set synthetic text controls"); err != nil || session.calls != 1 {
+				t.Fatal("bounded batch rejected before dispatch", err, session.calls)
+			}
+		})
 	}
 }
