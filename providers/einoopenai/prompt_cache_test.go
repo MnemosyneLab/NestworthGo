@@ -188,8 +188,9 @@ func TestPromptCacheCatalogSizes(t *testing.T) {
 					}
 					// Finite ledger/correction contracts add ~3.7 KiB; the stable
 					// core keeps its original 20 KiB ceiling. Product contracts add
-					// another ~5 KiB to the optional catalog.
-					if !stable && len(raw) > 137000 {
+					// another ~5 KiB plus ~4 KiB of interest-mode dependencies to
+					// the optional catalog.
+					if !stable && len(raw) > 140000 {
 						t.Error("complete built-in catalog exceeded reviewed wire budget")
 					}
 					if dir := os.Getenv("NESTWORTH_CATALOG_EVIDENCE_DIR"); dir != "" {

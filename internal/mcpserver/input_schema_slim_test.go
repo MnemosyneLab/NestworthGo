@@ -53,9 +53,10 @@ func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 	product := roundTripSchema(t, productOperationInputSchema())
 	productRaw := mustSchemaJSON(t, product)
 	// Shared enums, policy dependencies and local-time constraints extend the
-	// old incomplete 7609-byte contract; keep the three shared definitions.
-	if len(productRaw) >= 8500 {
-		t.Fatalf("preview_product_operation schema is %d bytes; bounded product contract budget is 8500", len(productRaw))
+	// old incomplete 7609-byte contract. Interest dependencies add ~2 KiB;
+	// keep the three shared definitions.
+	if len(productRaw) >= 10200 {
+		t.Fatalf("preview_product_operation schema is %d bytes; bounded product contract budget is 10200", len(productRaw))
 	}
 	if strings.Contains(productRaw, `"description"`) || strings.Contains(productRaw, "releaseReservationIds") || strings.Contains(productRaw, "reviewedAt") {
 		t.Fatalf("product schema published prose or a forbidden field: %s", productRaw)

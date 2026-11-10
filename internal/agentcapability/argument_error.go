@@ -18,6 +18,17 @@ type ArgumentError struct {
 }
 
 func (e ArgumentError) Error() string { return "invalid capability arguments" }
+
+// Message describes only schema-owned paths and constraints, never input values.
+func (e ArgumentError) Message() string {
+	if e.Field != "" && e.Rule == "type" && len(e.Expected) > 0 {
+		return fmt.Sprintf("Field %s must have JSON type %s.", e.Field, strings.Join(e.Expected, " or "))
+	}
+	if e.Field != "" {
+		return fmt.Sprintf("Field %s violates the tool schema (%s).", e.Field, e.Rule)
+	}
+	return "Arguments violate the declared tool contract; correct the indicated field or combination."
+}
 func (e ArgumentError) Unwrap() error { return ErrInvalidArguments }
 
 func argumentError(schema any, value any) error {
@@ -103,16 +114,31 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 		}
 	}
 	if len(s.AnyOf) > 0 {
+		expectedTypes := []string{}
+		allTyped, matchedType := true, false
 		for _, branch := range s.AnyOf {
 			candidate := branch
 			if strings.HasPrefix(branch.Ref, "#/$defs/") {
 				candidate = root.Defs[strings.TrimPrefix(branch.Ref, "#/$defs/")]
 			}
+			if candidate == nil || (candidate.Type == "" && len(candidate.Types) == 0) {
+				allTyped = false
+			} else {
+				if candidate.Type != "" {
+					expectedTypes = append(expectedTypes, candidate.Type)
+				} else {
+					expectedTypes = append(expectedTypes, candidate.Types...)
+				}
+			}
 			if candidate != nil && (candidate.Type != "" || len(candidate.Types) > 0) && schemaAcceptsRoot(root, &jsonschema.Schema{Type: candidate.Type, Types: candidate.Types}, value) {
+				matchedType = true
 				if e := explainArgument(root, branch, value, path, depth+1); e != nil {
 					return e
 				}
 			}
+		}
+		if allTyped && !matchedType {
+			return issue("type", expectedTypes...)
 		}
 		return issue("any_of")
 	}
@@ -218,9 +244,16 @@ func schemaAcceptsRoot(root, s *jsonschema.Schema, value any) bool {
 	if s == nil {
 		return true
 	}
-	detached := *s
+	// Most nodes are self-contained. Avoid resolving the whole definition
+	// catalog for every scalar type or bound checked during error reporting.
+	if resolved, err := s.Resolve(nil); err == nil {
+		return resolved.Validate(&value) == nil
+	}
+	// A subtree may also occur inside root.Defs. Resolve requires a tree,
+	// so detach its nodes before attaching definitions for local references.
+	detached := s.CloneSchemas()
 	if detached.Defs == nil {
 		detached.Defs = root.Defs
 	}
-	return schemaAccepts(&detached, value)
+	return schemaAccepts(detached, value)
 }

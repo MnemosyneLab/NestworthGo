@@ -12,6 +12,7 @@ import (
 // per preview/create/update definition. Ledger enums and variant exclusions
 // add about 3.7 KiB across preview_batch/correction. Product enums, conditional
 // policy fields and local-time rules add about 5 KiB across three previews.
+// Interest-mode dependencies add another ~4 KiB across two product previews.
 // Unrelated budgets stay bounded.
 const (
 	maxToolDescriptionBytes = 1500
@@ -20,7 +21,7 @@ const (
 
 var discoveryBudgetBytes = map[string]int{
 	ReadOnly:  65300,
-	ReadWrite: 140000,
+	ReadWrite: 144000,
 }
 
 func TestDiscoveryBudget(t *testing.T) {

@@ -114,3 +114,14 @@ amount. Ordinary `on_date` policies require an unlock date; managed term deposit
 may derive it from maturity. For lifecycle operations, `effectiveAt` is a required
 string: use `""` with a complete local date/time pair, or an explicit timestamp
 without nonempty local fields. Do not combine these time sources.
+
+Interest terms are conditional: `none` leaves both rate fields, maturity interest
+and paid-through date empty; `manual_maturity_amount` requires a nonblank string
+`maturityInterest` and leaves rates and paid-through date empty. Simple ACT/365
+and ACT/360 require `term_deposit`, a nonblank rate (`annualRatePercent` takes
+precedence over `annualRate`) and `interestPaidThroughOn`, with no manual maturity
+interest. Paid-through dates must fall within the term; date comparisons and
+exact rate/amount parsing remain authoritative business validation. Decimal
+amounts and rates use JSON strings, never numbers. A type error identifies the
+field path and expected JSON type; correct the representation without changing
+the amount or retrying a previously uncertain write.

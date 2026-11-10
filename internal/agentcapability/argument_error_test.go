@@ -63,3 +63,23 @@ func TestSchemaDiagnosticConstraintsAndBranches(t *testing.T) {
 		})
 	}
 }
+
+func TestNumericMoneyDiagnosticBeforeTypedDecode(t *testing.T) {
+	type command struct {
+		Amount string `json:"amount"`
+	}
+	type input struct {
+		Commands []command `json:"commands"`
+	}
+	r := New("")
+	calls := 0
+	Add(r, &Definition{Name: "money", Effect: Preview}, func(context.Context, input) (any, error) { calls++; return nil, nil })
+	_, err := r.Call(t.Context(), "money", json.RawMessage(`{"commands":[{"amount":15708.56}]}`))
+	var detail ArgumentError
+	if !errors.As(err, &detail) || detail.Field != "commands[0].amount" || detail.Rule != "type" || len(detail.Expected) != 1 || detail.Expected[0] != "string" {
+		t.Fatalf("wrong diagnostic: %v %+v", err, detail)
+	}
+	if calls != 0 {
+		t.Fatal("invalid money reached handler")
+	}
+}

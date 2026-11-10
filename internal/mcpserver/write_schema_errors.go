@@ -28,7 +28,7 @@ func writeSchemaErrors(set *toolSet) mcp.Middleware {
 							Code    string `json:"code"`
 							Message string `json:"message"`
 							agentcapability.ArgumentError
-						}{"validation", "invalid tool arguments; inspect tool schema; no business execution occurred", detail})
+						}{"validation", "invalid tool arguments; inspect tool schema; no business execution occurred. " + detail.Message(), detail})
 						return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: string(raw)}}}, nil
 					}
 				}

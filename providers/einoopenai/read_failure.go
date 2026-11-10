@@ -36,7 +36,7 @@ func classifyReadFailure(err error) readFailure {
 	case errors.As(err, &argument):
 		result := newReadFailure("validation", "")
 		result.Field, result.Rule, result.Expected = argument.Field, argument.Rule, argument.Expected
-		result.Message = "Arguments violate the declared tool contract; correct the indicated field or combination."
+		result.Message = argument.Message()
 		return result
 	case errors.As(err, &business):
 		return newReadFailure(string(business.Code), business.Field)

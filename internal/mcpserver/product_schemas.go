@@ -6,6 +6,21 @@ func productTermsSchema(s *jsonschema.Schema) {
 	setSchemaEnum(s.Properties["kind"], []string{"term_deposit", "locked_product"})
 	setSchemaEnum(s.Properties["interestMode"], []string{"none", "manual_maturity_amount", "simple_act_365", "simple_act_360"})
 	s.AllOf = append(s.AllOf, &jsonschema.Schema{If: propertyEquals("kind", "term_deposit"), Then: nonNullProperties("maturityOn")})
+	// Optional decimal inputs are trimmed by the application. Preserve blank/null
+	// defaults and the existing percent-over-ratio rate selection.
+	s.AllOf = append(s.AllOf,
+		&jsonschema.Schema{If: propertyEquals("interestMode", "none"), Then: &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{
+			"annualRate": blankDecimal(), "annualRatePercent": blankDecimal(), "maturityInterest": blankDecimal(), "interestPaidThroughOn": {Type: "null"},
+		}}},
+		&jsonschema.Schema{If: propertyEquals("interestMode", "manual_maturity_amount"), Then: &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{
+			"annualRate": blankDecimal(), "annualRatePercent": blankDecimal(), "maturityInterest": presentDecimal(), "interestPaidThroughOn": {Type: "null"},
+		}}},
+		&jsonschema.Schema{If: requiredEnum("interestMode", "simple_act_365", "simple_act_360"), Then: &jsonschema.Schema{
+			Properties: map[string]*jsonschema.Schema{"kind": {Enum: []any{"term_deposit"}}, "maturityInterest": blankDecimal(), "interestPaidThroughOn": {Type: "string", MinLength: intPointer(1)}},
+			If:         &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"annualRatePercent": blankDecimal()}},
+			Then:       &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"annualRate": presentDecimal()}},
+		}},
+	)
 }
 func nullableEnum(s *jsonschema.Schema, values ...string) {
 	setSchemaEnum(s, values)
@@ -66,4 +81,13 @@ func requiredEnum(name string, values ...string) *jsonschema.Schema {
 	p := &jsonschema.Schema{}
 	setSchemaEnum(p, values)
 	return &jsonschema.Schema{Required: []string{name}, Properties: map[string]*jsonschema.Schema{name: p}}
+}
+
+// Matches strings.TrimSpace using a portable character class (no Go-only
+// regexp escapes) for optional decimal inputs; never coerces numbers.
+func blankDecimal() *jsonschema.Schema {
+	return &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Type: "null"}, {Type: "string", Pattern: "^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$"}}}
+}
+func presentDecimal() *jsonschema.Schema {
+	return &jsonschema.Schema{Type: "string", Not: blankDecimal()}
 }
