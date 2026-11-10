@@ -53,7 +53,9 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.14; published skill: 2.0.0
+### Current repository skill: 3.0.15; published skill: 2.0.0
+
+Repository skill 3.0.15 shares compact business recipes with built-in tool descriptions, documents the complete daily review rule format, and distinguishes direct mutations from preview/commit workflows. It does not load installed skills in the App or change permissions/recovery.
 
 Repository skill 3.0.14 documents the two MCP modes, `read_only` and
 `read_write`. The read-write mode includes directory, ledger and
@@ -144,7 +146,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Skill 3.0.12 is not published: `--version latest` still selects App v0.3.10
+Repository skill 3.0.15 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 
@@ -273,7 +275,8 @@ all distributable skill inputs are unchanged.
 
 Bump in the same PR whenever any distributable input changes: every file under
 `skills/nestworth/` (entry instructions, agent metadata and all references),
-`tools/install-nestworth-skill.sh` and this guide (bundled as `INSTALL.md`).
+`tools/install-nestworth-skill.sh`, this guide (bundled as `INSTALL.md`), and
+`internal/agentguidance/recipes.json`, the source of generated business blocks.
 Reference-only edits, examples, typo fixes, safety/authorization guidance,
 financial meaning, paging, schema/tool arguments and compatibility guidance all
 count. Changes to implementation contracts require reviewing the skill and
@@ -360,3 +363,14 @@ normalization. No maintained payload hashes are needed. Without `--base`/`--ci-b
 only (for source bundles/checkouts without history). The guard does not decide
 SemVer impact, detect stale guidance after implementation-only changes, or query
 release registries for version reuse: maintainers still review those points.
+
+## Shared business recipe maintenance
+
+Compact business interpretation and workflow recipes have one canonical source:
+`internal/agentguidance/recipes.json`. Change that source, then run
+`python3 tools/check-nestworth-skill.py --sync-recipes` to refresh marked blocks in
+the relevant references. Ordinary validation rejects drift. Keep per-client
+connection, permission and receipt-recovery rules outside those blocks. The App
+embeds the neutral source into optional built-in tool descriptions; it does not
+read this installed skill. Update VERSION in the same PR; this remains an
+independent portable skill distribution, not an App activation mechanism.

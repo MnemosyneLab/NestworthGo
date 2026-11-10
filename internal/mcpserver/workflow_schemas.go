@@ -6,7 +6,7 @@ import "github.com/google/jsonschema-go/jsonschema"
 // date, identity, permission, source, and CAS validation remain authoritative.
 func workflowSchema[I any](name string) *jsonschema.Schema {
 	switch name {
-	case "preview_investment_review_rule", "list_activities", "preview_batch", "get_data_repair_job", "get_market_data":
+	case "create_investment_review_rule", "update_investment_review_rule", "preview_investment_review_rule", "list_activities", "preview_batch", "get_data_repair_job", "get_market_data":
 	default:
 		return nil
 	}
@@ -19,7 +19,10 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 		}
 	}
 	switch name {
+	case "create_investment_review_rule", "update_investment_review_rule":
+		addReviewRuleSchema(s, s.Properties["input"].Properties)
 	case "preview_investment_review_rule":
+		addReviewRuleSchema(s, s.Properties)
 		low, high := float64(0), float64(100)
 		s.Properties["limit"].Minimum = &low
 		s.Properties["limit"].Maximum = &high

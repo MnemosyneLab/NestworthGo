@@ -74,7 +74,8 @@ No latency/quality equivalence with a live provider is claimed.
 The default per-round limits (overrides may only reduce them) are 4 MiB of request
 and response body, 4,096 SSE data frames, 128 output/native-history items and 60
 seconds including waiting for EOF. Function arguments are object JSON capped at
-64 KiB, JSON nesting at 64, and observed content-part indices below 128. The HTTP
+64 KiB, with a 256 KiB envelope for the bounded `operate_page` batch. JSON nesting
+is capped at 64, and observed content-part indices stay below 128. The HTTP
 transport must obey Go request cancellation (as `http.DefaultTransport` does).
 Buffers/decoding make multiple copies; there is no bounded-RSS or latency claim.
 
@@ -90,9 +91,12 @@ and a transport that rejects every other host.
 ## Direct capability adapter and host review gate
 
 `CapabilityTools(session)` accepts only the model-facing `Definitions`/`Call`
-interface. It rejects writes, open-world/provider capabilities, unknown effects,
-missing annotations, duplicate names and unsupported/lossy schema conversions.
-Returned metadata is detached. Arguments and results are bounded to 64 KiB;
+interface. It accepts the current host-granted shared surface: Read-only excludes
+mutations, snapshot-maintaining analysis and provider calls; Full also admits
+shared writes and provider search. It rejects unknown effects, missing annotations,
+duplicate names and unsupported/lossy schema conversions. The session rechecks
+current permission on every call. Metadata is detached. Ordinary arguments and
+all results are bounded to 64 KiB; `operate_page` arguments allow 256 KiB;
 local dispatch retains exact decimal strings and the session's own typed
 validation, permission checks, paging, cancellation and revocation. Arbitrary
 implementation error text is not reflected into model history. The host must
@@ -124,6 +128,17 @@ This is a backend integration test, not UI or live-model acceptance. Desktop
 conversation state, page context and navigation are implemented by the owning
 runtime; their behavior is not established by this test alone. Mobile model
 access remains closed. No API key or paid provider is needed to run it.
+
+## Shared business recipes
+
+The host appends compact business recipes from `internal/agentguidance/recipes.json`
+to selected optional entry-tool descriptions. Existing group loading supplies them
+only with those tool schemas, in the same deterministic order and with a fresh
+turn-local catalog. The portable skill contains generated copies of the same
+neutral text and illustrative rule format. There is no installed-skill read,
+filesystem lookup, new tool or additional model round. Connection, permission,
+unknown-outcome recovery and desktop-page policy remain owned by each adapter.
+Tool results remain untrusted data. See the [runtime contract](../../docs/architecture/builtin-ai-runtime.md#shared-business-recipes).
 
 ## Provider contract and synthetic coverage
 

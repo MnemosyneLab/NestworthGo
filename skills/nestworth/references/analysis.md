@@ -1,5 +1,21 @@
 # Current wealth, returns and asset-change explanations
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: historical
+
+Choose one historical shape: date/compareTo for endpoints, or from/to for a 1–31-day closed-date series. Dates use the household history timezone. Endpoint movement includes principal flows and is not investment return. Filters select leaves; household totals and reconciliation can remain full scope. Do not add account rollups to their component leaves.
+
+### Shared recipe: review-rule
+
+Daily investment review is a reminder, not a sell recommendation or ledger entry. A closed-day predicate and triggerPolicy are separate: single, consecutive count, or rolling windowDays/minHits. Missing evidence is unknown, not a hit; today is unclosed. Use the complete advertised spec: fixed version/evaluator/dataPolicy, target, predicate, schedule and triggerPolicy. Predicate root is all/any with at most two group levels and 20 leaves. amount/cost compare exact money with currency and fxMode; price_change/annualized use percent and a 7/30/90/180/365-day lookback. Annualized conditions need an eligible type gate in the same all path. Choose an explicit fixed IANA timezone. The synthetic example illustrates format; replace its timezone, scope and threshold with the user's intent.
+
+<!-- example: review-rule-preview -->
+```json
+{"instrumentId":"${instrumentId}","spec":{"specVersion":1,"metricPolicyVersion":"daily_metrics_v1","evaluator":"daily_predicate_v1","target":{"kind":"all_current"},"predicate":{"all":[{"leaf":{"metric":"amount","operator":">","value":"1000","currency":"USD","fxMode":"native"}}]},"schedule":{"period":"calendar_day","timezone":"UTC","cutoffVersion":"civil_day_end_v1"},"triggerPolicy":{"kind":"consecutive","count":2},"dataPolicy":{"missing":"unknown","calendar":"all_civil_days","quoteCarry":"forbid_for_daily_signal","baselineMaxGapDays":7,"fxReferenceMaxAgeDays":7,"fxTimestampMaxAgeHours":12}}}
+```
+<!-- shared-recipes:end -->
+
 Use `get_overview` or `get_account_valuations` for **current** values.
 The default overview returns `displayValuation`, valuation quality and a
 missing-input count. A nullable `total` and a separate `knownSubtotal` describe

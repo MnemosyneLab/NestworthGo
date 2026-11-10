@@ -42,7 +42,7 @@ var skillSchemaExamples = map[string]map[string][]string{
 		"commit_plan": {"session-commit"}, "get_reconciliation_session_page": {"session-items"},
 	},
 	"analysis": {
-		"get_historical_overview": {"historical-overview", "historical-overview-series"}, "analyze_period": {"analyze-period"},
+		"get_historical_overview": {"historical-overview", "historical-overview-series"}, "analyze_period": {"analyze-period"}, "preview_investment_review_rule": {"review-rule-preview"},
 	},
 	"financial-context": {
 		"get_financial_context": {"financial-context", "financial-context-named"}, "get_read_page": {"financial-context-positions-page", "financial-context-gaps-page", "financial-context-evidence-page"},

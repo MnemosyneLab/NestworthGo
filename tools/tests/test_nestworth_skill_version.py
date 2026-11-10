@@ -47,6 +47,7 @@ class SkillVersionTests(unittest.TestCase):
             'skills/nestworth/agents/openai.yaml': 'metadata',
             'tools/install-nestworth-skill.sh': 'installer',
             'docs/user/nestworth-skill.md': 'guide',
+            'internal/agentguidance/recipes.json': '[]',
         }.items():
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)

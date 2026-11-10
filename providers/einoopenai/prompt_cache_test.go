@@ -183,6 +183,12 @@ func TestPromptCacheCatalogSizes(t *testing.T) {
 				f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, n int, request obj) {
 					raw := []byte(encode(request["tools"]))
 					t.Logf("%s tools=%d bytes=%d", label, len(request["tools"].([]any)), len(raw))
+					if stable && (len(raw) > 20000 || strings.Contains(string(raw), "Business recipe:")) {
+						t.Error("optional guidance/schema inflated stable core")
+					}
+					if !stable && len(raw) > 128000 {
+						t.Error("complete built-in catalog exceeded reviewed wire budget")
+					}
 					if dir := os.Getenv("NESTWORTH_CATALOG_EVIDENCE_DIR"); dir != "" {
 						if err := os.WriteFile(filepath.Join(dir, label+".choice.json"), []byte(encode(request["tool_choice"])), 0600); err != nil {
 							t.Error(err)

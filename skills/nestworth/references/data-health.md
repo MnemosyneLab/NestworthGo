@@ -1,5 +1,12 @@
 # Diagnose and repair data health
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: health
+
+A successful fact import does not prove complete derived valuation. Distinguish missing inputs, pending coverage and actionable repair. Repair previews estimate work; start replans, and its receipt acknowledges submission rather than completion. Read job status, then scan fresh health after a terminal outcome. Agent-only supply requires real NAV/FX evidence; provider repair cannot invent it.
+<!-- shared-recipes:end -->
+
 Discover the schema first. `scan_data_health` and `preview_data_repair` use
 frozen `get_read_page` cursors: scans have issues; previews items/unresolved.
 Counts describe the full capture. For a full issue audit, limit=100 reduces calls

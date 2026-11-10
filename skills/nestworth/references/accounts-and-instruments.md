@@ -1,5 +1,12 @@
 # Accounts, ownership and instrument identity
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: identity
+
+Resolve an investment by saved ID, full name, market, quote currency and share class, not ticker or alias alone. A definition creates neither a holding nor a trade. Managed product instruments use their product workflow. For directory edits, omission keeps a field, null clears only explicitly clearable fields, and an empty string does not mean clear. Directory mutations are direct operations; they do not produce a ledger plan.
+<!-- shared-recipes:end -->
+
 For “创建券商/银行/信用卡账户” read `get_catalog` and existing members,
 institutions, groups and accounts. Resolve the actual owners and allocation;
 do not assign the chatting user or split jointly owned assets without evidence.

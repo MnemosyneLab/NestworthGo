@@ -32,6 +32,7 @@ type HistoricalOverviewSeriesInput struct {
 func ledgerWriteTool[I any](s *Service, server *toolSet, name, description string, fn func(context.Context, I) (any, error)) {
 	closed := false
 	tool := &agentcapability.Definition{Name: name, Description: description, Effect: agentcapability.Write, Annotations: &agentcapability.Annotations{IdempotentHint: true, OpenWorldHint: &closed}}
+	tool.InputSchema = workflowSchema[Mutation[I]](name)
 	registerTool(server, tool, func(ctx context.Context, in Mutation[I]) (Response, error) {
 		value, err := s.execute(ctx, in.OperationID, name, in.Input, func(ctx context.Context) (any, error) { return fn(ctx, in.Input) })
 		if err != nil {

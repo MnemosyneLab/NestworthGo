@@ -13,7 +13,7 @@ SKILL = ROOT / "skills/nestworth"
 
 # These are the source inputs embedded by package-nestworth-skill.py.
 DISTRIBUTION_PATHS = ("skills/nestworth", "tools/install-nestworth-skill.sh",
-                      "docs/user/nestworth-skill.md")
+                      "docs/user/nestworth-skill.md", "internal/agentguidance/recipes.json")
 
 
 def version_tuple(value):
@@ -130,7 +130,46 @@ def check_version(base, minimum=None):
     print(f"Distributable skill version: {previous} -> {current}")
 
 
+def shared_recipes(write=False):
+    """Render only neutral business knowledge; connection/policy stays per adapter."""
+    recipes = json.loads((ROOT / "internal/agentguidance/recipes.json").read_text())
+    seen, tools, blocks = set(), set(), {}
+    for recipe in recipes:
+        if set(recipe) - {"id", "tool", "reference", "text", "exampleName", "example"}:
+            raise ValueError("Unknown business recipe field")
+        if recipe["id"] in seen or recipe["tool"] in tools:
+            raise ValueError("Duplicate business recipe identity/entry tool")
+        seen.add(recipe["id"])
+        tools.add(recipe["tool"])
+        reference = recipe["reference"]
+        if not re.fullmatch(r"[a-z-]+", reference):
+            raise ValueError("Invalid recipe reference")
+        block = "### Shared recipe: " + recipe["id"] + "\n\n" + recipe["text"] + "\n"
+        if "example" in recipe:
+            block += "\n<!-- example: " + recipe["exampleName"] + " -->\n```json\n" + json.dumps(recipe["example"], ensure_ascii=False, separators=(",", ":")) + "\n```\n"
+        blocks.setdefault(reference, []).append(block)
+    marked = {p.stem for p in (SKILL / "references").glob("*.md")
+              if "<!-- shared-recipes:start -->" in p.read_text()}
+    for reference in sorted(set(blocks) | marked):
+        parts = blocks.get(reference, [])
+        path = SKILL / "references" / (reference + ".md")
+        original = path.read_text()
+        start, end = "<!-- shared-recipes:start -->", "<!-- shared-recipes:end -->"
+        rendered = (start + "\n<!-- Generated from internal/agentguidance/recipes.json; update that source. -->\n" + "\n".join(parts) + end) if parts else ""
+        if original.count(start) != 1 or original.count(end) != 1:
+            raise ValueError("Missing/duplicate shared recipe markers: " + reference)
+        before, rest = original.split(start)
+        _, after = rest.split(end)
+        expected = before + rendered + after
+        if write:
+            path.write_text(expected)
+        elif expected != original:
+            raise ValueError("Shared business recipe drift: run python3 tools/check-nestworth-skill.py --sync-recipes")
+    return len(recipes)
+
+
 def check():
+    shared_recipes()
     version = (SKILL / "VERSION").read_text().strip()
     version_tuple(version)
     guide = (ROOT / "docs/user/nestworth-skill.md").read_text()
@@ -177,7 +216,10 @@ if __name__ == "__main__":
     baseline = parser.add_mutually_exclusive_group()
     baseline.add_argument("--base", help="Git commit/ref to compare with the working tree")
     baseline.add_argument("--ci-base", action="store_true", help="Check the complete branch change or main integration")
+    parser.add_argument("--sync-recipes", action="store_true", help="Refresh generated shared business blocks before checking")
     args = parser.parse_args()
+    if args.sync_recipes:
+        shared_recipes(write=True)
     check()
     if args.ci_base:
         check_ci_version()

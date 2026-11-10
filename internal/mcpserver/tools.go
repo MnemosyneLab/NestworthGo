@@ -202,7 +202,7 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"instanceId": instanceID, "mode": mode, "now": time.Now().UTC().Format(time.RFC3339), "household": household.Household, "directories": []string{"list_members", "list_institutions", "list_groups", "list_accounts"}, "historyOrigin": origin, "capabilities": capabilities(mode)}, nil
+		return map[string]any{"instanceId": instanceID, "mode": mode, "now": time.Now().UTC().Format(time.RFC3339), "household": household.Household, "directories": []string{"list_members", "list_institutions", "list_groups", "list_accounts"}, "historyOrigin": origin, "capabilities": agentcapability.Features(server.Definitions())}, nil
 	})
 	readTool(server, "get_catalog", "Read business vocabulary when creating entities or selecting unknown enum values. Reuse within the same App contract; not a prerequisite for reads.", func(context.Context, Empty) (any, error) { return catalog.NewService().Catalog(), nil })
 	readTool(server, "get_operation", "Read a durable receipt by operation UUID. unknown requires checking actual data; receipts describe past execution, not current state.", func(_ context.Context, in IDInput) (any, error) { return s.GetOperation(in.ID) })
@@ -325,14 +325,4 @@ func (s *Service) buildToolSet(mode string, external bool) *toolSet {
 		return done(instruments.ArchiveInstrument(ctx, in.ID, in.Archived))
 	})
 	return server
-}
-
-func capabilities(mode string) []string {
-	result := []string{"directory", "accounts", "instruments", "current_valuation", "financial_context", "financial_comparison", "activity_history", "period_analysis", "return_attribution", "data_health", "data_repair_preview", "data_repair_status", "market_data", "agent_market_data_history", "managed_product_read", "liquidity_read"}
-	result = append(result, "bounded_read", "instrument_paging", "market_data_batch", "investment_review_v2_read", "upcoming_action_read", "historical_overview_read", "reconciliation_session_read")
-	if mode == ReadWrite {
-		result = append(result, "instrument_metadata_batch", "reconciliation_session_write", "investment_review_v2_write")
-		result = append(result, "liquidity_policy_write", "managed_product_lifecycle", "managed_product_terms", "managed_product_valuation", "ledger_preview_commit", "ledger_batch", "position_import", "reconciliation", "cost_reconciliation", "position_transfer", "activity_correction", "data_repair", "agent_market_data_import")
-	}
-	return result
 }

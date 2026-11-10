@@ -76,7 +76,7 @@ when you choose to use them.
     </td>
     <td valign="top">
       <h3>✦ Work with your AI tools</h3>
-      <p>Connect Codex through local MCP. Choose read-only, directory-maintenance or ledger-writing permissions, with a separately installed Nestworth skill.</p>
+      <p>Connect Codex through local MCP. Choose Read-only or Read &amp; write permissions, with a separately installed Nestworth skill.</p>
     </td>
   </tr>
 </table>

@@ -33,7 +33,7 @@ receipt, emits `agent.data.changed`.
 | `read_write` | All reads plus directory and instrument maintenance, ledger preview and commit, market-data import and FX source selection, reconciliation and corrections, managed-product and liquidity-policy writes, data repair and investment-review management |
 
 `get_context.mode` reports the selected mode. `get_context.capabilities`
-reports available features, and `tools/list` is the authority on the exact
+projects available features from the registered tool inventory, and `tools/list` is the authority on the exact
 tool inventory. GUI `permittedActions` do not grant MCP permission.
 
 `tools/list` is paged at 16 tools. Follow every `nextCursor`. There is no
@@ -683,3 +683,21 @@ providerSymbol and marketCode clears, and CoinGecko-bound marketCode clears,
 are validation errors rather than silently restored defaults. Ordinary optional
 clears and valid transitions away from provider binding remain supported;
 iconKey null remains the explicit type-default reset. Rejection is atomic.
+
+## Review-rule spec and shared recipes
+
+Daily review preview/create/update tools publish their supported finite spec
+structure: fixed version/evaluator/data-policy vocabulary, explicit target,
+closed-day timezone schedule, bounded predicate groups/leaves and trigger policy.
+The schema no longer leaves spec as an opaque map. Semantic constraints (including
+the annualized type gate, total leaf count, exact currency precision, compatible
+threshold intervals and source admission) stay in the domain validator. The
+three reviewed input-schema hashes change; tool names, modes and business
+execution/recovery contracts do not.
+
+The portable skill includes an executable synthetic rule-format example plus
+compact business recipes generated from `internal/agentguidance/recipes.json`.
+The built-in host adds the same neutral recipes only to optional entry-tool
+descriptions. External MCP initialization and discovery do not start a skill
+runtime or inherit built-in permissions/recovery. See
+[shared recipes](../architecture/builtin-ai-runtime.md#shared-business-recipes).

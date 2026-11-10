@@ -1,0 +1,98 @@
+[
+  {
+    "id": "identity",
+    "tool": "list_instruments",
+    "reference": "accounts-and-instruments",
+    "text": "Resolve an investment by saved ID, full name, market, quote currency and share class, not ticker or alias alone. A definition creates neither a holding nor a trade. Managed product instruments use their product workflow. For directory edits, omission keeps a field, null clears only explicitly clearable fields, and an empty string does not mean clear. Directory mutations are direct operations; they do not produce a ledger plan."
+  },
+  {
+    "id": "historical",
+    "tool": "get_historical_overview",
+    "reference": "analysis",
+    "text": "Choose one historical shape: date/compareTo for endpoints, or from/to for a 1–31-day closed-date series. Dates use the household history timezone. Endpoint movement includes principal flows and is not investment return. Filters select leaves; household totals and reconciliation can remain full scope. Do not add account rollups to their component leaves."
+  },
+  {
+    "id": "cash-and-positions",
+    "tool": "preview_batch",
+    "reference": "cash-and-debt",
+    "text": "Record completed facts with exact amounts and explicit currencies. Own-account movement is cash_transfer, not income or expense. A balance correction is reconciliation, not invented income. Debt principal uses debt_draw/debt_payment; principal repayment is not spending. FX source selection changes valuation, not balances; fx_conversion needs actual sold and bought amounts plus separately evidenced fees. Account total valuation does not prove spendable cash. A definition is not ownership: position_import needs evidenced original quantity and cost; trades need actual execution facts. Only this plan workflow uses preview then commit_plan; inspect normalized effects before committing."
+  },
+  {
+    "id": "products",
+    "tool": "get_products",
+    "reference": "products",
+    "text": "A managed deposit or locked product is a contract with specialized cash, maturity and reservation rules. Read its contract, operations and actual cash. Maturity, due_unconfirmed and forecast interest are not received money. Do not double-count product value in account cash. Product rollups and their detailed holdings are overlapping evidence. Ordinary trade, quote and reconciliation tools do not replace managed-product operations."
+  },
+  {
+    "id": "product-facts",
+    "tool": "preview_product_operation",
+    "reference": "product-lifecycle",
+    "text": "Record one completed managed-product fact using its matching payload. Existing products require evidenced totalCostBasis/currentValue and explicit cashExcludesProduct; never infer original cost from current value. Settlement closes the whole contract, not a partial redemption. Renewal requires actual settlement and successor terms. Reservation creation, edit or release, including renewal/undo that would change reservations, uses the App. A forecast lock does not prove cash receipt. Preview effects before commit_plan; returned provisional IDs are not committed IDs."
+  },
+  {
+    "id": "market-observations",
+    "tool": "get_market_data",
+    "reference": "market-data",
+    "text": "Keep instrument identity, currency, unit, price basis and source time together. Unit NAV is not cumulative NAV or annualized yield. A daily date is the source market/NAV/reference date; retrieval time is not a new observation. A carried value is not newly published. Agent observations require actual source evidence; a source URL is provenance and is not fetched by the App. Observation imports and FX source preferences affect valuation, not currency balances. Active-history absence does not establish absence of withdrawn/corrected records; use Agent audit/import comparison for that question."
+  },
+  {
+    "id": "health",
+    "tool": "scan_data_health",
+    "reference": "data-health",
+    "text": "A successful fact import does not prove complete derived valuation. Distinguish missing inputs, pending coverage and actionable repair. Repair previews estimate work; start replans, and its receipt acknowledges submission rather than completion. Read job status, then scan fresh health after a terminal outcome. Agent-only supply requires real NAV/FX evidence; provider repair cannot invent it."
+  },
+  {
+    "id": "reconciliation",
+    "tool": "preview_reconciliation",
+    "reference": "reconciliation-and-corrections",
+    "text": "Reconcile to an evidenced target balance, quantity or cost; do not disguise a correction as income or a trade. Preserve effective and recorded dates and explain replay effects. Session-linked changes require the disclosed session/item revisions; a correction alone does not confirm a completeness check. Read current evidence before preview, inspect normalized effects, commit the returned plan and verify current state."
+  },
+  {
+    "id": "review-rule",
+    "tool": "preview_investment_review_rule",
+    "reference": "analysis",
+    "text": "Daily investment review is a reminder, not a sell recommendation or ledger entry. A closed-day predicate and triggerPolicy are separate: single, consecutive count, or rolling windowDays/minHits. Missing evidence is unknown, not a hit; today is unclosed. Use the complete advertised spec: fixed version/evaluator/dataPolicy, target, predicate, schedule and triggerPolicy. Predicate root is all/any with at most two group levels and 20 leaves. amount/cost compare exact money with currency and fxMode; price_change/annualized use percent and a 7/30/90/180/365-day lookback. Annualized conditions need an eligible type gate in the same all path. Choose an explicit fixed IANA timezone. The synthetic example illustrates format; replace its timezone, scope and threshold with the user's intent.",
+    "exampleName": "review-rule-preview",
+    "example": {
+      "instrumentId": "${instrumentId}",
+      "spec": {
+        "specVersion": 1,
+        "metricPolicyVersion": "daily_metrics_v1",
+        "evaluator": "daily_predicate_v1",
+        "target": {
+          "kind": "all_current"
+        },
+        "predicate": {
+          "all": [
+            {
+              "leaf": {
+                "metric": "amount",
+                "operator": ">",
+                "value": "1000",
+                "currency": "USD",
+                "fxMode": "native"
+              }
+            }
+          ]
+        },
+        "schedule": {
+          "period": "calendar_day",
+          "timezone": "UTC",
+          "cutoffVersion": "civil_day_end_v1"
+        },
+        "triggerPolicy": {
+          "kind": "consecutive",
+          "count": 2
+        },
+        "dataPolicy": {
+          "missing": "unknown",
+          "calendar": "all_civil_days",
+          "quoteCarry": "forbid_for_daily_signal",
+          "baselineMaxGapDays": 7,
+          "fxReferenceMaxAgeDays": 7,
+          "fxTimestampMaxAgeHours": 12
+        }
+      }
+    }
+  }
+]
