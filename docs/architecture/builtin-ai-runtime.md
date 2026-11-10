@@ -10,7 +10,8 @@ account-access rules. There are no startup,
 reconnect or implicit retry model calls. Desktop writes default off. The UI permission modes are Read-only and Read & Write (可读写 / 可讀寫); the latter retains the internal Full permission and does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
 The enabled vertical covers current overview, accounts, closed-period attribution
-and one-shot model-selected navigation after explicit per-message authorization.
+and one-shot model-selected navigation under a current desktop page lease,
+without a separate per-message approval.
 Full exposes the existing MCP ReadWrite registry, including preview/commit,
 directory, investment, reconciliation, market-data and repair capabilities, plus
 the scoped generic page operations described below. Unrestricted UI automation
@@ -104,8 +105,9 @@ semantic deduplication of a deliberately repeated new instruction.
 The desktop displays shared tool inputs, bounded outputs, errors and progress,
 with operation results in the normal conversation/tool disclosures, without a separate review panel. Unknown tool display names use readable
 words derived from the registry name. Successful inspected writes invalidate
-business queries. The existing 128-tool inventory, 64 KiB input/output, 16-call
-and model/history budgets remain; larger workflows must use existing MCP paging
+business queries. The existing 128-tool inventory, 64 KiB ordinary input/output
+(256 KiB input for bounded `operate_page` batches), 16-call and model/history
+budgets remain; larger workflows must use existing MCP paging
 and batch limits. Full does not expand those budgets. Evidence capacity is reserved before read, page-content or analysis execution, including concurrent calls; failed reads release their reservation without adding evidence.
 
 Business receipts remain in the private household/conversation capability
@@ -336,9 +338,9 @@ turns. Context-budget exhaustion similarly
 requires a new conversation until a verified compaction policy exists.
 
 A failure after a previous read can have performed that read; it does not advance
-the complete-turn checkpoint. An explicit new request may read again. No writer
-is installed, and no pending tool execution is recovered or replayed. After abrupt
-process exit, accepted/running records become `interrupted` and generate a durable
+the complete-turn checkpoint. An explicit new request may read again. Pending
+tool execution is never recovered or replayed; Full writers retain their existing receipt inspection
+and unknown-outcome fences. After abrupt process exit, accepted/running records become `interrupted` and generate a durable
 state event. If terminal persistence fails, delivery is fenced; restart recovers
 from the last durable admission, not an optimistic in-memory success. A provider
 may already have charged an interrupted request; there is no exactly-once or
@@ -944,3 +946,32 @@ recreate a grant. Core schemas and sorted optional group schemas form a stable
 append-only prefix within a turn, while the next turn starts from core again.
 This preserves cache opportunities without claiming measured live cache hits,
 latency or billing savings.
+
+## Shared business recipes
+
+The built-in model does not discover or execute the portable `nestworth` skill,
+read `SKILL.md`, or load installed references. Its host-owned system/mode policy
+and controlled tool metadata remain the instructions it receives. Compact neutral
+business recipes have one source in `internal/agentguidance/recipes.json`.
+`builtinai.Session` attaches each recipe to its optional entry-tool description;
+`load_tool_groups` therefore provides it with that group's schemas on the next
+response. No extra tool, filesystem access, model round or skill runtime is added.
+The core catalog is unchanged, loaded groups reset every turn, and history cannot
+restore schemas or permissions. Recipe text is host-owned metadata; page and
+business result text remains untrusted data.
+
+The portable skill's task-specific references contain generated copies, checked
+by `tools/check-nestworth-skill.py`; maintainers refresh them with `--sync-recipes`.
+The shared source and distributed references require the same skill version bump.
+Only business interpretation and workflow knowledge is shared. External MCP
+connection/discovery, its analysis-capable read-only mode and identical-retry
+recovery remain in that skill. Built-in strict Read-only, memory-only attribution,
+Full permission, page controls and conservative unknown-write fences remain in
+its adapter policy. Sharing a recipe grants no authority.
+
+`get_context.mode` and capabilities reflect the built-in model's current effective
+shared tool inventory, rather than the host storage session's ReadWrite mode.
+Household/history/source metadata stays unchanged. External MCP retains its own
+mode and capabilities. Investment-review preview/create/update publish a bounded
+closed spec grammar; domain normalization, semantic conditions, exact money,
+source admission and mutation recovery remain authoritative.

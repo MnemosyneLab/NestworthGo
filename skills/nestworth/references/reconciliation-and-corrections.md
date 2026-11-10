@@ -1,5 +1,12 @@
 # Reconciliation, cost correction and historical mistakes
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: reconciliation
+
+Reconcile to an evidenced target balance, quantity or cost; do not disguise a correction as income or a trade. Preserve effective and recorded dates and explain replay effects. Session-linked changes require the disclosed session/item revisions; a correction alone does not confirm a completeness check. Read current evidence before preview, inspect normalized effects, commit the returned plan and verify current state.
+<!-- shared-recipes:end -->
+
 Read current state or `get_activity` first and choose by intent:
 
 | Intent | Tools | Time/effect |

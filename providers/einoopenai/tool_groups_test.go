@@ -33,6 +33,9 @@ func TestTaskToolGroupsLoadOnlyCurrentTurnAndKeepEarlierSchemas(t *testing.T) {
 					t.Errorf("initial core missing %s", name)
 				}
 			}
+			if strings.Contains(encode(tools), "Business recipe:") {
+				t.Error("optional business recipes entered core")
+			}
 			if has("get_products") || has("list_activities") || has("commit_plan") {
 				t.Error("initial catalog included unrelated schemas")
 			}
@@ -49,6 +52,9 @@ func TestTaskToolGroupsLoadOnlyCurrentTurnAndKeepEarlierSchemas(t *testing.T) {
 			writeMode(w, request, []any{loadGroupsCall(round, "investments")})
 		case 2:
 			investments = tools
+			if !strings.Contains(encode(tools), "A managed deposit or locked product") || strings.Contains(encode(tools), "Record completed facts with exact amounts") {
+				t.Error("recipes not scoped to loaded investments")
+			}
 			if len(tools) <= len(core) || encode(tools[:len(core)]) != encode(core) ||
 				!has("get_products") || !allowed("get_products") || has("list_activities") || has("commit_plan") {
 				t.Error("investments group changed prefix, failed to load or exposed unrelated schemas")
@@ -61,6 +67,9 @@ func TestTaskToolGroupsLoadOnlyCurrentTurnAndKeepEarlierSchemas(t *testing.T) {
 			}
 			writeMode(w, request, []any{textItem()})
 		case 4:
+			if strings.Contains(encode(tools), "Business recipe:") {
+				t.Error("restored history reloaded business recipes")
+			}
 			if encode(tools) != encode(core) || has("get_products") || allowed("list_activities") ||
 				!strings.Contains(encode(request["input"]), `"name":"get_products"`) {
 				t.Error("fresh turn inherited tool groups or lost saved native calls")

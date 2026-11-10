@@ -1,6 +1,6 @@
 # Built-in AI prompt-prefix stability
 
-The built-in model starts each turn with a small core catalog. Full mode can
+The built-in model starts each turn with a small core catalog. Both permission modes can
 load more tools when a task needs them. Local wire measurements do not establish
 provider cache hits, billed input or latency savings.
 
@@ -23,11 +23,10 @@ The desktop now supplies two independent surfaces:
   before any business call, including a valid read mixed with a forbidden write
   or unavailable page tool.
 - `CatalogDefinitions(full)` supplies host metadata for the core, including
-  basic financial reads, paging, operation receipts when present, and six
-  desktop page/navigation definitions. A successful Full turn raises a
-  checkpoint marker for metadata only; after downgrade an operation receipt
-  schema can remain in the core without being callable. No Full tool enters a
-  Read-only execution map.
+  basic financial reads, paging, operation receipts and three desktop tools:
+  inspect_page, navigate_page and operate_page. A Full turn raises a checkpoint
+  marker for metadata only. Receipt reads remain callable after downgrade;
+  mutation authority does not. No Full writer enters a Read-only execution map.
 - `load_tool_groups` is advertised only when there are additional permitted
   tools. The model selects categories by name: accounts, history, investments,
   market data, reconciliation, maintenance, and changes. The host validates all
@@ -73,22 +72,32 @@ cache breakpoints or retention tuning.
 
 `TestPromptCacheCatalogSizes` sends real SDK requests to a local fake provider.
 This paired comparison uses the same synthetic desktop configuration and
-current tool schemas on macOS arm64 with Go 1.27.3. The unscoped control
-disables stable/scoped metadata and sends all executable definitions. It is a
-test control, not a setting. Measurements are compact JSON bytes in the first
-request's `tools` array; messages, allowed-name lists, and later requests are
-outside the comparison.
+current schemas on Linux amd64 with Go 1.27.3 (2026-11-10). The unscoped control
+sends all executable definitions; it is a test control, not a setting. Compact
+JSON bytes cover the request's tools array only, excluding messages, allowed-name
+lists, later requests and provider billing.
 
 | Desktop mode | Unscoped tools | Unscoped bytes | Initial core tools | Initial core bytes |
 | --- | ---: | ---: | ---: | ---: |
-| Full | 85 | 107,291 | 17 | 18,876 |
-| Read-only | 14 | 17,256 | 15 | 17,711 |
+| Full | 83 | 127,247 | 14 | 19,349 |
+| Read-only | 44 | 52,010 | 14 | 19,412 |
 
-The Full core is about 82% smaller. The extra Read-only definition holds the
-backend page-selector metadata stable when no page is selected; it is excluded
-from `allowed_tools` in that case. A task that needs additional groups uses an
-extra round and sends more schemas on later requests. The total cost depends on
-the groups loaded, number of rounds and actual provider billing.
+The initial core bytes match main `655b0b8`: recipes attach only to optional
+entry tools. The full unscoped catalog grows from 107,742 to 127,247 bytes:
+13,884 bytes publish the formerly opaque review-rule spec three times, and
+5,621 serialized bytes carry nine compact shared business recipes/examples.
+Read-only gains 2,307 recipe bytes (49,703 to 52,010); it does not load rule
+previews/writes. These are wire-byte changes, not token or live cache claims.
+Each recipe appears only with its entry schema; the complete neutral recipe
+text/examples total 5,520 bytes before enclosing JSON serialization. The same
+text is checked against portable skill references. Adapter permission and
+recovery instructions are not shared or expanded.
+
+Stable page metadata can be present without an executable page host; allowed_tools
+remains authoritative. Loading appends schemas and their recipes without changing
+the preceding core, and loaded groups reset across turns/restored history. A task
+needing optional groups still incurs the existing later response; recipes add no
+separate round. Tests bound core, complete catalog and recipe bytes explicitly.
 
 ## Historical metadata and cost tradeoff
 
@@ -158,7 +167,8 @@ on the wire, checks remote-storage settings, and refuses whole mixed call
 batches before any read. Task group tests exercise validation, loading and
 dispatch, monotonic catalog expansion within a turn, native history restore
 without loaded groups, and rejection of hidden calls after downgrade.
-A forged Full catalog checkpoint marker cannot authorize a Full-only receipt read.
+A forged Full catalog checkpoint marker cannot authorize a mutation; legitimate
+receipt reads remain permitted.
 The v1 migration regression verifies opaque native reasoning survives unchanged.
 A real-wire boundary regression recreates the engine for each of 63 completed
 no-tool turns in both Read-only and Full, then refuses turn 64 before HTTP.

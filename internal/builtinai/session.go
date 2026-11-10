@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
+	"github.com/waltwang/nestworth-go/internal/agentguidance"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -125,7 +126,11 @@ func (s *Session) definitions(full, catalog bool) ([]agentcapability.Definition,
 	if full {
 		out = append(out, fullDefinition())
 	}
-	return consolidatePageDefinitions(out), nil
+	out = consolidatePageDefinitions(out)
+	for i := range out {
+		out[i].Description = agentguidance.Description(out[i].Name, out[i].Description)
+	}
+	return out, nil
 }
 func (s *Session) callInternal(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	// Navigation admission must observe even cancelled action attempts so a
@@ -282,6 +287,13 @@ func (s *Session) read(ctx context.Context, name string, args json.RawMessage) (
 func (s *Session) recordRead(name string, raw json.RawMessage, captured time.Time) (json.RawMessage, error) {
 	if len(raw) > 64<<10 {
 		return nil, assistant.BudgetFailure("tool_result_bytes")
+	}
+	if name == "get_context" {
+		var err error
+		raw, err = s.effectiveContext(raw)
+		if err != nil {
+			return nil, err
+		}
 	}
 	item := assistant.ReadEvidence{Source: name, CapturedAt: captured, Missing: "not_summarized"}
 	var value any

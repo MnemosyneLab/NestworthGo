@@ -55,9 +55,9 @@ type ReviewV2PreviewInput struct {
 	ExpectedSourceToken string         `json:"expectedSourceToken,omitempty"`
 }
 
-// The MCP SDK's JSON-schema inference rejects the recursive predicate node.
-// A map retains an ordinary JSON object on the wire; the domain's strict
-// decoder checks every nested key before either evaluation or persistence.
+// Keep map decoding at the adapter boundary, with an explicit bounded spec
+// schema from review_rule_schema.go. The domain decoder owns semantic validation
+// and normalization before evaluation or persistence.
 type ReviewV2RuleInput struct {
 	RuleID           string         `json:"ruleId"`
 	MutationID       string         `json:"mutationId"`

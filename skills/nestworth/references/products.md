@@ -1,5 +1,12 @@
 # Read managed deposits, history and liquidity
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: products
+
+A managed deposit or locked product is a contract with specialized cash, maturity and reservation rules. Read its contract, operations and actual cash. Maturity, due_unconfirmed and forecast interest are not received money. Do not double-count product value in account cash. Product rollups and their detailed holdings are overlapping evidence. Ordinary trade, quote and reconciliation tools do not replace managed-product operations.
+<!-- shared-recipes:end -->
+
 Discover `get_products`, `list_product_operations` and
 `get_liquidity_overview`. These reads are available in all permission modes in
 Apps implementing this extension. They read the same contracts, history and

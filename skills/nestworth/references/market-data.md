@@ -1,5 +1,12 @@
 # Prices, unit NAV and FX observations
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: market-observations
+
+Keep instrument identity, currency, unit, price basis and source time together. Unit NAV is not cumulative NAV or annualized yield. A daily date is the source market/NAV/reference date; retrieval time is not a new observation. A carried value is not newly published. Agent observations require actual source evidence; a source URL is provenance and is not fetched by the App. Observation imports and FX source preferences affect valuation, not currency balances. Active-history absence does not establish absence of withdrawn/corrected records; use Agent audit/import comparison for that question.
+<!-- shared-recipes:end -->
+
 `get_market_data` reads local prices and rates without provider requests.
 A single `instrumentId` or an oriented `baseCurrency`/`quoteCurrency` pair returns
 `{current}` only. Do not combine that shape with batch fields.

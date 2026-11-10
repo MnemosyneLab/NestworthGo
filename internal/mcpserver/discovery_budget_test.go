@@ -1,21 +1,23 @@
 package mcpserver
 
 import (
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 // Keep discovery and prose bounded for both public permission modes. Read-write
-// includes review management. The read-only and prose ceilings are unchanged.
+// includes review management. The explicit finite review spec adds 4,628 bytes
+// per preview/create/update definition; other-tool/prose budgets stay bounded.
 const (
 	maxToolDescriptionBytes = 1500
 	maxInstructionsBytes    = 2400
 )
 
 var discoveryBudgetBytes = map[string]int{
-	ReadOnly:  64700,
-	ReadWrite: 116400,
+	ReadOnly:  65300,
+	ReadWrite: 130200,
 }
 
 func TestDiscoveryBudget(t *testing.T) {
@@ -42,10 +44,27 @@ func TestDiscoveryBudget(t *testing.T) {
 			if n := len(client.InitializeResult().Instructions); n > maxInstructionsBytes {
 				t.Errorf("instructions are %d bytes, budget %d", n, maxInstructionsBytes)
 			}
+			// The measured increase belongs only to the three explicit rule
+			// schemas. Unrelated discovery must still fit its previous ceiling.
+			other := []*mcp.Tool{}
 			for _, tool := range listed.Tools {
+				switch tool.Name {
+				case "preview_investment_review_rule", "create_investment_review_rule", "update_investment_review_rule":
+					schema, err := jsoncodec.Marshal(tool.InputSchema)
+					if err != nil || len(schema) > 6000 {
+						t.Errorf("%s finite spec exceeds 6000 bytes", tool.Name)
+					}
+				default:
+					other = append(other, tool)
+				}
 				if len(tool.Description) > maxToolDescriptionBytes {
 					t.Errorf("%s description is %d bytes, budget %d", tool.Name, len(tool.Description), maxToolDescriptionBytes)
 				}
+			}
+			remainder, err := jsoncodec.Marshal(other)
+			oldBudget := map[string]int{ReadOnly: 64700, ReadWrite: 116400}[mode]
+			if err != nil || len(remainder) > oldBudget {
+				t.Error("unrelated discovery exceeded its existing budget")
 			}
 		})
 	}

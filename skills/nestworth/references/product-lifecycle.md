@@ -1,5 +1,12 @@
 # Record a completed managed-product fact
 
+<!-- shared-recipes:start -->
+<!-- Generated from internal/agentguidance/recipes.json; update that source. -->
+### Shared recipe: product-facts
+
+Record one completed managed-product fact using its matching payload. Existing products require evidenced totalCostBasis/currentValue and explicit cashExcludesProduct; never infer original cost from current value. Settlement closes the whole contract, not a partial redemption. Renewal requires actual settlement and successor terms. Reservation creation, edit or release, including renewal/undo that would change reservations, uses the App. A forecast lock does not prove cash receipt. Preview effects before commit_plan; returned provisional IDs are not committed IDs.
+<!-- shared-recipes:end -->
+
 Discover `preview_product_operation` and `commit_plan` only with read_write.
 Read the contract first in [products](products.md). GUI permittedActions describe
 GUI options. Tool discovery and permission govern MCP. These tools record facts
