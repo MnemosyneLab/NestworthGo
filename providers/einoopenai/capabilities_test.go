@@ -213,13 +213,13 @@ func TestCapabilityRunnerLedgerHostReviewLoop(t *testing.T) {
 			if err := jsoncodec.Unmarshal(proposal, &proposed); err != nil || len(proposed.Commands) != 1 {
 				t.Fatalf("bad one-command proposal: %v", err)
 			}
-			review, err := session.PreviewFullChange(t.Context(), proposed.Commands[0])
-			if err != nil || review.State != mcpserver.ReviewAwaitingConfirmation || review.Binding.Plan.ID == modelPlan || review.Binding.Plan.Command.Amount != "12.34" {
-				t.Fatalf("host adopted model preview/approval: %v", err)
+			// The host submits the shared preview through the same registry route.
+			if modelPlan == "" {
+				t.Fatal("missing model preview")
 			}
-			committed, err := session.ExecuteFullChange(t.Context(), review.Binding.ID)
-			if err != nil || committed.State != mcpserver.ReviewSucceeded {
-				t.Fatalf("synthetic Full submission failed: %v", err)
+			_, err = session.CallFull(t.Context(), "commit_plan", json.RawMessage(encode(obj{"input": obj{"planId": modelPlan}})))
+			if err != nil {
+				t.Fatalf("synthetic submission failed: %v", err)
 			}
 			read, err := session.Call(t.Context(), "get_account_valuations", json.RawMessage(encode(obj{"accountIds": []string{accountID}})))
 			activities, listErr := app.ListActivities(t.Context(), 10)

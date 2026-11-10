@@ -76,8 +76,13 @@ including historical models and nullable detail counters. Settings supports date
 ranges, day/conversation/model/request-type grouping, model and conversation
 filters, and local or UTC day boundaries. Days use request **start** time and an
 IANA timezone, including daylight-saving transitions. Unknown or partially known
-values render as `—` or a known subtotal plus `?`; failed and unconfirmed request
-counts are visible. Historical usage survives app restarts.
+values render as localized “Unavailable” or a known subtotal with a separate
+“Partial” label; failed and unconfirmed request counts are visible. Token counts
+use compact K/M/B notation across locales, with exact values in hover titles and
+accessible labels. Positive USD estimates below one cent display as `< US$0.01`,
+while known zero remains `US$0.00`. These are presentation-only changes; stored
+amounts and backend aggregates retain their precision. Historical usage survives
+app restarts.
 
 Public USD estimates use versioned observations in `internal/assistant/pricing`.
 Each terminal call freezes the source, verification date, applicability window,

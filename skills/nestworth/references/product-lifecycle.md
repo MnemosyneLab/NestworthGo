@@ -103,3 +103,29 @@ currently have no historical fix path. Resolve mistakes within GUI support.
 Never use generic fix tools that bypass managed protection. An integrity_failed
 receipt is not a failed financial transaction to retry under a fresh intent.
 Inspect current facts and use the GUI. Do not repost to repair metadata.
+
+## Argument constraints
+
+Use the enum values in discovery for product kind, interest mode, access/early
+exit mode and settlement day basis. Settlement days are integers from 0 to 365;
+non-null settlement days require a day basis. Allowed early exits require their
+settlement days, basis, fee and amount mode; `fixed_gross` also needs the gross
+amount. Ordinary `on_date` policies require an unlock date; managed term deposits
+may derive it from maturity. For lifecycle operations, `effectiveAt` is a required
+string: use `""` with a complete local date/time pair, or an explicit timestamp
+without nonempty local fields. Do not combine these time sources.
+
+Interest terms are conditional: `none` leaves both rate fields, maturity interest
+and paid-through date empty; `manual_maturity_amount` requires a nonblank string
+`maturityInterest` and leaves rates and paid-through date empty. Simple ACT/365
+and ACT/360 require `term_deposit` and a nonblank rate (`annualRatePercent` takes
+precedence over `annualRate`), with no manual maturity interest. For `open`,
+`record_existing` and `renew`, omitted or null `interestPaidThroughOn` defaults
+to `startOn`; an explicit date is preserved. In `preview_product_terms`, simple
+interest requires an explicit `interestPaidThroughOn`: replacing terms does not
+apply the opening default. An empty string is not a missing date.
+Paid-through dates must fall within the term; date comparisons and
+exact rate/amount parsing remain authoritative business validation. Decimal
+amounts and rates use JSON strings, never numbers. A type error identifies the
+field path and expected JSON type; correct the representation without changing
+the amount or retrying a previously uncertain write.

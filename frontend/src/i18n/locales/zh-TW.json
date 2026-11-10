@@ -788,6 +788,8 @@
     "membersTitle": "成員"
   },
   "portfolio": {
+    "editorDetails": "標的資料",
+    "editorPriceHelp": "輸入指定日期的價格。儲存前請核對幣別與計價單位。",
     "accountDetailTitle": "帳戶詳情",
     "accounts": "帳戶",
     "accountsDescription": "投資帳戶及其目前估值總額。",

@@ -289,7 +289,7 @@ func (r *Registry) validatedInput(name string, raw json.RawMessage) ([]byte, err
 		return nil, ErrInvalidArguments
 	}
 	if err := e.input.Validate(&validation); err != nil {
-		return nil, ErrInvalidArguments
+		return nil, argumentError(e.definition.InputSchema, validation)
 	}
 	input, err := jsoncodec.Marshal(value)
 	if err != nil {

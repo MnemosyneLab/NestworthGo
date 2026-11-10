@@ -142,7 +142,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 					t.Errorf("normal SDK dispatch failed: err=%v isError=%v", err, reply.Result.IsError)
 				}
 			}
-			if variant == "schema-error" && !strings.Contains(string(raw), "too_large") {
+			if variant == "schema-error" && !strings.Contains(string(raw), "validation") {
 				t.Error("unbounded SDK schema error bypassed replacement")
 			}
 		})

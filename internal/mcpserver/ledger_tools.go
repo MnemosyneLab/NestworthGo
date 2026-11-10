@@ -48,22 +48,24 @@ func (s *Service) ledgerTools(server *toolSet) {
 
 }
 
+var ledgerFields = map[history.ChangeCommandKind]string{
+	"position_import":              "accountId instrumentId quantity unitCost currency",
+	history.ChangeMoneyAdded:       "accountId amount currency reason",
+	history.ChangeMoneyRemoved:     "accountId holdingId amount currency reason",
+	history.ChangeCashDividend:     "holdingId amount currency",
+	history.ChangeCashTransfer:     "fromAccountId toAccountId sent sentCurrency received receivedCurrency fee feeCurrency",
+	history.ChangeFXConversion:     "accountId sold soldCurrency bought boughtCurrency fee feeCurrency",
+	history.ChangePositionTransfer: "fromHoldingId toHoldingId toAccountId quantity",
+	history.ChangeTrade:            "settlementAccountId holdingId instrumentId side quantity gross grossCurrency fee feeCurrency",
+	history.ChangeDebtDraw:         "debtAccountId cashAccountId principal principalCurrency",
+	history.ChangeDebtPayment:      "debtAccountId cashAccountId principal principalCurrency interestOrFee interestOrFeeCurrency",
+}
+
 // Reject fields silently ignored by the UI's tagged-union adapter. The agent
 // boundary must not turn a misunderstood command into a different operation.
 func validateChangeRequest(in history.ChangeCommandRequest) error {
-	fields := map[history.ChangeCommandKind]string{
-		"position_import":              "accountId instrumentId quantity unitCost currency",
-		history.ChangeMoneyAdded:       "accountId amount currency reason",
-		history.ChangeMoneyRemoved:     "accountId holdingId amount currency reason",
-		history.ChangeCashDividend:     "holdingId amount currency",
-		history.ChangeCashTransfer:     "fromAccountId toAccountId sent sentCurrency received receivedCurrency fee feeCurrency",
-		history.ChangeFXConversion:     "accountId sold soldCurrency bought boughtCurrency fee feeCurrency",
-		history.ChangePositionTransfer: "fromHoldingId toHoldingId toAccountId quantity",
-		history.ChangeTrade:            "settlementAccountId holdingId instrumentId side quantity gross grossCurrency fee feeCurrency",
-		history.ChangeDebtDraw:         "debtAccountId cashAccountId principal principalCurrency",
-		history.ChangeDebtPayment:      "debtAccountId cashAccountId principal principalCurrency interestOrFee interestOrFeeCurrency",
-	}
-	allowed, ok := fields[in.Kind]
+
+	allowed, ok := ledgerFields[in.Kind]
 	if !ok {
 		return fail("validation", "unsupported ledger kind; use preview_reconciliation for target balances or quantities")
 	}
@@ -91,38 +93,6 @@ func validateChangeRequest(in history.ChangeCommandRequest) error {
 		return fail("validation", "optional charges require both amount and currency")
 	}
 	return nil
-}
-
-// previewHostLedgerChange keeps the host-owned review and receipt format private.
-func (s *Service) previewHostLedgerChange(ctx context.Context, in history.ChangeCommandRequest) (ChangePlanPreview, error) {
-	var err error
-	in, err = normalizeChangeRequest(in, time.Now().UTC())
-	if err != nil {
-		return ChangePlanPreview{}, err
-	}
-	var resolved any
-	preview, version, err := s.app.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
-		origin, err := s.app.HistoryOrigin(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if origin == nil {
-			return nil, fail("history_not_started", "start history in the App before recording changes")
-		}
-		resolved, err = ledgerCommand(in, origin)
-		return resolved, err
-	})
-	if err != nil {
-		return ChangePlanPreview{}, err
-	}
-	if err := s.app.ValidateReconciliationCommandLink(ctx, in.ReconciliationLink, resolved, preview); err != nil {
-		return ChangePlanPreview{}, err
-	}
-	plan := changePlan{Type: "change", ID: uuid.NewString(), Command: in, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
-	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
-		return ChangePlanPreview{}, err
-	}
-	return ChangePlanPreview{PlanID: plan.ID, ExpiresAt: plan.ExpiresAt.Format(time.RFC3339Nano), Command: in, Preview: wire.FromChangePreview(preview)}, nil
 }
 
 func (s *Service) commitChange(ctx context.Context, in CommitChangeInput) (any, error) {

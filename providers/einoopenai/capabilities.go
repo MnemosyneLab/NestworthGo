@@ -47,7 +47,7 @@ func CapabilityTools(session CapabilitySession) ([]tool.BaseTool, error) {
 	out := make([]tool.BaseTool, 0, len(definitions))
 	seen := map[string]bool{}
 	for _, d := range definitions {
-		if d.Name == "" || d.Name == loadToolGroups || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "execute_ledger_change" || d.Name == "operate_page") && d.Effect == agentcapability.Write)) ||
+		if d.Name == "" || d.Name == loadToolGroups || seen[d.Name] || (d.Effect != agentcapability.Read && d.Effect != agentcapability.Analysis && d.Effect != agentcapability.Preview && !(d.Name == "operate_page" && d.Effect == agentcapability.Interaction) && !((full || d.Name == "operate_page") && d.Effect == agentcapability.Write)) ||
 			d.Annotations == nil || d.Annotations.OpenWorldHint == nil || (*d.Annotations.OpenWorldHint && !full) {
 			return nil, errors.New("unsafe local capability inventory")
 		}
@@ -148,7 +148,7 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 			return "", errPageOperationRefused
 		}
 		if t.writing {
-			return "", errCapabilityWriteRejected
+			return "", submissionFailure{cause: newReadFailure("too_large", "")}
 		}
 		return "", newReadFailure("too_large", "")
 	}
@@ -163,12 +163,16 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 			if errors.Is(err, assistant.ErrRecoveryRequired) {
 				return "", errCapabilityWriteRecoveryRequired
 			}
+			var recorded agentcapability.WriteFailure
+			if errors.As(err, &recorded) {
+				return "", recordedWriteFailure{cause: classifyReadFailure(recorded.Cause), operationID: recorded.OperationID}
+			}
 			var unsubmitted interface{ NotDispatched() bool }
 			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
 				if t.name == "operate_page" {
-					return "", errPageOperationRefused
+					return "", submissionFailure{cause: classifyReadFailure(err), page: true}
 				}
-				return "", errCapabilityWriteRejected
+				return "", submissionFailure{cause: classifyReadFailure(err)}
 			}
 			return "", errCapabilityWriteRefused
 		}
@@ -197,4 +201,57 @@ func toolArgumentLimit(name string) int {
 		return 256 << 10
 	}
 	return 64 << 10
+}
+
+// A proven pre-dispatch refusal can include safe repair information. Unknown
+// outcomes never use this type and retain the inspection-only response.
+type submissionFailure struct {
+	cause readFailure
+	page  bool
+}
+
+func (e submissionFailure) Error() string { return e.Unwrap().Error() }
+func (e submissionFailure) Unwrap() error {
+	if e.page {
+		return errPageOperationRefused
+	}
+	return errCapabilityWriteRejected
+}
+func submissionDiagnostic(err error, fallback string) string {
+	var failure submissionFailure
+	if !errors.As(err, &failure) {
+		return fallback
+	}
+	detail := failure.cause
+	reasonCode := detail.Code
+	detail.Code = "write_not_submitted"
+	detail.Recovery += " This attempt did not dispatch; it does not resolve an older uncertain operation. Never retry an older uncertain write through another tool."
+	if failure.page {
+		detail.Code = "page_operation_refused"
+	}
+	raw, _ := jsoncodec.Marshal(map[string]any{"state": "not_dispatched", "error": detail, "causeCode": reasonCode})
+	return string(raw)
+}
+
+var errRecordedWriteFailure = errors.New("write has a durable failed receipt")
+
+type recordedWriteFailure struct {
+	cause       readFailure
+	operationID string
+}
+
+func (e recordedWriteFailure) Error() string { return errRecordedWriteFailure.Error() }
+func (e recordedWriteFailure) Unwrap() error { return errRecordedWriteFailure }
+func recordedWriteDiagnostic(err error) string {
+	var failure recordedWriteFailure
+	if !errors.As(err, &failure) {
+		return ""
+	}
+	detail := failure.cause
+	cause := detail.Code
+	detail.Code = "write_failed"
+	detail.RetryAction = "inspect_failed_operation"
+	detail.Recovery = "The exact operation has a durable failed receipt. Explain its cause and inspect current state before correcting the intent. Do not automatically replay or replace this write; this says nothing about other uncertain operations."
+	raw, _ := jsoncodec.Marshal(map[string]any{"state": "failed", "operationId": failure.operationID, "causeCode": cause, "error": detail})
+	return string(raw)
 }

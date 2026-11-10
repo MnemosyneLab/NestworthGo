@@ -11,8 +11,19 @@ import (
 func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 	change := roundTripSchema(t, workflowSchema[BatchChangeInput]("preview_batch"))
 	changeRaw := mustSchemaJSON(t, change)
-	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= 3221 {
-		t.Fatalf("preview_batch schema is %d bytes; measured baseline is 3221", len(changeRaw))
+	// Compare the same finite contract before/after compression, not the old
+	// incomplete schema that lacked enums and field exclusions.
+	expanded, err := jsonschema.For[BatchChangeInput](nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addLedgerSchema(expanded.Properties["commands"].Items, false)
+	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= len(mustSchemaJSON(t, expanded.Properties["commands"].Items)) {
+		t.Fatal("ledger schema compression regressed")
+	}
+
+	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= 5000 {
+		t.Fatalf("preview_batch schema is %d bytes; bounded enum/variant contract budget is 5000", len(changeRaw))
 	}
 	if strings.Contains(mustSchemaJSON(t, change.Properties["commands"].Items), `"description"`) || strings.Contains(changeRaw, "newValue") || strings.Contains(changeRaw, "mutationId") {
 		t.Fatalf("preview_batch schema still publishes removed prose or handler-rejected fields: %s", changeRaw)
@@ -41,8 +52,11 @@ func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 
 	product := roundTripSchema(t, productOperationInputSchema())
 	productRaw := mustSchemaJSON(t, product)
-	if len(productRaw) >= 7609 {
-		t.Fatalf("preview_product_operation schema is %d bytes; measured baseline is 7609", len(productRaw))
+	// Shared enums, policy dependencies and local-time constraints extend the
+	// old incomplete 7609-byte contract. Interest dependencies add ~2 KiB;
+	// keep the three shared definitions.
+	if len(productRaw) >= 10200 {
+		t.Fatalf("preview_product_operation schema is %d bytes; bounded product contract budget is 10200", len(productRaw))
 	}
 	if strings.Contains(productRaw, `"description"`) || strings.Contains(productRaw, "releaseReservationIds") || strings.Contains(productRaw, "reviewedAt") {
 		t.Fatalf("product schema published prose or a forbidden field: %s", productRaw)
@@ -50,7 +64,7 @@ func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 	if strings.Count(productRaw, `"$ref":"#/$defs/productTerms"`) != 3 || strings.Count(productRaw, `"$ref":"#/$defs/productPolicy"`) != 3 || strings.Count(productRaw, `"$ref":"#/$defs/productSettle"`) != 2 {
 		t.Fatalf("shared product refs were inlined or dropped: %s", productRaw)
 	}
-	assertRequired(t, productRaw, "productTerms", "kind", "name", "note", "startOn", "maturityOn", "interestMode", "annualRate", "annualRatePercent", "maturityInterest", "interestPaidThroughOn")
+	assertRequired(t, productRaw, "productTerms", "kind", "name", "note", "startOn", "maturityOn", "interestMode", "annualRate", "annualRatePercent", "maturityInterest")
 	assertRequired(t, productRaw, "productPolicy", "accessibleAmountCap", "accessKind", "unlockOn", "settlementDays", "dayBasis", "receiptOnOverride", "normalExitFee", "earlyKind", "earlySettlementDays", "earlyDayBasis", "earlyFee", "earlyAmountMode", "earlyGrossAmount", "note")
 	productResolved, err := product.Resolve(nil)
 	if err != nil {

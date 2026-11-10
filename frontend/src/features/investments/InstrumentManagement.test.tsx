@@ -345,6 +345,7 @@ describe("InstrumentManagement", () => {
     setClosedDate.mockRejectedValueOnce(new Error("Synthetic failure"));
     renderManagement();
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Set closed day" }));
     const save = await screen.findByRole("button", { name: "Set closed day" });
     expect(save).toBeDisabled();
     await userEvent.click(screen.getByLabelText("Closed date"));
@@ -368,7 +369,7 @@ describe("InstrumentManagement", () => {
     expect(screen.queryByRole("button", { name: "Icon" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Set price" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Set price" }));
     await userEvent.type(await screen.findByLabelText("Unit price (USD)"), "131.70");
     const priceButtons = screen.getAllByRole("button", { name: "Set price" });
     await userEvent.click(priceButtons[priceButtons.length - 1]);
@@ -380,7 +381,7 @@ describe("InstrumentManagement", () => {
     renderManagement();
     await screen.findByText("NVIDIA");
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(await screen.findByRole("button", { name: "Set price" })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Set price" })).toBeInTheDocument();
   });
 
   it("renders provider key options from the catalog when quote source is provider", async () => {
@@ -692,4 +693,39 @@ it("fails closed when the enriched ownership inventory cannot be loaded", async 
   listInstruments.mockRejectedValue(new Error("ownership unavailable"));renderManagement();
   expect(await screen.findByRole("button",{name:"Try again"}, { timeout: 3000 })).toBeInTheDocument();
   expect(screen.queryByRole("button",{name:"Edit"})).not.toBeInTheDocument();
+});
+
+it("preserves drafts across editor tabs and supports keyboard switching", async () => {
+  listInstruments.mockResolvedValue([{ id: "draft", name: "Synthetic draft", type: "stock", quoteCurrency: "USD", quoteSource: "manual" }]);
+  const user = userEvent.setup();
+  renderManagement();
+  await user.click(await screen.findByRole("button", { name: "Edit" }));
+  await user.type(screen.getByLabelText("Name"), " revised");
+  const details = screen.getByRole("tab", { name: "Instrument details" });
+  details.focus();
+  await user.keyboard("{ArrowRight}{Enter}");
+  expect(screen.getByRole("tab", { name: "Set price" })).toHaveAttribute("aria-selected", "true");
+  const pricePanel = screen.getByRole("tabpanel", { name: "Set price" });
+  await user.type(within(pricePanel).getByLabelText("Unit price (USD)"), "12.3456");
+  await user.click(screen.getByRole("tab", { name: "Set closed day" }));
+  expect(screen.getByRole("tabpanel", { name: "Set closed day" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
+  await user.click(details);
+  expect(screen.getByLabelText("Name")).toHaveValue("Synthetic draft revised");
+  await user.click(screen.getByRole("tab", { name: "Set price" }));
+  expect(within(screen.getByRole("tabpanel", { name: "Set price" })).getByLabelText("Unit price (USD)")).toHaveValue("12.3456");
+  expect(updateInstrument).not.toHaveBeenCalled();
+  expect(appendManualQuote).not.toHaveBeenCalled();
+  expect(setClosedDate).not.toHaveBeenCalled();
+});
+it("opens the price tab for a dated repair and hides manual entry for Agent instruments", async () => {
+  listInstruments.mockResolvedValue([{ id: "repair", name: "Repair fund", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "manual" }]);
+  const view = renderManagement(true, { instrumentId: "repair", action: "manual_entry", rangeStart: "2026-01-02" });
+  expect(await screen.findByRole("tab", { name: "Set price" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tabpanel", { name: "Set price" })).toBeVisible();
+  view.unmount();
+  listInstruments.mockResolvedValue([{ id: "agent", name: "Agent fund", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "agent" }]);
+  renderManagement(true, { instrumentId: "agent", action: "manual_entry" });
+  expect(await screen.findByRole("tab", { name: "Instrument details" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.queryByRole("tab", { name: "Set price" })).not.toBeInTheDocument();
 });

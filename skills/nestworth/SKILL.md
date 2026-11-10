@@ -63,3 +63,5 @@ Use the App itself for setup, history starting-point changes, backups, restores 
 - “银行余额应该是 12,500 元，帮我对账，不要记成收入。”
 - “补入这只中国基金昨天公布的单位净值，再检查数据健康。”
 - “解释上个月资产为什么上涨，并列出主要收益贡献。”
+
+For overlapping tool choices, follow [analysis](references/analysis.md#choosing-overlapping-tools).

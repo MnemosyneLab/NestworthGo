@@ -327,3 +327,15 @@ visual-role heuristic. Keep it on audited local selection/navigation handlers;
 never wrap financial submissions, provider refresh, configuration or an arbitrary
 form. Shared portals inherit their source effect and security boundary. Changes
 to a declared region must preserve this contract and its Read-only regression.
+
+
+## Instrument editor
+
+The ordinary instrument editor uses a large shared Sheet with an identity summary
+and line-style tabs for instrument details, manual price entry and closed dates.
+Each tab owns its submit action; switching tabs keeps drafts mounted without
+submitting them. Manual-entry repair links select the price tab and retain the
+requested date. Agent-sourced instruments do not expose manual price entry;
+archived and product-owned instruments retain their existing restrictions.
+The closed-date explanation remains visible alongside its date control, including
+the distinction between a non-publishing day and missing earlier trading prices.

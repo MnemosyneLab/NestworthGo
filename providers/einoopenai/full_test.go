@@ -20,7 +20,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/airuntime"
 )
 
-func TestFakeProviderFullDirectWrite(t *testing.T) {
+func TestFakeProviderRepairsSalaryReasonAndCommitsOnce(t *testing.T) {
 	app, _, accountID, db := ledgerSessionDatabase(t)
 	f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 		inventory := encode(request["tools"])
@@ -31,14 +31,31 @@ func TestFakeProviderFullDirectWrite(t *testing.T) {
 			writeMode(w, request, []any{loadGroupsCall(round, "changes")})
 			return
 		}
-		if !strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
+		if strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
 			t.Error("wrong Full inventory after group load")
 		}
 		if round == 1 {
-			writeMode(w, request, []any{liveCallItem(round, "execute_ledger_change", obj{"kind": "money_added", "accountId": accountID, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"})})
+			writeMode(w, request, []any{liveCallItem(round, "preview_batch", obj{"commands": []any{obj{"kind": "money_added", "accountId": accountID, "amount": "12.34", "currency": "USD", "reason": "工资", "effectiveAt": "2026-09-28T12:00:00Z"}}})})
 			return
 		}
 		if round == 2 {
+			diagnostic := latestToolOutput(t, request)
+			for _, want := range []string{"validation", "commands[0].reason", "income", "correct_input"} {
+				if !strings.Contains(diagnostic, want) {
+					t.Errorf("missing repair detail %s: %s", want, diagnostic)
+				}
+			}
+			if strings.Contains(diagnostic, "工资") {
+				t.Error("diagnostic echoed rejected value")
+			}
+			writeMode(w, request, []any{liveCallItem(round, "preview_batch", obj{"commands": []any{obj{"kind": "money_added", "accountId": accountID, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}}})})
+			return
+		}
+		if round == 3 {
+			writeMode(w, request, []any{liveCallItem(round, "commit_plan", commitFromPreview(t, request))})
+			return
+		}
+		if round == 4 {
 			if !strings.Contains(latestToolOutput(t, request), "succeeded") {
 				t.Error("missing actual receipt")
 			}
@@ -86,15 +103,19 @@ func TestFakeProviderFullDirectWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := waitAssistantRun(t, ipc, q)
-	if len(view.Runs[0].Tools) != 3 || view.Runs[0].Tools[0].Source != loadToolGroups {
+	if len(view.Runs[0].Tools) != 5 || view.Runs[0].Tools[0].Source != loadToolGroups {
 		t.Fatalf("missing Full discovery sequence: %+v", view.Runs[0].Tools)
 	}
-	operation := view.Runs[0].Tools[1:]
-	if operation[0].Source != "execute_ledger_change" || operation[1].Source != "get_account_valuations" || operation[0].State != "succeeded" || operation[1].State != "succeeded" || !strings.Contains(operation[0].Input, "12.34") || !strings.Contains(operation[0].Output, "succeeded") {
+	if view.Runs[0].Tools[1].State != "refused" {
+		t.Fatal("invalid salary reason was not refused")
+	}
+	operation := view.Runs[0].Tools[2:]
+	if operation[0].Source != "preview_batch" || operation[1].Source != "commit_plan" || operation[2].Source != "get_account_valuations" || operation[0].State != "succeeded" || operation[1].State != "succeeded" || operation[2].State != "succeeded" || !strings.Contains(operation[0].Input, "12.34") || !strings.Contains(operation[1].Output, "succeeded") {
 		t.Fatalf("Full/read sequence lost: %+v", view.Runs[0].Tools)
 	}
+
 	saved, err := store.Load()
-	if err != nil || len(saved.Conversations[0].Runs[0].Run.Tools) != 3 {
+	if err != nil || len(saved.Conversations[0].Runs[0].Run.Tools) != 5 {
 		t.Fatalf("tool details not durable: %+v %v", saved, err)
 	}
 	rows, err := app.ListActivities(t.Context(), 10)
@@ -119,7 +140,7 @@ func TestFakeProviderFullDirectoryWrite(t *testing.T) {
 			writeMode(w, request, []any{loadGroupsCall(round, "changes")})
 			return
 		}
-		if !strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
+		if strings.Contains(inventory, "execute_ledger_change") || !strings.Contains(inventory, "commit_plan") || strings.Contains(inventory, "propose_cash_change") {
 			t.Error("wrong Full inventory after group load")
 		}
 		if round == 1 {
@@ -234,14 +255,22 @@ func TestFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			app, _, accountID, db := ledgerSessionDatabase(t)
 			input := obj{"kind": "money_added", "accountId": accountID, "amount": "12.34", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-28T12:00:00Z"}
 			var rounds atomic.Int32
+			var commitInput obj
 			f := fakeModel(t, Limits{}, func(w http.ResponseWriter, r *http.Request, round int, request obj) {
 				if round == 0 {
 					writeMode(w, request, []any{loadGroupsCall(round, "changes")})
 					return
 				}
+				if round == 1 {
+					writeMode(w, request, []any{liveCallItem(round, "preview_batch", obj{"commands": []any{input}})})
+					return
+				}
+				if round == 2 {
+					commitInput = commitFromPreview(t, request)
+				}
 				rounds.Add(1)
 				// Deliberately retry on any recovered tool refusal; no prompt compliance.
-				writeMode(w, request, []any{liveCallItem(round, "execute_ledger_change", input)})
+				writeMode(w, request, []any{liveCallItem(round, "commit_plan", commitInput)})
 			})
 			dir := t.TempDir()
 			statePath := filepath.Join(dir, "state")
@@ -292,8 +321,8 @@ func TestFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			}
 			// Even a caller deliberately discarding the cancelled run context cannot
 			// reuse the captured callback to mint another operation in this runtime.
-			raw, _ := jsoncodec.Marshal(input)
-			if _, err := captured.Call(context.Background(), "execute_ledger_change", raw); err == nil {
+			raw, _ := jsoncodec.Marshal(commitInput)
+			if _, err := captured.Call(context.Background(), "commit_plan", raw); err == nil {
 				t.Fatal("fresh context bypassed closed runtime")
 			}
 			q.RequestID = uuid.NewString()
@@ -467,4 +496,17 @@ func TestSharedFullResolvedSaveFailureClosesRuntimeBeforeRetry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func commitFromPreview(t *testing.T, request obj) obj {
+	t.Helper()
+	var preview struct {
+		Data struct {
+			PlanID string `json:"planId"`
+		} `json:"data"`
+	}
+	if err := jsoncodec.Unmarshal([]byte(latestToolOutput(t, request)), &preview); err != nil || preview.Data.PlanID == "" {
+		t.Fatalf("missing preview plan: %v", err)
+	}
+	return obj{"input": obj{"planId": preview.Data.PlanID}}
 }

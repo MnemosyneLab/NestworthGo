@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"errors"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
@@ -14,6 +15,24 @@ import (
 func writeSchemaErrors(set *toolSet) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
+			// Validate with the shared registry first so SDK errors never need
+			// to expose submitted values to explain a structural failure.
+			if method == "tools/call" {
+				if call, ok := request.(*mcp.CallToolRequest); ok && call.Params != nil {
+					if err := set.ValidateArguments(call.Params.Name, call.Params.Arguments); errors.Is(err, agentcapability.ErrInvalidArguments) {
+						var detail agentcapability.ArgumentError
+						if !errors.As(err, &detail) {
+							detail.Rule = "invalid_json_or_shape"
+						}
+						raw, _ := jsoncodec.Marshal(struct {
+							Code    string `json:"code"`
+							Message string `json:"message"`
+							agentcapability.ArgumentError
+						}{"validation", "invalid tool arguments; inspect tool schema; no business execution occurred. " + detail.Message(), detail})
+						return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: string(raw)}}}, nil
+					}
+				}
+			}
 			result, err := next(ctx, method, request)
 			if err != nil || method != "tools/call" {
 				return result, err

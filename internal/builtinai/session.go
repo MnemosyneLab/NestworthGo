@@ -123,9 +123,6 @@ func (s *Session) definitions(full, catalog bool) ([]agentcapability.Definition,
 	if catalog || s.navigationAllowed {
 		out = append(out, navigationDefinitions()...)
 	}
-	if full {
-		out = append(out, fullDefinition())
-	}
 	out = consolidatePageDefinitions(out)
 	for i := range out {
 		out[i].Description = agentguidance.Description(out[i].Name, out[i].Description)
@@ -147,12 +144,7 @@ func (s *Session) callInternal(ctx context.Context, name string, args json.RawMe
 		}
 		return s.pageOperator(ctx, args)
 	}
-	if name == "execute_ledger_change" {
-		if s.full == nil {
-			return nil, assistant.ErrUnavailable
-		}
-		return s.full(ctx, args)
-	}
+
 	if name == "read_page_content" {
 		if s.pageReader == nil {
 			return nil, assistant.ErrUnavailable

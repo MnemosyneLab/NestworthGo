@@ -39,6 +39,10 @@ func TestReadRefusalsGiveDistinctSafeModelRecovery(t *testing.T) {
 		field   string
 		action  string
 	}{
+		{"product nested", &apierror.WireError{Code: "validation", Field: "open.policy.earlyDayBasis", Message: secret}, "validation", "open.policy.earlyDayBasis", "correct_input"},
+		{"product conflict", &apierror.WireError{Code: "managed_position_conflict", Field: "productId", Message: secret}, "managed_position_conflict", "productId", "inspect_current_state"},
+		{"private prefix", &apierror.WireError{Code: "validation", Field: secret + ".policy.dayBasis", Message: secret}, "validation", "", "correct_input"},
+		{"numeric money", agentcapability.ArgumentError{Field: "commands[0].amount", Rule: "type", Expected: []string{"string"}}, "validation", "commands[0].amount", "correct_input"},
 		{"registry_validation", agentcapability.ErrInvalidArguments, "validation", "", "correct_input"},
 		{"typed_validation", &apierror.WireError{Code: "validation", Field: "limit", Message: secret}, "validation", "limit", "correct_input"},
 		{"expired", &apierror.WireError{Code: "read_expired", Message: secret}, "read_expired", "", "restart_read"},
@@ -62,6 +66,9 @@ func TestReadRefusalsGiveDistinctSafeModelRecovery(t *testing.T) {
 					Error readFailure `json:"error"`
 				}
 				raw := latestToolOutput(t, request)
+				if tc.name == "numeric money" && (!strings.Contains(raw, "Field commands[0].amount must have JSON type string") || !strings.Contains(raw, `"expected":["string"]`)) {
+					t.Errorf("numeric money detail lost: %s", raw)
+				}
 				if jsoncodec.Unmarshal([]byte(raw), &output) != nil || output.Error.Code != tc.code ||
 					output.Error.Field != tc.field || output.Error.RetryAction != tc.action ||
 					strings.Contains(raw, secret) || strings.Contains(raw, "synthetic internal wrapper") ||

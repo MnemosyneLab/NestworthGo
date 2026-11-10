@@ -80,9 +80,10 @@ there is no loopback HTTP, duplicate financial implementation or additional
 per-write approval. Full and external MCP read-write mode share the same
 79-tool registry, including investment-review management. External MCP has
 its own permission setting, credentials and operation namespace.
-The #248 atomic directory edit fix is part of this baseline. The legacy
-`execute_ledger_change` cash/transfer convenience tool remains available for
-existing conversations, using its original host preview/commit flow.
+Ordinary ledger writes use `preview_batch` followed by `commit_plan`, including
+single cash changes and transfers. The duplicate `execute_ledger_change` tool
+and its desktop command adapter have been removed; saved conversation text
+cannot reinstate it. Existing receipt inspection remains read-only.
 
 All shared preview/commit rules, transaction boundaries, version/expiry checks,
 operation IDs, idempotency and receipt recovery remain authoritative. Before a
@@ -975,3 +976,46 @@ Household/history/source metadata stays unchanged. External MCP retains its own
 mode and capabilities. Investment-review preview/create/update publish a bounded
 closed spec grammar; domain normalization, semantic conditions, exact money,
 source admission and mutation recovery remain authoritative.
+
+### Tool contract diagnostics
+
+Shared schema validation returns only schema-owned field paths, constraint names
+and allowed enum values (`field`, `rule`, `expected`), never rejected values or
+raw validator messages. Batch paths retain the command index. Built-in reads and
+previews preserve known business failure codes with fixed recovery guidance.
+Proven pre-dispatch write refusals include the safe cause and `not_dispatched`;
+unknown post-dispatch outcomes remain inspection-only. The external MCP adapter
+uses the same validation before SDK dispatch. Ledger variants publish their
+allowed fields, required values, reason/side enums, paired charges and mutually
+exclusive time shapes; correction uses its own fix/undo constraints.
+
+### Product contracts and durable failure diagnostics
+
+Product lifecycle, terms and liquidity-policy tools share enum, settlement-range
+and conditional policy schemas. Local product timestamps cannot be combined
+with a nonempty local date/time pair; empty local DTO defaults remain accepted.
+Managed term deposits retain their maturity-derived unlock date. Decimal/date
+parsing, revision checks and financial invariants remain in the domain layer.
+
+The shared schema diagnostic traverses refs, allOf/anyOf, conditionals and
+range/length constraints, publishing only schema-owned paths and bounds. The
+provider preserves allowlisted product/history failure codes and nested fields.
+Only the durable operation gate may mark an exact failed receipt; the provider
+returns its safe cause as `write_failed`, distinct from unsubmitted and unknown
+outcomes. It is not permission to automatically replay a write.
+
+The obsolete `PreviewFullChange`/`ExecuteFullChange` production methods and their
+private single-change preview writer are removed. Legacy review inspection and
+cancellation remain for stored recovery references; legacy receipt creation
+exists only in test fixtures. New writes use the shared registry and commit path.
+
+Interest mode dependencies are also shared by lifecycle and terms previews:
+none/manual/simple modes constrain rate, maturity-interest and paid-through
+fields, preserving percent-over-ratio selection and trimmed empty decimals.
+Lifecycle creation (open, record-existing and renew) accepts omitted/null
+paid-through dates and lets the business layer default them to startOn. Terms
+replacement retains its explicit-date requirement for simple interest.
+Diagnostic subtree validation clones schema nodes before attaching root `$defs`;
+otherwise a shared nullable definition could violate the validator's tree rule
+and hide the actual invalid field. Type messages include the schema-owned path
+and allowed JSON types in both MCP and built-in AI responses.

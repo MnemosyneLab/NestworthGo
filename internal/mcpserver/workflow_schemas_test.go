@@ -73,6 +73,12 @@ func TestPreviewBatchSchemaMatchesHandlerAllowlist(t *testing.T) {
 				input[field] = "synthetic"
 			}
 		}
+		if kind == "money_added" || kind == "money_removed" {
+			input["reason"] = "other"
+		}
+		if kind == "trade" {
+			input["side"] = "buy"
+		}
 		if kind == "position_transfer" {
 			input["toAccountId"] = "synthetic"
 		}

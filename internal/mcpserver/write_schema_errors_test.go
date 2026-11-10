@@ -45,3 +45,30 @@ func TestWriteSchemaErrorsBeforeExecutionKeepFullReceiptAndUnknown(t *testing.T)
 		t.Fatal("unknown outcome rewritten", err, string(raw))
 	}
 }
+
+func TestNumericMoneyMCPDiagnosticNamesFieldAndType(t *testing.T) {
+	s, _, _ := fixture(t)
+	if _, err := s.Enable(ReadWrite); err != nil {
+		t.Fatal(err)
+	}
+	client := connect(t, s)
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "preview_batch", Arguments: map[string]any{"commands": []any{map[string]any{"kind": "money_added", "accountId": "synthetic", "amount": 15708.56, "currency": "CNY", "reason": "income"}}}})
+	if err != nil || !result.IsError {
+		t.Fatal("numeric amount accepted", err)
+	}
+	var diagnostic struct {
+		Message  string
+		Field    string
+		Rule     string
+		Expected []string
+	}
+	if err := jsoncodec.Unmarshal([]byte(result.Content[0].(*mcp.TextContent).Text), &diagnostic); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostic.Field != "commands[0].amount" || diagnostic.Rule != "type" || len(diagnostic.Expected) != 1 || diagnostic.Expected[0] != "string" || !strings.Contains(diagnostic.Message, "commands[0].amount") || !strings.Contains(diagnostic.Message, "JSON type string") {
+		t.Fatalf("unhelpful diagnostic: %+v", diagnostic)
+	}
+	if strings.Contains(diagnostic.Message, "15708") {
+		t.Fatal("submitted value leaked")
+	}
+}

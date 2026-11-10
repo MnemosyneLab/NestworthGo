@@ -7,7 +7,7 @@ import { callService } from "@/lib/wails";
 import { NativeSelect } from "@/components/ui/select";
 import { DatePickerControl } from "@/components/ui/date-picker-control";
 import { Button } from "@/components/ui/button";
-import { formatAmount } from "@/lib/money";
+import { compareCanonical, formatAmount, formatCount } from "@/lib/money";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Notice } from "@/components/ui/notice";
@@ -15,24 +15,39 @@ import { EmptyState } from "@/components/layout/PageState";
 import { cn } from "@/lib/utils";
 
 type Total = Awaited<ReturnType<typeof API.Usage>>["total"];
+// Fixed K/M/B units in every language; only presentation is rounded.
+const compactTokens = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 function count(value: number | string, missing: number, calls: number) {
-  if (!calls || missing === calls) return "—";
-  return `${value.toLocaleString()}${missing ? " + ?" : ""}`;
+  return <UsageValue value={value} missing={missing} calls={calls} />;
+}
+function UsageValue({ value, missing, calls, money = false }: { value: number | string; missing: number; calls: number; money?: boolean }) {
+  const { t } = useTranslation();
+  if (!calls || missing >= calls) return <span className="text-muted-foreground">{t("aiUsage.unknown")}</span>;
+  const exact = money ? `${value} USD` : typeof value === "number" ? formatCount(value) : formatAmount(value);
+  const display = money ? usageCost(String(value)) : typeof value === "number" ? compactTokens.format(value) : formatAmount(value);
+  return <span className="inline-flex max-w-full flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+    <span title={exact} aria-label={exact} className="num break-words">{display}</span>
+    {missing > 0 && <span className="text-xs font-normal text-muted-foreground" title={t("aiUsage.missingRequests", { count: missing })}>{t("aiUsage.partial")}</span>}
+  </span>;
+}
+function usageCost(value: string) {
+  return compareCanonical(value, "0") > 0 && compareCanonical(value, "0.01") < 0
+    ? `< ${formatAmount("0.01", "USD")}` : formatAmount(value, "USD");
 }
 export function UsageNumbers({ total }: { total: Total }) {
   const { t } = useTranslation();
-  return <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+  return <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
     {([
       ["input", total.input, total.missingInput], ["output", total.output, total.missingOutput],
       ["cached", total.cachedInput, total.missingCached], ["cacheWrite", total.cacheWrite, total.missingWrite],
       ["reasoning", total.reasoning, total.missingReasoning],
     ] as const).map(([key, value, missing]) => <div className="flex justify-between gap-2" key={key}><dt>{t(`aiUsage.${key}`)}</dt><dd>{count(value, missing, total.calls)}</dd></div>)}
-    <div className="flex justify-between gap-2"><dt>{t("aiUsage.estimatedCost")}</dt><dd title={total.estimatedUsd}>{total.pricedCalls ? `${formatAmount(total.estimatedUsd, "USD")}${total.unpricedCalls ? " + ?" : ""}` : "—"}</dd></div>
-    {total.pricedCalls > 0 && <div className="col-span-2 text-muted-foreground">{t("aiUsage.cacheCosts", { read: formatAmount(total.cachedUsd, "USD"), write: formatAmount(total.cacheWriteUsd, "USD") })}</div>}
-    {total.unpricedCalls > 0 && <div className="col-span-2 text-muted-foreground">{t("aiUsage.unpriced", { count: total.unpricedCalls })}</div>}
+    <div className="flex justify-between gap-2"><dt>{t("aiUsage.estimatedCost")}</dt><dd><UsageValue value={total.estimatedUsd} missing={total.unpricedCalls} calls={total.calls} money /></dd></div>
+    {total.pricedCalls > 0 && <div className="col-span-full text-muted-foreground">{t("aiUsage.cacheCosts", { read: usageCost(total.cachedUsd), write: usageCost(total.cacheWriteUsd) })}</div>}
+    {total.unpricedCalls > 0 && <div className="col-span-full text-muted-foreground">{t("aiUsage.unpriced", { count: total.unpricedCalls })}</div>}
     <div className="flex justify-between gap-2"><dt>{t("aiUsage.calls")}</dt><dd>{total.calls}</dd></div>
     {total.audioCalls > 0 && <div className="flex justify-between gap-2"><dt>{t("aiUsage.audioSeconds")}</dt><dd>{count(total.audioSeconds, total.missingAudio, total.audioCalls)}</dd></div>}
-    {(total.failed > 0 || total.pending > 0) && <p className="col-span-2 text-muted-foreground">{t("aiUsage.outcomes", { failed: total.failed, pending: total.pending })}</p>}
+    {(total.failed > 0 || total.pending > 0) && <p className="col-span-full text-muted-foreground">{t("aiUsage.outcomes", { failed: total.failed, pending: total.pending })}</p>}
   </dl>;
 }
 const timezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -44,7 +59,7 @@ export function ConversationUsage({ epoch, id, runID, stamp }: { epoch: string; 
   const current = useQuery({ queryKey: ["aiUsageRun", epoch, id, runID, stamp], enabled: !!epoch && !!id && !!runID, networkMode: "always", retry: false,
     queryFn: () => callService(() => API.Usage(epoch, { timezone: timezone(), from: "", to: "", conversationId: id, runId: runID, model: "", groupBy: "model" })), refetchInterval: open ? 10000 : false });
   return <details className="group shrink-0 border-t border-border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
-    <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span className="min-w-0 flex-1 truncate"><span className="@max-xs:sr-only">{t("aiUsage.title")} · </span>{t("aiUsage.current")} {current.data?.available ? count(current.data.total.tokens, current.data.total.missingTokens, current.data.total.calls) : "—"} · {t("aiUsage.total")} {total.data?.available ? count(total.data.total.tokens, total.data.total.missingTokens, total.data.total.calls) : "—"}</span><ChevronDown aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open:rotate-180" /></summary>
+    <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"><span className="min-w-0 flex-1"><span className="@max-xs:sr-only">{t("aiUsage.title")} · </span>{t("aiUsage.current")} {current.data?.available ? count(current.data.total.tokens, current.data.total.missingTokens, current.data.total.calls) : "—"} · {t("aiUsage.total")} {total.data?.available ? count(total.data.total.tokens, total.data.total.missingTokens, total.data.total.calls) : "—"}</span><ChevronDown aria-hidden="true" className="size-3.5 shrink-0 transition-transform group-open:rotate-180" /></summary>
     <div className="mt-2 max-h-48 space-y-3 overflow-auto text-foreground">
       {total.isPending ? <p>{t("aiUsage.loading")}</p> : total.isError || !total.data?.available ? <p role="status">{t("aiUsage.unavailable")}</p> : <>
         {current.data?.available && <div><p className="mb-1 font-medium">{t("aiUsage.current")}</p><UsageNumbers total={current.data.total} /></div>}
@@ -57,14 +72,13 @@ export function ConversationUsage({ epoch, id, runID, stamp }: { epoch: string; 
     </div>
   </details>;
 }
-const estimated = (total: Total) => total.pricedCalls ? `${formatAmount(total.estimatedUsd, "USD")}${total.unpricedCalls ? " + ?" : ""}` : "—";
+const estimated = (total: Total) => <UsageValue value={total.estimatedUsd} missing={total.unpricedCalls} calls={total.calls} money />;
 
-/** Settings summary: headline tiles, then the token breakdown. Unknown (—) and
- * partial (+ ?) values keep the exact meaning used by every other usage view. */
+/** Shared values preserve unknown and partial totals across all usage views. */
 function UsageSummary({ total }: { total: Total }) {
   const { t } = useTranslation();
   const tiles = [
-    { key: "estimatedCost", label: t("aiUsage.estimatedCost"), value: estimated(total), title: total.estimatedUsd },
+    { key: "estimatedCost", label: t("aiUsage.estimatedCost"), value: estimated(total) },
     { key: "tokens", label: t("aiUsage.tokens"), value: count(total.tokens, total.missingTokens, total.calls) },
     { key: "calls", label: t("aiUsage.calls"), value: String(total.calls) },
   ];
@@ -79,7 +93,7 @@ function UsageSummary({ total }: { total: Total }) {
     <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {tiles.map(tile => <div key={tile.key} className="min-w-0 rounded-xl border border-border bg-card p-4">
         <dt className="text-xs text-muted-foreground">{tile.label}</dt>
-        <dd className="num mt-1 truncate text-xl font-semibold" title={tile.title}>{tile.value}</dd>
+        <dd className="num mt-1 break-words text-xl font-semibold">{tile.value}</dd>
       </div>)}
     </dl>
     <div className="space-y-1.5">
@@ -93,7 +107,7 @@ function UsageSummary({ total }: { total: Total }) {
       </dl>
     </div>
     {(total.pricedCalls > 0 || total.unpricedCalls > 0 || total.failed > 0 || total.pending > 0) && <div className="space-y-0.5 text-xs text-muted-foreground">
-      {total.pricedCalls > 0 && <p>{t("aiUsage.cacheCosts", { read: formatAmount(total.cachedUsd, "USD"), write: formatAmount(total.cacheWriteUsd, "USD") })}</p>}
+      {total.pricedCalls > 0 && <p>{t("aiUsage.cacheCosts", { read: usageCost(total.cachedUsd), write: usageCost(total.cacheWriteUsd) })}</p>}
       {total.unpricedCalls > 0 && <p>{t("aiUsage.unpriced", { count: total.unpricedCalls })}</p>}
       {(total.failed > 0 || total.pending > 0) && <p>{t("aiUsage.outcomes", { failed: total.failed, pending: total.pending })}</p>}
     </div>}

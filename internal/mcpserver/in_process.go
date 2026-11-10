@@ -175,8 +175,8 @@ func (s *InProcessSession) callObserved(ctx context.Context, name string, argume
 			}
 			return nil, fail("cancelled", "request cancelled")
 		}
-		if err == agentcapability.ErrInvalidArguments {
-			return nil, fail("validation", "invalid capability arguments")
+		if errors.Is(err, agentcapability.ErrInvalidArguments) {
+			return nil, err
 		}
 		return nil, safeError(err)
 	}

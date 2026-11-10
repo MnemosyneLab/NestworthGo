@@ -5,13 +5,14 @@ import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, CalendarOff, History, RefreshCw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useSettings } from "@/queries/settings";
@@ -77,6 +78,8 @@ function ManualQuoteForm({
       {
         onSuccess: () => {
           toast.success(t("portfolio.priceSaved"));
+          setUnitPrice("");
+          setQuotedAt(initialDate ?? "");
           onSaved();
         },
       },
@@ -130,7 +133,6 @@ function ClosedDateForm({ instrumentId, initialDate }: { instrumentId: string; i
     });
   };
   return <div className="flex flex-col gap-4">
-    <p className="text-sm text-muted-foreground">{t("portfolio.closedHelp")}</p>
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={`closed-date-${instrumentId}`}>{t("portfolio.closedDate")}</Label>
       <DatePicker id={`closed-date-${instrumentId}`} max={today} value={date} onChange={setDate} disabled={save.isPending} />
@@ -270,17 +272,15 @@ export function InstrumentManagement({
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
   const [editOverrides, setEditOverrides] = useState<ReadonlyMap<number, InstrumentDTO | null>>(() => new Map());
-  const [priceFormOverrides, setPriceFormOverrides] = useState<ReadonlyMap<number, boolean>>(() => new Map());
+  const [editorTabOverrides, setEditorTabOverrides] = useState<ReadonlyMap<number, string>>(() => new Map());
   const focusOpensEditor = focus?.action === "manual_entry" || focus?.action === "instrument_editor";
   const focusedInstrument = focusOpensEditor ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : null;
   const editTarget = active
     ? editOverrides.has(focusRequestId) ? editOverrides.get(focusRequestId) ?? null : focusedInstrument
     : null;
-  const showPriceForm = priceFormOverrides.has(focusRequestId)
-    ? priceFormOverrides.get(focusRequestId)!
-    : focus?.action === "manual_entry";
+  const editorTab = editorTabOverrides.get(focusRequestId) ?? (focus?.action === "manual_entry" && focusedInstrument?.quoteSource !== "agent" ? "price" : "details");
   const setEditTarget = (value: InstrumentDTO | null) => setEditOverrides((previous) => new Map(previous).set(focusRequestId, value));
-  const setShowPriceForm = (value: boolean) => setPriceFormOverrides((previous) => new Map(previous).set(focusRequestId, value));
+  const setEditorTab = (value: string) => setEditorTabOverrides((previous) => new Map(previous).set(focusRequestId, value));
   const [localQuery, setLocalQuery] = useState("");
   const query = controlledSearchQuery ?? localQuery;
   const searchContextByRequest = useRef(new Map<number, string>());
@@ -402,7 +402,7 @@ export function InstrumentManagement({
                       healthFocus: focus,
                     }) : undefined}
                     onEdit={() => {
-                      setShowPriceForm(false);
+                      setEditorTab("details");
                       setEditTarget(instrument);
                     }}
 
@@ -418,11 +418,11 @@ export function InstrumentManagement({
         onOpenChange={(openSheet) => {
           if (!openSheet) {
             setEditTarget(null);
-            setShowPriceForm(false);
+            setEditorTab("details");
           }
         }}
       >
-        <SheetContent className="overflow-y-auto overscroll-contain">
+        <SheetContent size="lg" className="overflow-y-auto overscroll-contain">
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
             {focus && <p className="text-sm">{focus.label} {focus.rangeStart ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd || focus.rangeStart) : ""}</p>}
@@ -435,12 +435,12 @@ export function InstrumentManagement({
                     setEditTarget(null);
                     onViewHistory(editTarget);
                   }}>
-                  {t("charts.viewHistory")}
+                  <History className="size-3.5" aria-hidden="true" />{t("charts.viewHistory")}
                 </Button>
               )}
               {onSyncInstrument && editTarget.quoteSource === "provider" && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && (
                 <Button type="button" variant="outline" size="sm" onClick={() => onSyncInstrument(editTarget)} disabled={syncingInstrumentId === editTarget.id}>
-                  {syncingInstrumentId === editTarget.id ? t("marketData.syncingInstrument") : t("marketData.syncInstrument")}
+                  <RefreshCw className="size-3.5" aria-hidden="true" />{syncingInstrumentId === editTarget.id ? t("marketData.syncingInstrument") : t("marketData.syncInstrument")}
                 </Button>
               )}
               {!managedProduct && !editTarget.managedProductId && <AlertDialog>
@@ -462,7 +462,7 @@ export function InstrumentManagement({
                         onSuccess: () => {
                           toast.success(editTarget.archivedAt ? t("common.active") : t("common.archived"));
                           setEditTarget(null);
-                          setShowPriceForm(false);
+                          setEditorTab("details");
                         },
                         onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
                       },
@@ -485,50 +485,63 @@ export function InstrumentManagement({
             </div>
           )}
           {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && (
-            <InstrumentForm
-              key={editTarget.id}
-              instrument={editTarget}
-              submitLabel={t("common.save")}
-              isSubmitting={updateInstrument.isPending}
-              submissionError={updateInstrument.isError ? displayError(updateInstrument.error, t("portfolio.updateError")) : undefined}
-              onSubmit={(request) =>
-                updateInstrument.mutate(
-                  { id: editTarget.id, request },
-                  {
-                    onSuccess: () => {
-                      toast.success(t("common.saved"));
-                      setShowPriceForm(false);
-                      setEditTarget(null);
-                    },
-                  },
-                )
-              }
-            />
-          )}
-          {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && editTarget.quoteSource !== "agent" && (
-            <div className="mt-5 border-t border-border pt-5">
-              <Button type="button" variant="outline" onClick={() => setShowPriceForm(!showPriceForm)}>
-                {t("portfolio.setPrice")}
-              </Button>
-              {showPriceForm && (
-                <div className="mt-4">
+            <Tabs key={editTarget.id} value={editorTab} onValueChange={value => setEditorTab(String(value))} className="min-w-0 shrink-0">
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4">
+                <EntityIcon iconKey={editTarget.iconKey} kind="instrument" className="mt-0.5 size-6 shrink-0 text-primary" />
+                <div className="min-w-0 space-y-2">
+                  <InstrumentLabel shortName={editTarget.shortName} name={editTarget.name} symbol={editTarget.symbol} fallback={editTarget.name} />
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">{editTarget.quoteCurrency}{metalPriceSuffix(editTarget, t)}</Badge>
+                    <Badge variant="outline">{displayEnum(t, "portfolio", editTarget.quoteSource)}</Badge>
+                  </div>
+                </div>
+              </div>
+              <TabsList variant="line" aria-label={t("portfolio.editInstrument")} className="mb-5">
+                <TabsTrigger value="details">{t("portfolio.editorDetails")}</TabsTrigger>
+                {editTarget.quoteSource !== "agent" && <TabsTrigger value="price">{t("portfolio.setPrice")}</TabsTrigger>}
+                <TabsTrigger value="closed">{t("portfolio.setClosed")}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="details" keepMounted className="mt-0">
+                <InstrumentForm
+                  key={editTarget.id}
+                  instrument={editTarget}
+                  submitLabel={t("common.save")}
+                  isSubmitting={updateInstrument.isPending}
+                  submissionError={updateInstrument.isError ? displayError(updateInstrument.error, t("portfolio.updateError")) : undefined}
+                  onSubmit={(request) =>
+                    updateInstrument.mutate(
+                      { id: editTarget.id, request },
+                      {
+                        onSuccess: () => {
+                          toast.success(t("common.saved"));
+                          setEditorTab("details");
+                          setEditTarget(null);
+                        },
+                      },
+                    )
+                  }
+                />
+              </TabsContent>
+              {editTarget.quoteSource !== "agent" && <TabsContent value="price" keepMounted className="mt-0 space-y-5">
+                <p className="text-sm leading-relaxed text-muted-foreground">{t("portfolio.editorPriceHelp")}</p>
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
                   <ManualQuoteForm
-                    key={`${editTarget.id}-price`}
                     initialDate={focus?.rangeStart}
                     instrumentId={editTarget.id}
                     currency={editTarget.quoteCurrency}
                     quantityUnit={editTarget.quantityUnit}
-                    onSaved={() => setShowPriceForm(false)}
+                    onSaved={() => setEditorTab("details")}
                   />
                 </div>
-              )}
-            </div>
-          )}
-          {editTarget && !editTarget.archivedAt && !managedProduct && !editTarget.managedProductId && (
-            <div className="mt-5 border-t border-border pt-5">
-              <h3 className="mb-4 text-sm font-semibold">{t("portfolio.setClosed")}</h3>
-              <ClosedDateForm key={`${editTarget.id}-closed`} instrumentId={editTarget.id} initialDate={focus?.rangeStart} />
-            </div>
+              </TabsContent>}
+              <TabsContent value="closed" keepMounted className="mt-0 space-y-5">
+                <div className="flex items-start gap-3 rounded-xl bg-muted/40 p-4">
+                  <CalendarOff className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <p className="text-sm leading-relaxed text-muted-foreground">{t("portfolio.closedHelp")}</p>
+                </div>
+                <ClosedDateForm instrumentId={editTarget.id} initialDate={focus?.rangeStart} />
+              </TabsContent>
+            </Tabs>
           )}
         </SheetContent>
       </Sheet>

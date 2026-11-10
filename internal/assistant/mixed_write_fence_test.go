@@ -41,7 +41,7 @@ func TestPageUnknownFencesBothFullWriteChannelsButAllowsInspection(t *testing.T)
 			}()
 			go func() {
 				started <- struct{}{}
-				_, err := r.executeFull(ctx, r.epoch, id, run, r.state.Revision, []byte("{}"))
+				_, err := r.executeCapability(ctx, r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "commit_plan", Arguments: []byte("{}")})
 				queued <- err
 			}()
 			<-started
@@ -63,8 +63,8 @@ func TestPageUnknownFencesBothFullWriteChannelsButAllowsInspection(t *testing.T)
 	if _, err := r.executeCapability(ctx, r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "create_member", Arguments: []byte("{}")}); !errors.Is(err, ErrRecoveryRequired) {
 		t.Fatalf("MCP writer bypassed page uncertainty: %v", err)
 	}
-	if _, err := r.executeFull(ctx, r.epoch, id, run, r.state.Revision, []byte("{}")); !errors.Is(err, ErrRecoveryRequired) {
-		t.Fatalf("legacy writer bypassed page uncertainty: %v", err)
+	if _, err := r.executeCapability(ctx, r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "commit_plan", Arguments: []byte("{}")}); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("ledger writer bypassed page uncertainty: %v", err)
 	}
 	for range 2 {
 		if err := <-queued; !errors.Is(err, ErrRecoveryRequired) {
@@ -152,10 +152,9 @@ func TestStartInjectsSameWriteFenceIntoPageAndFullHandlers(t *testing.T) {
 		}
 		release(true)
 		_, pageErr := CurrentPageOperator(ctx)(context.Background(), []byte("{}"))
-		_, fullErr := CurrentFullHandler(ctx)(context.Background(), []byte("{}"))
 		request, _ := jsoncodec.Marshal(FullCapabilityRequest{Name: "create_member", Arguments: []byte("{}")})
 		_, mcpErr := CurrentFullHandler(ctx)(context.Background(), request)
-		results <- []error{pageErr, fullErr, mcpErr}
+		results <- []error{pageErr, mcpErr}
 		return nil, ErrUnavailable
 	}
 	if _, err := r.Start(t.Context(), StartRequest{Epoch: r.epoch, Revision: r.state.Revision, ConversationID: id, RequestID: uuid.NewString(), Prompt: "Synthetic mixed write test"}); err != nil {

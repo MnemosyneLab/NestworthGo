@@ -274,3 +274,17 @@ assetChange/waterfall, assetChange/groups, investmentReturns/points and
 investmentReturns/sources hold complete collections. Follow every relevant cursor.
 Contribution-item, return-day and asset-driver detail also return summary headers
 and independent evidence sections. Do not parse these as embedded GUI arrays.
+
+## Choosing overlapping tools
+
+Use the intent table's default, not several overlapping totals. Use
+`get_historical_overview` for daily series or detailed historical leaf evidence;
+`compare_financial_context` is the default two-state comparison. Expand a frozen
+capture with the item tool that owns it: financial contexts use
+`get_financial_context_item`, other captures use `get_read_item`.
+
+For a single general instrument edit use `update_instrument`; for atomic
+name/shortName/note edits across instruments use `update_instruments_batch` with
+expected metadata versions. These are alternatives for one intent, not two
+steps. Prefer structured tools for supported business writes; UI operations
+must not bypass permission or retry an uncertain write through another route.
