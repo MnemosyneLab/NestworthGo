@@ -1012,6 +1012,9 @@ exists only in test fixtures. New writes use the shared registry and commit path
 Interest mode dependencies are also shared by lifecycle and terms previews:
 none/manual/simple modes constrain rate, maturity-interest and paid-through
 fields, preserving percent-over-ratio selection and trimmed empty decimals.
+Lifecycle creation (open, record-existing and renew) accepts omitted/null
+paid-through dates and lets the business layer default them to startOn. Terms
+replacement retains its explicit-date requirement for simple interest.
 Diagnostic subtree validation clones schema nodes before attaching root `$defs`;
 otherwise a shared nullable definition could violate the validator's tree rule
 and hide the actual invalid field. Type messages include the schema-owned path

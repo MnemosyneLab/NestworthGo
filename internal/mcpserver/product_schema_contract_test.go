@@ -90,6 +90,7 @@ func TestProductInterestContract(t *testing.T) {
 		{"simple percent", "simple_act_360", map[string]any{"maturityInterest": nil, "annualRatePercent": "2", "interestPaidThroughOn": "2026-09-01"}, true},
 		{"percent precedence", "simple_act_365", map[string]any{"maturityInterest": nil, "annualRatePercent": "2", "annualRate": "ignored", "interestPaidThroughOn": "2026-09-01"}, true},
 		{"simple missing rate", "simple_act_365", map[string]any{"maturityInterest": nil, "interestPaidThroughOn": "2026-09-01"}, false},
+		{"simple blank paid through", "simple_act_365", map[string]any{"maturityInterest": nil, "annualRate": "0.02", "interestPaidThroughOn": ""}, false},
 		{"simple missing paid through", "simple_act_365", map[string]any{"maturityInterest": nil, "annualRate": "0.02"}, false},
 		{"simple interest forbidden", "simple_act_365", map[string]any{"annualRate": "0.02", "interestPaidThroughOn": "2026-09-01"}, false},
 		{"simple locked product forbidden", "simple_act_365", map[string]any{"kind": "locked_product", "maturityInterest": nil, "annualRate": "0.02", "interestPaidThroughOn": "2026-09-01"}, false},
@@ -118,8 +119,12 @@ func TestProductInterestContract(t *testing.T) {
 						t.Fatalf("missing rate diagnostic: %#v", detail)
 					}
 				}
-				if (err == nil) != tc.valid {
-					t.Fatalf("%s valid=%v: %#v", tool, tc.valid, err)
+				valid := tc.valid
+				if tc.name == "simple missing paid through" && tool == "preview_product_operation" {
+					valid = true
+				}
+				if (err == nil) != valid {
+					t.Fatalf("%s valid=%v: %#v", tool, valid, err)
 				}
 			}
 		})

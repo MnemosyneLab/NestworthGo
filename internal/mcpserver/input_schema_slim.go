@@ -91,7 +91,7 @@ func productOperationInputSchema() *jsonschema.Schema {
 	}
 	s.Properties["renew"].Properties["settle"] = schemaRef("productSettle")
 	s.Properties["settle"] = &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Type: "null"}, schemaRef("productSettle")}}
-	productTermsSchema(terms)
+	productTermsSchema(terms, true)
 	productPolicySchema(policy, true)
 	productTimeSchema(s.Properties["open"])
 	productTimeSchema(s.Properties["receiveInterest"])

@@ -64,7 +64,7 @@ func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 	if strings.Count(productRaw, `"$ref":"#/$defs/productTerms"`) != 3 || strings.Count(productRaw, `"$ref":"#/$defs/productPolicy"`) != 3 || strings.Count(productRaw, `"$ref":"#/$defs/productSettle"`) != 2 {
 		t.Fatalf("shared product refs were inlined or dropped: %s", productRaw)
 	}
-	assertRequired(t, productRaw, "productTerms", "kind", "name", "note", "startOn", "maturityOn", "interestMode", "annualRate", "annualRatePercent", "maturityInterest", "interestPaidThroughOn")
+	assertRequired(t, productRaw, "productTerms", "kind", "name", "note", "startOn", "maturityOn", "interestMode", "annualRate", "annualRatePercent", "maturityInterest")
 	assertRequired(t, productRaw, "productPolicy", "accessibleAmountCap", "accessKind", "unlockOn", "settlementDays", "dayBasis", "receiptOnOverride", "normalExitFee", "earlyKind", "earlySettlementDays", "earlyDayBasis", "earlyFee", "earlyAmountMode", "earlyGrossAmount", "note")
 	productResolved, err := product.Resolve(nil)
 	if err != nil {

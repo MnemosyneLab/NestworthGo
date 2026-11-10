@@ -58,7 +58,7 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			{Required: []string{"targets"}, Not: schemaAnyRequired("instrumentId", "baseCurrency", "quoteCurrency")},
 		}
 	case "preview_product_terms":
-		productTermsSchema(s.Properties["terms"])
+		productTermsSchema(s.Properties["terms"], false)
 		productPolicySchema(s.Properties["policy"], true)
 	case "preview_save_liquidity_policy":
 		productPolicySchema(s.Properties["policy"], false)

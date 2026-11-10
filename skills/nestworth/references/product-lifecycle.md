@@ -118,9 +118,13 @@ without nonempty local fields. Do not combine these time sources.
 Interest terms are conditional: `none` leaves both rate fields, maturity interest
 and paid-through date empty; `manual_maturity_amount` requires a nonblank string
 `maturityInterest` and leaves rates and paid-through date empty. Simple ACT/365
-and ACT/360 require `term_deposit`, a nonblank rate (`annualRatePercent` takes
-precedence over `annualRate`) and `interestPaidThroughOn`, with no manual maturity
-interest. Paid-through dates must fall within the term; date comparisons and
+and ACT/360 require `term_deposit` and a nonblank rate (`annualRatePercent` takes
+precedence over `annualRate`), with no manual maturity interest. For `open`,
+`record_existing` and `renew`, omitted or null `interestPaidThroughOn` defaults
+to `startOn`; an explicit date is preserved. In `preview_product_terms`, simple
+interest requires an explicit `interestPaidThroughOn`: replacing terms does not
+apply the opening default. An empty string is not a missing date.
+Paid-through dates must fall within the term; date comparisons and
 exact rate/amount parsing remain authoritative business validation. Decimal
 amounts and rates use JSON strings, never numbers. A type error identifies the
 field path and expected JSON type; correct the representation without changing

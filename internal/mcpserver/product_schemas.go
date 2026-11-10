@@ -1,8 +1,21 @@
 package mcpserver
 
-import "github.com/google/jsonschema-go/jsonschema"
+import (
+	"slices"
 
-func productTermsSchema(s *jsonschema.Schema) {
+	"github.com/google/jsonschema-go/jsonschema"
+)
+
+func productTermsSchema(s *jsonschema.Schema, defaultPaidThrough bool) {
+	paidThrough := &jsonschema.Schema{Type: "string", MinLength: intPointer(1)}
+	if defaultPaidThrough {
+		// Opening, recording and renewal default a missing/null date to startOn.
+		// Terms replacement does not: its simple-interest date must be explicit.
+		paidThrough = &jsonschema.Schema{AnyOf: []*jsonschema.Schema{paidThrough, {Type: "null"}}}
+		s.Required = slices.DeleteFunc(s.Required, func(name string) bool { return name == "interestPaidThroughOn" })
+		s.Properties["interestPaidThroughOn"] = paidThrough.CloneSchemas()
+	}
+
 	setSchemaEnum(s.Properties["kind"], []string{"term_deposit", "locked_product"})
 	setSchemaEnum(s.Properties["interestMode"], []string{"none", "manual_maturity_amount", "simple_act_365", "simple_act_360"})
 	s.AllOf = append(s.AllOf, &jsonschema.Schema{If: propertyEquals("kind", "term_deposit"), Then: nonNullProperties("maturityOn")})
@@ -16,7 +29,7 @@ func productTermsSchema(s *jsonschema.Schema) {
 			"annualRate": blankDecimal(), "annualRatePercent": blankDecimal(), "maturityInterest": presentDecimal(), "interestPaidThroughOn": {Type: "null"},
 		}}},
 		&jsonschema.Schema{If: requiredEnum("interestMode", "simple_act_365", "simple_act_360"), Then: &jsonschema.Schema{
-			Properties: map[string]*jsonschema.Schema{"kind": {Enum: []any{"term_deposit"}}, "maturityInterest": blankDecimal(), "interestPaidThroughOn": {Type: "string", MinLength: intPointer(1)}},
+			Properties: map[string]*jsonschema.Schema{"kind": {Enum: []any{"term_deposit"}}, "maturityInterest": blankDecimal(), "interestPaidThroughOn": paidThrough},
 			If:         &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"annualRatePercent": blankDecimal()}},
 			Then:       &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"annualRate": presentDecimal()}},
 		}},
