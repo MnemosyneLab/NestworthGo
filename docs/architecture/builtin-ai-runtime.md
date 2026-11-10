@@ -305,14 +305,18 @@ message only after terminal success, full item/framing validation and clean EOF.
 The whole call inventory is checked before dispatch; a response mixing a valid
 read with an unavailable tool dispatches neither. Cancellation after `response.completed`
 but before EOF also dispatches nothing. Provisional text is displayed separately and never authorizes a tool or advances history. There is no SDK request retry, automatic run replay,
-remote checkpoint, compactor or summary replacement. A refused read returns an
-allowlisted code, an optional allowlisted field name and a fixed `retryAction`.
-Validation asks for corrected input; expired or revoked captures ask for a
-same-scope restart; oversize and busy reads have their own guidance. Permission,
-session and unexpected errors stop the attempted read. No original error text or
-financial facts enter model history. Write recovery still requires receipt
-inspection when the outcome is uncertain. Provider/framing, context cancellation
-and invalid/oversized result failures still fail closed.
+remote checkpoint, compactor or summary replacement. Tool failures preserve the
+shared application business diagnostic (`code`, `field`, `message`) without a
+second provider-specific code/field allowlist or generic message substitution.
+Schema failures also retain their `rule` and `expected` constraints. Validation
+asks for corrected input; expired or revoked captures ask for a same-scope
+restart; oversize and busy reads have their own guidance. Unexpected untyped
+infrastructure errors remain generic at the existing application error boundary;
+raw SQL, filesystem errors and provider transport bodies are not forwarded.
+Business data in diagnostic text is treated like other authorized tool data,
+never as instructions. Write recovery still requires receipt inspection when the
+outcome is uncertain. Provider/framing, context cancellation and invalid/oversized
+result failures still fail closed.
 
 A successful checkpoint retains the complete Eino messages, native output groups,
 opaque reasoning, tool call/result order and provider/model identity. It is never
@@ -982,10 +986,19 @@ source admission and mutation recovery remain authoritative.
 Shared schema validation returns only schema-owned field paths, constraint names
 and allowed enum values (`field`, `rule`, `expected`), never rejected values or
 raw validator messages. Batch paths retain the command index. Built-in reads and
-previews preserve known business failure codes with fixed recovery guidance.
-Proven pre-dispatch write refusals include the safe cause and `not_dispatched`;
-unknown post-dispatch outcomes remain inspection-only. The external MCP adapter
-uses the same validation before SDK dispatch. Ledger variants publish their
+previews preserve the same business code, field and message as external MCP,
+including newly introduced business codes and fields. Recovery guidance remains
+separate from the diagnostic, and an unfamiliar code does not erase its message.
+Shared preflight includes typed decoding, not only JSON Schema validation. A
+schema-valid number that the typed handler cannot decode (for example `1.0` for
+an integer field or an out-of-range integer) is rejected with `typed_decode`
+before business dispatch or receipt creation. Original numeric lexemes are not
+rewritten, preserving exact input and idempotency fingerprints. The dispatch
+observation is set only after successful typed decode and the last cancellation
+check, immediately before business handler entry. Proven pre-dispatch write
+refusals include the cause and `not_dispatched`; unknown post-dispatch outcomes
+remain inspection-only. The external MCP adapter uses the same validation before
+SDK dispatch. Ledger variants publish their
 allowed fields, required values, reason/side enums, paired charges and mutually
 exclusive time shapes; correction uses its own fix/undo constraints.
 
@@ -999,7 +1012,8 @@ parsing, revision checks and financial invariants remain in the domain layer.
 
 The shared schema diagnostic traverses refs, allOf/anyOf, conditionals and
 range/length constraints, publishing only schema-owned paths and bounds. The
-provider preserves allowlisted product/history failure codes and nested fields.
+provider preserves shared product/history business messages, codes and nested
+fields without maintaining another diagnostic allowlist.
 Only the durable operation gate may mark an exact failed receipt; the provider
 returns its safe cause as `write_failed`, distinct from unsubmitted and unknown
 outcomes. It is not permission to automatically replay a write.
