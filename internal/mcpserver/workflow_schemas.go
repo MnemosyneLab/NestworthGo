@@ -11,7 +11,7 @@ import (
 // date, identity, permission, source, and CAS validation remain authoritative.
 func workflowSchema[I any](name string) *jsonschema.Schema {
 	switch name {
-	case "create_investment_review_rule", "update_investment_review_rule", "preview_investment_review_rule", "list_activities", "preview_batch", "preview_correction", "get_data_repair_job", "get_market_data":
+	case "create_investment_review_rule", "update_investment_review_rule", "preview_investment_review_rule", "list_activities", "preview_batch", "preview_correction", "preview_product_terms", "preview_save_liquidity_policy", "get_data_repair_job", "get_market_data":
 	default:
 		return nil
 	}
@@ -57,6 +57,11 @@ func workflowSchema[I any](name string) *jsonschema.Schema {
 			{Required: []string{"baseCurrency", "quoteCurrency"}, Not: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{schemaAnyRequired("instrumentId"), batchOnly()}}},
 			{Required: []string{"targets"}, Not: schemaAnyRequired("instrumentId", "baseCurrency", "quoteCurrency")},
 		}
+	case "preview_product_terms":
+		productTermsSchema(s.Properties["terms"])
+		productPolicySchema(s.Properties["policy"], true)
+	case "preview_save_liquidity_policy":
+		productPolicySchema(s.Properties["policy"], false)
 	case "preview_correction":
 		setSchemaEnum(s.Properties["action"], []string{"fix", "undo"})
 		s.OneOf = []*jsonschema.Schema{{Properties: map[string]*jsonschema.Schema{"action": {Enum: []any{"fix"}}}, Required: []string{"replacement"}}, {Properties: map[string]*jsonschema.Schema{"action": {Enum: []any{"undo"}}}, Not: &jsonschema.Schema{Required: []string{"replacement"}}}}

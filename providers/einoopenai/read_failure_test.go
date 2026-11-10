@@ -39,6 +39,9 @@ func TestReadRefusalsGiveDistinctSafeModelRecovery(t *testing.T) {
 		field   string
 		action  string
 	}{
+		{"product nested", &apierror.WireError{Code: "validation", Field: "open.policy.earlyDayBasis", Message: secret}, "validation", "open.policy.earlyDayBasis", "correct_input"},
+		{"product conflict", &apierror.WireError{Code: "managed_position_conflict", Field: "productId", Message: secret}, "managed_position_conflict", "productId", "inspect_current_state"},
+		{"private prefix", &apierror.WireError{Code: "validation", Field: secret + ".policy.dayBasis", Message: secret}, "validation", "", "correct_input"},
 		{"registry_validation", agentcapability.ErrInvalidArguments, "validation", "", "correct_input"},
 		{"typed_validation", &apierror.WireError{Code: "validation", Field: "limit", Message: secret}, "validation", "limit", "correct_input"},
 		{"expired", &apierror.WireError{Code: "read_expired", Message: secret}, "read_expired", "", "restart_read"},

@@ -103,3 +103,14 @@ currently have no historical fix path. Resolve mistakes within GUI support.
 Never use generic fix tools that bypass managed protection. An integrity_failed
 receipt is not a failed financial transaction to retry under a fresh intent.
 Inspect current facts and use the GUI. Do not repost to repair metadata.
+
+## Argument constraints
+
+Use the enum values in discovery for product kind, interest mode, access/early
+exit mode and settlement day basis. Settlement days are integers from 0 to 365;
+non-null settlement days require a day basis. Allowed early exits require their
+settlement days, basis, fee and amount mode; `fixed_gross` also needs the gross
+amount. Ordinary `on_date` policies require an unlock date; managed term deposits
+may derive it from maturity. For lifecycle operations, `effectiveAt` is a required
+string: use `""` with a complete local date/time pair, or an explicit timestamp
+without nonempty local fields. Do not combine these time sources.

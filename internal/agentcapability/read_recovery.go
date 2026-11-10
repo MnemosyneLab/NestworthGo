@@ -28,7 +28,7 @@ func ReadRetryAction(code, field string) string {
 		return "inspect_limits_or_narrow_read"
 	case "read_busy", "context_busy", "backup_restore_busy":
 		return "retry_later"
-	case "not_found", "insufficient_balance", "invalid_change", "invalid_change_time", "cash_balance_time_conflict", "no_change":
+	case "revision_conflict", "managed_position_conflict", "unsupported_partial_operation", "insufficient_quantity", "already_undone", "cannot_fix_change", "transfer_mismatch", "invalid_trade", "cost_basis_required", "unsafe_undo", "not_found", "insufficient_balance", "invalid_change", "invalid_change_time", "cash_balance_time_conflict", "no_change":
 		return "inspect_current_state"
 	default:
 		return "stop"

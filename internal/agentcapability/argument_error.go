@@ -42,10 +42,13 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 	if strings.HasPrefix(s.Ref, "#/$defs/") {
 		return explainArgument(root, root.Defs[strings.TrimPrefix(s.Ref, "#/$defs/")], value, path, depth+1)
 	}
+	if schemaAcceptsRoot(root, s, value) {
+		return nil
+	}
 	issue := func(rule string, expected ...string) *ArgumentError {
 		return &ArgumentError{Field: path, Rule: rule, Expected: expected}
 	}
-	if len(s.Enum) > 0 && !schemaAccepts(&jsonschema.Schema{Enum: s.Enum}, value) {
+	if len(s.Enum) > 0 && !schemaAcceptsRoot(root, &jsonschema.Schema{Enum: s.Enum}, value) {
 		expected := []string{}
 		for _, v := range s.Enum {
 			if text, ok := v.(string); ok {
@@ -54,8 +57,64 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 		}
 		return issue("enum", expected...)
 	}
-	if s.Type != "" && !schemaAccepts(&jsonschema.Schema{Type: s.Type}, value) {
+	if len(s.Types) > 0 && !schemaAcceptsRoot(root, &jsonschema.Schema{Types: s.Types}, value) {
+		return issue("type", s.Types...)
+	}
+	if s.Type != "" && !schemaAcceptsRoot(root, &jsonschema.Schema{Type: s.Type}, value) {
 		return issue("type", s.Type)
+	}
+	// Evaluate constraints independently so diagnostics contain only the
+	// schema keyword and declared bounds, never validator text or input values.
+	constraints := []struct {
+		rule   string
+		schema *jsonschema.Schema
+		bound  any
+	}{
+		{"minimum", &jsonschema.Schema{Minimum: s.Minimum}, s.Minimum},
+		{"maximum", &jsonschema.Schema{Maximum: s.Maximum}, s.Maximum},
+		{"exclusiveMinimum", &jsonschema.Schema{ExclusiveMinimum: s.ExclusiveMinimum}, s.ExclusiveMinimum},
+		{"exclusiveMaximum", &jsonschema.Schema{ExclusiveMaximum: s.ExclusiveMaximum}, s.ExclusiveMaximum},
+		{"minLength", &jsonschema.Schema{MinLength: s.MinLength}, s.MinLength},
+		{"maxLength", &jsonschema.Schema{MaxLength: s.MaxLength}, s.MaxLength},
+		{"minItems", &jsonschema.Schema{MinItems: s.MinItems}, s.MinItems},
+		{"maxItems", &jsonschema.Schema{MaxItems: s.MaxItems}, s.MaxItems},
+		{"pattern", &jsonschema.Schema{Pattern: s.Pattern}, s.Pattern},
+		{"multipleOf", &jsonschema.Schema{MultipleOf: s.MultipleOf}, s.MultipleOf},
+		{"uniqueItems", &jsonschema.Schema{UniqueItems: s.UniqueItems}, s.UniqueItems},
+	}
+	for _, constraint := range constraints {
+		if !schemaAcceptsRoot(root, constraint.schema, value) {
+			raw, _ := jsoncodec.Marshal(constraint.bound)
+			return issue(constraint.rule, string(raw))
+		}
+	}
+	for _, branch := range s.AllOf {
+		if e := explainArgument(root, branch, value, path, depth+1); e != nil {
+			return e
+		}
+	}
+	if s.If != nil {
+		branch := s.Else
+		if schemaAcceptsRoot(root, s.If, value) {
+			branch = s.Then
+		}
+		if e := explainArgument(root, branch, value, path, depth+1); e != nil {
+			return e
+		}
+	}
+	if len(s.AnyOf) > 0 {
+		for _, branch := range s.AnyOf {
+			candidate := branch
+			if strings.HasPrefix(branch.Ref, "#/$defs/") {
+				candidate = root.Defs[strings.TrimPrefix(branch.Ref, "#/$defs/")]
+			}
+			if candidate != nil && (candidate.Type != "" || len(candidate.Types) > 0) && schemaAcceptsRoot(root, &jsonschema.Schema{Type: candidate.Type, Types: candidate.Types}, value) {
+				if e := explainArgument(root, branch, value, path, depth+1); e != nil {
+					return e
+				}
+			}
+		}
+		return issue("any_of")
 	}
 	if object, ok := value.(map[string]any); ok {
 		for _, name := range s.Required {
@@ -92,7 +151,7 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 		// Choose only a schema-owned discriminator; do not guess a union branch.
 		for _, branch := range s.OneOf {
 			for _, key := range []string{"kind", "action"} {
-				if p := branch.Properties[key]; p != nil && len(p.Enum) > 0 && schemaAccepts(p, object[key]) {
+				if p := branch.Properties[key]; p != nil && len(p.Enum) > 0 && schemaAcceptsRoot(root, p, object[key]) {
 					if e := explainArgument(root, branch, value, path, depth+1); e != nil {
 						return e
 					}
@@ -101,8 +160,19 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 		}
 		if s.PropertyNames != nil {
 			for name := range object {
-				if !schemaAccepts(s.PropertyNames, name) {
+				if !schemaAcceptsRoot(root, s.PropertyNames, name) {
 					return issue("unexpected_field")
+				}
+			}
+		}
+		if s.PropertyNames != nil && len(s.PropertyNames.Enum) > 0 && s.AdditionalProperties != nil {
+			for _, known := range s.PropertyNames.Enum {
+				if name, ok := known.(string); ok && s.Properties[name] == nil {
+					if v, present := object[name]; present {
+						if e := explainArgument(root, s.AdditionalProperties, v, joinArgumentPath(path, name), depth+1); e != nil {
+							return e
+						}
+					}
 				}
 			}
 		}
@@ -121,13 +191,13 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 			}
 		}
 	}
-	if s.Not != nil && schemaAccepts(s.Not, value) {
+	if s.Not != nil && schemaAcceptsRoot(root, s.Not, value) {
 		return issue("forbidden_combination")
 	}
 	if len(s.OneOf) > 0 {
 		matches := 0
 		for _, b := range s.OneOf {
-			if schemaAccepts(b, value) {
+			if schemaAcceptsRoot(root, b, value) {
 				matches++
 			}
 		}
@@ -142,4 +212,15 @@ func joinArgumentPath(parent, name string) string {
 		return name
 	}
 	return parent + "." + name
+}
+
+func schemaAcceptsRoot(root, s *jsonschema.Schema, value any) bool {
+	if s == nil {
+		return true
+	}
+	detached := *s
+	if detached.Defs == nil {
+		detached.Defs = root.Defs
+	}
+	return schemaAccepts(&detached, value)
 }

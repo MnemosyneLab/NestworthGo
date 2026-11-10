@@ -31,3 +31,35 @@ func TestSchemaDiagnosticNeverEchoesDynamicKeysOrValues(t *testing.T) {
 		t.Fatal("valid input rejected", err)
 	}
 }
+
+func TestSchemaDiagnosticConstraintsAndBranches(t *testing.T) {
+	for _, tc := range []struct{ name, schema, input, field, rule string }{
+		{"range", `{"type":"object","properties":{"limit":{"type":"integer","maximum":100}}}`, `{"limit":101}`, "limit", "maximum"},
+		{"length", `{"type":"object","properties":{"name":{"type":"string","maxLength":3}}}`, `{"name":"PRIVATE"}`, "name", "maxLength"},
+		{"allOf", `{"type":"object","allOf":[{"properties":{"limit":{"minimum":0}}}]}`, `{"limit":-1}`, "limit", "minimum"},
+		{"then", `{"type":"object","if":{"properties":{"mode":{"const":"local"}}},"then":{"required":["date"]}}`, `{"mode":"local"}`, "date", "required"},
+		{"else", `{"type":"object","if":{"properties":{"mode":{"const":"local"}}},"else":{"required":["timestamp"]}}`, `{"mode":"remote"}`, "timestamp", "required"},
+		{"ref union", `{"type":"object","$defs":{"bounded":{"type":"integer","maximum":100}},"properties":{"limit":{"anyOf":[{"type":"null"},{"$ref":"#/$defs/bounded"}]}}}`, `{"limit":101}`, "limit", "maximum"},
+		{"nullable ref union", `{"type":"object","$defs":{"bounded":{"type":["integer","null"],"maximum":100}},"properties":{"limit":{"anyOf":[{"type":"string"},{"$ref":"#/$defs/bounded"}]}}}`, `{"limit":101}`, "limit", "maximum"},
+		{"compressed property", `{"type":"object","propertyNames":{"enum":["name"]},"additionalProperties":{"type":"string"}}`, `{"name":123}`, "name", "type"},
+		{"nullable type", `{"type":"object","properties":{"limit":{"type":["integer","null"]}}}`, `{"limit":"PRIVATE"}`, "limit", "type"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var s, v any
+			if err := jsoncodec.Unmarshal([]byte(tc.schema), &s); err != nil {
+				t.Fatal(err)
+			}
+			if err := jsoncodec.Unmarshal([]byte(tc.input), &v); err != nil {
+				t.Fatal(err)
+			}
+			var detail ArgumentError
+			if !errors.As(argumentError(s, v), &detail) || detail.Field != tc.field || detail.Rule != tc.rule {
+				t.Fatalf("diagnostic: %+v", detail)
+			}
+			raw, _ := jsoncodec.Marshal(detail)
+			if strings.Contains(string(raw), "PRIVATE") {
+				t.Fatal("input leaked")
+			}
+		})
+	}
+}

@@ -130,7 +130,7 @@ func TestHostReviewProcessChild(t *testing.T) {
 }
 
 func processSubmit(t *testing.T, local *InProcessSession, id, _ string) (HostChangeReview, error) {
-	return local.ExecuteFullChange(t.Context(), id)
+	return local.executeLegacyFixture(t.Context(), id)
 }
 
 func TestHostReviewAcrossProcessRestart(t *testing.T) {

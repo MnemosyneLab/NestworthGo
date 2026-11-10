@@ -10,7 +10,9 @@ import (
 // Keep discovery and prose bounded for both public permission modes. Read-write
 // includes review management. The explicit finite review spec adds 4,628 bytes
 // per preview/create/update definition. Ledger enums and variant exclusions
-// add about 3.7 KiB across preview_batch/correction; unrelated budgets stay bounded.
+// add about 3.7 KiB across preview_batch/correction. Product enums, conditional
+// policy fields and local-time rules add about 5 KiB across three previews.
+// Unrelated budgets stay bounded.
 const (
 	maxToolDescriptionBytes = 1500
 	maxInstructionsBytes    = 2400
@@ -18,7 +20,7 @@ const (
 
 var discoveryBudgetBytes = map[string]int{
 	ReadOnly:  65300,
-	ReadWrite: 135000,
+	ReadWrite: 140000,
 }
 
 func TestDiscoveryBudget(t *testing.T) {

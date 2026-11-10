@@ -53,9 +53,9 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.16; published skill: 2.0.0
+### Current repository skill: 3.0.17; published skill: 2.0.0
 
-Repository skill 3.0.16 documents the unified ledger preview/commit path, exact argument constraints, structured error recovery and selection rules for overlapping tools. It does not load installed skills in the App or change permissions/recovery.
+Repository skill 3.0.17 documents the unified ledger preview/commit path, exact argument constraints, product policy/time constraints, structured error recovery (including durable failed writes) and selection rules for overlapping tools. It does not load installed skills in the App or change permissions/recovery.
 
 Repository skill 3.0.14 documents the two MCP modes, `read_only` and
 `read_write`. The read-write mode includes directory, ledger and
@@ -146,7 +146,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Repository skill 3.0.16 is not published: `--version latest` still selects App v0.3.10
+Repository skill 3.0.17 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

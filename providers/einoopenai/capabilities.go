@@ -163,6 +163,10 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 			if errors.Is(err, assistant.ErrRecoveryRequired) {
 				return "", errCapabilityWriteRecoveryRequired
 			}
+			var recorded agentcapability.WriteFailure
+			if errors.As(err, &recorded) {
+				return "", recordedWriteFailure{cause: classifyReadFailure(recorded.Cause), operationID: recorded.OperationID}
+			}
 			var unsubmitted interface{ NotDispatched() bool }
 			if errors.As(err, &unsubmitted) && unsubmitted.NotDispatched() {
 				if t.name == "operate_page" {
@@ -226,5 +230,28 @@ func submissionDiagnostic(err error, fallback string) string {
 		detail.Code = "page_operation_refused"
 	}
 	raw, _ := jsoncodec.Marshal(map[string]any{"state": "not_dispatched", "error": detail, "causeCode": reasonCode})
+	return string(raw)
+}
+
+var errRecordedWriteFailure = errors.New("write has a durable failed receipt")
+
+type recordedWriteFailure struct {
+	cause       readFailure
+	operationID string
+}
+
+func (e recordedWriteFailure) Error() string { return errRecordedWriteFailure.Error() }
+func (e recordedWriteFailure) Unwrap() error { return errRecordedWriteFailure }
+func recordedWriteDiagnostic(err error) string {
+	var failure recordedWriteFailure
+	if !errors.As(err, &failure) {
+		return ""
+	}
+	detail := failure.cause
+	cause := detail.Code
+	detail.Code = "write_failed"
+	detail.RetryAction = "inspect_failed_operation"
+	detail.Recovery = "The exact operation has a durable failed receipt. Explain its cause and inspect current state before correcting the intent. Do not automatically replay or replace this write; this says nothing about other uncertain operations."
+	raw, _ := jsoncodec.Marshal(map[string]any{"state": "failed", "operationId": failure.operationID, "causeCode": cause, "error": detail})
 	return string(raw)
 }

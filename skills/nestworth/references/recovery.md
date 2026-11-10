@@ -165,3 +165,11 @@ the rejected attempt. Its `causeCode` identifies validation, permissions or
 availability; it does not clear an older uncertain operation. A
 `write_requires_inspection` result still requires inspection of the original
 receipt and must never trigger a replacement write via another tool or the UI.
+
+For built-in AI, `write_failed` with `state=failed` includes the exact
+`operationId` and a safe `causeCode`. It is emitted only after a matching failed
+receipt is durable. Explain the cause and inspect the receipt/current state
+before correcting the intent; do not automatically replay or replace the write.
+This proof does not resolve another uncertain operation. Schema `expected` can
+also describe bounds or types; nested policy fields and conditional requirements
+are reported without echoing submitted values.

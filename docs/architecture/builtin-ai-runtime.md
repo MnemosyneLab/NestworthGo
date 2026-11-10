@@ -988,3 +988,23 @@ unknown post-dispatch outcomes remain inspection-only. The external MCP adapter
 uses the same validation before SDK dispatch. Ledger variants publish their
 allowed fields, required values, reason/side enums, paired charges and mutually
 exclusive time shapes; correction uses its own fix/undo constraints.
+
+### Product contracts and durable failure diagnostics
+
+Product lifecycle, terms and liquidity-policy tools share enum, settlement-range
+and conditional policy schemas. Local product timestamps cannot be combined
+with a nonempty local date/time pair; empty local DTO defaults remain accepted.
+Managed term deposits retain their maturity-derived unlock date. Decimal/date
+parsing, revision checks and financial invariants remain in the domain layer.
+
+The shared schema diagnostic traverses refs, allOf/anyOf, conditionals and
+range/length constraints, publishing only schema-owned paths and bounds. The
+provider preserves allowlisted product/history failure codes and nested fields.
+Only the durable operation gate may mark an exact failed receipt; the provider
+returns its safe cause as `write_failed`, distinct from unsubmitted and unknown
+outcomes. It is not permission to automatically replay a write.
+
+The obsolete `PreviewFullChange`/`ExecuteFullChange` production methods and their
+private single-change preview writer are removed. Legacy review inspection and
+cancellation remain for stored recovery references; legacy receipt creation
+exists only in test fixtures. New writes use the shared registry and commit path.

@@ -299,3 +299,71 @@ func TestFullCommitCancelledWhileLoadingValidPreview(t *testing.T) {
 		})
 	}
 }
+
+func TestFullDurableFailureProofMatchesExactOperation(t *testing.T) {
+	s := newLocal(t, newLedgerFixture(t), ReadWrite)
+	operation := uuid.NewString()
+	args := []byte(`{"operationId":"` + operation + `","input":{"name":""}}`)
+	for attempt := 0; attempt < 2; attempt++ {
+		_, err := s.CallFull(t.Context(), "create_member", args)
+		var failed agentcapability.WriteFailure
+		if !errors.As(err, &failed) || failed.OperationID != operation {
+			t.Fatalf("missing exact durable failure: %v", err)
+		}
+		receipt, err := s.InspectFullOperation(operation)
+		if err != nil || receipt.Status != "failed" {
+			t.Fatalf("missing failed receipt: %+v %v", receipt, err)
+		}
+	}
+	_, err := s.CallFull(t.Context(), "create_member", []byte(`{"operationId":"`+operation+`","input":{"name":"Different"}}`))
+	var failed agentcapability.WriteFailure
+	if errors.As(err, &failed) {
+		t.Fatal("different arguments inherited old failure proof")
+	}
+	path, _ := s.service.operationPath(operation)
+	receipt, lookupErr := s.InspectFullOperation(operation)
+	if lookupErr != nil {
+		t.Fatal(lookupErr)
+	}
+	receipt.Status = "pending"
+	if err := s.service.writePrivate(path, receipt); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.CallFull(t.Context(), "create_member", args)
+	if errors.As(err, &failed) {
+		t.Fatal("pending receipt became a proven failure")
+	}
+}
+
+type failFailedReceiptRepository struct {
+	settings.ConfigurationRepository
+}
+
+func (r *failFailedReceiptRepository) SaveConfiguration(key string, value []byte) error {
+	var receipt Operation
+	if strings.Contains(key, ".operation.") && jsoncodec.Unmarshal(value, &receipt) == nil && receipt.Status == "failed" {
+		return errors.New("synthetic receipt storage failure")
+	}
+	return r.ConfigurationRepository.SaveConfiguration(key, value)
+}
+func TestFullFailureRequiresDurableReceipt(t *testing.T) {
+	directory := t.TempDir()
+	app, db := openLocalApp(t, filepath.Join(directory, "synthetic.db"))
+	newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	repository := &failFailedReceiptRepository{sqlite.NewConfigurationRepository(db)}
+	s, err := NewInProcessSession(t.Context(), app, directory, uuid.NewString(), ReadWrite, nil, repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	operation := uuid.NewString()
+	_, err = s.CallFull(t.Context(), "create_member", []byte(`{"operationId":"`+operation+`","input":{"name":""}}`))
+	var failed agentcapability.WriteFailure
+	if err == nil || errors.As(err, &failed) {
+		t.Fatalf("undurable failure became definitive: %v", err)
+	}
+	receipt, lookup := s.InspectFullOperation(operation)
+	if lookup != nil || receipt.Status != "unknown" {
+		t.Fatalf("lost pending receipt: %+v %v", receipt, lookup)
+	}
+}

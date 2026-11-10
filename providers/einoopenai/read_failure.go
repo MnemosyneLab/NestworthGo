@@ -58,20 +58,32 @@ func classifyReadFailure(err error) readFailure {
 func newReadFailure(code, field string) readFailure {
 	switch code {
 	case "validation", "read_expired", "read_revoked", "context_expired", "context_revoked", "stale_cursor",
-		"stale_preview", "conflict", "too_large", "read_busy", "context_busy", "backup_restore_busy", "not_found",
+		"managed_position_conflict", "unsupported_partial_operation", "receipt_pending", "unsafe_undo", "revision_conflict", "insufficient_quantity", "already_undone", "cannot_fix_change", "transfer_mismatch", "invalid_trade", "cost_basis_required", "history_update_failed", "database_upgrade_required", "database_from_newer_version", "database_integrity_failed", "malformed_provider_response", "market_data_response_too_large", "stale_preview", "conflict", "too_large", "read_busy", "context_busy", "backup_restore_busy", "not_found",
 		"approval_required", "permission_denied", "session_revoked", "database_unavailable",
 		"household_unavailable", "unavailable", "cancelled", "insufficient_balance", "invalid_change", "invalid_change_time", "history_not_started", "history_timezone_required", "cash_balance_time_conflict", "no_change", "decimal_overflow", "provider_unavailable", "provider_authentication", "provider_rate_limit", "unsupported_provider_symbol", "unresolved_reservation_release", "internal":
 	default:
 		code, field = "controlled_read_refused", ""
 	}
 	prefix := ""
-	if match := batchField.FindStringSubmatch(field); match != nil {
-		prefix, field = match[1], match[2]
+	parts := strings.Split(field, ".")
+	for _, part := range parts[:len(parts)-1] {
+		switch part {
+		case "input", "changes", "replacement", "open", "recordExisting", "receiveInterest", "settle", "renew", "terms", "policy":
+		default:
+			if !batchField.MatchString(part) {
+				field = ""
+			}
+		}
 	}
+	if field != "" && len(parts) > 1 {
+		prefix = strings.Join(parts[:len(parts)-1], ".") + "."
+		field = parts[len(parts)-1]
+	}
+
 	// A domain handler can set arbitrary fields. Preserve only names declared
 	// by our tool contracts, never a supplied value or dynamic map key.
 	switch field {
-	case "reason", "side", "fee", "feeCurrency", "interestOrFee", "interestOrFeeCurrency", "quantity", "holdingId", "principal", "effectiveLocalDate", "effectiveLocalTime", "action", "replacement", "operationId", "planId", "accountId", "accountIds", "amount", "asOf", "baseCurrency", "captureId", "commands", "comparisonId", "contextId", "currency",
+	case "productId", "expectedRevision", "interestMode", "accessKind", "earlyKind", "earlyAmountMode", "dayBasis", "earlyDayBasis", "settlementDays", "earlySettlementDays", "unlockOn", "maturityOn", "startOn", "annualRate", "annualRatePercent", "maturityInterest", "interestPaidThroughOn", "earlyFee", "earlyGrossAmount", "accessibleAmountCap", "normalExitFee", "receiptOnOverride", "reason", "side", "fee", "feeCurrency", "interestOrFee", "interestOrFeeCurrency", "quantity", "holdingId", "principal", "effectiveLocalDate", "effectiveLocalTime", "action", "replacement", "operationId", "planId", "accountId", "accountIds", "amount", "asOf", "baseCurrency", "captureId", "commands", "comparisonId", "contextId", "currency",
 		"cursor", "date", "effectiveAt", "filter", "from", "fromDate", "groups", "historyLayout", "id", "instrumentId", "instrumentIds", "itemId", "kind",
 		"leftAsOf", "limit", "mode", "module", "moduleCursor", "quoteCurrency", "range", "rightAsOf", "scope", "section", "sections",
 		"sessionId", "snapshotId", "sort", "status", "targetRef", "targets", "to", "toDate", "valuation", "view":
@@ -111,7 +123,7 @@ func readFailureDiagnostic(err error) string {
 	return string(raw)
 }
 
-var batchField = regexp.MustCompile(`^(commands\[[0-9]{1,3}\]\.)([A-Za-z]+)$`)
+var batchField = regexp.MustCompile(`^commands\[[0-9]{1,3}\]$`)
 
 func safeFailureMessage(code, field string) string {
 	switch code {
@@ -123,7 +135,21 @@ func safeFailureMessage(code, field string) string {
 			return "Trade side must be buy or sell."
 		}
 		return "A required argument is missing, invalid or incompatible with this operation."
-	case "insufficient_balance":
+	case "managed_position_conflict":
+		return "This is a managed product position. Use the product lifecycle or product terms tools, not ordinary ledger or instrument mutations."
+	case "unsupported_partial_operation":
+		return "This product operation requires the whole contract; partial operations are unsupported."
+	case "unsafe_undo", "already_undone", "cannot_fix_change":
+		return "The activity cannot be safely reversed or replaced in its current history. Inspect the original activity and later dependent operations."
+	case "receipt_pending":
+		return "An operation receipt is pending. Inspect the original operation; do not replay or replace it."
+	case "revision_conflict":
+		return "The supplied revision is stale. Read current state before preparing a new preview."
+	case "cost_basis_required":
+		return "An evidenced original cost basis is required; current value is not a substitute."
+	case "transfer_mismatch", "invalid_trade":
+		return "The trade or transfer does not match the account, position, currency or amount constraints; inspect the relevant records."
+	case "insufficient_quantity", "insufficient_balance":
 		return "The operation exceeds the available balance or position; inspect current evidence and the requested amount."
 	case "invalid_change", "invalid_change_time", "cash_balance_time_conflict":
 		return "The change conflicts with ledger rules or effective-time history; inspect the relevant account and activity."
@@ -137,6 +163,10 @@ func safeFailureMessage(code, field string) string {
 		return "The market-data provider could not fulfill this request; check provider configuration, symbol and availability."
 	case "unresolved_reservation_release":
 		return "This product operation requires reservation handling in the App."
+	case "database_upgrade_required", "database_from_newer_version", "database_integrity_failed", "history_update_failed":
+		return "Database or history maintenance is required in the App before continuing."
+	case "malformed_provider_response", "market_data_response_too_large":
+		return "The provider response was unusable; inspect provider diagnostics or narrow the requested data."
 	case "internal":
 		return "An internal failure prevented a usable result; inspect App diagnostics."
 	default:

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
 
 // FullDefinitions is desktop host discovery. Call remains read-only; only the
@@ -26,6 +27,9 @@ func (s *InProcessSession) CallFull(ctx context.Context, name string, args json.
 	observation := &fullSubmissionObservation{}
 	ctx = context.WithValue(ctx, fullSubmissionKey{}, observation)
 	raw, err := s.callObserved(ctx, name, args, true, &dispatched)
+	if err != nil && observation.failed != nil {
+		return raw, agentcapability.WriteFailure{OperationID: observation.operationID, Cause: observation.failed}
+	}
 	if err != nil && (!dispatched || observation.unsubmitted) {
 		// No dispatch in this attempt cannot erase an older ambiguous receipt.
 		// At the receipt gate this check is already made while holding operationMu.
@@ -110,7 +114,17 @@ func capabilityError(err error) error {
 }
 
 type fullSubmissionKey struct{}
-type fullSubmissionObservation struct{ unsubmitted bool }
+type fullSubmissionObservation struct {
+	unsubmitted bool
+	operationID string
+	failed      *apierror.WireError
+}
+
+func observeFailedReceipt(ctx context.Context, op Operation) {
+	if observation, ok := ctx.Value(fullSubmissionKey{}).(*fullSubmissionObservation); ok && op.Status == "failed" && op.Error != nil {
+		observation.operationID, observation.failed = op.ID, op.Error
+	}
+}
 
 // Called at the shared execute gate only when cancellation precedes business
 // execution AND no prior receipt exists. A pre-existing unknown stays unknown.

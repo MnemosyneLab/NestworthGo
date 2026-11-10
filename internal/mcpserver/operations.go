@@ -150,6 +150,7 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 			return prior, nil
 		}
 		if prior.Status == "failed" && !(recoverable && prior.Error != nil && prior.Error.Code == "not_found") {
+			observeFailedReceipt(ctx, prior)
 			return nil, prior.Error
 		}
 		if !recoverable {
@@ -187,6 +188,7 @@ func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, inpu
 		return nil, fail("operation_outcome_unknown", "Write outcome could not be saved; inspect current data before retrying")
 	}
 	if callErr != nil {
+		observeFailedReceipt(ctx, op)
 		return nil, op.Error
 	}
 	return op, nil
