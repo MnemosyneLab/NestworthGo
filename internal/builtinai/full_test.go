@@ -2,11 +2,12 @@ package builtinai
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/google/uuid"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/assistant"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -16,6 +17,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/airuntime"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
 type fullEngine struct {
@@ -29,10 +31,24 @@ func (e fullEngine) Complete(ctx context.Context, _ []byte, _ string) (assistant
 			return assistant.Completion{}, assistant.ErrConflict
 		}
 	}
-	_, err := e.session.Call(ctx, "execute_ledger_change", e.input)
+	batch, _ := jsoncodec.Marshal(map[string]any{"commands": []json.RawMessage{e.input}})
+	raw, err := e.session.Call(ctx, "preview_batch", batch)
 	if err != nil {
 		return assistant.Completion{}, err
 	}
+	var preview struct {
+		Data struct {
+			PlanID string `json:"planId"`
+		} `json:"data"`
+	}
+	if err = jsoncodec.Unmarshal(raw, &preview); err != nil {
+		return assistant.Completion{}, err
+	}
+	commit, _ := jsoncodec.Marshal(map[string]any{"input": map[string]string{"planId": preview.Data.PlanID}})
+	if _, err = e.session.Call(ctx, "commit_plan", commit); err != nil {
+		return assistant.Completion{}, err
+	}
+
 	return assistant.Completion{History: []byte(`{"synthetic":true}`), Text: "Recorded"}, nil
 }
 func (fullEngine) Close() {}
@@ -63,7 +79,7 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	if err := creds.Put(t.Context(), []byte("synthetic-review-secret-123456")); err != nil {
 		t.Fatal(err)
 	}
-	proposal, _ := jsoncodec.Marshal(fullCommand{Kind: "money_added", AccountID: account.Account.ID.String(), Amount: "12.34", Currency: " usd ", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"})
+	proposal, _ := jsoncodec.Marshal(history.ChangeCommandRequest{Kind: "money_added", AccountID: account.Account.ID.String(), Amount: "12.34", Currency: " usd ", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"})
 	open := func() (*assistant.Runtime, *airuntime.Service) {
 		store, err := aistate.Open(filepath.Join(dir, "state"), "synthetic-ledger")
 		if err != nil {
@@ -189,9 +205,10 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 	count(1)
 	// Business audit and stable operation identity survive conversation deletion.
 	var audits int
-	if err := db.SQL.QueryRow("SELECT count(*) FROM app_configuration WHERE key LIKE 'builtin_ai.capability.v1.%.review.%'").Scan(&audits); err != nil || audits != 1 {
-		t.Fatalf("audit removed %d %v", audits, err)
+	if err := db.SQL.QueryRow("SELECT count(*) FROM app_configuration WHERE key LIKE 'builtin_ai.capability.v1.%.operation.' || ?", rows[0].ID).Scan(&audits); err != nil || audits != 1 {
+		t.Fatalf("durable operation receipt removed: %d %v", audits, err)
 	}
+
 	enable()
 	if err := r.FenceForRestore(); err != nil {
 		t.Fatal(err)
@@ -200,70 +217,4 @@ func TestDesktopFullAccessLifecycle(t *testing.T) {
 		t.Fatal("restore retained Full authority")
 	}
 	count(1)
-}
-
-func TestFullRequiredBusinessDetailsCannotDefault(t *testing.T) {
-	cash := fullCommand{Kind: "money_added", AccountID: uuid.NewString(), Amount: "1", Currency: "USD", Reason: "income", EffectiveAt: "2026-09-28T12:00:00Z"}
-	transfer := fullCommand{Kind: "cash_transfer", FromAccountID: uuid.NewString(), ToAccountID: uuid.NewString(), Sent: "1", SentCurrency: "USD", Received: "1", ReceivedCurrency: "USD", EffectiveAt: cash.EffectiveAt}
-	for _, base := range []fullCommand{cash, transfer} {
-		if err := validateFullCommand(base); err != nil {
-			t.Fatal(err)
-		}
-		for _, at := range []string{"", " ", "\t\n", "2026-09-28", "2026-09-28T12:00:00", " 2026-09-28T12:00:00Z"} {
-			c := base
-			c.EffectiveAt = at
-			if validateFullCommand(c) == nil {
-				t.Fatalf("accepted implicit time %q", at)
-			}
-		}
-	}
-	for _, value := range []string{"", " \t"} {
-		c := cash
-		c.Reason = value
-		if validateFullCommand(c) == nil {
-			t.Fatal("defaulted reason")
-		}
-		c = cash
-		c.AccountID = value
-		if validateFullCommand(c) == nil {
-			t.Fatal("defaulted account")
-		}
-		c = cash
-		c.Amount = value
-		if validateFullCommand(c) == nil {
-			t.Fatal("defaulted amount")
-		}
-		c = cash
-		c.Currency = value
-		if validateFullCommand(c) == nil {
-			t.Fatal("defaulted currency")
-		}
-		for _, field := range []string{"from", "to", "sent", "sentCurrency", "received", "receivedCurrency"} {
-			c := transfer
-			switch field {
-			case "from":
-				c.FromAccountID = value
-			case "to":
-				c.ToAccountID = value
-			case "sent":
-				c.Sent = value
-			case "sentCurrency":
-				c.SentCurrency = value
-			case "received":
-				c.Received = value
-			case "receivedCurrency":
-				c.ReceivedCurrency = value
-			}
-			if validateFullCommand(c) == nil {
-				t.Fatalf("defaulted transfer %s", field)
-			}
-		}
-	}
-	// Exercise the actual adapter boundary: invalid inputs must fail before any
-	// shared session call, even when no backing session exists.
-	for _, raw := range []string{`{"kind":"money_added","accountId":"x","amount":"1","currency":"USD","effectiveAt":"2026-09-28T12:00:00Z"}`, `{"kind":"money_added","reason":"income","effectiveAt":" "}`, `{"kind":"cash_transfer","effectiveAt":"2026-09-28T12:00:00Z"}`} {
-		if _, err := (reviewSession{}).PreviewFull(t.Context(), []byte(raw)); err == nil {
-			t.Fatal("incomplete input reached writer")
-		}
-	}
 }

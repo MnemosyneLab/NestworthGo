@@ -11,8 +11,19 @@ import (
 func TestSlimSchemasKeepKindRequirementsAndShrink(t *testing.T) {
 	change := roundTripSchema(t, workflowSchema[BatchChangeInput]("preview_batch"))
 	changeRaw := mustSchemaJSON(t, change)
-	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= 3221 {
-		t.Fatalf("preview_batch schema is %d bytes; measured baseline is 3221", len(changeRaw))
+	// Compare the same finite contract before/after compression, not the old
+	// incomplete schema that lacked enums and field exclusions.
+	expanded, err := jsonschema.For[BatchChangeInput](nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addLedgerSchema(expanded.Properties["commands"].Items, false)
+	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= len(mustSchemaJSON(t, expanded.Properties["commands"].Items)) {
+		t.Fatal("ledger schema compression regressed")
+	}
+
+	if len(mustSchemaJSON(t, change.Properties["commands"].Items)) >= 5000 {
+		t.Fatalf("preview_batch schema is %d bytes; bounded enum/variant contract budget is 5000", len(changeRaw))
 	}
 	if strings.Contains(mustSchemaJSON(t, change.Properties["commands"].Items), `"description"`) || strings.Contains(changeRaw, "newValue") || strings.Contains(changeRaw, "mutationId") {
 		t.Fatalf("preview_batch schema still publishes removed prose or handler-rejected fields: %s", changeRaw)

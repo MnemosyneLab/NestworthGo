@@ -93,3 +93,20 @@ For an active reconciliation session, choose a direct target adjustment or a
 missing real income/expense/transfer using the user's intent. Attach the current
 reconciliationLink to the existing preview; inspect committed links, reread and
 explicitly check again. See [session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first).
+
+## Exact tool arguments
+
+Use `preview_batch` followed by `commit_plan` for both one and many ordinary
+ledger records. Do not use a separate direct cash-write tool. An authorized
+intent does not need an extra user confirmation merely because there are two
+tool calls; inspect the preview before committing.
+
+`reason` is a machine enum, not a free-text category: salary uses `income` and
+its description belongs in `note`. Trade `side` is `buy` or `sell`. Supply only
+fields for the selected `kind`. Use either `effectiveAt` or the paired
+`effectiveLocalDate`/`effectiveLocalTime`, never both. Optional fees require both
+amount and currency; omit both when no fee is being recorded.
+
+For `preview_correction`, `action=fix` requires a complete replacement without
+timestamps; `action=undo` forbids replacement. A correction trade requires an
+existing holding ID; importing a position is not a correction replacement.

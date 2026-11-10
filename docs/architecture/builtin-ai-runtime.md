@@ -80,9 +80,10 @@ there is no loopback HTTP, duplicate financial implementation or additional
 per-write approval. Full and external MCP read-write mode share the same
 79-tool registry, including investment-review management. External MCP has
 its own permission setting, credentials and operation namespace.
-The #248 atomic directory edit fix is part of this baseline. The legacy
-`execute_ledger_change` cash/transfer convenience tool remains available for
-existing conversations, using its original host preview/commit flow.
+Ordinary ledger writes use `preview_batch` followed by `commit_plan`, including
+single cash changes and transfers. The duplicate `execute_ledger_change` tool
+and its desktop command adapter have been removed; saved conversation text
+cannot reinstate it. Existing receipt inspection remains read-only.
 
 All shared preview/commit rules, transaction boundaries, version/expiry checks,
 operation IDs, idempotency and receipt recovery remain authoritative. Before a
@@ -975,3 +976,15 @@ Household/history/source metadata stays unchanged. External MCP retains its own
 mode and capabilities. Investment-review preview/create/update publish a bounded
 closed spec grammar; domain normalization, semantic conditions, exact money,
 source admission and mutation recovery remain authoritative.
+
+### Tool contract diagnostics
+
+Shared schema validation returns only schema-owned field paths, constraint names
+and allowed enum values (`field`, `rule`, `expected`), never rejected values or
+raw validator messages. Batch paths retain the command index. Built-in reads and
+previews preserve known business failure codes with fixed recovery guidance.
+Proven pre-dispatch write refusals include the safe cause and `not_dispatched`;
+unknown post-dispatch outcomes remain inspection-only. The external MCP adapter
+uses the same validation before SDK dispatch. Ledger variants publish their
+allowed fields, required values, reason/side enums, paired charges and mutually
+exclusive time shapes; correction uses its own fix/undo constraints.

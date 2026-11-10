@@ -36,10 +36,10 @@ func TestMCPInstrumentOptionalShortNamePatchAndClear(t *testing.T) {
 	if got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": id, "changes": map[string]any{"shortName": ""}}); !strings.Contains(got, "must be nonempty") {
 		t.Fatalf("empty shortName error=%s", got)
 	}
-	if got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": id, "changes": map[string]any{"name": nil}}); !strings.Contains(got, "invalid write arguments") {
+	if got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": id, "changes": map[string]any{"name": nil}}); !strings.Contains(got, "invalid tool arguments") {
 		t.Fatalf("null name error=%s", got)
 	}
-	if got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": id, "changes": map[string]any{"replace": true, "name": "Nope"}}); !strings.Contains(got, "invalid write arguments") {
+	if got := rejectedUpdate(t, c, "update_instrument", map[string]any{"id": id, "changes": map[string]any{"replace": true, "name": "Nope"}}); !strings.Contains(got, "invalid tool arguments") {
 		t.Fatalf("replace error=%s", got)
 	}
 	mutate(t, c, "update_instrument", map[string]any{"id": id, "changes": map[string]any{"sortOrder": 4, "iconKey": "fund"}})

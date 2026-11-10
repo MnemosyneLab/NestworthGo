@@ -27,7 +27,7 @@ func TestUpdateAccountPatchOmitsKeepAndNullClears(t *testing.T) {
 	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"note": ""}}); !strings.Contains(got, "empty string is invalid") {
 		t.Fatalf("empty note error=%s", got)
 	}
-	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"note": "", "noteSet": true}}); !strings.Contains(got, "invalid write arguments") {
+	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"note": "", "noteSet": true}}); !strings.Contains(got, "invalid tool arguments") {
 		t.Fatalf("removed noteSet error=%s", got)
 	}
 	if stored := storedLedgerAccount(t, fx, fx.checking); stored.Note == nil || *stored.Note != "kept" {
@@ -62,16 +62,16 @@ func TestUpdateAccountPatchOmitsKeepAndNullClears(t *testing.T) {
 	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"institutionId": ""}}); !strings.Contains(got, "empty string is invalid") {
 		t.Fatalf("empty institution error=%s", got)
 	}
-	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"name": nil, "note": "nope"}}); !strings.Contains(got, "invalid write arguments") {
+	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"name": nil, "note": "nope"}}); !strings.Contains(got, "invalid tool arguments") {
 		t.Fatalf("null name error=%s", got)
 	}
 	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"ownership": []any{}, "note": "nope"}}); !strings.Contains(got, "at least one owner") {
 		t.Fatalf("empty ownership error=%s", got)
 	}
-	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"ownership": nil, "note": "nope"}}); !strings.Contains(got, "invalid write arguments") {
+	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"ownership": nil, "note": "nope"}}); !strings.Contains(got, "invalid tool arguments") {
 		t.Fatalf("null ownership error=%s", got)
 	}
-	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"includeInNetWorth": nil}}); !strings.Contains(got, "invalid write arguments") {
+	if got := rejectedUpdate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"includeInNetWorth": nil}}); !strings.Contains(got, "invalid tool arguments") {
 		t.Fatalf("null inclusion error=%s", got)
 	}
 	mutate(t, c, "update_account", map[string]any{"id": fx.checking, "changes": map[string]any{"note": "again"}})

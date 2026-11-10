@@ -188,7 +188,7 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 			if err := jsoncodec.Unmarshal(raw, &reply); err != nil || string(reply.ID) != string(wantID) || !reply.Result.IsError {
 				t.Fatalf("expected bounded tool error: %s / %v", raw, err)
 			}
-			if !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), strings.Repeat("x", 1000)) {
+			if !strings.Contains(string(raw), "validation") || strings.Contains(string(raw), strings.Repeat("x", 1000)) {
 				t.Fatal("expected fixed error without input echo")
 			}
 			t.Logf("schema error: request=%d response=%d", len(payload), len(raw))

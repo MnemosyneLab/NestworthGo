@@ -456,7 +456,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 	for _, name := range []string{"get_products"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, raw := productHTTP(t, fx.service, payload, "")
-		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "privateprivate") || !strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
+		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "privateprivate") || !strings.Contains(string(raw), "validation") || !strings.Contains(string(raw), "unexpected_field") || strings.Contains(string(raw), "account filter") {
 			t.Fatalf("unbounded schema error: %d %d %s", status, len(raw), raw)
 		}
 		payload["id"] = strings.Repeat("private", 100)

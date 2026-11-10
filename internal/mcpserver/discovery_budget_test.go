@@ -9,7 +9,8 @@ import (
 
 // Keep discovery and prose bounded for both public permission modes. Read-write
 // includes review management. The explicit finite review spec adds 4,628 bytes
-// per preview/create/update definition; other-tool/prose budgets stay bounded.
+// per preview/create/update definition. Ledger enums and variant exclusions
+// add about 3.7 KiB across preview_batch/correction; unrelated budgets stay bounded.
 const (
 	maxToolDescriptionBytes = 1500
 	maxInstructionsBytes    = 2400
@@ -17,7 +18,7 @@ const (
 
 var discoveryBudgetBytes = map[string]int{
 	ReadOnly:  65300,
-	ReadWrite: 130200,
+	ReadWrite: 135000,
 }
 
 func TestDiscoveryBudget(t *testing.T) {
@@ -45,11 +46,11 @@ func TestDiscoveryBudget(t *testing.T) {
 				t.Errorf("instructions are %d bytes, budget %d", n, maxInstructionsBytes)
 			}
 			// The measured increase belongs only to the three explicit rule
-			// schemas. Unrelated discovery must still fit its previous ceiling.
+			// and ledger schemas. Unrelated discovery must still fit its previous ceiling.
 			other := []*mcp.Tool{}
 			for _, tool := range listed.Tools {
 				switch tool.Name {
-				case "preview_investment_review_rule", "create_investment_review_rule", "update_investment_review_rule":
+				case "preview_batch", "preview_correction", "preview_investment_review_rule", "create_investment_review_rule", "update_investment_review_rule":
 					schema, err := jsoncodec.Marshal(tool.InputSchema)
 					if err != nil || len(schema) > 6000 {
 						t.Errorf("%s finite spec exceeds 6000 bytes", tool.Name)

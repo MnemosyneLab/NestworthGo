@@ -35,13 +35,13 @@ func TestFeatureHTTPBoundaries(t *testing.T) {
 			}
 			status, raw := productHTTP(t, fx.service, payload, "")
 			if status != http.StatusOK || len(raw) > contextWireLimit ||
-				!strings.Contains(string(raw), "invalid feature request; inspect the tool schema") ||
+				!strings.Contains(string(raw), "invalid tool arguments; inspect tool schema") ||
 				strings.Contains(string(raw), "private-property") || strings.Contains(string(raw), "private-sensitive-value") {
 				t.Fatalf("schema error was not safely bounded: status=%d bytes=%d body=%s", status, len(raw), raw)
 			}
 			payload["params"].(map[string]any)["arguments"] = map[string]any{strings.Repeat("private-property-", 5000): "private-sensitive-value"}
 			status, raw = productHTTP(t, fx.service, payload, "")
-			if status != http.StatusOK || len(raw) > contextWireLimit || !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), "private-property") || strings.Contains(string(raw), "private-sensitive-value") {
+			if status != http.StatusOK || len(raw) > contextWireLimit || !strings.Contains(string(raw), "validation") || strings.Contains(string(raw), "private-property") || strings.Contains(string(raw), "private-sensitive-value") {
 				t.Fatalf("oversized SDK diagnostic was not safely bounded: status=%d bytes=%d body=%s", status, len(raw), raw)
 			}
 

@@ -186,7 +186,9 @@ func TestPromptCacheCatalogSizes(t *testing.T) {
 					if stable && (len(raw) > 20000 || strings.Contains(string(raw), "Business recipe:")) {
 						t.Error("optional guidance/schema inflated stable core")
 					}
-					if !stable && len(raw) > 128000 {
+					// Finite ledger/correction contracts add ~3.7 KiB; the stable
+					// core keeps its original 20 KiB ceiling.
+					if !stable && len(raw) > 133000 {
 						t.Error("complete built-in catalog exceeded reviewed wire budget")
 					}
 					if dir := os.Getenv("NESTWORTH_CATALOG_EVIDENCE_DIR"); dir != "" {

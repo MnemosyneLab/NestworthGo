@@ -209,7 +209,7 @@ func TestDirectoryUpdateRejectsNullOnIdentityFields(t *testing.T) {
 		{"id": id, "archived": nil},
 		{"id": id, "name": nil, "archived": true},
 	} {
-		if got := rejectedUpdate(t, c, "update_member", input); !strings.Contains(got, "invalid write arguments") {
+		if got := rejectedUpdate(t, c, "update_member", input); !strings.Contains(got, "invalid tool arguments") {
 			t.Fatalf("null directory field error=%s", got)
 		}
 		if stored := storedMember(t, app, id); stored.Name != "Bob" || stored.ArchivedAt != nil || stored.IconKey == nil || *stored.IconKey != domain.DefaultMemberIcon {

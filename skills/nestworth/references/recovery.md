@@ -151,3 +151,17 @@ never executed. correct_input, retry_later, inspect_current_state and
 inspect_limits_or_narrow_read are navigation hints, not successful outcomes.
 HTTP authentication/protocol errors can arrive outside this tool-error shape.
 Successful execution and recovery receipts remain complete, unmodified values.
+
+## Structured argument failures
+
+Schema failures include a safe `field` path (for example `commands[0].reason`),
+`rule` and, where applicable, `expected` enum values. Correct these constraints
+without changing the user's intent; do not repeat unchanged rejected input.
+The reported field contains no submitted value. Business failures such as
+`insufficient_balance` require current evidence, not invented amounts.
+
+For built-in AI, `write_not_submitted` with `state=not_dispatched` describes only
+the rejected attempt. Its `causeCode` identifies validation, permissions or
+availability; it does not clear an older uncertain operation. A
+`write_requires_inspection` result still requires inspection of the original
+receipt and must never trigger a replacement write via another tool or the UI.

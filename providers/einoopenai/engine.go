@@ -326,7 +326,10 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			}
 			if errors.Is(err, errCapabilityWriteRejected) {
 				status = "refused"
-				result = writeNotSubmittedDiagnostic
+				result = submissionDiagnostic(err, writeNotSubmittedDiagnostic)
+				if ctx.Err() == nil {
+					err = nil
+				}
 			}
 			if errors.Is(err, errCapabilityWriteRefused) {
 				result = `{"error":{"code":"write_requires_inspection","recovery":"Inspect the original operation receipt. This failure is not evidence of rollback. Do not retry, create another operation identity or prepare a replacement mutation."}}`
@@ -335,7 +338,7 @@ func (e *Engine) Complete(ctx context.Context, history []byte, prompt string) (a
 			}
 			if errors.Is(err, errPageOperationRefused) && ctx.Err() == nil {
 				status = "refused"
-				result = pageOperationRefusedDiagnostic
+				result = submissionDiagnostic(err, pageOperationRefusedDiagnostic)
 				err = nil
 			}
 			if errors.Is(err, errCapabilityRefused) && ctx.Err() == nil {

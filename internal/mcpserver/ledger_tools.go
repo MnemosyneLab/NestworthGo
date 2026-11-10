@@ -48,22 +48,24 @@ func (s *Service) ledgerTools(server *toolSet) {
 
 }
 
+var ledgerFields = map[history.ChangeCommandKind]string{
+	"position_import":              "accountId instrumentId quantity unitCost currency",
+	history.ChangeMoneyAdded:       "accountId amount currency reason",
+	history.ChangeMoneyRemoved:     "accountId holdingId amount currency reason",
+	history.ChangeCashDividend:     "holdingId amount currency",
+	history.ChangeCashTransfer:     "fromAccountId toAccountId sent sentCurrency received receivedCurrency fee feeCurrency",
+	history.ChangeFXConversion:     "accountId sold soldCurrency bought boughtCurrency fee feeCurrency",
+	history.ChangePositionTransfer: "fromHoldingId toHoldingId toAccountId quantity",
+	history.ChangeTrade:            "settlementAccountId holdingId instrumentId side quantity gross grossCurrency fee feeCurrency",
+	history.ChangeDebtDraw:         "debtAccountId cashAccountId principal principalCurrency",
+	history.ChangeDebtPayment:      "debtAccountId cashAccountId principal principalCurrency interestOrFee interestOrFeeCurrency",
+}
+
 // Reject fields silently ignored by the UI's tagged-union adapter. The agent
 // boundary must not turn a misunderstood command into a different operation.
 func validateChangeRequest(in history.ChangeCommandRequest) error {
-	fields := map[history.ChangeCommandKind]string{
-		"position_import":              "accountId instrumentId quantity unitCost currency",
-		history.ChangeMoneyAdded:       "accountId amount currency reason",
-		history.ChangeMoneyRemoved:     "accountId holdingId amount currency reason",
-		history.ChangeCashDividend:     "holdingId amount currency",
-		history.ChangeCashTransfer:     "fromAccountId toAccountId sent sentCurrency received receivedCurrency fee feeCurrency",
-		history.ChangeFXConversion:     "accountId sold soldCurrency bought boughtCurrency fee feeCurrency",
-		history.ChangePositionTransfer: "fromHoldingId toHoldingId toAccountId quantity",
-		history.ChangeTrade:            "settlementAccountId holdingId instrumentId side quantity gross grossCurrency fee feeCurrency",
-		history.ChangeDebtDraw:         "debtAccountId cashAccountId principal principalCurrency",
-		history.ChangeDebtPayment:      "debtAccountId cashAccountId principal principalCurrency interestOrFee interestOrFeeCurrency",
-	}
-	allowed, ok := fields[in.Kind]
+
+	allowed, ok := ledgerFields[in.Kind]
 	if !ok {
 		return fail("validation", "unsupported ledger kind; use preview_reconciliation for target balances or quantities")
 	}

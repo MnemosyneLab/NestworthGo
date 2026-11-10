@@ -15,18 +15,20 @@ func ReadRetryAction(code, field string) string {
 	switch code {
 	case "read_expired", "read_revoked", "context_expired", "context_revoked", "stale_cursor":
 		return "restart_read"
+	case "stale_preview":
+		return "refresh_preview"
 	case "conflict":
 		if field == "cursor" {
 			return "restart_read"
 		}
 		return "inspect_current_state"
-	case "validation":
+	case "validation", "decimal_overflow":
 		return "correct_input"
 	case "too_large":
 		return "inspect_limits_or_narrow_read"
 	case "read_busy", "context_busy", "backup_restore_busy":
 		return "retry_later"
-	case "not_found":
+	case "not_found", "insufficient_balance", "invalid_change", "invalid_change_time", "cash_balance_time_conflict", "no_change":
 		return "inspect_current_state"
 	default:
 		return "stop"
