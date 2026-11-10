@@ -4,7 +4,7 @@
 <!-- Generated from internal/agentguidance/recipes.json; update that source. -->
 ### Shared recipe: cash-and-positions
 
-Record completed facts with exact amounts and explicit currencies. Own-account movement is cash_transfer, not income or expense. A balance correction is reconciliation, not invented income. Debt principal uses debt_draw/debt_payment; principal repayment is not spending. FX source selection changes valuation, not balances; fx_conversion needs actual sold and bought amounts plus separately evidenced fees. Account total valuation does not prove spendable cash. A definition is not ownership: position_import needs evidenced original quantity and cost; trades need actual execution facts. Only this plan workflow uses preview then commit_plan; inspect normalized effects before committing.
+Completed facts only: exact amounts/currencies and copied IDs. Salary: money_added/income; spending: money_removed/expense (kind/reason). Own-account moves: cash_transfer; balance fixes: reconciliation. Debt: debt_draw/debt_payment; principal is not spending. FX source affects valuation only; fx_conversion needs actual amounts/fees. Valuation is not spendable cash; definitions are not ownership. position_import needs original quantity/cost; trades need executions. Inspect preview, then commit_plan. Local: YYYY-MM-DD/HH:MM. Preserve seconds: RFC3339 effectiveAt, confirmed offset, no local fields. Never truncate or guess.
 <!-- shared-recipes:end -->
 
 Use `get_catalog.moneyInReasons` / `moneyOutReasons` and existing account cash.

@@ -4,7 +4,7 @@
 <!-- Generated from internal/agentguidance/recipes.json; update that source. -->
 ### Shared recipe: historical
 
-Choose one historical shape: date/compareTo for endpoints, or from/to for a 1–31-day closed-date series. Dates use the household history timezone. Endpoint movement includes principal flows and is not investment return. Filters select leaves; household totals and reconciliation can remain full scope. Do not add account rollups to their component leaves. For a single date pending-update question, call get_historical_overview with date, filter={included:true,quality:"pending"}, and view="evidence" directly. Pending means carried price/FX, not missing valuation. Do not scan all rows or regex-match serialized JSON: carriedCount:0 is not pending. Inspect pendingContribution > 0 on counted leaves. Read only relevant filtered continuations.
+Use date/compareTo for endpoints; from/to for 1–31 closed days in household history timezone. Endpoint movement includes principal, not investment return. Filters select leaves; totals/reconciliation may stay household-wide. Never sum account rollups with components. Single-date pending: get_historical_overview with date, filter={included:true,quality:"pending"}, view="evidence". Pending means carried price/FX, not missing valuation. Do not scan all rows or regex JSON (carriedCount:0 is normal); check pendingContribution > 0 on counted leaves. Follow only relevant filtered cursors.
 
 ### Shared recipe: review-rule
 

@@ -156,6 +156,11 @@ func normalizeChangeRequest(in history.ChangeCommandRequest, now time.Time) (his
 	if err := validateChangeRequest(in); err != nil {
 		return in, err
 	}
+	if in.EffectiveLocalTime != "" {
+		if _, err := time.Parse("15:04", in.EffectiveLocalTime); err != nil {
+			return in, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalTime", Message: "effectiveLocalTime must use HH:MM with effectiveLocalDate YYYY-MM-DD in the household history timezone. To preserve seconds, use effectiveAt as RFC3339 with an explicit offset (YYYY-MM-DDTHH:MM:SS+HH:MM), omitting both local fields. Resolve the offset from the confirmed timezone; do not guess it or discard seconds."}
+		}
+	}
 	if in.EffectiveAt == "" && in.EffectiveLocalDate == "" && in.EffectiveLocalTime == "" {
 		in.EffectiveAt = now.Format(time.RFC3339Nano)
 	}

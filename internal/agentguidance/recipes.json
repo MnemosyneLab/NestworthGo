@@ -9,13 +9,13 @@
     "id": "historical",
     "tool": "get_historical_overview",
     "reference": "analysis",
-    "text": "Choose one historical shape: date/compareTo for endpoints, or from/to for a 1–31-day closed-date series. Dates use the household history timezone. Endpoint movement includes principal flows and is not investment return. Filters select leaves; household totals and reconciliation can remain full scope. Do not add account rollups to their component leaves. For a single date pending-update question, call get_historical_overview with date, filter={included:true,quality:\"pending\"}, and view=\"evidence\" directly. Pending means carried price/FX, not missing valuation. Do not scan all rows or regex-match serialized JSON: carriedCount:0 is not pending. Inspect pendingContribution > 0 on counted leaves. Read only relevant filtered continuations."
+    "text": "Use date/compareTo for endpoints; from/to for 1–31 closed days in household history timezone. Endpoint movement includes principal, not investment return. Filters select leaves; totals/reconciliation may stay household-wide. Never sum account rollups with components. Single-date pending: get_historical_overview with date, filter={included:true,quality:\"pending\"}, view=\"evidence\". Pending means carried price/FX, not missing valuation. Do not scan all rows or regex JSON (carriedCount:0 is normal); check pendingContribution > 0 on counted leaves. Follow only relevant filtered cursors."
   },
   {
     "id": "cash-and-positions",
     "tool": "preview_batch",
     "reference": "cash-and-debt",
-    "text": "Record completed facts with exact amounts and explicit currencies. Own-account movement is cash_transfer, not income or expense. A balance correction is reconciliation, not invented income. Debt principal uses debt_draw/debt_payment; principal repayment is not spending. FX source selection changes valuation, not balances; fx_conversion needs actual sold and bought amounts plus separately evidenced fees. Account total valuation does not prove spendable cash. A definition is not ownership: position_import needs evidenced original quantity and cost; trades need actual execution facts. Only this plan workflow uses preview then commit_plan; inspect normalized effects before committing."
+    "text": "Completed facts only: exact amounts/currencies and copied IDs. Salary: money_added/income; spending: money_removed/expense (kind/reason). Own-account moves: cash_transfer; balance fixes: reconciliation. Debt: debt_draw/debt_payment; principal is not spending. FX source affects valuation only; fx_conversion needs actual amounts/fees. Valuation is not spendable cash; definitions are not ownership. position_import needs original quantity/cost; trades need executions. Inspect preview, then commit_plan. Local: YYYY-MM-DD/HH:MM. Preserve seconds: RFC3339 effectiveAt, confirmed offset, no local fields. Never truncate or guess."
   },
   {
     "id": "products",

@@ -83,3 +83,33 @@ func TestNumericMoneyDiagnosticBeforeTypedDecode(t *testing.T) {
 		t.Fatal("invalid money reached handler")
 	}
 }
+
+func TestUnknownDiscriminatorDiagnostic(t *testing.T) {
+	for _, tc := range []struct{ input, field, rule string }{
+		{`{"kind":"PRIVATE"}`, "kind", "enum"},
+		{`{}`, "kind", "required"},
+		{`{"kind":"a"}`, "amount", "required"},
+	} {
+		var s, v any
+		jsoncodec.Unmarshal([]byte(`{"type":"object","oneOf":[{"properties":{"kind":{"enum":["a"]}},"required":["kind","amount"]},{"properties":{"kind":{"enum":["b"]}},"required":["kind"]}]}`), &s)
+		jsoncodec.Unmarshal([]byte(tc.input), &v)
+		var e ArgumentError
+		if !errors.As(argumentError(s, v), &e) || e.Field != tc.field || e.Rule != tc.rule {
+			t.Fatalf("wrong diagnostic: %+v", e)
+		}
+		if strings.Contains(e.Message(), "PRIVATE") {
+			t.Fatal("input leaked")
+		}
+		if tc.rule == "enum" && strings.Join(e.Expected, ",") != "a,b" {
+			t.Fatalf("missing enum: %+v", e)
+		}
+	}
+	// A branch that does not require the discriminator may be valid without it.
+	var s, v any
+	jsoncodec.Unmarshal([]byte(`{"type":"object","oneOf":[{"properties":{"kind":{"enum":["a"]}},"required":["kind"]},{"required":["other"]}]}`), &s)
+	jsoncodec.Unmarshal([]byte(`{"kind":"PRIVATE"}`), &v)
+	var e ArgumentError
+	if !errors.As(argumentError(s, v), &e) || e.Rule != "one_of" {
+		t.Fatalf("guessed partial union: %+v", e)
+	}
+}
