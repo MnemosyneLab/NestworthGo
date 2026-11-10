@@ -10,14 +10,14 @@ const total = { estimatedUsd: "0", cachedUsd: "0", cacheWriteUsd: "0", pricedCal
 beforeEach(() => {usage.mockReset();usage.mockResolvedValue({available: true, incomplete: false, costStatus: "unknown_price", total, models: ["actual-model"], groups: [], conversations: [{key: "opaque-id", label: "Synthetic plan", deleted: false}]});});
 it("distinguishes unknown from known zero and partial subtotals", () => {
  render(<UsageNumbers total={total} />);
- expect(screen.getByText("100 + ?")).toBeInTheDocument();
- expect(within(screen.getByText("Cached input").parentElement!).getByText("0 + ?")).toBeInTheDocument();
- expect(within(screen.getByText("Output").parentElement!).getByText("—")).toBeInTheDocument();
+ expect(screen.getByText("100")).toBeInTheDocument();
+ expect(within(screen.getByText("Cached input").parentElement!).getByText("0")).toBeInTheDocument();
+ expect(within(screen.getByText("Output").parentElement!).getByText("Unavailable")).toBeInTheDocument();
 });
 it("passes timezone, model and conversation filters to the host", async () => {
  const user=userEvent.setup();
  render(<QueryClientProvider client={createTestQueryClient()}><AIUsageSettings epoch="epoch" /></QueryClientProvider>);
- await screen.findByText("100 + ?");
+ await screen.findByText("100");
  await user.click(within(screen.getByRole("group",{name:"Group by"})).getByRole("button",{name:"Model"}));
  await user.selectOptions(screen.getByLabelText("Model"),"actual-model");
  await user.selectOptions(screen.getByLabelText("Conversation"),"opaque-id");
@@ -30,5 +30,18 @@ it("renders nullable generated collections and partial estimated costs", async (
  usage.mockResolvedValue({ available: true, incomplete: false, prices: null, models: null, groups: null, conversations: null, total: {...total, estimatedUsd: "0.0032", cachedUsd: "0.00005", cacheWriteUsd: "0.00035", pricedCalls: 1, unpricedCalls: 1} });
  render(<QueryClientProvider client={createTestQueryClient()}><AIUsageSettings epoch="epoch" /></QueryClientProvider>);
  expect(await screen.findByText("1 request unpriced")).toBeInTheDocument();
- expect(screen.getByTitle("0.0032")).toHaveTextContent("+ ?");
+ expect(screen.getByTitle("0.0032 USD")).toHaveTextContent("< US$0.01");
+ expect(screen.getAllByText("Partial").length).toBeGreaterThan(0);
+});
+
+it.each([[999, "999"], [1000, "1K"], [245454, "245.5K"], [999999, "1M"], [1500000, "1.5M"], [1500000000, "1.5B"]])("formats %s tokens as %s and retains the exact value", (input, expected) => {
+ render(<UsageNumbers total={{...total, input, missingInput: 0}} />);
+ const row = within(screen.getByText("Input").parentElement!);
+ expect(row.getByText(expected)).toHaveAttribute("aria-label", input.toLocaleString("en"));
+ expect(row.queryByText("Partial")).not.toBeInTheDocument();
+});
+it("keeps complete zero costs distinct from unavailable and sub-cent costs", () => {
+ render(<UsageNumbers total={{...total, pricedCalls: 2, unpricedCalls: 0}} />);
+ expect(screen.getByTitle("0 USD")).toHaveTextContent("US$0.00");
+ expect(screen.queryByText(/\+ \?/)).not.toBeInTheDocument();
 });

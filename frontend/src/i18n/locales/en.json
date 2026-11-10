@@ -788,6 +788,8 @@
     "membersTitle": "Members"
   },
   "portfolio": {
+    "editorDetails": "Instrument details",
+    "editorPriceHelp": "Record a price for a specific date. Check the currency and unit before saving.",
     "accountDetailTitle": "Account details",
     "accounts": "Accounts",
     "accountsDescription": "Investment accounts and their current valued totals.",

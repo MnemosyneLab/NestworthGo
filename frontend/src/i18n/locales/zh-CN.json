@@ -788,6 +788,8 @@
     "membersTitle": "成员"
   },
   "portfolio": {
+    "editorDetails": "标的资料",
+    "editorPriceHelp": "录入指定日期的价格。保存前请核对币种与计价单位。",
     "accountDetailTitle": "账户详情",
     "accounts": "账户",
     "accountsDescription": "投资账户及其当前估值总额。",
