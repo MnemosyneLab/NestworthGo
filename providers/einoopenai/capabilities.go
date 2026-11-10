@@ -157,8 +157,9 @@ func (t *capabilityTool) InvokableRun(ctx context.Context, arguments string, _ .
 		return "", budget
 	}
 	if err != nil {
-		// Do not reflect submitted content or arbitrary implementation errors
-		// into model history. Application-facing errors belong to the host.
+		// Preserve the shared business diagnostic. Only proven pre-dispatch
+		// rejection or a matching failed receipt permits write correction;
+		// an uncertain outcome must still stop for receipt inspection.
 		if t.writing {
 			if errors.Is(err, assistant.ErrRecoveryRequired) {
 				return "", errCapabilityWriteRecoveryRequired

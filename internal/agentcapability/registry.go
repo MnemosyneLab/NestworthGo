@@ -52,7 +52,8 @@ type entry struct {
 	definition Definition
 	input      *jsonschema.Resolved
 	output     *jsonschema.Resolved
-	handler    func(context.Context, json.RawMessage) (any, error)
+	decode     func(json.RawMessage) (any, error)
+	handler    func(context.Context, any) (any, error)
 	typed      any
 }
 
@@ -118,13 +119,19 @@ func Add[I, O any](r *Registry, definition *Definition, handler func(context.Con
 		}
 		d.OutputSchema = output
 	}
-	r.entries[d.Name] = entry{definition: d, input: resolved, output: outputResolved, typed: handler, handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
-		var input I
-		if err := jsoncodec.Unmarshal(raw, &input); err != nil {
-			return nil, ErrInvalidArguments
-		}
-		return handler(ctx, input)
-	}}
+	r.entries[d.Name] = entry{
+		definition: d, input: resolved, output: outputResolved, typed: handler,
+		decode: func(raw json.RawMessage) (any, error) {
+			var input I
+			if err := jsoncodec.Unmarshal(raw, &input); err != nil {
+				return nil, ArgumentError{Rule: "typed_decode"}
+			}
+			return input, nil
+		},
+		handler: func(ctx context.Context, input any) (any, error) {
+			return handler(ctx, input.(I))
+		},
+	}
 }
 
 // CallValidated is for a typed adapter that has already validated and decoded
@@ -222,13 +229,17 @@ func (r *Registry) CallObserved(ctx context.Context, name string, raw json.RawMe
 	if err != nil {
 		return nil, err
 	}
+	typedInput, err := e.decode(input)
+	if err != nil {
+		return nil, err
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if entered != nil {
 		*entered = true
 	}
-	result, err := e.handler(ctx, input)
+	result, err := e.handler(ctx, typedInput)
 	if err != nil || e.output == nil {
 		return result, err
 	}
@@ -261,9 +272,14 @@ func (r *Registry) CallObserved(ctx context.Context, name string, raw json.RawMe
 	return json.RawMessage(encoded), nil
 }
 
-// ValidateArguments checks the same defaults/schema as dispatch without invoking a handler.
+// ValidateArguments checks the same defaults, schema and typed decoding as
+// dispatch without invoking a business handler or creating a write receipt.
 func (r *Registry) ValidateArguments(name string, raw json.RawMessage) error {
-	_, err := r.validatedInput(name, raw)
+	input, err := r.validatedInput(name, raw)
+	if err != nil {
+		return err
+	}
+	_, err = r.entries[name].decode(input)
 	return err
 }
 func (r *Registry) validatedInput(name string, raw json.RawMessage) ([]byte, error) {

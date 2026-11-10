@@ -114,12 +114,45 @@ func addLedgerSchema(item *jsonschema.Schema, correction bool) {
 		}
 		item.OneOf = append(item.OneOf, branch)
 	}
-	item.DependentRequired = map[string][]string{"fee": {"feeCurrency"}, "feeCurrency": {"fee"}, "effectiveLocalDate": {"effectiveLocalTime"}, "effectiveLocalTime": {"effectiveLocalDate"}, "interestOrFee": {"interestOrFeeCurrency"}, "interestOrFeeCurrency": {"interestOrFee"}}
+	// The ledger adapter treats absent and empty optional charges alike. It
+	// does not trim charges here; decimal/currency parsing remains authoritative.
+	for _, pair := range [][2]string{{"fee", "feeCurrency"}, {"interestOrFee", "interestOrFeeCurrency"}, {"effectiveLocalDate", "effectiveLocalTime"}} {
+		blank := &jsonschema.Schema{Enum: []any{""}}
+		if pair[0] == "effectiveLocalDate" {
+			if correction {
+				continue // Corrections forbid every time field in the kind branch.
+			}
+			blank = &jsonschema.Schema{Pattern: blankTrimmedString().Pattern}
+		}
+		item.AllOf = append(item.AllOf, &jsonschema.Schema{
+			If:   &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{pair[0]: blank}},
+			Then: &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{pair[1]: blank.CloneSchemas()}},
+			Else: nonemptyLedgerField(pair[1], pair[0] == "effectiveLocalDate"),
+		})
+	}
+	// Unlike the shared UI adapter's default, agent money movements require an
+	// explicit reason so an omitted classification cannot silently become other.
 	reasons := []string{}
 	for _, reason := range []domain.ActivityReason{domain.ReasonIncome, domain.ReasonContribution, domain.ReasonGift, domain.ReasonOther, domain.ReasonExpense, domain.ReasonCardPurchase, domain.ReasonCardRefund, domain.ReasonFee, domain.ReasonTax, domain.ReasonReconciliation, domain.ReasonPrincipal, domain.ReasonInterest} {
 		reasons = append(reasons, string(reason))
 	}
 	setSchemaEnum(item.Properties["reason"], reasons)
 	setSchemaEnum(item.Properties["side"], []string{"buy", "sell"})
-	item.Not = &jsonschema.Schema{Required: []string{"effectiveAt"}, AnyOf: []*jsonschema.Schema{{Required: []string{"effectiveLocalDate"}}, {Required: []string{"effectiveLocalTime"}}}}
+	if !correction {
+		item.Not = &jsonschema.Schema{AllOf: []*jsonschema.Schema{
+			nonemptyLedgerField("effectiveAt", true),
+			nonemptyLedgerField("effectiveLocalDate", true),
+		}}
+	}
+}
+
+// Time normalization uses strings.TrimSpace before selecting a time source.
+// Charge pairing instead uses literal emptiness, matching validateChangeRequest.
+// The enclosing command schema already enforces string types.
+func nonemptyLedgerField(name string, trimmed bool) *jsonschema.Schema {
+	value := &jsonschema.Schema{MinLength: intPointer(1)}
+	if trimmed {
+		value = &jsonschema.Schema{Not: &jsonschema.Schema{Pattern: blankTrimmedString().Pattern}}
+	}
+	return &jsonschema.Schema{Required: []string{name}, Properties: map[string]*jsonschema.Schema{name: value}}
 }

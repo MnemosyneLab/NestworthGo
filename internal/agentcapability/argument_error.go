@@ -21,6 +21,9 @@ func (e ArgumentError) Error() string { return "invalid capability arguments" }
 
 // Message describes only schema-owned paths and constraints, never input values.
 func (e ArgumentError) Message() string {
+	if e.Rule == "typed_decode" {
+		return "Arguments must fit the declared field types and numeric ranges; integer fields require integer notation."
+	}
 	if e.Field != "" && e.Rule == "type" && len(e.Expected) > 0 {
 		return fmt.Sprintf("Field %s must have JSON type %s.", e.Field, strings.Join(e.Expected, " or "))
 	}

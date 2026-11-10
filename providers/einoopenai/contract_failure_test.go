@@ -2,13 +2,14 @@ package einoopenai
 
 import (
 	"errors"
-	"github.com/waltwang/nestworth-go/internal/agentcapability"
-	"github.com/waltwang/nestworth-go/internal/domain"
 	"strings"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/internal/agentcapability"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func TestContractFailurePreservesRepairWithoutPrivateValues(t *testing.T) {
+func TestContractFailurePreservesSharedBusinessRepair(t *testing.T) {
 	argument := agentcapability.ArgumentError{Field: "commands[0].reason", Rule: "enum", Expected: []string{"income", "expense"}}
 	failure := classifyReadFailure(argument)
 	raw := readFailureDiagnostic(failure)
@@ -17,18 +18,18 @@ func TestContractFailurePreservesRepairWithoutPrivateValues(t *testing.T) {
 			t.Fatalf("missing %s: %s", want, raw)
 		}
 	}
-	business := classifyReadFailure(&domain.Error{Code: domain.ErrInsufficientBalance, Field: "amount", Message: "PRIVATE ACCOUNT BALANCE"})
+	business := classifyReadFailure(&domain.Error{Code: domain.ErrInsufficientBalance, Field: "amount", Message: "requested amount exceeds the available account balance"})
 	raw = readFailureDiagnostic(business)
-	if business.Code != "insufficient_balance" || business.RetryAction != "inspect_current_state" || strings.Contains(raw, "PRIVATE") {
+	if business.Code != "insufficient_balance" || business.RetryAction != "inspect_current_state" || !strings.Contains(raw, "requested amount exceeds the available account balance") {
 		t.Fatal(raw)
 	}
 	batch := newReadFailure("validation", "commands[0].side")
 	if batch.Field != "commands[0].side" {
 		t.Fatal(batch)
 	}
-	unknown := newReadFailure("validation", "commands[0].PRIVATE_ACCOUNT")
-	if unknown.Field != "" {
-		t.Fatal("unsafe field", unknown)
+	unlisted := newReadFailure("validation", "commands[0].unitCost")
+	if unlisted.Field != "commands[0].unitCost" {
+		t.Fatal("business field was filtered", unlisted)
 	}
 	submitted := submissionFailure{cause: failure}
 	if !errors.Is(submitted, errCapabilityWriteRejected) {

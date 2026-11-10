@@ -13,7 +13,8 @@ import (
 // add about 3.7 KiB across preview_batch/correction. Product enums, conditional
 // policy fields and local-time rules add about 5 KiB across three previews.
 // Interest-mode dependencies add another ~4 KiB across two product previews.
-// Unrelated budgets stay bounded.
+// Value-based ledger time/charge dependencies bring the measured read-write
+// total to 144107 bytes. Unrelated budgets stay bounded.
 const (
 	maxToolDescriptionBytes = 1500
 	maxInstructionsBytes    = 2400
@@ -21,7 +22,7 @@ const (
 
 var discoveryBudgetBytes = map[string]int{
 	ReadOnly:  65300,
-	ReadWrite: 144000,
+	ReadWrite: 144300,
 }
 
 func TestDiscoveryBudget(t *testing.T) {

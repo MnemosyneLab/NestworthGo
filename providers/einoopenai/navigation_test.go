@@ -253,7 +253,7 @@ func TestRecoveredNavigationRefusalCannotCompleteAnEarlierAction(t *testing.T) {
 					}
 					writeMode(w, request, []any{call})
 				case 3:
-					if !strings.Contains(latestToolOutput(t, request), "controlled_read_refused") {
+					if output := latestToolOutput(t, request); !strings.Contains(output, `"code":"internal"`) || !strings.Contains(output, "an unexpected error occurred") {
 						t.Error("missing recoverable refusal")
 					}
 					writeMode(w, request, []any{textItem()})
