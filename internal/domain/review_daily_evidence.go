@@ -178,6 +178,11 @@ type ReviewDailyResult struct {
 	On        string                    `json:"on"`
 	Truth     ReviewTruth               `json:"truth"`
 	Leaves    []ReviewDailyLeafEvidence `json:"leaves"`
+	// Historical position context is added only by evidence reads when the
+	// matching daily input is available. It is not part of a persisted vote.
+	AmountExact *string       `json:"amountExact,omitempty"`
+	CostExact   *string       `json:"costExact,omitempty"`
+	Currency    *CurrencyCode `json:"currency,omitempty"`
 }
 
 func EvaluateReviewDaily(spec ReviewRuleSpec, input ReviewDailyInput) (ReviewDailyResult, error) {

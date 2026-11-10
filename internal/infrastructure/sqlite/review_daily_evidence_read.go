@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -16,6 +17,47 @@ import (
 type reviewDailyEvidenceCursor struct {
 	Revision string `json:"revision"`
 	BeforeOn string `json:"beforeOn"`
+}
+
+type reviewDailyEvidenceScanner interface {
+	Scan(...any) error
+}
+
+// An input belongs to a vote only when its full projection key and fingerprint
+// match. Missing inputs leave position context absent rather than fabricating
+// historical values from today's holding.
+const reviewDailyEvidenceInputJoin = ` LEFT JOIN investment_review_daily_inputs i
+ ON i.household_id=? AND i.instrument_id=d.instrument_id
+ AND i.timezone_version=d.timezone_version AND i.on_date=d.on_date
+ AND i.input_policy=? AND i.input_fingerprint=d.input_fingerprint`
+
+func scanReviewDailyEvidence(row reviewDailyEvidenceScanner, spec *domain.ReviewPredicateNode) (domain.ReviewDailyResult, error) {
+	var on, evidence string
+	var amount, cost, currency sql.NullString
+	if err := row.Scan(&on, &evidence, &amount, &cost, &currency); err != nil {
+		return domain.ReviewDailyResult{}, err
+	}
+	var item domain.ReviewDailyResult
+	if err := jsoncodec.Unmarshal([]byte(evidence), &item); err != nil || item.On != on {
+		return domain.ReviewDailyResult{}, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review evidence is invalid"}
+	}
+	item.Predicate = spec
+	// Ignore any context embedded in a vote: the input is its only authority.
+	item.AmountExact, item.CostExact, item.Currency = nil, nil, nil
+	if amount.Valid {
+		item.AmountExact = &amount.String
+	}
+	if cost.Valid {
+		item.CostExact = &cost.String
+	}
+	if currency.Valid {
+		parsed, err := domain.ParseCurrency(currency.String)
+		if err != nil || string(parsed) != currency.String {
+			return domain.ReviewDailyResult{}, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review currency is invalid"}
+		}
+		item.Currency = &parsed
+	}
+	return item, nil
 }
 
 // ListReviewDailyEvidenceV2 reads a bounded slice of the current episode's
@@ -105,25 +147,21 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 		}
 		before = previous.BeforeOn
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT on_date,evidence_json FROM investment_review_daily_results
-	 WHERE rule_id=? AND condition_version=? AND instrument_id=? AND timezone_version=?
-		 AND on_date>=? AND on_date<=? AND on_date<? ORDER BY on_date DESC LIMIT ?`, ruleID, conditionVersion, instrumentID, timezoneVersion, firstOn, latest, before, pageSize+1)
+	inputPolicy := "rule:" + ruleID + "/v:" + strconv.Itoa(conditionVersion)
+	selectEvidence := `SELECT d.on_date,d.evidence_json,i.amount_exact,i.cost_exact,i.native_currency FROM investment_review_daily_results d` + reviewDailyEvidenceInputJoin + `
+	 WHERE d.rule_id=? AND d.condition_version=? AND d.instrument_id=? AND d.timezone_version=?
+	 AND d.on_date>=? AND d.on_date<=?`
+	rows, err := tx.QueryContext(ctx, selectEvidence+` AND d.on_date<? ORDER BY d.on_date DESC LIMIT ?`, householdID.String(), inputPolicy, ruleID, conditionVersion, instrumentID, timezoneVersion, firstOn, latest, before, pageSize+1)
 	if err != nil {
 		return empty, err
 	}
 	items := make([]domain.ReviewDailyResult, 0, pageSize+1)
 	for rows.Next() {
-		var on, evidence string
-		if err := rows.Scan(&on, &evidence); err != nil {
+		item, err := scanReviewDailyEvidence(rows, &spec.Predicate)
+		if err != nil {
 			rows.Close()
 			return empty, err
 		}
-		var item domain.ReviewDailyResult
-		if err := jsoncodec.Unmarshal([]byte(evidence), &item); err != nil || item.On != on {
-			rows.Close()
-			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review evidence is invalid"}
-		}
-		item.Predicate = &spec.Predicate
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -133,7 +171,20 @@ func (r *Repository) ListReviewDailyEvidenceV2(ctx context.Context, householdID 
 	if err := rows.Close(); err != nil {
 		return empty, err
 	}
-	result := domain.ReviewDailyEvidencePage{Items: items, EpisodeID: episodeID, ReportRevision: revision}
+	result := domain.ReviewDailyEvidencePage{Items: items, EpisodeID: episodeID, ReportRevision: revision, ConditionVersion: conditionVersion, EpisodeRevision: episodeRevision}
+	// This lookup deliberately ignores the page cursor. The most recent known
+	// vote may be on an older page, including when the latest closed day is unknown.
+	knownRow := tx.QueryRowContext(ctx, selectEvidence+` AND d.predicate_truth IN ('true','false') ORDER BY d.on_date DESC LIMIT 1`, householdID.String(), inputPolicy, ruleID, conditionVersion, instrumentID, timezoneVersion, firstOn, latest)
+	known, err := scanReviewDailyEvidence(knownRow, &spec.Predicate)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return empty, err
+	}
+	if err == nil {
+		if known.Truth != domain.ReviewTrue && known.Truth != domain.ReviewFalse {
+			return empty, &domain.Error{Code: domain.ErrIntegrity, Message: "stored daily review truth is invalid"}
+		}
+		result.LatestKnownResult = &known
+	}
 	if len(items) > pageSize {
 		result.Items = items[:pageSize]
 		encoded, _ := jsoncodec.Marshal(reviewDailyEvidenceCursor{Revision: revision, BeforeOn: result.Items[len(result.Items)-1].On})

@@ -23,6 +23,7 @@ type ReviewAlertRule struct {
 	AcknowledgedAt  *time.Time          `json:"acknowledgedAt,omitempty"`
 	LatestClosedOn  string              `json:"latestClosedOn"`
 	Window          ReviewPolicyWindow  `json:"window"`
+	TriggerWindow   *ReviewPolicyWindow `json:"triggerWindow,omitempty"`
 	LatestResult    *ReviewDailyResult  `json:"latestResult,omitempty"`
 	Coverage        []string            `json:"coverage"`
 	Status          string              `json:"status"`
@@ -71,8 +72,11 @@ type ReviewAlertSummary struct {
 // The cursor is bound to its publication so a corrected day cannot silently
 // disappear between pages.
 type ReviewDailyEvidencePage struct {
-	Items          []ReviewDailyResult `json:"items"`
-	NextCursor     string              `json:"nextCursor,omitempty"`
-	ReportRevision string              `json:"reportRevision"`
-	EpisodeID      ReviewEpisodeID     `json:"episodeId"`
+	Items             []ReviewDailyResult `json:"items"`
+	LatestKnownResult *ReviewDailyResult  `json:"latestKnownResult,omitempty"`
+	NextCursor        string              `json:"nextCursor,omitempty"`
+	ReportRevision    string              `json:"reportRevision"`
+	EpisodeID         ReviewEpisodeID     `json:"episodeId"`
+	ConditionVersion  int                 `json:"conditionVersion"`
+	EpisodeRevision   int                 `json:"episodeRevision"`
 }

@@ -25,7 +25,7 @@ export function ReviewEvidenceTree({ result }: { result: ReviewDailyResult }) {
         <p className="min-w-0 break-words font-medium"><span className="text-muted-foreground">{t("reviewV2.conditionNumber", { ordinal: ordinal + 1 })} · </span>{title}{days ? ` · ${t("reviewV2.conditionWindow", { days })}` : ""}</p>
         <Badge variant={leaf.truth === "true" ? "success" : "outline"}>{t(`reviewV2.condition${truth}`)}</Badge>
       </div>
-      <p className="num break-words text-foreground">{operator && <span>{operator === "in" || operator === "not_in" ? t(operator === "in" ? "reviewV2.includesAny" : "reviewV2.excludesAll") : operator} {expected} · </span>}{t("reviewV2.observedValue")}: {reviewLeafActual(t, leaf)}</p>
+      <p className="num break-words text-foreground" title={leaf.actual}>{operator && <span>{operator === "in" || operator === "not_in" ? t(operator === "in" ? "reviewV2.includesAny" : "reviewV2.excludesAll") : operator} {expected} · </span>}{t("reviewV2.observedValue")}: {reviewLeafActual(t, leaf)}</p>
       {(leaf.baselineOn || leaf.effectiveOn) && <p className="text-xs text-muted-foreground">{leaf.baselineOn ? `${formatCivilDate(leaf.baselineOn)} → ` : ""}{leaf.effectiveOn ? formatCivilDate(leaf.effectiveOn) : ""}</p>}
       {leaf.reason && <p className="text-xs text-muted-foreground">{reviewReasonLabel(t, leaf.reason)}</p>}
     </li>;

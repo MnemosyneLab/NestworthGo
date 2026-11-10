@@ -16,7 +16,7 @@ const state = vi.hoisted(() => {
     coverageFilter: null as unknown,
     instruments: { data: [] as Array<{ id: string; name: string; shortName?: string; symbol?: string }>, isPending: false },
     alert: { data: null as ReviewAlertPage | null, isPending: false, isError: false, isFetching: false, error: null, refetch: vi.fn() },
-    evidence: { data: { items: [{ on: "2026-10-15", truth: "true", leaves: [] }], reportRevision: "evidence-1", episodeId: "episode-one", nextCursor: "" }, isPending: false, isError: false, isFetching: false },
+    evidence: { data: { items: [{ on: "2026-10-15", truth: "true", leaves: [] }], reportRevision: "evidence-1", episodeId: "episode-one", episodeRevision: 4, conditionVersion: 1, nextCursor: "" }, isPending: false, isError: false, isFetching: false },
     coverage: { data: null as ReviewCoveragePage | null, isPending: false, isError: false, isFetching: false, refetch: vi.fn() },
     rules: { data: [], isPending: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn() },
     suppressions: { data: [], isPending: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn() },
@@ -25,7 +25,7 @@ const state = vi.hoisted(() => {
 });
 vi.mock("@/queries/investmentReviewV2", () => ({
   useReviewAlertPage: (filter: unknown) => { state.filter = filter; return state.alert; },
-  useReviewDailyEvidencePage: () => state.evidence,
+  useReviewDailyEvidencePage: (episodeId: string) => episodeId === "episode-one" ? state.evidence : { ...state.evidence, data: { ...state.evidence.data, items: [], episodeId, episodeRevision: 2 } },
   useReviewCoveragePage: (filter: unknown) => { state.coverageFilter = filter; return state.coverage; },
   useReviewRulesV2: () => state.rules,
   useReviewSuppressionsV2: () => state.suppressions,
@@ -141,12 +141,12 @@ describe("daily investment review page", () => {
     expect(screen.getAllByRole("heading", { name: "Synthetic fund" })).toHaveLength(1);
     expect(screen.getByText("Daily amount")).toBeVisible();
     expect(screen.getByText("Price loss")).toBeVisible();
-    expect(screen.getByText(i18n.t("reviewV2.windowConsecutive", { days: 4, needed: 3 }))).toBeVisible();
-    expect(screen.getByText(i18n.t("reviewV2.windowRolling", { hits: 5, needed: 5, days: 10, unknowns: 2 }))).toBeVisible();
-    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
+    expect(screen.getByText(new RegExp(i18n.t("reviewV2.windowConsecutive", { days: 4, needed: 3 })))).toBeVisible();
+    expect(screen.getByText(i18n.t("reviewV2.latestWindow") + ": " + i18n.t("reviewV2.windowRolling", { hits: 5, needed: 5, days: 10, unknowns: 2 }))).toBeVisible();
+    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.dayHistory"))[0]);
     expect(screen.getByText(i18n.t("reviewV2.windowCounts", { hits: 4, falseCount: 0, unknowns: 0 }))).toBeVisible();
     expect(screen.getByText(i18n.t("reviewV2.summaryCounts", { total: 3, matched: 1, pending: 1, actionable: 2, unknown: 0 }))).toBeVisible();
-    expect(screen.getAllByText("2026-10-15 · " + i18n.t("reviewV2.dailyTrue"))).toHaveLength(2);
+    expect(screen.getAllByRole("region", { name: i18n.t("reviewV2.selectedDayDetails") })).toHaveLength(1);
     expect(screen.queryByText(/reviewV2\./)).not.toBeInTheDocument();
   });
   it("keeps status and type filters independent and acknowledges exactly one episode revision", async () => {
@@ -278,9 +278,9 @@ describe("daily investment review page", () => {
       { metric: "price_change", truth: "unknown" as never, reason: "daily_close_missing" },
     ] };
     rule.coverage = ["historical_cost", "not_a_known_code"];
-    state.evidence.data.items = [{ on: "2026-10-15", truth: "unknown" as never, leaves: [{ metric: "amount", truth: "unknown" as never, reason: "daily_close_missing", currency: "USD" as never }] }] as never;
+    state.evidence.data.items = [structuredClone(rule.latestResult)] as never;
     mount();
-    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
+    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.dayHistory"))[0]);
     expect(screen.getByText("Observed: US$126.50")).toBeVisible();
     expect(screen.getAllByText("Matched").length).toBeGreaterThan(0);
     expect(screen.getByText("Observed: -3.46%")).toBeVisible();
@@ -299,7 +299,7 @@ describe("daily investment review page", () => {
     rule.window = { ...rule.window, hitCount: 1, falseCount: 1, unknownCount: 1, consecutiveCount: 1 };
     state.rules.data = [{ id: "r1", name: "One condition rule", enabled: true, evaluator: "daily_predicate_v1", severity: "warning", rowRevision: 1, spec: { triggerPolicy: { kind: "single" }, schedule: { timezone: "UTC" }, predicate: { all: [{}] } } }] as never[];
     mount();
-    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.why"))[0]);
+    await userEvent.click(screen.getAllByText(i18n.t("reviewV2.dayHistory"))[0]);
     expect(screen.getByText("1 hit · 1 miss · 1 unknown")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Rules" }));
     expect(await screen.findByText("1 condition · One daily hit · UTC")).toBeVisible();
