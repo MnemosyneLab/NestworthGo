@@ -14,6 +14,33 @@ suppressions, rule history and explicit refresh. Overview shows one Tasks &
 checks summary; the review count opens this tab. There is not a second review
 summary on the homepage.
 
+Each rule card separates its immutable opening trigger (date, hit count and
+original window), current policy window, handling status and latest daily
+assessment. An unknown latest day can show the most recent valid whole-rule
+assessment with its own date; this is historical context, never evidence of
+recovery. Financial condition summaries retain the metric lookback, comparison,
+actual value and real calculation dates. Scope conditions and nested all/any
+logic remain available in the detailed evidence.
+
+Daily history is collapsed initially. Opening it shows a shared date selector
+and one selected day’s position context, metric intervals and complete condition
+tree; changing the date replaces that detail rather than expanding every day.
+Older days retain bounded, revision-bound paging. Evidence responses identify
+the episode revision and proven condition version; the frontend isolates query
+caches by publication and rejects mixed episode/publication pages.
+
+The daily evidence read independently selects the most recent true or false
+whole-rule result within the episode’s original evidence range, regardless of
+page cursor. Historical amount, cost and currency are read-only context joined
+from the same household, instrument, civil date, timezone/cutoff version and
+rule-version input policy, with an identical input fingerprint. Missing or
+mismatched inputs leave context unavailable; current holdings never backfill
+historical values. These optional response fields do not change persisted
+votes or financial calculations. Valid latest assessments load history only
+on demand; unknown assessments fetch one bounded page plus the backend’s
+independent valid-result lookup. No frontend calculation or schema change is
+introduced.
+
 Rules are named and target selected instruments or all current holdings. Each
 rule has a closed predicate and a separate trigger policy: one daily hit,
 consecutive hits, or a minimum number of hits in a calendar window. Evaluation

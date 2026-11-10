@@ -73,6 +73,13 @@ func TestReviewEvidenceKeepsActualVersionThroughPendingFailedAndRetainedEdit(t *
 		if err != nil || len(daily.Items) == 0 {
 			t.Fatalf("daily %+v %v", daily, err)
 		}
+		wantVersion := 1
+		if wantDays != 7 {
+			wantVersion = 2
+		}
+		if daily.ConditionVersion != wantVersion {
+			t.Fatalf("evidence response version=%d, want %d", daily.ConditionVersion, wantVersion)
+		}
 		for _, day := range daily.Items {
 			if day.Predicate == nil || priceLeaf(day.Predicate).LookbackDays != wantDays {
 				t.Fatalf("wrong daily context %+v", day)

@@ -16,9 +16,9 @@ export function useReviewAlertPage(filter: ReviewAlertFilter, cursor = "", activ
   });
 }
 
-export function useReviewDailyEvidencePage(episodeId: string, cursor = "", active = true) {
+export function useReviewDailyEvidencePage(episodeId: string, cursor = "", active = true, publication = "") {
   return useQuery({
-    queryKey: [...reviewV2Key, "evidence", episodeId, cursor],
+    queryKey: [...reviewV2Key, "evidence", episodeId, cursor, publication],
     queryFn: () => callService(() => Service.ListReviewDailyEvidenceV2({ episodeId, cursor, pageSize: 20 })),
     enabled: active && episodeId !== "",
   });

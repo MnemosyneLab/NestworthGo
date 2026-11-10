@@ -367,12 +367,12 @@ func reviewAlertGroupsForIDs(ctx context.Context, tx *sql.Tx, householdID domain
 		if cost.Valid {
 			entry.CostExact = &cost.String
 		}
-		var evidence struct {
-			LatestResult *domain.ReviewDailyResult
-			Coverage     []string
-		}
+		var evidence reviewEpisodeEvidence
 		if err := jsoncodec.Unmarshal([]byte(evidenceJSON), &evidence); err != nil {
 			return nil, err
+		}
+		if evidence.TriggerWindow.WindowStart != "" {
+			entry.TriggerWindow = &evidence.TriggerWindow
 		}
 		entry.LatestResult = evidence.LatestResult
 		if entry.LatestResult != nil {

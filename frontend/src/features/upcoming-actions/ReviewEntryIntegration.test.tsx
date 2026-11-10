@@ -85,7 +85,7 @@ beforeEach(async () => {
   services.alerts.mockImplementation(async (request: { cursor?: string }) => reviewPage(request.cursor ?? ""));
   services.rules.mockResolvedValue([]);
   services.coverage.mockResolvedValue({ items: [], reportRevision: "synthetic-coverage", projectionStatus: "complete" });
-  services.evidence.mockResolvedValue({ items: [], episodeId: "", reportRevision: "synthetic-evidence" });
+  services.evidence.mockImplementation(async (request: { episodeId: string }) => ({ items: [], episodeId: request.episodeId, episodeRevision: 3, conditionVersion: 1, reportRevision: "synthetic-evidence" }));
   services.history.mockResolvedValue({ items: [], nextCursor: "", reportRevision: "synthetic-history", ruleId: "" });
   services.events.mockResolvedValue({ items: [], nextCursor: "", reportRevision: "synthetic-events", episodeId: "" });
   services.suppressions.mockResolvedValue([]);

@@ -1,4 +1,4 @@
-import { ReviewEvidenceTree } from "./ReviewEvidenceTree";
+import { ReviewEvidenceDetails } from "./ReviewEvidenceDetails";
 import { ReviewPriority } from "./ReviewPriority";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { LoadingState, ErrorState, EmptyState } from "@/components/layout/PageState";
 import { useObjectNavigation } from "@/app/NavigationContext";
-import { useReviewAlertPage, useReviewCoveragePage, useReviewDailyEvidencePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
+import { useReviewAlertPage, useReviewCoveragePage, useReviewRulesV2, useReviewSuppressionsV2, useReviewV2Commands } from "@/queries/investmentReviewV2";
 import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 import { useHistoryOrigin } from "@/queries/history";
 import { useInstruments } from "@/queries/investments";
@@ -27,13 +27,10 @@ import { parseWailsError, translateWailsError, type WireError } from "@/lib/wail
 import type { ReviewAlertGroup, ReviewAlertRule, ReviewRule } from "../../../bindings/github.com/waltwang/nestworth-go/internal/domain/models";
 import { ReviewRuleEditor } from "./ReviewRuleEditor";
 import { ReviewEpisodeHistorySheet } from "./ReviewEpisodeHistorySheet";
-import { reviewReasonLabel, reviewReasonList } from "./reviewEvidenceDisplay";
+import { reviewReasonList } from "./reviewEvidenceDisplay";
 
 const statusKeys = ["unignored", "all", "pending", "acknowledged", "ignored", "unknown", "confirming", "paused", "coverage"] as const;
 const typeKeys = ["all", "stock", "etf", "mutual_fund", "bank_investment_product", "bond", "precious_metal", "crypto", "other"] as const;
-
-const detailsClass = "rounded-xl border border-border bg-card/60 text-xs text-muted-foreground";
-const detailsSummaryClass = "cursor-pointer select-none rounded-xl px-3 py-2 font-medium text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50";
 
 function CursorPager({ canPrevious, canNext, onPrevious, onNext, label }: { canPrevious: boolean; canNext: boolean; onPrevious: () => void; onNext: () => void; label: { previous: string; next: string } }) {
   if (!canPrevious && !canNext) return null;
@@ -52,7 +49,7 @@ function ruleWindow(rule: ReviewAlertRule, t: (key: string, options?: Record<str
   const policy = rule.triggerPolicy;
   if (policy.kind === "consecutive") return t("reviewV2.windowConsecutive", { days: rule.window.consecutiveCount, needed: policy.count });
   if (policy.kind === "rolling") return t("reviewV2.windowRolling", { hits: rule.window.hitCount, needed: policy.minHits, days: policy.windowDays, unknowns: rule.window.unknownCount });
-  return t("reviewV2.windowSingle", { date: formatCivilDate(rule.window.windowEnd) });
+  return t("reviewV2.single");
 }
 
 function SuppressedInstrumentName({ instrumentId }: { instrumentId: string }) {
@@ -61,28 +58,6 @@ function SuppressedInstrumentName({ instrumentId }: { instrumentId: string }) {
   const instrument = (instruments.data ?? []).find(item => item.id === instrumentId);
   const label = instrument ? trimInstrumentText(instrument.name) || instrumentDisplayLabel(instrument) : "";
   return <>{label || (instruments.isPending ? "…" : t("reviewV2.unknownInvestment"))}</>;
-}
-
-function ReviewEvidenceDetails({ rule, isActive }: { rule: ReviewAlertRule; isActive: boolean }) {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-  const [cursor, setCursor] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
-  const evidence = useReviewDailyEvidencePage(rule.episodeId, cursor, isActive && expanded);
-  return <details className={detailsClass} onToggle={event => setExpanded(event.currentTarget.open)}>
-    <summary className={detailsSummaryClass}>{t("reviewV2.why")}</summary>
-    <div className="flex flex-col gap-2 border-t border-border px-3 py-3">
-      <p className="num">{t("reviewV2.evidenceDates", { first: formatCivilDate(rule.firstHitOn), triggered: formatCivilDate(rule.triggeredOn), latest: formatCivilDate(rule.latestClosedOn) })}</p>
-      <p className="num">{t("reviewV2.windowCounts", { hits: rule.window.hitCount, falseCount: rule.window.falseCount, unknowns: rule.window.unknownCount })}</p>
-      {rule.latestResult && <><p className="font-medium">{t("reviewV2.ruleResult")}: {t(`reviewV2.daily${rule.latestResult.truth === "true" ? "True" : rule.latestResult.truth === "false" ? "False" : "Unknown"}`)}</p><ReviewEvidenceTree result={rule.latestResult} /></>}
-      {(rule.coverage ?? []).map((code, i) => <p key={i}>{reviewReasonLabel(t, code)}</p>)}
-      {evidence.isPending && <p role="status">{t("ui.state.loadingPage")}</p>}
-      {evidence.isError && <Notice tone="warning" role="alert"><div className="flex flex-wrap items-center justify-between gap-2"><span>{t("reviewV2.staleRead")}</span><Button size="sm" variant="outline" onClick={() => { setCursor(""); setHistory([]); }}>{t("reviewV2.refresh")}</Button></div></Notice>}
-      {evidence.data && <><ol className="flex flex-col gap-1.5" aria-label={t("reviewV2.dailyEvidence")}>
-        {(evidence.data.items ?? []).map(day => <li key={day.on} className={`num flex flex-col gap-0.5 rounded-lg border px-3 py-2 ${day.truth === "true" ? "border-warning/40 bg-warning/5" : "border-border bg-card"}`}><span className="font-semibold text-foreground">{formatCivilDate(day.on)} · {t(`reviewV2.daily${day.truth === "true" ? "True" : day.truth === "false" ? "False" : "Unknown"}`)}</span><ReviewEvidenceTree result={day} /></li>)}
-      </ol><div className="flex justify-end gap-2"><Button size="sm" variant="outline" disabled={!history.length || evidence.isFetching} onClick={() => { setCursor(history[history.length - 1] ?? ""); setHistory(values => values.slice(0, -1)); }}>{t("reviewV2.previous")}</Button><Button size="sm" variant="outline" disabled={!evidence.data.nextCursor || evidence.isFetching} onClick={() => { setHistory(values => [...values, cursor]); setCursor(evidence.data!.nextCursor ?? ""); }}>{t("reviewV2.next")}</Button></div></>}
-    </div>
-  </details>;
 }
 
 export function InvestmentReviewPage({ isActive = true, actionsHost }: { isActive?: boolean; actionsHost?: HTMLElement | null } = {}) {
@@ -206,12 +181,12 @@ export function InvestmentReviewPage({ isActive = true, actionsHost }: { isActiv
         { id: "performance", label: t("reviewV2.viewPerformance"), onSelect: () => openInstrument(group.instrumentId, "performance") },
       ]} /></div></div>
       <div className="divide-y divide-border">{(group.rules ?? []).map(rule => <div key={rule.episodeId} className={`flex flex-col gap-2 px-5 py-4 text-sm ${rule.actionable ? "bg-warning/5" : ""}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex min-w-0 flex-wrap items-center gap-2 font-semibold"><ReviewPriority severity={rule.severity} /><span className="break-words">{rule.name}</span></span><Badge variant={rule.actionable ? "warning" : rule.status === "acknowledged" || rule.status === "ignored" ? "secondary" : "outline"}>{t(`reviewV2.status.${rule.status}`)}</Badge></div>
-        <p className="num">{ruleWindow(rule, t)}{rule.window.unknownCount > 0 && rule.triggerPolicy.kind !== "rolling" ? ` · ${t("reviewV2.unknownDays", { count: rule.window.unknownCount })}` : ""}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2"><span className="flex min-w-0 flex-wrap items-center gap-2 font-semibold"><ReviewPriority severity={rule.severity} /><span className="break-words">{rule.name}</span></span><Badge variant="secondary">{t("reviewV2.handling")}: {t(`reviewV2.status.${rule.status === "ignored" || rule.status === "paused" ? rule.status : rule.acknowledgedAt || rule.status === "acknowledged" ? "acknowledged" : "pending"}`)}</Badge></div>
+        <p className="num text-xs text-muted-foreground">{t("reviewV2.latestWindow")}: {ruleWindow(rule, t)}{rule.window.unknownCount > 0 && rule.triggerPolicy.kind !== "rolling" ? ` · ${t("reviewV2.unknownDays", { count: rule.window.unknownCount })}` : ""}</p>
         {rule.suppressedUntil && <p className="num text-xs text-muted-foreground">{t("reviewV2.suppressedUntil", { date: formatCivilDate(rule.suppressedUntil) })}</p>}
         {rule.actionable && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy || alerts.isError} onClick={() => { trackFocus(group.instrumentId); void handle(() => commands.acknowledge.mutateAsync({ episodeId: rule.episodeId, expectedRevision: rule.episodeRevision }), t("reviewV2.acknowledgedMessage", { name: rule.name })); }}>{t("reviewV2.acknowledge")}</Button>
         </div>}
-        <ReviewEvidenceDetails rule={rule} isActive={isActive} />
+        <ReviewEvidenceDetails key={`${rule.episodeId}:${rule.episodeRevision}:${content?.reportRevision}`} rule={rule} isActive={isActive} publication={content?.reportRevision ?? ""} onRefresh={() => { void alerts.refetch(); }} />
       </div>)}</div>
     </li>)}</ul>
     <CursorPager label={{ previous: t("reviewV2.previous"), next: t("reviewV2.next") }} canPrevious={cursorStack.length > 0} canNext={Boolean(content?.nextCursor)} onPrevious={() => { setCursor(cursorStack[cursorStack.length - 1] ?? ""); setCursorStack(values => values.slice(0, -1)); }} onNext={() => { setCursorStack(values => [...values, cursor]); setCursor(content!.nextCursor ?? ""); }} />
