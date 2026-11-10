@@ -110,7 +110,7 @@ func TestBoundedReadSingleItemAndSummaryOverflow(t *testing.T) {
 	if _, err = c.page(1, ReadPageInput{r.CaptureID, "items", *r.Sections["items"].Page.NextCursor, 25}); err == nil || !strings.Contains(err.Error(), "single_item") {
 		t.Fatal(err)
 	}
-	if _, err = c.store(1, readCapture{Kind: "test", Summary: strings.Repeat("x", 40000), Sections: map[string][]json.RawMessage{}}, 25); err == nil || !strings.Contains(err.Error(), "summary") {
+	if _, err = c.store(1, readCapture{Kind: "test", Summary: strings.Repeat("x", contextWireLimit), Sections: map[string][]json.RawMessage{}}, 25); err == nil || !strings.Contains(err.Error(), "summary") {
 		t.Fatal(err)
 	}
 }

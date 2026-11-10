@@ -189,6 +189,21 @@ func historicalRowProjection(row application.HistoricalOverviewRow, compact bool
 }
 
 func historicalReadCapture(overview application.HistoricalOverviewResult, points []application.HistoricalSeriesPoint, in HistoricalReadOptions, f HistoricalReadFilter) (readCapture, error) {
+	// A one-day series has one state, not a comparison with itself. Keep
+	// the point and exact left evidence from the same captured transaction.
+	if len(points) == 1 {
+		if f.Side == "right" {
+			f.Side = "left"
+		}
+		overview.Right, overview.Change, overview.EstimatedChange, overview.Reconciliation = nil, nil, nil, nil
+		overview.Categories = nil
+		overview.Rows = append([]application.HistoricalOverviewRow(nil), overview.Rows...)
+		for i := range overview.Rows {
+			r := &overview.Rows[i]
+			r.Right, r.BaseChange, r.NativeChange, r.QuantityChange, r.EstimatedBaseChange = nil, nil, nil, nil, nil
+			r.Changed = false
+		}
+	}
 	if f.Side == "right" && overview.Right == nil {
 		return readCapture{}, fail("validation", "right side requires compareTo or a series")
 	}

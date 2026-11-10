@@ -63,6 +63,12 @@ func TestTypedMCPValidationAndErrorsMatchPriorAdapter(t *testing.T) {
 		if (oldErr == nil) != (newErr == nil) || (oldErr != nil && oldErr.Error() != newErr.Error()) {
 			t.Errorf("%s %s errors differ: %v / %v", test.name, test.raw, oldErr, newErr)
 		}
+		if oldResult != nil && !oldResult.IsError && newResult != nil && !newResult.IsError {
+			if len(newResult.Content) != 0 || newResult.StructuredContent == nil {
+				t.Fatal("success must have one structured representation", newResult)
+			}
+			oldResult.Content = newResult.Content
+		}
 		if !reflect.DeepEqual(oldResult, newResult) {
 			t.Errorf("%s %s result differs: %+v / %+v", test.name, test.raw, oldResult, newResult)
 		}

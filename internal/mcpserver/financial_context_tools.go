@@ -284,16 +284,12 @@ func (c *financialContextCache) decodeCursor(value string) (financialContextCurs
 	}, nil
 }
 
-// Match the SDK's final structured + JSON text CallToolResult, including the
-// data wrapper, JSON escaping and JSON-RPC envelope allowance. Measuring the
-// domain DTO alone undercounts the wire by more than a factor of two.
+// Match the adapter's single structured CallToolResult, including the data
+// wrapper, JSON escaping and JSON-RPC envelope allowance. Keep this shape in
+// sync with registerTool; transport tests verify the actual HTTP size.
 func financialContextWireSize(value any) (int, error) {
 	wrapped := Response{Data: value}
-	text, err := jsoncodec.Marshal(wrapped)
-	if err != nil {
-		return 0, err
-	}
-	result := mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(text)}}, StructuredContent: wrapped}
+	result := mcp.CallToolResult{Content: []mcp.Content{}, StructuredContent: wrapped}
 	encoded, err := jsoncodec.Marshal(result)
 	return len(encoded) + 1024, err
 }

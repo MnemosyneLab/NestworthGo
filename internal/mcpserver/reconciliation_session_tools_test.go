@@ -121,7 +121,7 @@ func TestReconciliationSessionHTTPWorkflowBothCorrectionRoutes(t *testing.T) {
 func TestReconciliationPageBoundsAndWireBudget(t *testing.T) {
 	rows := make([]any, 51)
 	for i := range rows {
-		rows[i] = map[string]any{"id": i, "note": strings.Repeat("x", 2000), "source": strings.Repeat("s", 512)}
+		rows[i] = map[string]any{"id": i, "note": strings.Repeat("x", 3000), "source": strings.Repeat("s", 512)}
 	}
 	in := ReconciliationReadInput{Limit: 25}
 	v, err := pageReconciliation(in, rows, 3)
