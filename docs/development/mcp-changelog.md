@@ -1,5 +1,15 @@
 # MCP contract changelog
 
+## 2026-11-10 — structured-only success results
+
+MCP implementation 5.0.0 returns success payloads only in `structuredContent`,
+with an empty `content` array. Errors retain readable text and output-schema
+validation remains enabled. Text-only clients must update. The complete-response
+64 KiB budget is unchanged. Single-day historical series return one endpoint;
+targeted pending filters avoid scanning ordinary rows. Shared ledger validation
+now reports allowed command kinds and exact local-time repair guidance. Skill
+3.0.21 describes this contract; these are repository changes, not published assets.
+
 ## 2026-11-09 — agent read protocol v2
 
 MCP implementation 4.0.0 uses the same shared compact read handlers for external
@@ -14,7 +24,7 @@ This file is the stage, extension and follow-up narrative that used to live in
 [mcp.md](mcp.md). The current rules are that contract. Figures here are the
 measurements recorded when each change landed. They are not a second budget.
 
-The local MCP implementation version is `4.0.0`. Skill versions cited below
+The current local MCP implementation version is `5.0.0`. Skill versions cited below
 are the repository skill at that commit, not the published installer.
 
 ## Stage 1 tools

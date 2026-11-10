@@ -2,9 +2,10 @@
 
 ## Current baseline
 
-Current development identifies as Nestworth `v0.3.10` / build `11`; the latest published
+Current development prepares Nestworth `v0.3.11` / build `12` (unreleased); the latest published
 release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10), published 2026-10-28 with
-skill 2.0.0. The unpublished repository skill version is recorded in
+skill 2.0.0. See the [v0.3.11 release preparation](../releases/v0.3.11.md) for
+current scope and remaining gates. The unpublished repository skill version is recorded in
 [`skills/nestworth/VERSION`](../../skills/nestworth/VERSION). The project
 is a Go 1.27.3 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own

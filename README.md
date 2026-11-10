@@ -106,7 +106,9 @@ current navigation may differ. [Screenshot source and scope](docs/qa/post-merge-
 Download the **Apple Silicon DMG or ZIP** from
 [GitHub Releases](https://github.com/MnemosyneLab/NestworthGo/releases/latest).
 The current release is **v0.3.10 · build 11**, published October 28, 2026.
-Checksums are included with the downloads.
+Checksums are included with the downloads. The checked-out source prepares
+**v0.3.11 · build 12 (unreleased)**; see the [release preparation](docs/releases/v0.3.11.md)
+and [next release notes](docs/releases/v0.3.11-notes.md).
 
 | Before you install | Current release |
 | --- | --- |

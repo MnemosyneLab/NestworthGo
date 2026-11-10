@@ -1,27 +1,28 @@
 # Built-in AI integration and delivery boundaries
 
-## Current delivery: explicitly enabled desktop read-only conversation
+## Current delivery: opt-in desktop assistant
 
 The [desktop runtime contract](builtin-ai-runtime.md) is authoritative for the
-installed product. Users can save an OpenAI API key, choose a model and explicitly
-enable desktop read-only requests. The right-hand panel sends questions, shows
-bounded running/terminal feedback, stops runs and restores paged history without
-automatic request replay. Current overview, accounts and bounded strictly read-only closed-period attribution
-are enabled. One-shot model navigation is available only after explicit
-per-message desktop authorization. Their shared capability reads preserve cropping, pagination and
-financial evidence. A current-page selector requests fresh backend evidence; it
-does not assert visible filters or grant authority. User-click account navigation
-retains the local page host guards; model-selected page changes additionally bind
-backend page/request leases, live successful runs and navigation generations. Arbitrary model UI control and analysis-page/filter navigation remain pending.
+installed product. Users explicitly enable OpenAI requests and select an enabled
+model and reasoning effort. The sidebar streams replies, restores persistent
+conversations and exposes bounded tool details without automatic request replay.
+Read-only is the default. Explicit Read & Write enables the shared MCP business
+registry without per-write approval; previews, commits, receipts and recovery
+remain authoritative. The retired reviewed-write endpoints grant no authority.
 
-Credentials use the main SQLite configuration repository, without field encryption,
-and enter full database backups. No Keychain or signed-build dependency is used.
-Conversation state remains in its separate private sidecar. Saving a key alone
-does not enable requests. Mobile retains its local [page guide](builtin-ai-page-guide.md);
-mobile model access remains closed. Desktop permissions are Read-only or Full;
-Full uses the shared MCP write tools without per-change confirmation. The
-reviewed-write mode and its proposal/confirmation endpoints have been removed.
-See the runtime contract for current behavior and legacy receipt recovery.
+Current page reads, navigation and scoped controls use live desktop page leases
+and permission checks. Navigation and presentation-only actions need no separate
+per-message approval; business mutations require Read & Write. See the runtime
+contract for the exact operations and revocation fences. Arbitrary UI automation
+is unavailable. Mobile retains the local [page guide](builtin-ai-page-guide.md);
+mobile model access remains closed.
+
+Credentials use the main SQLite configuration repository without field encryption
+and enter full database backups. Conversations and usage remain in private
+sidecars. Saving a key alone does not enable requests. Voice transcription and
+usage accounting have their own [voice](ai-voice-input.md) and
+[usage](ai-usage.md) contracts. Native GUI and real-provider acceptance remain
+separate from synthetic backend and frontend tests.
 
 The sections below retain the broader target architecture and historical host-review
 integration evidence. They do not grant currently unsupported product authority.

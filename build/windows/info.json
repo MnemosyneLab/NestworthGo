@@ -1,11 +1,11 @@
 {
 	"fixed": {
-		"file_version": "0.3.10.11"
+		"file_version": "0.3.11.12"
 	},
 	"info": {
 		"0000": {
-			"ProductVersion": "0.3.10",
-			"FileVersion": "0.3.10.11",
+			"ProductVersion": "0.3.11",
+			"FileVersion": "0.3.11.12",
 			"CompanyName": "Nestworth",
 			"FileDescription": "A local-first personal finance desktop application for building and maintaining a personal or household balance sheet.",
 			"LegalCopyright": "(c) 2026, Nestworth",
