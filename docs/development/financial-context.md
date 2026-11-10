@@ -174,7 +174,7 @@ Limits:
 | Input read admission | 100,000 queried rows; 32 MiB of SQL field bytes plus 256 bytes per row |
 | Full projected package | 4 MiB |
 | Process cache | 8 packages, 16 MiB encoded content |
-| Final MCP response | 64 KiB including structured content, escaped JSON text/data wrappers and JSON-RPC envelope reserve |
+| Final MCP response | 64 KiB including the structured result, data wrapper, JSON encoding and JSON-RPC envelope reserve |
 | Context-tool JSON-RPC ID | at most 512 encoded bytes, keeping the envelope reserve bounded |
 
 Input budgets are checked **before** each query's rows are allocated or JSON is
@@ -187,7 +187,7 @@ Such requests fail explicitly rather than calculating from truncated facts.
 Oversized package, summary or individual row returns `too_large`. Individual-row
 admission measures that row with the required summary, independently of other
 sections occupying the initial page. Rows are not silently discarded or split;
-escaping and SDK duplication are included in sizing. For these context tools only,
+JSON encoding and the single structured result are included in sizing. For these context tools only,
 the stateless JSON HTTP transport also buffers at most 64 KiB of the final body.
 An oversized SDK validation/error response is replaced in full by a fixed
 `too_large` tool error with the same bounded request ID; offending input text is

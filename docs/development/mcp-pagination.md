@@ -69,8 +69,8 @@ product, episode, filter and order cannot be substituted. It uses the session's
 existing random signing key and generation; no cursor persistence is introduced.
 Native publication and reconciliation stale checks remain authoritative.
 
-Budget checks include the projected page and cursor inside both SDK text and
-structuredContent, plus transport allowance, before choosing a page boundary.
+Budget checks include the projected page and cursor in `structuredContent`,
+plus transport allowance, before choosing a page boundary.
 Readers reduce their own row bound under the existing read fence, never trim
 rows after minting a continuation. A single oversized row/group fails too_large;
 it cannot be skipped, truncated or repaired by lowering limit. Native frozen
