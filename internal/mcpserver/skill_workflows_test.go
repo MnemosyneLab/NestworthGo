@@ -321,9 +321,9 @@ func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
 	c := connect(t, s)
 	// Synthetic frozen output forces a zero-row section; the actual shipped
 	// evidence-page arguments must successfully consume its offset-zero cursor.
-	value := strings.Repeat("9", 7000)
+	value := strings.Repeat("9", 14000)
 	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: now, ContentHash: "synthetic", Content: application.FinancialContextContent{
-		Disclosure: "minimal", Summary: application.FinancialContextSummary{KnownAssets: strings.Repeat("9", 21000)},
+		Disclosure: "minimal", Summary: application.FinancialContextSummary{KnownAssets: strings.Repeat("9", 42000)},
 		Positions: []application.FinancialContextPosition{{Ref: "account-1", NativeAmount: &value}}, Gaps: []application.FinancialContextGap{},
 		Evidence: []application.FinancialContextEvidence{{Ref: "evidence-1", Kind: "price", Value: &value}},
 	}}, expires: now.Add(contextTTL), size: 1}

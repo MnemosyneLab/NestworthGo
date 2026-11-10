@@ -24,6 +24,9 @@ func (e ArgumentError) Message() string {
 	if e.Rule == "typed_decode" {
 		return "Arguments must fit the declared field types and numeric ranges; integer fields require integer notation."
 	}
+	if e.Field != "" && e.Rule == "enum" && len(e.Expected) > 0 {
+		return fmt.Sprintf("Field %s must be one of: %s.", e.Field, strings.Join(e.Expected, ", "))
+	}
 	if e.Field != "" && e.Rule == "type" && len(e.Expected) > 0 {
 		return fmt.Sprintf("Field %s must have JSON type %s.", e.Field, strings.Join(e.Expected, " or "))
 	}
@@ -175,6 +178,40 @@ func explainArgument(root, s *jsonschema.Schema, value any, path string, depth i
 						return &ArgumentError{Field: joinArgumentPath(path, need), Rule: "required_with", Expected: []string{name}}
 					}
 				}
+			}
+		}
+		// Only diagnose a discriminator when every union branch requires it
+		// and declares string enum values. Partial unions retain one_of.
+		for _, key := range []string{"kind", "action"} {
+			expected := []string{}
+			complete, matched := len(s.OneOf) > 0, false
+			for _, branch := range s.OneOf {
+				p := branch.Properties[key]
+				required := false
+				for _, name := range branch.Required {
+					required = required || name == key
+				}
+				if !required || p == nil || len(p.Enum) == 0 {
+					complete = false
+					break
+				}
+				for _, v := range p.Enum {
+					text, ok := v.(string)
+					if !ok {
+						complete = false
+						break
+					}
+					expected = append(expected, text)
+				}
+				matched = matched || schemaAcceptsRoot(root, p, object[key])
+			}
+			if complete && !matched {
+				field := joinArgumentPath(path, key)
+				if _, exists := object[key]; !exists {
+					return &ArgumentError{Field: field, Rule: "required"}
+				}
+				sort.Strings(expected)
+				return &ArgumentError{Field: field, Rule: "enum", Expected: expected}
 			}
 		}
 		// Choose only a schema-owned discriminator; do not guess a union branch.

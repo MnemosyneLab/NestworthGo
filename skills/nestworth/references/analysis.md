@@ -4,7 +4,7 @@
 <!-- Generated from internal/agentguidance/recipes.json; update that source. -->
 ### Shared recipe: historical
 
-Choose one historical shape: date/compareTo for endpoints, or from/to for a 1–31-day closed-date series. Dates use the household history timezone. Endpoint movement includes principal flows and is not investment return. Filters select leaves; household totals and reconciliation can remain full scope. Do not add account rollups to their component leaves.
+Use date/compareTo for endpoints; from/to for 1–31 closed days in household history timezone. Endpoint movement includes principal, not investment return. Filters select leaves; totals/reconciliation may stay household-wide. Never sum account rollups with components. Single-date pending: get_historical_overview with date, filter={included:true,quality:"pending"}, view="evidence". Pending means carried price/FX, not missing valuation. Do not scan all rows or regex JSON (carriedCount:0 is normal); check pendingContribution > 0 on counted leaves. Follow only relevant filtered cursors.
 
 ### Shared recipe: review-rule
 
@@ -70,8 +70,8 @@ two historical states (`date` may be empty for the GUI default month end;
 a bounded daily trend with its endpoint views from the same capture. Do not send
 both shapes together. Dates are closed `YYYY-MM-DD` civil labels in
 the household history timezone. Series accepts 1–31 forward closed dates. New Apps return `historical-read/2` in a frozen `mcp-read/2` envelope: summary,
-compact endpoint leaves, and independent series points. Initial default is five
-items per section, max 100; continuation default is 25. Follow every relevant
+compact endpoint leaves, and independent series points. Omitting limit fills small results within the byte budget (at least five
+when they fit, at most 25); explicit maximum is 100 and continuation default is 25. Follow every relevant
 `get_read_page` cursor. `get_read_item` with section=rows/id returns full row
 price/FX evidence; section=points/id=YYYY-MM-DD opens pageable missing evidence;
 section=overview/id=endpoints opens categories, reconciliation contributions
@@ -79,6 +79,22 @@ and reconciliationDetails; section=reconciliationDetails/id=<key> opens
 separately pageable related records;
 section=states/id=left or right returns endpoint allocations. `view=evidence`
 expands row pages. Do not expect a nested full Overview in series output.
+A one-day series retains its point but has only the left endpoint, with no
+self-comparison rows or reconciliation. A right-side selector maps to left for
+that single day. Explicit date/compareTo comparisons retain both endpoints.
+
+For “which item is pending update on this date?”, use the targeted recipe:
+
+<!-- example: historical-pending -->
+```json
+{"date":"2026-10-01","filter":{"included":true,"quality":"pending"},"view":"evidence"}
+```
+
+Read the returned name, price/FX dates and reason codes directly. Pending is
+carried evidence; points/date missing evidence is not a pending-item directory.
+Do not fetch all rows first. If inspecting rows locally, require countedLeaf=true
+and pendingContribution > 0; never search JSON text for "carried" or "pending"
+(field names also occur on healthy rows).
 
 Optional filter selects endpoint rows by accountIds, instrumentIds, kinds,
 included, quality (pending/missing/provisional/verified), reasons and

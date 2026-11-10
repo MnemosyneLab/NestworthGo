@@ -1,10 +1,7 @@
 package mcpserver
 
 import (
-	"bytes"
 	"context"
-	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -48,31 +45,30 @@ func TestStableReadEnvelopeOutputSchema(t *testing.T) {
 	}
 }
 
-func TestSDKDualRepresentationWireEvidence(t *testing.T) {
+func TestSDKSingleRepresentationWireEvidence(t *testing.T) {
 	fx := newLedgerFixture(t)
 	client, recorder := connectPayload(t, fx.service)
 	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_account_valuations", Arguments: map[string]any{"accountIds": []string{fx.checking}}})
-	if err != nil || result.IsError || len(result.Content) != 1 {
+	if err != nil || result.IsError || len(result.Content) != 0 || result.StructuredContent == nil {
 		t.Fatal(err, result)
 	}
-	text, ok := result.Content[0].(*mcp.TextContent)
-	if !ok {
-		t.Fatal("missing SDK text fallback")
-	}
-	structured, _ := jsoncodec.Marshal(result.StructuredContent)
-	var a, b any
-	da := jsoncodec.NewDecoder(strings.NewReader(text.Text))
-	da.UseNumber()
-	db := jsoncodec.NewDecoder(bytes.NewReader(structured))
-	db.UseNumber()
-	if da.Decode(&a) != nil || db.Decode(&b) != nil || !reflect.DeepEqual(a, b) {
-		t.Fatal("representations differ")
+	structured, err := jsoncodec.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatal(err)
 	}
 	metric := recorder.total()
-	if metric.Calls != 1 || metric.Bytes <= len(text.Text)+len(structured) {
-		t.Fatal("wire measurement omitted SDK/envelope overhead", metric)
+	if metric.Calls != 1 || metric.Bytes <= len(structured) || metric.Bytes >= len(structured)*2 {
+		t.Fatal("wire must contain one complete payload plus envelope overhead", metric, len(structured))
 	}
-	t.Logf("actual SDK dual representation: text JSON=%d structured JSON=%d final HTTP=%d; consumer/model token use is not measured", len(text.Text), len(structured), metric.Bytes)
+	var wrapped Response
+	if err := jsoncodec.Unmarshal(structured, &wrapped); err != nil {
+		t.Fatal(err)
+	}
+	reserved, err := financialContextWireSize(wrapped.Data)
+	if err != nil || reserved < metric.Bytes || reserved > metric.Bytes+2048 {
+		t.Fatal("wire budget differs from actual transport", reserved, metric, err)
+	}
+	t.Logf("structured JSON=%d final HTTP=%d reserved=%d", len(structured), metric.Bytes, reserved)
 }
 
 // The strict read contract must describe delivery exactly, and real responses

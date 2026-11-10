@@ -1,8 +1,16 @@
 # MCP response review and bounded read contracts
 
-Version clarification (2026-11-05): the current repository skill is 3.0.1,
-unpublished. Version labels and measurements below retain the original tested
-commits; they do not describe a published release or the normalized tree.
+Historical review: the decisions, endpoint inventory and measurements below
+describe the tested cutover commits, not the current MCP contract. Those commits
+returned both JSON text and `structuredContent`; MCP implementation 5.0.0
+returns successful data only in `structuredContent` with an empty `content`
+array, while errors retain text. The complete-response limit remains 64 KiB.
+Text-only clients cannot consume successful 5.0.0 results. See [Local MCP](mcp.md)
+for the current contract.
+
+Version clarification (2026-11-05): skill 3.0.1 was unpublished. Version
+labels and measurements below retain the original tested commits; they do not
+describe a published release or the normalized tree.
 See the [current skill guide](../user/nestworth-skill.md#skill-version-policy)
 for the explicit 6.0.1 → 3.0.1 normalization and default PATCH increment rule.
 
@@ -45,8 +53,8 @@ Base: `1ee6cc4257a2efe4d1155e895b032370173738f8`. Cutover starts from PR169 revi
   Single-market reads select current only; existing market batch history preserves
   all selected points and raw observations. Period analysis and attribution detail
   now split their growing arrays into the same frozen section infrastructure.
-- Preserve the SDK text + structuredContent transport representation and count
-  both copies in every wire budget; no deployed consumer compatibility is assumed.
+- At that cutover, preserve the SDK text + structuredContent transport representation
+  and count both copies in every wire budget; no deployed consumer compatibility was assumed.
   Keep preview commands/effects, CAS revisions, authorization, receipts,
   idempotency and errors unchanged. No generic mutation-result shrinking.
 
@@ -54,8 +62,8 @@ Base: `1ee6cc4257a2efe4d1155e895b032370173738f8`. Cutover starts from PR169 revi
 
 All registered names are inventoried below by owning file; this includes writes
 and all permission modes. `localTool`, attribution wrapper and explicit SDK
-handlers share Response.data; SDK duplicates that object as text/structured
-content. Error adaptation uses safeError; bounded HTTP tools additionally sanitize
+handlers shared Response.data; the SDK duplicated that object as text/structured
+content at the tested cutover. Error adaptation uses safeError; bounded HTTP tools additionally sanitize
 schema errors, reject batches/oversized IDs, and cap the complete output. Writes retain their original SDK results and safety evidence. Existing bounded
 activity/review/reconciliation APIs keep their distinct domain paging contracts.
 
@@ -138,8 +146,9 @@ cursor/identifier lengths. No exact token counts or latency percentile claims.
 
 ## Realistic synthetic payload regression coverage
 
-`payload_budget_test.go` observes the actual HTTP transport, including request
-serialization and the complete JSON-RPC response with SDK text/structuredContent.
+The measurements below used `payload_budget_test.go` to observe the actual HTTP
+transport, including request serialization and the complete JSON-RPC response
+with SDK text/structuredContent at that cutover.
 Success paths must return useful data; too_large is not accepted as a passing
 normal result. Pathological single-item failures are separately tested through
 an actual MCP client with deterministic single_item recovery guidance.
@@ -266,8 +275,8 @@ Compatibility-only oversized-default and uncapped-bootstrap batch assertions
 were removed; retired mode values and Agent offsets must fail schema validation.
 
 Storage migration, restore/backup compatibility and financial domain fallbacks
-are outside this cutover and remain intact. SDK text plus structuredContent is
-still the transport result; both copies count toward the complete wire budget.
+were outside this cutover. At the tested commit, SDK text plus structuredContent
+was the transport result and both copies counted toward the complete wire budget.
 
 
 | Default raw HTTP JSON-RPC response / journey | 20 accounts | 200 accounts |

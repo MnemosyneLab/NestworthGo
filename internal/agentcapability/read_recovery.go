@@ -1,5 +1,7 @@
 package agentcapability
 
+import "strings"
+
 // ReadRejection is a typed refusal for host-owned readers outside the
 // registry. The host supplies the same business code and field as other tools.
 type ReadRejection struct {
@@ -12,6 +14,9 @@ func (ReadRejection) Error() string { return "capability read refused" }
 // ReadRetryAction classifies a read refusal. It gives recovery guidance, never
 // permission to retry automatically or repeat an operation with side effects.
 func ReadRetryAction(code, field string) string {
+	if code == "invalid_change_time" && (field == "effectiveLocalTime" || strings.HasSuffix(field, ".effectiveLocalTime")) {
+		return "correct_input"
+	}
 	switch code {
 	case "read_expired", "read_revoked", "context_expired", "context_revoked", "stale_cursor":
 		return "restart_read"

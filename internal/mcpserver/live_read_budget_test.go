@@ -18,7 +18,7 @@ func TestActivityBytePagesPreserveCompleteUnion(t *testing.T) {
 	fx := newLedgerFixture(t)
 	// Escaping and Unicode make row count a poor proxy for actual SDK bytes.
 	note := strings.Repeat("synthetic 数据 \\\"", 100)
-	for i := 0; i < 18; i++ {
+	for i := 0; i < 24; i++ {
 		_, err := history.NewService(fx.app).RecordChange(t.Context(), history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: fx.checking, Amount: "1.0001", Currency: "USD", Reason: "income", EffectiveAt: fmt.Sprintf("2026-09-28T12:%02d:00Z", i), Note: &note})
 		if err != nil {
 			t.Fatal(err)
@@ -46,7 +46,7 @@ func TestActivityBytePagesPreserveCompleteUnion(t *testing.T) {
 		args = map[string]any{"cursor": page["page"].(map[string]any)["nextCursor"], "limit": 100}
 		name = "get_read_page"
 	}
-	if len(seen) != 18 {
+	if len(seen) != 24 {
 		t.Fatal("missing activities", len(seen))
 	}
 	measured := recorder.total()

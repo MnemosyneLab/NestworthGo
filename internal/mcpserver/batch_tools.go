@@ -43,7 +43,7 @@ type BatchChangeResult struct {
 }
 
 func (s *Service) batchTools(server *toolSet) {
-	readTool(server, "preview_batch", "Preview 1-100 completed ledger records atomically; nothing posts. Use exact decimal strings and explicit currencies. position_import uses original unit cost without a cash leg. position_transfer carries cost without profit. Commands must be in nondecreasing effective-time order (equal times keep array order; omitted times share one frozen instant), so earlier entries can fund later ones. For a buy or sell after a new, imported or transferred position, omit holdingId and give its settlementAccountId and instrumentId. No directory creation or placeholder IDs; one invalid entry rejects the whole preview. Commit with commit_plan.", s.previewBatch)
+	readTool(server, "preview_batch", "Preview 1-100 completed records atomically; no posting. Exact decimal strings/currencies. position_import: original unit cost, no cash leg; position_transfer: carry cost, no profit. Time-ordered; ties retain order, omitted times share one instant. Earlier entries can fund later ones. After a new/imported/transferred position, trades use settlementAccountId/instrumentId without holdingId. No directory creation/placeholder IDs. Invalid commands reject all. Use commit_plan.", s.previewBatch)
 }
 
 func batchInputError(index int, err error) error {

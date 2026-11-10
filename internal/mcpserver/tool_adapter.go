@@ -7,7 +7,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
 )
 
-const mcpImplementationVersion = "4.0.0"
+const mcpImplementationVersion = "5.0.0"
 
 // toolSet is only a construction adapter. Business registrations and handlers
 // use transport-independent definitions; no SDK server exists for local calls.
@@ -40,10 +40,15 @@ func registerTool[I any](set *toolSet, definition *agentcapability.Definition, h
 	}
 	tool := sdkTool(d)
 	// Keep the SDK's original typed validation, defaults, decoding, structured
-	// errors and response envelope. External tools acquire no App approval gate.
+	// errors and structured envelope. External tools acquire no App approval gate.
 	mcp.AddTool(set.server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, input I) (*mcp.CallToolResult, Response, error) {
 		output, err := agentcapability.CallValidated[I, Response](ctx, set.Registry, d.Name, input)
-		return nil, output, err
+		if err != nil {
+			return nil, output, err
+		}
+		// A non-nil empty Content suppresses the SDK's duplicate JSON text.
+		// Successful clients consume StructuredContent; SDK errors retain text.
+		return &mcp.CallToolResult{Content: []mcp.Content{}}, output, nil
 	})
 }
 

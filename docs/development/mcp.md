@@ -41,10 +41,13 @@ tool inventory. GUI `permittedActions` do not grant MCP permission.
 unrecognized group name; the pages match a request that omits the key.
 `tools/call` permission is the mode allowlist.
 
-Success results still carry both `structuredContent` and a JSON text fallback
-with the same payload. The built-in assistant receives one capability JSON
-string, not this external envelope. No model-token saving is claimed for
-dropping either copy.
+MCP implementation 5.0.0 returns successful results in `structuredContent`
+with an empty `content` array; errors retain readable text. Clients must consume
+structured results: text-only clients are incompatible with this version.
+Earlier implementations also returned a JSON text copy. Output-schema
+validation remains enabled. The built-in assistant receives one capability JSON
+string rather than this external envelope; wire bytes do not establish model-token
+savings.
 
 Patch updates share one omit/null rule. See
 [mcp-update-conventions.md](mcp-update-conventions.md).
@@ -176,7 +179,7 @@ still has a cursor is not empty.
 capture metadata. Filter and sort cannot change on a continuation.
 `get_read_item` takes `captureId`, `section` and `id` from that capture.
 Default limit is 25 and the maximum is 100. A page may return fewer rows so
-the final SDK text, `structuredContent` and JSON-RPC envelope fit 65,536
+the final `structuredContent` result and JSON-RPC envelope fit 65,536
 bytes. Narrowing the page limit does not fix one oversized item: that fails
 with `too_large` / `single_item`.
 

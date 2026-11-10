@@ -1033,3 +1033,16 @@ Diagnostic subtree validation clones schema nodes before attaching root `$defs`;
 otherwise a shared nullable definition could violate the validator's tree rule
 and hide the actual invalid field. Type messages include the schema-owned path
 and allowed JSON types in both MCP and built-in AI responses.
+
+### Ledger argument recovery
+
+Built-in AI and MCP share ledger validation and business recipes. Unknown required
+`kind`/`action` discriminators report the exact field and schema-owned allowed
+values; partial unions retain their general diagnostic. Salary uses
+`money_added` with reason `income`; spending uses `money_removed` with `expense`.
+Local ledger clocks accept `HH:MM`. A rejected seconds-bearing clock points to
+`effectiveLocalTime` and explains how to preserve seconds using RFC3339
+`effectiveAt` with a confirmed offset, omitting both local fields. Never truncate
+seconds or guess timezone offsets. This format refusal permits input correction;
+DST ambiguity and other time/state conflicts retain their existing recovery.
+Preview remains non-posting and commit-plan idempotency remains authoritative.

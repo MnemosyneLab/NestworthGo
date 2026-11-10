@@ -55,8 +55,8 @@ Inputs reject unknown fields and wrong types through SDK schemas. Product SDK
 schema diagnostics are replaced with fixed validation errors, without echoing
 request properties/values. Application domain errors retain safe codes; raw
 SQL, paths and internal error details do not reach responses. HTTP responses,
-for registered read/preview effects, including SDK text plus structured content
-and RPC envelope, are capped at 64 KiB; RPC IDs at 512 encoded bytes. Batches
+for registered read/preview effects, including the structured result and RPC
+envelope, are capped at 64 KiB; RPC IDs at 512 encoded bytes. Batches
 containing a bounded read are rejected before dispatch. Product commit execution
 and get_operation recovery receipts bypass the read response cap and retain their
 complete bodies after execution. Oversized output

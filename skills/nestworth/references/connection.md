@@ -93,3 +93,10 @@ Missing tools do not authorize filesystem/provider workarounds. Repository bundl
 
 Reconciliation sessions expose reconciliation_session_read in every permission
 mode and reconciliation_session_write only with read_write. Follow [the session workflow](reconciliation-and-corrections.md#account-by-account-sessions-discover-support-first) with the actual session tool names.
+
+## Result representation
+
+MCP implementation 5.0.0 returns successful payloads in `structuredContent`
+with an empty `content` array. Read the structured result directly; an empty
+text array does not mean an empty result. Errors retain readable text.
+Text-only clients must upgrade before using this App version.

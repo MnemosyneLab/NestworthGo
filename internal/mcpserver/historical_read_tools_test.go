@@ -186,6 +186,14 @@ func TestHistoricalAndAccountCompleteWireMeasurements(t *testing.T) {
 			if len(scaleSection(t, c, single, "points")) != 1 {
 				t.Fatal("single day lost")
 			}
+			if single["summary"].(map[string]any)["right"] != nil {
+				t.Fatal("one-day series repeated its endpoint")
+			}
+			for _, raw := range assertHistoricalMatches(t, c, single) {
+				if raw.(map[string]any)["right"] != nil {
+					t.Fatal("one-day row repeated its evidence")
+				}
+			}
 		})
 	}
 }
@@ -343,4 +351,51 @@ func TestMergedReadShapesStayDistinct(t *testing.T) {
 	if batch["schemaVersion"] != "mcp-read/2" || batch["captureKind"] != "market_data" {
 		t.Fatalf("batch shape changed: %v", batch["captureKind"])
 	}
+}
+
+// Ninety-six healthy leaves must not force pagination to identify one pending
+// leaf. In particular, serialized carriedCount:0 is never a pending match.
+func TestHistoricalSingleDayPendingIsOneInlineEvidenceRow(t *testing.T) {
+	fx := newLedgerFixture(t)
+	client := ledgerSession(t, fx)
+	state := application.HistoricalOverviewState{Date: "2026-10-01", Currency: "CNY"}
+	o := application.HistoricalOverviewResult{Left: state, Right: &state}
+	for i := 0; i < 97; i++ {
+		cell := &application.HistoricalOverviewCell{Included: true, Complete: true, Currency: "CNY"}
+		cell.DisplayValuation.Quality.CarriedCount = 0
+		if i == 96 {
+			cell.DisplayValuation.Quality.CarriedCount = 1
+			price := "5.34600019"
+			cell.Price = &application.HistoricalOverviewEvidence{Value: &price, MarketDate: "2026-09-30"}
+		}
+		o.Rows = append(o.Rows, application.HistoricalOverviewRow{Key: fmt.Sprintf("row-%03d", i), Name: fmt.Sprintf("Synthetic %d", i), Kind: "holding", Left: cell, Right: cell})
+	}
+	included := true
+	capture, err := historicalReadCapture(o, []application.HistoricalSeriesPoint{{Date: state.Date}}, HistoricalReadOptions{View: "evidence"}, HistoricalReadFilter{Included: &included, Quality: "pending", Side: "right"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, err := fx.service.reads.store(fx.service.contextGeneration, capture, autoInlineLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !initial.Delivery.SelectionComplete || len(initial.Sections["rows"].Items) != 1 || initial.Sections["rows"].Page.HasMore {
+		t.Fatal("one pending leaf required extra reads", initial)
+	}
+	var row map[string]any
+	if err := jsoncodec.Unmarshal(initial.Sections["rows"].Items[0], &row); err != nil {
+		t.Fatal(err)
+	}
+	if row["id"] != "row-096" || row["right"] != nil {
+		t.Fatal("wrong pending row or duplicate endpoint", row)
+	}
+	left := row["left"].(map[string]any)
+	if left["pendingContribution"] != float64(1) || left["price"].(map[string]any)["value"] != "5.34600019" {
+		t.Fatal("lost exact evidence", left)
+	}
+	if o.Rows[96].Right == nil || o.Right == nil {
+		t.Fatal("modified application-owned result")
+	}
+	item := scaleCapture(t, client, "get_read_item", ReadItemInput{CaptureID: initial.CaptureID, Section: "rows", ID: "row-096"})
+	featureJSONEqual(t, item["summary"], row)
 }

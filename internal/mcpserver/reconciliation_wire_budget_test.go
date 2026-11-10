@@ -13,8 +13,8 @@ import (
 )
 
 func TestReconciliationPagesFitSDKWireAndAdvanceExactly(t *testing.T) {
-	// The former internal-only 96 KiB check accepted this page even though the
-	// SDK's duplicated text/structured result cannot fit the 64 KiB wire budget.
+	// Escaped Unicode evidence must page by complete wire bytes, preserving
+	// every row under the 64 KiB limit with a single structured representation.
 	items := make([]any, 12)
 	for i := range items {
 		items[i] = map[string]any{"id": fmt.Sprint(i), "evidence": strings.Repeat("\"数据\\", 700)}
@@ -74,14 +74,14 @@ func TestReconciliationSingleOversizedRowFailsExplicitly(t *testing.T) {
 	if err != nil || value.(reconciliationPage).Revision != 9 {
 		t.Fatalf("empty page %v %v", value, err)
 	}
-	// Confirm this fixture is below the old DTO ceiling and over the wire cap.
+	// A 40 KiB row now fits: the removed SDK duplicate must not consume budget.
 	raw, _ := jsoncodec.Marshal(reconciliationPage{Items: []any{strings.Repeat("x", 40<<10)}, Total: 1})
 	if len(raw) > 96<<10 {
 		t.Fatal("invalid regression fixture")
 	}
 	size, _ := financialContextWireSize(reconciliationPage{Items: []any{strings.Repeat("x", 40<<10)}, Total: 1})
-	if size <= contextWireLimit {
-		t.Fatal("fixture does not exercise SDK duplication")
+	if size > contextWireLimit {
+		t.Fatal("single representation still charged for SDK duplication")
 	}
 }
 

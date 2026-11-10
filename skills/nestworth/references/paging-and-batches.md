@@ -36,7 +36,7 @@ items and page. It does not repeat query, summary or unrelated sections. Retain
 the initial header, append only the returned section and update only that
 section's saved page state. Default limit is 25 for all business continuations.
 Maximum is 100. Actual pages may be smaller to fit 65,536 final HTTP bytes,
-including duplicated SDK text and structured content. For a complete bulk
+including the structured result and JSON-RPC envelope. For a complete bulk
 import or list audit, use limit=100 upfront and on continuations when that
 evidence is needed. Default 25 favors focused reads. Never claim “all” from one
 page. Preserve captureId and check complete unions.
@@ -72,7 +72,7 @@ status, account and date and sorts ascending or descending.
 `get_reconciliation_session_page` pages accounts, items, changes, links and
 attempts, with account and outcome filters and sort. Default 25, maximum 100.
 Pages shrink automatically to fit the complete 65,536-byte JSON-RPC response,
-including SDK text and structuredContent. A single oversized item fails with
+including the structured result and envelope. A single oversized item fails with
 too_large. Reducing limit cannot recover it. Never treat a rejected response as
 an empty section. Cursors bind the filters, sort, full current evidence and
 session revision. stale_cursor means restart that read, not guess an offset.
@@ -148,7 +148,11 @@ progress or evidence. Nested rows keep their own exact-money and provenance
 contracts. The envelope does not describe every GUI field, and write or
 `get_operation` receipts gain no extra post-execution schema. Error metadata uses
 the mcp-error/1 shape in [recovery](recovery.md), not a successful data result.
-The SDK sends JSON text and structuredContent. Both count toward wire bytes. Do not add the two copies as separate evidence or treat HTTP bytes as model tokens.
+MCP implementation 5.0.0 returns successful data in `structuredContent` with
+an empty `content` array; errors retain text. Earlier implementations also
+returned a JSON text copy. Text-only clients cannot use successful results in
+5.0.0. The complete response budget includes the structured result and envelope;
+do not treat HTTP bytes as model tokens.
 
 Period drill-down JSON is stored separately but charged to the same 16 MiB
 cache. Parent JSON plus frozen detail bytes, keys and metadata allowance must

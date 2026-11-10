@@ -53,9 +53,9 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.19; published skill: 2.0.0
+### Current repository skill: 3.0.21; published skill: 2.0.0
 
-Repository skill 3.0.19 documents the unified ledger preview/commit path, exact argument constraints, product interest/policy/time constraints, structured error recovery (including durable failed writes) and selection rules for overlapping tools. It does not load installed skills in the App or change permissions/recovery.
+Repository skill 3.0.21 documents the unified ledger preview/commit path, exact argument constraints, product interest/policy/time constraints, structured error recovery (including durable failed writes) and selection rules for overlapping tools. It does not load installed skills in the App or change permissions/recovery.
 
 Repository skill 3.0.14 documents the two MCP modes, `read_only` and
 `read_write`. The read-write mode includes directory, ledger and
@@ -98,7 +98,19 @@ filter. Clients do not send it, and a missing group never changed `tools/call`
 permission. Default discovery stays the full list for the permission mode.
 `commit_plan` may omit `operationId`; the server derives one from `planId`.
 Other writes still require `operationId`, and an explicit id remains valid.
-Success results still carry both `structuredContent` and JSON text.
+MCP implementation 5.0.0 returns successful data only in `structuredContent`,
+with an empty `content` array. Clients must consume structured results; text-only
+clients are not supported by this version. Errors retain readable text. This
+intentionally omits the MCP-recommended legacy JSON text fallback to avoid
+serializing every financial result twice. Output-schema validation remains in
+place. The 64 KiB complete-response budget measures this single representation,
+including envelope overhead and reserve, without changing the limit.
+
+For a single historical pending-update question use `date`,
+`filter={included:true,quality:"pending"}` and `view="evidence"`. One-day series
+return one point and one left endpoint, without a duplicate right endpoint;
+explicit comparisons and multi-day series retain both endpoints. GUI results
+and financial calculation semantics are unchanged.
 The current protocol unifies current-account reads as `get_account_valuations`,
 with one or many IDs, summary/holdings detail and empty unmatched results. It is
 not a return or an endpoint movement. The version
@@ -146,7 +158,7 @@ tree at `94302de02e6b3894fe3ba5f0d7931210c396ef5a`, not a content rollback or
 publication. Earlier repository labels 3.0.1, 4.0.0, 5.0.0, 6.0.0 and 6.0.1
 in Git history and dated QA records identify those original tested trees only.
 They are not aliases for this tree and were not published release assets.
-Repository skill 3.0.19 is not published: `--version latest` still selects App v0.3.10
+Repository skill 3.0.21 is not published: `--version latest` still selects App v0.3.10
 and its skill 2.0.0. No published assets or installed user skills are replaced.
 
 

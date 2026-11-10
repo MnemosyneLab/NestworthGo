@@ -5,7 +5,7 @@ description: Use a running Nestworth App through its local MCP to manage account
 
 # Nestworth
 
-The App’s MCP is authoritative. Answer in the user’s language using available tools. For missing connection, household or history setup, see [connection.md](references/connection.md). Installing this skill neither enables MCP nor grants write permission.
+The App’s MCP is authoritative. Successful MCP 5 results use `structuredContent`, not text. Answer in the user’s language using available tools. For missing connection, household or history setup, see [connection.md](references/connection.md). Installing this skill neither enables MCP nor grants write permission.
 
 ## Intent → first step → reference
 

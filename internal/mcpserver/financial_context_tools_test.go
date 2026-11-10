@@ -264,10 +264,10 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	t.Parallel()
 	c := newFinancialContextCache()
 	g := c.activate()
-	value := strings.Repeat("9", 7000)
+	value := strings.Repeat("9", 14000)
 	content := application.FinancialContextContent{
-		Summary:   application.FinancialContextSummary{KnownAssets: strings.Repeat("9", 21000)},
-		Positions: []application.FinancialContextPosition{{Ref: "synthetic", Name: strings.Repeat("N", 7000)}},
+		Summary:   application.FinancialContextSummary{KnownAssets: strings.Repeat("9", 42000)},
+		Positions: []application.FinancialContextPosition{{Ref: "synthetic", Name: strings.Repeat("N", 14000)}},
 		Gaps:      []application.FinancialContextGap{},
 		Evidence:  []application.FinancialContextEvidence{{Ref: "synthetic", Kind: "price", Value: &value}},
 	}
@@ -304,7 +304,7 @@ func TestFinancialContextInitialPageFitsOrderedPrefix(t *testing.T) {
 	t.Parallel()
 	c := newFinancialContextCache()
 	g := c.activate()
-	name := strings.Repeat(`"\`, 4500) // Each row fits; the escaped pair exceeds the complete response budget.
+	name := strings.Repeat(`"\`, 9000) // Each row fits; the escaped pair exceeds the complete response budget.
 	positions := []application.FinancialContextPosition{
 		{Ref: "first", Name: name}, {Ref: "second", Name: name},
 	}

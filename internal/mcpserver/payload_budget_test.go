@@ -127,7 +127,7 @@ type payloadRecorder struct {
 }
 
 // Observe actual HTTP request and final complete JSON-RPC response bytes. This
-// includes SDK text/structuredContent, escaping and metadata; no token estimates.
+// includes the SDK result envelope, escaping and metadata; no token estimates.
 func (p *payloadRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
 	name := ""
 	method := ""
