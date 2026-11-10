@@ -145,7 +145,7 @@ func (*recordedFailureSession) Definitions() ([]agentcapability.Definition, erro
 }
 func (s *recordedFailureSession) Call(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 	s.calls++
-	return nil, agentcapability.WriteFailure{OperationID: "synthetic-operation", Cause: &apierror.WireError{Code: "revision_conflict", Field: "input.expectedRevision", Message: "PRIVATE_DETAILS"}}
+	return nil, agentcapability.WriteFailure{OperationID: "synthetic-operation", Cause: &apierror.WireError{Code: "revision_conflict", Field: "input.expectedRevision", Message: "expectedRevision is stale; read the current product revision"}}
 }
 func TestEngineExplainsDurableFailedWrite(t *testing.T) {
 	s := &recordedFailureSession{}
@@ -155,12 +155,12 @@ func TestEngineExplainsDurableFailedWrite(t *testing.T) {
 			return
 		}
 		raw := latestToolOutput(t, request)
-		for _, want := range []string{`"state":"failed"`, `"code":"write_failed"`, `"causeCode":"revision_conflict"`, `"field":"input.expectedRevision"`, `"operationId":"synthetic-operation"`} {
+		for _, want := range []string{`"state":"failed"`, `"code":"write_failed"`, `"causeCode":"revision_conflict"`, `"field":"input.expectedRevision"`, `"operationId":"synthetic-operation"`, `"message":"expectedRevision is stale; read the current product revision"`} {
 			if !strings.Contains(raw, want) {
 				t.Errorf("missing %s in %s", want, raw)
 			}
 		}
-		if strings.Contains(raw, "PRIVATE_DETAILS") || strings.Contains(raw, "write_requires_inspection") {
+		if strings.Contains(raw, "write_requires_inspection") {
 			t.Errorf("incorrect failure: %s", raw)
 		}
 		writeMode(w, request, []any{textItem()})

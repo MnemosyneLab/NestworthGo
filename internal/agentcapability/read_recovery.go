@@ -1,7 +1,7 @@
 package agentcapability
 
 // ReadRejection is a typed refusal for host-owned readers outside the
-// registry. Adapters still validate the code and field before displaying them.
+// registry. The host supplies the same business code and field as other tools.
 type ReadRejection struct {
 	Code  string
 	Field string

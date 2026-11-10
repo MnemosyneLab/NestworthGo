@@ -156,3 +156,32 @@ func TestDispatchObservationDistinguishesPreHandlerCancellation(t *testing.T) {
 		t.Fatal("handler cancellation incorrectly marked unsubmitted")
 	}
 }
+
+func TestTypedDecodeIsAdmissionBeforeBusinessDispatch(t *testing.T) {
+	t.Parallel()
+	registry := New("synthetic")
+	type input struct {
+		Sequence int64 `json:"sequence"`
+	}
+	calls := 0
+	Add(registry, &Definition{Name: "write", Effect: Write}, func(_ context.Context, in input) (input, error) {
+		calls++
+		return in, nil
+	})
+	for _, literal := range []string{"1.0", "1e0", "9223372036854775808"} {
+		raw := json.RawMessage(`{"sequence":` + literal + `}`)
+		if err := registry.ValidateArguments("write", raw); !errors.Is(err, ErrInvalidArguments) {
+			t.Fatalf("typed admission accepted %s: %v", literal, err)
+		}
+		entered := false
+		_, err := registry.CallObserved(t.Context(), "write", raw, &entered)
+		var diagnostic ArgumentError
+		if !errors.As(err, &diagnostic) || diagnostic.Rule != "typed_decode" || entered || calls != 0 {
+			t.Fatalf("decode failure reached business dispatch: %s entered=%v calls=%d err=%v", literal, entered, calls, err)
+		}
+	}
+	entered := false
+	if _, err := registry.CallObserved(t.Context(), "write", []byte(`{"sequence":1}`), &entered); err != nil || !entered || calls != 1 {
+		t.Fatalf("corrected request did not dispatch: entered=%v calls=%d err=%v", entered, calls, err)
+	}
+}

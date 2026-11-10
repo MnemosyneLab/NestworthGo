@@ -432,8 +432,20 @@ whole call. Other instrument fields, quotes and ledger facts stay.
 `debt_payment`, `position_transfer`, `position_import`. For a trade, `gross`
 is the total consideration, not a unit price. Specify RFC3339 `effectiveAt`,
 or both `effectiveLocalDate` and `effectiveLocalTime` in the history
-timezone. An omitted timestamp is frozen at preview. Preview IDs are
-provisional. Use receipt IDs after commit.
+timezone. Empty or whitespace-only time fields are treated as omitted, matching
+runtime normalization; a nonblank local date and clock must be supplied together
+and cannot accompany a nonblank `effectiveAt`. An omitted timestamp is frozen
+at preview. Optional `fee`/`feeCurrency` and
+`interestOrFee`/`interestOrFeeCurrency` pairs allow omitted or empty strings,
+but a nonempty value requires its nonempty counterpart. Charge pairing uses
+literal emptiness, not time-field whitespace normalization; decimal and currency
+validation remain authoritative.
+
+Agent `money_added` and `money_removed` commands require an explicit `reason`
+from the published enum, including `other` when that is the intended category.
+The shared UI adapter's omitted-reason default is deliberately not advertised:
+an agent must classify the movement rather than silently inherit a category.
+Preview IDs are provisional. Use receipt IDs after commit.
 
 `cash_transfer` rejects liability endpoints. Borrowing and repayment use
 `debt_draw` and `debt_payment`. Plans expire after ten minutes. The stored
@@ -474,6 +486,7 @@ evidence the error is `operation_outcome_unknown`.
 
 `preview_product_operation` publishes `productTerms`, `productPolicy` and
 `productSettle` once and points each kind payload at the one it requires.
+Every selected kind payload must be a non-null object, including `settle`.
 `preview_batch` publishes a kind `oneOf` for `commands` items and shares one
 string schema. Kind required fields are unchanged. `added`, `mutationId`,
 `newValue` and `newValueCurrency` are not inputs.

@@ -99,7 +99,11 @@ func requiredEnum(name string, values ...string) *jsonschema.Schema {
 // Matches strings.TrimSpace using a portable character class (no Go-only
 // regexp escapes) for optional decimal inputs; never coerces numbers.
 func blankDecimal() *jsonschema.Schema {
-	return &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Type: "null"}, {Type: "string", Pattern: "^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$"}}}
+	return &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Type: "null"}, blankTrimmedString()}}
+}
+
+func blankTrimmedString() *jsonschema.Schema {
+	return &jsonschema.Schema{Type: "string", Pattern: "^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]*$"}
 }
 func presentDecimal() *jsonschema.Schema {
 	return &jsonschema.Schema{Type: "string", Not: blankDecimal()}

@@ -90,7 +90,7 @@ func productOperationInputSchema() *jsonschema.Schema {
 		props["policy"] = schemaRef("productPolicy")
 	}
 	s.Properties["renew"].Properties["settle"] = schemaRef("productSettle")
-	s.Properties["settle"] = &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Type: "null"}, schemaRef("productSettle")}}
+	s.Properties["settle"] = schemaRef("productSettle")
 	productTermsSchema(terms, true)
 	productPolicySchema(policy, true)
 	productTimeSchema(s.Properties["open"])

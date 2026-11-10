@@ -145,3 +145,20 @@ func TestSharedFullArgumentRejectionHasNoRecoveryFence(t *testing.T) {
 		t.Fatal("argument rejection created an unresolved operation")
 	}
 }
+
+func TestTypedPreflightRejectionDoesNotResolveOlderUnknownReview(t *testing.T) {
+	s := &capabilityTestSession{id: uuid.NewString(), preflightError: agentcapability.ArgumentError{Rule: "typed_decode"}}
+	r, id, run, store := capabilityRuntime(t, s)
+	prior := r.operationRef(id, run, s.id, "update_instrument")
+	prior.Tool = "update_instrument"
+	r.find(id).Reviews = []ReviewRef{prior}
+	_, err := r.executeCapability(t.Context(), r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "update_instrument", Arguments: []byte(`{}`)})
+	if !errors.Is(err, agentcapability.ErrInvalidArguments) || s.calls != 0 || store.saves != 0 || !r.pendingReview(r.find(id)) || r.find(id).Reviews[0] != prior {
+		t.Fatalf("typed rejection changed an older unknown review: %v refs=%+v", err, r.find(id).Reviews)
+	}
+	// Corrected arguments still cannot bypass the older uncertain write.
+	s.preflightError = nil
+	if _, err := r.executeCapability(t.Context(), r.epoch, id, run, r.state.Revision, FullCapabilityRequest{Name: "update_instrument", Arguments: []byte(`{}`)}); !errors.Is(err, ErrRecoveryRequired) || s.calls != 0 {
+		t.Fatalf("corrected input bypassed prior recovery fence: %v", err)
+	}
+}
