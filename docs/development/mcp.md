@@ -8,7 +8,7 @@ recovery and budgets.
 
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`
 the desktop bindings use. `internal/mcpserver` registers an explicit allowlist
-through the official Go SDK (implementation version `4.0.0`). Handlers reuse
+through the official Go SDK (implementation version `5.0.0`). Handlers reuse
 the runtime-free `internal/wailsapi` adapters, except the patch updates, which
 map omit and null onto the application service inside its write lock. MCP does
 not use Wails RPC and does not open SQLite itself. Secrets, backup/restore,

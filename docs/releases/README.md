@@ -14,9 +14,15 @@ archive onboarding, keyboard/accessibility and normal-menu Quit acceptance were
 owner-waived; those gates were not passed. See the published release for the
 exact evidence and limits.
 
-The current repository skill is **3.0.3 (unpublished)**. It is separate from the
+The current repository skill is **3.0.21 (unpublished)**. It is separate from the
 published v0.3.10 skill 2.0.0 and does not replace any release asset. See the
 [skill guide](../user/nestworth-skill.md#skill-version-policy) for version policy.
+
+## Next release preparation
+
+- **v0.3.11 / build 12 — unreleased.** [Preparation and remaining gates](v0.3.11.md),
+  [prepared release notes](v0.3.11-notes.md). Includes independently versioned
+  skill 3.0.21 and the breaking MCP implementation 5.0.0 contract.
 
 ## Current published release
 

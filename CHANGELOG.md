@@ -2,14 +2,58 @@
 
 All notable changes to Nestworth are recorded here.
 
+## [0.3.11] — Unreleased
+
+Prepared application version **0.3.11 / build 12**, following v0.3.10 / build 11.
+The portable skill is independently versioned at **3.0.21**. See the
+[release preparation](docs/releases/v0.3.11.md) and
+[prepared notes](docs/releases/v0.3.11-notes.md). No publication date or final
+artifact acceptance is recorded yet.
+
+### Added and changed
+
+- Refresh the desktop and mobile layouts, preserve narrow-window financial
+  values, and add Back, Forward and Recent navigation with clearer return paths.
+- Add an opt-in desktop AI assistant with streaming conversations, persistent
+  history, model/reasoning selection, editable voice transcripts and local usage
+  reports. Read-only is the default; explicitly enabled Read & Write shares the
+  MCP business registry without per-write approval. Mobile model access stays closed.
+- Add opt-in mobile web access for daily records, health and market work through
+  the running desktop host, with revocable and optionally remembered browser sessions.
+- Visualize return contributions and adjacent calendar periods, summarize review
+  alerts and inspect daily evidence; unify recording actions on account details.
+- Add bounded read-only market import comparison. Remove the Tiingo source;
+  retain Yahoo, CoinGecko, Frankfurter and manual/Agent observations.
+- Share compact business reads between built-in AI and MCP, load capabilities on
+  demand, unify business continuations on `get_read_page` and commits on
+  `commit_plan`, and remove legacy tools. MCP implementation **5.0.0** requires
+  `structuredContent`; text-only clients cannot consume successful responses.
+- Upgrade Wails and its frontend runtime to **3.1.0**. Regular checks now run on
+  native macOS ARM64, with separate provider acceptance and manual packaging.
+
+### Correctness and compatibility
+
+- Correct historical traded/backfilled holding attribution, quantity-adjustment
+  handling, atomic composite directory edits and mobile restart recovery without
+  replaying writes. Shared AI/MCP validation reports command kinds and local-time
+  repair guidance while preserving exact timestamps and receipt idempotency.
+- Keep financial schema **23** and verified schema **21/22/23** support, ordered
+  recovery-copy upgrades, macOS **27+** and Apple Silicon requirements unchanged.
+- Built-in AI credentials live in the household SQLite database and its full
+  backups. Private conversations/usage remain separate; usage estimates are not
+  provider invoices. Mobile HTTP sends credentials and data in plaintext and is
+  for trusted LANs only. See the release notes for upgrade and privacy details.
+- GUI, live-provider, external-client and final archive acceptance must be recorded
+  for the selected release source. Earlier release waivers do not cover this version.
+
 ## [0.3.10] — 2026-10-28
 
 Published as [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.10) (build 11) from
 `74558eea202ddd054fffb43b73b217115a6a8883`, with arm64 DMG/ZIP, checksums
 and portable skill 2.0.0. The published GitHub body records final validation and
 acceptance limits; the [prepared release notes](docs/releases/v0.3.10-notes.md)
-remain the preparation summary. Later main-branch work, including repository
-skill 3.0.1 (unpublished), is not part of those published assets.
+remain the preparation summary. Later main-branch work and repository skill
+updates are not part of those published assets.
 
 ### Added and changed
 

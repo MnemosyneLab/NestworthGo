@@ -13,11 +13,11 @@ end-user skill lives in [`skills/nestworth/VERSION`](../skills/nestworth/VERSION
 | User workflows | [Reconciliation](user/account-reconciliation.md), [cash adjustments and Repeat](user/cash-adjustments-and-repeat.md), [wealth history](user/historical-overview.md), [upcoming actions](user/upcoming-actions.md) |
 | Install and connect the optional skill | [Nestworth skill guide](user/nestworth-skill.md) |
 | Runtime and financial boundaries | [System overview](architecture/system-overview.md), [domain model](architecture/domain-model.md), [data and IPC contracts](architecture/data-and-ipc-contracts.md) |
-| Built-in assistant | [Architecture and authority](architecture/builtin-ai.md), [desktop read-only runtime](architecture/builtin-ai-runtime.md), [page guide](architecture/builtin-ai-page-guide.md), [voice input](architecture/ai-voice-input.md) |
+| Built-in assistant | [Architecture and authority](architecture/builtin-ai.md), [desktop runtime](architecture/builtin-ai-runtime.md), [page guide](architecture/builtin-ai-page-guide.md), [voice input](architecture/ai-voice-input.md) |
 | Screens and interaction contracts | [Design index](design/README.md) |
 | Development, build and recovery procedures | [Development index](development/README.md) |
 | Regression methods and acceptance limits | [Testing index](testing/README.md), [browser harnesses](qa/README.md) |
-| Published compatibility and release evidence | [Release index](releases/README.md), [changelog](../CHANGELOG.md) |
+| Release preparation, published compatibility and evidence | [Release index](releases/README.md), [changelog](../CHANGELOG.md) |
 
 ## Authority and maintenance
 
