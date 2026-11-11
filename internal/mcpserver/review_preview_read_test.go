@@ -52,7 +52,7 @@ func TestReviewPreview365DayFrozenPageUnion(t *testing.T) {
 		t.Fatal("new preview did not reject stale source token explicitly", err, string(staleRaw))
 	}
 	fx.service.reads.revoke()
-	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_read_page", Arguments: map[string]any{"captureId": capture["captureId"], "section": "days", "cursor": capture["sections"].(map[string]any)["days"].(map[string]any)["page"].(map[string]any)["nextCursor"]}})
+	result, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_read_page", Arguments: map[string]any{"cursor": capture["sections"].(map[string]any)["days"].(map[string]any)["page"].(map[string]any)["nextCursor"]}})
 	raw, _ := jsoncodec.Marshal(result)
 	if err != nil || !result.IsError || !strings.Contains(string(raw), "read_revoked") {
 		t.Fatal("missing explicit revoked error", err, string(raw))

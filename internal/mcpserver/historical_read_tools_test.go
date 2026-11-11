@@ -218,7 +218,7 @@ func TestHistoricalOversizedItemClientRecovery(t *testing.T) {
 		name string
 		args any
 	}{
-		{"get_read_page", ReadPageInput{CaptureID: capture.CaptureID, Section: "rows", Cursor: *cursor, Limit: 1}},
+		{"get_read_page", ReadPageInput{Cursor: *cursor, Limit: 1}},
 		{"get_read_item", ReadItemInput{CaptureID: capture.CaptureID, Section: "rows", ID: "oversized"}},
 	} {
 		res, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: request.name, Arguments: request.args})

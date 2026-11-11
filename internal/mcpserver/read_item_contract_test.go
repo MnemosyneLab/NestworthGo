@@ -171,3 +171,56 @@ func TestReadItemLazyChildrenWireBudget(t *testing.T) {
 		})
 	}
 }
+
+func TestProductItemDuplicateChildren(t *testing.T) {
+	cache := newBoundedReadCache()
+	cache.activate(1)
+	rows, err := readRows([]map[string]string{{"id": "first"}, {"id": "second"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, err := cache.store(1, readCapture{Kind: "products", Details: map[string]any{"product": map[string]string{"id": "product"}}, Sections: map[string][]json.RawMessage{"reservations/product": rows}}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{reads: cache}
+	input := ReadItemInput{CaptureID: initial.CaptureID, Section: "products", ID: "product", Sections: []string{"reservations", "reservations"}, Limit: 1}
+	value, err := service.readItem(1, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail := value.(ReadEnvelope)
+	section := detail.Sections["reservations/product"]
+	if len(detail.Sections) != 1 || len(section.Items) != 1 || section.Page.Total != 2 || !section.Page.HasMore {
+		t.Fatalf("duplicate selection changed page: %+v", detail)
+	}
+	page, err := cache.page(1, ReadPageInput{CaptureID: initial.CaptureID, Section: "reservations/product", Cursor: *section.Page.NextCursor, Limit: 100})
+	if err != nil || len(page.Items) != 1 || string(page.Items[0]) != string(rows[1]) {
+		t.Fatal("continuation lost reservation", err)
+	}
+	input.Sections = []string{"reservations", "unknown"}
+	if _, err := service.readItem(1, input, ""); err == nil {
+		t.Fatal("unknown child accepted")
+	}
+}
+
+func TestReadPagePublicSchemaOnlyCursorAndLimit(t *testing.T) {
+	schema := scaleReadSchema[ReadPageInput]("get_read_page")
+	if len(schema.Properties) != 2 || schema.Properties["cursor"] == nil || schema.Properties["limit"] == nil {
+		t.Fatalf("unexpected public properties: %v", schema.Properties)
+	}
+	resolved, err := schema.Resolve(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := map[string]any{"cursor": "signed-cursor", "limit": 100}
+	if err := resolved.Validate(&valid); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"captureId", "section"} {
+		invalid := map[string]any{"cursor": "signed-cursor", field: "scope"}
+		if err := resolved.Validate(&invalid); err == nil {
+			t.Fatalf("public schema accepted %s", field)
+		}
+	}
+}

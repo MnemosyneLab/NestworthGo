@@ -23,7 +23,7 @@ func measuredMarketSection(t *testing.T, c *mcp.ClientSession, cap map[string]an
 	p := s["page"].(map[string]any)
 	calls, maxBytes := 0, 0
 	for p["hasMore"] == true {
-		next := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": cap["captureId"], "section": name, "cursor": p["nextCursor"], "limit": 100})
+		next := scaleCapture(t, c, "get_read_page", map[string]any{"cursor": p["nextCursor"], "limit": 100})
 		calls++
 		b, _ := jsoncodec.Marshal(next)
 		var envelope ReadEnvelope
@@ -206,9 +206,9 @@ func TestMarketRecordsValidationStatusesAndWithdrawal(t *testing.T) {
 	fx.service.reads.mu.Lock()
 	cur := fx.service.reads.cursor(cap["captureId"].(string), "records", 0)
 	fx.service.reads.mu.Unlock()
-	call(t, c, "get_read_page", map[string]any{"captureId": cap["captureId"], "section": "records", "cursor": cur + "x"}, true)
+	call(t, c, "get_read_page", map[string]any{"cursor": cur + "x"}, true)
 	fx.service.reads.now = func() time.Time { return time.Now().Add(readTTL + time.Second) }
-	call(t, c, "get_read_page", map[string]any{"captureId": cap["captureId"], "section": "records", "cursor": cur}, true)
+	call(t, c, "get_read_page", map[string]any{"cursor": cur}, true)
 }
 
 func TestMarketRecordsOriginalFXThroughSDK(t *testing.T) {

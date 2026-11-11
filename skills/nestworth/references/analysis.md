@@ -221,8 +221,8 @@ outstanding ledger preview; perform analysis before preview/commit.
 | “对应哪条交易？” | Follow history hints with `list_activities`, then `get_activity` |
 
 Contribution lists use `mcp-read/2`: inspect `summary` and `sections.rows`, then
-follow only the rows needed with `get_read_page` (captureId, section=`rows`, signed
-cursor; default limit 25, maximum 100). There is no offset argument. For selected
+follow only the rows needed with `get_read_page` (signed cursor only, optional limit;
+default 25, maximum 100). There is no offset argument. For selected
 row evidence call `get_read_item` with that same captureId, section=`rows` and id=the row key;
 do not repeat the query, returnType or groupBy. Follow its independently named
 child sections only when their evidence is needed. Pages and details never

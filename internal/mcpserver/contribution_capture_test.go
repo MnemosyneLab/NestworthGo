@@ -45,7 +45,7 @@ func TestContributionCaptureSurvivesMutationAndExpires(t *testing.T) {
 		t.Fatalf("fresh capture stale: %+v", fresh)
 	}
 	rec.journey("frozen contribution first page, detail, mutation, continuation, detail and fresh capture", start, 12, 128<<10)
-	call(t, c, "get_read_page", map[string]any{"captureId": capture["captureId"], "section": "rows", "cursor": first["nextCursor"].(string) + "x"}, true)
+	call(t, c, "get_read_page", map[string]any{"cursor": first["nextCursor"].(string) + "x"}, true)
 	call(t, c, "get_read_item", map[string]any{"captureId": capture["captureId"], "section": "rows", "id": "missing"}, true)
 	s.reads.mu.Lock()
 	now := s.reads.now()

@@ -77,12 +77,12 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			count := initial.PositionsPage.Returned
 			positions := append([]application.FinancialContextPosition{}, initial.Content.Positions...)
 			for cursor != "" {
-				page := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
+				page := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{Cursor: cursor, Limit: 2}, false))
 				if page.ContextID != initial.ContextID || page.CapturedAt != initial.CapturedAt || page.PositionsPage.Returned == 0 || page.Content.Summary.NetWorth.Value != nil {
 					t.Fatal(page)
 				}
 				positions = append(positions, page.Content.Positions...)
-				retry := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ContextID, Section: "positions", Cursor: cursor, Limit: 2}, false))
+				retry := decodeContext(t, call(t, client, "get_read_page", ReadPageInput{Cursor: cursor, Limit: 2}, false))
 				productJSONEqual(t, retry, page)
 				count += page.PositionsPage.Returned
 				cursor = page.PositionsPage.NextCursor
@@ -636,7 +636,7 @@ func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
 	s.contexts.bytes++
 	cursor := s.contexts.cursor(financialFixtureID, "positions", s.contextGeneration, 0)
 	s.contexts.mu.Unlock()
-	args := ReadPageInput{CaptureID: financialFixtureID, Section: "positions", Cursor: cursor, Limit: 100}
+	args := ReadPageInput{Cursor: cursor, Limit: 100}
 	payload, _ := jsoncodec.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_read_page", "arguments": args}})
 	req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
 	req.Header.Set("Content-Type", "application/json")

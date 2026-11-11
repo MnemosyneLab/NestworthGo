@@ -175,7 +175,8 @@ The envelope carries `schemaVersion=mcp-read/2`, `captureId`, `captureKind`,
 the section is finished. Arrays are always arrays. A zero-row section that
 still has a cursor is not empty.
 
-`get_read_page` takes `cursor` and an optional `limit` and returns the same
+`get_read_page` exposes only `cursor` and an optional `limit`; callers must not
+send `captureId` or `section`. The signed cursor provides scope. It returns the same
 capture metadata. Filter and sort cannot change on a continuation.
 `get_read_item` takes `captureId`, `section` and `id` from that capture.
 Every supported item kind also accepts `limit` for initial rows per selected

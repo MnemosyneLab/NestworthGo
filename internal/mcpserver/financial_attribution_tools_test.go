@@ -82,7 +82,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			for _, section := range skillSections {
 				info := states[section]
 				for info.HasMore {
-					page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
+					page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{Cursor: info.NextCursor, Limit: 1}, false))
 					raw, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
 					if page.Content.Attribution != nil || string(raw) != string(original) || page.ComparisonID != initial.ComparisonID || page.CapturedAt != initial.CapturedAt {
 						t.Fatal("link not frozen")
@@ -100,7 +100,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				}
 			}
 			// Old package remains a strictly frozen value comparison after recapture.
-			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: old.ComparisonID, Section: "positions", Cursor: old.PositionsPage.NextCursor}, false))
+			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{Cursor: old.PositionsPage.NextCursor}, false))
 			if page.Content.Attribution != nil || page.ComparisonID != old.ComparisonID || page.CapturedAt != old.CapturedAt || page.Content.Change.NetWorth.Value != nil {
 				t.Fatal("old cache rewritten")
 			}
@@ -121,12 +121,12 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			expired := s.contexts.entries[initial.ComparisonID].expires
 			s.contexts.now = func() time.Time { return expired }
 			s.contexts.mu.Unlock()
-			call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{Cursor: initial.PositionsPage.NextCursor}, true)
 			restarted := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
 			if restarted.ComparisonID == initial.ComparisonID {
 				t.Fatal("expired package reused")
 			}
-			call(t, client, "get_read_page", ReadPageInput{CaptureID: restarted.ComparisonID, Section: "positions", Cursor: initial.PositionsPage.NextCursor}, true)
+			call(t, client, "get_read_page", ReadPageInput{Cursor: initial.PositionsPage.NextCursor}, true)
 		})
 	}
 }
@@ -193,7 +193,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 	for _, section := range skillSections {
 		info := states[section]
 		for info.HasMore {
-			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{CaptureID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
+			page := decodeComparison(t, call(t, client, "get_read_page", ReadPageInput{Cursor: info.NextCursor, Limit: 1}, false))
 			rawLink, _ := jsoncodec.Marshal(s.contexts.entries[initial.ComparisonID].comparison.Content.Attribution)
 			if page.Content.Attribution != nil || string(rawLink) != string(originalLink) || page.ComparisonID != initial.ComparisonID || page.CapturedAt != initial.CapturedAt {
 				t.Fatal("precision summary thawed", page)

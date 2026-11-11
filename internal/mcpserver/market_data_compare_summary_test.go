@@ -123,7 +123,7 @@ func TestMarketComparisonFocusedDetailCursorsAreBoundAndComplete(t *testing.T) {
 	name := "comparison_item/0/evidence"
 	cursor := detail["sections"].(map[string]any)[name].(map[string]any)["page"].(map[string]any)["nextCursor"].(string)
 	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: "comparison_item/0/audits", Cursor: cursor}, true)
-	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: name, Cursor: cursor + "x"}, true)
+	call(t, c, "get_read_page", ReadPageInput{Cursor: cursor + "x"}, true)
 	for _, limit := range []int{1, 100} {
 		selected := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: "one", Sections: []string{"relations", "relations"}, Limit: limit})
 		sections := selected["sections"].(map[string]any)

@@ -589,8 +589,10 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	if !ok {
 		return nil, fail("not_found", "item not found in capture")
 	}
-	if len(in.Sections) > 0 && (len(in.Sections) != 1 || in.Sections[0] != "reservations") {
-		return nil, fail("validation", "unknown child section")
+	for _, section := range in.Sections {
+		if section != "reservations" {
+			return nil, fail("validation", "unknown child section")
+		}
 	}
 	limit, err := readLimit(in.Limit)
 	if err != nil {

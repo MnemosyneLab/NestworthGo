@@ -130,9 +130,9 @@ func TestMarketComparisonExactOrderedEvidenceAndFrozenPages(t *testing.T) {
 	}
 	cursor := cap["sections"].(map[string]any)["results"].(map[string]any)["page"].(map[string]any)["nextCursor"].(string)
 	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: "evidence", Cursor: cursor}, true)
-	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: "results", Cursor: cursor + "x"}, true)
+	call(t, c, "get_read_page", ReadPageInput{Cursor: cursor + "x"}, true)
 	fx.service.reads.now = func() time.Time { return time.Now().Add(readTTL + time.Minute) }
-	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: "results", Cursor: cursor}, true)
+	call(t, c, "get_read_page", ReadPageInput{Cursor: cursor}, true)
 }
 func TestMarketComparisonCorrectedWithdrawnAndInputGuards(t *testing.T) {
 	fx := newLedgerFixture(t)

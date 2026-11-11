@@ -120,7 +120,7 @@ func TestInProcessFrozenPaginationAndRevocationIsolation(t *testing.T) {
 	if !section.Page.HasMore || section.Page.Total != 4 {
 		t.Fatalf("not paged: %+v", section.Page)
 	}
-	args := ReadPageInput{capture.Data.CaptureID, "accounts", *section.Page.NextCursor, 1}
+	args := ReadPageInput{Cursor: *section.Page.NextCursor, Limit: 1}
 	argsRaw, _ := jsoncodec.Marshal(args)
 	_, err := other.Call(t.Context(), "get_read_page", argsRaw)
 	if err == nil {

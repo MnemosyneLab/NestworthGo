@@ -20,7 +20,7 @@ func comparisonWalk(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 		t.Fatal(e)
 	}
 	for p["hasMore"] == true {
-		next := scaleCapture(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: section, Cursor: p["nextCursor"].(string), Limit: limit})
+		next := scaleCapture(t, c, "get_read_page", ReadPageInput{Cursor: p["nextCursor"].(string), Limit: limit})
 		if next["captureId"] != cap["captureId"] {
 			t.Fatal("capture changed")
 		}

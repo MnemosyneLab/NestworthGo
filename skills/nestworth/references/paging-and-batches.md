@@ -125,7 +125,7 @@ Limits are upper row counts. Complete response bytes may produce fewer rows.
 | Tool discovery (protocol exception) | 16 definitions | tools/list nextCursor |
 | Ordinary initial business reads and every continuation | 25 / 100 | get_read_page({cursor, limit?}) |
 | Current/historical overview and analyze_period initial sections | 5 floor, 25 within a byte budget / 100 | get_read_page |
-| Financial context/comparison/focused-item initial sections | At most 1 row per section | get_read_page |
+| Financial context/comparison/focused-item initial sections | Up to 25 per selected section within 24 KiB / 100 | get_read_page |
 | Repair progress | No capture or pages | Poll exact jobId; view=evidence uses frozen pages |
 
 Initial financial headers and focused-item responses retain their established
