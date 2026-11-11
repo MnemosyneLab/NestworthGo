@@ -165,18 +165,7 @@ func (c *boundedReadCache) periodItem(id string, e readCapture, in ReadItemInput
 	if err != nil {
 		return ReadEnvelope{}, err
 	}
-	r := c.base(id, e)
-	r.Section, r.Summary = in.Section, summary
-	r.Sections = map[string]ReadSection{}
-	for _, section := range children {
-		r.Sections[section] = ReadSection{Items: []json.RawMessage{}, Page: c.pageInfo(id, section, e, 0, 0)}
-	}
-	if ok, err := readFits(r); err != nil {
-		return ReadEnvelope{}, err
-	} else if !ok {
-		return ReadEnvelope{}, fail("too_large", "single_item detail exceeds read wire budget; narrow the source query")
-	}
-	return r, nil
+	return c.focusedChildren(id, e, in, summary, children)
 }
 
 func (d *periodDrilldown) item(section, id string) (any, []string, error) {

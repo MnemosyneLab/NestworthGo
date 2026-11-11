@@ -39,7 +39,7 @@ type ReadItemInput struct {
 	Section   string   `json:"section"`
 	ID        string   `json:"id"`
 	Sections  []string `json:"sections,omitempty" jsonschema:"Child section names to read; omitted selects business details. Use availableSections to request other evidence."`
-	Limit     int      `json:"limit,omitempty"`
+	Limit     int      `json:"limit,omitempty" jsonschema:"Maximum initial rows per selected child section for every capture kind; default 25, maximum 100, subject to the response byte budget. Continue remaining rows with get_read_page."`
 }
 type ReadPageInfo struct {
 	Total       int     `json:"total"`
@@ -506,7 +506,7 @@ func (s *Service) boundedReadTools(server *toolSet, g uint64) {
 		}
 		return s.continuePage(ctx, server, g, in)
 	})
-	readTool(server, "get_read_item", "Open one item without recapturing. Account items inline components and missing inputs (limit default 25/max 100); optional sections selects child names from availableSections instead. Read only relevant children. Open one item of a frozen capture (products, historical, account valuations, directory, instruments, contributions, period analysis or market comparison) by section and id, with full evidence and independently paged child sections. Does not recapture or renew the TTL. Comparison rows use section=results and id=clientItemId. Contribution rows use section=rows and id=the row key. A period return day uses section=returnDays and id=YYYY-MM-DD; an asset-change bucket uses section=assetDrivers and id=external_flow, income, spending, dividend_interest, price_change, fx_impact, fx_conversion_spread, fee, liability_impact, adjustment or residual. Those period sections are frozen with analyze_period and omitted from its stored body.", func(ctx context.Context, in ReadItemInput) (any, error) {
+	readTool(server, "get_read_item", "Open a frozen item by captureId, section and id without recapturing or renewing TTL. Every kind, including market comparison and period analysis, accepts limit (default 25/max 100) for initial rows per child within the byte budget. Optional sections selects short child names; availableSections lists unselected names. Omitted selects business details (accounts: components and missing inputs). Continue child cursors with get_read_page. Comparison: section=results, id=clientItemId; contributions: section=rows, id=row key; period: section=returnDays, id=YYYY-MM-DD, or section=assetDrivers, id=assetChange bucket key. Period children are frozen with analyze_period but omitted from its stored body.", func(ctx context.Context, in ReadItemInput) (any, error) {
 		return s.readItem(g, in, "")
 	})
 }
@@ -519,9 +519,6 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	}
 	if requiredKind != "" && e.Kind != requiredKind {
 		return nil, fail("validation", "capture kind does not match item tool")
-	}
-	if (e.Kind == "market_import_comparison" || e.Kind == "period_analysis") && (len(in.Sections) > 0 || in.Limit != 0) {
-		return nil, fail("validation", "this item uses get_read_page for child selection and limits")
 	}
 	if e.Kind == "market_import_comparison" {
 		return s.reads.comparisonItem(in.CaptureID, e, in)
@@ -604,6 +601,44 @@ func (s *Service) readItem(g uint64, in ReadItemInput, requiredKind string) (any
 	focused.InitialSections = []string{"reservations/" + in.ID}
 	focused.itemSection = in.Section
 	return s.reads.initial(in.CaptureID, focused, limit)
+}
+
+// focusedChildren projects lazy item sections through the same byte-bounded
+// planner as ordinary items. It never stores a new capture or changes its TTL.
+func (c *boundedReadCache) focusedChildren(id string, e readCapture, in ReadItemInput, summary any, names []string) (ReadEnvelope, error) {
+	limit, err := readLimit(in.Limit)
+	if err != nil {
+		return ReadEnvelope{}, err
+	}
+	aliases := make(map[string]string, len(names))
+	for _, name := range names {
+		aliases[name[strings.LastIndex(name, "/")+1:]] = name
+	}
+	for _, name := range in.Sections {
+		if _, ok := aliases[name]; !ok {
+			return ReadEnvelope{}, fail("validation", "unknown child section")
+		}
+	}
+	focused := e
+	focused.Summary, focused.itemSection = summary, in.Section
+	focused.Sections = make(map[string][]json.RawMessage, len(names))
+	focused.InitialSections, focused.AvailableSections = nil, nil
+	for _, name := range names {
+		alias := name[strings.LastIndex(name, "/")+1:]
+		if len(in.Sections) > 0 && !slices.Contains(in.Sections, alias) {
+			focused.AvailableSections = append(focused.AvailableSections, alias)
+			continue
+		}
+		rows, ok, err := readSectionRows(e, name)
+		if err != nil {
+			return ReadEnvelope{}, err
+		}
+		if !ok {
+			return ReadEnvelope{}, fail("not_found", "item evidence section unavailable")
+		}
+		focused.Sections[name] = rows
+	}
+	return c.initial(id, focused, limit)
 }
 
 func isReadScaleTool(name string) bool {

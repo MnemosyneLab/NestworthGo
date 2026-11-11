@@ -100,7 +100,10 @@ external clients determine which SDK representation reaches the model.
 
 `analyze_period` freezes return days and eleven asset-driver details on the same
 read fence as its summary. `get_read_item` selects `returnDays` by `YYYY-MM-DD`
-or `assetDrivers` by bucket key; child sections use `get_read_page`.
+or `assetDrivers` by bucket key. Like other items, these accept `limit`
+(default 25, max 100) for initial rows per child section and `sections` for short
+child names. Initial rows share the response byte budget; remaining child rows
+use `get_read_page`.
 Contribution detail uses the already frozen parent row. None of these reads
 refreshes snapshots or extends expiry.
 

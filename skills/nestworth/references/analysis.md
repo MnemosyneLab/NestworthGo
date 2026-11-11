@@ -249,7 +249,12 @@ opens that closed day. Page `returnDays/<date>/composition`,
 `get_read_item` section=`assetDrivers` id=the bucket key opens
 `assetDrivers/<key>/byInstrument`, `assetDrivers/<key>/byAccount` and
 `assetDrivers/<key>/residualDetails`. The date must fall inside the capture
-range. Bucket keys are the assetChange keys already returned:
+range. Both item kinds accept `limit` (default 25, max 100) for initial rows
+per child section within the response byte budget. Optional `sections` selects
+short child names (`composition`, `contributors`, `issues` for days;
+`byInstrument`, `byAccount`, `residualDetails` for drivers). Omitted selects all
+children; `availableSections` lists unselected names. Follow remaining child
+cursors with `get_read_page`. Bucket keys are the assetChange keys already returned:
 external_flow, income, spending, dividend_interest, price_change, fx_impact,
 fx_conversion_spread, fee, liability_impact, adjustment, residual. These
 sections are frozen with the period capture and do not renew its TTL. They

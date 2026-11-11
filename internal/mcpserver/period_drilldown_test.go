@@ -73,15 +73,8 @@ func TestPeriodDrilldownStaysOutOfCaptureJSON(t *testing.T) {
 		t.Fatalf("item envelope changed identity or TTL: %+v", item)
 	}
 	section := item.Sections["returnDays/2024-01-02/issues"]
-	if section.Page.Total != 1 || section.Page.NextCursor == nil {
-		t.Fatalf("issues page: %+v", section.Page)
-	}
-	page, err := cache.page(1, ReadPageInput{CaptureID: env.CaptureID, Section: "returnDays/2024-01-02/issues", Cursor: *section.Page.NextCursor, Limit: 25})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if page.CaptureID != env.CaptureID || len(page.Items) != 1 || !strings.Contains(string(page.Items[0]), "synthetic-drilldown-marker") {
-		t.Fatalf("page: %+v", page)
+	if section.Page.Total != 1 || section.Page.Returned != 1 || section.Page.NextCursor != nil || len(section.Items) != 1 || !strings.Contains(string(section.Items[0]), "synthetic-drilldown-marker") {
+		t.Fatalf("inline issues lost frozen evidence: %+v", section)
 	}
 
 	_, err = cache.periodItem(env.CaptureID, stored, ReadItemInput{Section: "returnDays", ID: "2024-02-01"})
@@ -186,7 +179,7 @@ func TestPeriodDrilldownRetainedBudgets(t *testing.T) {
 		t.Fatal("cache budget exceeded")
 	}
 	stored := cache.entries[third.CaptureID]
-	item, err := cache.periodItem(third.CaptureID, stored, ReadItemInput{Section: "returnDays", ID: "2024-01-01"})
+	item, err := cache.periodItem(third.CaptureID, stored, ReadItemInput{Section: "returnDays", ID: "2024-01-01", Limit: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +216,7 @@ func TestPeriodDrilldownConcurrentAdmission(t *testing.T) {
 			entry, err := cache.entry(1, env.CaptureID)
 			var item ReadEnvelope
 			if err == nil {
-				item, err = cache.periodItem(env.CaptureID, entry, ReadItemInput{Section: "returnDays", ID: "2024-01-01"})
+				item, err = cache.periodItem(env.CaptureID, entry, ReadItemInput{Section: "returnDays", ID: "2024-01-01", Limit: 1})
 			}
 			cache.mu.Unlock()
 			if err == nil && (item.CaptureID != env.CaptureID) {

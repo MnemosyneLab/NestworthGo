@@ -169,7 +169,10 @@ with zero returned rows and a continuation identify deferred evidence.
 
 Use `get_read_item` with the SAME captureId, section=results and id=clientItemId
 for one original input, normalized comparison, current policy/impact, related
-quotes, relations and audit sources. Follow any focused child cursors. Focused
+quotes, relations and audit sources. `limit` applies to initial rows per child
+section (default 25, max 100, subject to the byte budget). Optional `sections`
+selects short names: targets, matches, relations, evidence, audits; omitted
+selects all five. Follow any focused child cursors with `get_read_page`. Focused
 completion concerns that row, not global evidence. For bulk details, page
 result_details/matches/evidence/audits/targets from the original capture. Choose
 view=full upfront when all evidence is needed. Do not recapture to change view

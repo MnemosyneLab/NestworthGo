@@ -21,6 +21,13 @@ workflows retain their disclosure path in [financial context](financial-context.
 Task arguments live with the task: [product pages](product-pages.md),
 [directory batches](directory-batches.md), [market read pages](market-read-pages.md).
 
+`get_read_item` accepts `limit` for every capture kind, including market import
+comparison and period analysis: default 25, maximum 100 initial rows per selected
+child section, subject to the response byte budget. Optional `sections` selects
+short child names; `availableSections` lists unselected names. Unknown names fail
+validation. Follow each selected child's remaining cursor with `get_read_page`.
+`delivery.selectionComplete` describes selected children only, not omitted evidence.
+
 ## Completeness and recovery
 
 An initial mcp-read/2 capture has captureId, captureKind, capturedAt, summary

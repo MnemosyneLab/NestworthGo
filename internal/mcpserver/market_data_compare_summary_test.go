@@ -55,7 +55,7 @@ func TestMarketComparisonSummaryAndFocusedFrozenDetails(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: second.ClientItemID})
+	detail := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: second.ClientItemID, Limit: 100})
 	if detail["captureId"] != cap["captureId"] || detail["expiresAt"] != cap["expiresAt"] {
 		t.Fatal("focused detail recaptured or renewed TTL")
 	}
@@ -124,6 +124,16 @@ func TestMarketComparisonFocusedDetailCursorsAreBoundAndComplete(t *testing.T) {
 	cursor := detail["sections"].(map[string]any)[name].(map[string]any)["page"].(map[string]any)["nextCursor"].(string)
 	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: "comparison_item/0/audits", Cursor: cursor}, true)
 	call(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: name, Cursor: cursor + "x"}, true)
+	for _, limit := range []int{1, 100} {
+		selected := scaleCapture(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: "one", Sections: []string{"relations", "relations"}, Limit: limit})
+		sections := selected["sections"].(map[string]any)
+		if len(sections) != 1 || len(sections["comparison_item/0/relations"].(map[string]any)["items"].([]any)) != min(limit, 40) {
+			t.Fatal("selected child limit not honored", selected)
+		}
+		if len(scaleSection(t, c, selected, "comparison_item/0/relations")) != 40 {
+			t.Fatal("selected continuation lost relations")
+		}
+	}
 	fx.service.reads.revoke()
 	call(t, c, "get_read_item", ReadItemInput{CaptureID: cap["captureId"].(string), Section: "results", ID: "one"}, true)
 }

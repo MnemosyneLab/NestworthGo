@@ -13,7 +13,7 @@ import (
 // Detailed rows remain stored exactly once. Summary rows and item sections are
 // bounded projections over the same immutable capture, not new captures.
 func comparisonSummary(e readCapture) bool {
-	if e.Kind != "market_import_comparison" {
+	if e.Kind != "market_import_comparison" || e.itemSection != "" {
 		return false
 	}
 	q, _ := e.Query.(map[string]any)
@@ -177,44 +177,9 @@ func (c *boundedReadCache) comparisonItem(id string, e readCapture, in ReadItemI
 	if index < 0 {
 		return ReadEnvelope{}, fail("not_found", "client item not found in capture")
 	}
-	r := c.base(id, e)
-	r.Section = "results"
-	r.Summary = map[string]any{"result": row}
-	r.Sections = map[string]ReadSection{}
 	names := []string{}
-	sections := map[string][]json.RawMessage{}
 	for _, kind := range []string{"targets", "matches", "relations", "evidence", "audits"} {
-		name := fmt.Sprintf("comparison_item/%d/%s", index, kind)
-		rows, ok, err := readSectionRows(e, name)
-		if err != nil {
-			return r, err
-		}
-		if !ok {
-			return r, fail("not_found", "item evidence section unavailable")
-		}
-		names = append(names, name)
-		sections[name] = rows
-		r.Sections[name] = ReadSection{Items: []json.RawMessage{}, Page: c.pageInfoSize(id, name, e, len(rows), 0, 0)}
+		names = append(names, fmt.Sprintf("comparison_item/%d/%s", index, kind))
 	}
-	if ok, err := readFits(r); err != nil {
-		return r, err
-	} else if !ok {
-		return r, fail("too_large", "single_item comparison input exceeds read wire budget")
-	}
-	for _, name := range names {
-		rows := sections[name]
-		for n := 0; n < min(25, len(rows)); n++ {
-			old := r.Sections[name]
-			r.Sections[name] = ReadSection{Items: rows[:n+1], Page: c.pageInfoSize(id, name, e, len(rows), 0, n+1)}
-			ok, err := readFits(r)
-			if err != nil {
-				return r, err
-			}
-			if !ok {
-				r.Sections[name] = old
-				break
-			}
-		}
-	}
-	return r, nil
+	return c.focusedChildren(id, e, in, map[string]any{"result": row}, names)
 }

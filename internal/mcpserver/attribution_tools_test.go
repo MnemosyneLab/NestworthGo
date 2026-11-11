@@ -419,7 +419,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	}
 
 	period := scaleCapture(t, client, "analyze_period", map[string]any{"query": query})
-	dayArgs := map[string]any{"captureId": period["captureId"], "section": "returnDays", "id": "2025-03-03"}
+	dayArgs := map[string]any{"captureId": period["captureId"], "section": "returnDays", "id": "2025-03-03", "limit": 100}
 	day := sectionEvidence(t, client, "get_read_item", dayArgs)
 	wantDay, err := adapter.ReturnDay(ctx, request, "2025-03-03")
 	if err != nil {
@@ -428,7 +428,7 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 	if !reflect.DeepEqual(day, jsonObject(t, wantDay)) {
 		t.Fatalf("return day = %+v, want %+v", day, wantDay)
 	}
-	driverArgs := map[string]any{"captureId": period["captureId"], "section": "assetDrivers", "id": "income"}
+	driverArgs := map[string]any{"captureId": period["captureId"], "section": "assetDrivers", "id": "income", "limit": 100}
 	driver := sectionEvidence(t, client, "get_read_item", driverArgs)
 	wantDriver, err := adapter.AssetDriverDetail(ctx, request, "income")
 	if err != nil {
