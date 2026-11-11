@@ -129,7 +129,7 @@ func contributionPageEvidence(cap map[string]any) map[string]any {
 	return out
 }
 func nextContributionPage(t *testing.T, c *mcp.ClientSession, prior map[string]any) map[string]any {
-	p := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": prior["captureId"], "section": "rows", "cursor": prior["nextCursor"], "limit": 1})
+	p := scaleCapture(t, c, "get_read_page", map[string]any{"cursor": prior["nextCursor"], "limit": 1})
 	page := p["page"].(map[string]any)
 	return map[string]any{"rows": p["items"], "totalRows": page["total"], "hasMore": page["hasMore"], "nextCursor": page["nextCursor"]}
 }

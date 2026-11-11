@@ -50,7 +50,11 @@ sections.
 cursor to finish classification delivery. Detailed sections remain deferred, not
 empty. Server-computed counts are not evidence-delivery claims. Use
 `get_read_item` section=results and id=clientItemId for focused details from the
-same capture, follow any child cursors, and retain its hash and expiry. Bulk
+same capture and follow any child cursors. Optional `limit` (default 25, max
+100) bounds initial rows per child section; `sections` selects short child names
+`targets`, `matches`, `relations`, `evidence` or `audits`. Omit `sections` for all
+five. Unselected names are listed in `availableSections`. Item reads preserve
+the capture and do not renew its expiry. Bulk
 detail readers can continue result_details, matches, evidence, audits or targets,
 or choose view=full upfront. Do not create a second capture and mix its evidence
 into the first.
@@ -62,7 +66,7 @@ into the first.
 
 <!-- example: compare-import-item -->
 ```json
-{"captureId":"${captureId}","section":"results","id":"csv/001"}
+{"captureId":"${captureId}","section":"results","id":"csv/001","limit":100}
 ```
 
 ## When a market page fails

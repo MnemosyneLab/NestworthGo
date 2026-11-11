@@ -70,6 +70,10 @@ the original input/normalization and bounded child pages for that row's target,
 match metadata, relations, related evidence and linked audits. Relations have a
 separate page entrance rather than an empty array pretending to be complete.
 Small details fit in one call; larger sets continue through their signed cursors.
+Optional `limit` (default 25, max 100) controls initial rows per child section
+within the response byte budget. `sections` selects short names from targets,
+matches, relations, evidence and audits; omitted selects all five. Unselected
+names appear in `availableSections`. `delivery` reports selected child delivery.
 Focused detail explicitly does not claim global evidence delivery.
 
 For all details, follow result_details/matches/evidence/audits/targets cursors from

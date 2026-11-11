@@ -66,3 +66,6 @@ Follow [market-data.md](market-data.md) to import real evidence, then rescan.
 ```json
 {"jobId":"${jobId}","view":"evidence","limit":100}
 ```
+
+`get_data_repair_job` uses `limit` only with `view=evidence`; progress has no
+row pages and does not use it. Omit `limit` when polling progress.

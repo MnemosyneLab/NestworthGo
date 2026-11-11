@@ -20,6 +20,13 @@ func scaleReadSchema[I any](name string) *jsonschema.Schema {
 	if err != nil {
 		panic(err)
 	}
+	if name == "get_read_page" {
+		delete(schema.Properties, "captureId")
+		delete(schema.Properties, "section")
+	}
+	if name == "get_data_repair_job" {
+		schema.Properties["limit"].Description = "Initial rows per child for view=evidence only; unused for progress. Default 25, max 100."
+	}
 	if name == "get_products" {
 		minimum := 1
 		id := schema.Properties["id"]

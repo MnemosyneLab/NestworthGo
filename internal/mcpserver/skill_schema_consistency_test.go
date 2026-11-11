@@ -183,7 +183,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"Ordinary initial business reads and every continuation | 25 / 100", "get_read_page({cursor, limit?})", "items/page", "5 minutes", "4 MiB", "8 MiB per capture", "32,768", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
+	for _, phrase := range []string{"Ordinary initial business reads and every continuation | 25 / 100", "Financial context/comparison/focused-item initial sections | Up to 25 per selected section within 24 KiB / 100", "get_read_page({cursor, limit?})", "items/page", "5 minutes", "4 MiB", "8 MiB per capture", "32,768", "16 MiB / 8", "2 builders", "10-second", "65,536", "read_expired/read_revoked", "context_expired/context_revoked"} {
 		if !strings.Contains(string(guide), phrase) {
 			t.Errorf("contract guidance missing: %s", phrase)
 		}
@@ -224,7 +224,7 @@ func TestSkillSharedReadPageDefaultsAndShape(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		page := call(t, client, "get_read_page", ReadPageInput{CaptureID: captured.CaptureID, Section: "rows", Cursor: *captured.Sections["rows"].Page.NextCursor}, false)["data"].(map[string]any)
+		page := call(t, client, "get_read_page", ReadPageInput{Cursor: *captured.Sections["rows"].Page.NextCursor}, false)["data"].(map[string]any)
 		if len(page["items"].([]any)) != c.count || page["section"] != "rows" || page["captureId"] != captured.CaptureID {
 			t.Fatalf("%s default/identity differs: %v", c.kind, page)
 		}

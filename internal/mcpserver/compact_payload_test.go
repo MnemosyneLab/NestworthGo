@@ -58,7 +58,7 @@ func measureCompactReadJourneys(t *testing.T, c *mcp.ClientSession, rec *payload
 			info := initial[section+"Page"].(map[string]any)
 			count := int(info["returned"].(float64))
 			for info["hasMore"] == true {
-				page := scaleCapture(t, c, "get_read_page", map[string]any{"captureId": initial[idKey], "section": section, "cursor": info["nextCursor"], "limit": 100})
+				page := scaleCapture(t, c, "get_read_page", map[string]any{"cursor": info["nextCursor"], "limit": 100})
 				if page["contentHash"] != initial["contentHash"] || page[idKey] != initial[idKey] {
 					t.Fatal("mixed capture")
 				}

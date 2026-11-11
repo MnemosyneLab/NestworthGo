@@ -243,7 +243,7 @@ func payloadSection(t *testing.T, c *mcp.ClientSession, cap map[string]any, sect
 	rows := append([]any{}, part["items"].([]any)...)
 	page := part["page"].(map[string]any)
 	for page["hasMore"] == true {
-		next := scaleCapture(t, c, "get_read_page", ReadPageInput{CaptureID: cap["captureId"].(string), Section: section, Cursor: page["nextCursor"].(string), Limit: 100})
+		next := scaleCapture(t, c, "get_read_page", ReadPageInput{Cursor: page["nextCursor"].(string), Limit: 100})
 		if next["captureId"] != cap["captureId"] {
 			t.Fatal("mixed issue capture")
 		}
@@ -361,7 +361,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 		}
 		count := page.Returned
 		for page.HasMore {
-			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{CaptureID: context.ContextID, Section: section, Cursor: page.NextCursor, Limit: 100}, false))
+			next := decodeContext(t, call(t, c, "get_read_page", ReadPageInput{Cursor: page.NextCursor, Limit: 100}, false))
 			if next.ContextID != context.ContextID || next.CapturedAt != context.CapturedAt {
 				t.Fatal("mixed financial context")
 			}
@@ -502,7 +502,7 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	comparison := call(t, c, "compare_financial_context", comparisonArgs, false)["data"].(map[string]any)
 	page := comparison["positionsPage"].(map[string]any)
 	if cursor, ok := page["nextCursor"].(string); ok && cursor != "" {
-		call(t, c, "get_read_page", map[string]any{"captureId": comparison["comparisonId"], "section": "positions", "cursor": cursor}, false)
+		call(t, c, "get_read_page", map[string]any{"cursor": cursor}, false)
 	}
 	call(t, c, "compare_financial_attribution", comparisonArgs, false)
 	// Two rules, one explicitly selected investment, real persisted review results.

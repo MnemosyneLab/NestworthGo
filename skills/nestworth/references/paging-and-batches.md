@@ -21,6 +21,13 @@ workflows retain their disclosure path in [financial context](financial-context.
 Task arguments live with the task: [product pages](product-pages.md),
 [directory batches](directory-batches.md), [market read pages](market-read-pages.md).
 
+`get_read_item` accepts `limit` for every capture kind, including market import
+comparison and period analysis: default 25, maximum 100 initial rows per selected
+child section, subject to the response byte budget. Optional `sections` selects
+short child names; `availableSections` lists unselected names. Unknown names fail
+validation. Follow each selected child's remaining cursor with `get_read_page`.
+`delivery.selectionComplete` describes selected children only, not omitted evidence.
+
 ## Completeness and recovery
 
 An initial mcp-read/2 capture has captureId, captureKind, capturedAt, summary
@@ -118,7 +125,7 @@ Limits are upper row counts. Complete response bytes may produce fewer rows.
 | Tool discovery (protocol exception) | 16 definitions | tools/list nextCursor |
 | Ordinary initial business reads and every continuation | 25 / 100 | get_read_page({cursor, limit?}) |
 | Current/historical overview and analyze_period initial sections | 5 floor, 25 within a byte budget / 100 | get_read_page |
-| Financial context/comparison/focused-item initial sections | At most 1 row per section | get_read_page |
+| Financial context/comparison/focused-item initial sections | Up to 25 per selected section within 24 KiB / 100 | get_read_page |
 | Repair progress | No capture or pages | Poll exact jobId; view=evidence uses frozen pages |
 
 Initial financial headers and focused-item responses retain their established

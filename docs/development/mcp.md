@@ -175,9 +175,19 @@ The envelope carries `schemaVersion=mcp-read/2`, `captureId`, `captureKind`,
 the section is finished. Arrays are always arrays. A zero-row section that
 still has a cursor is not empty.
 
-`get_read_page` takes `cursor` and an optional `limit` and returns the same
+`get_read_page` exposes only `cursor` and an optional `limit`; callers must not
+send `captureId` or `section`. The signed cursor provides scope. It returns the same
 capture metadata. Filter and sort cannot change on a continuation.
 `get_read_item` takes `captureId`, `section` and `id` from that capture.
+Every supported item kind also accepts `limit` for initial rows per selected
+child section and optional `sections` for short child names. This includes
+market import comparisons and period return-day/asset-driver details. Unknown
+child names fail validation; duplicates select the child only once.
+Unselected names are advertised in `availableSections`. Omitted `sections`
+selects the item's default business details (all children for comparisons and
+period details; components and missing inputs for accounts). Remaining rows
+use child cursors with `get_read_page`; `delivery` covers only selected children.
+These projections preserve capture identity, exact evidence and expiry.
 Default limit is 25 and the maximum is 100. A page may return fewer rows so
 the final `structuredContent` result and JSON-RPC envelope fit 65,536
 bytes. Narrowing the page limit does not fix one oversized item: that fails
