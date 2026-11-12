@@ -120,7 +120,7 @@ reloads the authoritative application result.
 
 | Area | Choice | Boundary |
 | --- | --- | --- |
-| Language | Go 1.27.3 | Application, domain, and infrastructure code |
+| Language | Go 1.27.4 | Application, domain, and infrastructure code |
 | Persistence | SQLite, verified schema 23 (ordered upgrades from verified 21/22) | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |

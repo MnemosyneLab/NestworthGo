@@ -179,7 +179,7 @@ through four actual adapter requests, with serialization between rounds.
 
 ## Reproduce and evidence
 
-With Go 1.27.3 or newer, run from this directory:
+With Go 1.27.4 or newer, run from this directory:
 
 ```sh
 ./check.sh

@@ -7,7 +7,7 @@ release is [v0.3.10](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0
 skill 2.0.0. See the [v0.3.11 release preparation](../releases/v0.3.11.md) for
 current scope and remaining gates. The unpublished repository skill version is recorded in
 [`skills/nestworth/VERSION`](../../skills/nestworth/VERSION). The project
-is a Go 1.27.3 module with a Wails v3 desktop shell and a React + TypeScript frontend.
+is a Go 1.27.4 module with a Wails v3 desktop shell and a React + TypeScript frontend.
 The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -15,8 +15,8 @@ localization, accessibility, and chart rendering.
 
 ## Prerequisites
 
-- Go 1.27.3 or newer;
-- Node.js 24.22.2 with pnpm;
+- Go 1.27.4 or newer;
+- Node.js 24.22.3 with pnpm;
 - Wails CLI `v3.1.0`;
 - macOS 27.0 or newer on Apple Silicon, with a macOS 27 SDK, for the primary
   desktop and packaging target.

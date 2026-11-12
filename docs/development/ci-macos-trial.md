@@ -55,9 +55,9 @@ No runner archive-cache environment variables are changed by this PR.
 
 ## Tools, isolation and capacity
 
-Official setup-go/setup-node actions select Go from `go.mod` and Node 24.22.2.
-Pinned pnpm 12.18.0 is installed once with npm into the dedicated runner cache
-(`pnpm-cli-darwin-arm64-v24.22.2-12.18.0`), then version-checked and reused without
+Official setup-go/setup-node actions select Go from `go.mod` and Node 24.22.3.
+Pinned pnpm 12.19.0 is installed once with npm into the dedicated runner cache
+(`pnpm-cli-darwin-arm64-v24.22.3-12.19.0`), then version-checked and reused without
 invoking npm on warm runs. Bootstrap disables lifecycle scripts, audit and funding
 requests and never installs globally. Wails installs via `go install` at the exact module
 pin into a dedicated user-writable cache. Native preflight verifies all selected
