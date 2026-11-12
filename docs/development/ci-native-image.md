@@ -32,7 +32,7 @@ hiding image contents. `/opt` remains root-owned and readable/executable by UID
 1001. Caches, home, workspace and runner temporary paths remain writable.
 
 `tools/ci-toolchain-versions.py` reads Go's patch version and the Wails v3
-requirement from **`go.mod`**, currently Go 1.27.3 and Wails v3.1.0. The image
+requirement from **`go.mod`**, currently Go 1.27.4 and Wails v3.1.0. The image
 Dockerfile, labels, CLI fallback and workflow cache identity derive from those
 values. No separate editable image version pins exist. The parser rejects
 ambiguous versions, toolchain directives and Wails replacements until explicit

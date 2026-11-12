@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Install only into the runner's dedicated cache, never a global prefix.
 set -euo pipefail
-version=12.18.0
+version=12.19.0
 node_version=$(node --version)
-test "$node_version" = v24.22.2
+test "$node_version" = v24.22.3
 cache="$(dirname "$RUNNER_TEMP")/nestworth-ci-cache-v1"
 prefix="$cache/pnpm-cli-darwin-arm64-$node_version-$version"
 binary="$prefix/node_modules/.bin/pnpm"

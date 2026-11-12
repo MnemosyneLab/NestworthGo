@@ -2,8 +2,25 @@
 # pnpm 11+ reads minimumReleaseAge* from here; the matching .npmrc keys
 # are kept as a fallback for older clients.
 #
-# Pinned Wails v3 runtime is a <7-day-old release; keep the 7-day age gate
-# for everything else. See docs/development/engineering-guide.md.
+# Keep the seven-day age gate for versions outside these reviewed exceptions.
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - '@wailsio/runtime@3.1.0'
+  # GHSA-p4f5-76q4-ffq7 requires the patched Vite and Rolldown releases.
+  - 'vite@8.3.7'
+  - 'rolldown@1.2.18'
+  - '@rolldown/binding-android-arm-eabi@1.2.18'
+  - '@rolldown/binding-android-arm64@1.2.18'
+  - '@rolldown/binding-darwin-arm64@1.2.18'
+  - '@rolldown/binding-darwin-x64@1.2.18'
+  - '@rolldown/binding-freebsd-x64@1.2.18'
+  - '@rolldown/binding-linux-arm-gnueabihf@1.2.18'
+  - '@rolldown/binding-linux-arm64-gnu@1.2.18'
+  - '@rolldown/binding-linux-arm64-musl@1.2.18'
+  - '@rolldown/binding-linux-ppc64-gnu@1.2.18'
+  - '@rolldown/binding-linux-s390x-gnu@1.2.18'
+  - '@rolldown/binding-linux-x64-gnu@1.2.18'
+  - '@rolldown/binding-linux-x64-musl@1.2.18'
+  - '@rolldown/binding-openharmony-arm64@1.2.18'
+  - '@rolldown/binding-win32-arm64-msvc@1.2.18'
+  - '@rolldown/binding-win32-x64-msvc@1.2.18'

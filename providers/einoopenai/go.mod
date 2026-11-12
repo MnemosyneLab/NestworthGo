@@ -1,6 +1,6 @@
 module github.com/waltwang/nestworth-go/providers/einoopenai
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/cloudwego/eino v0.9.22

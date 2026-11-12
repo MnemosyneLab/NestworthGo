@@ -25,8 +25,8 @@ pnpm, and the Wails CLI. Native GTK/WebKit packages are not required for the
 
 Use the checkout's toolchain pins, not an older QA report's environment:
 `go.mod` (Go and Wails), `.node-version`, and `frontend/package.json`
-(`engines` and `packageManager`). The current pins are Go 1.27.3, Wails v3.1.0,
-Node 24.22.2 and pnpm 12.18.0. Check the selected executables before setup:
+(`engines` and `packageManager`). The current pins are Go 1.27.4, Wails v3.1.0,
+Node 24.22.3 and pnpm 12.19.0. Check the selected executables before setup:
 
 ```bash
 go version
