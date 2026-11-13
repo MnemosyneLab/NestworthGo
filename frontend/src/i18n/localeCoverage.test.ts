@@ -263,7 +263,7 @@ describe("i18n regression guards", () => {
     // Japanese has only the `other` plural category; English `_one` is not
     // needed for i18next to resolve a Japanese count.
     const required = [...english.keys()].filter(key =>
-      /^translation\.(?:error|analytics|dashboard|groups|icons|directory|institutionType|marketData|portfolio|connections|institutions|members|snapshot|review|metals|holdingsSummary|agent|cloudBackup|secretField|retention|holdingDetail|syncReasons|holdingGroups|holdingPerformance|instrumentDetail|aiCredentials|voice|aiModels|aiUsage|diagnosticsSettings|quoteDetails|changeContributions|availableFunds|historicalReconciliation|upcomingActions|reconciliation|aiChat)\./.test(key) && !key.endsWith("_one"));
+      /^translation\.(?:error|analytics|dashboard|groups|icons|directory|institutionType|marketData|portfolio|connections|institutions|members|snapshot|review|metals|holdingsSummary|agent|cloudBackup|secretField|retention|holdingDetail|syncReasons|holdingGroups|holdingPerformance|instrumentDetail|aiCredentials|voice|aiModels|aiUsage|diagnosticsSettings|quoteDetails|changeContributions|availableFunds|historicalReconciliation|upcomingActions|reconciliation|aiChat|reviewV2)\./.test(key) && !key.endsWith("_one"));
     expect(required.filter(key => !japanese.has(key))).toEqual([]);
   });
 
@@ -292,6 +292,18 @@ describe("i18n regression guards", () => {
         const actual = placeholders(leaves[locale].get(key) ?? "");
         if (expected.join("|") !== actual.join("|")) issues.push(`${locale} ${key}: ${actual.join(",")} != ${expected.join(",")}`);
       }
+    }
+    expect(issues).toEqual([]);
+  });
+
+  it("preserves nested translation references in Japanese strings", () => {
+    const english = leafStrings(locales.en);
+    const japanese = leafStrings(locales.ja);
+    const refs = (value: string) => [...value.matchAll(/\$t\(\s*([^,\s)]+)/g)].map(match => match[1]).sort();
+    const issues: string[] = [];
+    for (const [key, value] of japanese) {
+      if (!english.has(key)) continue;
+      if (refs(value).join("|") !== refs(english.get(key) ?? "").join("|")) issues.push(key);
     }
     expect(issues).toEqual([]);
   });
