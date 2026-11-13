@@ -13,6 +13,7 @@ import type { ReturnCalendarDTO, ReturnCalendarMonthDTO, ReturnComponentAmountDT
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 import { CompletenessBanner } from "@/features/insights/CompletenessBanner";
+import { ReturnCoverage } from "./ReturnCoverage";
 import { analysisRequest, currentMonthAwaitingClose, effectiveRange, periodRange } from "@/features/insights/analysisRequest";
 import { addMonths, currentMonth, isFuture, isToday, lastClosedDate, monthDays, monthLabel, yearLabel, yearMonths } from "@/features/insights/calendar";
 import { addCanonical, formatAmount, formatDecimalRatioPercent, formatSignedMoney } from "@/lib/money";
@@ -79,10 +80,9 @@ function ValuationLabel({ data, section }: { data: Pick<ReturnCalendarDTO, "valu
   return <p className="text-xs text-muted-foreground">{t(`insights.${section}`)}: {t(data.valuation === "base" ? "insights.valuationBase" : "insights.valuationNative", { currency })}{data.valuation !== "base" && ` (${currency})`}{data.valuationForced && <span className="ml-2 text-warning-foreground">{t("insights.valuationForced")}</span>}</p>;
 }
 
-function Summary({ data, range }: { data: ReturnCalendarDTO; range: string }) {
+function Summary({ data, from, to }: { data: ReturnCalendarDTO; from: string; to: string }) {
   const { t } = useTranslation();
   const summary = data.summary;
-  const partial = summary.ratedDays < summary.totalDays;
   const amountPartial = summary.amountStatus === "partial";
   const amountUnavailable = summary.amountStatus === "unavailable";
   return (
@@ -91,26 +91,27 @@ function Summary({ data, range }: { data: ReturnCalendarDTO; range: string }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <CardTitle>{t("insights.summary")}</CardTitle>
-            <p className="num text-xs text-muted-foreground">{range}</p>
+            <p className="num text-xs text-muted-foreground">{formatCivilDateRange(from, to)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
-            {partial && <Badge variant={data.status === "partial" ? "warning" : "secondary"} title={t("insights.rateCoverageHint")}>{t("insights.rateCoverage")} {coverageLabel(summary.ratedDays, summary.totalDays)}</Badge>}
           </div>
         </div>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3 px-4 pb-3 sm:grid-cols-4">
         <div>
           <p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p>
-          <p className={cn("num text-lg font-semibold", signToneClass(summary.returnAmount?.amount))}>{amountText(summary.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p>
+          <p className={cn("num text-lg font-semibold", signToneClass(summary.returnAmount?.amount))}>{amountText(summary.returnAmount)}</p>
+          {(amountPartial || amountUnavailable) && <p className="text-sm text-muted-foreground">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</p>}
         </div>
         <div>
           <p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p>
-          <p className={cn("num text-lg font-semibold", signToneClass(summary.returnRate))} title={partial ? t("insights.rateCoverageHint") : undefined}>{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
+          <p className={cn("num text-lg font-semibold", signToneClass(summary.returnRate))}>{rateText(summary.returnRate)}</p>
         </div>
 
         <SummaryValue label={t("insights.beginning")} value={balanceText(summary.beginningInvestedValue)} />
         <SummaryValue label={t("insights.ending")} value={balanceText(summary.endingInvestedValue)} />
+        <div className="col-span-full"><ReturnCoverage data={summary} rate={summary.returnRate} from={from} to={to} /></div>
       </CardContent>
     </Card>
   );
@@ -264,10 +265,10 @@ export function ReturnCalendarTab({ session, view, onViewChange: setView, onCurs
   const summaryData = hasSelection ? selectedQuery.data : data;
   const summaryQuery = hasSelection ? selectedQuery : view === "year" ? yearSummaryQuery : monthQuery;
   const summary = <section aria-label={t("insights.summary")} className="flex flex-col gap-3">
-    {summaryQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : summaryQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => summaryQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData?.available ? <>
+    {summaryQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : summaryQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => summaryQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData && (summaryData.available || Boolean(summaryData.summary.missingValuationDays)) ? <>
       <ValuationLabel data={summaryData} section="summaryValuation" />
+      <Summary data={summaryData} {...(hasSelection ? selectedRange : range)} />
       <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
-      <Summary data={summaryData} range={formatCivilDateRange(hasSelection ? selectedRange.from : range.from, hasSelection ? selectedRange.to : range.to)} />
     </> : monthRangeAvailable && !visibleMonthIsFuture ? <CalendarEmptyState data={summaryData} /> : null}
   </section>;
   const grid = <section aria-label={t("insights.calendarView")} className="flex flex-col gap-3">

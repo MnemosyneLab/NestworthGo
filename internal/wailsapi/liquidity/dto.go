@@ -83,6 +83,7 @@ type RouteDTO struct {
 }
 
 type BucketResultDTO struct {
+	NeedsRules             bool            `json:"needsRules,omitempty"`
 	HorizonOn              string          `json:"horizonOn"`
 	SelectedRoute          *RouteDTO       `json:"selectedRoute"`
 	NetNative              *wire.MoneyView `json:"netNative"`
@@ -316,7 +317,7 @@ func fromBucketResult(value domain.LiquidityBucketResult, base domain.CurrencyCo
 		AppliedReserveNative:   wire.FromMoneyPtr(value.AppliedReserveNative),
 		UnreservedNative:       wire.FromMoneyPtr(value.UnreservedNative),
 		ReserveShortfallNative: wire.FromMoneyPtr(value.ReserveShortfallNative),
-		Status:                 string(value.Status), Reasons: emptyStrings(value.Reasons),
+		Status:                 string(value.Status), NeedsRules: value.NeedsRules, Reasons: emptyStrings(value.Reasons),
 	}
 }
 

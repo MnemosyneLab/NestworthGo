@@ -260,6 +260,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 	day.DisplayEndingExact = displayExact
 	day.DisplayLiability = account.IsLiability()
 	if !hasPrevious || !hasCurrent || !previous.Complete || !current.Complete {
+		day.ValuationMissing = true
 		day.Status = domain.CompletenessUnavailable
 		if hasPrevious && hasCurrent && (previous.Complete || current.Complete) {
 			day.Status = domain.CompletenessPartial
@@ -290,6 +291,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		return domain.ComponentDay{}, err
 	}
 	if !beginOK || !endOK {
+		day.ValuationMissing = true
 		day.Status = domain.CompletenessPartial
 		return day, nil
 	}

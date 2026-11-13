@@ -753,6 +753,7 @@
     }
   },
   "overview": {
+    "currentValuationIncomplete": "Current valuation incomplete",
     "accountCountDetail": "active accounts",
     "accounts": "Accounts",
     "assets": "Assets",
@@ -1053,6 +1054,8 @@
     "unitCostHint": "After history starts, enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
   },
   "connections": {
+    "historyCoverage": "Historical valuation: {{valued}} of {{total}} days have a total",
+    "noHistoricalCoverage": "No historical valuations in this range",
     "actions": "Actions",
     "actionsFor": "Actions for {{name}}",
     "accountReturns": "Return analysis",

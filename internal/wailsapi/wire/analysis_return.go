@@ -51,7 +51,13 @@ type ReturnDayDTO struct {
 	ValuationForced        *string                    `json:"valuationForced"`
 }
 
+type ReturnDayCoverageDTO struct {
+	MissingValuationDays  int `json:"missingValuationDays,omitempty"`
+	AmountWithoutRateDays int `json:"amountWithoutRateDays,omitempty"`
+}
+
 type ReturnCalendarSummaryDTO struct {
+	ReturnDayCoverageDTO
 	BeginningInvestedValue *SignedMoneyView `json:"beginningInvestedValue,omitempty"`
 	EndingInvestedValue    *SignedMoneyView `json:"endingInvestedValue,omitempty"`
 	ReturnAmount           *SignedMoneyView `json:"returnAmount,omitempty"`
@@ -85,8 +91,9 @@ type ReturnCalendarDTO struct {
 }
 
 type ReturnTrendPointDTO struct {
-	Date   string           `json:"date"`
-	Amount *SignedMoneyView `json:"amount,omitempty"`
+	ValuationMissing bool             `json:"valuationMissing,omitempty"`
+	Date             string           `json:"date"`
+	Amount           *SignedMoneyView `json:"amount,omitempty"`
 	// Rate is the daily Modified Dietz rate. The period-linked rate is on the
 	// parent ReturnTrendDTO; Value stays empty for linked_rate.
 	Rate            *string          `json:"rate"`
@@ -100,6 +107,7 @@ type ReturnTrendPointDTO struct {
 }
 
 type ReturnTrendDTO struct {
+	ReturnDayCoverageDTO
 	Display         string                `json:"display"`
 	Points          []ReturnTrendPointDTO `json:"points"`
 	Sources         []ReturnSourceDTO     `json:"sources"`

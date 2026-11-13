@@ -41,6 +41,9 @@ export interface TrendChartProps {
   axisValueFormatter?: (value: string | number) => string;
   extraTableColumns?: string[];
   extraTableRows?: string[][];
+  /** Explicit civil-date viewport and intervals where the selected metric cannot be plotted. */
+  timeRange?: { from: string; to: string };
+  missingIntervals?: Array<readonly [number, number]>;
   /** "minimal" hides the legend, softens gridlines and keeps the tooltip to date and value. */
   variant?: "default" | "minimal";
 }
@@ -149,6 +152,8 @@ export function TrendChart({
   axisValueFormatter,
   extraTableColumns,
   extraTableRows,
+  timeRange,
+  missingIntervals,
   variant = "default",
 }: TrendChartProps) {
   const { t, i18n } = useTranslation();
@@ -164,6 +169,9 @@ export function TrendChart({
   // ECharts reports `seriesIndex` against the flattened segment list, never the
   // caller's series array, so every segment keeps a pointer to its owner.
   const segments = series.flatMap((item, itemIndex) => trendQualitySegments(item).map((segment, segmentIndex) => ({ item, itemIndex, segment, segmentIndex })));
+  if (segments.length === 0 && series.length > 0 && missingIntervals?.length) {
+    segments.push({ item: series[0], itemIndex: 0, segment: { indices: [], provisional: false }, segmentIndex: 0 });
+  }
   const owner = (seriesIndex: number | undefined, seriesName?: string) => segments[seriesIndex ?? -1]?.item ?? series.find((entry) => entry.name === seriesName) ?? series[0];
   const stamps = dates.map(trendChartTimestamp).filter(Number.isFinite);
   const longSpan = stamps.length > 1 && Math.max(...stamps) - Math.min(...stamps) > 330 * 86_400_000;
@@ -171,6 +179,7 @@ export function TrendChart({
   // A lone series whose legend would only repeat its name adds no information; the card title already names it.
   const hideLegend = minimal || (series.length === 1 && legendLabel(series[0]) === series[0].name);
   const option: EChartsOption = {
+    ...(timeRange ? { useUTC: true } : {}),
     color: series.map((item) => resolveSeriesColor(item.color)),
     // ECharts 6 moved the default legend to the bottom, where it collides with the time axis.
     legend: hideLegend ? { show: false } : {
@@ -221,8 +230,13 @@ export function TrendChart({
     grid: { left: 8, right: minimal ? 12 : 16, top: hideLegend ? 12 : 44, bottom: 8, containLabel: true },
     xAxis: {
       type: "time",
+      ...(timeRange ? {
+        min: trendChartTimestamp(timeRange.from),
+        max: trendChartTimestamp(timeRange.to) + 86_399_999,
+      } : {}),
       ...(minimal ? { splitNumber: 4, axisTick: { show: false }, axisLine: { lineStyle: { color: theme.border } } } : {}),
       axisLabel: {
+        ...(timeRange ? { showMinLabel: true, showMaxLabel: true } : {}),
         color: theme.muted,
         hideOverlap: true,
         ...(minimal ? { fontSize: 11, margin: 12 } : {}),
@@ -231,11 +245,12 @@ export function TrendChart({
     },
     yAxis: {
       type: "value", scale: true,
+      ...(missingIntervals ? { show: series.some(item => item.values.some(value => value != null)) } : {}),
       ...(minimal ? { axisLine: { show: false }, axisTick: { show: false }, splitNumber: 4 } : {}),
       axisLabel: { color: theme.muted, ...(minimal ? { fontSize: 11 } : {}), ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) },
       splitLine: { lineStyle: minimal ? { color: theme.border, opacity: 0.5, type: "dashed" as const } : { color: theme.border } },
     },
-    series: segments.map(({ item, segment, segmentIndex }) => {
+    series: segments.map(({ item, segment, segmentIndex }, index) => {
       const pointsOnly = item.presentation === "points";
       const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed || meta?.provisional);
       return {
@@ -261,6 +276,13 @@ export function TrendChart({
           areaStyle: { color: resolveSeriesColor(item.color), opacity: pointsOnly ? 0 : 0.1 },
         },
         connectNulls: false,
+        ...(index === 0 && missingIntervals ? {
+          markArea: {
+            silent: true,
+            itemStyle: { color: theme.muted, opacity: 0.16 },
+            data: missingIntervals.map(([start, end]) => [{ xAxis: start }, { xAxis: end }]),
+          },
+        } : {}),
         // An isolated observation has no line to draw, so its segment always
         // keeps the marker regardless of how many dates the chart has overall.
         showSymbol: pointsOnly || segment.indices.length === 1 || (!minimal && (dates.length < 24 || showSourceMarks)),

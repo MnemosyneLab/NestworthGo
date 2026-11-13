@@ -217,12 +217,11 @@ export function OverviewPage({
   const healthBadge = data.complete ? (
     <Badge variant="success">{t("review.currentValuationComplete")}</Badge>
   ) : (
-    <Badge variant="warning">{t("overview.needsAttention")}</Badge>
+    <Badge variant="warning">{t("overview.currentValuationIncomplete")}</Badge>
   );
   const headerStatus = (
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">{t("overview.accountCount", { count: data.accountCount })}</Badge>
-      {healthBadge}
       <DataHealthIndicator onOpen={onOpenDataHealth} />
       {updatedLabel && <p className="text-sm text-muted-foreground">{updatedLabel}</p>}
     </div>
@@ -350,12 +349,16 @@ export function OverviewPage({
       <div className="grid gap-4 lg:grid-cols-2" data-testid="overview-financial-row" data-assistant-module="valuation">
         <Card className="relative min-w-0">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")} <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net /></CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("overview.netWorth")}</CardTitle>
+              {healthBadge}
+            </div>
           </CardHeader>
           <CardContent className="@container">
             <MoneyText wrap size="xl" className="block text-3xl @sm:text-4xl @lg:text-5xl" data-testid="overview-net-worth">
               {valuationTableAmount(t,data.displayValuation?.netWorth,{amount:data.netWorth,currency},true,false)}
             </MoneyText>
+            <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net />
  {!data.complete && (
               <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
             )}

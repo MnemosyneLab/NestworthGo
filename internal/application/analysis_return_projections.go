@@ -50,6 +50,7 @@ const (
 )
 
 type ReturnCalendarSummary struct {
+	ReturnDayCoverage
 	BeginningInvestedValue *domain.SignedMoney
 	EndingInvestedValue    *domain.SignedMoney
 	ReturnAmount           *domain.SignedMoney
@@ -108,8 +109,9 @@ const (
 )
 
 type ReturnTrendPoint struct {
-	Date   domain.LocalDate
-	Amount *domain.SignedMoney
+	ValuationMissing bool
+	Date             domain.LocalDate
+	Amount           *domain.SignedMoney
 	// Rate is the daily Modified Dietz rate. Value is intentionally empty for
 	// linked_rate; the period-linked rate lives on ReturnTrendResult.Rate.
 	Rate     *decimal.Decimal
@@ -120,6 +122,7 @@ type ReturnTrendPoint struct {
 
 type ReturnTrendResult struct {
 	AnalysisAvailability
+	ReturnDayCoverage
 	Display ReturnTrendDisplay
 	Points  []ReturnTrendPoint
 	// Sources is the return-component breakdown, not the calendar's holding
@@ -587,7 +590,7 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 		calendar.Issues = append(calendar.Issues, day.Issues...)
 	}
 	amountStatus := returnAmountStatus(result)
-	calendar.Summary = ReturnCalendarSummary{BeginningInvestedValue: result.InvestedCapital, ReturnAmount: result.ReturnAmount, AmountStatus: amountStatus, ReturnRate: result.ReturnRate, Coverage: result.Coverage}
+	calendar.Summary = ReturnCalendarSummary{BeginningInvestedValue: result.InvestedCapital, ReturnAmount: result.ReturnAmount, AmountStatus: amountStatus, ReturnRate: result.ReturnRate, Coverage: result.Coverage, ReturnDayCoverage: returnDayCoverage(result.DailyReturns)}
 	calendar.Summary.EndingInvestedValue = periodEndingValue(result)
 	return calendar, nil
 }
@@ -797,9 +800,9 @@ func projectReturnTrend(result domain.PeriodAnalysisResult, forced string, displ
 		case ReturnTrendPeriodReturnAmount:
 			value = daily.Amount
 		}
-		points = append(points, ReturnTrendPoint{Date: daily.Date, Amount: daily.Amount, Rate: daily.Rate, Value: value, Coverage: dailyCoverage(daily), AnalysisAvailability: dailyAvailability(daily, forced)})
+		points = append(points, ReturnTrendPoint{Date: daily.Date, Amount: daily.Amount, Rate: daily.Rate, Value: value, Coverage: dailyCoverage(daily), AnalysisAvailability: dailyAvailability(daily, forced), ValuationMissing: daily.ValuationMissing})
 	}
-	return ReturnTrendResult{AnalysisAvailability: returnAvailability(result, forced), Display: display, Points: points, Sources: returnSources(result), Amount: result.ReturnAmount, Rate: result.ReturnRate, Coverage: result.Coverage}, nil
+	return ReturnTrendResult{AnalysisAvailability: returnAvailability(result, forced), Display: display, Points: points, Sources: returnSources(result), Amount: result.ReturnAmount, Rate: result.ReturnRate, Coverage: result.Coverage, ReturnDayCoverage: returnDayCoverage(result.DailyReturns)}, nil
 }
 
 func topReturnContributors(result domain.PeriodAnalysisResult, forced string) ([]ReturnContributor, error) {

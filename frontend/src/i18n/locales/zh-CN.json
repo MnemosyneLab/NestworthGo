@@ -753,6 +753,7 @@
     }
   },
   "overview": {
+    "currentValuationIncomplete": "当前估值不完整",
     "accountCountDetail": "个活跃账户",
     "accounts": "账户",
     "assets": "资产",
@@ -1053,6 +1054,8 @@
     "unitCostHint": "历史记录已启用，请按标的报价币种填写单位成本。留空时使用已保存的当前价格；没有价格时必须填写。"
   },
   "connections": {
+    "historyCoverage": "历史估值：{{total}} 天中有 {{valued}} 天可提供总额",
+    "noHistoricalCoverage": "此范围内没有历史估值",
     "actions": "操作",
     "actionsFor": "{{name}}的操作",
     "accountReturns": "收益分析",

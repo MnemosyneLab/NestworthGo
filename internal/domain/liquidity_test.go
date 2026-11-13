@@ -231,6 +231,11 @@ func TestEvaluateLiquidityMissingFXKeepsNativeSubtotals(t *testing.T) {
 	if overview.Buckets[0].Status != StatusPartial {
 		t.Fatalf("status = %s, want partial", overview.Buckets[0].Status)
 	}
+	for _, source := range overview.Sources {
+		if source.AccountID == eurAccount && source.BucketResults[0].NeedsRules {
+			t.Fatal("missing base FX should not be reported as missing rules")
+		}
+	}
 	if overview.Buckets[0].KnownAvailableSubtotal == nil || overview.Buckets[0].KnownAvailableSubtotal.CanonicalAmount() != "10000" {
 		t.Fatalf("known USD subtotal = %v, want 10000", overview.Buckets[0].KnownAvailableSubtotal)
 	}
@@ -402,6 +407,9 @@ func TestKnownZeroVersusMissingAmount(t *testing.T) {
 	}
 	if partial.Buckets[0].FullAvailable != nil {
 		t.Fatalf("unknown fee must not become a full total, got %v", partial.Buckets[0].FullAvailable)
+	}
+	if overview.Sources[0].BucketResults[0].NeedsRules || !partial.Sources[0].BucketResults[0].NeedsRules {
+		t.Fatal("only the source with an unknown fee should need rules")
 	}
 	if partial.Sources[0].NormalRoute == nil || partial.Sources[0].NormalRoute.NetNative != nil {
 		t.Fatal("unknown fee must leave net amount missing")

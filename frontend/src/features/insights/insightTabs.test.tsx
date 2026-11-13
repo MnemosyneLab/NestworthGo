@@ -381,9 +381,9 @@ describe("insight tabs", () => {
 
   it("shows Asset Trend forced-base and coverage on the main result", async () => {
     assetTrend.mockResolvedValue({
-      points: [{ period: "2026-09", value: { amount: "102", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }],
+      points: [{ period: "2026-09-01", value: { amount: "102", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }],
       summary: { amount: "102", currency: "USD" },
-      rate: "0.02",
+      rate: null,
       ratedDays: 1,
       totalDays: 3,
       available: true,
@@ -395,7 +395,7 @@ describe("insight tabs", () => {
     expect(await screen.findByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
     expect(screen.getByText("one trend day is incomplete")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Metric"), { target: { value: "return_rate" } });
-    expect(await screen.findByText(/Coverage: 1\/3/)).toBeInTheDocument();
+    expect(await screen.findByText("Period rate unavailable · 1 of 3 days had a calculable rate.")).toBeInTheDocument();
   });
   it.each(["en", "zh-CN", "zh-TW"])("shows pre-funding cash contribution as unavailable instead of zero (%s)", async (locale) => {
     const { default: i18n } = await import("@/i18n");
@@ -429,9 +429,12 @@ describe("insight tabs", () => {
   it("opens period-specific Data Health from a partial result", async () => {
     useAnalysisStore.getState().setFilters({ from: "2026-09-01", to: "2026-09-06" });
     const open = vi.fn();
-    returnTrend.mockResolvedValue({ available: true, status: "partial", points: [], sources: [], ratedDays: 1, totalDays: 2 });
+    returnTrend.mockResolvedValue({ available: true, status: "partial", rate: "0.01", points: [], sources: [], ratedDays: 3, totalDays: 6, missingValuationDays: 1, amountWithoutRateDays: 2 });
     renderWithClient(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><ReturnTrendTab session={useAnalysisStore.getState()} /></NavigationContext.Provider>);
     fireEvent.click(await screen.findByRole("button", { name: "View gaps for this period" }));
+    expect(screen.getByText("This rate links 3 of 6 days.")).toBeVisible();
+    expect(screen.getByText("1 day missing valuation data")).toBeVisible();
+    expect(screen.getByText("2 days with complete return amounts but no calculable rate")).toBeVisible();
     expect(open).toHaveBeenCalledWith({ page: "data-health", focus: { rangeStart: "2026-09-01", rangeEnd: "2026-09-06" } });
   });
 

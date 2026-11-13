@@ -472,6 +472,24 @@ describe("Available Funds visual hierarchy and interaction", () => {
     expect(screen.queryByRole("button", { name: "Show items" })).not.toBeInTheDocument();
   });
 
+  it("filters the selected horizon by missing rules without including missing FX", async () => {
+    const data = fixtureOverview();
+    const bucket = { ...data.sources![0].bucketResults![1], status: "partial", netBase: null };
+    data.sources!.push(
+      source({ sourceKey: "rules", displayName: "Fund without rules", accountId: "acc-1", bucketResults: [{ ...bucket, needsRules: true, selectedRoute: null }] }),
+      source({ sourceKey: "fx", displayName: "Cash without FX", accountId: "acc-2", bucketResults: [{ ...bucket, reasons: ["base FX is missing"] }] }),
+    );
+    data.buckets![1] = { ...data.buckets![1], status: "partial", fullUnreserved: null };
+    overview.mockResolvedValue(data);
+    renderPage();
+    await userEvent.click(await screen.findByTestId("horizon-2026-09-27"));
+    await userEvent.click(screen.getByRole("button", { name: "1 item needs availability rules" }));
+    expect(screen.getByRole("button", { name: "Missing rules 1" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: /2026-09-27/ })).toHaveFocus();
+    expect(screen.getAllByText("Fund without rules").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Cash without FX")).not.toBeInTheDocument();
+  });
+
   it.each(["zh-CN", "zh-TW"])("localizes the new card cues in %s", async (language) => {
     await i18n.changeLanguage(language);
     const data = fixtureOverview();

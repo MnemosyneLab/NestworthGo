@@ -270,6 +270,9 @@ func TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue(t *testing.T)
 	if calendar.Status != domain.CompletenessOK || len(calendar.Issues) != 0 || len(calendar.Days[0].Issues) != 0 || calendar.Days[0].Status != domain.CompletenessOK || calendar.Summary.AmountStatus != ReturnAmountComplete {
 		t.Fatalf("complete no-capital day = %+v", calendar)
 	}
+	if calendar.Summary.AmountWithoutRateDays != 1 || calendar.Summary.MissingValuationDays != 0 {
+		t.Fatalf("no capital must not count as missing valuation: %+v", calendar.Summary)
+	}
 }
 
 func TestReturnCalendarAmountStatusFollowsKnownDailyAmounts(t *testing.T) {

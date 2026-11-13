@@ -61,6 +61,7 @@ type LiquidityRoute struct {
 }
 
 type LiquidityBucketResult struct {
+	NeedsRules             bool
 	netExact               *decimal.Decimal
 	reserveExact           *decimal.Decimal
 	nativeStatus           CompletenessStatus
@@ -545,6 +546,14 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 		if candidate.EligibleOn != nil && *candidate.EligibleOn > horizon {
 			continue
 		}
+		if (candidate.ReceiptOn == nil || compareCivilDates(*candidate.ReceiptOn, horizon) <= 0) && candidate.Status != StatusComplete {
+			for _, assumption := range candidate.Assumptions {
+				switch assumption {
+				case AssumptionUnknownAccess, AssumptionUnknownTiming, AssumptionUnknownFee, AssumptionUnknownEarly:
+					result.NeedsRules = true
+				}
+			}
+		}
 		if candidate.ReceiptOn == nil {
 			if candidate.Status != StatusComplete {
 				unknownEligible = true
@@ -923,7 +932,7 @@ func excludedBucketResults(horizons []string) []LiquidityBucketResult {
 func unknownBucketResults(horizons []string) []LiquidityBucketResult {
 	results := make([]LiquidityBucketResult, 0, len(horizons))
 	for _, horizon := range horizons {
-		results = append(results, LiquidityBucketResult{HorizonOn: horizon, Status: StatusUnavailable, Reasons: []string{"unknown"}})
+		results = append(results, LiquidityBucketResult{HorizonOn: horizon, Status: StatusUnavailable, NeedsRules: true, Reasons: []string{"unknown"}})
 	}
 	return results
 }

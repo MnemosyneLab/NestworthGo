@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { useLiquidityOverview } from "@/queries/liquidity";
-import { completenessLabel, formatKnownOrUnknown } from "@/features/liquidity/liquidityDisplay";
+import { completenessLabel, formatKnownOrUnknown, sourceMatchesFilter } from "@/features/liquidity/liquidityDisplay";
+import type { LiquidityBucketDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
 export function OverviewLiquidityCard({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
@@ -40,32 +41,34 @@ export function OverviewLiquidityCard({ isActive = true }: { isActive?: boolean 
 
   const today = overview.data.buckets?.[0];
   const month = overview.data.buckets?.[2];
-  const status = today?.status ?? "unavailable";
+  const horizon = (bucket: LiquidityBucketDTO | undefined, title: string, testId: string) => {
+    const status = bucket?.status ?? "unavailable";
+    const amount = bucket?.fullUnreserved ?? bucket?.knownUnreservedSubtotal;
+    const missingRules = bucket ? (overview.data?.sources ?? []).filter(source => sourceMatchesFilter(source, bucket.horizonOn, "needs_rules")).length : 0;
+    return <div className="min-w-0 space-y-1" role="group" aria-label={title}>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <Badge variant={status === "complete" ? "success" : status === "partial" ? "warning" : "secondary"}>{completenessLabel(t, status)}</Badge>
+      </div>
+      <p className="num break-words text-2xl font-bold tracking-tight" data-testid={testId}>{formatKnownOrUnknown(amount, unknown)}</p>
+      <p className="text-xs text-muted-foreground">{t(bucket?.fullUnreserved ? "availableFunds.spendableHint" : amount ? "availableFunds.confirmedSubtotal" : "availableFunds.totalUnknown")}</p>
+      {bucket && (missingRules > 0 ? (
+        navigation ? <Button type="button" size="sm" variant="link" className="h-auto p-0" onClick={() => navigation.open({ page: "available-funds", focus: { kind: "missing-rules", horizonOn: bucket.horizonOn } })}>{t("availableFunds.missingRulesCount", { count: missingRules })}</Button>
+          : <p className="text-xs text-muted-foreground">{t("availableFunds.missingRulesCount", { count: missingRules })}</p>
+      ) : <p className="text-xs text-muted-foreground">{t("availableFunds.noMissingRules")}</p>)}
+    </div>;
+  };
   return (
     <Card className="flex flex-col" data-testid="overview-liquidity-card">
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+      <CardHeader>
         <CardTitle>{t("availableFunds.pageTitle")}</CardTitle>
-        <Badge variant={status === "complete" ? "success" : status === "partial" ? "warning" : "destructive"}>
-          {completenessLabel(t, status)}
-        </Badge>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-5">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">{t("availableFunds.overviewToday")}</p>
-            <p className="num break-words text-2xl font-bold tracking-tight" data-testid="overview-liquidity-today">
-              {formatKnownOrUnknown(today?.fullUnreserved ?? today?.knownUnreservedSubtotal, unknown)}
-            </p>
-            {!today?.fullUnreserved && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">{t("availableFunds.overview30")}</p>
-            <p className="num break-words text-2xl font-bold tracking-tight" data-testid="overview-liquidity-30">
-              {formatKnownOrUnknown(month?.fullUnreserved ?? month?.knownUnreservedSubtotal, unknown)}
-            </p>
-            {!month?.fullUnreserved && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
-          </div>
+          {horizon(today, t("availableFunds.overviewToday"), "overview-liquidity-today")}
+          {horizon(month, t("availableFunds.overview30"), "overview-liquidity-30")}
         </div>
+        <p className="text-xs text-muted-foreground">{t("availableFunds.current_prices_and_fx")}</p>
         <div className="mt-auto flex justify-end border-t border-border pt-3">
           {navigation && (
             <Button type="button" size="sm" variant="link" className="h-auto p-0" onClick={() => navigation.open({ page: "available-funds" })}>

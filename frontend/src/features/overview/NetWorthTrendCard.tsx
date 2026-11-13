@@ -19,7 +19,8 @@ export function NetWorthTrendCard({ active = true }: { active?: boolean } = {}) 
   const navigation = useObjectNavigation();
   const data = trend.data;
   const points = data?.points ?? [];
-  const gaps = points.filter(point => point.displayValuation?.netWorth?.quality?.availability !== "full" && !point.complete);
+  const historical = points.filter(point => !point.current);
+  const gaps = historical.filter(point => fullDisplayAmount(point.displayValuation?.netWorth, point.complete ? point.netWorth?.amount : null) == null);
   return <Card><CardHeader><CardTitle>{t("connections.netWorthTrend")}</CardTitle></CardHeader><CardContent className="flex flex-col gap-4">
     <DateRangeControl {...range} />
     <p className="text-sm text-muted-foreground">{t("connections.netWorthNote")}</p>
@@ -28,6 +29,10 @@ export function NetWorthTrendCard({ active = true }: { active?: boolean } = {}) 
  {trend.isError && data && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void trend.refetch()}>{t("common.retryAction")}</Button></p>}
  <p className="text-sm">{data?.startDate ? formatCivilDateRange(data.startDate, data.endDate || data.startDate) : ""}</p>
       <p className="num text-lg font-bold">{t("connections.periodChange")}: {data?.change ? formatAmount(data.change.amount, data.change.currency) : t("connections.changeUnavailable")}</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        <p>{historical.length > 0 ? t("connections.historyCoverage", { valued: historical.length - gaps.length, total: historical.length }) : t("connections.noHistoricalCoverage")}</p>
+        {gaps.length > 0 && navigation && <Button variant="link" size="sm" className="h-auto p-0" onClick={() => navigation.open({ page: "data-health", focus: { rangeStart: historical[0].localDate, rangeEnd: historical[historical.length - 1].localDate } })}>{t("connections.viewPeriodGaps")}</Button>}
+      </div>
       {data?.estimatedChange && !data.change && <p className="num text-sm">{t("valuation.estimatedChange")}: {formatAmount(data.estimatedChange.amount,data.estimatedChange.currency)}</p>}
  {!data?.change && !data?.estimatedChange && <p className="text-sm text-muted-foreground">{t(data?.summaryReason === "missing_boundary" ? "connections.missingBoundary" : "charts.insufficientHistory")}</p>}
       <TrendChart ariaLabel={t("connections.netWorthTrend")} summary={t("connections.netWorthNote")} dates={points.map(point => point.localDate)}

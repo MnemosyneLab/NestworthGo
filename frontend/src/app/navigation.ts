@@ -82,6 +82,7 @@ export type LiquidityFocus =
   | { kind: "product"; productId: string }
   | { kind: "receipt"; productId: string }
   | { kind: "policy"; sourceRef: SourceRefDTO }
+  | { kind: "missing-rules"; horizonOn: string }
   | { kind: "reservations"; sourceRef?: SourceRefDTO; reservationId?: string };
 
 export interface HistoricalCategoryFilter {
