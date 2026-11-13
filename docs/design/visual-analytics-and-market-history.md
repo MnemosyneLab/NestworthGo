@@ -257,6 +257,12 @@ stays separate from raw, adjusted, cumulative and whole-position values.
 Currency/current binding, correction/withdrawal and corporate-action guards
 remain in force. Intraday realtime quotes cannot move the performance endpoint.
 
+The current UTC date bounds eligible observations independently of the
+household History Origin timezone. The metric uses instrument and quote
+evidence. Personal ledger trades, transfers and dividends do not establish
+issuer distributions or unit changes. A comparable zero stock or ETF close
+can be the endpoint with a positive baseline. Unit NAV must be positive.
+
 Period windows (7, 30, 90, 180, 365 days and all history) end at the latest
 actual daily observation, choose the nearest baseline on/before the target and
 use actual calendar days; "all" starts at the earliest comparable observation.

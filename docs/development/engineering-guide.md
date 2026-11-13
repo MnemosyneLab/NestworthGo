@@ -180,7 +180,7 @@ in [the runtime contract](../architecture/builtin-ai-runtime.md).
 ## Validation strategy
 
 The full regular check set runs on the self-hosted native Mac. See
-[Native Mac CI trial](ci-macos-trial.md) for trusted internal branch triggers,
+[Native Mac CI](ci-macos-trial.md) for trusted internal branch triggers,
 external contribution handling, isolation and the nonrunning Linux rollback archive.
 
 
@@ -201,7 +201,7 @@ branch in the origin repository and on manual dispatch. Thus main and each
 internal PR head receive the full regular check set on macOS ARM64. External
 fork events do not execute on the personal runner; the reviewed import procedure
 and branch-head versus merge-ref distinction are documented in
-[Native Mac CI trial](ci-macos-trial.md). The required check name remains `test`.
+[Native Mac CI](ci-macos-trial.md). The required check name remains `test`.
 All non-race Go packages, gofmt, vet, native build, frontend build/lint/typecheck/
 full Vitest suite, fast tooling and whitespace checks remain. Bindings generate
 once before the frontend build; bounded Go/tooling/frontend lanes then run with

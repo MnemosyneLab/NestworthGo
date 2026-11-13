@@ -101,6 +101,10 @@ missing or partial successful classifications. Missing is local retained absence
 not proof that no provider/deleted/unretained historical value ever existed.
 Closures are non-price facts outside this interface.
 
+An empty chart or an active-only market history read is insufficient to establish
+local absence. Import comparison checks retained corrected and withdrawn
+observations and their linked operations in the same snapshot.
+
 Repeated business keys retain distinct IDs/order and share a duplicate group.
 Different exact proposed values set batchConflict independently of persisted
 status; two inconsistent proposals can both be locally missing. Repeated client

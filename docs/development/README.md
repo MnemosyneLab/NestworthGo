@@ -11,12 +11,10 @@ sets package boundaries and validation expectations.
   generated bindings, frontend checks, packaging, and isolated native QA.
 - [Real Browser Acceptance](real-browser-acceptance.md) — server-mode launch,
   synthetic fixtures, browser evidence, and native-only limits.
-- [GUI Holdings Verification](gui-holdings-verification.md) — focused native
-  holdings checks.
 - [Wails Version Upgrade](wails-version-upgrade.md) — coordinated runtime,
   CLI, bindings, build, and native/package validation.
 - [Frontend Controls](frontend-controls.md) — shared components, interaction
-  rules, accessibility, and enforced checks.
+  rules, accessibility, and enforced checks, including holdings.
 
 ## Architecture and feature contracts
 

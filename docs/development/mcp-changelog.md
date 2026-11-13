@@ -152,9 +152,8 @@ external-client baseline is in
 ### Phase 3: icon merge, `commit_plan` and compact output schemas
 
 Three changes removed 13 tools. They are breaking for clients that call the
-removed names. Design notes:
-[mcp-consolidation-design.md](mcp-consolidation-design.md). Update-convention
-audit: [mcp-update-conventions.md](mcp-update-conventions.md).
+removed names. Current PATCH rules are in
+[MCP update conventions](mcp-update-conventions.md).
 
 | Change | Before | After |
 | --- | --- | --- |

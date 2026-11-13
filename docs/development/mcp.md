@@ -701,7 +701,6 @@ Open:
 - [mcp-update-conventions.md](mcp-update-conventions.md) — omit and clear rules
 - [financial-context.md](financial-context.md) — disclosure and hashes
 - [account-reconciliation.md](account-reconciliation.md) — session writes
-- [mcp-consolidation-design.md](mcp-consolidation-design.md) — Phase 3 design
 
 Instrument PATCH clears are checked against the final domain-normalized
 configuration before persistence. Gold/silver template providerKey,

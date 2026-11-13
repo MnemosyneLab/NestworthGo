@@ -145,7 +145,7 @@ and jsdom evidence. Keep synthetic isolation and the safety rules in root
 ## Frontend-only checks
 
 The full regular check set runs on the self-hosted native Mac. See
-[Native Mac CI trial](ci-macos-trial.md) for trusted internal branch triggers,
+[Native Mac CI](ci-macos-trial.md) for trusted internal branch triggers,
 external contribution handling, isolation and the nonrunning Linux rollback archive.
 
 
