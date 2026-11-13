@@ -45,6 +45,8 @@ it("distinguishes Japanese funding, attribution, institution and account terms",
   expect(i18n.t("icons.brokerage", { lng: "ja" })).toBe("証券会社");
   expect(i18n.t("enum.brokerage", { lng: "ja" })).toBe("証券口座");
   expect(i18n.t("valuation.estimatedChange", { lng: "ja" })).toContain("資金の流入・流出");
+  expect(i18n.t("error.costBasis.required", { lng: "ja" })).toContain("単位当たりの取得原価");
+  expect(i18n.t("error.account.trackingImmutable", { lng: "ja" })).toContain(i18n.t("accounts.trackingMode", { lng: "ja" }));
 });
 
 it("preserves the meaning of Japanese market-data coverage and repair notices", () => {

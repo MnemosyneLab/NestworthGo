@@ -12,6 +12,15 @@ import { assistantEn, assistantZhCN, assistantZhTW } from "@/i18n/assistant";
 import { deepMerge } from "@/i18n/deepMerge";
 import { mobilePreferences } from "./connection";
 
+// These desktop additions replace older base-catalog shapes and placeholders.
+// Keep the lightweight mobile bundle aligned without importing all desktop
+// overlays; mobileLocale tests compare these effective values to desktop.
+const sharedOverrides = {
+  en: { history: { side: "Side" }, onboarding: { removeMember: "Remove member {{index}}" } },
+  "zh-CN": { history: { side: "方向" }, onboarding: { removeMember: "移除成员 {{index}}" } },
+  "zh-TW": { history: { side: "方向" }, onboarding: { removeMember: "移除成員 {{index}}" } },
+};
+
 export async function loadMobileTranslation(language: string) {
   if (language === "ja") return (await import("@/i18n/locales/ja.json")).default;
   const resource =
@@ -26,7 +35,8 @@ export async function loadMobileTranslation(language: string) {
       : language === "zh-TW"
         ? marketHealthZhTW
         : marketHealthEn;
-  return deepMerge(deepMerge(resource.default, language === "zh-CN" ? assistantZhCN : language === "zh-TW" ? assistantZhTW : assistantEn), {
+  const shared = sharedOverrides[language === "zh-CN" || language === "zh-TW" ? language : "en"];
+  return deepMerge(deepMerge(deepMerge(resource.default, language === "zh-CN" ? assistantZhCN : language === "zh-TW" ? assistantZhTW : assistantEn), shared), {
     dataHealth: additions.dataHealth,
     marketData: additions.marketData,
   });

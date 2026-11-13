@@ -52,3 +52,41 @@ it("loads the complete Japanese catalog on mobile without fallback", async () =>
   // rules are checked against the merged English catalog in localeCoverage.
   expect(resource).toEqual(i18n.getResourceBundle("ja", "translation"));
 });
+
+it.each(SUPPORTED_LANGUAGES)("keeps overridden mobile labels aligned with desktop in %s", async language => {
+  const resource = await loadMobileTranslation(language);
+  expect(resource.history.side).toBe(i18n.getResource(language, "translation", "history.side"));
+  expect(resource.onboarding.removeMember).toBe(i18n.getResource(language, "translation", "onboarding.removeMember"));
+});
+
+it.each(SUPPORTED_LANGUAGES)("loads every mobile English key and placeholder directly in %s", async language => {
+  const flatten = (node: unknown, prefix = "", result = new Map<string, string>()) => {
+    if (node !== null && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) flatten(value, prefix ? `${prefix}.${key}` : key, result);
+    } else if (typeof node === "string") result.set(prefix, node);
+    return result;
+  };
+  const placeholders = (value: string) => [
+    ...[...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)].map(match => match[1]).sort(),
+    ...[...value.matchAll(/%(?:\d+\$)?[dsfg]/g)].map(match => match[0]),
+  ];
+  const english = flatten(await loadMobileTranslation("en"));
+  const actual = flatten(await loadMobileTranslation(language));
+  const pluralForms = new Intl.PluralRules(language).resolvedOptions().pluralCategories;
+  const issues: string[] = [];
+  for (const [key, value] of english) {
+    if (key.endsWith("_one") && !pluralForms.includes("one")) continue;
+    const translated = actual.get(key);
+    if (!translated?.trim()) issues.push(`${key}: missing or empty`);
+    else if (placeholders(value).join("|") !== placeholders(translated).join("|")) issues.push(`${key}: placeholders differ`);
+  }
+  for (const [key, value] of actual) {
+    for (const match of value.matchAll(/\$t\(\s*([^,\s)]+)/g)) {
+      const reference = match[1];
+      if (!actual.has(reference) && !pluralForms.every(form => actual.has(`${reference}_${form}`))) {
+        issues.push(`${key}: nested translation ${reference} is missing`);
+      }
+    }
+  }
+  expect(issues).toEqual([]);
+});

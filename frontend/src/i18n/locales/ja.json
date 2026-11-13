@@ -1329,8 +1329,8 @@
       "invalidCombination": "無効な口座設定の組み合わせです",
       "roleImmutable": "口座作成後に資産・負債の区分を変更することはできません",
       "balanceSheetRole": "サポートされていません",
-      "trackingImmutable": "口座作成後に管理方法を変更することはできません",
-      "valueTrackingMode": "この管理方法では口座の値を使用できません"
+      "trackingImmutable": "口座作成後に記録方法を変更することはできません",
+      "valueTrackingMode": "この記録方法では口座の値を使用できません"
     },
     "archive": {
       "unsupportedTable": "サポートされていないアーカイブテーブルです"
@@ -1340,7 +1340,7 @@
       "nonNegative": "現金残高を負の値にすることはできません"
     },
     "costBasis": {
-      "required": "保有数量が正の場合は単価が必要です"
+      "required": "保有数量が正の場合は単位当たりの取得原価が必要です"
     },
     "history": {
       "invalidTimezone": "保存された履歴のタイムゾーンが無効です",

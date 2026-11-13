@@ -233,6 +233,10 @@ function placeholders(value: string): string[] {
   return [...named, ...printf];
 }
 
+function missingJapaneseKeys(english: Map<string, string>, japanese: Map<string, string>): string[] {
+  return [...english.keys()].filter(key => !key.endsWith("_one") && !japanese.has(key));
+}
+
 describe("i18n regression guards", () => {
   const locales = mergedLocaleTrees();
 
@@ -261,9 +265,14 @@ describe("i18n regression guards", () => {
     const japanese = leafStrings(locales.ja);
     // Japanese has only the `other` plural category; English `_one` is not
     // needed for i18next to resolve a Japanese count.
-    const required = [...english.keys()].filter(key => !key.endsWith("_one"));
-    expect(required.filter(key => !japanese.has(key))).toEqual([]);
+    expect(missingJapaneseKeys(english, japanese)).toEqual([]);
     expect([...japanese.keys()].filter(key => !english.has(key))).toEqual([]);
+  });
+
+  it("detects a missing Japanese key while allowing English-only singular forms", () => {
+    const english = new Map([["label", "Label"], ["count_one", "{{count}} item"], ["count_other", "{{count}} items"]]);
+    const japanese = new Map([["count_other", "{{count}} 件"]]);
+    expect(missingJapaneseKeys(english, japanese)).toEqual(["label"]);
   });
 
   it("pairs English plural keys and gives count strings plural forms", () => {
