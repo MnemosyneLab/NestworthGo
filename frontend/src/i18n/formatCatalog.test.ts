@@ -69,6 +69,7 @@ it("distinguishes Japanese price history, personal returns, and model state", ()
   expect(i18n.t("reviewV2.dailyHelp", { lng: "ja", timezone: "Asia/Tokyo" })).toContain("データ不足は不明として扱い、一致に数えません");
   expect(i18n.t("insights.changeRateHint", { lng: "ja" })).toContain("投資収益率ではありません");
   expect(i18n.t("insights.waterfallIncomplete", { lng: "ja" })).toContain("期末評価額が不明");
+  expect(i18n.t("historicalOverview.partialTotals", { lng: "ja", assets: "1", liabilities: "2" })).toContain("不明な金額はゼロではありません");
 });
 
 it("keeps Japanese available-funds limits and reservations explicit", () => {

@@ -11,9 +11,8 @@ import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 
 /**
- * Every i18next key that exists in one locale bundle must exist in every
- * other fully translated locale. Japanese is rolling out in stages and uses
- * English fallback for strings awaiting translation.
+ * Check effective bundles as well as source catalogs. Japanese plural rules
+ * use `other`, so English-only `_one` forms are not required in Japanese.
  */
 
 type Tree = Record<string, unknown>;
@@ -257,14 +256,14 @@ describe("i18n regression guards", () => {
     expect(essential.filter(key => !japanese.has(key))).toEqual([]);
   });
 
-  it("keeps completed Japanese sections available without fallback", () => {
+  it("keeps the merged Japanese catalog available without English fallback", () => {
     const english = leafStrings(locales.en);
     const japanese = leafStrings(locales.ja);
     // Japanese has only the `other` plural category; English `_one` is not
     // needed for i18next to resolve a Japanese count.
-    const required = [...english.keys()].filter(key =>
-      /^translation\.(?:error|analytics|dashboard|groups|icons|directory|institutionType|marketData|portfolio|connections|institutions|members|snapshot|review|metals|holdingsSummary|agent|cloudBackup|secretField|retention|holdingDetail|syncReasons|holdingGroups|holdingPerformance|instrumentDetail|aiCredentials|voice|aiModels|aiUsage|diagnosticsSettings|quoteDetails|changeContributions|availableFunds|historicalReconciliation|upcomingActions|reconciliation|aiChat|reviewV2|insights)\./.test(key) && !key.endsWith("_one"));
+    const required = [...english.keys()].filter(key => !key.endsWith("_one"));
     expect(required.filter(key => !japanese.has(key))).toEqual([]);
+    expect([...japanese.keys()].filter(key => !english.has(key))).toEqual([]);
   });
 
   it("pairs English plural keys and gives count strings plural forms", () => {
@@ -288,7 +287,7 @@ describe("i18n regression guards", () => {
     for (const key of leaves.en.keys()) {
       const expected = placeholders(leaves.en.get(key) ?? "");
       for (const locale of SUPPORTED_LANGUAGES.filter(language => language !== "en")) {
-        if (locale === "ja" && !leaves.ja.has(key)) continue;
+        if (locale === "ja" && key.endsWith("_one") && !leaves.ja.has(key)) continue;
         const actual = placeholders(leaves[locale].get(key) ?? "");
         if (expected.join("|") !== actual.join("|")) issues.push(`${locale} ${key}: ${actual.join(",")} != ${expected.join(",")}`);
       }

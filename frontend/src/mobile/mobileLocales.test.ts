@@ -46,19 +46,9 @@ it.each(SUPPORTED_LANGUAGES)("loads shared control and activity labels directly 
   }
 });
 
-it("loads completed Japanese sections on mobile without fallback", async () => {
+it("loads the complete Japanese catalog on mobile without fallback", async () => {
   const resource = await loadMobileTranslation("ja");
-  const visit = (node: unknown, path: string) => {
-    if (node !== null && typeof node === "object") {
-      for (const [key, value] of Object.entries(node)) visit(value, `${path}.${key}`);
-    } else if (typeof node === "string" && !path.endsWith("_one")) {
-      const mobile = path.split(".").reduce<unknown>((current, key) =>
-        current !== null && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, resource);
-      expect(mobile, path).toBeTypeOf("string");
-      expect(mobile, path).toBe(i18n.getResource("ja", "translation", path));
-    }
-  };
-  for (const section of ["error", "analytics", "dashboard", "groups", "icons", "directory", "institutionType", "marketData", "portfolio", "connections", "institutions", "members", "snapshot", "review", "metals", "holdingsSummary", "agent", "cloudBackup", "secretField", "retention", "holdingDetail", "syncReasons", "holdingGroups", "holdingPerformance", "instrumentDetail", "aiCredentials", "voice", "aiModels", "aiUsage", "diagnosticsSettings", "quoteDetails", "changeContributions", "availableFunds", "historicalReconciliation", "upcomingActions", "reconciliation", "aiChat", "reviewV2", "insights"]) {
-    visit(i18n.getResource("en", "translation", section), section);
-  }
+  // Desktop uses the same direct Japanese bundle. Its coverage and plural
+  // rules are checked against the merged English catalog in localeCoverage.
+  expect(resource).toEqual(i18n.getResourceBundle("ja", "translation"));
 });

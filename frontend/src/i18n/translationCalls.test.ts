@@ -29,7 +29,7 @@ it("resolves literal translation calls in complete catalogs without fallback", (
             ? options.properties.find((property): property is ts.PropertyAssignment => ts.isPropertyAssignment(property) && property.name.getText(ast) === "ns")?.initializer
             : undefined;
           const ns = namespace && ts.isStringLiteralLike(namespace) ? namespace.text : "translation";
-          for (const language of SUPPORTED_LANGUAGES.filter(locale => locale !== "ja")) {
+          for (const language of SUPPORTED_LANGUAGES) {
             const counted = options && (!ts.isObjectLiteralExpression(options) || options.properties.some((property) =>
               ts.isSpreadAssignment(property) || property.name?.getText(ast) === "count"));
             const forms = new Intl.PluralRules(language).resolvedOptions().pluralCategories;
