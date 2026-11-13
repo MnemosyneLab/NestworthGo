@@ -46,17 +46,9 @@ it.each(SUPPORTED_LANGUAGES)("loads shared control and activity labels directly 
   }
 });
 
-it("loads the complete Japanese catalog on mobile without fallback", async () => {
-  const resource = await loadMobileTranslation("ja");
-  // Desktop uses the same direct Japanese bundle. Its coverage and plural
-  // rules are checked against the merged English catalog in localeCoverage.
-  expect(resource).toEqual(i18n.getResourceBundle("ja", "translation"));
-});
-
-it.each(SUPPORTED_LANGUAGES)("keeps overridden mobile labels aligned with desktop in %s", async language => {
+it.each(SUPPORTED_LANGUAGES)("loads the complete desktop catalog on mobile in %s", async language => {
   const resource = await loadMobileTranslation(language);
-  expect(resource.history.side).toBe(i18n.getResource(language, "translation", "history.side"));
-  expect(resource.onboarding.removeMember).toBe(i18n.getResource(language, "translation", "onboarding.removeMember"));
+  expect(resource).toEqual(i18n.getResourceBundle(language, "translation"));
 });
 
 it.each(SUPPORTED_LANGUAGES)("loads every mobile English key and placeholder directly in %s", async language => {
