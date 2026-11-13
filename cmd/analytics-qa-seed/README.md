@@ -1,6 +1,8 @@
 # analytics-qa-seed (fixture `analytics-linux-qa-v3`)
 
-Deterministic Insights Round-3 “mini family” for desktop/probe acceptance of the analytics test plan (§6 / FC-01–06). Extends the v2 AUD Cash + US Brokerage + AAPL story; env names are unchanged.
+Deterministic synthetic household for desktop and probe checks. See the
+[analytics golden cases](../../docs/design/analytics/analytics-redesign-architecture.md#16-golden-cases-engine-gate)
+for the financial expectations.
 
 ## Env
 
@@ -104,7 +106,7 @@ Local dates below assume the default anchor (`2026-07-26T00:00:00Z` → SGT loca
 | 18 | 2026-08-13 | Buy 10 ES3 ~35 SGD | **FC-04** foreign SGD holding |
 | 20 | 2026-08-15 | Buy 5 AAPL ~950 USD | v2 |
 | 21 | 2026-08-16 | US Brokerage AUD sleeve → AUD Cash **200 AUD** | **FC-01** reverse |
-| 22 | 2026-08-17 | Completeness gap day (omit price and/or FX per scenario) | §17 |
+| 22 | 2026-08-17 | Completeness gap day (omit price and/or FX per scenario) | Missing-input coverage |
 | 30 | 2026-08-25 | US Brokerage +1000 USD contribution | v2 |
 | 32 | 2026-08-27 | Sell 3 AAPL gross 615 USD (partial, clear realized gain) | CO-02 / Realized Gain |
 | 33 | 2026-08-28 | AAPL cash dividend +12.50 USD (no assumed withholding) | **FC-06** |
@@ -126,7 +128,7 @@ Quotes are written for days `0..44`. Through **day 22 inclusive**:
 
 Rebuild must produce the incomplete snapshot; the seed does **not** SQL-inject `complete=0`.
 
-Household-scope Dietz `ratedDays` on a long Include-cash window can still be below `totalDays` even when every snapshot is complete (zero-capital or unrateable days). Use the gap-day snapshot flags and the seed `missing_quote_gap` step for §17, not period `ratedDays`.
+Household-scope Dietz `ratedDays` on a long Include-cash window can still be below `totalDays` even when every snapshot is complete (zero-capital or unrateable days). Verify a missing quote against the gap-day snapshot flags and the seed `missing_quote_gap` step.
 
 ## FC-07 loan (`NESTWORTH_QA_SCENARIO=loan-fc07*`)
 
@@ -144,7 +146,7 @@ Single-currency so the loan fixture does not invent FX fills. Env overrides (`NE
 
 Fixture version `analytics-linux-qa-loan-fc07`. Household: `{CCY} Cash` (bank / balance, initial 20000) + `{CCY} Loan` (`TypeLoan` / `RoleLiability` / balance, initial 0). Default anchor `2026-07-26T00:00:00Z`.
 
-| Day | Local (SGT default) | Event | Oracle (test-plan FC-07 / Cases 16–17) |
+| Day | Local (SGT default) | Event | Expected result |
 |---|---|---|---|
 | 1 | 2026-07-27 | `DebtDrawInput` 100000 | Cash +P, Debt +P, **net worth change = 0**, not investment return |
 | 3 | 2026-07-29 | `DebtPaymentInput` principal 10000 | Cash −P, Debt −P, **net worth change = 0** |

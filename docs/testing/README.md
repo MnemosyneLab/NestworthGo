@@ -11,7 +11,7 @@ map of reusable methods, not a record of prior passes.
 | Area | Contract and regression entry points |
 | --- | --- |
 | Account reconciliation | [Matrix](account-reconciliation.md), [UX and liabilities](reconciliation-ux-and-liabilities.md); application, SQLite, MCP and desktop reconciliation suites |
-| Historical values and analytics | [Endpoint reconciliation](historical-reconciliation.md), [analytics matrix](nestworth-analytics-test-plan.md), [query cancellation](historical-query-cancellation.md); application historical/analysis and frontend historical-overview/insights tests |
+| Historical values and analytics | [Endpoint reconciliation](historical-reconciliation.md), [analytics golden cases](../design/analytics/analytics-redesign-architecture.md#16-golden-cases-engine-gate), [synthetic analytics seed](../../cmd/analytics-qa-seed/README.md), [query cancellation](historical-query-cancellation.md); application historical/analysis and frontend historical-overview/insights tests |
 | Investment review | [Daily policy and source integrity](../design/investment-review.md), [dependency/suffix fallback](../design/review-dependency-suffix.md); application review and SQLite integrity tests |
 | Cash, products and upcoming actions | [Cash adjustments/Repeat](../user/cash-adjustments-and-repeat.md), [upcoming contract](../design/upcoming-actions.md); preview/commit/receipt, linked-history and frontend navigation regressions |
 | Shared controls and localization | [Control contract](../development/frontend-controls.md); actual resource-bundle locale coverage, keyboard/focus, dirty/pending form and stale-response tests |
@@ -29,14 +29,16 @@ exact values, scope, fixed expiry and complete continuation semantics.
 Financial writes must retain atomicity, review/permission boundaries and durable
 operation identity across an unknown outcome; never blindly repeat a write.
 
+For analytics acceptance, exercise complete and missing-price/FX scenarios.
+Compare household, account and instrument scope, including native/base
+currency and cash inclusion. Check that missing data remains distinguishable
+from a measured zero in the summary, charts and data tables.
+
 ## Evidence and limits
 
 Record the exact SHA, environment, command, fixture and observed result in the
 PR or CI artifact. Keep screenshots/logs out of this tree unless they serve a
-maintained guide or an indispensable release record. Historical reports and
-removed artifacts remain in Git history; deletion is not a claim that every old
-finding was fixed. The unresolved [September review](../reviews/2026-09-20-full-app-review.md)
-remains historical triage input, not a current defect list.
+maintained guide or an indispensable release record.
 
 Linux, jsdom and browser results do not establish native macOS GUI/IPC, VoiceOver,
 window/menu lifecycle, OS file dialogs, signing/notarization, physical mobile

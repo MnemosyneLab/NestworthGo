@@ -83,6 +83,8 @@ The full list filters receipt checks, reservation issues and schedules, renders
 information are folded. Filters, focus and scroll survive session Back through
 retained pages. Unknown wire types keep read-only text and have no default action.
 English, simplified Chinese and traditional Chinese use the same resource keys.
+The data-check count is scoped to upcoming actions. **Open Data maintenance**
+opens the household-wide Data Health view.
 
 The shared query is under the liquidity invalidation prefix. Active observers
 refresh every 60 seconds and on focus/mount; hidden retained pages do not poll.

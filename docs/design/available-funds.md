@@ -19,6 +19,10 @@ future events. Every result reports whether it is complete, partial, or
 unavailable. Missing values remain unknown; they are never replaced with zero
 to make a total look complete.
 
+Overview and Available Funds label a partial amount as a confirmed subtotal
+when one is available. The missing-rules count opens the relevant sources for
+the same availability horizon.
+
 ## Availability rules
 
 - Each source has a normal access route and, when explicitly allowed, an early

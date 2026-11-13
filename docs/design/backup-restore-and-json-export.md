@@ -20,6 +20,11 @@ is written atomically with owner-only permissions. Existing files require the
 native replacement confirmation. CSV import/export, mapping, preview, sessions,
 and related IPC endpoints have been removed.
 
+Data management presents backup and restore, JSON export, history
+recalculation, and continuous backup as separate operations. An actionable
+snapshot issue in Data Health can open Settings directly at history
+recalculation.
+
 ## 2. Service availability
 
 `DataService` is available when the live database is open. It exposes

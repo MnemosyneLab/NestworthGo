@@ -433,7 +433,8 @@ The summary should prioritize:
 2. percentage return (daily Modified Dietz, geometrically linked; never `amount / beginning`, never XIRR),
 3. attribution.
 
-When the period % covers fewer days than the amount (`ratedDays` < `totalDays`), the **%** carries a marker (shown as `◇` above) and its tooltip states the covered day count. The amount is never marked by rate coverage alone.
+When `ratedDays` is below `totalDays`, the rate shows the covered day count
+in visible text. The return amount has its own completeness status.
 
 Do not overload the card with too many portfolio statistics.
 
@@ -665,7 +666,8 @@ FX Impact              +¥5,040
 Fees                     -¥790
 ```
 
-Return % is the geometrically linked daily Modified Dietz rate for the range. Mark it when `ratedDays` < `totalDays`.
+Return % is the geometrically linked daily Modified Dietz rate for the range.
+Show the covered day count when `ratedDays` is below `totalDays`.
 
 ### Return-source breakdown
 
@@ -1084,7 +1086,10 @@ Performance
 
 ### Chart behavior
 
-Use one primary metric at a time.
+Use one primary metric at a time. Asset Trend keeps the selected date range on
+the chart, including leading and trailing gaps. Missing days or periods have a
+visible count and shaded intervals. The chart's data table retains those dates
+and reports coverage alongside available values.
 
 Do not recreate the existing multi-line “assets / liabilities / net worth” chart as the default.
 
@@ -1246,7 +1251,11 @@ Use a subtle warning near the summary. The banner is openable — a banner with 
 
 Do not silently show a precise percentage when the underlying dataset is incomplete.
 
-When a period’s **%** covers fewer days than its **amount** (`ratedDays` < `totalDays`), the % carries a marker and its tooltip states the covered day count. The amount is never marked by rate coverage alone.
+Return Calendar and Return Trend show visible rate coverage as rated days out
+of the selected period. When available, the breakdown distinguishes missing
+valuation days from days with a return amount and no calculable rate. Relevant
+missing data links to Data Health for the selected period. A partial rate can
+still accompany a defined return amount.
 
 ### Daily calendar state
 
