@@ -112,7 +112,7 @@ supplied types, roles and imports.
 
 Shared wrapper internals and test fixtures are excluded. Native checkboxes,
 radios and file inputs remain valid (there is no canonical checkbox wrapper).
-Calendar's native month/year dropdowns are internal accessible primitives.
+Calendar month and year use NativeSelect through the Calendar wrapper.
 ReturnCalendarTab is a financial data visualization, not a date-entry picker;
 chart range presets and day/month navigation also remain appropriate. Specialized
 interactive rows, chart buttons and read-only connection text areas may keep
@@ -266,11 +266,17 @@ flatness. Derived percentages use concise two-decimal presentation; signed
 money uses `formatSignedMoney`, including neutral rounded zero and its tiny-value
 hint.
 
-NativeSelect and FilterableSelect share `selectFieldClass`, retaining native
-select semantics. A combobox search session starts empty, commits only an
-explicit option, and cancels on Escape/Tab/blur. IME composition never confirms
-an option or submits the outer form. Preserve disabled, error and active-option
-accessibility semantics; test reopening while already focused.
+NativeSelect and FilterableSelect share the field, popup and option styles.
+NativeSelect styles the browser's picker with `appearance: base-select` where
+supported. Other engines use their native picker. Both paths retain native
+labels, form semantics, keyboard interaction and grouped options.
+FilterableSelect uses the shared Popover positioner with viewport collision
+handling. Its search session starts empty and commits only an explicit option.
+Escape, Tab and blur cancel the query. IME composition never confirms an
+option or submits the outer form. Preserve disabled, error, selected and
+active-option semantics and test reopening while already focused.
+Entity selectors with icons and provider search results use the same field,
+panel and option styles. Provider results retain their loading and error states.
 
 Instrument details preserve the backend aggregate and show every account member,
 including a single account and zero quantities, with owner/institution metadata,

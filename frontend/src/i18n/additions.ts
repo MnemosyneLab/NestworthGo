@@ -335,6 +335,7 @@ export const additionsEn = {
     all: "All",
     selectOption: "Select an option",
     noMatches: "No matches",
+    searchOptions: "Search options…",
   },
   charts: {
     viewDataTable: "View data table",
@@ -1361,6 +1362,7 @@ export const additionsZhCN = {
     all: "全部",
     selectOption: "请选择",
     noMatches: "没有匹配项",
+    searchOptions: "搜索选项…",
   },
   charts: {
     viewDataTable: "查看数据表",
@@ -2381,6 +2383,7 @@ export const additionsZhTW = {
     all: "全部",
     selectOption: "請選擇",
     noMatches: "沒有符合項目",
+    searchOptions: "搜尋選項…",
   },
   charts: {
     viewDataTable: "查看資料表",
