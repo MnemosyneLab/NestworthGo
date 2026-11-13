@@ -73,7 +73,7 @@ const defaultHeadlines = {
 // than one hoisted vi.mock factory shared by the whole file.
 async function renderWithMockedOverview(
   response: unknown,
-  props: { onOpenDataHealth?: () => void } = {},
+  props: { onOpenDataHealth?: () => void; onOpenHistory?: () => void } = {},
   navigation?: ObjectNavigation,
   queryClientOptions?: { retry?: number | false },
 ) {
@@ -327,11 +327,12 @@ it.each(["loading", "failed"])("does not claim all clear while health is %s", as
 it("pairs attention and upcoming cards below the financial row, preserving health severity and keyboard actions", async () => {
   const navigation = { open: vi.fn(), openHealth: vi.fn() };
   const issues = [
-    { id: "blocking", severity: "blocking", kind: "snapshot_outdated", label: "Synthetic history", collapsed: false },
-    { id: "warning", severity: "warning", kind: "history_pending", label: "Synthetic pending", collapsed: false },
-    { id: "info", severity: "info", kind: "snapshot_incomplete", label: "Synthetic information", collapsed: false },
+    { id: "snapshot", severity: "blocking", kind: "snapshot_outdated", action: "repair", label: "Synthetic snapshots", collapsed: false },
+    { id: "warning", severity: "warning", kind: "history_pending", action: "none", label: "Synthetic pending", collapsed: false },
+    { id: "info", severity: "info", kind: "valuation_provisional", action: "none", label: "Synthetic information", collapsed: false },
+    { id: "blocking", severity: "blocking", kind: "missing_provider_key", action: "provider_settings", label: "Synthetic provider", collapsed: false },
   ];
-  scanHealth.mockResolvedValue({ healthy: false, issueCount: 3, issues });
+  scanHealth.mockResolvedValue({ healthy: false, issueCount: 4, issues });
   await renderWithMockedOverview(completeOverview, {}, navigation);
   const row = await screen.findByTestId("overview-action-row");
   expect(row).toContainElement(screen.getByTestId("overview-attention-card"));
@@ -354,10 +355,20 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   expect(screen.getByText("Blocking")).toHaveClass("text-destructive");
   expect(screen.getByText("Warning")).toHaveClass("text-warning-foreground");
   expect(screen.getByText("Information")).toHaveClass("text-foreground");
+  expect(screen.queryByText(/Synthetic snapshots/)).not.toBeInTheDocument();
   expect(screen.queryByText("The balance sheet is complete.")).not.toBeInTheDocument();
   const action = screen.getAllByRole("button", { name: "View gap" })[0];
   action.focus(); await userEvent.keyboard("{Enter}");
-  expect(navigation.openHealth).toHaveBeenCalledWith(issues[0]);
+  expect(navigation.openHealth).toHaveBeenCalledWith(issues[3]);
+});
+
+it("shows one start-history action for an existing account without a history origin", async () => {
+  const onOpenHistory = vi.fn();
+  scanHealth.mockResolvedValue({ healthy: true, issueCount: 0, issues: [{ id: "history", kind: "history_not_started", action: "none", severity: "info" }] });
+  await renderWithMockedOverview({ ...completeOverview, historyStarted: false, recentActivities: [] }, { onOpenHistory }, { open: vi.fn(), openHealth: vi.fn() });
+  await userEvent.click(await screen.findByRole("button", { name: "Start history" }));
+  expect(onOpenHistory).toHaveBeenCalledOnce();
+  expect(screen.queryByText(/Unknown instrument.*History not started/)).not.toBeInTheDocument();
 });
 
 

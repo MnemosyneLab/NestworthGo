@@ -22,11 +22,11 @@ import { useInstruments,
   useUpdateInstrument,
   useArchiveInstrument,
   useCurrentInstrumentQuote,
-  useAppendManualInstrumentQuote,
   useSetInstrumentClosedDate,
 } from "@/queries/investments";
 import { useProducts } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
+import { ManualInstrumentQuoteForm } from "@/features/marketdata/ManualInstrumentQuoteForm";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { trimInstrumentText } from "@/lib/instrumentDisplay";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
@@ -49,71 +49,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-function ManualQuoteForm({
-  instrumentId,
-  currency,
-  quantityUnit,
-  onSaved, initialDate,
-}: {
-  instrumentId: string;
-  currency: string;
-  quantityUnit?: string;
-  onSaved: () => void;
-  initialDate?: string;
-}) {
-  const { t } = useTranslation();
-  const origin = useHistoryOrigin();
-  const today = ymdInTimeZone(new Date(), origin.data?.timezone ?? "UTC");
-  const appendQuote = useAppendManualInstrumentQuote();
-  const [unitPrice, setUnitPrice] = useState("");
-  const [quotedAt, setQuotedAt] = useState(initialDate ?? "");
-
-  const submit = () => {
-    if (!unitPrice.trim()) {
-      return;
-    }
-    appendQuote.mutate(
-      { instrumentId, unitPrice: unitPrice.trim(), quotedAt: quotedAt },
-      {
-        onSuccess: () => {
-          toast.success(t("portfolio.priceSaved"));
-          setUnitPrice("");
-          setQuotedAt(initialDate ?? "");
-          onSaved();
-        },
-      },
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`quote-price-${instrumentId}`}>{t("portfolio.unitPrice")} ({currency}{metalPriceSuffix({quantityUnit}, t)})</Label>
-        <Input
-          id={`quote-price-${instrumentId}`}
-          value={unitPrice}
-          onChange={(event) => setUnitPrice(event.target.value)}
-          inputMode="decimal"
-          placeholder={currency}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`quote-date-${instrumentId}`}>{t("portfolio.quotedAt")}</Label>
-        <DatePicker id={`quote-date-${instrumentId}`} max={today} value={quotedAt} onChange={setQuotedAt} />
-        <p className="text-xs text-muted-foreground">{t("connections.manualDateZone")}</p>
-      </div>
-      {appendQuote.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {displayError(appendQuote.error, t("portfolio.updateError"))}
-        </p>
-      )}
-      <Button onClick={submit} disabled={appendQuote.isPending || !unitPrice.trim()}>
-        {appendQuote.isPending ? t("common.pending") : t("portfolio.setPrice")}
-      </Button>
-    </div>
-  );
-}
 
 function ClosedDateForm({ instrumentId, initialDate }: { instrumentId: string; initialDate?: string }) {
   const { t } = useTranslation();
@@ -237,6 +172,7 @@ function InstrumentRow({
 export function InstrumentManagement({
   focus,
   focusRequestId = 0,
+  openManualEditor = true,
   pageId,
   active,
   enableSearch = false,
@@ -251,6 +187,7 @@ export function InstrumentManagement({
   focus?: HealthFocus;
   /** Monotonic App navigation request; backtracking restores the prior value. */
   focusRequestId?: number;
+  openManualEditor?: boolean;
   pageId: string;
   active: boolean;
   enableSearch?: boolean;
@@ -273,7 +210,7 @@ export function InstrumentManagement({
   const [open, setOpen] = useState(false);
   const [editOverrides, setEditOverrides] = useState<ReadonlyMap<number, InstrumentDTO | null>>(() => new Map());
   const [editorTabOverrides, setEditorTabOverrides] = useState<ReadonlyMap<number, string>>(() => new Map());
-  const focusOpensEditor = focus?.action === "manual_entry" || focus?.action === "instrument_editor";
+  const focusOpensEditor = (openManualEditor && focus?.action === "manual_entry") || focus?.action === "instrument_editor";
   const focusedInstrument = focusOpensEditor ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : null;
   const editTarget = active
     ? editOverrides.has(focusRequestId) ? editOverrides.get(focusRequestId) ?? null : focusedInstrument
@@ -525,7 +462,7 @@ export function InstrumentManagement({
               {editTarget.quoteSource !== "agent" && <TabsContent value="price" keepMounted className="mt-0 space-y-5">
                 <p className="text-sm leading-relaxed text-muted-foreground">{t("portfolio.editorPriceHelp")}</p>
                 <div className="rounded-xl border border-border bg-muted/20 p-4">
-                  <ManualQuoteForm
+                  <ManualInstrumentQuoteForm
                     initialDate={focus?.rangeStart}
                     instrumentId={editTarget.id}
                     currency={editTarget.quoteCurrency}

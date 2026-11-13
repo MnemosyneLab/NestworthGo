@@ -230,7 +230,8 @@ describe("DataHealthPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open provider settings" }));
     expect(onOpenSettings).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Add manual data" }));
-    expect(onOpenMarketData).toHaveBeenCalled();
+    expect(await screen.findByRole("dialog", { name: "Set price" })).toBeInTheDocument();
+    expect(onOpenMarketData).not.toHaveBeenCalled();
   });
 
   it("shows a repair preview before starting Repair All", async () => {

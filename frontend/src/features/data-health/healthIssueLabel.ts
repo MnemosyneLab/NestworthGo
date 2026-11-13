@@ -3,6 +3,7 @@ import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestw
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 export function healthIssueLabel(t: Translate, issue: HealthIssueDTO, accountNames: Record<string, string>): string {
+  if (issue.kind === "history_not_started") return t("dataHealth.kind.history_not_started");
   const label = issue.label || (issue.currencyA ? [issue.currencyA, issue.currencyB].filter(Boolean).join(" / ") : undefined) || (issue.kind.startsWith("snapshot") ? t("dataHealth.snapshotTarget") : t("portfolio.unknownInstrument"));
   if (!(issue.kind.startsWith("snapshot") || issue.kind === "valuation_provisional" || issue.reason === "holding_amount_out_of_range") || !issue.accountId) return label;
   return `${accountNames[issue.accountId] ?? t("dataHealth.unknownAccount")} · ${label}`;

@@ -357,9 +357,7 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("{Enter}"); // runs Preview
 
     expect(await within(form).findByRole("status")).toHaveTextContent("Checking");
-    // React reconciles the Preview/Confirm buttons in place (same element
-    // type and position), so the DOM node — and its focus — survives the
-    // label/handler swap; Enter now activates Confirm on the same button.
+    // Focus moves to Confirm after the live preview is rendered.
     expect(within(form).getByRole("button", { name: "Confirm" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 

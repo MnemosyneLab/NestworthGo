@@ -44,7 +44,10 @@ export function useStartHistory() {
         : costOverrides
           ? callService(() => HistoryService.StartHistoryWithCosts(timezone, costOverrides))
           : callService(() => HistoryService.StartHistory(timezone)),
-    onSuccess: () => invalidateHistoryStart(queryClient),
+    onSuccess: (origin) => {
+      queryClient.setQueryData(queryKeys.history.origin, origin);
+      invalidateHistoryStart(queryClient);
+    },
   });
 }
 

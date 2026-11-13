@@ -20,6 +20,7 @@ import { useAccounts } from "@/queries/accounts";
 import { useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
 import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import { healthIssueLabel } from "./healthIssueLabel";
+import { ManualQuoteEntry } from "@/features/marketdata/ManualQuoteEntry";
 
 export function focusedHealthIssues(issues: HealthIssueDTO[] = [], focus?: HealthFocus): HealthIssueDTO[] {
   return issues.filter(issue => {
@@ -150,9 +151,6 @@ export function DataHealthPage({
     if (issue.action === "instrument_editor") {
       onOpenMarketData?.();
       return;
-    }
-    if (issue.action === "manual_entry") {
-      onOpenMarketData?.();
     }
   };
 
@@ -347,10 +345,8 @@ function IssueSection({
                       {t("dataHealth.openInstrument")}
                     </Button>
                   )}
-                  {issue.action === "manual_entry" && issue.kind !== "missing_agent_price" && issue.kind !== "missing_agent_fx" && (
-                    <Button type="button" size="sm" variant="outline" onClick={() => onAction(issue)}>
-                      {t("dataHealth.addManual")}
-                    </Button>
+                  {issue.action === "manual_entry" && (issue.instrumentId || (issue.currencyA && issue.currencyB)) && (
+                    <ManualQuoteEntry focus={issue} />
                   )}
                 </li>
               ))}

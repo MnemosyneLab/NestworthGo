@@ -421,6 +421,65 @@ type ChangePreview struct {
 	Resulting        []EndpointView
 	DerivedRate      *FxRate
 	DerivedUnitPrice *UnitPrice
+	Review           []EndpointChange
+}
+
+// EndpointChange describes a single balance or quantity at the activity's
+// effective time. Before and after use the same ledger state as the preview.
+type EndpointChange struct {
+	Target      EffectTarget
+	AccountName string
+	Instrument  string
+	Currency    CurrencyCode
+	Before      string
+	Delta       string
+	After       string
+}
+
+func (state ChangeState) ReviewEndpoints(resulting []EndpointView) []EndpointChange {
+	changes := make([]EndpointChange, 0, len(resulting))
+	for _, view := range resulting {
+		change := EndpointChange{Target: view.Target, Currency: view.Currency}
+		var before, after decimal.Decimal
+		switch view.Target {
+		case EffectTargetAccountCash, EffectTargetAccountValue:
+			if view.AccountID == nil {
+				continue
+			}
+			account := state.Accounts[*view.AccountID]
+			change.AccountName = account.Name
+			amount, err := ParseMoney(view.Amount, view.Currency)
+			if err != nil {
+				continue
+			}
+			after = amount.Amount()
+			if view.Target == EffectTargetAccountCash {
+				before = state.Cash[account.ID][view.Currency].Amount()
+			} else {
+				before = account.Current.Amount()
+			}
+			if account.Liability {
+				before, after = before.Neg(), after.Neg()
+			}
+		case EffectTargetHoldingQuantity:
+			if view.HoldingID == nil {
+				continue
+			}
+			holding := state.Holdings[*view.HoldingID]
+			change.AccountName = state.Accounts[holding.AccountID].Name
+			change.Instrument = holding.DisplayLabel()
+			quantity, err := ParseQuantity(view.Quantity)
+			if err != nil {
+				continue
+			}
+			before, after = holding.Current.Decimal(), quantity.Decimal()
+		default:
+			continue
+		}
+		change.Before, change.Delta, change.After = before.String(), after.Sub(before).String(), after.String()
+		changes = append(changes, change)
+	}
+	return changes
 }
 
 // ActivityCommit is the unit used by the repository's atomic write path. A

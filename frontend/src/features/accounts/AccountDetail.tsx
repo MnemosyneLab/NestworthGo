@@ -16,6 +16,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { AccountForm, type AccountFormExtras } from "@/features/accounts/AccountForm";
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
+import { useObjectNavigation } from "@/app/NavigationContext";
 import { useAccountCashValues, useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { AccountProductsSection } from "@/features/liquidity/AccountProductsSection";
 import { useHistoryOrigin } from "@/queries/history";
@@ -120,6 +121,7 @@ export function AccountDetail({
   updateValue?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const navigation = useObjectNavigation();
   const origin = useHistoryOrigin();
   const settings = useSettings();
   const updateAccount = useUpdateAccount();
@@ -245,6 +247,14 @@ export function AccountDetail({
         <p role="status" className="rounded-xl border border-border bg-muted/60 px-4 py-2.5 text-sm">
           {t("accounts.archivedReadOnly")}
         </p>
+      )}
+      {!archived && origin.isSuccess && !historyStarted && navigation && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">{t("overview.startHistoryNext")}</p>
+          <Button type="button" size="sm" variant="outline" onClick={() => navigation.open({ page: "history" })}>
+            {t("history.startButton")}
+          </Button>
+        </div>
       )}
       <section data-assistant-module="reconciliation"><AccountReconciliation accountId={record.account.id} archived={archived} /></section>
       {valuation && !valuation.complete && missingReasons.length > 0 && (

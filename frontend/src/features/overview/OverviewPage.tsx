@@ -33,6 +33,7 @@ import { TasksHomeSummary } from "@/features/tasks/TasksHomeSummary";
 import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
 import { OverviewLiquidityCard } from "@/features/liquidity/OverviewLiquidityCard";
 import { healthIssueLabel } from "@/features/data-health/healthIssueLabel";
+import { ManualQuoteEntry } from "@/features/marketdata/ManualQuoteEntry";
 import { usePublishAssistantPage } from "@/features/assistant/PageContext";
 import { overviewPublication } from "@/features/assistant/publications";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -120,7 +121,7 @@ function BreakdownList({
 }
 
 /** One actionable line in the merged to-do card. */
-function TodoRow({ icon, tone, text, severity, actionLabel, onAction }: { icon: LucideIcon; tone: Tone; text: React.ReactNode; severity?: { kind: string; label: string }; actionLabel?: string; onAction?: () => void }) {
+function TodoRow({ icon, tone, text, severity, actionLabel, onAction, action }: { icon: LucideIcon; tone: Tone; text: React.ReactNode; severity?: { kind: string; label: string }; actionLabel?: string; onAction?: () => void; action?: React.ReactNode }) {
   return (
     <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <span className="flex min-w-0 items-start gap-3">
@@ -135,6 +136,7 @@ function TodoRow({ icon, tone, text, severity, actionLabel, onAction }: { icon: 
           {actionLabel}
         </Button>
       )}
+      {action && <div className="shrink-0">{action}</div>}
     </li>
   );
 }
@@ -286,12 +288,18 @@ export function OverviewPage({
         actionLabel={health.isError ? t("common.retryAction") : undefined} onAction={() => void health.refetch()} />,
     );
   }
-  const listedIssues = healthKnown && navigation ? (health.data?.issues ?? []).filter((issue) => !issue.collapsed).slice(0, 3) : [];
+  const rootIssues = healthKnown && navigation ? (health.data?.issues ?? []).filter((issue) => !issue.collapsed && issue.kind !== "history_not_started" && !issue.kind.startsWith("snapshot")) : [];
+  const listedIssues = [
+    ...rootIssues.filter(issue => issue.action !== "none" && issue.action !== "repair"),
+    ...rootIssues.filter(issue => issue.action === "none" || issue.action === "repair"),
+  ].slice(0, 3);
   const accountNameRecord = Object.fromEntries(accountNames);
   listedIssues.forEach((issue) => {
+    const manual = issue.action === "manual_entry" && Boolean(issue.instrumentId || (issue.currencyA && issue.currencyB));
     todoRows.push(
       <TodoRow key={issue.id} icon={HeartPulse} tone={issue.severity === "blocking" ? 3 : issue.severity === "warning" ? 4 : 1} severity={{ kind: issue.severity, label: t(`homepage.severity.${issue.severity}`, { defaultValue: t("common.unknownValue") }) }} text={`${healthIssueLabel(t, issue, accountNameRecord)} · ${displayEnum(t, "dataHealth.kind", issue.kind)}`}
-        actionLabel={t("connections.viewGap")} onAction={() => navigation?.openHealth(issue)} />,
+        action={manual ? <ManualQuoteEntry focus={issue} /> : undefined}
+        actionLabel={manual ? undefined : t("connections.viewGap")} onAction={() => navigation?.openHealth(issue)} />,
     );
   });
   if (healthKnown && healthIssueCount > 0 && listedIssues.length === 0) {
@@ -318,7 +326,7 @@ export function OverviewPage({
     }
   }
   if (historyNotStarted) {
-    todoRows.push(<TodoRow key="start-history" icon={History} tone={6} text={t("overview.startHistoryNext")} actionLabel={t("overview.openHistory")} onAction={onOpenHistory} />);
+    todoRows.unshift(<TodoRow key="start-history" icon={History} tone={6} text={t("overview.startHistoryNext")} actionLabel={t("history.startButton")} onAction={onOpenHistory} />);
   }
   if (historyReady && recent.length === 0) {
     todoRows.push(<TodoRow key="record-change" icon={CircleDollarSign} tone={2} text={t("overview.recordChangeNext")} actionLabel={t("overview.openHistory")} onAction={onOpenHistory} />);

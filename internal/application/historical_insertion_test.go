@@ -157,6 +157,9 @@ func TestBackdatedExpenseUsesEarlierBalanceAndKeepsLaterObservation(t *testing.T
 	if err != nil || len(preview.Resulting) != 1 || preview.Resulting[0].Amount != "50" {
 		t.Fatalf("backdated expense preview should use earlier 100 balance: %+v %v", preview.Resulting, err)
 	}
+	if len(preview.Review) != 1 || preview.Review[0].Before != "100" || preview.Review[0].Delta != "-50" || preview.Review[0].After != "50" {
+		t.Fatalf("backdated review must show 100 − 50 → 50 at the effective date: %+v", preview.Review)
+	}
 	inserted, err := s.RecordChange(ctx, backdated)
 	if err != nil || len(inserted.Resulting) != 1 || inserted.Resulting[0].Amount != "50" {
 		t.Fatalf("backdated expense was not inserted: %+v %v", inserted.Resulting, err)

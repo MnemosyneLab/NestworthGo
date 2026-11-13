@@ -29,7 +29,7 @@ export function QuoteHistorySheet({
   focus?: HealthFocus;
   onClose: () => void;
 }) {
-  return <QuoteHistoryContent target={target} focus={focus} render={(body,title) => <Sheet open onOpenChange={open => { if (!open) onClose(); }}><SheetContent className="max-w-xl overflow-y-auto" side="right"><SheetHeader><SheetTitle>{title}</SheetTitle><SheetDescription>{target.kind === "instrument" ? instrumentSecondaryName(target.instrument) : title}</SheetDescription></SheetHeader>{body}</SheetContent></Sheet>} />;
+  return <QuoteHistoryContent target={target} focus={focus} render={(body,title) => <Sheet open onOpenChange={open => { if (!open) onClose(); }}><SheetContent className="max-w-xl overflow-y-auto" side="right"><SheetHeader><SheetTitle>{title}</SheetTitle>{target.kind === "instrument" && <SheetDescription>{instrumentSecondaryName(target.instrument)}</SheetDescription>}</SheetHeader>{body}</SheetContent></Sheet>} />;
 }
 
 export function QuoteHistoryContent({ target, focus, render, onRangeChange }: { target: QuoteHistoryTarget; focus?: HealthFocus; render?: (body: ReactNode, title: string) => ReactNode; onRangeChange?: (range: DateRange) => void }) {
@@ -65,11 +65,12 @@ export function QuoteHistoryContent({ target, focus, render, onRangeChange }: { 
         <div className="flex flex-col gap-4">
           <DateRangeControl {...range} onChange={changeRange} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />
-          <p className="text-sm text-muted-foreground">{t("quoteDetails.help")}</p>
+          {target.kind === "instrument" && <p className="text-sm text-muted-foreground">{t("quoteDetails.help")}</p>}
           {currency && observations.some(item => item.currency && item.currency !== currency) && <p className="text-xs text-muted-foreground">{t("holdingDetail.otherCurrencies")}</p>}
           {target.kind === "fx" && (
             <>
               <p className="text-sm text-muted-foreground">{t("marketData.fxDailyReference")}</p>
+              <p className="num text-sm font-medium">{t("marketData.latestRate", { base: fxBase, rate: t("charts.rate"), quote: fxQuote })}</p>
               <Button type="button" variant="outline" size="sm" onClick={() => setSwapped((current) => !current)}>
                 {t("charts.swapDirection")}
               </Button>

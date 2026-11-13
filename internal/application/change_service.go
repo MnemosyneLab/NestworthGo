@@ -84,7 +84,7 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	preview, _, err := s.prepareRecordedChange(ctx, state, command)
+	preview, _, err := s.prepareRecordedChange(ctx, state, command, true)
 	return preview, err
 }
 
@@ -211,7 +211,7 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any, key *doma
 		return domain.ChangePreview{}, err
 	}
 	if newHolding != nil {
-		preview, commit, previewErr := s.prepareRecordedChange(ctx, state, command)
+		preview, commit, previewErr := s.prepareRecordedChange(ctx, state, command, false)
 		if previewErr != nil {
 			return domain.ChangePreview{}, previewErr
 		}
@@ -269,7 +269,7 @@ func (s *Service) prepareTradeHolding(snapshot domain.PortfolioSnapshot, state d
 // commitChangeLocked previews the command against the given state and commits
 // it; the caller must hold s.changeMu.
 func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeState, command any, key *domain.ActivityMutation) (domain.ChangePreview, error) {
-	preview, commit, err := s.prepareRecordedChange(ctx, state, command)
+	preview, commit, err := s.prepareRecordedChange(ctx, state, command, false)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}

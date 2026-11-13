@@ -8,10 +8,13 @@ import (
 
 // prepareRecordedChange validates an insertion against the state at its date,
 // then replays subsequent events before publishing any new facts.
-func (s *Service) prepareRecordedChange(ctx context.Context, state domain.ChangeState, command any) (domain.ChangePreview, domain.ActivityCommit, error) {
+func (s *Service) prepareRecordedChange(ctx context.Context, state domain.ChangeState, command any, includeReview bool) (domain.ChangePreview, domain.ActivityCommit, error) {
 	at := commandEffectiveTime(command)
 	if at.IsZero() || !at.Before(state.Now) {
 		preview, err := domain.PreviewChange(state, command)
+		if err == nil && includeReview {
+			preview.Review = state.ReviewEndpoints(preview.Resulting)
+		}
 		return preview, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, err
 	}
 	origin, err := s.HistoryOrigin(ctx)
@@ -41,6 +44,9 @@ func (s *Service) prepareRecordedChange(ctx context.Context, state domain.Change
 	preview, err := domain.PreviewChange(state, command)
 	if err != nil {
 		return domain.ChangePreview{}, domain.ActivityCommit{}, err
+	}
+	if includeReview {
+		preview.Review = state.ReviewEndpoints(preview.Resulting)
 	}
 	preview.Activity.Resulting = preview.Resulting
 	timeline := make([]domain.Activity, 0, len(activities)+1)

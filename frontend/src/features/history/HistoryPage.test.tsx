@@ -428,9 +428,10 @@ describe("HistoryPage", () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listActivities.mockResolvedValue([]);
     previewChange.mockResolvedValue({
-      activity: { id: "a1", kind: "cash_in", effects: [] },
+      activity: { id: "a1", kind: "cash_in", effectiveAt: "2026-08-13T12:30:00Z", effects: [] },
       effects: [],
       resulting: [{ target: "account_value", name: "Checking", amount: "1000", currency: "USD" }],
+      review: [{ target: "account_value", accountName: "Checking", currency: "USD", before: "0", delta: "1000", after: "1000" }],
     });
     recordChange.mockResolvedValue({ activity: { id: "a1", kind: "cash_in" }, effects: [], resulting: [] });
 
@@ -443,7 +444,12 @@ describe("HistoryPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
 
     expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000", currency: "USD" }));
-    expect(await within(form).findByRole("status")).toHaveTextContent("Checking");
+    const review = await within(form).findByRole("status");
+    expect(within(form).getByRole("button", { name: "Confirm" })).toHaveFocus();
+    expect(review).toHaveTextContent("Money added");
+    expect(review).toHaveTextContent("Checking · USD");
+    expect(review).toHaveTextContent("2026-08-13");
+    expect(review).toHaveTextContent(/Before.*0\.00.*Change.*\+.*1,000\.00.*After.*1,000\.00/);
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
