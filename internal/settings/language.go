@@ -6,12 +6,15 @@ import "strings"
 // stored preference. System locales can be BCP 47 tags or POSIX locale names.
 func ResolveLanguage(preference Language, systemLocale string) Language {
 	switch preference {
-	case LanguageEnglish, LanguageZhCN, LanguageZhTW:
+	case LanguageEnglish, LanguageZhCN, LanguageZhTW, LanguageJa:
 		return preference
 	case LanguageSystem:
 		locale, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(systemLocale)), ".")
 		locale, _, _ = strings.Cut(locale, "@")
 		parts := strings.Split(strings.ReplaceAll(locale, "_", "-"), "-")
+		if parts[0] == "ja" {
+			return LanguageJa
+		}
 		if parts[0] != "zh" {
 			return LanguageEnglish
 		}

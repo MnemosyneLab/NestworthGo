@@ -1,3 +1,5 @@
+import { isSupportedLanguage } from "@/i18n/language";
+
 // Persist only an explicitly remembered random session credential and preferences.
 // Never store the shared token, CSRF, drafts or financial query data.
 export class ConnectionError extends Error {
@@ -16,7 +18,7 @@ export function mobilePreferences(): MobilePreferences {
   try {
     const p = JSON.parse(localStorage.getItem(preferencesKey) ?? "{}");
     return {
-      language: ["en", "zh-CN", "zh-TW"].includes(p.language)
+      language: isSupportedLanguage(p.language)
         ? p.language
         : undefined,
       theme: ["light", "dark"].includes(p.theme) ? p.theme : "system",

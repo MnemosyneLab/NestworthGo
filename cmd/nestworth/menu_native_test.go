@@ -20,6 +20,7 @@ func TestApplicationMenuLanguageSwitchPreservesRoles(t *testing.T) {
 	}{
 		{settings.LanguageZhCN, "编辑", "复制"},
 		{settings.LanguageZhTW, "編輯", "拷貝"},
+		{settings.LanguageJa, "編集", "コピー"},
 		{settings.LanguageEnglish, "Edit", "Copy"},
 	} {
 		localize(tt.language)

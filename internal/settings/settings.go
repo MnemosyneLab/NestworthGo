@@ -44,6 +44,7 @@ const (
 	LanguageEnglish = Language("en")
 	LanguageZhCN    = Language("zh-CN")
 	LanguageZhTW    = Language("zh-TW")
+	LanguageJa      = Language("ja")
 )
 
 const (
@@ -152,7 +153,7 @@ func (s Settings) Validate() error {
 	if !validAccent(s.Accent) {
 		return fmt.Errorf("unsupported accent %q", s.Accent)
 	}
-	if !oneOf(string(s.Language), string(LanguageSystem), string(LanguageEnglish), string(LanguageZhCN), string(LanguageZhTW)) {
+	if !slices.Contains(AllLanguages(), s.Language) {
 		return fmt.Errorf("unsupported language %q", s.Language)
 	}
 	if strings.TrimSpace(s.Timezone) == "" {
@@ -236,7 +237,7 @@ func AllAppearances() []Appearance {
 }
 
 func AllLanguages() []Language {
-	return []Language{LanguageSystem, LanguageEnglish, LanguageZhCN, LanguageZhTW}
+	return []Language{LanguageSystem, LanguageEnglish, LanguageZhCN, LanguageZhTW, LanguageJa}
 }
 
 func AllAccents() []Accent {
@@ -396,7 +397,7 @@ func salvage(loaded, defaults Settings) Settings {
 	})
 	fixed.Accent = salvageValue(fixed.Accent, defaults.Accent, validAccent)
 	fixed.Language = salvageValue(fixed.Language, defaults.Language, func(v Language) bool {
-		return oneOf(string(v), string(LanguageSystem), string(LanguageEnglish), string(LanguageZhCN), string(LanguageZhTW))
+		return slices.Contains(AllLanguages(), v)
 	})
 	fixed.Timezone = salvageValue(fixed.Timezone, defaults.Timezone, func(v string) bool {
 		return strings.TrimSpace(v) != "" && (v == TimezoneSystem || func() bool { _, err := time.LoadLocation(v); return err == nil }())

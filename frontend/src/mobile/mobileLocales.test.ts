@@ -1,8 +1,8 @@
 import { expect, it } from "vitest";
-import i18n from "@/i18n";
+import i18n, { SUPPORTED_LANGUAGES } from "@/i18n";
 import { loadMobileTranslation } from "./i18n";
 
-it.each(["en", "zh-CN", "zh-TW"])(
+it.each(SUPPORTED_LANGUAGES)(
   "loads canonical actionable health and job translations for %s",
   async (language) => {
     const resource = await loadMobileTranslation(language);
@@ -24,14 +24,14 @@ it.each(["en", "zh-CN", "zh-TW"])(
   },
 );
 
-it.each(["en", "zh-CN", "zh-TW"])("includes the shared loading label even when absent from every other locale in %s", async language => {
+it.each(SUPPORTED_LANGUAGES)("includes the shared loading label even when absent from every other locale in %s", async language => {
   const resource = await loadMobileTranslation(language);
   expect(resource.common).toHaveProperty("loading");
   expect(i18n.getResource(language, "translation", "common.loading")).toEqual(expect.any(String));
   expect(i18n.t("common.loading", { lng: language })).not.toBe("common.loading");
 });
 
-it.each(["en", "zh-CN", "zh-TW"])("loads shared control and activity labels directly in %s", async language => {
+it.each(SUPPORTED_LANGUAGES)("loads shared control and activity labels directly in %s", async language => {
   const resource = await loadMobileTranslation(language);
   const labels = {
     "common.retryAction": resource.common.retryAction,

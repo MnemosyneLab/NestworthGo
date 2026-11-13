@@ -17,6 +17,7 @@ import { deepMerge } from "@/i18n/deepMerge";
 import { mobilePreferences } from "./connection";
 
 export async function loadMobileTranslation(language: string) {
+  if (language === "ja") return (await import("@/i18n/locales/ja.json")).default;
   const resource =
     language === "zh-CN"
       ? await import("@/i18n/locales/zh-CN.json")
@@ -40,6 +41,12 @@ const backend: BackendModule = {
   init() {},
   read(language, namespace, callback) {
     if (namespace === "errorCode") {
+      if (language === "ja") {
+        void import("@/i18n/locales/ja.errorCode.json")
+          .then(resource => callback(null, resource.default))
+          .catch(error => callback(error, false));
+        return;
+      }
       callback(
         null,
         language === "zh-CN"

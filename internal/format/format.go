@@ -221,7 +221,7 @@ func dateLayout(value string, language settings.Language) string {
 	case settings.DateFormatMonthFirst:
 		return "01/02/2006"
 	case settings.DateFormatLocalized:
-		if language == settings.LanguageZhCN || language == settings.LanguageZhTW {
+		if language == settings.LanguageZhCN || language == settings.LanguageZhTW || language == settings.LanguageJa {
 			return "2006年1月2日"
 		}
 		return "Jan 2, 2006"

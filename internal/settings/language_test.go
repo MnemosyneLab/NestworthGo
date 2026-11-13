@@ -13,6 +13,8 @@ func TestResolveLanguage(t *testing.T) {
 		{LanguageSystem, "zh-Hans-TW", LanguageZhCN},
 		{LanguageSystem, "zh-SG", LanguageZhCN},
 		{LanguageSystem, "en-SG", LanguageEnglish},
+		{LanguageSystem, "ja_JP.UTF-8", LanguageJa},
+		{LanguageJa, "en-SG", LanguageJa},
 		{LanguageZhCN, "zh-TW", LanguageZhCN},
 		{LanguageEnglish, "zh-CN", LanguageEnglish},
 	} {

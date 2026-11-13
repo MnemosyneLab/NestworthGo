@@ -1,6 +1,6 @@
 import { forwardRef, useMemo, useState } from "react";
 import { format, isValid } from "date-fns";
-import { enUS, zhCN, zhTW, type Locale } from "date-fns/locale";
+import { enUS, ja, zhCN, zhTW, type Locale } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 
 function pickerLocale(language: string): Locale {
+  if (language === "ja") return ja;
   if (language === "zh-TW") {
     return zhTW;
   }

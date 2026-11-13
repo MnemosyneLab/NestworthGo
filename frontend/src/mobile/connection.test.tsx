@@ -31,8 +31,8 @@ it("times out a request without treating a confirmation as rejected", async () =
 
 
 it("keeps only language and appearance preferences in storage", () => {
-  saveMobilePreferences({language: "zh-CN", theme: "dark"});
-  expect(mobilePreferences()).toEqual({language: "zh-CN", theme: "dark"});
+  saveMobilePreferences({language: "ja", theme: "dark"});
+  expect(mobilePreferences()).toEqual({language: "ja", theme: "dark"});
   expect(JSON.stringify(localStorage)).not.toMatch(/token|csrf|amount|account/);
 });
 

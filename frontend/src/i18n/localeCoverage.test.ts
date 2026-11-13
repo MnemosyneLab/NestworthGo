@@ -13,8 +13,8 @@ import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 
 /**
  * Every i18next key that exists in one locale bundle must exist in every
- * other supported locale, so no `zh-CN`/`zh-TW` render falls back to a raw
- * key or to English text.
+ * other fully translated locale. Japanese is rolling out in stages and uses
+ * English fallback for strings awaiting translation.
  */
 
 type Tree = Record<string, unknown>;
@@ -246,6 +246,19 @@ describe("i18n regression guards", () => {
     assertSameKeySet("merged", locales.en, { "zh-CN": locales["zh-CN"], "zh-TW": locales["zh-TW"] });
   });
 
+  it("keeps Japanese error codes and essential UI labels available without fallback", () => {
+    assertSameKeySet("errorCode", i18n.getResourceBundle("en", "errorCode"), {
+      ja: i18n.getResourceBundle("ja", "errorCode"),
+    });
+    const japanese = leafStrings(locales.ja);
+    const english = leafStrings(locales.en);
+    expect([...japanese.keys()].filter(key => !english.has(key))).toEqual([]);
+    const essential = [...english.keys()].filter(key =>
+      /^translation\.(?:nav|common|startup|onboarding|datePicker|mobile)\./.test(key) &&
+      !key.endsWith("_one"));
+    expect(essential.filter(key => !japanese.has(key))).toEqual([]);
+  });
+
   it("pairs English plural keys and gives count strings plural forms", () => {
     const english = leafStrings(locales.en);
     const issues: string[] = [];
@@ -266,7 +279,8 @@ describe("i18n regression guards", () => {
     const issues: string[] = [];
     for (const key of leaves.en.keys()) {
       const expected = placeholders(leaves.en.get(key) ?? "");
-      for (const locale of ["zh-CN", "zh-TW"] as const) {
+      for (const locale of SUPPORTED_LANGUAGES.filter(language => language !== "en")) {
+        if (locale === "ja" && !leaves.ja.has(key)) continue;
         const actual = placeholders(leaves[locale].get(key) ?? "");
         if (expected.join("|") !== actual.join("|")) issues.push(`${locale} ${key}: ${actual.join(",")} != ${expected.join(",")}`);
       }
@@ -274,7 +288,9 @@ describe("i18n regression guards", () => {
     expect(issues).toEqual([]);
   });
 });
-it("covers Tasks & checks in every supported locale", () => { assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW }); });
+it("keeps the English and Chinese Tasks & checks overlays aligned", () => {
+  assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW });
+});
 
 it("keeps reviewed Traditional Chinese destination names throughout effective resources", () => {
   const leaves = leafStrings(i18n.getResourceBundle("zh-TW", "translation"));

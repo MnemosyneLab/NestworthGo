@@ -423,7 +423,7 @@ describe("App shell smoke test", () => {
     expect(screen.getByLabelText(i18n.t("about.title"))).toBeInTheDocument();
   });
 
-  it.each(["en", "zh-CN", "zh-TW"])("renders blocked startup in %s without querying ledger settings", async (language) => {
+  it.each(["en", "zh-CN", "zh-TW", "ja"])("renders blocked startup in %s without querying ledger settings", async (language) => {
     await i18n.changeLanguage("en");
     startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database", language });
     render(

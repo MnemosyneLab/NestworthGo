@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "vitest";
-import i18n from "@/i18n";
+import i18n, { resolveLanguage } from "@/i18n";
 
 afterEach(async () => { await i18n.changeLanguage("en"); });
 
@@ -27,4 +27,10 @@ it("translates the same plural keys and the debug log level", async () => {
   expect(i18n.t("diagnosticsSettings.levels.warn")).toBe("警告");
   expect(i18n.t("institutionType.employer")).toBe("僱主");
   expect(i18n.t("reviewV2.count.needsAttention", { count: 1 })).toBe("1個待關注");
+});
+
+it("resolves Japanese system settings and uses Japanese count forms", () => {
+  expect(resolveLanguage("system", "ja-JP")).toBe("ja");
+  expect(i18n.t("overview.accountCount", { lng: "ja", count: 1 })).toBe("有効な口座 1 件");
+  expect(i18n.t("overview.accountCount", { lng: "ja", count: 2 })).toBe("有効な口座 2 件");
 });

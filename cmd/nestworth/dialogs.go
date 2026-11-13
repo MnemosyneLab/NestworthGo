@@ -90,7 +90,7 @@ func (p *lazyPlatform) Quit() {
 }
 
 type localizedText struct {
-	en, zhCN, zhTW string
+	en, zhCN, zhTW, ja string
 }
 
 func (text localizedText) forLanguage(language settings.Language) string {
@@ -99,23 +99,25 @@ func (text localizedText) forLanguage(language settings.Language) string {
 		return text.zhCN
 	case settings.LanguageZhTW:
 		return text.zhTW
+	case settings.LanguageJa:
+		return text.ja
 	default:
 		return text.en
 	}
 }
 
 var dialogLabels = map[string]localizedText{
-	native.BackupTitle:  {"Back up data", "备份数据", "備份資料"},
-	native.ExportTitle:  {"Export data", "导出数据", "匯出資料"},
-	native.RestoreTitle: {"Restore from backup", "从备份恢复", "從備份還原"},
-	native.BackupFilter: {"Nestworth Backup", "Nestworth 备份", "Nestworth 備份"},
-	native.ExportFilter: {"Nestworth JSON", "Nestworth JSON", "Nestworth JSON"},
-	"save":              {"Save", "保存", "儲存"},
-	"open":              {"Open", "打开", "開啟"},
-	"replace_title":     {"Replace existing file?", "替换现有文件？", "取代現有檔案？"},
-	"replace_message":   {"%s already exists. Replace it?", "%s 已存在。要替换它吗？", "%s 已存在。要取代它嗎？"},
-	"replace":           {"Replace", "替换", "取代"},
-	"cancel":            {"Cancel", "取消", "取消"},
+	native.BackupTitle:  {"Back up data", "备份数据", "備份資料", "データをバックアップ"},
+	native.ExportTitle:  {"Export data", "导出数据", "匯出資料", "データをエクスポート"},
+	native.RestoreTitle: {"Restore from backup", "从备份恢复", "從備份還原", "バックアップから復元"},
+	native.BackupFilter: {"Nestworth Backup", "Nestworth 备份", "Nestworth 備份", "Nestworth バックアップ"},
+	native.ExportFilter: {"Nestworth JSON", "Nestworth JSON", "Nestworth JSON", "Nestworth JSON"},
+	"save":              {"Save", "保存", "儲存", "保存"},
+	"open":              {"Open", "打开", "開啟", "開く"},
+	"replace_title":     {"Replace existing file?", "替换现有文件？", "取代現有檔案？", "既存のファイルを置き換えますか？"},
+	"replace_message":   {"%s already exists. Replace it?", "%s 已存在。要替换它吗？", "%s 已存在。要取代它嗎？", "%s は既に存在します。置き換えますか？"},
+	"replace":           {"Replace", "替换", "取代", "置き換える"},
+	"cancel":            {"Cancel", "取消", "取消", "キャンセル"},
 }
 
 func dialogText(key string, language settings.Language) string {
