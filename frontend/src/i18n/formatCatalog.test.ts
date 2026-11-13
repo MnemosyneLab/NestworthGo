@@ -59,3 +59,9 @@ it("keeps Japanese backup and agent safety explanations explicit", () => {
   expect(i18n.t("agent.writeHelp", { lng: "ja" })).toContain("書き込みごとに確認を求めません");
   expect(i18n.t("retention.warning", { lng: "ja" })).toContain("元に戻せません");
 });
+
+it("distinguishes Japanese price history, personal returns, and model state", () => {
+  expect(i18n.t("holdingPerformance.returns.title", { lng: "ja" })).toBe("収益率");
+  expect(i18n.t("holdingPerformance.infoBody", { lng: "ja" })).toContain("予想または保証された利回りではありません");
+  expect(i18n.t("aiModels.history", { lng: "ja" })).toContain("引き継がれません");
+});
