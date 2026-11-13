@@ -5,8 +5,7 @@ import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
 import zhTW from "./locales/zh-TW.json";
 import ja from "./locales/ja.json";
-import errorCodesJa from "./locales/ja.errorCode.json";
-import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
+import { errorCodes } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
@@ -22,10 +21,10 @@ export { DEFAULT_LANGUAGE, languageOptionKey, resolveLanguage, SUPPORTED_LANGUAG
 
 void i18n.use(initReactI18next).init({
   resources: {
-    ja: { translation: ja, errorCode: errorCodesJa },
-    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, voiceEn), assistantEn), additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodesEn },
-    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, voiceZhCN), assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodesZhCN },
-    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, voiceZhTW), assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodesZhTW },
+    ja: { translation: ja, errorCode: errorCodes.ja },
+    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, voiceEn), assistantEn), additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodes.en },
+    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, voiceZhCN), assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodes["zh-CN"] },
+    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, voiceZhTW), assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodes["zh-TW"] },
   },
   lng: resolveLanguage("system"),
   fallbackLng: DEFAULT_LANGUAGE,

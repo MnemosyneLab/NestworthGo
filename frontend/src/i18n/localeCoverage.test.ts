@@ -7,7 +7,6 @@ import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
 import zhTW from "./locales/zh-TW.json";
 import fieldLabelKeysEn from "./locales/fieldLabelKeys.json";
-import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 
@@ -182,10 +181,6 @@ describe("i18next locale coverage", () => {
     }
   });
 
-  it("the errorCode namespace has identical keys across en/zh-CN/zh-TW, keyed 1:1 by domain.ErrorCode", () => {
-    assertSameKeySet("errorCode", errorCodesEn, { "zh-CN": errorCodesZhCN, "zh-TW": errorCodesZhTW });
-  });
-
   it("no locale has an empty string for a key present in another locale (a common silent-drop mistake)", () => {
     const merged = mergedLocaleTrees();
     for (const [locale, tree] of Object.entries(merged)) {
@@ -246,10 +241,13 @@ describe("i18n regression guards", () => {
     assertSameKeySet("merged", locales.en, { "zh-CN": locales["zh-CN"], "zh-TW": locales["zh-TW"] });
   });
 
-  it("keeps Japanese error codes and essential UI labels available without fallback", () => {
-    assertSameKeySet("errorCode", i18n.getResourceBundle("en", "errorCode"), {
-      ja: i18n.getResourceBundle("ja", "errorCode"),
-    });
+  it("keeps the same error codes in every supported locale", () => {
+    const bundles = Object.fromEntries(SUPPORTED_LANGUAGES.map(locale => [locale, i18n.getResourceBundle(locale, "errorCode")]));
+    const { en, ...translations } = bundles;
+    assertSameKeySet("errorCode", en, translations);
+  });
+
+  it("keeps essential Japanese UI labels available without fallback", () => {
     const japanese = leafStrings(locales.ja);
     const english = leafStrings(locales.en);
     expect([...japanese.keys()].filter(key => !english.has(key))).toEqual([]);

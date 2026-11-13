@@ -1,12 +1,8 @@
 import type { BackendModule } from "i18next";
 import i18n from "@/i18n/runtime";
-import { DEFAULT_LANGUAGE, resolveLanguage, SUPPORTED_LANGUAGES } from "@/i18n/language";
+import { DEFAULT_LANGUAGE, isSupportedLanguage, resolveLanguage, SUPPORTED_LANGUAGES } from "@/i18n/language";
 import { initReactI18next } from "react-i18next";
-import {
-  errorCodesEn,
-  errorCodesZhCN,
-  errorCodesZhTW,
-} from "@/i18n/errorCodes";
+import { errorCodes } from "@/i18n/errorCodes";
 import {
   marketHealthEn,
   marketHealthZhCN,
@@ -41,20 +37,7 @@ const backend: BackendModule = {
   init() {},
   read(language, namespace, callback) {
     if (namespace === "errorCode") {
-      if (language === "ja") {
-        void import("@/i18n/locales/ja.errorCode.json")
-          .then(resource => callback(null, resource.default))
-          .catch(error => callback(error, false));
-        return;
-      }
-      callback(
-        null,
-        language === "zh-CN"
-          ? errorCodesZhCN
-          : language === "zh-TW"
-            ? errorCodesZhTW
-            : errorCodesEn,
-      );
+      callback(null, errorCodes[isSupportedLanguage(language) ? language : DEFAULT_LANGUAGE]);
       return;
     }
     void loadMobileTranslation(language)
