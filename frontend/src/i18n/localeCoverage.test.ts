@@ -257,6 +257,16 @@ describe("i18n regression guards", () => {
     expect(essential.filter(key => !japanese.has(key))).toEqual([]);
   });
 
+  it("keeps Japanese error messages and analytics available without fallback", () => {
+    const english = leafStrings(locales.en);
+    const japanese = leafStrings(locales.ja);
+    // Japanese has only the `other` plural category; English `_one` is not
+    // needed for i18next to resolve a Japanese count.
+    const required = [...english.keys()].filter(key =>
+      /^translation\.(?:error|analytics)\./.test(key) && !key.endsWith("_one"));
+    expect(required.filter(key => !japanese.has(key))).toEqual([]);
+  });
+
   it("pairs English plural keys and gives count strings plural forms", () => {
     const english = leafStrings(locales.en);
     const issues: string[] = [];

@@ -45,3 +45,20 @@ it.each(SUPPORTED_LANGUAGES)("loads shared control and activity labels directly 
     expect(label, key).toBe(i18n.getResource(language, "translation", key));
   }
 });
+
+it("loads Japanese error and analytics labels on mobile without fallback", async () => {
+  const resource = await loadMobileTranslation("ja");
+  const visit = (node: unknown, path: string) => {
+    if (node !== null && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) visit(value, `${path}.${key}`);
+    } else if (typeof node === "string" && !path.endsWith("_one")) {
+      const mobile = path.split(".").reduce<unknown>((current, key) =>
+        current !== null && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, resource);
+      expect(mobile, path).toBeTypeOf("string");
+      expect(mobile, path).toBe(i18n.getResource("ja", "translation", path));
+    }
+  };
+  for (const section of ["error", "analytics"]) {
+    visit(i18n.getResource("en", "translation", section), section);
+  }
+});

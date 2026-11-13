@@ -33,4 +33,7 @@ it("resolves Japanese system settings and uses Japanese count forms", () => {
   expect(resolveLanguage("system", "ja-JP")).toBe("ja");
   expect(i18n.t("overview.accountCount", { lng: "ja", count: 1 })).toBe("有効な口座 1 件");
   expect(i18n.t("overview.accountCount", { lng: "ja", count: 2 })).toBe("有効な口座 2 件");
+  expect(i18n.t("analytics.missingQuotes", { lng: "ja", count: 1 })).toBe("1 件の相場データがありません");
+  expect(i18n.t("analytics.missingQuotes", { lng: "ja", count: 2 })).toBe("2 件の相場データがありません");
+  expect(i18n.t("analytics.snapshotNeedsRepair", { lng: "ja", date: "2026-01-01" })).toBe("2026-01-01 以降の履歴スナップショットを修復する必要があります。");
 });
