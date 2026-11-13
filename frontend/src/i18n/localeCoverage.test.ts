@@ -257,13 +257,13 @@ describe("i18n regression guards", () => {
     expect(essential.filter(key => !japanese.has(key))).toEqual([]);
   });
 
-  it("keeps Japanese error messages and analytics available without fallback", () => {
+  it("keeps completed Japanese sections available without fallback", () => {
     const english = leafStrings(locales.en);
     const japanese = leafStrings(locales.ja);
     // Japanese has only the `other` plural category; English `_one` is not
     // needed for i18next to resolve a Japanese count.
     const required = [...english.keys()].filter(key =>
-      /^translation\.(?:error|analytics)\./.test(key) && !key.endsWith("_one"));
+      /^translation\.(?:error|analytics|dashboard|groups|icons|directory|institutionType|marketData|portfolio|connections|institutions|members|snapshot|review|metals|holdingsSummary|agent|cloudBackup|secretField|retention)\./.test(key) && !key.endsWith("_one"));
     expect(required.filter(key => !japanese.has(key))).toEqual([]);
   });
 

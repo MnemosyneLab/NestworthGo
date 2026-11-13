@@ -46,7 +46,7 @@ it.each(SUPPORTED_LANGUAGES)("loads shared control and activity labels directly 
   }
 });
 
-it("loads Japanese error and analytics labels on mobile without fallback", async () => {
+it("loads completed Japanese sections on mobile without fallback", async () => {
   const resource = await loadMobileTranslation("ja");
   const visit = (node: unknown, path: string) => {
     if (node !== null && typeof node === "object") {
@@ -58,7 +58,7 @@ it("loads Japanese error and analytics labels on mobile without fallback", async
       expect(mobile, path).toBe(i18n.getResource("ja", "translation", path));
     }
   };
-  for (const section of ["error", "analytics"]) {
+  for (const section of ["error", "analytics", "dashboard", "groups", "icons", "directory", "institutionType", "marketData", "portfolio", "connections", "institutions", "members", "snapshot", "review", "metals", "holdingsSummary", "agent", "cloudBackup", "secretField", "retention"]) {
     visit(i18n.getResource("en", "translation", section), section);
   }
 });

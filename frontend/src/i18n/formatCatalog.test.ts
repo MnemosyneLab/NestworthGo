@@ -46,3 +46,16 @@ it("distinguishes Japanese funding, attribution, institution and account terms",
   expect(i18n.t("enum.brokerage", { lng: "ja" })).toBe("証券口座");
   expect(i18n.t("valuation.estimatedChange", { lng: "ja" })).toContain("資金の流入・流出");
 });
+
+it("preserves the meaning of Japanese market-data coverage and repair notices", () => {
+  expect(i18n.t("marketData.work.missing_or_due", { lng: "ja" })).toBe("価格がないか、更新時期です");
+  expect(i18n.t("portfolio.completenessDescription", { lng: "ja" })).toContain("ゼロとして扱われることはありません");
+  expect(i18n.t("connections.currentVsHistory", { lng: "ja" })).toContain("現在の相場では過去のデータ不足を補えません");
+});
+
+it("keeps Japanese backup and agent safety explanations explicit", () => {
+  expect(i18n.t("cloudBackup.connectionPassed", { lng: "ja" })).toContain("書き込み権限を保証しません");
+  expect(i18n.t("cloudBackup.recoveryHelp", { lng: "ja" })).toContain("スキーマ 21、22、23");
+  expect(i18n.t("agent.writeHelp", { lng: "ja" })).toContain("書き込みごとに確認を求めません");
+  expect(i18n.t("retention.warning", { lng: "ja" })).toContain("元に戻せません");
+});
