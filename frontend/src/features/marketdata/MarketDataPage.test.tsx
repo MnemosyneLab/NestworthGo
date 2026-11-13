@@ -608,5 +608,5 @@ it("retains original-currency prices in the history table without treating them 
   expect(await screen.findByText(/Historical observations in other currencies/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("View data table"));
   expect(screen.getByText("US$1.1066")).toBeInTheDocument();
-  expect(screen.getByText("¥123.456")).toBeInTheDocument();
+  expect(screen.getByText("JP¥123.456")).toBeInTheDocument();
 });

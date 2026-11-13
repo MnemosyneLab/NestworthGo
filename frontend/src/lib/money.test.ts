@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import { resetDisplayPreferences, setDisplayPreferences } from "./displayPreferences";
-import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAnnualRatePercent, formatAuditMoney, formatCount, formatDecimalPercent, formatDecimalRatioPercent, formatPercent, formatQuantity, formatSignedMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, formatAnnualRatePercent, formatAuditMoney, formatCount, formatDecimalPercent, formatDecimalRatioPercent, formatPercent, formatQuantity, formatQuotePrice, formatSignedMoney, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   resetDisplayPreferences();
@@ -9,6 +9,35 @@ afterEach(async () => {
 });
 
 describe("formatAmount", () => {
+  it.each(["en", "zh-CN", "zh-TW", "ja"])("keeps supported currency prefixes consistent and distinct in %s", async language => {
+    await i18n.changeLanguage(language);
+    const expected: Record<string, string> = {
+      CNY: "CN¥1,234.56", JPY: "JP¥1,235", USD: "US$1,234.56", SGD: "S$1,234.56", HKD: "HK$1,234.56",
+      TWD: "NT$1,234.56", AUD: "A$1,234.56", EUR: "€1,234.56", GBP: "£1,234.56", KRW: "₩1,235", CHF: "CHF 1,234.56",
+    };
+    for (const [currency, formatted] of Object.entries(expected)) {
+      expect(formatAmount("1234.56", currency), currency).toBe(formatted);
+      expect(formatAmount("-1234.56", currency), currency).toBe(`-${formatted}`);
+      expect(formatSignedMoney("1234.56", currency), currency).toBe(`+${formatted}`);
+    }
+  });
+
+  it.each(["en", "zh-CN", "zh-TW", "ja"])("keeps currency identity in quotes, audits and legacy currency codes in %s", async language => {
+    await i18n.changeLanguage(language);
+    expect(formatQuotePrice("-1234.5678", "JPY")).toBe("-JP¥1,234.5678");
+    expect(formatQuotePrice("1234.5678", "CNY")).toBe("CN¥1,234.5678");
+    expect(formatAuditMoney("1000.40", "JPY")).toBe("JP¥1,000 (1000.40 JPY)");
+    expect(formatAmount("1234.56", "CAD")).toMatch(/^CAD\s1,234\.56$/);
+    expect(formatAmount("-1234.56", "NZD")).toMatch(/^-NZD\s1,234\.56$/);
+    expect(formatAmount("999999999999999999999.995", "CNY")).toBe("CN¥1,000,000,000,000,000,000,000.00");
+    expect(formatSignedMoney("-0", "JPY")).toBe("JP¥0");
+    expect(formatAmount("-0.004", "CNY")).toContain("CN¥0.00");
+    expect(formatAmount("-0.004", "CNY")).toContain(i18n.t("moneyDisplay.tiny", { lng: language, direction: "−", threshold: "CN¥0.01" }));
+    setDisplayPreferences({ decimalSeparator: ",", groupingSeparator: "." });
+    expect(formatAmount("-1234.56", "CNY")).toBe("-CN¥1.234,56");
+    expect(formatQuotePrice("1234.5678", "JPY")).toBe("JP¥1.234,5678");
+  });
+
   it.each(["en"])("shows exact signed subminor audit amounts in %s", async language => {
     await i18n.changeLanguage(language);
     for (const currency of ["USD", "CNY", "JPY", "KRW"]) {
@@ -49,7 +78,7 @@ describe("formatAmount", () => {
     await i18n.changeLanguage("zh-TW");
     expect(formatAmount("1234.5", "TWD")).toContain("NT$");
     expect(formatAmount("1234.5", "HKD")).toContain("HK$");
-    expect(formatAmount("1234.5", "SGD")).toContain("SGD");
+    expect(formatAmount("1234.5", "SGD")).toContain("S$");
   });
 
   it.each([
@@ -178,25 +207,25 @@ it("keeps display scales separate from command scales and normalizes negative di
   const { currencyFractionDigits, formatQuotePrice, formatMoney } = await import("./money");
   await i18n.changeLanguage("en");
   expect(currencyFractionDigits("JPY")).toBe(0);
-  expect(formatAmount("12.3456", "JPY")).toBe("¥12");
-  expect(formatAmount("1000", "JPY")).toBe("¥1,000");
+  expect(formatAmount("12.3456", "JPY")).toBe("JP¥12");
+  expect(formatAmount("1000", "JPY")).toBe("JP¥1,000");
   expect(formatAmount("1500", "KRW")).toBe("₩1,500");
   await i18n.changeLanguage("zh-CN");
-  expect(formatAmount("1000", "JPY")).toBe("¥1,000");
+  expect(formatAmount("1000", "JPY")).toBe("JP¥1,000");
   expect(formatAmount("1500", "KRW")).not.toMatch(/\.00/);
   await i18n.changeLanguage("en");
   expect(formatQuotePrice("1.1066", "USD")).toBe("US$1.1066");
   expect(formatQuotePrice("0.0000000012", "USD")).toBe("US$0.0000000012");
   expect(formatMoney("12.3456")).toBe("12.35");
   expect(formatAmount("-0.004", "USD")).toBe("US$0.00 · − nonzero, below US$0.01");
-  expect(formatAmount("0.1", "JPY")).toBe("¥0 · + nonzero, below ¥1");
-  expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − nonzero, below ¥1");
+  expect(formatAmount("0.1", "JPY")).toBe("JP¥0 · + nonzero, below JP¥1");
+  expect(formatAmount("-0.1", "JPY")).toBe("JP¥0 · − nonzero, below JP¥1");
   expect(formatAmount("-0.4", "KRW")).toBe("₩0 · − nonzero, below ₩1");
   await i18n.changeLanguage("zh-CN");
-  expect(formatAmount("0.1", "JPY")).toBe("¥0 · + 非零，小于 ¥1");
-  expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − 非零，小于 ¥1");
+  expect(formatAmount("0.1", "JPY")).toBe("JP¥0 · + 非零，小于 JP¥1");
+  expect(formatAmount("-0.1", "JPY")).toBe("JP¥0 · − 非零，小于 JP¥1");
   await i18n.changeLanguage("zh-TW");
-  expect(formatAmount("-0.1", "JPY")).toBe("¥0 · − 非零，小於 ¥1");
+  expect(formatAmount("-0.1", "JPY")).toBe("JP¥0 · − 非零，小於 JP¥1");
   await i18n.changeLanguage("en");
   expect(formatAmount("-0.00", "USD")).toBe("US$0.00");
   expect(formatAmount("0.005", "USD")).toContain("US$0.00");
@@ -245,8 +274,8 @@ it("formats quantities, counts, annual rates and separator settings without chan
   expect(formatAnnualRatePercent("0.0250")).toBe("2.5%");
   expect(formatAnnualRatePercent("0.1000")).toBe("10%");
   expect(formatAnnualRatePercent("-0.03525")).toBe("-3.525%");
-  expect(formatAuditMoney("1000.00", "JPY")).toBe("¥1,000");
-  expect(formatAuditMoney("1000.40", "JPY")).toBe("¥1,000 (1000.40 JPY)");
+  expect(formatAuditMoney("1000.00", "JPY")).toBe("JP¥1,000");
+  expect(formatAuditMoney("1000.40", "JPY")).toBe("JP¥1,000 (1000.40 JPY)");
   setDisplayPreferences({ decimalSeparator: ",", groupingSeparator: "." });
   expect(formatAmount("1234.5", "EUR")).toBe("€1.234,50");
   setDisplayPreferences({ decimalSeparator: ".", groupingSeparator: "space" });

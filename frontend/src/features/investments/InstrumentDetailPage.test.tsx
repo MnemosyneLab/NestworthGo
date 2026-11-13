@@ -78,7 +78,7 @@ it("keeps a single zero-quantity account visible and leaves missing valuation un
   const rows = within(screen.getByRole("list", { name: "Accounts" })).getAllByRole("listitem");
   expect(rows).toHaveLength(1);
   expect(rows[0]).toHaveTextContent("Zero quantity / closed position");
-  expect(rows[0]).toHaveTextContent("¥0");
+  expect(rows[0]).toHaveTextContent("JP¥0");
   expect(within(rows[0]).getAllByText("No current value")).toHaveLength(2);
 });
 

@@ -784,14 +784,14 @@ describe("AccountsPage", () => {
     expect(slices[0]).toHaveTextContent("NVIDIA");
     expect(slices[1]).toHaveTextContent("USD");
     expect(slices[2]).toHaveTextContent("SGD");
-    expect(screen.getByTestId("composition-native-cash-SGD")).toHaveTextContent(/SGD\s*200\.00/);
+    expect(screen.getByTestId("composition-native-cash-SGD")).toHaveTextContent(/S\$\s*200\.00/);
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
     const cashHoldingsLayout = screen.getByTestId("account-cash-holdings-layout");
     expect(cashHoldingsLayout).toHaveClass("grid-cols-1");
     expect(cashHoldingsLayout).not.toHaveClass("lg:grid-cols-2");
     expect(screen.getAllByText("US$800.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/S\$\s*200\.00/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);
     expect(screen.getByRole("listitem", { name: "Stocks" })).toBeInTheDocument();
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
@@ -920,16 +920,16 @@ describe("AccountsPage", () => {
     expect(within(history).getByText("Money removed")).toBeInTheDocument();
     expect(within(history).getByText("Salary")).toBeInTheDocument();
     expect(within(history).getByText("Broker fee")).toBeInTheDocument();
-    expect(history.textContent).not.toContain("+SGD");
-    expect(history.textContent).toContain("+ nonzero, below SGD");
+    expect(history.textContent).not.toContain("+S$0.00");
+    expect(history.textContent).toContain("+ nonzero, below S$0.01");
     expect(history.textContent).toContain("− nonzero");
     const rows = within(history).getAllByRole("row").slice(1);
-    expect(within(rows[0]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · \+ nonzero, below SGD\s*0\.01$/);
+    expect(within(rows[0]).getAllByRole("cell")[1]).toHaveTextContent(/^S\$\s*0\.00 · \+ nonzero, below S\$\s*0\.01$/);
     expect(within(rows[0]).getAllByRole("cell")[2]).toHaveTextContent(/^CN¥12,345\.68$/);
-    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below SGD\s*0\.01$/);
-    expect(within(rows[1]).getAllByRole("cell")[2]).toHaveTextContent(/^SGD\s*0\.00 · − nonzero, below SGD\s*0\.01$/);
+    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(/^S\$\s*0\.00 · − nonzero, below S\$\s*0\.01$/);
+    expect(within(rows[1]).getAllByRole("cell")[2]).toHaveTextContent(/^S\$\s*0\.00 · − nonzero, below S\$\s*0\.01$/);
     expect(history.textContent).not.toMatch(/12345\.6789|0\.004|0\.0001|\([^)]*(?:CNY|SGD)\)/);
-    expect(history.textContent).toMatch(/SGD\s*0\.00 · − nonzero, below SGD\s*0\.01/);
+    expect(history.textContent).toMatch(/S\$\s*0\.00 · − nonzero, below S\$\s*0\.01/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
       "2026-09-15T03:05:00.000Z",
@@ -984,7 +984,7 @@ describe("AccountsPage", () => {
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
     expect(screen.getByTestId("composition-slice-cash-SGD")).toHaveTextContent("SGD");
-    expect(screen.getAllByText(/SGD\s*300\.00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/S\$\s*300\.00/).length).toBeGreaterThan(0);
     expect(screen.queryByText("Investments")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Buy investment" })).not.toBeInTheDocument();
   });
@@ -1769,9 +1769,12 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
   await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
   const form = await screen.findByRole("form", { name: "Add cash balance" });
+  await userEvent.selectOptions(within(form).getByLabelText("Currency"), "CNY");
   await userEvent.type(within(form).getByLabelText("Resulting balance"), "10.0001");
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
   const review = await within(form).findByRole("status");
+  expect(previewCash).toHaveBeenCalledWith("brk-1", "10.0001", "CNY", null);
+  expect(within(form).getByLabelText("Resulting balance")).toHaveValue("10.0001");
   expect(review).toHaveTextContent("CN¥10.00");
   expect(review).toHaveTextContent("10.0001 CNY");
   expect(review).toHaveTextContent("CN¥0.00 · + nonzero, below CN¥0.01 (0.0001 CNY)");
@@ -1880,7 +1883,7 @@ it("keeps a priced holding's native amount visible when household FX is missing"
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
   const row = await screen.findByRole("row", { name: /Native holding/ });
-  expect(row).toHaveTextContent(/SGD\s*123\.00/);
+  expect(row).toHaveTextContent(/S\$\s*123\.00/);
   expect(row).not.toHaveTextContent("No current price");
 });
 

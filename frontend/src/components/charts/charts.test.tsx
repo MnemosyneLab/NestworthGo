@@ -67,7 +67,7 @@ describe("chart interactions", () => {
       />,
     );
 
-    expect(screen.getByTestId("composition-native-sgd")).toHaveTextContent(/SGD\s*270\.00/);
+    expect(screen.getByTestId("composition-native-sgd")).toHaveTextContent(/S\$\s*270\.00/);
     expect(screen.queryByTestId("composition-native-usd")).not.toBeInTheDocument();
     expect(screen.getByTestId("composition-slice-sgd")).toHaveTextContent("US$200.00");
   });

@@ -188,18 +188,22 @@ Native window/process close and restart UI acceptance remains a separate gate.
 
 ## Financial display and identities
 
-Ordinary money (including JPY/KRW) uses two display decimals through
-`formatAmount(value, currency)`; use `formatMoney` for currencyless money.
-`currencyFractionDigits` remains the ISO command-calculation scale. Never round
-DTOs, persisted decimals, inputs, or submitted/retried payloads for presentation.
+Ordinary money uses the currency's display scale through
+`formatAmount(value, currency)` (zero decimals for JPY/KRW, two for the other
+supported currencies); use `formatMoney` for currencyless money. Supported
+currencies use stable, distinct prefixes across languages: `CN¥`, `JP¥`,
+`US$`, `S$`, `HK$`, `NT$`, `A$`, `€`, `£`, `₩`, and `CHF`. Historical ISO
+codes outside the supported catalog display their currency code. User-selected
+decimal and grouping separators still apply. Never round DTOs, persisted
+decimals, inputs, or submitted/retried payloads for presentation.
 `formatQuotePrice` preserves unit-price/NAV precision; currencyless
 `formatAmount` preserves quantities and FX rates. Charts use canonical strings
 for tooltips/tables and numbers only for geometry. Known zero is money, missing
 is unavailable, and a known subtotal is never a fabricated full total. Rounded
 nonzero sub-cent values carry a direction/size hint without a signed zero;
 explicit exact audit/confirmation detail retains the canonical value. Aggregates
-keep their existing exact-sum-then-round semantics. Displayed two-decimal rows
-may therefore differ from the displayed total (for example, two exact 0.004
+keep their existing exact-sum-then-round semantics. Displayed rows may therefore
+differ from the displayed total (for example, two exact 0.004
 values display as 0.00 each while their 0.008 total displays as 0.01). Explain
 this through the shared rounding info popover on holdings and analysis, and
 existing amount/help popovers on liquidity and historical overview; never
