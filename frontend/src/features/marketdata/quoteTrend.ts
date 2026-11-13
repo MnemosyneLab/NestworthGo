@@ -35,7 +35,8 @@ export function quoteTrendProps(input: {
   const observations = series?.observations ?? [];
   const label = kind === "fx" ? t("charts.rate") : t("charts.price");
   const sourceLabel = (sourceKind: string, key?: string) => quoteSourceLabel(t, sourceKind, key);
-  const observationLabel = (point: Parameters<typeof quoteObservationLabel>[1]) => quoteObservationLabel(t, point);
+  const observationLabel = (point: Parameters<typeof quoteObservationLabel>[1]) =>
+    kind === "fx" && point.sourceKind === "manual" ? t("marketData.manualFXObservation") : quoteObservationLabel(t, point);
   const values = points.map((point) => currency && point.currency && point.currency !== currency ? null : point.value);
   const pointMeta = points.map((point, index) => ({
     breakBefore: point.breakBefore ?? (daily && index > 0 && points[index - 1].priceBasis !== point.priceBasis),
@@ -63,7 +64,8 @@ export function quoteTrendProps(input: {
     for (const [key, indices] of groups) {
       const included = new Set(indices);
       const first = points[indices[0]];
-      const name = t(`quoteDetails.kinds.${priceType(first)}`, { defaultValue: t("quoteDetails.kinds.unknown") });
+      const name = kind === "fx" && first.sourceKind === "manual" ? observationLabel(first)
+        : t(`quoteDetails.kinds.${priceType(first)}`, { defaultValue: t("quoteDetails.kinds.unknown") });
       const ordinal = (names.get(name) ?? 0) + 1;
       names.set(name, ordinal);
       chartSeries.push({

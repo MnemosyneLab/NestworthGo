@@ -20,6 +20,7 @@ import { useAccounts } from "@/queries/accounts";
 import { useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
 import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import { healthIssueLabel } from "./healthIssueLabel";
+import { ManualQuoteEntry } from "@/features/marketdata/ManualQuoteEntry";
 
 export function focusedHealthIssues(issues: HealthIssueDTO[] = [], focus?: HealthFocus): HealthIssueDTO[] {
   return issues.filter(issue => {
@@ -151,9 +152,6 @@ export function DataHealthPage({
       onOpenMarketData?.();
       return;
     }
-    if (issue.action === "manual_entry") {
-      onOpenMarketData?.();
-    }
   };
 
   const openPreview = () => {
@@ -244,6 +242,11 @@ export function DataHealthPage({
         <Button variant="ghost" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>
         {focus && !health.isFetching && issues.length === 0 && <p role="status">{t("connections.noMatchingGaps")}</p>}
       </div>}
+      {navigation && issues.some(issue => issue.kind.startsWith("snapshot") && issue.executable && !issue.collapsed) && (
+        <Button variant="link" size="sm" className="h-auto self-start p-0" onClick={() => navigation.open({ page: "settings", section: "data", focus: "history-rebuild" })}>
+          {t("settings.data.openHistoryRebuild")}
+        </Button>
+      )}
       {sync.current.data?.jobId && <SyncWorkDetails items={sync.current.data.items} current={running ? sync.current.data.current : undefined} />}
       <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
       <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
@@ -347,10 +350,8 @@ function IssueSection({
                       {t("dataHealth.openInstrument")}
                     </Button>
                   )}
-                  {issue.action === "manual_entry" && issue.kind !== "missing_agent_price" && issue.kind !== "missing_agent_fx" && (
-                    <Button type="button" size="sm" variant="outline" onClick={() => onAction(issue)}>
-                      {t("dataHealth.addManual")}
-                    </Button>
+                  {issue.action === "manual_entry" && (issue.instrumentId || (issue.currencyA && issue.currencyB)) && (
+                    <ManualQuoteEntry focus={issue} />
                   )}
                 </li>
               ))}

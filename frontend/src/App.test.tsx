@@ -423,15 +423,17 @@ describe("App shell smoke test", () => {
     expect(screen.getByLabelText(i18n.t("about.title"))).toBeInTheDocument();
   });
 
-  it("renders the blocked-startup page when the database is unavailable", async () => {
+  it.each(["en", "zh-CN", "zh-TW", "ja"])("renders blocked startup in %s without querying ledger settings", async (language) => {
     await i18n.changeLanguage("en");
-    startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database" });
+    startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database", language });
     render(
       <AppProviders>
         <App />
       </AppProviders>,
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle", { lng: language }));
+    expect(document.documentElement.lang).toBe(language);
+    expect(settingsLoad).not.toHaveBeenCalled();
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
   });
 
@@ -670,6 +672,11 @@ it.each(["lavender", "mint", "sky", "peach"] as const)("restores %s accent on co
   await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", "indigo"));
 });
 
+async function openCheckingReturns(user = userEvent.setup()) {
+  await user.click(within(screen.getByRole("banner")).getByRole("button", { name: "Actions for Checking" }));
+  await user.click(await screen.findByRole("menuitem", { name: i18n.t("connections.viewReturn") }));
+}
+
 it("returns from account analysis with the source archive filter and scroll position intact", async () => {
   await i18n.changeLanguage("en");
   listAccounts.mockResolvedValue([checkingAccount]);
@@ -683,7 +690,7 @@ it("returns from account analysis with the source archive filter and scroll posi
   await screen.findByTestId("account-detail");
   const main = document.getElementById("main-content")!;
   main.scrollTop = 170;
-  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
+  await openCheckingReturns();
   expect(await screen.findByRole("button", { name: /^Go back to Accounts(?: ·|$)/ })).toBeVisible();
   expect(screen.getByTestId("account-detail")).not.toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: /^Go back to Accounts(?: ·|$)/ }));
@@ -725,7 +732,7 @@ it("retains the upcoming filter and restores its trigger after Back", async () =
   await vi.dynamicImportSettled();
   const filter = await screen.findByRole("button", { name: "Reservation issues" });
   await userEvent.click(filter);
-  const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) });
+  const health = await screen.findByRole("button", { name: i18n.t("upcomingActions.openDataMaintenance") });
   await userEvent.click(health);
   await userEvent.click(await screen.findByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
   await waitFor(() => expect(filter).toHaveAttribute("aria-pressed", "true"));
@@ -878,7 +885,7 @@ it("blocks top-level and object navigation while a sheet confirmation is unresol
   await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
   await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
   await screen.findByTestId("account-detail");
-  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
+  await openCheckingReturns();
   const back = await screen.findByRole("button", { name: /^Go back to Accounts(?: ·|$)/ });
   registerSheetConfirmation(owner);
   try {
@@ -928,7 +935,7 @@ it("blocks App and object navigation during an actual ordinary submission and it
   const overviewNav = within(nav).getByRole("button", { name: "Overview" });
   await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
   const detail = await screen.findByTestId("account-detail");
-  const analysis = within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" });
+  const analysis = within(screen.getByRole("banner")).getByRole("button", { name: "Actions for Checking" });
   await userEvent.click(screen.getByRole("button", { name: "Update balance" }));
   const form = await screen.findByRole("form", { name: "Record change" });
   const value = within(form).getByLabelText("New value");
@@ -1088,7 +1095,7 @@ describe("reconciliation navigation boundaries", () => {
     expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
 
     await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
-    await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+    await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.openDataMaintenance") }));
     await vi.dynamicImportSettled();
     await user.click(await screen.findByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
     await user.click(screen.getByRole("tab", { name: /Reconciliation/ }));
@@ -1136,7 +1143,7 @@ describe("reconciliation navigation boundaries", () => {
     await user.click(screen.getByRole("button", { name: "Continue session" }));
     expect(await screen.findByRole("button", { name: "Back to session list" })).toBeVisible();
     await user.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
-    await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+    await user.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.openDataMaintenance") }));
     await vi.dynamicImportSettled();
     await user.click(await screen.findByRole("button", { name: /^Go back to Tasks & checks(?: ·|$)/ }));
     await user.click(screen.getByRole("tab", { name: /Reconciliation/ }));
@@ -1215,7 +1222,7 @@ it.each([false, true])("restores the original reconciliation entry after a neste
     await userEvent.keyboard("{Escape}");
   }
   await userEvent.click(screen.getByRole("tab", { name: /Upcoming actions/ }));
-  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 0 }) }));
+  await userEvent.click(await screen.findByRole("button", { name: i18n.t("upcomingActions.openDataMaintenance") }));
   await userEvent.click(await screen.findByRole("button", { name: "View gap" }));
   await screen.findByRole("dialog");
   await userEvent.keyboard("{Escape}");
@@ -1576,7 +1583,7 @@ it("restores source scroll when the external analysis store forces an intermedia
   await screen.findByTestId("account-detail");
   const main = document.getElementById("main-content")!;
   main.scrollTop = 170;
-  await user.click(within(screen.getByRole("banner")).getByRole("button", { name: "Return analysis" }));
+  await openCheckingReturns(user);
   const original = useAnalysisStore.setState;
   const setState = vi.spyOn(useAnalysisStore, "setState").mockImplementation(state => {
     flushSync(() => original(state));

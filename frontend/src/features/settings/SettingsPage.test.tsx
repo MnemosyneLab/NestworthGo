@@ -3,6 +3,7 @@ import { capturePageContent } from "@/features/assistant/pageContent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { useUiStore } from "@/stores/ui";
@@ -97,7 +98,7 @@ const defaultSettings = {
   fxProvider: "frankfurter",
 };
 
-afterEach(async () => { await i18n.changeLanguage("en"); });
+afterEach(async () => { vi.restoreAllMocks(); await i18n.changeLanguage("en"); });
 
 beforeEach(() => {
   ai.Status.mockResolvedValue({ epoch: "synthetic-host", credentials: "missing" });
@@ -119,6 +120,35 @@ beforeEach(() => {
 });
 
 describe("SettingsPage", () => {
+  it.each([
+    { initial: "en", selected: "ja", expected: "設定を保存しました" },
+    { initial: "ja", selected: "en", expected: "Settings saved" },
+    { initial: "en", selected: "system", expected: "設定を保存しました" },
+  ])("announces a saved language using the resolved language: $initial to $selected", async ({ initial, selected, expected }) => {
+    const success = vi.spyOn(toast, "success").mockReturnValue("synthetic-toast");
+    await i18n.changeLanguage(initial);
+    load.mockResolvedValue({ ...defaultSettings, language: initial, systemLanguage: "ja" });
+    const labels = i18n.getFixedT(initial);
+    renderPage();
+    const language = await screen.findByLabelText(labels("settings.language.language"));
+    await userEvent.selectOptions(language, selected);
+    await userEvent.click(screen.getByRole("button", { name: labels("settings.saveChanges") }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith(expected));
+  });
+
+  it("announces restored defaults using their resolved language", async () => {
+    const success = vi.spyOn(toast, "success").mockReturnValue("synthetic-toast");
+    await i18n.changeLanguage("ja");
+    load.mockResolvedValue({ ...defaultSettings, language: "ja" });
+    reset.mockResolvedValue(defaultSettings);
+    const label = i18n.getFixedT("ja")("settings.resetAllPreferences");
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: label }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: label }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith("Settings restored to defaults"));
+  });
+
   it("saves the edited appearance and language", async () => {
     renderPage();
     await screen.findByRole("form", { name: "Settings" });

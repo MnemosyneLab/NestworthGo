@@ -7,14 +7,12 @@ import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
 import zhTW from "./locales/zh-TW.json";
 import fieldLabelKeysEn from "./locales/fieldLabelKeys.json";
-import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 
 /**
- * Every i18next key that exists in one locale bundle must exist in every
- * other supported locale, so no `zh-CN`/`zh-TW` render falls back to a raw
- * key or to English text.
+ * Check effective bundles as well as source catalogs. Japanese plural rules
+ * use `other`, so English-only `_one` forms are not required in Japanese.
  */
 
 type Tree = Record<string, unknown>;
@@ -182,10 +180,6 @@ describe("i18next locale coverage", () => {
     }
   });
 
-  it("the errorCode namespace has identical keys across en/zh-CN/zh-TW, keyed 1:1 by domain.ErrorCode", () => {
-    assertSameKeySet("errorCode", errorCodesEn, { "zh-CN": errorCodesZhCN, "zh-TW": errorCodesZhTW });
-  });
-
   it("no locale has an empty string for a key present in another locale (a common silent-drop mistake)", () => {
     const merged = mergedLocaleTrees();
     for (const [locale, tree] of Object.entries(merged)) {
@@ -239,11 +233,46 @@ function placeholders(value: string): string[] {
   return [...named, ...printf];
 }
 
+function missingJapaneseKeys(english: Map<string, string>, japanese: Map<string, string>): string[] {
+  return [...english.keys()].filter(key => !key.endsWith("_one") && !japanese.has(key));
+}
+
 describe("i18n regression guards", () => {
   const locales = mergedLocaleTrees();
 
   it("keeps merged en, zh-CN, and zh-TW catalogs on the same keys", () => {
     assertSameKeySet("merged", locales.en, { "zh-CN": locales["zh-CN"], "zh-TW": locales["zh-TW"] });
+  });
+
+  it("keeps the same error codes in every supported locale", () => {
+    const bundles = Object.fromEntries(SUPPORTED_LANGUAGES.map(locale => [locale, i18n.getResourceBundle(locale, "errorCode")]));
+    const { en, ...translations } = bundles;
+    assertSameKeySet("errorCode", en, translations);
+  });
+
+  it("keeps essential Japanese UI labels available without fallback", () => {
+    const japanese = leafStrings(locales.ja);
+    const english = leafStrings(locales.en);
+    expect([...japanese.keys()].filter(key => !english.has(key))).toEqual([]);
+    const essential = [...english.keys()].filter(key =>
+      /^translation\.(?:nav|common|startup|onboarding|datePicker|mobile)\./.test(key) &&
+      !key.endsWith("_one"));
+    expect(essential.filter(key => !japanese.has(key))).toEqual([]);
+  });
+
+  it("keeps the merged Japanese catalog available without English fallback", () => {
+    const english = leafStrings(locales.en);
+    const japanese = leafStrings(locales.ja);
+    // Japanese has only the `other` plural category; English `_one` is not
+    // needed for i18next to resolve a Japanese count.
+    expect(missingJapaneseKeys(english, japanese)).toEqual([]);
+    expect([...japanese.keys()].filter(key => !english.has(key))).toEqual([]);
+  });
+
+  it("detects a missing Japanese key while allowing English-only singular forms", () => {
+    const english = new Map([["label", "Label"], ["count_one", "{{count}} item"], ["count_other", "{{count}} items"]]);
+    const japanese = new Map([["count_other", "{{count}} 件"]]);
+    expect(missingJapaneseKeys(english, japanese)).toEqual(["label"]);
   });
 
   it("pairs English plural keys and gives count strings plural forms", () => {
@@ -266,15 +295,30 @@ describe("i18n regression guards", () => {
     const issues: string[] = [];
     for (const key of leaves.en.keys()) {
       const expected = placeholders(leaves.en.get(key) ?? "");
-      for (const locale of ["zh-CN", "zh-TW"] as const) {
+      for (const locale of SUPPORTED_LANGUAGES.filter(language => language !== "en")) {
+        if (locale === "ja" && key.endsWith("_one") && !leaves.ja.has(key)) continue;
         const actual = placeholders(leaves[locale].get(key) ?? "");
         if (expected.join("|") !== actual.join("|")) issues.push(`${locale} ${key}: ${actual.join(",")} != ${expected.join(",")}`);
       }
     }
     expect(issues).toEqual([]);
   });
+
+  it("preserves nested translation references in Japanese strings", () => {
+    const english = leafStrings(locales.en);
+    const japanese = leafStrings(locales.ja);
+    const refs = (value: string) => [...value.matchAll(/\$t\(\s*([^,\s)]+)/g)].map(match => match[1]).sort();
+    const issues: string[] = [];
+    for (const [key, value] of japanese) {
+      if (!english.has(key)) continue;
+      if (refs(value).join("|") !== refs(english.get(key) ?? "").join("|")) issues.push(key);
+    }
+    expect(issues).toEqual([]);
+  });
 });
-it("covers Tasks & checks in every supported locale", () => { assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW }); });
+it("keeps the English and Chinese Tasks & checks overlays aligned", () => {
+  assertSameKeySet("tasks", tasksEn, { "zh-CN": tasksZhCN, "zh-TW": tasksZhTW });
+});
 
 it("keeps reviewed Traditional Chinese destination names throughout effective resources", () => {
   const leaves = leafStrings(i18n.getResourceBundle("zh-TW", "translation"));

@@ -331,7 +331,7 @@ export function currencyFractionDigits(currency: string, locale = i18n.language 
  * this formatted output.
  *
  * The canonical digits stay strings throughout this function. Intl is used
- * only to discover locale presentation tokens and currency placement, never
+ * only to discover fallback currency presentation, never
  * to parse the financial value through a binary floating-point Number.
  * When a currency code is supplied, the amount is rounded to that
  * currency's ISO 4217 scale (JPY and KRW have none). ISO calculation
@@ -355,13 +355,7 @@ export function formatAmount(amount: string, currency?: string): string {
     try {
       const fractionDigits = currencyFractionDigits(currency, locale);
       const [integerPart, fractionPart] = roundDecimal(rawInteger, rawFraction, fractionDigits);
-      const currencyFormatter = new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency,
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      });
-      const affixes = stableCurrencyAffixes(currency, numericAffixes(currencyFormatter, negative && /[1-9]/.test(integerPart + fractionPart) ? -1234.5 : 1234.5));
+      const affixes = currencyAffixes(currency, locale, negative && /[1-9]/.test(integerPart + fractionPart));
       const currencyNumber = `${groupInteger(integerPart, groupingSeparator)}${fractionPart ? decimalSeparator + fractionPart : ""}`;
       const roundedAway = !/[1-9]/.test(integerPart + fractionPart) && /[1-9]/.test(rawInteger + rawFraction);
       const threshold = roundedAway ? formatAmount(minorUnit(fractionDigits), currency) : "";
@@ -376,25 +370,30 @@ export function formatAmount(amount: string, currency?: string): string {
   return `${negative ? "-" : ""}${number}`;
 }
 
-// Dollar ledgers share a bare "$" in some locales. Pin the disambiguating
-// symbol so USD is never shown as "$", and so Traditional Chinese does not
-// show TWD as "$" either. Other audited dollar codes already use a prefix
-// or an ISO code in en, zh-CN, and zh-TW.
-const PREFIXED_CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "US$",
+// Stable, distinct prefixes for every currency accepted by user-facing writes.
+// In particular, CLDR can render CNY as 元 or ¥ and JPY as ¥, depending on
+// language. The prefixes distinguish them without changing decimal values.
+const CURRENCY_PREFIXES: Record<string, string> = {
+  AUD: "A$",
+  CHF: "CHF ",
+  CNY: "CN¥",
+  EUR: "€",
+  GBP: "£",
+  HKD: "HK$",
+  JPY: "JP¥",
+  KRW: "₩",
+  SGD: "S$",
   TWD: "NT$",
+  USD: "US$",
 };
 
-function stableCurrencyAffixes(currency: string, affixes: { prefix: string; suffix: string }): { prefix: string; suffix: string } {
-  let next = affixes;
-  if (currency === "JPY") {
-    const normalize = (value: string) => value.replace(/JP[¥￥]/g, "¥");
-    next = { prefix: normalize(next.prefix), suffix: normalize(next.suffix) };
-  }
-  const pinned = PREFIXED_CURRENCY_SYMBOLS[currency];
-  if (!pinned) return next;
-  const normalize = (value: string) => (value.includes(pinned) ? value : value.split("$").join(pinned));
-  return { prefix: normalize(next.prefix), suffix: normalize(next.suffix) };
+function currencyAffixes(currency: string, locale: string, negative: boolean): { prefix: string; suffix: string } {
+  const prefix = CURRENCY_PREFIXES[currency];
+  if (prefix) return { prefix: `${negative ? "-" : ""}${prefix}`, suffix: "" };
+  // Legacy persisted ISO codes remain identifiable even when their native
+  // symbols collide with supported currencies.
+  const formatter = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "code" });
+  return numericAffixes(formatter, negative ? -1234.5 : 1234.5);
 }
 
 /** Quantities keep significant digits and drop only trailing canonical zeros. */
@@ -446,8 +445,7 @@ export function formatQuotePrice(value: string, currency?: string): string {
   const parts = parseCanonicalParts(value)!;
   const number = formatAmount(`${parts.integer}.${parts.fraction.padEnd(2, "0")}`);
   try {
-    const formatter = new Intl.NumberFormat(i18n.language || "en", { style: "currency", currency });
-    const affixes = stableCurrencyAffixes(currency, numericAffixes(formatter, parts.negative && canonicalDecimal(value) !== "0" ? -1234.5 : 1234.5));
+    const affixes = currencyAffixes(currency, i18n.language || "en", parts.negative && canonicalDecimal(value) !== "0");
     return `${affixes.prefix}${number}${affixes.suffix}`;
   } catch { return `${number} ${currency}`; }
 }

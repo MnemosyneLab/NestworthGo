@@ -4,6 +4,7 @@ import App from './App'
 import { AppProviders } from './app/providers'
 import '@fontsource-variable/plus-jakarta-sans'
 import './index.css'
+import './i18n'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

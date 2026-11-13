@@ -1,4 +1,4 @@
-import i18next from "@/i18n";
+import i18next from "@/i18n/runtime";
 import fieldLabelKeys from "@/i18n/locales/fieldLabelKeys.json";
 
 /**

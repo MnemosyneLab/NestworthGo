@@ -9,6 +9,10 @@ The sidebar selects the per-request model and supported reasoning effort; see
 account-access rules. There are no startup,
 reconnect or implicit retry model calls. Desktop writes default off. The UI permission modes are Read-only and Read & Write (可读写 / 可讀寫); the latter retains the internal Full permission and does not require per-change confirmation. Mobile model access remains closed. The existing deterministic page guide remains available on mobile.
 
+The sidebar distinguishes initial setup, a disabled assistant, and a previously
+selected model that is no longer enabled. It links to **Open AI Settings** for
+configuration and lets the user choose another enabled model when available.
+
 The enabled vertical covers current overview, accounts, closed-period attribution
 and one-shot model-selected navigation under a current desktop page lease,
 without a separate per-message approval.

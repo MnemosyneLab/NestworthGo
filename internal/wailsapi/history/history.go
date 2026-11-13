@@ -142,7 +142,7 @@ func (s *Service) PreviewChange(ctx context.Context, request ChangeCommandReques
 	if err := s.app.ValidateReconciliationCommandLink(ctx, request.ReconciliationLink, command, preview); err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	return wire.FromChangePreview(preview), nil
+	return wire.FromReviewedChangePreview(preview), nil
 }
 
 func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
@@ -207,7 +207,7 @@ func (s *Service) PreviewFixChange(ctx context.Context, activityID string, repla
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	return wire.FromChangePreview(preview), nil
+	return wire.FromReviewedChangePreview(preview), nil
 }
 
 func (s *Service) FixChange(ctx context.Context, activityID string, replacement ChangeCommandRequest) (wire.ChangePreviewDTO, error) {

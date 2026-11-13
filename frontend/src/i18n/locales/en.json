@@ -93,7 +93,18 @@
   "app": {
     "name": "Nestworth"
   },
+  "datePicker": {
+    "previousMonth": "Go to the Previous Month",
+    "nextMonth": "Go to the Next Month",
+    "chooseMonth": "Choose the Month",
+    "chooseYear": "Choose the Year",
+    "today": "Today, {{date}}",
+    "selected": "{{date}}, selected",
+    "weekNumber": "Week Number",
+    "week": "Week {{week}}"
+  },
   "common": {
+    "retryAction": "Try again",
     "loading": "Loading…",
     "unknownValue": "Unknown",
     "clearSelection": "Clear selection",
@@ -115,7 +126,6 @@
     "pending": "Saving…",
     "preview": "Preview",
     "previewData": "Preview data",
-    "previewNotice": "This is a visual preview. Your local financial data will connect here in a later release.",
     "reset": "Reset to defaults",
     "restore": "Restore",
     "retry": "Retry",
@@ -124,33 +134,6 @@
     "system": "System",
     "to": "to",
     "backToDraft": "Back to draft"
-  },
-  "dashboard": {
-    "accountCount": "%d accounts",
-    "accountsToReview": "Accounts to review",
-    "accountsTracked": "accounts tracked",
-    "activityDescription": "The activity ledger will explain how this picture changes over time.",
-    "allocation": "Allocation",
-    "assets": "Assets",
-    "cash": "Cash & equivalents",
-    "change": "This month",
-    "changeValue": "+2.8%",
-    "currentTotal": "Current total",
-    "eyebrow": "HOUSEHOLD SNAPSHOT",
-    "investments": "Investments",
-    "liabilities": "Liabilities",
-    "liquidAssets": "Liquid assets",
-    "netWorth": "Net worth",
-    "netWorthTrend": "Net worth trend",
-    "noActivity": "No live activities yet",
-    "previewTrend": "A lightweight preview of the view that will connect to historical snapshots.",
-    "property": "Property",
-    "recentActivity": "Recent activity",
-    "reviewDescription": "Keep your balance sheet fresh with a quick review rhythm.",
-    "reviewItemOne": "2 balances are ready for a refresh",
-    "reviewItemTwo": "1 account needs an ownership check",
-    "subtitle": "A calm view of the balance sheet, designed to stay understandable as your household grows.",
-    "title": "Your financial picture, in one place."
   },
   "enum": {
     "asset": "Asset",
@@ -383,6 +366,14 @@
     "name": "Name"
   },
   "history": {
+    "selectEmpty": "Select an option",
+    "reasonLabel": "Reason",
+    "changeGroups": { "cash": "Cash", "investment": "Investments", "debt": "Debt" },
+    "dateFilter": "Dates",
+    "rangeFrom": "From {{date}}",
+    "rangeThrough": "Through {{date}}",
+    "rangeAllDates": "All recorded dates",
+    "queryRange": "Date range in use: {{range}}",
     "account": "Account",
     "amount": "Amount",
     "applyFilters": "Apply",
@@ -404,6 +395,7 @@
     "fxFee": "Conversion fee",
     "holding": "Holding",
     "kind": {
+      "reversal": "Reversal",
       "buy": "Buy",
       "cash_in": "Money added",
       "cash_out": "Money removed",
@@ -638,6 +630,7 @@
     "name": "Name"
   },
   "marketData": {
+    "fxChartDescription": "Exchange rates in {{quote}} per 1 {{base}}.",
     "fx": "FX rates",
     "fxLocalFirst": "Quotes are stored locally and refreshed only by explicit user action.",
     "instruments": "Instruments",
@@ -738,7 +731,8 @@
       "en": "English",
       "system": "System",
       "zhCN": "简体中文",
-      "zhTW": "繁體中文"
+      "zhTW": "繁體中文",
+      "ja": "日本語"
     },
     "time": {
       "12h": "12-hour",
@@ -753,6 +747,7 @@
     }
   },
   "overview": {
+    "currentValuationIncomplete": "Current valuation incomplete",
     "accountCountDetail": "active accounts",
     "accounts": "Accounts",
     "assets": "Assets",
@@ -1053,6 +1048,8 @@
     "unitCostHint": "After history starts, enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
   },
   "connections": {
+    "historyCoverage": "Historical valuation: {{valued}} of {{total}} days have a total",
+    "noHistoricalCoverage": "No historical valuations in this range",
     "actions": "Actions",
     "actionsFor": "Actions for {{name}}",
     "accountReturns": "Return analysis",
@@ -1810,6 +1807,8 @@
     "sync_failed": "Refresh failed; check the connection and retry."
   },
   "holdingGroups": {
+    "showAccountHoldings": "Show holdings by account for {{name}}",
+    "hideAccountHoldings": "Hide holdings by account for {{name}}",
     "label": "Holdings by instrument type",
     "types": {
       "stock": "Stocks",

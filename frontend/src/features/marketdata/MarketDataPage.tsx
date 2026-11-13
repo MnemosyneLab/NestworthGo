@@ -1,17 +1,13 @@
 import type { HealthFocus } from "@/app/navigation";
+import { ManualQuoteEntry } from "./ManualQuoteEntry";
 import { FocusedRepair } from "./FocusedRepair";
 import { SyncWorkDetails } from "./SyncWorkDetails";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -22,17 +18,14 @@ import {
   useCurrentInstrumentQuote,
   useFXPreferences,
   useInstruments,
-  useAppendManualFXQuote,
   useSetFXPreference,
 } from "@/queries/investments";
-import { useSettings, useSupportedCurrencies } from "@/queries/settings";
+import { useSettings } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useOverview } from "@/queries/portfolio";
-import { useHistoryOrigin } from "@/queries/history";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatQuotePrice, formatAmount } from "@/lib/money";
 import { formatCivilDateRange, formatQuoteAsOf, formatTimestamp } from "@/lib/time";
-import { ymdInTimeZone } from "@/features/insights/calendar";
 import { sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -356,84 +349,6 @@ function SavedFXRow({
   );
 }
 
-function ManualFXQuoteForm({ onSaved, focus }: { onSaved: () => void; focus?: HealthFocus }) {
-  const { t } = useTranslation();
-  const currencies = useSupportedCurrencies();
-  const origin = useHistoryOrigin();
-  const today = ymdInTimeZone(new Date(), origin.data?.timezone ?? "UTC");
-  const appendQuote = useAppendManualFXQuote();
-  const options = currencies.data ?? [];
-  const [baseCurrency, setBaseCurrency] = useState(focus?.currencyA ?? "");
-  const [quoteCurrency, setQuoteCurrency] = useState(focus?.currencyB ?? "");
-  const [rate, setRate] = useState("");
-  const [effectiveDate, setEffectiveDate] = useState(focus?.rangeStart ?? "");
-  const selectedBaseCurrency = baseCurrency || options[0] || "";
-  const selectedQuoteCurrency = quoteCurrency || options[1] || options[0] || "";
-  const invalidPair = !selectedBaseCurrency || !selectedQuoteCurrency || selectedBaseCurrency === selectedQuoteCurrency;
-
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (invalidPair || !rate.trim()) return;
-    appendQuote.mutate({
-      baseCurrency: selectedBaseCurrency,
-      quoteCurrency: selectedQuoteCurrency,
-      rate: rate.trim(),
-      quotedAt: effectiveDate,
-    }, { onSuccess: onSaved });
-  };
-
-  return (
-    <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="manual-fx-base">{t("marketData.baseCurrency")}</Label>
-        <NativeSelect id="manual-fx-base" value={selectedBaseCurrency} onChange={(event) => setBaseCurrency(event.target.value)}>
-          {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-        </NativeSelect>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="manual-fx-quote">{t("marketData.quoteCurrency")}</Label>
-        <NativeSelect id="manual-fx-quote" value={selectedQuoteCurrency} onChange={(event) => setQuoteCurrency(event.target.value)}>
-          {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-        </NativeSelect>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="manual-fx-rate">{t("marketData.rate")}</Label>
-        <Input id="manual-fx-rate" inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="manual-fx-date">{t("marketData.effectiveDate")}</Label>
-        <DatePicker id="manual-fx-date" max={today} value={effectiveDate} onChange={setEffectiveDate} />
-        <p className="text-xs text-muted-foreground">{t("connections.manualDateZone")}</p>
-      </div>
-      {invalidPair && <p className="text-sm text-destructive">{t("marketData.invalidPair")}</p>}
-      {appendQuote.isError && <p role="alert" className="text-sm text-destructive">{displayError(appendQuote.error, t("marketData.loadError"))}</p>}
-      <Button type="submit" disabled={appendQuote.isPending || invalidPair || !rate.trim()} className="mt-auto w-full">
-        {appendQuote.isPending ? t("common.pending") : t("marketData.saveManualFX")}
-      </Button>
-    </form>
-  );
-}
-
-function ManualFXQuoteSheet({ focus, focusRequestId }: { focus?: HealthFocus; focusRequestId: number }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger className={buttonVariants({ size: "sm" })}>
-        <Plus className="size-4" aria-hidden="true" /> {t("marketData.manualFXTitle")}
-      </SheetTrigger>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>{t("marketData.manualFXTitle")}</SheetTitle>
-          <SheetDescription>{t("marketData.manualFXDescription")}</SheetDescription>
-        </SheetHeader>
-        <ManualFXQuoteForm key={focusRequestId} focus={focus} onSaved={() => setOpen(false)} />
-      </SheetContent>
-    </Sheet>
-  );
-}
-
 function SavedFXRates({
   fxPairs,
   fxPreferences,
@@ -568,7 +483,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
       <PageChrome
         pageId="market-data"
         title={t("nav.marketData")}
-        actions={tab === "fx" ? <ManualFXQuoteSheet focus={focus} focusRequestId={focusRequestId} /> : undefined}
+        actions={tab === "fx" && !focus ? <ManualQuoteEntry /> : undefined}
       />
       <PageIntro
         description={t("marketData.description")}
@@ -580,6 +495,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
         <p className="text-sm text-muted-foreground">{t("connections.currentVsHistory")}</p>
         {(focus.kind === "missing_agent_price" || focus.kind === "missing_agent_fx") && <p className="text-sm text-muted-foreground">{t("dataHealth.agentEntry")}</p>}
         <div className="flex flex-wrap gap-2">
+          {focus.action === "manual_entry" && (focus.instrumentId || (focus.currencyA && focus.currencyB)) && <ManualQuoteEntry key={focusRequestId} focus={focus} />}
           <Button variant="outline" size="sm" disabled={Boolean(focus.instrumentId && !instruments.data?.some(item => item.id === focus.instrumentId))} onClick={() => {
             const instrument = instruments.data?.find(item => item.id === focus.instrumentId);
             if (instrument) setHistoryTarget({ kind: "instrument", instrument });
@@ -587,10 +503,12 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
           }}>{t("charts.viewHistory")}</Button>
           {(focus.executable !== false && (focus.action === "repair" || !focus.action)) && <FocusedRepair focus={focus} />}
           {focus.executable === false && focus.action === "none" && <p role="status">{t("connections.noAutomaticRepair")}</p>}
+          {onOpenDataHealth && <Button type="button" variant="outline" size="sm" onClick={onOpenDataHealth}>{t("dataHealth.fixInDataHealth")}</Button>}
         </div>
         {focus.instrumentId && !instruments.isLoading && !instruments.isError && !instruments.data?.some(item => item.id === focus.instrumentId) && <p role="status">{t("connections.objectUnavailable")}</p>}
       </section>}
       <MarketDataSyncBar
+        showLatestActions={!focus}
         latestRefreshing={latestRefreshing || setFXPreference.isPending}
         onRefreshMissing={runRefreshMissingOrStale}
         onRefreshAll={runRefreshAll}
@@ -629,6 +547,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
           <TabsContent value="instruments" keepMounted>
             <InstrumentManagement
               focus={focus}
+              openManualEditor={false}
               focusRequestId={focusRequestId}
               searchQuery={searchQuery}
               onSearchQueryChange={onSearchQueryChange}

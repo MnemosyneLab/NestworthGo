@@ -585,10 +585,13 @@ describe("MarketDataPage", () => {
   it("sends the focused manual FX date unchanged to the backend", async () => {
     appendManualFXQuote.mockResolvedValue({});
     renderPage({ currencyA: "USD", currencyB: "CNY", action: "manual_entry", rangeStart: "2026-09-01", rangeEnd: "2026-09-02" });
-    await userEvent.click(await screen.findByRole("button", { name: /manual FX/i }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add manual data" }));
     await userEvent.type(screen.getByLabelText("Rate"), "7");
+    expect(screen.getByLabelText("Rate")).toHaveAccessibleDescription("1 USD = 7 CNY");
     await userEvent.click(screen.getByRole("button", { name: /save manual FX/i }));
     await waitFor(() => expect(appendManualFXQuote).toHaveBeenCalledWith("USD", "CNY", "7", "2026-09-01"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Add manual data" })).toHaveFocus();
   });
 
 });
@@ -605,5 +608,5 @@ it("retains original-currency prices in the history table without treating them 
   expect(await screen.findByText(/Historical observations in other currencies/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("View data table"));
   expect(screen.getByText("US$1.1066")).toBeInTheDocument();
-  expect(screen.getByText("¥123.456")).toBeInTheDocument();
+  expect(screen.getByText("JP¥123.456")).toBeInTheDocument();
 });

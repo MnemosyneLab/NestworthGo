@@ -435,6 +435,13 @@ func TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays(t *testing.T) {
 	if result.Coverage != (domain.RateCoverage{RatedDays: 2, TotalDays: 3}) || result.Status != domain.CompletenessPartial || result.ReturnRate == nil {
 		t.Fatalf("coverage with one unavailable day = %+v, status=%s, rate=%v", result.Coverage, result.Status, result.ReturnRate)
 	}
+	trend, err := projectReturnTrend(result, "", ReturnTrendLinkedRate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trend.MissingValuationDays != 1 || trend.AmountWithoutRateDays != 0 || !trend.Points[2].ValuationMissing {
+		t.Fatalf("missing snapshot must be a valuation gap: %+v", trend)
+	}
 	query.To = "2026-08-06"
 	result, err = ComputeAnalysis(input, query)
 	if err != nil {

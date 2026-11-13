@@ -134,6 +134,21 @@ describe("DataHealthPage", () => {
     expect(refreshAll).not.toHaveBeenCalled();
   });
 
+  it("opens the history recalculation section from a repairable snapshot", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: false, issueCount: 1, executableCount: 1, prerequisiteCount: 0, snapshotDays: 1,
+      issues: [{
+        id: "snapshot", kind: "snapshot_missing", severity: "blocking", action: "repair",
+        rangeStart: "2026-09-20", rangeEnd: "2026-09-20", executable: true,
+      }],
+    });
+    const open = vi.fn();
+    renderPage({}, { open, openHealth: vi.fn() });
+    await userEvent.click(await screen.findByRole("button", { name: "Open history recalculation" }));
+    expect(open).toHaveBeenCalledWith({ page: "settings", section: "data", focus: "history-rebuild" });
+    expect(startSync).not.toHaveBeenCalled();
+  });
+
   it("keeps pending coverage distinct from an unavailable holding amount", async () => {
     scanHealth.mockResolvedValue({
       healthy: false, issueCount: 1, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0,
@@ -230,7 +245,8 @@ describe("DataHealthPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open provider settings" }));
     expect(onOpenSettings).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Add manual data" }));
-    expect(onOpenMarketData).toHaveBeenCalled();
+    expect(await screen.findByRole("dialog", { name: "Set price" })).toBeInTheDocument();
+    expect(onOpenMarketData).not.toHaveBeenCalled();
   });
 
   it("shows a repair preview before starting Repair All", async () => {

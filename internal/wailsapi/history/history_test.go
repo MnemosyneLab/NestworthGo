@@ -3,6 +3,7 @@ package history_test
 import (
 	"context"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -210,10 +211,14 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 func TestPreviewChangeDoesNotCommit(t *testing.T) {
 	fx := newFixture(t)
 	ctx := context.Background()
-	if _, err := fx.service.PreviewChange(ctx, history.ChangeCommandRequest{
+	preview, err := fx.service.PreviewChange(ctx, history.ChangeCommandRequest{
 		Kind: history.ChangeMoneyAdded, AccountID: fx.checkingID, Amount: "1000", Currency: "USD", Reason: "contribution",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("PreviewChange: %v", err)
+	}
+	if want := (wire.EndpointChangeDTO{Target: "account_value", AccountName: "Checking", Currency: "USD", Before: "0", Delta: "1000", After: "1000"}); len(preview.Review) != 1 || preview.Review[0] != want {
+		t.Fatalf("Review = %+v, want %+v", preview.Review, want)
 	}
 	page, err := fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{Limit: 100})
 	activities := page.Activities
@@ -222,6 +227,51 @@ func TestPreviewChangeDoesNotCommit(t *testing.T) {
 	}
 	if len(activities) != 0 {
 		t.Fatalf("PreviewChange committed %d activities, want 0", len(activities))
+	}
+}
+
+func TestPreviewChangeReviewsBothSidesAndExactDeltas(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	fund := func(id string) {
+		t.Helper()
+		if _, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: id, Amount: "1000", Currency: "USD", Reason: "contribution"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fund(fx.checkingID)
+	fund(fx.brokerageID)
+	tests := []struct {
+		name    string
+		request history.ChangeCommandRequest
+		want    []wire.EndpointChangeDTO
+	}{
+		{"transfer with fee", history.ChangeCommandRequest{Kind: history.ChangeCashTransfer, FromAccountID: fx.checkingID, ToAccountID: fx.savingsID, Sent: "50", SentCurrency: "USD", Received: "50", ReceivedCurrency: "USD", Fee: "1.0025", FeeCurrency: "USD"}, []wire.EndpointChangeDTO{
+			{Target: "account_value", AccountName: "Checking", Currency: "USD", Before: "1000", Delta: "-51.0025", After: "948.9975"},
+			{Target: "account_value", AccountName: "Savings", Currency: "USD", Before: "0", Delta: "50", After: "50"},
+		}},
+		{"currency conversion", history.ChangeCommandRequest{Kind: history.ChangeFXConversion, AccountID: fx.brokerageID, Sold: "100", SoldCurrency: "USD", Bought: "90", BoughtCurrency: "EUR"}, []wire.EndpointChangeDTO{
+			{Target: "account_cash", AccountName: "Brokerage", Currency: "USD", Before: "1000", Delta: "-100", After: "900"},
+			{Target: "account_cash", AccountName: "Brokerage", Currency: "EUR", Before: "0", Delta: "90", After: "90"},
+		}},
+		{"first buy", history.ChangeCommandRequest{Kind: history.ChangeTrade, SettlementAccountID: fx.brokerageID, InstrumentID: fx.instrumentID, Side: "buy", Quantity: "0.125", Gross: "25", GrossCurrency: "USD", Fee: "1", FeeCurrency: "USD"}, []wire.EndpointChangeDTO{
+			{Target: "account_cash", AccountName: "Brokerage", Currency: "USD", Before: "1000", Delta: "-26", After: "974"},
+			{Target: "holding_quantity", AccountName: "Brokerage", Instrument: "NVIDIA", Before: "0", Delta: "0.125", After: "0.125"},
+		}},
+		{"liability", history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: fx.cardID, Amount: "12.34", Currency: "USD", Reason: "card_purchase"}, []wire.EndpointChangeDTO{
+			{Target: "account_value", AccountName: "Card", Currency: "USD", Before: "0", Delta: "-12.34", After: "-12.34"},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preview, err := fx.service.PreviewChange(ctx, tt.request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(preview.Review, tt.want) {
+				t.Fatalf("Review = %+v, want %+v", preview.Review, tt.want)
+			}
+		})
 	}
 }
 

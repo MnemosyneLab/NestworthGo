@@ -428,9 +428,10 @@ describe("HistoryPage", () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listActivities.mockResolvedValue([]);
     previewChange.mockResolvedValue({
-      activity: { id: "a1", kind: "cash_in", effects: [] },
+      activity: { id: "a1", kind: "cash_in", effectiveAt: "2026-08-13T12:30:00Z", effects: [] },
       effects: [],
       resulting: [{ target: "account_value", name: "Checking", amount: "1000", currency: "USD" }],
+      review: [{ target: "account_value", accountName: "Checking", currency: "USD", before: "0", delta: "1000", after: "1000" }],
     });
     recordChange.mockResolvedValue({ activity: { id: "a1", kind: "cash_in" }, effects: [], resulting: [] });
 
@@ -443,7 +444,12 @@ describe("HistoryPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
 
     expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000", currency: "USD" }));
-    expect(await within(form).findByRole("status")).toHaveTextContent("Checking");
+    const review = await within(form).findByRole("status");
+    expect(within(form).getByRole("button", { name: "Confirm" })).toHaveFocus();
+    expect(review).toHaveTextContent("Money added");
+    expect(review).toHaveTextContent("Checking · USD");
+    expect(review).toHaveTextContent("2026-08-13");
+    expect(review).toHaveTextContent(/Before.*0\.00.*Change.*\+.*1,000\.00.*After.*1,000\.00/);
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
@@ -1819,8 +1825,13 @@ it("suggests the filtered active account and instrument for a new record without
   listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Synthetic Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "EUR" } }]);
   listInstruments.mockResolvedValue([{ id: "stock", name: "Synthetic Stock", quoteCurrency: "USD", instrumentType: "stock" }]);
   renderPage({ accountId: "broker", instrumentId: "stock", from: "2026-08-01", to: "2026-08-31" });
+  expect(await screen.findByText("Date range in use: 2026-08-01 – 2026-08-31")).toBeVisible();
+  expect(listActivityPage).toHaveBeenCalledWith(expect.objectContaining({ fromLocalDate: "2026-08-01", toLocalDate: "2026-08-31" }));
   await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
   const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getAllByRole("group").map(group => group.getAttribute("aria-label")).filter(Boolean)).toEqual(
+    expect.arrayContaining(["Investments", "Cash", "Debt"]),
+  );
   expect(within(form).getByLabelText("Account")).toHaveValue("broker");
   expect(within(form).getByLabelText("Currency")).toHaveValue("EUR");
   await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));

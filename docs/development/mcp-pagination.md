@@ -8,6 +8,11 @@ classification/list audits, explicitly request limit=100 on both the initial rea
 and continuations to reduce call/header overhead. Default 25 favors focused reads.
 Tool protocol discovery (`tools/list`) remains SDK-owned, with 16 definitions per page.
 
+The [synthetic HTTP payload regressions](../../internal/mcpserver/payload_budget_test.go)
+exercise default initial reads and use explicit `limit: 100` when walking bulk
+financial sections. They check complete response bytes and journey budgets
+against the actual MCP transport.
+
 ## Inventory and ownership
 
 | Reads | Previous continuation | Consistency retained |

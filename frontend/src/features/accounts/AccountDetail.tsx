@@ -16,6 +16,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { AccountForm, type AccountFormExtras } from "@/features/accounts/AccountForm";
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
+import { useObjectNavigation } from "@/app/NavigationContext";
 import { useAccountCashValues, useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { AccountProductsSection } from "@/features/liquidity/AccountProductsSection";
 import { useHistoryOrigin } from "@/queries/history";
@@ -120,11 +121,14 @@ export function AccountDetail({
   updateValue?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const navigation = useObjectNavigation();
   const origin = useHistoryOrigin();
   const settings = useSettings();
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
   const [action, setActionState] = useState<AccountAction>(updateValue && !record.account.archivedAt ? record.account.trackingMode === "holdings" ? "cash" : "simple" : null);
+  const recordTrigger = useRef<HTMLButtonElement>(null);
+  const secondaryTrigger = useRef<HTMLButtonElement | null>(null);
   const cashActionTrigger = useRef<HTMLButtonElement>(null);
   const backTrigger = useRef<HTMLButtonElement>(null);
   const [actionHoldingId, setActionHoldingIdState] = useState<string>();
@@ -211,12 +215,10 @@ export function AccountDetail({
         title={<span aria-current="page" className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-6 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
-            {!readOnly && <Button type="button" size="sm" onClick={() => setAction("record")}>{t("history.recordTitle")}</Button>}
-            <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />
-            <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-border sm:block" />
-            <Button type="button" variant="outline" size="sm" onClick={() => { setSettingsError(undefined); setAction("settings"); }}>
-              {t("accounts.settings")}
-            </Button>
+            {!readOnly && <Button ref={recordTrigger} type="button" size="sm" onClick={() => setAction("record")}>{t("history.recordTitle")}</Button>}
+            <AnalyzeMenu accountId={record.account.id} label={record.account.name} extraItems={[
+              { id: "settings", label: t("accounts.settings"), onSelect: () => { setSettingsError(undefined); setAction("settings"); } },
+            ]} triggerRef={secondaryTrigger} />
           </>
         }
       />
@@ -245,6 +247,14 @@ export function AccountDetail({
         <p role="status" className="rounded-xl border border-border bg-muted/60 px-4 py-2.5 text-sm">
           {t("accounts.archivedReadOnly")}
         </p>
+      )}
+      {!archived && origin.isSuccess && !historyStarted && navigation && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">{t("overview.startHistoryNext")}</p>
+          <Button type="button" size="sm" variant="outline" onClick={() => navigation.open({ page: "history" })}>
+            {t("history.startButton")}
+          </Button>
+        </div>
       )}
       <section data-assistant-module="reconciliation"><AccountReconciliation accountId={record.account.id} archived={archived} /></section>
       {valuation && !valuation.complete && missingReasons.length > 0 && (
@@ -431,7 +441,7 @@ export function AccountDetail({
             setAction(null);
             setActionHoldingId(undefined);
           }}
-          finalFocus={action === "cash" ? () => cashActionTrigger.current?.isConnected ? cashActionTrigger.current : backTrigger.current?.isConnected ? backTrigger.current : document.getElementById("main-content") : undefined}
+          finalFocus={action === "record" ? recordTrigger : action === "cash" ? () => cashActionTrigger.current?.isConnected ? cashActionTrigger.current : backTrigger.current?.isConnected ? backTrigger.current : document.getElementById("main-content") : undefined}
           onRecorded={() => {
             setAction(null);
             setActionHoldingId(undefined);
@@ -447,7 +457,7 @@ export function AccountDetail({
           if (open) setSettingsError(undefined);
         }}
       >
-        <SheetContent size="lg" closeDisabled={updateAccount.isPending}>
+        <SheetContent size="lg" closeDisabled={updateAccount.isPending} finalFocus={secondaryTrigger}>
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("accounts.settings")}</SheetTitle>
           </SheetHeader>

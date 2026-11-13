@@ -26,7 +26,7 @@ holdings inside it.
 
 1. Account is the primary navigation object. Clicking an Accounts-list row
    opens Account detail, not metadata edit.
-2. Create chooses Institution first, then the real-world account type. Ordinary
+2. Create chooses the real-world account type first, then the Institution. Ordinary
    users do not pick `balance_sheet_role` or internal tracking enums directly.
 3. Bank accounts and digital wallets ask whether to record the account total
    only or cash and holdings separately. Brokerages, investment accounts, and
@@ -62,7 +62,7 @@ The Account-container implementation closes the Account-container interaction
 loop:
 
 - `AccountsPage` groups by Institution. Clicking an account opens detail in the
-  same workspace. Create uses an Institution-first wizard.
+  same workspace. Create starts with the account type.
 - The create wizard reads legal combinations from Catalog and asks in
   real-world account-type and recording-method language. Role, Tracking, and
   inclusion come from backend Catalog results. At least one owner must be
@@ -178,14 +178,18 @@ detail; a Simple Account opens balance/valuation detail.
 ### 7.1 Flow
 
 ```text
-1. Where is it held?              Institution (optional; can be created here)
-2. What kind of account is it?    Account type
+1. What kind of account is it?    Account type
+2. Where is it held?              Institution (optional; can be created here)
 3. How would you like to track it? Shown only when two common recording methods exist
 4. Account details                Name, default currency, owners, inclusion
 5. Review and create
 ```
 
-Immutable choices must be echoed in natural language on Review, for example:
+Review shows the institution, owners, recording method, currency, and opening
+amount where applicable. A household with one active member starts with that
+member selected. The owner selection remains editable.
+
+Immutable choices are echoed in natural language on Review, for example:
 
 ```text
 China Merchants Bank · Bank account
@@ -195,8 +199,9 @@ After creation this cannot currently be changed to an account total
 
 ### 7.2 Institution
 
-- Step 1 lists existing Institutions and offers "No matching institution" and
-  "Add an institution".
+- The institution step prioritizes institutions relevant to the selected
+  account type and offers "No institution" and "Add an institution". An
+  institution can be assigned later.
 - Institution stays optional. Cash, property, vehicles, and collectibles often
   have no custodian. Banks, brokerages, and credit cards should be prompted to
   choose one, but it is not required.
@@ -318,6 +323,9 @@ The title total uses the backend Account valuation. The header also holds:
 - archived read-only status;
 - Account settings entry.
 
+For active accounts, **Record a change** stays visible in the header at narrow
+widths. Secondary actions are available from the header menu.
+
 ### 9.2 Composite: Cash + Investments
 
 Every Account with `tracking_mode=holdings` uses the same layout:
@@ -382,6 +390,10 @@ These two operations must stay separate:
 - **Record existing position** records an opening quantity or corrects the
   current holding quantity and does not reduce cash. It uses `CreateHolding`
   / Position Adjustment.
+
+After history starts, the `CreateHolding` path records a position adjustment
+for a nonzero quantity. When the caller omits unit cost, this path uses the
+selected instrument quote as the adjustment's unit cost if one is available.
 
 "Record existing position" is a secondary or advanced entry. The copy is
 explicit:
@@ -554,6 +566,10 @@ IBKR                                  140,000 CNY
   liabilities, archived Holdings, and Simple Account totals are excluded.
 - Missing quotes or FX rates keep backend incomplete / excluded-amount
   semantics and are not treated as zero.
+- In Holdings, the instrument name opens instrument detail. The disclosure
+  control expands the account breakdown of an aggregate holding, and the row
+  menu contains contextual actions. Back restores the source tab, filters,
+  scroll and trigger focus within the desktop session.
 
 ## 12. Action mapping to existing domain commands
 

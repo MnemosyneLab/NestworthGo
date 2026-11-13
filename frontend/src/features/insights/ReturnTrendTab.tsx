@@ -1,6 +1,6 @@
 import { addDays } from "date-fns";
 import { parseYmd, ymd } from "./calendar";
-import { AnalysisHealthLink } from "./AnalysisHealthLink";
+import { ReturnCoverage } from "./ReturnCoverage";
 import { useLayoutEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
@@ -46,9 +46,8 @@ function availabilityEmpty(data: ReturnTrendDTO | undefined, t: (key: string) =>
   return <EmptyState title={t(hasHistory ? "insights.historyInsufficient" : "insights.noInvestmentAssets")} description={t(hasHistory ? "insights.historyInsufficientHint" : "insights.noInvestmentAssetsHint")} />;
 }
 
-function TrendSummary({ data }: { data: ReturnTrendDTO }) {
+function TrendSummary({ data, from, to }: { data: ReturnTrendDTO; from: string; to: string }) {
   const { t } = useTranslation();
-  const partial = data.ratedDays < data.totalDays;
   return (
     <Card>
       <CardHeader className="gap-3">
@@ -56,12 +55,11 @@ function TrendSummary({ data }: { data: ReturnTrendDTO }) {
           <CardTitle>{t("insights.summary")}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
-            {partial && <Badge variant={data.status === "partial" ? "warning" : "secondary"} title={t("insights.rateCoverageHint")}>{t("insights.rateCoverage")} {data.ratedDays}/{data.totalDays}</Badge>}
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className={cn("num mt-1 text-2xl font-semibold", signToneClass(data.amount?.amount))}>{amountText(data.amount)}</p></div>
-          <div><p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p><p className={cn("num mt-1 text-2xl font-semibold", signToneClass(data.rate))}>{rateText(data.rate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p></div>
+          <div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className={cn("num mt-1 text-2xl font-semibold", signToneClass(data.amount?.amount))}>{amountText(data.amount)}</p>{data.amount && data.status === "partial" && <p className="text-sm text-muted-foreground">{t("insights.amountPartial")}</p>}</div>
+          <div><p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p><p className={cn("num mt-1 text-2xl font-semibold", signToneClass(data.rate))}>{rateText(data.rate)}</p><ReturnCoverage data={data} rate={data.rate} from={from} to={to} /></div>
         </div>
       </CardHeader>
     </Card>
@@ -128,6 +126,13 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
     const values = (data?.points ?? []).map(point => point.date);
     return hasBaseline ? [ymd(addDays(parseYmd(context.request.from), -1)), ...values] : values;
   }, [data?.points, hasBaseline, context.request.from]);
+  const chartRows = dates.map((date, index) => {
+    const point = data?.points?.[index - Number(hasBaseline)];
+    const coverage = point?.valuationMissing ? t("insights.returnDayMissingValuation")
+      : point?.ratedDays === 0 && point.status === "ok" && point.amount ? t("insights.returnDayAmountOnly")
+      : point?.ratedDays === 0 ? t("insights.returnDayOtherGap") : "";
+    return [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index]), coverage];
+  });
 
   if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
   if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
@@ -138,11 +143,11 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   let results;
   if (trend.isLoading) results = <LoadingState label={t("insights.loading")} />;
   else if (trend.isError) results = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => trend.refetch()} retryLabel={t("common.retryAction")} />;
-  else if (!data?.available) results = availabilityEmpty(data, t);
+  else if (!data || (!data.available && !data.missingValuationDays)) results = availabilityEmpty(data, t);
   else results = (
     <>
-      <TrendSummary data={data} />
-      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent>{hasBaseline && <p className="mb-3 text-xs text-muted-foreground">{t("rangeShortcuts.baseline")}</p>}<TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "var(--color-primary)", values: chartValues }]} height={280} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
+      <TrendSummary data={data} from={context.request.from} to={context.request.to} />
+      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent>{hasBaseline && <p className="mb-3 text-xs text-muted-foreground">{t("rangeShortcuts.baseline")}</p>}<TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "var(--color-primary)", values: chartValues }]} height={280} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display), t("connections.coverage")]} extraTableRows={chartRows} /></CardContent></Card>}
       {(data.sources ?? []).length > 0 && <Card><CardHeader><CardTitle>{t("insights.returnSources")}</CardTitle></CardHeader><CardContent><ul className="flex flex-col gap-2 text-sm">{(data.sources ?? []).map((source) => <li key={source.key} className="flex items-center gap-3"><span className="min-w-0 flex-1 truncate">{sourceLabel(t, source.key)}</span><span className="shrink-0">{amountText(source.amount)}</span><span className="w-16 shrink-0 text-right text-muted-foreground">{source.share == null ? "—" : shareText(source.share)}</span></li>)}</ul></CardContent></Card>}
       <Button type="button" variant="ghost" className="self-start" onClick={() => setDisplay("cumulative_amount")} hidden={display === "cumulative_amount"}>{t("insights.resetDisplay")}</Button>
     </>
@@ -154,7 +159,6 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
         <div className="flex flex-col gap-1.5"><label htmlFor="return-trend-display" className="text-sm font-medium">{t("insights.display")}</label><NativeSelect id="return-trend-display" value={display} onChange={(event) => setDisplay(event.target.value as typeof display)}><option value="cumulative_amount">{t("insights.returnTrendCumulative")}</option><option value="linked_rate">{t("insights.returnTrendLinked")}</option><option value="period_return_amount">{t("insights.returnTrendPeriod")}</option></NativeSelect></div>
         <p className="max-w-md text-sm text-muted-foreground">{display === "linked_rate" ? t("insights.dailyRateHint") : t("insights.returnTrendHint")}</p>
       </div>
-      {data && (data.status === "partial" || data.ratedDays < data.totalDays) && <AnalysisHealthLink from={context.request.from} to={context.request.to} />}
       {results}
     </div>
   );

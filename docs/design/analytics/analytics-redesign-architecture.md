@@ -984,7 +984,9 @@ The banner is not a dead end: it opens the period `issues[]` list (§12.1) — w
 - Grouped driver list: its own row in the `other` group, never merged into Adjustments.
 - Driver detail sheet: names the component and day, and links to History for that day.
 
-**Rate vs amount coverage** (§5.1): when `ratedDays < totalDays`, the `%` carries a marker and its tooltip states the covered day count. The amount is never marked by rate coverage alone.
+**Rate vs amount coverage** (§5.1): the UI shows `ratedDays` out of `totalDays`
+and can distinguish missing valuation days from days with a defined amount
+and no rate. Rate coverage alone does not mark the amount incomplete.
 
 **Today** is not a closed snapshot (§8). The `Today` period preset selects the range but renders the current day muted with an explanatory empty state — it does not return a zero day, and it does not silently shift the range to yesterday.
 
@@ -993,6 +995,13 @@ The banner is not a dead end: it opens the period `issues[]` list (§12.1) — w
 ## 15. Current surface
 
 The six tabs, shared filters, sheets, and History links are implemented. Invalidate analysis query keys from [`invalidateActivityChange`](../../../frontend/src/queries/invalidation.ts) / `invalidateCurrentValuation`. Wails desktop smoke remains a named release gate, not a claim of completeness.
+
+Snapshot completeness for items without an instrument currently matches
+missing inputs by account. In a multi-currency cash account, a missing FX
+input can mark another cash component incomplete even when its base amount is
+known. Analytics requires complete components for ordinary day attribution,
+so the affected cash component can be omitted from attribution even when its
+available amount contributes to the snapshot total.
 
 ---
 

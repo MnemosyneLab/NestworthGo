@@ -58,12 +58,14 @@ export function useMarketDataSyncActions() {
 }
 
 export function MarketDataSyncBar({
+  showLatestActions = true,
   latestRefreshing,
   onRefreshMissing,
   onRefreshAll,
   onCancelLatest,
   lastUpdatedAt,
 }: {
+  showLatestActions?: boolean;
   latestRefreshing: boolean;
   onRefreshMissing: () => void;
   onRefreshAll: () => void;
@@ -98,16 +100,16 @@ export function MarketDataSyncBar({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-2">
-          <Button onClick={onRefreshMissing} disabled={busy}>
+          {showLatestActions && <Button onClick={onRefreshMissing} disabled={busy}>
             <RefreshCw className="size-4" aria-hidden="true" /> {latestRefreshing ? t("marketData.refreshing") : t("review.updateLatest")}
-          </Button>
-          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+          </Button>}
+          {showLatestActions && <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <PopoverTrigger render={<Button variant="outline" disabled={busy} />}>{preview.isPending ? t("common.pending") : t("review.moreActions")}</PopoverTrigger>
             <PopoverContent className="flex min-w-48 flex-col gap-1">
               <Button variant="ghost" className="justify-start" onClick={() => { setMoreOpen(false); openPreview(); }} disabled={busy}>{t("review.syncRepair")}</Button>
               <Button variant="ghost" className="justify-start" onClick={() => { setMoreOpen(false); onRefreshAll(); }} disabled={busy}>{t("marketData.forceRefreshAll")}</Button>
             </PopoverContent>
-          </Popover>
+          </Popover>}
           {latestRefreshing && <Button type="button" variant="outline" onClick={onCancelLatest}>{t("marketData.cancelRefresh")}</Button>}
           {job?.jobId && (
             <>

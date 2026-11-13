@@ -39,6 +39,5 @@ are contributor instructions. `skills/nestworth` is a distributable end-user
 ledger skill, not a repository development workflow. Asset licenses/notices and
 machine-consumed contracts retain their own authority.
 
-Maintained engineering contracts use English; existing proposal and test-plan
-material may retain its established language. Mark future work as planned or
+Maintained project documentation uses English. Mark future work as planned or
 deferred and name unverified acceptance gates explicitly.

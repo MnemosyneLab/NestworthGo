@@ -17,8 +17,10 @@ type repeatPlan struct {
 	expires                 time.Time
 }
 type RepeatPreviewDTO struct {
-	PlanID    string                 `json:"planId"`
-	Resulting []wire.EndpointViewDTO `json:"resulting"`
+	PlanID      string                   `json:"planId"`
+	Resulting   []wire.EndpointViewDTO   `json:"resulting"`
+	Review      []wire.EndpointChangeDTO `json:"review,omitempty"`
+	EffectiveAt string                   `json:"effectiveAt"`
 }
 
 // Repeat accepts only an ordinary single-account cash draft. It does not accept
@@ -63,7 +65,8 @@ func (s *Service) PreviewRepeatChange(ctx context.Context, sourceID string, requ
 		return RepeatPreviewDTO{}, apierror.Wrap(err)
 	}
 	plan := repeatPlan{command: command, sourceID: id, mutationID: clean.MutationID, hash: hash, token: token, expires: time.Now().Add(10 * time.Minute)}
-	return RepeatPreviewDTO{PlanID: s.repeatPlans.Put(plan), Resulting: wire.FromChangePreview(result).Resulting}, nil
+	review := wire.FromReviewedChangePreview(result)
+	return RepeatPreviewDTO{PlanID: s.repeatPlans.Put(plan), Resulting: review.Resulting, Review: review.Review, EffectiveAt: review.Activity.EffectiveAt}, nil
 }
 
 func repeatCashReason(reason string, added bool) bool {

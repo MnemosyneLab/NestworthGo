@@ -499,8 +499,8 @@ describe("ReturnAnalysisPage", () => {
     renderPage();
 
     await screen.findByText("Partial coverage");
-    expect(screen.getByTestId("return-day-2026-09-02")).toHaveTextContent("◇");
-    expect(screen.getByTestId("return-day-2026-09-03")).not.toHaveTextContent("◇");
+    expect(screen.getByTestId("return-day-2026-09-02")).toHaveTextContent("Rate days 0/1");
+    expect(screen.getByTestId("return-day-2026-09-03")).not.toHaveTextContent("Rate days 0/1");
     expect(screen.getByTestId("return-day-2026-09-03")).not.toHaveClass("bg-success/8");
     expect(screen.getByTestId("return-day-2026-09-03")).not.toHaveClass("bg-destructive/7");
   });

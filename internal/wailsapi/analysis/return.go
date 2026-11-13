@@ -126,8 +126,13 @@ func fromReturnCalendarMonth(value application.ReturnCalendarMonthResult) wire.R
 	}
 }
 
+func fromReturnDayCoverage(value application.ReturnDayCoverage) wire.ReturnDayCoverageDTO {
+	return wire.ReturnDayCoverageDTO{MissingValuationDays: value.MissingValuationDays, AmountWithoutRateDays: value.AmountWithoutRateDays}
+}
+
 func fromReturnCalendarSummary(value application.ReturnCalendarSummary) wire.ReturnCalendarSummaryDTO {
 	return wire.ReturnCalendarSummaryDTO{
+		ReturnDayCoverageDTO:   fromReturnDayCoverage(value.ReturnDayCoverage),
 		BeginningInvestedValue: wire.FromSignedMoneyPtr(value.BeginningInvestedValue),
 		EndingInvestedValue:    wire.FromSignedMoneyPtr(value.EndingInvestedValue),
 		ReturnAmount:           wire.FromSignedMoneyPtr(value.ReturnAmount),
@@ -160,22 +165,24 @@ func fromReturnDay(value application.ReturnDayResult) wire.ReturnDayDTO {
 
 func fromReturnTrend(value application.ReturnTrendResult) wire.ReturnTrendDTO {
 	result := wire.ReturnTrendDTO{
-		Display:   string(value.Display),
-		Points:    make([]wire.ReturnTrendPointDTO, 0, len(value.Points)),
-		Sources:   fromReturnSources(value.Sources),
-		Amount:    wire.FromSignedMoneyPtr(value.Amount),
-		Rate:      decimalStringPtr(value.Rate),
-		RatedDays: value.Coverage.RatedDays,
-		TotalDays: value.Coverage.TotalDays,
+		ReturnDayCoverageDTO: fromReturnDayCoverage(value.ReturnDayCoverage),
+		Display:              string(value.Display),
+		Points:               make([]wire.ReturnTrendPointDTO, 0, len(value.Points)),
+		Sources:              fromReturnSources(value.Sources),
+		Amount:               wire.FromSignedMoneyPtr(value.Amount),
+		Rate:                 decimalStringPtr(value.Rate),
+		RatedDays:            value.Coverage.RatedDays,
+		TotalDays:            value.Coverage.TotalDays,
 	}
 	for _, point := range value.Points {
 		pointDTO := wire.ReturnTrendPointDTO{
-			Date:      string(point.Date),
-			Amount:    wire.FromSignedMoneyPtr(point.Amount),
-			Rate:      decimalStringPtr(point.Rate),
-			Value:     wire.FromSignedMoneyPtr(point.Value),
-			RatedDays: point.Coverage.RatedDays,
-			TotalDays: point.Coverage.TotalDays,
+			ValuationMissing: point.ValuationMissing,
+			Date:             string(point.Date),
+			Amount:           wire.FromSignedMoneyPtr(point.Amount),
+			Rate:             decimalStringPtr(point.Rate),
+			Value:            wire.FromSignedMoneyPtr(point.Value),
+			RatedDays:        point.Coverage.RatedDays,
+			TotalDays:        point.Coverage.TotalDays,
 		}
 		setAvailability(&pointDTO.Available, &pointDTO.Status, &pointDTO.MissingReason, &pointDTO.ValuationForced, point.AnalysisAvailability)
 		result.Points = append(result.Points, pointDTO)

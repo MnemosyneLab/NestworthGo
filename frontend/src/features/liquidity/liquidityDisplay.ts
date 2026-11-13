@@ -8,7 +8,8 @@ import type {
 } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import type { MoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
-export type SourceFilter = "all" | "available" | "locked" | "needs_info" | "excluded";
+export const sourceFilters = ["all", "available", "locked", "needs_rules", "needs_info", "excluded"] as const;
+export type SourceFilter = typeof sourceFilters[number];
 export type CurrencyMode = "base" | "native";
 
 export function addCivilDays(isoDate: string, days: number): string {
@@ -106,6 +107,8 @@ export function sourceMatchesFilter(source: LiquiditySourceDTO, horizonOn: strin
       return !source.excluded && !source.dueUnconfirmed && !needsInfo && result?.status === "complete" && !result.selectedRoute;
     case "needs_info":
       return needsInfo;
+    case "needs_rules":
+      return !source.excluded && result?.needsRules === true;
     case "excluded":
       return source.excluded;
     default:
@@ -178,8 +181,7 @@ export function horizonUsesEarly(sources: LiquiditySourceDTO[], horizonOn: strin
 }
 
 export function sourceFilterCounts(sources: LiquiditySourceDTO[], horizonOn: string): Record<SourceFilter, number> {
-  const filters: SourceFilter[] = ["all", "available", "locked", "needs_info", "excluded"];
-  return Object.fromEntries(filters.map((filter) => [filter, sources.filter((source) => sourceMatchesFilter(source, horizonOn, filter)).length])) as Record<SourceFilter, number>;
+  return Object.fromEntries(sourceFilters.map((filter) => [filter, sources.filter((source) => sourceMatchesFilter(source, horizonOn, filter)).length])) as Record<SourceFilter, number>;
 }
 
 /** Direction of a horizon total relative to an earlier one. Equal strings never imply a change. */

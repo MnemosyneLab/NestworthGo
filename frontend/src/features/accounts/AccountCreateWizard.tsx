@@ -39,7 +39,7 @@ import { accountTypeStyle, TONE_CLASSES } from "@/lib/tone";
 import { EntitySelect } from "@/components/forms/EntitySelect";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 
-type WizardStep = "institution" | "type" | "tracking" | "details" | "review";
+type WizardStep = "type" | "institution" | "tracking" | "details" | "review";
 
 type DirectorySelection = {
   id: string;
@@ -53,12 +53,18 @@ function lowestActiveDirectoryId(records: readonly DirectorySelection[] | null |
     .sort((left, right) => (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id))[0]?.id ?? "";
 }
 
-/**
- * AccountCreateWizard is the real-world create path: institution, then account
- * type, then a tracking question only when the catalog has more than one
- * common recording method. Ordinary users never pick tracking-mode or
- * balance-sheet-role enums on the main path.
- */
+const institutionTypesForAccount: Partial<Record<string, string[]>> = {
+  bank_account: ["bank"],
+  brokerage: ["brokerage", "bank"],
+  investment_account: ["brokerage", "bank", "insurer"],
+  crypto_exchange: ["exchange"],
+  digital_wallet: ["bank", "exchange"],
+  credit_card: ["bank"],
+  loan: ["bank", "government", "employer"],
+  pension: ["employer", "government", "insurer", "brokerage"],
+  insurance_policy: ["insurer"],
+};
+
 export function AccountCreateWizard({
   onSubmit,
   isSubmitting,
@@ -86,7 +92,7 @@ export function AccountCreateWizard({
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
 
-  const [step, setStep] = useState<WizardStep>("institution");
+  const [step, setStep] = useState<WizardStep>("type");
   const [institutionId, setInstitutionId] = useState("");
   const [showNewInstitution, setShowNewInstitution] = useState(false);
   const [newInstitutionName, setNewInstitutionName] = useState("");
@@ -103,7 +109,7 @@ export function AccountCreateWizard({
   const [initialAmount, setInitialAmount] = useState("");
   const [openedOn, setOpenedOn] = useState("");
   const [openedOnError, setOpenedOnError] = useState(false);
-  const [ownerIds, setOwnerIds] = useState<string[]>([]);
+  const [explicitOwnerIds, setOwnerIds] = useState<string[]>();
   const [ownershipPercentages, setOwnershipPercentages] = useState<string[]>([]);
   const [useCustomPercentages, setUseCustomPercentages] = useState(false);
   const [includeInNetWorth, setIncludeInNetWorth] = useState(true);
@@ -125,12 +131,26 @@ export function AccountCreateWizard({
   const typeLocked = roleLocked(combinations, resolvedType);
   const typeRoles = rolesFor(combinations, resolvedType);
   const prompt = accountType ? trackingPrompt(combinations, accountType, role) : resolvedPrompt;
-  const defaultInstitutionId = useMemo(() => lowestActiveDirectoryId(institutions.data), [institutions.data]);
+  const activeMembers = (members.data ?? []).filter(member => !member.archivedAt);
+  const ownerIds = explicitOwnerIds ?? (activeMembers.length === 1 ? [activeMembers[0].id] : []);
+  const preferredTypes = institutionTypesForAccount[resolvedType] ?? [];
+  const activeInstitutions = (institutions.data ?? []).filter(item => !item.archivedAt);
+  const suggestedInstitutions = activeInstitutions.filter(item => preferredTypes.includes(item.institutionType));
+  const otherInstitutions = activeInstitutions.filter(item => !preferredTypes.includes(item.institutionType));
+  const defaultInstitutionId = lowestActiveDirectoryId(suggestedInstitutions);
   const defaultGroupId = useMemo(() => lowestActiveDirectoryId(groups.data), [groups.data]);
   const selectedInstitutionId = institutionTouched ? institutionId : institutionId || defaultInstitutionId;
   const selectedGroupId = groupTouched ? groupId : groupId || defaultGroupId;
 
   const applyType = (nextType: string) => {
+    if (nextType !== accountType) {
+      setInstitutionId("");
+      setInstitutionTouched(false);
+      setShowNewInstitution(false);
+      setInstitutionError(undefined);
+      setNewInstitutionType(institutionTypesForAccount[nextType]?.[0] ?? "other");
+      setNewInstitutionIconCustomized(false);
+    }
     const nextRole = defaultRole(combinations, nextType);
     const nextPrompt = trackingPrompt(combinations, nextType, nextRole);
     const match = matchingCombination(combinations, nextType, nextRole, nextPrompt.defaultMode) ?? combinations.find((item) => item.accountType === nextType);
@@ -168,11 +188,9 @@ export function AccountCreateWizard({
     }
   };
 
-  const institutionName = useMemo(
-    () => (institutions.data ?? []).find((item) => item.id === selectedInstitutionId)?.name,
-    [institutions.data, selectedInstitutionId],
-  );
+  const institutionName = activeInstitutions.find(item => item.id === selectedInstitutionId)?.name;
 
+  const nextAfterInstitution = prompt.kind === "ask" ? "tracking" : "details";
   const goNextFromInstitution = async () => {
     if (showNewInstitution) {
       const trimmed = newInstitutionName.trim();
@@ -182,31 +200,28 @@ export function AccountCreateWizard({
       }
       setInstitutionError(undefined);
       try {
-        const created = await createInstitution.mutateAsync({ name: trimmed, institutionType: newInstitutionType, iconKey: newInstitutionIcon });
+        const created = await createInstitution.mutateAsync({
+          name: trimmed,
+          institutionType: newInstitutionType,
+          iconKey: newInstitutionIconCustomized ? newInstitutionIcon : INSTITUTION_TYPE_ICONS[newInstitutionType] ?? INSTITUTION_TYPE_ICONS.other,
+        });
         setInstitutionId(created.id);
         setShowNewInstitution(false);
         setNewInstitutionName("");
-        setStep("type");
+        setStep(nextAfterInstitution);
       } catch (error) {
         setInstitutionError(displayError(error, t("directory.createError")));
       }
       return;
     }
-    setStep("type");
+    setStep(nextAfterInstitution);
   };
 
   const goNextFromType = () => {
     if (!accountType && resolvedType) {
       applyType(resolvedType);
     }
-    if (!typeLocked && !role) {
-      return;
-    }
-    if (prompt.kind === "ask") {
-      setStep("tracking");
-      return;
-    }
-    setStep("details");
+    if (resolvedType && (typeLocked || resolvedRole)) setStep("institution");
   };
 
   const goNextFromTracking = () => {
@@ -235,7 +250,9 @@ export function AccountCreateWizard({
   };
 
   const toggleOwner = (memberId: string) => {
-    setOwnerIds((current) => (current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId]));
+    const index = ownerIds.indexOf(memberId);
+    setOwnerIds(index < 0 ? [...ownerIds, memberId] : ownerIds.filter(id => id !== memberId));
+    if (index >= 0) setOwnershipPercentages(current => current.filter((_, i) => i !== index));
   };
 
   const create = () => {
@@ -294,8 +311,8 @@ export function AccountCreateWizard({
       <Stepper
         showLabels={false}
         label={t("accounts.wizardLabel")}
-        steps={[t("accounts.stepInstitution"), t("accounts.stepType"), t("accounts.stepDetails"), t("accounts.stepReview")]}
-        current={step === "institution" ? 0 : step === "type" || step === "tracking" ? 1 : step === "details" ? 2 : 3}
+        steps={[t("accounts.stepType"), t("accounts.stepInstitution"), t("accounts.stepDetails"), t("accounts.stepReview")]}
+        current={step === "type" ? 0 : step === "institution" || step === "tracking" ? 1 : step === "details" ? 2 : 3}
       />
       {step === "institution" && (
         <div className="flex flex-col gap-4">
@@ -303,11 +320,11 @@ export function AccountCreateWizard({
             <h3 className="text-base font-semibold">{t("accounts.stepInstitution")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{t("accounts.institutionOptionalHint")}</p>
           </div>
-          <div className="flex flex-col gap-2" role="listbox" aria-label={t("nav.institutions")}>
+          <div className="flex flex-col gap-2" role="group" aria-label={t("nav.institutions")}>
             <button
               type="button"
               className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${selectedInstitutionId === "" && !showNewInstitution ? "border-primary bg-primary/8 ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/40"}`}
-              aria-selected={selectedInstitutionId === "" && !showNewInstitution}
+              aria-pressed={selectedInstitutionId === "" && !showNewInstitution}
               onClick={() => {
                 setInstitutionTouched(true);
                 setInstitutionId("");
@@ -316,12 +333,12 @@ export function AccountCreateWizard({
             >
               {t("accounts.noInstitution")}
             </button>
-            {(institutions.data ?? []).map((institution) => (
+            {[...suggestedInstitutions, ...otherInstitutions].map((institution) => (
               <button
                 key={institution.id}
                 type="button"
                 className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${selectedInstitutionId === institution.id && !showNewInstitution ? "border-primary bg-primary/8 ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/40"}`}
-                aria-selected={selectedInstitutionId === institution.id && !showNewInstitution}
+                aria-pressed={selectedInstitutionId === institution.id && !showNewInstitution}
                 onClick={() => {
                   setInstitutionTouched(true);
                   setInstitutionId(institution.id);
@@ -492,7 +509,7 @@ export function AccountCreateWizard({
           )}
           <OwnershipFields
             idPrefix="wizard-owner"
-            members={members.data ?? []}
+            members={activeMembers}
             ownerIds={ownerIds}
             onToggleOwner={toggleOwner}
             useCustomPercentages={useCustomPercentages}
@@ -522,13 +539,18 @@ export function AccountCreateWizard({
         <div className="flex flex-col gap-4">
           <h3 className="text-base font-semibold">{t("accounts.stepReview")}</h3>
           <div className="rounded-md border border-border p-3 text-sm">
-            <p className="font-medium">
-              {institutionName ? `${institutionName} · ${displayEnum(t, "enum", accountType)}` : displayEnum(t, "enum", accountType)}
-            </p>
-            <p className="mt-1">{name}</p>
-            <p className="mt-2">{t(trackingMethodKey(resolvedTracking, resolvedType))}</p>
-            {openedOn && <p className="mt-1">{t("accounts.openedOn")}: {formatCivilDate(openedOn)}</p>}
-            {resolvedTracking !== "holdings" && <p className="mt-1">{t("accounts.amount")}: {formatAuditMoney(initialAmount || "0", currencyValue)}</p>}
+            <p className="font-semibold">{name}</p>
+            <dl className="my-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+              <dt>{t("accounts.accountType")}</dt><dd>{displayEnum(t, "enum", resolvedType)}</dd>
+              <dt>{t("accounts.reviewInstitution")}</dt><dd>{institutionName || t("accounts.noInstitution")}</dd>
+              <dt>{t("accounts.owner")}</dt>
+              <dd>{ownerIds.map(id => activeMembers.find(member => member.id === id)?.name).filter(Boolean).join(t("accounts.trackingMethodSeparator"))}</dd>
+              <dt>{t("accounts.trackingMethod")}</dt><dd>{t(trackingMethodKey(resolvedTracking, resolvedType))}</dd>
+              <dt>{t("accounts.currency")}</dt><dd>{currencyValue}</dd>
+              {openedOn && <><dt>{t("accounts.openedOn")}</dt><dd>{formatCivilDate(openedOn)}</dd></>}
+              <dt>{t("accounts.amount")}</dt>
+              <dd>{resolvedTracking === "holdings" ? t("accounts.initialHoldingsLater") : formatAuditMoney(initialAmount || "0", currencyValue)}</dd>
+            </dl>
             <p className="text-muted-foreground">{t("accounts.reviewTrackingImmutable")}</p>
           </div>
           {submissionError && (
@@ -540,22 +562,23 @@ export function AccountCreateWizard({
       )}
 
       <div className="flex gap-2">
-        {step !== "institution" && (
+        {step !== "type" && (
           <Button
             type="button"
             variant="outline"
             onClick={() => {
-              if (step === "type") setStep("institution");
-              else if (step === "tracking") setStep("type");
-              else if (step === "details") setStep(prompt.kind === "ask" ? "tracking" : "type");
+              if (step === "institution") setStep("type");
+              else if (step === "tracking") setStep("institution");
+              else if (step === "details") setStep(prompt.kind === "ask" ? "tracking" : "institution");
               else setStep("details");
             }}
-            disabled={isSubmitting}
+            disabled={isSubmitting || createInstitution.isPending}
           >
             {t("accounts.back")}
           </Button>
         )}
         <Button
+          key={step}
           type="button"
           onClick={
             step === "review"
@@ -568,7 +591,7 @@ export function AccountCreateWizard({
                     ? goNextFromTracking
                     : goNextFromDetails
           }
-          disabled={isSubmitting || createInstitution.isPending || ((step === "details" || step === "review") && ownerIds.length === 0)}
+          disabled={isSubmitting || createInstitution.isPending || (step === "type" && !resolvedType) || ((step === "details" || step === "review") && ownerIds.length === 0)}
           autoFocus={step !== "details"}
         >
           {isSubmitting || createInstitution.isPending ? t("common.pending") : step === "review" ? t("accounts.create") : t("accounts.continue")}

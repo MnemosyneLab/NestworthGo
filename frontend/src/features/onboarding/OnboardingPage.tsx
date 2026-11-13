@@ -66,7 +66,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
 
   const applyLanguage = (next: Language) => {
     setLanguagePreference(next);
-    setLanguage(next);
+    setLanguage(next, settings.data?.systemLanguage);
     const current = settings.data;
     if (!current) {
       return;
@@ -76,7 +76,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
       {
         onError: () => {
           setLanguagePreference(current.language);
-          setLanguage(current.language);
+          setLanguage(current.language, current.systemLanguage);
         },
       },
     );

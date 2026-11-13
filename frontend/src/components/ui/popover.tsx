@@ -35,4 +35,23 @@ function PopoverContent({
   );
 }
 
-export { Popover, PopoverTrigger, PopoverContent };
+/** Anchored content whose editable trigger owns focus and keyboard navigation. */
+function PopoverList({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  const capture = useBusinessPortal();
+  return (
+    <>{capture.origin}<BasePopover.Portal>
+      <BasePopover.Positioner side="bottom" align="start" sideOffset={4} className="z-50 data-[anchor-hidden]:invisible">
+        <div
+          {...capture.props}
+          {...props}
+          role="listbox"
+          className="select-panel w-max min-w-[min(var(--available-width),max(11rem,var(--anchor-width)))] max-w-[min(var(--available-width),max(24rem,var(--anchor-width)))] [--select-available-height:var(--available-height)]"
+        >
+          {children}
+        </div>
+      </BasePopover.Positioner>
+    </BasePopover.Portal></>
+  );
+}
+
+export { Popover, PopoverTrigger, PopoverContent, PopoverList };

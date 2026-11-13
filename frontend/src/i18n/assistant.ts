@@ -227,6 +227,11 @@ export const assistantEn = {
     },
     scope: "Read-only answers questions about your ledger. Read & Write can also make changes using the available tools.",
     ready: "Model ready",
+    setupRequired: "Add credentials and enable a model in AI Settings to get started.",
+    turnedOff: "The AI assistant is turned off. You can enable it in AI Settings.",
+    selectedModelUnavailable: "Your selected model is no longer enabled. Choose an enabled model or update the list in AI Settings.",
+    runtimeUnavailable: "The assistant cannot access its local runtime right now.",
+    openAISettings: "Open AI Settings",
     disabled:
       "AI is off or unavailable. Save a key, enter a model and explicitly enable it in Settings → Built-in AI credentials.",
     privacy:
@@ -612,6 +617,11 @@ export const assistantZhCN = {
     },
     scope: "只读模式可查询账本；可读写模式还可使用可用工具修改账本。",
     ready: "模型已就绪",
+    setupRequired: "请在 AI 设置中添加凭据并启用模型，即可使用助手。",
+    turnedOff: "AI 助手已关闭，可在 AI 设置中重新启用。",
+    selectedModelUnavailable: "原先选用的模型已不在启用列表中。请选择已启用的模型，或在 AI 设置中更新列表。",
+    runtimeUnavailable: "助手暂时无法访问本地运行环境。",
+    openAISettings: "打开 AI 设置",
     disabled:
       "AI 已关闭或不可用。请在设置 → 内置 AI 凭据保存密钥、填写模型并显式开启。",
     privacy:
@@ -983,6 +993,11 @@ export const assistantZhTW = {
     },
     scope: "唯讀模式可查詢帳本；可讀寫模式還可使用可用工具修改帳本。",
     ready: "模型已就緒",
+    setupRequired: "請在 AI 設定中新增憑證並啟用模型，即可使用助理。",
+    turnedOff: "AI 助理已關閉，可在 AI 設定中重新啟用。",
+    selectedModelUnavailable: "原先選用的模型已不在啟用清單中。請選擇已啟用的模型，或在 AI 設定中更新清單。",
+    runtimeUnavailable: "助理暫時無法存取本機執行環境。",
+    openAISettings: "開啟 AI 設定",
     disabled:
       "AI 已關閉或無法使用。請在設定 → 內建 AI 憑據儲存金鑰、填寫模型並明確開啟。",
     privacy:

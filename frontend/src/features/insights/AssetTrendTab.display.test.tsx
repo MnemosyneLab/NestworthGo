@@ -5,10 +5,10 @@ import { resetDisplayPreferences, setDisplayPreferences } from "@/lib/displayPre
 import * as echarts from "echarts/core";
 import { AssetTrendTab } from "./AssetTrendTab";
 import { useAnalysisStore } from "@/stores/analysis";
-const harness = vi.hoisted(() => ({ data: {} as Record<string, unknown>, charts: [] as unknown[] }));
+const harness = vi.hoisted(() => ({ data: {} as Record<string, unknown>, request: {} as { from?: string; to?: string }, charts: [] as unknown[] }));
 vi.mock("@/queries/returnAnalysis", () => ({ useAssetTrend: () => ({ data: harness.data }) }));
 vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { currency: "CNY" } }) }));
-vi.mock("./analysisProjectionContext", () => ({ useAnalysisProjectionContext: () => ({ request: {}, enabled: true, origin: { data: { timezone: "Asia/Shanghai" } }, scopeReady: true, rangeAvailable: true }) }));
+vi.mock("./analysisProjectionContext", () => ({ useAnalysisProjectionContext: () => ({ request: harness.request, enabled: true, origin: { data: { timezone: "Asia/Shanghai" } }, scopeReady: true, rangeAvailable: true }) }));
 vi.mock("echarts/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("echarts/core")>(); const { SVGRenderer } = await import("echarts/renderers"); actual.use([SVGRenderer]);
   return { ...actual, init: (container: HTMLDivElement) => { const chart = actual.init(container, undefined, { renderer: "svg", width: 600, height: 320 }); harness.charts.push(chart); return chart; } };
@@ -17,7 +17,7 @@ const quality = { availability: "partial", coverage: "provisional", includedCoun
 const partial = { currency: "CNY", total: null, knownSubtotal: { amount: "200", currency: "CNY" }, quality };
 function point(period: string, displayValuation: unknown = partial) { return { period, value: null, rate: null, available: true, status: "partial", ratedDays: 0, totalDays: 1, valuationForced: null, displayValuation }; }
 function chartData() {const chart = harness.charts[harness.charts.length - 1] as echarts.ECharts;return (chart.getOption().series as Array<{ data: Array<{ value: [number, number | null] }> }>).flatMap(series => series.data.map(point => point.value[1]));}
-beforeEach(() => { useAnalysisStore.getState().reset(); harness.charts = []; harness.data = { available: true, status: "partial", ratedDays: 0, totalDays: 2, valuationForced: null, points: [] }; });
+beforeEach(() => { useAnalysisStore.getState().reset(); harness.charts = []; harness.request = {}; harness.data = { available: true, status: "partial", ratedDays: 0, totalDays: 2, valuationForced: null, points: [] }; });
 afterEach(() => resetDisplayPreferences());
 it("keeps all-partial known contributions and quality in the actual keyboard-accessible source table without plotting a total", async () => {
   harness.data = { ...harness.data, available: false, points: [point("2026-10-12"), point("2026-10-13")] };
@@ -54,6 +54,30 @@ it("formats asset trend table dates with the display preference", async () => {
   expect(table).toHaveTextContent("12/10/2026");
   expect(table).not.toHaveTextContent("2026-10-12");
   expect(table).toHaveTextContent("2026-09");
+});
+
+it("marks leading, interior and trailing gaps across the full selected range", async () => {
+  harness.request = { from: "2026-10-11", to: "2026-10-15" };
+  const full = { ...partial, total: { amount: "210", currency: "CNY" }, quality: { ...quality, availability: "full", coverage: "verified" } };
+  harness.data.points = [point("2026-10-12", full), point("2026-10-14", full)];
+  render(<AssetTrendTab session={useAnalysisStore.getState()} />);
+  expect(screen.getByText("3 days with no plottable value")).toBeVisible();
+  const chart = harness.charts[harness.charts.length - 1] as echarts.ECharts;
+  const option = chart.getOption();
+  expect(option.xAxis).toEqual([expect.objectContaining({ min: Date.parse("2026-10-11"), max: Date.parse("2026-10-16") - 1 })]);
+  expect(option.series).toEqual([expect.objectContaining({ markArea: expect.objectContaining({ data: [
+    [expect.objectContaining({ xAxis: Date.parse("2026-10-11") }), expect.objectContaining({ xAxis: Date.parse("2026-10-12") })],
+    [expect.objectContaining({ xAxis: Date.parse("2026-10-13") }), expect.objectContaining({ xAxis: Date.parse("2026-10-14") })],
+    [expect.objectContaining({ xAxis: Date.parse("2026-10-15") }), expect.objectContaining({ xAxis: Date.parse("2026-10-16") - 1 })],
+  ] }) }), expect.anything()]);
+  await userEvent.click(screen.getByText("View data table"));
+  const rows = within(screen.getByRole("table")).getAllByRole("row");
+  expect(rows).toHaveLength(6);
+  expect(rows[1]).toHaveTextContent("2026-10-11");
+  expect(rows[1]).toHaveTextContent("No value plotted");
+  expect(rows[3]).toHaveTextContent("No value plotted");
+  expect(rows[5]).toHaveTextContent("2026-10-15");
+  expect(rows[5]).toHaveTextContent("No value plotted");
 });
 
 it("keeps liability summary, chart and table signed consistently without changing asset summaries", async () => {

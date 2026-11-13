@@ -93,7 +93,18 @@
   "app": {
     "name": "Nestworth"
   },
+  "datePicker": {
+    "previousMonth": "转到上个月",
+    "nextMonth": "转到下个月",
+    "chooseMonth": "选择月份",
+    "chooseYear": "选择年份",
+    "today": "今天，{{date}}",
+    "selected": "{{date}}，已选择",
+    "weekNumber": "周数",
+    "week": "第 {{week}} 周"
+  },
   "common": {
+    "retryAction": "再试一次",
     "loading": "加载中…",
     "unknownValue": "未知",
     "clearSelection": "清除选择",
@@ -115,7 +126,6 @@
     "pending": "保存中…",
     "preview": "预览",
     "previewData": "演示数据",
-    "previewNotice": "这是视觉预览。后续版本会在这里接入你的本地财务数据。",
     "reset": "恢复默认设置",
     "restore": "恢复",
     "retry": "重试",
@@ -124,33 +134,6 @@
     "system": "系统",
     "to": "至",
     "backToDraft": "返回草稿"
-  },
-  "dashboard": {
-    "accountCount": "%d 个账户",
-    "accountsToReview": "待复核账户",
-    "accountsTracked": "个账户已跟踪",
-    "activityDescription": "活动账本会解释这张资产负债表如何随时间变化。",
-    "allocation": "资产分配",
-    "assets": "资产",
-    "cash": "现金及等价物",
-    "change": "本月变化",
-    "changeValue": "+2.8%",
-    "currentTotal": "当前总额",
-    "eyebrow": "家庭资产快照",
-    "investments": "投资",
-    "liabilities": "负债",
-    "liquidAssets": "流动资产",
-    "netWorth": "净资产",
-    "netWorthTrend": "净资产趋势",
-    "noActivity": "暂时没有真实活动",
-    "previewTrend": "未来将连接历史快照，目前仅展示界面预览。",
-    "property": "不动产",
-    "recentActivity": "近期活动",
-    "reviewDescription": "通过轻量的复核节奏，让资产负债表保持新鲜。",
-    "reviewItemOne": "2 个余额可以更新",
-    "reviewItemTwo": "1 个账户需要检查所有权",
-    "subtitle": "以清晰、平静的方式查看资产负债表，并随着家庭成长逐步扩展。",
-    "title": "一处看清你的财务全貌。"
   },
   "enum": {
     "balance": "余额",
@@ -383,6 +366,14 @@
     "name": "名称"
   },
   "history": {
+    "selectEmpty": "请选择",
+    "reasonLabel": "原因",
+    "changeGroups": { "cash": "现金", "investment": "投资", "debt": "债务" },
+    "dateFilter": "日期",
+    "rangeFrom": "从 {{date}} 起",
+    "rangeThrough": "截至 {{date}}",
+    "rangeAllDates": "全部记账日期",
+    "queryRange": "当前查询区间：{{range}}",
     "account": "账户",
     "amount": "金额",
     "applyFilters": "应用",
@@ -404,6 +395,7 @@
     "fxFee": "换汇费用",
     "holding": "持仓",
     "kind": {
+      "reversal": "冲销",
       "buy": "买入",
       "cash_in": "增加金额",
       "cash_out": "减少金额",
@@ -638,6 +630,7 @@
     "name": "名称"
   },
   "marketData": {
+    "fxChartDescription": "每 1 {{base}} 兑换的 {{quote}} 金额。",
     "fx": "汇率",
     "fxLocalFirst": "报价保存在本地，仅在用户明确操作时刷新。",
     "instruments": "投资标的",
@@ -738,7 +731,8 @@
       "en": "English",
       "system": "系统",
       "zhCN": "简体中文",
-      "zhTW": "繁體中文"
+      "zhTW": "繁體中文",
+      "ja": "日本語"
     },
     "time": {
       "12h": "12 小时制",
@@ -753,6 +747,7 @@
     }
   },
   "overview": {
+    "currentValuationIncomplete": "当前估值不完整",
     "accountCountDetail": "个活跃账户",
     "accounts": "账户",
     "assets": "资产",
@@ -1053,6 +1048,8 @@
     "unitCostHint": "历史记录已启用，请按标的报价币种填写单位成本。留空时使用已保存的当前价格；没有价格时必须填写。"
   },
   "connections": {
+    "historyCoverage": "历史估值：{{total}} 天中有 {{valued}} 天可提供总额",
+    "noHistoricalCoverage": "此范围内没有历史估值",
     "actions": "操作",
     "actionsFor": "{{name}}的操作",
     "accountReturns": "收益分析",
@@ -1810,6 +1807,8 @@
     "sync_failed": "本地数据或行情连接不可用，请检查连接并重试。"
   },
   "holdingGroups": {
+    "showAccountHoldings": "展开 {{name}} 的分账户持仓",
+    "hideAccountHoldings": "收起 {{name}} 的分账户持仓",
     "label": "按投资品类型分组的持仓",
     "types": {
       "stock": "股票",

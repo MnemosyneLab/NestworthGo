@@ -7,6 +7,7 @@ import { AssistantPageProvider } from "./PageContext";
 import { useDesktopAssistant } from "./DesktopAssistant";
 import { useUiStore } from "@/stores/ui";
 import i18n from "@/i18n";
+import { NavigationContext } from "@/app/NavigationContext";
 
 const api = vi.hoisted(() => ({ Status: vi.fn(), List: vi.fn(), Inspect: vi.fn(), Reviews: vi.fn(), Start: vi.fn() }));
 const voice = vi.hoisted(() => ({ cancel: vi.fn() }));
@@ -106,6 +107,25 @@ it("uses the shared sheet below the dock breakpoint and restores focus on Escape
   expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   await user.keyboard("{Escape}");
   await waitFor(() => expect(trigger).toHaveFocus());
+});
+
+it.each([
+  [{ available: false, reason: "credentials_unavailable", config: { model: "unconfigured" } }, /Add credentials and enable a model/],
+  [{ available: false, reason: "disabled" }, /AI assistant is turned off/],
+  [{ available: true, selection: { model: "removed", reasoningEffort: "" } }, /selected model is no longer enabled/],
+] as const)("explains unavailable assistant setup and opens the AI tab (%j)", async (override, message) => {
+  responsiveViewport(false);
+  status.mockResolvedValue({ ...configuredStatus, ...override });
+  const open = vi.fn();
+  render(<QueryClientProvider client={createTestQueryClient()}><NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><Shell /></NavigationContext.Provider></QueryClientProvider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Open AI assistant" }));
+  expect(await screen.findByText(message)).toBeVisible();
+  expect(screen.getByRole("button", { name: "Send to model" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "Open AI Settings" }));
+  expect(open).toHaveBeenCalledWith({ page: "settings", section: "agent" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(api.Start).not.toHaveBeenCalled();
 });
 
 it("keeps the draft and selected conversation across layout changes and Sheet dismissal", async () => {

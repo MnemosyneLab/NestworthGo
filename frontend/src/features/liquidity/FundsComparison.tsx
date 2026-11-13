@@ -4,6 +4,7 @@ import { Check, Zap } from "lucide-react";
 import { formatAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ChangeText } from "@/components/ui/change-text";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { cashVersusProceeds, compareHorizonTotals, horizonUsesEarly } from "./liquidityDisplay";
@@ -13,10 +14,11 @@ import type { MoneyView } from "../../../bindings/github.com/waltwang/nestworth-
 type Horizon = { label: string; bucket: LiquidityBucketDTO };
 type Total = LiquidityBucketDTO | NativeCurrencyGroupDTO;
 
-export function FundsComparison({ horizons, selected, onSelect, sources, baseCurrency, includeEarly = false, busy = false, notes }: {
+export function FundsComparison({ horizons, selected, onSelect, sources, baseCurrency, includeEarly = false, busy = false, notes, missingRules, onShowMissingRules }: {
   horizons: Horizon[]; selected: string; onSelect: (date: string) => void;
   sources: LiquiditySourceDTO[]; baseCurrency: string;
   includeEarly?: boolean; busy?: boolean; notes?: ReactNode;
+  missingRules?: number; onShowMissingRules?: () => void;
 }) {
   const { t } = useTranslation();
   const unknown = t("availableFunds.unknownAmount");
@@ -93,16 +95,26 @@ export function FundsComparison({ horizons, selected, onSelect, sources, baseCur
           </span>
           <span className="text-xs text-muted-foreground">{bucket.horizonOn}</span>
           <span className="mt-2 block break-words text-2xl font-bold tabular-nums tracking-tight" data-testid={`horizon-available-${bucket.horizonOn}`}>{amount(total(bucket))}</span>
+          <span className="text-xs text-muted-foreground">{t(bucket.fullUnreserved ? "availableFunds.spendableHint" : bucket.knownUnreservedSubtotal ? "availableFunds.confirmedSubtotal" : "availableFunds.totalUnknown")}</span>
           <span className="mt-1 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {direction && previous && <ChangeText direction={direction} className="font-medium">
               {t(direction === "up" ? "availableFunds.moreThan" : direction === "down" ? "availableFunds.lessThan" : "availableFunds.sameAs", { label: previous.label })}
             </ChangeText>}
-            {!bucket.fullUnreserved && <Badge variant="warning" title={t("availableFunds.incompleteAmount")}>{t("availableFunds.partialShort")}</Badge>}
+            {!bucket.fullUnreserved && bucket.knownUnreservedSubtotal && <Badge variant="warning">{t("availableFunds.partialShort")}</Badge>}
             {early && <Badge variant="warning" className="gap-1"><Zap className="size-3" aria-hidden="true" />{t("availableFunds.earlyIncluded")}</Badge>}
           </span>
         </button>;
       })}
     </div>
+    {selectedHorizon && missingRules != null && (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        {missingRules > 0 && onShowMissingRules ? (
+          <Button type="button" variant="link" size="sm" className="h-auto p-0" disabled={busy} onClick={onShowMissingRules}>
+            {t("availableFunds.missingRulesCount", { count: missingRules })}
+          </Button>
+        ) : <p className="text-muted-foreground">{t("availableFunds.noMissingRules")}</p>}
+      </div>
+    )}
     {selectedHorizon && <div id="funds-currency-breakdown" className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold">{t("availableFunds.breakdownTitle")}</h3>

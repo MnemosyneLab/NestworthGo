@@ -93,7 +93,18 @@
   "app": {
     "name": "Nestworth"
   },
+  "datePicker": {
+    "previousMonth": "移至上個月",
+    "nextMonth": "移至下個月",
+    "chooseMonth": "選擇月份",
+    "chooseYear": "選擇年份",
+    "today": "今天，{{date}}",
+    "selected": "{{date}}，已選取",
+    "weekNumber": "週次",
+    "week": "第 {{week}} 週"
+  },
   "common": {
+    "retryAction": "再試一次",
     "loading": "載入中…",
     "unknownValue": "未知",
     "clearSelection": "清除選擇",
@@ -115,7 +126,6 @@
     "pending": "儲存中…",
     "preview": "預覽",
     "previewData": "示範資料",
-    "previewNotice": "這是視覺預覽。後續版本會在這裡接入你的本地財務資料。",
     "reset": "恢復預設設定",
     "restore": "還原",
     "retry": "重試",
@@ -124,33 +134,6 @@
     "system": "系統",
     "to": "至",
     "backToDraft": "返回草稿"
-  },
-  "dashboard": {
-    "accountCount": "%d 個帳戶",
-    "accountsToReview": "待複核帳戶",
-    "accountsTracked": "個帳戶已追蹤",
-    "activityDescription": "活動帳本會解釋這張資產負債表如何隨時間變化。",
-    "allocation": "資產配置",
-    "assets": "資產",
-    "cash": "現金及等價物",
-    "change": "本月變化",
-    "changeValue": "+2.8%",
-    "currentTotal": "目前總額",
-    "eyebrow": "家庭財務快照",
-    "investments": "投資",
-    "liabilities": "負債",
-    "liquidAssets": "流動資產",
-    "netWorth": "淨資產",
-    "netWorthTrend": "淨資產趨勢",
-    "noActivity": "暫時沒有真實活動",
-    "previewTrend": "未來將連接歷史快照，目前僅展示介面預覽。",
-    "property": "不動產",
-    "recentActivity": "近期活動",
-    "reviewDescription": "透過輕量的複核節奏，讓資產負債表保持新鮮。",
-    "reviewItemOne": "2 個餘額可以更新",
-    "reviewItemTwo": "1 個帳戶需要檢查所有權",
-    "subtitle": "以清晰、平靜的方式查看資產負債表，並隨著家庭成長逐步擴展。",
-    "title": "一處看清你的財務全貌。"
   },
   "enum": {
     "balance": "餘額",
@@ -383,6 +366,14 @@
     "name": "名稱"
   },
   "history": {
+    "selectEmpty": "請選擇",
+    "reasonLabel": "原因",
+    "changeGroups": { "cash": "現金", "investment": "投資", "debt": "債務" },
+    "dateFilter": "日期",
+    "rangeFrom": "從 {{date}} 起",
+    "rangeThrough": "截至 {{date}}",
+    "rangeAllDates": "全部記帳日期",
+    "queryRange": "目前查詢區間：{{range}}",
     "account": "帳戶",
     "amount": "金額",
     "applyFilters": "套用",
@@ -404,6 +395,7 @@
     "fxFee": "換匯費用",
     "holding": "持倉",
     "kind": {
+      "reversal": "沖銷",
       "buy": "買入",
       "cash_in": "增加金額",
       "cash_out": "減少金額",
@@ -638,6 +630,7 @@
     "name": "名稱"
   },
   "marketData": {
+    "fxChartDescription": "每 1 {{base}} 兌換的 {{quote}} 金額。",
     "fx": "匯率",
     "fxLocalFirst": "報價儲存在本機，僅在使用者明確操作時重新整理。",
     "instruments": "投資標的",
@@ -738,7 +731,8 @@
       "en": "English",
       "system": "系統",
       "zhCN": "簡體中文",
-      "zhTW": "繁體中文"
+      "zhTW": "繁體中文",
+      "ja": "日本語"
     },
     "time": {
       "12h": "12 小時制",
@@ -753,6 +747,7 @@
     }
   },
   "overview": {
+    "currentValuationIncomplete": "目前估值不完整",
     "accountCountDetail": "個活躍帳戶",
     "accounts": "帳戶",
     "assets": "資產",
@@ -1053,6 +1048,8 @@
     "unitCostHint": "歷史記錄已啟用，請按標的報價幣種填寫單位成本。留空時使用已儲存的目前價格；沒有價格時必須填寫。"
   },
   "connections": {
+    "historyCoverage": "歷史估值：{{total}} 天中有 {{valued}} 天可提供總額",
+    "noHistoricalCoverage": "此範圍內沒有歷史估值",
     "actions": "操作",
     "actionsFor": "{{name}}的操作",
     "accountReturns": "收益分析",
@@ -1810,6 +1807,8 @@
     "sync_failed": "本地資料或行情連線不可用，請檢查連線並重試。"
   },
   "holdingGroups": {
+    "showAccountHoldings": "展開 {{name}} 的分帳戶持倉",
+    "hideAccountHoldings": "收起 {{name}} 的分帳戶持倉",
     "label": "依投資標的類型分組的持倉",
     "types": {
       "stock": "股票",

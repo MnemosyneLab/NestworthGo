@@ -169,6 +169,7 @@ export const marketHealthEn = {
       cancelled: "Cancelled",
     },
     manualFXTitle: "Add manual FX quote",
+    manualFXObservation: "Manual exchange rate",
     manualFXDescription:
       "Save an FX observation without changing the preferred source.",
     baseCurrency: "Base currency",
@@ -388,6 +389,7 @@ export const marketHealthZhCN = {
       cancelled: "已取消",
     },
     manualFXTitle: "添加手工汇率",
+    manualFXObservation: "手工汇率",
     manualFXDescription: "保存汇率观察值，但不改变首选来源。",
     baseCurrency: "基础货币",
     quoteCurrency: "报价货币",
@@ -600,6 +602,7 @@ export const marketHealthZhTW = {
       cancelled: "已取消",
     },
     manualFXTitle: "新增手動匯率",
+    manualFXObservation: "手動匯率",
     manualFXDescription: "儲存匯率觀察值，但不改變首選來源。",
     baseCurrency: "基礎貨幣",
     quoteCurrency: "報價貨幣",

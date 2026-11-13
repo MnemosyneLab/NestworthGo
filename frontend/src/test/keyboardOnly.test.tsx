@@ -258,12 +258,12 @@ describe("keyboard-only completion", () => {
     const form = await screen.findByRole("form", { name: "Create account" });
     const continueButton = within(form).getByRole("button", { name: "Continue" });
     continueButton.focus(); // stands in for the Sheet's own focus-trap (see file header)
-    await userEvent.keyboard("{Enter}"); // institution -> type (bank account default)
-
     expect(await screen.findByTestId("account-wizard-type")).toBeInTheDocument();
+    await userEvent.keyboard("{Enter}"); // type -> institution (bank account default)
+    expect(await screen.findByTestId("account-wizard-institution")).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "No institution" })).toHaveAttribute("aria-pressed", "true");
     expect(within(form).getByRole("button", { name: "Continue" })).toHaveFocus();
-    await userEvent.keyboard("{Enter}"); // type -> tracking question for bank accounts
-
+    await userEvent.keyboard("{Enter}"); // institution -> tracking question
     expect(await screen.findByTestId("account-wizard-tracking")).toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Continue" })).toHaveFocus();
     await userEvent.keyboard("{Enter}"); // tracking default: account total -> details
@@ -282,7 +282,11 @@ describe("keyboard-only completion", () => {
 
     await userEvent.tab(); // -> Alice owner checkbox
     expect(within(form).getByLabelText("Alice")).toHaveFocus();
-    await userEvent.keyboard(" "); // Space toggles a focused checkbox
+    expect(within(form).getByLabelText("Alice")).toBeChecked();
+    await userEvent.keyboard(" ");
+    expect(within(form).getByLabelText("Alice")).not.toBeChecked();
+    expect(within(form).getByRole("button", { name: "Continue" })).toBeDisabled();
+    await userEvent.keyboard(" "); // Restore the default owner.
 
     await userEvent.tab(); // -> "More settings" toggle (left unpressed)
     await userEvent.tab(); // -> Back
@@ -290,7 +294,11 @@ describe("keyboard-only completion", () => {
     expect(within(form).getByRole("button", { name: "Continue" })).toHaveFocus();
     await userEvent.keyboard("{Enter}"); // details -> review
 
-    expect(await screen.findByTestId("account-wizard-review")).toBeInTheDocument();
+    const review = await screen.findByTestId("account-wizard-review");
+    expect(review).toHaveTextContent("No institution");
+    expect(review).toHaveTextContent("Alice");
+    expect(review).toHaveTextContent("USD");
+    expect(review).toHaveTextContent("500");
     expect(within(form).getByRole("button", { name: "Add account" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 
@@ -357,9 +365,7 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("{Enter}"); // runs Preview
 
     expect(await within(form).findByRole("status")).toHaveTextContent("Checking");
-    // React reconciles the Preview/Confirm buttons in place (same element
-    // type and position), so the DOM node — and its focus — survives the
-    // label/handler swap; Enter now activates Confirm on the same button.
+    // Focus moves to Confirm after the live preview is rendered.
     expect(within(form).getByRole("button", { name: "Confirm" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 

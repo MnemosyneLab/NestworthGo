@@ -29,13 +29,13 @@ import { useRefreshFX, useRefreshInstrument } from "@/queries/marketdata";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
-import type { AccountRecordDTO, ActivityDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { AccountRecordDTO, ActivityDTO, EndpointChangeDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
 import { activityStyle } from "@/lib/activityStyle";
 import { FieldError } from "@/components/ui/field-error";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
-import { formatQuotePrice, formatQuantity, formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
+import { formatAuditMoney, formatQuotePrice, formatQuantity, formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
 import type { WireError } from "@/lib/wails";
 import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
@@ -50,19 +50,26 @@ import {
   tradeFillFromPrice,
 } from "@/features/history/CalculateAmounts";
 
-const KINDS: ChangeCommandKind[] = [
-  ChangeCommandKind.ChangeMoneyAdded,
-  ChangeCommandKind.ChangeMoneyRemoved,
-  ChangeCommandKind.ChangeCashDividend,
-  ChangeCommandKind.ChangeCashTransfer,
-  ChangeCommandKind.ChangeFXConversion,
-  ChangeCommandKind.ChangePositionTransfer,
-  ChangeCommandKind.ChangePositionAdjustment,
-  ChangeCommandKind.ChangeTrade,
-  ChangeCommandKind.ChangeValueUpdate,
-  ChangeCommandKind.ChangeDebtDraw,
-  ChangeCommandKind.ChangeDebtPayment,
-];
+const CHANGE_GROUPS = {
+  cash: [
+    ChangeCommandKind.ChangeMoneyAdded,
+    ChangeCommandKind.ChangeMoneyRemoved,
+    ChangeCommandKind.ChangeCashTransfer,
+    ChangeCommandKind.ChangeFXConversion,
+    ChangeCommandKind.ChangeValueUpdate,
+  ],
+  investment: [
+    ChangeCommandKind.ChangeTrade,
+    ChangeCommandKind.ChangeCashDividend,
+    ChangeCommandKind.ChangePositionTransfer,
+    ChangeCommandKind.ChangePositionAdjustment,
+  ],
+  debt: [
+    ChangeCommandKind.ChangeDebtDraw,
+    ChangeCommandKind.ChangeDebtPayment,
+  ],
+};
+const KINDS = Object.values(CHANGE_GROUPS).flat();
 
 /** Maps each change command to the activity-kind styling used in the timeline. */
 const KIND_ACTIVITY_STYLE: Partial<Record<ChangeCommandKind, string>> = {
@@ -104,7 +111,7 @@ function repeatSourceRefused(error: unknown): boolean {
   return wire?.code === "already_undone" || wire?.field === "sourceActivityId";
 }
 
-type ReviewedChange = { key: string; command: ChangeCommandRequest; planId?: string; resulting: readonly EndpointViewDTO[] };
+type ReviewedChange = { key: string; command: ChangeCommandRequest; planId?: string; resulting: readonly EndpointViewDTO[]; endpoints?: readonly EndpointChangeDTO[]; effectiveAt?: string; kind?: string };
 
 type SubmissionScope = { session: object; householdId: string | undefined; family: "record" | "fix" | "repeat"; sourceActivityId?: string };
 type SubmittedChange = {
@@ -631,6 +638,33 @@ function RecordChangeFormReady({
   const showReason = kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate;
   const liabilityMoney = accountById.get(request.accountId ?? "")?.account.balanceSheetRole === "liability";
   const cardMoney = (contextAccount ?? accountById.get(request.accountId ?? "")?.account)?.accountType === "credit_card";
+  const groupAccount = contextAccount ?? prefill?.account;
+  const debtFirst = groupAccount?.balanceSheetRole === "liability";
+  const investmentFirst = groupAccount?.trackingMode === "holdings" && groupAccount.accountType !== "cash_on_hand";
+  const groupOrder = debtFirst ? ["debt", "cash", "investment"] as const
+    : investmentFirst ? ["investment", "cash", "debt"] as const
+      : ["cash", "investment", "debt"] as const;
+  const choiceGroups = groupOrder.map(group => {
+    const values = contextKinds.filter(value => {
+      if (value === ChangeCommandKind.ChangePositionImport) return group === "investment";
+      const liabilityAdjustment = [ChangeCommandKind.ChangeMoneyAdded, ChangeCommandKind.ChangeMoneyRemoved, ChangeCommandKind.ChangeValueUpdate].includes(value);
+      if (debtFirst && liabilityAdjustment) return group === "debt";
+      return CHANGE_GROUPS[group].includes(value);
+    });
+    return {
+      label: t(`history.changeGroups.${group}`),
+      options: values.map(value => {
+        const style = activityStyle(KIND_ACTIVITY_STYLE[value]);
+        let label = `history.kind.${value}`;
+        if (contextLiability || liabilityMoney) {
+          if (value === ChangeCommandKind.ChangeMoneyAdded) label = cardMoney ? "reconciliation.cardPurchase" : "reconciliation.debtIncrease";
+          if (value === ChangeCommandKind.ChangeMoneyRemoved) label = cardMoney ? "reconciliation.cardRefund" : "reconciliation.debtDecrease";
+          if (value === ChangeCommandKind.ChangeValueUpdate) label = "reconciliation.cardBalanceCorrection";
+        }
+        return { value, label: t(label), icon: style.icon, tone: style.tone };
+      }),
+    };
+  }).filter(group => group.options.length);
   const reasonOptions =
     liabilityMoney && kind === ChangeCommandKind.ChangeMoneyAdded ? (catalog.data?.liabilityIncreaseReasons ?? [])
     : liabilityMoney && kind === ChangeCommandKind.ChangeMoneyRemoved ? (catalog.data?.liabilityDecreaseReasons ?? [])
@@ -843,6 +877,10 @@ function RecordChangeFormReady({
   const commandKey = JSON.stringify(buildRequest());
   const currentReview = submitted?.review ?? (reviewed?.key === commandKey ? reviewed : null);
   const previewResult = currentReview?.resulting ?? null;
+  const confirmButton = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    if (reviewed && reviewed.key === commandKey) confirmButton.current?.focus();
+  }, [reviewed, commandKey]);
 
   const runPreview = () => {
     if (!canPreview || recoveryLocked || confirmBusy.current) {
@@ -851,8 +889,12 @@ function RecordChangeFormReady({
     const command = Object.freeze(buildRequest());
     const key = JSON.stringify(command);
     const sequence = ++previewSequence.current;
-    const accept = (result: { resulting: EndpointViewDTO[] | null }) => {
-      if (alive.current && sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting } : null);
+    const accept = (result: { resulting: EndpointViewDTO[] | null; review?: EndpointChangeDTO[] | null; activity?: ActivityDTO; effectiveAt?: string; planId?: string }) => {
+      if (!alive.current || sequence !== previewSequence.current) return;
+      setReviewed(result.resulting ? {
+        key, command, resulting: result.resulting, planId: result.planId,
+        endpoints: result.review ?? undefined, effectiveAt: result.activity?.effectiveAt ?? result.effectiveAt, kind: result.activity?.kind,
+      } : null);
     };
     if (fixActivityId) {
       previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: accept });
@@ -861,7 +903,11 @@ function RecordChangeFormReady({
     if (repeat) {
       repeatConfirm.reset();
       repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, {
-        onSuccess: (result) => { if (alive.current && sequence === previewSequence.current) { setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); setRepeatRecovery(null); } },
+        onSuccess: (result) => {
+          if (!alive.current || sequence !== previewSequence.current) return;
+          accept(result);
+          setRepeatRecovery(null);
+        },
         onError: (cause) => { if (alive.current && sequence === previewSequence.current && repeatSourceRefused(cause)) setRepeatRecovery("source_refused"); },
       });
       return;
@@ -904,6 +950,7 @@ function RecordChangeFormReady({
       review: Object.freeze({ ...currentReview,
         command: Object.freeze({ ...currentReview.command, mutationId: crypto.randomUUID() }),
         resulting: Object.freeze(currentReview.resulting.map(endpoint => Object.freeze({ ...endpoint }))),
+        endpoints: currentReview.endpoints && Object.freeze(currentReview.endpoints.map(endpoint => Object.freeze({ ...endpoint }))),
       }),
       phase: "pending",
     });
@@ -1093,10 +1140,7 @@ function RecordChangeFormReady({
         <ChoiceGrid
           label={t("history.changeType")}
           value={kind}
-          options={contextKinds.map((value) => {
-            const style = activityStyle(KIND_ACTIVITY_STYLE[value]);
-            return { value, label: t((contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeMoneyAdded ? cardMoney ? "reconciliation.cardPurchase" : "reconciliation.debtIncrease" : (contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeMoneyRemoved ? cardMoney ? "reconciliation.cardRefund" : "reconciliation.debtDecrease" : (contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeValueUpdate ? "reconciliation.cardBalanceCorrection" : `history.kind.${value}`), icon: style.icon, tone: style.tone };
-          })}
+          groups={choiceGroups}
           onChange={(value) => {
             if (sheetConfirmation?.read() || confirmBusy.current) return;
             const nextKind = value as ChangeCommandKind;
@@ -1423,12 +1467,34 @@ function RecordChangeFormReady({
       {repeat && repeatConfirmResult && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : repeatConfirmResult === "plan_unavailable" ? "history.repeatPlanUnavailableHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
       {submitted?.phase === "unknown" && <p role="status" className="text-sm text-muted-foreground">{t(scopeMatches && intentMatches ? "history.submissionRetryHelp" : "history.submissionOwnerChangedHelp")}</p>}
 
-      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(signedAccountAmount(endpoint.amount, accountById.get(endpoint.accountId ?? "")?.account.balanceSheetRole === "liability"), endpoint.currency) : endpoint.quantity != null ? formatAmount(endpoint.quantity) : t("reconciliation.unavailable")}</p>)}</div>}
+      {currentReview && <div role="status" className="flex flex-col gap-2 rounded-xl border border-border bg-muted p-3 text-sm">
+        <p className="font-semibold">{t("history.previewTitle")}</p>
+        <p className="text-muted-foreground">{t("history.previewDescription")}</p>
+        {currentReview.effectiveAt && <p className="font-medium">
+          {t(`history.kind.${currentReview.kind ?? currentReview.command.kind}`, { defaultValue: t(`history.kind.${currentReview.command.kind}`) })}
+          {" · "}{formatExactTimestamp(currentReview.effectiveAt, originZone)} ({originZone})
+        </p>}
+        {currentReview.endpoints?.length ? <ul className="flex flex-col divide-y divide-border">
+          {currentReview.endpoints.map((endpoint, index) => {
+            const format = (value: string) => endpoint.currency ? formatAuditMoney(value, endpoint.currency) : formatQuantity(value);
+            return <li key={index} className="flex flex-col gap-1 py-2">
+              <p className="font-medium">{[endpoint.accountName, endpoint.instrument, endpoint.currency || t("history.quantity")].filter(Boolean).join(" · ")}</p>
+              <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-3">
+                {([
+                  [t("history.previewBefore"), format(endpoint.before)],
+                  [t("history.previewDelta"), `${isPositiveCanonical(endpoint.delta) ? "+" : ""}${format(endpoint.delta)}`],
+                  [t("history.previewAfter"), format(endpoint.after)],
+                ]).map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="num break-words">{value}</dd></div>)}
+              </dl>
+            </li>;
+          })}
+        </ul> : currentReview.resulting.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(signedAccountAmount(endpoint.amount, accountById.get(endpoint.accountId ?? "")?.account.balanceSheetRole === "liability"), endpoint.currency) : endpoint.quantity != null ? formatQuantity(endpoint.quantity) : t("reconciliation.unavailable")}</p>)}
+      </div>}
 
       </fieldset>
       <div className="flex gap-2">
         {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending || recoveryLocked}>{t("common.backToDraft")}</Button>}
-        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending || recoveryLocked}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending || !scopeMatches || !intentMatches}>{confirmPending ? t("common.pending") : submitted ? t("history.submissionRetryConfirm") : repeat && recoveryLocked ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
+        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending || recoveryLocked}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button ref={confirmButton} type="button" onClick={runConfirm} disabled={confirmPending || !scopeMatches || !intentMatches}>{confirmPending ? t("common.pending") : submitted ? t("history.submissionRetryConfirm") : repeat && recoveryLocked ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
       </div>
     </div>
   );

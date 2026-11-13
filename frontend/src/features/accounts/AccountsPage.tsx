@@ -220,9 +220,13 @@ export function AccountsPage({
                   return (
                     <li key={record.account.id} className="border-b border-border last:border-0">
                       <button
+                        id={`account-list-${record.account.id}`}
                         type="button"
                         className="grid w-full grid-cols-1 items-center @min-[12rem]:grid-cols-[auto_minmax(0,1fr)] gap-3 px-4 py-3 text-left @lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
-                        onClick={() => setSelectedId(record.account.id)}
+                        onClick={(event) => {
+                          event.currentTarget.focus({ preventScroll: true });
+                          setSelectedId(record.account.id);
+                        }}
                       >
                         <span
                           aria-hidden="true"

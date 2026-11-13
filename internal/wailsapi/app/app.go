@@ -4,6 +4,7 @@
 package app
 
 import (
+	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
@@ -17,16 +18,17 @@ type Service struct {
 	found      int
 	supported  int
 	hasSchema  bool
+	language   settings.Language
 }
 
-func NewService(startupErr error) *Service {
-	return &Service{startupErr: startupErr}
+func NewService(startupErr error, language settings.Language) *Service {
+	return &Service{startupErr: startupErr, language: language}
 }
 
 // NewServiceWithSchema reports a blocked startup together with the schema
 // versions that are safe to show in the UI. It never includes a filesystem path.
-func NewServiceWithSchema(startupErr error, found, supported int) *Service {
-	return &Service{startupErr: startupErr, found: found, supported: supported, hasSchema: true}
+func NewServiceWithSchema(startupErr error, found, supported int, language settings.Language) *Service {
+	return &Service{startupErr: startupErr, found: found, supported: supported, hasSchema: true, language: language}
 }
 
 // AppInfoDTO mirrors internal/version's package-level identity constants.
@@ -47,21 +49,25 @@ func (s *Service) AppInfo() AppInfoDTO {
 // blocked page without calling any other service — those stay unregistered
 // when the database could not be opened.
 type StartupDTO struct {
-	Available              bool   `json:"available"`
-	Code                   string `json:"code,omitempty"`
-	Field                  string `json:"field,omitempty"`
-	Message                string `json:"message,omitempty"`
-	FoundSchemaVersion     *int   `json:"foundSchemaVersion,omitempty"`
-	SupportedSchemaVersion *int   `json:"supportedSchemaVersion,omitempty"`
+	Language               settings.Language `json:"language"`
+	Available              bool              `json:"available"`
+	Code                   string            `json:"code,omitempty"`
+	Field                  string            `json:"field,omitempty"`
+	Message                string            `json:"message,omitempty"`
+	FoundSchemaVersion     *int              `json:"foundSchemaVersion,omitempty"`
+	SupportedSchemaVersion *int              `json:"supportedSchemaVersion,omitempty"`
 }
 
 func (s *Service) Startup() StartupDTO {
-	if s == nil || s.startupErr == nil {
-		return StartupDTO{Available: true}
+	if s == nil {
+		return StartupDTO{Available: true, Language: settings.LanguageEnglish}
+	}
+	dto := StartupDTO{Available: s.startupErr == nil, Language: s.language}
+	if dto.Available {
+		return dto
 	}
 	wrapped := apierror.Wrap(s.startupErr)
 	wire, ok := wrapped.(*apierror.WireError)
-	dto := StartupDTO{Available: false}
 	if !ok || wire == nil {
 		dto.Code = "internal"
 		dto.Message = "an unexpected error occurred"

@@ -82,7 +82,10 @@ const ACCENT_SWATCH: Record<(typeof ACCENT_ORDER)[number], string> = {
   peach: "bg-[oklch(72%_0.15_45)]",
 };
 
-export function SettingsPage() {
+export function SettingsPage({ initialSection = "general", focusHistoryRebuild = false }: {
+  initialSection?: (typeof SECTION_IDS)[number];
+  focusHistoryRebuild?: boolean;
+} = {}) {
   const { t } = useTranslation();
   const settings = useSettings();
   const saveSettings = useSaveSettings();
@@ -96,7 +99,7 @@ export function SettingsPage() {
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const setAccent = useUiStore((state) => state.setAccent);
-  const [activeSection, setActiveSection] = useState<(typeof SECTION_IDS)[number]>("general");
+  const [activeSection, setActiveSection] = useState<(typeof SECTION_IDS)[number]>(initialSection);
   const [localRestoreBusy, setLocalRestoreBusy] = useState(false);
   const [cloudInteractionBusy, setCloudInteractionBusy] = useState(false);
   const [agentBusy, setAgentBusy] = useState(false);
@@ -149,7 +152,7 @@ export function SettingsPage() {
   const applyLivePreferences = (value: Settings) => {
     setAppearance(value.appearance as Appearance);
     setAccent(value.accent as Accent);
-    setLanguage(value.language);
+    return setLanguage(value.language, value.systemLanguage);
   };
 
   const separatorMessage = separatorsConflict(draft.decimalSeparator, draft.groupingSeparator)
@@ -164,8 +167,8 @@ export function SettingsPage() {
       onSettled: () => { preferenceRequest.current = false; },
       onSuccess: (saved) => {
         setDraftOverride(null);
-        toast.success(t("settings.changesSaved"));
-        applyLivePreferences(saved);
+        const language = applyLivePreferences(saved);
+        toast.success(t("settings.changesSaved", { lng: language }));
       },
     });
   };
@@ -418,7 +421,7 @@ export function SettingsPage() {
       <TabsContent value="mobile" keepMounted><MobileAccessSection active={activeSection === "mobile"} /></TabsContent>
       <TabsContent value="data" keepMounted>
         <div className="space-y-5">
-          <div className="rounded-2xl border border-border bg-card p-5 sm:p-6"><DataManagementSection onRestoreBusyChange={setLocalRestoreBusy} /></div>
+          <div className="rounded-2xl border border-border bg-card p-5 sm:p-6"><DataManagementSection onRestoreBusyChange={setLocalRestoreBusy} focusHistoryRebuild={focusHistoryRebuild && activeSection === "data"} /></div>
           <div className="@container rounded-2xl border border-border bg-card p-5 sm:p-6"><ContinuousBackupSection active={activeSection === "data"} onInteractionBusyChange={setCloudInteractionBusy} /></div>
         </div>
       </TabsContent>
@@ -459,9 +462,9 @@ export function SettingsPage() {
                   resetSettings.mutate(undefined, {
                     onSuccess: (defaults) => {
                       setDraftOverride(null);
-                      applyLivePreferences(defaults);
+                      const language = applyLivePreferences(defaults);
                       setResetOpen(false);
-                      toast.success(t("settings.resetDone"));
+                      toast.success(t("settings.resetDone", { lng: language }));
                     },
                     onSettled: () => { preferenceRequest.current = false; },
                   });

@@ -98,8 +98,8 @@ when you choose to use them.
   </tr>
 </table>
 
-<sub>Screenshots show synthetic demo data from October 2026 browser builds;
-current navigation may differ. [Screenshot source and scope](docs/qa/post-merge-pr101-pr102-2026-10-17/REPORT.md).</sub>
+<sub>These screenshots show synthetic demo data from the October 2026 Linux
+Chromium build at <code>5cb76c849ec0</code>. Current navigation may differ.</sub>
 
 ## Get started
 

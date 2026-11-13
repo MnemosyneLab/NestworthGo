@@ -23,6 +23,7 @@ import {
   formatKnownOrUnknown,
   resultForHorizon,
   sourceFilterCounts,
+  sourceFilters,
   sourceMatchesFilter,
   type SourceFilter,
 } from "@/features/liquidity/liquidityDisplay";
@@ -46,6 +47,8 @@ export function AvailableFundsPage({
   const [includeEarly, setIncludeEarly] = useState(false);
   const [customDate, setCustomDate] = useState("");
   const [filter, setFilter] = useState<SourceFilter>("all");
+  const sourcesHeading = useRef<HTMLHeadingElement>(null);
+  const [focusSources, setFocusSources] = useState(false);
   const [policySource, setPolicySource] = useState<LiquiditySourceDTO | null>(null);
   const [manageReservations,setManageReservations] = useState(false);
   const [reservationSource, setReservationSource] = useState<LiquiditySourceDTO | null>(null);
@@ -106,6 +109,11 @@ export function AvailableFundsPage({
       } else if (target?.kind === "policy") {
         const source = freshSources.find(source => sameSource(source, target.sourceRef));
         if (source) setPolicySource(source); else setNavigationMessage(t("upcomingActions.targetMissing"));
+      } else if (target?.kind === "missing-rules") {
+        setIncludeEarly(false);
+        setSelectedHorizon(target.horizonOn);
+        setFilter("needs_rules");
+        setFocusSources(true);
       } else if (target?.kind === "reservations") {
         const source = target.sourceRef ? freshSources.find(source => sameSource(source, target.sourceRef!)) : undefined;
         setReservationSource(source ?? null); setFocusReservationId(target.reservationId); setManageReservations(true);
@@ -114,6 +122,12 @@ export function AvailableFundsPage({
     });
     return () => { cancelled = true; };
   }, [focus, navigationRequestId, isActive, productId, accountId, refetchOverview, navigationRetry, t]);
+  useEffect(() => {
+    if (focusSources && isActive && sourcesHeading.current) {
+      sourcesHeading.current.focus();
+      setFocusSources(false);
+    }
+  }, [focusSources, isActive, data]);
   const retryOverview = () => {
     if (isActive && (focus || productId || accountId) && !consumedRequests.current.has(navigationRequestId)) {
       setNavigationRetry(value => value + 1);
@@ -131,7 +145,7 @@ export function AvailableFundsPage({
   const unknown = t("availableFunds.unknownAmount");
   const filterLabels: Record<SourceFilter, string> = {
     all: t("availableFunds.filterAll"), available: t("availableFunds.filterAvailable"), locked: t("availableFunds.filterLocked"),
-    needs_info: t("availableFunds.filterNeedsInfo"), excluded: t("availableFunds.filterExcluded"),
+    needs_rules: t("availableFunds.filterNeedsRules"), needs_info: t("availableFunds.filterNeedsInfo"), excluded: t("availableFunds.filterExcluded"),
   };
   const allExcluded = sources.length > 0 && sources.every((source) => source.excluded);
   const selectedBucket = data ? bucketForHorizon(data, horizonOn) : undefined;
@@ -175,7 +189,7 @@ export function AvailableFundsPage({
   const month = buckets[2];
   const custom = buckets.find((bucket) => customDate && bucket.horizonOn === customDate);
   const counts = sourceFilterCounts(sources, horizonOn);
-  const filterOptions = (["all", "available", "locked", "needs_info", "excluded"] as const)
+  const filterOptions = sourceFilters
     .filter((value) => value === "all" || value === filter || counts[value] > 0)
     .map((value) => ({
       value,
@@ -220,6 +234,7 @@ export function AvailableFundsPage({
             ]}
             selected={horizonOn} onSelect={setSelectedHorizon} sources={sources}
             baseCurrency={data.baseCurrency} includeEarly={includeEarly} busy={overview.isPlaceholderData} notes={notes}
+            missingRules={counts.needs_rules} onShowMissingRules={() => { setFilter("needs_rules"); setFocusSources(true); }}
           />
           {overview.isPlaceholderData && <p role="status" className="text-sm text-muted-foreground">{t("availableFunds.updatingEstimate")}</p>}
           {allExcluded && <EmptyState title={t("availableFunds.allExcludedTitle")} description={t("availableFunds.assetsOnly")} />}
@@ -228,7 +243,7 @@ export function AvailableFundsPage({
           <section data-assistant-module="sources" className="flex flex-col gap-3" aria-label={t("availableFunds.assets")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h2 className="font-semibold">{t("availableFunds.assetsByDate", { date: horizonOn })}</h2>
+                <h2 ref={sourcesHeading} tabIndex={-1} className="font-semibold">{t("availableFunds.assetsByDate", { date: horizonOn })}</h2>
                 <InfoPopover label={t("availableFunds.aboutAmounts")}>{t("availableFunds.nativeCurrencyNote")}</InfoPopover>
               </div>
               <Button type="button" size="sm" variant="outline" onClick={() => openReservations(null)}>{t("availableFunds.manageReservations")}</Button>

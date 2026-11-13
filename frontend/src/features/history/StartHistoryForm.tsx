@@ -42,7 +42,7 @@ export function StartHistoryForm({
   const missingCost = holdings.some((holding) => !costFor(holding.holdingId, holding.unitCost).trim());
 
   const submit = () => {
-    if (missingCost) {
+    if (missingCost || draft.isError || settings.isError) {
       return;
     }
     const costOverrides =
@@ -125,7 +125,7 @@ export function StartHistoryForm({
             {t("common.cancel")}
           </Button>
         )}
-        <Button type="button" onClick={submit} disabled={startHistory.isPending || settings.isLoading || draft.isLoading || missingCost || !startDate}>
+        <Button type="button" onClick={submit} disabled={startHistory.isPending || settings.isLoading || settings.isError || draft.isLoading || draft.isError || missingCost || !startDate}>
           {startHistory.isPending ? t("common.pending") : t("history.startButton")}
         </Button>
       </div>

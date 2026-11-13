@@ -1,3 +1,4 @@
+import { languageOptionKey, SUPPORTED_LANGUAGES } from "@/i18n/language";
 import { mobileOperationId } from "./operationId";
 import { MobileAssistant } from "./MobileAssistant";
 import { AssistantPageProvider, usePublishAssistantPage } from "@/features/assistant/PageContext";
@@ -491,9 +492,9 @@ export function MobileApp() {
                   void i18n.changeLanguage(e.target.value);
                 }}
               >
-                <option value="en">English</option>
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁體中文</option>
+                {SUPPORTED_LANGUAGES.map(language => (
+                  <option key={language} value={language}>{t(`option.language.${languageOptionKey(language)}`)}</option>
+                ))}
               </NativeSelect>
             </Field>
             <Field name={t("mobile.theme")}>

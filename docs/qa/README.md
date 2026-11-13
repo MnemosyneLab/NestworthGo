@@ -16,9 +16,8 @@ and attach exact-source evidence to the PR or CI run.
 | Assets | [Bank symbols](bank-logos/symbols/README.md), [icons](icon-coverage/README.md) |
 | Historical expected-failure fixture | [Review replay](post-merge-pr101-pr102-2026-10-17/repro/README.md); not a current correctness gate |
 
-The root README uses three [historical synthetic screenshots](post-merge-pr101-pr102-2026-10-17/REPORT.md).
-Other dated screenshots, logs and intermediate reports are recoverable from Git
-history. Test scripts and fixture code remain alongside their setup instructions.
+The root README uses three historical synthetic screenshots. Test scripts and
+fixture code remain alongside their setup instructions.
 
 Retained release evidence records hashes, publication identity and explicit
 acceptance limits: [v0.3.8](v0.3.8-release-package-2026-10-14.md) and

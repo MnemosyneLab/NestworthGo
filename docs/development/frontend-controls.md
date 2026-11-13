@@ -112,7 +112,7 @@ supplied types, roles and imports.
 
 Shared wrapper internals and test fixtures are excluded. Native checkboxes,
 radios and file inputs remain valid (there is no canonical checkbox wrapper).
-Calendar's native month/year dropdowns are internal accessible primitives.
+Calendar month and year use NativeSelect through the Calendar wrapper.
 ReturnCalendarTab is a financial data visualization, not a date-entry picker;
 chart range presets and day/month navigation also remain appropriate. Specialized
 interactive rows, chart buttons and read-only connection text areas may keep
@@ -188,18 +188,22 @@ Native window/process close and restart UI acceptance remains a separate gate.
 
 ## Financial display and identities
 
-Ordinary money (including JPY/KRW) uses two display decimals through
-`formatAmount(value, currency)`; use `formatMoney` for currencyless money.
-`currencyFractionDigits` remains the ISO command-calculation scale. Never round
-DTOs, persisted decimals, inputs, or submitted/retried payloads for presentation.
+Ordinary money uses the currency's display scale through
+`formatAmount(value, currency)` (zero decimals for JPY/KRW, two for the other
+supported currencies); use `formatMoney` for currencyless money. Supported
+currencies use stable, distinct prefixes across languages: `CN¥`, `JP¥`,
+`US$`, `S$`, `HK$`, `NT$`, `A$`, `€`, `£`, `₩`, and `CHF`. Historical ISO
+codes outside the supported catalog display their currency code. User-selected
+decimal and grouping separators still apply. Never round DTOs, persisted
+decimals, inputs, or submitted/retried payloads for presentation.
 `formatQuotePrice` preserves unit-price/NAV precision; currencyless
 `formatAmount` preserves quantities and FX rates. Charts use canonical strings
 for tooltips/tables and numbers only for geometry. Known zero is money, missing
 is unavailable, and a known subtotal is never a fabricated full total. Rounded
 nonzero sub-cent values carry a direction/size hint without a signed zero;
 explicit exact audit/confirmation detail retains the canonical value. Aggregates
-keep their existing exact-sum-then-round semantics. Displayed two-decimal rows
-may therefore differ from the displayed total (for example, two exact 0.004
+keep their existing exact-sum-then-round semantics. Displayed rows may therefore
+differ from the displayed total (for example, two exact 0.004
 values display as 0.00 each while their 0.008 total displays as 0.01). Explain
 this through the shared rounding info popover on holdings and analysis, and
 existing amount/help popovers on liquidity and historical overview; never
@@ -266,11 +270,17 @@ flatness. Derived percentages use concise two-decimal presentation; signed
 money uses `formatSignedMoney`, including neutral rounded zero and its tiny-value
 hint.
 
-NativeSelect and FilterableSelect share `selectFieldClass`, retaining native
-select semantics. A combobox search session starts empty, commits only an
-explicit option, and cancels on Escape/Tab/blur. IME composition never confirms
-an option or submits the outer form. Preserve disabled, error and active-option
-accessibility semantics; test reopening while already focused.
+NativeSelect and FilterableSelect share the field, popup and option styles.
+NativeSelect styles the browser's picker with `appearance: base-select` where
+supported. Other engines use their native picker. Both paths retain native
+labels, form semantics, keyboard interaction and grouped options.
+FilterableSelect uses the shared Popover positioner with viewport collision
+handling. Its search session starts empty and commits only an explicit option.
+Escape, Tab and blur cancel the query. IME composition never confirms an
+option or submits the outer form. Preserve disabled, error, selected and
+active-option semantics and test reopening while already focused.
+Entity selectors with icons and provider search results use the same field,
+panel and option styles. Provider results retain their loading and error states.
 
 Instrument details preserve the backend aggregate and show every account member,
 including a single account and zero quantities, with owner/institution metadata,

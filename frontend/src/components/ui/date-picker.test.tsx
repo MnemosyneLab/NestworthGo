@@ -52,11 +52,18 @@ it("honors the supplied household date across a browser timezone and year edge",
   expect(grid.querySelector('[data-day="2026-01-02"] button')).toBeDisabled();
 });
 
-it.each(["zh-CN", "zh-TW"])("opens the calendar with the %s date-fns locale", async (language) => {
+it.each([
+  ["zh-CN", "转到下个月", "选择月份", "选择年份", "已选择"],
+  ["zh-TW", "移至下個月", "選擇月份", "選擇年份", "已選取"],
+  ["ja", "次の月へ", "月を選択", "年を選択", "選択済み"],
+])("localizes the calendar's accessible controls in %s", async (language, next, month, year, selected) => {
   await i18n.changeLanguage(language);
   renderPicker();
   fireEvent.click(screen.getByRole("button", { name: "Date" }));
-  expect(screen.getByRole("grid")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: next })).toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: month })).toBeInTheDocument();
+  expect(screen.getByRole("combobox", { name: year })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: new RegExp(selected) })).toBeInTheDocument();
 });
 
 it("keeps future scheduling dates selectable when explicitly allowed", async () => {

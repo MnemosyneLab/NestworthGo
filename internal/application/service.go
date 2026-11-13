@@ -322,6 +322,8 @@ func defaultDirectoryNames(language string) (string, string) {
 		return "默认机构", "默认分组"
 	case "zh-tw":
 		return "預設機構", "預設分組"
+	case "ja":
+		return "既定の金融機関", "既定のグループ"
 	default:
 		return "Default institution", "Default group"
 	}

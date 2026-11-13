@@ -63,6 +63,7 @@ func (s *Service) replayCorrection(ctx context.Context, original domain.Activity
 	if err != nil {
 		return correctionPlan{}, err
 	}
+	replacement.Review = state.ReviewEndpoints(replacement.Resulting)
 	inverse.Activity.EffectiveAt = original.EffectiveAt
 	inverse.Activity.EffectiveLocalDate = original.EffectiveLocalDate
 	replacement.Activity.Resulting = replacement.Resulting

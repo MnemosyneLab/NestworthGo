@@ -1037,6 +1037,28 @@ type ChangePreviewDTO struct {
 	Resulting        []EndpointViewDTO   `json:"resulting"`
 	DerivedRate      *string             `json:"derivedRate,omitempty"`
 	DerivedUnitPrice *string             `json:"derivedUnitPrice,omitempty"`
+	Review           []EndpointChangeDTO `json:"review,omitempty"`
+}
+
+type EndpointChangeDTO struct {
+	Target      string `json:"target"`
+	AccountName string `json:"accountName"`
+	Instrument  string `json:"instrument,omitempty"`
+	Currency    string `json:"currency,omitempty"`
+	Before      string `json:"before"`
+	Delta       string `json:"delta"`
+	After       string `json:"after"`
+}
+
+func FromReviewedChangePreview(value domain.ChangePreview) ChangePreviewDTO {
+	dto := FromChangePreview(value)
+	for _, endpoint := range value.Review {
+		dto.Review = append(dto.Review, EndpointChangeDTO{
+			Target: string(endpoint.Target), AccountName: endpoint.AccountName, Instrument: endpoint.Instrument,
+			Currency: endpoint.Currency.String(), Before: endpoint.Before, Delta: endpoint.Delta, After: endpoint.After,
+		})
+	}
+	return dto
 }
 
 func FromChangePreview(value domain.ChangePreview) ChangePreviewDTO {

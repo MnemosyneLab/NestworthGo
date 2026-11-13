@@ -5,14 +5,15 @@ import { useHistoryOrigin } from "@/queries/history";
 import { returnTrendRange } from "./analysisRequest";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
+import type { RefObject } from "react";
 
 /** An object entry replaces the entire filter set; only the chosen dates carry over. */
-type AnalyzeMenuProps = { accountId?: string; instrumentId?: string; label: string; inline?: boolean; onDividend?: () => void; from?: string; to?: string; includeHistory?: boolean };
+type AnalyzeMenuProps = { accountId?: string; instrumentId?: string; label: string; inline?: boolean; onDividend?: () => void; from?: string; to?: string; includeHistory?: boolean; extraItems?: ActionMenuItem[]; triggerRef?: RefObject<HTMLButtonElement> };
 export function AnalyzeMenu(props: AnalyzeMenuProps) {
   const navigation = useObjectNavigation();
-  return navigation || props.onDividend ? <AnalyzeMenuReady {...props} navigation={navigation} /> : null;
+  return navigation || props.onDividend || props.extraItems?.length ? <AnalyzeMenuReady {...props} navigation={navigation} /> : null;
 }
-function AnalyzeMenuReady({ accountId, instrumentId, label, navigation, inline, onDividend, from, to, includeHistory = true }: AnalyzeMenuProps & { navigation: ObjectNavigation | null }) {
+function AnalyzeMenuReady({ accountId, instrumentId, label, navigation, inline, onDividend, from, to, includeHistory = true, extraItems = [], triggerRef }: AnalyzeMenuProps & { navigation: ObjectNavigation | null }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   function navigate(page: "return-analysis" | "asset-changes") {
@@ -27,15 +28,16 @@ function AnalyzeMenuReady({ accountId, instrumentId, label, navigation, inline, 
     } } as import("@/app/navigation").NavigationTarget);
   }
   const items: ActionMenuItem[] = navigation ? [
-    { id: "return", label: t("connections.viewReturn"), onSelect: () => navigate("return-analysis") },
-    { id: "changes", label: t("connections.viewChanges"), onSelect: () => navigate("asset-changes") },
-    ...(includeHistory ? [{ id: "history", label: t("instrumentDetail.transactions"), onSelect: () => navigation.open({ page: "history", filters: { accountId, instrumentId, from, to } }) }] : []),
+    { id: "return", label: t("connections.viewReturn"), focusTriggerBeforeSelect: true, onSelect: () => navigate("return-analysis") },
+    { id: "changes", label: t("connections.viewChanges"), focusTriggerBeforeSelect: true, onSelect: () => navigate("asset-changes") },
+    ...(includeHistory ? [{ id: "history", label: t("instrumentDetail.transactions"), focusTriggerBeforeSelect: true, onSelect: () => navigation.open({ page: "history", filters: { accountId, instrumentId, from, to } }) }] : []),
   ] : [];
+  items.push(...extraItems);
   if (onDividend) items.push({ id: "dividend", label: t("accounts.cashDividend"), onSelect: onDividend });
   if (inline) return <div className="flex flex-wrap gap-1">
     {items.map((item) => <Button key={item.id} type="button" variant="ghost" size="sm" onClick={item.onSelect}>
       {t(item.id === "return" ? "connections.accountReturns" : item.id === "changes" ? "connections.accountChanges" : "instrumentDetail.transactions")}
     </Button>)}
   </div>;
-  return <ActionMenu label={t("connections.actionsFor", { name: label })} items={items} />;
+  return <ActionMenu label={t("connections.actionsFor", { name: label })} items={items} triggerRef={triggerRef} />;
 }

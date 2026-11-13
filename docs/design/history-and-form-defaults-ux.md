@@ -245,6 +245,10 @@ the new vendor.
 
 ## 6. History presentation and activity detail
 
+Ledger activity groups recording choices into cash, investments, and debt.
+The start and end date controls and range presets share a filter area that
+shows the effective query range, including open-ended and all-date ranges.
+
 History and Overview use the same localized `activitySentence`. Trade sentences
 include the settlement Account, Instrument, direction, quantity, gross total,
 and fee when present. Activity detail is read-only and exposes the complete
@@ -313,6 +317,10 @@ copy and implementation disagree, current code and tests determine the
 implemented behavior; this document is updated to describe that behavior.
 
 ## Rebuild and historical setup
+
+**Start recording history** opens the date and timezone confirmation from
+Overview or an active account while history is unstarted. Starting today
+uses the existing balances and holdings as the opening state.
 
 Settings → Data management offers **Recalculate all results**. While running, the
 button is disabled. Completion reports the history date range, the number of
@@ -383,7 +391,8 @@ Every active account detail exposes the same **Record a change** action. It open
 while the user chooses a supported operation. Existing balance reconciliation,
 valuation, product, and opening-position actions remain available. Archived
 accounts expose no new recording entry. An already submitted confirmation retains
-its recovery identity if account state changes while it is pending.
+its recovery identity if account state changes while it is pending. The form
+puts the account's usual operations first.
 
 | Account capability | Recording choices |
 | --- | --- |
@@ -412,5 +421,9 @@ Recording requires a history origin. An absent origin opens the existing history
 start flow and returns to the requested action after starting. Loading or failed
 origin reads do not imply absence; errors offer Retry. Preview, confirmation,
 uncertain-write recovery, and authoritative query invalidation use the existing
-shared form and mutation hooks. English, Simplified Chinese and Traditional
-Chinese reuse existing localized labels.
+shared form and mutation hooks. The review beside Confirm uses the backend
+preview to show the operation and effective time in the History timezone. Each
+affected balance or position shows its account, currency or quantity, and
+before, change and after values. Transfers and FX conversions show both
+endpoints. English, Simplified Chinese and Traditional Chinese reuse existing
+localized labels.

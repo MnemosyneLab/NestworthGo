@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import ts from "typescript";
-import i18n, { SUPPORTED_LANGUAGES } from "./index";
+import i18n, { languageOptionKey, SUPPORTED_LANGUAGES } from "./index";
 import { NAV_GROUPS } from "../app/navigation";
 import { SECTION_IDS } from "../features/settings/sections";
 
@@ -15,7 +15,7 @@ function literalKeys(expression: ts.Expression): string[] {
   return [];
 }
 
-it("resolves literal translation calls in each language without English fallback", () => {
+it("resolves literal translation calls in complete catalogs without fallback", () => {
   const issues: string[] = [];
   for (const [file, source] of Object.entries(sources)) {
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
@@ -32,8 +32,9 @@ it("resolves literal translation calls in each language without English fallback
           for (const language of SUPPORTED_LANGUAGES) {
             const counted = options && (!ts.isObjectLiteralExpression(options) || options.properties.some((property) =>
               ts.isSpreadAssignment(property) || property.name?.getText(ast) === "count"));
-            const candidates = counted ? [key, `${key}_one`, `${key}_other`] : [key];
-            if (!candidates.some((candidate) => typeof i18n.getResource(language, ns, candidate) === "string")) {
+            const forms = new Intl.PluralRules(language).resolvedOptions().pluralCategories;
+            const hasResource = (candidate: string) => typeof i18n.getResource(language, ns, candidate) === "string";
+            if (!hasResource(key) && !(counted && forms.every(form => hasResource(`${key}_${form}`)))) {
               const line = ast.getLineAndCharacterOfPosition(node.getStart()).line + 1;
               issues.push(`${file}:${line} ${language} ${ns}:${key}`);
             }
@@ -61,6 +62,10 @@ it.each(SUPPORTED_LANGUAGES)("resolves every dynamic settings tab in %s without 
     expect(label, `${language} ${key}`).toBeTypeOf("string");
     expect(label.trim(), `${language} ${key}`).not.toBe("");
     expect(label, `${language} ${key}`).not.toBe(key);
+  }
+  for (const option of ["system", ...SUPPORTED_LANGUAGES]) {
+    const key = `option.language.${languageOptionKey(option)}`;
+    expect(i18n.getResource(language, "translation", key), `${language} ${key}`).toBeTypeOf("string");
   }
   const mobileLabel = i18n.getResource(language, "translation", "settings.tabs.mobile");
   expect(mobileLabel).toBe(i18n.getResource(language, "translation", "mobile.access"));

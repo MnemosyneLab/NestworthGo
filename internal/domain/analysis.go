@@ -230,17 +230,20 @@ type ComponentDay struct {
 	Status            Completeness
 	// MissingReason is a stable analytics sentence for a partial component day.
 	MissingReason string
-	Residual      *Residual
+	// ValuationMissing identifies missing opening/closing snapshot evidence.
+	ValuationMissing bool
+	Residual         *Residual
 }
 type DailyReturn struct {
 	Date   LocalDate
 	Amount *SignedMoney
 	// AmountExact preserves the unrounded daily aggregate for higher-period
 	// projections. Amount is the four-decimal display/value boundary.
-	AmountExact     *decimal.Decimal
-	InvestedCapital *SignedMoney
-	Rate            *decimal.Decimal
-	Status          Completeness
+	AmountExact      *decimal.Decimal
+	InvestedCapital  *SignedMoney
+	Rate             *decimal.Decimal
+	Status           Completeness
+	ValuationMissing bool
 }
 type RateCoverage struct{ RatedDays, TotalDays int }
 type PeriodAnalysisResult struct {

@@ -13,7 +13,7 @@ import { displayError } from "@/lib/display";
 import { ContinuousBackupSection } from "@/features/settings/ContinuousBackupSection";
 import { toast } from "sonner";
 
-type BlockedStartup = Omit<StartupDTO, "foundSchemaVersion" | "supportedSchemaVersion"> & {
+type BlockedStartup = Omit<StartupDTO, "foundSchemaVersion" | "supportedSchemaVersion" | "language"> & {
   foundSchemaVersion?: number | null;
   supportedSchemaVersion?: number | null;
 };

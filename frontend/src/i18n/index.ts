@@ -4,7 +4,8 @@ import { initReactI18next } from "react-i18next";
 import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
 import zhTW from "./locales/zh-TW.json";
-import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
+import ja from "./locales/ja.json";
+import { errorCodes } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
@@ -15,20 +16,17 @@ import { voiceEn, voiceZhCN, voiceZhTW } from "./voice";
 import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { deepMerge } from "./deepMerge";
 
-// The supported locales are English, Simplified Chinese, and Traditional
-// Chinese, with complete key coverage enforced by localeCoverage.test.ts.
-export const SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-
-export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
+import { DEFAULT_LANGUAGE, resolveLanguage } from "./language";
+export { DEFAULT_LANGUAGE, languageOptionKey, resolveLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from "./language";
 
 void i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, voiceEn), assistantEn), additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodesEn },
-    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, voiceZhCN), assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodesZhCN },
-    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, voiceZhTW), assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodesZhTW },
+    ja: { translation: ja, errorCode: errorCodes.ja },
+    en: { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(en, voiceEn), assistantEn), additionsEn), rebuildDataEn), upcomingActionsEn), homepageEn), investmentAssetsEn), tasksEn), errorCode: errorCodes.en },
+    "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, voiceZhCN), assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodes["zh-CN"] },
+    "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, voiceZhTW), assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodes["zh-TW"] },
   },
-  lng: DEFAULT_LANGUAGE,
+  lng: resolveLanguage("system"),
   fallbackLng: DEFAULT_LANGUAGE,
   ns: ["translation", "errorCode"],
   defaultNS: "translation",
@@ -36,49 +34,10 @@ void i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
-/**
- * Maps `internal/settings.Language` ("system" | "en" | "zh-CN" | "zh-TW")
- * to one of the three loaded i18next languages, resolving "system" against
- * the browser/webview's own locale. SettingsService is the source of truth
- * for the persisted preference; this function only
- * implements the "system" resolution rule client-side, mirroring
- * internal/i18n.ResolveSystemLanguage's zh-Hant/zh-Hans script-tag logic.
- */
-export function resolveLanguage(preference: string): SupportedLanguage {
-  if (preference === "en" || preference === "zh-CN" || preference === "zh-TW") {
-    return preference;
-  }
-  if (preference !== "system") {
-    return DEFAULT_LANGUAGE;
-  }
-  const locale = (navigator.language || DEFAULT_LANGUAGE).toLowerCase();
-  if (!locale.startsWith("zh")) {
-    return DEFAULT_LANGUAGE;
-  }
-  if (locale.includes("hant") || locale.includes("-tw") || locale.includes("-hk") || locale.includes("-mo")) {
-    return "zh-TW";
-  }
-  return "zh-CN";
-}
-
-export function setLanguage(preference: string) {
-  const resolved = resolveLanguage(preference);
-  void i18n.changeLanguage(resolved);
+export function setLanguage(preference: string, systemLocale?: string) {
+  const resolved = resolveLanguage(preference, systemLocale);
+  if (i18n.language !== resolved) void i18n.changeLanguage(resolved);
   return resolved;
-}
-
-/** Maps a settings/catalog language code onto the option.language.* i18next key. */
-export function languageOptionKey(language: string): "en" | "zhCN" | "zhTW" | "system" {
-  if (language === "zh-CN") {
-    return "zhCN";
-  }
-  if (language === "zh-TW") {
-    return "zhTW";
-  }
-  if (language === "system") {
-    return "system";
-  }
-  return "en";
 }
 
 export default i18n;

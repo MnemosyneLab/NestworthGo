@@ -91,6 +91,7 @@ func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisR
 		hasKnownAmount := false
 		hasKnownBeginning := false
 		for _, componentDay := range componentDays {
+			daily.ValuationMissing = daily.ValuationMissing || componentDay.ValuationMissing
 			if componentDay.Status != domain.CompletenessOK {
 				complete = false
 			}
@@ -178,6 +179,27 @@ func finalizeAnalysisReturns(ctx context.Context, result *domain.PeriodAnalysisR
 	}
 	result.ReturnRate, result.Coverage = aggregateDailyReturnRate(result.DailyReturns)
 	return nil
+}
+
+// ReturnDayCoverage explains why days were excluded from the linked rate.
+// The remaining excluded days lack complete return inputs for other reasons.
+type ReturnDayCoverage struct {
+	MissingValuationDays  int
+	AmountWithoutRateDays int
+}
+
+func returnDayCoverage(dailyReturns []domain.DailyReturn) ReturnDayCoverage {
+	var coverage ReturnDayCoverage
+	for _, day := range dailyReturns {
+		switch {
+		case day.Status == domain.CompletenessOK && day.Rate != nil:
+		case day.ValuationMissing:
+			coverage.MissingValuationDays++
+		case day.Status == domain.CompletenessOK && day.Amount != nil:
+			coverage.AmountWithoutRateDays++
+		}
+	}
+	return coverage
 }
 
 func localDayBounds(date time.Time, location *time.Location) (time.Time, time.Time) {

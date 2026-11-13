@@ -36,7 +36,7 @@ export const TEST_CATALOG: CatalogDTO = {
   },
   trendRanges: ["30d", "ytd", "1y", "all"],
   appearances: ["system", "light", "dark"],
-  languages: ["system", "en", "zh-CN", "zh-TW"],
+  languages: ["system", "en", "zh-CN", "zh-TW", "ja"],
   accents: ["indigo", "lavender", "mint", "sky", "peach"],
   moneyInReasons: ["income", "interest", "contribution", "gift", "other", "reconciliation"],
   moneyOutReasons: ["expense", "fee", "tax", "interest", "other", "reconciliation"],

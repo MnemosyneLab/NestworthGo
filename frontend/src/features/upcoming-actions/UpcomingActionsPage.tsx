@@ -59,7 +59,10 @@ export function UpcomingActionsPage({ isActive = true, actionsHost }: { isActive
       {items.length === 0 && <EmptyState title={t("upcomingActions.empty")} variant="success" />}
       {hasMore && <Button variant="outline" className="self-center" onClick={() => setLimit(value => value + 50)}>{t("upcomingActions.showMore")}</Button>}
       <details className={detailsClass} onToggle={event => setEligibleOpen(event.currentTarget.open)}><summary className={summaryClass}>{t("upcomingActions.eligibleTitle", { count: data.counts.eligible })}</summary>{eligibleOpen && <div className="border-t border-border px-5"><UpcomingActionList context="upcoming-eligible" items={(data.items ?? []).filter(item => item.group === "eligible")} /></div>}</details>
-      {navigation ? <Button variant="link" className="self-start px-0" onClick={() => navigation.open({ page: "data-health" })}>{t("upcomingActions.checksEntry", { count: data.counts.dataChecks })}</Button> : <p className="text-sm text-muted-foreground">{t("upcomingActions.checksEntry", { count: data.counts.dataChecks })}</p>}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <p className="text-muted-foreground">{t("upcomingActions.checksEntry", { count: data.counts.dataChecks })}</p>
+        {navigation && <Button variant="link" className="h-auto p-0" onClick={() => navigation.open({ page: "data-health" })}>{t("upcomingActions.openDataMaintenance")}</Button>}
+      </div>
       <Notice>{t("upcomingActions.normalOnly")}</Notice>
     </>}
   </div>;

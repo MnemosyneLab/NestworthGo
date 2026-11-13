@@ -14,6 +14,7 @@ it("does not invent a change from remaining points and links the missing date", 
   const open = vi.fn();
   render(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><NetWorthTrendCard /></NavigationContext.Provider>);
   expect(screen.getByText("Net worth change: Not available")).toBeInTheDocument();
+  expect(screen.getByText("Historical valuation: 2 of 3 days have a total")).toBeInTheDocument();
   expect(screen.queryByText("US$50.00")).not.toBeInTheDocument();
   await userEvent.click(screen.getByText("1 day has incomplete data"));
   await userEvent.click(screen.getByRole("button", { name: "2026-01-01 · View gap" }));

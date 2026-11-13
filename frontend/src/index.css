@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./components/ui/select.css";
 
 /* Nestworth semantic design tokens. These are the only color/spacing
    vocabulary business components should reference; never hard-code a raw

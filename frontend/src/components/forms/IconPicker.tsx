@@ -1,3 +1,4 @@
+import { SUPPORTED_LANGUAGES } from "@/i18n/language";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -26,7 +27,7 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
   const selectedLabel = !value && canInherit ? t("icons.inheritInstitution") : bankLogoPresentation(value)?.name ?? (selected ? t(selected.labelKey) : t("common.chooseIcon"));
   const normalizeSearch = (text: string) => text.normalize("NFKC").toLocaleLowerCase().replace(/[\s_-]+/g, "");
   const query = normalizeSearch(search);
-  const translatedLabels = (key: string) => ["en", "zh-CN", "zh-TW"].map(language => i18n.getFixedT(language)(iconChoice(key)?.labelKey ?? key)).join(" ");
+  const translatedLabels = (key: string) => SUPPORTED_LANGUAGES.map(language => i18n.getFixedT(language)(iconChoice(key)?.labelKey ?? key)).join(" ");
   const groups = category === "bank" && canChooseBank
     ? [{ categoryKey: "icons.category.bankLogos", choices: BANK_LOGO_CHOICES.filter((logo) => [logo.name, ...logo.aliases].some((text) => normalizeSearch(text).includes(query))).map((logo) => ({ key: logo.key, label: logo.name })) }]
     : iconChoicesByCategory().map((group) => ({ categoryKey: group.categoryKey, choices: group.choices.map((choice) => ({ key: choice.key, label: t(choice.labelKey) })).filter((choice) => normalizeSearch(`${choice.label} ${choice.key} ${translatedLabels(choice.key)}`).includes(query)) }));

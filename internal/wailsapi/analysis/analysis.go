@@ -265,6 +265,7 @@ func fromDimensionAmounts(values []application.AnalysisDimensionAmount) []Analys
 
 func fromAssetTrend(value application.AssetTrendResult) AssetTrendDTO {
 	result := AssetTrendDTO{Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, Summary: wire.FromSignedMoneyPtr(value.Summary), Rate: decimalStringPtr(value.Rate), RatedDays: value.Coverage.RatedDays, TotalDays: value.Coverage.TotalDays, Points: make([]AssetTrendPointDTO, 0, len(value.Points))}
+	result.ReturnDayCoverageDTO = fromReturnDayCoverage(value.ReturnDayCoverage)
 	if value.ValueChange != nil {
 		summary := fromAssetChangeSummary(*value.ValueChange)
 		result.ValueChange = &summary

@@ -79,6 +79,7 @@ type AssetTrendPointDTO struct {
 }
 
 type AssetTrendDTO struct {
+	ReturnDayCoverageDTO
 	ValueChange     *AssetChangeSummaryDTO `json:"valueChange,omitempty"`
 	Points          []AssetTrendPointDTO   `json:"points"`
 	Summary         *SignedMoneyView       `json:"summary,omitempty"`

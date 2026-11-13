@@ -119,6 +119,7 @@ type AssetTrendPoint struct {
 type AssetTrendResult struct {
 	ValueChange *AssetChangeSummary
 	AnalysisAvailability
+	ReturnDayCoverage
 	Points   []AssetTrendPoint
 	Summary  *domain.SignedMoney
 	Rate     *decimal.Decimal
@@ -737,7 +738,7 @@ func foldAssetTrendRates(result domain.PeriodAnalysisResult, forced string, gran
 		}
 		points = append(points, point)
 	}
-	return AssetTrendResult{AnalysisAvailability: availability(result, forced), Points: points, Rate: result.ReturnRate, Coverage: result.Coverage}, nil
+	return AssetTrendResult{AnalysisAvailability: availability(result, forced), Points: points, Rate: result.ReturnRate, Coverage: result.Coverage, ReturnDayCoverage: returnDayCoverage(result.DailyReturns)}, nil
 }
 
 func foldCategories(result domain.PeriodAnalysisResult, forced string, categoryType AnalysisCategoryType) CategoriesResult {

@@ -43,12 +43,16 @@ import { activitySentence } from "@/features/history/activitySentence";
 import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
 import { ProductDetailSheet } from "@/features/liquidity/ProductSheets";
 import { DatePicker } from "@/components/ui/date-picker";
-import { formatCivilDate, resolvedTimeZone } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange, resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { HistoryNavigationFilters } from "@/app/navigation";
 import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 
-const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment"];
+const ACTIVITY_GROUPS = {
+  cash: ["cash_in", "cash_out", "cash_transfer", "fx_conversion", "value_update"],
+  investment: ["buy", "sell", "cash_dividend", "position_transfer"],
+  debt: ["debt_draw", "debt_payment"],
+};
 
 function Timeline({ navigationFilters, navigationActivityId, navigationRequestId, onFiltersChange, onNavigationActivityClose }: { navigationFilters?: HistoryNavigationFilters; navigationActivityId?: string; navigationRequestId?: number; onFiltersChange?: (filters: HistoryNavigationFilters) => void; onNavigationActivityClose?: () => void }) {
   const { t } = useTranslation();
@@ -93,6 +97,12 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
   }, [kindFilter, accountFilter, instrumentFilter, fromLocalDate, toLocalDate, onFiltersChange]);
   const today = ymdInTimeZone(new Date(), origin.data?.timezone);
   const originDate = origin.data?.startedAt ? originLocalDate(origin.data.startedAt, origin.data.timezone) : undefined;
+  const dateRange = { from: fromLocalDate || originDate || "", to: toLocalDate || today };
+  const rangeDescription = fromLocalDate && toLocalDate
+    ? formatCivilDateRange(fromLocalDate, toLocalDate)
+    : fromLocalDate ? t("history.rangeFrom", { date: formatCivilDate(fromLocalDate) })
+      : toLocalDate ? t("history.rangeThrough", { date: formatCivilDate(toLocalDate) })
+        : t("history.rangeAllDates");
   const originalActivity = useActivity(detailTarget?.reversesActivityId ?? "");
   const activities = useActivityPage({
     accountId: accountFilter || undefined,
@@ -103,20 +113,9 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
     limit: 50,
   });
 
-  if (!hasUnresolvedSheetConfirmation() && (activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading)) {
-    return <LoadingState label={t("history.loading")} />;
-  }
-
-  if (!hasUnresolvedSheetConfirmation() && (activities.isError || accounts.isError || instruments.isError || holdings.isError)) {
-    return (
-      <ErrorState
-        title={t("history.loadError")}
-        description={t("ui.state.errorDescription")}
-        onRetry={() => { void Promise.all([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()]); }}
-        retryLabel={t("common.retryAction")}
-      />
-    );
-  }
+  const loading = activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading;
+  const failed = activities.isError || accounts.isError || instruments.isError || holdings.isError;
+  const keepDraft = hasUnresolvedSheetConfirmation();
 
   const activityList = activities.data?.pages.flatMap((page) => page.activities ?? []) ?? [];
   const reversedActivityIds = new Set(
@@ -158,12 +157,14 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
   return (
     <div className="flex flex-col gap-4" data-assistant-module="timeline" aria-busy={activities.isFetching || accounts.isFetching || instruments.isFetching || holdings.isFetching}>
       <section data-assistant-module="filters" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-kind">{t("history.filterKind")}</Label>
             <NativeSelect id="history-filter-kind" value={kindFilter} onChange={(event) => setKindFilter(event.target.value)}>
               <option value="">{t("history.filterAll")}</option>
-              {ACTIVITY_KINDS.map((kind) => <option key={kind} value={kind}>{t(`history.kind.${kind}`)}</option>)}
+              {Object.entries(ACTIVITY_GROUPS).map(([group, kinds]) => <optgroup key={group} label={t(`history.changeGroups.${group}`)}>
+                {kinds.map(kind => <option key={kind} value={kind}>{t(`history.kind.${kind}`)}</option>)}
+              </optgroup>)}
             </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -180,32 +181,37 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
               {(instruments.data ?? []).map((instrument) => <option key={instrument.id} value={instrument.id}>{selectionLabels.get(instrument.id) ?? instrument.name}{instrument.archivedAt ? ` · ${t("common.archived")}` : ""}</option>)}
             </NativeSelect>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
-            <DatePicker id="history-filter-from" value={fromLocalDate} clearable min={originDate} max={toLocalDate || today} onChange={setFromLocalDate} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="history-filter-to">{t("history.filterTo")}</Label>
-            <DatePicker id="history-filter-to" value={toLocalDate} clearable min={fromLocalDate || originDate} max={today} onChange={setToLocalDate} />
-          </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+        <fieldset className="flex min-w-0 flex-col gap-3 border-t border-border pt-3">
+          <legend className="sr-only">{t("history.dateFilter")}</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
+              <DatePicker id="history-filter-from" value={fromLocalDate} clearable min={originDate} max={toLocalDate || today} onChange={setFromLocalDate} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="history-filter-to">{t("history.filterTo")}</Label>
+              <DatePicker id="history-filter-to" value={toLocalDate} clearable min={fromLocalDate || originDate} max={today} onChange={setToLocalDate} />
+            </div>
+          </div>
           <DateRangeControl
-            value={{ from: fromLocalDate || originDate || "", to: toLocalDate || today }}
+            value={dateRange}
             min={originDate}
             max={today}
             disabled={!originDate}
+            rangeLabel="hidden"
             onChange={({ from, to }) => { setFromLocalDate(from); setToLocalDate(to); }}
           />
-          {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
+        </fieldset>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <p role="status" className="text-muted-foreground">{t("history.queryRange", { range: rangeDescription })}</p>
+          {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
         </div>
       </section>
       {navigationActivityId && (focusedActivity.isError || (focusedActivity.isSuccess && !focusedActivity.data)) && (
         <ErrorState title={t("history.loadError")} description={t("ui.state.errorDescription")} onRetry={() => focusedActivity.refetch()} retryLabel={t("common.retryAction")} />
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-foreground">{t("history.activityKind")}</h2>
-        <PageChrome
+      <PageChrome
           pageId="history"
           actions={
             <Sheet open={open} onOpenChange={setOpen}>
@@ -228,10 +234,13 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
               </SheetContent>
             </Sheet>
           }
-        />
-      </div>
+      />
 
-      {activityList.length === 0 ? (
+      {!keepDraft && loading ? <LoadingState label={t("history.loading")} /> : !keepDraft && failed ? (
+        <ErrorState title={t("history.loadError")} description={t("ui.state.errorDescription")}
+          onRetry={() => { void Promise.all([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()]); }}
+          retryLabel={t("common.retryAction")} />
+      ) : activityList.length === 0 ? (
         <EmptyState title={t("history.noActivityYet")} description={t("history.noActivityDescription")} />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs" data-testid="activity-list" data-assistant-module="activities" aria-label={t("history.activityKind")}>
@@ -284,7 +293,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
           ))}
         </div>
       )}
-      {activities.hasNextPage && (
+      {!loading && !failed && activities.hasNextPage && (
         <Button
           type="button"
           variant="outline"

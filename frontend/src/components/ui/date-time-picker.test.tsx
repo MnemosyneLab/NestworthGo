@@ -63,20 +63,26 @@ describe("DatePicker and TimePicker", () => {
     expect(dayButton("2026-08-21")).toBeDisabled();
   });
 
-  it("shows one month caption and one year caption in the dropdown header", async () => {
-    renderDatePicker({ weekStart: "sunday", dateFormat: "day-first" });
+  it("uses the shared dropdown to navigate calendar months and years", async () => {
+    const client = createTestQueryClient();
+    client.setQueryData(settingsQueryKey, { weekStart: "sunday", dateFormat: "day-first" });
+    render(<QueryClientProvider client={client}>
+      <DatePicker value="2026-08-15" min="2025-01-01" max="2026-12-31" onChange={vi.fn()} />
+    </QueryClientProvider>);
 
     await userEvent.click(screen.getByRole("button", { name: "15/08/2026" }));
     await screen.findByRole("grid");
 
     const month = screen.getByRole("combobox", { name: /month/i });
     const year = screen.getByRole("combobox", { name: /year/i });
-    expect(month).toHaveClass("opacity-0");
-    expect(year).toHaveClass("opacity-0");
-
-    const captions = [...document.querySelectorAll('[aria-hidden="true"]')].map((el) => el.textContent?.replace(/\s+/g, " ").trim() ?? "");
-    expect(captions.filter((text) => /^Aug/.test(text))).toHaveLength(1);
-    expect(captions.filter((text) => text === "2026" || /^2026 /.test(text))).toHaveLength(1);
+    expect(month).toHaveClass("select-native");
+    expect(year).toHaveClass("select-native");
+    expect(month).toHaveDisplayValue("Aug");
+    expect(year).toHaveDisplayValue("2026");
+    await userEvent.selectOptions(month, within(month).getByRole("option", { name: "Jul" }));
+    expect(screen.getByRole("grid").querySelector('[data-day="2026-07-15"]')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /year/i }), "2025");
+    expect(screen.getByRole("grid").querySelector('[data-day="2025-07-15"]')).toBeInTheDocument();
   });
 
   it("offers a 00-23 hour picker without a native time input", async () => {

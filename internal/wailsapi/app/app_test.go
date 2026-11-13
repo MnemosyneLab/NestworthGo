@@ -12,7 +12,7 @@ import (
 )
 
 func TestAppInfoMatchesVersionPackage(t *testing.T) {
-	service := app.NewService(nil)
+	service := app.NewService(nil, "en")
 	info := service.AppInfo()
 	if info.Name != version.Name || info.AppID != version.AppID || info.Version != version.Version || info.Build != version.Build {
 		t.Fatalf("AppInfo() = %+v, want it to mirror internal/version", info)
@@ -20,7 +20,7 @@ func TestAppInfoMatchesVersionPackage(t *testing.T) {
 }
 
 func TestAppInfoRoundTripsAsJSON(t *testing.T) {
-	service := app.NewService(nil)
+	service := app.NewService(nil, "en")
 	encoded, err := jsoncodec.Marshal(service.AppInfo())
 	if err != nil {
 		t.Fatalf("jsoncodec.Marshal: %v", err)
@@ -35,7 +35,7 @@ func TestAppInfoRoundTripsAsJSON(t *testing.T) {
 }
 
 func TestStartupAvailableWhenDatabaseOpened(t *testing.T) {
-	startup := app.NewService(nil).Startup()
+	startup := app.NewService(nil, "en").Startup()
 	if !startup.Available {
 		t.Fatalf("Startup() = %+v, want available", startup)
 	}
@@ -46,9 +46,12 @@ func TestStartupAvailableWhenDatabaseOpened(t *testing.T) {
 
 func TestStartupReportsUnavailableAsWireErrorShape(t *testing.T) {
 	original := &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
-	startup := app.NewService(original).Startup()
+	startup := app.NewService(original, "zh-TW").Startup()
 	if startup.Available {
 		t.Fatal("Startup() available = true, want false")
+	}
+	if startup.Language != "zh-TW" {
+		t.Fatalf("Startup language = %q, want zh-TW", startup.Language)
 	}
 	if startup.Code != string(domain.ErrDatabaseUnavailable) || startup.Field != "database" {
 		t.Fatalf("Startup() = %+v, want database_unavailable/database", startup)
@@ -75,7 +78,7 @@ func TestStartupMapsEveryBootstrapStatus(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		original := &domain.Error{Code: testCase.code, Field: "database", Message: "safe"}
-		startup := app.NewServiceWithSchema(original, testCase.found, testCase.supported).Startup()
+		startup := app.NewServiceWithSchema(original, testCase.found, testCase.supported, "en").Startup()
 		if startup.Available || startup.Code != string(testCase.code) {
 			t.Fatalf("Startup() = %+v, want code %s", startup, testCase.code)
 		}
@@ -97,7 +100,7 @@ func TestStartupMapsEveryBootstrapStatus(t *testing.T) {
 
 func TestStartupGenericErrorNeverLeaksDetail(t *testing.T) {
 	sensitive := fmt.Errorf("sqlite: open /Users/alice/Library/nestworth.db: permission denied")
-	startup := app.NewService(sensitive).Startup()
+	startup := app.NewService(sensitive, "en").Startup()
 	if startup.Available {
 		t.Fatal("Startup() available = true, want false")
 	}
