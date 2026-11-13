@@ -58,6 +58,8 @@ it("keeps Japanese backup and agent safety explanations explicit", () => {
   expect(i18n.t("cloudBackup.recoveryHelp", { lng: "ja" })).toContain("スキーマ 21、22、23");
   expect(i18n.t("agent.writeHelp", { lng: "ja" })).toContain("書き込みごとに確認を求めません");
   expect(i18n.t("retention.warning", { lng: "ja" })).toContain("元に戻せません");
+  expect(i18n.t("aiChat.toolResultRejected", { lng: "ja" })).toContain("結果が不明な書き込みは繰り返さないでください");
+  expect(i18n.t("aiChat.titlePolicy", { lng: "ja" })).toContain("ページや台帳のデータは送信されません");
 });
 
 it("distinguishes Japanese price history, personal returns, and model state", () => {
