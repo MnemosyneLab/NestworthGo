@@ -72,12 +72,17 @@ it("distinguishes Japanese price history, personal returns, and model state", ()
   expect(i18n.t("insights.changeRateHint", { lng: "ja" })).toContain("投資収益率ではありません");
   expect(i18n.t("insights.waterfallIncomplete", { lng: "ja" })).toContain("期末評価額が不明");
   expect(i18n.t("historicalOverview.partialTotals", { lng: "ja", assets: "1", liabilities: "2" })).toContain("不明な金額はゼロではありません");
+  expect(i18n.t("nav.historicalOverview", { lng: "ja" })).toBe("資産の履歴");
+  expect(i18n.t("historicalOverview.title", { lng: "ja" })).toBe("資産の履歴");
+  expect(i18n.t("insights.assetTrend", { lng: "ja" })).toBe("資産の推移");
+  expect(i18n.t("analytics.wealthTrend", { lng: "ja" })).toBe("財務状況の推移");
 });
 
 it("keeps Japanese available-funds limits and reservations explicit", () => {
   expect(i18n.t("availableFunds.capHelp", { lng: "ja" })).toContain("0を入力すると利用可能額は明示的にゼロ");
   expect(i18n.t("availableFunds.reservationHelp", { lng: "ja" })).toContain("口座残高は変わりません");
   expect(i18n.t("availableFunds.cumulativeHint", { lng: "ja" })).toContain("足し合わせないでください");
+  expect(i18n.t("availableFunds.productRecordedValuesHelp", { lng: "ja" })).toContain("評価額と取得原価の合計額をそれぞれ入力");
 });
 
 it("keeps Japanese reconciliation and upcoming receipt limitations explicit", () => {
@@ -86,4 +91,6 @@ it("keeps Japanese reconciliation and upcoming receipt limitations explicit", ()
   expect(i18n.t("upcomingActions.inDays", { lng: "ja", count: 3 })).toBe("3 日後");
   expect(i18n.t("reconciliation.liabilityDirectionHelp", { lng: "ja" })).toContain("未返済額を超える返金や返済には対応しておらず");
   expect(i18n.t("reconciliation.costChoice", { lng: "ja" })).toContain("いずれか一方を入力");
+  expect(i18n.t("reconciliation.costUnitIncreaseOnly", { lng: "ja" })).toContain("単位当たりの取得原価");
+  expect(i18n.t("reconciliation.costPrecision", { lng: "ja" })).toContain("単位当たりの取得原価の精度");
 });

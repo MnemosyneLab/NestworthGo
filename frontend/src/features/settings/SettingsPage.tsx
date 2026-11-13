@@ -152,7 +152,7 @@ export function SettingsPage({ initialSection = "general", focusHistoryRebuild =
   const applyLivePreferences = (value: Settings) => {
     setAppearance(value.appearance as Appearance);
     setAccent(value.accent as Accent);
-    setLanguage(value.language, value.systemLanguage);
+    return setLanguage(value.language, value.systemLanguage);
   };
 
   const separatorMessage = separatorsConflict(draft.decimalSeparator, draft.groupingSeparator)
@@ -167,8 +167,8 @@ export function SettingsPage({ initialSection = "general", focusHistoryRebuild =
       onSettled: () => { preferenceRequest.current = false; },
       onSuccess: (saved) => {
         setDraftOverride(null);
-        toast.success(t("settings.changesSaved"));
-        applyLivePreferences(saved);
+        const language = applyLivePreferences(saved);
+        toast.success(t("settings.changesSaved", { lng: language }));
       },
     });
   };
@@ -462,9 +462,9 @@ export function SettingsPage({ initialSection = "general", focusHistoryRebuild =
                   resetSettings.mutate(undefined, {
                     onSuccess: (defaults) => {
                       setDraftOverride(null);
-                      applyLivePreferences(defaults);
+                      const language = applyLivePreferences(defaults);
                       setResetOpen(false);
-                      toast.success(t("settings.resetDone"));
+                      toast.success(t("settings.resetDone", { lng: language }));
                     },
                     onSettled: () => { preferenceRequest.current = false; },
                   });
