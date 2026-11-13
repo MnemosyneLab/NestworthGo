@@ -1,5 +1,14 @@
 package native
 
+// Dialog text identifiers are resolved by the desktop platform at display time.
+const (
+	BackupTitle  = "backup"
+	ExportTitle  = "export"
+	RestoreTitle = "restore"
+	BackupFilter = "backup_filter"
+	ExportFilter = "export_filter"
+)
+
 // Dialogs is the platform file-picker surface. Empty path means the user
 // cancelled; that is not an error.
 type Dialogs interface {

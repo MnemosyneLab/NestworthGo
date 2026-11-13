@@ -158,8 +158,15 @@ function Workspace() {
     }
     setAppearance(settings.data.appearance as Appearance);
     setAccent(settings.data.accent as Accent);
-    setLanguage(settings.data.language);
   }, [settings.data, setAppearance, setAccent]);
+
+  const savedLanguage = startup.data?.available ? settings.data?.language : undefined;
+  const systemLanguage = settings.data?.systemLanguage;
+  const startupLanguage = startup.data?.language;
+  useLayoutEffect(() => {
+    if (savedLanguage) setLanguage(savedLanguage, systemLanguage);
+    else if (startupLanguage) setLanguage(startupLanguage);
+  }, [savedLanguage, systemLanguage, startupLanguage]);
 
   const workspaceReady = startup.data?.available === true && Boolean(settings.data);
   const bootstrap = useBootstrap({ enabled: workspaceReady });

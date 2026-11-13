@@ -2,8 +2,11 @@
 
 package main
 
-import "github.com/wailsapp/wails/v3/pkg/application"
+import (
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/waltwang/nestworth-go/internal/settings"
+)
 
-func configureApplicationMenu(app *application.App) {
-	// Server mode has no native application menu.
+func configureApplicationMenu(*application.App, settings.Language) func(settings.Language) {
+	return nil
 }

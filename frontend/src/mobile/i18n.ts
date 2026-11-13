@@ -1,4 +1,6 @@
-import i18n, { type BackendModule } from "i18next";
+import type { BackendModule } from "i18next";
+import i18n from "@/i18n/runtime";
+import { DEFAULT_LANGUAGE, resolveLanguage, SUPPORTED_LANGUAGES } from "@/i18n/language";
 import { initReactI18next } from "react-i18next";
 import {
   errorCodesEn,
@@ -12,6 +14,7 @@ import {
 } from "@/i18n/marketHealth";
 import { assistantEn, assistantZhCN, assistantZhTW } from "@/i18n/assistant";
 import { deepMerge } from "@/i18n/deepMerge";
+import { mobilePreferences } from "./connection";
 
 export async function loadMobileTranslation(language: string) {
   const resource =
@@ -31,8 +34,6 @@ export async function loadMobileTranslation(language: string) {
     marketData: additions.marketData,
   });
 }
-
-import { mobilePreferences } from "./connection";
 
 const backend: BackendModule = {
   type: "backend",
@@ -55,19 +56,13 @@ const backend: BackendModule = {
   },
 };
 export function initializeMobileI18n() {
-  const locale = (navigator.language || "en").toLowerCase();
-  const language = locale.startsWith("zh")
-    ? /hant|tw|hk|mo/.test(locale)
-      ? "zh-TW"
-      : "zh-CN"
-    : "en";
   return i18n
     .use(backend)
     .use(initReactI18next)
     .init({
-      lng: mobilePreferences().language ?? language,
-      fallbackLng: "en",
-      supportedLngs: ["en", "zh-CN", "zh-TW"],
+      lng: resolveLanguage(mobilePreferences().language ?? "system"),
+      fallbackLng: DEFAULT_LANGUAGE,
+      supportedLngs: [...SUPPORTED_LANGUAGES],
       load: "currentOnly",
       ns: ["translation", "errorCode"],
       defaultNS: "translation",

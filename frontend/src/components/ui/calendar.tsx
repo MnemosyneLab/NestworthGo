@@ -1,7 +1,7 @@
 import * as React from "react";
-import { DayPicker } from "react-day-picker";
+import { DateLib, DayPicker, type Labels } from "react-day-picker";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import i18n from "@/i18n/runtime";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -14,8 +14,17 @@ function Calendar({
   captionLayout = "label",
   formatters,
   components,
+  labels,
   ...props
 }: CalendarProps) {
+  const { t, i18n } = useTranslation();
+  const labelDayButton: Labels["labelDayButton"] = (date, modifiers, options, dateLib) => {
+    let label = (dateLib ?? new DateLib(options)).format(date, "PPPP");
+    if (modifiers.today) label = t("datePicker.today", { date: label });
+    if (modifiers.selected) label = t("datePicker.selected", { date: label });
+    return label;
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -24,6 +33,17 @@ function Calendar({
       formatters={{
         formatMonthDropdown: (date) => date.toLocaleString(i18n.language || undefined, { month: "short" }),
         ...formatters,
+      }}
+      labels={{
+        labelPrevious: () => t("datePicker.previousMonth"),
+        labelNext: () => t("datePicker.nextMonth"),
+        labelMonthDropdown: () => t("datePicker.chooseMonth"),
+        labelYearDropdown: () => t("datePicker.chooseYear"),
+        labelDayButton,
+        labelGridcell: (date, modifiers, options, dateLib) => labelDayButton(date, modifiers ?? {}, options, dateLib),
+        labelWeekNumberHeader: () => t("datePicker.weekNumber"),
+        labelWeekNumber: (week) => t("datePicker.week", { week }),
+        ...labels,
       }}
       classNames={{
         months: "relative flex flex-col gap-4",

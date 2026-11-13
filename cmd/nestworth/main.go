@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -90,7 +91,17 @@ func main() {
 	}
 }
 
+func environmentLocale() string {
+	for _, key := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if locale := strings.TrimSpace(os.Getenv(key)); locale != "" {
+			return locale
+		}
+	}
+	return ""
+}
+
 func run() error {
+	systemLanguage := settings.ResolveLanguage(settings.LanguageSystem, systemLocale())
 	store := settings.DefaultStore()
 	preference, loadErr := store.Load()
 	logFile := diagnostics.New(store.LogPath())
@@ -194,7 +205,7 @@ func run() error {
 				}
 			}
 			service.SetQuoteCacheTTL(preference.QuoteCacheTTLDuration())
-			service.SetUILanguage(string(preference.Language))
+			service.SetUILanguage(string(settings.ResolveLanguage(preference.Language, string(systemLanguage))))
 			if _, err := service.Bootstrap(context.Background()); err != nil {
 				slog.Error("bootstrap failed at startup")
 				startupErr = err
@@ -206,14 +217,15 @@ func run() error {
 	}
 
 	emitter := &lazyEventEmitter{}
-	platform := &lazyPlatform{}
+	language := settings.ResolveLanguage(preference.Language, string(systemLanguage))
+	platform := &lazyPlatform{language: language}
 	var marketdataService *wailsmarketdata.Service
 	if service != nil {
 		marketdataService = wailsmarketdata.NewService(service, emitter)
 	}
-	appService := wailsapp.NewService(startupErr)
+	appService := wailsapp.NewService(startupErr, language)
 	if hasSchema {
-		appService = wailsapp.NewServiceWithSchema(startupErr, foundSchema, supportedSchema)
+		appService = wailsapp.NewServiceWithSchema(startupErr, foundSchema, supportedSchema, language)
 	}
 	recoveryUseCase := nestworthapp.NewRecovery(databasePath, backup.NewRuntime(), service)
 	cloudBackup, cloudErr := continuousbackup.New(databasePath, database)
@@ -252,7 +264,8 @@ func run() error {
 	}
 	var agentServer *mcpserver.Service
 	var mobileServer *mobileapi.Server
-	registered := services(service, store, recoveryService, dataService, marketdataService, appService)
+	settingsService := wailssettings.NewServiceWithLanguage(store, service, systemLanguage, platform.setLanguage)
+	registered := services(service, settingsService, recoveryService, dataService, marketdataService, appService)
 	registered = append(registered, application.NewService(wailsairuntime.NewService(assistantRuntime)))
 	registered = append(registered, application.NewService(wailsbackup.NewService(cloudBackup, service, recoveryUseCase, recoveryService)))
 	if service != nil {
@@ -331,7 +344,7 @@ func run() error {
 		}
 	}
 
-	configureApplicationMenu(app)
+	platform.updateMenu = configureApplicationMenu(app, language)
 
 	width, height := windowSizeFromSettings(preference)
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -362,10 +375,10 @@ func run() error {
 // local database could not be opened at all (a narrower failure than the
 // ordinary "onboarding not complete" case every application.Service method
 // already reports through the normal wireError contract); in that case
-// only AppService and CatalogService are registered so the frontend can
+// startup, catalog and recovery services are registered here so the frontend can
 // render BlockedStartupPage from Startup() without calling unregistered
 // services. Catalog is always available because it is a static vocabulary.
-func services(service *nestworthapp.Service, store *settings.Store, recovery *wailsrecovery.Service, data *wailsdata.Service, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
+func services(service *nestworthapp.Service, settingsService *wailssettings.Service, recovery *wailsrecovery.Service, data *wailsdata.Service, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
 	registered := []application.Service{
 		application.NewService(appService),
 		application.NewService(wailscatalog.NewService()),
@@ -392,7 +405,7 @@ func services(service *nestworthapp.Service, store *settings.Store, recovery *wa
 		application.NewService(wailsreconciliation.NewService(service)),
 		application.NewService(wailsliquidity.NewService(service)),
 		application.NewService(marketdataService),
-		application.NewService(wailssettings.NewService(store, service)),
+		application.NewService(settingsService),
 		application.NewService(data),
 	)
 }

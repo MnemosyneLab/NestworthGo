@@ -54,7 +54,7 @@ type RestorePreviewDTO struct {
 }
 
 func (s *Service) InspectBackup() (RestorePreviewDTO, error) {
-	path, err := s.dialogs.OpenFile("Restore from backup", "Nestworth Backup", "*.nestworth-backup")
+	path, err := s.dialogs.OpenFile(native.RestoreTitle, native.BackupFilter, "*.nestworth-backup")
 	if err != nil {
 		return RestorePreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "the backup file could not be selected"})
 	}

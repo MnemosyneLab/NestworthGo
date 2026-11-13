@@ -93,7 +93,18 @@
   "app": {
     "name": "Nestworth"
   },
+  "datePicker": {
+    "previousMonth": "Go to the Previous Month",
+    "nextMonth": "Go to the Next Month",
+    "chooseMonth": "Choose the Month",
+    "chooseYear": "Choose the Year",
+    "today": "Today, {{date}}",
+    "selected": "{{date}}, selected",
+    "weekNumber": "Week Number",
+    "week": "Week {{week}}"
+  },
   "common": {
+    "retryAction": "Try again",
     "loading": "Loading…",
     "unknownValue": "Unknown",
     "clearSelection": "Clear selection",
@@ -383,6 +394,8 @@
     "name": "Name"
   },
   "history": {
+    "selectEmpty": "Select an option",
+    "reasonLabel": "Reason",
     "changeGroups": { "cash": "Cash", "investment": "Investments", "debt": "Debt" },
     "dateFilter": "Dates",
     "rangeFrom": "From {{date}}",
@@ -410,6 +423,7 @@
     "fxFee": "Conversion fee",
     "holding": "Holding",
     "kind": {
+      "reversal": "Reversal",
       "buy": "Buy",
       "cash_in": "Money added",
       "cash_out": "Money removed",

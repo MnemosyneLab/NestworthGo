@@ -93,7 +93,18 @@
   "app": {
     "name": "Nestworth"
   },
+  "datePicker": {
+    "previousMonth": "移至上個月",
+    "nextMonth": "移至下個月",
+    "chooseMonth": "選擇月份",
+    "chooseYear": "選擇年份",
+    "today": "今天，{{date}}",
+    "selected": "{{date}}，已選取",
+    "weekNumber": "週次",
+    "week": "第 {{week}} 週"
+  },
   "common": {
+    "retryAction": "再試一次",
     "loading": "載入中…",
     "unknownValue": "未知",
     "clearSelection": "清除選擇",
@@ -383,6 +394,8 @@
     "name": "名稱"
   },
   "history": {
+    "selectEmpty": "請選擇",
+    "reasonLabel": "原因",
     "changeGroups": { "cash": "現金", "investment": "投資", "debt": "債務" },
     "dateFilter": "日期",
     "rangeFrom": "從 {{date}} 起",
@@ -410,6 +423,7 @@
     "fxFee": "換匯費用",
     "holding": "持倉",
     "kind": {
+      "reversal": "沖銷",
       "buy": "買入",
       "cash_in": "增加金額",
       "cash_out": "減少金額",

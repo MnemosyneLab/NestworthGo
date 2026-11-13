@@ -17,8 +17,10 @@ import (
 )
 
 type Service struct {
-	store *settings.Store
-	app   *application.Service
+	store           *settings.Store
+	app             *application.Service
+	systemLanguage  settings.Language
+	languageChanged func(settings.Language)
 }
 
 // SettingsDTO is the Wails wire contract. The persisted settings.Settings
@@ -31,6 +33,7 @@ type SettingsDTO struct {
 	Appearance        settings.Appearance `json:"appearance"`
 	Accent            settings.Accent     `json:"accent"`
 	Language          settings.Language   `json:"language"`
+	SystemLanguage    settings.Language   `json:"systemLanguage,omitempty"`
 	Timezone          string              `json:"timezone"`
 	WeekStart         string              `json:"weekStart"`
 	DateFormat        string              `json:"dateFormat"`
@@ -70,7 +73,11 @@ func (value SettingsDTO) toSettings() settings.Settings {
 }
 
 func NewService(store *settings.Store, app *application.Service) *Service {
-	return &Service{store: store, app: app}
+	return NewServiceWithLanguage(store, app, "", nil)
+}
+
+func NewServiceWithLanguage(store *settings.Store, app *application.Service, systemLanguage settings.Language, changed func(settings.Language)) *Service {
+	return &Service{store: store, app: app, systemLanguage: systemLanguage, languageChanged: changed}
 }
 
 // Load returns the persisted preferences, or internal/settings' documented
@@ -84,6 +91,7 @@ func (s *Service) Load() (SettingsDTO, error) {
 	}
 	result := fromSettings(value)
 	result.LogFilePath = s.store.LogPath()
+	result.SystemLanguage = s.systemLanguage
 	return result, nil
 }
 
@@ -109,13 +117,19 @@ func (s *Service) Save(value SettingsDTO) error {
 		}
 		if s.app != nil {
 			s.app.SetQuoteCacheTTL(persisted.QuoteCacheTTLDuration())
-			s.app.SetUILanguage(string(persisted.Language))
 		}
 		// SettingsDTO deliberately omits provider secrets. General preference
 		// saves must preserve separately managed credentials instead of clearing them.
 		persisted.CoinGeckoAPIKey = current.CoinGeckoAPIKey
 		if err := s.store.Save(persisted); err != nil {
 			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
+		}
+		language := settings.ResolveLanguage(persisted.Language, string(s.systemLanguage))
+		if s.app != nil {
+			s.app.SetUILanguage(string(language))
+		}
+		if s.languageChanged != nil && language != settings.ResolveLanguage(current.Language, string(s.systemLanguage)) {
+			s.languageChanged(language)
 		}
 		slog.Info("settings saved", "log_level", persisted.LogLevel)
 		return nil
@@ -141,6 +155,7 @@ func (s *Service) Reset() (SettingsDTO, error) {
 	}
 	result := fromSettings(defaults)
 	result.LogFilePath = s.store.LogPath()
+	result.SystemLanguage = s.systemLanguage
 	return result, nil
 }
 

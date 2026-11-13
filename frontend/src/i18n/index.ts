@@ -15,12 +15,8 @@ import { voiceEn, voiceZhCN, voiceZhTW } from "./voice";
 import { tasksEn, tasksZhCN, tasksZhTW } from "./tasks";
 import { deepMerge } from "./deepMerge";
 
-// The supported locales are English, Simplified Chinese, and Traditional
-// Chinese, with complete key coverage enforced by localeCoverage.test.ts.
-export const SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW"] as const;
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-
-export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
+import { DEFAULT_LANGUAGE, resolveLanguage } from "./language";
+export { DEFAULT_LANGUAGE, resolveLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from "./language";
 
 void i18n.use(initReactI18next).init({
   resources: {
@@ -28,7 +24,7 @@ void i18n.use(initReactI18next).init({
     "zh-CN": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhCN, voiceZhCN), assistantZhCN), additionsZhCN), rebuildDataZhCN), upcomingActionsZhCN), homepageZhCN), investmentAssetsZhCN), tasksZhCN), errorCode: errorCodesZhCN },
     "zh-TW": { translation: deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(deepMerge(zhTW, voiceZhTW), assistantZhTW), additionsZhTW), rebuildDataZhTW), upcomingActionsZhTW), homepageZhTW), investmentAssetsZhTW), tasksZhTW), errorCode: errorCodesZhTW },
   },
-  lng: DEFAULT_LANGUAGE,
+  lng: resolveLanguage("system"),
   fallbackLng: DEFAULT_LANGUAGE,
   ns: ["translation", "errorCode"],
   defaultNS: "translation",
@@ -36,34 +32,9 @@ void i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
-/**
- * Maps `internal/settings.Language` ("system" | "en" | "zh-CN" | "zh-TW")
- * to one of the three loaded i18next languages, resolving "system" against
- * the browser/webview's own locale. SettingsService is the source of truth
- * for the persisted preference; this function only
- * implements the "system" resolution rule client-side, mirroring
- * internal/i18n.ResolveSystemLanguage's zh-Hant/zh-Hans script-tag logic.
- */
-export function resolveLanguage(preference: string): SupportedLanguage {
-  if (preference === "en" || preference === "zh-CN" || preference === "zh-TW") {
-    return preference;
-  }
-  if (preference !== "system") {
-    return DEFAULT_LANGUAGE;
-  }
-  const locale = (navigator.language || DEFAULT_LANGUAGE).toLowerCase();
-  if (!locale.startsWith("zh")) {
-    return DEFAULT_LANGUAGE;
-  }
-  if (locale.includes("hant") || locale.includes("-tw") || locale.includes("-hk") || locale.includes("-mo")) {
-    return "zh-TW";
-  }
-  return "zh-CN";
-}
-
-export function setLanguage(preference: string) {
-  const resolved = resolveLanguage(preference);
-  void i18n.changeLanguage(resolved);
+export function setLanguage(preference: string, systemLocale?: string) {
+  const resolved = resolveLanguage(preference, systemLocale);
+  if (i18n.language !== resolved) void i18n.changeLanguage(resolved);
   return resolved;
 }
 

@@ -16,7 +16,7 @@ export function useAppInfo() {
 
 /**
  * useStartup is the gate in front of every other bound service. When the
- * local database could not be opened, only AppService is registered, so
+ * local database could not be opened, ledger services are unavailable, so
  * calling HouseholdService.Bootstrap would reject as a raw Wails
  * "service not found" string. Startup() returns a DTO either way.
  */

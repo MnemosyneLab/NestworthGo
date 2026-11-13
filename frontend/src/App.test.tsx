@@ -423,15 +423,17 @@ describe("App shell smoke test", () => {
     expect(screen.getByLabelText(i18n.t("about.title"))).toBeInTheDocument();
   });
 
-  it("renders the blocked-startup page when the database is unavailable", async () => {
+  it.each(["en", "zh-CN", "zh-TW"])("renders blocked startup in %s without querying ledger settings", async (language) => {
     await i18n.changeLanguage("en");
-    startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database" });
+    startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database", language });
     render(
       <AppProviders>
         <App />
       </AppProviders>,
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle", { lng: language }));
+    expect(document.documentElement.lang).toBe(language);
+    expect(settingsLoad).not.toHaveBeenCalled();
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
   });
 

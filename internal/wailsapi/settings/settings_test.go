@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	appsettings "github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -272,5 +273,47 @@ func TestGeneralSettingsSaveAndResetPreserveCoinGeckoKey(t *testing.T) {
 	loaded, err = store.Load()
 	if err != nil || loaded.CoinGeckoAPIKey != "keep-me" {
 		t.Fatalf("key after Reset = %q, err = %v", loaded.CoinGeckoAPIKey, err)
+	}
+}
+
+func TestFollowSystemLanguagePersistsPreferenceAndSeedsLocalizedDirectory(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	ledger := wailstest.NewService(t)
+	var changes []appsettings.Language
+	service := settings.NewServiceWithLanguage(store, ledger, appsettings.LanguageZhTW, func(language appsettings.Language) {
+		changes = append(changes, language)
+	})
+	english := defaultDTO()
+	english.Language = appsettings.LanguageEnglish
+	if err := service.Save(english); err != nil {
+		t.Fatal(err)
+	}
+	got, err := service.Reset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Language != appsettings.LanguageSystem || got.SystemLanguage != appsettings.LanguageZhTW {
+		t.Fatalf("reset language = %q / %q", got.Language, got.SystemLanguage)
+	}
+	if len(changes) != 2 || changes[0] != appsettings.LanguageEnglish || changes[1] != appsettings.LanguageZhTW {
+		t.Fatalf("language notifications = %v", changes)
+	}
+
+	ctx := context.Background()
+	api := household.NewService(ledger)
+	if err := api.CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
+		HouseholdName: "Synthetic household",
+		BaseCurrency:  "TWD",
+		MemberNames:   []string{"Synthetic member"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := api.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Institutions) != 1 || result.Institutions[0].Name != "預設機構" ||
+		len(result.Groups) != 1 || result.Groups[0].Name != "預設分組" {
+		t.Fatalf("default directory = %+v / %+v", result.Institutions, result.Groups)
 	}
 }

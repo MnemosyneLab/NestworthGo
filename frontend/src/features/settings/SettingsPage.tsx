@@ -152,7 +152,7 @@ export function SettingsPage({ initialSection = "general", focusHistoryRebuild =
   const applyLivePreferences = (value: Settings) => {
     setAppearance(value.appearance as Appearance);
     setAccent(value.accent as Accent);
-    setLanguage(value.language);
+    setLanguage(value.language, value.systemLanguage);
   };
 
   const separatorMessage = separatorsConflict(draft.decimalSeparator, draft.groupingSeparator)

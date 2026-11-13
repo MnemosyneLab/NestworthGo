@@ -76,7 +76,7 @@ func (s *Service) CreateBackup() (BackupResultDTO, error) {
 		return BackupResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
 	}
 	filename := s.app.DefaultBackupFileName()
-	path, err := s.dialogs.SaveFile("Back up data", filename, "Nestworth Backup", "*"+application.BackupFileExt)
+	path, err := s.dialogs.SaveFile(native.BackupTitle, filename, native.BackupFilter, "*"+application.BackupFileExt)
 	if err != nil {
 		return BackupResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "the backup location could not be selected"})
 	}
@@ -124,7 +124,7 @@ func (s *Service) ExportJSON() (ExportResultDTO, error) {
 	if s.app == nil {
 		return ExportResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
 	}
-	path, err := s.dialogs.SaveFile("Export data", "Nestworth.nestworth.json", "Nestworth JSON", "*.json")
+	path, err := s.dialogs.SaveFile(native.ExportTitle, "Nestworth.nestworth.json", native.ExportFilter, "*.json")
 	if err != nil {
 		return ExportResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "the export location could not be selected"})
 	}

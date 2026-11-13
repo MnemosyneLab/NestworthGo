@@ -132,7 +132,7 @@ export function AppShell({ activePageId, onNavigate, settings, children, navigat
     saveSettings.mutate(patch, {
       onSuccess: (saved) => {
         setAppearance(saved.appearance as Appearance);
-        setLanguage(saved.language);
+        setLanguage(saved.language, saved.systemLanguage);
       },
       onError: (error) => {
         toast.error(displayError(error, t("settings.saveError")));
