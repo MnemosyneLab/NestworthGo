@@ -383,6 +383,12 @@
     "name": "Name"
   },
   "history": {
+    "changeGroups": { "cash": "Cash", "investment": "Investments", "debt": "Debt" },
+    "dateFilter": "Dates",
+    "rangeFrom": "From {{date}}",
+    "rangeThrough": "Through {{date}}",
+    "rangeAllDates": "All recorded dates",
+    "queryRange": "Date range in use: {{range}}",
     "account": "Account",
     "amount": "Amount",
     "applyFilters": "Apply",
@@ -638,6 +644,7 @@
     "name": "Name"
   },
   "marketData": {
+    "fxChartDescription": "Exchange rates in {{quote}} per 1 {{base}}.",
     "fx": "FX rates",
     "fxLocalFirst": "Quotes are stored locally and refreshed only by explicit user action.",
     "instruments": "Instruments",
@@ -1813,6 +1820,8 @@
     "sync_failed": "Refresh failed; check the connection and retry."
   },
   "holdingGroups": {
+    "showAccountHoldings": "Show holdings by account for {{name}}",
+    "hideAccountHoldings": "Hide holdings by account for {{name}}",
     "label": "Holdings by instrument type",
     "types": {
       "stock": "Stocks",

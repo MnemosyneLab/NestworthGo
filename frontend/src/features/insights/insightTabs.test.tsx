@@ -201,7 +201,7 @@ describe("insight tabs", () => {
   it("opens a Contribution item for the active independent view", async () => {
     renderWithClient(<ConnectedContributionTab />);
     await screen.findAllByText("QQQ");
-    expect(screen.getByText("◇")).toBeInTheDocument();
+    expect(screen.getByText("Rate days 1/3")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /QQQ/ })[0]);
     expect(await screen.findByText("Price Change")).toBeInTheDocument();
     expect(await screen.findByText("Brokerage")).toBeInTheDocument();

@@ -10,9 +10,11 @@ import { PanelResizeHandle } from "@/components/ui/panel-resize-handle";
 import { useUiStore } from "@/stores/ui";
 import { useModelConversation } from "./ModelConversation";
 import { useAssistantPage } from "./PageContext";
+import { useObjectNavigation } from "@/app/NavigationContext";
 
 export function useDesktopAssistant() {
   const { t } = useTranslation();
+  const navigation = useObjectNavigation();
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
   const enablePage = useAssistantPage()?.setEnabled;
@@ -37,7 +39,16 @@ export function useDesktopAssistant() {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (open && wide) headingRef.current?.focus(); }, [open, wide]);
-  const conversation = useModelConversation({ visible: open, enabled: opened });
+  const conversation = useModelConversation({
+    visible: open,
+    enabled: opened,
+    onOpenSettings: navigation ? () => {
+      if (hasUnresolvedSheetConfirmation()) return;
+      setOpen(false);
+      setExpanded(false);
+      navigation.open({ page: "settings", section: "agent" });
+    } : undefined,
+  });
   const trigger = <Button ref={triggerRef} variant={open ? "soft" : "outline"} aria-label={t("assistant.open")} aria-expanded={open} aria-controls="desktop-assistant"
     onClick={() => { if (!hasUnresolvedSheetConfirmation()) { setOpened(true); setOpen(value => !value); } }}><Sparkles aria-hidden className="size-4" /><span className="hidden sm:inline">{t("assistant.title")}</span></Button>;
   const collapse = () => { setOpen(false); triggerRef.current?.focus(); };

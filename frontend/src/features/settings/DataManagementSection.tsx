@@ -1,4 +1,5 @@
 import { SecurityOperationRegion } from "@/lib/businessCapture";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -7,12 +8,21 @@ import { formatCivilDateRange } from "@/lib/time";
 import { useLastBackupStatus, useCreateBackup, useExportJSON, useRebuildDerivedData } from "@/queries/data";
 import { RestoreBackupButton } from "@/features/backup/RestoreBackupButton";
 
-export function DataManagementSection({ onRestoreBusyChange }: { onRestoreBusyChange?: (busy: boolean) => void }) {
+export function DataManagementSection({ onRestoreBusyChange, focusHistoryRebuild }: {
+  onRestoreBusyChange?: (busy: boolean) => void;
+  focusHistoryRebuild?: boolean;
+}) {
   const { t } = useTranslation();
   const status = useLastBackupStatus();
   const createBackup = useCreateBackup();
   const exportJSON = useExportJSON();
   const rebuild = useRebuildDerivedData();
+  const rebuildTitle = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!focusHistoryRebuild) return;
+    const frame = requestAnimationFrame(() => rebuildTitle.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusHistoryRebuild]);
   const runBackup = () => {
     createBackup.mutate(undefined, {
       onSuccess: (result) => {
@@ -41,21 +51,30 @@ export function DataManagementSection({ onRestoreBusyChange }: { onRestoreBusyCh
         <h2 id="settings-data-title" className="text-base font-semibold">{t("settings.data.title")}</h2>
         <p className="text-sm text-muted-foreground">{t("settings.data.description")}</p>
       </div>
-      <p className="text-sm text-muted-foreground">{t("settings.data.backupSensitive")}</p>
-      <p className="text-sm">
-        <span className="font-medium">{t("settings.data.lastBackup")}: </span>
-        {status.data?.available
-          ? t("settings.data.lastBackupSummary", { fileName: status.data.backupFileName, schema: status.data.schemaVersion, result: status.data.verificationResult })
-          : t("settings.data.lastBackupNone")}
-      </p>
-      <SecurityOperationRegion className="flex flex-wrap gap-2">
-        <Button type="button" onClick={runBackup} disabled={createBackup.isPending}>{t(createBackup.isPending ? "common.pending" : "settings.data.backup")}</Button>
-        <RestoreBackupButton onBusyChange={onRestoreBusyChange} />
-        <Button type="button" variant="outline" onClick={runExport} disabled={exportJSON.isPending}>{t(exportJSON.isPending ? "settings.data.exporting" : "settings.data.export")}</Button>
-      </SecurityOperationRegion>
-      <div className="mt-3 flex flex-col gap-3 border-t pt-5">
+      <section aria-labelledby="settings-backup-title" className="space-y-3">
+        <h3 id="settings-backup-title" className="text-sm font-semibold">{t("settings.data.backupRestoreTitle")}</h3>
+        <p className="text-sm text-muted-foreground">{t("settings.data.backupSensitive")}</p>
+        <p className="text-sm">
+          <span className="font-medium">{t("settings.data.lastBackup")}: </span>
+          {status.data?.available
+            ? t("settings.data.lastBackupSummary", { fileName: status.data.backupFileName, schema: status.data.schemaVersion, result: status.data.verificationResult })
+            : t("settings.data.lastBackupNone")}
+        </p>
+        <SecurityOperationRegion className="flex flex-wrap gap-2">
+          <Button type="button" onClick={runBackup} disabled={createBackup.isPending}>{t(createBackup.isPending ? "common.pending" : "settings.data.backup")}</Button>
+          <RestoreBackupButton onBusyChange={onRestoreBusyChange} />
+        </SecurityOperationRegion>
+      </section>
+      <section aria-labelledby="settings-export-title" className="space-y-3 border-t border-border pt-4">
+        <h3 id="settings-export-title" className="text-sm font-semibold">{t("settings.data.exportTitle")}</h3>
+        <p className="text-sm text-muted-foreground">{t("settings.data.exportDescription")}</p>
+        <SecurityOperationRegion>
+          <Button type="button" variant="outline" onClick={runExport} disabled={exportJSON.isPending}>{t(exportJSON.isPending ? "settings.data.exporting" : "settings.data.export")}</Button>
+        </SecurityOperationRegion>
+      </section>
+      <section aria-labelledby="settings-rebuild-title" className="flex flex-col gap-3 border-t border-border pt-4">
         <div>
-          <h3 className="text-sm font-semibold">{t("settings.data.rebuildTitle")}</h3>
+          <h3 id="settings-rebuild-title" ref={rebuildTitle} tabIndex={-1} className="text-sm font-semibold">{t("settings.data.rebuildTitle")}</h3>
           <p className="text-sm text-muted-foreground">{t("settings.data.rebuildDescription")}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t("settings.data.rebuildIncompleteHint")}</p>
         </div>
@@ -73,7 +92,7 @@ export function DataManagementSection({ onRestoreBusyChange }: { onRestoreBusyCh
             <p>{t("settings.data.rebuildCounts", { snapshotDays: rebuild.data.snapshotDays, incompleteDays: rebuild.data.incompleteDays })}</p>
           </div>
         )}
-      </div>
+      </section>
     </section>
   );
 }

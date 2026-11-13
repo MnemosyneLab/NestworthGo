@@ -48,7 +48,9 @@ const mount=(props:Partial<React.ComponentProps<typeof HoldingGroupsList>>={},re
  return {client,view,rerender:(extra:Partial<React.ComponentProps<typeof HoldingGroupsList>>)=>view.rerender(ui(extra))};
 };
 const open=async(name="Show details for Synthetic fund")=>{
- await userEvent.click(screen.getByRole("button",{name}));
+ const byAccount = screen.queryByRole("button", { name: "Account details" });
+ if (byAccount?.getAttribute("aria-pressed") === "false") await userEvent.click(byAccount);
+ await userEvent.click(screen.getAllByRole("button",{name})[0]);
  await act(() => vi.dynamicImportSettled());
  return screen.findByRole("region",{name:/Synthetic fund|SYN/});
 };
@@ -124,7 +126,7 @@ it("keeps the explanation in an info popover and the data table unobtrusive",asy
 
 it("shows a dash with a short reason when the period has no comparable evidence, while keeping the chart",async()=>{
  mount();
- await userEvent.click(screen.getByRole("button",{name:"Show details for Synthetic fund"}));
+ await open("Show details for Synthetic fund");
  await act(() => vi.dynamicImportSettled());
  const performance=within(await screen.findByRole("region",{name:"Price performance"}));
  await userEvent.click(await performance.findByRole("button",{name:"3M"}));
@@ -153,7 +155,8 @@ it("shows precious-metal performance like any other priced instrument, with the 
  api.instruments.mockResolvedValue([{id:"au",name:"Gold",type:"precious_metal",quoteCurrency:"CNY",symbol:"XAU",quantityUnit:"g",metalTemplate:"gold",quoteSource:"yahoo"}]);
  api.series.mockResolvedValue(seriesAnswer(30,{item:item(30,"6.25")}));
  mount({groups:groups(gold,"precious_metal")});
- await userEvent.click(screen.getByRole("button",{name:"Show details for Gold"}));
+ await userEvent.click(screen.getByRole("button", { name: "Account details" }));
+ await userEvent.click(screen.getAllByRole("button", { name: "Show details for Gold" })[0]);
  await act(() => vi.dynamicImportSettled());
  const performance=within(await screen.findByRole("region",{name:"Price performance"}));
  expect(await performance.findByText("+6.25%")).toBeInTheDocument();
@@ -209,7 +212,7 @@ it("shows annualized change only for the window that has one, as a small seconda
  expect(returns.getByText("Unchanged")).toHaveClass("sr-only");
  const performance=within(await detail.findByRole("region",{name:"Price performance"}));
  expect(performance.queryByText(/annualized/)).not.toBeInTheDocument();
- const region=screen.getByRole("region",{name:/SYN · All included accounts/});
+ const region=screen.getByRole("region",{name:/SYN · Account A/});
  // The row already shows cost, value and gain, so the panel starts with performance and ends with facts.
  const content=region.textContent!;
  expect(content).not.toContain("Cost");

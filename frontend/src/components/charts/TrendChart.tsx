@@ -44,6 +44,9 @@ export interface TrendChartProps {
   /** Explicit civil-date viewport and intervals where the selected metric cannot be plotted. */
   timeRange?: { from: string; to: string };
   missingIntervals?: Array<readonly [number, number]>;
+  /** Leave room for date labels centered on the first and last ticks. */
+  padDateLabels?: boolean;
+  showLegend?: boolean;
   /** "minimal" hides the legend, softens gridlines and keeps the tooltip to date and value. */
   variant?: "default" | "minimal";
 }
@@ -154,6 +157,8 @@ export function TrendChart({
   extraTableRows,
   timeRange,
   missingIntervals,
+  padDateLabels = false,
+  showLegend = false,
   variant = "default",
 }: TrendChartProps) {
   const { t, i18n } = useTranslation();
@@ -177,7 +182,7 @@ export function TrendChart({
   const longSpan = stamps.length > 1 && Math.max(...stamps) - Math.min(...stamps) > 330 * 86_400_000;
   const legendLabel = (item: TrendSeries) => trendLegendLabel(item.name, item, t("charts.mixedSources"), t("charts.mixedDelay"), t("charts.delayed"));
   // A lone series whose legend would only repeat its name adds no information; the card title already names it.
-  const hideLegend = minimal || (series.length === 1 && legendLabel(series[0]) === series[0].name);
+  const hideLegend = minimal || (!showLegend && series.length === 1 && legendLabel(series[0]) === series[0].name);
   const option: EChartsOption = {
     ...(timeRange ? { useUTC: true } : {}),
     color: series.map((item) => resolveSeriesColor(item.color)),
@@ -227,7 +232,7 @@ export function TrendChart({
         return joinTooltipLines([date, ...lines]);
       },
     },
-    grid: { left: 8, right: minimal ? 12 : 16, top: hideLegend ? 12 : 44, bottom: 8, containLabel: true },
+    grid: { left: padDateLabels ? 42 : 8, right: padDateLabels ? 42 : minimal ? 12 : 16, top: hideLegend ? 12 : 44, bottom: 8, containLabel: true },
     xAxis: {
       type: "time",
       ...(timeRange ? {
@@ -236,7 +241,7 @@ export function TrendChart({
       } : {}),
       ...(minimal ? { splitNumber: 4, axisTick: { show: false }, axisLine: { lineStyle: { color: theme.border } } } : {}),
       axisLabel: {
-        ...(timeRange ? { showMinLabel: true, showMaxLabel: true } : {}),
+        ...(timeRange || padDateLabels ? { showMinLabel: true, showMaxLabel: true } : {}),
         color: theme.muted,
         hideOverlap: true,
         ...(minimal ? { fontSize: 11, margin: 12 } : {}),

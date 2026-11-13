@@ -383,6 +383,12 @@
     "name": "名稱"
   },
   "history": {
+    "changeGroups": { "cash": "現金", "investment": "投資", "debt": "債務" },
+    "dateFilter": "日期",
+    "rangeFrom": "從 {{date}} 起",
+    "rangeThrough": "截至 {{date}}",
+    "rangeAllDates": "全部記帳日期",
+    "queryRange": "目前查詢區間：{{range}}",
     "account": "帳戶",
     "amount": "金額",
     "applyFilters": "套用",
@@ -638,6 +644,7 @@
     "name": "名稱"
   },
   "marketData": {
+    "fxChartDescription": "每 1 {{base}} 兌換的 {{quote}} 金額。",
     "fx": "匯率",
     "fxLocalFirst": "報價儲存在本機，僅在使用者明確操作時重新整理。",
     "instruments": "投資標的",
@@ -1813,6 +1820,8 @@
     "sync_failed": "本地資料或行情連線不可用，請檢查連線並重試。"
   },
   "holdingGroups": {
+    "showAccountHoldings": "展開 {{name}} 的分帳戶持倉",
+    "hideAccountHoldings": "收起 {{name}} 的分帳戶持倉",
     "label": "依投資標的類型分組的持倉",
     "types": {
       "stock": "股票",

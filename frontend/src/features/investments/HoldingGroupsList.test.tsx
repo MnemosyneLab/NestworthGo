@@ -70,7 +70,7 @@ describe("HoldingGroupsList", () => {
     expect(screen.getByRole("button", { name: "By instrument" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("2 accounts")).toBeInTheDocument();
     expect(screen.getByText("US$900.00")).toBeInTheDocument();
-    const expand = screen.getByRole("button", { name: "Show details for Apple" });
+    const expand = screen.getByRole("button", { name: "Show holdings by account for AAPL" });
     expand.focus();
     await userEvent.keyboard("{Enter}");
     expect(expand).toHaveAttribute("aria-expanded", "true");
@@ -84,7 +84,7 @@ describe("HoldingGroupsList", () => {
     expect(screen.getByRole("button", { name: "Closed account position" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "By instrument" }));
     expect(screen.getByText("3 accounts")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide details for Apple" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Hide holdings by account for AAPL" })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("opens the shared detail with the row's account scope", async () => {
@@ -123,7 +123,7 @@ describe("HoldingGroupsList", () => {
     expect(screen.getAllByText("US$200.00")).toHaveLength(2);
     expect(screen.getAllByText("No current price")).toHaveLength(2);
     expect(screen.getAllByText(/· No current price/)).toHaveLength(2);
-    await userEvent.click(screen.getByRole("button", { name: "Show details for Apple" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show holdings by account for AAPL" }));
     expect(screen.getByText("US$300.00")).toBeInTheDocument();
   });
 

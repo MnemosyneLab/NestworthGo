@@ -115,7 +115,8 @@ export type NavigationTarget =
   | ({ page: "instrument-detail" } & InstrumentDetailContext)
   | { page: "market-data" | "data-health"; focus?: HealthFocus; search?: string }
   | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
-  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "tasks" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds"> };
+  | { page: "settings"; section?: "agent" | "market" | "data"; focus?: "history-rebuild" }
+  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "tasks" | "accounts" | "portfolio" | "instrument-detail" | "market-data" | "data-health" | "available-funds" | "settings"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the

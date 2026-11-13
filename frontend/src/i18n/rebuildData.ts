@@ -1,5 +1,9 @@
 export const rebuildDataEn = {
   settings: { data: {
+    backupRestoreTitle: "Backup and restore",
+    exportTitle: "Data export",
+    exportDescription: "Export a readable JSON copy of your ledger.",
+    openHistoryRebuild: "Open history recalculation",
     rebuildTitle: "Recalculate history and balances",
     rebuildDescription: "Rebuild daily snapshots, current assets, and returns from your recorded transactions, prices, and History start. These original transactions, prices, and the History start are preserved. This may take a while.",
     rebuildIncompleteHint: "Days without the prices or exchange rates needed for calculation will remain incomplete.",
@@ -15,6 +19,10 @@ export const rebuildDataEn = {
 
 export const rebuildDataZhCN = {
   settings: { data: {
+    backupRestoreTitle: "备份与恢复",
+    exportTitle: "数据导出",
+    exportDescription: "将账本导出为可读取的 JSON 副本。",
+    openHistoryRebuild: "打开历史重算",
     rebuildTitle: "重算历史与余额",
     rebuildDescription: "根据已记录的交易、价格和历史起点，重建每日快照、当前资产和收益。原始交易、价格与历史起点都会保留。此操作可能需要一些时间。",
     rebuildIncompleteHint: "缺少计算所需历史价格或汇率的日期，重算后仍会标为不完整。",
@@ -30,6 +38,10 @@ export const rebuildDataZhCN = {
 
 export const rebuildDataZhTW = {
   settings: { data: {
+    backupRestoreTitle: "備份與還原",
+    exportTitle: "資料匯出",
+    exportDescription: "將帳本匯出為可讀取的 JSON 副本。",
+    openHistoryRebuild: "開啟歷史重算",
     rebuildTitle: "重算歷史與餘額",
     rebuildDescription: "根據已記錄的交易、價格和歷史起點，重建每日快照、目前資產和收益。原始交易、價格與歷史起點都會保留。此操作可能需要一些時間。",
     rebuildIncompleteHint: "缺少計算所需歷史價格或匯率的日期，重算後仍會標為不完整。",

@@ -1825,8 +1825,13 @@ it("suggests the filtered active account and instrument for a new record without
   listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Synthetic Broker", trackingMode: "holdings", balanceSheetRole: "asset", defaultCurrency: "EUR" } }]);
   listInstruments.mockResolvedValue([{ id: "stock", name: "Synthetic Stock", quoteCurrency: "USD", instrumentType: "stock" }]);
   renderPage({ accountId: "broker", instrumentId: "stock", from: "2026-08-01", to: "2026-08-31" });
+  expect(await screen.findByText("Date range in use: 2026-08-01 – 2026-08-31")).toBeVisible();
+  expect(listActivityPage).toHaveBeenCalledWith(expect.objectContaining({ fromLocalDate: "2026-08-01", toLocalDate: "2026-08-31" }));
   await userEvent.click(await screen.findByRole("button", { name: "Record change" }));
   const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getAllByRole("group").map(group => group.getAttribute("aria-label")).filter(Boolean)).toEqual(
+    expect.arrayContaining(["Investments", "Cash", "Debt"]),
+  );
   expect(within(form).getByLabelText("Account")).toHaveValue("broker");
   expect(within(form).getByLabelText("Currency")).toHaveValue("EUR");
   await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));

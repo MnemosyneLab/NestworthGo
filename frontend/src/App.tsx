@@ -97,7 +97,8 @@ function Workspace() {
   const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
   const [liquidityRequestId, setLiquidityRequestId] = useState(0);
   const nextLiquidityRequestId = useRef(0);
-  type Snapshot = { historicalCapture?: HistoricalCaptureContext; historicalDate?: string; historicalContext?: HistoricalNavigationContext; historicalRequest: number; page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; reconciliationRequestId: number; reconciliationFocus: ReconciliationNavigationFocus; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number };
+  const [settingsTarget, setSettingsTarget] = useState<Extract<NavigationTarget, { page: "settings" }>>();
+  type Snapshot = { settingsTarget?: typeof settingsTarget; historicalCapture?: HistoricalCaptureContext; historicalDate?: string; historicalContext?: HistoricalNavigationContext; historicalRequest: number; page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; marketFocusRequestId: number; marketSearchQuery: string; portfolioView: PortfolioView; tasksTab: TasksTab | null; reconciliationRequestId: number; reconciliationFocus: ReconciliationNavigationFocus; instrumentDetail?: InstrumentDetailContext; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; historyActivityId?: string; historyRequestId?: number; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number };
   type Entry = { id: number; target: RevisitableDestination; snapshot?: Snapshot };
   const [entries, setEntries] = useState<Entry[]>([{ id: 0, target: { page: DEFAULT_PAGE_ID } }]);
   const [cursor, setCursor] = useState(0);
@@ -221,6 +222,7 @@ function Workspace() {
       setVisitedMaintenance(previous => ({ ...previous, market: true }));
     }
     if (navigation.page === "data-health") { setHealthFocus(navigation.focus); setVisitedMaintenance(previous => ({ ...previous, health: true })); }
+    if (navigation.page === "settings") setSettingsTarget(navigation);
     if (navigation.page === "portfolio") setPortfolioView(navigation.view ?? "holdings");
     if (navigation.page === "instrument-detail") setInstrumentDetail({ instrumentId: navigation.instrumentId,
       accountId: navigation.accountId, section: navigation.section, from: navigation.from, to: navigation.to, healthFocus: navigation.healthFocus });
@@ -245,13 +247,14 @@ function Workspace() {
     setActivePageId(pageId);
   };
 
-  const capture = (): Snapshot => ({ historicalCapture, historicalDate, historicalContext, historicalRequest, page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, tasksTab, reconciliationRequestId, reconciliationFocus, instrumentDetail,
+  const capture = (): Snapshot => ({ settingsTarget, historicalCapture, historicalDate, historicalContext, historicalRequest, page: activePageId, accountId: selectedAccountId, filter: accountFilter, portfolioView, tasksTab, reconciliationRequestId, reconciliationFocus, instrumentDetail,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
       marketFocusRequestId, marketSearchQuery, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, historyRequestId, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId });
   const targetFromSnapshot = (snapshot: Snapshot): NavigationTarget => {
     switch (snapshot.page) {
       case "accounts": return { page: "accounts", accountId: snapshot.accountId ?? undefined, filter: snapshot.filter };
       case "tasks": return { page: "tasks", tab: snapshot.tasksTab ?? "upcoming", ...snapshot.reconciliationFocus };
+      case "settings": return snapshot.settingsTarget ?? { page: "settings" };
       case "portfolio": return { page: "portfolio", view: snapshot.portfolioView };
       case "history": return { page: "history", filters: snapshot.history };
       case "instrument-detail": return { page: "instrument-detail", ...snapshot.instrumentDetail! };
@@ -309,7 +312,7 @@ function Workspace() {
   const handleNavigate = (target: NavigationTarget | PageId) => visit(typeof target === "string" ? targetForPage(target) : target);
   const openHealth = (focus: HealthFocus) => {
     if (focus.accountId && !focus.instrumentId && !focus.currencyA) open({ page: "accounts", accountId: focus.accountId, updateValue: true });
-    else if (focus.action === "provider_settings") open({ page: "settings" });
+    else if (focus.action === "provider_settings") open({ page: "settings", section: "market" });
     else if (focus.instrumentId || (focus.currencyA && focus.currencyB)) open({ page: "market-data", focus });
     else open({ page: "data-health", focus });
   };
@@ -320,6 +323,7 @@ function Workspace() {
     setReturnToHoldingsAfterCreate(false);
     setAccountCreateRequestId(0);
     restorePosition.current = { ...previous, page: previous.page, entryId };
+    setSettingsTarget(previous.settingsTarget);
     setHistoricalCapture(previous.historicalCapture);
     setHistoricalDate(previous.historicalDate); setHistoricalContext(previous.historicalContext); setHistoricalRequest(previous.historicalRequest);
     useAnalysisStore.setState(previous.analysis); setHistoryFilters(previous.history); setHistoryActivityId(previous.historyActivityId); setHistoryRequestId(previous.historyRequestId ?? 0);
@@ -445,7 +449,7 @@ function Workspace() {
           <TabsContent value="data-health" keepMounted>
             {visitedMaintenance.health && <WorkspaceLazy>
               <DataHealthPage focus={healthFocus}
-                onOpenSettings={() => handleNavigate("settings")}
+                onOpenSettings={() => open({ page: "settings", section: "market" })}
                 onOpenMarketData={() => open({ page: "market-data", focus: healthFocus })}
               />
             </WorkspaceLazy>}
@@ -454,7 +458,7 @@ function Workspace() {
       </div>}
       {activePageId === "settings" && (
         <WorkspaceLazy>
-          <SettingsPage />
+          <SettingsPage key={activeEntryId} initialSection={settingsTarget?.section} focusHistoryRebuild={settingsTarget?.focus === "history-rebuild"} />
         </WorkspaceLazy>
       )}
       {Array.from(new Map<number, { historicalDate?: string; historicalContext?: HistoricalNavigationContext; historicalCapture?: HistoricalCaptureContext }>([...allSnapshots.filter(entry => entry.page === "historical-overview").map(entry => [entry.historicalRequest, entry] as const), ...(activePageId === "historical-overview" ? [[historicalRequest, { historicalDate, historicalContext, historicalCapture }] as const] : [])])).map(([request, entry]) => <div key={request} hidden={activePageId !== "historical-overview" || request !== historicalRequest}><WorkspaceLazy><HistoricalOverviewPage initialDate={entry.historicalDate} initialContext={entry.historicalContext} initialCapture={entry.historicalCapture} onContextChange={request === historicalRequest && activePageId === "historical-overview" ? handleHistoricalContextChange : undefined} isActive={activePageId === "historical-overview" && request === historicalRequest} onExit={() => {

@@ -50,19 +50,26 @@ import {
   tradeFillFromPrice,
 } from "@/features/history/CalculateAmounts";
 
-const KINDS: ChangeCommandKind[] = [
-  ChangeCommandKind.ChangeMoneyAdded,
-  ChangeCommandKind.ChangeMoneyRemoved,
-  ChangeCommandKind.ChangeCashDividend,
-  ChangeCommandKind.ChangeCashTransfer,
-  ChangeCommandKind.ChangeFXConversion,
-  ChangeCommandKind.ChangePositionTransfer,
-  ChangeCommandKind.ChangePositionAdjustment,
-  ChangeCommandKind.ChangeTrade,
-  ChangeCommandKind.ChangeValueUpdate,
-  ChangeCommandKind.ChangeDebtDraw,
-  ChangeCommandKind.ChangeDebtPayment,
-];
+const CHANGE_GROUPS = {
+  cash: [
+    ChangeCommandKind.ChangeMoneyAdded,
+    ChangeCommandKind.ChangeMoneyRemoved,
+    ChangeCommandKind.ChangeCashTransfer,
+    ChangeCommandKind.ChangeFXConversion,
+    ChangeCommandKind.ChangeValueUpdate,
+  ],
+  investment: [
+    ChangeCommandKind.ChangeTrade,
+    ChangeCommandKind.ChangeCashDividend,
+    ChangeCommandKind.ChangePositionTransfer,
+    ChangeCommandKind.ChangePositionAdjustment,
+  ],
+  debt: [
+    ChangeCommandKind.ChangeDebtDraw,
+    ChangeCommandKind.ChangeDebtPayment,
+  ],
+};
+const KINDS = Object.values(CHANGE_GROUPS).flat();
 
 /** Maps each change command to the activity-kind styling used in the timeline. */
 const KIND_ACTIVITY_STYLE: Partial<Record<ChangeCommandKind, string>> = {
@@ -631,6 +638,33 @@ function RecordChangeFormReady({
   const showReason = kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate;
   const liabilityMoney = accountById.get(request.accountId ?? "")?.account.balanceSheetRole === "liability";
   const cardMoney = (contextAccount ?? accountById.get(request.accountId ?? "")?.account)?.accountType === "credit_card";
+  const groupAccount = contextAccount ?? prefill?.account;
+  const debtFirst = groupAccount?.balanceSheetRole === "liability";
+  const investmentFirst = groupAccount?.trackingMode === "holdings" && groupAccount.accountType !== "cash_on_hand";
+  const groupOrder = debtFirst ? ["debt", "cash", "investment"] as const
+    : investmentFirst ? ["investment", "cash", "debt"] as const
+      : ["cash", "investment", "debt"] as const;
+  const choiceGroups = groupOrder.map(group => {
+    const values = contextKinds.filter(value => {
+      if (value === ChangeCommandKind.ChangePositionImport) return group === "investment";
+      const liabilityAdjustment = [ChangeCommandKind.ChangeMoneyAdded, ChangeCommandKind.ChangeMoneyRemoved, ChangeCommandKind.ChangeValueUpdate].includes(value);
+      if (debtFirst && liabilityAdjustment) return group === "debt";
+      return CHANGE_GROUPS[group].includes(value);
+    });
+    return {
+      label: t(`history.changeGroups.${group}`),
+      options: values.map(value => {
+        const style = activityStyle(KIND_ACTIVITY_STYLE[value]);
+        let label = `history.kind.${value}`;
+        if (contextLiability || liabilityMoney) {
+          if (value === ChangeCommandKind.ChangeMoneyAdded) label = cardMoney ? "reconciliation.cardPurchase" : "reconciliation.debtIncrease";
+          if (value === ChangeCommandKind.ChangeMoneyRemoved) label = cardMoney ? "reconciliation.cardRefund" : "reconciliation.debtDecrease";
+          if (value === ChangeCommandKind.ChangeValueUpdate) label = "reconciliation.cardBalanceCorrection";
+        }
+        return { value, label: t(label), icon: style.icon, tone: style.tone };
+      }),
+    };
+  }).filter(group => group.options.length);
   const reasonOptions =
     liabilityMoney && kind === ChangeCommandKind.ChangeMoneyAdded ? (catalog.data?.liabilityIncreaseReasons ?? [])
     : liabilityMoney && kind === ChangeCommandKind.ChangeMoneyRemoved ? (catalog.data?.liabilityDecreaseReasons ?? [])
@@ -1106,10 +1140,7 @@ function RecordChangeFormReady({
         <ChoiceGrid
           label={t("history.changeType")}
           value={kind}
-          options={contextKinds.map((value) => {
-            const style = activityStyle(KIND_ACTIVITY_STYLE[value]);
-            return { value, label: t((contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeMoneyAdded ? cardMoney ? "reconciliation.cardPurchase" : "reconciliation.debtIncrease" : (contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeMoneyRemoved ? cardMoney ? "reconciliation.cardRefund" : "reconciliation.debtDecrease" : (contextLiability || liabilityMoney) && value === ChangeCommandKind.ChangeValueUpdate ? "reconciliation.cardBalanceCorrection" : `history.kind.${value}`), icon: style.icon, tone: style.tone };
-          })}
+          groups={choiceGroups}
           onChange={(value) => {
             if (sheetConfirmation?.read() || confirmBusy.current) return;
             const nextKind = value as ChangeCommandKind;

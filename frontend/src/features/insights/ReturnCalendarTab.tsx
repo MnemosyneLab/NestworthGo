@@ -40,10 +40,6 @@ function amountNumber(value?: { amount: string } | null): number {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function coverageLabel(ratedDays: number, totalDays: number): string {
-  return `${ratedDays}/${totalDays}`;
-}
-
 interface MonthReturnSummary {
   returnAmount: SignedMoneyView | null;
   amountStatus: "complete" | "partial" | "unavailable";
@@ -172,23 +168,30 @@ function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false, colum
   const { t, i18n } = useTranslation();
   const future = isFuture(date, timeZone);
   const today = isToday(date, timeZone);
-  const partial = Boolean(day && (day.status === "partial"));
+  const rateIncomplete = Boolean(day && day.ratedDays < day.totalDays);
   const amount = amountNumber(day?.returnAmount);
   const hasData = Boolean(day?.available);
   const showData = hasData && !today && !future;
   const amountPartial = day?.amountStatus === "partial";
   const amountUnavailable = day?.amountStatus === "unavailable";
+  const rateCoverage = day && rateIncomplete ? t("insights.rateDaysShort", { rated: day.ratedDays, total: day.totalDays }) : "";
+  const amountCoverage = amountPartial ? t("insights.amountPartial") : amountUnavailable ? t("insights.amountUnavailable") : "";
   const accessibleLabel = [
     formatCivilDateRange(date, date),
     showData ? `${rateText(day?.returnRate)}, ${amountText(day?.returnAmount)}` : today ? t("insights.todayMuted") : future ? "—" : t("insights.noData"),
-    showData && partial ? t("insights.partial") : "",
-    showData && amountPartial ? t("insights.amountPartial") : showData && amountUnavailable ? t("insights.amountUnavailable") : "",
+    showData ? rateCoverage : "",
+    showData ? amountCoverage : "",
   ].filter(Boolean).join(", ");
   return (
     <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-20 rounded-lg border border-border bg-card p-2 transition-colors hover:border-primary/40", !inMonth && "border-dashed", showData && amount >= 0.005 && "bg-gain-positive/14", showData && amount <= -0.005 && "bg-gain-negative/14", (future || today) && "opacity-60")}>
       <button type="button" aria-label={accessibleLabel} disabled={future || today || !day} onClick={() => onOpen(date)} className="flex min-h-16 w-full flex-col items-start gap-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
         <span className="flex w-full items-center justify-between text-xs font-medium"><span className={cn(!inMonth && "text-muted-foreground")}>{!inMonth || date.endsWith("-01") ? new Intl.DateTimeFormat(i18n.language, { month: "short", day: "numeric" }).format(new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(-2)))) : Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
-        {day && showData ? <><span className={cn("num mt-1 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 ? "text-gain-positive" : "font-medium text-muted-foreground")} title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-1 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
+        {day && showData ? <>
+          <span className={cn("num mt-1 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 ? "text-gain-positive" : "font-medium text-muted-foreground")}>{rateText(day.returnRate)}</span>
+          {rateCoverage && <span className="text-[0.65rem] leading-tight text-warning-foreground">{rateCoverage}</span>}
+          <span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}</span>
+          {amountCoverage && <span className="text-[0.65rem] leading-tight text-warning-foreground">{amountCoverage}</span>}
+        </> : <span className="mt-1 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
       </button>
       {day && showData && day.composition && day.composition.length > 0 && (
         <div className={cn("pointer-events-none invisible absolute z-20 w-64 max-w-[calc(100vw-3rem)] rounded-xl border border-border bg-card p-3 text-xs shadow-lg group-hover:visible group-focus-within:visible", column >= 4 ? "right-2" : "left-2", row >= 3 ? "bottom-full mb-1" : "top-full mt-1")}>
@@ -212,7 +215,7 @@ function MonthGrid({ data, month, timeZone, weekStartsOn, onOpen, selection }: {
 function YearGrid({ dataByMonth, year, onOpenMonth }: { dataByMonth: Map<string, MonthReturnSummary>; year: number; onOpenMonth: (month: string) => void }) {
   const { i18n } = useTranslation();
   const { t } = useTranslation();
-  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{yearMonths(year).map((month) => { const data = dataByMonth.get(month); const amountStatusLabel = data?.amountStatus === "partial" ? t("insights.amountPartial") : t("insights.amountUnavailable"); const showAmountStatus = Boolean(data && data.totalDays > 0 && data.amountStatus !== "complete"); return <button key={month} type="button" className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" onClick={() => onOpenMonth(month)}><div className="flex items-center justify-between"><span className="font-medium">{monthLabel(month, i18n.language, false)}</span><span className="text-sm font-semibold">{rateText(data?.returnRate)}</span></div><p className="mt-3 text-lg font-semibold">{amountText(data?.returnAmount)}{showAmountStatus && <><sup className="ml-1 text-warning-foreground" title={amountStatusLabel}>◇</sup><span className="sr-only">{amountStatusLabel}</span></>}</p><p className="mt-1 text-xs text-muted-foreground">{data ? coverageLabel(data.ratedDays, data.totalDays) : "—"}</p></button>; })}</div>;
+  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{yearMonths(year).map((month) => { const data = dataByMonth.get(month); const amountStatusLabel = data?.amountStatus === "partial" ? t("insights.amountPartial") : t("insights.amountUnavailable"); const showAmountStatus = Boolean(data && data.totalDays > 0 && data.amountStatus !== "complete"); return <button key={month} type="button" className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" onClick={() => onOpenMonth(month)}><div className="flex items-center justify-between"><span className="font-medium">{monthLabel(month, i18n.language, false)}</span><span className="text-sm font-semibold">{rateText(data?.returnRate)}</span></div><p className="mt-3 text-lg font-semibold">{amountText(data?.returnAmount)}{showAmountStatus && <span className="block text-xs font-normal text-warning-foreground">{amountStatusLabel}</span>}</p><p className="mt-1 text-xs text-muted-foreground">{data && data.totalDays > 0 ? t("insights.rateDaysShort", { rated: data.ratedDays, total: data.totalDays }) : "—"}</p></button>; })}</div>;
 }
 
 function DaySheet({ request, date, session, onClose, onAssetChanges }: { request: AnalysisQueryRequest; date: string | null; session: AnalysisSessionState; onClose: () => void; onAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
@@ -228,7 +231,20 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
   const amountPartial = data.amountStatus === "partial";
   const amountUnavailable = data.amountStatus === "unavailable";
   const openAssetChanges = () => onAssetChanges?.({ scope: session.scope, scopeId: session.scopeId, valuation: session.valuation, includeCash: session.includeCash, from: date, to: date, moreFilters: session.moreFilters });
-  return <div className="flex flex-col gap-4 overflow-y-auto"><ValuationLabel data={data} section="dayValuation" /><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
+  return <div className="flex flex-col gap-4 overflow-y-auto">
+    <ValuationLabel data={data} section="dayValuation" />
+    <div>
+      <p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p>
+      <p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}</p>
+      {(amountPartial || amountUnavailable) && <p className="text-xs text-warning-foreground">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</p>}
+      <p className="mt-2 text-sm text-muted-foreground">{t("insights.returnRate")} · {rateText(data.returnRate)}</p>
+      {data.ratedDays < data.totalDays && <p className="text-xs text-warning-foreground">{t("insights.rateDaysShort", { rated: data.ratedDays, total: data.totalDays })}</p>}
+    </div>
+    <CompositionList values={data.composition} title={t("insights.composition")} />
+    <ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />
+    {data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}
+    <Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button>
+  </div>;
 }
 
 export { aggregateYearMonths };

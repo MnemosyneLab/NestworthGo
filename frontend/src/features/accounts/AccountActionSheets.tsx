@@ -2,7 +2,7 @@ import { signedAccountAmount } from "@/lib/liabilityDisplay";
 import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import { formatQuotePrice } from "@/lib/money";
 import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadingState, ErrorState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
@@ -69,16 +69,18 @@ export function AccountActionSheet({
   historyStarted: boolean;
   onClose: () => void;
   onRecorded: () => void;
-  finalFocus?: () => HTMLElement | null | undefined;
+  finalFocus?: RefObject<HTMLElement> | (() => HTMLElement | null | undefined);
 }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   const [startedInSheet, setStartedInSheet] = useState(false);
   const [startedOrigin, setStartedOrigin] = useState<HistoryOriginDTO>();
   const needsHistory = actionNeedsHistory(action);
-  const recordKind = record.account.balanceSheetRole === "liability" && record.account.accountType !== "credit_card"
-    ? ChangeCommandKind.ChangeDebtDraw
-    : ChangeCommandKind.ChangeMoneyAdded;
+  const account = record.account;
+  let recordKind = ChangeCommandKind.ChangeMoneyAdded;
+  if (account.trackingMode === "manual_value") recordKind = ChangeCommandKind.ChangeValueUpdate;
+  else if (account.balanceSheetRole === "liability" && account.accountType !== "credit_card") recordKind = ChangeCommandKind.ChangeDebtDraw;
+  else if (account.trackingMode === "holdings" && account.accountType !== "cash_on_hand") recordKind = ChangeCommandKind.ChangeTrade;
   const historyReady = historyStarted || Boolean(origin.data) || startedInSheet;
   const waitingForHistory = needsHistory && !historyReady && !origin.isLoading && !origin.isError && !hasUnresolvedSheetConfirmation();
   const title =
@@ -134,6 +136,7 @@ export function AccountActionSheet({
               initial={{
                 ...emptyChangeRequest(recordKind, record.account.defaultCurrency),
                 accountId: record.account.id,
+                settlementAccountId: recordKind === ChangeCommandKind.ChangeTrade ? record.account.id : undefined,
                 debtAccountId: recordKind === ChangeCommandKind.ChangeDebtDraw ? record.account.id : undefined,
                 reason: record.account.accountType === "credit_card" ? "card_purchase" : "other",
               }}

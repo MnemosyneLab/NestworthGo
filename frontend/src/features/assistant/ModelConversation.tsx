@@ -41,7 +41,7 @@ export function ModelConversation({ visible = true }: { visible?: boolean }) {
 /** The desktop shell owns this controller across dock/Sheet remounts. Keep the
  * draft together with its conversation and in-flight admission guard, in memory
  * only. The rendered voice control still cancels on hide or unmount. */
-export function useModelConversation({ visible = true, enabled = true }: { visible?: boolean; enabled?: boolean }) {
+export function useModelConversation({ visible = true, enabled = true, onOpenSettings }: { visible?: boolean; enabled?: boolean; onOpenSettings?: () => void }) {
   const { t } = useTranslation();
   const page = useAssistantPage();
   const client = useQueryClient();
@@ -123,6 +123,13 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
   const modelSelection = status.data?.selection ?? {model:status.data?.config?.model ?? "unconfigured", reasoningEffort:""};
   const modelEfforts = (status.data?.modelCatalog ?? []).find(option => option.id === modelSelection.model)?.efforts;
   const selectionValid = enabledModels.includes(modelSelection.model);
+  let settingsNotice: string | undefined;
+  if (status.data) {
+    if (status.data.reason === "disabled") settingsNotice = "aiChat.turnedOff";
+    else if (enabledModels.length === 0 || status.data.reason === "credentials_unavailable") settingsNotice = "aiChat.setupRequired";
+    else if (!modelAvailable) settingsNotice = "aiChat.runtimeUnavailable";
+    else if (!selectionValid) settingsNotice = "aiChat.selectedModelUnavailable";
+  }
   useEffect(() => {
     if (navigationCompletion.current) setNavigationState("navigationUnverified");
     navigationCompletion.current = null;
@@ -344,8 +351,11 @@ export function useModelConversation({ visible = true, enabled = true }: { visib
             if (target === id) setSelected("");
           });
         }} />
-      {(status.isPending || offline || !status.data?.available) && <Notice role="status" className="m-3">
-        {t(status.isPending ? "assistant.state.loading" : offline ? "aiChat.offlineLocal" : "aiChat.disabled")}
+      {(status.isPending || offline || settingsNotice) && <Notice role="status" className="m-3">
+        <p>{t(status.isPending ? "assistant.state.loading" : offline ? "aiChat.offlineLocal" : settingsNotice!)}</p>
+        {!status.isPending && !offline && settingsNotice && onOpenSettings && (
+          <Button type="button" variant="outline" size="sm" className="mt-2 self-start" onClick={onOpenSettings}>{t("aiChat.openAISettings")}</Button>
+        )}
       </Notice>}
       {(failed || stale) && (
         <Notice tone="warning" role="alert" className="m-3">

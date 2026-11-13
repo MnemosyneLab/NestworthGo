@@ -216,6 +216,13 @@ const brokerageAccount = {
   institutionName: "China Merchants Bank",
 };
 
+async function openAccountSettings(user = userEvent.setup()) {
+  const account = await screen.findByTestId("account-detail");
+  const heading = within(account).getByRole("heading", { level: 1 });
+  await user.click(screen.getByRole("button", { name: `Actions for ${heading.textContent}` }));
+  await user.click(await screen.findByRole("menuitem", { name: "Account settings" }));
+}
+
 async function continueWizard(form: HTMLElement, times: number) {
   for (let index = 0; index < times; index += 1) {
     await userEvent.click(within(form).getByRole("button", { name: "Continue" }));
@@ -480,8 +487,9 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await waitFor(() => expect(within(form).getByRole("button", { name: "Primary Bank" })).toHaveAttribute("aria-selected", "true"));
-    await continueWizard(form, 3);
+    await continueWizard(form, 1);
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Primary Bank" })).toHaveAttribute("aria-pressed", "true"));
+    await continueWizard(form, 2);
 
     await userEvent.click(within(form).getByRole("button", { name: "More settings" }));
     expect(form.querySelector("#wizard-group")).toHaveTextContent("Primary group");
@@ -508,7 +516,8 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await waitFor(() => expect(within(form).getByRole("button", { name: "Primary Bank" })).toHaveAttribute("aria-selected", "true"));
+    await continueWizard(form, 1);
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Primary Bank" })).toHaveAttribute("aria-pressed", "true"));
     await userEvent.click(within(form).getByRole("button", { name: "Later Bank" }));
 
     listInstitutions.mockResolvedValue([
@@ -517,7 +526,7 @@ describe("AccountsPage", () => {
     ]);
     await queryClient.refetchQueries({ queryKey: queryKeys.directory.institutions(false) });
 
-    await waitFor(() => expect(within(form).getByRole("button", { name: "Renamed Later Bank" })).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Renamed Later Bank" })).toHaveAttribute("aria-pressed", "true"));
   });
 
   it("disables Continue and does not submit when no owner is checked", async () => {
@@ -585,9 +594,8 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await continueWizard(form, 1);
-    await userEvent.click(within(form).getByRole("button", { name: "Brokerage" }));
-    await continueWizard(form, 1);
+    await userEvent.click(await within(form).findByRole("button", { name: "Brokerage" }));
+    await continueWizard(form, 2);
     expect(within(form).getByText("How should this account be recorded?")).toBeInTheDocument();
     expect(within(form).getByRole("radio", { name: /Record cash and holdings separately/ })).toBeChecked();
     expect(within(form).getByRole("radio", { name: /Keep one account value/ })).not.toBeChecked();
@@ -640,10 +648,9 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await continueWizard(form, 1);
-    await userEvent.click(within(form).getByRole("button", { name: "More account types" }));
+    await userEvent.click(await within(form).findByRole("button", { name: "More account types" }));
     await userEvent.click(within(form).getByRole("button", { name: "Cash on hand" }));
-    await continueWizard(form, 1);
+    await continueWizard(form, 2);
     await userEvent.click(within(form).getByRole("radio", { name: /Record cash by currency/ }));
     await continueWizard(form, 1);
     await userEvent.type(within(form).getByLabelText("Name"), "Travel cash");
@@ -665,8 +672,7 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await continueWizard(form, 1);
-    expect(within(form).getByRole("button", { name: "Bank account" })).toHaveTextContent(
+    expect(await within(form).findByRole("button", { name: "Bank account" })).toHaveTextContent(
       "Recording: Balance · Cash + holdings",
     );
     expect(within(form).getByRole("button", { name: "Brokerage" })).toHaveTextContent(
@@ -1035,10 +1041,9 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await continueWizard(form, 1);
-    await userEvent.click(within(form).getByRole("button", { name: "Credit card" }));
+    await userEvent.click(await within(form).findByRole("button", { name: "Credit card" }));
     expect(within(form).queryByText("Is this an asset or a liability?")).not.toBeInTheDocument();
-    await continueWizard(form, 1);
+    await continueWizard(form, 2);
     expect(within(form).queryByText("How should this account be recorded?")).not.toBeInTheDocument();
     expect(within(form).queryByLabelText("Balance sheet role")).not.toBeInTheDocument();
     await userEvent.type(within(form).getByLabelText("Name"), "CMB Visa");
@@ -1061,11 +1066,10 @@ describe("AccountsPage", () => {
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
-    await continueWizard(form, 1);
-    await userEvent.click(within(form).getByRole("button", { name: "Other" }));
+    await userEvent.click(await within(form).findByRole("button", { name: "Other" }));
     expect(within(form).getByText("Is this an asset or a liability?")).toBeInTheDocument();
     await userEvent.click(within(form).getByRole("radio", { name: "Liability" }));
-    await continueWizard(form, 1);
+    await continueWizard(form, 2);
     await userEvent.type(within(form).getByLabelText("Name"), "Personal loan");
     await userEvent.click(within(form).getByLabelText("Alice"));
     await continueWizard(form, 1);
@@ -1311,8 +1315,9 @@ describe("AccountsPage", () => {
     await screen.findByText("No accounts yet");
     await userEvent.click(screen.getByText("Add account"));
     const wizard = await screen.findByRole("form", { name: "Create account" });
-    await userEvent.click(within(wizard).getByRole("button", { name: "China Merchants Bank" }));
-    await continueWizard(wizard, 2);
+    await continueWizard(wizard, 1);
+    await userEvent.click(await within(wizard).findByRole("button", { name: "China Merchants Bank" }));
+    await continueWizard(wizard, 1);
     await userEvent.click(within(wizard).getByRole("radio", { name: /Record cash and holdings separately/ }));
     await continueWizard(wizard, 1);
     await userEvent.type(within(wizard).getByLabelText("Name"), "CMB Mixed");
@@ -1365,7 +1370,7 @@ describe("AccountsPage", () => {
   it("archives an active account from account settings", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+    await openAccountSettings();
     const dialogTrigger = await screen.findByRole("button", { name: "Archive" });
     await userEvent.click(dialogTrigger);
     const dialog = await screen.findByRole("alertdialog");
@@ -1376,7 +1381,7 @@ describe("AccountsPage", () => {
   it("edits an existing account's name through Account settings", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+    await openAccountSettings();
     const form = await screen.findByRole("form", { name: "Account form" });
     await waitFor(() => expect(within(form).getByLabelText("Name")).toHaveFocus());
     expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
@@ -1403,7 +1408,7 @@ describe("AccountsPage", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole("button", { name: /Checking/ }));
-    await user.click(await screen.findByRole("button", { name: "Account settings" }));
+    await openAccountSettings(user);
     const form = await screen.findByRole("form", { name: "Account form" });
     const name = within(form).getByLabelText("Name");
     await user.clear(name);
@@ -1431,7 +1436,7 @@ describe("AccountsPage", () => {
       await user.click(screen.getByRole("button", { name: "Cancel" }));
     }
     await waitFor(() => expect(screen.queryByRole("form", { name: "Account form" })).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: "Account settings" }));
+    await openAccountSettings(user);
     const reopened = await screen.findByRole("form", { name: "Account form" });
     await user.clear(within(reopened).getByLabelText("Name"));
     await user.type(within(reopened).getByLabelText("Name"), "New session");
@@ -1445,7 +1450,7 @@ describe("AccountsPage", () => {
   it("disables Save and does not update when every owner is unchecked", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+    await openAccountSettings();
     const form = await screen.findByRole("form", { name: "Account form" });
     await userEvent.click(within(form).getByLabelText("Alice"));
     const saveButton = screen.getByRole("button", { name: "Save" });
@@ -1470,7 +1475,7 @@ describe("AccountsPage", () => {
     updateAccount.mockResolvedValue(brokerageAccount);
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+    await openAccountSettings();
     const form = await screen.findByRole("form", { name: "Account form" });
     await waitFor(() => {
       expect(selectValues(within(form).getByLabelText("Account type"))).toEqual(["bank_account", "brokerage"]);
@@ -1683,7 +1688,7 @@ it("edits a logo override, then explicitly resets it to inheritance", async () =
   updateAccount.mockResolvedValue(record);
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
-  await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+  await openAccountSettings();
   const form = await screen.findByRole("form", { name: "Account form" });
   await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
   expect(within(form).getByLabelText("Choose icon").querySelector("img")).toHaveAttribute("src", "/bank-logos/display/icbc-rect.svg");
@@ -1695,7 +1700,7 @@ it("edits a logo override, then explicitly resets it to inheritance", async () =
 it.each(["search", "result"])("Escape from icon %s closes only the picker and preserves the account Sheet", async (focusTarget) => {
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
-  await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+  await openAccountSettings();
   const form = await screen.findByRole("form", { name: "Account form" });
   await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
   await userEvent.clear(within(form).getByLabelText("Name"));
@@ -1965,7 +1970,7 @@ it("reads the real account list and detail live, fences filters and excludes uno
  expect(detail.nodes.some(n => n.name.includes(emptyAccount.account.name))).toBe(true);
  expect(capturePageContent("accounts:another-account").page).toBe("unsupported");
  expect(capturePageContent("accounts:").page).toBe("unsupported");
- await user.click(screen.getByRole("button", { name: i18n.t("accounts.settings") }));
+ await openAccountSettings(user);
  await screen.findByRole("button", {name: i18n.t("common.save")});
  expect(capturePageContent(`accounts:${emptyAccount.account.id}`).limitations.join(" ")).toContain("Custom/unowned popups");
  expect(capturePageContent(`accounts:${emptyAccount.account.id}`).nodes.some(n => n.name === i18n.t("common.save"))).toBe(false);
@@ -2136,7 +2141,8 @@ it.each([
   renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
   await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
   const form = await screen.findByRole("form", { name: "Record change" });
-  if (kind === "money_removed") await userEvent.click(await within(form).findByRole("radio", { name: i18n.t("history.kind.money_removed") }));
+  const choice = await within(form).findByRole("radio", { name: i18n.t(`history.kind.${kind}`) });
+  if (choice.getAttribute("aria-checked") === "false") await userEvent.click(choice);
   await userEvent.selectOptions(within(form).getByLabelText(i18n.t("history.reasonLabel")), reason);
   await userEvent.type(within(form).getByLabelText("Amount"), "20");
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));

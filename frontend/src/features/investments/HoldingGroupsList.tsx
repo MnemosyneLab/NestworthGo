@@ -1,9 +1,10 @@
 import { Fragment, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ArrowUp, ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { MoneyRoundingHelp } from "@/components/ui/money-rounding-help";
+import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeText } from "@/components/ui/change-text";
@@ -78,14 +79,37 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
   const cells = (row: HoldingRow, contract: boolean, child = false) => {
     const label = instrumentDisplayLabel(row.instrument);
     const accountCount = new Set((row.instrument.holdings ?? []).map((member) => member.accountId)).size;
+    const aggregated = effectiveView === "instrument" && !child;
+    const identity = { name: row.instrument.name, shortName: row.instrument.shortName, symbol: row.instrument.symbol };
+    const title = navigation ? (
+      <Button
+        id={`holding-instrument-${scope}-${row.id}`}
+        type="button"
+        size="sm"
+        variant="link"
+        className="h-auto min-w-0 justify-start whitespace-normal p-0 text-left"
+        aria-label={t("investmentAssets.openInstrument", { name: label })}
+        onClick={event => {
+          event.currentTarget.focus({ preventScroll: true });
+          navigation.open({ page: "instrument-detail", instrumentId: row.instrument.instrumentId, accountId: row.accountId ?? accountId, section: "holdings" });
+        }}
+      >
+        <InstrumentLabel {...identity} />
+      </Button>
+    ) : <InstrumentLabel {...identity} />;
     return <>
       <td className={cn("px-3 py-3 align-top", child && "pl-12")}>
         {child ? <span className="flex min-w-0 flex-col">
           <Button type="button" variant="link" size="sm" className="h-auto w-fit max-w-full justify-start truncate whitespace-normal p-0 text-left" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</Button>
         </span> : <>
           <div className="flex items-center gap-2">
-            <HoldingDisclosure name={row.instrument.name} shortName={row.instrument.shortName} symbol={row.instrument.symbol}
-              expanded={expanded.has(row.id)} controls={`${idPrefix}-details-${effectiveView}-${row.id}`} onToggle={() => toggleRow(row.id)} />
+            <HoldingDisclosure {...identity}
+              expanded={expanded.has(row.id)}
+              toggleLabel={aggregated ? t(expanded.has(row.id) ? "holdingGroups.hideAccountHoldings" : "holdingGroups.showAccountHoldings", { name: label }) : undefined}
+              controls={`${idPrefix}-details-${effectiveView}-${row.id}`}
+              onToggle={() => toggleRow(row.id)}>
+              {title}
+            </HoldingDisclosure>
             {row.instrument.archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
           </div>
           {portfolio && <p className="mt-0.5 pl-11 text-xs text-muted-foreground">
@@ -100,15 +124,8 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
       <td className="num whitespace-nowrap px-3 py-3 text-right align-top font-medium">{money(row.amounts, "currentValue")}</td>
       <td className="num whitespace-nowrap px-3 py-3 text-right align-top font-medium">{money(row.amounts, "unrealizedGain")}</td>
       <td className="px-2 py-2.5 text-right align-top">
-        <span className="inline-flex items-center gap-1">
-          {navigation && <Button type="button" size="icon" variant="ghost"
-            aria-label={t("investmentAssets.openInstrument", { name: label })}
-            onClick={() => navigation.open({ page: "instrument-detail", instrumentId: row.instrument.instrumentId, accountId: row.accountId ?? accountId, section: "holdings" })}>
-            <ArrowUpRight aria-hidden="true" />
-          </Button>}
           <AnalyzeMenu instrumentId={row.instrument.instrumentId} accountId={row.accountId ?? accountId} label={label}
             onDividend={onDividend && row.holdingId && !row.instrument.archived && compareCanonical(row.amounts.quantity, "0") !== 0 ? () => onDividend(row.holdingId!) : undefined} />
-        </span>
       </td>
     </>;
   };
@@ -160,11 +177,26 @@ export function HoldingGroupsList({ scope, groups, active = true, onOpenAccount,
                     {column.label}{sort.key === column.key && (sort.desc ? <ArrowDown className="size-3" aria-hidden="true" /> : <ArrowUp className="size-3" aria-hidden="true" />)}
                   </button>
                 </th>)}<th scope="col" className="px-2 py-2"><span className="sr-only">{t("connections.actions")}</span></th></tr></thead>
-                <tbody>{group.rows.map((row) => <Fragment key={row.id}>
-                  <tr className="border-t border-border transition-colors hover:bg-muted/40">{cells(row, contract)}</tr>
-                  {active && expanded.has(row.id) && <tr id={`${idPrefix}-details-${effectiveView}-${row.id}`}><td colSpan={6} className="px-3 pb-3"><HoldingDetailPanel instrumentId={row.instrument.instrumentId} scope={row.accountName ?? accountName ?? t("holdingDetail.allAccounts")} /></td></tr>}
-                  {effectiveView === "instrument" && expanded.has(row.id) && (row.instrument.holdings ?? []).map((member) => <tr key={member.holdingId} className="border-t border-border bg-muted/20">{cells({ id: `holding:${member.holdingId}`, instrument: row.instrument, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName, holdingId: member.holdingId }, contract, true)}</tr>)}
-                </Fragment>)}</tbody>
+                {group.rows.map(row => {
+                  const expandedRow = expanded.has(row.id);
+                  const detailsId = `${idPrefix}-details-${effectiveView}-${row.id}`;
+                  return <Fragment key={row.id}>
+                    <tbody>
+                      <tr className="border-t border-border transition-colors hover:bg-muted/40">{cells(row, contract)}</tr>
+                    </tbody>
+                    <tbody id={detailsId} hidden={!expandedRow}>
+                      {expandedRow && effectiveView === "instrument" && (row.instrument.holdings ?? []).map(member => (
+                        <tr key={member.holdingId} className="border-t border-border bg-muted/20">{cells({
+                          id: `holding:${member.holdingId}`, instrument: row.instrument, amounts: member.amounts,
+                          accountId: member.accountId, accountName: member.accountName, holdingId: member.holdingId,
+                        }, contract, true)}</tr>
+                      ))}
+                      {expandedRow && active && effectiveView === "account" && (
+                        <tr><td colSpan={6} className="px-3 pb-3"><HoldingDetailPanel instrumentId={row.instrument.instrumentId} scope={row.accountName ?? accountName ?? t("holdingDetail.allAccounts")} /></td></tr>
+                      )}
+                    </tbody>
+                  </Fragment>;
+                })}
               </table>
             </div>}
           </div>

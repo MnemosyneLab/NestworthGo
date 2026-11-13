@@ -383,6 +383,12 @@
     "name": "名称"
   },
   "history": {
+    "changeGroups": { "cash": "现金", "investment": "投资", "debt": "债务" },
+    "dateFilter": "日期",
+    "rangeFrom": "从 {{date}} 起",
+    "rangeThrough": "截至 {{date}}",
+    "rangeAllDates": "全部记账日期",
+    "queryRange": "当前查询区间：{{range}}",
     "account": "账户",
     "amount": "金额",
     "applyFilters": "应用",
@@ -638,6 +644,7 @@
     "name": "名称"
   },
   "marketData": {
+    "fxChartDescription": "每 1 {{base}} 兑换的 {{quote}} 金额。",
     "fx": "汇率",
     "fxLocalFirst": "报价保存在本地，仅在用户明确操作时刷新。",
     "instruments": "投资标的",
@@ -1813,6 +1820,8 @@
     "sync_failed": "本地数据或行情连接不可用，请检查连接并重试。"
   },
   "holdingGroups": {
+    "showAccountHoldings": "展开 {{name}} 的分账户持仓",
+    "hideAccountHoldings": "收起 {{name}} 的分账户持仓",
     "label": "按投资品类型分组的持仓",
     "types": {
       "stock": "股票",

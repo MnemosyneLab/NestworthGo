@@ -97,7 +97,9 @@ export function QuoteHistoryContent({ target, focus, render, onRangeChange }: { 
           ) : (
             <TrendChart
               ariaLabel={title}
-              summary={title}
+              summary={target.kind === "fx" ? t("marketData.fxChartDescription", { base: fxBase, quote: fxQuote }) : title}
+              showLegend={target.kind === "fx"}
+              padDateLabels={target.kind === "fx"}
               {...quoteTrendProps({ series: series.data, kind: target.kind, currency, priceSuffix, color: theme.primary, colors: theme.palette, timezone: settings.data?.timezone, language: i18n.language, t })}
               height={300}
               emptyTitle={t("charts.insufficientHistory")}

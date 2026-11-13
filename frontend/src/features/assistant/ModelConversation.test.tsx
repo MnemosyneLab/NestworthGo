@@ -186,9 +186,10 @@ it("keeps an off runtime closed and prevents byte-overflow submission", async ()
     revision: 3,
     available: false,
     credentials: "present",
+    reason: "disabled",
   });
   mount();
-  await screen.findByText(/AI is off or unavailable/);
+  await screen.findByText(/AI assistant is turned off/);
   expect(screen.getByLabelText("Message")).toBeDisabled();
   expect(api.Start).not.toHaveBeenCalled();
 });

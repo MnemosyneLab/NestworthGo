@@ -156,7 +156,8 @@ it("sends data checks to data maintenance without listing the fixes here", async
   query.data.dataChecks = [{ id: "scope", sourceKey: "holding-1", category: "data_check", productId: "product-1", displayName: "Deposit terms and reserve", reasonCodes: ["unsupported_source"], relatedActionId: null, anchorOn: "2026-10-15", coverageStatus: "", target: terms, targets: [terms], referenceOn: null }];
   mount(<UpcomingActionsPage />);
   expect(screen.queryByText("Deposit terms and reserve")).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 2 }) }));
+  expect(screen.getByText("2 data checks for upcoming actions")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("upcomingActions.openDataMaintenance") }));
   expect(open).toHaveBeenLastCalledWith({ page: "data-health" });
 });
 
@@ -167,7 +168,7 @@ it("mounts large disclosure lists independently, unmounts on close, and reopens 
   query.data.dataChecks = Array.from({ length: 250 }, (_, i) => ({ id: `check-${i}`, sourceKey: `source-${i}`, category: "data_check", productId: "product-1", displayName: `Check ${i}`, reasonCodes: ["unsupported_source"], relatedActionId: null, anchorOn: null, coverageStatus: "", target: terms, targets: [terms], referenceOn: null }));
   const view = mount(<UpcomingActionsPage />);
   const eligible = screen.getByText("Eligible to request access (250)").closest("details")!;
-  const checks = screen.getByRole("button", { name: i18n.t("upcomingActions.checksEntry", { count: 250 }) });
+  const checks = screen.getByRole("button", { name: i18n.t("upcomingActions.openDataMaintenance") });
   expect(eligible.querySelectorAll("li")).toHaveLength(0);
   expect(screen.queryByText("Check 0")).not.toBeInTheDocument();
   await userEvent.click(eligible.querySelector("summary")!);
