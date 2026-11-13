@@ -58,7 +58,7 @@ it("loads completed Japanese sections on mobile without fallback", async () => {
       expect(mobile, path).toBe(i18n.getResource("ja", "translation", path));
     }
   };
-  for (const section of ["error", "analytics", "dashboard", "groups", "icons", "directory", "institutionType", "marketData", "portfolio", "connections", "institutions", "members", "snapshot", "review", "metals", "holdingsSummary", "agent", "cloudBackup", "secretField", "retention", "holdingDetail", "syncReasons", "holdingGroups", "holdingPerformance", "instrumentDetail", "aiCredentials", "voice", "aiModels", "aiUsage", "diagnosticsSettings", "quoteDetails", "changeContributions", "availableFunds"]) {
+  for (const section of ["error", "analytics", "dashboard", "groups", "icons", "directory", "institutionType", "marketData", "portfolio", "connections", "institutions", "members", "snapshot", "review", "metals", "holdingsSummary", "agent", "cloudBackup", "secretField", "retention", "holdingDetail", "syncReasons", "holdingGroups", "holdingPerformance", "instrumentDetail", "aiCredentials", "voice", "aiModels", "aiUsage", "diagnosticsSettings", "quoteDetails", "changeContributions", "availableFunds", "historicalReconciliation", "upcomingActions"]) {
     visit(i18n.getResource("en", "translation", section), section);
   }
 });

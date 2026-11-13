@@ -71,3 +71,9 @@ it("keeps Japanese available-funds limits and reservations explicit", () => {
   expect(i18n.t("availableFunds.reservationHelp", { lng: "ja" })).toContain("口座残高は変わりません");
   expect(i18n.t("availableFunds.cumulativeHint", { lng: "ja" })).toContain("足し合わせないでください");
 });
+
+it("keeps Japanese reconciliation and upcoming receipt limitations explicit", () => {
+  expect(i18n.t("historicalReconciliation.marketBasis", { lng: "ja" })).toContain("残差がゼロでも帰因が完全であることは証明されません");
+  expect(i18n.t("upcomingActions.reasons.due_route_suppressed", { lng: "ja" })).toContain("利用可能額には含まれません");
+  expect(i18n.t("upcomingActions.inDays", { lng: "ja", count: 3 })).toBe("3 日後");
+});
