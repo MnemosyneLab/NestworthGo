@@ -67,6 +67,8 @@ it("distinguishes Japanese price history, personal returns, and model state", ()
   expect(i18n.t("holdingPerformance.infoBody", { lng: "ja" })).toContain("予想または保証された利回りではありません");
   expect(i18n.t("aiModels.history", { lng: "ja" })).toContain("引き継がれません");
   expect(i18n.t("reviewV2.dailyHelp", { lng: "ja", timezone: "Asia/Tokyo" })).toContain("データ不足は不明として扱い、一致に数えません");
+  expect(i18n.t("insights.changeRateHint", { lng: "ja" })).toContain("投資収益率ではありません");
+  expect(i18n.t("insights.waterfallIncomplete", { lng: "ja" })).toContain("期末評価額が不明");
 });
 
 it("keeps Japanese available-funds limits and reservations explicit", () => {

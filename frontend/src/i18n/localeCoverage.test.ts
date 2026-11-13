@@ -263,7 +263,7 @@ describe("i18n regression guards", () => {
     // Japanese has only the `other` plural category; English `_one` is not
     // needed for i18next to resolve a Japanese count.
     const required = [...english.keys()].filter(key =>
-      /^translation\.(?:error|analytics|dashboard|groups|icons|directory|institutionType|marketData|portfolio|connections|institutions|members|snapshot|review|metals|holdingsSummary|agent|cloudBackup|secretField|retention|holdingDetail|syncReasons|holdingGroups|holdingPerformance|instrumentDetail|aiCredentials|voice|aiModels|aiUsage|diagnosticsSettings|quoteDetails|changeContributions|availableFunds|historicalReconciliation|upcomingActions|reconciliation|aiChat|reviewV2)\./.test(key) && !key.endsWith("_one"));
+      /^translation\.(?:error|analytics|dashboard|groups|icons|directory|institutionType|marketData|portfolio|connections|institutions|members|snapshot|review|metals|holdingsSummary|agent|cloudBackup|secretField|retention|holdingDetail|syncReasons|holdingGroups|holdingPerformance|instrumentDetail|aiCredentials|voice|aiModels|aiUsage|diagnosticsSettings|quoteDetails|changeContributions|availableFunds|historicalReconciliation|upcomingActions|reconciliation|aiChat|reviewV2|insights)\./.test(key) && !key.endsWith("_one"));
     expect(required.filter(key => !japanese.has(key))).toEqual([]);
   });
 
