@@ -37,3 +37,12 @@ it("resolves Japanese system settings and uses Japanese count forms", () => {
   expect(i18n.t("analytics.missingQuotes", { lng: "ja", count: 2 })).toBe("2 件の相場データがありません");
   expect(i18n.t("analytics.snapshotNeedsRepair", { lng: "ja", date: "2026-01-01" })).toBe("2026-01-01 以降の履歴スナップショットを修復する必要があります。");
 });
+
+it("distinguishes Japanese funding, attribution, institution and account terms", () => {
+  expect(i18n.t("history.reason.contribution", { lng: "ja" })).toBe("資金の拠出");
+  expect(i18n.t("insights.contribution", { lng: "ja" })).toBe("寄与");
+  expect(i18n.t("institutionType.brokerage", { lng: "ja" })).toBe("証券会社");
+  expect(i18n.t("icons.brokerage", { lng: "ja" })).toBe("証券会社");
+  expect(i18n.t("enum.brokerage", { lng: "ja" })).toBe("証券口座");
+  expect(i18n.t("valuation.estimatedChange", { lng: "ja" })).toContain("資金の流入・流出");
+});

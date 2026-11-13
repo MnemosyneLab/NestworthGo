@@ -1098,7 +1098,7 @@
     "reason": {
       "card_purchase": "カード利用",
       "card_refund": "カード返金",
-      "contribution": "寄与",
+      "contribution": "資金の拠出",
       "expense": "支出",
       "fee": "手数料",
       "gift": "贈与",
@@ -1280,7 +1280,7 @@
     "account": "口座",
     "badgePercent": "レート",
     "bond": "債券",
-    "brokerage": "証券口座",
+    "brokerage": "証券会社",
     "brokerageCash": "証券口座の現金",
     "car": "車両",
     "cash": "現金",
@@ -1351,7 +1351,7 @@
     "year": "年"
   },
   "institutionType": {
-    "brokerage": "証券口座",
+    "brokerage": "証券会社",
     "other": "その他"
   },
   "institutions": {
@@ -2398,8 +2398,8 @@
     "awaitingUpdate": "更新待ち",
     "currentEstimate": "現在の推定評価額",
     "estimated": "推定評価額",
-    "estimatedChange": "純資産の推定増減額（資金移動を含む）",
-    "estimatedMetricChange": "推定増減額（資金移動を含む）",
+    "estimatedChange": "純資産の推定増減額（資金の流入・流出を含む）",
+    "estimatedMetricChange": "推定増減額（資金の流入・流出を含む）",
     "knownNetContribution": "確認できた純入出金額",
     "knownSubtotal": "評価できた分の小計",
     "latestMarketValue": "取得可能な最新の時価を使用",
