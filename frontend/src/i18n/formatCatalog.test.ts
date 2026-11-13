@@ -65,3 +65,9 @@ it("distinguishes Japanese price history, personal returns, and model state", ()
   expect(i18n.t("holdingPerformance.infoBody", { lng: "ja" })).toContain("予想または保証された利回りではありません");
   expect(i18n.t("aiModels.history", { lng: "ja" })).toContain("引き継がれません");
 });
+
+it("keeps Japanese available-funds limits and reservations explicit", () => {
+  expect(i18n.t("availableFunds.capHelp", { lng: "ja" })).toContain("0を入力すると利用可能額は明示的にゼロ");
+  expect(i18n.t("availableFunds.reservationHelp", { lng: "ja" })).toContain("口座残高は変わりません");
+  expect(i18n.t("availableFunds.cumulativeHint", { lng: "ja" })).toContain("足し合わせないでください");
+});
