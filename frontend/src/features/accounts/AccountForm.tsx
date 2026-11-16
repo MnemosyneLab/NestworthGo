@@ -229,6 +229,13 @@ export function AccountForm({
     setValue("ownerIds", next, { shouldValidate: Boolean(errors.ownerIds) });
   };
 
+  const changeDirectoryReference = (field: "institutionId" | "groupId", value: string) => {
+    const current = field === "institutionId" ? institutionId : groupId;
+    if (value === (current ?? "")) return;
+    setValue(field, value);
+    feedback.clear(field);
+  };
+
   const submit = (values: AccountFormValues) => {
     if (values.ownerIds.length === 0) {
       return;
@@ -386,8 +393,8 @@ export function AccountForm({
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
           <IconPicker id="account-icon" value={iconKey} kind="account" onChange={setIconKey} inheritIconKey={resolveAccountIcon({ accountType, institutionId }, iconInstitutions.data)} />
-          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutionOptions} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => { setValue("institutionId", value); feedback.clear("institutionId"); }} submissionProps={feedback.fieldProps("institutionId")} />
-          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groupOptions} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => { setValue("groupId", value); feedback.clear("groupId"); }} submissionProps={feedback.fieldProps("groupId")} />
+          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutionOptions} emptyLabel={t("accounts.none")} kind="institution" onChange={value => changeDirectoryReference("institutionId", value)} submissionProps={feedback.fieldProps("institutionId")} />
+          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groupOptions} emptyLabel={t("accounts.none")} kind="group" onChange={value => changeDirectoryReference("groupId", value)} submissionProps={feedback.fieldProps("groupId")} />
         </div>
       )}
 

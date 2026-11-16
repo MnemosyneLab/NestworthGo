@@ -630,11 +630,16 @@ describe("optional instrument short name", () => {
     const t = i18n.t.bind(i18n);
     const original = { id: "i1", name: "Full identity name", shortName: "家庭 🌿", symbol: "000001", isin: "CN000001", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "manual", providerKey: "eastmoney", providerSymbol: "000001" };
     listInstruments.mockResolvedValue([original]);
+    updateInstrument.mockImplementationOnce(async (_id, request) => {
+      const saved = { ...original, shortName: request.shortName };
+      listInstruments.mockResolvedValue([saved]);
+      return saved;
+    });
     renderManagement();
     expect(await screen.findByText("家庭 🌿")).toBeInTheDocument();
     expect(screen.getByText(original.name)).toHaveClass("text-xs", "text-muted-foreground");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: t("investmentAssets.editInstrument", { name: original.name }) }));
+    await user.click(screen.getByRole("button", { name: t("investmentAssets.editInstrument", { name: "家庭 🌿 · 000001" }) }));
     const field = screen.getByLabelText(t("portfolio.shortName"));
     expect(field).toHaveValue("家庭 🌿");
     field.focus();
@@ -642,9 +647,8 @@ describe("optional instrument short name", () => {
     await user.click(screen.getByRole("button", { name: t("common.save") }));
     await waitFor(() => expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({ shortName: "New alias 🌿", symbol: original.symbol, isin: original.isin, providerKey: original.providerKey, providerSymbol: original.providerSymbol })));
     // Reopen the editor from refreshed saved data, then clear explicitly.
-    listInstruments.mockResolvedValue([{ ...original, shortName: "New alias 🌿" }]);
     await waitFor(() => expect(screen.queryByRole("form", { name: t("portfolio.instrumentFormLabel") })).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: t("investmentAssets.editInstrument", { name: original.name }) }));
+    await user.click(await screen.findByRole("button", { name: t("investmentAssets.editInstrument", { name: "New alias 🌿 · 000001" }) }));
     await user.clear(screen.getByLabelText(t("portfolio.shortName")));
     await user.click(screen.getByRole("button", { name: t("common.save") }));
     await waitFor(() => expect(updateInstrument).toHaveBeenLastCalledWith("i1", expect.objectContaining({ shortName: "" })));
@@ -777,6 +781,70 @@ it("names each edit action after its instrument and opens the selected editor", 
   expect(editBeta).toHaveTextContent("Edit");
   await userEvent.click(editBeta);
   expect(screen.getByLabelText("Name")).toHaveValue("Synthetic Beta");
+});
+
+it("distinguishes same-name edit actions by their instrument identities", async () => {
+  listInstruments.mockResolvedValue([
+    { id: "alpha", name: "Synthetic Fund", symbol: "ALPHA", type: "etf", quoteCurrency: "USD", quoteSource: "manual" },
+    { id: "beta", name: "Synthetic Fund", symbol: "BETA", type: "etf", quoteCurrency: "CAD", quoteSource: "manual" },
+  ]);
+  renderManagement();
+  expect(await screen.findByRole("button", { name: "Edit ALPHA" })).toHaveTextContent("Edit");
+  await userEvent.click(screen.getByRole("button", { name: "Edit BETA" }));
+  expect(screen.getByLabelText("Name")).toHaveValue("Synthetic Fund");
+  expect(screen.getByLabelText("Currency")).toHaveValue("CAD");
+});
+
+it("confines a failed save to the editor that submitted it", async () => {
+  listInstruments.mockResolvedValue([
+    { id: "alpha", name: "Synthetic Alpha", type: "etf", quoteCurrency: "USD", quoteSource: "manual" },
+    { id: "beta", name: "Synthetic Beta", type: "etf", quoteCurrency: "USD", quoteSource: "manual" },
+  ]);
+  updateInstrument.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "name", maxLength: 120, message: "too long" })));
+  const user = userEvent.setup();
+  renderManagement();
+  await user.click(await screen.findByRole("button", { name: "Edit Synthetic Alpha" }));
+  const alphaName = screen.getByRole("textbox", { name: "Name" });
+  fireEvent.change(alphaName, { target: { value: "界".repeat(121) } });
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(alphaName).toHaveAccessibleDescription(/Use 120 characters or fewer/));
+  expect(alphaName).toHaveFocus();
+  await user.keyboard("{Escape}");
+
+  for (const name of ["Synthetic Beta", "Synthetic Alpha"]) {
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Instrument form" })).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: `Edit ${name}` }));
+    const form = screen.getByRole("form", { name: "Instrument form" });
+    const field = within(form).getByRole("textbox", { name: "Name" });
+    expect(field).toHaveValue(name);
+    expect(field).toHaveAttribute("aria-invalid", "false");
+    expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+  }
+  expect(updateInstrument).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a reopened instrument from saving twice while its previous save is pending", async () => {
+  const instrument = { id: "alpha", name: "Synthetic Alpha", type: "etf", quoteCurrency: "USD", quoteSource: "manual" };
+  listInstruments.mockResolvedValue([instrument]);
+  let finishSave!: (value: typeof instrument) => void;
+  updateInstrument.mockReturnValueOnce(new Promise(resolve => { finishSave = resolve; }));
+  const user = userEvent.setup();
+  renderManagement();
+  const edit = await screen.findByRole("button", { name: "Edit Synthetic Alpha" });
+  await user.click(edit);
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(updateInstrument).toHaveBeenCalledTimes(1));
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Instrument form" })).not.toBeInTheDocument());
+
+  await user.click(edit);
+  const form = screen.getByRole("form", { name: "Instrument form" });
+  expect(within(form).getByRole("button", { name: i18n.t("common.pending") })).toBeDisabled();
+  await act(async () => finishSave(instrument));
+  expect(await within(form).findByRole("button", { name: "Save" })).toBeEnabled();
+  expect(form).toBeInTheDocument();
+  expect(updateInstrument).toHaveBeenCalledTimes(1);
 });
 
 it("waits for a list retry, stays retryable after failure, and recovers on the next attempt", async () => {

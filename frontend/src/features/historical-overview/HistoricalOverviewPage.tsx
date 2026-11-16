@@ -16,7 +16,7 @@ import { ymdInTimeZone } from "@/features/insights/calendar";
 import { isClosedDate, previousMonthEnd, shiftCivilDate } from "./dates";
 import { ComparisonScroll } from "./ComparisonScroll";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
+import { EmptyState, LoadingState, RetryableLoadState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -280,8 +280,14 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
   const chrome = <PageChrome enabled={isActive} pageId="historical-overview" title={t("historicalOverview.title")} actions={
     <Button variant="outline" onClick={onExit}>{t("historicalOverview.exit")}</Button>
   } />;
-  if (origin.isLoading) return <>{chrome}<LoadingState label={t("historicalOverview.loading")} /></>;
-  if (origin.isError) return <>{chrome}<ErrorState title={t("historicalOverview.error")} description={t("historicalOverview.errorHint")} onRetry={() => origin.refetch()} retryLabel={t("common.retryAction")} /></>;
+  if (origin.isLoading || origin.isError) return <>{chrome}<RetryableLoadState
+    isError={origin.isError}
+    isRetrying={origin.isFetching}
+    loading={<LoadingState label={t("historicalOverview.loading")} />}
+    title={t("historicalOverview.error")}
+    description={t("historicalOverview.errorHint")}
+    onRetry={() => origin.refetch()}
+  /></>;
   if (!origin.data) return <>{chrome}<EmptyState title={t("historicalOverview.noOrigin")} description={t("historicalOverview.noOriginHint")} /></>;
   if (firstDate > lastDate) return <>{chrome}<EmptyState title={t("historicalOverview.noClosedDays")} description={t("historicalOverview.noClosedDaysHint")} /></>;
 
@@ -346,8 +352,15 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
       {comparison === "date" && valid && compareDate < date && <p className="text-xs text-muted-foreground">{t("historicalOverview.reverseComparison")}</p>}
     </section>
     {!validCapture ? <EmptyState title={t("historicalOverview.invalidDate")} description={t(seriesMode ? "historicalOverview.trend.rangeHint" : "historicalOverview.invalidDateHint")} />
-      : query.isFetching && !data ? <div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>
-      : query.isError && !data ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => query.refetch()} retryLabel={t("common.retryAction")} />
+      : !data && (query.isFetching || query.isError) ? <RetryableLoadState
+          key={JSON.stringify([seriesMode, captureId, captureRequest, date, compareTo])}
+          isError={query.isError}
+          isRetrying={query.isFetching}
+          loading={<div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>}
+          title={t("historicalOverview.error")}
+          description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")}
+          onRetry={() => query.refetch()}
+        />
       : data && <>
  {query.isFetching && <p role="status">{t("valuation.updating")}</p>}
  {query.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void query.refetch()}>{t("common.retryAction")}</Button></p>}

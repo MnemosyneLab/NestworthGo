@@ -375,5 +375,7 @@ retaining existing help and local validation descriptions. After pending ends,
 it focuses the mounted editable field; unknown, readonly, disabled or hidden
 fields use the focusable summary. Hidden/inert forms do not take focus.
 Editing the rejected field clears only that submission feedback; unrelated
-edits retain it, and each retry can report the same error again. Do not infer
+edits retain it, and each retry can report the same error again. For searchable
+selectors, clear feedback only when a different value is committed. Keep save
+errors scoped to the editor session that submitted the request. Do not infer
 field identity from translated error text or change financial validation.

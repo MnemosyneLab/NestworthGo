@@ -40,8 +40,10 @@ export function useSubmissionFeedback(cause: unknown, message: string | undefine
     errorId, message: visible, fieldProps, clear,
     onChangeCapture: (event: React.FormEvent<HTMLFormElement>) => {
       const target = event.target as HTMLElement;
-      const name = target.closest<HTMLElement>("[data-submission-field]")?.dataset.submissionField;
-      if (name) clear(name);
+      const control = target.closest<HTMLElement>("[data-submission-field]");
+      if (control?.dataset.submissionField && !control.hasAttribute("data-submission-commit-only")) {
+        clear(control.dataset.submissionField);
+      }
     },
   };
 }

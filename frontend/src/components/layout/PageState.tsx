@@ -108,13 +108,13 @@ export function ErrorState({
  * Retain the error view across query retries so its focused button survives
  * the no-data error -> pending -> error transition.
  */
-export function RetryableLoadState({ isError, loadingLabel, ...errorProps }: {
+export function RetryableLoadState({ isError, loading, ...errorProps }: {
   isError: boolean;
-  loadingLabel: string;
+  loading: ReactNode;
 } & Parameters<typeof ErrorState>[0]) {
   const [hasError, setHasError] = useState(isError);
   if (isError && !hasError) setHasError(true);
-  return hasError ? <ErrorState {...errorProps} /> : <LoadingState label={loadingLabel} />;
+  return hasError ? <ErrorState {...errorProps} /> : loading;
 }
 
 export function EmptyState({

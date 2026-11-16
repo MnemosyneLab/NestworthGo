@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import { ErrorState, RetryableLoadState } from "./PageState";
+import { ErrorState, LoadingState, RetryableLoadState } from "./PageState";
 
 function deferred() {
   let resolve!: (value?: unknown) => void;
@@ -81,7 +81,7 @@ it("focuses pointer-activated retries even when the browser does not focus butto
 it("retains the retry control through loading transitions without stealing moved focus", async () => {
   const request = deferred();
   const retry = () => request.promise;
-  const view = (isError: boolean) => <><button>Other action</button><RetryableLoadState {...copy} loadingLabel="Loading page" isError={isError} onRetry={retry} /></>;
+  const view = (isError: boolean) => <><button>Other action</button><RetryableLoadState {...copy} loading={<LoadingState label="Loading page" />} isError={isError} onRetry={retry} /></>;
   const rendered = render(view(false));
   expect(screen.getByRole("status")).toHaveTextContent("Loading page");
   rendered.rerender(view(true));

@@ -113,6 +113,7 @@ export function FilterableSelect({
             }}
           />}
           data-submission-field={submissionField}
+          data-submission-commit-only={submissionField ? "" : undefined}
           id={inputId}
           role="combobox"
           aria-haspopup="listbox"
