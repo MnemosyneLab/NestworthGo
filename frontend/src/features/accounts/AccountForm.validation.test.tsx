@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { parseWailsError, translateWailsError } from "@/lib/wails";
 import { AccountForm } from "./AccountForm";
 import { TEST_CATALOG } from "@/test/catalog";
 vi.mock("@/queries/directory", () => ({
@@ -20,6 +21,7 @@ it("associates name errors and focuses owners after the name is corrected", asyn
  const save = screen.getByRole("button", { name: "Save" });
  expect(name).toHaveAttribute("aria-invalid", "false");
  expect(save).toBeEnabled();
+ expect(screen.getByText("Select at least one owner before continuing or saving.")).toBeVisible();
  await userEvent.click(save);
  await waitFor(() => expect(name).toHaveFocus());
  expect(name).toHaveAttribute("aria-invalid", "true");
@@ -49,4 +51,19 @@ it("keeps external submit available for validation and disables it while pending
  view.rerender(<AccountForm formId="edit" hideSubmit onCanSubmitChange={canSubmit} onSubmit={vi.fn()} submitLabel="Save" isSubmitting />);
  await waitFor(() => expect(canSubmit).toHaveBeenLastCalledWith(false));
  expect(screen.getByLabelText("Name")).toBeDisabled();
+});
+
+
+it("associates the server length limit with the focused name field", async () => {
+ const cause = new Error(JSON.stringify({ code: "validation", field: "name", maxLength: 120, message: "must be 120 characters or fewer" }));
+ const props = { onSubmit: vi.fn(), submitLabel: "Save", isSubmitting: false };
+ const view = render(<AccountForm {...props} />);
+ view.rerender(<AccountForm {...props} submissionCause={cause} submissionError={translateWailsError(parseWailsError(cause))} />);
+ const name = screen.getByLabelText("Name");
+ await waitFor(() => expect(name).toHaveFocus());
+ expect(name).toHaveAttribute("aria-invalid", "true");
+ expect(name).toHaveAccessibleDescription("Name: Use 120 characters or fewer.");
+ await userEvent.type(name, "Corrected");
+ await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "false"));
+ expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

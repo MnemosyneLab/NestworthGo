@@ -1,4 +1,5 @@
 {
+  "validationMaxLength": "Use {{limit}} characters or fewer.",
   "already_undone": "This change has already been undone.",
   "backup_business_invariant_failed": "This backup does not satisfy Nestworth's data rules.",
   "backup_checksum_failed": "This backup file failed its integrity check.",

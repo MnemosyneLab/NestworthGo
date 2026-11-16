@@ -19,13 +19,14 @@ import (
 // Error() method returns its own JSON encoding so the frontend can parse a
 // stable, structured payload instead of an English sentence.
 type WireError struct {
-	Code    string `json:"code"`
-	Field   string `json:"field,omitempty"`
-	Message string `json:"message"`
+	Code      string `json:"code"`
+	Field     string `json:"field,omitempty"`
+	Message   string `json:"message"`
+	MaxLength int    `json:"maxLength,omitempty"`
 }
 
-// Error returns the JSON encoding of the wire error. Marshaling this fixed,
-// three-string-field shape never fails.
+// Error returns the JSON encoding of the wire error. Marshaling this
+// fixed scalar-field shape never fails.
 func (e *WireError) Error() string {
 	if e == nil {
 		return ""
@@ -57,7 +58,7 @@ func Wrap(err error) error {
 	var domainErr *domain.Error
 	if errors.As(err, &domainErr) && domainErr != nil {
 		slog.Warn("application request failed", "code", domainErr.Code, "caller", fmt.Sprintf("%s:%d", file, line))
-		return &WireError{Code: string(domainErr.Code), Field: domainErr.Field, Message: domainErr.Message}
+		return &WireError{Code: string(domainErr.Code), Field: domainErr.Field, Message: domainErr.Message, MaxLength: domainErr.MaxLength}
 	}
 	slog.Error("application request failed", "code", internalCode, "error_type", fmt.Sprintf("%T", err), "caller", fmt.Sprintf("%s:%d", file, line))
 	return &WireError{Code: internalCode, Message: "an unexpected error occurred"}

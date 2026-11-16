@@ -121,7 +121,7 @@
     "openedOnHistoryHelp": "任意項目です。過去の開設日を入力すると、初期金額はその日付で記録されます。",
     "openingCashHint": "現在の現金残高を記録します。入金や売買は発生しません。",
     "owner": "所有者",
-    "ownershipHint": "所有者を 1 人以上選択してください。選択するまで続行や保存はできません。",
+    "ownershipHint": "続行または保存する前に、所有者を 1 人以上選択してください。",
     "ownershipPercentageFor": "{{name}} の持分割合",
     "ownershipScope": "所有者と持分",
     "ownershipSharePlaceholder": "必要に応じて、選択した所有者ごとの持分割合を入力します。",

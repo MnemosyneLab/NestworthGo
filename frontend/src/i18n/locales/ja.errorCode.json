@@ -1,4 +1,5 @@
 {
+  "validationMaxLength": "{{limit}} 文字以内で入力してください。",
   "already_undone": "この変更はすでに取り消されています。",
   "backup_business_invariant_failed": "バックアップのデータが Nestworth の整合性ルールに適合していません。",
   "backup_checksum_failed": "バックアップファイルの整合性チェックに失敗しました。",

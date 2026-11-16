@@ -48,7 +48,7 @@
     "note": "Note",
     "openedOn": "Opened on",
     "owner": "Owner",
-    "ownershipHint": "Select at least one owner. Continue and save stay disabled until then.",
+    "ownershipHint": "Select at least one owner before continuing or saving.",
     "ownershipScope": "Ownership",
     "ownershipSharePlaceholder": "Optionally enter a percentage for each selected owner.",
     "ownershipShares": "Ownership shares",

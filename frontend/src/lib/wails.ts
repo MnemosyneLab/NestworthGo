@@ -9,6 +9,7 @@ export interface WireError {
   code: string;
   field?: string;
   message: string;
+  maxLength?: number;
 }
 
 function isWireError(value: unknown): value is WireError {
@@ -77,7 +78,8 @@ export function translateWailsError(error: WireError): string {
     ? error.field === "listen" ? "mobile.listenValidation"
       : error.field === "token" ? "mobile.tokenValidation" : undefined
     : undefined;
-  const message = validationKey ? i18next.t(validationKey) : i18next.t(error.code, { ns: "errorCode", defaultValue: i18next.t("internal", { ns: "errorCode" }) });
+  const lengthLimit = error.code === "validation" && typeof error.maxLength === "number" && Number.isSafeInteger(error.maxLength) && error.maxLength > 0 ? error.maxLength : undefined;
+  const message = lengthLimit ? i18next.t("validationMaxLength", { ns: "errorCode", limit: lengthLimit }) : validationKey ? i18next.t(validationKey) : i18next.t(error.code, { ns: "errorCode", defaultValue: i18next.t("internal", { ns: "errorCode" }) });
   const fieldKey = error.field ? (fieldLabelKeys as Record<string, string>)[error.field] : undefined;
   if (fieldKey) {
     const fieldLabel = i18next.t(fieldKey, { defaultValue: "" });

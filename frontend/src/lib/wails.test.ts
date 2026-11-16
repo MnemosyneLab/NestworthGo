@@ -73,3 +73,30 @@ it("recovers a retained callService payload without parsing its old translated m
   const retained = Object.assign(new Error("previous language"), { wireError });
   expect(parseWailsError(retained)).toEqual(wireError);
 });
+
+it.each([
+  ["en", "Use 120 characters or fewer.", "Select at least one owner before continuing or saving."],
+  ["zh-CN", "请使用不超过 120 个字符。", "继续或保存前，请至少选择一名所有权人。"],
+  ["zh-TW", "請使用不超過 120 個字元。", "繼續或儲存前，請至少選擇一名所有權人。"],
+  ["ja", "120 文字以内で入力してください。", "続行または保存する前に、所有者を 1 人以上選択してください。"],
+])("localizes length constraints and actionable owner guidance in %s", async (language, expected, ownerHint) => {
+  try {
+    await i18n.changeLanguage(language);
+    for (const field of ["name", "label"]) {
+      const wire = parseWailsError(new Error(JSON.stringify({ code: "validation", field, maxLength: 120, message: "private backend detail" })));
+      expect(translateWailsError(wire)).toContain(expected);
+      expect(translateWailsError(wire)).not.toContain("private backend detail");
+    }
+    expect(i18n.t("accounts.ownershipHint")).toBe(ownerHint);
+    expect(translateWailsError({ code: "validation", field: "note", maxLength: 2000, message: "ignored" })).toContain("2000");
+  } finally { await i18n.changeLanguage("en"); }
+});
+
+it.each([undefined, 0, -1, 1.5, NaN, Infinity, "120", {}])("retains generic feedback for invalid length metadata %s", (maxLength) => {
+  const wire = parseWailsError(new Error(JSON.stringify({ code: "validation", field: "name", maxLength, message: "must be 120 characters or fewer" })));
+  expect(translateWailsError(wire)).toBe(translateWailsError({ code: "validation", field: "name", message: "ignored" }));
+});
+
+it("does not interpret length metadata on other error codes", () => {
+  expect(translateWailsError({ code: "internal", maxLength: 120, message: "ignored" })).toBe(translateWailsError({ code: "internal", message: "ignored" }));
+});

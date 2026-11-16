@@ -114,3 +114,29 @@ func TestOwnershipCanonicalizesCaseBeforeDuplicateCheck(t *testing.T) {
 }
 
 func stringPtr(value string) *string { return &value }
+
+func TestLengthValidationMetadataAndUnicodeBoundary(t *testing.T) {
+	for _, field := range []string{"name", "label"} {
+		if _, err := validateName(field, strings.Repeat("界", 120)); err != nil {
+			t.Fatal(err)
+		}
+		_, err := validateName(field, strings.Repeat("界", 121))
+		detail, ok := err.(*Error)
+		if !ok || detail.Code != ErrValidation || detail.Field != field || detail.MaxLength != 120 {
+			t.Fatalf("length error: %+v", err)
+		}
+	}
+	note := strings.Repeat("界", 2000)
+	if _, err := validateNote("note", &note); err != nil {
+		t.Fatal(err)
+	}
+	note += "界"
+	_, err := validateNote("note", &note)
+	if detail, ok := err.(*Error); !ok || detail.MaxLength != 2000 {
+		t.Fatalf("note error: %+v", err)
+	}
+	_, err = validateName("name", "")
+	if detail, ok := err.(*Error); !ok || detail.MaxLength != 0 {
+		t.Fatalf("required error: %+v", err)
+	}
+}
