@@ -4,7 +4,7 @@ import { FilterableSelect } from "@/components/ui/filterable-select";
 
 export type EntitySelectOption = { id: string; name: string; iconKey: string };
 
-export function EntitySelect({ id, label, value, options, emptyLabel, kind, onChange }: {
+export function EntitySelect({ id, label, value, options, emptyLabel, kind, onChange, submissionProps }: {
   id: string;
   label: string;
   value: string;
@@ -12,10 +12,12 @@ export function EntitySelect({ id, label, value, options, emptyLabel, kind, onCh
   emptyLabel: string;
   kind: EntityIconKind;
   onChange: (value: string) => void;
+  submissionProps?: { "data-submission-field": string; "aria-invalid": boolean; "aria-describedby"?: string };
 }) {
   return <div className="flex flex-col gap-1.5">
     <Label htmlFor={id}>{label}</Label>
     <FilterableSelect
+      {...submissionProps}
       id={id}
       aria-label={label}
       value={value}

@@ -2174,3 +2174,23 @@ it.each([
   await waitFor(() => expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acc-1", kind, reason, amount: "20", currency: "USD" })));
   await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
 });
+
+
+it("associates a rejected account name after pending ends and permits a corrected retry", async () => {
+  updateAccount.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "name", message: "invalid" }))).mockResolvedValue(emptyAccount);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
+  await openAccountSettings();
+  const form = await screen.findByRole("form", { name: "Account form" });
+  const name = within(form).getByLabelText("Name");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  const error = await within(form).findByRole("alert");
+  await waitFor(() => expect(name).toHaveFocus());
+  expect(name).toBeEnabled();
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAttribute("aria-describedby", error.id);
+  await userEvent.type(name, " corrected");
+  expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(updateAccount).toHaveBeenCalledTimes(2));
+});

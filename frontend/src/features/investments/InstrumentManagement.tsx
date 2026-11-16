@@ -287,7 +287,8 @@ export function InstrumentManagement({
               </SheetHeader>
               <InstrumentForm
                 isSubmitting={createInstrument.isPending}
-                submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+                submissionCause={createInstrument.isError ? createInstrument.error : undefined}
+                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
                 onSubmit={(request) =>
                   createInstrument.mutate(request, {
                     onSuccess: () => {
@@ -444,6 +445,7 @@ export function InstrumentManagement({
                   instrument={editTarget}
                   submitLabel={t("common.save")}
                   isSubmitting={updateInstrument.isPending}
+                  submissionCause={updateInstrument.isError ? updateInstrument.error : undefined}
                   submissionError={updateInstrument.isError ? displayError(updateInstrument.error, t("portfolio.updateError")) : undefined}
                   onSubmit={(request) =>
                     updateInstrument.mutate(

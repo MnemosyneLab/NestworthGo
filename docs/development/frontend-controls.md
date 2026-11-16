@@ -359,3 +359,16 @@ requested date. Agent-sourced instruments do not expose manual price entry;
 archived and product-owned instruments retain their existing restrictions.
 The closed-date explanation remains visible alongside its date control, including
 the distinction between a non-publishing day and missing earlier trading prices.
+
+
+## Server field feedback
+
+Account metadata editing, InstrumentForm hosts and reservation forms preserve
+original Wails errors alongside their localized display messages. The shared
+useSubmissionFeedback hook links a known field to the form's error summary,
+retaining existing help and local validation descriptions. After pending ends,
+it focuses the mounted editable field; unknown, readonly, disabled or hidden
+fields use the focusable summary. Hidden/inert forms do not take focus.
+Editing the rejected field clears only that submission feedback; unrelated
+edits retain it, and each retry can report the same error again. Do not infer
+field identity from translated error text or change financial validation.

@@ -746,3 +746,24 @@ it("links an empty instrument name error and clears its state after correction",
   await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "false"));
   expect(name).not.toHaveAttribute("aria-describedby");
 });
+
+
+it("associates a server provider-symbol error and clears it for a corrected retry", async () => {
+  createInstrument.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "providerSymbol", message: "invalid" }))).mockResolvedValue({ id: "new" });
+  renderManagement();
+  await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+  const form = screen.getByRole("form", { name: "Instrument form" });
+  await userEvent.type(within(form).getByLabelText("Name"), "Synthetic stock");
+  const symbol = form.querySelector<HTMLInputElement>("#instrument-provider-symbol")!;
+  await userEvent.type(symbol, "UNKNOWN");
+  await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+  const error = await within(form).findByRole("alert");
+  await waitFor(() => expect(symbol).toHaveFocus());
+  expect(symbol).toHaveAttribute("aria-invalid", "true");
+  expect(symbol).toHaveAttribute("aria-describedby", error.id);
+  await userEvent.clear(symbol);
+  await userEvent.type(symbol, "NVDA");
+  expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+  await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+  await waitFor(() => expect(createInstrument).toHaveBeenCalledTimes(2));
+});

@@ -24,6 +24,7 @@ export type FilterableSelectProps = {
   noOptionsLabel?: string;
   disabled?: boolean;
   className?: string;
+  "data-submission-field"?: string;
   "aria-label"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: React.AriaAttributes["aria-invalid"];
@@ -40,6 +41,7 @@ export function FilterableSelect({
   noOptionsLabel,
   disabled = false,
   className,
+  "data-submission-field": submissionField,
   "aria-label": ariaLabel,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
@@ -110,6 +112,7 @@ export function FilterableSelect({
               setActiveValue(undefined);
             }}
           />}
+          data-submission-field={submissionField}
           id={inputId}
           role="combobox"
           aria-haspopup="listbox"

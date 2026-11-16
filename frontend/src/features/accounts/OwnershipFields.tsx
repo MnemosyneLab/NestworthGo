@@ -26,6 +26,7 @@ export function OwnershipFields({
   onPercentageChange,
   showError = false,
   focusRef,
+  submissionProps,
 }: {
   idPrefix: string;
   members: readonly OwnershipMember[];
@@ -37,10 +38,13 @@ export function OwnershipFields({
   onPercentageChange: (index: number, value: string) => void;
   showError?: boolean;
   focusRef?: Ref<HTMLFieldSetElement>;
+  submissionProps?: { "data-submission-field": string; "aria-invalid": boolean; "aria-describedby"?: string };
 }) {
   const { t } = useTranslation();
+  const description = [showError ? `${idPrefix}-error` : undefined, submissionProps?.["aria-describedby"]].filter(Boolean).join(" ") || undefined;
+  const invalid = showError || Boolean(submissionProps?.["aria-invalid"]);
   return (
-    <fieldset ref={focusRef} tabIndex={-1} aria-invalid={showError} aria-describedby={showError ? `${idPrefix}-error` : undefined} className="flex flex-col gap-2">
+    <fieldset {...submissionProps} ref={focusRef} tabIndex={-1} aria-invalid={invalid} aria-describedby={description} className="flex flex-col gap-2">
       <legend className="text-sm font-medium">{t("accounts.owner")}</legend>
       <p className="text-xs text-muted-foreground">{t("accounts.ownershipHint")}</p>
       {members.map((member) => {
@@ -48,7 +52,7 @@ export function OwnershipFields({
         const checked = index !== -1;
         return (
           <div key={member.id} className="flex items-center gap-2">
-            <input type="checkbox" id={`${idPrefix}-${member.id}`} checked={checked} aria-invalid={showError} aria-describedby={showError ? `${idPrefix}-error` : undefined} onChange={() => onToggleOwner(member.id)} className="size-4 accent-primary" />
+            <input type="checkbox" id={`${idPrefix}-${member.id}`} checked={checked} aria-invalid={invalid} aria-describedby={description} onChange={() => onToggleOwner(member.id)} className="size-4 accent-primary" />
             <Label htmlFor={`${idPrefix}-${member.id}`} className="flex-1 font-normal">
               <span className="flex items-center gap-2"><EntityIcon iconKey={member.iconKey} kind="member" />{member.name}</span>
             </Label>

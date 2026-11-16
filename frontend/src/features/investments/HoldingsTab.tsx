@@ -147,7 +147,8 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
                 </div>
                 {creatingInstrument ? <div className="flex flex-col gap-3">
                   <InstrumentForm isSubmitting={createInstrument.isPending}
-                    submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+                    submissionCause={createInstrument.isError ? createInstrument.error : undefined}
+                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
                     onSubmit={(request) => createInstrument.mutate(request, { onSuccess: (created) => { setInstrumentId(created.id); setCreatingInstrument(false); } })} />
                   <Button type="button" variant="ghost" className="self-start" onClick={() => setCreatingInstrument(false)}>{t("common.cancel")}</Button>
                 </div> : <Button type="button" variant="ghost" className="self-start" onClick={() => setCreatingInstrument(true)}>{t("accounts.createInstrument")}</Button>}

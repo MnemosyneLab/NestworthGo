@@ -135,7 +135,7 @@ export function AccountDetail({
   const setAction = (next: AccountAction) => { if (!hasUnresolvedSheetConfirmation()) setActionState(next); };
   const setActionHoldingId = (next: string | undefined) => { if (!hasUnresolvedSheetConfirmation()) setActionHoldingIdState(next); };
   const [settingsCanSubmit, setSettingsCanSubmit] = useState(false);
-  const [settingsError, setSettingsError] = useState<string | undefined>();
+  const [settingsError, setSettingsError] = useState<unknown>();
   const archived = Boolean(record.account.archivedAt);
   const composite = record.account.trackingMode === "holdings";
   const cashValues = useAccountCashValues(record.account.id, composite);
@@ -190,7 +190,7 @@ export function AccountDetail({
       toast.success(t("common.saved"));
       setAction(null);
     } catch (error) {
-      setSettingsError(displayError(error, t("accounts.saveError")));
+      setSettingsError(error);
     } finally {
       settingsSavePending.current = false;
     }
@@ -473,7 +473,8 @@ export function AccountDetail({
                 record={record}
                 submitLabel={t("common.save")}
                 isSubmitting={updateAccount.isPending}
-                submissionError={settingsError}
+                submissionCause={settingsError}
+                submissionError={settingsError ? displayError(settingsError, t("accounts.saveError")) : undefined}
                 onSubmit={saveSettings}
               />
             )}

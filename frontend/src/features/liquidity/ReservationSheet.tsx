@@ -1,3 +1,4 @@
+import { useSubmissionFeedback } from "@/components/forms/useSubmissionFeedback";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,10 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
   const [amount, setAmount] = useState(reservation?.amount.amount ?? "");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string>();
+  const [cause, setCause] = useState<unknown>();
+  const formRef = useRef<HTMLFormElement>(null);
+  const summaryRef = useRef<HTMLParagraphElement>(null);
+  const feedback = useSubmissionFeedback(cause, error, save.isPending, formRef, summaryRef);
   const pending = useRef(false);
   const currency = reservation?.amount.currency ?? selectedSource?.nativeCurrency;
   const describeSource = (item: LiquiditySourceDTO) => {
@@ -62,6 +67,7 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
     }
     setErrors(nextErrors);
     setError(undefined);
+    setCause(undefined);
     if (Object.keys(nextErrors).length > 0) {
       const field = nextErrors.source ? "reservation-source" : nextErrors.label ? "reserve-label" : "reserve-amount";
       event.currentTarget.querySelector<HTMLElement>(`#${field}`)?.focus();
@@ -80,9 +86,8 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
       onSaved();
     } catch (cause) {
       const message = displayError(cause, t("availableFunds.loadError"));
-      const field = (cause as { wireError?: { field?: string } })?.wireError?.field;
-      if (field === "label" || field === "amount") setErrors({ [field]: message });
-      else setError(message);
+      setCause(cause);
+      setError(message);
     } finally {
       pending.current = false;
       onPendingChange?.(false);
@@ -90,7 +95,7 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
   }
 
   return (
-    <form onSubmit={(event) => { void submit(event); }} noValidate className="flex flex-1 flex-col gap-5">
+    <form ref={formRef} onChangeCapture={feedback.onChangeCapture} onSubmit={(event) => { void submit(event); }} noValidate className="flex flex-1 flex-col gap-5">
       <div className="space-y-2">
         {source || reservation ? <>
           <p className="text-sm font-medium">{t("availableFunds.reservationSource")}</p>
@@ -106,18 +111,18 @@ export function ReservationForm({ source, sources = [], accountNames = {}, reser
       </div>
       <div className="space-y-2">
         <Label htmlFor="reserve-label">{t("availableFunds.reservationLabel")}</Label>
-        <Input id="reserve-label" autoFocus={Boolean(source || reservation)} value={label} disabled={save.isPending} aria-invalid={Boolean(errors.label)} aria-describedby={errors.label ? "reserve-label-error" : undefined} onChange={(event) => { setLabel(event.target.value); setErrors((current) => ({ ...current, label: undefined })); }} />
+        <Input id="reserve-label" autoFocus={Boolean(source || reservation)} value={label} disabled={save.isPending} {...feedback.fieldProps("label", Boolean(errors.label), errors.label ? "reserve-label-error" : undefined)} onChange={(event) => { setLabel(event.target.value); setErrors((current) => ({ ...current, label: undefined })); }} />
         {errors.label && <p id="reserve-label-error" role="alert" className="text-sm text-destructive">{errors.label}</p>}
       </div>
       <div className="space-y-2">
         <Label htmlFor="reserve-amount">{t("availableFunds.reservationAmount")}</Label>
         <div className="flex items-center gap-3">
-          <Input id="reserve-amount" inputMode="decimal" value={amount} disabled={save.isPending} aria-invalid={Boolean(errors.amount)} aria-describedby={errors.amount ? "reserve-amount-error reserve-currency" : "reserve-currency"} onChange={(event) => { setAmount(event.target.value); setErrors((current) => ({ ...current, amount: undefined })); }} />
+          <Input id="reserve-amount" inputMode="decimal" value={amount} disabled={save.isPending} {...feedback.fieldProps("amount", Boolean(errors.amount), errors.amount ? "reserve-amount-error reserve-currency" : "reserve-currency")} onChange={(event) => { setAmount(event.target.value); setErrors((current) => ({ ...current, amount: undefined })); }} />
           <span id="reserve-currency" className="text-sm font-medium text-muted-foreground">{currency}</span>
         </div>
         {errors.amount && <p id="reserve-amount-error" role="alert" className="text-sm text-destructive">{errors.amount}</p>}
       </div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {feedback.message && <p ref={summaryRef} id={feedback.errorId} tabIndex={-1} role="alert" className="text-sm text-destructive">{feedback.message}</p>}
       <SheetFooter>
         <Button type="button" variant="outline" disabled={save.isPending} onClick={onCancel}>{t("common.cancel")}</Button>
         <Button type="submit" disabled={save.isPending}>{t("availableFunds.confirm")}</Button>
