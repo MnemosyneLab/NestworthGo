@@ -279,8 +279,12 @@ handling. Its search session starts empty and commits only an explicit option.
 Escape, Tab and blur cancel the query. IME composition never confirms an
 option or submits the outer form. Preserve disabled, error, selected and
 active-option semantics and test reopening while already focused.
-Entity selectors with icons and provider search results use the same field,
-panel and option styles. Provider results retain their loading and error states.
+Entity selectors with icons reuse FilterableSelect, including its keyboard/IME
+contract and portalled collision-aware list. Optional decorative option icons
+also appear beside the selected label when closed; text remains the accessible
+and searchable name. Empty selection is an explicit option. Provider search
+results use the same field, panel and option styles and retain their loading
+and error states.
 
 Instrument details preserve the backend aggregate and show every account member,
 including a single account and zero quantities, with owner/institution metadata,

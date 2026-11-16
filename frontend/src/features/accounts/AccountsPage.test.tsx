@@ -492,7 +492,7 @@ describe("AccountsPage", () => {
     await continueWizard(form, 2);
 
     await userEvent.click(within(form).getByRole("button", { name: "More settings" }));
-    expect(form.querySelector("#wizard-group")).toHaveTextContent("Primary group");
+    expect(form.querySelector("#wizard-group")).toHaveValue("Primary group");
     expect(within(form).queryByText("Include in liquid assets")).not.toBeInTheDocument();
     await userEvent.type(within(form).getByLabelText("Name"), "Primary account");
     await userEvent.click(within(form).getByLabelText("Alice"));

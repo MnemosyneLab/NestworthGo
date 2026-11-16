@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 export type FilterableSelectOption = {
   value: string;
   label: string;
+  /** Decorative content; the label remains the searchable, accessible name. */
+  icon?: React.ReactNode;
   /** Additional searchable identity text; never rendered in the option. */
   searchKeywords?: string;
   disabled?: boolean;
@@ -118,7 +120,7 @@ export function FilterableSelect({
           aria-describedby={describedBy}
           aria-invalid={invalid}
           aria-autocomplete="list"
-          className={cn(selectFieldClass, "w-full pe-9 placeholder:text-muted-foreground")}
+          className={cn(selectFieldClass, "w-full pe-9 placeholder:text-muted-foreground", !isOpen && selected?.icon && "ps-9")}
           disabled={disabled}
           onFocus={beginSearch}
           onClick={event => {
@@ -147,6 +149,7 @@ export function FilterableSelect({
           }}
           onBlur={close}
         />
+        {!isOpen && selected?.icon && <span aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2">{selected.icon}</span>}
         <span aria-hidden="true" className="select-chevron pointer-events-none absolute end-3 top-1/2 -translate-y-1/2" />
         {isOpen && <PopoverList id={listboxId}>
           {filtered.length === 0 ? (
@@ -170,6 +173,7 @@ export function FilterableSelect({
               onMouseEnter={() => setActiveValue(option.value)}
             >
               <span aria-hidden="true" className={cn("size-3.5 shrink-0", option.value === value && "select-check")} />
+              {option.icon && <span aria-hidden="true">{option.icon}</span>}
               <span className="min-w-0">{option.label}</span>
             </div>
           ))}

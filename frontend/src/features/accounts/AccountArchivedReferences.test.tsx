@@ -20,8 +20,8 @@ it("shows only retained archived references and permits removing them", async ()
  expect(screen.queryByText(/Unrelated/)).not.toBeInTheDocument();
  expect(screen.getByLabelText("Active Owner")).toBeChecked();
  await userEvent.click(screen.getByRole("button",{name:"Details"}));
- expect(document.querySelector("#account-institution")).toHaveTextContent("Former Bank (Archived)");
- expect(document.querySelector("#account-group")).toHaveTextContent("Former Group (Archived)");
+ expect(document.querySelector("#account-institution")).toHaveValue("Former Bank (Archived)");
+ expect(document.querySelector("#account-group")).toHaveValue("Former Group (Archived)");
  await userEvent.click(screen.getByRole("button",{name:"Save"}));
  await waitFor(()=>expect(submit).toHaveBeenCalled());
  expect(submit.mock.calls[0][0]).toMatchObject({institutionId:"old-bank",groupId:"old-group",ownership:[{memberId:"old-owner",shareBps:5000},{memberId:"new-owner",shareBps:5000}]});
