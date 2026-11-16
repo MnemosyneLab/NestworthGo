@@ -82,7 +82,7 @@ export function QuoteHistoryContent({ target, focus, render, onRangeChange }: { 
             <ErrorState
               title={t("marketData.loadError")}
               description={t("ui.state.errorDescription")}
-              onRetry={() => void series.refetch()}
+              onRetry={() => series.refetch()}
               retryLabel={t("common.retryAction")}
             />
           ) : emptyRange ? (

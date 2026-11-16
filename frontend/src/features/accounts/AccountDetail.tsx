@@ -265,7 +265,7 @@ export function AccountDetail({
 
       {composite && !cashOnly && groupsQuery.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {composite && !cashOnly && groupsQuery.isError && (
-        <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => { void groupsQuery.refetch(); }} retryLabel={t("common.retryAction")} />
+        <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => Promise.allSettled([groupsQuery.refetch()])} retryLabel={t("common.retryAction")} />
       )}
 
       {composite && record.account.balanceSheetRole !== "liability" && valuation?.composition && (

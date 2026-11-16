@@ -150,7 +150,7 @@ export function MarketDataSyncBar({
           {preview.isError && <ErrorState
             title={t("marketData.loadError")}
             description={displayError(preview.error, t("marketData.loadError"))}
-            onRetry={() => preview.mutate({ scope: "repair_all", forceRecheck })}
+            onRetry={() => preview.mutateAsync({ scope: "repair_all", forceRecheck })}
             retryLabel={t("common.retry")}
           />}
           {currentPreview && (

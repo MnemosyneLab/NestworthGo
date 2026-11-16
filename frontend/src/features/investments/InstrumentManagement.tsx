@@ -161,7 +161,7 @@ function InstrumentRow({
         {onView && <Button type="button" variant="ghost" size="sm" aria-label={t("investmentAssets.openInstrument", { name: instrument.name })} onClick={onView}>
           {t("investmentAssets.details")}
         </Button>}
-        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+        <Button type="button" variant="outline" size="sm" aria-label={t("investmentAssets.editInstrument", { name: instrument.name })} onClick={onEdit}>
           {t("common.edit")}
         </Button>
       </span>
@@ -265,7 +265,7 @@ export function InstrumentManagement({
       <ErrorState
         title={t("portfolio.loadError")}
         description={t("ui.state.errorDescription")}
-        onRetry={() => { void instruments.refetch(); void products.refetch(); }}
+        onRetry={() => Promise.allSettled([instruments.refetch(), products.refetch()])}
         retryLabel={t("common.retryAction")}
       />
     );

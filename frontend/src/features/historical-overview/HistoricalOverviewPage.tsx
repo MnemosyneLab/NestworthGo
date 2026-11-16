@@ -281,7 +281,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     <Button variant="outline" onClick={onExit}>{t("historicalOverview.exit")}</Button>
   } />;
   if (origin.isLoading) return <>{chrome}<LoadingState label={t("historicalOverview.loading")} /></>;
-  if (origin.isError) return <>{chrome}<ErrorState title={t("historicalOverview.error")} description={t("historicalOverview.errorHint")} onRetry={() => void origin.refetch()} retryLabel={t("common.retryAction")} /></>;
+  if (origin.isError) return <>{chrome}<ErrorState title={t("historicalOverview.error")} description={t("historicalOverview.errorHint")} onRetry={() => origin.refetch()} retryLabel={t("common.retryAction")} /></>;
   if (!origin.data) return <>{chrome}<EmptyState title={t("historicalOverview.noOrigin")} description={t("historicalOverview.noOriginHint")} /></>;
   if (firstDate > lastDate) return <>{chrome}<EmptyState title={t("historicalOverview.noClosedDays")} description={t("historicalOverview.noClosedDaysHint")} /></>;
 
@@ -347,7 +347,7 @@ export function HistoricalOverviewPage({ initialDate, initialContext, isActive =
     </section>
     {!validCapture ? <EmptyState title={t("historicalOverview.invalidDate")} description={t(seriesMode ? "historicalOverview.trend.rangeHint" : "historicalOverview.invalidDateHint")} />
       : query.isFetching && !data ? <div role="status" aria-live="polite" className="space-y-4" aria-label={t("historicalOverview.loading")}><div className="grid gap-3 min-[700px]:grid-cols-2 min-[1100px]:grid-cols-3">{[0, 1, 2].map(index => <div key={index} className="h-36 animate-pulse rounded-xl bg-muted" />)}</div><div className="h-72 animate-pulse rounded-xl bg-muted" /></div>
-      : query.isError && !data ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => void query.refetch()} retryLabel={t("common.retryAction")} />
+      : query.isError && !data ? <ErrorState title={t("historicalOverview.error")} description={t(budgetExceeded ? "historicalOverview.trend.budgetError" : "historicalOverview.errorHint")} onRetry={() => query.refetch()} retryLabel={t("common.retryAction")} />
       : data && <>
  {query.isFetching && <p role="status">{t("valuation.updating")}</p>}
  {query.isError && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void query.refetch()}>{t("common.retryAction")}</Button></p>}

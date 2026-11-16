@@ -111,7 +111,7 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
     rangeEnd: context.to ?? context.healthFocus?.rangeEnd };
 
   if (instruments.isLoading) return <LoadingState label={t("ui.state.loadingPage")} />;
-  if (instruments.isError) return <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void instruments.refetch()} retryLabel={t("common.retryAction")} />;
+  if (instruments.isError) return <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => instruments.refetch()} retryLabel={t("common.retryAction")} />;
   if (!instrument) return <EmptyState title={t("instrumentDetail.unavailable")}
     action={navigation && <Button variant="outline" onClick={() => navigation.open({ page: "portfolio", view: "instruments" })}>{t("investmentAssets.instruments")}</Button>} />;
 
@@ -142,7 +142,7 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
         <TabsTrigger value="data">{t("instrumentDetail.data")}</TabsTrigger>
       </TabsList>
       <TabsContent value="holdings">
-        {groups.isLoading ? <LoadingState label={t("portfolio.loading")} /> : groups.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void groups.refetch()} retryLabel={t("common.retryAction")} />
+        {groups.isLoading ? <LoadingState label={t("portfolio.loading")} /> : groups.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => groups.refetch()} retryLabel={t("common.retryAction")} />
           : <HoldingProjection instrument={instrument} holding={holding} accountId={context.accountId} from={context.from} to={context.to} />}
       </TabsContent>
       <TabsContent value="performance" className="flex flex-col gap-4">
@@ -157,7 +157,7 @@ export function InstrumentDetailPage({ context, onContextChange, active = true }
         <p className="text-sm text-muted-foreground">{t("instrumentDetail.dataNote")}</p>
         <section className="rounded-2xl border border-border bg-card p-4" aria-label={t("instrumentDetail.currentQuote")}>
           <h3 className="text-sm font-medium">{t("instrumentDetail.currentQuote")}</h3>
-          {quote.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : quote.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void quote.refetch()} retryLabel={t("common.retryAction")} />
+          {quote.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : quote.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => quote.refetch()} retryLabel={t("common.retryAction")} />
             : <p className="num mt-2 text-xl font-semibold">{quote.data ? formatQuotePrice(quote.data.unitPrice, quote.data.currency) : t("portfolio.noCurrentPrice")}</p>}
           {quote.data && <p className="text-xs text-muted-foreground">{t("portfolio.quotedAsOf", { time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language) })} · {t("instrumentDetail.quoteSource")}: {displayEnum(t, "portfolio", quote.data.sourceKind)}{quote.data.sourceKey && quote.data.sourceKey !== quote.data.sourceKind ? ` · ${quote.data.sourceKey}` : ""}</p>}
         </section>

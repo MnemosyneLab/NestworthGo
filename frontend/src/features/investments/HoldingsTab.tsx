@@ -67,12 +67,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
       <ErrorState
         title={t("portfolio.loadError")}
         description={t("ui.state.errorDescription")}
-        onRetry={() => {
-          void accounts.refetch();
-          void instruments.refetch();
-          void holdings.refetch();
-          void origin.refetch();
-        }}
+        onRetry={() => Promise.allSettled([accounts.refetch(), instruments.refetch(), holdings.refetch(), origin.refetch()])}
         retryLabel={t("common.retryAction")}
       />
     );
@@ -122,7 +117,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
               </SheetHeader>
               {origin.data ? <PositionImportForm account={holdingsAccounts.find((record) => record.account.id === accountId)?.account}
                 onRecorded={() => { toast.success(t("history.recorded")); setOpen(false); setAccountId(""); }} /> : <div className="flex flex-col gap-4">
-                {products.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void products.refetch()} retryLabel={t("common.retryAction")} /> : !productsReady ? <LoadingState label={t("portfolio.loading")} /> : null}
+                {products.isError ? <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => products.refetch()} retryLabel={t("common.retryAction")} /> : !productsReady ? <LoadingState label={t("portfolio.loading")} /> : null}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="holding-account">{t("history.accountSelect")}</Label>
                   <NativeSelect id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>

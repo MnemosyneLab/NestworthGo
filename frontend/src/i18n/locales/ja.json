@@ -2619,6 +2619,7 @@
     "unavailable": "この銘柄は利用できません。銘柄一覧に戻ってください。"
   },
   "investmentAssets": {
+    "editInstrument": "{{name}} を編集",
     "accountPositions": "口座の保有資産",
     "allocation": "資産配分と推移",
     "createAccount": "投資口座を作成",

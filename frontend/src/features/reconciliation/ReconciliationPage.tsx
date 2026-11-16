@@ -320,10 +320,7 @@ export function ReconciliationPage({
               description={t("ui.state.errorDescription")}
               title={t("reconciliation.error")}
               retryLabel={t("reconciliation.retry")}
-              onRetry={() => {
-                void accounts.refetch();
-                void sessions.refetch();
-              }}
+              onRetry={() => Promise.allSettled([accounts.refetch(), sessions.refetch()])}
             />
           ) : (
             <>
@@ -465,7 +462,7 @@ export function ReconciliationPage({
               description={t("ui.state.errorDescription")}
               title={t("reconciliation.error")}
               retryLabel={t("reconciliation.retry")}
-              onRetry={() => void detail.refetch()}
+              onRetry={() => detail.refetch()}
             />
           ) : (
             current && (

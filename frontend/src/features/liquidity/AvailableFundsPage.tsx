@@ -131,7 +131,7 @@ export function AvailableFundsPage({
   const retryOverview = () => {
     if (isActive && (focus || productId || accountId) && !consumedRequests.current.has(navigationRequestId)) {
       setNavigationRetry(value => value + 1);
-    } else { void refetchOverview(); }
+    } else { return refetchOverview(); }
   };
   const [previousIsActive, setPreviousIsActive] = useState(isActive);
   // Adjust retained sheet state during the page transition, before displaying it again.
@@ -178,6 +178,7 @@ export function AvailableFundsPage({
           title={t("availableFunds.loadError")}
           description={t("ui.state.errorDescription")}
           onRetry={retryOverview}
+          isRetrying={overview.isFetching}
           retryLabel={t("common.retryAction")}
         />
       </div>

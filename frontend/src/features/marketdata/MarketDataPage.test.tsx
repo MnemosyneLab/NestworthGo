@@ -217,7 +217,7 @@ describe("MarketDataPage", () => {
     expect(savedInstrument).toHaveClass("grid-cols-[minmax(0,1fr)_auto]");
     expect(within(savedInstrument).queryByRole("combobox")).not.toBeInTheDocument();
     expect(within(savedInstrument).getAllByRole("button")).toHaveLength(1);
-    expect(within(savedInstrument).getByRole("button", { name: "Edit" }).parentElement).toHaveClass("row-start-1");
+    expect(within(savedInstrument).getByRole("button", { name: /^Edit / }).parentElement).toHaveClass("row-start-1");
     expect(savedInstrument).toHaveTextContent("Global Equity Fund");
     expect(savedInstrument).toHaveTextContent("Latest: US$12.50");
     expect(savedInstrument).toHaveTextContent(formatTimestamp("2024-01-01T00:00:00Z", "Pacific/Auckland", "en"));
@@ -338,7 +338,7 @@ describe("MarketDataPage", () => {
     await waitFor(() => expect(row).toHaveTextContent("as of 2026-09-24"));
     expect(row).not.toHaveTextContent(formatTimestamp("2026-09-23T16:00:00Z", "Pacific/Auckland", "en"));
     expect(row).not.toHaveTextContent(formatTimestamp("2026-09-29T00:00:00Z", "Pacific/Auckland", "en"));
-    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    await userEvent.click(within(row).getByRole("button", { name: /^Edit / }));
     expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sync" })).not.toBeInTheDocument();
   });
@@ -414,7 +414,7 @@ describe("MarketDataPage", () => {
   it("opens local quote history without calling a provider", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     await userEvent.click(await screen.findByRole("button", { name: "View history" }));
     expect(await screen.findByRole("heading", { name: "Global Equity Fund price history" })).toBeInTheDocument();
     expect(await screen.findByText("No local history is saved yet.")).toBeInTheDocument();
@@ -423,7 +423,7 @@ describe("MarketDataPage", () => {
   it("filters local quote history to Agent observations", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Private Fund", type: "stock", quoteCurrency: "USD", quoteSource: "agent" }]);
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     await userEvent.click(await screen.findByRole("button", { name: "View history" }));
     await userEvent.click(await screen.findByRole("button", { name: "Agent supplied" }));
     await waitFor(() => expect(instrumentQuoteSeries).toHaveBeenCalledWith("i1", expect.any(String), "agent"));
@@ -434,7 +434,7 @@ describe("MarketDataPage", () => {
     const point = { quotedAt: "2026-09-27T16:00:00Z", effectiveDate: "2026-09-28", timestampBasis: "date_label", observationKind: "close", priceBasis: "agent_unit_nav_v1", value: "1.0197", sourceKind: "agent", sourceKey: "agent", delayed: false };
     instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [point], observations: [point], outsideRange: false });
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     await userEvent.click(await screen.findByRole("button", { name: "View history" }));
     await userEvent.click(await screen.findByText("View data table"));
     expect(screen.getByText("Unit NAV")).toBeInTheDocument();
@@ -446,7 +446,7 @@ describe("MarketDataPage", () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
     instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: true });
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     await userEvent.click(await screen.findByRole("button", { name: "View history" }));
     expect(await screen.findByText("No local observations in this range.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show all history" })).toBeInTheDocument();
@@ -548,7 +548,7 @@ describe("MarketDataPage", () => {
   it("does not treat a single-instrument sync as Repair All", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     await userEvent.click(await screen.findByRole("button", { name: "Sync" }));
     expect(startSync).toHaveBeenCalledWith({ scope: "instrument", instrumentId: "i1" });
     expect(startSync).not.toHaveBeenCalledWith(expect.objectContaining({ scope: "repair_all" }));
@@ -603,7 +603,7 @@ it("retains original-currency prices in the history table without treating them 
   const old={...point,quotedAt:"2026-09-01T00:00:00Z",effectiveDate:"2026-09-01",value:"123.456",currency:"JPY"};
   instrumentQuoteSeries.mockResolvedValue({range:"all",points:[old,point],observations:[point,old],outsideRange:false});
   renderPage();
-  await userEvent.click(await screen.findByRole("button",{name:"Edit"}));
+  await userEvent.click(await screen.findByRole("button",{name:"Edit Synthetic fund"}));
   await userEvent.click(await screen.findByRole("button",{name:"View history"}));
   expect(await screen.findByText(/Historical observations in other currencies/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("View data table"));

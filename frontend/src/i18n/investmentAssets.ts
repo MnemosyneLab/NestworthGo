@@ -3,6 +3,7 @@ export const investmentAssetsEn = {
   nav: { portfolio: "Investment assets", marketData: "Data maintenance" },
   portfolio: { pageTitle: "Investment assets" },
   investmentAssets: {
+    editInstrument: "Edit {{name}}",
     holdings: "My holdings",
     instruments: "All instruments",
     allocation: "Allocation & trend",
@@ -42,6 +43,7 @@ export const investmentAssetsZhCN = {
   nav: { portfolio: "投资资产", marketData: "数据维护" },
   portfolio: { pageTitle: "投资资产" },
   investmentAssets: {
+    editInstrument: "编辑 {{name}}",
     holdings: "我的持仓",
     instruments: "全部标的",
     allocation: "配置与趋势",
@@ -81,6 +83,7 @@ export const investmentAssetsZhTW = {
   nav: { portfolio: "投資資產", marketData: "資料維護" },
   portfolio: { pageTitle: "投資資產" },
   investmentAssets: {
+    editInstrument: "編輯 {{name}}",
     holdings: "我的持倉",
     instruments: "全部標的",
     allocation: "配置與趨勢",

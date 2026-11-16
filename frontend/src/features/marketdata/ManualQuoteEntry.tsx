@@ -106,7 +106,7 @@ function FocusedInstrumentQuote({ instrumentId, initialDate, onSaved }: { instru
   const { t } = useTranslation();
   const instruments = useInstruments(true);
   if (instruments.isLoading) return <LoadingState label={t("common.loading")} />;
-  if (instruments.isError) return <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void instruments.refetch()} retryLabel={t("common.retryAction")} />;
+  if (instruments.isError) return <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => instruments.refetch()} retryLabel={t("common.retryAction")} />;
   const instrument = instruments.data?.find(item => item.id === instrumentId);
   if (!instrument || instrument.archivedAt || instrument.managedProductId || instrument.quoteSource === "agent") return <p role="status">{t("connections.objectUnavailable")}</p>;
   return <>

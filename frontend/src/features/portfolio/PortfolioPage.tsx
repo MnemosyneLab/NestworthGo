@@ -106,7 +106,7 @@ function PortfolioOverview({ onOpenAccount, active = true }: { onOpenAccount?: (
                 <ErrorState
                   title={t("portfolio.loadError")}
                   description={t("ui.state.errorDescription")}
-                  onRetry={() => void trend.refetch()}
+                  onRetry={() => trend.refetch()}
                   retryLabel={t("common.retryAction")}
                 />
               ) : trend.isLoading ? (

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -131,11 +131,11 @@ describe("InstrumentManagement", () => {
     expect(screen.queryByText("QAF0")).not.toBeInTheDocument();
 
     const qasprRow = screen.getByText("QASPR").closest("li");
-    await userEvent.click(within(qasprRow!).getByRole("button", { name: "Edit" }));
+    await userEvent.click(within(qasprRow!).getByRole("button", { name: /^Edit / }));
     expect(await screen.findByRole("form", { name: "Instrument form" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("form", { name: "Instrument form" })).not.toBeInTheDocument());
-    await userEvent.click(within(screen.getByText("QASPR").closest("li")!).getByRole("button", { name: "Edit" }));
+    await userEvent.click(within(screen.getByText("QASPR").closest("li")!).getByRole("button", { name: /^Edit / }));
     expect(await screen.findByRole("form", { name: "Instrument form" })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
 
@@ -267,7 +267,7 @@ describe("InstrumentManagement", () => {
       providerKey: "yahoo_finance", providerSymbol: "NVDA",
     }]);
     renderManagement();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "agent");
     expect(within(form).queryByLabelText("Provider key")).not.toBeInTheDocument();
@@ -296,7 +296,7 @@ describe("InstrumentManagement", () => {
       updatedAt: "",
     }]);
     renderManagement();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
     expect(within(form).getByLabelText("Currency")).toHaveValue("USD");
@@ -327,7 +327,7 @@ describe("InstrumentManagement", () => {
     renderManagement();
     await screen.findByText("NVIDIA");
     expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Edit / }));
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
     const cancelledDialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(cancelledDialog).getByRole("button", { name: "Cancel" }));
@@ -344,7 +344,7 @@ describe("InstrumentManagement", () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Synthetic closure", type: "stock", quoteCurrency: "USD", quoteSource }]);
     setClosedDate.mockRejectedValueOnce(new Error("Synthetic failure"));
     renderManagement();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     await userEvent.click(screen.getByRole("tab", { name: "Set closed day" }));
     const save = await screen.findByRole("button", { name: "Set closed day" });
     expect(save).toBeDisabled();
@@ -368,7 +368,7 @@ describe("InstrumentManagement", () => {
     await screen.findByText("NVIDIA");
     expect(screen.queryByRole("button", { name: "Icon" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Edit / }));
     await userEvent.click(await screen.findByRole("tab", { name: "Set price" }));
     await userEvent.type(await screen.findByLabelText("Unit price (USD)"), "131.70");
     const priceButtons = screen.getAllByRole("button", { name: "Set price" });
@@ -380,7 +380,7 @@ describe("InstrumentManagement", () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "provider" }]);
     renderManagement();
     await screen.findByText("NVIDIA");
-    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Edit / }));
     expect(await screen.findByRole("tab", { name: "Set price" })).toBeInTheDocument();
   });
 
@@ -480,7 +480,7 @@ describe("InstrumentManagement", () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD", quoteSource: "provider", providerKey: "yahoo_finance", providerSymbol: "NVDA" }]);
     searchInstruments.mockResolvedValue([{ providerKey: "yahoo_finance", providerSymbol: "NVDA", name: "NVIDIA Corporation", symbol: "NVDA", type: "stock", marketCode: "NASDAQ", countryCode: "US", quoteCurrency: "CNY", exchange: "NASDAQ" }]);
     renderManagement();
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Edit / }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.type(within(form).getByLabelText("Search Yahoo"), "NVDA");
     // Wait for the debounced request before spending the option lookup's
@@ -634,7 +634,7 @@ describe("optional instrument short name", () => {
     expect(await screen.findByText("家庭 🌿")).toBeInTheDocument();
     expect(screen.getByText(original.name)).toHaveClass("text-xs", "text-muted-foreground");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: t("common.edit") }));
+    await user.click(screen.getByRole("button", { name: t("investmentAssets.editInstrument", { name: original.name }) }));
     const field = screen.getByLabelText(t("portfolio.shortName"));
     expect(field).toHaveValue("家庭 🌿");
     field.focus();
@@ -644,7 +644,7 @@ describe("optional instrument short name", () => {
     // Reopen the editor from refreshed saved data, then clear explicitly.
     listInstruments.mockResolvedValue([{ ...original, shortName: "New alias 🌿" }]);
     await waitFor(() => expect(screen.queryByRole("form", { name: t("portfolio.instrumentFormLabel") })).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: t("common.edit") }));
+    await user.click(screen.getByRole("button", { name: t("investmentAssets.editInstrument", { name: original.name }) }));
     await user.clear(screen.getByLabelText(t("portfolio.shortName")));
     await user.click(screen.getByRole("button", { name: t("common.save") }));
     await waitFor(() => expect(updateInstrument).toHaveBeenLastCalledWith("i1", expect.objectContaining({ shortName: "" })));
@@ -699,7 +699,7 @@ it("preserves drafts across editor tabs and supports keyboard switching", async 
   listInstruments.mockResolvedValue([{ id: "draft", name: "Synthetic draft", type: "stock", quoteCurrency: "USD", quoteSource: "manual" }]);
   const user = userEvent.setup();
   renderManagement();
-  await user.click(await screen.findByRole("button", { name: "Edit" }));
+  await user.click(await screen.findByRole("button", { name: /^Edit / }));
   await user.type(screen.getByLabelText("Name"), " revised");
   const details = screen.getByRole("tab", { name: "Instrument details" });
   details.focus();
@@ -730,7 +730,6 @@ it("opens the price tab for a dated repair and hides manual entry for Agent inst
   expect(screen.queryByRole("tab", { name: "Set price" })).not.toBeInTheDocument();
 });
 
-
 it("links an empty instrument name error and clears its state after correction", async () => {
   renderManagement();
   await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
@@ -746,7 +745,6 @@ it("links an empty instrument name error and clears its state after correction",
   await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "false"));
   expect(name).not.toHaveAttribute("aria-describedby");
 });
-
 
 it("associates a server provider-symbol error and clears it for a corrected retry", async () => {
   createInstrument.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "providerSymbol", message: "invalid" }))).mockResolvedValue({ id: "new" });
@@ -766,4 +764,36 @@ it("associates a server provider-symbol error and clears it for a corrected retr
   expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
   await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
   await waitFor(() => expect(createInstrument).toHaveBeenCalledTimes(2));
+});
+
+it("names each edit action after its instrument and opens the selected editor", async () => {
+  listInstruments.mockResolvedValue([
+    { id: "synthetic-alpha", name: "Synthetic Alpha", type: "etf", quoteCurrency: "USD", quoteSource: "manual" },
+    { id: "synthetic-beta", name: "Synthetic Beta", type: "etf", quoteCurrency: "USD", quoteSource: "manual" },
+  ]);
+  renderManagement();
+  expect(await screen.findByRole("button", { name: "Edit Synthetic Alpha" })).toHaveTextContent("Edit");
+  const editBeta = screen.getByRole("button", { name: "Edit Synthetic Beta" });
+  expect(editBeta).toHaveTextContent("Edit");
+  await userEvent.click(editBeta);
+  expect(screen.getByLabelText("Name")).toHaveValue("Synthetic Beta");
+});
+
+it("waits for a list retry, stays retryable after failure, and recovers on the next attempt", async () => {
+  let rejectRetry!: (error: Error) => void;
+  const pendingRetry = new Promise<never>((_, reject) => { rejectRetry = reject; });
+  listInstruments.mockRejectedValueOnce(new Error("failed"))
+    .mockReturnValueOnce(pendingRetry)
+    .mockResolvedValue([{ id: "synthetic-recovered", name: "Recovered fund", type: "etf", quoteCurrency: "USD", quoteSource: "manual" }]);
+  render(<QueryClientProvider client={createTestQueryClient({ retry: false })}><InstrumentManagement pageId="market-data" active /></QueryClientProvider>);
+  const retry = await screen.findByRole("button", { name: "Try again" });
+  await userEvent.click(retry);
+  expect(await screen.findByRole("status")).toBeVisible();
+  fireEvent.click(retry);
+  expect(listInstruments).toHaveBeenCalledTimes(2);
+  await act(async () => rejectRetry(new Error("failed again")));
+  const nextRetry = await screen.findByRole("button", { name: "Try again" });
+  await userEvent.click(nextRetry);
+  expect(await screen.findByRole("button", { name: "Edit Recovered fund" })).toBeVisible();
+  expect(listInstruments).toHaveBeenCalledTimes(3);
 });
