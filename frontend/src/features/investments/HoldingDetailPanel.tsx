@@ -43,7 +43,7 @@ export function HoldingDetailPanel({ instrumentId, scope }: Props) {
       {instrument && !instrument.managedProductId && <PerformanceReturns instrumentId={instrument.id} />}
       {instruments.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {instruments.isError ? (
-        <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void instruments.refetch()} retryLabel={t("common.retryAction")} />
+        <ErrorState title={t("portfolio.loadError")} description={t("ui.state.errorDescription")} onRetry={() => instruments.refetch()} retryLabel={t("common.retryAction")} />
       ) : (
         <dl className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
           {attributes.map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-words">{value}</dd></div>)}

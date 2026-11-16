@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import { useSubmissionFeedback } from "@/components/forms/useSubmissionFeedback";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -5,6 +7,7 @@ import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -97,6 +100,7 @@ export function AccountForm({
   submitLabel,
   isSubmitting,
   submissionError,
+  submissionCause,
   formId,
   hideSubmit = false,
   onCanSubmitChange,
@@ -106,11 +110,15 @@ export function AccountForm({
   submitLabel: string;
   isSubmitting: boolean;
   submissionError?: string;
+  submissionCause?: unknown;
   formId?: string;
   hideSubmit?: boolean;
   onCanSubmitChange?: (canSubmit: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const formRef = useRef<HTMLFormElement>(null);
+  const summaryRef = useRef<HTMLParagraphElement>(null);
+  const feedback = useSubmissionFeedback(submissionCause, submissionError, isSubmitting, formRef, summaryRef);
   const members = useMembers(Boolean(record));
   const institutions = useInstitutions(Boolean(record));
   const iconInstitutions = useInstitutions(true);
@@ -149,8 +157,8 @@ export function AccountForm({
   const trackingMode = useWatch({ control, name: "trackingMode" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   useEffect(() => {
-    onCanSubmitChange?.(!isSubmitting && ownerIds.length > 0);
-  }, [isSubmitting, ownerIds.length, onCanSubmitChange]);
+    onCanSubmitChange?.(!isSubmitting);
+  }, [isSubmitting, onCanSubmitChange]);
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
   const institutionId = useWatch({ control, name: "institutionId" });
   const groupId = useWatch({ control, name: "groupId" });
@@ -218,7 +226,14 @@ export function AccountForm({
 
   const toggleOwner = (memberId: string) => {
     const next = ownerIds.includes(memberId) ? ownerIds.filter((id) => id !== memberId) : [...ownerIds, memberId];
-    setValue("ownerIds", next);
+    setValue("ownerIds", next, { shouldValidate: Boolean(errors.ownerIds) });
+  };
+
+  const changeDirectoryReference = (field: "institutionId" | "groupId", value: string) => {
+    const current = field === "institutionId" ? institutionId : groupId;
+    if (value === (current ?? "")) return;
+    setValue(field, value);
+    feedback.clear(field);
   };
 
   const submit = (values: AccountFormValues) => {
@@ -245,22 +260,20 @@ export function AccountForm({
   };
 
   return (
-    <form id={formId} onSubmit={handleSubmit(submit)} aria-label={t("accounts.formLabel")}>
+    <form ref={formRef} onChangeCapture={feedback.onChangeCapture} id={formId} onSubmit={handleSubmit(submit)} aria-label={t("accounts.formLabel")}>
       <fieldset disabled={isSubmitting} className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-name">{t("accounts.name")}</Label>
-        <Input id="account-name" {...register("name")} />
+        <Input id="account-name" {...feedback.fieldProps("name", Boolean(errors.name), errors.name ? "account-name-error" : undefined)} {...register("name")} />
         {errors.name && (
-          <p role="alert" className="text-xs text-destructive">
-            {t("error.validation.notEmpty")}
-          </p>
+          <FieldError id="account-name-error">{t("error.validation.notEmpty")}</FieldError>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-type">{t("accounts.accountType")}</Label>
         <NativeSelect
-          id="account-type"
+          id="account-type" {...feedback.fieldProps("accountType")}
           value={accountType}
           onChange={(event) => handleAccountTypeChange(event.target.value)}
         >
@@ -310,11 +323,11 @@ export function AccountForm({
         <Label htmlFor="account-currency">{t("accounts.currency")}</Label>
         {isEdit ? (
           <>
-            <Input id="account-currency" readOnly {...register("defaultCurrency")} />
+            <Input id="account-currency" {...feedback.fieldProps("defaultCurrency")} readOnly {...register("defaultCurrency")} />
             <p className="text-xs text-muted-foreground">{t("review.currencyImmutable")}</p>
           </>
         ) : (
-          <NativeSelect id="account-currency" {...register("defaultCurrency")}>
+          <NativeSelect id="account-currency" {...feedback.fieldProps("defaultCurrency")} {...register("defaultCurrency")}>
             {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
           </NativeSelect>
         )}
@@ -323,7 +336,7 @@ export function AccountForm({
       {!isEdit && trackingMode !== "holdings" && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="account-initial-amount">{t("accounts.amount")}</Label>
-          <Input id="account-initial-amount" inputMode="decimal" {...register("initialAmount")} placeholder="0" />
+          <Input id="account-initial-amount" {...feedback.fieldProps("initialAmount")} inputMode="decimal" {...register("initialAmount")} placeholder="0" />
         </div>
       )}
 
@@ -334,14 +347,16 @@ export function AccountForm({
             name="openedOn"
             control={control}
             render={({ field }) => (
-              <DatePicker id="account-opened-on" min={originDate} max={today} value={field.value ?? ""} onChange={field.onChange} clearable />
+              <DatePicker id="account-opened-on" {...feedback.fieldProps("openedOn")} min={originDate} max={today} value={field.value ?? ""} onChange={value => { field.onChange(value); feedback.clear("openedOn"); }} clearable />
             )}
           />
           <p className="text-xs text-muted-foreground">{t("accounts.openedOnHistoryHelp")}</p>
         </div>
       )}
 
-      <OwnershipFields
+      <Controller name="ownerIds" control={control} render={({ field }) => <OwnershipFields
+        focusRef={field.ref}
+        submissionProps={feedback.fieldProps("ownership")}
         idPrefix="owner"
         members={ownerOptions}
         ownerIds={ownerIds}
@@ -355,7 +370,7 @@ export function AccountForm({
           setValue("ownershipPercentages", next);
         }}
         showError={Boolean(errors.ownerIds)}
-      />
+      />} />
 
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm">
@@ -378,19 +393,19 @@ export function AccountForm({
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
           <IconPicker id="account-icon" value={iconKey} kind="account" onChange={setIconKey} inheritIconKey={resolveAccountIcon({ accountType, institutionId }, iconInstitutions.data)} />
-          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutionOptions} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
-          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groupOptions} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
+          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutionOptions} emptyLabel={t("accounts.none")} kind="institution" onChange={value => changeDirectoryReference("institutionId", value)} submissionProps={feedback.fieldProps("institutionId")} />
+          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groupOptions} emptyLabel={t("accounts.none")} kind="group" onChange={value => changeDirectoryReference("groupId", value)} submissionProps={feedback.fieldProps("groupId")} />
         </div>
       )}
 
-      {submissionError && (
-        <p role="alert" className="text-sm text-destructive">
-          {submissionError}
+      {feedback.message && (
+        <p ref={summaryRef} id={feedback.errorId} tabIndex={-1} role="alert" className="text-sm text-destructive">
+          {feedback.message}
         </p>
       )}
 
       {!hideSubmit && (
-        <Button type="submit" disabled={isSubmitting || ownerIds.length === 0}>{submitLabel}</Button>
+        <Button type="submit" disabled={isSubmitting}>{submitLabel}</Button>
       )}
       </fieldset>
     </form>

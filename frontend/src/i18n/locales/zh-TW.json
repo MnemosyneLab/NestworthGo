@@ -47,7 +47,7 @@
     "note": "備註",
     "openedOn": "開戶日期",
     "owner": "所有人",
-    "ownershipHint": "必須勾選至少一名所有權人。未勾選時不能繼續或儲存。",
+    "ownershipHint": "繼續或儲存前，請至少選擇一名所有權人。",
     "ownershipScope": "所有權",
     "ownershipSharePlaceholder": "勾選多人後可填寫各人百分比。",
     "ownershipShares": "所有權比例",

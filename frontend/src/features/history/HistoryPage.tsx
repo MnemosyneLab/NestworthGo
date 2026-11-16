@@ -238,7 +238,7 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
 
       {!keepDraft && loading ? <LoadingState label={t("history.loading")} /> : !keepDraft && failed ? (
         <ErrorState title={t("history.loadError")} description={t("ui.state.errorDescription")}
-          onRetry={() => { void Promise.all([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()]); }}
+          onRetry={() => Promise.allSettled([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()])}
           retryLabel={t("common.retryAction")} />
       ) : activityList.length === 0 ? (
         <EmptyState title={t("history.noActivityYet")} description={t("history.noActivityDescription")} />

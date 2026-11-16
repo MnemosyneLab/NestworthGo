@@ -51,7 +51,7 @@ export function AccountProductsSection({
     return <LoadingState label={t("ui.state.loadingPage")} />;
   }
 
-  if (products.isError) return <ErrorState title={t("availableFunds.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void products.refetch()} retryLabel={t("common.retryAction")} />;
+  if (products.isError) return <ErrorState title={t("availableFunds.loadError")} description={t("ui.state.errorDescription")} onRetry={() => products.refetch()} retryLabel={t("common.retryAction")} />;
 
   const items = products.data ?? [];
   return (

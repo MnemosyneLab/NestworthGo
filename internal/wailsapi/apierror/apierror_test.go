@@ -109,3 +109,15 @@ func TestWrapPreservesEveryDomainErrorCode(t *testing.T) {
 		}
 	}
 }
+
+func TestWrapLengthValidationMetadata(t *testing.T) {
+	original := &domain.Error{Code: domain.ErrValidation, Field: "name", Message: "must be 120 characters or fewer", MaxLength: 120}
+	parsed, ok := Parse(Wrap(fmt.Errorf("save: %w", original)).Error())
+	if !ok || parsed.MaxLength != 120 || parsed.Field != "name" || parsed.Code != "validation" {
+		t.Fatalf("lost length metadata: %+v", parsed)
+	}
+	plain := Wrap(&domain.Error{Code: domain.ErrValidation, Field: "name", Message: "must not be empty"}).Error()
+	if strings.Contains(plain, "maxLength") {
+		t.Fatalf("unexpected length metadata: %s", plain)
+	}
+}

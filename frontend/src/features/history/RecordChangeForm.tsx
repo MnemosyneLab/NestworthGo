@@ -1324,7 +1324,8 @@ function RecordChangeFormReady({
         <OptionSelect id="import-instrument" label={t("history.instrument")} value={request.instrumentId??""} emptyLabel={t("history.selectEmpty")} options={(instruments.data??[]).filter(ordinaryInstrument).map(instrument=>({id:instrument.id,name:selectionLabels.get(instrument.id)??instrument.name}))} onChange={instrumentId=>patch({instrumentId,currency:instruments.data?.find(v=>v.id===instrumentId)?.quoteCurrency??""})}/>
         {creatingInstrument ? <div className="flex flex-col gap-3">
           <InstrumentForm isSubmitting={createInstrument.isPending}
-            submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+            submissionCause={createInstrument.isError ? createInstrument.error : undefined}
+                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
             onSubmit={(instrumentRequest) => createInstrument.mutate(instrumentRequest, { onSuccess: (created) => {
               patch({ instrumentId: created.id, currency: created.quoteCurrency });
               setCreatingInstrument(false);
@@ -1400,7 +1401,8 @@ function RecordChangeFormReady({
           {!lock?.holdingId && request.side !== "sell" && (creatingInstrument ? (
             <InstrumentForm
               isSubmitting={createInstrument.isPending}
-              submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+              submissionCause={createInstrument.isError ? createInstrument.error : undefined}
+                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
               onSubmit={(instrumentRequest) => {
                 createInstrument.mutate(instrumentRequest, {
                   onSuccess: (created) => {

@@ -140,9 +140,14 @@ describe("Reservation management", () => {
     change("Purpose", "Revised rent"); change("Amount", "300");
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(screen.getByLabelText("Amount")).toHaveAttribute("aria-invalid", "true"));
+    await waitFor(() => expect(screen.getByLabelText("Amount")).toHaveFocus());
+    expect(screen.getByLabelText("Amount")).toBeEnabled();
+    expect(screen.getByLabelText("Amount").getAttribute("aria-describedby")).toContain(screen.getByRole("alert").id);
     expect(screen.getByLabelText("Purpose")).toHaveValue("Revised rent");
     expect(onOpenChange).not.toHaveBeenCalled();
     change("Amount", "350");
+    expect(screen.getByLabelText("Amount")).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByLabelText("Amount")).toHaveAttribute("aria-describedby", "reserve-currency");
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(api.SaveReservation.mock.calls[1][0]).toMatchObject({ id: "reserve", expectedRevision: 3, amount: "350", label: "Revised rent" });

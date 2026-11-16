@@ -332,7 +332,8 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
       {creatingInstrument ? (
         <InstrumentForm
           isSubmitting={createInstrument.isPending}
-          submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+          submissionCause={createInstrument.isError ? createInstrument.error : undefined}
+                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
           onSubmit={(request) => {
             createInstrument.mutate(request, {
               onSuccess: (created) => {

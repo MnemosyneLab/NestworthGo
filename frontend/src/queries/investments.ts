@@ -1,5 +1,5 @@
 import { callCancellableService } from "@/lib/wailsCancellation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRefreshInstrument } from "@/queries/marketdata";
 import { useAccounts } from "@/queries/accounts";
 import { Service as InstrumentService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument";
@@ -42,13 +42,17 @@ export function useCreateInstrument() {
   });
 }
 
-export function useUpdateInstrument() {
+export function useUpdateInstrument(id: string) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, request }: { id: string; request: InstrumentRequest }) =>
-      callService(() => InstrumentService.UpdateInstrument(id, request)),
-    onSuccess: (_data, { id }) => invalidateInstrumentChange(queryClient, id),
+  const mutationKey = ["instruments", "update", id];
+  // A reopened editor owns its own error, while a save for this ID can still be in flight.
+  const isSaving = useIsMutating({ mutationKey, exact: true }) > 0;
+  const update = useMutation({
+    mutationKey,
+    mutationFn: (request: InstrumentRequest) => callService(() => InstrumentService.UpdateInstrument(id, request)),
+    onSuccess: () => invalidateInstrumentChange(queryClient, id),
   });
+  return { ...update, isPending: isSaving || update.isPending };
 }
 
 export function useArchiveInstrument() {

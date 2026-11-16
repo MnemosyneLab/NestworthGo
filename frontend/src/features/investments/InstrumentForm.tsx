@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import { useSubmissionFeedback } from "@/components/forms/useSubmissionFeedback";
 import { trimInstrumentText } from "@/lib/instrumentDisplay";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { useEffect, useState } from "react";
@@ -12,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -61,8 +64,11 @@ function marketLabel(code: string, t: (key: string, options?: Record<string, unk
  * Provider-bound instruments require a provider key/symbol per
  * domain.NewInstrument's validation; this form only collects them when
  * quoteSource is "provider," matching the backend's rule. */
-export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionError, submitLabel }: { instrument?: InstrumentDTO; onSubmit: (request: InstrumentRequest) => void; isSubmitting: boolean; submissionError?: string; submitLabel?: string }) {
+export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionError, submissionCause, submitLabel }: { instrument?: InstrumentDTO; onSubmit: (request: InstrumentRequest) => void; isSubmitting: boolean; submissionError?: string; submissionCause?: unknown; submitLabel?: string }) {
   const { t } = useTranslation();
+  const formRef = useRef<HTMLFormElement>(null);
+  const summaryRef = useRef<HTMLParagraphElement>(null);
+  const feedback = useSubmissionFeedback(submissionCause, submissionError, isSubmitting, formRef, summaryRef);
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
   const bootstrap = useBootstrap();
@@ -215,25 +221,23 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   };
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("portfolio.instrumentFormLabel")}>
+    <form ref={formRef} onChangeCapture={feedback.onChangeCapture} onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("portfolio.instrumentFormLabel")}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-name">{t("accounts.name")}</Label>
-        <Input id="instrument-name" {...register("name")} />
+        <Input id="instrument-name" {...feedback.fieldProps("name", Boolean(errors.name), errors.name ? "instrument-name-error" : undefined)} {...register("name")} />
         {errors.name && (
-          <p role="alert" className="text-xs text-destructive">
-            {t("error.validation.notEmpty")}
-          </p>
+          <FieldError id="instrument-name-error">{t("error.validation.notEmpty")}</FieldError>
         )}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-short-name">{t("portfolio.shortName")}</Label>
-        <Input id="instrument-short-name" aria-describedby={errors.shortName ? "instrument-short-name-help instrument-short-name-error" : "instrument-short-name-help"} aria-invalid={Boolean(errors.shortName)} {...register("shortName")} />
+        <Input id="instrument-short-name" {...feedback.fieldProps("shortName", Boolean(errors.shortName), errors.shortName ? "instrument-short-name-help instrument-short-name-error" : "instrument-short-name-help")} {...register("shortName")} />
         <p id="instrument-short-name-help" className="text-xs text-muted-foreground">{t("portfolio.shortNameHelp")}</p>
         {errors.shortName && <p id="instrument-short-name-error" role="alert" className="text-xs text-destructive">{t("portfolio.shortNameTooLong")}</p>}
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
-        <NativeSelect id="instrument-type" {...register("type")} disabled={Boolean(instrument?.metalTemplate)} onChange={(event) => { setValue("type", event.target.value); if (!instrument && (instrumentType === "crypto" || event.target.value === "crypto")) { setValue("providerSymbol", ""); setValue("symbol", ""); setValue("countryCode", ""); setValue("marketCode", event.target.value === "crypto" ? "CRYPTO" : ""); } if (!instrument && metalTemplate) applyMetalTemplate(""); }}>
+        <NativeSelect id="instrument-type" {...feedback.fieldProps("type")} {...register("type")} disabled={Boolean(instrument?.metalTemplate)} onChange={(event) => { setValue("type", event.target.value); if (!instrument && (instrumentType === "crypto" || event.target.value === "crypto")) { setValue("providerSymbol", ""); setValue("symbol", ""); setValue("countryCode", ""); setValue("marketCode", event.target.value === "crypto" ? "CRYPTO" : ""); } if (!instrument && metalTemplate) applyMetalTemplate(""); }}>
           {instrumentTypes.map((type) => (
             <option key={type} value={type}>
               {displayEnum(t, "enum", type)}
@@ -244,14 +248,14 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       {instrumentType === "precious_metal" && (
         <div className="flex flex-col gap-3 rounded-md border border-border p-3">
           <Label htmlFor="metal-template">{t("metals.template")}</Label>
-          <NativeSelect id="metal-template" value={metalTemplate} disabled={Boolean(instrument)} onChange={(event) => applyMetalTemplate(event.target.value)}>
+          <NativeSelect id="metal-template" {...feedback.fieldProps("metalTemplate")} value={metalTemplate} disabled={Boolean(instrument)} onChange={(event) => applyMetalTemplate(event.target.value)}>
             <option value="">{t("metals.custom")}</option>
             <option value="gold">{t("metals.gold")}</option>
             <option value="silver">{t("metals.silver")}</option>
           </NativeSelect>
           {metalTemplate && <>
             <Label htmlFor="metal-unit">{t("metals.holdingUnit")}</Label>
-            <NativeSelect id="metal-unit" {...register("quantityUnit")} disabled={Boolean(instrument)}>
+            <NativeSelect id="metal-unit" {...feedback.fieldProps("quantityUnit")} {...register("quantityUnit")} disabled={Boolean(instrument)}>
               <option value="g">{t("metals.gram")}</option>
               <option value="troy_oz">{t("metals.troyOunce")}</option>
             </NativeSelect>
@@ -271,7 +275,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           <Label htmlFor="instrument-country-code">{t("portfolio.countryCode")}</Label>
           <NativeSelect
             disabled={Boolean(metalTemplate)}
-            id="instrument-country-code"
+            id="instrument-country-code" {...feedback.fieldProps("countryCode")}
             value={countryCode}
             onChange={(event) => {
               const next = event.target.value;
@@ -291,7 +295,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           <Label htmlFor="instrument-market-code">{t("portfolio.marketCode")}</Label>
           <NativeSelect
             disabled={Boolean(metalTemplate)}
-            id="instrument-market-code"
+            id="instrument-market-code" {...feedback.fieldProps("marketCode")}
             value={marketCode}
             onChange={(event) => {
               const next = event.target.value;
@@ -308,11 +312,11 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-symbol">{t("portfolio.symbol")}</Label>
-          <Input id="instrument-symbol" {...register("symbol")} />
+          <Input id="instrument-symbol" {...feedback.fieldProps("symbol")} {...register("symbol")} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-isin">{t("portfolio.isin")}</Label>
-          <Input id="instrument-isin" {...register("isin")} />
+          <Input id="instrument-isin" {...feedback.fieldProps("isin")} {...register("isin")} />
         </div>
       </div>
       </details>
@@ -321,18 +325,18 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
           {instrument ? (
           <>
-            <Input id="instrument-currency" readOnly {...register("quoteCurrency")} />
+            <Input id="instrument-currency" {...feedback.fieldProps("quoteCurrency")} readOnly {...register("quoteCurrency")} />
             <p className="text-xs text-muted-foreground">{t("review.currencyImmutable")}</p>
           </>
         ) : (
-          <NativeSelect id="instrument-currency" {...register("quoteCurrency")}>
+          <NativeSelect id="instrument-currency" {...feedback.fieldProps("quoteCurrency")} {...register("quoteCurrency")}>
             {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
           </NativeSelect>
         )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-quote-source">{t("portfolio.quoteSource")}</Label>
-          <NativeSelect id="instrument-quote-source" {...register("quoteSource")}>
+          <NativeSelect id="instrument-quote-source" {...feedback.fieldProps("quoteSource")} {...register("quoteSource")}>
             {quoteSources.map((source) => (
               <option key={source} value={source}>
                 {displayEnum(t, "portfolio", source)}
@@ -345,7 +349,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
         <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="instrument-provider-key">{t("portfolio.providerKey")}</Label>
-            <NativeSelect id="instrument-provider-key" {...register("providerKey")}>
+            <NativeSelect id="instrument-provider-key" {...feedback.fieldProps("providerKey")} {...register("providerKey")}>
               {instrumentProviders.filter((provider) => provider !== "coingecko" || instrumentType === "crypto").map((provider) => (
                 <option key={provider} value={provider}>
                   {displayEnum(t, "settings.provider", provider)}
@@ -355,7 +359,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="instrument-provider-symbol">{t("portfolio.providerSymbol")}</Label>
-            <Input id="instrument-provider-symbol" {...register("providerSymbol")} placeholder={t("portfolio.providerSymbolPlaceholder")} />
+            <Input id="instrument-provider-symbol" {...feedback.fieldProps("providerSymbol")} {...register("providerSymbol")} placeholder={t("portfolio.providerSymbolPlaceholder")} />
           </div>
         </>
       )}
@@ -370,11 +374,11 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       </div>}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-note">{t("portfolio.note")}</Label>
-        <Input id="instrument-note" {...register("note")} />
+        <Input id="instrument-note" {...feedback.fieldProps("note")} {...register("note")} />
       </div>
-      {submissionError && (
-        <p role="alert" className="text-sm text-destructive">
-          {submissionError}
+      {feedback.message && (
+        <p ref={summaryRef} id={feedback.errorId} tabIndex={-1} role="alert" className="text-sm text-destructive">
+          {feedback.message}
         </p>
       )}
       <Button type="submit" disabled={isSubmitting}>

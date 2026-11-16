@@ -48,7 +48,7 @@
     "note": "备注",
     "openedOn": "开户日期",
     "owner": "所有人",
-    "ownershipHint": "必须勾选至少一名所有权人。未勾选时不能继续或保存。",
+    "ownershipHint": "继续或保存前，请至少选择一名所有权人。",
     "ownershipScope": "所有权",
     "ownershipSharePlaceholder": "勾选多人后可填写各人百分比。",
     "ownershipShares": "所有权比例",

@@ -1,4 +1,5 @@
 {
+  "validationMaxLength": "请使用不超过 {{limit}} 个字符。",
   "already_undone": "此变化已被撤销。",
   "backup_business_invariant_failed": "此备份不符合 Nestworth 的数据规则。",
   "backup_checksum_failed": "此备份文件未通过完整性校验。",

@@ -106,8 +106,8 @@ it.each(["en"].flatMap(locale => ["light", "dark"].map(theme => ({ locale, theme
   },
 );
 
-function show(primaryView = false) {
-  const client = createTestQueryClient();
+function show(primaryView = false, queryOptions?: Parameters<typeof createTestQueryClient>[0]) {
+  const client = createTestQueryClient(queryOptions);
   const exit = vi.fn();
   // Account scenarios start in their intended navigation context. A detached
   // find/click races the caller's assertions and can target a later mount.
@@ -280,6 +280,31 @@ it("recovers from errors, rejects future dates and localizes the read-only label
   expect(screen.getByText("只读")).toBeInTheDocument();
   await act(async () => { await i18n.changeLanguage("zh-TW"); });
   expect(screen.getByText("唯讀")).toBeInTheDocument();
+});
+
+it.each(["capture", "starting point"])("keeps the %s retry focused through repeated failure and accepts Enter again", async stage => {
+  let rejectRetry!: (error: Error) => void;
+  const pendingRetry = new Promise<never>((_, reject) => { rejectRetry = reject; });
+  const load = stage === "capture" ? read : origin;
+  load.mockRejectedValueOnce(new Error("read failed")).mockReturnValueOnce(pendingRetry);
+  const user = userEvent.setup();
+  show(false, { retry: false });
+  const retryName = i18n.t("common.retryAction");
+  const retry = await screen.findByRole("button", { name: retryName });
+  retry.focus();
+  await user.keyboard("{Enter}");
+  expect(await screen.findByRole("button", { name: i18n.t("common.loading") })).toBe(retry);
+  expect(retry).toHaveFocus();
+  expect(retry).toHaveAttribute("aria-disabled", "true");
+  await user.keyboard("{Enter}");
+  expect(load).toHaveBeenCalledTimes(2);
+
+  await act(async () => rejectRetry(new Error("retry failed")));
+  expect(await screen.findByRole("button", { name: retryName })).toBe(retry);
+  expect(retry).toHaveFocus();
+  await user.keyboard("{Enter}");
+  expect(await screen.findByRole("button", { name: "Bank" })).toBeInTheDocument();
+  expect(load).toHaveBeenCalledTimes(3);
 });
 
 

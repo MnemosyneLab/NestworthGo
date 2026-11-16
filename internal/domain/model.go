@@ -68,9 +68,10 @@ const (
 
 // Error is safe to expose to the UI; database details stay below this boundary.
 type Error struct {
-	Code    ErrorCode
-	Field   string
-	Message string
+	Code      ErrorCode
+	Field     string
+	Message   string
+	MaxLength int // Unicode code-point limit; zero means no length constraint.
 }
 
 func (e *Error) Error() string {
@@ -181,7 +182,7 @@ func validateName(field, value string) (string, error) {
 		return "", validation(field, "must not be empty")
 	}
 	if len([]rune(value)) > 120 {
-		return "", validation(field, "must be 120 characters or fewer")
+		return "", &Error{Code: ErrValidation, Field: field, Message: "must be 120 characters or fewer", MaxLength: 120}
 	}
 	return value, nil
 }
@@ -195,7 +196,7 @@ func validateNote(field string, value *string) (*string, error) {
 		return nil, nil
 	}
 	if len([]rune(trimmed)) > 2000 {
-		return nil, validation(field, "must be 2000 characters or fewer")
+		return nil, &Error{Code: ErrValidation, Field: field, Message: "must be 2000 characters or fewer", MaxLength: 2000}
 	}
 	return &trimmed, nil
 }

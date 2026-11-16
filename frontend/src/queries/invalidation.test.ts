@@ -482,9 +482,9 @@ it("refreshes binding-dependent reads after updating an instrument", async () =>
   ];
   const unrelated = queryKeys.quote.instrument.current("instrument-2");
   const client = clientWith(...affected, unrelated);
-  const update = renderMutation(client, useUpdateInstrument);
+  const update = renderMutation(client, () => useUpdateInstrument("instrument-1"));
   await act(async () => {
-    await update.result.current.mutateAsync({ id: "instrument-1", request: { quoteSource: "manual" } as never });
+    await update.result.current.mutateAsync({ quoteSource: "manual" } as never);
   });
   for (const key of affected) expect(isInvalidated(client, key), JSON.stringify(key)).toBe(true);
   expect(isInvalidated(client, unrelated)).toBe(false);

@@ -46,6 +46,12 @@ it cannot enforce storage byte budgets. Keep backend validation authoritative.
 Provide a localized accessible name, associate errors with aria-describedby,
 and expose aria-invalid. Labels must target the actual interactive trigger.
 Preserve refs and focus restoration when changing an input into a picker.
+Account and instrument name errors use FieldError with linked invalid state.
+Account ownership errors belong to the shared OwnershipFields group and its
+checkboxes. Keep account Save/Continue available for validation with no owner
+selected; failed validation focuses the name first or the ownership group.
+Correcting the selection clears its error association. Pending submissions
+remain disabled, including external account-editor submit buttons.
 
 ## Interaction and visual conventions
 
@@ -64,6 +70,11 @@ text. Forms keep NativeSelect.
 Expose selected state semantically (aria-pressed/selected/checked as applicable),
 not only with color. Keep loading, empty, unavailable, stale and error distinct;
 reuse PageState when it fits and preserve retry actions and accessible status.
+For loading/error branches that replace each other during a query retry, keep
+`RetryableLoadState` mounted for the entire loading/error episode and unmount it
+when content is available. It retains the error action through no-data retries;
+`ErrorState` focuses user-activated retry buttons explicitly for WebKit, without
+moving focus again on completion if the user has navigated elsewhere.
 Use theme tokens (bg-card, text-muted-foreground, border-border, ring-ring),
 shared button variants and nearby gap/padding conventions. Check narrow layouts,
 long translated labels, light/dark themes and financial-value readability.
@@ -279,8 +290,12 @@ handling. Its search session starts empty and commits only an explicit option.
 Escape, Tab and blur cancel the query. IME composition never confirms an
 option or submits the outer form. Preserve disabled, error, selected and
 active-option semantics and test reopening while already focused.
-Entity selectors with icons and provider search results use the same field,
-panel and option styles. Provider results retain their loading and error states.
+Entity selectors with icons reuse FilterableSelect, including its keyboard/IME
+contract and portalled collision-aware list. Optional decorative option icons
+also appear beside the selected label when closed; text remains the accessible
+and searchable name. Empty selection is an explicit option. Provider search
+results use the same field, panel and option styles and retain their loading
+and error states.
 
 Instrument details preserve the backend aggregate and show every account member,
 including a single account and zero quantities, with owner/institution metadata,
@@ -349,3 +364,18 @@ requested date. Agent-sourced instruments do not expose manual price entry;
 archived and product-owned instruments retain their existing restrictions.
 The closed-date explanation remains visible alongside its date control, including
 the distinction between a non-publishing day and missing earlier trading prices.
+
+
+## Server field feedback
+
+Account metadata editing, InstrumentForm hosts and reservation forms preserve
+original Wails errors alongside their localized display messages. The shared
+useSubmissionFeedback hook links a known field to the form's error summary,
+retaining existing help and local validation descriptions. After pending ends,
+it focuses the mounted editable field; unknown, readonly, disabled or hidden
+fields use the focusable summary. Hidden/inert forms do not take focus.
+Editing the rejected field clears only that submission feedback; unrelated
+edits retain it, and each retry can report the same error again. For searchable
+selectors, clear feedback only when a different value is committed. Keep save
+errors scoped to the editor session that submitted the request. Do not infer
+field identity from translated error text or change financial validation.

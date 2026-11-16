@@ -24,7 +24,7 @@ export function NetWorthTrendCard({ active = true }: { active?: boolean } = {}) 
   return <Card><CardHeader><CardTitle>{t("connections.netWorthTrend")}</CardTitle></CardHeader><CardContent className="flex flex-col gap-4">
     <DateRangeControl {...range} />
     <p className="text-sm text-muted-foreground">{t("connections.netWorthNote")}</p>
-    {trend.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : trend.isError && !data ? <ErrorState title={t("overview.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void trend.refetch()} retryLabel={t("common.retryAction")} /> : <>
+    {trend.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : trend.isError && !data ? <ErrorState title={t("overview.loadError")} description={t("ui.state.errorDescription")} onRetry={() => trend.refetch()} retryLabel={t("common.retryAction")} /> : <>
       {trend.isFetching && data && <p role="status">{t("valuation.updating")}</p>}
  {trend.isError && data && <p role="alert">{t("valuation.priorResult")} <Button variant="link" onClick={() => void trend.refetch()}>{t("common.retryAction")}</Button></p>}
  <p className="text-sm">{data?.startDate ? formatCivilDateRange(data.startDate, data.endDate || data.startDate) : ""}</p>

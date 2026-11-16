@@ -221,7 +221,7 @@ passing database rows or driver-specific errors. Recommended rules:
 - Currency codes are three uppercase ASCII letters.
 - Money, Quantity, FX, and return values are canonical decimal strings.
 - Optional values are explicit pointers or nullable result fields.
-- Errors contain a stable code, safe message, and optional field context.
+- Errors contain a stable code, safe message, and optional field context. Length validation may include `maxLength`, a positive Unicode code-point limit, so clients can localize actionable feedback without parsing backend English. Older errors without this metadata retain the generic localized fallback.
 - Raw SQL, credentials, provider payloads, local paths, and sensitive values do
   not enter user-facing view models.
 

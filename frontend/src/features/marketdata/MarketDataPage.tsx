@@ -523,6 +523,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
           title={t("marketData.loadError")}
           description={displayError(activeRefresh.error, t("ui.state.errorDescription"))}
           onRetry={lastRefresh === "missing" ? runRefreshMissingOrStale : runRefreshAll}
+          isRetrying={activeRefresh.isPending}
           retryLabel={t("common.retryAction")}
         />
       )}
@@ -531,10 +532,7 @@ export function MarketDataPage({ onOpenDataHealth, focus, focusRequestId = 0, se
         <ErrorState
           title={t("marketData.loadError")}
           description={t("ui.state.errorDescription")}
-          onRetry={() => {
-            void instruments.refetch();
-            void fxPreferences.refetch();
-          }}
+          onRetry={() => Promise.allSettled([instruments.refetch(), fxPreferences.refetch()])}
           retryLabel={t("common.retryAction")}
         />
       )}

@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
+import { EmptyState, LoadingState, RetryableLoadState } from "@/components/layout/PageState";
 import { useSettings } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useInstruments,
@@ -28,7 +28,7 @@ import { useProducts } from "@/queries/liquidity";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { ManualInstrumentQuoteForm } from "@/features/marketdata/ManualInstrumentQuoteForm";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
-import { trimInstrumentText } from "@/lib/instrumentDisplay";
+import { instrumentSelectionLabels, trimInstrumentText } from "@/lib/instrumentDisplay";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatQuotePrice } from "@/lib/money";
@@ -103,12 +103,14 @@ function QuoteQuality({
 
 function InstrumentRow({
   instrument,
+  editName,
   groupTestId,
   onEdit,
   onView,
   productKind,
 }: {
   instrument: InstrumentDTO;
+  editName: string;
   groupTestId: string;
   onEdit: () => void;
   onView?: () => void;
@@ -161,12 +163,27 @@ function InstrumentRow({
         {onView && <Button type="button" variant="ghost" size="sm" aria-label={t("investmentAssets.openInstrument", { name: instrument.name })} onClick={onView}>
           {t("investmentAssets.details")}
         </Button>}
-        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+        <Button type="button" variant="outline" size="sm" aria-label={t("investmentAssets.editInstrument", { name: editName })} onClick={onEdit}>
           {t("common.edit")}
         </Button>
       </span>
     </li>
   );
+}
+
+function EditInstrumentForm({ instrument, onSaved }: { instrument: InstrumentDTO; onSaved: () => void }) {
+  const { t } = useTranslation();
+  const update = useUpdateInstrument(instrument.id);
+  return <InstrumentForm
+    instrument={instrument}
+    submitLabel={t("common.save")}
+    isSubmitting={update.isPending}
+    submissionCause={update.isError ? update.error : undefined}
+    submissionError={update.isError ? displayError(update.error, t("portfolio.updateError")) : undefined}
+    onSubmit={request => {
+      if (!update.isPending) update.mutate(request, { onSuccess: onSaved });
+    }}
+  />;
 }
 
 export function InstrumentManagement({
@@ -205,7 +222,6 @@ export function InstrumentManagement({
   const instruments = useInstruments(true);
   const products = useProducts({ includeClosed: true });
   const createInstrument = useCreateInstrument();
-  const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
   const [editOverrides, setEditOverrides] = useState<ReadonlyMap<number, InstrumentDTO | null>>(() => new Map());
@@ -240,8 +256,14 @@ export function InstrumentManagement({
   );
   const managedProduct = editTarget ? productByInstrument.get(editTarget.id) : undefined;
 
+  const availableCatalog = useMemo(
+    () => (instruments.data ?? []).filter(item => browseAll || !item.managedProductId),
+    [instruments.data, browseAll],
+  );
+  const editNames = useMemo(() => instrumentSelectionLabels(availableCatalog), [availableCatalog]);
+  const focusedId = focus?.instrumentId;
   const filtered = useMemo(() => {
-    const items = (instruments.data ?? []).filter(item => (browseAll || !item.managedProductId) && (!focus?.instrumentId || item.id === focus.instrumentId));
+    const items = focusedId ? availableCatalog.filter(item => item.id === focusedId) : availableCatalog;
     const needle = trimInstrumentText(query).toLowerCase();
     if (!needle) {
       return items;
@@ -250,22 +272,16 @@ export function InstrumentManagement({
       const haystack = [instrument.shortName, instrument.name, instrument.symbol, instrument.isin, instrument.marketCode, instrument.providerSymbol, instrument.quoteCurrency].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(needle);
     });
-  }, [instruments.data, query, focus, browseAll]);
-  const availableCatalog = useMemo(
-    () => (instruments.data ?? []).filter(item => browseAll || !item.managedProductId),
-    [instruments.data, browseAll],
-  );
+  }, [availableCatalog, query, focusedId]);
 
-  if (instruments.isLoading || products.isLoading) {
-    return <LoadingState label={t("portfolio.loading")} />;
-  }
-
-  if (instruments.isError || products.isError) {
+  if (instruments.isLoading || products.isLoading || instruments.isError || products.isError) {
     return (
-      <ErrorState
+      <RetryableLoadState
+        isError={instruments.isError || products.isError}
+        loading={<LoadingState label={t("portfolio.loading")} />}
         title={t("portfolio.loadError")}
         description={t("ui.state.errorDescription")}
-        onRetry={() => { void instruments.refetch(); void products.refetch(); }}
+        onRetry={() => Promise.allSettled([instruments.refetch(), products.refetch()])}
         retryLabel={t("common.retryAction")}
       />
     );
@@ -287,7 +303,8 @@ export function InstrumentManagement({
               </SheetHeader>
               <InstrumentForm
                 isSubmitting={createInstrument.isPending}
-                submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+                submissionCause={createInstrument.isError ? createInstrument.error : undefined}
+                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
                 onSubmit={(request) =>
                   createInstrument.mutate(request, {
                     onSuccess: () => {
@@ -328,6 +345,7 @@ export function InstrumentManagement({
                   <InstrumentRow
                     key={instrument.id}
                     instrument={instrument}
+                    editName={editNames.get(instrument.id) ?? instrument.name}
                     groupTestId={`${groupTestIdPrefix}-${group.key}`}
                     productKind={productByInstrument.get(instrument.id)?.kind}
                     onView={navigation ? () => navigation.open({
@@ -439,24 +457,14 @@ export function InstrumentManagement({
                 <TabsTrigger value="closed">{t("portfolio.setClosed")}</TabsTrigger>
               </TabsList>
               <TabsContent value="details" keepMounted className="mt-0">
-                <InstrumentForm
-                  key={editTarget.id}
+                <EditInstrumentForm
+                  key={focusRequestId}
                   instrument={editTarget}
-                  submitLabel={t("common.save")}
-                  isSubmitting={updateInstrument.isPending}
-                  submissionError={updateInstrument.isError ? displayError(updateInstrument.error, t("portfolio.updateError")) : undefined}
-                  onSubmit={(request) =>
-                    updateInstrument.mutate(
-                      { id: editTarget.id, request },
-                      {
-                        onSuccess: () => {
-                          toast.success(t("common.saved"));
-                          setEditorTab("details");
-                          setEditTarget(null);
-                        },
-                      },
-                    )
-                  }
+                  onSaved={() => {
+                    toast.success(t("common.saved"));
+                    setEditorTab("details");
+                    setEditTarget(null);
+                  }}
                 />
               </TabsContent>
               {editTarget.quoteSource !== "agent" && <TabsContent value="price" keepMounted className="mt-0 space-y-5">

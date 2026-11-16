@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2, Inbox, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,12 +50,38 @@ export function ErrorState({
   description,
   onRetry,
   retryLabel,
+  isRetrying = false,
 }: {
   title: string;
   description: string;
   onRetry?: () => void | Promise<unknown>;
   retryLabel?: string;
+  /** For retries driven by external state rather than a returned promise. */
+  isRetrying?: boolean;
 }) {
+  const { t } = useTranslation();
+  const [pending, setPending] = useState(false);
+  const inFlight = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const busy = pending || isRetrying;
+  const retry = async () => {
+    if (!onRetry || inFlight.current || isRetrying) return;
+    inFlight.current = true;
+    setPending(true);
+    try {
+      await onRetry();
+    } catch {
+      // The owning query/mutation supplies safe error copy. Keep it visible
+      // and allow another attempt; never leak raw rejection details.
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setPending(false);
+    }
+  };
   return (
     <div className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-8 text-center" role="alert">
       <AlertCircle className="size-5 text-destructive" aria-hidden="true" />
@@ -63,13 +90,31 @@ export function ErrorState({
         <p className="max-w-md text-sm text-muted-foreground">{description}</p>
       </div>
       {onRetry && (
-        <Button type="button" variant="outline" onClick={() => void onRetry()}>
-          <RefreshCw className="size-4" aria-hidden="true" />
-          {retryLabel}
+        <Button type="button" variant="outline" aria-disabled={busy} aria-busy={busy} onClick={(event) => {
+          // WebKit can blur even an aria-disabled button on pointer activation.
+          event.currentTarget.focus({ preventScroll: true });
+          if (busy || inFlight.current) return;
+          void retry();
+        }}>
+          <RefreshCw className={cn("size-4", busy && "motion-safe:animate-spin")} aria-hidden="true" />
+          {busy ? t("common.loading") : retryLabel ?? t("common.retryAction")}
         </Button>
       )}
     </div>
   );
+}
+
+/** Mount for one loading/error episode; unmount when content is available.
+ * Retain the error view across query retries so its focused button survives
+ * the no-data error -> pending -> error transition.
+ */
+export function RetryableLoadState({ isError, loading, ...errorProps }: {
+  isError: boolean;
+  loading: ReactNode;
+} & Parameters<typeof ErrorState>[0]) {
+  const [hasError, setHasError] = useState(isError);
+  if (isError && !hasError) setHasError(true);
+  return hasError ? <ErrorState {...errorProps} /> : loading;
 }
 
 export function EmptyState({
