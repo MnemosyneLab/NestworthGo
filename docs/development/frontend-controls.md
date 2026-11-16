@@ -70,6 +70,11 @@ text. Forms keep NativeSelect.
 Expose selected state semantically (aria-pressed/selected/checked as applicable),
 not only with color. Keep loading, empty, unavailable, stale and error distinct;
 reuse PageState when it fits and preserve retry actions and accessible status.
+For loading/error branches that replace each other during a query retry, keep
+`RetryableLoadState` mounted for the entire loading/error episode and unmount it
+when content is available. It retains the error action through no-data retries;
+`ErrorState` focuses user-activated retry buttons explicitly for WebKit, without
+moving focus again on completion if the user has navigated elsewhere.
 Use theme tokens (bg-card, text-muted-foreground, border-border, ring-ring),
 shared button variants and nearby gap/padding conventions. Check narrow layouts,
 long translated labels, light/dark themes and financial-value readability.

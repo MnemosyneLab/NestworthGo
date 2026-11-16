@@ -788,12 +788,15 @@ it("waits for a list retry, stays retryable after failure, and recovers on the n
   render(<QueryClientProvider client={createTestQueryClient({ retry: false })}><InstrumentManagement pageId="market-data" active /></QueryClientProvider>);
   const retry = await screen.findByRole("button", { name: "Try again" });
   await userEvent.click(retry);
-  expect(await screen.findByRole("status")).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Loading" })).toBe(retry);
+  expect(retry).toHaveFocus();
   fireEvent.click(retry);
   expect(listInstruments).toHaveBeenCalledTimes(2);
   await act(async () => rejectRetry(new Error("failed again")));
   const nextRetry = await screen.findByRole("button", { name: "Try again" });
-  await userEvent.click(nextRetry);
+  expect(nextRetry).toBe(retry);
+  expect(nextRetry).toHaveFocus();
+  await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("button", { name: "Edit Recovered fund" })).toBeVisible();
   expect(listInstruments).toHaveBeenCalledTimes(3);
 });

@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
+import { EmptyState, RetryableLoadState } from "@/components/layout/PageState";
 import { useSettings } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useInstruments,
@@ -256,13 +256,11 @@ export function InstrumentManagement({
     [instruments.data, browseAll],
   );
 
-  if (instruments.isLoading || products.isLoading) {
-    return <LoadingState label={t("portfolio.loading")} />;
-  }
-
-  if (instruments.isError || products.isError) {
+  if (instruments.isLoading || products.isLoading || instruments.isError || products.isError) {
     return (
-      <ErrorState
+      <RetryableLoadState
+        isError={instruments.isError || products.isError}
+        loadingLabel={t("portfolio.loading")}
         title={t("portfolio.loadError")}
         description={t("ui.state.errorDescription")}
         onRetry={() => Promise.allSettled([instruments.refetch(), products.refetch()])}

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
-import { ErrorState } from "./PageState";
+import { ErrorState, RetryableLoadState } from "./PageState";
 
 function deferred() {
   let resolve!: (value?: unknown) => void;
@@ -61,4 +61,38 @@ it("allows completion after the error view unmounts", async () => {
   view.unmount();
   await act(async () => request.resolve());
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
+
+
+it("focuses pointer-activated retries even when the browser does not focus buttons", async () => {
+  const request = deferred();
+  render(<ErrorState {...copy} onRetry={() => request.promise} />);
+  const button = screen.getByRole("button");
+  // Unlike userEvent.click, fireEvent does not synthesize browser focus.
+  fireEvent.click(button);
+  expect(button).toHaveFocus();
+  button.blur();
+  fireEvent.click(button);
+  expect(button).toHaveFocus();
+  await act(async () => request.reject(new Error("failed")));
+  expect(button).toHaveFocus();
+});
+
+it("retains the retry control through loading transitions without stealing moved focus", async () => {
+  const request = deferred();
+  const retry = () => request.promise;
+  const view = (isError: boolean) => <><button>Other action</button><RetryableLoadState {...copy} loadingLabel="Loading page" isError={isError} onRetry={retry} /></>;
+  const rendered = render(view(false));
+  expect(screen.getByRole("status")).toHaveTextContent("Loading page");
+  rendered.rerender(view(true));
+  const button = screen.getByRole("button", { name: "Try again" });
+  await userEvent.click(button);
+  rendered.rerender(view(false));
+  expect(screen.getByRole("button", { name: "Loading" })).toBe(button);
+  expect(button).toHaveFocus();
+  await userEvent.click(screen.getByRole("button", { name: "Other action" }));
+  rendered.rerender(view(true));
+  await act(async () => request.reject(new Error("failed")));
+  expect(screen.getByRole("button", { name: "Other action" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: "Try again" })).toBe(button);
 });

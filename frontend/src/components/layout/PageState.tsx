@@ -90,13 +90,31 @@ export function ErrorState({
         <p className="max-w-md text-sm text-muted-foreground">{description}</p>
       </div>
       {onRetry && (
-        <Button type="button" variant="outline" aria-disabled={busy} aria-busy={busy} onClick={() => void retry()}>
+        <Button type="button" variant="outline" aria-disabled={busy} aria-busy={busy} onClick={(event) => {
+          // WebKit can blur even an aria-disabled button on pointer activation.
+          event.currentTarget.focus({ preventScroll: true });
+          if (busy || inFlight.current) return;
+          void retry();
+        }}>
           <RefreshCw className={cn("size-4", busy && "motion-safe:animate-spin")} aria-hidden="true" />
           {busy ? t("common.loading") : retryLabel ?? t("common.retryAction")}
         </Button>
       )}
     </div>
   );
+}
+
+/** Mount for one loading/error episode; unmount when content is available.
+ * Retain the error view across query retries so its focused button survives
+ * the no-data error -> pending -> error transition.
+ */
+export function RetryableLoadState({ isError, loadingLabel, ...errorProps }: {
+  isError: boolean;
+  loadingLabel: string;
+} & Parameters<typeof ErrorState>[0]) {
+  const [hasError, setHasError] = useState(isError);
+  if (isError && !hasError) setHasError(true);
+  return hasError ? <ErrorState {...errorProps} /> : <LoadingState label={loadingLabel} />;
 }
 
 export function EmptyState({
