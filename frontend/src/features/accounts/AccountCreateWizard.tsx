@@ -1,10 +1,11 @@
 import { formatAuditMoney } from "@/lib/money";
 import { formatCivilDate } from "@/lib/time";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -75,6 +76,9 @@ export function AccountCreateWizard({
   submissionError?: string;
 }) {
   const { t } = useTranslation();
+  const ownerFocus = useRef<HTMLFieldSetElement>(null);
+  const nameFocus = useRef<HTMLInputElement>(null);
+  const [ownerError, setOwnerError] = useState(false);
   const members = useMembers();
   const institutions = useInstitutions();
   const groups = useGroups();
@@ -232,12 +236,24 @@ export function AccountCreateWizard({
     setStep("details");
   };
 
+  useEffect(() => {
+    if (nameError && step === "details") nameFocus.current?.focus();
+  }, [nameError, step]);
+
+  useEffect(() => {
+    if (ownerError && step === "details") ownerFocus.current?.focus();
+  }, [ownerError, step]);
+
   const goNextFromDetails = () => {
     if (!name.trim()) {
       setNameError(t("error.validation.notEmpty"));
+      nameFocus.current?.focus();
       return;
     }
     if (ownerIds.length === 0) {
+      setOwnerError(true);
+      setStep("details");
+      ownerFocus.current?.focus();
       return;
     }
     if (openedOn && (!originDate || !today || openedOn < originDate || openedOn > today)) {
@@ -250,6 +266,7 @@ export function AccountCreateWizard({
   };
 
   const toggleOwner = (memberId: string) => {
+    setOwnerError(false);
     const index = ownerIds.indexOf(memberId);
     setOwnerIds(index < 0 ? [...ownerIds, memberId] : ownerIds.filter(id => id !== memberId));
     if (index >= 0) setOwnershipPercentages(current => current.filter((_, i) => i !== index));
@@ -257,6 +274,9 @@ export function AccountCreateWizard({
 
   const create = () => {
     if (ownerIds.length === 0) {
+      setOwnerError(true);
+      setStep("details");
+      ownerFocus.current?.focus();
       return;
     }
     const request: CreateAccountRequest = {
@@ -475,11 +495,9 @@ export function AccountCreateWizard({
           </p>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-name">{t("accounts.name")}</Label>
-            <Input id="account-name" value={name} onChange={(event) => setName(event.target.value)} autoFocus />
+            <Input id="account-name" ref={nameFocus} value={name} aria-invalid={Boolean(nameError)} aria-describedby={nameError ? "wizard-name-error" : undefined} onChange={(event) => { setName(event.target.value); setNameError(undefined); }} autoFocus />
             {nameError && (
-              <p role="alert" className="text-xs text-destructive">
-                {nameError}
-              </p>
+              <FieldError id="wizard-name-error">{nameError}</FieldError>
             )}
           </div>
           <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={setIconKey} inheritIconKey={resolveAccountIcon({ accountType, institutionId: selectedInstitutionId }, institutions.data)} />
@@ -509,6 +527,8 @@ export function AccountCreateWizard({
           )}
           <OwnershipFields
             idPrefix="wizard-owner"
+            focusRef={ownerFocus}
+            showError={ownerError}
             members={activeMembers}
             ownerIds={ownerIds}
             onToggleOwner={toggleOwner}
@@ -591,7 +611,7 @@ export function AccountCreateWizard({
                     ? goNextFromTracking
                     : goNextFromDetails
           }
-          disabled={isSubmitting || createInstitution.isPending || (step === "type" && !resolvedType) || ((step === "details" || step === "review") && ownerIds.length === 0)}
+          disabled={isSubmitting || createInstitution.isPending || (step === "type" && !resolvedType)}
           autoFocus={step !== "details"}
         >
           {isSubmitting || createInstitution.isPending ? t("common.pending") : step === "review" ? t("accounts.create") : t("accounts.continue")}

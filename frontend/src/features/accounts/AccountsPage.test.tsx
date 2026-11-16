@@ -529,19 +529,36 @@ describe("AccountsPage", () => {
     await waitFor(() => expect(within(form).getByRole("button", { name: "Renamed Later Bank" })).toHaveAttribute("aria-pressed", "true"));
   });
 
-  it("disables Continue and does not submit when no owner is checked", async () => {
+  it("explains missing ownership and focuses the group without submitting", async () => {
     renderPage();
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
     await continueWizard(form, 3);
-    await userEvent.type(within(form).getByLabelText("Name"), "No Owner");
+    const name = within(form).getByLabelText("Name");
+    await userEvent.click(within(form).getByRole("button", { name: "Continue" }));
+    expect(name).toHaveFocus();
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription("Must not be empty");
+    await userEvent.type(name, "No Owner");
+    expect(name).toHaveAttribute("aria-invalid", "false");
+    expect(name).not.toHaveAttribute("aria-describedby");
     await userEvent.type(within(form).getByLabelText("Initial value"), "100");
     const continueButton = within(form).getByRole("button", { name: "Continue" });
-    expect(continueButton).toBeDisabled();
+    expect(continueButton).toBeEnabled();
     await userEvent.click(continueButton);
+    const owner = within(form).getByLabelText("Alice");
+    const group = owner.closest("fieldset")!;
+    await waitFor(() => expect(group).toHaveFocus());
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(owner).toHaveAttribute("aria-describedby", "wizard-owner-error");
     expect(within(form).queryByText("Review and create")).not.toBeInTheDocument();
     expect(createAccount).not.toHaveBeenCalled();
+    await userEvent.click(owner);
+    expect(group).toHaveAttribute("aria-invalid", "false");
+    expect(owner).not.toHaveAttribute("aria-describedby");
+    await userEvent.click(continueButton);
+    expect(within(form).getByText("Review and create")).toBeInTheDocument();
   });
 
   it("assigns 100% when a single owner is checked", async () => {
@@ -1447,15 +1464,19 @@ describe("AccountsPage", () => {
     expect(updateAccount.mock.calls[1][1]).toMatchObject({ name: "New session" });
   });
 
-  it("disables Save and does not update when every owner is unchecked", async () => {
+  it("focuses missing ownership from external Save without updating", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
     await openAccountSettings();
     const form = await screen.findByRole("form", { name: "Account form" });
     await userEvent.click(within(form).getByLabelText("Alice"));
     const saveButton = screen.getByRole("button", { name: "Save" });
-    await waitFor(() => expect(saveButton).toBeDisabled());
+    await waitFor(() => expect(saveButton).toBeEnabled());
     await userEvent.click(saveButton);
+    const owner = within(form).getByLabelText("Alice");
+    await waitFor(() => expect(owner.closest("fieldset")).toHaveFocus());
+    expect(owner).toHaveAttribute("aria-invalid", "true");
+    expect(owner).toHaveAttribute("aria-describedby", "owner-error");
     expect(updateAccount).not.toHaveBeenCalled();
   });
 

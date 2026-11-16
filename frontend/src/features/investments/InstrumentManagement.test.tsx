@@ -729,3 +729,20 @@ it("opens the price tab for a dated repair and hides manual entry for Agent inst
   expect(await screen.findByRole("tab", { name: "Instrument details" })).toHaveAttribute("aria-selected", "true");
   expect(screen.queryByRole("tab", { name: "Set price" })).not.toBeInTheDocument();
 });
+
+
+it("links an empty instrument name error and clears its state after correction", async () => {
+  renderManagement();
+  await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+  const form = screen.getByRole("form", { name: "Instrument form" });
+  const name = within(form).getByLabelText("Name");
+  expect(name).toHaveAttribute("aria-invalid", "false");
+  await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+  await waitFor(() => expect(name).toHaveFocus());
+  expect(name).toHaveAttribute("aria-invalid", "true");
+  expect(name).toHaveAccessibleDescription("Must not be empty");
+  expect(createInstrument).not.toHaveBeenCalled();
+  await userEvent.type(name, "Synthetic instrument");
+  await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "false"));
+  expect(name).not.toHaveAttribute("aria-describedby");
+});

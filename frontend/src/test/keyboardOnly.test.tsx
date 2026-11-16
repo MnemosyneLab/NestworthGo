@@ -285,7 +285,7 @@ describe("keyboard-only completion", () => {
     expect(within(form).getByLabelText("Alice")).toBeChecked();
     await userEvent.keyboard(" ");
     expect(within(form).getByLabelText("Alice")).not.toBeChecked();
-    expect(within(form).getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(within(form).getByRole("button", { name: "Continue" })).toBeEnabled();
     await userEvent.keyboard(" "); // Restore the default owner.
 
     await userEvent.tab(); // -> "More settings" toggle (left unpressed)

@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,7 @@ export function OwnershipFields({
   percentages,
   onPercentageChange,
   showError = false,
+  focusRef,
 }: {
   idPrefix: string;
   members: readonly OwnershipMember[];
@@ -34,10 +36,11 @@ export function OwnershipFields({
   percentages: readonly string[];
   onPercentageChange: (index: number, value: string) => void;
   showError?: boolean;
+  focusRef?: Ref<HTMLFieldSetElement>;
 }) {
   const { t } = useTranslation();
   return (
-    <fieldset className="flex flex-col gap-2">
+    <fieldset ref={focusRef} tabIndex={-1} aria-invalid={showError} aria-describedby={showError ? `${idPrefix}-error` : undefined} className="flex flex-col gap-2">
       <legend className="text-sm font-medium">{t("accounts.owner")}</legend>
       <p className="text-xs text-muted-foreground">{t("accounts.ownershipHint")}</p>
       {members.map((member) => {
@@ -45,7 +48,7 @@ export function OwnershipFields({
         const checked = index !== -1;
         return (
           <div key={member.id} className="flex items-center gap-2">
-            <input type="checkbox" id={`${idPrefix}-${member.id}`} checked={checked} onChange={() => onToggleOwner(member.id)} className="size-4 accent-primary" />
+            <input type="checkbox" id={`${idPrefix}-${member.id}`} checked={checked} aria-invalid={showError} aria-describedby={showError ? `${idPrefix}-error` : undefined} onChange={() => onToggleOwner(member.id)} className="size-4 accent-primary" />
             <Label htmlFor={`${idPrefix}-${member.id}`} className="flex-1 font-normal">
               <span className="flex items-center gap-2"><EntityIcon iconKey={member.iconKey} kind="member" />{member.name}</span>
             </Label>
@@ -67,7 +70,7 @@ export function OwnershipFields({
           {t("accounts.ownershipSharePlaceholder")}
         </label>
       )}
-      {showError && <FieldError>{t("error.ownership.atLeastOneOwner")}</FieldError>}
+      {showError && <FieldError id={`${idPrefix}-error`}>{t("error.ownership.atLeastOneOwner")}</FieldError>}
     </fieldset>
   );
 }

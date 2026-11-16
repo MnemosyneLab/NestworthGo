@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -149,8 +150,8 @@ export function AccountForm({
   const trackingMode = useWatch({ control, name: "trackingMode" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   useEffect(() => {
-    onCanSubmitChange?.(!isSubmitting && ownerIds.length > 0);
-  }, [isSubmitting, ownerIds.length, onCanSubmitChange]);
+    onCanSubmitChange?.(!isSubmitting);
+  }, [isSubmitting, onCanSubmitChange]);
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
   const institutionId = useWatch({ control, name: "institutionId" });
   const groupId = useWatch({ control, name: "groupId" });
@@ -218,7 +219,7 @@ export function AccountForm({
 
   const toggleOwner = (memberId: string) => {
     const next = ownerIds.includes(memberId) ? ownerIds.filter((id) => id !== memberId) : [...ownerIds, memberId];
-    setValue("ownerIds", next);
+    setValue("ownerIds", next, { shouldValidate: Boolean(errors.ownerIds) });
   };
 
   const submit = (values: AccountFormValues) => {
@@ -249,11 +250,9 @@ export function AccountForm({
       <fieldset disabled={isSubmitting} className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-name">{t("accounts.name")}</Label>
-        <Input id="account-name" {...register("name")} />
+        <Input id="account-name" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "account-name-error" : undefined} {...register("name")} />
         {errors.name && (
-          <p role="alert" className="text-xs text-destructive">
-            {t("error.validation.notEmpty")}
-          </p>
+          <FieldError id="account-name-error">{t("error.validation.notEmpty")}</FieldError>
         )}
       </div>
 
@@ -341,7 +340,8 @@ export function AccountForm({
         </div>
       )}
 
-      <OwnershipFields
+      <Controller name="ownerIds" control={control} render={({ field }) => <OwnershipFields
+        focusRef={field.ref}
         idPrefix="owner"
         members={ownerOptions}
         ownerIds={ownerIds}
@@ -355,7 +355,7 @@ export function AccountForm({
           setValue("ownershipPercentages", next);
         }}
         showError={Boolean(errors.ownerIds)}
-      />
+      />} />
 
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm">
@@ -390,7 +390,7 @@ export function AccountForm({
       )}
 
       {!hideSubmit && (
-        <Button type="submit" disabled={isSubmitting || ownerIds.length === 0}>{submitLabel}</Button>
+        <Button type="submit" disabled={isSubmitting}>{submitLabel}</Button>
       )}
       </fieldset>
     </form>

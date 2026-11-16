@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -218,11 +219,9 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
     <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("portfolio.instrumentFormLabel")}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-name">{t("accounts.name")}</Label>
-        <Input id="instrument-name" {...register("name")} />
+        <Input id="instrument-name" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "instrument-name-error" : undefined} {...register("name")} />
         {errors.name && (
-          <p role="alert" className="text-xs text-destructive">
-            {t("error.validation.notEmpty")}
-          </p>
+          <FieldError id="instrument-name-error">{t("error.validation.notEmpty")}</FieldError>
         )}
       </div>
       <div className="flex flex-col gap-1.5">
