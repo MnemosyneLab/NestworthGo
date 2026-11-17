@@ -211,7 +211,9 @@ The published output schema of an `mcp-read/2` tool requires `schemaVersion`,
 are checked by `output_schemas_full_test.go` and
 `TestDeliveryOutputSchemaMatchesResponses`. A client that validates
 `structuredContent` against the discovered schema does not re-check those
-details.
+details. Tools without such a read schema, including every write and
+`get_operation`, publish no `outputSchema`; strict clients such as Cursor
+reject a whole `tools/list` page if a property is a boolean schema.
 
 Within a filter array, values are OR. Different fields are AND. Empty arrays
 add no constraint. ID arrays accept at most 100 UUIDs. `query` is at most 200

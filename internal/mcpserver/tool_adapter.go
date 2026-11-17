@@ -39,9 +39,7 @@ func registerTool[I any](set *toolSet, definition *agentcapability.Definition, h
 		panic(err)
 	}
 	tool := sdkTool(d)
-	// Keep the SDK's original typed validation, defaults, decoding, structured
-	// errors and structured envelope. External tools acquire no App approval gate.
-	mcp.AddTool(set.server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, input I) (*mcp.CallToolResult, Response, error) {
+	call := func(ctx context.Context, input I) (*mcp.CallToolResult, Response, error) {
 		output, err := agentcapability.CallValidated[I, Response](ctx, set.Registry, d.Name, input)
 		if err != nil {
 			return nil, output, err
@@ -49,6 +47,18 @@ func registerTool[I any](set *toolSet, definition *agentcapability.Definition, h
 		// A non-nil empty Content suppresses the SDK's duplicate JSON text.
 		// Successful clients consume StructuredContent; SDK errors retain text.
 		return &mcp.CallToolResult{Content: []mcp.Content{}}, output, nil
+	}
+	// Keep the SDK's original typed validation, defaults, decoding, structured
+	// errors and structured envelope. External tools acquire no App approval gate.
+	if tool.OutputSchema != nil {
+		mcp.AddTool(set.server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, input I) (*mcp.CallToolResult, Response, error) {
+			return call(ctx, input)
+		})
+		return
+	}
+	// An untyped result keeps the SDK from inferring the Response schema again.
+	mcp.AddTool(set.server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, input I) (*mcp.CallToolResult, any, error) {
+		return call(ctx, input)
 	})
 }
 
@@ -68,8 +78,14 @@ func (set *toolSet) readResponseTools() map[string]bool {
 	return names
 }
 
+// Only explicit read schemas reach the wire. The registry's schema inferred
+// from Response encodes Data as the boolean schema `true`, which strict
+// clients (Cursor) reject for the whole tools/list page.
 func sdkTool(d agentcapability.Definition) *mcp.Tool {
-	tool := &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, OutputSchema: d.OutputSchema}
+	tool := &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema}
+	if readOutputSchema(d.Name) != nil {
+		tool.OutputSchema = d.OutputSchema
+	}
 	if a := d.Annotations; a != nil {
 		tool.Annotations = &mcp.ToolAnnotations{ReadOnlyHint: a.ReadOnlyHint, DestructiveHint: a.DestructiveHint, IdempotentHint: a.IdempotentHint, OpenWorldHint: a.OpenWorldHint}
 	}
