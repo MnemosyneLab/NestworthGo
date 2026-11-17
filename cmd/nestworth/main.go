@@ -104,8 +104,10 @@ func run() error {
 	systemLanguage := settings.ResolveLanguage(settings.LanguageSystem, systemLocale())
 	store := settings.DefaultStore()
 	preference, loadErr := store.Load()
+	shutdown := &shutdownStack{}
+	defer shutdown.run()
 	logFile := diagnostics.New(store.LogPath())
-	defer logFile.Close()
+	shutdown.push(func() { _ = logFile.Close() })
 	if err := logFile.Configure(preference.LogLevel); err != nil {
 		slog.Warn("could not open application log file", "error", err)
 	}
@@ -129,13 +131,13 @@ func run() error {
 		}
 		return fmt.Errorf("cannot access the persistent local database at %q: %w; check permissions or set NESTWORTH_DATABASE_PATH to a writable database file and restart", databasePath, lockErr)
 	}
-	defer unlockInstance()
+	shutdown.push(func() { _ = unlockInstance() })
 	var database *sqlite.DB
-	defer func() {
+	shutdown.push(func() {
 		if database != nil {
 			_ = database.Close()
 		}
-	}()
+	})
 	var service *nestworthapp.Service
 	var startupErr error
 	var foundSchema, supportedSchema int
@@ -234,19 +236,19 @@ func run() error {
 	}
 	if cloudBackup != nil {
 		recoveryUseCase.SetBeforeRestore(cloudBackup.PauseForRestore)
-		defer func() {
+		shutdown.push(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if cloudBackup.Close(ctx) != nil {
 				slog.Warn("continuous backup shutdown was incomplete")
 			}
-		}()
+		})
 		if err := cloudBackup.Start(context.Background()); err != nil {
 			slog.Warn("continuous backup did not start; local app remains available")
 		}
 	}
 	recoveryService := wailsrecovery.NewService(recoveryUseCase, platform, platform, refreshGate(marketdataService))
-	defer recoveryService.Shutdown()
+	shutdown.push(recoveryService.Shutdown)
 	var dataService *wailsdata.Service
 	if service != nil {
 		dataService = wailsdata.NewService(service, store, platform, marketdataService)
@@ -259,7 +261,7 @@ func run() error {
 			slog.Info("assistant runtime unavailable; activation remains closed")
 		}
 		if assistantRuntime != nil {
-			defer assistantRuntime.Close()
+			shutdown.push(func() { _ = assistantRuntime.Close() })
 		}
 	}
 	var agentServer *mcpserver.Service
@@ -274,11 +276,11 @@ func run() error {
 			return err
 		}
 		mobileServer = mobileapi.New(service, filepath.Join(filepath.Dir(store.Path), "mobile-access.json"), mobileAssets)
-		defer mobileServer.Close()
+		shutdown.push(func() { _ = mobileServer.Close() })
 		registered = append(registered, application.NewService(wailsmobile.NewService(mobileServer)))
 		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
 		agentServer.SetReconciliationChanged(func() { emitter.Emit(mcpserver.ReconciliationChangedEvent, true) })
-		defer agentServer.Close()
+		shutdown.push(agentServer.Close)
 		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
 			if assistantRuntime != nil {
 				if err := assistantRuntime.FenceForRestore(); err != nil {
@@ -302,10 +304,10 @@ func run() error {
 		})
 		registered = append(registered, application.NewService(wailsagent.NewService(agentServer)))
 	}
-	// Runs before MCP/recovery/backup cleanup (defers are LIFO). Fence and
+	// Runs before MCP/recovery/backup cleanup (the stack is LIFO). Fence and
 	// drain business writers, then cancel/join provider workers before final
 	// remote backup confirmation and any database descriptor close.
-	defer func() {
+	shutdown.push(func() {
 		if assistantRuntime != nil {
 			_ = assistantRuntime.Close()
 		}
@@ -319,11 +321,12 @@ func run() error {
 		if marketdataService != nil {
 			marketdataService.CancelAllAndWait()
 		}
-	}()
+	})
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
 		Services:    registered,
+		OnShutdown:  shutdown.run,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
