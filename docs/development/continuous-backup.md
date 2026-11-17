@@ -36,7 +36,9 @@ through the UI. The record does not represent remote backup success. A separate 
 local stream ledger records ownership before the worker starts. It records a
 seal only after the worker is joined, the application SQLite connection is
 drained, a final snapshot is remotely confirmed, and Litestream closes
-successfully. The optional sealing attempt has a 500 ms budget; failure or
+successfully. The optional sealing attempt has a three-second budget, enough
+for the final sync and status round trips to R2 within the five-second drain
+context; failure or
 cancellation leaves the stream unsealed and protected. Crash-abandoned open
 rows are never promoted on restart. Sealing evidence does not change the
 global last-successful-backup status. R2
@@ -84,6 +86,9 @@ close or sealing fails. Deletion is best effort and a generic warning records
 failure without preventing disable or restore. This does not scan old orphan
 streams, remove database/safety copies, or change remote retention/history.
 
+Process cleanup runs once from the Wails `OnShutdown` hook. On macOS, AppKit
+exits the process after that hook, so `app.Run` never returns and deferred
+calls in `run` would be skipped; the cleanup must not be placed in such defers.
 Shutdown first permanently fences/drains application write permits, cancels
 and joins market-data workers, then closes/drains MCP. This uses the central
 write coordinator without holding `changeMu` or the SQLite pool slot while

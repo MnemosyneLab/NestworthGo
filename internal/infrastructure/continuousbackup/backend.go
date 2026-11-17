@@ -24,6 +24,11 @@ import (
 const remotePrefix = "nestworth/v1/"
 const operationTimeout = 10 * time.Second
 
+// finalConfirmationTimeout bounds the shutdown seal: a final sync, a remote
+// status read and the Litestream close. It must cover two R2 round trips and
+// stay inside Close's five-second drain context.
+const finalConfirmationTimeout = 3 * time.Second
+
 var quietLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type backend interface {

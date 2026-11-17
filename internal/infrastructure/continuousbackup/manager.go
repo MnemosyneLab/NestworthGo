@@ -247,7 +247,7 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	var finalTXID string
 	closeStore := func() error {
 		closedHandles = true
-		finalCtx, stopFinal := context.WithTimeout(ctx, 500*time.Millisecond)
+		finalCtx, stopFinal := context.WithTimeout(ctx, finalConfirmationTimeout)
 		defer stopFinal()
 		// Application queries are drained, and the replication worker is joined.
 		// Confirm the final snapshot without borrowing the reserved app pool slot.
