@@ -295,15 +295,12 @@ func (s outputSchemas) rejects(t *testing.T, tool string, data map[string]any, k
 	}
 }
 
-func (s outputSchemas) genericEnvelope(t *testing.T, tool string) *jsonschema.Resolved {
+func (s outputSchemas) unpublished(t *testing.T, tool string) {
 	t.Helper()
-	entry := s[tool]
-	if entry.published == nil || entry.strict != nil ||
-		entry.published.Validate(map[string]any{"data": "generic payload"}) != nil ||
-		entry.published.Validate(map[string]any{}) == nil {
-		t.Fatalf("%s should advertise only a generic data envelope", tool)
+	entry, listed := s[tool]
+	if !listed || entry.published != nil || entry.strict != nil {
+		t.Fatalf("%s should advertise no outputSchema", tool)
 	}
-	return entry.published
 }
 
 func assertSchemaPage(t *testing.T, page map[string]any, more bool, consistency string) {
@@ -364,9 +361,9 @@ func TestFinancialOutputSchemasMatchInitialAndContinuation(t *testing.T) {
 		})
 	}
 
-	// Focused financial items only advertise the SDK's generic Response
-	// envelope. Their continuations use get_read_page's read contract.
-	schemas.genericEnvelope(t, "get_financial_context_item")
+	// Focused financial items advertise no output schema. Their
+	// continuations use get_read_page's read contract.
+	schemas.unpublished(t, "get_financial_context_item")
 	capture := decodeContext(t, call(t, client, "get_financial_context", Empty{}, false))
 	item := call(t, client, "get_financial_context_item", FinancialContextItemInput{
 		ContextID: capture.ContextID, Ref: capture.Content.Scope.AccountRefs[0],
@@ -417,9 +414,9 @@ func TestRepairOutputSchemasMatchStartAndProgress(t *testing.T) {
 	client := connect(t, s)
 	schemas := discoverOutputSchemas(t, client)
 	const startTool = "start_data_repair"
-	// This write only advertises the SDK's generic Response envelope; check
-	// receipt fields explicitly, without pretending it has a strict oracle.
-	startSchema := schemas.genericEnvelope(t, startTool)
+	// This write advertises no output schema; check receipt fields
+	// explicitly, without pretending it has a strict oracle.
+	schemas.unpublished(t, startTool)
 
 	// Hold the real job at its started event so polling does not race completion.
 	started, release := make(chan string, 1), make(chan struct{})
@@ -464,9 +461,6 @@ func TestRepairOutputSchemasMatchStartAndProgress(t *testing.T) {
 	response := <-submitted
 	if response.err != nil || response.value.IsError {
 		t.Fatal(response.err, response.value)
-	}
-	if err := startSchema.Validate(response.value.StructuredContent); err != nil {
-		t.Fatalf("start receipt violates the published outputSchema: %v", err)
 	}
 	data := response.value.StructuredContent.(map[string]any)["data"].(map[string]any)
 	result := data["result"].(map[string]any)

@@ -1,5 +1,12 @@
 # MCP contract changelog
 
+## 2026-11-17 — no inferred output schemas on the wire
+
+Writes, receipts and reads without an explicit read schema no longer publish the
+SDK-inferred `{"properties":{"data":true}}` output schema. Cursor rejected that
+boolean property and dropped every tool on the affected `tools/list` page.
+Results are unchanged; the in-process registry keeps the generic schema.
+
 ## 2026-11-10 — structured-only success results
 
 MCP implementation 5.0.0 returns success payloads only in `structuredContent`,

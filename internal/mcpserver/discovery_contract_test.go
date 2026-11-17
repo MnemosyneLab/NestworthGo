@@ -137,7 +137,13 @@ func TestExternalDiscoveryContractSnapshot(t *testing.T) {
 					t.Fatal(err)
 				}
 				// Effect is host policy and intentionally absent from the wire.
-				if !reflect.DeepEqual(jsonObject(t, json.RawMessage(local)), jsonObject(t, listed.Tools[i])) {
+				// The generic Response schema stays local for the in-process
+				// adapter; the wire omits it because strict clients reject it.
+				localObject := jsonObject(t, json.RawMessage(local))
+				if listed.Tools[i].OutputSchema == nil && readOutputSchema(d.Name) == nil {
+					delete(localObject, "outputSchema")
+				}
+				if !reflect.DeepEqual(localObject, jsonObject(t, listed.Tools[i])) {
 					t.Errorf("%s local/external metadata differ", d.Name)
 				}
 				if listed.Tools[i].Annotations.IdempotentHint && d.Effect != agentcapability.Write {

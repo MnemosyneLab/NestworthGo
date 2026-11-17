@@ -110,6 +110,64 @@ func TestFrozenContributionDiscoveryContract(t *testing.T) {
 	}
 }
 
+// Cursor rejects an entire tools/list page when any outputSchema property is a
+// boolean schema, so receipts publish none and read schemas use objects only.
+func TestDiscoveryOutputSchemasHaveNoBooleanProperties(t *testing.T) {
+	s, _, _ := fixture(t)
+	t.Cleanup(s.Close)
+	if _, err := s.Enable(ReadWrite); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := listAllTools(t.Context(), connect(t, s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var check func(name string, node any)
+	check = func(name string, node any) {
+		switch v := node.(type) {
+		case map[string]any:
+			if props, ok := v["properties"].(map[string]any); ok {
+				for key, prop := range props {
+					if _, ok := prop.(map[string]any); !ok {
+						t.Errorf("%s outputSchema property %q is not an object schema: %v", name, key, prop)
+					}
+				}
+			}
+			for _, child := range v {
+				check(name, child)
+			}
+		case []any:
+			for _, child := range v {
+				check(name, child)
+			}
+		}
+	}
+	writes := 0
+	for _, tool := range listed.Tools {
+		if tool.Annotations != nil && !tool.Annotations.ReadOnlyHint {
+			writes++
+		}
+		if tool.OutputSchema == nil {
+			continue
+		}
+		if readOutputSchema(tool.Name) == nil {
+			t.Errorf("%s publishes an inferred outputSchema", tool.Name)
+		}
+		raw, err := jsoncodec.Marshal(tool.OutputSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schema any
+		if err := jsoncodec.Unmarshal(raw, &schema); err != nil {
+			t.Fatal(err)
+		}
+		check(tool.Name, schema)
+	}
+	if writes == 0 {
+		t.Fatal("read-write discovery listed no write tools")
+	}
+}
+
 // Match real MCP discovery clients: a short page is not the entire tool set.
 func listAllTools(ctx context.Context, client *mcp.ClientSession) (*mcp.ListToolsResult, error) {
 	all := &mcp.ListToolsResult{}
