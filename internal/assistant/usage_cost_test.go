@@ -1,8 +1,11 @@
 package assistant
 
 import (
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
 func pricedFixture() UsageCall {
@@ -32,6 +35,78 @@ func TestFrozenUsageCost(t *testing.T) {
 		t.Fatal("failed calls can still be billable")
 	}
 }
+func TestUsagePriceCatalogueRollover(t *testing.T) {
+	boundary := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		kind, model, usd string
+	}{
+		{"conversation", "gpt-6-astra", "0.01625"},
+		{"conversation", "gpt-6.1-sol", "0.0032"},
+		{"conversation", "gpt-6.1-terra", "0.0016"},
+		{"title", "gpt-6-luna", "0.0001625"},
+		{"transcription", "gpt-transcribe", "0.000925875"},
+	} {
+		t.Run(tc.model, func(t *testing.T) {
+			c := pricedFixture()
+			c.Kind, c.Model = tc.kind, tc.model
+			if c.Kind == "transcription" {
+				seconds := "12.345"
+				c.Model, c.RequestedModel, c.AudioSeconds = "", tc.model, &seconds
+			}
+			// The request start, not its later completion, determines the version.
+			finished := boundary.Add(time.Second)
+			c.Finished = &finished
+			c.Started = boundary.Add(-time.Nanosecond)
+			old := estimateUsage(c, usagePrices)
+			if old.Status != "estimated" || old.USD != tc.usd || old.Price == nil ||
+				old.Price.Version != "openai-public-2026-11-06.v1" || !old.Price.ValidUntil.Equal(boundary) {
+				t.Fatalf("before rollover: %+v, price %+v", old, old.Price)
+			}
+			c.Started = boundary
+			next := estimateUsage(c, usagePrices)
+			if next.Status != "estimated" || next.USD != tc.usd || next.Price == nil ||
+				next.Price.Version != "openai-public-2026-12-01.v1" || !next.Price.ValidFrom.Equal(boundary) {
+				t.Fatalf("at rollover: %+v, price %+v", next, next.Price)
+			}
+		})
+	}
+}
+
+func TestHistoricalUsageSnapshotSurvivesCatalogueRollover(t *testing.T) {
+	c := pricedFixture()
+	c.Cost = estimateUsage(c, usagePrices)
+	if c.Cost.Price == nil || c.Cost.Price.Version != "openai-public-2026-11-06.v1" {
+		t.Fatalf("expected historical snapshot: %+v", c.Cost)
+	}
+	// The store persists this JSON payload; reports read its frozen amount even
+	// when a subsequently loaded catalogue can no longer price this call.
+	raw, err := jsoncodec.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored UsageCall
+	if err := jsoncodec.Unmarshal(raw, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if !validUsageCost(restored.Cost) || !reflect.DeepEqual(restored.Cost, c.Cost) {
+		t.Fatalf("historical snapshot changed: %+v", restored.Cost)
+	}
+	var successor []priceCatalogue
+	for _, catalogue := range usagePrices {
+		if catalogue.Version == "openai-public-2026-12-01.v1" {
+			successor = append(successor, catalogue)
+		}
+	}
+	if len(successor) != 1 || estimateUsage(restored, successor).Status != "unknown_price" {
+		t.Fatal("successor unexpectedly covers the historical call")
+	}
+	var total UsageTotal
+	total.add(restored)
+	if total.EstimatedUSD != "0.0032" || total.PricedCalls != 1 || total.UnpricedCalls != 0 {
+		t.Fatalf("historical total changed: %+v", total)
+	}
+}
+
 func TestCostUnknownConditions(t *testing.T) {
 	for name, change := range map[string]func(*UsageCall){
 		"unknown_model":          func(c *UsageCall) { c.Model = "" },
@@ -39,11 +114,12 @@ func TestCostUnknownConditions(t *testing.T) {
 		"unknown_endpoint":       func(c *UsageCall) { c.PricingScope = "" },
 		"missing_usage":          func(c *UsageCall) { c.Output = nil },
 		"missing_cache_lifetime": func(c *UsageCall) { c.CacheWrite30m = nil },
-		"unknown_price":          func(c *UsageCall) { c.Started = time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC) },
+		"unknown_price":          func(c *UsageCall) { c.Started = time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) },
 		"invalid_usage":          func(c *UsageCall) { n := int64(600); c.CacheWrite = &n },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := pricedFixture()
+			c.Started = time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
 			change(&c)
 			v := estimateUsage(c, usagePrices)
 			if v.Status != name || v.USD != "" || v.Price != nil {

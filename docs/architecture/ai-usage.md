@@ -92,13 +92,16 @@ unpriced. The UI separates known estimated subtotal from unpriced request count,
 and exposes rates in a collapsed price-basis disclosure. Estimates exclude
 account discounts, taxes and other invoice adjustments.
 
-The initial catalogue is verified on 2026-11-06 and expires for new estimates on
-2026-12-01 (our review deadline, not a provider price guarantee). It covers exact
-listed model IDs on the public OpenAI endpoint, Standard (`default`) responses,
-and provider-duration `gpt-transcribe` ASR. Unknown models, missing actual text
-model/tier, other endpoints/tiers, expired prices or incomplete usage remain
-unpriced. ASR uses the requested model when the response omits it; this basis is
-saved. Browser duration and token-to-audio conversions are never substituted.
+The initial catalogue (verified 2026-11-06) ends at 2026-12-01 00:00 UTC.
+Its successor (reverified 2026-11-22) covers requests starting from that instant
+until 2027-01-01 00:00 UTC, exclusive, with unchanged model coverage and rates.
+These are review deadlines, not provider price guarantees. The catalogues cover
+exact listed model IDs on the public OpenAI endpoint, Standard (`default`)
+responses, and provider-duration `gpt-transcribe` ASR. Unknown models, missing
+actual text model/tier, other endpoints/tiers, expired prices or incomplete
+usage remain unpriced. ASR uses the requested model when the response omits it;
+this basis is saved. Browser duration and token-to-audio conversions are never
+substituted.
 
 Ordinary input = input − cached input − cache writes; the latter two must be
 nonoverlapping. Separate 30-minute and 12-hour write counts and service tier are
