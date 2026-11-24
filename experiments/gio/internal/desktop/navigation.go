@@ -118,6 +118,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
 		return
 	}
+	if s.historyPage != nil && s.historyPage.contributions.writing() {
+		return
+	}
 	entry := s.trail.current()
 	if request.step != 0 {
 		if s.trail.adjacent(request.step) == nil {

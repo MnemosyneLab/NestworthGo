@@ -18,6 +18,7 @@ type Reader interface {
 type Row struct {
 	ID                 domain.ActivityID
 	Kind               domain.ActivityKind
+	Reason             domain.ActivityReason
 	EffectiveLocalDate string
 	Note               *string
 }
@@ -118,7 +119,7 @@ func (p *Model) read(after *domain.ActivityCursor) {
 			result.rows = make([]Row, len(page.Activities))
 			for i, activity := range page.Activities {
 				result.rows[i] = Row{
-					ID: activity.ID, Kind: activity.Kind,
+					ID: activity.ID, Kind: activity.Kind, Reason: activity.Reason,
 					EffectiveLocalDate: activity.EffectiveLocalDate, Note: activity.Note,
 				}
 			}

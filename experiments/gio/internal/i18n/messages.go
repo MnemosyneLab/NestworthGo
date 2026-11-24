@@ -379,6 +379,32 @@ const (
 	HistoryLoadError
 	HistoryRefresh
 	HistoryRetry
+	ContributionAdd
+	ContributionTitle
+	ContributionAccount
+	ContributionAmount
+	ContributionTimezone
+	ContributionEffective
+	ContributionHistoryRequired
+	ContributionNoAccounts
+	ContributionSourcesFailed
+	ContributionInvalidAccount
+	ContributionInvalidAmount
+	ContributionInvalidTime
+	ContributionPreview
+	ContributionPreviewFailed
+	ContributionReview
+	ContributionBefore
+	ContributionDelta
+	ContributionAfter
+	ContributionConfirm
+	ContributionStale
+	ContributionUncertain
+	ContributionRetryPost
+	ContributionPosted
+	ContributionDetailFailed
+	ContributionBack
+	ContributionViewOn
 	HistoryActivity
 	HistoryEmpty
 	HistoryMore

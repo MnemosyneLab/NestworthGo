@@ -189,6 +189,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			}
 		}
 	}
+	if s.historyPage != nil && s.overviewPage != nil {
+		s.historyPage.onPosted = func() { s.overviewPage.needsRefresh = true }
+	}
 	return s
 }
 

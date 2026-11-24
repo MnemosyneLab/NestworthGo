@@ -8,6 +8,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -22,6 +23,9 @@ type historyPage struct {
 	model                                 *history.Model
 	list                                  widget.List
 	reloadButton, retryButton, moreButton widget.Clickable
+	contributions                         *historyContributions
+	refreshAfterPost                      bool
+	onPosted                              func()
 }
 
 func newHistoryPage(model *history.Model) *historyPage {
@@ -47,6 +51,30 @@ var historyKindLabels = map[domain.ActivityKind]i18n.MessageID{
 func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.model.Update() {
 		p.list.Position = layout.Position{}
+		if p.contributions != nil {
+			p.contributions.pruneButtons(p.model.Rows())
+		}
+	}
+	if c := p.contributions; c != nil {
+		if c.update() {
+			p.refreshAfterPost = true
+			if p.onPosted != nil {
+				p.onPosted()
+			}
+		}
+		if p.refreshAfterPost && !p.model.Loading() {
+			p.refreshAfterPost = false
+			p.model.Reload()
+		}
+		if c.detail != nil {
+			return c.layoutDetail(gtx, view)
+		}
+		if c.add.Clicked(gtx) && c.draft == nil {
+			c.start()
+		}
+		if c.draft != nil {
+			return c.layoutForm(gtx, view)
+		}
 	}
 	if p.reloadButton.Clicked(gtx) {
 		p.model.Reload()
@@ -63,6 +91,12 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.contributions == nil {
+						return layout.Dimensions{}
+					}
+					return view.PrimaryButton(&p.contributions.add, view.Language.Text(i18n.ContributionAdd))(gtx)
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.model.Err() != nil {
 						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)
@@ -148,7 +182,7 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 				return material.List(view.Theme, &p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
 					row := p.model.Rows()[i]
 					return accessibility.Row(gtx, row.ID, func(gtx layout.Context) layout.Dimensions {
-						return historyEntry(gtx, view, row)
+						return p.layoutActivityRow(gtx, view, row)
 					})
 				})
 			})
@@ -156,14 +190,38 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 	})
 }
 
-func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	day := row.EffectiveLocalDate
-	if parsed, ok := ui.ParseCivilDay(day); ok {
-		day = ui.FormatDay(parsed, view.Language, view.DateFormat)
+func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
+	c := p.contributions
+	if c == nil || !history.IsContribution(row.Kind, row.Reason) {
+		return historyEntry(gtx, view, row)
 	}
+	button := c.detailButton(row.ID)
+	if button.Clicked(gtx) && c.detail == nil {
+		c.open(row.ID, false)
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	name := fmt.Sprintf(view.Language.Text(i18n.ContributionViewOn), historyDay(view, row.EffectiveLocalDate))
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
+		layout.Rigid(view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name)),
+	)
+}
+
+func historyDay(view ui.View, day string) string {
+	if parsed, ok := ui.ParseCivilDay(day); ok {
+		return ui.FormatDay(parsed, view.Language, view.DateFormat)
+	}
+	return day
+}
+
+func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
+	day := historyDay(view, row.EffectiveLocalDate)
 	kind, ok := historyKindLabels[row.Kind]
 	if !ok {
 		kind = i18n.HistoryActivity
+	}
+	if history.IsContribution(row.Kind, row.Reason) {
+		kind = i18n.ContributionTitle
 	}
 	return layout.Inset{Top: 9, Bottom: 9, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx,

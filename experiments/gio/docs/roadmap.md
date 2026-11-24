@@ -53,12 +53,14 @@ with read paths, then use the same data to validate writes and reconstruction.
 | 7. Desktop integrations and distribution | Complete advanced Settings workflows, backup/restore/export, mobile pairing, MCP runtime, built-in assistant, credentials, native menus/dialogs, About and shutdown. Assemble the signed distributable and verify update and fallback. | Exercise each integration and restore/restart from a backup. Validate mobile assets, sidecar lifecycle and platform packaging on the supported target. |
 
 Stage 1 is implemented on the experimental desktop. The current list displays
-kind, civil date and note. Account and instrument names, amount breakdowns,
-filters, detail and write actions remain part of later History work. The
-scoped Stage 2 workflows are implemented. Platform acceptance remains open.
+kind, civil date and note. The first Stage 4 slice adds contribution posting
+and contribution detail. Broader labels, breakdowns, filters and activity types
+remain open. The scoped Stage 2 workflows are implemented. Platform acceptance
+remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
-account Catalog. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+account Catalog. Production startup and target-platform acceptance remain
+open. Stages 5–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -535,11 +537,41 @@ interruption during finalization and opening production profiles remain open.
 | Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
 
 Stage 3 closes with production startup and target-platform restart, blocking,
-ownership and Wails parity evidence. Stage 4 can proceed in parallel on separate
-verified synthetic profiles using the established startup and ownership path.
-Its first slice can verify one reviewed ledger change through the shared preview
-and commit services, then compare exact stored effects and History detail. Stage
-4 and 5 actions keep their own acceptance gates.
+ownership and Wails parity evidence. Stage 4 uses separate verified synthetic
+profiles and the established startup and ownership path.
+
+### Stage 4 progress
+
+#### Cash contribution milestone
+
+**Ledger activity → Record contribution** selects an active cash-balance asset
+with a recorded value. This slice supports balance-mode bank, cash-on-hand and
+digital wallet accounts. The receiving account sets the currency. The shared
+date and time pickers collect a civil date and minute in the immutable History
+Origin timezone, using the shared service to validate the effective instant.
+Review shows the exact balance before, contribution and resulting balance.
+Returning to details discards the preview. An intervening ledger write expires
+the guarded review and requires a fresh preview.
+
+Gio uses the [Wails History Go request](../../../internal/wailsapi/history/command.go)
+to resolve the command and hash its immutable mutation envelope. The guarded
+application writer shares the mutation replay and atomic commit implementation
+with `RecordChangeWithMutation`. After an uncertain reply, the form offers a
+retry of the frozen command and the same mutation ID. After acknowledgement it
+opens the exact posted activity, reloads History and invalidates Overview.
+Retry on a detail failure reads the saved record. Visiting Accounts rereads the
+balance. This contribution detail is part of the History page. The form keeps
+an unresolved submission in memory during the window session. The durable
+application receipt can replay the same known ID after a restart.
+
+| Check | Evidence |
+| --- | --- |
+| Go adapter and exact facts | Independent copies of a verified fixture at `2026-11-21T17:00:00Z` matched the Wails History Go preview, stored activity and effect for USD 25 on November 21 at 01:00 in `Asia/Singapore`. The recorded instant was November 20 at 17:00 UTC. One added `account_value` effect was classified as `external_inflow`, and the balance moved from USD 1,734.13 to USD 1,759.13. |
+| Draft and failure paths | Gio frame tests used the normal History entry point to cancel a review, edit USD 50 to USD 25 and preview again, reject zero and an unavailable account, and require a new review after the account was archived. The tests exercised missing History, a timestamp before the Origin, and a repeated confirmation while the writer was pending. |
+| Replay and read retry | A fault discarded the first successful response. The identical command, mutation ID, payload hash and token returned the original activity. A later detail read failed after confirmed success; Retry read the activity without calling the writer again. On reopen the shared receipt replayed the original ID, while USD 50 with that ID conflicted. One business activity and one effect remained. |
+| Linux X11 | At 900×660 on Xvfb, canceled a USD 50 review, then reviewed USD 50 again, edited it to USD 25 and reviewed the new amount. A double click confirmed one contribution and left the posted detail visible. History reloaded from six to seven entries, and Accounts and Overview showed USD 1,759.13. After normal quit and reopen, History still opened the same contribution detail. Read-only SQLite comparison found one added activity, one USD 25 external-inflow effect and one mutation receipt. A temporary build overlay fixed the clock. |
+| Automated checks | Gio module tests and vet, the Linux preview build, and focused Wails History adapter and shared application preview/mutation regressions passed. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Other posting kinds, broader History detail and filters, repeat, correction and reversal remain later Stage 4 work. |
 
 ## Moving from the preview to a desktop build
 
