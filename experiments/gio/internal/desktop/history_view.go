@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"slices"
 
 	"gioui.org/font"
 	"gioui.org/io/event"
@@ -23,8 +24,10 @@ type historyPage struct {
 	model                                 *history.Model
 	list                                  widget.List
 	reloadButton, retryButton, moreButton widget.Clickable
+	filter                                historyFilterControls
 	cashMovements                         *historyCashMovements
-	refreshAfterPost                      bool
+	reads                                 *historyReads
+	bound, revision                       uint64
 	onPosted                              func()
 }
 
@@ -49,26 +52,27 @@ var historyKindLabels = map[domain.ActivityKind]i18n.MessageID{
 }
 
 func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+	oldRows, pos := p.model.Rows(), p.list.Position
 	if p.model.Update() {
 		p.list.Position = layout.Position{}
-		if p.cashMovements != nil {
-			p.cashMovements.pruneButtons(p.model.Rows())
+		if (pos.First > 0 || pos.Offset > 0) && pos.First >= 0 && pos.First < len(oldRows) {
+			at := slices.IndexFunc(p.model.Rows(), func(row history.Row) bool { return row.ID == oldRows[pos.First].ID })
+			if at >= 0 {
+				pos.First = at
+				p.list.Position = restoredPosition(pos, len(p.model.Rows()))
+			}
+		}
+		if p.reads != nil {
+			p.pruneDetailButtons()
+		}
+	}
+	if p.reads != nil {
+		p.reads.update()
+		if p.reads.detail != nil {
+			return p.layoutDetail(gtx, view)
 		}
 	}
 	if c := p.cashMovements; c != nil {
-		if c.update() {
-			p.refreshAfterPost = true
-			if p.onPosted != nil {
-				p.onPosted()
-			}
-		}
-		if p.refreshAfterPost && !p.model.Loading() {
-			p.refreshAfterPost = false
-			p.model.Reload()
-		}
-		if c.detail != nil {
-			return c.layoutDetail(gtx, view)
-		}
 		if c.draft == nil {
 			for i := range c.actions {
 				if c.actions[i].Clicked(gtx) {
@@ -83,6 +87,9 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 	}
 	if p.reloadButton.Clicked(gtx) {
 		p.model.Reload()
+		if p.reads != nil {
+			p.reads.loadReferences()
+		}
 	}
 	if p.retryButton.Clicked(gtx) {
 		p.model.Retry()
@@ -92,6 +99,7 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		gtx.Execute(key.FocusCmd{Tag: &p.list})
 	}
 
+	filterView := view
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 780),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.cashMovements == nil {
@@ -101,8 +109,11 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			for i := range p.cashMovements.actions {
 				actions = append(actions, layout.Rigid(view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))))
 			}
-			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
+			dims := layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
+			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)
+			return dims
 		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
@@ -124,13 +135,13 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if len(p.model.Rows()) == 0 {
+			if len(p.model.Rows()) == 0 || p.noHistory() {
 				return layout.Dimensions{}
 			}
 			return p.activityList(gtx, view)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if !p.model.HasMore() || p.model.Err() != nil {
+			if !p.model.HasMore() || p.model.Err() != nil || p.noHistory() {
 				return layout.Dimensions{}
 			}
 			if p.model.Loading() {
@@ -145,13 +156,19 @@ func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions
 	color := view.Colors.SecondaryInk
 	var text string
 	switch {
+	case p.noHistory():
+		text = view.Language.Text(i18n.HistoryUnavailable)
 	case p.model.Loading():
 		text = view.Language.Text(i18n.HistoryLoading)
 	case p.model.Err() != nil:
 		color = view.Colors.ErrorInk
 		text = view.Language.Text(i18n.HistoryLoadError)
 	case len(p.model.Rows()) == 0:
-		text = view.Language.Text(i18n.HistoryEmpty)
+		if p.model.Filters() != (history.Filters{}) {
+			text = view.Language.Text(i18n.HistoryNoMatches)
+		} else {
+			text = view.Language.Text(i18n.HistoryEmpty)
+		}
 	default:
 		text = fmt.Sprintf(view.Language.Text(i18n.HistoryCount), len(p.model.Rows()))
 	}
@@ -200,20 +217,21 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 }
 
 func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	c := p.cashMovements
-	movement, supported := history.CashMovementOf(row.Kind, row.Reason)
-	if c == nil || !supported {
+	if p.reads == nil {
 		return historyEntry(gtx, view, row)
 	}
-	button := c.detailButton(row.ID)
-	if button.Clicked(gtx) && c.detail == nil {
-		c.open(row.ID, movement, false)
+	button := p.detailButton(row.ID)
+	if button.Clicked(gtx) {
+		p.reads.open(row.ID, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	name := fmt.Sprintf(view.Language.Text(cashMovementLabels[movement].viewOn), historyDay(view, row.EffectiveLocalDate))
+	name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), view.Language.Text(historyKindLabel(row.Kind, row.Reason)), historyDay(view, row.EffectiveLocalDate))
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
-		layout.Rigid(view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name)),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			view.Focus.Watch(gtx, button)
+			return view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name)(gtx)
+		}),
 	)
 }
 
@@ -226,13 +244,7 @@ func historyDay(view ui.View, day string) string {
 
 func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
 	day := historyDay(view, row.EffectiveLocalDate)
-	kind, ok := historyKindLabels[row.Kind]
-	if !ok {
-		kind = i18n.HistoryActivity
-	}
-	if movement, supported := history.CashMovementOf(row.Kind, row.Reason); supported && movement == history.CashContribution {
-		kind = i18n.ContributionTitle
-	}
+	kind := historyKindLabel(row.Kind, row.Reason)
 	return layout.Inset{Top: 9, Bottom: 9, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

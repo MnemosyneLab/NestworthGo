@@ -20,7 +20,7 @@ import (
 
 type movementLabels struct {
 	action, title, account, amount, historyRequired, preview, previewFailed i18n.MessageID
-	review, confirm, stale, posted, viewOn, delta                           i18n.MessageID
+	review, confirm, stale, posted, delta                                   i18n.MessageID
 }
 
 var cashMovementLabels = [...]movementLabels{
@@ -28,25 +28,25 @@ var cashMovementLabels = [...]movementLabels{
 		i18n.ContributionAdd, i18n.ContributionTitle, i18n.ContributionAccount, i18n.ContributionAmount,
 		i18n.ContributionHistoryRequired, i18n.ContributionPreview, i18n.ContributionPreviewFailed,
 		i18n.ContributionReview, i18n.ContributionConfirm, i18n.ContributionStale, i18n.ContributionPosted,
-		i18n.ContributionViewOn, i18n.ContributionDelta,
+		i18n.ContributionDelta,
 	},
 	history.CashWithdrawal: {
 		i18n.WithdrawalAdd, i18n.HistoryCashOut, i18n.WithdrawalAccount, i18n.WithdrawalAmount,
 		i18n.CashMovementHistoryRequired, i18n.WithdrawalPreview, i18n.CashMovementPreviewFailed,
 		i18n.WithdrawalReview, i18n.WithdrawalConfirm, i18n.CashMovementStale, i18n.WithdrawalPosted,
-		i18n.WithdrawalViewOn, i18n.WithdrawalDelta,
+		i18n.WithdrawalDelta,
 	},
 	history.CashTransfer: {
 		i18n.TransferAdd, i18n.HistoryCashTransfer, i18n.TransferFrom, i18n.TransferAmount,
 		i18n.CashMovementHistoryRequired, i18n.TransferPreview, i18n.CashMovementPreviewFailed,
 		i18n.TransferReview, i18n.TransferConfirm, i18n.CashMovementStale, i18n.TransferPosted,
-		i18n.TransferViewOn, i18n.CashMovementDelta,
+		i18n.CashMovementDelta,
 	},
 	history.CashConversion: {
 		i18n.ConversionAdd, i18n.HistoryFXConversion, i18n.ConversionAccount, i18n.ConversionSoldAmount,
 		i18n.CashMovementHistoryRequired, i18n.ConversionPreview, i18n.CashMovementPreviewFailed,
 		i18n.ConversionReview, i18n.ConversionConfirm, i18n.CashMovementStale, i18n.ConversionPosted,
-		i18n.ConversionViewOn, i18n.CashMovementDelta,
+		i18n.CashMovementDelta,
 	},
 }
 
@@ -399,86 +399,6 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(9)}.Layout(gtx, children...)
-}
-
-func (p *historyCashMovements) layoutDetail(gtx layout.Context, view ui.View) layout.Dimensions {
-	d, l := p.detail, view.Language
-	labels := cashMovementLabels[d.movement]
-	if d.back.Clicked(gtx) {
-		p.detail = nil
-		gtx.Execute(key.FocusCmd{Tag: p.detailButton(d.id)})
-		gtx.Execute(op.InvalidateCmd{})
-		return layout.Dimensions{}
-	}
-	if d.err != nil && d.retry.Clicked(gtx) {
-		p.readDetail()
-	}
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(10)}.Layout(gtx,
-				layout.Rigid(view.Button(&d.back, l.Text(i18n.ContributionBack))),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.Label(gtx, l.Text(labels.title), 19, font.Medium, view.Colors.Ink)
-				}),
-			)
-		}),
-	}
-	if d.posted {
-		children = append(children, layout.Rigid(view.Message(l.Text(labels.posted), view.Colors.Ink)))
-	}
-	switch {
-	case d.pending != nil:
-		children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)))
-	case d.err != nil:
-		children = append(children,
-			layout.Rigid(view.Message(l.Text(i18n.ContributionDetailFailed), view.Colors.ErrorInk)),
-			layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))),
-		)
-	case d.record != nil:
-		record := d.record
-		children = append(children, layout.Rigid(view.Message(contributionTimestamp(view, record.Activity.EffectiveAt, record.Location), view.Colors.SecondaryInk)))
-		accountName := func(id *domain.AccountID) string {
-			if id != nil && record.Accounts[*id] != "" {
-				return record.Accounts[*id]
-			}
-			return l.Text(i18n.AccountReferenceUnavailable)
-		}
-		for _, effect := range record.Activity.Effects {
-			if effect.Money == nil {
-				continue
-			}
-			amount := movementMoney(effect)
-			if d.movement == history.CashTransfer || d.movement == history.CashConversion {
-				switch effect.Role {
-				case domain.EffectRoleTransferFrom:
-					amount = fmt.Sprintf(l.Text(i18n.TransferSent), accountName(effect.AccountID), amount)
-				case domain.EffectRoleTransferTo:
-					amount = fmt.Sprintf(l.Text(i18n.TransferReceived), accountName(effect.AccountID), amount)
-				case domain.EffectRoleFee:
-					amount = fmt.Sprintf(l.Text(i18n.TransferFeePaid), accountName(effect.AccountID), amount)
-				}
-			} else {
-				children = append(children, layout.Rigid(view.Message(accountName(effect.AccountID), view.Colors.Ink)))
-				amount = fmt.Sprintf(l.Text(labels.delta), amount)
-			}
-			children = append(children, layout.Rigid(view.Message(amount, view.Colors.Ink)))
-		}
-		if d.movement == history.CashTransfer || d.movement == history.CashConversion {
-			from, to := transferCurrencies(record.Activity.Effects)
-			if rate := transferRateLabel(view, record.Activity.TransactionFXRate, from, to); rate != "" {
-				children = append(children, layout.Rigid(view.Message(rate, view.Colors.Ink)))
-			}
-		}
-		for _, result := range record.Activity.Resulting {
-			balance := result.Amount + " " + result.Currency.String()
-			label := fmt.Sprintf(l.Text(i18n.ContributionAfter), balance)
-			if d.movement == history.CashTransfer || d.movement == history.CashConversion {
-				label = fmt.Sprintf(l.Text(i18n.TransferAccountBalance), accountName(result.AccountID), balance)
-			}
-			children = append(children, layout.Rigid(view.Message(label, view.Colors.Ink)))
-		}
-	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(9)}.Layout(ui.LimitWidth(gtx, 640), children...)
 }
 
 func transferCurrencies(effects []domain.ActivityEffect) (domain.CurrencyCode, domain.CurrencyCode) {

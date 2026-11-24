@@ -123,7 +123,7 @@ func TestCrossCurrencyTransferWithoutQuoteMatchesWails(t *testing.T) {
 	label("Transfer posted.")
 	label("Could not load this activity.")
 	id := fault.firstActivity
-	if len(fault.attempts) != 2 || c.detail.id != id || !reflect.DeepEqual(fault.attempts[0], fault.attempts[1]) {
+	if len(fault.attempts) != 2 || timeline.reads.detail.id != id || !reflect.DeepEqual(fault.attempts[0], fault.attempts[1]) {
 		t.Fatal("double confirmation or response recovery changed the posted cross-currency intent")
 	}
 	h.click("Retry", false)

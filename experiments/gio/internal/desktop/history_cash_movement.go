@@ -3,7 +3,6 @@ package desktop
 import (
 	"context"
 	"errors"
-	"slices"
 	"sync"
 	"time"
 
@@ -15,15 +14,10 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-type cashMovementResult[T any] struct {
-	value T
-	err   error
-}
-
 type cashMovementDraft struct {
 	movement                                  history.CashMovement
 	sources                                   *history.CashMovementSources
-	loading                                   <-chan cashMovementResult[history.CashMovementSources]
+	loading                                   <-chan historyResult[history.CashMovementSources]
 	sourceError                               i18n.MessageID
 	account, destination                      domain.AccountID
 	currency, toCurrency                      domain.CurrencyCode
@@ -36,21 +30,11 @@ type cashMovementDraft struct {
 	timePicker                                ui.TimePicker
 	cancel, retrySources, preview, edit, post widget.Clickable
 
-	previewing <-chan cashMovementResult[history.ReviewedCashMovement]
+	previewing <-chan historyResult[history.ReviewedCashMovement]
 	review     *history.ReviewedCashMovement
-	posting    <-chan cashMovementResult[domain.ChangePreview]
+	posting    <-chan historyResult[domain.ChangePreview]
 	uncertain  bool
 	problem    i18n.MessageID
-}
-
-type cashMovementVisit struct {
-	id          domain.ActivityID
-	movement    history.CashMovement
-	posted      bool
-	pending     <-chan cashMovementResult[history.CashMovementDetail]
-	record      *history.CashMovementDetail
-	err         error
-	back, retry widget.Clickable
 }
 
 type historyCashMovements struct {
@@ -60,23 +44,11 @@ type historyCashMovements struct {
 	invalidate func()
 	workers    sync.WaitGroup
 	actions    [len(cashMovementLabels)]widget.Clickable
-	buttons    map[domain.ActivityID]*widget.Clickable
 	draft      *cashMovementDraft
-	detail     *cashMovementVisit
 }
 
 func newHistoryCashMovements(ctx context.Context, service history.CashMovementLedger, clock func() time.Time, invalidate func()) *historyCashMovements {
-	return &historyCashMovements{ctx: ctx, service: service, clock: clock, invalidate: invalidate, buttons: make(map[domain.ActivityID]*widget.Clickable)}
-}
-
-func cashMovementRead[T any](p *historyCashMovements, read func() (T, error)) <-chan cashMovementResult[T] {
-	results := make(chan cashMovementResult[T], 1)
-	p.workers.Go(func() {
-		value, err := read()
-		results <- cashMovementResult[T]{value: value, err: err}
-		p.invalidate()
-	})
-	return results
+	return &historyCashMovements{ctx: ctx, service: service, clock: clock, invalidate: invalidate}
 }
 
 func (p *historyCashMovements) start(movement history.CashMovement) {
@@ -90,7 +62,7 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 func (p *historyCashMovements) loadSources() {
 	d := p.draft
 	d.sourceError = i18n.NoMessage
-	d.loading = cashMovementRead(p, func() (history.CashMovementSources, error) {
+	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.CashMovementSources, error) {
 		return history.LoadCashMovementSources(p.ctx, p.service, d.movement)
 	})
 }
@@ -190,7 +162,7 @@ func (p *historyCashMovements) preview() {
 		Amount: d.amount.Text(), Received: d.received.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time,
 	}
 	d.problem = i18n.NoMessage
-	d.previewing = cashMovementRead(p, func() (history.ReviewedCashMovement, error) {
+	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedCashMovement, error) {
 		return history.ReviewCashMovement(p.ctx, p.service, input)
 	})
 }
@@ -201,7 +173,7 @@ func (p *historyCashMovements) post() {
 		return
 	}
 	review := *d.review
-	d.posting = cashMovementRead(p, func() (domain.ChangePreview, error) {
+	d.posting = runHistoryRead(&p.workers, p.invalidate, func() (domain.ChangePreview, error) {
 		return review.Commit(p.ctx, p.service)
 	})
 }
@@ -210,34 +182,10 @@ func (p *historyCashMovements) writing() bool {
 	return p != nil && p.draft != nil && p.draft.posting != nil
 }
 
-func (p *historyCashMovements) open(id domain.ActivityID, movement history.CashMovement, posted bool) {
-	p.detail = &cashMovementVisit{id: id, movement: movement, posted: posted}
-	p.readDetail()
-}
-
-func (p *historyCashMovements) readDetail() {
-	visit := p.detail
-	id := visit.id
-	visit.err = nil
-	visit.pending = cashMovementRead(p, func() (history.CashMovementDetail, error) {
-		return history.LoadCashMovementDetail(p.ctx, p.service, id)
-	})
-}
-
-func (p *historyCashMovements) update() bool {
-	if visit := p.detail; visit != nil {
-		select {
-		case result := <-visit.pending:
-			visit.pending, visit.err = nil, result.err
-			if result.err == nil {
-				visit.record = &result.value
-			}
-		default:
-		}
-	}
+func (p *historyCashMovements) update() *domain.Activity {
 	d := p.draft
 	if d == nil {
-		return false
+		return nil
 	}
 	select {
 	case result := <-d.loading:
@@ -267,8 +215,7 @@ func (p *historyCashMovements) update() bool {
 		d.posting = nil
 		if result.err == nil && result.value.Activity.ID != "" {
 			p.draft = nil
-			p.open(result.value.Activity.ID, d.movement, true)
-			return true
+			return &result.value.Activity
 		}
 		var issue *domain.Error
 		if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {
@@ -283,7 +230,7 @@ func (p *historyCashMovements) update() bool {
 		}
 	default:
 	}
-	return false
+	return nil
 }
 
 func cashMovementProblem(movement history.CashMovement, err error, fallback i18n.MessageID) i18n.MessageID {
@@ -319,19 +266,4 @@ func cashMovementProblem(movement history.CashMovement, err error, fallback i18n
 		return i18n.ContributionInvalidAmount
 	}
 	return fallback
-}
-
-func (p *historyCashMovements) detailButton(id domain.ActivityID) *widget.Clickable {
-	if p.buttons[id] == nil {
-		p.buttons[id] = new(widget.Clickable)
-	}
-	return p.buttons[id]
-}
-
-func (p *historyCashMovements) pruneButtons(rows []history.Row) {
-	for id := range p.buttons {
-		if !slices.ContainsFunc(rows, func(row history.Row) bool { return row.ID == id }) {
-			delete(p.buttons, id)
-		}
-	}
 }

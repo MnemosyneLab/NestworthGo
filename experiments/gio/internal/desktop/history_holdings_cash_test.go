@@ -138,7 +138,7 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 	h.click("Confirm transfer", false)
 	finish()
 	label("Transfer posted.")
-	transferID := c.detail.id
+	transferID := timeline.reads.detail.id
 	transfer := compare(historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeCashTransfer, FromAccountID: bank.String(), ToAccountID: studio.String(),
 		Sent: "125.625", SentCurrency: "USD", Received: "100.5", ReceivedCurrency: "EUR", FeeCurrency: "USD",
@@ -216,7 +216,7 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 	label("Conversion posted.")
 	label("Could not load this activity.")
 	id := fault.firstActivity
-	if len(fault.attempts) != 3 || c.detail.id != id || !reflect.DeepEqual(fault.attempts[1], fault.attempts[2]) {
+	if len(fault.attempts) != 3 || timeline.reads.detail.id != id || !reflect.DeepEqual(fault.attempts[1], fault.attempts[2]) {
 		t.Fatal("the same conversion intent was not recovered")
 	}
 	h.click("Retry", false)

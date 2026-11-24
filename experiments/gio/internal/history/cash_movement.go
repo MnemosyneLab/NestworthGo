@@ -16,7 +16,6 @@ type CashMovementLedger interface {
 	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
 	PreviewChangeGuardedWith(context.Context, func(context.Context) (any, error)) (domain.ChangePreview, string, error)
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
-	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
 }
 
 type CashMovementSources struct {
@@ -255,45 +254,4 @@ func CashMovementOf(kind domain.ActivityKind, reason domain.ActivityReason) (Cas
 	default:
 		return 0, false
 	}
-}
-
-type CashMovementDetail struct {
-	Activity domain.Activity
-	Accounts map[domain.AccountID]string
-	Location *time.Location
-}
-
-func LoadCashMovementDetail(ctx context.Context, ledger CashMovementLedger, id domain.ActivityID) (CashMovementDetail, error) {
-	activity, err := ledger.Activity(ctx, id)
-	if err != nil {
-		return CashMovementDetail{}, err
-	}
-	if _, supported := CashMovementOf(activity.Kind, activity.Reason); activity.ID != id || !supported {
-		return CashMovementDetail{}, &domain.Error{Code: domain.ErrNotFound}
-	}
-	_, location, err := cashMovementOrigin(ctx, ledger)
-	if err != nil {
-		return CashMovementDetail{}, err
-	}
-	detail := CashMovementDetail{Activity: activity, Location: location, Accounts: make(map[domain.AccountID]string)}
-	var ids []domain.AccountID
-	for _, effect := range activity.Effects {
-		if effect.AccountID != nil {
-			id := *effect.AccountID
-			if _, exists := detail.Accounts[id]; !exists {
-				ids = append(ids, id)
-				detail.Accounts[id] = ""
-			}
-		}
-	}
-	if len(ids) > 0 {
-		rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: ids, IncludeArchived: true})
-		if err != nil {
-			return CashMovementDetail{}, err
-		}
-		for _, row := range rows {
-			detail.Accounts[row.Account.ID] = row.Account.Name
-		}
-	}
-	return detail, nil
 }

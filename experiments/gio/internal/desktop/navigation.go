@@ -22,9 +22,12 @@ type navigationTarget struct {
 	object      directoryRef
 	account     domain.AccountID
 	institution domain.InstitutionID
+	activity    domain.ActivityID
 }
 
-func (t navigationTarget) hasObject() bool { return t.object != (directoryRef{}) || t.account != "" }
+func (t navigationTarget) hasObject() bool {
+	return t.object != (directoryRef{}) || t.account != "" || t.activity != ""
+}
 
 type navigationEntry struct {
 	id               uint64
@@ -33,6 +36,7 @@ type navigationEntry struct {
 	focus            event.Tag
 	scroll           layout.Position
 	directory        directoryVisit
+	history          historyTimelineVisit
 	accountsArchived bool
 	visited          bool
 }
@@ -137,20 +141,26 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if (request.target.account != "" || request.target.institution != "") && (request.target.route != accountsRoute || s.accounts == nil) {
 			return
 		}
+		if request.target.activity != "" && (request.target.route != historyRoute || s.historyPage == nil || s.historyPage.reads == nil) {
+			return
+		}
 	}
 
 	source := *entry
+	if request.focus != nil {
+		source.focus = request.focus
+	}
 	s.saveVisit(&source)
 	if request.recent != nil && sameRecentDestination(source, *request.recent) {
 		return
-	}
-	if request.focus != nil {
-		source.focus = request.focus
 	}
 	*entry = source
 	s.trail.recordRecent(source)
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		s.directory.object.leave()
+	}
+	if entry.target.route == historyRoute && entry.target.activity != "" {
+		s.historyPage.reads.leaveDetail()
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()
@@ -182,6 +192,19 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
+	}
+	if entry.target.route == historyRoute && s.historyPage != nil {
+		if entry.target.activity != "" {
+			s.historyPage.reads.enterDetail(entry.target.activity)
+		} else {
+			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history)
+			if entry.history.focused != "" && s.historyPage.reads != nil {
+				entry.focus = s.historyPage.detailButton(entry.history.focused)
+			}
+			if s.historyPage.reads != nil && source.target.route != historyRoute {
+				s.historyPage.reads.loadReferences()
+			}
+		}
 	}
 	s.narrowExpanded = false
 	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject()
@@ -231,8 +254,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case settingsRoute:
 		entry.scroll = s.settingsPage.scroll.Position
 	case historyRoute:
-		if s.historyPage != nil {
-			entry.scroll = s.historyPage.list.Position
+		if s.historyPage != nil && entry.target.activity == "" {
+			entry.history = s.historyPage.timelineVisit(entry.focus)
 		}
 	case componentPreviewRoute:
 		entry.scroll = s.componentPreview.scroll.Position
@@ -254,10 +277,6 @@ func (s *shell) restoreVisit(entry *navigationEntry) {
 		}
 	case settingsRoute:
 		s.settingsPage.scroll.Position = entry.scroll
-	case historyRoute:
-		if s.historyPage != nil {
-			s.historyPage.list.Position = restoredPosition(entry.scroll, len(s.historyPage.model.Rows()))
-		}
 	case componentPreviewRoute:
 		s.componentPreview.scroll.Position = entry.scroll
 	}
@@ -288,6 +307,9 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 }
 
 func (s *shell) waitingForPageFocus() bool {
+	if s.activeRoute() == historyRoute && s.historyPage != nil {
+		return s.historyPage.model.Loading()
+	}
 	if s.activeRoute() == accountsRoute && s.accounts != nil {
 		return s.accounts.request != nil
 	}
@@ -327,6 +349,9 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		}
 		if entry.target.route == accountsRoute {
 			return language.Text(i18n.AccountUnavailable)
+		}
+		if entry.target.route == historyRoute {
+			return language.Text(i18n.HistoryDetailTitle)
 		}
 		return language.Text(i18n.DirectoryObjectUnavailable)
 	}

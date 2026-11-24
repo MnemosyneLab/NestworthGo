@@ -192,6 +192,25 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if s.historyPage != nil && s.overviewPage != nil {
 		s.historyPage.onPosted = func() { s.overviewPage.needsRefresh = true }
 	}
+	if s.historyPage != nil && s.historyPage.reads != nil {
+		s.historyPage.reads.open = func(id domain.ActivityID, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus}
+		}
+		s.historyPage.reads.rename = func(id domain.ActivityID, name string) {
+			target := navigationTarget{route: historyRoute, activity: id}
+			entry := s.trail.current()
+			if entry.target == target && entry.name != name {
+				s.trail.rename(target, name)
+			}
+		}
+		s.historyPage.reads.back = func() {
+			request := navigationRequest{target: navigationTarget{route: historyRoute}}
+			if previous := s.trail.adjacent(-1); previous != nil && previous.target == request.target {
+				request.step = -1
+			}
+			s.pendingNavigation = &request
+		}
+	}
 	return s
 }
 
@@ -277,6 +296,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := p.layout(gtx, view, s.prefs, s.wordmark)
 		s.overlay.Layout(gtx, view)
 		return dims
+	}
+	if s.activeRoute() == historyRoute && s.historyPage != nil {
+		s.historyPage.pollPosted()
 	}
 	s.updateNavigation(gtx)
 	entry := s.trail.current()

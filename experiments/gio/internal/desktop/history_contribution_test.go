@@ -162,7 +162,7 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	finish()
 	label("Contribution posted.")
 	label("Could not load this activity.")
-	if len(fault.attempts) != 2 || !reflect.DeepEqual(fault.attempts[0], fault.attempts[1]) || c.detail.id != fault.firstActivity || c.draft != nil {
+	if len(fault.attempts) != 2 || !reflect.DeepEqual(fault.attempts[0], fault.attempts[1]) || timeline.reads.detail.id != fault.firstActivity || c.draft != nil {
 		t.Fatal("the retry did not send the same immutable request and recover its original ID")
 	}
 	h.click("Retry", false)
@@ -317,6 +317,7 @@ func TestContributionRequiresHistoryOrigin(t *testing.T) {
 	service, _ := openBankFixture(t, root)
 	fault := &cashMovementFault{Service: service}
 	_, _, h, finish := cashMovementHarness(t, fault)
+	assertPageLabel(t, &h.router, "Start History to see ledger activity.")
 	h.click("Record contribution", false)
 	finish()
 	assertPageLabel(t, &h.router, "Start History before recording a contribution.")
@@ -329,14 +330,14 @@ func cashMovementHarness(t *testing.T, service *cashMovementFault) (*historyCash
 	t.Helper()
 	ctx := t.Context()
 	clock := func() time.Time { return accountTestClock }
-	cashMovements := newHistoryCashMovements(ctx, service, clock, func() {})
+	timeline := newLedgerHistory(ctx, service, clock, func() {})
+	cashMovements := timeline.cashMovements
 	overview := newOverviewPage(ctx, service, clock, func() {})
 	accounts := newAccountsPage(ctx, service, clock, func() {})
-	timeline := newHistoryPage(history.New(ctx, service, func() {}))
-	timeline.cashMovements = cashMovements
 	wait := func() {
 		cashMovements.workers.Wait()
 		timeline.model.Wait()
+		timeline.reads.workers.Wait()
 		overview.workers.Wait()
 		accounts.workers.Wait()
 	}

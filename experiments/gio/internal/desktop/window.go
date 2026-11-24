@@ -9,7 +9,6 @@ import (
 	"gioui.org/op"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
-	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -28,9 +27,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		newInstitutionsPage(ctx, service, window.Invalidate),
 		newGroupsList(ctx, service, window.Invalidate),
 	)
-	activities := history.New(ctx, service, window.Invalidate)
-	timeline := newHistoryPage(activities)
-	timeline.cashMovements = newHistoryCashMovements(ctx, service, clock, window.Invalidate)
+	timeline := newLedgerHistory(ctx, service, clock, window.Invalidate)
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &balanceAccountCreation{service: service}
@@ -42,7 +39,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		cancel()
 		state.wait()
 		directory.wait()
-		activities.Wait()
+		timeline.model.Wait()
+		timeline.reads.workers.Wait()
 		timeline.cashMovements.workers.Wait()
 		overview.workers.Wait()
 		accounts.workers.Wait()

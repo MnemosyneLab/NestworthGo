@@ -150,7 +150,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	label("Withdrawal posted.")
 	label("Harbor Checking")
 	label("Withdrawal · 25.125 USD")
-	withdrawalID := c.detail.id
+	withdrawalID := timeline.reads.detail.id
 	withdraw := checkWails(withdrawalPreview, withdrawalID, historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeMoneyRemoved, AccountID: source.String(), Amount: "25.125", Currency: "USD", Reason: "other",
 		EffectiveLocalDate: day, EffectiveLocalTime: "02:00", MutationID: fault.attempts[0].mutation,
@@ -205,7 +205,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	freePreview := wire.FromReviewedChangePreview(d.review.Preview)
 	h.click("Confirm transfer", false)
 	finish()
-	freeID := c.detail.id
+	freeID := timeline.reads.detail.id
 	request := historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeCashTransfer, FromAccountID: source.String(), ToAccountID: destination.String(),
 		Sent: "40", Received: "40", SentCurrency: "USD", ReceivedCurrency: "USD", FeeCurrency: "USD",
@@ -267,7 +267,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	label("Transfer posted.")
 	label("Could not load this activity.")
 	id := fault.firstActivity
-	if len(fault.attempts) != 4 || c.detail.id != id || !reflect.DeepEqual(fault.attempts[2], fault.attempts[3]) {
+	if len(fault.attempts) != 4 || timeline.reads.detail.id != id || !reflect.DeepEqual(fault.attempts[2], fault.attempts[3]) {
 		t.Fatal("double-click or replay submitted another intent")
 	}
 	h.click("Retry", false)

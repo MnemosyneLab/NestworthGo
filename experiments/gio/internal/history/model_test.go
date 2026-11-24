@@ -44,7 +44,7 @@ func TestHistoryPaginationRetryAndReload(t *testing.T) {
 	})
 	invalidations := 0
 	p := New(t.Context(), reader, func() { invalidations++ })
-	if p.started || p.Loading() {
+	if p.visit.started || p.Loading() {
 		t.Fatal("constructing the page should not begin a read")
 	}
 	finish := func(wantReplaced bool) {
@@ -114,7 +114,66 @@ func TestHistoryCancellationReleasesWorker(t *testing.T) {
 	<-entered
 	cancel()
 	p.Wait()
-	if len(p.results) != 0 {
+	if len(p.pending.result) != 0 {
 		t.Fatal("a cancelled read published a result")
 	}
+}
+
+func TestHistoryFiltersRetireOldPageAndCursor(t *testing.T) {
+	type call struct {
+		query domain.ActivityQuery
+		done  chan pageResultForTest
+	}
+	calls := make(chan call, 3)
+	reader := historyReaderFunc(func(_ context.Context, q domain.ActivityQuery) (domain.ActivityPage, error) {
+		next := call{query: q, done: make(chan pageResultForTest, 1)}
+		calls <- next
+		// Deliberately ignore cancellation to model an already-completed read
+		// whose response reaches the UI after a filter switch.
+		result := <-next.done
+		return result.page, result.err
+	})
+	updated := make(chan struct{}, 3)
+	p := New(t.Context(), reader, func() { updated <- struct{}{} })
+	firstID, oldTailID, newID := domain.NewActivityID(), domain.NewActivityID(), domain.NewActivityID()
+	cursor := &domain.ActivityCursor{ID: firstID}
+	p.Update()
+	first := <-calls
+	first.done <- pageResultForTest{page: domain.ActivityPage{Activities: []domain.Activity{{ID: firstID}}, HasMore: true, Next: cursor}}
+	p.Wait()
+	<-updated
+	p.Update()
+	p.LoadMore()
+	old := <-calls
+	account, instrument := domain.NewAccountID(), domain.NewInstrumentID()
+	scope := Filters{Account: account, Instrument: instrument, Kind: domain.ActivityBuy, From: "2026-11-21", To: "2026-11-21"}
+	p.SetFilters(scope)
+	current := <-calls
+	if old.query.After != cursor || len(p.Rows()) != 0 || p.HasMore() {
+		t.Fatal("replacing the filter kept an old row or cursor")
+	}
+	if want := scope.query(nil); !reflect.DeepEqual(current.query, want) {
+		t.Fatalf("new query = %+v, want %+v", current.query, want)
+	}
+	current.done <- pageResultForTest{page: domain.ActivityPage{Activities: []domain.Activity{{ID: newID}}}}
+	<-updated
+	if !p.Update() || len(p.Rows()) != 1 || p.Rows()[0].ID != newID {
+		t.Fatal("the replacement query did not resolve before the older request")
+	}
+	old.done <- pageResultForTest{page: domain.ActivityPage{Activities: []domain.Activity{{ID: oldTailID}}}}
+	p.Wait()
+	if p.Update() || p.Loading() || len(p.Rows()) != 1 || p.Rows()[0].ID != newID || p.Err() != nil {
+		t.Fatal("an old page changed the replacement")
+	}
+	saved := p.Visit()
+	p.Restore(Visit{})
+	p.Restore(saved)
+	if p.Filters() != scope || p.Loading() || len(p.Rows()) != 1 || p.Rows()[0].ID != newID {
+		t.Fatal("restoring a settled visit refetched it or lost its filter")
+	}
+}
+
+type pageResultForTest struct {
+	page domain.ActivityPage
+	err  error
 }

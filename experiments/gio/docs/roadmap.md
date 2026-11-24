@@ -53,9 +53,9 @@ with read paths, then use the same data to validate writes and reconstruction.
 | 7. Desktop integrations and distribution | Complete advanced Settings workflows, backup/restore/export, mobile pairing, MCP runtime, built-in assistant, credentials, native menus/dialogs, About and shutdown. Assemble the signed distributable and verify update and fallback. | Exercise each integration and restore/restart from a backup. Validate mobile assets, sidecar lifecycle and platform packaging on the supported target. |
 
 Stage 1 is implemented on the experimental desktop. The current list displays
-kind, civil date and note. Stage 4 adds reviewed contributions, withdrawals,
-cash transfers and currency conversions with their saved details. Broader labels,
-breakdowns, filters and activity types remain open. The scoped Stage 2
+kind, civil date and note. Stage 4 adds History filters and read-only activity
+detail, plus reviewed contributions, withdrawals, cash transfers and currency
+conversions. The scoped Stage 2
 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
@@ -597,7 +597,7 @@ and receiving accounts, amounts, fee and resulting balances.
 | Replay and read retry | A double click during a paid transfer did not create a second write request. A deliberately discarded response replayed the identical envelope and returned the original activity. A following detail load failure offered a read-only retry. After reopening, withdrawal and both transfers replayed to their original IDs. A changed fee with the same ID conflicted. |
 | Linux X11 | At 900×660 on Xvfb, withdrew USD 25.125, verified an EUR source could not choose a USD destination, and changed a reviewed USD 2 fee to USD 1.125 before confirming the USD 30.25 transfer. A double click on each confirmation posted one activity. Overview displayed USD 1,907.88. Both saved details opened after normal quit and relaunch. Read-only SQLite comparison found four new effects and two mutation receipts. A temporary build overlay fixed the clock and prepared the verified synthetic fixture. |
 | Automated checks | The Gio module suite, Gio vet, Linux preview build, and focused Wails History, domain movement, household attribution and application idempotency regressions passed. |
-| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Expense categorization, broader History detail and filters, repeat, correction and reversal are future work. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Expense categorization, repeat, correction and reversal are future work. |
 
 #### Cross-currency cash transfer milestone
 
@@ -675,6 +675,38 @@ calculator remain open.
 | Linux X11 | In a 900×660 Xvfb window, chose EUR on the Holdings endpoint of a bank transfer, reset a same-currency conversion choice, rejected insufficient cash for principal plus fee, and double-clicked conversion confirmation. Both details reopened normally. Read-only SQLite comparison found two added activities, five exact effects and two receipts, with unchanged positions and market quotes. A temporary overlay fixed the clock and prepared the verified fixture. |
 | Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, Holdings cash, domain conversion and application attribution and mutation regressions. |
 | Open evidence | Stage 3 production startup and target-platform cutover gates remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Holdings investment positions and trades remain Stage 5. |
+
+#### History filters and activity detail milestone
+
+**Ledger activity** combines activity type, account, instrument, and inclusive
+History-local date bounds using the [Wails Go query contract](../../../internal/wailsapi/history/history.go).
+Archived accounts and instruments remain selectable by stable ID. The account
+filter matches either endpoint of a transfer. Each filter change starts at
+the first page with a new cursor. Pages use effective time, creation time
+and activity ID in server order. The model retires a replaced query's response
+channel so a late response cannot append rows or replace the active status.
+
+Each row opens a read-only detail by activity ID. The detail uses recorded
+effects, original currencies, executed FX rates, fees and resulting balances
+where available. Non-cash records can show stored instrument and quantity
+effects and trade price. Internal transfer principal, external flows and fees
+use the recorded classifications. The list distinguishes no matches,
+read failure and History without a Starting Point. Details distinguish a
+missing activity from a retryable read. Read retries do not call a writer.
+
+Back and Forward preserve the timeline's filters, loaded pages, scroll and
+visible row focus within the window session. A newly posted activity opens
+by its saved ID even if the filter excludes it. Timeline refresh keeps the
+current filter. On failure, the existing rows remain and Retry reads the
+same query again.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go parity | On independent copies of a verified fixture, the 50-row first page and 17-row continuation matched Wails IDs and order, including identical timestamps. Account, type and instrument/date intersections matched Wails. The fixture contained contributions, withdrawal, same- and cross-currency transfers, FX conversion and a buy. |
+| State and fault handling | Frame tests restored the loaded page position and stable row focus on Back, reopened the same detail on Forward, and recovered a filtered visit after visiting another timeline. A deliberately late page and a late detail could not replace their successors. A missing detail showed unavailable, and a transient detail and failed post-confirmation list refresh retried reads only. |
+| Linux X11 | In a 900×660 Xvfb window, loaded all 67 records, selected an archived account, opened an internal transfer, and used Back and Forward. Verified the empty intersection and a buy selected by instrument and both date bounds. Reload retained its filters. At the end of the second page, opened an older record and returned to the same scroll position. Read-only SQLite comparison after normal quit found identical activities, effects, cash and account observations, holdings and mutation receipts. A temporary overlay fixed the clock and seeded the verified fixture. |
+| Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, shared application and SQLite filter, pagination and mutation regressions. |
+| Boundaries | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Wails date presets, activity repeat, new correction and reversal actions, product actions, and the opening/reconciliation target-balance form remain open. Stage 3 production startup and target-platform cutover gates remain open. |
 
 ## Moving from the preview to a desktop build
 

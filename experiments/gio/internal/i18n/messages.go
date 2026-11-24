@@ -404,7 +404,6 @@ const (
 	ContributionPosted
 	ContributionDetailFailed
 	ContributionBack
-	ContributionViewOn
 	WithdrawalAdd
 	WithdrawalAccount
 	WithdrawalAmount
@@ -412,7 +411,6 @@ const (
 	WithdrawalReview
 	WithdrawalConfirm
 	WithdrawalPosted
-	WithdrawalViewOn
 	WithdrawalDelta
 	TransferAdd
 	TransferFrom
@@ -432,7 +430,6 @@ const (
 	TransferReview
 	TransferConfirm
 	TransferPosted
-	TransferViewOn
 	TransferPrincipal
 	TransferFee
 	TransferSent
@@ -460,7 +457,6 @@ const (
 	ConversionReview
 	ConversionConfirm
 	ConversionPosted
-	ConversionViewOn
 	HistoryActivity
 	HistoryEmpty
 	HistoryMore
@@ -477,6 +473,37 @@ const (
 	HistoryDebtDraw
 	HistoryDebtPayment
 	HistoryReversal
+	HistoryDetailTitle
+	HistoryViewOn
+	HistoryUnavailable
+	HistoryNoMatches
+	HistoryActivityUnavailable
+	HistoryFilterType
+	HistoryFilterAccount
+	HistoryFilterInstrument
+	HistoryFilterFrom
+	HistoryFilterTo
+	HistoryAllTypes
+	HistoryAllAccounts
+	HistoryAllInstruments
+	HistoryClearFilters
+	HistoryRetryFilters
+	HistoryFilterLoadFailed
+	HistoryInstrumentUnavailable
+	HistoryExternalInflow
+	HistoryExternalOutflow
+	HistoryIncome
+	HistoryFee
+	HistoryInternalTransfer
+	HistoryTradePrincipal
+	HistoryDebtPrincipal
+	HistoryRemeasurement
+	HistoryCorrectionRecord
+	HistoryAdded
+	HistoryRemoved
+	HistoryUnitPrice
+	HistoryUnitCost
+	HistoryResultQuantity
 	SettingsIntro
 	SettingsTab
 	SettingsGeneral
