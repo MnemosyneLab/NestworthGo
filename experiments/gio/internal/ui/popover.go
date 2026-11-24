@@ -1,4 +1,4 @@
-package desktop
+package ui
 
 import (
 	"image"
@@ -15,35 +15,36 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
-type popoverPane struct {
-	body           layout.Widget
+type Popover struct {
+	Body           layout.Widget
 	width          unit.Dp
+	menu           bool
 	focus          event.Tag
 	otherFocus     []event.Tag
 	next, previous event.Tag
 	onClose        func()
 }
 
-// popoverHost renders after the shell and uses coordinates relative to the window content.
-type popoverHost struct {
-	trigger       *widget.Clickable
-	anchor, panel image.Rectangle
-	pane          popoverPane
-	dismiss       widget.Clickable
+// Overlay renders after the shell and uses coordinates relative to the window content.
+type Overlay struct {
+	Trigger       *widget.Clickable
+	Anchor, Panel image.Rectangle
+	pane          Popover
+	Dismiss       widget.Clickable
 	focusOnOpen   bool
 	closePending  bool
 	returnFocus   event.Tag
 }
 
-func (h *popoverHost) beginFrame(gtx layout.Context) {
+func (h *Overlay) BeginFrame(gtx layout.Context) {
 	// The trigger must register again to keep an overlay open.
-	h.pane.body = nil
+	h.pane.Body = nil
 	h.dismissEvents(gtx)
 }
 
-func (h *popoverHost) dismissEvents(gtx layout.Context) {
+func (h *Overlay) dismissEvents(gtx layout.Context) {
 	filters := []event.Filter{pointer.Filter{Target: h, Kinds: pointer.Press}}
-	tags := append([]event.Tag{&h.dismiss, h.pane.focus}, h.pane.otherFocus...)
+	tags := append([]event.Tag{&h.Dismiss, h.pane.focus}, h.pane.otherFocus...)
 	for _, tag := range tags {
 		if tag != nil {
 			filters = append(filters, key.Filter{Focus: tag, Name: key.NameEscape},
@@ -55,7 +56,7 @@ func (h *popoverHost) dismissEvents(gtx layout.Context) {
 		if !ok {
 			return
 		}
-		if h.trigger == nil || h.closePending {
+		if h.Trigger == nil || h.closePending {
 			continue
 		}
 		switch e := e.(type) {
@@ -67,29 +68,29 @@ func (h *popoverHost) dismissEvents(gtx layout.Context) {
 						h.returnFocus = h.pane.previous
 					}
 				}
-				h.close()
+				h.Close()
 			}
 		case pointer.Event:
-			if !image.Pt(int(e.Position.X), int(e.Position.Y)).In(h.panel) {
-				h.close()
+			if !image.Pt(int(e.Position.X), int(e.Position.Y)).In(h.Panel) {
+				h.Close()
 			}
 		}
 	}
 }
 
-// register receives current visible trigger bounds. Disabled or hidden triggers
+// Register receives current visible trigger bounds. Disabled or hidden triggers
 // omit registration. It reports the start of a new popup session.
-func (h *popoverHost) register(gtx layout.Context, trigger *widget.Clickable, bounds image.Rectangle, pane popoverPane) bool {
+func (h *Overlay) Register(gtx layout.Context, trigger *widget.Clickable, bounds image.Rectangle, pane Popover) bool {
 	opened := trigger.Clicked(gtx)
 	if opened {
-		if h.trigger != trigger {
+		if h.Trigger != trigger {
 			h.reset()
 		}
-		h.trigger = trigger
+		h.Trigger = trigger
 		h.focusOnOpen = true
 	}
-	if h.trigger == trigger {
-		h.anchor, h.pane = bounds, pane
+	if h.Trigger == trigger {
+		h.Anchor, h.pane = bounds, pane
 	}
 	if opened {
 		// Register keys for the new focus targets before the first visible frame.
@@ -98,39 +99,58 @@ func (h *popoverHost) register(gtx layout.Context, trigger *widget.Clickable, bo
 	return opened
 }
 
-func (h *popoverHost) close() { h.closePending = true }
-
-func (h *popoverHost) layout(gtx layout.Context, view presentation) {
-	if h.trigger == nil {
+// OffsetAnchor translates a registered trigger into the scroll viewport after
+// its list has finished layout. Scrolling the trigger out of view dismisses it.
+func (h *Overlay) OffsetAnchor(trigger *widget.Clickable, delta image.Point, viewport image.Rectangle) {
+	if h.Trigger != trigger {
 		return
 	}
-	if h.pane.body == nil || h.anchor.Empty() {
+	h.Anchor = h.Anchor.Add(delta)
+	if !h.Anchor.Overlaps(viewport) {
+		h.Close()
+	}
+}
+
+func (h *Overlay) Close() { h.closePending = true }
+
+func (h *Overlay) Layout(gtx layout.Context, view View) {
+	if h.Trigger == nil {
+		return
+	}
+	if h.pane.Body == nil || h.Anchor.Empty() {
 		h.reset()
 		return
 	}
 	safe := (image.Rectangle{Max: gtx.Constraints.Max}).Inset(gtx.Dp(8))
 	gap := gtx.Dp(6)
-	below := max(0, safe.Max.Y-h.anchor.Max.Y-gap)
-	above := max(0, h.anchor.Min.Y-safe.Min.Y-gap)
-	if h.closePending || h.dismiss.Clicked(gtx) || safe.Empty() || max(above, below) == 0 {
+	below := max(0, safe.Max.Y-h.Anchor.Max.Y-gap)
+	above := max(0, h.Anchor.Min.Y-safe.Min.Y-gap)
+	if h.closePending || h.Dismiss.Clicked(gtx) || safe.Empty() || max(above, below) == 0 {
 		h.finish(gtx)
 		return
 	}
 
 	// Measure once, then replay the complete popup at its window-relative position.
-	width := min(safe.Dx(), gtx.Dp(max(300, h.pane.width)))
+	width := h.pane.width
+	if !h.pane.menu {
+		width = max(300, width)
+	}
+	pixels := min(safe.Dx(), gtx.Dp(width))
 	popup := gtx
-	popup.Constraints = layout.Constraints{Min: image.Pt(width, 0), Max: image.Pt(width, max(above, below))}
+	popup.Constraints = layout.Constraints{Min: image.Pt(pixels, 0), Max: image.Pt(pixels, max(above, below))}
 	content := op.Record(gtx.Ops)
-	dims := view.panel(popup, view.colors.divider, func(gtx layout.Context) layout.Dimensions {
+	dims := view.Panel(popup, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
+		if h.pane.menu {
+			return layout.UniformInset(4).Layout(gtx, h.pane.Body)
+		}
 		return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Max.Y = max(0, gtx.Constraints.Max.Y-gtx.Dp(42))
-					return h.pane.body(gtx)
+					return h.pane.Body(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.E.Layout(gtx, view.button(&h.dismiss, view.language.Text(i18n.FieldDismiss)))
+					return layout.E.Layout(gtx, view.Button(&h.Dismiss, view.Language.Text(i18n.FieldDismiss)))
 				}),
 			)
 		})
@@ -144,25 +164,25 @@ func (h *popoverHost) layout(gtx layout.Context, view presentation) {
 	mask := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
 	event.Op(gtx.Ops, h)
 	mask.Pop()
-	h.panel = placePopover(safe, h.anchor, dims.Size, gap, below, above)
-	offset := op.Offset(h.panel.Min).Push(gtx.Ops)
+	h.Panel = placePopover(safe, h.Anchor, dims.Size, gap, below, above)
+	offset := op.Offset(h.Panel.Min).Push(gtx.Ops)
 	draw.Add(gtx.Ops)
 	offset.Pop()
 
 	if h.focusOnOpen {
 		focus := h.pane.focus
 		if focus == nil {
-			focus = &h.dismiss
+			focus = &h.Dismiss
 		}
 		gtx.Execute(key.FocusCmd{Tag: focus})
 		h.focusOnOpen = false
 	}
 }
 
-func (h *popoverHost) finish(gtx layout.Context) {
+func (h *Overlay) finish(gtx layout.Context) {
 	target := h.returnFocus
 	if target == nil {
-		target = h.trigger
+		target = h.Trigger
 	}
 	gtx.Execute(key.FocusCmd{Tag: target})
 	gtx.Execute(op.InvalidateCmd{})
@@ -179,12 +199,12 @@ func placePopover(safe, anchor image.Rectangle, size image.Point, gap, below, ab
 	return image.Rectangle{Min: image.Pt(x, y), Max: image.Pt(x+size.X, y+size.Y)}
 }
 
-func (h *popoverHost) reset() {
+func (h *Overlay) reset() {
 	if h.pane.onClose != nil {
 		h.pane.onClose()
 	}
-	h.trigger, h.returnFocus = nil, nil
-	h.pane = popoverPane{}
-	h.anchor, h.panel = image.Rectangle{}, image.Rectangle{}
+	h.Trigger, h.returnFocus = nil, nil
+	h.pane = Popover{}
+	h.Anchor, h.Panel = image.Rectangle{}, image.Rectangle{}
 	h.focusOnOpen, h.closePending = false, false
 }

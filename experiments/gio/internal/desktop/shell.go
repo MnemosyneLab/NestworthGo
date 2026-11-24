@@ -1,7 +1,6 @@
 package desktop
 
 import (
-	"fmt"
 	"image"
 
 	"gioui.org/font"
@@ -15,6 +14,7 @@ import (
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
 type routeID string
@@ -23,17 +23,20 @@ const (
 	overviewRoute         routeID = "overview"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
+	settingsRoute         routeID = "settings"
 	componentPreviewRoute routeID = "component-preview"
 )
 
 const (
-	sidebarWidth = 218
-	headerHeight = 53
+	sidebarWidth     = 224
+	sidebarRailWidth = 64
+	headerHeight     = 53
 )
 
-type pageLayout func(layout.Context, presentation) layout.Dimensions
+type pageLayout func(layout.Context, ui.View) layout.Dimensions
 
 type ledgerPages struct {
+	prefs     *preferenceState
 	directory pageLayout
 	history   pageLayout
 }
@@ -44,18 +47,11 @@ type navigationItem struct {
 	icon   *widget.Icon
 	body   pageLayout
 	button widget.Clickable
+	hint   ui.Tooltip
 }
 
 func newItem(id routeID, label i18n.MessageID, iconData []byte, body pageLayout) navigationItem {
-	return navigationItem{id: id, label: label, icon: mustIcon(iconData), body: body}
-}
-
-func mustIcon(iconData []byte) *widget.Icon {
-	icon, err := widget.NewIcon(iconData)
-	if err != nil {
-		panic(err)
-	}
-	return icon
+	return navigationItem{id: id, label: label, icon: ui.MustIcon(iconData), body: body}
 }
 
 type navigationGroup struct {
@@ -64,30 +60,35 @@ type navigationGroup struct {
 }
 
 type shell struct {
-	preferences    sessionPreferences
-	theme          *material.Theme
-	wordmark       widget.Image
-	mark           widget.Image
-	groups         []navigationGroup
-	routes         map[routeID]*navigationItem
-	activeRoute    routeID
-	navigation     layout.List
-	languageButton widget.Clickable
-	themeButton    widget.Clickable
-	accentButton   widget.Clickable
-	overlay        popoverHost
+	prefs                                 *preferenceState
+	settingsPage                          *settingsPage
+	preferences                           sessionPreferences
+	theme                                 *material.Theme
+	wordmark                              widget.Image
+	mark                                  widget.Image
+	groups                                []navigationGroup
+	routes                                map[routeID]*navigationItem
+	activeRoute                           routeID
+	navigation                            layout.List
+	languagePicker                        ui.Select
+	themeButton                           widget.Clickable
+	railButton                            widget.Clickable
+	languageHint, appearanceHint          ui.Tooltip
+	wideCollapsed, narrowExpanded, narrow bool
+	overlay                               ui.Overlay
 }
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
-	inputTest := &inputMethodPage{editor: newTextField(false)}
 	preview := newComponentPreview()
 	s := &shell{
-		preferences: sessionPreferences{language: i18n.SimplifiedChinese},
-		theme:       material.NewTheme(),
-		wordmark:    widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
-		mark:        widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
-		activeRoute: overviewRoute,
-		navigation:  layout.List{Axis: layout.Vertical},
+		prefs:        pages.prefs,
+		settingsPage: newSettingsPage(pages.prefs),
+		preferences:  sessionPreferences{language: i18n.SimplifiedChinese},
+		theme:        material.NewTheme(),
+		wordmark:     widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
+		mark:         widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
+		activeRoute:  overviewRoute,
+		navigation:   layout.List{Axis: layout.Vertical},
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
@@ -108,10 +109,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		{label: i18n.GroupManage, items: []navigationItem{
 			newItem(directoryRoute, i18n.NavDirectory, icons.SocialPeopleOutline, pages.directory),
 			newItem("data-maintenance", i18n.NavDataMaintenance, icons.NotificationSync, nil),
-			newItem("settings", i18n.NavSettings, icons.ActionSettings, nil),
-		}},
-		{label: i18n.GroupDevelopment, items: []navigationItem{
-			newItem("input-method-test", i18n.InputMethodTest, icons.HardwareKeyboard, inputTest.layout),
+			newItem(settingsRoute, i18n.NavSettings, icons.ActionSettings, s.settingsPage.layout),
 			newItem(componentPreviewRoute, i18n.NavComponentPreview, icons.ActionBuild, preview.layout),
 		}},
 	}
@@ -126,127 +124,122 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 }
 
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
-	s.overlay.beginFrame(gtx)
-	if s.languageButton.Clicked(gtx) {
-		s.preferences.language = s.preferences.language.Next()
+	s.prefs.update()
+	s.preferences = s.prefs.appearance()
+	windowContext := gtx
+	if s.settingsPage.confirming {
+		gtx = gtx.Disabled()
 	}
-	if s.themeButton.Clicked(gtx) {
-		s.preferences.dark = !s.preferences.dark
-	}
-	if s.accentButton.Clicked(gtx) {
-		s.preferences.accentIndex = (s.preferences.accentIndex + 1) % len(accentThemes)
+	s.overlay.BeginFrame(gtx)
+	s.narrow = gtx.Constraints.Max.X < gtx.Dp(960)
+	if s.railButton.Clicked(gtx) {
+		if s.narrow {
+			s.narrowExpanded = !s.narrowExpanded
+		} else {
+			s.wideCollapsed = !s.wideCollapsed
+		}
 	}
 	gtx.Locale.Language = string(s.preferences.language)
 	colors := s.preferences.colors()
 	s.theme.Palette = material.Palette{
-		Bg:         colors.pageBackground,
-		Fg:         colors.ink,
-		ContrastBg: colors.accent,
-		ContrastFg: colors.onAccent,
+		Bg:         colors.PageBackground,
+		Fg:         colors.Ink,
+		ContrastBg: colors.Accent,
+		ContrastFg: colors.OnAccent,
 	}
-	view := presentation{language: s.preferences.language, colors: colors, theme: s.theme, overlay: &s.overlay}
+	view := ui.View{
+		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay,
+		DateFormat: s.prefs.saved.DateFormat, DecimalSeparator: s.prefs.saved.DecimalSeparator, GroupingSeparator: s.prefs.saved.GroupingSeparator,
+		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
+	}
 	for _, group := range s.groups {
 		for i := range group.items {
 			item := &group.items[i]
 			if item.button.Clicked(gtx) {
 				s.activeRoute = item.id
+				s.narrowExpanded = false
 			}
 		}
 	}
-	paint.Fill(gtx.Ops, colors.pageBackground)
+	paint.Fill(gtx.Ops, colors.PageBackground)
 	dims := layout.Flex{}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
 	)
-	s.overlay.layout(gtx, view)
+	s.overlay.Layout(gtx, view)
+	if s.settingsPage.confirming {
+		s.settingsPage.layoutConfirmation(windowContext, view)
+	}
 	return dims
 }
 
-func (s *shell) sidebar(gtx layout.Context, view presentation) layout.Dimensions {
-	colors := view.colors
-	size := image.Pt(gtx.Dp(sidebarWidth), gtx.Constraints.Max.Y)
+func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
+	colors := view.Colors
+	size := image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Constraints.Max.Y)
 	gtx.Constraints = layout.Exact(size)
-	paint.FillShape(gtx.Ops, colors.sidebarBackground, clip.Rect{Max: size}.Op())
-	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect{Max: size}.Op())
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(s.brand),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarBrand(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: 11, Right: 12, Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return s.navigation.Layout(gtx, len(s.groups), func(gtx layout.Context, i int) layout.Dimensions {
-					return s.group(gtx, view, &s.groups[i])
-				})
+			return layout.Inset{Left: 12, Right: 12, Top: 4, Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return s.sidebarNavigation(gtx, view)
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarPreferences(gtx, view) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarPreferences(gtx, view, size.Y) }),
 	)
 }
 
-func (s *shell) sidebarPreferences(gtx layout.Context, view presentation) layout.Dimensions {
-	paint.FillShape(gtx.Ops, view.colors.divider, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X-1, 1)).Op())
-	themeAction := i18n.DarkAppearance
-	if s.preferences.dark {
-		themeAction = i18n.LightAppearance
-	}
-	languageAction := view.language.Next().Text(i18n.LanguageName)
-	accentName := view.language.Text(accentThemes[s.preferences.accentIndex].label)
-	accentAction := fmt.Sprintf(view.language.Text(i18n.ColorThemeLabel), accentName)
-	return layout.Inset{Top: 9, Bottom: 10, Left: 11, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+func (s *shell) sidebarNavigation(gtx layout.Context, view ui.View) layout.Dimensions {
+	height := gtx.Constraints.Max.Y
+	return s.navigation.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		// Fill the viewport when there is room and scroll all the groups together
+		// when their natural height exceeds it.
+		gtx.Constraints.Min.Y = height
+		last := len(s.groups) - 1
+		gap := gtx.Dp(20)
+		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween, Gap: gap}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Gap: gtx.Dp(7)}.Layout(gtx,
-					layout.Flexed(0.58, view.button(&s.languageButton, languageAction)),
-					layout.Flexed(0.42, view.button(&s.themeButton, view.language.Text(themeAction))),
-				)
+				groups := make([]layout.FlexChild, 0, last)
+				for i := range s.groups[:last] {
+					groups = append(groups, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return s.group(gtx, view, &s.groups[i])
+					}))
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(gtx, groups...)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Min.X = gtx.Constraints.Max.X
-				return view.button(&s.accentButton, accentAction)(gtx)
-			}),
-		)
-	})
-}
-
-func (s *shell) brand(gtx layout.Context) layout.Dimensions {
-	return layout.Inset{Top: 15, Bottom: 17, Left: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				side := gtx.Dp(27)
-				gtx.Constraints = layout.Exact(image.Pt(side, side))
-				return s.mark.Layout(gtx)
-			}),
-			layout.Rigid(layout.Spacer{Width: 8}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(116), gtx.Dp(30)))
-				return s.wordmark.Layout(gtx)
+				paint.FillShape(gtx.Ops, view.Colors.Divider, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
+				return layout.Inset{Top: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return s.group(gtx, view, &s.groups[last])
+				})
 			}),
 		)
 	})
 }
 
-func (s *shell) group(gtx layout.Context, view presentation, group *navigationGroup) layout.Dimensions {
+func (s *shell) group(gtx layout.Context, view ui.View, group *navigationGroup) layout.Dimensions {
 	children := make([]layout.FlexChild, 0, len(group.items)+1)
-	if group.label != i18n.NoMessage {
+	if group.label != i18n.NoMessage && !s.collapsed() {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 15, Bottom: 7, Left: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.label(gtx, view.language.Text(group.label), 11, font.Medium, view.colors.secondaryInk)
+			return layout.Inset{Bottom: 6, Left: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, view.Language.Text(group.label), 11, font.Medium, view.Colors.SecondaryInk)
 			})
 		}))
 	}
 	for i := range group.items {
 		item := &group.items[i]
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Bottom: 3}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return s.item(gtx, view, item)
-			})
+			return s.item(gtx, view, item)
 		}))
 	}
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
 }
 
-func (s *shell) item(gtx layout.Context, view presentation, item *navigationItem) layout.Dimensions {
-	colors := view.colors
-	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(34))
+func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) layout.Dimensions {
+	colors := view.Colors
+	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(36))
 	gtx.Constraints = layout.Exact(size)
 	return item.button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
@@ -255,18 +248,23 @@ func (s *shell) item(gtx layout.Context, view presentation, item *navigationItem
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
 		radius := gtx.Dp(9)
-		textColor, iconColor := colors.secondaryInk, colors.secondaryInk
+		textColor, iconColor := colors.SecondaryInk, colors.SecondaryInk
 		weight := font.Normal
 		focused := gtx.Focused(&item.button)
 		switch {
 		case selected:
-			paint.FillShape(gtx.Ops, colors.divider, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
-			paint.FillShape(gtx.Ops, colors.surface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, colors.Divider, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, colors.Surface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
 			marker := image.Rect(1, gtx.Dp(7), gtx.Dp(3), size.Y-gtx.Dp(7))
-			paint.FillShape(gtx.Ops, colors.accent, clip.UniformRRect(marker, 1).Op(gtx.Ops))
-			textColor, iconColor, weight = colors.ink, colors.accent, font.Medium
+			paint.FillShape(gtx.Ops, colors.Accent, clip.UniformRRect(marker, 1).Op(gtx.Ops))
+			textColor, iconColor, weight = colors.Ink, colors.Accent, font.Medium
 		case focused, item.button.Hovered():
-			paint.FillShape(gtx.Ops, colors.hoverSurface, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, colors.HoverSurface, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+		}
+		item.hint.Layout(gtx, view, s.collapsed() && item.button.Hovered(), view.Language.Text(item.label))
+		if s.collapsed() {
+			semantic.LabelOp(view.Language.Text(item.label)).Add(gtx.Ops)
+			return layout.Center.Layout(gtx, sidebarIcon(item.icon, iconColor, 18))
 		}
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
@@ -279,7 +277,7 @@ func (s *shell) item(gtx layout.Context, view presentation, item *navigationItem
 					}),
 					layout.Rigid(layout.Spacer{Width: 12}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.label(gtx, view.language.Text(item.label), 13, weight, textColor)
+						return view.Label(gtx, view.Language.Text(item.label), 13, weight, textColor)
 					}),
 				)
 			})
@@ -287,35 +285,35 @@ func (s *shell) item(gtx layout.Context, view presentation, item *navigationItem
 	})
 }
 
-func (s *shell) page(gtx layout.Context, view presentation) layout.Dimensions {
+func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	route := s.routes[s.activeRoute]
-	view.origin = image.Pt(gtx.Dp(sidebarWidth), gtx.Dp(headerHeight))
+	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return pageHeader(gtx, view, route.label) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return pageBody(gtx, view, route.body) }),
 	)
 }
 
-func pageHeader(gtx layout.Context, view presentation, title i18n.MessageID) layout.Dimensions {
-	colors := view.colors
+func pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
+	colors := view.Colors
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
 	gtx.Constraints = layout.Exact(size)
-	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.Y = 0
 		return layout.Inset{Left: 28}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.label(gtx, view.language.Text(title), 19, font.Medium, colors.ink)
+			return view.Label(gtx, view.Language.Text(title), 19, font.Medium, colors.Ink)
 		})
 	})
 }
 
-func pageBody(gtx layout.Context, view presentation, body pageLayout) layout.Dimensions {
+func pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensions {
 	if body == nil {
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}
 	return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		inset := layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
-		view.origin = view.origin.Add(image.Pt(gtx.Dp(inset.Left), gtx.Dp(inset.Top)))
+		view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), gtx.Dp(inset.Top)))
 		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return body(gtx, view)
 		})

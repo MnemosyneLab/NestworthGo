@@ -30,7 +30,7 @@ func testPaths(t *testing.T) (string, Paths) {
 	return root, paths
 }
 
-func TestPilotRejectsImplicitPathsAndLinkedFiles(t *testing.T) {
+func TestPilotRejectsMismatchedPathsAndLinkedFiles(t *testing.T) {
 	root, paths := testPaths(t)
 	for _, input := range [][3]string{
 		{},
@@ -132,6 +132,9 @@ func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := Ensure(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
 	reopened, err := Open(ctx, paths)

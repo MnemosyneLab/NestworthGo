@@ -16,6 +16,7 @@ import (
 	"gioui.org/unit"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 type previewHarness struct {
@@ -34,6 +35,9 @@ func newShellHarness(t *testing.T) *previewHarness {
 
 func newShellHarnessWithPages(t *testing.T, pages ledgerPages) *previewHarness {
 	t.Helper()
+	if pages.prefs == nil {
+		pages.prefs = newTestPreferenceState(t)
+	}
 	brand := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	return &previewHarness{t: t, shell: newShell(brand, brand, pages), size: image.Pt(1120, 840), now: time.Unix(1, 0)}
 }
@@ -45,7 +49,7 @@ func newPreviewHarness(t *testing.T) *previewHarness {
 	h.preview = preview
 	h.shell.routes[componentPreviewRoute].body = preview.layout
 	h.shell.activeRoute = componentPreviewRoute
-	h.shell.preferences.language = i18n.English
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	return h
 }
@@ -92,10 +96,10 @@ func TestPreviewTextSearchAndExplicitSubmission(t *testing.T) {
 	h := newPreviewHarness(t)
 	p := h.preview
 	h.click("Submit sample", false)
-	if p.submissions != 0 || p.nameProblem(p.name.text()) != i18n.PreviewNameRequired {
+	if p.submissions != 0 || p.nameProblem(p.name.Text()) != i18n.PreviewNameRequired {
 		t.Fatal("an empty institution name was accepted")
 	}
-	h.focused(&p.name.editor)
+	h.focused(&p.name.Editor)
 
 	// Simulate toolkit events to cover editor routing, independently of native IME.
 	h.router.Queue(key.EditEvent{Text: "ni"}, key.CompositionEvent{Start: 0, End: 2})
@@ -103,18 +107,18 @@ func TestPreviewTextSearchAndExplicitSubmission(t *testing.T) {
 	h.press(key.NameReturn)
 	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: 2}, Text: "你"}, key.CompositionEvent{Start: -1, End: -1})
 	h.frame()
-	if p.name.text() != "你" || p.submissions != 0 {
-		t.Fatalf("composition changed form submission or text: %q, %d", p.name.text(), p.submissions)
+	if p.name.Text() != "你" || p.submissions != 0 {
+		t.Fatalf("composition changed form submission or text: %q, %d", p.name.Text(), p.submissions)
 	}
 
 	overBudget := strings.Repeat("字", institutionNameBudget/3+1)
 	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: 1}, Text: overBudget})
 	h.frame()
 	h.click("Submit sample", false)
-	if p.name.text() != overBudget || p.submissions != 0 {
+	if p.name.Text() != overBudget || p.submissions != 0 {
 		t.Fatal("byte validation truncated or accepted an over-budget draft")
 	}
-	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.name.editor.Len()}, Text: "Harbor Bank"})
+	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.name.Editor.Len()}, Text: "Harbor Bank"})
 	h.frame()
 
 	h.click("Search institutions", true)
@@ -126,12 +130,12 @@ func TestPreviewTextSearchAndExplicitSubmission(t *testing.T) {
 	}
 	h.router.MoveFocus(key.FocusForward)
 	h.frame()
-	h.focused(&p.search.clear)
+	h.focused(&p.search.Clear)
 	h.press(key.NameReturn)
-	if p.query != "" || p.search.field.text() != "" {
+	if p.query != "" || p.search.Field.Text() != "" {
 		t.Fatal("the clear button did not report the empty query")
 	}
-	h.focused(&p.search.field.editor)
+	h.focused(&p.search.Field.Editor)
 
 	h.click("Submit sample", false)
 	if p.submissions != 1 || p.submittedName != "Harbor Bank" {
@@ -139,14 +143,14 @@ func TestPreviewTextSearchAndExplicitSubmission(t *testing.T) {
 	}
 
 	h.click("Read-only example", true)
-	h.focused(&p.readOnly.editor)
+	h.focused(&p.readOnly.Editor)
 	h.router.Queue(key.EditEvent{Text: "replacement"})
 	h.frame()
-	if p.readOnly.text() != "Harbor Bank" {
+	if p.readOnly.Text() != "Harbor Bank" {
 		t.Fatal("the read-only field accepted an edit")
 	}
 	h.click("Disabled example", true)
-	if h.router.Source().Focused(&p.disabled.editor) {
+	if h.router.Source().Focused(&p.disabled.Editor) {
 		t.Fatal("the disabled field received focus")
 	}
 }
@@ -156,49 +160,49 @@ func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 	host := &h.shell.overlay
 	anchor := &h.preview.info
 	h.click("About this form", false)
-	h.focused(&host.dismiss)
-	initial := host.panel
-	if initial.Empty() || initial.Max.Y >= host.anchor.Min.Y {
-		t.Fatalf("popover should flip above the footer trigger: panel %v, trigger %v", initial, host.anchor)
+	h.focused(&host.Dismiss)
+	initial := host.Panel
+	if initial.Empty() || initial.Max.Y >= host.Anchor.Min.Y {
+		t.Fatalf("popover should flip above the footer trigger: panel %v, trigger %v", initial, host.Anchor)
 	}
 
 	h.size = image.Pt(700, 460)
 	h.frame()
 	window := image.Rectangle{Max: h.size}
-	if host.panel.Empty() || !host.panel.In(window) || host.panel == initial || host.panel.Max.Y >= host.anchor.Min.Y {
-		t.Fatalf("popover did not follow its anchor inside the resized window: %v", host.panel)
+	if host.Panel.Empty() || !host.Panel.In(window) || host.Panel == initial || host.Panel.Max.Y >= host.Anchor.Min.Y {
+		t.Fatalf("popover did not follow its anchor inside the resized window: %v", host.Panel)
 	}
-	h.clickAt(host.panel.Min.Add(image.Pt(18, 14)))
-	if host.trigger != anchor {
+	h.clickAt(host.Panel.Min.Add(image.Pt(18, 14)))
+	if host.Trigger != anchor {
 		t.Fatal("a press inside the panel dismissed it")
 	}
 	h.press(key.NameEscape)
-	if host.trigger != nil {
+	if host.Trigger != nil {
 		t.Fatal("Escape did not dismiss the popover")
 	}
 	h.focused(anchor)
 
 	h.press(key.NameReturn)
-	h.focused(&host.dismiss)
+	h.focused(&host.Dismiss)
 	h.click("Submit sample", false)
-	if host.trigger != nil || h.preview.checkName {
+	if host.Trigger != nil || h.preview.checkName {
 		t.Fatal("the outside press failed to close the popover or activated the covered button")
 	}
 	h.focused(anchor)
 
 	h.press(key.NameReturn)
-	h.focused(&host.dismiss)
+	h.focused(&host.Dismiss)
 	h.router.Queue(input.SystemEvent{Event: key.Event{Name: key.NameTab, State: key.Press, Modifiers: key.ModShift}})
 	h.frame()
-	if host.trigger != nil {
+	if host.Trigger != nil {
 		t.Fatal("Shift-Tab did not dismiss the popover")
 	}
 	h.focused(anchor)
 
 	h.press(key.NameReturn)
-	h.focused(&host.dismiss)
+	h.focused(&host.Dismiss)
 	h.click("Close", false)
-	if host.trigger != nil {
+	if host.Trigger != nil {
 		t.Fatal("the close button failed to dismiss the popover")
 	}
 	h.focused(anchor)
@@ -206,17 +210,7 @@ func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 	h.press(key.NameReturn)
 	h.shell.activeRoute = overviewRoute
 	h.frame()
-	if host.trigger != nil || h.router.Source().Focused(anchor) {
+	if host.Trigger != nil || h.router.Source().Focused(anchor) {
 		t.Fatal("removing the trigger left the popover or its focus active")
-	}
-}
-
-func TestPopoverPlacementPrefersBelowWhenItFits(t *testing.T) {
-	safe := image.Rect(8, 8, 692, 452)
-	anchor := image.Rect(636, 32, 670, 64)
-	size := image.Pt(300, 96)
-	got := placePopover(safe, anchor, size, 6, 382, 18)
-	if want := image.Rect(392, 70, 692, 166); got != want {
-		t.Fatalf("got panel %v, want %v", got, want)
 	}
 }

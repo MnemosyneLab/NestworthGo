@@ -82,13 +82,13 @@ must never alter stored exact values.
 
 ## Local test application identity and data isolation
 
-All local testing, debug builds and native macOS QA must use the established
+Wails local testing, debug builds and native macOS QA must use the established
 `build/darwin/Info.dev.plist` identity: bundle identifier `com.nestworth.dev`,
 application name and display name `Nestworth` (bundle `Nestworth.app`). Do not
 create task-specific QA names, random bundle identifiers or additional testing
 identities. Production packaging retains its separate release identity.
 
-Isolate each test run through explicit synthetic database/settings directories,
+Isolate each Wails test run through explicit synthetic database/settings directories,
 not a new app identity. Before launch, verify the bundle's dev identity, resolve
 `NESTWORTH_DATABASE_PATH` and `NESTWORTH_SETTINGS_PATH` to the intended isolated
 run directory, and verify a synthetic test marker/household in that database.
@@ -98,6 +98,12 @@ Use a launcher/configuration that preserves these paths when opened by native UI
 tools; an app launch without verified overrides is prohibited. Never use or
 modify a real household ledger for tests. Do not change system security settings
 or automatically remove previously created QA applications.
+
+The Gio preview has its own fixed identity, `com.nestworth.gio` (`Nestworth Gio`).
+Daily launches reuse its verified synthetic ledger and preferences under the
+platform's user config directory. For a disposable Gio test, set
+`NESTWORTH_GIO_RUN_DIR` to a separate private fixture root. Use the
+[Gio launch instructions](experiments/gio/README.md#persistent-test-data).
 
 If an accepted authorization flow stalls or repeats, stop requesting the same
 permission. Preserve completed work and logs, mark blocked checks accurately,

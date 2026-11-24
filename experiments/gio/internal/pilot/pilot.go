@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"syscall"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -19,66 +17,8 @@ const (
 	markerKey     = "gio.institutions.fixture.v1"
 )
 
-// Paths identifies a private synthetic fixture resolved by PathsFromEnv.
-type Paths struct {
-	data, database, settings string
-}
-
-// PathsFromEnv requires explicit database and settings paths inside a private run directory.
-func PathsFromEnv() (Paths, error) {
-	return resolvePaths(os.Getenv("NESTWORTH_GIO_RUN_DIR"),
-		os.Getenv("NESTWORTH_DATABASE_PATH"), os.Getenv("NESTWORTH_SETTINGS_PATH"))
-}
-
-func resolvePaths(runDir, databasePath, settingsPath string) (Paths, error) {
-	if !filepath.IsAbs(runDir) || filepath.Clean(runDir) != runDir {
-		return Paths{}, errors.New("NESTWORTH_GIO_RUN_DIR must be the absolute path of the isolated preview run")
-	}
-	data := filepath.Join(runDir, "data")
-	expected := Paths{data: data, database: filepath.Join(data, "nestworth.db"), settings: filepath.Join(data, "settings.json")}
-	if databasePath != expected.database || settingsPath != expected.settings {
-		return Paths{}, errors.New("explicit database and settings paths must match the isolated preview run")
-	}
-	canonical, err := filepath.EvalSymlinks(runDir)
-	if err != nil || canonical != runDir {
-		return Paths{}, errors.New("the preview run directory must exist at its canonical path")
-	}
-	if err := requirePrivateDirectory(runDir); err != nil {
-		return Paths{}, err
-	}
-	return expected, nil
-}
-
-func requirePrivateDirectory(path string) error {
-	info, err := os.Lstat(path)
-	if err != nil || !info.IsDir() || !isPrivateOwned(info) {
-		return errors.New("the preview requires a private run and data directory owned by the current user")
-	}
-	return nil
-}
-
-func isPrivateOwned(info os.FileInfo) bool {
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	return ok && int(stat.Uid) == os.Geteuid() && info.Mode().Perm()&0o077 == 0
-}
-
-func verifyFile(path string) (os.FileInfo, error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() || !isPrivateOwned(info) || info.Sys().(*syscall.Stat_t).Nlink != 1 {
-		return nil, errors.New("expected a private regular file without symbolic or hard links")
-	}
-	return info, nil
-}
-
-// Prepare creates the synthetic household in a fresh data directory.
-func Prepare(ctx context.Context, paths Paths) (result error) {
-	// A fresh data directory keeps the seeder off any existing ledger.
-	if err := os.Mkdir(paths.data, 0o700); err != nil {
-		return fmt.Errorf("create fresh fixture directory: %w", err)
-	}
+// seedFixture writes only inside a fresh private staging directory.
+func seedFixture(ctx context.Context, paths Paths) (result error) {
 	db, err := sqlite.Open(paths.database)
 	if err != nil {
 		return err
@@ -128,6 +68,9 @@ func Prepare(ctx context.Context, paths Paths) (result error) {
 }
 
 func verifyFixture(ctx context.Context, paths Paths) (os.FileInfo, error) {
+	if err := requirePrivateDirectory(paths.RootPath()); err != nil {
+		return nil, err
+	}
 	if err := requirePrivateDirectory(paths.data); err != nil {
 		return nil, err
 	}
@@ -138,7 +81,7 @@ func verifyFixture(ctx context.Context, paths Paths) (os.FileInfo, error) {
 	if _, err := verifyFile(paths.settings); err != nil {
 		return nil, fmt.Errorf("verify isolated settings file: %w", err)
 	}
-	for _, suffix := range []string{"-wal", "-shm", "-journal"} {
+	for _, suffix := range []string{"-wal", "-shm", "-journal", ".instance-lock"} {
 		if _, err := verifyFile(paths.database + suffix); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("verify isolated database sidecar: %w", err)
 		}
@@ -182,6 +125,10 @@ func Open(ctx context.Context, paths Paths) (*sqlite.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	return openVerified(ctx, paths, verified)
+}
+
+func openVerified(ctx context.Context, paths Paths, verified os.FileInfo) (*sqlite.DB, error) {
 	current, err := verifyFile(paths.database)
 	if err != nil || !os.SameFile(verified, current) {
 		return nil, errors.New("the isolated database changed during verification")

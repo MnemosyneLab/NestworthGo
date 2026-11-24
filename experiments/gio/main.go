@@ -12,6 +12,7 @@ import (
 	"gioui.org/app"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/desktop"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
@@ -26,7 +27,7 @@ func main() {
 	}
 	go func() {
 		if err := run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Nestworth could not start:", err)
+			fmt.Fprintln(os.Stderr, pilot.DisplayName+" could not start:", err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -35,21 +36,29 @@ func main() {
 }
 
 func pilotCommand(args []string) error {
-	if len(args) != 1 || (args[0] != "--prepare-pilot-fixture" && args[0] != "--verify-pilot-fixture") {
-		return errors.New("expected --prepare-pilot-fixture or --verify-pilot-fixture")
+	if len(args) != 1 {
+		return errors.New("expected one pilot command")
 	}
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
-	if args[0] == "--prepare-pilot-fixture" {
+	switch args[0] {
+	case "--print-pilot-root":
+		fmt.Println(paths.RootPath())
+	case "--prepare-pilot-fixture":
 		return pilot.Prepare(ctx, paths)
+	case "--ensure-pilot-fixture":
+		return pilot.Ensure(ctx, paths)
+	case "--verify-pilot-fixture":
+		if err := pilot.Verify(ctx, paths); err != nil {
+			return err
+		}
+		fmt.Println("Verified the isolated Gio Institutions QA fixture.")
+	default:
+		return fmt.Errorf("unknown pilot command %q", args[0])
 	}
-	if err := pilot.Verify(ctx, paths); err != nil {
-		return err
-	}
-	fmt.Println("Verified the isolated Gio Institutions QA fixture.")
 	return nil
 }
 
@@ -67,14 +76,19 @@ func run() (result error) {
 		return err
 	}
 	ctx := context.Background()
-	db, err := pilot.Open(ctx, paths)
+	db, unlock, err := pilot.OpenSession(ctx, paths)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		result = errors.Join(result, db.CheckpointWAL(context.Background()), db.Close())
+		result = errors.Join(result, db.CheckpointWAL(context.Background()), db.Close(), unlock())
 	}()
-	return desktop.Run(ctx, application.NewService(sqlite.NewRepository(db)), wordmark, mark)
+	service := application.NewService(sqlite.NewRepository(db))
+	prefs, err := preferences.Open(paths.SettingsPath(), db, service)
+	if err != nil {
+		return err
+	}
+	return desktop.Run(ctx, service, prefs, wordmark, mark)
 }
 
 func loadBrandImage(name string) (image.Image, error) {

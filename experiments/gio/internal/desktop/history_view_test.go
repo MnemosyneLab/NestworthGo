@@ -9,6 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 type activityReaderFunc func(context.Context, domain.ActivityQuery) (domain.ActivityPage, error)
@@ -39,15 +40,15 @@ func TestHistoryViewScrollLanguageAndRetry(t *testing.T) {
 	model := history.New(t.Context(), reader, func() {})
 	page := newHistoryPage(model)
 	h := newShellHarnessWithPages(t, ledgerPages{history: page.layout})
-	h.shell.preferences.language = i18n.English
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
-	h.click("Activity history", false)
+	h.click("Ledger activity", false)
 	model.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "Cost correction")
 	assertPageLabel(t, &h.router, "2026-10-20")
 	assertPageLabel(t, &h.router, note)
-	h.click("繁體中文", false)
+	h.selectSidebarLanguage(i18n.SettingsLanguageZhTW)
 	assertPageLabel(t, &h.router, "成本修正")
 
 	for range 48 {

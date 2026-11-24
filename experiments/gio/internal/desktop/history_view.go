@@ -13,6 +13,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -42,7 +43,7 @@ var historyKindLabels = map[domain.ActivityKind]i18n.MessageID{
 	domain.ActivityReversal:         i18n.HistoryReversal,
 }
 
-func (p *historyPage) layout(gtx layout.Context, view presentation) layout.Dimensions {
+func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.model.Update() {
 		p.list.Position = layout.Position{}
 	}
@@ -57,13 +58,13 @@ func (p *historyPage) layout(gtx layout.Context, view presentation) layout.Dimen
 		gtx.Execute(key.FocusCmd{Tag: &p.list})
 	}
 
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(limitWidth(gtx, 780),
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 780),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.model.Err() != nil {
-						return view.button(&p.retryButton, view.language.Text(i18n.HistoryRetry))(gtx)
+						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)
 					}
 					return layout.Dimensions{}
 				}),
@@ -74,7 +75,7 @@ func (p *historyPage) layout(gtx layout.Context, view presentation) layout.Dimen
 					if p.model.Loading() {
 						gtx = gtx.Disabled()
 					}
-					return view.button(&p.reloadButton, view.language.Text(i18n.HistoryRefresh))(gtx)
+					return view.Button(&p.reloadButton, view.Language.Text(i18n.HistoryRefresh))(gtx)
 				}),
 			)
 		}),
@@ -91,39 +92,39 @@ func (p *historyPage) layout(gtx layout.Context, view presentation) layout.Dimen
 			if p.model.Loading() {
 				gtx = gtx.Disabled()
 			}
-			return view.button(&p.moreButton, view.language.Text(i18n.HistoryMore))(gtx)
+			return view.Button(&p.moreButton, view.Language.Text(i18n.HistoryMore))(gtx)
 		}),
 	)
 }
 
-func (p *historyPage) status(gtx layout.Context, view presentation) layout.Dimensions {
-	color := view.colors.secondaryInk
+func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions {
+	color := view.Colors.SecondaryInk
 	var text string
 	switch {
 	case p.model.Loading():
-		text = view.language.Text(i18n.HistoryLoading)
+		text = view.Language.Text(i18n.HistoryLoading)
 	case p.model.Err() != nil:
-		color = view.colors.errorInk
-		text = view.language.Text(i18n.HistoryLoadError)
+		color = view.Colors.ErrorInk
+		text = view.Language.Text(i18n.HistoryLoadError)
 	case len(p.model.Rows()) == 0:
-		text = view.language.Text(i18n.HistoryEmpty)
+		text = view.Language.Text(i18n.HistoryEmpty)
 	default:
-		text = fmt.Sprintf(view.language.Text(i18n.HistoryCount), len(p.model.Rows()))
+		text = fmt.Sprintf(view.Language.Text(i18n.HistoryCount), len(p.model.Rows()))
 	}
-	return view.message(text, color)(gtx)
+	return view.Message(text, color)(gtx)
 }
 
-func (p *historyPage) activityList(gtx layout.Context, view presentation) layout.Dimensions {
-	border := view.colors.divider
+func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dimensions {
+	border := view.Colors.Divider
 	if gtx.Focused(&p.list) {
-		border = view.colors.accent
+		border = view.Colors.Accent
 	}
-	return view.panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
+	return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(6).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-			semantic.DescriptionOp(view.language.Text(i18n.NavHistory)).Add(gtx.Ops)
+			semantic.DescriptionOp(view.Language.Text(i18n.NavHistory)).Add(gtx.Ops)
 			event.Op(gtx.Ops, &p.list)
-			for _, pressed := range pickerKeys(gtx, &p.list,
+			for _, pressed := range ui.PressedKeys(gtx, &p.list,
 				key.NameUpArrow, key.NameDownArrow, key.NamePageUp, key.NamePageDown, key.NameHome, key.NameEnd) {
 				page := float32(max(1, p.list.Position.Count-1))
 				switch pressed.Name {
@@ -141,14 +142,18 @@ func (p *historyPage) activityList(gtx layout.Context, view presentation) layout
 					p.list.ScrollTo(len(p.model.Rows()) - 1)
 				}
 			}
-			return material.List(view.theme, &p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
+			return material.List(view.Theme, &p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
 				return historyEntry(gtx, view, p.model.Rows()[i])
 			})
 		})
 	})
 }
 
-func historyEntry(gtx layout.Context, view presentation, row history.Row) layout.Dimensions {
+func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
+	day := row.EffectiveLocalDate
+	if parsed, ok := ui.ParseCivilDay(day); ok {
+		day = ui.FormatDay(parsed, view.Language, view.DateFormat)
+	}
 	kind, ok := historyKindLabels[row.Kind]
 	if !ok {
 		kind = i18n.HistoryActivity
@@ -158,16 +163,16 @@ func historyEntry(gtx layout.Context, view presentation, row history.Row) layout
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return view.label(gtx, view.language.Text(kind), 15, font.Medium, view.colors.ink)
+						return view.Label(gtx, view.Language.Text(kind), 15, font.Medium, view.Colors.Ink)
 					}),
-					layout.Rigid(view.message(row.EffectiveLocalDate, view.colors.secondaryInk)),
+					layout.Rigid(view.Message(day, view.Colors.SecondaryInk)),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if row.Note == nil || *row.Note == "" {
 					return layout.Dimensions{}
 				}
-				return view.message(*row.Note, view.colors.secondaryInk)(gtx)
+				return view.Message(*row.Note, view.Colors.SecondaryInk)(gtx)
 			}),
 		)
 	})

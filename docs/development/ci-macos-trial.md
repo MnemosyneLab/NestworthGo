@@ -9,6 +9,8 @@ per run, using a locally cached pinned Wails CLI; no comparison regeneration.
 Go package completion is checked against `go list ./...`; missing and
 duplicate package results fail the gate.
 Each gate retains its own outcome and failures do not suppress later gates.
+The separate `gio-i18n` gate checks the Gio module's translations and UI
+source without opening a window.
 
 ## Automatic checks, trust and rollback
 

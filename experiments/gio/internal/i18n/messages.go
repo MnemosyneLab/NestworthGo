@@ -4,6 +4,7 @@ type Language string
 
 const (
 	English            Language = "en"
+	Japanese           Language = "ja"
 	SimplifiedChinese  Language = "zh-CN"
 	TraditionalChinese Language = "zh-TW"
 )
@@ -12,7 +13,10 @@ type MessageID uint16
 
 const (
 	NoMessage MessageID = iota
-	LanguageName
+
+	SidebarToggle
+	SidebarToggleAppearance
+	SidebarSaveError
 	NavOverview
 	NavAccounts
 	NavAvailableFunds
@@ -29,13 +33,10 @@ const (
 	GroupActivity
 	GroupInsights
 	GroupManage
-	GroupDevelopment
 	SampleData
 	NetWorth
 	Assets
 	Liabilities
-	InputMethodTest
-	InputMethodHint
 	PreviewFormHelp
 	PreviewInstitutionName
 	PreviewInstitutionHint
@@ -76,6 +77,8 @@ const (
 	DatePreviousYear
 	DateNextYear
 	DateToday
+	DateDayLayout
+	DateMonthLayout
 	WeekdaySunday
 	WeekdayMonday
 	WeekdayTuesday
@@ -130,9 +133,7 @@ const (
 	InstitutionEmployer
 	InstitutionGovernment
 	InstitutionOther
-	LightAppearance
-	DarkAppearance
-	ColorThemeLabel
+
 	IndigoAccent
 	LavenderAccent
 	MintAccent
@@ -159,6 +160,59 @@ const (
 	HistoryDebtDraw
 	HistoryDebtPayment
 	HistoryReversal
+	SettingsIntro
+	SettingsTab
+	SettingsGeneral
+	SettingsAppearance
+	SettingsAccent
+	SettingsLanguage
+	SettingsTimezone
+	SettingsDate
+	SettingsTime
+	SettingsDecimal
+	SettingsGrouping
+	SettingsNumberHelp
+	SettingsCurrency
+	SettingsCurrencyHelp
+	SettingsAppearanceSystem
+	SettingsAppearanceLight
+	SettingsAppearanceDark
+	SettingsLanguageSystem
+	SettingsLanguageEn
+	SettingsLanguageZhCN
+	SettingsLanguageZhTW
+	SettingsLanguageJa
+	SettingsTimezoneSystem
+	SettingsDateISO
+	SettingsDateDayFirst
+	SettingsDateMonthFirst
+	SettingsDateLocalized
+	SettingsTime12
+	SettingsTime24
+	SettingsDot
+	SettingsComma
+	SettingsSpace
+	SettingsApostrophe
+	SettingsNoGrouping
+	SettingsSeparatorConflict
+	SettingsUnsaved
+	SettingsSaveHelp
+	SettingsTimezoneResolved
+	SettingsTimezoneDiff
+	SettingsSave
+	SettingsDiscard
+	SettingsReset
+	SettingsResetTitle
+	SettingsResetBody
+	SettingsCancel
+	SettingsSaved
+	SettingsDiscarded
+	SettingsRestored
+	SettingsLoading
+	SettingsLoadError
+	SettingsSaveError
+	SettingsPending
+	PickerNoMatches
 	messageCount
 )
 
@@ -166,6 +220,7 @@ type catalog [messageCount]string
 
 var catalogs = map[Language]*catalog{
 	English:            &englishCatalog,
+	Japanese:           &japaneseCatalog,
 	SimplifiedChinese:  &simplifiedChineseCatalog,
 	TraditionalChinese: &traditionalChineseCatalog,
 }
@@ -175,19 +230,4 @@ func (language Language) Text(id MessageID) string {
 		return translated[id]
 	}
 	return catalogs[English][id]
-}
-
-func (language Language) Next() Language {
-	switch language {
-	case English:
-		return TraditionalChinese
-	case TraditionalChinese:
-		return SimplifiedChinese
-	default:
-		return English
-	}
-}
-
-func (language Language) UsesChineseDates() bool {
-	return language == SimplifiedChinese || language == TraditionalChinese
 }

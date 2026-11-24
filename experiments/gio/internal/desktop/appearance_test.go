@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
 func TestThemeContrast(t *testing.T) {
 	for _, theme := range accentThemes {
 		for _, mode := range []struct {
 			name   string
-			colors palette
+			colors ui.Palette
 		}{
 			{"light", theme.light},
 			{"dark", theme.dark},
@@ -30,23 +31,23 @@ func TestThemeContrast(t *testing.T) {
 					name  string
 					color color.NRGBA
 				}{
-					{"page", c.pageBackground}, {"sidebar", c.sidebarBackground},
-					{"field and card", c.surface}, {"hovered option", c.hoverSurface},
+					{"page", c.PageBackground}, {"sidebar", c.SidebarBackground},
+					{"field and card", c.Surface}, {"hovered option", c.HoverSurface},
 				} {
 					bg := relativeLuminance(background.color)
-					check("primary text on "+background.name, relativeLuminance(c.ink), bg, 4.5)
-					check("secondary text on "+background.name, relativeLuminance(c.secondaryInk), bg, 4.5)
+					check("primary text on "+background.name, relativeLuminance(c.Ink), bg, 4.5)
+					check("secondary text on "+background.name, relativeLuminance(c.SecondaryInk), bg, 4.5)
 				}
-				accent, surface := relativeLuminance(c.accent), relativeLuminance(c.surface)
-				check("selected option text", relativeLuminance(c.onAccent), accent, 4.5)
+				accent, surface := relativeLuminance(c.Accent), relativeLuminance(c.Surface)
+				check("selected option text", relativeLuminance(c.OnAccent), accent, 4.5)
 				check("focused control", accent, surface, 3)
-				check("error text on page", relativeLuminance(c.errorInk), relativeLuminance(c.pageBackground), 4.5)
-				check("error text on card", relativeLuminance(c.errorInk), surface, 4.5)
+				check("error text on page", relativeLuminance(c.ErrorInk), relativeLuminance(c.PageBackground), 4.5)
+				check("error text on card", relativeLuminance(c.ErrorInk), surface, 4.5)
 
-				selection := c.editorSelection()
+				selection := c.EditorSelection()
 				opacity := float64(selection.A) / 255
 				selected := relativeLuminance(selection)*opacity + surface*(1-opacity)
-				check("selected editor text", relativeLuminance(c.ink), selected, 4.5)
+				check("selected editor text", relativeLuminance(c.Ink), selected, 4.5)
 			})
 		}
 	}

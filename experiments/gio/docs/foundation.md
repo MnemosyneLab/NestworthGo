@@ -2,14 +2,11 @@
 
 ## Status and scope
 
-The [Gio desktop preview](../README.md) implements the shell, session
-preferences, shared editors and pickers, component preview and **Directory →
-Institutions** pilot designed below. The multiline IME test lives under
-Development. English, Simplified Chinese and Traditional Chinese are available
-in the [localization package](../internal/i18n). The
-[desktop migration roadmap](roadmap.md) tracks further workflows and the
-evidence needed for Wails parity. Wails remains the production desktop.
-[Shared Wails control contract](../../../docs/development/frontend-controls.md)
+The Gio desktop runs against a verified synthetic household. It includes
+General settings, Ledger activity, the Institutions pilot and a Component
+Preview page for the shared controls. Wails remains the
+production desktop. The roadmap records workflow coverage and acceptance
+evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](roadmap.md) · [Shared Wails control contract](../../../docs/development/frontend-controls.md)
 
 ## Application shell
 
@@ -24,6 +21,8 @@ evidence needed for Wails parity. Wails remains the production desktop.
   events. Pages supply labels, options and constraints, handle accepted values,
   and own validation and submission. For a searchable select, the page owns the
   selected value and the control owns the current search session and active row.
+  The controls live in their own [ui package](../internal/ui). The
+  [desktop package](../internal/desktop) composes them into pages and the shell.
 - The component preview uses in-memory fixtures. The Institutions pilot calls
   the existing Go application services for reads and writes and reloads the
   authoritative result after a successful save. Financial validation and date
@@ -31,14 +30,11 @@ evidence needed for Wails parity. Wails remains the production desktop.
 
 ## Internationalization and appearance
 
-Use stable message keys grouped by purpose, such as `nav.directory`,
-`field.clear`, and `date.nextMonth`. Provide complete English and Simplified
-Chinese catalogs for the first milestone, with English as the runtime fallback.
-Catalog checks verify key coverage and matching interpolation parameters for
-each enabled language. Labels, hints, empty states, field errors, and accessible
-names use the same catalog service. New languages can be added through the
-catalogs and language registry. Add Traditional Chinese and Japanese before
-claiming Wails language coverage. [Current language resolver](../../../internal/settings/language.go)
+English, Simplified Chinese, Traditional Chinese and Japanese have complete
+message catalogs. Labels, hints, empty states, errors and accessible names use
+the same typed keys. Catalog checks verify coverage and interpolation
+parameters. The System language option uses the same locale resolver as Wails.
+[Gio message catalogs](../internal/i18n) · [Shared language resolver](../../../internal/settings/language.go)
 
 Keep translated messages separate from value formatting. A locale change can
 change the displayed date, weekday, currency, or time label while preserving
@@ -46,26 +42,41 @@ the underlying selection. Week start, date format, and 12/24-hour format use
 explicit display preferences compatible with the existing settings. Money
 formatting takes authoritative decimal amounts and currencies as input.
 
-Define semantic theme tokens for window and sidebar surfaces, field and popup
-surfaces, text, borders, accent, hover, focus, selection, error, and disabled
-states. Share typography, spacing, and corner radius across the two palettes.
-Resolve the active palette in the shell and adapt it to any Gio Material
-controls in use. Keep session-only switching in the first milestone. The
-settings integration reuses the existing persistence and `system`, `light`,
-and `dark` preferences. Verify system appearance changes and the native
-title bar separately from the themed Gio content. [Existing settings types](../../../internal/settings/settings.go) · [Gio theme](https://gioui.org/doc/architecture/theme)
+The shell resolves system, light or dark appearance and applies one of the five
+Wails accent palettes. Buttons, fields and popovers share visual tokens for
+surfaces, text, borders, focus, selection and errors. The sidebar language
+menu and appearance button stay available in the collapsed rail and save
+immediately. Accent selection and the System language option live in Settings.
+[Wails color tokens](../../../frontend/src/index.css) · [Shared settings types](../../../internal/settings/settings.go)
+
+### General settings and storage
+
+The Appearance tab groups eight display preferences in two columns and stacks
+them vertically at compact widths. The household base currency is read-only.
+The timezone picker supports searching named zones and following the system.
+Its help text distinguishes the current display zone from the zone attached
+to the household's recorded history.
+
+The page keeps edits as a draft, validates the separators, and offers save
+and discard. The confirmation dialog restores only the eight General fields.
+The shell serializes writes and publishes a change after persistence
+succeeds. A failed save keeps the draft available for retry.
+
+The preferences adapter merges edited fields into the latest shared settings
+under the application's write permit. Timezone uses the existing SQLite
+configuration, and presentation preferences use the settings file. Both are
+scoped to the verified preview run. The adapter obtains currency and history
+origin from the existing application services. [Preferences adapter](../internal/preferences/service.go)
 
 ## Shared controls and Wails parity
 
-Build the first controls from Gio's editor, click targets, and scrolling lists.
-Use a shared `Button`, `Field`, `Popover`, and option list to keep behavior
-consistent. `Field` supplies the visual label, help text, and error treatment.
-The actual interactive control carries the corresponding semantics. Evaluate
-`gioui.org/x/component` for menu layout and overlay primitives with a focused
-prototype before adding it as a dependency. The Nestworth API owns the
-interaction contract regardless of the primitives used underneath. [Gio widget architecture](https://gioui.org/doc/architecture/widget) · [Gio extension components](https://pkg.go.dev/gioui.org/x/component)
+The shared controls use Gio's editor, click targets and scrolling lists.
+Page code supplies labels, help text and validation errors. The control
+registers input and semantic operations and draws the corresponding visual
+state. The Settings timezone picker and the component preview's institution
+picker use the same searchable select. [Shared controls](../internal/ui) · [Gio widget architecture](https://gioui.org/doc/architecture/widget)
 
-| Control | Wails precedent | Proposed Gio behavior |
+| Control | Wails precedent | Interaction contract |
 | --- | --- | --- |
 | Text input and multiline text | `Input`, `Label`, `FieldError` | Wrap `widget.Editor` and share label, hint, disabled, read-only, and error styles. Preserve selection, clipboard, undo, and composition. Provide a UTF-8 byte counter and validation when the caller specifies a storage limit. |
 | Search field | Search inputs built on `Input` | Reuse text input with a search icon and clear action. Report query changes. Callers own filtering, provider requests, and result states. |
@@ -98,15 +109,16 @@ application logic to combine date, time, and timezone into an instant. [Wails da
 
 ### Follow-on controls
 
-Add tabs and segmented controls, checkboxes, confirmation dialogs, side
-panels, page states, and tables when a pilot page needs them. Start from the
-existing Wails behavior for each and extract common variants from real usage.
+General settings owns its reset dialog. Extract a shared confirmation
+dialog when another workflow needs the same behavior. Add segmented
+controls, checkboxes, side panels and tables as the directory and ledger
+workflows require them.
 
 ## Component preview page
 
-Add **Development → Component Preview** at the bottom of the experimental
-sidebar. Use the existing sidebar preferences to exercise the page in both
-languages and both themes. Register the route only in the experiment.
+Open **Manage → Component Preview** from the sidebar to exercise controls in all four
+languages and both appearances. Use the sidebar for live changes and Settings
+for the accent palette.
 
 The main example is a working synthetic form with institution name, notes,
 standalone institution search, account type select, searchable institution
@@ -117,25 +129,19 @@ a narrow window. Include focused examples for validation errors, disabled and
 read-only fields, no search matches, long option lists, and date bounds. The
 form and examples use the same component implementations as the pilot page.
 
-## Implementation and acceptance
+## Interaction acceptance
 
-1. **Shell and preferences.** Move the current experimental route and
-   preference handling into the shared shell. Add the preview route and
-   verify live language and appearance switching while a draft is open.
-2. **Text, search, and overlay.** Implement the editor-backed fields and a
-   shared popover. Validate native composition, clipboard, keyboard focus,
-   dismissal, and window-edge positioning with a small form.
-3. **Selects and temporal controls.** Add both select types and the date and
-   time pickers. Verify empty values, disabled options, date boundaries,
-   leap days, week starts, midnight, and locale changes. Use the preview to
-   exercise a long list and a popup opened near the bottom of the window.
-4. **Institutions pilot.** List, search, and edit institutions with existing
-   Go services. Verify loading, empty, error, and successful-save behavior
-   against isolated data. Use equivalent Gio and Wails work before drawing
-   conclusions about startup, memory, or responsiveness.
+Use the multiline **Notes** field in Component Preview to check native IME
+candidate placement, confirmation and editing across lines. Use the rest of
+the form to exercise clipboard, focus, dismissal, empty values, disabled
+options, leap days, midnight and popup
+position near the edge of a narrow window. Check language and appearance
+switches while a draft or selection is active. Use the actual Settings and
+Institutions routes to exercise saving, retrying and reopening the same
+isolated fixture. The roadmap records the evidence available for each stage.
 
 Automated checks cover translation keys, formatting, value validation, and
-control state transitions. Native macOS checks cover Tab and Shift-Tab order,
+control state transitions. On macOS, verify Tab and Shift-Tab order,
 focus restoration, Pinyin candidate positioning and confirmation, option
 selection with Return, and dismissal with Escape. Confirming a candidate must
 preserve both the submit count and selected option. Repeat these checks in
@@ -146,6 +152,7 @@ controls during inspection. Before migrating forms in bulk, verify VoiceOver
 can navigate the shared controls and read their names, roles, values,
 selection, and errors. If the first controls
 still fail this check, investigate the macOS accessibility bridge in the pilot.
-Report native results separately from automated or offscreen checks. Use the
-existing `com.nestworth.dev` bundle and verified synthetic database and settings
-paths for all native checks. [Isolated native development QA](../../../docs/development/local-workflow.md#isolated-native-development-qa)
+Report native results separately from automated or offscreen checks. Use
+`com.nestworth.gio` and its verified synthetic profile for native Gio checks.
+Use a separate fixture root for scenarios that need a clean ledger.
+[Gio test profiles](../README.md#persistent-test-data)

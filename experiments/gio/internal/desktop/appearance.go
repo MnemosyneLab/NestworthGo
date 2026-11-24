@@ -4,162 +4,156 @@ import (
 	"image/color"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
-type palette struct {
-	pageBackground    color.NRGBA
-	sidebarBackground color.NRGBA
-	surface           color.NRGBA
-	hoverSurface      color.NRGBA
-	divider           color.NRGBA
-	ink               color.NRGBA
-	secondaryInk      color.NRGBA
-	accent            color.NRGBA
-	onAccent          color.NRGBA
-	errorInk          color.NRGBA
+var lightPalette = ui.Palette{
+	PageBackground:    rgb(0xf9f7f3),
+	SidebarBackground: rgb(0xf5f2ee),
+	Surface:           rgb(0xfefdfc),
+	HoverSurface:      rgb(0xf2efea),
+	Divider:           rgb(0xe2dfda),
+	Ink:               rgb(0x1f1a15),
+	SecondaryInk:      rgb(0x625d56),
+	Accent:            rgb(0x324ca7),
+	OnAccent:          rgb(0xf9fafe),
+	ErrorInk:          rgb(0xa4242a),
 }
 
-var lightPalette = palette{
-	pageBackground:    color.NRGBA{R: 248, G: 246, B: 243, A: 255},
-	sidebarBackground: color.NRGBA{R: 242, G: 240, B: 236, A: 255},
-	surface:           color.NRGBA{R: 254, G: 253, B: 252, A: 255},
-	hoverSurface:      color.NRGBA{R: 234, G: 231, B: 226, A: 255},
-	divider:           color.NRGBA{R: 223, G: 219, B: 212, A: 255},
-	ink:               color.NRGBA{R: 32, G: 27, B: 23, A: 255},
-	secondaryInk:      color.NRGBA{R: 95, G: 88, B: 82, A: 255},
-	accent:            color.NRGBA{R: 52, G: 72, B: 166, A: 255},
-	onAccent:          color.NRGBA{R: 248, G: 246, B: 243, A: 255},
-	errorInk:          color.NRGBA{R: 164, G: 36, B: 42, A: 255},
-}
-
-var darkPalette = palette{
-	pageBackground:    color.NRGBA{R: 23, G: 26, B: 32, A: 255},
-	sidebarBackground: color.NRGBA{R: 29, G: 33, B: 41, A: 255},
-	surface:           color.NRGBA{R: 35, G: 40, B: 50, A: 255},
-	hoverSurface:      color.NRGBA{R: 43, G: 50, B: 62, A: 255},
-	divider:           color.NRGBA{R: 60, G: 68, B: 82, A: 255},
-	ink:               color.NRGBA{R: 237, G: 240, B: 246, A: 255},
-	secondaryInk:      color.NRGBA{R: 180, G: 189, B: 205, A: 255},
-	accent:            color.NRGBA{R: 160, G: 174, B: 255, A: 255},
-	onAccent:          color.NRGBA{R: 23, G: 26, B: 32, A: 255},
-	errorInk:          color.NRGBA{R: 255, G: 156, B: 157, A: 255},
+var darkPalette = ui.Palette{
+	PageBackground:    rgb(0x100e0c),
+	SidebarBackground: rgb(0x1a1815),
+	Surface:           rgb(0x191714),
+	HoverSurface:      rgb(0x23201c),
+	Divider:           rgb(0x302c28),
+	Ink:               rgb(0xedebe7),
+	SecondaryInk:      rgb(0xa5a19b),
+	Accent:            rgb(0x99b1fb),
+	OnAccent:          rgb(0x0a0f1c),
+	ErrorInk:          rgb(0xff9c9d),
 }
 
 type accentTheme struct {
 	label       i18n.MessageID
-	light, dark palette
+	swatch      color.NRGBA
+	light, dark ui.Palette
 }
 
-// The non-default themes map the Wails OKLCH surface and primary tokens in
-// frontend/src/index.css to sRGB. Error colors stay independent of the accent.
+// These palettes map the Wails OKLCH surface and primary tokens in
+// frontend/src/index.css to sRGB. The swatches use the fixed preview colors
+// in the Wails Settings page.
 var accentThemes = [...]accentTheme{
-	{label: i18n.IndigoAccent, light: lightPalette, dark: darkPalette},
+	{label: i18n.IndigoAccent, swatch: rgb(0x4364df), light: lightPalette, dark: darkPalette},
 	{
-		label: i18n.LavenderAccent,
-		light: palette{
-			pageBackground:    rgb(0xf9f6fe),
-			sidebarBackground: rgb(0xf5f2fc),
-			surface:           rgb(0xfefdfc),
-			hoverSurface:      rgb(0xf2effa),
-			divider:           rgb(0xe5e0ef),
-			ink:               rgb(0x201c2c),
-			secondaryInk:      rgb(0x5f5a70),
-			accent:            rgb(0x7550c2),
-			onAccent:          rgb(0xfcfbff),
-			errorInk:          lightPalette.errorInk,
+		label:  i18n.LavenderAccent,
+		swatch: rgb(0x9b74d9),
+		light: ui.Palette{
+			PageBackground:    rgb(0xf9f6fe),
+			SidebarBackground: rgb(0xf5f2fc),
+			Surface:           rgb(0xfefdfc),
+			HoverSurface:      rgb(0xf2effa),
+			Divider:           rgb(0xe5e0ef),
+			Ink:               rgb(0x201c2c),
+			SecondaryInk:      rgb(0x5f5a70),
+			Accent:            rgb(0x7550c2),
+			OnAccent:          rgb(0xfcfbff),
+			ErrorInk:          lightPalette.ErrorInk,
 		},
-		dark: palette{
-			pageBackground:    rgb(0x12101a),
-			sidebarBackground: rgb(0x1c1926),
-			surface:           rgb(0x1b1826),
-			hoverSurface:      rgb(0x252130),
-			divider:           rgb(0x342f43),
-			ink:               rgb(0xefedf4),
-			secondaryInk:      rgb(0xa49eaf),
-			accent:            rgb(0xbd9ff2),
-			onAccent:          rgb(0x100d1b),
-			errorInk:          darkPalette.errorInk,
+		dark: ui.Palette{
+			PageBackground:    rgb(0x12101a),
+			SidebarBackground: rgb(0x1c1926),
+			Surface:           rgb(0x1b1826),
+			HoverSurface:      rgb(0x252130),
+			Divider:           rgb(0x342f43),
+			Ink:               rgb(0xefedf4),
+			SecondaryInk:      rgb(0xa49eaf),
+			Accent:            rgb(0xbd9ff2),
+			OnAccent:          rgb(0x100d1b),
+			ErrorInk:          darkPalette.ErrorInk,
 		},
 	},
 	{
-		label: i18n.MintAccent,
-		light: palette{
-			pageBackground:    rgb(0xeffaf7),
-			sidebarBackground: rgb(0xeaf6f4),
-			surface:           rgb(0xfefdfc),
-			hoverSurface:      rgb(0xe6f3f1),
-			divider:           rgb(0xd3e6e3),
-			ink:               rgb(0x0b2425),
-			secondaryInk:      rgb(0x476061),
-			accent:            rgb(0x007e6c),
-			onAccent:          rgb(0xf5fefc),
-			errorInk:          lightPalette.errorInk,
+		label:  i18n.MintAccent,
+		swatch: rgb(0x009783),
+		light: ui.Palette{
+			PageBackground:    rgb(0xeffaf7),
+			SidebarBackground: rgb(0xeaf6f4),
+			Surface:           rgb(0xfefdfc),
+			HoverSurface:      rgb(0xe6f3f1),
+			Divider:           rgb(0xd3e6e3),
+			Ink:               rgb(0x0b2425),
+			SecondaryInk:      rgb(0x476061),
+			Accent:            rgb(0x007e6c),
+			OnAccent:          rgb(0xf5fefc),
+			ErrorInk:          lightPalette.ErrorInk,
 		},
-		dark: palette{
-			pageBackground:    rgb(0x061415),
-			sidebarBackground: rgb(0x0f1f1f),
-			surface:           rgb(0x0c1e1f),
-			hoverSurface:      rgb(0x172728),
-			divider:           rgb(0x213435),
-			ink:               rgb(0xe7f1f0),
-			secondaryInk:      rgb(0x8e9f9f),
-			accent:            rgb(0x30ccb1),
-			onAccent:          rgb(0x001411),
-			errorInk:          darkPalette.errorInk,
-		},
-	},
-	{
-		label: i18n.SkyAccent,
-		light: palette{
-			pageBackground:    rgb(0xf0f9fe),
-			sidebarBackground: rgb(0xebf5fc),
-			surface:           rgb(0xfefdfc),
-			hoverSurface:      rgb(0xe7f2fa),
-			divider:           rgb(0xd2e2ee),
-			ink:               rgb(0x101e2d),
-			secondaryInk:      rgb(0x495a6b),
-			accent:            rgb(0x006cce),
-			onAccent:          rgb(0xf9fcff),
-			errorInk:          lightPalette.errorInk,
-		},
-		dark: palette{
-			pageBackground:    rgb(0x07111d),
-			sidebarBackground: rgb(0x111c2a),
-			surface:           rgb(0x0f1b2b),
-			hoverSurface:      rgb(0x192534),
-			divider:           rgb(0x223144),
-			ink:               rgb(0xe9f0f5),
-			secondaryInk:      rgb(0x92a0ad),
-			accent:            rgb(0x55b8f8),
-			onAccent:          rgb(0x040e1a),
-			errorInk:          darkPalette.errorInk,
+		dark: ui.Palette{
+			PageBackground:    rgb(0x061415),
+			SidebarBackground: rgb(0x0f1f1f),
+			Surface:           rgb(0x0c1e1f),
+			HoverSurface:      rgb(0x172728),
+			Divider:           rgb(0x213435),
+			Ink:               rgb(0xe7f1f0),
+			SecondaryInk:      rgb(0x8e9f9f),
+			Accent:            rgb(0x30ccb1),
+			OnAccent:          rgb(0x001411),
+			ErrorInk:          darkPalette.ErrorInk,
 		},
 	},
 	{
-		label: i18n.PeachAccent,
-		light: palette{
-			pageBackground:    rgb(0xfef7f0),
-			sidebarBackground: rgb(0xfbf3ea),
-			surface:           rgb(0xfefdfc),
-			hoverSurface:      rgb(0xf9efe4),
-			divider:           rgb(0xeeded0),
-			ink:               rgb(0x2b1b13),
-			secondaryInk:      rgb(0x6c5549),
-			accent:            rgb(0xca430e),
-			onAccent:          rgb(0xfffaf8),
-			errorInk:          lightPalette.errorInk,
+		label:  i18n.SkyAccent,
+		swatch: rgb(0x2389e2),
+		light: ui.Palette{
+			PageBackground:    rgb(0xf0f9fe),
+			SidebarBackground: rgb(0xebf5fc),
+			Surface:           rgb(0xfefdfc),
+			HoverSurface:      rgb(0xe7f2fa),
+			Divider:           rgb(0xd2e2ee),
+			Ink:               rgb(0x101e2d),
+			SecondaryInk:      rgb(0x495a6b),
+			Accent:            rgb(0x006cce),
+			OnAccent:          rgb(0xf9fcff),
+			ErrorInk:          lightPalette.ErrorInk,
 		},
-		dark: palette{
-			pageBackground:    rgb(0x190f0a),
-			sidebarBackground: rgb(0x251812),
-			surface:           rgb(0x251710),
-			hoverSurface:      rgb(0x2e2019),
-			divider:           rgb(0x402e24),
-			ink:               rgb(0xf4ede6),
-			secondaryInk:      rgb(0xaa9b90),
-			accent:            rgb(0xf99262),
-			onAccent:          rgb(0x1a0b05),
-			errorInk:          darkPalette.errorInk,
+		dark: ui.Palette{
+			PageBackground:    rgb(0x07111d),
+			SidebarBackground: rgb(0x111c2a),
+			Surface:           rgb(0x0f1b2b),
+			HoverSurface:      rgb(0x192534),
+			Divider:           rgb(0x223144),
+			Ink:               rgb(0xe9f0f5),
+			SecondaryInk:      rgb(0x92a0ad),
+			Accent:            rgb(0x55b8f8),
+			OnAccent:          rgb(0x040e1a),
+			ErrorInk:          darkPalette.ErrorInk,
+		},
+	},
+	{
+		label:  i18n.PeachAccent,
+		swatch: rgb(0xf0834e),
+		light: ui.Palette{
+			PageBackground:    rgb(0xfef7f0),
+			SidebarBackground: rgb(0xfbf3ea),
+			Surface:           rgb(0xfefdfc),
+			HoverSurface:      rgb(0xf9efe4),
+			Divider:           rgb(0xeeded0),
+			Ink:               rgb(0x2b1b13),
+			SecondaryInk:      rgb(0x6c5549),
+			Accent:            rgb(0xca430e),
+			OnAccent:          rgb(0xfffaf8),
+			ErrorInk:          lightPalette.ErrorInk,
+		},
+		dark: ui.Palette{
+			PageBackground:    rgb(0x190f0a),
+			SidebarBackground: rgb(0x251812),
+			Surface:           rgb(0x251710),
+			HoverSurface:      rgb(0x2e2019),
+			Divider:           rgb(0x402e24),
+			Ink:               rgb(0xf4ede6),
+			SecondaryInk:      rgb(0xaa9b90),
+			Accent:            rgb(0xf99262),
+			OnAccent:          rgb(0x1a0b05),
+			ErrorInk:          darkPalette.ErrorInk,
 		},
 	},
 }
@@ -168,20 +162,13 @@ func rgb(hex uint32) color.NRGBA {
 	return color.NRGBA{R: uint8(hex >> 16), G: uint8(hex >> 8), B: uint8(hex), A: 255}
 }
 
-func (p palette) editorSelection() color.NRGBA {
-	selection := p.accent
-	// Keep the editor's text readable on the bright accents in dark mode.
-	selection.A = 0x48
-	return selection
-}
-
 type sessionPreferences struct {
 	language    i18n.Language
 	dark        bool
 	accentIndex int
 }
 
-func (p sessionPreferences) colors() *palette {
+func (p sessionPreferences) colors() *ui.Palette {
 	theme := &accentThemes[p.accentIndex]
 	if p.dark {
 		return &theme.dark

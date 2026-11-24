@@ -1,18 +1,24 @@
 package desktop
 
 import (
+	"image"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"gioui.org/io/key"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-func TestHistorySidebarOpensTheIsolatedLedger(t *testing.T) {
+func TestLedgerHistoryUsesSavedGeneralFormatAndRecordedDay(t *testing.T) {
 	ctx := t.Context()
 	runDir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -36,17 +42,59 @@ func TestHistorySidebarOpensTheIsolatedLedger(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	model := history.New(ctx, application.NewService(sqlite.NewRepository(db)), func() {})
+	service := application.NewService(sqlite.NewRepository(db))
+	store, err := preferences.Open(paths.SettingsPath(), db, service)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefs := newPreferenceState(ctx, store, func() {})
+	prefs.reload()
+	prefs.wait()
+	model := history.New(ctx, service, func() {})
 	defer model.Wait()
-	h := newShellHarnessWithPages(t, ledgerPages{history: newHistoryPage(model).layout})
+	h := newShellHarnessWithPages(t, ledgerPages{prefs: prefs, history: newHistoryPage(model).layout})
+	h.size = image.Pt(1120, 960)
 	h.frame()
-	h.click(i18n.SimplifiedChinese.Text(i18n.NavHistory), false)
+	lang := h.shell.preferences.language
+	h.click(lang.Text(i18n.NavHistory), false)
 	model.Wait()
 	h.frame()
 	if model.Err() != nil || h.shell.activeRoute != historyRoute {
 		t.Fatalf("sidebar loaded route %q with error %v", h.shell.activeRoute, model.Err())
 	}
 	assertPageLabel(t, &h.router, "Bank interest")
-	// This activity was recorded just after midnight in the household timezone.
 	assertPageLabel(t, &h.router, "2026-11-12")
+
+	h.click(lang.Text(i18n.NavSettings), false)
+	h.click(lang.Text(i18n.SettingsDate), true)
+	h.click("DD/MM/YYYY", false)
+	h.click(lang.Text(i18n.SettingsTimezone), true)
+	h.router.Queue(key.EditEvent{Text: "UTC"})
+	h.frame()
+	h.click("UTC", false)
+	h.click(lang.Text(i18n.SettingsSave), false)
+	prefs.wait()
+	h.frame()
+	assertPageLabel(t, &h.router, lang.Text(i18n.SettingsSaved))
+	saved, err := store.Load(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.DateFormat != settings.DateFormatDayFirst || saved.Timezone != "UTC" || saved.HistoryTimezone != "Asia/Singapore" {
+		t.Fatalf("unexpected saved presentation or history timezone: %+v", saved)
+	}
+
+	h.click(lang.Text(i18n.NavHistory), false)
+	assertPageLabel(t, &h.router, "Bank interest")
+	assertPageLabel(t, &h.router, "12/11/2026")
+	page, err := service.ListActivityPage(ctx, domain.ActivityQuery{Limit: 1})
+	if err != nil || len(page.Activities) != 1 {
+		t.Fatalf("reading the latest recorded activity: %v, got %d rows", err, len(page.Activities))
+	}
+	// The display zone sees November 11 at 16:30. The ledger recorded November 12 at 00:30.
+	interest := page.Activities[0]
+	if interest.Note == nil || *interest.Note != "Bank interest" || interest.EffectiveLocalDate != "2026-11-12" ||
+		interest.EffectiveAt.UTC().Format(time.RFC3339) != "2026-11-11T16:30:00Z" {
+		t.Fatalf("unexpected recorded interest activity: %+v", interest)
+	}
 }

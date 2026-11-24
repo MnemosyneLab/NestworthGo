@@ -1,4 +1,4 @@
-package desktop
+package ui
 
 import (
 	"fmt"
@@ -15,31 +15,29 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
-const civilLayout = "2006-01-02"
-
-func parseCivilDay(value string) (time.Time, bool) {
-	day, err := time.Parse(civilLayout, value)
-	return day, err == nil && day.Year() > 0 && day.Format(civilLayout) == value
+func ParseCivilDay(value string) (time.Time, bool) {
+	day, err := time.Parse(time.DateOnly, value)
+	return day, err == nil && day.Year() > 0 && day.Format(time.DateOnly) == value
 }
 
-type dateOptions struct {
-	today, min, max string
-	allowFuture     bool
-	clearable       bool
-	weekStart       time.Weekday
-	format          string
+type DateOptions struct {
+	Today, Min, Max string
+	AllowFuture     bool
+	Clearable       bool
+	WeekStart       time.Weekday
+	Format          string
 }
 
-func (o dateOptions) limits() (string, string) {
+func (o DateOptions) limits() (string, string) {
 	lo, hi := "0001-01-01", "9999-12-31"
-	if _, valid := parseCivilDay(o.min); valid {
-		lo = o.min
+	if _, valid := ParseCivilDay(o.Min); valid {
+		lo = o.Min
 	}
-	if _, valid := parseCivilDay(o.max); valid {
-		hi = o.max
-	} else if !o.allowFuture {
-		if _, valid := parseCivilDay(o.today); valid {
-			hi = o.today
+	if _, valid := ParseCivilDay(o.Max); valid {
+		hi = o.Max
+	} else if !o.AllowFuture {
+		if _, valid := ParseCivilDay(o.Today); valid {
+			hi = o.Today
 		} else {
 			hi = ""
 		}
@@ -47,37 +45,34 @@ func (o dateOptions) limits() (string, string) {
 	return lo, hi
 }
 
-func (o dateOptions) permits(day string) bool {
+func (o DateOptions) permits(day string) bool {
 	lo, hi := o.limits()
-	_, valid := parseCivilDay(day)
+	_, valid := ParseCivilDay(day)
 	return valid && lo <= day && day <= hi
 }
 
-func (o dateOptions) start(value string) time.Time {
+func (o DateOptions) start(value string) time.Time {
 	if o.permits(value) {
-		day, _ := parseCivilDay(value)
+		day, _ := ParseCivilDay(value)
 		return day
 	}
 	lo, hi := o.limits()
 	start := lo
-	if _, valid := parseCivilDay(o.today); valid {
-		start = max(o.today, lo)
+	if _, valid := ParseCivilDay(o.Today); valid {
+		start = max(o.Today, lo)
 	}
 	if hi != "" {
 		start = min(start, hi)
 	}
-	day, _ := parseCivilDay(start)
+	day, _ := ParseCivilDay(start)
 	return day
 }
 
 func displayCivil(day time.Time, language i18n.Language) string {
-	if language.UsesChineseDates() {
-		return fmt.Sprintf("%d年%d月%d日", day.Year(), day.Month(), day.Day())
-	}
-	return day.Format("Jan 2, 2006")
+	return day.Format(language.Text(i18n.DateDayLayout))
 }
 
-func dateTriggerLabel(day time.Time, language i18n.Language, format string) string {
+func FormatDay(day time.Time, language i18n.Language, format string) string {
 	switch format {
 	case "localized":
 		return displayCivil(day, language)
@@ -86,7 +81,7 @@ func dateTriggerLabel(day time.Time, language i18n.Language, format string) stri
 	case "month-first":
 		return day.Format("01/02/2006")
 	default:
-		return day.Format(civilLayout)
+		return day.Format(time.DateOnly)
 	}
 }
 
@@ -98,8 +93,8 @@ func leadingDays(month time.Time, weekStart time.Weekday) int {
 	return (int(month.Weekday()) - int(weekStart) + 7) % 7
 }
 
-type datePicker struct {
-	trigger widget.Clickable
+type DatePicker struct {
+	Trigger widget.Clickable
 	month   time.Time
 	day     time.Time
 	cells   [42]widget.Clickable
@@ -107,57 +102,57 @@ type datePicker struct {
 	clear   widget.Clickable
 }
 
-func (p *datePicker) layout(gtx layout.Context, view presentation, field pickerField, options dateOptions, value string, change func(string)) {
-	title := view.language.Text(i18n.PickerEmpty)
+func (p *DatePicker) Layout(gtx layout.Context, view View, field PickerField, options DateOptions, value string, change func(string)) {
+	title := view.Language.Text(i18n.PickerEmpty)
 	invalid := value != "" && !options.permits(value)
 	if invalid {
-		title = view.language.Text(i18n.PickerInvalidDate)
+		title = view.Language.Text(i18n.PickerInvalidDate)
 	} else if value != "" {
-		day, _ := parseCivilDay(value)
-		title = dateTriggerLabel(day, view.language, options.format)
+		day, _ := ParseCivilDay(value)
+		title = FormatDay(day, view.Language, options.Format)
 	}
 
-	pane := popoverPane{width: 340, focus: p, body: func(gtx layout.Context) layout.Dimensions {
+	pane := Popover{width: 340, focus: p, Body: func(gtx layout.Context) layout.Dimensions {
 		return p.popup(gtx, view, options, value, change)
 	}}
-	if pickerTrigger(gtx, view, field, &p.trigger, title, invalid, pane) {
+	if pickerTrigger(gtx, view, field, &p.Trigger, title, invalid, pane) {
 		p.day = options.start(value)
 		p.month = monthStart(p.day)
 	}
 }
 
-func (p *datePicker) moveDay(options dateOptions, delta int) {
+func (p *DatePicker) moveDay(options DateOptions, delta int) {
 	day := p.day.AddDate(0, 0, delta)
-	if options.permits(day.Format(civilLayout)) {
+	if options.permits(day.Format(time.DateOnly)) {
 		p.day, p.month = day, monthStart(day)
 	}
 }
 
-func (p *datePicker) targetMonth(options dateOptions, delta int) (time.Time, bool) {
+func (p *DatePicker) targetMonth(options DateOptions, delta int) (time.Time, bool) {
 	month := p.month.AddDate(0, delta, 0)
-	first, last := month.Format(civilLayout), month.AddDate(0, 1, -1).Format(civilLayout)
+	first, last := month.Format(time.DateOnly), month.AddDate(0, 1, -1).Format(time.DateOnly)
 	lo, hi := options.limits()
 	return month, month.Year() > 0 && month.Year() <= 9999 && first <= hi && last >= lo
 }
 
-func (p *datePicker) moveMonth(options dateOptions, delta int) {
+func (p *DatePicker) moveMonth(options DateOptions, delta int) {
 	if month, ok := p.targetMonth(options, delta); ok {
 		lo, hi := options.limits()
 		p.month = month
-		day, _ := parseCivilDay(min(max(month.Format(civilLayout), lo), hi))
+		day, _ := ParseCivilDay(min(max(month.Format(time.DateOnly), lo), hi))
 		p.day = day
 	}
 }
 
-func (p *datePicker) popup(gtx layout.Context, view presentation, options dateOptions, value string, change func(string)) layout.Dimensions {
+func (p *DatePicker) popup(gtx layout.Context, view View, options DateOptions, value string, change func(string)) layout.Dimensions {
 	registerPickerFocus(gtx, p)
 	choose := func(day string) {
-		if (day == "" && options.clearable) || options.permits(day) {
+		if (day == "" && options.Clearable) || options.permits(day) {
 			change(day)
-			view.overlay.close()
+			view.Overlay.Close()
 		}
 	}
-	for _, e := range pickerKeys(gtx, p, key.NameLeftArrow, key.NameRightArrow, key.NameUpArrow, key.NameDownArrow,
+	for _, e := range PressedKeys(gtx, p, key.NameLeftArrow, key.NameRightArrow, key.NameUpArrow, key.NameDownArrow,
 		key.NamePageUp, key.NamePageDown, key.NameReturn, key.NameEnter, key.NameSpace, key.NameDeleteBackward, key.NameDeleteForward) {
 		page := 1
 		if e.Modifiers.Contain(key.ModShift) {
@@ -179,26 +174,26 @@ func (p *datePicker) popup(gtx layout.Context, view presentation, options dateOp
 		case key.NameDeleteBackward, key.NameDeleteForward:
 			choose("")
 		default:
-			choose(p.day.Format(civilLayout))
+			choose(p.day.Format(time.DateOnly))
 		}
 	}
 
 	rowHeight := min(gtx.Dp(28), max(0, (gtx.Constraints.Max.Y-gtx.Dp(86))/6))
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.caption(gtx, view, options) }),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return weekdayRow(gtx, view, options.weekStart) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return weekdayRow(gtx, view, options.WeekStart) }),
 	}
 	for row := range 6 {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.dayRow(gtx, view, options, value, row, rowHeight, choose)
 		}))
 	}
-	if options.clearable && value != "" {
+	if options.Clearable && value != "" {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.clear.Clicked(gtx) {
 				choose("")
 			}
-			return view.button(&p.clear, view.language.Text(i18n.PickerClear))(gtx)
+			return view.Button(&p.clear, view.Language.Text(i18n.PickerClear))(gtx)
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
@@ -215,7 +210,7 @@ var monthNavigation = [...]struct {
 	{"»", i18n.DateNextYear, 12},
 }
 
-func (p *datePicker) caption(gtx layout.Context, view presentation, options dateOptions) layout.Dimensions {
+func (p *DatePicker) caption(gtx layout.Context, view View, options DateOptions) layout.Dimensions {
 	nav := func(i int) layout.FlexChild {
 		return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			action := monthNavigation[i]
@@ -224,56 +219,53 @@ func (p *datePicker) caption(gtx layout.Context, view presentation, options date
 				p.moveMonth(options, action.step)
 			}
 			gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(28), gtx.Dp(30)))
-			return choiceButton(gtx, view, &p.moves[i], action.symbol, view.language.Text(action.label), enabled, false, false)
+			return choiceButton(gtx, view, &p.moves[i], action.symbol, view.Language.Text(action.label), enabled, false, false)
 		})
 	}
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(2)}.Layout(gtx,
 		nav(0), nav(1),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			title := p.month.Format("January 2006")
-			if view.language.UsesChineseDates() {
-				title = fmt.Sprintf("%d年%d月", p.month.Year(), p.month.Month())
-			}
+			title := p.month.Format(view.Language.Text(i18n.DateMonthLayout))
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.label(gtx, title, 14, font.Medium, view.colors.ink)
+				return view.Label(gtx, title, 14, font.Medium, view.Colors.Ink)
 			})
 		}),
 		nav(2), nav(3),
 	)
 }
 
-func weekdayRow(gtx layout.Context, view presentation, start time.Weekday) layout.Dimensions {
+func weekdayRow(gtx layout.Context, view View, start time.Weekday) layout.Dimensions {
 	labels := [...]i18n.MessageID{i18n.WeekdaySunday, i18n.WeekdayMonday, i18n.WeekdayTuesday, i18n.WeekdayWednesday, i18n.WeekdayThursday, i18n.WeekdayFriday, i18n.WeekdaySaturday}
 	return calendarRow(gtx, gtx.Dp(20), func(gtx layout.Context, column int) layout.Dimensions {
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.label(gtx, view.language.Text(labels[(int(start)+column)%7]), 12, font.Normal, view.colors.secondaryInk)
+			return view.Label(gtx, view.Language.Text(labels[(int(start)+column)%7]), 12, font.Normal, view.Colors.SecondaryInk)
 		})
 	})
 }
 
-func (p *datePicker) dayRow(gtx layout.Context, view presentation, options dateOptions, value string, row, height int, choose func(string)) layout.Dimensions {
+func (p *DatePicker) dayRow(gtx layout.Context, view View, options DateOptions, value string, row, height int, choose func(string)) layout.Dimensions {
 	return calendarRow(gtx, height, func(gtx layout.Context, column int) layout.Dimensions {
 		index := row*7 + column
-		day := p.month.AddDate(0, 0, index-leadingDays(p.month, options.weekStart))
+		day := p.month.AddDate(0, 0, index-leadingDays(p.month, options.WeekStart))
 		if day.Month() != p.month.Month() {
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}
-		id := day.Format(civilLayout)
+		id := day.Format(time.DateOnly)
 		enabled := options.permits(id)
 		if enabled && p.cells[index].Clicked(gtx) {
 			choose(id)
 		}
-		title := displayCivil(day, view.language)
-		if id == options.today {
-			title = fmt.Sprintf(view.language.Text(i18n.DateToday), title)
+		title := displayCivil(day, view.Language)
+		if id == options.Today {
+			title = fmt.Sprintf(view.Language.Text(i18n.DateToday), title)
 		}
 		dims := choiceButton(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title,
 			enabled, id == value, day.Equal(p.day) && gtx.Focused(p))
-		if enabled && id == options.today {
+		if enabled && id == options.Today {
 			x := dims.Size.X / 2
 			y := dims.Size.Y - gtx.Dp(3)
 			if y > 0 {
-				paint.FillShape(gtx.Ops, view.colors.accent, clip.Rect(image.Rect(x-2, y, x+2, y+1)).Op())
+				paint.FillShape(gtx.Ops, view.Colors.Accent, clip.Rect(image.Rect(x-2, y, x+2, y+1)).Op())
 			}
 		}
 		return dims

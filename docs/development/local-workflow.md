@@ -119,12 +119,18 @@ the Go/Wails IPC host is absent.
 
 ## Isolated native development QA
 
-Use the established `build/darwin/Info.dev.plist` identity: `com.nestworth.dev`,
+The Wails development app uses the established `build/darwin/Info.dev.plist` identity: `com.nestworth.dev`,
 with application/display name `Nestworth` and bundle `Nestworth.app`. Production
 archive acceptance below retains the separate release identity. Do not create
 per-task bundle IDs or names that cause repeated permission prompts.
 
-For each development QA run:
+The Gio development app uses `com.nestworth.gio` and the display name
+`Nestworth Gio`. Its executable resolves and verifies its private synthetic
+ledger and settings on every launch, including launches from Finder. The
+[Gio preview instructions](../../experiments/gio/README.md#persistent-test-data)
+cover the persistent profile and disposable overrides.
+
+For each Wails development QA run:
 
 1. Record branch, source SHA and working-tree status. Prepare an isolated
    synthetic database/settings directory and verify its test marker/household.

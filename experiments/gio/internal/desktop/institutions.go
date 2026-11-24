@@ -15,6 +15,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -51,14 +52,14 @@ type institutionsPage struct {
 	request institutionRequest
 	rows    []domain.Institution
 	readErr error
-	search  searchField
+	search  ui.SearchField
 	query   string
 	list    layout.List
 	buttons map[domain.InstitutionID]*widget.Clickable
 	refresh widget.Clickable
 
 	editing       domain.InstitutionID
-	draft         textField
+	draft         ui.TextField
 	save, cancel  widget.Clickable
 	saveErr       error
 	rejectedDraft string
@@ -72,7 +73,7 @@ func newInstitutionsPage(ctx context.Context, service institutionService, invali
 	return &institutionsPage{
 		ctx: ctx, service: service, invalidate: invalidate,
 		results: make(chan institutionResult, 1),
-		search:  searchField{field: newTextField(true)}, draft: newTextField(true),
+		search:  ui.SearchField{Field: ui.NewTextField(true)}, draft: ui.NewTextField(true),
 		list: layout.List{Axis: layout.Vertical}, buttons: make(map[domain.InstitutionID]*widget.Clickable),
 	}
 }
@@ -125,16 +126,16 @@ func (p *institutionsPage) receive() {
 	}
 }
 
-func (p *institutionsPage) layout(gtx layout.Context, view presentation) layout.Dimensions {
+func (p *institutionsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.receive()
 	if !p.started || (p.request == institutionIdle && p.editing == "" && p.refresh.Clicked(gtx)) {
 		p.start(institutionLoading, "", "")
 	}
 
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(limitWidth(gtx, 780),
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(ui.LimitWidth(gtx, 780),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.header(gtx, view) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.search.layout(limitWidth(gtx, 470), view, i18n.PreviewSearch, i18n.InstitutionsSearchHint, func(query string) {
+			return p.search.Layout(ui.LimitWidth(gtx, 470), view, i18n.PreviewSearch, i18n.InstitutionsSearchHint, func(query string) {
 				p.query = query
 				p.list.Position = layout.Position{}
 			})
@@ -149,14 +150,14 @@ func (p *institutionsPage) layout(gtx layout.Context, view presentation) layout.
 	)
 }
 
-func (p *institutionsPage) header(gtx layout.Context, view presentation) layout.Dimensions {
+func (p *institutionsPage) header(gtx layout.Context, view ui.View) layout.Dimensions {
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.label(gtx, view.language.Text(i18n.NavInstitutions), 19, font.Medium, view.colors.ink)
+					return view.Label(gtx, view.Language.Text(i18n.NavInstitutions), 19, font.Medium, view.Colors.Ink)
 				}),
-				layout.Rigid(view.message(view.language.Text(i18n.InstitutionsSynthetic), view.colors.secondaryInk)),
+				layout.Rigid(view.Message(view.Language.Text(i18n.InstitutionsSynthetic), view.Colors.SecondaryInk)),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -167,21 +168,21 @@ func (p *institutionsPage) header(gtx layout.Context, view presentation) layout.
 			if p.readErr != nil {
 				label = i18n.InstitutionsRetry
 			}
-			return view.button(&p.refresh, view.language.Text(label))(gtx)
+			return view.Button(&p.refresh, view.Language.Text(label))(gtx)
 		}),
 	)
 }
 
-func (p *institutionsPage) listContent(gtx layout.Context, view presentation) layout.Dimensions {
+func (p *institutionsPage) listContent(gtx layout.Context, view ui.View) layout.Dimensions {
 	switch {
 	case p.request == institutionLoading:
-		return view.message(view.language.Text(i18n.InstitutionsLoading), view.colors.secondaryInk)(gtx)
+		return view.Message(view.Language.Text(i18n.InstitutionsLoading), view.Colors.SecondaryInk)(gtx)
 	case p.readErr != nil:
 		message := i18n.InstitutionsLoadError
 		if p.awaitingRead != "" {
 			message = i18n.InstitutionsReloadAfterSaveError
 		}
-		return view.message(view.language.Text(message), view.colors.errorInk)(gtx)
+		return view.Message(view.Language.Text(message), view.Colors.ErrorInk)(gtx)
 	}
 
 	visible := filterInstitutions(p.rows, p.query)
@@ -192,7 +193,7 @@ func (p *institutionsPage) listContent(gtx layout.Context, view presentation) la
 		if index >= 0 {
 			p.list.ScrollTo(index)
 		} else {
-			p.search.field.focus(gtx)
+			p.search.Field.Focus(gtx)
 		}
 	}
 
@@ -201,7 +202,7 @@ func (p *institutionsPage) listContent(gtx layout.Context, view presentation) la
 			if !p.saved {
 				return layout.Dimensions{}
 			}
-			return layout.Inset{Bottom: 10}.Layout(gtx, view.message(view.language.Text(i18n.InstitutionsSaved), view.colors.ink))
+			return layout.Inset{Bottom: 10}.Layout(gtx, view.Message(view.Language.Text(i18n.InstitutionsSaved), view.Colors.Ink))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			if len(visible) == 0 {
@@ -209,7 +210,7 @@ func (p *institutionsPage) listContent(gtx layout.Context, view presentation) la
 				if len(p.rows) > 0 {
 					message = i18n.PreviewNoMatches
 				}
-				return view.message(view.language.Text(message), view.colors.secondaryInk)(gtx)
+				return view.Message(view.Language.Text(message), view.Colors.SecondaryInk)(gtx)
 			}
 			return p.list.Layout(gtx, len(visible), func(gtx layout.Context, i int) layout.Dimensions {
 				item := visible[i]
@@ -235,7 +236,7 @@ func filterInstitutions(rows []domain.Institution, query string) []domain.Instit
 	return matches
 }
 
-func (p *institutionsPage) row(gtx layout.Context, view presentation, item domain.Institution, restoreFocus bool) layout.Dimensions {
+func (p *institutionsPage) row(gtx layout.Context, view ui.View, item domain.Institution, restoreFocus bool) layout.Dimensions {
 	button := p.buttons[item.ID]
 	if button == nil {
 		button = new(widget.Clickable)
@@ -247,8 +248,8 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 	}
 	if !disabled && button.Clicked(gtx) {
 		p.editing = item.ID
-		p.draft.editor.SetText(item.Name)
-		p.draft.editor.SetCaret(p.draft.editor.Len(), 0)
+		p.draft.Editor.SetText(item.Name)
+		p.draft.Editor.SetCaret(p.draft.Editor.Len(), 0)
 		p.saveErr = nil
 		p.saved = false
 		p.focusDraft = true
@@ -260,12 +261,12 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 	gtx.Constraints = layout.Exact(image.Pt(gtx.Constraints.Max.X, gtx.Dp(56)))
 	return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
-		semantic.DescriptionOp(fmt.Sprintf(view.language.Text(i18n.InstitutionsEditName), item.Name)).Add(gtx.Ops)
-		border := view.colors.divider
+		semantic.DescriptionOp(fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name)).Add(gtx.Ops)
+		border := view.Colors.Divider
 		if gtx.Focused(button) || (!disabled && button.Hovered()) {
-			border = view.colors.accent
+			border = view.Colors.Accent
 		}
-		return view.panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
+		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -273,9 +274,9 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 							gtx.Constraints.Min.Y = 0
 							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return view.label(gtx, item.Name, 15, font.Medium, view.colors.ink)
+									return view.Label(gtx, item.Name, 15, font.Medium, view.Colors.Ink)
 								}),
-								layout.Rigid(view.message(view.language.Text(institutionTypeLabel(item.InstitutionType)), view.colors.secondaryInk)),
+								layout.Rigid(view.Message(view.Language.Text(institutionTypeLabel(item.InstitutionType)), view.Colors.SecondaryInk)),
 							)
 						})
 					}),
@@ -283,7 +284,7 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 						if disabled {
 							return layout.Dimensions{}
 						}
-						return layout.Center.Layout(gtx, view.message(view.language.Text(i18n.InstitutionsEdit), view.colors.secondaryInk))
+						return layout.Center.Layout(gtx, view.Message(view.Language.Text(i18n.InstitutionsEdit), view.Colors.SecondaryInk))
 					}),
 				)
 			})
@@ -291,10 +292,10 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 	})
 }
 
-func (p *institutionsPage) editor(gtx layout.Context, view presentation) layout.Dimensions {
+func (p *institutionsPage) editor(gtx layout.Context, view ui.View) layout.Dimensions {
 	waiting := p.request == institutionSaving
 	if p.focusDraft && !waiting {
-		p.draft.focus(gtx)
+		p.draft.Focus(gtx)
 		p.focusDraft = false
 	}
 	if !waiting && (p.cancel.Clicked(gtx) || p.editEscape(gtx)) {
@@ -302,31 +303,31 @@ func (p *institutionsPage) editor(gtx layout.Context, view presentation) layout.
 		p.saveErr = nil
 		return layout.Dimensions{}
 	}
-	border := view.colors.divider
-	return view.panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
+	border := view.Colors.Divider
+	return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.label(gtx, view.language.Text(i18n.InstitutionsEditTitle), 15, font.Medium, view.colors.ink)
+					return view.Label(gtx, view.Language.Text(i18n.InstitutionsEditTitle), 15, font.Medium, view.Colors.Ink)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return p.draft.layout(limitWidth(gtx, 470), view, fieldOptions{
-						label: i18n.PreviewInstitutionName, disabled: waiting,
-						problem: func(value string) string { return p.editProblem(view, value) },
+					return p.draft.Layout(ui.LimitWidth(gtx, 470), view, ui.FieldOptions{
+						Label: i18n.PreviewInstitutionName, Disabled: waiting,
+						Problem: func(value string) string { return p.editProblem(view, value) },
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if waiting {
-						return view.message(view.language.Text(i18n.InstitutionsSaving), view.colors.secondaryInk)(gtx)
+						return view.Message(view.Language.Text(i18n.InstitutionsSaving), view.Colors.SecondaryInk)(gtx)
 					}
 					if p.save.Clicked(gtx) {
-						p.rejectedDraft = p.draft.text()
+						p.rejectedDraft = p.draft.Text()
 						p.start(institutionSaving, p.editing, p.rejectedDraft)
 						gtx.Execute(op.InvalidateCmd{})
 					}
 					return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-						layout.Rigid(view.button(&p.save, view.language.Text(i18n.InstitutionsSave))),
-						layout.Rigid(view.button(&p.cancel, view.language.Text(i18n.InstitutionsCancel))),
+						layout.Rigid(view.Button(&p.save, view.Language.Text(i18n.InstitutionsSave))),
+						layout.Rigid(view.Button(&p.cancel, view.Language.Text(i18n.InstitutionsCancel))),
 					)
 				}),
 			)
@@ -338,7 +339,7 @@ func (p *institutionsPage) editEscape(gtx layout.Context) bool {
 	dismiss := false
 	for {
 		e, ok := gtx.Event(
-			key.Filter{Focus: &p.draft.editor, Name: key.NameEscape},
+			key.Filter{Focus: &p.draft.Editor, Name: key.NameEscape},
 			key.Filter{Focus: &p.save, Name: key.NameEscape},
 			key.Filter{Focus: &p.cancel, Name: key.NameEscape},
 		)
@@ -349,18 +350,18 @@ func (p *institutionsPage) editEscape(gtx layout.Context) bool {
 	}
 }
 
-func (p *institutionsPage) editProblem(view presentation, value string) string {
+func (p *institutionsPage) editProblem(view ui.View, value string) string {
 	if p.saveErr == nil || value != p.rejectedDraft {
 		return ""
 	}
 	var problem *domain.Error
 	if errors.As(p.saveErr, &problem) && problem.Code == domain.ErrValidation && problem.Field == "name" {
 		if problem.MaxLength > 0 {
-			return fmt.Sprintf(view.language.Text(i18n.InstitutionsNameLength), problem.MaxLength)
+			return fmt.Sprintf(view.Language.Text(i18n.InstitutionsNameLength), problem.MaxLength)
 		}
-		return view.language.Text(i18n.PreviewNameRequired)
+		return view.Language.Text(i18n.PreviewNameRequired)
 	}
-	return view.language.Text(i18n.InstitutionsSaveError)
+	return view.Language.Text(i18n.InstitutionsSaveError)
 }
 
 func institutionTypeLabel(kind domain.InstitutionType) i18n.MessageID {

@@ -10,30 +10,33 @@ import (
 	"gioui.org/unit"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/format"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-func overview(gtx layout.Context, view presentation) layout.Dimensions {
-	gtx = limitWidth(gtx, 560)
-	colors := view.colors
-	return view.panel(gtx, colors.divider, func(gtx layout.Context) layout.Dimensions {
+func overview(gtx layout.Context, view ui.View) layout.Dimensions {
+	gtx = ui.LimitWidth(gtx, 560)
+	colors := view.Colors
+	return view.Panel(gtx, colors.Divider, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.label(gtx, view.language.Text(i18n.SampleData), 12, font.Medium, colors.secondaryInk)
+					return view.Label(gtx, view.Language.Text(i18n.SampleData), 12, font.Medium, colors.SecondaryInk)
 				}),
 				layout.Rigid(layout.Spacer{Height: 12}.Layout),
-				layout.Rigid(amount(view, i18n.NetWorth, "¥126,800.00", 32)),
+				layout.Rigid(amount(view, i18n.NetWorth, "126800", 32)),
 				layout.Rigid(layout.Spacer{Height: 17}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					size := image.Pt(gtx.Constraints.Max.X, 1)
-					paint.FillShape(gtx.Ops, colors.divider, clip.Rect{Max: size}.Op())
+					paint.FillShape(gtx.Ops, colors.Divider, clip.Rect{Max: size}.Op())
 					return layout.Dimensions{Size: size}
 				}),
 				layout.Rigid(layout.Spacer{Height: 15}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{}.Layout(gtx,
-						layout.Flexed(1, amount(view, i18n.Assets, "¥138,500.00", 20)),
-						layout.Flexed(1, amount(view, i18n.Liabilities, "−¥11,700.00", 20)),
+						layout.Flexed(1, amount(view, i18n.Assets, "138500", 20)),
+						layout.Flexed(1, amount(view, i18n.Liabilities, "-11700", 20)),
 					)
 				}),
 			)
@@ -41,27 +44,18 @@ func overview(gtx layout.Context, view presentation) layout.Dimensions {
 	})
 }
 
-func amount(view presentation, label i18n.MessageID, value string, size unit.Sp) layout.Widget {
+func amount(view ui.View, label i18n.MessageID, value string, size unit.Sp) layout.Widget {
+	display := format.Money(value, "CNY", settings.Settings{DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator})
 	return func(gtx layout.Context) layout.Dimensions {
-		colors := view.colors
+		colors := view.Colors
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.label(gtx, view.language.Text(label), 13, font.Normal, colors.secondaryInk)
+				return view.Label(gtx, view.Language.Text(label), 13, font.Normal, colors.SecondaryInk)
 			}),
 			layout.Rigid(layout.Spacer{Height: 4}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.label(gtx, value, size, font.Medium, colors.ink)
+				return view.Label(gtx, display, size, font.Medium, colors.Ink)
 			}),
 		)
 	}
-}
-
-type inputMethodPage struct {
-	editor textField
-}
-
-func (p *inputMethodPage) layout(gtx layout.Context, view presentation) layout.Dimensions {
-	return p.editor.layout(limitWidth(gtx, 560), view, fieldOptions{
-		label: i18n.InputMethodTest, hint: i18n.InputMethodHint,
-	})
 }

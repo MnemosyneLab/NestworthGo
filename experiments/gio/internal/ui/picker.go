@@ -1,4 +1,4 @@
-package desktop
+package ui
 
 import (
 	"image"
@@ -17,18 +17,18 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
-type pickerField struct {
-	label          i18n.MessageID
-	origin         image.Point
-	next, previous event.Tag
-	disabled       bool
+type PickerField struct {
+	Label          i18n.MessageID
+	Origin         image.Point
+	Next, Previous event.Tag
+	Disabled       bool
 }
 
-var expandIcon = mustIcon(icons.NavigationArrowDropDown)
+var ExpandIcon = MustIcon(icons.NavigationArrowDropDown)
 
-func pickerTrigger(gtx layout.Context, view presentation, field pickerField, trigger *widget.Clickable, value string, invalid bool, pane popoverPane) bool {
-	title := view.language.Text(field.label)
-	view.label(gtx, title, 13, font.Medium, view.colors.ink)
+func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *widget.Clickable, value string, invalid bool, pane Popover) bool {
+	title := view.Language.Text(field.Label)
+	view.Label(gtx, title, 13, font.Medium, view.Colors.Ink)
 	y := gtx.Dp(22)
 	offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
 	defer offset.Pop()
@@ -36,10 +36,10 @@ func pickerTrigger(gtx layout.Context, view presentation, field pickerField, tri
 	gtx.Constraints = layout.Exact(size)
 
 	opened := false
-	if !field.disabled {
-		anchor := field.origin.Add(image.Pt(0, y))
-		pane.next, pane.previous = field.next, field.previous
-		opened = view.overlay.register(gtx, trigger, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, pane)
+	if !field.Disabled {
+		anchor := field.Origin.Add(image.Pt(0, y))
+		pane.next, pane.previous = field.Next, field.Previous
+		opened = view.Overlay.Register(gtx, trigger, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, pane)
 	} else {
 		gtx = gtx.Disabled()
 	}
@@ -47,26 +47,25 @@ func pickerTrigger(gtx layout.Context, view presentation, field pickerField, tri
 	trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		semantic.DescriptionOp(title).Add(gtx.Ops)
-		colors := view.colors
-		border := colors.divider
+		colors := view.Colors
+		border := colors.Divider
 		switch {
 		case invalid:
-			border = colors.errorInk
-		case gtx.Focused(trigger) || view.overlay.trigger == trigger:
-			border = colors.accent
+			border = colors.ErrorInk
+		case gtx.Focused(trigger) || view.Overlay.Trigger == trigger:
+			border = colors.Accent
 		}
-		return view.panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
+		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: 10, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return view.label(gtx, value, 13, font.Normal, colors.ink)
-						})
+						gtx.Constraints.Min.Y = 0
+						return view.Label(gtx, value, 13, font.Normal, colors.Ink)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						side := gtx.Dp(16)
 						gtx.Constraints = layout.Exact(image.Pt(side, side))
-						return expandIcon.Layout(gtx, colors.secondaryInk)
+						return ExpandIcon.Layout(gtx, colors.SecondaryInk)
 					}),
 				)
 			})
@@ -80,7 +79,7 @@ func registerPickerFocus(gtx layout.Context, tag event.Tag) {
 	event.Op(gtx.Ops, tag)
 }
 
-func pickerKeys(gtx layout.Context, tag event.Tag, names ...key.Name) []key.Event {
+func PressedKeys(gtx layout.Context, tag event.Tag, names ...key.Name) []key.Event {
 	filters := []event.Filter{key.FocusFilter{Target: tag}}
 	for _, name := range names {
 		filters = append(filters, key.Filter{Focus: tag, Name: name, Optional: key.ModShift})
@@ -97,10 +96,10 @@ func pickerKeys(gtx layout.Context, tag event.Tag, names ...key.Name) []key.Even
 	}
 }
 
-type choice struct {
-	id       string
-	label    string
-	disabled bool
+type Choice struct {
+	ID       string
+	Label    string
+	Disabled bool
 }
 
 type optionList struct {
@@ -110,10 +109,10 @@ type optionList struct {
 	active    bool
 }
 
-func (l *optionList) setActive(items []choice, preferred string) {
+func (l *optionList) setActive(items []Choice, preferred string) {
 	l.active = false
 	for i, item := range items {
-		if !item.disabled && item.id == preferred {
+		if !item.Disabled && item.ID == preferred {
 			l.highlightAt(items, i)
 			return
 		}
@@ -121,27 +120,27 @@ func (l *optionList) setActive(items []choice, preferred string) {
 	l.move(items, 1)
 }
 
-func (l *optionList) move(items []choice, step int) {
+func (l *optionList) move(items []Choice, step int) {
 	index := -1
 	if step < 0 {
 		index = len(items)
 	}
 	for i, item := range items {
-		if l.active && item.id == l.highlight && !item.disabled {
+		if l.active && item.ID == l.highlight && !item.Disabled {
 			index = i
 			break
 		}
 	}
 	for i := index + step; i >= 0 && i < len(items); i += step {
-		if !items[i].disabled {
+		if !items[i].Disabled {
 			l.highlightAt(items, i)
 			return
 		}
 	}
 }
 
-func (l *optionList) highlightAt(items []choice, index int) {
-	l.highlight, l.active = items[index].id, true
+func (l *optionList) highlightAt(items []Choice, index int) {
+	l.highlight, l.active = items[index].ID, true
 	position := l.scroll.Position
 	end := position.First + position.Count
 	if position.OffsetLast < 0 {
@@ -152,16 +151,16 @@ func (l *optionList) highlightAt(items []choice, index int) {
 	}
 }
 
-func (l *optionList) accept(items []choice, choose func(choice)) {
+func (l *optionList) accept(items []Choice, choose func(Choice)) {
 	for _, item := range items {
-		if l.active && item.id == l.highlight && !item.disabled {
+		if l.active && item.ID == l.highlight && !item.Disabled {
 			choose(item)
 			return
 		}
 	}
 }
 
-func (l *optionList) layout(gtx layout.Context, view presentation, items []choice, selected string, showHighlight bool, choose func(choice)) layout.Dimensions {
+func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selected string, showHighlight bool, choose func(Choice)) layout.Dimensions {
 	if l.buttons == nil {
 		l.buttons = make(map[string]*widget.Clickable)
 	}
@@ -170,38 +169,38 @@ func (l *optionList) layout(gtx layout.Context, view presentation, items []choic
 	gtx.Constraints = layout.Exact(image.Pt(gtx.Constraints.Max.X, height))
 	return l.scroll.Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
 		item := items[i]
-		button := l.buttons[item.id]
+		button := l.buttons[item.ID]
 		if button == nil {
 			button = new(widget.Clickable)
-			l.buttons[item.id] = button
+			l.buttons[item.ID] = button
 		}
-		if !item.disabled && button.Clicked(gtx) {
-			l.highlight, l.active = item.id, true
+		if !item.Disabled && button.Clicked(gtx) {
+			l.highlight, l.active = item.ID, true
 			choose(item)
 		}
 		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(30))
 		gtx.Constraints = layout.Exact(size)
-		return choiceButton(gtx, view, button, item.label, "", !item.disabled, item.id == selected, showHighlight && l.active && item.id == l.highlight)
+		return choiceButton(gtx, view, button, item.Label, "", !item.Disabled, item.ID == selected, showHighlight && l.active && item.ID == l.highlight)
 	})
 }
 
-func choiceButton(gtx layout.Context, view presentation, button *widget.Clickable, title, description string, enabled, selected, highlighted bool) layout.Dimensions {
+func choiceButton(gtx layout.Context, view View, button *widget.Clickable, title, description string, enabled, selected, highlighted bool) layout.Dimensions {
 	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		if description != "" {
 			semantic.DescriptionOp(description).Add(gtx.Ops)
 		}
-		fg := view.colors.ink
+		fg := view.Colors.Ink
 		bounds := image.Rectangle{Max: gtx.Constraints.Min}
 		switch {
 		case !enabled:
-			fg = view.colors.secondaryInk
+			fg = view.Colors.SecondaryInk
 		case selected:
-			paint.FillShape(gtx.Ops, view.colors.accent, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
-			fg = view.colors.onAccent
+			paint.FillShape(gtx.Ops, view.Colors.Accent, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
+			fg = view.Colors.OnAccent
 		case button.Hovered() || highlighted:
-			paint.FillShape(gtx.Ops, view.colors.hoverSurface, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
 		}
 		label := layout.Inset{Left: 5, Right: 5}
 		if highlighted && enabled {
@@ -209,7 +208,7 @@ func choiceButton(gtx layout.Context, view presentation, button *widget.Clickabl
 		}
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return label.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.label(gtx, title, 13, font.Normal, fg)
+				return view.Label(gtx, title, 13, font.Normal, fg)
 			})
 		})
 	}

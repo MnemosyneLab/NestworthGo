@@ -3,11 +3,13 @@ package desktop
 import (
 	"context"
 	"errors"
+	"image"
 	"testing"
 
 	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/settings"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
@@ -62,7 +64,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	p := newInstitutionsPage(ctx, svc, func() {})
 	t.Cleanup(func() { cancel(); p.workers.Wait() })
 	h.shell.routes[directoryRoute].body = p.layout
-	h.shell.preferences.language = i18n.English
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	finish := func() {
 		p.workers.Wait()
@@ -87,28 +89,29 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.click("Clear search", true)
 	h.click("Edit Harbor Sample Bank", true)
 	h.frame()
-	h.focused(&p.draft.editor)
-	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.editor.Len()}, Text: "Rejected draft"})
+	h.focused(&p.draft.Editor)
+	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.Editor.Len()}, Text: "Rejected draft"})
 	h.frame()
 	h.click("Save", false)
 	finish()
-	if p.editing != bank.ID || p.draft.text() != "Rejected draft" {
+	if p.editing != bank.ID || p.draft.Text() != "Rejected draft" {
 		t.Fatal("a validation failure dropped the active edit")
 	}
 	assertPageLabel(t, &h.router, "Use 120 characters or fewer.")
 	selection := key.Range{Start: 8, End: 2}
-	h.router.Queue(key.SelectionEvent(selection), key.SnippetEvent{End: p.draft.editor.Len()})
+	h.router.Queue(key.SelectionEvent(selection), key.SnippetEvent{End: p.draft.Editor.Len()})
 	h.frame()
-	h.click("繁體中文", false)
-	h.click("顏色主題：靛藍", false)
-	h.click("深色", false)
-	if h.shell.activeRoute != directoryRoute || p.editing != bank.ID || p.draft.text() != "Rejected draft" ||
-		h.router.EditorState().Selection.Range != selection {
+	h.selectSidebarLanguage(i18n.SettingsLanguageZhTW)
+	h.cycleAppearance()
+	start, end := p.draft.Editor.Selection()
+	if h.shell.activeRoute != directoryRoute || p.editing != bank.ID || p.draft.Text() != "Rejected draft" ||
+		start != selection.Start || end != selection.End {
 		t.Fatal("switching preferences changed the institution route, draft, or selection")
 	}
 	semanticBounds(t, &h.router, "機構名稱", true)
 	assertPageLabel(t, &h.router, "名稱不得超過 120 個字元。")
-	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.editor.Len()}, Text: "Valid draft"})
+	h.click("機構名稱", true)
+	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.Editor.Len()}, Text: "Valid draft"})
 	h.frame()
 	h.click("儲存", false)
 	finish()
@@ -125,18 +128,28 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.focused(p.buttons[bank.ID])
 }
 
-func assertPageLabel(t *testing.T, router *input.Router, label string) {
+func assertPageLabel(t *testing.T, router *input.Router, label string) image.Rectangle {
 	t.Helper()
-	var visit func([]input.SemanticNode) bool
-	visit = func(nodes []input.SemanticNode) bool {
-		for _, node := range nodes {
-			if node.Desc.Label == label || visit(node.Children) {
-				return true
-			}
-		}
-		return false
-	}
-	if !visit(router.AppendSemantics(nil)) {
+	node := findPageLabel(router, label)
+	if node == nil {
 		t.Fatalf("expected label %q in the rendered page", label)
 	}
+	return node.Desc.Bounds
+}
+
+func findPageLabel(router *input.Router, label string) *input.SemanticNode {
+	var visit func([]input.SemanticNode) *input.SemanticNode
+	visit = func(nodes []input.SemanticNode) *input.SemanticNode {
+		for i := range nodes {
+			node := &nodes[i]
+			if node.Desc.Label == label {
+				return node
+			}
+			if child := visit(node.Children); child != nil {
+				return child
+			}
+		}
+		return nil
+	}
+	return visit(router.AppendSemantics(nil))
 }
