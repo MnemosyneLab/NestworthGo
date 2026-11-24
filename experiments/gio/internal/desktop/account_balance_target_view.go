@@ -13,28 +13,51 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *accountsPage) layoutBankBalance(gtx layout.Context, view ui.View) layout.Dimensions {
-	f, l := p.bankBalance, view.Language
+type balanceTargetCopy struct {
+	action, review, confirm, target, noChange, invalidTarget, previewFailed, saved i18n.MessageID
+}
+
+func balanceTargetCopyFor(account domain.Account) balanceTargetCopy {
+	if account.AccountType == domain.TypeCreditCard {
+		return balanceTargetCopy{
+			action: i18n.AccountCardBalanceAction, review: i18n.AccountCardBalanceReview,
+			confirm: i18n.AccountCardBalanceConfirm, target: i18n.AccountCardBalanceTarget,
+			noChange: i18n.AccountCardBalanceNoChange, invalidTarget: i18n.AccountCardBalanceInvalidTarget,
+			previewFailed: i18n.AccountCardBalancePreviewFailed, saved: i18n.AccountCardBalanceSaved,
+		}
+	}
+	return balanceTargetCopy{
+		action: i18n.AccountBankBalanceAction, review: i18n.AccountBankBalanceReview,
+		confirm: i18n.AccountBankBalanceConfirm, target: i18n.AccountCashTarget,
+		noChange: i18n.AccountBankBalanceNoChange, invalidTarget: i18n.AccountCashInvalidTarget,
+		previewFailed: i18n.AccountBankBalancePreviewFailed, saved: i18n.AccountBankBalanceSaved,
+	}
+}
+
+func (p *accountsPage) layoutBalanceTarget(gtx layout.Context, view ui.View) layout.Dimensions {
+	f, l := p.balanceTarget, view.Language
 	d := f.draft
+	copy := balanceTargetCopyFor(d.account)
 	gtx = ui.LimitWidth(gtx, 620)
-	if !p.bankBalanceUnresolved() && d.cancel.Clicked(gtx) {
+	if !p.balanceTargetUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
 		gtx.Execute(key.FocusCmd{Tag: &f.open})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	if d.review != nil {
-		return p.layoutBankBalanceReview(gtx, view)
+		return p.layoutBalanceTargetReview(gtx, view)
 	}
 	if d.previewing == nil && d.prepare.Clicked(gtx) {
-		p.previewBankBalance()
+		p.previewBalanceTarget()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, l.Text(i18n.AccountBankBalanceAction), 19, font.Medium, view.Colors.Ink)
+			return view.Label(gtx, l.Text(copy.action), 19, font.Medium, view.Colors.Ink)
 		}),
 		layout.Rigid(view.Message(d.account.Name, view.Colors.Ink)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -42,7 +65,7 @@ func (p *accountsPage) layoutBankBalance(gtx layout.Context, view ui.View) layou
 				d.amount.Focus(gtx)
 				d.focus = false
 			}
-			return d.amount.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.AccountCashTarget, Disabled: d.previewing != nil}, d.account.DefaultCurrency.String())
+			return d.amount.LayoutCurrency(gtx, view, ui.FieldOptions{Label: copy.target, Disabled: d.previewing != nil}, d.account.DefaultCurrency.String())
 		}),
 	}
 	if d.problem != i18n.NoMessage {
@@ -58,16 +81,17 @@ func (p *accountsPage) layoutBankBalance(gtx layout.Context, view ui.View) layou
 				if strings.TrimSpace(d.amount.Text()) == "" {
 					gtx = gtx.Disabled()
 				}
-				return view.PrimaryButton(&d.prepare, l.Text(i18n.AccountBankBalanceReview))(gtx)
+				return view.PrimaryButton(&d.prepare, l.Text(copy.review))(gtx)
 			}),
 		)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (p *accountsPage) layoutBankBalanceReview(gtx layout.Context, view ui.View) layout.Dimensions {
-	d, l := p.bankBalance.draft, view.Language
-	if !p.bankBalanceUnresolved() && d.edit.Clicked(gtx) {
+func (p *accountsPage) layoutBalanceTargetReview(gtx layout.Context, view ui.View) layout.Dimensions {
+	d, l := p.balanceTarget.draft, view.Language
+	copy := balanceTargetCopyFor(d.account)
+	if !p.balanceTargetUnresolved() && d.edit.Clicked(gtx) {
 		d.review, d.focus = nil, true
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -77,7 +101,7 @@ func (p *accountsPage) layoutBankBalanceReview(gtx layout.Context, view ui.View)
 		confirm = &d.retryConfirm
 	}
 	if d.confirming == nil && confirm.Clicked(gtx) {
-		p.confirmBankBalance()
+		p.confirmBalanceTarget()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	plan := d.review
@@ -88,23 +112,27 @@ func (p *accountsPage) layoutBankBalanceReview(gtx layout.Context, view ui.View)
 		var err error
 		effective, err = targetBalanceTimestamp(view, plan.at, plan.zone)
 		if err != nil {
-			return view.Message(l.Text(i18n.AccountBankBalancePreviewFailed), view.Colors.ErrorInk)(gtx)
+			return view.Message(l.Text(copy.previewFailed), view.Colors.ErrorInk)(gtx)
 		}
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, l.Text(i18n.AccountBankBalanceReview), 19, font.Medium, view.Colors.Ink)
+			return view.Label(gtx, l.Text(copy.review), 19, font.Medium, view.Colors.Ink)
 		}),
 		layout.Rigid(view.Message(d.account.Name, view.Colors.Ink)),
 		layout.Rigid(view.Message(l.Text(help), view.Colors.SecondaryInk)),
 	}
-	children = append(children, targetBalanceFacts(view, plan.before, plan.target, plan.delta, plan.currency.String(), effective)...)
+	if d.account.AccountType == domain.TypeCreditCard {
+		owed := fmt.Sprintf(l.Text(i18n.AccountCardBalanceOwedAfter), plan.target+" "+plan.currency.String())
+		children = append(children, layout.Rigid(view.Message(owed, view.Colors.Ink)))
+	}
+	children = append(children, targetBalanceFacts(view, plan.before, plan.after, plan.delta, plan.currency.String(), effective)...)
 	if d.uncertain {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.AccountCashUncertain), view.Colors.ErrorInk)))
 	}
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return layoutTargetBalanceConfirmation(gtx, view, d.confirming != nil, d.uncertain,
-			&d.cancel, &d.edit, confirm, i18n.AccountBankBalanceConfirm)
+			&d.cancel, &d.edit, confirm, copy.confirm)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }

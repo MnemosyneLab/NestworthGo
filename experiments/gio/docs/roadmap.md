@@ -867,10 +867,8 @@ preview. The same mutation can resolve an uncertain reply. Once a write is
 acknowledged, refreshing only reads. The account receipt links to the saved
 activity and Overview reflects the new balance.
 
-The [Wails statement entry](../../../frontend/src/features/reconciliation/AccountReconciliation.tsx)
-opens a separate workflow. Credit-card debt is stored as a positive amount
-owed. Domain review and net worth apply the liability sign. Credit-card balance
-editing and statement sessions remain separate work.
+See [credit-card balance reconciliation](#credit-card-balance-reconciliation)
+for the liability workflow.
 
 | Check | Evidence |
 | --- | --- |
@@ -879,7 +877,46 @@ editing and statement sessions remain separate work.
 | Linux X11 | In a 900×660 Gio window on Xvfb, rejected an unchanged target, raised a bank balance from USD 100 to USD 150 and lowered it to USD 80. Followed the saved detail link and confirmed the remeasurement. Two double clicks produced two activities, and normal reopen showed USD 50 net worth and both History rows. A separate pre-History run set USD 125, then reopened with USD 125 in the bank and USD 95 net worth. Read-only SQLite comparison verified a single new baseline without any activities on that profile. The History profile had two exact remeasurement effects and two mutation receipts. Original observations, History Origin and the credit-card balance were retained. A temporary overlay seeded the verified profiles and provided an advancing synthetic clock. |
 | Tests | The Gio module suite passed, along with focused shared domain, application and Wails Go account and History tests. |
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
-| Open evidence | Backdated and non-reconciliation Wails value updates, other balance-account types, credit cards and statement sessions remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. The Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | Backdated and non-reconciliation Wails value updates, other balance-account types and statement sessions remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. The Stage 3 production startup and target-platform cutover gates remain open. |
+
+#### Credit-card balance reconciliation
+
+**Accounts → credit card → Update card balance** follows the Wails
+[account detail action](../../../frontend/src/features/accounts/AccountDetail.tsx#L418)
+and [simple balance form](../../../frontend/src/features/accounts/AccountActionSheets.tsx#L385).
+The pilot requires an active, balance-tracked credit-card liability with an
+existing observation. The target amount owed is a nonnegative magnitude in the
+account currency. Zero is supported. The shared money parser rejects negative
+targets, including an overpaid card balance, with the same four-place precision
+as the other balance forms. Review shows the amount owed alongside the signed
+account balances. An unchanged target makes no write.
+
+Before History, the shared `AppendAccountValue` path stores a current balance
+observation. After History starts, the Wails
+[liability form](../../../frontend/src/features/history/RecordChangeForm.tsx#L638)
+selects the `reconciliation` reason for `value_update`. Gio takes the reviewed
+current instant and displays it in the History Origin timezone. The
+[shared command](../../../internal/domain/change.go#L1533) records an
+`account_value` remeasurement. Increasing debt lowers the signed account
+balance and net worth. The activity detail names the increase or decrease in
+debt and the resulting amount owed. The
+[statement session](../../../frontend/src/features/reconciliation/AccountReconciliation.tsx)
+is a separate Wails Tasks workflow.
+
+The bank balance form and card form share guarded confirmation. A ledger
+change invalidates the preview. An uncertain pre-History append only reloads
+the balance because the append has no receipt. With History enabled, an
+uncertain reply can replay the same mutation, including after reopen. Once
+acknowledged, a failed refresh can only retry the read.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go parity | Independent marked fixtures used `2026-11-21T17:00:00Z` and `Asia/Singapore`. Both Go paths rejected a negative target and stored an exact zero observation before History. With History, both raised debt from USD 30 to USD 35 between previews, then to USD 50.125 and finally to zero. The signed review, exact effects and timestamps matched. Net worth moved from USD 70 to USD 49.875 after the two increases and recovered to USD 100. Asset Changes reported USD +30 in adjustments and zero external net flow on both copies. |
+| State and fault handling | Gio frame tests covered an unchanged target, an intervening balance change, double confirmation, a lost unkeyed reply, a lost keyed reply, and a read failure after acknowledgement. Durable replay, including after reopen, returned the original activity. The original observation and three intended activities survived. The bank controls and write paths also passed their regressions. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, rejected a negative target, raised debt from USD 30 to USD 50, then set it to zero. Opened both saved details and checked the remeasurement and amount owed. Double-clicking each confirmation produced two total activities and two receipts. Normal reopen showed both History rows and USD 100 net worth. A separate pre-History profile set the debt to zero and reopened with zero debt, one new baseline observation and no activity. Read-only SQLite checks confirmed exact effects and retained origin and baseline facts. A temporary overlay seeded the verified synthetic profiles and supplied an advancing clock. |
+| Tests | The Gio module suite and focused shared domain, application, Wails Go account, History and Asset Changes tests passed. |
+| Build and vet | The Linux Gio preview build and Gio vet passed. |
+| Open evidence | Statement sessions, backdated value updates, other liability types and the account-level Starting Point entry remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

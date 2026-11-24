@@ -199,8 +199,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.cashBalance != nil {
 			s.accounts.cashBalance.openActivity = s.historyPage.reads.open
 		}
-		if s.accounts != nil && s.accounts.bankBalance != nil {
-			s.accounts.bankBalance.openActivity = s.historyPage.reads.open
+		if s.accounts != nil && s.accounts.balanceTarget != nil {
+			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
 		}
 		s.historyPage.reads.rename = func(id domain.ActivityID, name string) {
 			target := navigationTarget{route: historyRoute, activity: id}
@@ -248,7 +248,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		if saved := s.accounts.pollCashBalance(); saved.ID != "" {
 			s.refreshBalanceQueries(saved.ActivityID != nil)
 		}
-		if saved := s.accounts.pollBankBalance(); saved.account != "" {
+		if saved := s.accounts.pollBalanceTarget(); saved.account != "" {
 			s.refreshBalanceQueries(saved.activity != "")
 		}
 		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {

@@ -53,13 +53,14 @@ func historyClock(ctx context.Context, service ReferenceReader) (*domain.History
 }
 
 type Detail struct {
-	Activity    domain.Activity
-	Accounts    map[domain.AccountID]string
-	Instruments map[domain.InstrumentID]string
-	Location    *time.Location
-	Links       AmendmentLinks
-	Amendable   bool
-	Reversible  bool
+	Activity             domain.Activity
+	Accounts             map[domain.AccountID]string
+	Instruments          map[domain.InstrumentID]string
+	Location             *time.Location
+	Links                AmendmentLinks
+	Amendable            bool
+	Reversible           bool
+	LiabilityValueUpdate bool
 }
 
 var ErrActivityUnavailable = errors.New("activity unavailable")
@@ -109,6 +110,10 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		}
 		for _, account := range accounts {
 			detail.Accounts[account.Account.ID] = account.Account.Name
+			if len(ids) == 1 && record.Kind == domain.ActivityValueUpdate &&
+				record.Reason == domain.ReasonReconciliation && account.Account.IsLiability() {
+				detail.LiabilityValueUpdate = true
+			}
 		}
 		if movement, eligible := CashAmendment(record); eligible && zone != nil && detail.Links.Reversal == "" {
 			endpoints, ok := movement.accounts(accounts)

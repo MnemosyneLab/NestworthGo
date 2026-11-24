@@ -20,7 +20,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-type bankBalanceTestService struct {
+type balanceTargetTestService struct {
 	*application.Service
 	appends        int
 	records        []string
@@ -29,7 +29,7 @@ type bankBalanceTestService struct {
 	started, allow chan struct{}
 }
 
-func (s *bankBalanceTestService) AppendAccountValue(ctx context.Context, id domain.AccountID, amount, day string) (domain.AccountValue, error) {
+func (s *balanceTargetTestService) AppendAccountValue(ctx context.Context, id domain.AccountID, amount, day string) (domain.AccountValue, error) {
 	s.appends++
 	v, err := s.Service.AppendAccountValue(ctx, id, amount, day)
 	if err == nil && s.lostAppend {
@@ -38,7 +38,7 @@ func (s *bankBalanceTestService) AppendAccountValue(ctx context.Context, id doma
 	return v, err
 }
 
-func (s *bankBalanceTestService) RecordChangeGuarded(ctx context.Context, cmd any, id, hash, token string) (domain.ChangePreview, error) {
+func (s *balanceTargetTestService) RecordChangeGuarded(ctx context.Context, cmd any, id, hash, token string) (domain.ChangePreview, error) {
 	s.records = append(s.records, id)
 	attempt := len(s.records)
 	if attempt == 2 {
@@ -55,7 +55,7 @@ func (s *bankBalanceTestService) RecordChangeGuarded(ctx context.Context, cmd an
 	return result, err
 }
 
-func (s *bankBalanceTestService) ListAccounts(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
+func (s *balanceTargetTestService) ListAccounts(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
 	if len(filter.AccountIDs) == 1 && s.failedRead.Swap(false) {
 		return nil, errors.New("test: failed read after the keyed receipt")
 	}
@@ -66,12 +66,12 @@ func TestBankBalanceBeforeHistoryUsesUnkeyedObservationWithoutReplay(t *testing.
 	ctx := t.Context()
 	app, session, paths, bank := seedBankBalanceFixture(t, false)
 	ref, _, _, refBank := seedBankBalanceFixture(t, false)
-	fault := &bankBalanceTestService{Service: app, lostAppend: true}
-	p, h, finish := bankBalanceHarness(t, fault, func() time.Time { return accountTestClock })
+	fault := &balanceTargetTestService{Service: app, lostAppend: true}
+	p, h, finish := balanceTargetHarness(t, fault, "Harbor Checking", func() time.Time { return accountTestClock })
 	click := func(text string) { h.click(text, false); finish() }
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
 	click("Update bank balance")
-	d := p.bankBalance.draft
+	d := p.balanceTarget.draft
 	setBankField(h, "Target balance · USD", &d.amount, "100")
 	click("Review bank balance")
 	label("The target matches the current bank balance.")
@@ -87,7 +87,7 @@ func TestBankBalanceBeforeHistoryUsesUnkeyedObservationWithoutReplay(t *testing.
 			t.Fatal(err)
 		}
 	}
-	setBankBalanceClock(time.Minute, app, ref)
+	setBalanceTargetClock(time.Minute, app, ref)
 	click("Confirm bank balance")
 	label("The ledger changed. Preview this action again.")
 	click("Review bank balance")
@@ -108,7 +108,7 @@ func TestBankBalanceBeforeHistoryUsesUnkeyedObservationWithoutReplay(t *testing.
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("opening observation differs from Wails: %+v / %+v, %v", got, want, err)
 	}
-	assertBankBalanceNetWorth(t, app, ref, "90")
+	assertBalanceTargetNetWorth(t, app, ref, "90", "30")
 	assertBankObservations(t, session, bank, 3, 0)
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
@@ -121,8 +121,8 @@ func TestBankBalanceBeforeHistoryUsesUnkeyedObservationWithoutReplay(t *testing.
 
 	// Starting History between preview and confirmation must not convert a
 	// reviewed legacy observation into a posted reconciliation.
-	setBankBalanceClock(2*time.Minute, reopened)
-	plan, err := reviewBankBalance(ctx, reopened, bank, "125", func() time.Time { return accountTestClock })
+	setBalanceTargetClock(2*time.Minute, reopened)
+	plan, err := reviewBalanceTarget(ctx, reopened, bank, "125", func() time.Time { return accountTestClock })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,17 +141,17 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 	ctx := t.Context()
 	app, session, paths, bank := seedBankBalanceFixture(t, true)
 	ref, _, _, refBank := seedBankBalanceFixture(t, true)
-	fault := &bankBalanceTestService{Service: app, started: make(chan struct{}), allow: make(chan struct{})}
+	fault := &balanceTargetTestService{Service: app, started: make(chan struct{}), allow: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.allow) })
 	t.Cleanup(release)
 	uiNow := accountTestClock
-	p, h, finish := bankBalanceHarness(t, fault, func() time.Time { return uiNow })
+	p, h, finish := balanceTargetHarness(t, fault, "Harbor Checking", func() time.Time { return uiNow })
 	click := func(text string) { h.click(text, false); finish() }
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
-	assertBankBalanceNetWorth(t, app, ref, "70")
+	assertBalanceTargetNetWorth(t, app, ref, "70", "30")
 
 	click("Update bank balance")
-	d := p.bankBalance.draft
+	d := p.balanceTarget.draft
 	setBankField(h, "Target balance · USD", &d.amount, "-30")
 	click("Review bank balance")
 	label("Enter a nonnegative balance with up to four decimal places.")
@@ -165,12 +165,12 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 		app *application.Service
 		id  domain.AccountID
 	}{{app, bank}, {ref, refBank}} {
-		request := wailsBankAdjustment(side.id, "110", accountTestClock)
+		request := wailsBalanceAdjustment(side.id, "110", accountTestClock)
 		if _, err := historyapi.NewService(side.app).RecordChange(ctx, request); err != nil {
 			t.Fatal(err)
 		}
 	}
-	setBankBalanceClock(time.Minute, app, ref)
+	setBalanceTargetClock(time.Minute, app, ref)
 	uiNow = accountTestClock.Add(time.Minute)
 	click("Confirm bank balance")
 	label("The ledger changed. Preview this action again.")
@@ -189,7 +189,7 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 	}
 	h.clickAt(point)
 	h.click("Back", false)
-	if !p.bankBalanceUnresolved() || p.target.account != bank {
+	if !p.balanceTargetUnresolved() || p.target.account != bank {
 		t.Fatal("navigation escaped pending confirmation")
 	}
 	release()
@@ -201,13 +201,13 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 	click("Retry same submission")
 	label("Bank balance saved.")
 	label("Update failed. Showing the previous result.")
-	posted := p.bankBalance.saved.activity
+	posted := p.balanceTarget.saved.activity
 	click("Retry")
 	if len(fault.records) != 3 || fault.records[1] != plan.mutation || fault.records[2] != plan.mutation || fault.appends != 0 {
 		t.Fatal("confirmation lost the mutation identity or read Retry wrote")
 	}
-	assertWailsBankAdjustment(t, app, ref, refBank, plan, posted)
-	assertBankBalanceNetWorth(t, app, ref, "120")
+	assertWailsBalanceAdjustment(t, app, ref, refBank, plan, posted)
+	assertBalanceTargetNetWorth(t, app, ref, "120", "30")
 	click("View reconciliation")
 	label("Value update")
 	label("Remeasurement")
@@ -215,32 +215,33 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 		t.Fatal("the account receipt did not open the saved activity")
 	}
 	click("Back")
-	setBankBalanceClock(2*time.Minute, app, ref)
+	setBalanceTargetClock(2*time.Minute, app, ref)
 	uiNow = accountTestClock.Add(2 * time.Minute)
 	click("Update bank balance")
-	d = p.bankBalance.draft
+	d = p.balanceTarget.draft
 	setBankField(h, "Target balance · USD", &d.amount, "80")
 	click("Review bank balance")
 	label("Adjustment · -70 USD")
 	down := *d.review
 	click("Confirm bank balance")
-	assertWailsBankAdjustment(t, app, ref, refBank, down, p.bankBalance.saved.activity)
-	assertBankBalanceNetWorth(t, app, ref, "50")
+	assertWailsBalanceAdjustment(t, app, ref, refBank, down, p.balanceTarget.saved.activity)
+	assertBalanceTargetNetWorth(t, app, ref, "50", "30")
 	click("Back to accounts")
 	click("Synthetic Card")
 	if findPageLabel(&h.router, "Update bank balance") != nil {
 		t.Fatal("the asset-balance action appeared on a credit card")
 	}
+	label("Update card balance")
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenOnboardingProfile(t, paths)
-	setBankBalanceClock(3*time.Minute, reopened, ref)
+	setBalanceTargetClock(3*time.Minute, reopened, ref)
 	again, err := plan.commit(ctx, reopened)
 	if err != nil || again.activity != posted {
 		t.Fatalf("receipt replay after reopen: %+v, %v", again, err)
 	}
-	assertBankBalanceNetWorth(t, reopened, ref, "50")
+	assertBalanceTargetNetWorth(t, reopened, ref, "50", "30")
 	for _, ledger := range []*application.Service{reopened, ref} {
 		rows, err := ledger.ListActivities(ctx, 50)
 		if err != nil || len(rows) != 3 {
@@ -257,7 +258,7 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 				t.Fatalf("unexpected remeasurement effect: %+v", effect)
 			}
 		}
-		setBankBalanceClock(72*time.Hour, ledger)
+		setBalanceTargetClock(72*time.Hour, ledger)
 		result, err := ledger.AssetChange(ctx, domain.AnalysisQuery{
 			Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-11-21", To: "2026-11-22",
 			Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true,
@@ -280,10 +281,10 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 	}
 }
 
-func bankBalanceHarness(t *testing.T, ledger *bankBalanceTestService, clock func() time.Time) (*accountsPage, *previewHarness, func()) {
+func balanceTargetHarness(t *testing.T, ledger *balanceTargetTestService, accountName string, clock func() time.Time) (*accountsPage, *previewHarness, func()) {
 	t.Helper()
 	p := newAccountsPage(t.Context(), ledger, clock, func() {})
-	p.bankBalance = &accountBankBalance{service: ledger}
+	p.balanceTarget = &accountBalanceTarget{service: ledger}
 	historyPage := newLedgerHistory(t.Context(), ledger, clock, func() {})
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p, history: historyPage})
 	h.size = image.Pt(900, 660)
@@ -293,23 +294,23 @@ func bankBalanceHarness(t *testing.T, ledger *bankBalanceTestService, clock func
 	h.frame()
 	h.click("Accounts", false)
 	finish()
-	h.click("Harbor Checking", false)
+	h.click(accountName, false)
 	finish()
 	return p, h, finish
 }
 
-func wailsBankAdjustment(id domain.AccountID, target string, at time.Time) historyapi.ChangeCommandRequest {
+func wailsBalanceAdjustment(id domain.AccountID, target string, at time.Time) historyapi.ChangeCommandRequest {
 	return historyapi.ChangeCommandRequest{Kind: historyapi.ChangeValueUpdate, AccountID: id.String(), NewValue: target, NewValueCurrency: "USD",
 		Reason: "reconciliation", EffectiveAt: at.UTC().Format(time.RFC3339Nano), MutationID: domain.NewMutationID().String()}
 }
 
-func assertWailsBankAdjustment(t *testing.T, gio, ref *application.Service, refBank domain.AccountID, plan bankBalancePlan, saved domain.ActivityID) {
+func assertWailsBalanceAdjustment(t *testing.T, gio, ref *application.Service, refID domain.AccountID, plan balanceTargetPlan, saved domain.ActivityID) {
 	t.Helper()
 	ctx := t.Context()
 	adapter := historyapi.NewService(ref)
-	request := wailsBankAdjustment(refBank, plan.target, plan.at)
+	request := wailsBalanceAdjustment(refID, plan.target, plan.at)
 	preview, err := adapter.PreviewChange(ctx, request)
-	if err != nil || len(preview.Review) != 1 || preview.Review[0].Before != plan.before || preview.Review[0].After != plan.target || preview.Review[0].Delta != plan.delta ||
+	if err != nil || len(preview.Review) != 1 || preview.Review[0].Before != plan.before || preview.Review[0].After != plan.after || preview.Review[0].Delta != plan.delta ||
 		preview.Activity.EffectiveAt != wire.FormatTime(plan.at) {
 		t.Fatalf("review differs from Wails: %+v, %v", preview, err)
 	}
@@ -322,18 +323,18 @@ func assertWailsBankAdjustment(t *testing.T, gio, ref *application.Service, refB
 	if got.Kind != want.Activity.Kind || got.Reason != want.Activity.Reason || got.EffectiveAt != want.Activity.EffectiveAt || len(got.Effects) != 1 || len(want.Effects) != 1 ||
 		got.Effects[0].Classification != want.Effects[0].Classification || got.Effects[0].Direction != want.Effects[0].Direction ||
 		!reflect.DeepEqual(got.Effects[0].Money, want.Effects[0].Money) || readBankRecord(t, gio, plan.account).LatestValue.Amount.CanonicalAmount() != plan.target ||
-		readBankRecord(t, ref, refBank).LatestValue.Amount.CanonicalAmount() != plan.target {
+		readBankRecord(t, ref, refID).LatestValue.Amount.CanonicalAmount() != plan.target {
 		t.Fatalf("saved values differ from Wails: %+v / %+v", got, want.Activity)
 	}
 }
 
-func assertBankBalanceNetWorth(t *testing.T, gio, ref *application.Service, target string) {
+func assertBalanceTargetNetWorth(t *testing.T, gio, ref *application.Service, target, debt string) {
 	t.Helper()
 	ctx := t.Context()
 	got, err := gio.Overview(ctx, domain.AccountFilter{})
 	want, refErr := portfolio.NewService(ref).Overview(ctx, account.AccountFilterRequest{})
-	if err != nil || refErr != nil || !got.Complete || !want.Complete || got.NetWorth.String() != target || want.NetWorth != target || got.Liabilities.String() != "30" || want.Liabilities != "30" {
-		t.Fatalf("net worth Gio %s, Wails %s, want %s: %v / %v", got.NetWorth, want.NetWorth, target, err, refErr)
+	if err != nil || refErr != nil || !got.Complete || !want.Complete || got.NetWorth.String() != target || want.NetWorth != target || got.Liabilities.String() != debt || want.Liabilities != debt {
+		t.Fatalf("net worth Gio %s, Wails %s, want %s; debts %s / %s, want %s: %v / %v", got.NetWorth, want.NetWorth, target, got.Liabilities, want.Liabilities, debt, err, refErr)
 	}
 }
 
@@ -351,7 +352,7 @@ func assertBankObservations(t *testing.T, session *pilot.Session, bank domain.Ac
 	}
 }
 
-func setBankBalanceClock(offset time.Duration, ledgers ...*application.Service) {
+func setBalanceTargetClock(offset time.Duration, ledgers ...*application.Service) {
 	for _, ledger := range ledgers {
 		ledger.SetClock(func() time.Time { return accountTestClock.Add(offset) })
 	}
@@ -362,7 +363,7 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
 	app, session := reopenOnboardingProfile(t, paths)
-	setBankBalanceClock(-72*time.Hour, app)
+	setBalanceTargetClock(-72*time.Hour, app)
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic bank balance", BaseCurrency: "USD", MemberNames: []string{"Ana Example"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -383,11 +384,11 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	bank := create("Harbor Checking", "bank_account", "asset", "100")
 	create("Synthetic Card", "credit_card", "liability", "30")
 	if started {
-		setBankBalanceClock(-48*time.Hour, app)
+		setBalanceTargetClock(-48*time.Hour, app)
 		if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	setBankBalanceClock(0, app)
+	setBalanceTargetClock(0, app)
 	return app, session, paths, bank
 }

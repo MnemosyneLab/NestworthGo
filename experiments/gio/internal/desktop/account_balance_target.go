@@ -15,7 +15,7 @@ import (
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
-type bankBalanceLedger interface {
+type balanceTargetLedger interface {
 	WithRead(context.Context, func(context.Context) error) error
 	WithWrite(context.Context, func(context.Context) error) error
 	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
@@ -25,78 +25,82 @@ type bankBalanceLedger interface {
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
 }
 
-type bankBalancePlan struct {
+type balanceTargetPlan struct {
 	account                      domain.AccountID
 	observation                  domain.AccountValueID
 	currency                     domain.CurrencyCode
-	before, target, delta        string
+	before, target, after, delta string
 	at                           time.Time
 	zone                         string
 	command                      any
 	mutation, payloadHash, token string
 }
 
-type bankBalanceReceipt struct {
+type balanceTargetReceipt struct {
 	account     domain.AccountID
 	observation domain.AccountValueID
 	activity    domain.ActivityID
 }
 
-func (r bankBalanceReceipt) known() bool { return r.observation != "" || r.activity != "" }
+func (r balanceTargetReceipt) known() bool { return r.observation != "" || r.activity != "" }
 
-type bankBalanceDraft struct {
+type balanceTargetDraft struct {
 	account                                      domain.Account
 	amount                                       ui.TextField
 	focus, uncertain                             bool
 	problem                                      i18n.MessageID
-	review                                       *bankBalancePlan
-	previewing                                   <-chan historyResult[bankBalancePlan]
-	confirming                                   <-chan historyResult[bankBalanceReceipt]
+	review                                       *balanceTargetPlan
+	previewing                                   <-chan historyResult[balanceTargetPlan]
+	confirming                                   <-chan historyResult[balanceTargetReceipt]
 	prepare, confirm, retryConfirm, edit, cancel widget.Clickable
 }
 
-type accountBankBalance struct {
-	service      bankBalanceLedger
-	draft        *bankBalanceDraft
-	saved        bankBalanceReceipt
+type accountBalanceTarget struct {
+	service      balanceTargetLedger
+	draft        *balanceTargetDraft
+	saved        balanceTargetReceipt
+	savedMessage i18n.MessageID
 	unverified   domain.AccountID
 	open, view   widget.Clickable
 	openActivity func(domain.ActivityID, event.Tag)
 }
 
-func supportsBankBalance(row domain.AccountRecord) bool {
+func supportsBalanceTarget(row domain.AccountRecord) bool {
 	a := row.Account
-	return a.ArchivedAt == nil && a.AccountType == domain.TypeBankAccount && a.BalanceSheetRole == domain.RoleAsset &&
-		a.TrackingMode == domain.TrackingBalance && row.LatestValue != nil
+	if a.ArchivedAt != nil || a.TrackingMode != domain.TrackingBalance || row.LatestValue == nil {
+		return false
+	}
+	return (a.AccountType == domain.TypeBankAccount && a.BalanceSheetRole == domain.RoleAsset) ||
+		(a.AccountType == domain.TypeCreditCard && a.IsLiability())
 }
 
-func (p *accountsPage) canUpdateBankBalance() bool {
+func (p *accountsPage) canUpdateBalanceTarget() bool {
 	row := p.freshDetail()
-	return p.bankBalance != nil && row != nil && supportsBankBalance(row.record)
+	return p.balanceTarget != nil && row != nil && supportsBalanceTarget(row.record)
 }
 
-func (p *accountsPage) startBankBalance() {
+func (p *accountsPage) startBalanceTarget() {
 	row := p.freshDetail().record
-	d := &bankBalanceDraft{account: row.Account, amount: ui.NewTextField(true), focus: true}
+	d := &balanceTargetDraft{account: row.Account, amount: ui.NewTextField(true), focus: true}
 	d.amount.Editor.SetText(row.LatestValue.Amount.CanonicalAmount())
-	p.bankBalance.draft = d
+	p.balanceTarget.draft = d
 }
 
-func readBankBalance(ctx context.Context, service bankBalanceLedger, id domain.AccountID) (domain.AccountRecord, error) {
+func readBalanceTarget(ctx context.Context, service balanceTargetLedger, id domain.AccountID) (domain.AccountRecord, error) {
 	rows, err := service.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	if len(rows) != 1 || rows[0].Account.ID != id || !supportsBankBalance(rows[0]) {
+	if len(rows) != 1 || rows[0].Account.ID != id || !supportsBalanceTarget(rows[0]) {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrNotFound}
 	}
 	return rows[0], nil
 }
 
-func reviewBankBalance(ctx context.Context, service bankBalanceLedger, id domain.AccountID, raw string, clock func() time.Time) (bankBalancePlan, error) {
-	var plan bankBalancePlan
+func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id domain.AccountID, raw string, clock func() time.Time) (balanceTargetPlan, error) {
+	var plan balanceTargetPlan
 	err := service.WithRead(ctx, func(ctx context.Context) error {
-		row, err := readBankBalance(ctx, service, id)
+		row, err := readBalanceTarget(ctx, service, id)
 		if err != nil {
 			return err
 		}
@@ -108,11 +112,18 @@ func reviewBankBalance(ctx context.Context, service bankBalanceLedger, id domain
 		if err != nil {
 			return err
 		}
-		plan = bankBalancePlan{account: id, observation: row.LatestValue.ID, currency: money.Currency(),
-			before: row.LatestValue.Amount.CanonicalAmount(), target: money.CanonicalAmount()}
+		previous := row.LatestValue.Amount
+		plan = balanceTargetPlan{account: id, observation: row.LatestValue.ID, currency: money.Currency(),
+			before: previous.CanonicalAmount(), target: money.CanonicalAmount()}
 		if origin == nil {
 			if plan.before == plan.target {
 				return &domain.Error{Code: domain.ErrNoChange}
+			}
+			plan.after = plan.target
+			if row.Account.IsLiability() {
+				// Observations store the debt magnitude even when excluded
+				// from net worth. Sign only the review's display amounts.
+				plan.before, plan.after = previous.Amount().Neg().String(), money.Amount().Neg().String()
 			}
 			return nil
 		}
@@ -137,15 +148,15 @@ func reviewBankBalance(ctx context.Context, service bankBalanceLedger, id domain
 			return &domain.Error{Code: domain.ErrIntegrity}
 		}
 		line := preview.Review[0]
-		plan.before, plan.target, plan.delta = line.Before, line.After, line.Delta
+		plan.before, plan.after, plan.delta = line.Before, line.After, line.Delta
 		plan.at, plan.zone, plan.token = preview.Activity.EffectiveAt, origin.Timezone, token
 		return nil
 	})
 	return plan, err
 }
 
-func (plan bankBalancePlan) commit(ctx context.Context, service bankBalanceLedger) (bankBalanceReceipt, error) {
-	receipt := bankBalanceReceipt{account: plan.account}
+func (plan balanceTargetPlan) commit(ctx context.Context, service balanceTargetLedger) (balanceTargetReceipt, error) {
+	receipt := balanceTargetReceipt{account: plan.account}
 	if plan.command != nil {
 		result, err := service.RecordChangeGuarded(ctx, plan.command, plan.mutation, plan.payloadHash, plan.token)
 		receipt.activity = result.Activity.ID
@@ -158,7 +169,7 @@ func (plan bankBalancePlan) commit(ctx context.Context, service bankBalanceLedge
 		if err != nil {
 			return err
 		}
-		row, err := readBankBalance(ctx, service, plan.account)
+		row, err := readBalanceTarget(ctx, service, plan.account)
 		if err != nil {
 			return err
 		}
@@ -172,35 +183,36 @@ func (plan bankBalancePlan) commit(ctx context.Context, service bankBalanceLedge
 	return receipt, err
 }
 
-func (p *accountsPage) previewBankBalance() {
-	f, d := p.bankBalance, p.bankBalance.draft
+func (p *accountsPage) previewBalanceTarget() {
+	f, d := p.balanceTarget, p.balanceTarget.draft
 	id, raw := d.account.ID, d.amount.Text()
 	d.problem = i18n.NoMessage
-	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (bankBalancePlan, error) {
-		return reviewBankBalance(p.ctx, f.service, id, raw, p.clock)
+	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (balanceTargetPlan, error) {
+		return reviewBalanceTarget(p.ctx, f.service, id, raw, p.clock)
 	})
 }
 
-func (p *accountsPage) confirmBankBalance() {
-	f, d := p.bankBalance, p.bankBalance.draft
+func (p *accountsPage) confirmBalanceTarget() {
+	f, d := p.balanceTarget, p.balanceTarget.draft
 	plan := *d.review
 	f.unverified = ""
-	d.confirming = runHistoryRead(&p.workers, p.invalidate, func() (bankBalanceReceipt, error) {
+	d.confirming = runHistoryRead(&p.workers, p.invalidate, func() (balanceTargetReceipt, error) {
 		return plan.commit(p.ctx, f.service)
 	})
 }
 
-func (p *accountsPage) pollBankBalance() bankBalanceReceipt {
-	f := p.bankBalance
+func (p *accountsPage) pollBalanceTarget() balanceTargetReceipt {
+	f := p.balanceTarget
 	if f == nil || f.draft == nil {
-		return bankBalanceReceipt{}
+		return balanceTargetReceipt{}
 	}
 	d := f.draft
+	copy := balanceTargetCopyFor(d.account)
 	select {
 	case result := <-d.previewing:
 		d.previewing = nil
 		if result.err != nil {
-			d.problem = bankBalanceProblem(result.err, i18n.AccountBankBalancePreviewFailed)
+			d.problem = copy.problem(result.err, copy.previewFailed)
 		} else {
 			d.review = &result.value
 		}
@@ -210,12 +222,12 @@ func (p *accountsPage) pollBankBalance() bankBalanceReceipt {
 	case result := <-d.confirming:
 		d.confirming = nil
 		if result.value.known() {
-			f.saved, f.draft = result.value, nil
+			f.saved, f.savedMessage, f.draft = result.value, copy.saved, nil
 			p.leave()
 			p.read()
 			return result.value
 		}
-		d.problem = bankBalanceProblem(result.err, i18n.NoMessage)
+		d.problem = copy.problem(result.err, i18n.NoMessage)
 		switch {
 		case d.problem != i18n.NoMessage:
 			d.review, d.uncertain, d.focus = nil, false, true
@@ -224,40 +236,40 @@ func (p *accountsPage) pollBankBalance() bankBalanceReceipt {
 		default:
 			// An unkeyed append may already have committed. Return to the
 			// account and read its latest observation without reissuing it.
-			f.unverified, f.saved, f.draft = d.account.ID, bankBalanceReceipt{}, nil
+			f.unverified, f.saved, f.draft = d.account.ID, balanceTargetReceipt{}, nil
 			p.leave()
 			p.read()
-			return bankBalanceReceipt{account: d.account.ID}
+			return balanceTargetReceipt{account: d.account.ID}
 		}
 	default:
 	}
-	return bankBalanceReceipt{}
+	return balanceTargetReceipt{}
 }
 
-func (p *accountsPage) bankBalanceUnresolved() bool {
-	f := p.bankBalance
+func (p *accountsPage) balanceTargetUnresolved() bool {
+	f := p.balanceTarget
 	return f != nil && f.draft != nil && (f.draft.confirming != nil || f.draft.uncertain)
 }
 
-func bankBalanceProblem(err error, fallback i18n.MessageID) i18n.MessageID {
+func (copy balanceTargetCopy) problem(err error, fallback i18n.MessageID) i18n.MessageID {
 	var issue *domain.Error
 	if !errors.As(err, &issue) {
 		return fallback
 	}
 	switch issue.Code {
 	case domain.ErrNoChange:
-		return i18n.AccountBankBalanceNoChange
+		return copy.noChange
 	case domain.ErrStalePreview:
 		return i18n.HistoryAmendmentStale
 	case domain.ErrNotFound, domain.ErrConflict:
 		return i18n.AccountUnavailable
 	case domain.ErrValidation:
 		if issue.Field == "amount" {
-			return i18n.AccountCashInvalidTarget
+			return copy.invalidTarget
 		}
-		return i18n.AccountBankBalancePreviewFailed
+		return copy.previewFailed
 	case domain.ErrInvalidChange, domain.ErrInvalidChangeTime, domain.ErrInsufficientBalance:
-		return i18n.AccountBankBalancePreviewFailed
+		return copy.previewFailed
 	}
 	return fallback
 }

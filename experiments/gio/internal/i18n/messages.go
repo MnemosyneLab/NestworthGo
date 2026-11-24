@@ -578,6 +578,17 @@ const (
 	AccountBankBalancePreviewFailed
 	AccountBankBalanceSaved
 	AccountBankBalanceUnverified
+	AccountCardBalanceAction
+	AccountCardBalanceReview
+	AccountCardBalanceConfirm
+	AccountCardBalanceTarget
+	AccountCardBalanceNoChange
+	AccountCardBalanceInvalidTarget
+	AccountCardBalancePreviewFailed
+	AccountCardBalanceSaved
+	AccountCardBalanceOwedAfter
+	HistoryDebtIncreased
+	HistoryDebtReduced
 	HistoryAdded
 	HistoryRemoved
 	HistoryUnitPrice

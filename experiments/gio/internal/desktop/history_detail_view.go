@@ -160,7 +160,16 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 		facts = append(facts, ink(instrument(dividend.InstrumentID)))
 	}
 	for _, effect := range activity.Effects {
-		caption := effectCaption(l, effect, paired, supported, movement, account, instrument)
+		var caption string
+		if detail.LiabilityValueUpdate && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil {
+			label := i18n.HistoryDebtIncreased
+			if effect.Direction == domain.EffectRemoved {
+				label = i18n.HistoryDebtReduced
+			}
+			caption = fmt.Sprintf(l.Text(label), account(effect.AccountID), movementMoney(effect))
+		} else {
+			caption = effectCaption(l, effect, paired, supported, movement, account, instrument)
+		}
 		class := l.Text(effectClasses[effect.Classification])
 		if activity.ReversesActivityID != nil && class != "" {
 			class = fmt.Sprintf(l.Text(i18n.HistoryReversedEffect), class)
@@ -209,7 +218,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			shown[row] = true
 		}
 		balance := result.Amount + " " + result.Currency.String()
-		if namedBalances {
+		if detail.LiabilityValueUpdate && result.Target == domain.EffectTargetAccountValue {
+			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.AccountCardBalanceOwedAfter), balance)))
+		} else if namedBalances {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.TransferAccountBalance), account(result.AccountID), balance)))
 		} else {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.ContributionAfter), balance)))

@@ -61,13 +61,13 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if f := p.bankBalance; f != nil {
-		if f.draft == nil && p.canUpdateBankBalance() && f.open.Clicked(gtx) {
-			p.startBankBalance()
+	if f := p.balanceTarget; f != nil {
+		if f.draft == nil && p.canUpdateBalanceTarget() && f.open.Clicked(gtx) {
+			p.startBalanceTarget()
 			gtx.Execute(op.InvalidateCmd{})
 		}
 		if f.draft != nil {
-			return p.layoutBankBalance(gtx, view)
+			return p.layoutBalanceTarget(gtx, view)
 		}
 		if f.saved.account == p.target.account && f.saved.activity != "" && f.openActivity != nil && f.view.Clicked(gtx) {
 			f.openActivity(f.saved.activity, &f.view)
@@ -101,10 +101,11 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 						return view.Button(&p.cashBalance.open, l.Text(i18n.AccountCashSet))(gtx)
 					}))
 				}
-				if p.canUpdateBankBalance() {
+				if p.canUpdateBalanceTarget() {
+					action := balanceTargetCopyFor(p.freshDetail().record.Account).action
 					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						view.Focus.Watch(gtx, &p.bankBalance.open)
-						return view.Button(&p.bankBalance.open, l.Text(i18n.AccountBankBalanceAction))(gtx)
+						view.Focus.Watch(gtx, &p.balanceTarget.open)
+						return view.Button(&p.balanceTarget.open, l.Text(action))(gtx)
 					}))
 				}
 			} else if !p.invalid && (p.current == nil || !p.current.unavailable) {
@@ -201,9 +202,9 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 	if f := p.cashBalance; f != nil && f.saved.ID != "" && p.target.account == f.saved.AccountID {
 		lines = append(lines, layout.Rigid(balanceSavedLine(view, i18n.AccountCashSaved, &f.view, f.saved.ActivityID != nil && f.openActivity != nil)))
 	}
-	if f := p.bankBalance; f != nil && p.target.account != "" {
+	if f := p.balanceTarget; f != nil && p.target.account != "" {
 		if f.saved.account == p.target.account {
-			lines = append(lines, layout.Rigid(balanceSavedLine(view, i18n.AccountBankBalanceSaved, &f.view, f.saved.activity != "" && f.openActivity != nil)))
+			lines = append(lines, layout.Rigid(balanceSavedLine(view, f.savedMessage, &f.view, f.saved.activity != "" && f.openActivity != nil)))
 		} else if f.unverified == p.target.account {
 			lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountBankBalanceUnverified), view.Colors.ErrorInk)))
 		}
