@@ -56,8 +56,8 @@ Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
-Stage 3 has started with synthetic startup, ledger ownership and live Overview. Stages 4–7
-are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+Stage 3 includes synthetic startup, ledger ownership, live Overview and
+read-only Accounts. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -124,8 +124,9 @@ so the form and its buttons fit the minimum window size.
 The [Wails navigation design](../../../docs/design/navigation-history.md)
 defines the cursor, branch, confirmation and restoration contracts. Gio keeps
 the 40-visit limit and uses a read-only directory object for each currently
-supported entity kind. Account, instrument and activity-detail links depend on
-their later-stage pages. Back and Forward restore the state of the supported
+supported entity kind. The Stage 3 Accounts milestone extends this history to
+accounts. Instrument and activity-detail links depend on their later-stage
+pages. Back and Forward restore the state of the supported
 pages.
 
 | Check | Evidence |
@@ -215,6 +216,32 @@ fixed at `2026-09-18T13:14:00Z`, which displayed as `2026-09-18 21:14` in
 | Linux X11 | The fixed-clock preview ran the five verified profiles on Xvfb with Mesa software rendering. It displayed the shown amounts, both missing-input kinds in the same result, and no empty-household balances. The 700 × 460 combined case also supported reload and scrolling. Post-run comparisons found the same recorded account, holding, activity and market data rows in both copies. |
 | Linux X11 read failures | A separate fixed-clock QA build injected two read failures at the Overview service boundary. The first showed loading followed by an error with no balances. Retry ran the real query. A failed reload then kept the incomplete figures and original read time visible. A second retry restored the normal state. The clock and fault overrides were temporary build overlays. |
 | Open evidence | Wails GUI, native macOS and Wayland were not run. The comparison covered the shared current valuation and Wails Go adapter, with Gio rendering observed separately. Historical replay, provider refresh and account workflows remain separate. |
+
+#### Read-only Accounts milestone
+
+The [Wails account interaction contract](../../../docs/design/account-container-interaction.md)
+and [account Go adapter](../../../internal/wailsapi/account/account.go) define
+record and valuation reads. Gio groups rows by institution, keeps unassigned
+accounts last, and uses signed base values for ordering. It opens detail by
+the exact account ID. The amount text comes from the authoritative native
+and household-base projections. The view labels missing prices, missing
+exchange rates, stale quotes, known subtotals and unavailable values.
+
+**View accounts** in an institution detail opens the matching Accounts scope.
+Back, Forward and Recent preserve that scope and the archive filter. Back
+to accounts restores the preceding list and its scroll and available focus.
+Archived references keep their names and archive status. As in the Wails Go
+adapter, archived accounts have records and no current valuation. A simple
+account can still display its recorded balance in the matching currency.
+Metadata and holdings are read-only. Group subtotals and the product, gains,
+reconciliation and mutation surfaces are outside this slice.
+
+| Check | Evidence |
+| --- | --- |
+| Go adapter | On independent copies of a verified synthetic ledger, compared the full account and valuation DTOs for default and archived lists, institution-scoped lists and exact-ID detail. The valuation and UI clocks were fixed at `2026-11-21T17:00:00Z`. Cases include a stale stored USD/AUD rate, missing SGD conversion, an unpriced holding, a recorded zero and archived references. |
+| Gio frame and build | The Gio module tests, vet, Linux preview build, Wails account adapter tests and focused shared account valuation tests passed on Debian 13 amd64 with Go 1.27.4. Frame tests exercise Back, Recent, restored focus, empty and unavailable targets, and failure followed by Retry. An abandoned read returns after a newer account is visible, and the newer account remains selected. |
+| Linux X11 | The fixed-clock preview ran on Xvfb with Mesa software rendering. From Directory, opened a named institution, selected its account, reloaded, went back, and used Return to reopen the focused row. The account showed USD `125.50` and AUD `188.25` with a stale quote notice. An SGD account retained `75.00` with AUD unavailable. A mixed account showed a known subtotal, both missing-input kinds and a holding quantity with no price. Scrolled to the holding at 700 × 460. The unassigned account showed a true zero. The archived account showed its recorded balance and archived institution, and returning kept the archive filter. Comparison of 11 account, directory and ledger tables before and after the run found identical rows. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. The comparison covers Go records and valuations. Production startup, onboarding and account writes remain later work. |
 
 ## Moving from the preview to a desktop build
 

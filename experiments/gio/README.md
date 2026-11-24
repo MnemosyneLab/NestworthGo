@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Accounts** opens account details by institution, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
@@ -157,6 +157,20 @@ instruments and labels available figures as known contributions or subtotals.
 An empty household has its own state. Reload rereads the ledger and stored
 quotes. A failed reload keeps the previous figures and their original read
 time visible with a retry action.
+
+## Accounts
+
+Accounts groups rows by institution. From a Directory institution's detail,
+**View accounts** opens that institution's list. Select an account to read its
+owners, institution, group and available values. Account currency and household
+currency are shown separately when they differ. Known subtotals, missing
+prices or exchange rates, and stale cached quotes carry their own labels.
+
+**Show archived** includes archived records. If a simple archived account has
+a recorded value in its own currency, that value remains visible. **Back to
+accounts** restores the preceding account list, including its institution
+scope, archive filter, scroll and available row focus. **Reload** refreshes
+the current list or account. Account actions are limited to browsing and reads.
 
 ## Ledger activity
 

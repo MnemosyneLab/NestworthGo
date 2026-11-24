@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"gioui.org/font"
+	"gioui.org/io/event"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -44,14 +46,16 @@ type directoryObjectResult struct {
 }
 
 type directoryObjectPage struct {
-	list    *directoryList
-	ref     directoryRef
-	row     *directoryRow
-	err     error
-	result  <-chan directoryObjectResult
-	cancel  context.CancelFunc
-	workers sync.WaitGroup
-	reload  widget.Clickable
+	list         *directoryList
+	ref          directoryRef
+	row          *directoryRow
+	err          error
+	result       <-chan directoryObjectResult
+	cancel       context.CancelFunc
+	workers      sync.WaitGroup
+	reload       widget.Clickable
+	accounts     widget.Clickable
+	openAccounts func(domain.InstitutionID, string, event.Tag)
 }
 
 func (p *directoryObjectPage) enter(ref directoryRef, list *directoryList) {
@@ -166,6 +170,16 @@ func (p *directoryObjectPage) layout(gtx layout.Context, view ui.View) layout.Di
 				return layout.Dimensions{}
 			}
 			return p.details(gtx, view)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.openAccounts == nil || p.ref.kind != i18n.NavInstitutions || p.row == nil || p.result != nil || p.err != nil {
+				return layout.Dimensions{}
+			}
+			if p.accounts.Clicked(gtx) {
+				p.openAccounts(domain.InstitutionID(p.ref.id), p.row.Name, &p.accounts)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			return view.Button(&p.accounts, view.Language.Text(i18n.AccountViewInstitution))(gtx)
 		}),
 	)
 }

@@ -134,13 +134,10 @@ func (p *overviewPage) status(gtx layout.Context, view ui.View) layout.Dimension
 	l := view.Language
 	var rows []layout.FlexChild
 	if p.current != nil {
-		stamp := format.LocalDateTime(p.current.readAt.In(view.TimeLocation), settings.Settings{
-			DateFormat: view.DateFormat, TimeFormat: view.TimeFormat,
-		}, settings.Language(l))
 		if p.current.value.Currency != "" {
 			rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), p.current.value.Currency), view.Colors.Ink)))
 		}
-		rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewReadAt), stamp, view.TimeLocation), view.Colors.SecondaryInk)))
+		rows = append(rows, layout.Rigid(view.Message(valuationReadTime(view, p.current.readAt), view.Colors.SecondaryInk)))
 	}
 	switch {
 	case p.loading:
@@ -198,14 +195,7 @@ func overviewAmount(view ui.View, label i18n.MessageID, value domain.ValuationAm
 	}
 	display := view.Language.Text(i18n.OverviewNoValue)
 	if money != nil {
-		amount := money.Amount
-		// Debt magnitudes are unsigned in the service. Match Wails' visual sign.
-		if label == i18n.Liabilities && amount != "0" && !strings.HasPrefix(amount, "-") {
-			amount = "-" + amount
-		}
-		display = format.Money(amount, money.Currency.String(), settings.Settings{
-			DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator,
-		})
+		display = valuationMoney(view, *money, label == i18n.Liabilities)
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		label := material.Label(view.Theme, size, display)
@@ -215,6 +205,24 @@ func overviewAmount(view ui.View, label i18n.MessageID, value domain.ValuationAm
 			layout.Rigid(label.Layout),
 		)
 	}
+}
+
+func valuationReadTime(view ui.View, instant time.Time) string {
+	stamp := format.LocalDateTime(instant.In(view.TimeLocation), settings.Settings{
+		DateFormat: view.DateFormat, TimeFormat: view.TimeFormat,
+	}, settings.Language(view.Language))
+	return fmt.Sprintf(view.Language.Text(i18n.OverviewReadAt), stamp, view.TimeLocation)
+}
+
+func valuationMoney(view ui.View, money domain.MoneyView, liability bool) string {
+	amount := money.Amount
+	// Debt magnitudes are unsigned in the service. Match Wails' visual sign.
+	if liability && amount != "0" && !strings.HasPrefix(amount, "-") {
+		amount = "-" + amount
+	}
+	return format.Money(amount, money.Currency.String(), settings.Settings{
+		DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator,
+	})
 }
 
 func overviewEvidence(gtx layout.Context, view ui.View, quality domain.ValuationQuality) layout.Dimensions {

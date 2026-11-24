@@ -31,6 +31,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	activities := history.New(ctx, service, window.Invalidate)
 	timeline := newHistoryPage(activities)
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
+	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	defer func() {
 		stopWatching()
 		cancel()
@@ -38,8 +39,9 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		directory.wait()
 		activities.Wait()
 		overview.workers.Wait()
+		accounts.workers.Wait()
 	}()
-	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, prefs: state}).run(window)
+	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, accounts: accounts, prefs: state}).run(window)
 }
 
 func (s *shell) run(window *app.Window) error {

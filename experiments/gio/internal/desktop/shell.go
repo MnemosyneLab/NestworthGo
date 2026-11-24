@@ -18,12 +18,14 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 type routeID string
 
 const (
 	overviewRoute         routeID = "overview"
+	accountsRoute         routeID = "accounts"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
 	settingsRoute         routeID = "settings"
@@ -43,6 +45,7 @@ type ledgerPages struct {
 	directory *directoryPage
 	history   *historyPage
 	overview  *overviewPage
+	accounts  *accountsPage
 }
 
 type navigationItem struct {
@@ -73,6 +76,7 @@ type shell struct {
 	directory                             *directoryPage
 	historyPage                           *historyPage
 	overviewPage                          *overviewPage
+	accounts                              *accountsPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -98,7 +102,7 @@ type shell struct {
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
-	var directoryLayout, historyLayout, overviewLayout pageLayout
+	var directoryLayout, historyLayout, overviewLayout, accountsLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -108,12 +112,16 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if pages.overview != nil {
 		overviewLayout = pages.overview.layout
 	}
+	if pages.accounts != nil {
+		accountsLayout = pages.accounts.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
 		directory:        pages.directory,
 		historyPage:      pages.history,
 		overviewPage:     pages.overview,
+		accounts:         pages.accounts,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            material.NewTheme(),
@@ -125,7 +133,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
 			newItem(overviewRoute, i18n.NavOverview, icons.ActionHome, overviewLayout),
-			newItem("accounts", i18n.NavAccounts, icons.ActionAccountBalanceWallet, nil),
+			newItem(accountsRoute, i18n.NavAccounts, icons.ActionAccountBalanceWallet, accountsLayout),
 			newItem("available-funds", i18n.NavAvailableFunds, icons.EditorAttachMoney, nil),
 			newItem("portfolio", i18n.NavPortfolio, icons.EditorPieChartOutlined, nil),
 		}},
@@ -159,6 +167,24 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 					target: navigationTarget{route: directoryRoute, object: ref},
 					name:   name, focus: from,
 				}
+			}
+		}
+	}
+	if s.accounts != nil {
+		s.accounts.open = func(target navigationTarget, name string, from event.Tag) {
+			keepArchiveFilter := s.activeRoute() == accountsRoute && target.account == "" && s.accounts.archived
+			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
+		}
+		s.accounts.backToList = func() {
+			if previous := s.trail.adjacent(-1); previous != nil && previous.target.route == accountsRoute && !previous.target.hasObject() {
+				s.pendingNavigation = &navigationRequest{step: -1}
+				return
+			}
+			s.accounts.open(navigationTarget{route: accountsRoute}, "", nil)
+		}
+		if s.directory != nil {
+			s.directory.object.openAccounts = func(id domain.InstitutionID, name string, from event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, institution: id}, name, from)
 			}
 		}
 	}
@@ -197,8 +223,11 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	s.updateNavigation(gtx)
 	entry := s.trail.current()
-	if entry.target.hasObject() && s.directory.object.update() {
+	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
 		s.trail.rename(entry.target, s.directory.object.name())
+	}
+	if entry.target.route == accountsRoute && s.accounts != nil && s.accounts.update(s.preferences.language) {
+		s.trail.rename(entry.target, s.accounts.name())
 	}
 	paint.Fill(gtx.Ops, colors.PageBackground)
 	dims := layout.Flex{}.Layout(gtx,
@@ -350,7 +379,7 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	entry := s.trail.current()
 	route := s.routes[entry.target.route]
 	body := route.body
-	if entry.target.hasObject() {
+	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		body = s.directory.object.layout
 	}
 	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))

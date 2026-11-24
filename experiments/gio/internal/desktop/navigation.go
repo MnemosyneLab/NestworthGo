@@ -12,25 +12,29 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 const navigationLimit, recentLimit = 40, 20
 
 type navigationTarget struct {
-	route  routeID
-	object directoryRef
+	route       routeID
+	object      directoryRef
+	account     domain.AccountID
+	institution domain.InstitutionID
 }
 
-func (t navigationTarget) hasObject() bool { return t.object != (directoryRef{}) }
+func (t navigationTarget) hasObject() bool { return t.object != (directoryRef{}) || t.account != "" }
 
 type navigationEntry struct {
-	id        uint64
-	target    navigationTarget
-	name      string
-	focus     event.Tag
-	scroll    layout.Position
-	directory directoryVisit
-	visited   bool
+	id               uint64
+	target           navigationTarget
+	name             string
+	focus            event.Tag
+	scroll           layout.Position
+	directory        directoryVisit
+	accountsArchived bool
+	visited          bool
 }
 
 type navigationTrail struct {
@@ -78,6 +82,9 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	if a.target != b.target {
 		return false
 	}
+	if a.target.route == accountsRoute && !a.target.hasObject() {
+		return a.accountsArchived == b.accountsArchived
+	}
 	if a.target.route != directoryRoute || a.target.hasObject() {
 		return true
 	}
@@ -97,11 +104,12 @@ func (n *navigationTrail) recordRecent(entry navigationEntry) {
 }
 
 type navigationRequest struct {
-	target navigationTarget
-	name   string
-	focus  event.Tag
-	step   int
-	recent *navigationEntry
+	target           navigationTarget
+	name             string
+	focus            event.Tag
+	step             int
+	recent           *navigationEntry
+	accountsArchived bool
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -120,7 +128,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if item == nil || !item.available() || (request.recent == nil && entry.target == request.target) {
 			return
 		}
-		if request.target.hasObject() && (request.target.route != directoryRoute || s.directory == nil) {
+		if request.target.object != (directoryRef{}) && (request.target.route != directoryRoute || s.directory == nil) {
+			return
+		}
+		if (request.target.account != "" || request.target.institution != "") && (request.target.route != accountsRoute || s.accounts == nil) {
 			return
 		}
 	}
@@ -135,8 +146,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	*entry = source
 	s.trail.recordRecent(source)
-	if entry.target.hasObject() {
+	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		s.directory.object.leave()
+	}
+	if entry.target.route == accountsRoute {
+		s.accounts.leave()
 	}
 	if request.step != 0 {
 		s.trail.cursor += request.step
@@ -145,16 +159,19 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.trail.push(*request.recent)
 		s.restoreVisit(s.trail.current())
 	} else {
-		s.trail.push(navigationEntry{target: request.target, name: request.name})
+		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived})
 	}
 	entry = s.trail.current()
-	if entry.target.hasObject() {
+	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		ref := entry.target.object
 		list := s.directory.objectList(ref)
 		if list == nil {
 			s.trail.rename(entry.target, "")
 		}
 		s.directory.object.enter(ref, list)
+	}
+	if entry.target.route == accountsRoute {
+		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 	}
 	s.narrowExpanded = false
 	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject()
@@ -190,6 +207,9 @@ func (s *shell) updateNavigation(gtx layout.Context) {
 func (s *shell) saveVisit(entry *navigationEntry) {
 	entry.visited = true
 	switch entry.target.route {
+	case accountsRoute:
+		entry.accountsArchived = s.accounts.archived
+		entry.scroll = s.accounts.list.Position
 	case overviewRoute:
 		if s.overviewPage != nil {
 			entry.scroll = s.overviewPage.list.Position
@@ -258,6 +278,9 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 }
 
 func (s *shell) waitingForPageFocus() bool {
+	if s.activeRoute() == accountsRoute && s.accounts != nil {
+		return s.accounts.request != nil
+	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false
 	}
@@ -292,9 +315,23 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		if entry.name != "" {
 			return entry.name
 		}
+		if entry.target.route == accountsRoute {
+			return language.Text(i18n.AccountUnavailable)
+		}
 		return language.Text(i18n.DirectoryObjectUnavailable)
 	}
 	title := language.Text(s.routes[entry.target.route].label)
+	if entry.target.route == accountsRoute {
+		if entry.target.institution != "" {
+			if entry.name == "" {
+				return title + " · " + language.Text(i18n.AccountReferenceUnavailable)
+			}
+			title += " · " + entry.name
+		}
+		if entry.accountsArchived {
+			title += " · " + language.Text(i18n.InstitutionsShowArchived)
+		}
+	}
 	if entry.target.route == directoryRoute && entry.visited && s.directory != nil {
 		title += " · " + language.Text(s.directory.lists[entry.directory.tab].copy.title)
 		if entry.directory.list.includeArchived || strings.TrimSpace(entry.directory.list.query) != "" {

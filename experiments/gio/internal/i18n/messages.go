@@ -33,6 +33,41 @@ const (
 	GroupActivity
 	GroupInsights
 	GroupManage
+	AccountBack
+	AccountClearInstitution
+	AccountLoading
+	AccountLoadError
+	AccountUnavailable
+	AccountReadList
+	AccountValueUnavailable
+	AccountStaleQuotes
+	AccountReferenceUnavailable
+	AccountOwners
+	AccountInstitution
+	AccountGroup
+	AccountNoInstitution
+	AccountNoGroup
+	AccountQuantity
+	AccountCash
+	AccountNoCash
+	AccountInvestments
+	AccountNoInvestments
+	AccountViewInstitution
+	AccountTypeCash
+	AccountTypeBank
+	AccountTypeBrokerage
+	AccountTypeInvestment
+	AccountTypeCrypto
+	AccountTypeWallet
+	AccountTypePension
+	AccountTypeInsurance
+	AccountTypeProperty
+	AccountTypeVehicle
+	AccountTypeCollectible
+	AccountTypeReceivable
+	AccountTypeCredit
+	AccountTypeLoan
+	AccountTypeOther
 	OverviewBaseCurrency
 	OverviewReadAt
 	OverviewEmpty
