@@ -58,7 +58,7 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 		return p.layoutReview(gtx, view)
 	}
 	if d.cancel.Clicked(gtx) {
-		p.draft = nil
+		p.discard()
 		gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -76,7 +76,7 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 			if busy {
 				gtx = gtx.Disabled()
 			}
-			return d.layoutMovementFields(gtx, view, origin, p.clock())
+			return p.layoutMovementFields(gtx, view, origin, p.clock())
 		}))
 	} else if !busy && d.sourceError == i18n.NoMessage {
 		message := i18n.ContributionNoAccounts
@@ -115,8 +115,9 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (d *cashMovementDraft) layoutMovementFields(gtx layout.Context, view ui.View, origin image.Point, now time.Time) layout.Dimensions {
+func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.View, origin image.Point, now time.Time) layout.Dimensions {
 	const pickerHeight = 60
+	d := p.draft
 	l := view.Language
 	gap := gtx.Dp(16)
 	width := (gtx.Constraints.Max.X - gap) / 2
@@ -220,33 +221,13 @@ func (d *cashMovementDraft) layoutMovementFields(gtx layout.Context, view ui.Vie
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			p.syncTransferQuote()
 			pickerOrigin := origin.Add(image.Pt(width+gap, 0))
 			zone := d.sources.Location
-			today := now.In(zone).Format(time.DateOnly)
-			weekStart := time.Monday
-			if view.WeekStart == "sunday" {
-				weekStart = time.Sunday
-			}
-			next := any(&d.preview)
-			if transfer || conversion {
-				next = &d.fee.Editor
-			}
+			withQuote := d.fx.pair != (transferPair{})
 			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					field := ui.PickerField{Label: i18n.PreviewEffectiveDate, Origin: pickerOrigin, Disabled: !gtx.Enabled(), Next: &d.timePicker.Trigger}
-					dates := ui.DateOptions{Min: d.sources.Origin.StartedAt.In(zone).Format(time.DateOnly), Today: today, Max: today, WeekStart: weekStart, Format: view.DateFormat}
-					d.datePicker.Layout(gtx, view, field, dates, d.day, func(day string) {
-						d.day, d.problem = day, i18n.NoMessage
-					})
-					pickerOrigin.Y += gtx.Dp(pickerHeight + 8)
-					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(pickerHeight))}
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					field := ui.PickerField{Label: i18n.PreviewEffectiveTime, Origin: pickerOrigin, Disabled: !gtx.Enabled(), Previous: &d.datePicker.Trigger, Next: next}
-					d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, func(clock string) {
-						d.time, d.problem = clock, i18n.NoMessage
-					})
-					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(pickerHeight))}
+					return d.layoutMovementTime(gtx, view, pickerOrigin, now, withQuote)
 				}),
 			}
 			if transfer || conversion {
@@ -259,9 +240,51 @@ func (d *cashMovementDraft) layoutMovementFields(gtx layout.Context, view ui.Vie
 				}))
 			}
 			children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), zone), view.Colors.SecondaryInk)))
+			if withQuote {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return p.layoutTransferQuote(gtx, view)
+				}))
+			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 		}),
 	)
+}
+
+func (d *cashMovementDraft) layoutMovementTime(gtx layout.Context, view ui.View, origin image.Point, now time.Time, sideBySide bool) layout.Dimensions {
+	zone := d.sources.Location
+	today := now.In(zone).Format(time.DateOnly)
+	weekStart := time.Monday
+	if view.WeekStart == "sunday" {
+		weekStart = time.Sunday
+	}
+	dates := ui.DateOptions{Min: d.sources.Origin.StartedAt.In(zone).Format(time.DateOnly), Today: today, Max: today, WeekStart: weekStart, Format: view.DateFormat}
+	next := any(&d.preview)
+	if d.movement == history.CashTransfer || d.movement == history.CashConversion {
+		next = &d.fee.Editor
+	}
+	drawDay := func(gtx layout.Context) layout.Dimensions {
+		field := ui.PickerField{Label: i18n.PreviewEffectiveDate, Origin: origin, Disabled: !gtx.Enabled(), Next: &d.timePicker.Trigger}
+		d.datePicker.Layout(gtx, view, field, dates, d.day, func(day string) {
+			d.day, d.problem = day, i18n.NoMessage
+		})
+		if sideBySide {
+			origin.X += gtx.Constraints.Max.X + gtx.Dp(8)
+		} else {
+			origin.Y += gtx.Dp(68)
+		}
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	}
+	drawTime := func(gtx layout.Context) layout.Dimensions {
+		field := ui.PickerField{Label: i18n.PreviewEffectiveTime, Origin: origin, Disabled: !gtx.Enabled(), Previous: &d.datePicker.Trigger, Next: next}
+		d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, func(clock string) {
+			d.time, d.problem = clock, i18n.NoMessage
+		})
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	}
+	if sideBySide {
+		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, layout.Flexed(1, drawDay), layout.Flexed(1, drawTime))
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, layout.Rigid(drawDay), layout.Rigid(drawTime))
 }
 
 func layoutCashCurrencyAmount(gtx layout.Context, view ui.View, at image.Point, amount *ui.TextField, label i18n.MessageID, picker *ui.Select, currencyLabel i18n.MessageID, currency, excluded domain.CurrencyCode, choose func(domain.CurrencyCode)) layout.Dimensions {
@@ -317,7 +340,7 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 		return layout.Dimensions{}
 	}
 	if !d.uncertain && d.posting == nil && d.cancel.Clicked(gtx) {
-		p.draft = nil
+		p.discard()
 		gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}

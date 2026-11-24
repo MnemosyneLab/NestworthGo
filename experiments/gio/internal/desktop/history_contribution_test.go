@@ -326,7 +326,11 @@ func TestContributionRequiresHistoryOrigin(t *testing.T) {
 	}
 }
 
-func cashMovementHarness(t *testing.T, service *cashMovementFault) (*historyCashMovements, *historyPage, *previewHarness, func()) {
+func cashMovementHarness(t *testing.T, service interface {
+	historyService
+	overviewReader
+	accountsReader
+}) (*historyCashMovements, *historyPage, *previewHarness, func()) {
 	t.Helper()
 	ctx := t.Context()
 	clock := func() time.Time { return accountTestClock }

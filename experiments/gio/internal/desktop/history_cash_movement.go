@@ -29,6 +29,7 @@ type cashMovementDraft struct {
 	datePicker                                ui.DatePicker
 	timePicker                                ui.TimePicker
 	cancel, retrySources, preview, edit, post widget.Clickable
+	fx                                        transferQuote
 
 	previewing <-chan historyResult[history.ReviewedCashMovement]
 	review     *history.ReviewedCashMovement
@@ -39,7 +40,7 @@ type cashMovementDraft struct {
 
 type historyCashMovements struct {
 	ctx        context.Context
-	service    history.CashMovementLedger
+	service    cashMovementService
 	clock      func() time.Time
 	invalidate func()
 	workers    sync.WaitGroup
@@ -47,7 +48,7 @@ type historyCashMovements struct {
 	draft      *cashMovementDraft
 }
 
-func newHistoryCashMovements(ctx context.Context, service history.CashMovementLedger, clock func() time.Time, invalidate func()) *historyCashMovements {
+func newHistoryCashMovements(ctx context.Context, service cashMovementService, clock func() time.Time, invalidate func()) *historyCashMovements {
 	return &historyCashMovements{ctx: ctx, service: service, clock: clock, invalidate: invalidate}
 }
 
@@ -57,6 +58,11 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 		focusAmount: movement != history.CashTransfer && movement != history.CashConversion,
 	}
 	p.loadSources()
+}
+
+func (p *historyCashMovements) discard() {
+	p.draft.fx.stop()
+	p.draft = nil
 }
 
 func (p *historyCashMovements) loadSources() {
@@ -187,6 +193,7 @@ func (p *historyCashMovements) update() *domain.Activity {
 	if d == nil {
 		return nil
 	}
+	d.fx.poll()
 	select {
 	case result := <-d.loading:
 		d.loading = nil
@@ -214,7 +221,7 @@ func (p *historyCashMovements) update() *domain.Activity {
 	case result := <-d.posting:
 		d.posting = nil
 		if result.err == nil && result.value.Activity.ID != "" {
-			p.draft = nil
+			p.discard()
 			return &result.value.Activity
 		}
 		var issue *domain.Error

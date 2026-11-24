@@ -17,7 +17,7 @@ import (
 
 type historyService interface {
 	history.AmendmentLedger
-	history.CashMovementLedger
+	cashMovementService
 	historyStartLedger
 }
 

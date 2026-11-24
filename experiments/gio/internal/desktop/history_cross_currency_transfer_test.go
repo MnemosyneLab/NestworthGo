@@ -60,6 +60,11 @@ func TestCrossCurrencyTransferWithoutQuoteMatchesWails(t *testing.T) {
 	d := c.draft
 	pickAccountReference(h, "From account", "Harbor", "Harbor Checking · USD")
 	pickAccountReference(h, "To account", "Euro", "Euro Cash · EUR")
+	finish()
+	label("No saved FX quote for this pair. Enter both amounts.")
+	if findPageLabel(&h.router, "Fill from reference rate") != nil {
+		t.Fatal("a missing quote enabled calculation")
+	}
 	h.click("Effective date", true)
 	h.press(key.NameLeftArrow)
 	h.press(key.NameReturn)

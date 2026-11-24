@@ -620,8 +620,9 @@ two principal legs with their currencies, the executed rate, the fee and the
 native resulting balances. Both principal legs are internal transfers.
 
 Wails offers an optional amount calculator that requires a market quote.
-Posting an explicit pair works without one. Gio leaves the calculator and
-quote controls open. Overview still needs a supported valuation quote for a
+Posting an explicit pair works without one. The
+[cross-currency calculator milestone](#cross-currency-transfer-reference-calculator)
+covers the Gio draft helper. Overview still needs a supported valuation quote for a
 complete base total. The executed rate stays on the activity.
 The shared analyzer’s [execution-spread bucket](../../../internal/application/analysis_classifier.go)
 currently applies to the distinct `fx_conversion` kind. A cross-account
@@ -668,7 +669,7 @@ for opening or reconciling cash. Before History it stores an opening
 observation without a business activity. After History it reconciles the
 delta at the reviewed instant. The tests use that contract to seed and
 preserve opening facts. The Holdings cash target-balance milestone adds the
-Gio form. The market quote calculator remains open.
+Gio form. The calculator for within-account FX conversion remains open.
 
 | Check | Evidence |
 | --- | --- |
@@ -776,7 +777,7 @@ apply to these operations.
 | Failure and replay | A zero destination principal could not advance to confirmation, and insufficient source cash was rejected. The fee regression covered blank retention and explicit zero removal. The archived destination accepted correction, preserved archive metadata and refused standalone reversal until restored. After a known saved correction and failed detail read, Retry issued no write. A lost reversal reply replayed the identical request, including after reopen. A different request hash with the same mutation ID was rejected. |
 | Linux X11 | In a 900×660 native Gio window on Xvfb, rejected zero destination principal, reviewed both native amounts and the fee, double-clicked confirmation, followed the original and replacement links, and reversed the replacement. Normal quit and reopen retained 17 activities and USD 1,955.08 net worth. A separate profile exercised conversion correction and reversal, including scrolling to the balances at 700×460. Reopen showed USD 1,954.68 net worth. Closed read-only SQLite verified three appended activities, nine exact effects and two mutation receipts on each profile. Original activities, effects and market quotes were retained. A temporary overlay fixed the clock and seeded the verified profiles. |
 | Automated checks | Gio module tests, vet and Linux preview build passed, alongside focused shared Wails History, domain, correction, reversal, FX and mutation tests. |
-| Open evidence | Broader Wails edits such as changing original endpoints, a market quote calculator and product history remain open. See the repeat and balance reconciliation milestones for later progress. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | Broader Wails edits such as changing original endpoints, a reference calculator within correction forms, and product history remain open. See the repeat and balance reconciliation milestones for later progress. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
 
 #### Start history for an existing household
 
@@ -999,6 +1000,43 @@ detail query can only retry the read.
 | Tests | The Gio module suite and focused shared application and Wails Go repeat and mutation tests passed. |
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
 | Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Gio's list menu shortcut and repeat for accounts outside its supported cash picker remain open. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Cross-currency transfer reference calculator
+
+**Ledger activity → Record transfer → Fill from reference rate** follows the
+[Wails transfer calculator](../../../frontend/src/features/history/RecordChangeForm.tsx#L1089)
+and [decimal rules](../../../frontend/src/features/history/CalculateAmounts.tsx#L27)
+for an ordinary transfer across two different currencies. Enter one native
+principal and leave the other blank or zero. The calculator fills the other
+field. Two positive amounts are preserved. Invalid input and results that
+round to zero or exceed the supported amount leave the draft unchanged.
+
+The [Wails quote adapter](../../../internal/wailsapi/quote/quote.go#L56)
+and Gio read the same [application query](../../../internal/application/portfolio.go#L222).
+It returns the latest local observation eligible for the pair's configured
+source and retains the stored orientation. A missing preference or eligible
+observation yields no quote. Gio shows the stored direction, source and
+quote time or civil observation date. The selected transfer date controls
+posting. The calculator uses the latest saved reference for the pair,
+including when the transfer date is earlier. It multiplies along the stored
+quote or divides in reverse, with exact half-even rounding to the target
+currency's minor units.
+
+A pair change discards the previous pending read. A read error offers a
+read-only retry, and explicit amounts remain usable when the quote is missing.
+Calculation only fills a field. Review confirms both editable native
+principals and the source-currency fee, and the shared posting command
+derives the executed rate from the confirmed pair. Quote source selection,
+manual quote entry and provider refresh stay outside the Gio transfer form.
+
+| Check | Evidence |
+| --- | --- |
+| Wails parity | On separate synthetic copies, Gio and the Wails Go adapter selected the stored EUR→USD reference of 1.2. USD 125.625 divided to EUR 104.69. Reversing the calculation from EUR 104.69 multiplied to USD 125.63. Exact arithmetic probes covered even and odd ties in both directions and zero-place JPY. Both posting paths confirmed USD 125.625 and EUR 100.50 with a USD 1.2505 fee, giving an executed rate of EUR 0.8 per USD. |
+| Draft and reads | Frame tests covered empty and filled sides, a sub-minor-unit estimate, no quote, a read failure and retry, and a late old response after the pair changed. A transfer date earlier than the quote retained the same current observation. A date-labelled quote retained its civil date. Editing the estimated amount required a fresh review, and double confirmation wrote once. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, filled EUR 104.69, reviewed it, replaced it with EUR 100.50 and reviewed before confirming. At 700×460 both calculator and Preview were visible. After quit and reopen, the detail showed EUR 0.8 per USD and native balances USD 1,607.2545 and EUR 142.50. Read-only SQLite verified one added transfer and receipt, both principal effects and the fee, and unchanged quote and preference rows. A temporary overlay seeded the verified profile and fixed the clock. |
+| Tests | The Gio module suite and focused shared application, Wails Go quote and History tests passed. |
+| Build and vet | The Linux Gio preview build and Gio vet passed. |
+| Open evidence | The within-account FX and correction-form calculators remain open. The Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

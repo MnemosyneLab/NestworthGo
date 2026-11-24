@@ -417,6 +417,19 @@ const (
 	TransferTo
 	TransferAmount
 	TransferSentAmount
+	TransferQuoteLoading
+	TransferQuoteFailed
+	TransferQuoteRetry
+	TransferQuoteMissing
+	TransferQuoteRate
+	TransferQuoteCalculate
+	TransferQuoteInput
+	TransferQuoteOneAmount
+	TransferQuoteBothAmounts
+	TransferQuoteAmountUnavailable
+	TransferQuoteManual
+	TransferQuoteProvider
+	TransferQuoteAgent
 	TransferReceivedAmount
 	TransferInvalidReceived
 	TransferSentPrincipal
