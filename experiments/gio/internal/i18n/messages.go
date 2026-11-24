@@ -802,6 +802,23 @@ const (
 	DividendPreviewFailed
 	DividendStale
 	DividendInvalidAmount
+	OpeningPositionOpen
+	OpeningPositionReview
+	OpeningPositionConfirm
+	OpeningPositionQuantity
+	OpeningPositionHelp
+	OpeningPositionSaved
+	OpeningPositionEmpty
+	OpeningPositionUnavailable
+	OpeningPositionLoadFailed
+	OpeningPositionNoSave
+	OpeningPositionReadFailed
+	HistoryStartOriginalCost
+	HistoryStartOriginalCostHelp
+	HistoryStartReviewedCost
+	HistoryStartQuoteRequired
+	HistoryStartDraftFailed
+	HistoryStartInvalidCost
 	messageCount
 )
 

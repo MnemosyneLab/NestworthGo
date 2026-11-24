@@ -2,27 +2,25 @@ package application
 
 import (
 	"context"
-	"slices"
 	"strings"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// BalanceHistoryStartReview freezes the chosen civil day and timezone. The
-// read-only snapshot is for review. Confirmation always rebuilds it from the
-// shared planner under the ledger permit and uses the actual capture clock.
-type BalanceHistoryStartReview struct {
+// HistoryStartReview holds the opening facts for display and the inputs for
+// confirmation. The shared planner runs again at the actual capture instant.
+type HistoryStartReview struct {
 	Origin         domain.HistoryOrigin
 	Components     []domain.HistoryOriginComponent
 	CaptureCurrent bool
 	zone, day      string
+	holding        domain.HoldingID
+	cost           string
 	token          string
 }
 
-// PreviewBalanceHistoryStart supports origins without positive investment
-// positions. The full Starting Point workflow can also review opening costs.
-func (s *Service) PreviewBalanceHistoryStart(ctx context.Context, zone, day string) (BalanceHistoryStartReview, error) {
-	var review BalanceHistoryStartReview
+func (s *Service) PreviewHistoryStart(ctx context.Context, zone, day string, holding domain.HoldingID, cost string) (HistoryStartReview, error) {
+	var review HistoryStartReview
 	err := s.WithRead(ctx, func(ctx context.Context) error {
 		origin, err := s.HistoryOrigin(ctx)
 		if err != nil {
@@ -31,22 +29,25 @@ func (s *Service) PreviewBalanceHistoryStart(ctx context.Context, zone, day stri
 		if origin != nil {
 			return &domain.Error{Code: domain.ErrConflict, Field: "historyOrigin"}
 		}
-		data, err := s.prepareBalanceHistoryStart(ctx, zone, day)
+		input := HistoryStartReview{zone: zone, day: day, holding: holding, cost: cost}
+		data, err := s.prepareReviewedHistoryStart(ctx, input)
 		if err != nil {
 			return err
 		}
-		review = BalanceHistoryStartReview{
-			Origin: data.Origin, Components: data.Components, zone: zone, day: day, token: s.writes.previewToken(),
-			CaptureCurrent: slices.ContainsFunc(data.Components, func(c domain.HistoryOriginComponent) bool {
-				return c.Amount != nil && !c.Amount.IsZero()
-			}),
+		review = input
+		review.Origin, review.Components, review.token = data.Origin, data.Components, s.writes.previewToken()
+		for _, part := range data.Components {
+			if (part.Amount != nil && !part.Amount.IsZero()) || (part.Quantity != nil && !part.Quantity.IsZero()) {
+				review.CaptureCurrent = true
+				break
+			}
 		}
 		return nil
 	})
 	return review, err
 }
 
-func (s *Service) ConfirmBalanceHistoryStart(ctx context.Context, review BalanceHistoryStartReview) (domain.HistoryOrigin, error) {
+func (s *Service) ConfirmHistoryStart(ctx context.Context, review HistoryStartReview) (domain.HistoryOrigin, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
@@ -65,25 +66,44 @@ func (s *Service) ConfirmBalanceHistoryStart(ctx context.Context, review Balance
 	if s.writes.previewToken() != review.token {
 		return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken"}
 	}
-	data, err := s.prepareBalanceHistoryStart(ctx, review.zone, review.day)
+	data, err := s.prepareReviewedHistoryStart(ctx, review)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
 	}
 	return s.saveHistoryStart(ctx, data)
 }
 
-func (s *Service) prepareBalanceHistoryStart(ctx context.Context, zone, day string) (domain.HistoryOriginData, error) {
-	if strings.TrimSpace(day) == "" {
+func (s *Service) prepareReviewedHistoryStart(ctx context.Context, review HistoryStartReview) (domain.HistoryOriginData, error) {
+	if strings.TrimSpace(review.day) == "" {
 		return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrValidation, Field: "startDate"}
 	}
-	data, err := s.prepareHistoryStart(ctx, zone, day, nil)
+	costs := make(map[domain.HoldingID]string, 1)
+	if review.holding != "" {
+		price, err := domain.ParseUnitPrice(strings.TrimSpace(review.cost))
+		if err != nil {
+			return domain.HistoryOriginData{}, err
+		}
+		costs[review.holding] = price.Canonical()
+	}
+	data, err := s.prepareHistoryStart(ctx, review.zone, review.day, costs)
 	if err != nil {
 		return domain.HistoryOriginData{}, err
 	}
-	for _, component := range data.Components {
-		if component.Quantity != nil && !component.Quantity.IsZero() {
-			return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost"}
+	found := false
+	for _, part := range data.Components {
+		if part.Quantity == nil || part.Quantity.IsZero() {
+			continue
 		}
+		// Require an explicit reviewed price for every opening holding. Gio's
+		// current form can review one position; the planner's quote fallback
+		// must never silently set the cost of an omitted position.
+		if part.HoldingID == nil || *part.HoldingID != review.holding {
+			return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Field: "openingHoldings"}
+		}
+		found = true
+	}
+	if found != (review.holding != "") {
+		return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Field: "openingHoldings"}
 	}
 	return data, nil
 }

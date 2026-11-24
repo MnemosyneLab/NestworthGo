@@ -58,14 +58,14 @@ plus reviewed contributions, withdrawals, cash transfers and currency
 conversions. Eligible cash movements, including Holdings cash and internal FX,
 support amount corrections and linked reversals. Bank accounts can reconcile a
 native balance, and Holdings cash can be set or reconciled by currency.
-History can capture an opening baseline
-for an existing household without positive positions. The scoped Stage 2
+History can capture an opening baseline for an existing household, including
+[one eligible positive position](#opening-position-and-original-cost). The scoped Stage 2
 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
-partial sales, liquidations and cash dividends.
+partial sales, liquidations, cash dividends and a positive opening position.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -811,8 +811,9 @@ amounts that the shared planner will capture. Populated ledgers use the actual
 confirmation instant on that day. An earlier date requires zero balances,
 cash and holdings and uses midnight in the selected timezone. Existing account
 values, per-currency cash, archived account state and ownership become opening
-facts. Capturing the Starting Point creates no ledger activities. Positive
-positions are deferred until the opening-cost controls are available.
+facts. Capturing the Starting Point creates no ledger activities. The
+[Stage 5 opening-cost slice](#opening-position-and-original-cost) extends this
+form to one positive same-currency holding.
 
 The preview and confirmation reuse the same
 [application planner](../../../internal/application/history.go) as Wails.
@@ -828,7 +829,7 @@ another write. When verification fails, Retry rereads the saved state.
 | Linux X11 | In a 900×660 native Gio window on Xvfb, rejected an earlier date with balances, reviewed native balances and double-clicked the confirmation. History was empty immediately after start. A subsequent USD 5 contribution brought savings to USD 130.5. Normal quit and reopen showed that single activity and the same balance. The empty profile accepted November 20 at midnight, then reopened with empty History. Closed read-only SQLite checks found exactly one origin in each profile, four opening components in the populated profile and none in the empty profile. The populated file retained original balances and contained only the separate contribution and its mutation receipt. A temporary overlay set the clock and seeded the verified profiles. |
 | Tests | The Gio module suite and focused application, Wails History adapter and SQLite History tests passed. |
 | Build and vet | The Linux Gio preview build and Gio and shared application vet checks passed. |
-| Open evidence | The account action-sheet Starting Point entry and positive Holdings opening costs remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were not run. The Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | The account action-sheet Starting Point entry remains open. [One positive opening position](#opening-position-and-original-cost) is covered in Stage 5. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were not run. The Stage 3 production startup and target-platform cutover gates remain open. |
 
 #### Holdings cash target balance
 
@@ -1214,7 +1215,7 @@ confirmation.
 | Linux X11 | In native Gio at 900×660 on Xvfb, rejected a buy above the available cash including the fee. Double-clicked confirmation on the addition, sold part, liquidated, and used **Record buy** from the closed position. A normal quit and reopen showed five trade records, USD 100 position basis, USD 160 market value and USD 252 net worth. Read-only SQLite verified the original Holding ID, original acquisition and quotes, exact cash and quantity projections, and one receipt per new trade. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Cash dividends](#same-currency-cash-dividends) follow this milestone. Adding a new instrument to a populated account, backdated additions that change later cost replay, foreign-currency settlement, positive opening positions and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Cash dividends](#same-currency-cash-dividends) and [opening positions](#opening-position-and-original-cost) follow this milestone. Buying a new instrument in a populated account after History starts, backdated additions that change later cost replay, foreign-currency settlement and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 #### Same-currency cash dividends
 
@@ -1243,6 +1244,36 @@ realized trade gain and external flows unchanged by the dividend.
 | Tests | The Gio module suite and focused shared application, domain and Wails Go dividend, gain and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
 | Open evidence | Dividend notes, separate withholding or fees, foreign-currency dividends, reinvestment and capital-return operations remain outside this slice. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Opening position and original cost
+
+Before History starts, **Accounts → Holdings account → Record existing
+position** records a positive quantity in an existing ordinary security. The
+picker offers unused, active securities in the account's default currency.
+This entry is limited to one positive holding across the household, so the
+same ledger can complete the Starting Point form.
+The Wails account form calls `CreateHolding`. Its pre-History branch saves
+the quantity observation and leaves the optional cost argument unused. Gio
+reviews the quantity before calling that same branch and checks the persisted
+holding when a reply is uncertain. [Wails account action](../../../frontend/src/features/accounts/AccountActionSheets.tsx) · [Wails Go holding adapter](../../../internal/wailsapi/holding/holding.go) · [Shared holding command](../../../internal/application/portfolio.go)
+
+Next, **Ledger activity → Start recording history** asks for the original cost
+per unit of one active, ordinary same-currency holding. Enter zero when the
+original cost is zero. The shared Starting Point planner requires an existing
+selected market quote. Gio takes the opening basis from the entered cost and
+preserves the quote separately. The review includes the quantity, original
+cost, cash and capture date. A populated start captures the current instant in
+the selected History timezone. Confirmation stores opening facts. Later sales
+use the shared cost replay from those facts. [Wails Starting Point form](../../../frontend/src/features/history/StartHistoryForm.tsx) · [Shared Starting Point planner](../../../internal/application/history.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent verified profiles used `2026-11-21T17:00:00Z` and `Asia/Singapore`. They observed 2.5 units, then captured USD 12.3456 per unit and USD 210 opening cash. The market quote remained USD 40, basis was USD 30.864 and History was empty at capture. A later 1.25-unit sale for USD 25 with a USD 1 fee left USD 234 cash, USD 15.432 basis and USD 8.568 realized gain. Reopen retained the origin, position ID and the single sale. |
+| Shell tests | Negative quantity and negative or blank cost were blocked. Explicit zero cost passed preview. Competing cash writes invalidated both review types. Double-click, a lost reply and failed verification used one position write and read-only recovery. Starting Point was verified by read after a lost reply, and an old quantity plan was rejected after History started. Existing cash-only starts and the multiple-holding guard passed. |
+| Linux X11 | In a 900×660 Xvfb window, rejected a negative quantity, saved 2.5 units, and verified the single-position limit on a second attempt. Reviewed USD 12.3456 per unit and USD 200 opening cash and double-clicked both confirmations. After normal quit and reopen, net worth was USD 300, History remained empty, and the account showed the original position. Read-only SQLite verification found one holding and one origin with two opening components. The quote and cash observation rows were unchanged. A temporary build overlay seeded the verified synthetic profile and controlled the clock. |
+| Tests | The Gio module suite and focused application, Wails Go holding and history, and SQLite history tests passed. |
+| Build and vet | The independent Linux Gio preview build, Gio vet and shared application vet passed. |
+| Open evidence | Multiple positions, cross-currency cost and managed products remain outside the slice. The History-enabled position-import operation in Wails is a separate write path. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

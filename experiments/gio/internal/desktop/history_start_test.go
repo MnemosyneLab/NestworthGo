@@ -30,12 +30,12 @@ type startingPointFault struct {
 	started, allow chan struct{}
 }
 
-func (s *startingPointFault) ConfirmBalanceHistoryStart(ctx context.Context, review application.BalanceHistoryStartReview) (domain.HistoryOrigin, error) {
+func (s *startingPointFault) ConfirmHistoryStart(ctx context.Context, review application.HistoryStartReview) (domain.HistoryOrigin, error) {
 	if s.writes.Add(1) == s.blockAttempt {
 		close(s.started)
 		<-s.allow
 	}
-	value, err := s.Service.ConfirmBalanceHistoryStart(ctx, review)
+	value, err := s.Service.ConfirmHistoryStart(ctx, review)
 	if err != nil {
 		return value, err
 	}
@@ -66,11 +66,11 @@ func historyStartHarness(t *testing.T, ledger historyService) (*historyPage, *pr
 	}
 	h.shell.prefs.savedLocation = zone
 	finish := func() {
-		h.frame()
-		page.reads.workers.Wait()
-		h.frame()
-		page.reads.workers.Wait()
-		page.model.Wait()
+		for range 3 {
+			h.frame()
+			page.reads.workers.Wait()
+			page.model.Wait()
+		}
 		h.frame()
 	}
 	h.frame()
@@ -190,7 +190,7 @@ func TestHistoryStartingPointCapturesExistingBalances(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, afterSession := reopenOnboardingProfile(t, paths)
-	again, err := reopened.ConfirmBalanceHistoryStart(ctx, review)
+	again, err := reopened.ConfirmHistoryStart(ctx, review)
 	if err != nil || again.ID != got.ID {
 		t.Fatalf("confirmation retry after reopen returned %+v, %v", again, err)
 	}
@@ -242,7 +242,7 @@ func TestHistoryEmptyStartingPointVerifiesLostReplyWithoutRewriting(t *testing.T
 	}
 }
 
-func TestHistoryStartingPointDefersPositiveHoldings(t *testing.T) {
+func TestHistoryStartingPointDefersMultiplePositiveHoldings(t *testing.T) {
 	root := createFixtureRoot(t)
 	seedAccountFixture(t, root)
 	service, _ := openBankFixture(t, root)
@@ -260,9 +260,7 @@ func TestHistoryStartingPointDefersPositiveHoldings(t *testing.T) {
 	_, h, finish := historyStartHarness(t, service)
 	h.click("Start recording history", false)
 	finish()
-	h.click("Review Starting Point", false)
-	finish()
-	assertPageLabel(t, &h.router, "Positive holdings need opening cost setup, which this form does not support yet.")
+	assertPageLabel(t, &h.router, "This form can review only one active holding in its account’s default currency.")
 	if origin, err := service.HistoryOrigin(t.Context()); err != nil || origin != nil || findPageLabel(&h.router, "Confirm Starting Point") != nil {
 		t.Fatalf("the positive-holding draft offered a write: %+v, %v", origin, err)
 	}

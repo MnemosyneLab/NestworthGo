@@ -82,6 +82,17 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
+	if f := p.opening; f != nil {
+		if f.draft == nil && p.canOpenPosition() && f.open.Clicked(gtx) {
+			f.saved = ""
+			f.draft = &openingPositionDraft{account: p.freshDetail().record.Account, quantity: ui.NewTextField(true)}
+			p.loadOpeningPosition(f.draft)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return p.layoutOpeningPosition(gtx, view)
+		}
+	}
 	if f := p.investment; f != nil {
 		if f.draft == nil {
 			switch {
@@ -505,6 +516,15 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	})
 	firstBuy, existingBuy, sell := p.canFirstBuy(), p.hasInvestmentHolding(domain.ActivityBuy), p.canSell()
 	dividend := p.hasInvestmentHolding(domain.ActivityCashDividend)
+	opening := p.canOpenPosition()
+	if p.opening != nil && p.opening.saved == a.ID {
+		rows = append(rows, view.Message(l.Text(i18n.OpeningPositionSaved), view.Colors.Ink))
+	}
+	if opening {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
+		})
+	}
 	if firstBuy || existingBuy || sell || dividend {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

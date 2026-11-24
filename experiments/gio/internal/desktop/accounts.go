@@ -18,6 +18,7 @@ import (
 )
 
 type accountsReader interface {
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	WithRead(context.Context, func(context.Context) error) error
 	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
 	AccountValuations(context.Context, domain.AccountFilter) ([]domain.AccountValuation, error)
@@ -33,14 +34,15 @@ type accountRow struct {
 }
 
 type accountsResult struct {
-	rows         []accountRow
-	institutions map[domain.InstitutionID]domain.Institution
-	members      map[domain.MemberID]domain.Member
-	groups       map[domain.GroupID]domain.Group
-	holdings     map[domain.HoldingID]domain.Holding
-	unavailable  bool
-	readAt       time.Time
-	err          error
+	rows          []accountRow
+	institutions  map[domain.InstitutionID]domain.Institution
+	members       map[domain.MemberID]domain.Member
+	groups        map[domain.GroupID]domain.Group
+	holdings      map[domain.HoldingID]domain.Holding
+	unavailable   bool
+	beforeHistory bool
+	readAt        time.Time
+	err           error
 }
 
 // Match the Wails list and valuation reads. A detail visit uses the same
@@ -118,6 +120,12 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		}
 	}
 	if records[0].Account.TrackingMode == domain.TrackingHoldings {
+		origin, err := service.HistoryOrigin(ctx)
+		if err != nil {
+			result.err = err
+			return
+		}
+		result.beforeHistory = origin == nil
 		holdings, err := service.HoldingsByAccounts(ctx, filter.AccountIDs)
 		if err != nil {
 			result.err = err
@@ -245,6 +253,7 @@ type accountsPage struct {
 	maintenance                        *accountMaintenance
 	cashBalance                        *accountCashBalance
 	investment                         *accountInvestment
+	opening                            *accountOpeningPosition
 	balanceTarget                      *accountBalanceTarget
 	statement                          *accountStatement
 }

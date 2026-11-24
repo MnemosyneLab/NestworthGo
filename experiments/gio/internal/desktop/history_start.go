@@ -15,13 +15,15 @@ import (
 )
 
 type historyStartLedger interface {
-	PreviewBalanceHistoryStart(context.Context, string, string) (application.BalanceHistoryStartReview, error)
-	ConfirmBalanceHistoryStart(context.Context, application.BalanceHistoryStartReview) (domain.HistoryOrigin, error)
+	PreviewHistoryStart(context.Context, string, string, domain.HoldingID, string) (application.HistoryStartReview, error)
+	ConfirmHistoryStart(context.Context, application.HistoryStartReview) (domain.HistoryOrigin, error)
+	history.OpeningHoldingReader
 }
 
 type historyStartReview struct {
-	plan     application.BalanceHistoryStartReview
+	plan     application.HistoryStartReview
 	accounts map[domain.AccountID]domain.Account
+	holding  *domain.StartingPointHoldingView
 }
 
 type historyStart struct {
@@ -29,6 +31,10 @@ type historyStart struct {
 	open, verifying, saved, ready                bool
 	day                                          string
 	problem                                      i18n.MessageID
+	draftProblem                                 i18n.MessageID
+	holding                                      *domain.StartingPointHoldingView
+	cost                                         ui.TextField
+	loading                                      <-chan historyResult[*domain.StartingPointHoldingView]
 	review                                       *historyStartReview
 	preview                                      <-chan historyResult[historyStartReview]
 	write                                        <-chan historyResult[domain.HistoryOrigin]
@@ -38,13 +44,39 @@ type historyStart struct {
 	start, cancel, prepare, edit, confirm, retry widget.Clickable
 }
 
+func (p *historyPage) loadStartingPointHolding() {
+	s, r := p.startPoint, p.reads
+	s.draftProblem = i18n.NoMessage
+	s.loading = runHistoryRead(&r.workers, r.invalidate, func() (*domain.StartingPointHoldingView, error) {
+		var draft *domain.StartingPointHoldingView
+		err := r.service.WithRead(r.ctx, func(ctx context.Context) error {
+			var err error
+			draft, err = history.EligibleStartingPointHolding(ctx, s.service)
+			return err
+		})
+		return draft, err
+	})
+}
+
 func (p *historyPage) previewStartHistory(zone, day string) {
 	s, r := p.startPoint, p.reads
 	s.problem = i18n.NoMessage
+	cost := s.cost.Text()
+	var id domain.HoldingID
+	if s.holding != nil {
+		id = s.holding.HoldingID
+	}
 	s.preview = runHistoryRead(&r.workers, r.invalidate, func() (historyStartReview, error) {
 		var review historyStartReview
 		err := r.service.WithRead(r.ctx, func(ctx context.Context) error {
-			plan, err := s.service.PreviewBalanceHistoryStart(ctx, zone, day)
+			holding, err := history.EligibleStartingPointHolding(ctx, s.service)
+			if err != nil {
+				return err
+			}
+			if (holding == nil && id != "") || (holding != nil && holding.HoldingID != id) {
+				return &domain.Error{Code: domain.ErrStalePreview}
+			}
+			plan, err := s.service.PreviewHistoryStart(ctx, zone, day, id, cost)
 			if err != nil {
 				return err
 			}
@@ -53,6 +85,7 @@ func (p *historyPage) previewStartHistory(zone, day string) {
 				return err
 			}
 			review = historyStartReview{plan: plan, accounts: make(map[domain.AccountID]domain.Account, len(rows))}
+			review.holding = holding
 			for _, row := range rows {
 				review.accounts[row.Account.ID] = row.Account
 			}
@@ -66,7 +99,7 @@ func (p *historyPage) confirmStartHistory() {
 	s, r := p.startPoint, p.reads
 	plan := s.review.plan
 	s.write = runHistoryRead(&r.workers, r.invalidate, func() (domain.HistoryOrigin, error) {
-		return s.service.ConfirmBalanceHistoryStart(r.ctx, plan)
+		return s.service.ConfirmHistoryStart(r.ctx, plan)
 	})
 }
 
@@ -84,12 +117,27 @@ func (p *historyPage) pollStartingPoint() {
 		return
 	}
 	select {
+	case result := <-s.loading:
+		s.loading = nil
+		if result.err != nil {
+			s.draftProblem = startHistoryProblem(result.err, i18n.HistoryStartDraftFailed)
+		} else {
+			if s.holding == nil || result.value == nil || result.value.HoldingID != s.holding.HoldingID {
+				s.cost.Editor.SetText("")
+			}
+			s.holding = result.value
+		}
+	default:
+	}
+	select {
 	case result := <-s.preview:
 		s.preview = nil
 		if result.err != nil {
 			s.problem = startHistoryProblem(result.err, i18n.HistoryStartPreviewFailed)
 			if s.problem == i18n.HistoryStartExists {
 				p.readStartingPoint()
+			} else if s.problem == i18n.HistoryAmendmentStale || s.problem == i18n.HistoryStartHoldingCost {
+				p.loadStartingPointHolding()
 			}
 		} else {
 			s.review = &result.value
@@ -116,6 +164,8 @@ func (p *historyPage) pollStartingPoint() {
 		if result.value.Origin != nil {
 			s.ready, s.open = true, false
 			p.ledgerChanged()
+		} else if s.problem == i18n.HistoryAmendmentStale {
+			p.loadStartingPointHolding()
 		}
 	default:
 	}
@@ -131,6 +181,10 @@ func startHistoryProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 	}
 	switch {
 	case issue.Code == domain.ErrCostBasisRequired:
+		return i18n.HistoryStartQuoteRequired
+	case issue.Field == "unitPrice":
+		return i18n.HistoryStartInvalidCost
+	case issue.Field == "openingHoldings":
 		return i18n.HistoryStartHoldingCost
 	case issue.Code == domain.ErrStalePreview:
 		return i18n.HistoryAmendmentStale
