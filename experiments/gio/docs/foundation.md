@@ -147,12 +147,16 @@ selection with Return, and dismissal with Escape. Confirming a candidate must
 preserve both the submit count and selected option. Repeat these checks in
 narrow windows with long translated labels and both appearances.
 
-The prototype's macOS accessibility tree contained only the native window
-controls during inspection. Before migrating forms in bulk, verify VoiceOver
-can navigate the shared controls and read their names, roles, values,
-selection, and errors. If the first controls
-still fail this check, investigate the macOS accessibility bridge in the pilot.
-Report native results separately from automated or offscreen checks. Use
-`com.nestworth.gio` and its verified synthetic profile for native Gio checks.
+The macOS preview publishes the Gio frame's semantic tree through AppKit.
+Buttons invoke existing Gio actions. Text fields expose focus, values and
+UTF-16 selection ranges, and editing follows the field's enabled and read-only
+state. The ledger activity view exposes its visible rows as a list. The bridge
+publishes an initial tree, then tracks frame changes once macOS queries it.
+
+Verify the system accessibility tree after navigating and opening a popup.
+Before migrating forms in bulk, also exercise VoiceOver navigation, control
+activation, value and selection announcements, and validation errors on a
+real Mac. Report that separately from Gio frame and system-tree checks.
+Use `com.nestworth.gio` and its verified synthetic profile for native checks.
 Use a separate fixture root for scenarios that need a clean ledger.
 [Gio test profiles](../README.md#persistent-test-data)

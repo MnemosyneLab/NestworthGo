@@ -14,6 +14,7 @@ import (
 	"gioui.org/widget"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -50,7 +51,13 @@ func sidebarIcon(icon *widget.Icon, ink color.NRGBA, size unit.Dp) layout.Widget
 	}
 }
 
-func sidebarButton(gtx layout.Context, view ui.View, click *widget.Clickable, label, description string, body layout.Widget) layout.Dimensions {
+func sidebarButton(gtx layout.Context, view ui.View, click *widget.Clickable, label, description string, picker bool, body layout.Widget) layout.Dimensions {
+	return accessibility.Button(gtx, click, label, description, picker, func(gtx layout.Context) layout.Dimensions {
+		return layoutSidebarButton(gtx, view, click, label, description, body)
+	})
+}
+
+func layoutSidebarButton(gtx layout.Context, view ui.View, click *widget.Clickable, label, description string, body layout.Widget) layout.Dimensions {
 	return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		semantic.LabelOp(label).Add(gtx.Ops)
@@ -85,7 +92,7 @@ func (s *shell) sidebarBrand(gtx layout.Context, view ui.View) layout.Dimensions
 	toggle := func(gtx layout.Context) layout.Dimensions {
 		side := gtx.Dp(30)
 		gtx.Constraints = layout.Exact(image.Pt(side, side))
-		return sidebarButton(gtx, view, &s.railButton, view.Language.Text(i18n.SidebarToggle), "", sidebarIcon(icon, view.Colors.SecondaryInk, 18))
+		return sidebarButton(gtx, view, &s.railButton, view.Language.Text(i18n.SidebarToggle), "", false, sidebarIcon(icon, view.Colors.SecondaryInk, 18))
 	}
 	return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		parts := []layout.FlexChild{layout.Rigid(mark)}
@@ -173,7 +180,7 @@ func (s *shell) quickLanguage(gtx layout.Context, view ui.View, bounds image.Rec
 
 	current := ui.ChoiceLabel(view, choices, value)
 	s.languageHint.Layout(gtx, view, s.collapsed() && picker.Trigger.Hovered(), current)
-	return sidebarButton(gtx, view, &picker.Trigger, l.Text(i18n.SettingsLanguage), current, func(gtx layout.Context) layout.Dimensions {
+	return sidebarButton(gtx, view, &picker.Trigger, l.Text(i18n.SettingsLanguage), current, true, func(gtx layout.Context) layout.Dimensions {
 		labelIcon := sidebarIcon(languageIcon, view.Colors.SecondaryInk, 16)
 		if s.collapsed() {
 			return labelIcon(gtx)
@@ -207,5 +214,5 @@ func (s *shell) quickAppearance(gtx layout.Context, view ui.View) layout.Dimensi
 		s.prefs.save(before, after, nil)
 	}
 	s.appearanceHint.Layout(gtx, view, s.themeButton.Hovered(), view.Language.Text(name))
-	return sidebarButton(gtx, view, &s.themeButton, view.Language.Text(i18n.SidebarToggleAppearance), view.Language.Text(name), sidebarIcon(icon, view.Colors.SecondaryInk, 16))
+	return sidebarButton(gtx, view, &s.themeButton, view.Language.Text(i18n.SidebarToggleAppearance), view.Language.Text(name), false, sidebarIcon(icon, view.Colors.SecondaryInk, 16))
 }

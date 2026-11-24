@@ -12,6 +12,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
@@ -38,14 +39,18 @@ func (v View) Button(button *widget.Clickable, title string) layout.Widget {
 	style.TextSize = 12
 	style.CornerRadius = 7
 	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
-	return style.Layout
+	return func(gtx layout.Context) layout.Dimensions {
+		return accessibility.Button(gtx, button, title, "", false, style.Layout)
+	}
 }
 
 func (v View) PrimaryButton(button *widget.Clickable, title string) layout.Widget {
 	style := material.Button(v.Theme, button, title)
 	style.TextSize = 13
 	style.CornerRadius = 8
-	return style.Layout
+	return func(gtx layout.Context) layout.Dimensions {
+		return accessibility.Button(gtx, button, title, "", false, style.Layout)
+	}
 }
 
 func LimitWidth(gtx layout.Context, width unit.Dp) layout.Context {

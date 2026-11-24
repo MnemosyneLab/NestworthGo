@@ -67,7 +67,7 @@ is in progress. Stages 3–7 are planned. Use [navigation history](../../../docs
 | Storage and pagination | A synthetic checking account has six posted activities. SQLite integration tests reopen the fixture, walk it with a small page limit and check household dates and order. Model tests exercise the 50-row request, full continuation cursor, retry and refresh. |
 | Desktop interaction | Gio frame tests open the route from the sidebar, exercise keyboard scrolling, switch languages, retry a failed append and check the retained rows. |
 | Native macOS ARM64 | On macOS 27.2.1, the development bundle displayed all six rows, switched between Traditional and Simplified Chinese, reloaded them, and read the same six after quitting and reopening the verified fixture. The newest row, “Bank interest,” displayed November 12 in the household timezone. |
-| Open evidence | The inspected macOS accessibility tree exposed window controls but did not expose the activity list or sidebar. VoiceOver parity remains open. The six-row native run does not measure large-list performance. Linux runtime acceptance and a paired Wails performance trial are pending for this revision. |
+| Open evidence | The AppKit bridge now exposes the activity list and sidebar in the macOS accessibility tree. End-to-end VoiceOver parity remains open. The six-row native run does not measure large-list performance. Linux runtime acceptance and a paired Wails performance trial are pending for this revision. |
 
 ### Stage 2 progress
 
@@ -78,7 +78,7 @@ is in progress. Stages 3–7 are planned. Use [navigation history](../../../docs
 | Persistent preview | The Mac launcher builds `Nestworth Gio.app` with ID `com.nestworth.gio`. A normal quit and direct Launch Services reopen used the same synthetic household, database file and settings contents in the [default Gio profile](../README.md#persistent-test-data). |
 | Automated coverage | Frame tests exercise sidebar actions, draft retention, validation, save failure and retry, timezone filtering, compact scrolling and reset confirmation. Storage tests reopen an isolated fixture and check that save and reset preserve unrelated settings. Changing the display timezone and date format through Settings retains the original recorded ledger day in History. |
 | Native macOS ARM64 | On macOS 27.2.1, the isolated development app saved Mint and DD/MM/YYYY from Settings and switched to Light and Traditional Chinese from the sidebar. The November 12 interest entry displayed as 12/11/2026. After a normal quit and reopen of the same fixture, Overview displayed the saved language and palette. The settings file retained the day-first date format. |
-| Remaining | Directory workflows beyond the Institutions pilot, navigation history and object links, and wider navigation-state restoration are still open. Native VoiceOver and full keyboard traversal remain open. The inspected macOS accessibility tree exposed only native window controls. Linux desktop interaction remains to be verified for this stage. AI, MCP and backup workflows belong to stage 7. |
+| Remaining | Directory workflows beyond the Institutions pilot, navigation history and object links, and wider navigation-state restoration are still open. Native VoiceOver and full keyboard traversal remain open. A macOS accessibility client can now navigate via the sidebar, edit a search field and choose a select option. Linux desktop interaction remains to be verified for this stage. AI, MCP and backup workflows belong to stage 7. |
 
 ## Moving from the preview to a desktop build
 

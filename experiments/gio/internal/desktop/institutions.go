@@ -15,6 +15,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
 
@@ -259,9 +260,10 @@ func (p *institutionsPage) row(gtx layout.Context, view ui.View, item domain.Ins
 		gtx = gtx.Disabled()
 	}
 	gtx.Constraints = layout.Exact(image.Pt(gtx.Constraints.Max.X, gtx.Dp(56)))
-	return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	title := fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name)
+	body := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
-		semantic.DescriptionOp(fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name)).Add(gtx.Ops)
+		semantic.DescriptionOp(title).Add(gtx.Ops)
 		border := view.Colors.Divider
 		if gtx.Focused(button) || (!disabled && button.Hovered()) {
 			border = view.Colors.Accent
@@ -289,6 +291,9 @@ func (p *institutionsPage) row(gtx layout.Context, view ui.View, item domain.Ins
 				)
 			})
 		})
+	}
+	return accessibility.Button(gtx, button, title, "", false, func(gtx layout.Context) layout.Dimensions {
+		return button.Layout(gtx, body)
 	})
 }
 

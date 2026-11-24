@@ -99,7 +99,7 @@ func uncatalogedText(file *ast.File) []*ast.BasicLit {
 			return true
 		}
 		value, _ := strconv.Unquote(lit.Value)
-		if strings.IndexFunc(value, unicode.IsLetter) >= 0 && !nonDisplayLiteral(lit, value, parents) && !(file.Name.Name == "main" && launcherLiteral(value, parents)) {
+		if strings.IndexFunc(value, unicode.IsLetter) >= 0 && !nonDisplayLiteral(lit, value, parents) && !accessibilityContextKey(file, value, parents) && !(file.Name.Name == "main" && launcherLiteral(value, parents)) {
 			violations = append(violations, lit)
 		}
 		return true
@@ -148,6 +148,16 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 		}
 	}
 	return false
+}
+
+// The bridge uses a namespaced layout.Context key. Its accessible names
+// and descriptions still go through the normal catalog guard.
+func accessibilityContextKey(file *ast.File, value string, parents []ast.Node) bool {
+	if file.Name.Name != "accessibility" || value != "nestworth.accessibility" {
+		return false
+	}
+	spec, ok := parents[len(parents)-1].(*ast.ValueSpec)
+	return ok && len(spec.Names) == 1 && spec.Names[0].Name == "frameKey"
 }
 
 // The module entry point also parses CLI commands and loads bundle assets.

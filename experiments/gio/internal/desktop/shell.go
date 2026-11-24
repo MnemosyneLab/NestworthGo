@@ -13,6 +13,7 @@ import (
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
@@ -238,9 +239,15 @@ func (s *shell) group(gtx layout.Context, view ui.View, group *navigationGroup) 
 }
 
 func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) layout.Dimensions {
-	colors := view.Colors
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(36))
 	gtx.Constraints = layout.Exact(size)
+	return accessibility.Button(gtx, &item.button, view.Language.Text(item.label), "", false, func(gtx layout.Context) layout.Dimensions {
+		return item.layoutButton(gtx, s, view, size)
+	})
+}
+
+func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.View, size image.Point) layout.Dimensions {
+	colors := view.Colors
 	return item.button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		pointer.CursorPointer.Add(gtx.Ops)

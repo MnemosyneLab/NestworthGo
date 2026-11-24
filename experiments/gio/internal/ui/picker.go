@@ -14,6 +14,7 @@ import (
 	"gioui.org/widget"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
@@ -44,7 +45,14 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 		gtx = gtx.Disabled()
 	}
 
-	trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	accessibility.Button(gtx, trigger, title, value, true, func(gtx layout.Context) layout.Dimensions {
+		return layoutPickerButton(gtx, view, trigger, title, value, invalid)
+	})
+	return opened
+}
+
+func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable, title, value string, invalid bool) layout.Dimensions {
+	return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		semantic.DescriptionOp(title).Add(gtx.Ops)
 		colors := view.Colors
@@ -71,7 +79,6 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 			})
 		})
 	})
-	return opened
 }
 
 func registerPickerFocus(gtx layout.Context, tag event.Tag) {
@@ -212,10 +219,19 @@ func choiceButton(gtx layout.Context, view View, button *widget.Clickable, title
 			})
 		})
 	}
-	if enabled {
-		return button.Layout(gtx, content)
+	name := title
+	if description != "" {
+		name = description
 	}
-	defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
-	semantic.EnabledOp(false).Add(gtx.Ops)
-	return content(gtx)
+	if !enabled {
+		gtx = gtx.Disabled()
+	}
+	return accessibility.Button(gtx, button, name, "", false, func(gtx layout.Context) layout.Dimensions {
+		if enabled {
+			return button.Layout(gtx, content)
+		}
+		defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+		semantic.EnabledOp(false).Add(gtx.Ops)
+		return content(gtx)
+	})
 }

@@ -14,6 +14,7 @@ import (
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
@@ -52,6 +53,7 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 	if options.Disabled {
 		input = gtx.Disabled()
 	}
+	accessibility.ApplyEditor(input, &f.Editor)
 	if f.Editor.SingleLine {
 		// Gio turns an unhandled Return in a single-line editor into a space.
 		// Consume those key events after the platform IME has had its turn.
@@ -98,16 +100,13 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 	if !f.Editor.SingleLine {
 		height = 120
 	}
-	field := func(gtx layout.Context) layout.Dimensions {
+	layoutEditor := func(gtx layout.Context) layout.Dimensions {
 		size := image.Pt(gtx.Constraints.Max.X, min(gtx.Constraints.Max.Y, gtx.Dp(height)))
 		gtx.Constraints = layout.Exact(size)
 		defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
 		semantic.DescriptionOp(title).Add(gtx.Ops)
 		semantic.EnabledOp(!options.Disabled).Add(gtx.Ops)
 		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-			if options.Disabled {
-				gtx = gtx.Disabled()
-			}
 			return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				if leading == nil && trailing == nil {
 					return style.Layout(gtx)
@@ -116,6 +115,12 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 					layout.Rigid(leading), layout.Flexed(1, style.Layout), layout.Rigid(trailing))
 			})
 		})
+	}
+	field := func(gtx layout.Context) layout.Dimensions {
+		if options.Disabled {
+			gtx = gtx.Disabled()
+		}
+		return accessibility.Editor(gtx, &f.Editor, title, view.Language.Text(options.Help), layoutEditor)
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -162,10 +167,11 @@ func (s *SearchField) Layout(gtx layout.Context, view View, label, hint i18n.Mes
 		if s.Field.Text() == "" {
 			return layout.Dimensions{}
 		}
-		clear := material.IconButton(view.Theme, &s.Clear, clearIcon, view.Language.Text(i18n.FieldClearSearch))
+		name := view.Language.Text(i18n.FieldClearSearch)
+		clear := material.IconButton(view.Theme, &s.Clear, clearIcon, name)
 		clear.Background, clear.Color = view.Colors.Surface, view.Colors.Ink
 		clear.Size, clear.Inset = 16, layout.UniformInset(4)
-		return clear.Layout(gtx)
+		return accessibility.Button(gtx, &s.Clear, name, "", false, clear.Layout)
 	}
 	dims := s.Field.layoutWithAccessories(gtx, view, FieldOptions{Label: label, Hint: hint}, leading, trailing)
 	if query := s.Field.Text(); query != previous {

@@ -7,6 +7,7 @@ import (
 	"gioui.org/app"
 	"gioui.org/op"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
@@ -36,20 +37,25 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 
 func (s *shell) run(window *app.Window) error {
 	window.Option(app.Title(pilot.DisplayName), app.Size(1120, 840), app.MinSize(700, 460))
+	ax := accessibility.New(window)
+	defer ax.Close()
 	var ops op.Ops
 	for {
 		switch event := window.Event().(type) {
 		case app.DestroyEvent:
 			return event.Err
+		case app.ViewEvent:
+			ax.View(event)
 		case app.ConfigEvent:
 			if !event.Config.Focused && s.overlay.Trigger != nil {
 				s.overlay.Close()
 				window.Invalidate()
 			}
 		case app.FrameEvent:
-			gtx := app.NewContext(&ops, event)
+			gtx := ax.Begin(app.NewContext(&ops, event))
 			s.layout(gtx)
 			event.Frame(gtx.Ops)
+			ax.Publish(gtx)
 		}
 	}
 }
