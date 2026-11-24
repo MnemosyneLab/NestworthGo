@@ -514,6 +514,12 @@ const (
 	HistoryNewAmount
 	HistoryReplacementAmount
 	HistoryReversalAmount
+	HistoryOriginalMovement
+	HistoryReplacementMovement
+	HistoryReversalMovement
+	HistoryAmendmentFee
+	HistoryTransferCorrectionFee
+	HistoryReversalArchived
 	HistoryBalanceAfterCorrection
 	HistoryBalanceAfterReversal
 	HistoryAmendmentNoChange

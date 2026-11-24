@@ -59,6 +59,7 @@ type Detail struct {
 	Location    *time.Location
 	Links       AmendmentLinks
 	Amendable   bool
+	Reversible  bool
 }
 
 var ErrActivityUnavailable = errors.New("activity unavailable")
@@ -106,12 +107,13 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		if err != nil {
 			return Detail{}, err
 		}
-		effect, amendable := CashAmendmentEffect(record)
 		for _, account := range accounts {
 			detail.Accounts[account.Account.ID] = account.Account.Name
-			if amendable && zone != nil && detail.Links.Reversal == "" && acceptsCashAmendment(account, effect) {
-				detail.Amendable = true
-			}
+		}
+		if movement, eligible := CashAmendment(record); eligible && zone != nil && detail.Links.Reversal == "" {
+			endpoints, ok := movement.accounts(accounts)
+			detail.Amendable = ok
+			detail.Reversible = ok && endpoints.active()
 		}
 	}
 	if hasInstruments {

@@ -25,7 +25,7 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	if d.record != nil && d.err == nil && d.pending == nil && d.record.Amendable {
 		if d.correct.Clicked(gtx) {
 			r.startAmendment(history.CorrectCash)
-		} else if d.reverse.Clicked(gtx) {
+		} else if d.record.Reversible && d.reverse.Clicked(gtx) {
 			r.startAmendment(history.ReverseCash)
 		}
 		if d.amendment != nil {
@@ -81,12 +81,16 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		)
 	case known != nil:
 		if known.Amendable {
+			buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.correct, l.Text(i18n.HistoryCorrectAction)))}
+			if known.Reversible {
+				buttons = append(buttons, layout.Rigid(view.Button(&d.reverse, l.Text(i18n.HistoryReverseAction))))
+			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-					layout.Rigid(view.Button(&d.correct, l.Text(i18n.HistoryCorrectAction))),
-					layout.Rigid(view.Button(&d.reverse, l.Text(i18n.HistoryReverseAction))),
-				)
+				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 			}))
+			if !known.Reversible {
+				children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryReversalArchived), view.Colors.SecondaryInk)))
+			}
 		}
 		if known.Links != (history.AmendmentLinks{}) {
 			children = append(children, layout.Rigid(r.amendmentLinks(view)))
@@ -172,12 +176,20 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 				layout.Flexed(1, ink(caption)), layout.Rigid(muted(class)))
 		})
 	}
+	from, to := transferCurrencies(activity.Effects)
 	if paired {
-		from, to := transferCurrencies(activity.Effects)
 		if rate := transferRateLabel(view, activity.TransactionFXRate, from, to); rate != "" {
 			facts = append(facts, ink(rate))
 		}
 	}
+	namedBalances := paired || (activity.ReversesActivityID != nil && from != "" && to != "")
+	type balanceRow struct {
+		account  domain.AccountID
+		target   domain.EffectTarget
+		currency domain.CurrencyCode
+		amount   string
+	}
+	shown := make(map[balanceRow]bool)
 	for _, result := range activity.Resulting {
 		if result.Quantity != "" {
 			if result.Name != "" {
@@ -188,8 +200,16 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 		if result.Amount == "" || result.Currency == "" {
 			continue
 		}
+		if result.AccountID != nil {
+			// Fee and principal effects can carry the same stored endpoint balance.
+			row := balanceRow{*result.AccountID, result.Target, result.Currency, result.Amount}
+			if shown[row] {
+				continue
+			}
+			shown[row] = true
+		}
 		balance := result.Amount + " " + result.Currency.String()
-		if paired {
+		if namedBalances {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.TransferAccountBalance), account(result.AccountID), balance)))
 		} else {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.ContributionAfter), balance)))

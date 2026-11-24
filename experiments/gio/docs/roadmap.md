@@ -55,8 +55,8 @@ with read paths, then use the same data to validate writes and reconstruction.
 Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Stage 4 adds History filters and activity detail,
 plus reviewed contributions, withdrawals, cash transfers and currency
-conversions. Eligible contributions and withdrawals support amount corrections
-and linked reversals. The scoped Stage 2
+conversions. Eligible cash movements, including Holdings cash and internal FX,
+support amount corrections and linked reversals. The scoped Stage 2
 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
@@ -727,8 +727,8 @@ reversal and replacement by stored ID. The UI identifies corrected originals,
 reversed originals and replacements, and explains the original external flow
 that an inverse effect offsets. The original activities and effects are retained.
 Managed activities, terminal originals, reversal rows and unsupported movements
-offer read-only detail. Transfer, Holdings cash and FX amendments remain open
-with their own endpoint, fee and currency reviews.
+offer read-only detail. The following milestone extends these actions to
+transfers, Holdings cash and internal FX.
 
 An intervening ledger change requires a fresh review. When a write reply is
 lost, the same submission reuses its reviewed request and mutation ID. A
@@ -743,6 +743,37 @@ and Overview. Retry on a failed detail or timeline read uses the read path.
 | Linux X11 | On Debian 13 amd64 with Go 1.27.4, ran the native Gio window at 900×660 on Xvfb with Mesa software rendering. Canceled and reopened the correction review, double-clicked both confirmations, and followed linked details from the saved replacement to the original and correction reversal. Overview showed USD 1,774.13 before and after normal quit and reopen. Reopened History showed 12 records and linked the latest reversal back to the original. Read-only SQLite comparison preserved every original activity and effect and found three added activities, three exact USD effects, one correction group and two mutation receipts. A temporary overlay fixed the clock and seeded the verified profile. |
 | Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, shared application correction/reversal and mutation, and SQLite query regressions. |
 | Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. Broader correction forms, repeat and origin/target-balance workflows remain Stage 4 work. |
+
+#### Transfer, Holdings cash and FX history amendments
+
+**Correct amount** and **Reverse activity** now cover same- and cross-currency
+internal transfers, ordinary Holdings cash contributions and withdrawals, and
+currency conversion within one Holdings account. Corrections retain the
+original kind, accounts, native currencies, note and effective instant. Same-currency
+replacement principal is shared by the two legs. Cross-currency replacements
+require each exact native principal. Review shows both endpoints, source fee,
+resulting balances and the executed rate returned by the shared preview. The
+standalone reversal review shows the direction of each inverse effect.
+
+The [Wails History Go commands](../../../internal/wailsapi/history/history.go)
+and [shared historical correction contract](../../../docs/design/history-and-form-defaults-ux.md#historical-correction-evidence)
+own the financial rules. Blank transfer fees retain the original, explicit zero
+removes it, and positive fees use the source currency. Blank fees on an
+account-internal conversion remove the fee. Historical correction can use its
+original archived endpoints and preserves their archive status. Standalone
+reversal needs active endpoints. The shared preview also refuses insufficient
+balances and replacements that invalidate later events. The same guarded
+confirmation, linked activity navigation, mutation replay and read-only Retry
+apply to these operations.
+
+| Check | Evidence |
+| --- | --- |
+| Exact Wails Go parity | Separate marked SQLite copies used `2026-11-21T17:00:00Z` and the `Asia/Singapore` History Origin. The cross-currency replacement recorded USD 62.5 sent, EUR 49.25 received, USD 1.5 fee and the exact executed rate of EUR 0.788 per USD. It matched the Wails preview, replacement, correction reversal and standalone reversal. The remaining correction and reversal paths matched Wails for a same-currency transfer, EUR Holdings contribution and withdrawal, and USD-to-EUR Holdings conversion. After offsetting all movements, the two Holdings cash balances were USD 120 and EUR 60 on both copies. |
+| Reference rate and attribution | The shared household report kept cross-currency transfer principal outside external flow. With a manual reference of USD 1.2 per EUR, the report showed USD 12.30 net external flow from the two Holdings cash movements while the corrected transfer was active. After reversing those cash movements, the report showed zero external flow. The active replacement conversion of USD 50 to EUR 41 contributed a USD 0.80 spread loss and a separate USD 1.75 fee. The reference rate did not supply a replacement principal. |
+| Failure and replay | A zero destination principal could not advance to confirmation, and insufficient source cash was rejected. The fee regression covered blank retention and explicit zero removal. The archived destination accepted correction, preserved archive metadata and refused standalone reversal until restored. After a known saved correction and failed detail read, Retry issued no write. A lost reversal reply replayed the identical request, including after reopen. A different request hash with the same mutation ID was rejected. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, rejected zero destination principal, reviewed both native amounts and the fee, double-clicked confirmation, followed the original and replacement links, and reversed the replacement. Normal quit and reopen retained 17 activities and USD 1,955.08 net worth. A separate profile exercised conversion correction and reversal, including scrolling to the balances at 700×460. Reopen showed USD 1,954.68 net worth. Closed read-only SQLite verified three appended activities, nine exact effects and two mutation receipts on each profile. Original activities, effects and market quotes were retained. A temporary overlay fixed the clock and seeded the verified profiles. |
+| Automated checks | Gio module tests, vet and Linux preview build passed, alongside focused shared Wails History, domain, correction, reversal, FX and mutation tests. |
+| Open evidence | Broader Wails edits such as changing original endpoints, a market quote calculator, repeat, product history, and origin and target-balance workflows remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
 
 ## Moving from the preview to a desktop build
 

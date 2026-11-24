@@ -3,6 +3,7 @@ package desktop
 import (
 	"errors"
 
+	"gioui.org/layout"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
@@ -13,8 +14,11 @@ import (
 
 type historyAmendmentDraft struct {
 	action    history.AmendmentAction
+	movement  history.AmendableCash
 	amount    ui.TextField
-	currency  domain.CurrencyCode
+	received  ui.TextField
+	fee       ui.TextField
+	scroll    widget.List
 	review    *history.ReviewedAmendment
 	preview   <-chan historyResult[history.ReviewedAmendment]
 	commit    <-chan historyResult[domain.ChangePreview]
@@ -27,15 +31,25 @@ type historyAmendmentDraft struct {
 
 func (r *historyReads) startAmendment(action history.AmendmentAction) {
 	d := r.detail
-	if d.record == nil || !d.record.Amendable {
+	if d.record == nil || !d.record.Amendable || (action == history.ReverseCash && !d.record.Reversible) {
 		return
 	}
-	effect, supported := history.CashAmendmentEffect(d.record.Activity)
+	movement, supported := history.CashAmendment(d.record.Activity)
 	if !supported {
 		return
 	}
-	form := &historyAmendmentDraft{action: action, amount: ui.NewTextField(true), currency: effect.Money.Currency(), focus: action == history.CorrectCash}
-	form.amount.Editor.SetText(effect.Money.CanonicalAmount())
+	form := &historyAmendmentDraft{
+		action: action, movement: movement, focus: action == history.CorrectCash,
+		amount: ui.NewTextField(true), received: ui.NewTextField(true), fee: ui.NewTextField(true),
+		scroll: widget.List{List: layout.List{Axis: layout.Vertical}},
+	}
+	form.amount.Editor.SetText(movement.Principal.Money.CanonicalAmount())
+	if movement.Paired() {
+		form.received.Editor.SetText(movement.Received.Money.CanonicalAmount())
+		if movement.Fee.Money != nil {
+			form.fee.Editor.SetText(movement.Fee.Money.CanonicalAmount())
+		}
+	}
 	d.amendment = form
 	if action == history.ReverseCash {
 		r.previewAmendment()
@@ -48,10 +62,11 @@ func (r *historyReads) previewAmendment() {
 	if form.preview != nil || form.review != nil || form.commit != nil {
 		return
 	}
-	at, amount := r.clock().UTC(), form.amount.Text()
+	at := r.clock().UTC()
+	amounts := history.AmendmentAmounts{Amount: form.amount.Text(), Received: form.received.Text(), Fee: form.fee.Text()}
 	form.problem = i18n.NoMessage
 	form.preview = runHistoryRead(&r.workers, r.invalidate, func() (history.ReviewedAmendment, error) {
-		return history.ReviewAmendment(r.ctx, r.service, form.action, d.id, amount, at)
+		return history.ReviewAmendment(r.ctx, r.service, form.action, d.id, amounts, at)
 	})
 }
 
@@ -87,6 +102,7 @@ func (p *historyPage) pollAmendment() {
 			form.problem = amendmentProblem(result.err, i18n.HistoryAmendmentPreviewFailed)
 		} else {
 			form.review = &result.value
+			form.scroll.Position = layout.Position{}
 		}
 	default:
 	}
@@ -111,6 +127,7 @@ func (p *historyPage) pollAmendment() {
 		problem := amendmentProblem(result.err, i18n.NoMessage)
 		if problem != i18n.NoMessage {
 			form.review, form.uncertain, form.problem = nil, false, problem
+			form.scroll.Position = layout.Position{}
 		} else {
 			form.uncertain = true
 		}
@@ -137,11 +154,21 @@ func amendmentProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 			return i18n.HistoryAmendmentUnavailable
 		}
 		return i18n.HistoryAmendmentRefused
-	case domain.ErrCannotFixChange, domain.ErrInvalidChangeTime, domain.ErrConflict:
+	case domain.ErrConflict:
+		if issue.Field == "accountId" {
+			return i18n.HistoryReversalArchived
+		}
+		return i18n.HistoryAmendmentRefused
+	case domain.ErrCannotFixChange, domain.ErrInvalidChangeTime:
 		return i18n.HistoryAmendmentRefused
 	case domain.ErrValidation:
-		if issue.Field == "amount" {
+		switch issue.Field {
+		case "amount":
 			return i18n.ContributionInvalidAmount
+		case "received":
+			return i18n.TransferInvalidReceived
+		case "fee":
+			return i18n.TransferInvalidFee
 		}
 		return i18n.HistoryAmendmentRefused
 	default:

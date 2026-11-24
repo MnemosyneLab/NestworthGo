@@ -72,11 +72,15 @@ func cashMovementOrigin(ctx context.Context, ledger CashMovementLedger) (domain.
 }
 
 func acceptsCashMovement(row domain.AccountRecord) bool {
+	return row.Account.ArchivedAt == nil && supportsCashMovement(row)
+}
+
+func supportsCashMovement(row domain.AccountRecord) bool {
 	a := row.Account
-	if acceptsHoldingsCash(a) {
+	if a.BalanceSheetRole == domain.RoleAsset && a.TrackingMode == domain.TrackingHoldings {
 		return true
 	}
-	return row.LatestValue != nil && a.ArchivedAt == nil && a.BalanceSheetRole == domain.RoleAsset && a.TrackingMode == domain.TrackingBalance &&
+	return row.LatestValue != nil && a.BalanceSheetRole == domain.RoleAsset && a.TrackingMode == domain.TrackingBalance &&
 		(a.AccountType == domain.TypeCashOnHand || a.AccountType == domain.TypeBankAccount || a.AccountType == domain.TypeDigitalWallet)
 }
 
@@ -119,10 +123,18 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		if input.Date == "" || input.Time == "" {
 			return nil, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 		}
-		request, err := cashMovementRequest(ctx, ledger, input, account)
+		var destination domain.Account
+		if input.Movement == CashTransfer {
+			destination, err = cashMovementAccount(ctx, ledger, input.Destination, "toAccountId")
+			if err != nil {
+				return nil, err
+			}
+		}
+		request, err := cashMovementRequest(input, account, destination, false)
 		if err != nil {
 			return nil, err
 		}
+		request.MutationID = domain.NewMutationID().String()
 		review.command, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
 		if err != nil {
 			return nil, err
@@ -151,8 +163,8 @@ func cashMovementAccount(ctx context.Context, ledger CashMovementLedger, id doma
 	return domain.Account{}, &domain.Error{Code: domain.ErrValidation, Field: field}
 }
 
-func cashMovementRequest(ctx context.Context, ledger CashMovementLedger, input CashMovementInput, account domain.Account) (historyapi.ChangeCommandRequest, error) {
-	if input.Movement == CashConversion && !acceptsHoldingsCash(account) {
+func cashMovementRequest(input CashMovementInput, account, destination domain.Account, allowZeroFee bool) (historyapi.ChangeCommandRequest, error) {
+	if input.Movement == CashConversion && account.TrackingMode != domain.TrackingHoldings {
 		return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "accountId"}
 	}
 	currency, err := movementCurrency(account, input.Currency, "currency")
@@ -164,7 +176,7 @@ func cashMovementRequest(ctx context.Context, ledger CashMovementLedger, input C
 		return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "amount"}
 	}
 	request := historyapi.ChangeCommandRequest{
-		EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time, MutationID: domain.NewMutationID().String(),
+		EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,
 	}
 	switch input.Movement {
 	case CashContribution, CashWithdrawal:
@@ -176,15 +188,10 @@ func cashMovementRequest(ctx context.Context, ledger CashMovementLedger, input C
 		}
 		request.AccountID, request.Amount, request.Currency = account.ID.String(), amount.CanonicalAmount(), currency.String()
 	case CashTransfer, CashConversion:
-		destination := account
-		if input.Movement == CashTransfer {
-			destination, err = cashMovementAccount(ctx, ledger, input.Destination, "toAccountId")
-			if err != nil {
-				return historyapi.ChangeCommandRequest{}, err
-			}
-			if !CanTransferTo(account, destination) {
-				return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "toAccountId"}
-			}
+		if input.Movement == CashConversion {
+			destination = account
+		} else if !CanTransferTo(account, destination) {
+			return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "toAccountId"}
 		}
 		targetCurrency, err := movementCurrency(destination, input.ToCurrency, "toCurrency")
 		if err != nil {
@@ -213,7 +220,7 @@ func cashMovementRequest(ctx context.Context, ledger CashMovementLedger, input C
 		request.FeeCurrency = currency.String()
 		if raw := strings.TrimSpace(input.Fee); raw != "" {
 			fee, err := domain.ParseMoney(raw, currency)
-			if err != nil || fee.IsZero() {
+			if err != nil || (fee.IsZero() && !allowZeroFee) {
 				return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "fee"}
 			}
 			request.Fee = fee.CanonicalAmount()

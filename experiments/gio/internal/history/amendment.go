@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -28,27 +27,10 @@ const (
 	ReverseCash AmendmentAction = "undo"
 )
 
-// CashAmendmentEffect limits the Gio action to an ordinary deposit or
-// withdrawal on a total-balance endpoint. Other History records stay readable.
-func CashAmendmentEffect(activity domain.Activity) (domain.ActivityEffect, bool) {
-	if activity.ReversesActivityID != nil || activity.ProductContext != nil || len(activity.Effects) != 1 {
-		return domain.ActivityEffect{}, false
-	}
-	effect := activity.Effects[0]
-	if effect.AccountID == nil || effect.Role != domain.EffectRoleAmount || effect.Target != domain.EffectTargetAccountValue ||
-		effect.Money == nil || effect.Money.IsZero() {
-		return domain.ActivityEffect{}, false
-	}
-	cashIn := activity.Kind == domain.ActivityCashIn && activity.Reason == domain.ReasonContribution &&
-		effect.Direction == domain.EffectAdded && effect.Classification == domain.ClassificationExternalInflow
-	cashOut := activity.Kind == domain.ActivityCashOut && activity.Reason == domain.ReasonOther &&
-		effect.Direction == domain.EffectRemoved && effect.Classification == domain.ClassificationExternalOutflow
-	return effect, cashIn || cashOut
-}
-
-func acceptsCashAmendment(row domain.AccountRecord, effect domain.ActivityEffect) bool {
-	return row.Account.ID == *effect.AccountID && row.Account.TrackingMode == domain.TrackingBalance &&
-		row.Account.DefaultCurrency == effect.Money.Currency() && acceptsCashMovement(row)
+type AmendmentAmounts struct {
+	Amount   string
+	Received string
+	Fee      string
 }
 
 type ReviewedAmendment struct {
@@ -64,33 +46,26 @@ type ReviewedAmendment struct {
 
 // ReviewAmendment freezes the target, exact replacement, reviewed effective
 // instant and mutation envelope. The application owns replay and projection.
-func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action AmendmentAction, id domain.ActivityID, amount string, at time.Time) (ReviewedAmendment, error) {
+func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action AmendmentAction, id domain.ActivityID, amounts AmendmentAmounts, at time.Time) (ReviewedAmendment, error) {
 	review := ReviewedAmendment{Action: action, original: id, mutation: domain.NewMutationID().String()}
 	var request *historyapi.ChangeCommandRequest
 	var err error
 	switch action {
 	case CorrectCash:
 		review.Preview, review.token, err = ledger.PreviewFixChangeGuardedWith(ctx, id, func(ctx context.Context) (any, error) {
-			original, effect, err := amendmentTarget(ctx, ledger, id)
+			original, movement, accounts, err := amendmentTarget(ctx, ledger, id)
 			if err != nil {
 				return nil, err
 			}
-			money, err := domain.ParseMoney(strings.TrimSpace(amount), effect.Money.Currency())
-			if err != nil || money.IsZero() {
-				return nil, &domain.Error{Code: domain.ErrValidation, Field: "amount"}
+			replacement, err := movement.replacement(amounts, accounts)
+			if err != nil {
+				return nil, err
 			}
-			if money.CanonicalAmount() == effect.Money.CanonicalAmount() {
+			if movement.unchanged(replacement) {
 				return nil, &domain.Error{Code: domain.ErrNoChange, Field: "amount"}
 			}
-			kind := historyapi.ChangeMoneyAdded
-			if original.Kind == domain.ActivityCashOut {
-				kind = historyapi.ChangeMoneyRemoved
-			}
-			request = &historyapi.ChangeCommandRequest{
-				Kind: kind, AccountID: effect.AccountID.String(), Amount: money.CanonicalAmount(),
-				Currency: money.Currency().String(), Reason: string(original.Reason),
-				EffectiveAt: original.EffectiveAt.UTC().Format(time.RFC3339Nano), Note: original.Note,
-			}
+			replacement.EffectiveAt, replacement.Note = original.EffectiveAt.UTC().Format(time.RFC3339Nano), original.Note
+			request = &replacement
 			origin, err := ledger.HistoryOrigin(ctx)
 			if err != nil {
 				return nil, err
@@ -103,8 +78,12 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 		})
 	case ReverseCash:
 		err = ledger.WithRead(ctx, func(ctx context.Context) error {
-			if _, _, err := amendmentTarget(ctx, ledger, id); err != nil {
+			_, _, accounts, err := amendmentTarget(ctx, ledger, id)
+			if err != nil {
 				return err
+			}
+			if !accounts.active() {
+				return &domain.Error{Code: domain.ErrConflict, Field: "accountId"}
 			}
 			preview, token, err := ledger.PreviewUndoChangeGuardedAt(ctx, id, at.UTC())
 			review.Preview, review.token = preview, token
@@ -131,21 +110,25 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 	return review, nil
 }
 
-func amendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID) (domain.Activity, domain.ActivityEffect, error) {
+func amendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID) (domain.Activity, AmendableCash, amendmentAccounts, error) {
 	activity, err := ledger.Activity(ctx, id)
 	if err != nil {
-		return domain.Activity{}, domain.ActivityEffect{}, err
+		return domain.Activity{}, AmendableCash{}, amendmentAccounts{}, err
 	}
-	if effect, supported := CashAmendmentEffect(activity); supported && activity.ID == id {
-		accounts, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{*effect.AccountID}})
+	if movement, supported := CashAmendment(activity); supported && activity.ID == id {
+		ids := []domain.AccountID{*movement.Principal.AccountID}
+		if movement.Paired() && *movement.Received.AccountID != ids[0] {
+			ids = append(ids, *movement.Received.AccountID)
+		}
+		rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: ids, IncludeArchived: true})
 		if err != nil {
-			return domain.Activity{}, domain.ActivityEffect{}, err
+			return domain.Activity{}, AmendableCash{}, amendmentAccounts{}, err
 		}
-		if len(accounts) == 1 && acceptsCashAmendment(accounts[0], effect) {
-			return activity, effect, nil
+		if accounts, ok := movement.accounts(rows); ok {
+			return activity, movement, accounts, nil
 		}
 	}
-	return domain.Activity{}, domain.ActivityEffect{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+	return domain.Activity{}, AmendableCash{}, amendmentAccounts{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
 }
 
 func (r ReviewedAmendment) Commit(ctx context.Context, ledger AmendmentLedger) (domain.ChangePreview, error) {
