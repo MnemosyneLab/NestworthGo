@@ -19,6 +19,19 @@ import (
 func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reads, view.Language
 	d := r.detail
+	if d.amendment != nil {
+		return p.layoutAmendment(gtx, view)
+	}
+	if d.record != nil && d.err == nil && d.pending == nil && d.record.Amendable {
+		if d.correct.Clicked(gtx) {
+			r.startAmendment(history.CorrectCash)
+		} else if d.reverse.Clicked(gtx) {
+			r.startAmendment(history.ReverseCash)
+		}
+		if d.amendment != nil {
+			return p.layoutAmendment(gtx, view)
+		}
+	}
 	if d.back.Clicked(gtx) {
 		r.back()
 		gtx.Execute(op.InvalidateCmd{})
@@ -50,7 +63,9 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		}),
 	}
 	if d.id == r.posted.ID {
-		if movement, supported := history.CashMovementOf(r.posted.Kind, r.posted.Reason); supported {
+		if r.postedNotice != i18n.NoMessage {
+			children = append(children, layout.Rigid(view.Message(l.Text(r.postedNotice), view.Colors.Ink)))
+		} else if movement, supported := history.CashMovementOf(r.posted.Kind, r.posted.Reason); supported {
 			children = append(children, layout.Rigid(view.Message(l.Text(cashMovementLabels[movement].posted), view.Colors.Ink)))
 		}
 	}
@@ -65,6 +80,17 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))),
 		)
 	case known != nil:
+		if known.Amendable {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
+					layout.Rigid(view.Button(&d.correct, l.Text(i18n.HistoryCorrectAction))),
+					layout.Rigid(view.Button(&d.reverse, l.Text(i18n.HistoryReverseAction))),
+				)
+			}))
+		}
+		if known.Links != (history.AmendmentLinks{}) {
+			children = append(children, layout.Rigid(r.amendmentLinks(view)))
+		}
 		facts := activityFacts(view, *known)
 		children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(view.Theme, &d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
@@ -113,12 +139,15 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	if activity.Note != nil && *activity.Note != "" {
 		facts = append(facts, ink(*activity.Note))
 	}
-	if activity.ReversesActivityID != nil || activity.CorrectionGroupID != nil {
-		badge := i18n.HistoryCorrectionRecord
-		if activity.ReversesActivityID != nil {
-			badge = i18n.HistoryReversal
+	if detail.Links.Reversal != "" {
+		badge := i18n.HistoryOriginalReversed
+		if detail.Links.Replacement != "" {
+			badge = i18n.HistoryOriginalCorrected
 		}
 		facts = append(facts, muted(l.Text(badge)))
+	}
+	if activity.ReversesActivityID == nil && activity.CorrectionGroupID != nil {
+		facts = append(facts, muted(l.Text(i18n.HistoryCorrectionRecord)))
 	}
 	if trade := activity.TradeDetail; trade != nil {
 		facts = append(facts, ink(instrument(trade.InstrumentID)),
@@ -129,6 +158,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	for _, effect := range activity.Effects {
 		caption := effectCaption(l, effect, paired, supported, movement, account, instrument)
 		class := l.Text(effectClasses[effect.Classification])
+		if activity.ReversesActivityID != nil && class != "" {
+			class = fmt.Sprintf(l.Text(i18n.HistoryReversedEffect), class)
+		}
 		if caption == "" {
 			continue
 		}

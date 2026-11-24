@@ -15,6 +15,7 @@ type ReferenceReader interface {
 }
 
 type DetailReader interface {
+	Reader
 	ReferenceReader
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
 }
@@ -56,6 +57,8 @@ type Detail struct {
 	Accounts    map[domain.AccountID]string
 	Instruments map[domain.InstrumentID]string
 	Location    *time.Location
+	Links       AmendmentLinks
+	Amendable   bool
 }
 
 var ErrActivityUnavailable = errors.New("activity unavailable")
@@ -77,6 +80,10 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		return Detail{}, err
 	}
 	detail := Detail{Activity: record, Location: zone, Accounts: make(map[domain.AccountID]string)}
+	detail.Links, err = loadAmendmentLinks(ctx, service, record)
+	if err != nil {
+		return Detail{}, err
+	}
 	var ids []domain.AccountID
 	addAccount := func(id *domain.AccountID) {
 		if id != nil {
@@ -99,8 +106,12 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		if err != nil {
 			return Detail{}, err
 		}
+		effect, amendable := CashAmendmentEffect(record)
 		for _, account := range accounts {
 			detail.Accounts[account.Account.ID] = account.Account.Name
+			if amendable && zone != nil && detail.Links.Reversal == "" && acceptsCashAmendment(account, effect) {
+				detail.Amendable = true
+			}
 		}
 	}
 	if hasInstruments {

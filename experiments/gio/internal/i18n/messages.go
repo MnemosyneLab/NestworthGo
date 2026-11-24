@@ -499,6 +499,38 @@ const (
 	HistoryDebtPrincipal
 	HistoryRemeasurement
 	HistoryCorrectionRecord
+	HistoryCorrectAction
+	HistoryCorrectDescription
+	HistoryCorrectPreview
+	HistoryCorrectReview
+	HistoryCorrectConfirm
+	HistoryReverseAction
+	HistoryReverseDescription
+	HistoryReversePreview
+	HistoryReverseReview
+	HistoryReverseConfirm
+	HistoryAmendmentEdit
+	HistoryOriginalAmount
+	HistoryNewAmount
+	HistoryReplacementAmount
+	HistoryReversalAmount
+	HistoryBalanceAfterCorrection
+	HistoryBalanceAfterReversal
+	HistoryAmendmentNoChange
+	HistoryAmendmentStale
+	HistoryAmendmentUnavailable
+	HistoryAmendmentRefused
+	HistoryAmendmentPreviewFailed
+	HistoryCorrectionSaved
+	HistoryCorrectionSavedRefreshFailed
+	HistoryReversalSaved
+	HistoryViewOriginal
+	HistoryViewCorrectionReversal
+	HistoryViewReversal
+	HistoryViewReplacement
+	HistoryOriginalCorrected
+	HistoryOriginalReversed
+	HistoryReversedEffect
 	HistoryAdded
 	HistoryRemoved
 	HistoryUnitPrice

@@ -26,7 +26,7 @@ type timelineReadFault struct {
 }
 
 func (f *timelineReadFault) ListActivityPage(ctx context.Context, query domain.ActivityQuery) (domain.ActivityPage, error) {
-	if f.failPage.Swap(false) {
+	if query.ReversesActivityID == nil && query.CorrectionGroupID == nil && f.failPage.Swap(false) {
 		return domain.ActivityPage{}, errors.New("synthetic timeline refresh failure")
 	}
 	return f.Service.ListActivityPage(ctx, query)

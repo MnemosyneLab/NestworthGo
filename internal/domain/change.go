@@ -271,14 +271,16 @@ type ActivityCursor struct {
 }
 
 type ActivityQuery struct {
-	AccountID       *AccountID
-	InstrumentID    *InstrumentID
-	Kinds           []ActivityKind
-	FromLocalDate   string
-	ToLocalDate     string
-	After           *ActivityCursor
-	Limit           int
-	ExcludeReversed bool
+	AccountID          *AccountID
+	InstrumentID       *InstrumentID
+	ReversesActivityID *ActivityID
+	CorrectionGroupID  *ActivityCorrectionGroupID
+	Kinds              []ActivityKind
+	FromLocalDate      string
+	ToLocalDate        string
+	After              *ActivityCursor
+	Limit              int
+	ExcludeReversed    bool
 }
 
 type ActivityPage struct {

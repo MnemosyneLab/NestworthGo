@@ -16,8 +16,7 @@ import (
 )
 
 type historyService interface {
-	history.Reader
-	history.DetailReader
+	history.AmendmentLedger
 	history.CashMovementLedger
 }
 
@@ -29,32 +28,36 @@ type historyTimelineVisit struct {
 }
 
 type historyDetailVisit struct {
-	id      domain.ActivityID
-	pending <-chan historyResult[history.Detail]
-	cancel  context.CancelFunc
-	record  *history.Detail
-	err     error
-	back    widget.Clickable
-	retry   widget.Clickable
-	scroll  widget.List
+	id               domain.ActivityID
+	pending          <-chan historyResult[history.Detail]
+	cancel           context.CancelFunc
+	record           *history.Detail
+	err              error
+	back             widget.Clickable
+	retry            widget.Clickable
+	scroll           widget.List
+	amendment        *historyAmendmentDraft
+	correct, reverse widget.Clickable
+	linked           [4]widget.Clickable
 }
 
 type historyReads struct {
 	ctx        context.Context
-	service    history.DetailReader
+	service    history.AmendmentLedger
 	clock      func() time.Time
 	invalidate func()
 	workers    sync.WaitGroup
 
-	references *history.References
-	refsRead   <-chan historyResult[history.References]
-	refsErr    error
-	detail     *historyDetailVisit
-	buttons    map[domain.ActivityID]*widget.Clickable
-	posted     domain.Activity
-	open       func(id domain.ActivityID, focus event.Tag)
-	back       func()
-	rename     func(id domain.ActivityID, name string)
+	references   *history.References
+	refsRead     <-chan historyResult[history.References]
+	refsErr      error
+	detail       *historyDetailVisit
+	buttons      map[domain.ActivityID]*widget.Clickable
+	posted       domain.Activity
+	postedNotice i18n.MessageID
+	open         func(id domain.ActivityID, focus event.Tag)
+	back         func()
+	rename       func(id domain.ActivityID, name string)
 }
 
 func newLedgerHistory(ctx context.Context, service historyService, clock func() time.Time, invalidate func()) *historyPage {
@@ -177,6 +180,9 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 // Poll before the shell handles navigation so acknowledgement can open the exact
 // saved ID, even when the active query excludes it.
 func (p *historyPage) pollPosted() {
+	if p.reads != nil {
+		p.pollAmendment()
+	}
 	if p.cashMovements == nil {
 		return
 	}
@@ -184,13 +190,17 @@ func (p *historyPage) pollPosted() {
 	if activity == nil {
 		return
 	}
+	p.showPosted(*activity, i18n.NoMessage, &p.list)
+}
+
+func (p *historyPage) showPosted(activity domain.Activity, notice i18n.MessageID, focus event.Tag) {
 	p.revision++
 	p.model.Refresh()
-	p.reads.posted = *activity
+	p.reads.posted, p.reads.postedNotice = activity, notice
 	if p.onPosted != nil {
 		p.onPosted()
 	}
-	p.reads.open(activity.ID, &p.list)
+	p.reads.open(activity.ID, focus)
 }
 
 func (p *historyPage) detailButton(id domain.ActivityID) *widget.Clickable {
