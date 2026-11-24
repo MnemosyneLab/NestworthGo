@@ -197,6 +197,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.accounts.createdID = ""
 		}
 	}
+	if entry.target.route == fundsRoute {
+		s.funds.leave()
+	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.leave()
 	}
@@ -220,6 +223,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
+	}
+	if entry.target.route == fundsRoute {
+		s.funds.enter(entry.scroll)
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
@@ -274,6 +280,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
 		entry.scroll = s.accounts.list.Position
+	case fundsRoute:
+		entry.scroll = s.funds.list.Position
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
@@ -353,6 +361,9 @@ func (s *shell) waitingForPageFocus() bool {
 	}
 	if s.activeRoute() == accountsRoute && s.accounts != nil {
 		return s.accounts.request != nil
+	}
+	if s.activeRoute() == fundsRoute && s.funds != nil {
+		return s.funds.request != nil
 	}
 	if s.activeRoute() == portfolioRoute && s.portfolio != nil {
 		return s.portfolio.request != nil

@@ -65,7 +65,8 @@ Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
-partial sales, liquidations, cash dividends and a positive opening position.
+partial sales, liquidations, cash dividends, a positive opening position and
+the read-only Today view of Available Funds.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -1274,6 +1275,32 @@ use the shared cost replay from those facts. [Wails Starting Point form](../../.
 | Tests | The Gio module suite and focused application, Wails Go holding and history, and SQLite history tests passed. |
 | Build and vet | The independent Linux Gio preview build, Gio vet and shared application vet passed. |
 | Open evidence | Multiple positions, cross-currency cost and managed products remain outside the slice. The History-enabled position-import operation in Wails is a separate write path. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Read-only Available Funds
+
+**Available funds** opens the Today horizon used by the default Wails query.
+The report uses the civil day in the ledger's History timezone, with UTC as
+the shared default before History. Both shells use the same Go projection
+for funding sources, normal access, fees, reservations and coverage. Gio
+displays each native currency separately and labels the converted base-currency
+total. A complete total, a known subtotal and an unavailable amount are
+distinct display states. [Wails page](../../../frontend/src/features/liquidity/AvailableFundsPage.tsx) · [Wails Go adapter](../../../internal/wailsapi/liquidity/liquidity.go) · [Shared read](../../../internal/application/liquidity_read.go)
+
+Each source shows its current native value and the shared estimate of funds
+available today, before and after applied reservations. The detail also shows
+requested amounts, shortfalls, unresolved reservations, and coverage reasons
+such as missing access rules or base exchange rates. Account and ordinary
+instrument links use stable IDs. Returning to Available Funds re-reads the
+report and restores the list position and source focus. [Shared availability projection](../../../internal/domain/liquidity_evaluate.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent marked SQLite profiles used `2026-11-21T17:00:00Z`. The USD bank contributed USD 125.4321 before, USD 40.125 reserved and USD 85.3071 after reservations. EUR 25.25 stayed complete in its native group while the base conversion remained partial with missing FX. A zero bank balance was known zero. An ordinary instrument with missing access rules and price retained unavailable amounts. An archived source appeared with an unresolved USD 5 reservation. A separate household with no sources produced the shared known zero. |
+| Shell tests | A failed read retried successfully. Account and instrument links resolved by ID, and Back restored the account-source scroll position and keyboard focus. Forward returned to the same account. A closed and reopened profile matched the Wails Go figures. The view, retry and navigation left the ledger version unchanged. |
+| Linux X11 | In a 900×660 Xvfb window, viewed the USD and EUR amounts and missing-FX explanation, opened the saved account and instrument sources, returned to the scrolled report, and found the unresolved reservation. Normal reopen repeated the same amounts. A separate profile showed the no-source message and known USD zero. Read-only SQLite comparison found the same rows across 13 financial tables in both profiles. A temporary build overlay seeded the verified profiles and controlled the clock. |
+| Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Additional horizons, early-withdrawal estimates, reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

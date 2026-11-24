@@ -819,6 +819,39 @@ const (
 	HistoryStartQuoteRequired
 	HistoryStartDraftFailed
 	HistoryStartInvalidCost
+	FundsLoading
+	FundsReadFailed
+	FundsToday
+	FundsBase
+	FundsNative
+	FundsComplete
+	FundsPartial
+	FundsEmpty
+	FundsSources
+	FundsCashSource
+	FundsCurrent
+	FundsAvailableBefore
+	FundsApplied
+	FundsAvailableAfter
+	FundsBeforeSubtotal
+	FundsAppliedSubtotal
+	FundsAfterSubtotal
+	FundsRequested
+	FundsShortfall
+	FundsUnresolved
+	FundsLater
+	FundsNoRoute
+	FundsMissingBaseFX
+	FundsIneligible
+	FundsExcluded
+	FundsDue
+	FundsMissingRules
+	FundsMissingTiming
+	FundsMissingAmount
+	FundsMissingFee
+	FundsReservationCurrency
+	FundsUnresolvedReason
+	FundsUnknownRoute
 	messageCount
 )
 
