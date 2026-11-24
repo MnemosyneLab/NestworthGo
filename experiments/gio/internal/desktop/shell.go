@@ -222,6 +222,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				s.accounts.createdMessage = i18n.AccountCreateLiabilitySucceeded
 				focus = &s.accounts.createLiability
 			}
+			if record.Account.TrackingMode != domain.TrackingBalance {
+				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
+				focus = &s.accounts.createShell
+			}
 			if s.overviewPage != nil {
 				s.overviewPage.needsRefresh = true
 			}

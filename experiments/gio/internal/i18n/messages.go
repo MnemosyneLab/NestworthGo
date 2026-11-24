@@ -71,6 +71,23 @@ const (
 	AccountCreateChooseInstitution
 	AccountRoleLiability
 	AccountRoleAsset
+	AccountCreateShellAdd
+	AccountCreateShellTitle
+	AccountCreateShellHelp
+	AccountTrackingMethod
+	AccountTrackingManual
+	AccountTrackingHoldings
+	AccountTrackingCashOnly
+	AccountCreateOpeningValuation
+	AccountCreateReviewValuation
+	AccountCreateHoldingsEmpty
+	AccountCreateHoldingsAmountInvalid
+	AccountCreateReviewCurrency
+	AccountCreateOpeningOptions
+	AccountCreateOpeningDate
+	AccountCreateReviewDate
+	AccountCreateGroupUnavailable
+	AccountCreateDateInvalid
 	AccountCreateAssetAdd
 	AccountCreateAssetTitle
 	AccountCreateAssetHelp

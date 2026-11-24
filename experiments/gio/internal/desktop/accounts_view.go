@@ -38,6 +38,10 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
+	if (p.canCreateBankAccount() || p.canCreateUnscoped()) && p.createShell.Clicked(gtx) {
+		p.startAccount(domain.TypeProperty, domain.RoleAsset, domain.TrackingManualValue, p.current.institutions[p.target.institution])
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	if p.creation != nil && p.creation.draft != nil {
 		return p.layoutAccountCreation(gtx, view)
 	}
@@ -102,7 +106,16 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					return view.Button(&p.reload, l.Text(reload))(gtx)
 				}))
 			}
-			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, controls...)
+			toolbar := func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, controls...)
+			}
+			if !p.canCreateBankAccount() && !p.canCreateUnscoped() {
+				return toolbar(gtx)
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+				layout.Rigid(toolbar),
+				layout.Rigid(view.PrimaryButton(&p.createShell, l.Text(i18n.AccountCreateShellAdd))),
+			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -241,6 +254,9 @@ func accountTitle(gtx layout.Context, view ui.View, account domain.Account) layo
 		description += " · " + l.Text(i18n.AccountRoleLiability)
 	} else if account.AccountType == domain.TypeOther {
 		description += " · " + l.Text(i18n.AccountRoleAsset)
+	}
+	if account.TrackingMode == domain.TrackingManualValue || account.TrackingMode == domain.TrackingHoldings {
+		description += " · " + l.Text(accountTrackingLabel(account.TrackingMode, account.AccountType))
 	}
 	if account.ArchivedAt != nil {
 		description += " · " + l.Text(i18n.DirectoryArchived)
@@ -401,6 +417,11 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
+	if a.OpenedOn != nil {
+		if day, valid := ui.ParseCivilDay(*a.OpenedOn); valid {
+			rows = append(rows, accountLine(view, fmt.Sprintf(l.Text(i18n.AccountCreateReviewDate), ui.FormatDay(day, l, view.DateFormat))))
+		}
+	}
 	if row.value == nil {
 		return rows
 	}

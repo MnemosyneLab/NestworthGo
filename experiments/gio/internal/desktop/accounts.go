@@ -236,7 +236,7 @@ type accountsPage struct {
 	backToList                         func()
 	creation                           *balanceAccountCreation
 	createBank, createLiability        widget.Clickable
-	createAsset                        widget.Clickable
+	createAsset, createShell           widget.Clickable
 	createdID                          domain.AccountID
 	createdMessage                     i18n.MessageID
 	maintenance                        *accountMaintenance

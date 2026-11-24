@@ -57,8 +57,8 @@ kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
-live Overview, account browsing, and creation and maintenance for every
-total-balance Catalog combination. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+live Overview, account browsing, creation across the account Catalog, and
+maintenance for total-balance accounts. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -390,22 +390,51 @@ shared reader may classify the account differently based on its new type.
 | Linux X11 invalid requests | The asset settings picker excluded liability and manual-value destinations. A temporary QA overlay then supplied a Loan and a Property to the asset form at submission. The real form rejected both requests, and read-only verification found identical account, value, owner, activity and observation rows before and after. The clock and invalid-input overlays are outside the application. |
 | Open evidence | Wails GUI, native macOS and Wayland were not run. The Wails comparison covers the Go adapter and shared contracts. |
 
+#### Manual valuation and Holdings account creation milestone
+
+**Add valued or holdings account** is available in Accounts and at an active
+institution. The scoped form retains that institution. The shared Catalog
+supplies all nine asset types for manual valuation and all eight for Holdings.
+The form accepts an opening valuation for the manual mode and sends zero when
+that field is blank, following the [Wails wizard](../../../frontend/src/features/accounts/AccountCreateWizard.tsx).
+A Holdings account starts empty. The shared writer receives an empty opening
+amount and creates no cash, positions or activities. Cash on hand in Holdings
+mode displays only cash by currency. Mixed Holdings also displays investments.
+An existing manual account with a missing value displays the shared valuation
+service's unavailable state.
+
+Creation accepts an active group, with the same initial group selection order
+as the Wails wizard. Once History has a Starting Point, the optional opening
+date uses the interval from that day through today in the stored History
+timezone. The [shared application service](../../../internal/application/service.go)
+owns the account, ownership, state observation and any opening contribution
+in one transaction. The form returns to the saved account ID and retries
+failed detail reads without submitting again. Mode selection applies to new
+accounts. The existing total-balance settings guard limits conversions to
+types in the same role and tracking mode.
+
+| Check | Evidence |
+| --- | --- |
+| Fixed-clock adapter comparison | On independently opened copies of a marked synthetic ledger, Gio frame interactions and the Wails Go adapter produced matching records, ownership, exact display/base values and composition for a dated property estimate, explicit zero, empty brokerage and empty multi-currency cash. The nonzero estimate produced one account-value contribution at the selected civil day's effective instant. Zero and empty Holdings produced no activities. A separate marked ledger without History exercised a stored baseline and the missing-value state. |
+| Validation and retry | The frame tests rejected an illegal type, a Holdings request with an opening amount, and an opening date without History before calling the writer. Each accepted write survived a simulated failure rereading the saved ID. Retry only read details, and Back restored institution scope and focus. The total-balance creation, settings, archive and incompatible-conversion regressions ran in the Gio suite. |
+| Linux X11 | In a 700×460 Xvfb window, the native app opened Harbor Sample Bank and created a USD 1,234.56 property estimate dated November 20, an empty brokerage, and a cash-only Holdings account. Detail showed the recorded estimate and the appropriate empty component sections. After a normal quit, the same verified synthetic profile reopened and all three details were revisited through the institution. Read-only SQLite checks confirmed one dated account-value contribution, zero new cash/position rows and the same opening evidence for the estimate. A temporary build overlay fixed the clock at November 21, 2026, 17:00 UTC. |
+| Automated checks | The full Gio Go test suite, Gio `go vet`, Linux preview build and focused shared domain, application and Wails Go adapter tests passed. |
+| Open evidence | The Wails comparison covers the Go adapter. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this milestone. |
+
 #### Remaining account capabilities by dependency
 
 | Wails type or capability | Gio gap | Stage dependency |
 | --- | --- | --- |
-| Single estimated value | Insurance policy, property, vehicle, collectible, and the manual-value choices for brokerage, investment, pension, receivable and Other asset. | Stage 3 creation, detail and maintenance. Stage 4 recorded value changes. |
-| Multi-currency Cash on hand | The Wails Catalog and tracking prompt expose the cash-only Holdings combination. Create opens an empty account and exposes cash per currency in detail. | Stage 3 empty account and cash-component reads. Stage 4 opening cash, cash reconciliation, deposits, withdrawals, FX and transfers. |
-| Mixed Holdings | Bank and digital wallet Holdings modes, brokerage, investment, crypto exchange, pension and Other asset. Wails create omits the total and opens component detail. | Stage 3 account creation and maintenance when components can be represented. Stage 4 opening cash and History boundaries. Stage 5 investment opening, trades, products and Portfolio. |
-| Cross-type settings and additional create fields | Compatible type edits within the manual-value and Holdings modes, create-time group, icon, custom shares, opening date when History has started, and creating institutions from the wizard. | Stage 3 account forms and legal settings. Holdings conversions must preserve the cash-only boundary. |
+| Manual valuation lifecycle | Verify settings, compatible conversion, archive and restore with recorded and missing values, ownership and archived affiliations. | Stage 3 maintenance. Stage 4 recorded value changes. |
+| Holdings lifecycle | Verify settings, compatible type edits, archive and restore with empty and populated cash/positions, history references and open managed contracts. Cash-only accounts must stay within their Holdings boundary. | Stage 3 maintenance. Stage 4 opening cash, cash reconciliation, deposits, withdrawals, FX and transfers. Stage 5 investment opening, trades, products and Portfolio. |
+| Additional create fields | Create-time icon selection, custom ownership shares, portfolio/liquidity inclusion overrides and creating an institution from the wizard. Group and optional opening date remain to be wired into the total-balance create form. Review unscoped institution suggestions and defaults against Wails. | Stage 3 account form parity. |
 | Movements on existing accounts | Debt draws and payments, card purchases and refunds, account-total reconciliation, and related History detail. | Stage 4 preview, confirmation, and ledger writes. |
 | Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
 
-Stage 3 closes when those account forms and shell reads work across the
-remaining Catalog modes, the production startup journey is verified with
-disposable ledgers, and the target-platform restart, blocked-state, ownership
-and Wails parity checks are recorded. Stage 4 and 5 actions keep their own
-acceptance gates.
+Stage 3 closes once maintenance and remaining form fields cover the applicable
+Catalog modes, the production startup journey is verified with disposable
+ledgers, and the target-platform restart, blocked-state, ownership and Wails
+parity checks are recorded. Stage 4 and 5 actions keep their own acceptance gates.
 
 ## Moving from the preview to a desktop build
 

@@ -6,6 +6,7 @@ import (
 	"image"
 	"slices"
 	"strings"
+	"time"
 
 	"gioui.org/font"
 	"gioui.org/layout"
@@ -41,7 +42,12 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 	origin := view.Origin
 	title := i18n.AccountCreateTitle
 	contextLabel := fmt.Sprintf(l.Text(i18n.AccountInstitution), d.institution.Name)
-	if d.liability() {
+	if d.shell() {
+		title = i18n.AccountCreateShellTitle
+		if !d.scoped {
+			contextLabel = l.Text(i18n.AccountCreateShellHelp)
+		}
+	} else if d.liability() {
 		title, contextLabel = i18n.AccountCreateLiabilityTitle, l.Text(i18n.AccountCreateLiabilityHelp)
 	} else if !d.scoped {
 		title, contextLabel = i18n.AccountCreateAssetTitle, l.Text(i18n.AccountCreateAssetHelp)
@@ -68,6 +74,9 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 				}
 				return view.Message(l.Text(id), ink)(gtx)
 			}
+			if d.showOpeningOptions {
+				return d.layoutOpeningOptions(gtx, view, origin)
+			}
 			return d.layoutFields(gtx, view, origin)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -85,6 +94,20 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 				buttons = append(buttons, layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))))
 			}
 			if ready {
+				if d.shell() {
+					label := i18n.AccountCreateOpeningOptions
+					if d.openingDates.Min == "" {
+						label = i18n.AccountMaintenanceGroup
+					}
+					if d.showOpeningOptions {
+						label = i18n.AccountCreateBackToDetails
+					}
+					if d.options.Clicked(gtx) {
+						d.showOpeningOptions = !d.showOpeningOptions
+						gtx.Execute(op.InvalidateCmd{})
+					}
+					buttons = append(buttons, layout.Rigid(view.Button(&d.options, l.Text(label))))
+				}
 				review = d.next.Clicked(gtx)
 				buttons = append(buttons, layout.Rigid(view.PrimaryButton(&d.next, l.Text(i18n.AccountCreateReview))))
 			}
@@ -122,29 +145,35 @@ func (d *balanceAccountDraft) layoutFields(gtx layout.Context, view ui.View, ori
 					}
 					return d.name.Layout(gtx, view, ui.FieldOptions{Label: i18n.AccountCreateName})
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			}
+			if d.mode == domain.TrackingHoldings {
+				fields = append(fields, layout.Rigid(view.Message(l.Text(i18n.AccountCreateHoldingsEmpty), view.Colors.SecondaryInk)))
+			} else {
+				fields = append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					label := i18n.AccountCreateOpening
 					if d.liability() {
 						label = i18n.AccountCreateOpeningOwed
+					} else if d.mode == domain.TrackingManualValue {
+						label = i18n.AccountCreateOpeningValuation
 					}
 					return d.opening.Layout(gtx, view, ui.FieldOptions{Label: label, Hint: i18n.AccountCreateAmountHint})
-				}),
+				}))
 			}
-			if !d.scoped {
+			if !d.scoped || d.shell() {
 				fields = append(fields, layout.Rigid(d.inclusion(view)))
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, fields...)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			var fields []layout.FlexChild
-			if !d.scoped {
+			if !d.scoped || d.shell() {
 				fields = d.directoryFields(view, origin.Add(image.Pt(width+gap, 0)))
 			}
 			fields = append(fields,
 				layout.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
 				layout.Rigid(view.Message(l.Text(i18n.AccountCreateEqualShares), view.Colors.SecondaryInk)),
 			)
-			if d.scoped {
+			if d.scoped && !d.shell() {
 				fields = append(fields, layout.Rigid(d.inclusion(view)))
 			}
 			fields = append(fields,
@@ -188,13 +217,27 @@ func (d *balanceAccountDraft) inclusion(view ui.View) layout.Widget {
 }
 
 func balanceTypeChoices(l i18n.Language, role domain.BalanceSheetRole) []ui.Choice {
+	return accountTypeChoices(l, role, domain.TrackingBalance)
+}
+
+func accountTypeChoices(l i18n.Language, role domain.BalanceSheetRole, mode domain.TrackingMode) []ui.Choice {
 	var result []ui.Choice
 	for _, option := range domain.LegalAccountCombinations() {
-		if option.BalanceSheetRole == role && option.TrackingMode == domain.TrackingBalance {
+		if option.BalanceSheetRole == role && option.TrackingMode == mode {
 			result = append(result, ui.Choice{ID: option.AccountType.String(), Label: l.Text(accountTypes[option.AccountType])})
 		}
 	}
 	return result
+}
+
+func accountTrackingLabel(mode domain.TrackingMode, kind domain.AccountType) i18n.MessageID {
+	if mode == domain.TrackingManualValue {
+		return i18n.AccountTrackingManual
+	}
+	if kind == domain.TypeCashOnHand {
+		return i18n.AccountTrackingCashOnly
+	}
+	return i18n.AccountTrackingHoldings
 }
 
 func (d *balanceAccountDraft) directoryFields(view ui.View, origin image.Point) []layout.FlexChild {
@@ -213,29 +256,89 @@ func (d *balanceAccountDraft) directoryFields(view ui.View, origin image.Point) 
 		institutionOptions.ValueLabel = d.institution.Name + " · " + l.Text(i18n.AccountReferenceUnavailable)
 		institutionOptions.Invalid = true
 	}
-	return []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			d.typeSelect.Layout(gtx, view, ui.PickerField{Label: typeLabel, Origin: origin, Disabled: !gtx.Enabled()},
-				ui.SelectOptions{Items: balanceTypeChoices(l, d.role)}, d.kind.String(), func(value string) { d.kind = domain.AccountType(value) })
+	var fields []layout.FlexChild
+	if d.shell() {
+		modes := []ui.Choice{
+			{ID: string(domain.TrackingManualValue), Label: l.Text(i18n.AccountTrackingManual)},
+			{ID: string(domain.TrackingHoldings), Label: l.Text(i18n.AccountTrackingHoldings)},
+		}
+		fields = append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			d.modeSelect.Layout(gtx, view, ui.PickerField{Label: i18n.AccountTrackingMethod, Origin: origin, Disabled: !gtx.Enabled()},
+				ui.SelectOptions{Items: modes}, string(d.mode), func(value string) { d.selectMode(domain.TrackingMode(value)) })
+			origin.Y += gtx.Dp(66)
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			field := ui.PickerField{Label: i18n.AccountMaintenanceInstitution, Origin: origin.Add(image.Pt(0, gtx.Dp(66))), Disabled: !gtx.Enabled()}
-			d.institutionSelect.Layout(gtx, view, field, institutionOptions, d.institution.ID.String(), func(value string) {
-				d.institution = domain.Institution{}
-				for _, item := range d.institutions {
-					if item.ID.String() == value {
-						d.institution = item
-						break
-					}
+		}))
+	}
+	fields = append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		d.typeSelect.Layout(gtx, view, ui.PickerField{Label: typeLabel, Origin: origin, Disabled: !gtx.Enabled()},
+			ui.SelectOptions{Items: accountTypeChoices(l, d.role, d.mode)}, d.kind.String(), func(value string) {
+				d.kind = domain.AccountType(value)
+				if d.shell() {
+					d.included = domain.SuggestedInclusion(d.kind, d.mode).IncludeInNetWorth
 				}
-				if d.problem == i18n.AccountCreateChooseInstitution {
+			})
+		origin.Y += gtx.Dp(66)
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	}))
+	if d.scoped {
+		return fields
+	}
+	return append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		field := ui.PickerField{Label: i18n.AccountMaintenanceInstitution, Origin: origin, Disabled: !gtx.Enabled()}
+		d.institutionSelect.Layout(gtx, view, field, institutionOptions, d.institution.ID.String(), func(value string) {
+			d.institution = domain.Institution{}
+			for _, item := range d.institutions {
+				if item.ID.String() == value {
+					d.institution = item
+					break
+				}
+			}
+			if d.problem == i18n.AccountCreateChooseInstitution {
+				d.problem = i18n.NoMessage
+			}
+		})
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	}))
+}
+
+func (d *balanceAccountDraft) layoutOpeningOptions(gtx layout.Context, view ui.View, origin image.Point) layout.Dimensions {
+	l := view.Language
+	groups := []ui.Choice{{Label: l.Text(i18n.AccountNoGroup)}}
+	for _, group := range d.groups {
+		groups = append(groups, ui.Choice{ID: group.ID.String(), Label: group.Name})
+	}
+	slices.SortFunc(groups[1:], func(a, b ui.Choice) int { return cmp.Or(cmp.Compare(a.Label, b.Label), cmp.Compare(a.ID, b.ID)) })
+	choices := ui.SelectOptions{Items: groups, Searchable: true}
+	if d.group != "" && !slices.ContainsFunc(groups, func(choice ui.Choice) bool { return choice.ID == d.group }) {
+		choices.Invalid, choices.ValueLabel = true, l.Text(i18n.AccountReferenceUnavailable)
+	}
+	fields := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		d.groupSelect.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceGroup, Origin: origin, Disabled: !gtx.Enabled()}, choices, d.group, func(id string) {
+			d.group = id
+			if d.problem == i18n.AccountCreateGroupUnavailable {
+				d.problem = i18n.NoMessage
+			}
+		})
+		origin.Y += gtx.Dp(68)
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	})}
+	if d.openingDates.Min != "" {
+		dates := d.openingDates
+		dates.Format, dates.WeekStart = view.DateFormat, time.Monday
+		if view.WeekStart == "sunday" {
+			dates.WeekStart = time.Sunday
+		}
+		fields = append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			d.datePicker.Layout(gtx, view, ui.PickerField{Label: i18n.AccountCreateOpeningDate, Origin: origin, Disabled: !gtx.Enabled()}, dates, d.openedOn, func(day string) {
+				d.openedOn = day
+				if d.problem == i18n.AccountCreateDateInvalid {
 					d.problem = i18n.NoMessage
 				}
 			})
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
-		}),
+		}))
 	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(ui.LimitWidth(gtx, 360), fields...)
 }
 
 func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.View) {
@@ -257,20 +360,35 @@ func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.V
 	title, confirm, amount, saving := i18n.AccountCreateReviewTitle, i18n.AccountCreateConfirm, i18n.AccountCreateReviewBalance, i18n.AccountCreateSaving
 	institution := fmt.Sprintf(l.Text(i18n.AccountInstitution), d.institution.Name)
 	lines := []string{r.input.Name}
-	if d.liability() {
+	if d.shell() {
+		title, confirm, amount, saving = i18n.AccountCreateAssetReview, i18n.AccountCreateAssetConfirm, i18n.AccountCreateReviewValuation, i18n.SettingsPending
+	} else if d.liability() {
 		title, confirm, amount, saving = i18n.AccountCreateLiabilityReview, i18n.AccountCreateLiabilityConfirm, i18n.AccountCreateReviewOwed, i18n.SettingsPending
 	} else if !d.scoped {
 		title, confirm, saving = i18n.AccountCreateAssetReview, i18n.AccountCreateAssetConfirm, i18n.SettingsPending
 	}
-	if !d.scoped {
+	if !d.scoped || d.shell() {
 		lines = append(lines, l.Text(accountTypes[d.kind]))
 		if d.institution.ID == "" {
 			institution = l.Text(i18n.AccountNoInstitution)
 		}
 	}
+	lines = append(lines, institution)
+	if d.shell() {
+		lines = append(lines, l.Text(accountTrackingLabel(d.mode, d.kind)))
+		if i := slices.IndexFunc(d.groups, func(group domain.Group) bool { return group.ID.String() == r.input.GroupID }); i >= 0 {
+			lines = append(lines, fmt.Sprintf(l.Text(i18n.AccountGroup), d.groups[i].Name))
+		}
+		if day, valid := ui.ParseCivilDay(refValue(r.input.OpenedOn)); valid {
+			lines = append(lines, fmt.Sprintf(l.Text(i18n.AccountCreateReviewDate), ui.FormatDay(day, l, view.DateFormat)))
+		}
+	}
+	if d.mode == domain.TrackingHoldings {
+		lines = append(lines, fmt.Sprintf(l.Text(i18n.AccountCreateReviewCurrency), r.input.DefaultCurrency), l.Text(i18n.AccountCreateHoldingsEmpty))
+	} else {
+		lines = append(lines, fmt.Sprintf(l.Text(amount), r.money.CanonicalAmount()+" "+r.money.Currency().String()))
+	}
 	body := strings.Join(append(lines,
-		institution,
-		fmt.Sprintf(l.Text(amount), r.money.CanonicalAmount()+" "+r.money.Currency().String()),
 		fmt.Sprintf(l.Text(i18n.AccountOwners), strings.Join(owners, " / ")),
 		l.Text(include),
 	), "\n")
