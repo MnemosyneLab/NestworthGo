@@ -16,25 +16,14 @@ import (
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
-var (
-	pageBackground    = color.NRGBA{R: 248, G: 246, B: 243, A: 255}
-	sidebarBackground = color.NRGBA{R: 242, G: 240, B: 236, A: 255}
-	selectedSurface   = color.NRGBA{R: 254, G: 253, B: 252, A: 255}
-	hoverSurface      = color.NRGBA{R: 234, G: 231, B: 226, A: 255}
-	divider           = color.NRGBA{R: 223, G: 219, B: 212, A: 255}
-	ink               = color.NRGBA{R: 32, G: 27, B: 23, A: 255}
-	secondaryInk      = color.NRGBA{R: 95, G: 88, B: 82, A: 255}
-	accent            = color.NRGBA{R: 52, G: 72, B: 166, A: 255}
-)
-
 type navigationItem struct {
-	label  string
+	label  messageID
 	icon   *widget.Icon
 	body   layout.Widget
 	button widget.Clickable
 }
 
-func newItem(label string, iconData []byte, body layout.Widget) navigationItem {
+func newItem(label messageID, iconData []byte, body layout.Widget) navigationItem {
 	icon, err := widget.NewIcon(iconData)
 	if err != nil {
 		panic(err)
@@ -43,7 +32,7 @@ func newItem(label string, iconData []byte, body layout.Widget) navigationItem {
 }
 
 type navigationGroup struct {
-	label string
+	label messageID
 	items []navigationItem
 }
 
@@ -55,6 +44,10 @@ type workspace struct {
 	selected        *navigationItem
 	navigation      layout.List
 	directoryEditor widget.Editor
+	language        appLanguage
+	dark            bool
+	languageButton  widget.Clickable
+	themeButton     widget.Clickable
 }
 
 func newWorkspace(wordmark, mark image.Image) *workspace {
@@ -63,27 +56,28 @@ func newWorkspace(wordmark, mark image.Image) *workspace {
 		wordmark:   widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
 		mark:       widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
 		navigation: layout.List{Axis: layout.Vertical},
+		language:   simplifiedChinese,
 	}
 	w.groups = []navigationGroup{
 		{items: []navigationItem{
-			newItem("概览", icons.ActionHome, w.overview),
-			newItem("账户", icons.ActionAccountBalanceWallet, nil),
-			newItem("可用资金", icons.EditorAttachMoney, nil),
-			newItem("投资资产", icons.EditorPieChartOutlined, nil),
+			newItem(navOverview, icons.ActionHome, w.overview),
+			newItem(navAccounts, icons.ActionAccountBalanceWallet, nil),
+			newItem(navAvailableFunds, icons.EditorAttachMoney, nil),
+			newItem(navPortfolio, icons.EditorPieChartOutlined, nil),
 		}},
-		{label: "活动", items: []navigationItem{
-			newItem("待办核查", icons.ActionAssignmentTurnedIn, nil),
-			newItem("账务记录", icons.ActionReceipt, nil),
+		{label: groupActivity, items: []navigationItem{
+			newItem(navTasks, icons.ActionAssignmentTurnedIn, nil),
+			newItem(navHistory, icons.ActionReceipt, nil),
 		}},
-		{label: "洞察", items: []navigationItem{
-			newItem("资产回溯", icons.ActionHistory, nil),
-			newItem("收益分析", icons.ActionTrendingUp, nil),
-			newItem("资产变动", icons.ActionCompareArrows, nil),
+		{label: groupInsights, items: []navigationItem{
+			newItem(navHistoricalOverview, icons.ActionHistory, nil),
+			newItem(navReturns, icons.ActionTrendingUp, nil),
+			newItem(navAssetChanges, icons.ActionCompareArrows, nil),
 		}},
-		{label: "管理", items: []navigationItem{
-			newItem("名录", icons.SocialPeopleOutline, w.directory),
-			newItem("数据维护", icons.NotificationSync, nil),
-			newItem("设置", icons.ActionSettings, nil),
+		{label: groupManage, items: []navigationItem{
+			newItem(navDirectory, icons.SocialPeopleOutline, w.directory),
+			newItem(navDataMaintenance, icons.NotificationSync, nil),
+			newItem(navSettings, icons.ActionSettings, nil),
 		}},
 	}
 	w.selected = &w.groups[0].items[0]
@@ -91,6 +85,20 @@ func newWorkspace(wordmark, mark image.Image) *workspace {
 }
 
 func (w *workspace) layout(gtx layout.Context) layout.Dimensions {
+	if w.languageButton.Clicked(gtx) {
+		w.language = w.language.alternate()
+	}
+	if w.themeButton.Clicked(gtx) {
+		w.dark = !w.dark
+	}
+	gtx.Locale.Language = string(w.language)
+	colors := w.colors()
+	w.theme.Palette = material.Palette{
+		Bg:         colors.pageBackground,
+		Fg:         colors.ink,
+		ContrastBg: colors.accent,
+		ContrastFg: colors.pageBackground,
+	}
 	for _, group := range w.groups {
 		for i := range group.items {
 			item := &group.items[i]
@@ -99,15 +107,16 @@ func (w *workspace) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	paint.Fill(gtx.Ops, pageBackground)
+	paint.Fill(gtx.Ops, colors.pageBackground)
 	return layout.Flex{}.Layout(gtx, layout.Rigid(w.sidebar), layout.Flexed(1, w.page))
 }
 
 func (w *workspace) sidebar(gtx layout.Context) layout.Dimensions {
+	colors := w.colors()
 	size := image.Pt(gtx.Dp(218), gtx.Constraints.Max.Y)
 	gtx.Constraints = layout.Exact(size)
-	paint.FillShape(gtx.Ops, sidebarBackground, clip.Rect{Max: size}.Op())
-	paint.FillShape(gtx.Ops, divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.sidebarBackground, clip.Rect{Max: size}.Op())
+	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(w.brand),
@@ -118,7 +127,35 @@ func (w *workspace) sidebar(gtx layout.Context) layout.Dimensions {
 				})
 			})
 		}),
+		layout.Rigid(w.sidebarPreferences),
 	)
+}
+
+func (w *workspace) sidebarPreferences(gtx layout.Context) layout.Dimensions {
+	colors := w.colors()
+	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X-1, 1)).Op())
+	themeAction := darkAppearance
+	if w.dark {
+		themeAction = lightAppearance
+	}
+	languageAction := w.language.alternate().text(languageName)
+	return layout.Inset{Top: 9, Bottom: 10, Left: 11, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{}.Layout(gtx,
+			layout.Flexed(0.58, w.preferenceButton(&w.languageButton, languageAction)),
+			layout.Rigid(layout.Spacer{Width: 7}.Layout),
+			layout.Flexed(0.42, w.preferenceButton(&w.themeButton, w.language.text(themeAction))),
+		)
+	})
+}
+
+func (w *workspace) preferenceButton(button *widget.Clickable, title string) layout.Widget {
+	style := material.Button(w.theme, button, title)
+	style.Background = w.colors().surface
+	style.Color = w.colors().ink
+	style.TextSize = 12
+	style.CornerRadius = 7
+	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
+	return style.Layout
 }
 
 func (w *workspace) brand(gtx layout.Context) layout.Dimensions {
@@ -140,10 +177,10 @@ func (w *workspace) brand(gtx layout.Context) layout.Dimensions {
 
 func (w *workspace) group(gtx layout.Context, group *navigationGroup) layout.Dimensions {
 	children := make([]layout.FlexChild, 0, len(group.items)+1)
-	if group.label != "" {
+	if group.label != noMessage {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 15, Bottom: 7, Left: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return w.label(gtx, group.label, 11, font.Medium, secondaryInk)
+				return w.label(gtx, w.language.text(group.label), 11, font.Medium, w.colors().secondaryInk)
 			})
 		}))
 	}
@@ -159,6 +196,7 @@ func (w *workspace) group(gtx layout.Context, group *navigationGroup) layout.Dim
 }
 
 func (w *workspace) item(gtx layout.Context, item *navigationItem) layout.Dimensions {
+	colors := w.colors()
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(34))
 	gtx.Constraints = layout.Exact(size)
 	return item.button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -168,18 +206,18 @@ func (w *workspace) item(gtx layout.Context, item *navigationItem) layout.Dimens
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
 		radius := gtx.Dp(9)
-		textColor, iconColor := secondaryInk, secondaryInk
+		textColor, iconColor := colors.secondaryInk, colors.secondaryInk
 		weight := font.Normal
 		focused := gtx.Focused(&item.button)
 		switch {
 		case selected:
-			paint.FillShape(gtx.Ops, divider, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
-			paint.FillShape(gtx.Ops, selectedSurface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, colors.divider, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, colors.surface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
 			marker := image.Rect(1, gtx.Dp(7), gtx.Dp(3), size.Y-gtx.Dp(7))
-			paint.FillShape(gtx.Ops, accent, clip.UniformRRect(marker, 1).Op(gtx.Ops))
-			textColor, iconColor, weight = ink, accent, font.Medium
+			paint.FillShape(gtx.Ops, colors.accent, clip.UniformRRect(marker, 1).Op(gtx.Ops))
+			textColor, iconColor, weight = colors.ink, colors.accent, font.Medium
 		case focused, item.button.Hovered():
-			paint.FillShape(gtx.Ops, hoverSurface, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, colors.hoverSurface, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
 		}
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
@@ -192,7 +230,7 @@ func (w *workspace) item(gtx layout.Context, item *navigationItem) layout.Dimens
 					}),
 					layout.Rigid(layout.Spacer{Width: 12}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return w.label(gtx, item.label, 13, weight, textColor)
+						return w.label(gtx, w.language.text(item.label), 13, weight, textColor)
 					}),
 				)
 			})
@@ -208,13 +246,14 @@ func (w *workspace) page(gtx layout.Context) layout.Dimensions {
 }
 
 func (w *workspace) pageHeader(gtx layout.Context) layout.Dimensions {
+	colors := w.colors()
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(53))
 	gtx.Constraints = layout.Exact(size)
-	paint.FillShape(gtx.Ops, divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.Y = 0
 		return layout.Inset{Left: 28}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return w.label(gtx, w.selected.label, 19, font.Medium, ink)
+			return w.label(gtx, w.language.text(w.selected.label), 19, font.Medium, colors.ink)
 		})
 	})
 }
