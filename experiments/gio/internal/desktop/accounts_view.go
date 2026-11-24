@@ -82,6 +82,15 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
+	if f := p.firstBuy; f != nil {
+		if f.draft == nil && p.canFirstBuy() && f.open.Clicked(gtx) {
+			p.startFirstBuy()
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return p.layoutFirstBuy(gtx, view)
+		}
+	}
 	detail := p.target.account != ""
 	if p.back.Clicked(gtx) && detail {
 		p.backToList()
@@ -485,6 +494,13 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
+	if p.canFirstBuy() {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.Button(&p.firstBuy.open, l.Text(i18n.BuyOpen)))
+			})
+		})
+	}
 	if p.statement != nil && statementCard(a) && p.freshDetail() != nil {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

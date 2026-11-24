@@ -218,6 +218,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.balanceTarget != nil {
 			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
 		}
+		if s.accounts != nil && s.accounts.firstBuy != nil {
+			s.accounts.firstBuy.onPosted = func(activity domain.Activity, from event.Tag) {
+				s.historyPage.showPosted(activity, i18n.BuyPosted, from)
+			}
+		}
 		if s.accounts != nil {
 			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
 				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, focus)
@@ -276,6 +281,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		s.accounts.pollFirstBuy()
 		if s.accounts.pollInlineInstitution() && s.directory != nil {
 			for _, list := range s.directory.lists {
 				if list.isInstitutions() {

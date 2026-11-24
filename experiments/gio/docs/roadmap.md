@@ -64,7 +64,7 @@ workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
-open. Stage 5 begins with the read-only Holdings and instrument workflow.
+open. Stage 5 includes Holdings and instrument reads and a scoped first buy.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -555,13 +555,11 @@ profiles and the established startup and ownership path.
 | History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points for eligible cash/liability balances, repeat for supported cash movements, and linked cash corrections and reversals. | Positive position opening and cost basis are investment prerequisites when importing existing holdings. The account action-sheet shortcut, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions can follow the first investment read. |
 | Cross-page and external invalidation | Confirmed writes refresh History, Account and Overview. History Activity links open the exact account and return to the existing visit. A write made through the same shared application service refreshes the active ledger pages without a page callback. | Exercise connected Mobile and MCP clients when their Gio lifecycles are wired. Keep production startup, target-platform acceptance and Wails GUI parity open. |
 
-The [read-only Stage 5 milestone](#holdings-and-instrument-detail) uses
-isolated, funded Holdings fixtures. Before first investment posting, verify
-opening quantity and cost when importing existing positions, or begin with an
-empty position.
-Exercise the shared trade command with exact quantity, price, fees, settlement
-cash and available funds. Compare resulting basis, valuation and linked History
-after a duplicate confirmation, read failure and restart.
+The [Holdings reads](#holdings-and-instrument-detail) and [first buy](#first-recorded-security-buy)
+use isolated Holdings fixtures. Importing existing positions will require
+separate evidence for their opening quantity and cost. The first-buy fixture
+starts without holdings and verifies shared settlement, basis, valuation and
+linked History after a duplicate confirmation, read failure and restart.
 
 #### Cash contribution milestone
 
@@ -1115,7 +1113,41 @@ the prior visit, including search, scroll and available source focus.
 | Linux X11 | Native Gio at 900×660 on Xvfb displayed complete, mixed and empty portfolios. The mixed profile showed missing price, missing FX and both gaps separately. The window exercised search, account navigation, instrument-filtered History and normal quit and reopen. A read-only SQLite comparison retained all financial and quote rows. A temporary overlay seeded the verified synthetic profiles and fixed the clock. |
 | Tests | The Gio module suite and Wails Go Portfolio, Quote and Analytics package tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Portfolio grouping and allocation, performance and market-data maintenance, positions import, trades, dividends and products remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | Portfolio grouping and allocation, performance and market-data maintenance, position import, broader trade support, dividends and products remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+
+#### First recorded security buy
+
+**Accounts → Holdings account → Record first buy** records an already executed
+trade. This pilot starts with a funded, active investment Holdings account
+with no holding records. Choose an existing ordinary security in the
+account's default currency. The account pays from that same-currency cash
+sleeve. History must be enabled, and the chosen date and time use the immutable
+History timezone. The picker excludes managed, archived and foreign-currency
+securities for this slice.
+[Wails trade form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails Go trade command](../../../internal/wailsapi/history/command.go)
+
+Enter the actual quantity, gross before fees and optional fee. The shared
+trade preview derives execution unit price and validates the amount available
+at the effective time, including the fee. The preview shows exact execution
+and settlement figures and the fee-adjusted average acquisition cost from
+shared cost replay. Current quote remains separate in instrument detail.
+Confirmation atomically creates the first Holding with its Activity and
+effects. [Shared trade and mutation handling](../../../internal/application/change_service.go) · [Cost basis replay](../../../internal/domain/cost_basis.go)
+
+An uncertain submission keeps the same command, mutation ID and preview
+token. A stale preview whose receipt was absent returns to review. A confirmed
+submission opens its saved Activity and invalidates Account, Overview,
+History and Portfolio reads. A subsequent read failure can be retried from
+that page. The Activity links to the affected account and instrument.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independently seeded profiles at a fixed clock bought quantity 2.5 with USD 75.1234 gross and USD 1.2345 fee. The derived unit price was USD 30.04936, cash became USD 123.6421, and the position basis was USD 76.3579. The stored USD 40 market quote gave a USD 100 valuation and USD 223.6421 household net worth. Both paths recorded the same civil day and separate principal and fee effects. |
+| Shell tests | Exercised quantity, gross and fee precision, insufficient cash including the fee, a different settlement currency, a current zero cash balance, cancel, draft edits, a stale preview, a double click and replay of a lost response. A failed read of the acknowledged Activity retried without writing. Reopening retained one buy and the shared service replayed the same receipt. |
+| Linux X11 | Native Gio at 900×660 on Xvfb rejected gross plus fee above cash, then reviewed and double-clicked confirmation for the valid buy. History linked to the position and the cash account. Overview displayed USD 223.64. A normal quit and reopen preserved the buy and its fee. A read-only SQLite comparison verified one Holding, one Activity, three effects, one receipt and the exact cash and quantity projections. Opening balances, History Origin and quote rows were preserved. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
+| Tests | The Gio module suite and focused trade, cost basis and mutation tests in the shared application, domain and Wails Go History packages passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Existing-position buys, sells, cross-currency settlement, positive opening positions, instrument creation and provider actions remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 ## Moving from the preview to a desktop build
 

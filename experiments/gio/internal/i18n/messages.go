@@ -739,6 +739,30 @@ const (
 	PortfolioFXMissing
 	PortfolioInstrumentHistory
 	PortfolioOpenInstrument
+	BuyOpen
+	BuyReview
+	BuyConfirm
+	BuyPosted
+	BuyInstrument
+	BuyQuantity
+	BuyGross
+	BuyFee
+	BuyExecutionPrice
+	BuyGrossFact
+	BuyFeeFact
+	BuyCostBasis
+	BuyCashDelta
+	BuySourcesFailed
+	BuyScopeUnavailable
+	BuyHistoryRequired
+	BuyCashRequired
+	BuyNoInstruments
+	BuyInstrumentUnavailable
+	BuyInvalidQuantity
+	BuyInvalidGross
+	BuyInvalidFee
+	BuyPreviewFailed
+	BuyStale
 	messageCount
 )
 
