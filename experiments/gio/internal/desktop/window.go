@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
 // Run serves the native window and joins pending work before returning to the database owner.
@@ -34,6 +35,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	accounts.maintenance = &accountMaintenance{service: service}
 	accounts.cashBalance = &accountCashBalance{service: service}
 	accounts.balanceTarget = &accountBalanceTarget{service: service}
+	accounts.statement = &accountStatement{service: reconciliation.NewService(service), origin: service}
 	onboarding := newOnboardingPage(ctx, service, clock, window.Invalidate)
 	onboarding.read()
 	defer func() {

@@ -125,7 +125,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.startingPointUnresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved()) {
+	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.statementUnresolved()) {
 		return
 	}
 	entry := s.trail.current()
@@ -173,6 +173,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 		if balance := s.accounts.balanceTarget; balance != nil {
 			balance.draft = nil
+		}
+		if statement := s.accounts.statement; statement != nil {
+			statement.screen = nil
 		}
 		if m := s.accounts.maintenance; m != nil {
 			m.draft, m.focus, m.issue, m.success = nil, nil, i18n.NoMessage, i18n.NoMessage

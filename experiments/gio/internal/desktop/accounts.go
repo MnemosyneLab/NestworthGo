@@ -242,6 +242,7 @@ type accountsPage struct {
 	maintenance                        *accountMaintenance
 	cashBalance                        *accountCashBalance
 	balanceTarget                      *accountBalanceTarget
+	statement                          *accountStatement
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {

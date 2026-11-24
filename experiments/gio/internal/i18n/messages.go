@@ -589,6 +589,48 @@ const (
 	AccountCardBalanceOwedAfter
 	HistoryDebtIncreased
 	HistoryDebtReduced
+	StatementOpen
+	StatementBackAccount
+	StatementBackList
+	StatementStart
+	StatementResume
+	StatementCheck
+	StatementFinish
+	StatementEmpty
+	StatementViewOnly
+	StatementEvidenceHint
+	StatementDate
+	StatementTime
+	StatementReference
+	StatementNote
+	StatementCompleteness
+	StatementPreview
+	StatementConfirm
+	StatementEditEvidence
+	StatementSaved
+	StatementLoadFailed
+	StatementPreviewFailed
+	StatementChanged
+	StatementBadDate
+	StatementBadTime
+	StatementTextLimit
+	StatementPaused
+	StatementPartial
+	StatementCompleted
+	StatementInProgress
+	StatementCompletedAt
+	StatementRecheck
+	StatementDebt
+	StatementScope
+	StatementBalance
+	StatementPending
+	StatementChecked
+	StatementSkipped
+	StatementUnresolved
+	StatementEvidenceDate
+	StatementCheckedAt
+	StatementEvidenceReference
+	StatementEvidenceValue
 	HistoryAdded
 	HistoryRemoved
 	HistoryUnitPrice

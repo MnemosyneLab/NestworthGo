@@ -24,6 +24,14 @@ import (
 
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
+	if f := p.statement; f != nil {
+		if row := p.freshDetail(); f.screen == nil && row != nil && statementCard(row.record.Account) && f.open.Clicked(gtx) {
+			p.startStatements(row.record.Account)
+		}
+		if f.screen != nil {
+			return p.layoutStatements(gtx, view)
+		}
+	}
 	if p.canCreateBankAccount() && p.createBank.Clicked(gtx) {
 		p.startBankAccount()
 		gtx.Execute(op.InvalidateCmd{})
@@ -477,6 +485,13 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
+	if p.statement != nil && statementCard(a) && p.freshDetail() != nil {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.Button(&p.statement.open, l.Text(i18n.StatementOpen)))
+			})
+		})
+	}
 	if a.OpenedOn != nil {
 		if day, valid := ui.ParseCivilDay(*a.OpenedOn); valid {
 			rows = append(rows, accountLine(view, fmt.Sprintf(l.Text(i18n.AccountCreateReviewDate), ui.FormatDay(day, l, view.DateFormat))))

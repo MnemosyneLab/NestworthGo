@@ -877,7 +877,7 @@ for the liability workflow.
 | Linux X11 | In a 900×660 Gio window on Xvfb, rejected an unchanged target, raised a bank balance from USD 100 to USD 150 and lowered it to USD 80. Followed the saved detail link and confirmed the remeasurement. Two double clicks produced two activities, and normal reopen showed USD 50 net worth and both History rows. A separate pre-History run set USD 125, then reopened with USD 125 in the bank and USD 95 net worth. Read-only SQLite comparison verified a single new baseline without any activities on that profile. The History profile had two exact remeasurement effects and two mutation receipts. Original observations, History Origin and the credit-card balance were retained. A temporary overlay seeded the verified profiles and provided an advancing synthetic clock. |
 | Tests | The Gio module suite passed, along with focused shared domain, application and Wails Go account and History tests. |
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
-| Open evidence | Backdated and non-reconciliation Wails value updates, other balance-account types and statement sessions remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. The Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | Backdated and non-reconciliation Wails value updates and other balance-account types remain open. See the credit-card statement milestone for session coverage. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. The Stage 3 production startup and target-platform cutover gates remain open. |
 
 #### Credit-card balance reconciliation
 
@@ -916,7 +916,48 @@ acknowledged, a failed refresh can only retry the read.
 | Linux X11 | In a 900×660 native Gio window on Xvfb, rejected a negative target, raised debt from USD 30 to USD 50, then set it to zero. Opened both saved details and checked the remeasurement and amount owed. Double-clicking each confirmation produced two total activities and two receipts. Normal reopen showed both History rows and USD 100 net worth. A separate pre-History profile set the debt to zero and reopened with zero debt, one new baseline observation and no activity. Read-only SQLite checks confirmed exact effects and retained origin and baseline facts. A temporary overlay seeded the verified synthetic profiles and supplied an advancing clock. |
 | Tests | The Gio module suite and focused shared domain, application, Wails Go account, History and Asset Changes tests passed. |
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
-| Open evidence | Statement sessions, backdated value updates, other liability types and the account-level Starting Point entry remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | Backdated value updates, other liability types and the account-level Starting Point entry remain open. The next milestone covers statement sessions. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Credit-card statement reconciliation
+
+**Accounts → credit card → Statement reconciliation** opens the card's
+existing reconciliation records and can start an independent session for that
+card. The [Wails account entry](../../../frontend/src/features/reconciliation/AccountReconciliation.tsx)
+opens the same records through Tasks. The
+[Wails Go adapter](../../../internal/wailsapi/reconciliation/reconciliation.go)
+owns the persisted preview and receipt for Gio's start, account confirmation
+and finish. An existing paused single-card session can continue. Completed
+records are read-only. After later bookkeeping, their original evidence
+remains visible with the shared recheck status.
+
+The Wails [whole-account check](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx#L1138)
+covers both the recorded card balance and account completeness. It uses one
+source as-of date, optional source time and reference, and an optional check
+note. No opening and closing dates define a billing period in this contract.
+The date defaults to today and is capped at today in the History Origin
+timezone. A date from before the origin can be recorded as evidence. Before
+History, the calendar uses UTC and the shared contract requires a History
+Origin for a source time. The check time is recorded separately. The balance
+checkpoint is the current ledger amount, with the amount owed shown alongside
+the signed balance. The whole-account action records evidence and leaves
+financial History, balance, net worth and cash flows unchanged.
+
+The [application session contract](../../../internal/application/reconciliation_session.go#L454)
+keeps individual numeric source comparisons and linked financial adjustments
+separate. A comparable amount for an individual check requires the current
+ledger day. Billing evidence does not authorize a backdated ledger change.
+This Gio entry can complete a single card's balance and completeness checks.
+Multi-account records and checks requiring individual evidence handling are
+available here to view.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go parity | Independent marked ledgers used a fixed review instant in Asia/Singapore. Compared the reference and note, the November 15 source date and 01:00 source time, the separate actual check timestamp, the signed USD −35 ledger balance and positive USD 35 debt magnitude. Both stored one attempt per checkpoint and a completed record with two confirmations. The only financial change was a separate USD 5 control adjustment used to invalidate the first review. Both retained USD 65 net worth after that adjustment and zero external flow. |
+| Review and recovery | Gio frames verified that completeness must be affirmed, editing preserves the evidence, a future date cannot be selected and an intervening ledger write requires a fresh review. A duplicate click did not trigger another confirmation. A lost response retried the same plan, the Go adapter replayed its receipt after reopen, and a failed detail read after acknowledgement retried only the query. Gio reopened completed evidence from the card's records. Later bookkeeping preserved both original checkpoints with the shared recheck indicator. A Wails-created multi-account session opened read-only. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, started a card session, selected the November 15 source date, set 01:00 and supplied a reference. Reviewed and confirmed the two checkpoints, then finished and reopened the completed record. The synthetic card stayed at USD 30 owed and Overview at USD 70. Read-only SQLite checks verified one completed session, three receipts, the original observations and zero financial activities. A temporary overlay seeded the verified fixture and supplied an advancing clock. |
+| Tests | The Gio module suite and focused shared application, SQLite reconciliation and Wails Go reconciliation and Asset Changes tests passed. |
+| Build and vet | The Linux Gio preview build and Gio vet passed. |
+| Open evidence | Multi-account editing, individual source comparisons and exceptions, partial finish and linked financial adjustments remain open in Gio. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 
