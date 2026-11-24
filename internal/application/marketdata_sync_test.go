@@ -460,6 +460,60 @@ func TestYahooHistoryFailClosedIsPartialNotInvented(t *testing.T) {
 	}
 }
 
+func TestYahooSyncRetriesLegacyAbsenceAndReportsPendingDate(t *testing.T) {
+	t.Parallel()
+	missing := DateRange{Start: "2026-09-08", End: "2026-09-08"}
+	equity := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, _ InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+		outcome := mappedYahooClose("2026-09-04", "185.25")
+		if rng.Start <= missing.Start && rng.End >= missing.End {
+			outcome.Reason = HistoryPendingCloseReason
+			outcome.Batch.PendingRanges = []DateRange{missing}
+		}
+		return outcome, nil
+	}}
+	service, repo, instrument, _ := newSyncFixture(t, equity)
+	ctx := t.Context()
+	household, err := service.requireHousehold(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = repo.CommitInstrumentHistory(ctx, sqlite.InstrumentHistoryCommit{
+		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "AAPL",
+		QuoteCurrency: "USD", Market: "US", Status: string(MappingMapped), Adapter: "go-yfinance",
+		SourcePolicy: string(PriceBasisYahooClose), FetchedAt: service.clock().Add(-time.Minute),
+		VerifiedRanges: []sqlite.DateSpan{{Start: string(missing.Start), End: string(missing.End)}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	health, err := service.ScanMarketDataHealth(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var repairable bool
+	for _, issue := range health.Issues {
+		if issue.TargetKey == instrumentTargetKey(instrument.ID) && issue.RangeEnd == string(missing.End) && issue.Executable {
+			repairable = true
+		}
+	}
+	if !repairable {
+		t.Fatalf("legacy gap missing from health: %+v", health.Issues)
+	}
+	if _, err := service.StartMarketDataSync(ctx, SyncRequest{Scope: SyncScopeInstrument, InstrumentID: instrument.ID.String()}); err != nil {
+		t.Fatal(err)
+	}
+	job := waitSyncTerminal(t, service)
+	var pending bool
+	for _, item := range job.Items {
+		if item.TargetKey == instrumentTargetKey(instrument.ID) && item.StartDate == string(missing.Start) && item.EndDate == string(missing.End) && item.Status == "blocked" {
+			pending = true
+		}
+	}
+	if job.Outcome != SyncOutcomePartial || !pending {
+		t.Fatalf("pending date not reported: %+v", job)
+	}
+}
+
 func TestTransientHistoryRetriesThenSucceeds(t *testing.T) {
 	t.Parallel()
 	calls := 0

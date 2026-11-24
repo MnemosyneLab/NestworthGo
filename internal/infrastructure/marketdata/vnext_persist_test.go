@@ -11,7 +11,50 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	yfinancemodels "github.com/wnjoon/go-yfinance/pkg/models"
 )
+
+func TestYahooOmittedRecentEquityCloseRemainsPending(t *testing.T) {
+	_, repo, household, instrument := seedHistoryWorkspace(t)
+	checkedAt := time.Date(2026, 11, 24, 1, 23, 0, 0, time.UTC)
+	identity := application.InstrumentMarketIdentity{ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", InstrumentType: "stock"}
+	metadata := &yfinancemodels.ChartMeta{Symbol: "AAPL", Currency: "USD", ExchangeTimezoneName: "America/New_York"}
+	friday := yfinancemodels.Bar{Date: time.Date(2026, 11, 20, 14, 30, 0, 0, time.UTC), Close: 100}
+	monday := yfinancemodels.Bar{Date: time.Date(2026, 11, 23, 14, 30, 0, 0, time.UTC), Close: 101}
+	window := application.DateRange{Start: "2026-11-20", End: "2026-11-23"}
+	missing := application.DateRange{Start: "2026-11-23", End: "2026-11-23"}
+
+	empty, err := qualifyYFinanceHistory(identity, missing, nil, metadata, checkedAt)
+	if err != nil || empty.Status != application.MappingPending || empty.Reason != application.HistoryPendingCloseReason ||
+		len(empty.Batch.PendingRanges) != 1 || empty.Batch.PendingRanges[0] != missing || len(empty.Batch.VerifiedRanges) != 0 {
+		t.Fatalf("empty response = %+v, err = %v", empty, err)
+	}
+	partial, err := qualifyYFinanceHistory(identity, window, []yfinancemodels.Bar{friday}, metadata, checkedAt)
+	if err != nil || len(partial.Batch.Observations) != 1 || len(partial.Batch.PendingRanges) != 1 || partial.Batch.PendingRanges[0] != missing {
+		t.Fatalf("partial response = %+v, err = %v", partial, err)
+	}
+	if _, err = repo.CommitInstrumentHistory(t.Context(), instrumentCommit(household, instrument, partial, checkedAt)); err != nil {
+		t.Fatal(err)
+	}
+	coverage, err := repo.ListInstrumentHistoryCoverage(t.Context(), household.ID)
+	if err != nil || len(coverage) != 1 || len(coverage[0].UnverifiedDates) != 1 ||
+		coverage[0].UnverifiedDates[0] != string(missing.Start) || !coverage[0].NoObservationExpiresAt[string(missing.Start)].IsZero() ||
+		len(coverage[0].CloseMarketDates) != 1 || coverage[0].CloseMarketDates[0] != string(window.Start) {
+		t.Fatalf("partial coverage = %+v, err = %v", coverage, err)
+	}
+	late, err := qualifyYFinanceHistory(identity, missing, []yfinancemodels.Bar{monday}, metadata, checkedAt.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.CommitInstrumentHistory(t.Context(), instrumentCommit(household, instrument, late, checkedAt.Add(time.Hour))); err != nil {
+		t.Fatal(err)
+	}
+	coverage, err = repo.ListInstrumentHistoryCoverage(t.Context(), household.ID)
+	if err != nil || len(coverage) != 1 || len(coverage[0].UnverifiedDates) != 0 ||
+		len(coverage[0].CloseMarketDates) != 2 || coverage[0].CloseMarketDates[1] != string(missing.Start) {
+		t.Fatalf("recovered coverage = %+v, err = %v", coverage, err)
+	}
+}
 
 func TestEquityCompleteFixturePersistsClosesCoverageAndDirtyGeneration(t *testing.T) {
 	ctx := context.Background()

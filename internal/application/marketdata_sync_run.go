@@ -323,7 +323,8 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 			identity.Market = instrumentMarket(inst)
 		}
 	}
-	s.beginSyncItem(job, s.syncHistoryDetail(ctx, job.snapshot.HouseholdID, target, providerKey, task.rng))
+	item := s.syncHistoryDetail(ctx, job.snapshot.HouseholdID, target, providerKey, task.rng)
+	s.beginSyncItem(job, item)
 	defer s.publishSync(job, SyncEventProgress, func() { job.snapshot.Current = nil })
 	outcome, fetchErr := s.fetchInstrumentHistoryWithRetry(ctx, job, history, identity, task.rng, providerKey, stopped, target)
 	if aborted(ctx) {
@@ -350,6 +351,20 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 			return !aborted(ctx)
 		}
 		identity.QuoteCurrency = metal.QuoteCurrency
+	}
+	if outcome.Reason == HistoryPendingCloseReason {
+		// A recheck can span an existing close or an explicitly closed date.
+		// Only report and persist gaps the local coverage plan still needs.
+		var missing []DateRange
+		for _, pending := range outcome.Batch.PendingRanges {
+			for _, gap := range task.need.MissingRanges {
+				start, end := max(pending.Start, gap.Start), min(pending.End, gap.End)
+				if start <= end {
+					missing = append(missing, DateRange{Start: start, End: end})
+				}
+			}
+		}
+		outcome.Batch.PendingRanges = missing
 	}
 	if !s.jobMayWrite(job) {
 		s.recordBlocker(job, target, string(domain.ErrBackupRestoreBusy), "workspace_fenced")
@@ -378,6 +393,18 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 			job.snapshot.CommittedBatches++
 		}
 		job.snapshot.CompletedTargets++
+		if outcome.Reason == HistoryPendingCloseReason && len(outcome.Batch.PendingRanges) > 0 {
+			job.snapshot.Blockers = append(job.snapshot.Blockers, SyncBlocker{
+				TargetKey: target, Code: "history_pending", Reason: HistoryPendingCloseReason,
+			})
+			for _, pending := range outcome.Batch.PendingRanges {
+				pendingItem := item
+				pendingItem.Status, pendingItem.Detail = "blocked", ""
+				pendingItem.StartDate, pendingItem.EndDate = string(pending.Start), string(pending.End)
+				job.snapshot.Items = append(job.snapshot.Items, pendingItem)
+			}
+			return
+		}
 		job.snapshot.Items = append(job.snapshot.Items, SyncItemProgress{
 			TargetKey: target,
 			Kind:      "instrument",

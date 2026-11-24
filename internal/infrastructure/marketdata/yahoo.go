@@ -436,10 +436,30 @@ func qualifyYFinanceHistory(identity application.InstrumentMarketIdentity, rng a
 		}
 		observations = append(observations, observation)
 	}
-	if len(observations) == 0 {
+	dates, err := application.InclusiveMarketDates(rng)
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+	}
+	for _, date := range dates {
+		label := string(date)
+		if _, returned := seenDates[label]; !returned && domain.YahooEquityCloseMayBePending(domain.InstrumentType(identity.InstrumentType), identity.Market, label, meta.LastFinalizedMarketDate) {
+			meta.PendingMarketDates = append(meta.PendingMarketDates, label)
+		}
+	}
+	if len(meta.PendingMarketDates) > 0 {
+		completeness, err = completenessFor(meta, false)
+		if err != nil {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+		}
+		completeness.Reason = application.HistoryPendingCloseReason
+	}
+	if len(observations) == 0 && len(meta.PendingMarketDates) == 0 {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUnsupported, Reason: "unsupported_price_basis"}, nil
 	}
 	status := mappingStatusFor(completeness, application.MappingMapped)
+	if len(observations) == 0 {
+		status = application.MappingPending
+	}
 	timestampBasis := application.TimestampBasisSessionClose
 	if crypto {
 		timestampBasis = application.TimestampBasisPolicyDerived

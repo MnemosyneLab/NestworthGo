@@ -109,7 +109,7 @@ func (s *Service) planMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 	if err != nil {
 		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
-	for _, item := range coverage {
+	for index, item := range coverage {
 		item.CloseMarketDates = append(item.CloseMarketDates, agentDates[item.InstrumentID]...)
 		marketFinalized := finalized
 		switch {
@@ -130,6 +130,22 @@ func (s *Service) planMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 					return HistoryRepairPlan{}, historyRepairInputs{}, err
 				}
 			}
+		}
+		if item.ProviderKey == YahooFinanceProviderKey {
+			// Older versions cached missing bars as no-observation even for
+			// recent trading dates. Recheck those dates through normal sync.
+			var confirmed []string
+			for _, date := range item.NoObservationDates {
+				if !instrumentKnownClosedDate(item, date) && domain.YahooEquityCloseMayBePending(domain.InstrumentType(item.InstrumentType), item.Market, date, marketFinalized) {
+					item.UnverifiedDates = append(item.UnverifiedDates, date)
+				} else {
+					confirmed = append(confirmed, date)
+				}
+			}
+			item.NoObservationDates = confirmed
+			// Keep agent dates out of the reusable coverage slice here.
+			coverage[index].NoObservationDates = item.NoObservationDates
+			coverage[index].UnverifiedDates = item.UnverifiedDates
 		}
 		start := starts[item.InstrumentID]
 		if start == "" {
