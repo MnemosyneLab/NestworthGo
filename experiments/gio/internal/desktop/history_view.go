@@ -26,6 +26,7 @@ type historyPage struct {
 	reloadButton, retryButton, moreButton widget.Clickable
 	filter                                historyFilterControls
 	cashMovements                         *historyCashMovements
+	startPoint                            *historyStart
 	reads                                 *historyReads
 	bound, revision                       uint64
 	onPosted                              func()
@@ -73,6 +74,14 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		}
 	}
 	if c := p.cashMovements; c != nil {
+		if s := p.startPoint; s != nil && c.draft == nil {
+			if p.noHistory() && s.start.Clicked(gtx) {
+				s.open = true
+			}
+			if s.open {
+				return p.layoutStartingPoint(gtx, view)
+			}
+		}
 		if c.draft == nil {
 			for i := range c.actions {
 				if c.actions[i].Clicked(gtx) {
@@ -116,7 +125,21 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					if p.startPoint == nil || !p.startPoint.ready || p.reads.references == nil || p.reads.references.Origin == nil {
+						return p.status(gtx, view)
+					}
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
+						layout.Rigid(view.Message(view.Language.Text(i18n.HistoryStartSaved), view.Colors.Ink)),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
+					)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.startPoint == nil || !p.noHistory() {
+						return layout.Dimensions{}
+					}
+					return view.Button(&p.startPoint.start, view.Language.Text(i18n.HistoryStartAction))(gtx)
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.model.Err() != nil {
 						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)

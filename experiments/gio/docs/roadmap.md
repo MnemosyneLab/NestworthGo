@@ -56,7 +56,8 @@ Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Stage 4 adds History filters and activity detail,
 plus reviewed contributions, withdrawals, cash transfers and currency
 conversions. Eligible cash movements, including Holdings cash and internal FX,
-support amount corrections and linked reversals. The scoped Stage 2
+support amount corrections and linked reversals. History can now capture an
+opening baseline for an existing household without positive positions. The scoped Stage 2
 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
@@ -742,7 +743,7 @@ and Overview. Retry on a failed detail or timeline read uses the read path.
 | State and fault handling | Gio frame tests rejected an unchanged amount, required a fresh preview after an edit and an intervening ledger write, and blocked a duplicate click and Back during confirmation. A simulated snapshot refresh error accompanied a real saved ID, then detail Retry recovered that ID with no new write. A deliberately lost reversal reply replayed the identical request. Reopening returned both saved IDs from their receipts. Already corrected, already reversed, unsupported transfer and missing activity paths were rejected. |
 | Linux X11 | On Debian 13 amd64 with Go 1.27.4, ran the native Gio window at 900×660 on Xvfb with Mesa software rendering. Canceled and reopened the correction review, double-clicked both confirmations, and followed linked details from the saved replacement to the original and correction reversal. Overview showed USD 1,774.13 before and after normal quit and reopen. Reopened History showed 12 records and linked the latest reversal back to the original. Read-only SQLite comparison preserved every original activity and effect and found three added activities, three exact USD effects, one correction group and two mutation receipts. A temporary overlay fixed the clock and seeded the verified profile. |
 | Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, shared application correction/reversal and mutation, and SQLite query regressions. |
-| Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. Broader correction forms, repeat and origin/target-balance workflows remain Stage 4 work. |
+| Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. Broader correction forms, repeat and target-balance workflows remain Stage 4 work. |
 
 #### Transfer, Holdings cash and FX history amendments
 
@@ -773,7 +774,42 @@ apply to these operations.
 | Failure and replay | A zero destination principal could not advance to confirmation, and insufficient source cash was rejected. The fee regression covered blank retention and explicit zero removal. The archived destination accepted correction, preserved archive metadata and refused standalone reversal until restored. After a known saved correction and failed detail read, Retry issued no write. A lost reversal reply replayed the identical request, including after reopen. A different request hash with the same mutation ID was rejected. |
 | Linux X11 | In a 900×660 native Gio window on Xvfb, rejected zero destination principal, reviewed both native amounts and the fee, double-clicked confirmation, followed the original and replacement links, and reversed the replacement. Normal quit and reopen retained 17 activities and USD 1,955.08 net worth. A separate profile exercised conversion correction and reversal, including scrolling to the balances at 700×460. Reopen showed USD 1,954.68 net worth. Closed read-only SQLite verified three appended activities, nine exact effects and two mutation receipts on each profile. Original activities, effects and market quotes were retained. A temporary overlay fixed the clock and seeded the verified profiles. |
 | Automated checks | Gio module tests, vet and Linux preview build passed, alongside focused shared Wails History, domain, correction, reversal, FX and mutation tests. |
-| Open evidence | Broader Wails edits such as changing original endpoints, a market quote calculator, repeat, product history, and origin and target-balance workflows remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | Broader Wails edits such as changing original endpoints, a market quote calculator, repeat, product history, and target-balance workflows remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
+
+#### Start history for an existing household
+
+Wails exposes [Start History](../../../frontend/src/features/history/StartHistoryForm.tsx)
+in [History](../../../frontend/src/features/history/HistoryPage.tsx) and in
+[account action sheets](../../../frontend/src/features/accounts/AccountActionSheets.tsx)
+when an event needs a Starting Point. Its Go adapter calls `StartHistoryOnDate`.
+Gio onboarding can already create an empty Starting Point, and Gio account
+creation can already write a pre-History balance or use its existing dated
+opening-entry contract after History starts. The new **Ledger activity → Start
+recording history** action captures balances across the existing household.
+
+Gio defaults to today in the resolved display timezone and shows the native
+amounts that the shared planner will capture. Populated ledgers use the actual
+confirmation instant on that day. An earlier date requires zero balances,
+cash and holdings and uses midnight in the selected timezone. Existing account
+values, per-currency cash, archived account state and ownership become opening
+facts. Capturing the Starting Point creates no ledger activities. Positive
+positions are deferred until the opening-cost controls are available.
+
+The preview and confirmation reuse the same
+[application planner](../../../internal/application/history.go) as Wails.
+The reviewed civil day and timezone are frozen. An intervening write requires
+a new review. The persisted household origin is the durable confirmation result.
+After a confirmation or a lost reply, Gio verifies the origin before allowing
+another write. When verification fails, Retry rereads the saved state.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go parity | Independently prepared marked profiles used `2026-11-21T17:00:00Z` and `Asia/Singapore`. The populated case captured USD 125.5 in savings, an archived USD 31.25 loan, and Holdings cash of USD 15.125 plus EUR 20.5 with the same account state and ownership. Both rejected an earlier start with balances. The empty case matched `2026-11-19T16:00:00Z` for the selected `2026-11-20` local day. |
+| State and fault handling | Gio frame tests covered cancel, stale preview after cash changed, positive positions with a valid Wails draft price, duplicate confirmation, failed reads after both known and ambiguous writes and read-only Retry. A first USD 5 contribution left USD 130.5. Replay after normal reopen returned the same origin and preserved the recorded activity and opening facts. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, rejected an earlier date with balances, reviewed native balances and double-clicked the confirmation. History was empty immediately after start. A subsequent USD 5 contribution brought savings to USD 130.5. Normal quit and reopen showed that single activity and the same balance. The empty profile accepted November 20 at midnight, then reopened with empty History. Closed read-only SQLite checks found exactly one origin in each profile, four opening components in the populated profile and none in the empty profile. The populated file retained original balances and contained only the separate contribution and its mutation receipt. A temporary overlay set the clock and seeded the verified profiles. |
+| Tests | The Gio module suite and focused application, Wails History adapter and SQLite History tests passed. |
+| Build and vet | The Linux Gio preview build and Gio and shared application vet checks passed. |
+| Open evidence | The account action-sheet entry, positive Holdings opening costs, and the independent target-balance reconciliation form remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were not run. The Stage 3 production startup and target-platform cutover gates remain open. |
 
 ## Moving from the preview to a desktop build
 

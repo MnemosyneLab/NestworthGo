@@ -89,36 +89,44 @@ func (s *Service) StartHistoryOnDate(ctx context.Context, timezone, startDate st
 		return domain.HistoryOrigin{}, err
 	}
 	defer unlock()
-	bootstrap, err := s.Bootstrap(ctx)
+	data, err := s.prepareHistoryStart(ctx, timezone, startDate, costOverrides)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
 	}
+	return s.saveHistoryStart(ctx, data)
+}
+
+func (s *Service) prepareHistoryStart(ctx context.Context, timezone, startDate string, costOverrides map[domain.HoldingID]string) (domain.HistoryOriginData, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return domain.HistoryOriginData{}, err
+	}
 	if bootstrap.Household == nil {
-		return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
+		return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
 	now := s.clock()
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
-		return domain.HistoryOrigin{}, err
+		return domain.HistoryOriginData{}, err
 	}
 	startedAt, err := historyStartInstant(startDate, timezone, now)
 	if err != nil {
-		return domain.HistoryOrigin{}, err
+		return domain.HistoryOriginData{}, err
 	}
 	if startedAt.Before(now) && snapshotHasStartingAssets(snapshot) {
 		location, locationErr := time.LoadLocation(strings.TrimSpace(timezone))
 		if locationErr != nil {
-			return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
+			return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
 		}
 		if strings.TrimSpace(startDate) != "" && strings.TrimSpace(startDate) == now.In(location).Format("2006-01-02") {
 			startedAt = now
 		} else {
-			return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrConflict, Field: "startDate", Message: "a past start requires zero account balances, cash, and holdings"}
+			return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Field: "startDate", Message: "a past start requires zero account balances, cash, and holdings"}
 		}
 	}
 	origin, err := domain.NewHistoryOrigin(bootstrap.Household.ID, timezone, startedAt, now)
 	if err != nil {
-		return domain.HistoryOrigin{}, err
+		return domain.HistoryOriginData{}, err
 	}
 	data := domain.HistoryOriginData{Origin: origin}
 	instrumentByID := make(map[domain.InstrumentID]domain.Instrument, len(snapshot.Instruments))
@@ -148,17 +156,17 @@ func (s *Service) StartHistoryOnDate(ctx context.Context, timezone, startDate st
 		if !quantity.IsZero() {
 			instrument, ok := instrumentByID[instrumentID]
 			if !ok {
-				return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrIntegrity, Field: "instrumentId", Message: "Holding Instrument was not found"}
+				return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrIntegrity, Field: "instrumentId", Message: "Holding Instrument was not found"}
 			}
 			quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
 			if quote == nil {
-				return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost", Message: "a selected Instrument quote is required to start a positive Holding"}
+				return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost", Message: "a selected Instrument quote is required to start a positive Holding"}
 			}
 			cost := quote.UnitPrice
 			if override, ok := costOverrides[holding.ID]; ok {
 				parsed, parseErr := domain.ParseUnitPrice(override)
 				if parseErr != nil {
-					return domain.HistoryOrigin{}, parseErr
+					return domain.HistoryOriginData{}, parseErr
 				}
 				cost = parsed
 			}
@@ -172,6 +180,10 @@ func (s *Service) StartHistoryOnDate(ctx context.Context, timezone, startDate st
 	for _, preference := range snapshot.FXPreferences {
 		data.FXPreferences = append(data.FXPreferences, domain.HistoryOriginFXPreference{OriginID: origin.ID, CurrencyA: preference.CurrencyA, CurrencyB: preference.CurrencyB, SourceKind: preference.SourceKind, CreatedAt: now})
 	}
+	return data, nil
+}
+
+func (s *Service) saveHistoryStart(ctx context.Context, data domain.HistoryOriginData) (domain.HistoryOrigin, error) {
 	result, err := s.repository.StartHistory(ctx, data)
 	if err == nil {
 		s.invalidateAnalysis()

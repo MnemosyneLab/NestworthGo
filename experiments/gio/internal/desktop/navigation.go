@@ -122,7 +122,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
 		return
 	}
-	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved()) {
+	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.startingPointUnresolved()) {
 		return
 	}
 	entry := s.trail.current()

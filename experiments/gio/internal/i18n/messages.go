@@ -537,6 +537,21 @@ const (
 	HistoryOriginalCorrected
 	HistoryOriginalReversed
 	HistoryReversedEffect
+	HistoryStartAction
+	HistoryStartReview
+	HistoryStartConfirm
+	HistoryStartEdit
+	HistoryStartScope
+	HistoryStartCaptureNow
+	HistoryStartBaseline
+	HistoryStartEmpty
+	HistoryStartPastBalances
+	HistoryStartHoldingCost
+	HistoryStartExists
+	HistoryStartPreviewFailed
+	HistoryStartWriteFailed
+	HistoryStartSaved
+	HistoryStartReadFailed
 	HistoryAdded
 	HistoryRemoved
 	HistoryUnitPrice
