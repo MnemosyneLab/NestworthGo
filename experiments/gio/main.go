@@ -31,7 +31,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	workspace := newWorkspace(wordmark, mark)
+	return newShell(wordmark, mark).run()
+}
+
+func (s *shell) run() error {
 	window := new(app.Window)
 	window.Option(app.Title("Nestworth"), app.Size(1120, 840), app.MinSize(700, 460))
 	var ops op.Ops
@@ -41,7 +44,7 @@ func run() error {
 			return event.Err
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, event)
-			workspace.layout(gtx)
+			s.layout(gtx)
 			event.Frame(gtx.Ops)
 		}
 	}

@@ -35,8 +35,13 @@ var darkPalette = palette{
 	accent:            color.NRGBA{R: 160, G: 174, B: 255, A: 255},
 }
 
-func (w *workspace) colors() *palette {
-	if w.dark {
+type sessionPreferences struct {
+	language appLanguage
+	dark     bool
+}
+
+func (p sessionPreferences) colors() *palette {
+	if p.dark {
 		return &darkPalette
 	}
 	return &lightPalette

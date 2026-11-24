@@ -1,8 +1,10 @@
 # Gio desktop preview
 
-This standalone Go module contains the Nestworth sidebar and a Gio workspace. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection.
+This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains a sample form with an institution name and multiline notes. The form keeps its draft in memory.
 
-The sidebar footer switches between Simplified Chinese and English, and between light and dark appearance. Labels use the message catalog in `localization.go` with an English fallback. Appearance colors come from `appearance.go`. Each preview launch starts in Simplified Chinese and light mode, with preferences and editor text kept in memory for that run.
+The sidebar footer switches between Simplified Chinese and English, and between light and dark appearance. Labels use the message catalog in `localization.go` with an English fallback. Appearance colors come from `appearance.go`. Each preview launch starts in Simplified Chinese and light mode.
+
+To check live switching, open the component preview, enter text in both fields, and select part of the notes. Switch language and appearance in both directions. The component preview stays open and keeps the draft and selection.
 
 On Apple Silicon with the repository's Go and Xcode toolchain, run from the repository root:
 
