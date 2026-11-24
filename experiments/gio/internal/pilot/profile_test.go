@@ -3,11 +3,14 @@ package pilot
 import (
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -63,7 +66,7 @@ func TestConcurrentFirstLaunchAndSessionLock(t *testing.T) {
 	for range 2 {
 		go func() {
 			<-start
-			finished <- Ensure(ctx, paths)
+			finished <- ensureFixture(ctx, paths, true)
 		}()
 	}
 	close(start)
@@ -72,30 +75,160 @@ func TestConcurrentFirstLaunchAndSessionLock(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	db, unlock, err := OpenSession(ctx, paths)
+	session, err := OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Ensure(ctx, paths); err != nil {
-		t.Fatalf("launcher could not verify the live profile: %v", err)
+	defer session.Close()
+	before := fixtureContents(t, paths)
+	if err := Verify(ctx, paths); !errors.Is(err, backup.ErrAlreadyRunning) {
+		t.Fatalf("verification did not honor the live profile lock: %v", err)
 	}
-	if second, release, err := OpenSession(ctx, paths); !errors.Is(err, backup.ErrAlreadyRunning) {
+	if second, err := OpenSession(ctx, paths); !errors.Is(err, backup.ErrAlreadyRunning) {
 		if second != nil {
-			second.Close()
-			release()
+			_ = second.Close()
 		}
 		t.Fatalf("second desktop process lock = %v", err)
 	}
-	if err := errors.Join(db.Close(), unlock()); err != nil {
+	if !maps.Equal(before, fixtureContents(t, paths)) {
+		t.Fatal("blocked launches changed the active fixture")
+	}
+	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, release, err := OpenSession(ctx, paths)
+	reopened, err := OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatalf("previous session retained the lock: %v", err)
 	}
-	if err := errors.Join(reopened.Close(), release()); err != nil {
+	if err := reopened.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestPendingRestoreBlocksWithoutReconciliationAndReleasesLock(t *testing.T) {
+	_, paths := testPaths(t)
+	ctx := t.Context()
+	if err := Prepare(ctx, paths); err != nil {
+		t.Fatal(err)
+	}
+	if err := backup.WriteJournal(paths.database, backup.Journal{State: backup.StatePrepared}); err != nil {
+		t.Fatal(err)
+	}
+	before := fixtureContents(t, paths)
+	if session, err := OpenSession(ctx, paths); !errors.Is(err, ErrRecoveryPending) {
+		if session != nil {
+			_ = session.Close()
+		}
+		t.Fatalf("pending restore did not block startup: %v", err)
+	}
+	if !maps.Equal(before, fixtureContents(t, paths)) {
+		t.Fatal("startup modified a fixture with a pending restore")
+	}
+	safetyPath := paths.database + ".pre-restore"
+	if err := os.Rename(paths.database, safetyPath); err != nil {
+		t.Fatal(err)
+	}
+	before = fixtureContents(t, paths)
+	if err := Verify(ctx, paths); !errors.Is(err, ErrRecoveryPending) {
+		t.Fatalf("an interrupted rename was not reported as a pending restore: %v", err)
+	}
+	if !maps.Equal(before, fixtureContents(t, paths)) {
+		t.Fatal("verification changed a fixture with an interrupted rename")
+	}
+	if err := os.Rename(safetyPath, paths.database); err != nil {
+		t.Fatal(err)
+	}
+	if err := backup.RemoveJournal(paths.database); err != nil {
+		t.Fatal(err)
+	}
+	session, err := OpenSession(ctx, paths)
+	if err != nil {
+		t.Fatalf("blocked startup retained ownership: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRejectsUnmarkedLegacyProfileWithoutCreatingSQLiteOrLockSidecars(t *testing.T) {
+	_, paths := testPaths(t)
+	ctx := t.Context()
+	if err := Prepare(ctx, paths); err != nil {
+		t.Fatal(err)
+	}
+	session, err := OpenSession(ctx, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sqlite.NewConfigurationRepository(session.DB).SaveConfiguration(markerKey, []byte("unrecognized fixture"))
+	if err := errors.Join(err, session.Close()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(paths.database + ".instance-lock"); err != nil {
+		t.Fatal(err)
+	}
+	before := fixtureContents(t, paths)
+	if session, err := OpenSession(ctx, paths); err == nil {
+		_ = session.Close()
+		t.Fatal("opened an unmarked legacy profile")
+	}
+	if !maps.Equal(before, fixtureContents(t, paths)) {
+		t.Fatal("refusing an unmarked profile changed its files")
+	}
+}
+
+func TestVerificationReadsTheMarkerFromACommittedWAL(t *testing.T) {
+	_, source := testPaths(t)
+	_, candidate := testPaths(t)
+	ctx := t.Context()
+	session, err := OpenSession(ctx, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	if err := session.DB.CheckpointWAL(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlite.NewConfigurationRepository(session.DB).SaveConfiguration(markerKey, []byte("invalid marker in WAL")); err != nil {
+		t.Fatal(err)
+	}
+	// Model a stopped writer whose committed change remains in the WAL.
+	files := fixtureContents(t, source)
+	if files["nestworth.db-wal"] == "" {
+		t.Fatal("the fixture mutation did not reach the WAL")
+	}
+	if err := os.Mkdir(candidate.data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"nestworth.db", "nestworth.db-wal", "settings.json"} {
+		if err := os.WriteFile(filepath.Join(candidate.data, name), []byte(files[name]), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := fixtureContents(t, candidate)
+	if err := Verify(ctx, candidate); err == nil || !strings.Contains(err.Error(), "fixture marker does not match") {
+		t.Fatalf("verification ignored the committed WAL marker: %v", err)
+	}
+	if !maps.Equal(before, fixtureContents(t, candidate)) {
+		t.Fatal("verification changed the fixture or its WAL")
+	}
+}
+
+func fixtureContents(t *testing.T, paths Paths) map[string]string {
+	t.Helper()
+	entries, err := os.ReadDir(paths.data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		raw, err := os.ReadFile(filepath.Join(paths.data, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents[entry.Name()] = string(raw)
+	}
+	return contents
 }
 
 func TestEnsurePreservesUnknownOrIncompleteData(t *testing.T) {

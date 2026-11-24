@@ -104,19 +104,16 @@ def build():
 
 def launch(package):
     executable = binary(package)
-    run_dir = subprocess.check_output([executable, "--print-pilot-root"], text=True).rstrip("\n")
-    subprocess.run([executable, "--ensure-pilot-fixture"], check=True)
-    subprocess.run([executable, "--verify-pilot-fixture"], check=True)
-    print(f"Gio data: {Path(run_dir) / 'data'}", flush=True)
+    # The executable owns startup checks and shows a window if startup is blocked.
     if not MAC:
         os.execl(executable, NAME)
-    if os.environ.get("NESTWORTH_GIO_RUN_DIR"):
+    overrides = []
+    for name in ("NESTWORTH_GIO_RUN_DIR", "NESTWORTH_DATABASE_PATH", "NESTWORTH_SETTINGS_PATH"):
+        if value := os.environ.get(name):
+            overrides.extend(["--env", f"{name}={value}"])
+    if overrides:
         # An explicit fixture may differ from an already open window.
-        data = Path(run_dir) / "data"
-        subprocess.run(["open", "-n", "-a", package,
-                        "--env", "NESTWORTH_GIO_RUN_DIR=" + run_dir,
-                        "--env", f"NESTWORTH_DATABASE_PATH={data / 'nestworth.db'}",
-                        "--env", f"NESTWORTH_SETTINGS_PATH={data / 'settings.json'}"], check=True)
+        subprocess.run(["open", "-n", "-a", package, *overrides], check=True)
     else:
         subprocess.run(["open", package], check=True)
 

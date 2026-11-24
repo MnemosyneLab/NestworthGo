@@ -1,5 +1,3 @@
-import contextlib
-import io
 import os
 from pathlib import Path
 import tempfile
@@ -47,20 +45,14 @@ class PreviewTests(unittest.TestCase):
     def test_finder_reopens_the_default_app_and_keeps_explicit_fixtures_isolated(self):
         package = Path("/test/Nestworth Gio.app")
         root = "/test/gio data"
-        for env in [{}, {"NESTWORTH_GIO_RUN_DIR": root}]:
+        for env, expected in [
+            ({}, ["open", package]),
+            ({"NESTWORTH_GIO_RUN_DIR": root}, ["open", "-n", "-a", package, "--env", "NESTWORTH_GIO_RUN_DIR=" + root]),
+            ({"NESTWORTH_GIO_RUN_DIR": root, "NESTWORTH_DATABASE_PATH": "/outside.db"},
+             ["open", "-n", "-a", package, "--env", "NESTWORTH_GIO_RUN_DIR=" + root, "--env", "NESTWORTH_DATABASE_PATH=/outside.db"]),
+        ]:
             with self.subTest(env=env), patch.dict(os.environ, env, clear=True), \
                     patch.object(preview, "MAC", True), \
-                    patch.object(preview.subprocess, "check_output", return_value=root + "\n") as output, \
-                    patch.object(preview.subprocess, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+                    patch.object(preview.subprocess, "run") as run:
                 preview.launch(package)
-                binary = package / "Contents/MacOS/Nestworth Gio"
-                output.assert_called_once_with([binary, "--print-pilot-root"], text=True)
-                commands = [call.args[0] for call in run.call_args_list]
-                self.assertEqual(commands[:2], [[binary, "--ensure-pilot-fixture"], [binary, "--verify-pilot-fixture"]])
-                expected = ["open", package]
-                if env:
-                    expected = ["open", "-n", "-a", package,
-                                "--env", "NESTWORTH_GIO_RUN_DIR=" + root,
-                                "--env", "NESTWORTH_DATABASE_PATH=" + root + "/data/nestworth.db",
-                                "--env", "NESTWORTH_SETTINGS_PATH=" + root + "/data/settings.json"]
-                self.assertEqual(commands[2:], [expected])
+                run.assert_called_once_with(expected, check=True)

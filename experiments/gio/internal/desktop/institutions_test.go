@@ -220,22 +220,18 @@ func newDirectoryFixture(t *testing.T) (context.Context, func() (*application.Se
 	}
 	open := func() (*application.Service, func()) {
 		t.Helper()
-		db, unlock, err := pilot.OpenSession(ctx, paths)
+		session, err := pilot.OpenSession(ctx, paths)
 		if err != nil {
 			t.Fatal(err)
 		}
 		close := func() {
 			t.Helper()
-			if db != nil {
-				err := errors.Join(db.CheckpointWAL(ctx), db.Close(), unlock())
-				db = nil
-				if err != nil {
-					t.Fatal(err)
-				}
+			if err := session.Close(); err != nil {
+				t.Fatal(err)
 			}
 		}
 		t.Cleanup(close)
-		return application.NewService(sqlite.NewRepository(db)), close
+		return application.NewService(sqlite.NewRepository(session.DB)), close
 	}
 	return ctx, open
 }

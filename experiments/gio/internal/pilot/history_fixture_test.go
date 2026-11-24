@@ -21,12 +21,12 @@ func TestPilotHistoryPagesAfterReopen(t *testing.T) {
 	// remain valid after closing the previous handle to the fixture.
 	read := func(query domain.ActivityQuery) domain.ActivityPage {
 		t.Helper()
-		db, err := Open(ctx, paths)
+		session, err := OpenSession(ctx, paths)
 		if err != nil {
 			t.Fatal(err)
 		}
-		page, err := application.NewService(sqlite.NewRepository(db)).ListActivityPage(ctx, query)
-		closeErr := db.Close()
+		page, err := application.NewService(sqlite.NewRepository(session.DB)).ListActivityPage(ctx, query)
+		closeErr := session.Close()
 		if err != nil || closeErr != nil {
 			t.Fatalf("read activity page: %v; close: %v", err, closeErr)
 		}
@@ -102,12 +102,12 @@ func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := Open(ctx, paths)
+	reopened, err := OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	page, err := application.NewService(sqlite.NewRepository(reopened)).ListActivityPage(ctx, domain.ActivityQuery{Limit: 2})
+	page, err := application.NewService(sqlite.NewRepository(reopened.DB)).ListActivityPage(ctx, domain.ActivityQuery{Limit: 2})
 	if err != nil || len(page.Activities) != 0 || page.HasMore || page.Next != nil {
 		t.Fatalf("expected existing history to remain empty, got %+v and %v", page, err)
 	}

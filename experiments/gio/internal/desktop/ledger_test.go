@@ -37,13 +37,13 @@ func TestLedgerHistoryUsesSavedGeneralFormatAndRecordedDay(t *testing.T) {
 	if err := pilot.Prepare(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
-	db, err := pilot.Open(ctx, paths)
+	session, err := pilot.OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
-	service := application.NewService(sqlite.NewRepository(db))
-	store, err := preferences.Open(paths.SettingsPath(), db, service)
+	defer session.Close()
+	service := application.NewService(sqlite.NewRepository(session.DB))
+	store, err := preferences.Open(paths.SettingsPath(), session.DB, service)
 	if err != nil {
 		t.Fatal(err)
 	}

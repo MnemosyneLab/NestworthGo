@@ -135,9 +135,13 @@ after rebuilding the app, reopen that household and its saved preferences.
 | macOS | `~/Library/Application Support/com.nestworth.gio/` |
 | Linux | `$XDG_CONFIG_HOME/com.nestworth.gio/`, or `~/.config/com.nestworth.gio/` |
 
-The profile contains `data/nestworth.db` and `data/settings.json`. Gio
-verifies the household marker and settings before opening the database for
-writes. If an existing profile fails verification, startup reports the error.
+The profile contains `data/nestworth.db` and `data/settings.json`. Gio takes
+the same per-database instance lock as Wails, verifies the household marker
+and settings, and then opens the database for writes. The native startup
+window reports an occupied ledger, a pending restore, or an invalid profile.
+Close the owner before opening another session. Gio leaves pending restore
+files in place. The empty `data/nestworth.db.instance-lock` file can remain
+after quit. Its operating-system lock is released when the session ends.
 
 To run a disposable scenario or reopen an older verified Gio fixture, set
 `NESTWORTH_GIO_RUN_DIR` to its private, absolute directory when invoking

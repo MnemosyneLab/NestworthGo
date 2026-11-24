@@ -115,6 +115,11 @@ const (
 	NavigationFiltered
 	NavigationBackTo
 	NavigationForwardTo
+	StartupBlocked
+	StartupInUse
+	StartupRecoveryPending
+	StartupUnavailable
+	StartupQuit
 	DirectoryView
 	DirectoryViewName
 	DirectoryObjectUnavailable

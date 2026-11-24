@@ -11,9 +11,11 @@ import (
 
 	"gioui.org/app"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/desktop"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -26,8 +28,13 @@ func main() {
 		return
 	}
 	go func() {
-		if err := run(); err != nil {
-			fmt.Fprintln(os.Stderr, pilot.DisplayName+" could not start:", err)
+		if started, err := run(); err != nil {
+			fmt.Fprintln(os.Stderr, pilot.DisplayName+":", err)
+			if !started {
+				if err := desktop.ShowStartupBlocked(startupMessage(err)); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+				}
+			}
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -62,33 +69,45 @@ func pilotCommand(args []string) error {
 	return nil
 }
 
-func run() (result error) {
+func startupMessage(err error) i18n.MessageID {
+	switch {
+	case errors.Is(err, backup.ErrAlreadyRunning):
+		return i18n.StartupInUse
+	case errors.Is(err, pilot.ErrRecoveryPending):
+		return i18n.StartupRecoveryPending
+	default:
+		return i18n.StartupUnavailable
+	}
+}
+
+func run() (started bool, result error) {
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
-		return err
+		return false, err
 	}
 	wordmark, err := loadBrandImage("wordmark.png")
 	if err != nil {
-		return err
+		return false, err
 	}
 	mark, err := loadBrandImage("mark.png")
 	if err != nil {
-		return err
+		return false, err
 	}
 	ctx := context.Background()
-	db, unlock, err := pilot.OpenSession(ctx, paths)
+	session, err := pilot.OpenSession(ctx, paths)
 	if err != nil {
-		return err
+		return false, err
 	}
-	defer func() {
-		result = errors.Join(result, db.CheckpointWAL(context.Background()), db.Close(), unlock())
-	}()
-	service := application.NewService(sqlite.NewRepository(db))
-	prefs, err := preferences.Open(paths.SettingsPath(), db, service)
+	defer func() { result = errors.Join(result, session.Close()) }()
+	service := application.NewService(sqlite.NewRepository(session.DB))
+	prefs, err := preferences.Open(paths.SettingsPath(), session.DB, service)
 	if err != nil {
-		return err
+		return false, err
 	}
-	return desktop.Run(ctx, service, prefs, wordmark, mark)
+	if _, err := service.Bootstrap(ctx); err != nil {
+		return false, err
+	}
+	return true, desktop.Run(ctx, service, prefs, wordmark, mark)
 }
 
 func loadBrandImage(name string) (image.Image, error) {

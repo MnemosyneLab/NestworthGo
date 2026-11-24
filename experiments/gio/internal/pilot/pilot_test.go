@@ -57,8 +57,8 @@ func TestPilotRejectsMismatchedPathsAndLinkedFiles(t *testing.T) {
 	if err := os.Symlink(outside, paths.settings); err != nil {
 		t.Fatal(err)
 	}
-	if db, err := Open(ctx, paths); err == nil {
-		_ = db.Close()
+	if session, err := OpenSession(ctx, paths); err == nil {
+		_ = session.Close()
 		t.Fatal("accepted a linked settings file")
 	}
 	if err := os.Remove(paths.settings); err != nil {
@@ -70,8 +70,8 @@ func TestPilotRejectsMismatchedPathsAndLinkedFiles(t *testing.T) {
 	if err := os.Link(paths.database, filepath.Join(root, "second-database-link")); err != nil {
 		t.Fatal(err)
 	}
-	if db, err := Open(ctx, paths); err == nil {
-		_ = db.Close()
+	if session, err := OpenSession(ctx, paths); err == nil {
+		_ = session.Close()
 		t.Fatal("accepted a hard-linked database")
 	}
 }
@@ -91,8 +91,8 @@ func TestPilotRequiresTheHouseholdMarker(t *testing.T) {
 	if err != nil || closeErr != nil {
 		t.Fatalf("could not corrupt the test marker: %v, %v", err, closeErr)
 	}
-	if db, err := Open(ctx, paths); err == nil {
-		_ = db.Close()
+	if session, err := OpenSession(ctx, paths); err == nil {
+		_ = session.Close()
 		t.Fatal("accepted a database with a mismatched marker")
 	} else if !strings.Contains(err.Error(), "fixture marker does not match") {
 		t.Fatalf("unexpected startup failure: %v", err)
@@ -105,12 +105,12 @@ func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
 	if err := Prepare(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
-	db, err := Open(ctx, paths)
+	session, err := OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
+	t.Cleanup(func() { _ = session.Close() })
+	service := application.NewService(sqlite.NewRepository(session.DB))
 	rows, err := service.ListInstitutions(ctx, false)
 	if err != nil {
 		t.Fatal(err)
@@ -128,21 +128,18 @@ func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
 	if _, err := service.UpdateInstitution(ctx, bank.ID, "  Harbor Pilot Bank  "); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.CheckpointWAL(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Close(); err != nil {
+	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := Ensure(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := Open(ctx, paths)
+	reopened, err := OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	rows, err = application.NewService(sqlite.NewRepository(reopened)).ListInstitutions(ctx, false)
+	rows, err = application.NewService(sqlite.NewRepository(reopened.DB)).ListInstitutions(ctx, false)
 	if err != nil {
 		t.Fatal(err)
 	}

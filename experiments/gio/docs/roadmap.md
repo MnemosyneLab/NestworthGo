@@ -56,7 +56,8 @@ Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
-Stages 3–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+Stage 3 has started with synthetic startup and ledger ownership. Stages 4–7
+are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -155,12 +156,38 @@ Object visits reread the exact ID and update the label when it is unavailable.
 | Linux X11 | Built with `sh experiments/gio/preview-linux.sh --build-only`. In the actual preview on Xvfb with Mesa software rendering, used a fresh verified synthetic profile. At 700 × 460, changed the type and saw its default icon, searched for Standard Chartered by alias and kept that choice through a later type change. Edited the saved name and icon to BOCHK. Forward reread the object. In the wide window, chose the object from Recent by keyboard and used Back and Forward between the object and Settings. Choosing Overview after Back discarded Forward, and the object stayed in Recent. After a normal quit and reopen, Recent was empty and the renamed institution still showed BOCHK in its editor. |
 | Open evidence | This milestone did not run Linux Wayland, a paired interactive Wails session or native macOS. Full Mac keyboard traversal, native IME and VoiceOver remain open. |
 
-#### First Stage 3 slice
+### Stage 3 progress
 
-Extract shared startup checks, blocked-state handling and single-instance
-ownership behind a common Go boundary. Exercise usable, rejected and already
-owned paths with disposable ledgers through the desktop entry point before
-exposing ledger selection or account workflows.
+#### Synthetic startup and ledger ownership milestone
+
+Gio uses the [shared instance lock](../../../internal/infrastructure/backup/instance_lock.go)
+on the canonical database path before opening SQLite for writes. It validates
+the synthetic marker on a private copy to keep SQLite WAL-index writes away
+from rejected profiles. After open, it attaches shared settings and runs the
+shared application bootstrap. Shutdown joins UI work before checkpointing,
+closing SQLite and releasing the lock. The blocked window covers an occupied
+ledger, an invalid profile and a pending restore.
+
+The [Wails entry point](../../../cmd/nestworth/main.go) reconciles interrupted
+restores under the instance lock and offers recovery on database failure.
+Gio uses the same ownership boundary and blocks on a pending journal, leaving
+it untouched. Gio still requires the pilot marker and has no ledger chooser.
+
+| Check | Evidence |
+| --- | --- |
+| Automated | On Debian 13 amd64 with Go 1.27.4, the Gio module tests and vet, preview packaging tests, and the shared backup cross-process and directory-alias lock tests passed. Gio tests checked simultaneous fixture publication, an occupied profile, lock release after a pending restore, a journal with the live file moved, and byte-for-byte preservation of rejected profiles with a mismatched marker or a committed marker change in WAL. |
+| Linux X11 | The Linux preview build ran on Xvfb with Mesa software rendering using a fresh isolated fixture. One process opened Overview. A second process using the same path displayed the occupied-ledger notice and exited with a failure status when dismissed. After the first process quit normally, another process opened the same ledger while the blocked notice was still open. The shared backup probe could not acquire the lock through a directory symlink, and Gio refused the symlink as a profile root. Invalid presentation settings and a pending restore journal produced separate blocked states. Moving the live file aside with the journal present kept the pending-restore state. File lists and SHA-256 hashes stayed unchanged during the rejected launches. |
+| Linux X11 failure paths | In a separate synthetic profile, a durable settings attachment failure released the lock before the blocked notice closed. The CLI could verify the same fixture while the notice was open, and Return activated Quit. A marker change committed only to the WAL was detected, and the rejected launch left the files and their hashes unchanged. |
+| Open evidence | This slice did not run native macOS or Wayland, a Wails/Gio paired launch or production restore recovery. Real ledger selection, onboarding and account workflows remain later Stage 3 work. |
+
+#### Next Stage 3 slice
+
+Compare an isolated read-only Overview to the shared Go valuation service at
+a fixed as-of instant. Reuse the `complete`, `missing-price` and `missing-fx`
+scenarios from [analytics-qa-seed](../../../cmd/analytics-qa-seed), with a
+separate empty synthetic household. Give each comparison an independent,
+equivalent fixture copy. The two-process ownership exercise uses one common
+database. The valuation comparison uses separate copies.
 
 ## Moving from the preview to a desktop build
 
