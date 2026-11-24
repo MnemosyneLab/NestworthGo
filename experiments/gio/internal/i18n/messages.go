@@ -143,6 +143,35 @@ const (
 	InstitutionsRestoreName
 	InstitutionsRestored
 	InstitutionsRestoreError
+	NavMembers
+	NavDirectoryGroups
+	DirectoryMemberName
+	DirectoryGroupName
+	DirectoryAddMember
+	DirectoryAddGroup
+	DirectoryEditMember
+	DirectoryEditGroup
+	DirectorySearchMembers
+	DirectorySearchGroups
+	DirectorySearchHint
+	DirectoryLoading
+	DirectoryLoadError
+	DirectoryEmpty
+	DirectoryEmptyAll
+	DirectoryNoMatches
+	DirectoryCreated
+	DirectorySaved
+	DirectoryArchiveMember
+	DirectoryArchiveGroup
+	DirectoryArchived
+	DirectoryArchiveDone
+	DirectoryRestored
+	DirectoryArchiveError
+	DirectoryRestoreError
+	DirectorySaveError
+	DirectoryIcon
+	DirectoryMemberOwnsAccount
+	DirectoryLastActiveMember
 	InstitutionBank
 	InstitutionBrokerage
 	InstitutionInsurer

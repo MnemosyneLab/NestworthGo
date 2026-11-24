@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory → Institutions** manages institutions. Overview shows three sample balances. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. Overview shows three sample balances. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
@@ -93,18 +93,26 @@ either part to start with `00` in the other part. The footer switches between
 12- and 24-hour display. The results panel shows the canonical date and time
 and both pickers offer a clear action.
 
-## Institutions pilot
+## Directory
+
+The **Members**, **Institutions** and **Groups** tabs each keep their own name
+search and archive filter. **Members** opens by default. **Show archived**
+includes active and archived entries. Confirm **Archive** to archive an
+active entry, or choose **Restore** from an archived row.
+
+Members and groups can be added and edited with a name and an icon. The picker
+uses the same selectable icon keys and translated names as Wails. The service
+rejects archiving a member who is a live account's only active owner or the
+household's last active member. Archiving a group preserves existing account
+references to that group.
 
 **Add institution** takes a name and type. The application service assigns the
-type's default icon. **Edit** changes the name. **Archive** asks for
-confirmation. **Show archived** includes active and archived institutions in
-the same list, and **Restore** returns an archived institution to active use.
-Name search applies in either view and stays in place after a change.
+type's default icon. **Edit** changes the name.
 
-The pilot rereads the list after each write. If the write succeeds and the
+Directory rereads the list after each write. If the write succeeds and the
 list fails to reload, **Retry reload** reads the list again without repeating
-the write. The next launch opens the same synthetic ledger with the active
-filter and a fresh search.
+the write. The next launch opens the same synthetic ledger with active entries
+and an empty search.
 
 ## Persistent test data
 

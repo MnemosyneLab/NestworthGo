@@ -79,7 +79,8 @@ is in progress. Stages 3–7 are planned. Use [navigation history](../../../docs
 | Automated coverage | Frame tests exercise sidebar actions, draft retention, validation, save failure and retry, timezone filtering, compact scrolling and reset confirmation. Storage tests reopen an isolated fixture and check that save and reset preserve unrelated settings. Changing the display timezone and date format through Settings retains the original recorded ledger day in History. |
 | Native macOS ARM64 | On macOS 27.2.1, the isolated development app saved Mint and DD/MM/YYYY from Settings and switched to Light and Traditional Chinese from the sidebar. The November 12 interest entry displayed as 12/11/2026. After a normal quit and reopen of the same fixture, Overview displayed the saved language and palette. The settings file retained the day-first date format. |
 | Institutions lifecycle | The pilot adds an institution with a name and type, renames it, asks for confirmation before archiving, and restores it from **Show archived**. The default view lists active institutions. **Show archived** includes both states and name search applies to both views. See the milestone evidence below. |
-| Remaining | Institution icon customization and display, members, groups, navigation history, object links, and wider navigation-state restoration are still open. Native VoiceOver and full keyboard traversal remain open. A macOS accessibility client can now navigate via the sidebar, edit a search field and choose a select option. Linux desktop interaction for the other Stage 2 workflows remains open. AI, MCP and backup workflows belong to stage 7. |
+| Members and groups | Directory opens on Members and offers Institutions and Groups tabs. Members and groups support creation, atomic name and icon edits, archive confirmation, restore, name search and archive filtering. The two member archive guards and the retention of existing group references follow the application service. |
+| Remaining | Institution icon customization and display, navigation history, object links, and wider navigation-state restoration are still open. Native VoiceOver and full keyboard traversal remain open. A macOS accessibility client can now navigate via the sidebar, edit a search field and choose a select option. AI, MCP and backup workflows belong to stage 7. |
 
 #### Institutions lifecycle milestone
 
@@ -97,6 +98,23 @@ starts with an empty search and the active list.
 | Wails reference | Ran `go test -mod=readonly -count=1 ./internal/wailsapi/directory` against the existing Wails adapter. Production code and schemas were outside the change. |
 | Linux X11 | Built with `sh experiments/gio/preview-linux.sh --build-only`. In the actual preview window on Xvfb with Mesa software rendering, used a separate verified synthetic profile to add an Exchange, cancel and confirm archiving by keyboard, find it again with the same search, and restore it. Normal quit and reopen verified the persisted archive and subsequent restoration. |
 | Open evidence | Interactive Wails comparison, Linux Wayland, and native macOS acceptance for this milestone remain unrun. Full keyboard traversal, native IME and VoiceOver are still Stage 2 gates. |
+
+#### Members and groups milestone
+
+The [Wails directory](../../../frontend/src/features/directory/DirectoryPage.tsx)
+defines the operations and [its icon picker](../../../frontend/src/components/forms/IconPicker.tsx)
+defines the available icon choices. Gio uses the same application commands and
+passes name and icon to one atomic edit. Its name search and archive filter
+belong to each tab. The inline editor temporarily hides the search controls
+so the form and its buttons fit the minimum window size.
+
+| Check | Evidence |
+| --- | --- |
+| Members | The Gio frame regression used the normal Members tab and a verified SQLite fixture. It checked both archive guards, name validation without a partial icon write, save and reload retry without a second commit, search across archive and restore, and the same member ID and icon after reopen. |
+| Groups | The Groups frame regression edited name and icon, then archived a group referenced by a synthetic account. The account retained its group ID and display name. The application rejected an explicit assignment to the archived group. Switching tabs preserved the search and the pending read retry. Retry issued no second archive, and restoration persisted under the same group ID. |
+| Catalog and service | Gio module tests and vet passed on Debian 13 amd64 with Go 1.27.4. The tests compare every available icon key and label to Wails in all four languages. The Wails directory adapter and the application member archive tests also passed. |
+| Linux X11 | Built with `sh experiments/gio/preview-linux.sh --build-only`. In the actual 700 × 460 preview window on Xvfb with Mesa software rendering, added members and groups with icons, edited both, rejected archive of the synthetic checking account's sole active owner, and archived and recovered the new rows using their own search and archive filters. Normal quit and reopen of a separate verified synthetic profile confirmed the archive states, restorations and edited icons. |
+| Open evidence | Interactive Wails comparison, Linux Wayland and native macOS were not run. Full keyboard traversal, native IME and VoiceOver remain Stage 2 gates. Navigation history and object links have a separate milestone. |
 
 ## Moving from the preview to a desktop build
 

@@ -15,12 +15,20 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *institutionsPage) rowContent(gtx layout.Context, view ui.View, item domain.Institution, buttons *institutionRowButtons, archived bool) layout.Dimensions {
+func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item directoryRow, buttons *directoryRowButtons) layout.Dimensions {
 	changeLabel, changeName := i18n.InstitutionsArchive, i18n.InstitutionsArchiveName
-	if archived {
+	if item.archived {
 		changeLabel, changeName = i18n.InstitutionsRestore, i18n.InstitutionsRestoreName
 	}
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+	var children []layout.FlexChild
+	if p.defaultIcon != "" {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return ui.LayoutGlyph(gtx, p.glyph(item.iconKey()), 20, view.Colors.Accent)
+			})
+		}))
+	}
+	children = append(children,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = 0
@@ -29,8 +37,14 @@ func (p *institutionsPage) rowContent(gtx layout.Context, view ui.View, item dom
 						return view.Label(gtx, item.Name, 15, font.Medium, view.Colors.Ink)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						detail := view.Language.Text(institutionTypeLabel(item.InstitutionType))
-						if archived {
+						if item.institutionType == "" {
+							if item.archived {
+								return view.Message(view.Language.Text(i18n.DirectoryArchived), view.Colors.SecondaryInk)(gtx)
+							}
+							return layout.Dimensions{}
+						}
+						detail := view.Language.Text(institutionTypeLabel(item.institutionType))
+						if item.archived {
 							detail = fmt.Sprintf(view.Language.Text(i18n.InstitutionsArchivedType), detail)
 						}
 						return view.Label(gtx, detail, 13, font.Normal, view.Colors.SecondaryInk)
@@ -41,39 +55,45 @@ func (p *institutionsPage) rowContent(gtx layout.Context, view ui.View, item dom
 		layout.Rigid(view.NamedButton(&buttons.edit, view.Language.Text(i18n.InstitutionsEdit), fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name))),
 		layout.Rigid(view.NamedButton(&buttons.archive, view.Language.Text(changeLabel), fmt.Sprintf(view.Language.Text(changeName), item.Name))),
 	)
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (p *institutionsPage) beginEditor(mode institutionOperation, id domain.InstitutionID, name string) {
-	p.editMode, p.editID = mode, id
-	p.draft.Editor.SetText(name)
+func (p *directoryList) beginEditor(mode directoryOperation, row directoryRow) {
+	p.editMode, p.editID = mode, row.ID
+	p.draft.Editor.SetText(row.Name)
 	p.draft.Editor.SetCaret(p.draft.Editor.Len(), 0)
 	p.kind = domain.InstitutionBank
+	p.icon = row.iconKey()
+	if p.icon == "" {
+		p.icon = p.defaultIcon
+	}
+	p.originalIcon = p.icon
 	p.saveErr, p.focusDraft = nil, true
 	p.notice, p.writeProblem = i18n.NoMessage, i18n.NoMessage
 }
 
-func (p *institutionsPage) editor(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) editor(gtx layout.Context, view ui.View) layout.Dimensions {
 	waiting := p.busy
 	if p.focusDraft && !waiting {
 		p.draft.Focus(gtx)
 		p.focusDraft = false
 	}
 	if !waiting && (p.cancel.Clicked(gtx) || p.editEscape(gtx)) {
-		if p.editMode == institutionCreate {
+		if p.editMode == directoryCreate {
 			p.focusAdd = true
 		} else {
-			p.focusRow = institutionFocus{id: p.editID}
+			p.focusRow = directoryFocus{id: p.editID}
 		}
-		p.editMode, p.saveErr = institutionRead, nil
+		p.editMode, p.saveErr = directoryRead, nil
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	const pad = 12
 	gap := gtx.Dp(8)
-	creating := p.editMode == institutionCreate
-	title, save := i18n.InstitutionsEditTitle, i18n.InstitutionsSave
+	creating := p.editMode == directoryCreate
+	title, save := p.copy.edit, i18n.InstitutionsSave
 	if creating {
-		title, save = i18n.InstitutionsAdd, i18n.InstitutionsCreate
+		title, save = p.copy.add, i18n.InstitutionsCreate
 	}
 	if waiting {
 		gtx = gtx.Disabled()
@@ -89,24 +109,16 @@ func (p *institutionsPage) editor(gtx layout.Context, view ui.View) layout.Dimen
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					dims := p.draft.Layout(ui.LimitWidth(gtx, 470), view, ui.FieldOptions{
-						Label:   i18n.PreviewInstitutionName,
+						Label:   p.copy.name,
 						Problem: func(value string) string { return p.editProblem(view, value) },
 					})
 					pickerOrigin.Y += dims.Size.Y + gap
 					return dims
 				}),
 			}
-			if creating {
+			if creating || p.defaultIcon != "" {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					field := ui.PickerField{
-						Label: i18n.InstitutionsType, Origin: pickerOrigin, Disabled: waiting,
-						Previous: &p.draft.Editor, Next: &p.save,
-					}
-					gtx = ui.LimitWidth(gtx, 470)
-					p.typePicker.Layout(gtx, view, field, ui.SelectOptions{Items: institutionTypeChoices(view)}, string(p.kind), func(value string) {
-						p.kind = domain.InstitutionType(value)
-					})
-					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+					return p.editorPicker(gtx, view, pickerOrigin, waiting)
 				}))
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -115,7 +127,12 @@ func (p *institutionsPage) editor(gtx layout.Context, view ui.View) layout.Dimen
 				}
 				if p.save.Clicked(gtx) {
 					p.rejectedDraft = p.draft.Text()
-					p.start(institutionChange{operation: p.editMode, id: p.editID, name: p.rejectedDraft, kind: p.kind})
+					change := directoryChange{operation: p.editMode, id: p.editID, name: p.rejectedDraft, kind: p.kind}
+					if p.defaultIcon != "" && (creating || p.icon != p.originalIcon) {
+						icon := p.icon
+						change.icon = &icon
+					}
+					p.start(change)
 					gtx.Execute(op.InvalidateCmd{})
 				}
 				return layout.Flex{Gap: gap}.Layout(gtx,
@@ -128,12 +145,29 @@ func (p *institutionsPage) editor(gtx layout.Context, view ui.View) layout.Dimen
 	})
 }
 
-func (p *institutionsPage) editEscape(gtx layout.Context) bool {
+func (p *directoryList) editorPicker(gtx layout.Context, view ui.View, origin image.Point, disabled bool) layout.Dimensions {
+	field := ui.PickerField{Origin: origin, Disabled: disabled, Previous: &p.draft.Editor, Next: &p.save}
+	gtx = ui.LimitWidth(gtx, 470)
+	if p.defaultIcon != "" {
+		field.Label, field.Glyph = i18n.DirectoryIcon, p.glyph(p.icon)
+		options := ui.SelectOptions{Items: directoryIconChoices[view.Language], Searchable: true}
+		p.iconPicker.Layout(gtx, view, field, options, p.icon, func(value string) { p.icon = value })
+	} else {
+		field.Label = i18n.InstitutionsType
+		p.typePicker.Layout(gtx, view, field, ui.SelectOptions{Items: institutionTypeChoices(view)}, string(p.kind), func(value string) {
+			p.kind = domain.InstitutionType(value)
+		})
+	}
+	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+}
+
+func (p *directoryList) editEscape(gtx layout.Context) bool {
 	dismiss := false
 	for {
 		e, ok := gtx.Event(
 			key.Filter{Focus: &p.draft.Editor, Name: key.NameEscape},
 			key.Filter{Focus: &p.typePicker.Trigger, Name: key.NameEscape},
+			key.Filter{Focus: &p.iconPicker.Trigger, Name: key.NameEscape},
 			key.Filter{Focus: &p.save, Name: key.NameEscape},
 			key.Filter{Focus: &p.cancel, Name: key.NameEscape},
 		)
@@ -144,7 +178,7 @@ func (p *institutionsPage) editEscape(gtx layout.Context) bool {
 	}
 }
 
-func (p *institutionsPage) editProblem(view ui.View, value string) string {
+func (p *directoryList) editProblem(view ui.View, value string) string {
 	if p.saveErr == nil {
 		return ""
 	}
@@ -158,21 +192,21 @@ func (p *institutionsPage) editProblem(view ui.View, value string) string {
 		}
 		return view.Language.Text(i18n.PreviewNameRequired)
 	}
-	return view.Language.Text(i18n.InstitutionsSaveError)
+	return view.Language.Text(p.copy.saveError)
 }
 
-func (p *institutionsPage) layoutConfirmation(gtx layout.Context, view ui.View) {
+func (p *directoryList) layoutConfirmation(gtx layout.Context, view ui.View) {
 	item := *p.archiveTarget
 	p.confirmation.Layout(gtx, view, ui.ConfirmationOptions{
-		Title: view.Language.Text(i18n.InstitutionsArchiveTitle), Body: item.Name,
+		Title: view.Language.Text(p.copy.archiveTitle), Body: item.Name,
 		Cancel: view.Language.Text(i18n.InstitutionsCancel), Confirm: view.Language.Text(i18n.InstitutionsArchive),
 	}, func() {
 		p.archiveTarget = nil
-		p.focusRow = institutionFocus{id: item.ID, archive: true}
+		p.focusRow = directoryFocus{id: item.ID, archive: true}
 		gtx.Execute(op.InvalidateCmd{})
 	}, func() {
 		p.archiveTarget = nil
-		p.start(institutionChange{operation: institutionArchive, id: item.ID})
+		p.start(directoryChange{operation: directoryArchive, id: item.ID})
 		gtx.Execute(op.InvalidateCmd{})
 	})
 }

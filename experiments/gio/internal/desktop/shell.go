@@ -38,7 +38,7 @@ type pageLayout func(layout.Context, ui.View) layout.Dimensions
 
 type ledgerPages struct {
 	prefs     *preferenceState
-	directory *institutionsPage
+	directory *directoryPage
 	history   pageLayout
 }
 
@@ -63,7 +63,7 @@ type navigationGroup struct {
 type shell struct {
 	prefs                                 *preferenceState
 	settingsPage                          *settingsPage
-	directory                             *institutionsPage
+	directory                             *directoryPage
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
 	wordmark                              widget.Image
@@ -177,13 +177,13 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
 	} else if s.confirmingArchive() {
-		s.directory.layoutConfirmation(windowContext, view)
+		s.directory.activeList().layoutConfirmation(windowContext, view)
 	}
 	return dims
 }
 
 func (s *shell) confirmingArchive() bool {
-	return s.activeRoute == directoryRoute && s.directory != nil && s.directory.archiveTarget != nil
+	return s.activeRoute == directoryRoute && s.directory != nil && s.directory.activeList().archiveTarget != nil
 }
 
 func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {

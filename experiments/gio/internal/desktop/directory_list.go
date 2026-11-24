@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -18,62 +17,58 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-type institutionService interface {
-	ListInstitutions(context.Context, bool) ([]domain.Institution, error)
-	CreateInstitution(context.Context, string, domain.InstitutionType, ...string) (domain.Institution, error)
-	UpdateInstitution(context.Context, domain.InstitutionID, string) (domain.Institution, error)
-	ArchiveInstitution(context.Context, domain.InstitutionID, bool) error
-}
-
-type institutionOperation uint8
+type directoryOperation uint8
 
 const (
-	institutionRead institutionOperation = iota
-	institutionCreate
-	institutionRename
-	institutionArchive
-	institutionRestore
+	directoryRead directoryOperation = iota
+	directoryCreate
+	directoryEdit
+	directoryArchive
+	directoryRestore
 )
 
-type institutionChange struct {
-	operation institutionOperation
-	id        domain.InstitutionID
+type directoryChange struct {
+	operation directoryOperation
+	id        string
+	icon      *string
 	name      string
 	kind      domain.InstitutionType
 }
 
-type institutionResult struct {
-	change   institutionChange
-	rows     []domain.Institution
+type directoryResult struct {
+	change   directoryChange
+	rows     []directoryRow
 	readErr  error
 	writeErr error
 }
 
-type institutionRowButtons struct {
+type directoryRowButtons struct {
 	edit, archive widget.Clickable
 }
 
-type institutionFocus struct {
-	id      domain.InstitutionID
+type directoryFocus struct {
+	id      string
 	archive bool
 }
 
-func (c institutionChange) focus() institutionFocus {
-	return institutionFocus{id: c.id, archive: c.operation == institutionArchive || c.operation == institutionRestore}
+func (c directoryChange) focus() directoryFocus {
+	return directoryFocus{id: c.id, archive: c.operation == directoryArchive || c.operation == directoryRestore}
 }
 
-type institutionsPage struct {
-	ctx        context.Context
-	service    institutionService
-	invalidate func()
-	workers    sync.WaitGroup
-	results    chan institutionResult
+type directoryList struct {
+	ctx         context.Context
+	source      directorySource
+	copy        directoryCopy
+	defaultIcon string
+	invalidate  func()
+	workers     sync.WaitGroup
+	results     chan directoryResult
 
 	started, loaded, busy bool
-	operation             institutionOperation
-	rows                  []domain.Institution
+	operation             directoryOperation
+	rows                  []directoryRow
 	readErr               error
-	awaitingRead          institutionChange
+	awaitingRead          directoryChange
 	notice                i18n.MessageID
 	writeProblem          i18n.MessageID
 
@@ -83,52 +78,53 @@ type institutionsPage struct {
 	search          ui.SearchField
 	query           string
 	list            layout.List
-	buttons         map[domain.InstitutionID]*institutionRowButtons
-	focusRow        institutionFocus
+	buttons         map[string]*directoryRowButtons
+	focusRow        directoryFocus
 	focusAdd        bool
-	archiveTarget   *domain.Institution
+	archiveTarget   *directoryRow
 	confirmation    ui.Confirmation
 
-	editMode      institutionOperation
-	editID        domain.InstitutionID
-	draft         ui.TextField
-	kind          domain.InstitutionType
-	typePicker    ui.Select
-	save, cancel  widget.Clickable
-	saveErr       error
-	rejectedDraft string
-	focusDraft    bool
+	editMode           directoryOperation
+	editID             string
+	draft              ui.TextField
+	kind               domain.InstitutionType
+	typePicker         ui.Select
+	iconPicker         ui.Select
+	icon, originalIcon string
+	save, cancel       widget.Clickable
+	saveErr            error
+	rejectedDraft      string
+	focusDraft         bool
 }
 
-func newInstitutionsPage(ctx context.Context, service institutionService, invalidate func()) *institutionsPage {
-	return &institutionsPage{
-		ctx: ctx, service: service, invalidate: invalidate,
-		results: make(chan institutionResult, 1),
+func newDirectoryList(ctx context.Context, source directorySource, copy directoryCopy, defaultIcon string, invalidate func()) *directoryList {
+	return &directoryList{
+		ctx: ctx, source: source, copy: copy, defaultIcon: defaultIcon, invalidate: invalidate,
+		results: make(chan directoryResult, 1),
 		search:  ui.SearchField{Field: ui.NewTextField(true)}, draft: ui.NewTextField(true),
-		list: layout.List{Axis: layout.Vertical}, buttons: make(map[domain.InstitutionID]*institutionRowButtons),
+		list: layout.List{Axis: layout.Vertical}, buttons: make(map[string]*directoryRowButtons),
 	}
 }
 
-func (p *institutionsPage) start(change institutionChange) {
+func (p *directoryList) start(change directoryChange) {
 	p.started, p.busy = true, true
 	p.operation = change.operation
 	p.notice, p.writeProblem, p.saveErr = i18n.NoMessage, i18n.NoMessage, nil
 	includeArchived := p.includeArchived
 	p.workers.Go(func() {
-		result := institutionResult{change: change}
+		result := directoryResult{change: change}
 		switch change.operation {
-		case institutionCreate:
-			row, err := p.service.CreateInstitution(p.ctx, change.name, change.kind)
-			result.change.id, result.writeErr = row.ID, err
-		case institutionRename:
-			_, result.writeErr = p.service.UpdateInstitution(p.ctx, change.id, change.name)
-		case institutionArchive, institutionRestore:
-			result.writeErr = p.service.ArchiveInstitution(p.ctx, change.id, change.operation == institutionArchive)
+		case directoryCreate:
+			result.change.id, result.writeErr = p.source.create(p.ctx, change)
+		case directoryEdit:
+			result.writeErr = p.source.edit(p.ctx, change)
+		case directoryArchive, directoryRestore:
+			result.writeErr = p.source.archive(p.ctx, change.id, change.operation == directoryArchive)
 		}
 		// A committed command is complete even if this read fails. Retry the
 		// authoritative list on its own without issuing the command again.
 		if result.writeErr == nil {
-			result.rows, result.readErr = p.service.ListInstitutions(p.ctx, includeArchived)
+			result.rows, result.readErr = p.source.list(p.ctx, includeArchived)
 		}
 		p.results <- result
 		if p.ctx.Err() == nil {
@@ -137,23 +133,23 @@ func (p *institutionsPage) start(change institutionChange) {
 	})
 }
 
-func (p *institutionsPage) receive() {
+func (p *directoryList) receive() {
 	select {
 	case result := <-p.results:
 		p.busy = false
 		if result.writeErr != nil {
 			switch result.change.operation {
-			case institutionCreate, institutionRename:
+			case directoryCreate, directoryEdit:
 				p.saveErr, p.focusDraft = result.writeErr, true
-			case institutionArchive:
-				p.writeProblem, p.focusRow = i18n.InstitutionsArchiveError, result.change.focus()
-			case institutionRestore:
-				p.writeProblem, p.focusRow = i18n.InstitutionsRestoreError, result.change.focus()
+			case directoryArchive:
+				p.writeProblem, p.focusRow = p.archiveProblem(result.writeErr), result.change.focus()
+			case directoryRestore:
+				p.writeProblem, p.focusRow = p.copy.restoreError, result.change.focus()
 			}
 			return
 		}
-		if result.change.operation != institutionRead {
-			p.editMode = institutionRead
+		if result.change.operation != directoryRead {
+			p.editMode = directoryRead
 			p.awaitingRead = result.change
 		}
 		p.readErr = result.readErr
@@ -165,36 +161,36 @@ func (p *institutionsPage) receive() {
 	}
 }
 
-func (p *institutionsPage) applyWriteNotice() {
+func (p *directoryList) applyWriteNotice() {
 	switch p.awaitingRead.operation {
-	case institutionCreate:
-		p.notice = i18n.InstitutionsCreated
-	case institutionRename:
-		p.notice = i18n.InstitutionsSaved
-	case institutionArchive:
-		p.notice = i18n.InstitutionsArchived
-	case institutionRestore:
-		p.notice = i18n.InstitutionsRestored
+	case directoryCreate:
+		p.notice = p.copy.created
+	case directoryEdit:
+		p.notice = p.copy.saved
+	case directoryArchive:
+		p.notice = p.copy.archived
+	case directoryRestore:
+		p.notice = p.copy.restored
 	default:
 		return
 	}
 	p.focusRow = p.awaitingRead.focus()
-	p.awaitingRead = institutionChange{}
+	p.awaitingRead = directoryChange{}
 }
 
-func (p *institutionsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.receive()
-	controlsEnabled := !p.busy && p.editMode == institutionRead && p.archiveTarget == nil && gtx.Enabled()
+	controlsEnabled := !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && gtx.Enabled()
 	switch {
 	case !p.started, controlsEnabled && p.refresh.Clicked(gtx):
-		p.start(institutionChange{})
+		p.start(directoryChange{})
 	case controlsEnabled && p.archiveFilter.Clicked(gtx):
 		p.includeArchived = !p.includeArchived
 		p.list.Position = layout.Position{}
 		p.rows, p.loaded, p.readErr = nil, false, nil
-		p.start(institutionChange{})
-	case controlsEnabled && p.awaitingRead.operation == institutionRead && p.add.Clicked(gtx):
-		p.beginEditor(institutionCreate, "", "")
+		p.start(directoryChange{})
+	case controlsEnabled && p.awaitingRead.operation == directoryRead && p.add.Clicked(gtx):
+		p.beginEditor(directoryCreate, directoryRow{})
 	}
 	if p.focusAdd {
 		p.focusAdd = false
@@ -210,12 +206,15 @@ func (p *institutionsPage) layout(gtx layout.Context, view ui.View) layout.Dimen
 			return dims
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.editMode != directoryRead {
+				return layout.Dimensions{}
+			}
 			dims := p.filters(gtx, view)
 			editorView.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.editMode == institutionRead {
+			if p.editMode == directoryRead {
 				return layout.Dimensions{}
 			}
 			return p.editor(gtx, editorView)
@@ -224,24 +223,17 @@ func (p *institutionsPage) layout(gtx layout.Context, view ui.View) layout.Dimen
 	)
 }
 
-func (p *institutionsPage) header(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) header(gtx layout.Context, view ui.View) layout.Dimensions {
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.Label(gtx, view.Language.Text(i18n.NavInstitutions), 19, font.Medium, view.Colors.Ink)
-				}),
-				layout.Rigid(view.Message(view.Language.Text(i18n.InstitutionsSynthetic), view.Colors.SecondaryInk)),
-			)
-		}),
+		layout.Flexed(1, view.Message(view.Language.Text(i18n.InstitutionsSynthetic), view.Colors.SecondaryInk)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.busy || p.editMode != institutionRead || p.awaitingRead.operation != institutionRead {
+			if p.busy || p.editMode != directoryRead || p.awaitingRead.operation != directoryRead {
 				gtx = gtx.Disabled()
 			}
-			return view.Button(&p.add, view.Language.Text(i18n.InstitutionsAdd))(gtx)
+			return view.Button(&p.add, view.Language.Text(p.copy.add))(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.busy || p.editMode != institutionRead {
+			if p.busy || p.editMode != directoryRead {
 				gtx = gtx.Disabled()
 			}
 			label := i18n.InstitutionsRefresh
@@ -253,20 +245,20 @@ func (p *institutionsPage) header(gtx layout.Context, view ui.View) layout.Dimen
 	)
 }
 
-func (p *institutionsPage) filters(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) filters(gtx layout.Context, view ui.View) layout.Dimensions {
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := i18n.InstitutionsShowArchived
 			if p.includeArchived {
 				label = i18n.InstitutionsHideArchived
 			}
-			if p.busy || p.editMode != institutionRead {
+			if p.busy || p.editMode != directoryRead {
 				gtx = gtx.Disabled()
 			}
 			return view.Button(&p.archiveFilter, view.Language.Text(label))(gtx)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return p.search.Layout(ui.LimitWidth(gtx, 470), view, i18n.PreviewSearch, i18n.InstitutionsSearchHint, func(query string) {
+			return p.search.Layout(ui.LimitWidth(gtx, 470), view, p.copy.search, p.copy.searchHint, func(query string) {
 				p.query = query
 				p.list.Position = layout.Position{}
 			})
@@ -274,12 +266,12 @@ func (p *institutionsPage) filters(gtx layout.Context, view ui.View) layout.Dime
 	)
 }
 
-func (p *institutionsPage) listContent(gtx layout.Context, view ui.View) layout.Dimensions {
-	visible := filterInstitutions(p.rows, p.query)
+func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dimensions {
+	visible := filterDirectoryRows(p.rows, p.query)
 	restore := p.focusRow
-	p.focusRow = institutionFocus{}
+	p.focusRow = directoryFocus{}
 	if restore.id != "" {
-		index := slices.IndexFunc(visible, func(row domain.Institution) bool { return row.ID == restore.id })
+		index := slices.IndexFunc(visible, func(row directoryRow) bool { return row.ID == restore.id })
 		if index >= 0 {
 			position := p.list.Position
 			end := position.First + position.Count
@@ -311,12 +303,12 @@ func (p *institutionsPage) listContent(gtx layout.Context, view ui.View) layout.
 				return layout.Dimensions{}
 			}
 			if len(visible) == 0 {
-				message := i18n.InstitutionsEmpty
+				message := p.copy.empty
 				switch {
 				case strings.TrimSpace(p.query) != "" && len(p.rows) > 0:
-					message = i18n.PreviewNoMatches
+					message = p.copy.noMatches
 				case p.includeArchived:
-					message = i18n.InstitutionsEmptyAll
+					message = p.copy.emptyAll
 				}
 				return view.Message(view.Language.Text(message), view.Colors.SecondaryInk)(gtx)
 			}
@@ -329,16 +321,16 @@ func (p *institutionsPage) listContent(gtx layout.Context, view ui.View) layout.
 	)
 }
 
-func (p *institutionsPage) listStatus() (i18n.MessageID, bool) {
+func (p *directoryList) listStatus() (i18n.MessageID, bool) {
 	switch {
-	case p.busy && p.operation == institutionRead:
-		return i18n.InstitutionsLoading, false
-	case p.busy && p.editMode == institutionRead:
+	case p.busy && p.operation == directoryRead:
+		return p.copy.loading, false
+	case p.busy && p.editMode == directoryRead:
 		return i18n.InstitutionsSaving, false
-	case p.readErr != nil && p.awaitingRead.operation != institutionRead:
+	case p.readErr != nil && p.awaitingRead.operation != directoryRead:
 		return i18n.InstitutionsReloadAfterSaveError, true
 	case p.readErr != nil:
-		return i18n.InstitutionsLoadError, true
+		return p.copy.loadError, true
 	case p.writeProblem != i18n.NoMessage:
 		return p.writeProblem, true
 	default:
@@ -346,12 +338,12 @@ func (p *institutionsPage) listStatus() (i18n.MessageID, bool) {
 	}
 }
 
-func filterInstitutions(rows []domain.Institution, query string) []domain.Institution {
+func filterDirectoryRows(rows []directoryRow, query string) []directoryRow {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
 		return rows
 	}
-	var matches []domain.Institution
+	var matches []directoryRow
 	for _, row := range rows {
 		if strings.Contains(strings.ToLower(row.Name), query) {
 			matches = append(matches, row)
@@ -360,14 +352,14 @@ func filterInstitutions(rows []domain.Institution, query string) []domain.Instit
 	return matches
 }
 
-func (p *institutionsPage) row(gtx layout.Context, view ui.View, item domain.Institution, restore institutionFocus) layout.Dimensions {
+func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow, restore directoryFocus) layout.Dimensions {
 	buttons := p.buttons[item.ID]
 	if buttons == nil {
-		buttons = new(institutionRowButtons)
+		buttons = new(directoryRowButtons)
 		p.buttons[item.ID] = buttons
 	}
-	archived := item.ArchivedAt != nil
-	if p.busy || p.editMode != institutionRead || p.archiveTarget != nil || p.readErr != nil {
+	archived := item.archived
+	if p.busy || p.editMode != directoryRead || p.archiveTarget != nil || p.readErr != nil {
 		gtx = gtx.Disabled()
 	}
 	if gtx.Enabled() {
@@ -380,11 +372,11 @@ func (p *institutionsPage) row(gtx layout.Context, view ui.View, item domain.Ins
 		}
 		switch {
 		case buttons.edit.Clicked(gtx):
-			p.beginEditor(institutionRename, item.ID, item.Name)
+			p.beginEditor(directoryEdit, item)
 			gtx.Execute(op.InvalidateCmd{})
 		case buttons.archive.Clicked(gtx):
 			if archived {
-				p.start(institutionChange{operation: institutionRestore, id: item.ID})
+				p.start(directoryChange{operation: directoryRestore, id: item.ID})
 			} else {
 				p.archiveTarget = &item
 				p.confirmation.Open()
@@ -395,7 +387,7 @@ func (p *institutionsPage) row(gtx layout.Context, view ui.View, item domain.Ins
 	gtx.Constraints.Min = image.Pt(gtx.Constraints.Max.X, gtx.Dp(56))
 	return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return p.rowContent(gtx, view, item, buttons, archived)
+			return p.rowContent(gtx, view, item, buttons)
 		})
 	})
 }

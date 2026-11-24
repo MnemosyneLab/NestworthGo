@@ -5,6 +5,7 @@ import (
 	"image/color"
 
 	"gioui.org/font"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -45,6 +46,27 @@ func (v View) NamedButton(button *widget.Clickable, title, name string) layout.W
 	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
 	return func(gtx layout.Context) layout.Dimensions {
 		return accessibility.Button(gtx, button, name, "", false, style.Layout)
+	}
+}
+
+func (v View) TabButton(button *widget.Clickable, title string, selected bool) layout.Widget {
+	style := material.ButtonLayout(v.Theme, button)
+	style.Background = v.Colors.Surface
+	style.CornerRadius = 7
+	ink := v.Colors.Ink
+	if selected {
+		style.Background, ink = v.Colors.Accent, v.Colors.OnAccent
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return accessibility.Button(gtx, button, title, "", false, func(gtx layout.Context) layout.Dimensions {
+			return style.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				semantic.SelectedOp(selected).Add(gtx.Ops)
+				semantic.DescriptionOp(title).Add(gtx.Ops)
+				return layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return v.Label(gtx, title, 12, font.Normal, ink)
+				})
+			})
+		})
 	}
 }
 

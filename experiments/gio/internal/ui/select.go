@@ -70,7 +70,7 @@ func (s *Select) choices(view View, options SelectOptions) []Choice {
 		items = append(items, Choice{Label: view.Language.Text(i18n.PickerEmptyOption)})
 	}
 	for _, item := range options.Items {
-		if strings.Contains(strings.ToLower(item.Label), query) {
+		if strings.Contains(strings.ToLower(item.Label+" "+item.SearchText), query) {
 			items = append(items, item)
 		}
 	}

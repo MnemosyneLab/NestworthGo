@@ -22,14 +22,18 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	state.setLanguage = service.SetUILanguage
 	stopWatching := preferences.WatchSystemChanges(state.systemUpdate)
 	state.reload()
-	directory := newInstitutionsPage(ctx, service, window.Invalidate)
+	directory := newDirectoryPage(
+		newMembersList(ctx, service, window.Invalidate),
+		newInstitutionsPage(ctx, service, window.Invalidate),
+		newGroupsList(ctx, service, window.Invalidate),
+	)
 	activities := history.New(ctx, service, window.Invalidate)
 	timeline := newHistoryPage(activities)
 	defer func() {
 		stopWatching()
 		cancel()
 		state.wait()
-		directory.workers.Wait()
+		directory.wait()
 		activities.Wait()
 	}()
 	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline.layout, prefs: state}).run(window)

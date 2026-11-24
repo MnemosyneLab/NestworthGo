@@ -76,7 +76,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	p := newInstitutionsPage(ctx, svc, func() {})
 	t.Cleanup(func() { cancel(); p.workers.Wait() })
-	h := newShellHarnessWithPages(t, ledgerPages{directory: p})
+	h := newShellHarnessWithPages(t, ledgerPages{directory: newDirectoryPage(p)})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	finish := func() {
@@ -84,7 +84,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 		h.frame()
 	}
 	h.click("Directory", false)
-	if !p.busy || p.operation != institutionRead {
+	if !p.busy || p.operation != directoryRead {
 		t.Fatal("the route did not start in the loading state")
 	}
 	finish()
@@ -107,7 +107,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.frame()
 	h.click("Save", false)
 	finish()
-	if p.editMode != institutionRename || p.editID != bank.ID || p.draft.Text() != "Rejected draft" {
+	if p.editMode != directoryEdit || p.editID != bank.ID.String() || p.draft.Text() != "Rejected draft" {
 		t.Fatal("a validation failure dropped the active edit")
 	}
 	assertPageLabel(t, &h.router, "Use 120 characters or fewer.")
@@ -117,7 +117,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.selectSidebarLanguage(i18n.SettingsLanguageZhTW)
 	h.cycleAppearance()
 	start, end := p.draft.Editor.Selection()
-	if h.shell.activeRoute != directoryRoute || p.editMode != institutionRename || p.editID != bank.ID || p.draft.Text() != "Rejected draft" ||
+	if h.shell.activeRoute != directoryRoute || p.editMode != directoryEdit || p.editID != bank.ID.String() || p.draft.Text() != "Rejected draft" ||
 		start != selection.Start || end != selection.End {
 		t.Fatal("switching preferences changed the institution route, draft, or selection")
 	}
@@ -128,7 +128,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.frame()
 	h.click("儲存", false)
 	finish()
-	if p.editMode != institutionRead || p.awaitingRead.id != bank.ID || p.notice != i18n.NoMessage {
+	if p.editMode != directoryRead || p.awaitingRead.id != bank.ID.String() || p.notice != i18n.NoMessage {
 		t.Fatal("a committed save with a failed reload did not enter the reload-only state")
 	}
 	assertPageLabel(t, &h.router, "變更已儲存。請重試載入清單。")
@@ -138,7 +138,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 		t.Fatalf("retry did not load the authoritative list: %d writes, %d reads, notice %v, rows %v", writeCalls, readCalls, p.notice, p.rows)
 	}
 	assertPageLabel(t, &h.router, "Authoritative name")
-	h.focused(&p.buttons[bank.ID].edit)
+	h.focused(&p.buttons[bank.ID.String()].edit)
 }
 
 func assertPageLabel(t *testing.T, router *input.Router, label string) image.Rectangle {
@@ -200,7 +200,8 @@ func (s *institutionLifecycleService) ArchiveInstitution(ctx context.Context, id
 	return err
 }
 
-func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
+func newDirectoryFixture(t *testing.T) (context.Context, func() (*application.Service, func())) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -236,11 +237,16 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 		t.Cleanup(close)
 		return application.NewService(sqlite.NewRepository(db)), close
 	}
-	openDirectory := func(service institutionService) (*previewHarness, *institutionsPage, func()) {
+	return ctx, open
+}
+
+func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
+	ctx, open := newDirectoryFixture(t)
+	openDirectory := func(service institutionService) (*previewHarness, *directoryList, func()) {
 		t.Helper()
 		p := newInstitutionsPage(ctx, service, func() {})
 		t.Cleanup(p.workers.Wait)
-		h := newShellHarnessWithPages(t, ledgerPages{directory: p})
+		h := newShellHarnessWithPages(t, ledgerPages{directory: newDirectoryPage(p)})
 		h.shell.prefs.saved.Language = settings.LanguageEnglish
 		h.frame()
 		finish := func() {
@@ -305,7 +311,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	assertPageLabel(t, &h.router, name)
 	assertPageLabel(t, &h.router, "Institution added.")
 	row := checkRow(service, "", false)
-	h.focused(&p.buttons[row.ID].edit)
+	h.focused(&p.buttons[row.ID.String()].edit)
 
 	h.click("Archive", false)
 	assertPageLabel(t, &h.router, "Archive institution?")
@@ -313,7 +319,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	h.press(key.NameTab)
 	h.focused(&p.confirmation.Confirm)
 	h.press(key.NameEscape)
-	h.focused(&p.buttons[row.ID].archive)
+	h.focused(&p.buttons[row.ID.String()].archive)
 	if len(s.archiveCalls) != 0 {
 		t.Fatal("dismissing the confirmation submitted the archive")
 	}
@@ -361,7 +367,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	finish()
 	assertPageLabel(t, &h.router, "Could not restore the institution. Try again.")
 	assertPageLabel(t, &h.router, "Insurer · Archived")
-	h.focused(&p.buttons[row.ID].archive)
+	h.focused(&p.buttons[row.ID.String()].archive)
 	h.press(key.NameReturn)
 	finish()
 	assertPageLabel(t, &h.router, "Institution restored.")

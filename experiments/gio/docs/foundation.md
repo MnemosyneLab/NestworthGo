@@ -3,7 +3,7 @@
 ## Status and scope
 
 The Gio desktop runs against a verified synthetic household. It includes
-General settings, Ledger activity, the Institutions pilot and a Component
+General settings, Ledger activity, Directory and a Component
 Preview page for the shared controls. Wails remains the
 production desktop. The roadmap records workflow coverage and acceptance
 evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](roadmap.md) · [Shared Wails control contract](../../../docs/development/frontend-controls.md)
@@ -23,13 +23,18 @@ evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](ro
   selected value and the control owns the current search session and active row.
   The controls live in their own [ui package](../internal/ui). The
   [desktop package](../internal/desktop) composes them into pages and the shell.
-- The component preview uses in-memory fixtures. The Institutions pilot calls
+- The component preview uses in-memory fixtures. Directory calls
   the same Go application service methods as the Wails directory for creation,
   renaming, archiving, restoring and listing. The domain owns name validation,
   the allowed types and default icons. Name search runs over the selected list
   scope and survives each write. After a successful write, the pilot reloads
   authoritative rows. A failed reload keeps the previous rows readable with
   their actions disabled until a fresh list arrives. [Engineering guide](../../../docs/development/engineering-guide.md#financial-implementation-rules)
+- Members, Institutions and Groups share the directory list and keep their own
+  search, archive filter, draft and scroll state. The Members and Groups forms
+  save name and icon atomically through `DirectoryEdit`. Member archive
+  eligibility comes from the shared service. An archived group remains a valid
+  historical reference on existing accounts.
 
 ## Internationalization and appearance
 
@@ -112,12 +117,19 @@ application logic to combine date, time, and timezone into an instant. [Wails da
 
 ### Follow-on controls
 
-General settings reset and institution archive use the same window-level
+General settings reset and directory archive use the same window-level
 confirmation control. It focuses Cancel on open, keeps Tab inside the dialog
 and handles Escape. Each page owns the command and restores focus to its
 trigger or to the appropriate control when the command changes the list. Add
 segmented controls, checkboxes, side panels and tables as the directory and
 ledger workflows require them.
+
+Members and Groups use the shared searchable select for icons. Options match
+the Wails picker keys and translated names and use Material shapes for generic
+symbols. The four crypto logos are rasterized from the same Wails assets.
+Legacy icon keys outside the picker keep their stored value until the user
+chooses a replacement. The row displays the entity's default symbol when a
+stored key has no Gio glyph. [Wails crypto-logo provenance](../../../frontend/public/crypto-logos/NOTICE.txt)
 
 ## Component preview page
 

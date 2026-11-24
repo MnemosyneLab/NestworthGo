@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/font"
 	"gioui.org/io/event"
@@ -11,6 +12,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
@@ -20,6 +22,7 @@ import (
 
 type PickerField struct {
 	Label          i18n.MessageID
+	Glyph          Glyph
 	Origin         image.Point
 	Next, Previous event.Tag
 	Disabled       bool
@@ -46,12 +49,12 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 	}
 
 	accessibility.Button(gtx, trigger, title, value, true, func(gtx layout.Context) layout.Dimensions {
-		return layoutPickerButton(gtx, view, trigger, title, value, invalid)
+		return layoutPickerButton(gtx, view, trigger, title, value, invalid, field.Glyph)
 	})
 	return opened
 }
 
-func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable, title, value string, invalid bool) layout.Dimensions {
+func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable, title, value string, invalid bool, glyph Glyph) layout.Dimensions {
 	return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		semantic.DescriptionOp(title).Add(gtx.Ops)
@@ -68,7 +71,7 @@ func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min.Y = 0
-						return view.Label(gtx, value, 13, font.Normal, colors.Ink)
+						return glyphLabel(gtx, view, glyph, value, colors.Ink)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						side := gtx.Dp(16)
@@ -104,9 +107,33 @@ func PressedKeys(gtx layout.Context, tag event.Tag, names ...key.Name) []key.Eve
 }
 
 type Choice struct {
-	ID       string
-	Label    string
-	Disabled bool
+	ID         string
+	Label      string
+	Glyph      Glyph
+	SearchText string
+	Disabled   bool
+}
+
+// Glyph is a reusable picker or row icon. Colored illustrations may ignore ink.
+type Glyph interface {
+	Layout(layout.Context, color.NRGBA) layout.Dimensions
+}
+
+func LayoutGlyph(gtx layout.Context, glyph Glyph, size unit.Dp, ink color.NRGBA) layout.Dimensions {
+	side := gtx.Dp(size)
+	gtx.Constraints = layout.Exact(image.Pt(side, side))
+	return glyph.Layout(gtx, ink)
+}
+
+func glyphLabel(gtx layout.Context, view View, glyph Glyph, label string, ink color.NRGBA) layout.Dimensions {
+	text := func(gtx layout.Context) layout.Dimensions { return view.Label(gtx, label, 13, font.Normal, ink) }
+	if glyph == nil {
+		return text(gtx)
+	}
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return LayoutGlyph(gtx, glyph, 16, ink) }),
+		layout.Flexed(1, text),
+	)
 }
 
 type optionList struct {
@@ -187,11 +214,15 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 		}
 		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(30))
 		gtx.Constraints = layout.Exact(size)
-		return choiceButton(gtx, view, button, item.Label, "", !item.Disabled, item.ID == selected, showHighlight && l.active && item.ID == l.highlight)
+		return choiceButtonWithGlyph(gtx, view, button, item.Label, "", !item.Disabled, item.ID == selected, showHighlight && l.active && item.ID == l.highlight, item.Glyph)
 	})
 }
 
 func choiceButton(gtx layout.Context, view View, button *widget.Clickable, title, description string, enabled, selected, highlighted bool) layout.Dimensions {
+	return choiceButtonWithGlyph(gtx, view, button, title, description, enabled, selected, highlighted, nil)
+}
+
+func choiceButtonWithGlyph(gtx layout.Context, view View, button *widget.Clickable, title, description string, enabled, selected, highlighted bool, glyph Glyph) layout.Dimensions {
 	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		semantic.SelectedOp(selected).Add(gtx.Ops)
@@ -215,7 +246,7 @@ func choiceButton(gtx layout.Context, view View, button *widget.Clickable, title
 		}
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return label.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.Label(gtx, title, 13, font.Normal, fg)
+				return glyphLabel(gtx, view, glyph, title, fg)
 			})
 		})
 	}
