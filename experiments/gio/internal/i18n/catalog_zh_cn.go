@@ -624,4 +624,15 @@ var simplifiedChineseCatalog = catalog{
 	AccountCashSaved:         "现金余额已保存。",
 	AccountCashView:          "查看对账记录",
 	HistoryCashReconciled:    "现金对账",
+
+	AccountBankBalanceAction:        "更新银行余额",
+	AccountBankBalanceReview:        "预览银行余额",
+	AccountBankBalanceConfirm:       "确认银行余额",
+	AccountBankBalanceOpening:       "在历史启用前保存一条余额观察。",
+	AccountBankBalanceOnConfirm:     "确认时生效",
+	AccountBankBalanceReconcile:     "将新余额作为对账写入历史。",
+	AccountBankBalanceNoChange:      "目标余额与当前银行余额相同。",
+	AccountBankBalancePreviewFailed: "无法预览银行余额。请检查账户后重试。",
+	AccountBankBalanceSaved:         "银行余额已保存。",
+	AccountBankBalanceUnverified:    "无法确认是否已保存。再次调整前，请先核对账户余额。",
 }

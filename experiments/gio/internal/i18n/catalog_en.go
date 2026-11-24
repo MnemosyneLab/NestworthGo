@@ -624,4 +624,15 @@ var englishCatalog = catalog{
 	AccountCashSaved:         "Cash balance saved.",
 	AccountCashView:          "View reconciliation",
 	HistoryCashReconciled:    "Cash reconciliation",
+
+	AccountBankBalanceAction:        "Update bank balance",
+	AccountBankBalanceReview:        "Review bank balance",
+	AccountBankBalanceConfirm:       "Confirm bank balance",
+	AccountBankBalanceOpening:       "Save the balance as an observation before History starts.",
+	AccountBankBalanceOnConfirm:     "Effective at confirmation",
+	AccountBankBalanceReconcile:     "Record the new balance as a reconciliation in History.",
+	AccountBankBalanceNoChange:      "The target matches the current bank balance.",
+	AccountBankBalancePreviewFailed: "Could not review the bank balance. Check the account and try again.",
+	AccountBankBalanceSaved:         "Bank balance saved.",
+	AccountBankBalanceUnverified:    "Could not confirm the save. Check the recorded balance before making another change.",
 }

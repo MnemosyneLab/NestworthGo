@@ -199,6 +199,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.cashBalance != nil {
 			s.accounts.cashBalance.openActivity = s.historyPage.reads.open
 		}
+		if s.accounts != nil && s.accounts.bankBalance != nil {
+			s.accounts.bankBalance.openActivity = s.historyPage.reads.open
+		}
 		s.historyPage.reads.rename = func(id domain.ActivityID, name string) {
 			target := navigationTarget{route: historyRoute, activity: id}
 			entry := s.trail.current()
@@ -243,13 +246,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			s.overviewPage.needsRefresh = true
 		}
 		if saved := s.accounts.pollCashBalance(); saved.ID != "" {
-			if s.overviewPage != nil {
-				s.overviewPage.needsRefresh = true
-			}
-			if saved.ActivityID != nil && s.historyPage != nil {
-				s.historyPage.revision++
-				s.historyPage.model.Refresh()
-			}
+			s.refreshBalanceQueries(saved.ActivityID != nil)
+		}
+		if saved := s.accounts.pollBankBalance(); saved.account != "" {
+			s.refreshBalanceQueries(saved.activity != "")
 		}
 		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
@@ -339,6 +339,16 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 
 func (s *shell) confirmingAccountCreation() bool {
 	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
+}
+
+func (s *shell) refreshBalanceQueries(posted bool) {
+	if s.overviewPage != nil {
+		s.overviewPage.needsRefresh = true
+	}
+	if posted && s.historyPage != nil {
+		s.historyPage.revision++
+		s.historyPage.model.Refresh()
+	}
 }
 
 func (s *shell) savingAccountInstitution() bool {

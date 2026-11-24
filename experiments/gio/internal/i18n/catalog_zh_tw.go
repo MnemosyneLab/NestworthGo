@@ -624,4 +624,15 @@ var traditionalChineseCatalog = catalog{
 	AccountCashSaved:         "現金餘額已儲存。",
 	AccountCashView:          "查看對帳紀錄",
 	HistoryCashReconciled:    "現金對帳",
+
+	AccountBankBalanceAction:        "更新銀行餘額",
+	AccountBankBalanceReview:        "預覽銀行餘額",
+	AccountBankBalanceConfirm:       "確認銀行餘額",
+	AccountBankBalanceOpening:       "在歷史啟用前儲存一筆餘額觀察。",
+	AccountBankBalanceOnConfirm:     "確認時生效",
+	AccountBankBalanceReconcile:     "將新餘額作為對帳寫入歷史。",
+	AccountBankBalanceNoChange:      "目標餘額與目前的銀行餘額相同。",
+	AccountBankBalancePreviewFailed: "無法預覽銀行餘額。請檢查帳戶後重試。",
+	AccountBankBalanceSaved:         "銀行餘額已儲存。",
+	AccountBankBalanceUnverified:    "無法確認是否已儲存。再次調整前，請先核對帳戶餘額。",
 }

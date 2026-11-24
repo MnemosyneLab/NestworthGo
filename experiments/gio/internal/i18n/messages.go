@@ -568,6 +568,16 @@ const (
 	AccountCashSaved
 	AccountCashView
 	HistoryCashReconciled
+	AccountBankBalanceAction
+	AccountBankBalanceReview
+	AccountBankBalanceConfirm
+	AccountBankBalanceOpening
+	AccountBankBalanceOnConfirm
+	AccountBankBalanceReconcile
+	AccountBankBalanceNoChange
+	AccountBankBalancePreviewFailed
+	AccountBankBalanceSaved
+	AccountBankBalanceUnverified
 	HistoryAdded
 	HistoryRemoved
 	HistoryUnitPrice

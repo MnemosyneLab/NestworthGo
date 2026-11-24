@@ -61,6 +61,19 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
+	if f := p.bankBalance; f != nil {
+		if f.draft == nil && p.canUpdateBankBalance() && f.open.Clicked(gtx) {
+			p.startBankBalance()
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return p.layoutBankBalance(gtx, view)
+		}
+		if f.saved.account == p.target.account && f.saved.activity != "" && f.openActivity != nil && f.view.Clicked(gtx) {
+			f.openActivity(f.saved.activity, &f.view)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
 	detail := p.target.account != ""
 	if p.back.Clicked(gtx) && detail {
 		p.backToList()
@@ -86,6 +99,12 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						view.Focus.Watch(gtx, &p.cashBalance.open)
 						return view.Button(&p.cashBalance.open, l.Text(i18n.AccountCashSet))(gtx)
+					}))
+				}
+				if p.canUpdateBankBalance() {
+					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						view.Focus.Watch(gtx, &p.bankBalance.open)
+						return view.Button(&p.bankBalance.open, l.Text(i18n.AccountBankBalanceAction))(gtx)
 					}))
 				}
 			} else if !p.invalid && (p.current == nil || !p.current.unavailable) {
@@ -180,16 +199,14 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		lines = append(lines, layout.Rigid(view.Message(l.Text(p.createdMessage), view.Colors.Ink)))
 	}
 	if f := p.cashBalance; f != nil && f.saved.ID != "" && p.target.account == f.saved.AccountID {
-		lines = append(lines, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			children := []layout.FlexChild{layout.Rigid(view.Message(l.Text(i18n.AccountCashSaved), view.Colors.Ink))}
-			if f.saved.ActivityID != nil && f.openActivity != nil {
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					view.Focus.Watch(gtx, &f.view)
-					return view.Button(&f.view, l.Text(i18n.AccountCashView))(gtx)
-				}))
-			}
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
-		}))
+		lines = append(lines, layout.Rigid(balanceSavedLine(view, i18n.AccountCashSaved, &f.view, f.saved.ActivityID != nil && f.openActivity != nil)))
+	}
+	if f := p.bankBalance; f != nil && p.target.account != "" {
+		if f.saved.account == p.target.account {
+			lines = append(lines, layout.Rigid(balanceSavedLine(view, i18n.AccountBankBalanceSaved, &f.view, f.saved.activity != "" && f.openActivity != nil)))
+		} else if f.unverified == p.target.account {
+			lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountBankBalanceUnverified), view.Colors.ErrorInk)))
+		}
 	}
 	if m := p.maintenance; m != nil && p.target.account != "" {
 		if m.success != i18n.NoMessage {
@@ -220,6 +237,20 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		lines = append(lines, layout.Rigid(view.Message(l.Text(id), color)))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx, lines...)
+}
+
+func balanceSavedLine(view ui.View, label i18n.MessageID, link *widget.Clickable, showLink bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		l := view.Language
+		children := []layout.FlexChild{layout.Rigid(view.Message(l.Text(label), view.Colors.Ink))}
+		if showLink {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				view.Focus.Watch(gtx, link)
+				return view.Button(link, l.Text(i18n.AccountCashView))(gtx)
+			}))
+		}
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+	}
 }
 
 func (p *accountsPage) scrolling(gtx layout.Context, view ui.View, count int, row layout.ListElement) layout.Dimensions {

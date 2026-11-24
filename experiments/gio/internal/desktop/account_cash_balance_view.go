@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"strings"
-	"time"
 
 	"gioui.org/font"
 	"gioui.org/io/key"
@@ -134,31 +133,22 @@ func (p *accountsPage) layoutCashBalanceReview(gtx layout.Context, view ui.View)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	plan := d.review.plan
-	zone, err := time.LoadLocation(plan.Timezone)
+	effective, err := targetBalanceTimestamp(view, plan.EffectiveAt, plan.Timezone)
 	if err != nil {
 		return view.Message(l.Text(i18n.AccountCashPreviewFailed), view.Colors.ErrorInk)(gtx)
-	}
-	amount := func(value string) string { return value + " " + plan.Currency }
-	delta := plan.Delta
-	if !strings.HasPrefix(delta, "-") {
-		delta = "+" + delta
 	}
 	help := i18n.AccountCashOpeningHint
 	if d.review.history {
 		help = i18n.AccountCashReconcileHint
 	}
-	effective := plan.EffectiveAt.In(zone).Format("2006-01-02 15:04:05.000")
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Label(gtx, l.Text(i18n.AccountCashReview), 19, font.Medium, view.Colors.Ink)
 		}),
 		layout.Rigid(view.Message(d.account.Name, view.Colors.Ink)),
 		layout.Rigid(view.Message(l.Text(help), view.Colors.SecondaryInk)),
-		layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionBefore), amount(plan.Current)), view.Colors.Ink)),
-		layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionAfter), amount(plan.Target)), view.Colors.Ink)),
-		layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountCashDelta), amount(delta)), view.Colors.Ink)),
-		layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionEffective), effective, zone), view.Colors.SecondaryInk)),
 	}
+	children = append(children, targetBalanceFacts(view, plan.Current, plan.Target, plan.Delta, plan.Currency, effective)...)
 	if plan.Reason != nil && *plan.Reason != "" {
 		children = append(children, layout.Rigid(view.Message(*plan.Reason, view.Colors.Ink)))
 	}
@@ -166,17 +156,8 @@ func (p *accountsPage) layoutCashBalanceReview(gtx layout.Context, view ui.View)
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.AccountCashUncertain), view.Colors.ErrorInk)))
 	}
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		if d.confirming != nil {
-			return view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)(gtx)
-		}
-		if d.uncertain {
-			return view.PrimaryButton(&d.retryConfirm, l.Text(i18n.ContributionRetryPost))(gtx)
-		}
-		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-			layout.Rigid(view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel))),
-			layout.Rigid(view.Button(&d.edit, l.Text(i18n.AccountCreateBackToDetails))),
-			layout.Rigid(view.PrimaryButton(&d.confirm, l.Text(i18n.AccountCashConfirm))),
-		)
+		return layoutTargetBalanceConfirmation(gtx, view, d.confirming != nil, d.uncertain,
+			&d.cancel, &d.edit, confirm, i18n.AccountCashConfirm)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }

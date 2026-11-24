@@ -623,4 +623,15 @@ var japaneseCatalog = catalog{
 	AccountCashSaved:         "現金残高を保存しました。",
 	AccountCashView:          "照合の記録を表示",
 	HistoryCashReconciled:    "現金残高の照合",
+
+	AccountBankBalanceAction:        "銀行口座の残高を更新",
+	AccountBankBalanceReview:        "銀行口座の残高を確認",
+	AccountBankBalanceConfirm:       "銀行口座の残高を確定",
+	AccountBankBalanceOpening:       "履歴の開始前に残高の記録を保存します。",
+	AccountBankBalanceOnConfirm:     "確定時に有効",
+	AccountBankBalanceReconcile:     "新しい残高を照合として履歴に記録します。",
+	AccountBankBalanceNoChange:      "目標残高は現在の銀行口座残高と同じです。",
+	AccountBankBalancePreviewFailed: "銀行口座の残高をプレビューできませんでした。口座を確認して再試行してください。",
+	AccountBankBalanceSaved:         "銀行口座の残高を保存しました。",
+	AccountBankBalanceUnverified:    "保存を確認できませんでした。再度変更する前に、記録された残高を確認してください。",
 }
