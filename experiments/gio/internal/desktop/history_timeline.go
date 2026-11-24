@@ -39,12 +39,15 @@ type historyDetailVisit struct {
 	scroll           widget.List
 	amendment        *historyAmendmentDraft
 	correct, reverse widget.Clickable
+	repeat           widget.Clickable
+	repeatDraft      *historyRepeatDraft
 	linked           [4]widget.Clickable
 }
 
 type historyReads struct {
 	ctx        context.Context
 	service    history.AmendmentLedger
+	repeatAPI  historyRepeatAPI
 	clock      func() time.Time
 	invalidate func()
 	workers    sync.WaitGroup
@@ -185,6 +188,7 @@ func (p *historyPage) pollPosted() {
 	p.pollStartingPoint()
 	if p.reads != nil {
 		p.pollAmendment()
+		p.pollRepeat()
 	}
 	if p.cashMovements == nil {
 		return

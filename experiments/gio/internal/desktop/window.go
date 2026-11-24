@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
@@ -29,6 +30,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		newGroupsList(ctx, service, window.Invalidate),
 	)
 	timeline := newLedgerHistory(ctx, service, clock, window.Invalidate)
+	timeline.reads.repeatAPI = historyapi.NewService(service)
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &balanceAccountCreation{service: service}

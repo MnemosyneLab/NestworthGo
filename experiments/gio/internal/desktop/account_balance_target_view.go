@@ -126,7 +126,7 @@ func (p *accountsPage) layoutBalanceTargetReview(gtx layout.Context, view ui.Vie
 		owed := fmt.Sprintf(l.Text(i18n.AccountCardBalanceOwedAfter), plan.target+" "+plan.currency.String())
 		children = append(children, layout.Rigid(view.Message(owed, view.Colors.Ink)))
 	}
-	children = append(children, targetBalanceFacts(view, plan.before, plan.after, plan.delta, plan.currency.String(), effective)...)
+	children = append(children, targetBalanceFacts(view, i18n.AccountCashDelta, plan.before, plan.after, plan.delta, plan.currency.String(), effective)...)
 	if d.uncertain {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.AccountCashUncertain), view.Colors.ErrorInk)))
 	}
@@ -145,7 +145,7 @@ func targetBalanceTimestamp(view ui.View, instant time.Time, zone string) (strin
 	return fmt.Sprintf(view.Language.Text(i18n.ContributionEffective), instant.In(location).Format("2006-01-02 15:04:05.000"), location), nil
 }
 
-func targetBalanceFacts(view ui.View, before, target, delta, currency, effective string) []layout.FlexChild {
+func targetBalanceFacts(view ui.View, deltaLabel i18n.MessageID, before, target, delta, currency, effective string) []layout.FlexChild {
 	l := view.Language
 	amount := func(value string) string { return value + " " + currency }
 	rows := []layout.FlexChild{
@@ -156,7 +156,7 @@ func targetBalanceFacts(view ui.View, before, target, delta, currency, effective
 		if !strings.HasPrefix(delta, "-") && !strings.HasPrefix(delta, "+") {
 			delta = "+" + delta
 		}
-		rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountCashDelta), amount(delta)), view.Colors.Ink)))
+		rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(deltaLabel), amount(delta)), view.Colors.Ink)))
 	}
 	return append(rows, layout.Rigid(view.Message(effective, view.Colors.SecondaryInk)))
 }

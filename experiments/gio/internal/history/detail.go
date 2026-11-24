@@ -18,6 +18,7 @@ type DetailReader interface {
 	Reader
 	ReferenceReader
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
+	RepeatEligibleActivities(context.Context, []domain.Activity) (map[domain.ActivityID]bool, error)
 }
 
 type References struct {
@@ -60,6 +61,7 @@ type Detail struct {
 	Links                AmendmentLinks
 	Amendable            bool
 	Reversible           bool
+	Repeatable           bool
 	LiabilityValueUpdate bool
 }
 
@@ -82,6 +84,11 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		return Detail{}, err
 	}
 	detail := Detail{Activity: record, Location: zone, Accounts: make(map[domain.AccountID]string)}
+	eligible, err := service.RepeatEligibleActivities(ctx, []domain.Activity{record})
+	if err != nil {
+		return Detail{}, err
+	}
+	detail.Repeatable = eligible[id]
 	detail.Links, err = loadAmendmentLinks(ctx, service, record)
 	if err != nil {
 		return Detail{}, err

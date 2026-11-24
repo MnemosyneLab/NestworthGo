@@ -589,6 +589,26 @@ const (
 	AccountCardBalanceOwedAfter
 	HistoryDebtIncreased
 	HistoryDebtReduced
+	HistoryRepeatAction
+	HistoryRepeatAccount
+	HistoryRepeatAmount
+	HistoryRepeatReason
+	HistoryRepeatNote
+	HistoryRepeatPreview
+	HistoryRepeatConfirm
+	HistoryRepeatEdit
+	HistoryRepeatSaved
+	HistoryRepeatAccountUnavailable
+	HistoryRepeatRefused
+	HistoryRepeatPlanMissing
+	HistoryRepeatNoteTooLong
+	HistoryCashReasonIncome
+	HistoryCashReasonInterest
+	HistoryCashReasonGift
+	HistoryCashReasonOther
+	HistoryCashReasonExpense
+	HistoryCashReasonFee
+	HistoryCashReasonTax
 	StatementOpen
 	StatementBackAccount
 	StatementBackList

@@ -19,8 +19,15 @@ import (
 func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reads, view.Language
 	d := r.detail
+	if d.repeatDraft != nil {
+		return p.layoutRepeat(gtx, view)
+	}
 	if d.amendment != nil {
 		return p.layoutAmendment(gtx, view)
+	}
+	if r.repeatAPI != nil && d.record != nil && d.err == nil && d.pending == nil && d.record.Repeatable && d.repeat.Clicked(gtx) {
+		r.startRepeat()
+		return p.layoutRepeat(gtx, view)
 	}
 	if d.record != nil && d.err == nil && d.pending == nil && d.record.Amendable {
 		if d.correct.Clicked(gtx) {
@@ -80,6 +87,11 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))),
 		)
 	case known != nil:
+		if r.repeatAPI != nil && known.Repeatable {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.Button(&d.repeat, l.Text(i18n.HistoryRepeatAction)))
+			}))
+		}
 		if known.Amendable {
 			buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.correct, l.Text(i18n.HistoryCorrectAction)))}
 			if known.Reversible {

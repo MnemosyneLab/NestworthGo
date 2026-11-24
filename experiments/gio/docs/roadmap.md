@@ -601,7 +601,7 @@ and receiving accounts, amounts, fee and resulting balances.
 | Replay and read retry | A double click during a paid transfer did not create a second write request. A deliberately discarded response replayed the identical envelope and returned the original activity. A following detail load failure offered a read-only retry. After reopening, withdrawal and both transfers replayed to their original IDs. A changed fee with the same ID conflicted. |
 | Linux X11 | At 900×660 on Xvfb, withdrew USD 25.125, verified an EUR source could not choose a USD destination, and changed a reviewed USD 2 fee to USD 1.125 before confirming the USD 30.25 transfer. A double click on each confirmation posted one activity. Overview displayed USD 1,907.88. Both saved details opened after normal quit and relaunch. Read-only SQLite comparison found four new effects and two mutation receipts. A temporary build overlay fixed the clock and prepared the verified synthetic fixture. |
 | Automated checks | The Gio module suite, Gio vet, Linux preview build, and focused Wails History, domain movement, household attribution and application idempotency regressions passed. |
-| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Expense categorization and repeat remain open. See the cash correction and reversal milestone for later progress. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup, target-platform cutover and expense categorization remain open. See the cash correction and reversal and repeat milestones for later progress. |
 
 #### Cross-currency cash transfer milestone
 
@@ -710,7 +710,7 @@ same query again.
 | State and fault handling | Frame tests restored the loaded page position and stable row focus on Back, reopened the same detail on Forward, and recovered a filtered visit after visiting another timeline. A deliberately late page and a late detail could not replace their successors. A missing detail showed unavailable, and a transient detail and failed post-confirmation list refresh retried reads only. |
 | Linux X11 | In a 900×660 Xvfb window, loaded all 67 records, selected an archived account, opened an internal transfer, and used Back and Forward. Verified the empty intersection and a buy selected by instrument and both date bounds. Reload retained its filters. At the end of the second page, opened an older record and returned to the same scroll position. Read-only SQLite comparison after normal quit found identical activities, effects, cash and account observations, holdings and mutation receipts. A temporary overlay fixed the clock and seeded the verified fixture. |
 | Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, shared application and SQLite filter, pagination and mutation regressions. |
-| Boundaries | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Wails date presets, activity repeat and product actions remain open. See the cash correction and reversal milestone and the Holdings cash target-balance milestone for eligible actions. Stage 3 production startup and target-platform cutover gates remain open. |
+| Boundaries | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Wails date presets and product actions remain open. See the cash correction and reversal, Holdings cash target-balance and repeat milestones for eligible actions. Stage 3 production startup and target-platform cutover gates remain open. |
 
 #### Cash correction and reversal milestone
 
@@ -745,7 +745,7 @@ and Overview. Retry on a failed detail or timeline read uses the read path.
 | State and fault handling | Gio frame tests rejected an unchanged amount, required a fresh preview after an edit and an intervening ledger write, and blocked a duplicate click and Back during confirmation. A simulated snapshot refresh error accompanied a real saved ID, then detail Retry recovered that ID with no new write. A deliberately lost reversal reply replayed the identical request. Reopening returned both saved IDs from their receipts. Already corrected, already reversed, unsupported transfer and missing activity paths were rejected. |
 | Linux X11 | On Debian 13 amd64 with Go 1.27.4, ran the native Gio window at 900×660 on Xvfb with Mesa software rendering. Canceled and reopened the correction review, double-clicked both confirmations, and followed linked details from the saved replacement to the original and correction reversal. Overview showed USD 1,774.13 before and after normal quit and reopen. Reopened History showed 12 records and linked the latest reversal back to the original. Read-only SQLite comparison preserved every original activity and effect and found three added activities, three exact USD effects, one correction group and two mutation receipts. A temporary overlay fixed the clock and seeded the verified profile. |
 | Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, shared application correction/reversal and mutation, and SQLite query regressions. |
-| Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. Broader correction forms, repeat and balance reconciliation beyond bank accounts remain Stage 4 work. |
+| Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. Broader correction forms remain open. See the repeat and balance reconciliation milestones for later progress. |
 
 #### Transfer, Holdings cash and FX history amendments
 
@@ -776,7 +776,7 @@ apply to these operations.
 | Failure and replay | A zero destination principal could not advance to confirmation, and insufficient source cash was rejected. The fee regression covered blank retention and explicit zero removal. The archived destination accepted correction, preserved archive metadata and refused standalone reversal until restored. After a known saved correction and failed detail read, Retry issued no write. A lost reversal reply replayed the identical request, including after reopen. A different request hash with the same mutation ID was rejected. |
 | Linux X11 | In a 900×660 native Gio window on Xvfb, rejected zero destination principal, reviewed both native amounts and the fee, double-clicked confirmation, followed the original and replacement links, and reversed the replacement. Normal quit and reopen retained 17 activities and USD 1,955.08 net worth. A separate profile exercised conversion correction and reversal, including scrolling to the balances at 700×460. Reopen showed USD 1,954.68 net worth. Closed read-only SQLite verified three appended activities, nine exact effects and two mutation receipts on each profile. Original activities, effects and market quotes were retained. A temporary overlay fixed the clock and seeded the verified profiles. |
 | Automated checks | Gio module tests, vet and Linux preview build passed, alongside focused shared Wails History, domain, correction, reversal, FX and mutation tests. |
-| Open evidence | Broader Wails edits such as changing original endpoints, a market quote calculator, repeat, product history and balance reconciliation beyond bank accounts remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | Broader Wails edits such as changing original endpoints, a market quote calculator and product history remain open. See the repeat and balance reconciliation milestones for later progress. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover gates remain open. |
 
 #### Start history for an existing household
 
@@ -958,6 +958,47 @@ available here to view.
 | Tests | The Gio module suite and focused shared application, SQLite reconciliation and Wails Go reconciliation and Asset Changes tests passed. |
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
 | Open evidence | Multi-account editing, individual source comparisons and exceptions, partial finish and linked financial adjustments remain open in Gio. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Repeat an ordinary cash activity
+
+**Ledger activity → Details → Repeat as new draft** opens a one-time draft.
+Wails has the same action in the History list menu and
+[detail sheet](../../../frontend/src/features/history/ActivityDetailSheet.tsx).
+The [Wails draft mapper](../../../frontend/src/features/history/activityToCommand.ts#L192)
+and [shared eligibility check](../../../internal/application/repeat_source.go)
+cover ordinary, single-account cash additions and removals. The inbound
+reasons are income, interest, contribution, gift and other. The outbound
+reasons are expense, fee, tax, interest and other. Transfers, holding-linked
+fees or taxes, investment and product activities, reconciliation, corrections
+and reversed activities are outside that contract. This flow creates a new
+activity after explicit confirmation.
+
+Gio copies account, native amount, currency, reason and note, with date and
+time defaulting to the new draft's current instant in the History Origin
+timezone. The default retains milliseconds. Editing the civil date or time
+uses the selected local minute through the same History contract. The current
+cash picker supports active bank, cash-on-hand and wallet balances and
+Holdings cash. If the historical account is unavailable, the user can choose
+another supported account. That selection uses the account currency and resets
+the reason to Other. Holdings cash can select a supported native currency.
+
+The [Wails Go repeat adapter](../../../internal/wailsapi/history/repeat.go)
+validates the source again, creates a fresh mutation identity, and freezes
+the command for confirmation. The source, activity and effect IDs are
+independent of the new write. A changed ledger can require a fresh preview.
+An uncertain reply retains the same plan for retry. A missing plan offers
+read-only inspection of History. Plans are scoped to the running process.
+After a confirmed write, the saved detail opens by its new ID and a failed
+detail query can only retry the read.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go parity | Independent marked fixtures started with USD 25 income and USD 4.50 expense. Gio and Wails Go matched the editable USD 17.25 new income, the repeated USD 4.50 expense, exact effects, dates, currency, reasons, notes and USD 103.25 final net worth. Both original activity and effect IDs and audit fields were preserved. For the manually selected earlier expense time, both services reprojected the later expense's resulting balance to USD 116. |
+| State and recovery | Gio frames verified that opening, reviewing and canceling made no write, and editing required a fresh preview. Duplicate confirmation made one submission. Lost acknowledgement retried the same plan and returned the same activity. An acknowledged save followed by a failed detail read only retried the query. A reversal invalidated its source even when opened from an older draft. A missing plan allowed read-only History inspection, and reopening kept both new records. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, opened the original income, checked the new default date, changed the amount and note, reviewed the result and double-clicked to confirm. Normal reopen showed both the original and repeated income. The bank balance was USD 137.75 and net worth USD 107.75. Read-only SQLite checks retained the original audit rows and found one new activity, one effect and one new mutation receipt. A temporary overlay seeded the verified fixture and provided an advancing clock. |
+| Tests | The Gio module suite and focused shared application and Wails Go repeat and mutation tests passed. |
+| Build and vet | The Linux Gio preview build and Gio vet passed. |
+| Open evidence | Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Gio's list menu shortcut and repeat for accounts outside its supported cash picker remain open. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

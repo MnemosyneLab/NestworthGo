@@ -12,10 +12,14 @@ import (
 // CashMovementLedger is the subset of the shared application service used by
 // the cash movement form and its authoritative activity detail.
 type CashMovementLedger interface {
-	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
-	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
+	cashMovementReader
 	PreviewChangeGuardedWith(context.Context, func(context.Context) (any, error)) (domain.ChangePreview, string, error)
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
+}
+
+type cashMovementReader interface {
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
+	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
 }
 
 type CashMovementSources struct {
@@ -41,7 +45,7 @@ func acceptsHoldingsCash(account domain.Account) bool {
 	return account.ArchivedAt == nil && account.BalanceSheetRole == domain.RoleAsset && account.TrackingMode == domain.TrackingHoldings
 }
 
-func LoadCashMovementSources(ctx context.Context, ledger CashMovementLedger, movement CashMovement) (CashMovementSources, error) {
+func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement) (CashMovementSources, error) {
 	origin, location, err := cashMovementOrigin(ctx, ledger)
 	if err != nil {
 		return CashMovementSources{}, err
@@ -59,7 +63,7 @@ func LoadCashMovementSources(ctx context.Context, ledger CashMovementLedger, mov
 	return sources, nil
 }
 
-func cashMovementOrigin(ctx context.Context, ledger CashMovementLedger) (domain.HistoryOrigin, *time.Location, error) {
+func cashMovementOrigin(ctx context.Context, ledger cashMovementReader) (domain.HistoryOrigin, *time.Location, error) {
 	origin, err := ledger.HistoryOrigin(ctx)
 	if err != nil {
 		return domain.HistoryOrigin{}, nil, err

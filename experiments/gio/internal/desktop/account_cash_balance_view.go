@@ -148,7 +148,7 @@ func (p *accountsPage) layoutCashBalanceReview(gtx layout.Context, view ui.View)
 		layout.Rigid(view.Message(d.account.Name, view.Colors.Ink)),
 		layout.Rigid(view.Message(l.Text(help), view.Colors.SecondaryInk)),
 	}
-	children = append(children, targetBalanceFacts(view, plan.Current, plan.Target, plan.Delta, plan.Currency, effective)...)
+	children = append(children, targetBalanceFacts(view, i18n.AccountCashDelta, plan.Current, plan.Target, plan.Delta, plan.Currency, effective)...)
 	if plan.Reason != nil && *plan.Reason != "" {
 		children = append(children, layout.Rigid(view.Message(*plan.Reason, view.Colors.Ink)))
 	}
