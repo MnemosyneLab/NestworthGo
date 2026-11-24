@@ -82,13 +82,19 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if f := p.firstBuy; f != nil {
-		if f.draft == nil && p.canFirstBuy() && f.open.Clicked(gtx) {
-			p.startFirstBuy()
-			gtx.Execute(op.InvalidateCmd{})
+	if f := p.trade; f != nil {
+		if f.draft == nil {
+			switch {
+			case p.canFirstBuy() && f.buy.Clicked(gtx):
+				p.startTrade(domain.TradeBuy)
+				gtx.Execute(op.InvalidateCmd{})
+			case p.canSell() && f.sell.Clicked(gtx):
+				p.startTrade(domain.TradeSell)
+				gtx.Execute(op.InvalidateCmd{})
+			}
 		}
 		if f.draft != nil {
-			return p.layoutFirstBuy(gtx, view)
+			return p.layoutTrade(gtx, view)
 		}
 	}
 	detail := p.target.account != ""
@@ -494,10 +500,14 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
-	if p.canFirstBuy() {
+	if buy, sell := p.canFirstBuy(), p.canSell(); buy || sell {
+		label, button := i18n.SellOpen, &p.trade.sell
+		if buy {
+			label, button = i18n.BuyOpen, &p.trade.buy
+		}
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, view.Button(&p.firstBuy.open, l.Text(i18n.BuyOpen)))
+				return layout.W.Layout(gtx, view.Button(button, l.Text(label)))
 			})
 		})
 	}

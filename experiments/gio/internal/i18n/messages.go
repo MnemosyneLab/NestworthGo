@@ -763,6 +763,23 @@ const (
 	BuyInvalidFee
 	BuyPreviewFailed
 	BuyStale
+	SellOpen
+	SellReview
+	SellConfirm
+	SellPosted
+	SellQuantity
+	SellGross
+	SellGrossFact
+	SellScopeUnavailable
+	SellHistoryRequired
+	SellNoInstruments
+	SellPreviewFailed
+	SellStale
+	SellRemainingQuantity
+	SellRemainingCost
+	SellRealizedGain
+	SellInsufficientQuantity
+	SellDateSequence
 	messageCount
 )
 

@@ -37,7 +37,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	accounts.creation = &balanceAccountCreation{service: service}
 	accounts.maintenance = &accountMaintenance{service: service}
 	accounts.cashBalance = &accountCashBalance{service: service}
-	accounts.firstBuy = &accountFirstBuy{service: service}
+	accounts.trade = &accountTrade{service: service}
 	accounts.balanceTarget = &accountBalanceTarget{service: service}
 	accounts.statement = &accountStatement{service: reconciliation.NewService(service), origin: service}
 	onboarding := newOnboardingPage(ctx, service, clock, window.Invalidate)

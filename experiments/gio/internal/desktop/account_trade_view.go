@@ -18,31 +18,32 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-func (p *accountsPage) layoutFirstBuy(gtx layout.Context, view ui.View) layout.Dimensions {
-	f, l := p.firstBuy, view.Language
+func (p *accountsPage) layoutTrade(gtx layout.Context, view ui.View) layout.Dimensions {
+	f, l := p.trade, view.Language
 	d := f.draft
-	if !p.firstBuyUnresolved() && d.cancel.Clicked(gtx) {
+	labels := d.labels()
+	if !p.tradeUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
-		gtx.Execute(key.FocusCmd{Tag: &f.open})
+		gtx.Execute(key.FocusCmd{Tag: f.action(d.side)})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	gtx = ui.LimitWidth(gtx, 690)
 	if d.review != nil {
-		return p.layoutFirstBuyReview(gtx, view)
+		return p.layoutTradeReview(gtx, view)
 	}
 	if d.sourceProblem != i18n.NoMessage && d.retry.Clicked(gtx) {
-		p.loadFirstBuySources()
+		p.loadTradeSources()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.previewing == nil && d.preview.Clicked(gtx) {
-		p.previewFirstBuy()
+		p.previewTrade()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	origin := view.Origin
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, &origin, buyTitle(view, i18n.BuyOpen))
+			return fieldPosition(gtx, &origin, tradeTitle(view, labels.action))
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, view.Message(d.account.Name+" · "+d.account.DefaultCurrency.String(), view.Colors.Ink))
@@ -51,13 +52,13 @@ func (p *accountsPage) layoutFirstBuy(gtx layout.Context, view ui.View) layout.D
 	if d.sources != nil && len(d.sources.Instruments) != 0 {
 		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return fieldPosition(gtx, &origin, d.layoutBuyInstrument(view, origin))
+				return fieldPosition(gtx, &origin, d.layoutTradeInstrument(view, origin))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return fieldPosition(gtx, &origin, d.layoutBuyAmounts(view))
+				return fieldPosition(gtx, &origin, d.layoutTradeAmounts(view))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return d.layoutBuyTime(gtx, view, origin, p.clock())
+				return d.layoutTradeTime(gtx, view, origin, p.clock())
 			}),
 			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), d.sources.Location), view.Colors.SecondaryInk)),
 		)
@@ -68,7 +69,7 @@ func (p *accountsPage) layoutFirstBuy(gtx layout.Context, view ui.View) layout.D
 	case d.sourceProblem != i18n.NoMessage:
 		children = append(children, layout.Rigid(view.Message(l.Text(d.sourceProblem), view.Colors.ErrorInk)))
 	case d.sources != nil && len(d.sources.Instruments) == 0:
-		children = append(children, layout.Rigid(view.Message(l.Text(i18n.BuyNoInstruments), view.Colors.SecondaryInk)))
+		children = append(children, layout.Rigid(view.Message(l.Text(labels.empty), view.Colors.SecondaryInk)))
 	}
 	if d.problem != i18n.NoMessage && d.problem != d.sourceProblem {
 		children = append(children, layout.Rigid(view.Message(l.Text(d.problem), view.Colors.ErrorInk)))
@@ -82,7 +83,7 @@ func (p *accountsPage) layoutFirstBuy(gtx layout.Context, view ui.View) layout.D
 				if d.previewing != nil || d.instrument == "" || strings.TrimSpace(d.quantity.Text()) == "" || strings.TrimSpace(d.gross.Text()) == "" {
 					gtx = gtx.Disabled()
 				}
-				return view.PrimaryButton(&d.preview, l.Text(i18n.BuyReview))(gtx)
+				return view.PrimaryButton(&d.preview, l.Text(labels.review))(gtx)
 			}))
 		}
 		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
@@ -90,10 +91,13 @@ func (p *accountsPage) layoutFirstBuy(gtx layout.Context, view ui.View) layout.D
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (d *firstBuyDraft) layoutBuyInstrument(view ui.View, origin image.Point) layout.Widget {
+func (d *accountTradeDraft) layoutTradeInstrument(view ui.View, origin image.Point) layout.Widget {
 	items := make([]ui.Choice, 0, len(d.sources.Instruments))
 	for _, item := range d.sources.Instruments {
 		label := item.SelectionLabel()
+		if holding, ok := d.sources.Holdings[item.ID]; ok {
+			label += " · " + fmt.Sprintf(view.Language.Text(i18n.AccountQuantity), portfolioDecimal(view, holding.Quantity.Canonical()))
+		}
 		items = append(items, ui.Choice{ID: item.ID.String(), Label: label, SearchText: item.Name + " " + label})
 	}
 	return func(gtx layout.Context) layout.Dimensions {
@@ -105,15 +109,16 @@ func (d *firstBuyDraft) layoutBuyInstrument(view ui.View, origin image.Point) la
 	}
 }
 
-func (d *firstBuyDraft) layoutBuyAmounts(view ui.View) layout.Widget {
+func (d *accountTradeDraft) layoutTradeAmounts(view ui.View) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		currency := d.account.DefaultCurrency.String()
+		labels := d.labels()
 		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: i18n.BuyQuantity, Disabled: d.previewing != nil})
+				return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: labels.quantity, Disabled: d.previewing != nil})
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyGross, Disabled: d.previewing != nil}, currency)
+				return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{Label: labels.gross, Disabled: d.previewing != nil}, currency)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: d.previewing != nil}, currency)
@@ -122,7 +127,7 @@ func (d *firstBuyDraft) layoutBuyAmounts(view ui.View) layout.Widget {
 	}
 }
 
-func (d *firstBuyDraft) layoutBuyTime(gtx layout.Context, view ui.View, origin image.Point, now time.Time) layout.Dimensions {
+func (d *accountTradeDraft) layoutTradeTime(gtx layout.Context, view ui.View, origin image.Point, now time.Time) layout.Dimensions {
 	zone := d.sources.Location
 	today := now.In(zone).Format(time.DateOnly)
 	weekStart := time.Monday
@@ -148,9 +153,10 @@ func (d *firstBuyDraft) layoutBuyTime(gtx layout.Context, view ui.View, origin i
 	)
 }
 
-func (p *accountsPage) layoutFirstBuyReview(gtx layout.Context, view ui.View) layout.Dimensions {
-	d, l := p.firstBuy.draft, view.Language
-	if !p.firstBuyUnresolved() && d.edit.Clicked(gtx) {
+func (p *accountsPage) layoutTradeReview(gtx layout.Context, view ui.View) layout.Dimensions {
+	d, l := p.trade.draft, view.Language
+	labels := d.labels()
+	if !p.tradeUnresolved() && d.edit.Clicked(gtx) {
 		d.review = nil
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -160,7 +166,7 @@ func (p *accountsPage) layoutFirstBuyReview(gtx layout.Context, view ui.View) la
 		confirm = &d.retryConfirm
 	}
 	if d.posting == nil && confirm.Clicked(gtx) {
-		p.postFirstBuy()
+		p.postTrade()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	review := d.review
@@ -176,7 +182,7 @@ func (p *accountsPage) layoutFirstBuyReview(gtx layout.Context, view ui.View) la
 		instrument = d.sources.Instruments[at].SelectionLabel()
 	}
 	children := []layout.FlexChild{
-		layout.Rigid(buyTitle(view, i18n.BuyReview)),
+		layout.Rigid(tradeTitle(view, labels.review)),
 		layout.Rigid(view.Message(d.account.Name+" · "+instrument, view.Colors.Ink)),
 		layout.Rigid(view.Message(contributionTimestamp(view, preview.Activity.EffectiveAt, review.Timezone), view.Colors.SecondaryInk)),
 	}
@@ -185,9 +191,26 @@ func (p *accountsPage) layoutFirstBuyReview(gtx layout.Context, view ui.View) la
 	}
 	add(i18n.AccountQuantity, portfolioDecimal(view, trade.Quantity.Canonical()))
 	add(i18n.BuyExecutionPrice, money(trade.UnitPrice.Canonical()))
-	add(i18n.BuyGrossFact, money(trade.Gross.CanonicalAmount()))
+	add(labels.grossFact, money(trade.Gross.CanonicalAmount()))
 	add(i18n.BuyFeeFact, money(fee))
-	add(i18n.BuyCostBasis, money(review.UnitCost.Canonical()))
+	if sale := review.Sale; sale != nil {
+		for _, endpoint := range preview.Review {
+			if endpoint.Target == domain.EffectTargetHoldingQuantity {
+				add(i18n.SellRemainingQuantity, portfolioDecimal(view, endpoint.After))
+			}
+		}
+		remaining, realized := l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue)
+		if sale.RemainingCost != nil {
+			remaining = money(sale.RemainingCost.Amount)
+		}
+		if sale.RealizedGain != nil {
+			realized = money(sale.RealizedGain.Amount)
+		}
+		add(i18n.SellRemainingCost, remaining)
+		add(i18n.SellRealizedGain, realized)
+	} else {
+		add(i18n.BuyCostBasis, money(review.UnitCost.Canonical()))
+	}
 	for _, endpoint := range preview.Review {
 		if endpoint.Target == domain.EffectTargetAccountCash {
 			add(i18n.ContributionBefore, money(endpoint.Before))
@@ -199,12 +222,12 @@ func (p *accountsPage) layoutFirstBuyReview(gtx layout.Context, view ui.View) la
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))
 	}
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, i18n.BuyConfirm)
+		return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, labels.confirm)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx, children...)
 }
 
-func buyTitle(view ui.View, id i18n.MessageID) layout.Widget {
+func tradeTitle(view ui.View, id i18n.MessageID) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return view.Label(gtx, view.Language.Text(id), 19, font.Medium, view.Colors.Ink)
 	}

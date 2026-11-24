@@ -244,7 +244,7 @@ type accountsPage struct {
 	createdMessage                     i18n.MessageID
 	maintenance                        *accountMaintenance
 	cashBalance                        *accountCashBalance
-	firstBuy                           *accountFirstBuy
+	trade                              *accountTrade
 	balanceTarget                      *accountBalanceTarget
 	statement                          *accountStatement
 }

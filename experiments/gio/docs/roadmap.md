@@ -64,7 +64,8 @@ workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
-open. Stage 5 includes Holdings and instrument reads and a scoped first buy.
+open. Stage 5 includes Holdings and instrument reads, a scoped first buy,
+and same-currency partial sales and liquidations.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -1147,7 +1148,41 @@ that page. The Activity links to the affected account and instrument.
 | Linux X11 | Native Gio at 900×660 on Xvfb rejected gross plus fee above cash, then reviewed and double-clicked confirmation for the valid buy. History linked to the position and the cash account. Overview displayed USD 223.64. A normal quit and reopen preserved the buy and its fee. A read-only SQLite comparison verified one Holding, one Activity, three effects, one receipt and the exact cash and quantity projections. Opening balances, History Origin and quote rows were preserved. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
 | Tests | The Gio module suite and focused trade, cost basis and mutation tests in the shared application, domain and Wails Go History packages passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Existing-position buys, sells, cross-currency settlement, positive opening positions, instrument creation and provider actions remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Same-currency sales](#same-currency-security-sales) follow this milestone. Existing-position buys, cross-currency settlement, positive opening positions, instrument creation and provider actions remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+
+#### Same-currency security sales
+
+**Accounts → Holdings account → Record sell** records an already executed
+partial sale or liquidation. Choose a positive holding in an active
+investment account and settle in its default-currency cash sleeve. Enter the
+executed quantity, gross proceeds and optional fee. The shared trade command
+derives unit price, checks quantity at the effective time, and previews cash
+and quantity endpoints. The source picker uses existing Holdings and
+excludes archived, managed and foreign-currency instruments.
+[Wails trade form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails Go trade command](../../../internal/wailsapi/history/command.go)
+
+Gio also reads the prospective sale's realized gain or loss and remaining
+native cost from an additive application query under the same guarded read.
+It uses the shared weighted-average cost replay, including acquisition and
+sale fees. The preview labels missing cost evidence as unavailable and
+reports an actual zero remaining cost when quantity reaches zero. This
+slice accepts times strictly after the holding's latest affected cost or
+quantity activity. The audit check includes reversals. Market quotes are
+separate from the executed amount. [Application sale preview](../../../internal/application/trade_sale_preview.go) · [Cost basis replay](../../../internal/domain/cost_basis.go)
+
+Confirmation uses the same immutable command, mutation ID and preview token
+on retry. The saved sale opens by Activity ID and refreshes History, Account,
+Portfolio and Overview. Liquidation preserves the Holding ID and immutable
+History. The current-position list omits the zero position.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Separate synthetic profiles acquired five units in two buys with fees, giving an average cost of USD 27. Selling two units for USD 70.125 gross with a USD 1.125 fee left three units, USD 81 basis, USD 15 realized gain and USD 134 cash. Selling the other three for USD 60 with a USD 2 fee left zero quantity and basis, a USD 23 loss on the sale, cumulative realized loss of USD 8 and USD 192 cash and net worth. Compared trade previews, effects, the Wails Go holding projections and the shared gain read. |
+| Shell tests | Covered oversell, later audit events even after reversal, double confirmation, lost response replay, and a read-only retry after a known commit. Reopen preserved both sales and buys. Replaying both sell plans after restart returned their saved IDs. The first-buy workflow passed its existing parity and failure tests. |
+| Linux X11 | Native Gio at 900×660 on Xvfb rejected an oversell, then confirmed a partial sale with a double click and navigated through the saved activity to the instrument and account. A second preview showed zero remaining quantity and cost and the USD 23 loss. After liquidation and normal reopen, Overview showed USD 192 and History retained four activities. Read-only SQLite confirmed two sales, one receipt per sale, exact cash and quantity projections, and unchanged Holding identity, buys and quote rows. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
+| Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | An additional buy into an existing holding is the next trade slice and needs independent weighted-cost and retry acceptance. Backdated sale insertion, cross-currency settlement, opening positive positions, instrument maintenance and tax reporting remain separate. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 ## Moving from the preview to a desktop build
 

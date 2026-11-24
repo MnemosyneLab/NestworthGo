@@ -218,9 +218,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.balanceTarget != nil {
 			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
 		}
-		if s.accounts != nil && s.accounts.firstBuy != nil {
-			s.accounts.firstBuy.onPosted = func(activity domain.Activity, from event.Tag) {
-				s.historyPage.showPosted(activity, i18n.BuyPosted, from)
+		if s.accounts != nil && s.accounts.trade != nil {
+			s.accounts.trade.onPosted = func(activity domain.Activity, notice i18n.MessageID, from event.Tag) {
+				s.historyPage.showPosted(activity, notice, from)
 			}
 		}
 		if s.accounts != nil {
@@ -281,7 +281,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
-		s.accounts.pollFirstBuy()
+		s.accounts.pollTrade()
 		if s.accounts.pollInlineInstitution() && s.directory != nil {
 			for _, list := range s.directory.lists {
 				if list.isInstitutions() {
