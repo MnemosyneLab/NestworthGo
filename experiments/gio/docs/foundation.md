@@ -21,7 +21,11 @@ without symbolic or hard links. It takes the existing per-database Wails
 instance lock before opening the live database with writes enabled. Under
 that lock it checks for a pending restore, validates the presentation
 settings, and reads the schema, household and marker from a private copy of
-the SQLite main file and any journals. SQLite can build its WAL index on the
+the SQLite main file and any journals. An explicit disposable recovery fixture
+can finalize its prepared `replacement-installed` plan under that lock after
+verifying the receipt, both database copies and all input paths. It reloads
+presentation settings before opening the business database. Unsupported
+pending plans block the startup. SQLite can build its WAL index on the
 copy without changing the profile. A legacy profile without a lock file must
 pass this check before Gio creates one, and is checked again under the lock.
 

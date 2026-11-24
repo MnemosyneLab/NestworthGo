@@ -139,9 +139,9 @@ The profile contains `data/nestworth.db` and `data/settings.json`. Gio takes
 the same per-database instance lock as Wails, verifies the fixture identity
 and settings, and then opens the database for writes. The native startup
 window reports an occupied ledger, a pending restore, or an invalid profile.
-Close the owner before opening another session. Gio leaves pending restore
-files in place. The empty `data/nestworth.db.instance-lock` file can remain
-after quit. Its operating-system lock is released when the session ends.
+Close the owner before opening another session. Gio leaves unrecognized
+pending restores in place. The empty `data/nestworth.db.instance-lock` file
+can remain after quit. Its operating-system lock is released when the session ends.
 
 To run a disposable scenario or reopen an older verified Gio fixture, set
 `NESTWORTH_GIO_RUN_DIR` to its private, absolute directory when invoking
@@ -177,6 +177,31 @@ starts at today in the displayed History timezone and can be moved earlier.
 Creation opens an empty Accounts page. Reopening the same profile loads the
 saved household. Ordinary preview launches continue to seed the standard
 sample household.
+
+### Disposable startup recovery fixture
+
+Use a fresh private directory. Preparation creates a shared-service backup,
+installs its replacement inside the disposable profile, and leaves it at the
+`replacement-installed` journal phase. The first direct window launch checks
+the pending plan, finalizes the restore and opens the fixture. It shows the
+USD 42.25 Recovery Sample Reserve, Mint on Dark appearance and day-first dates.
+
+```sh
+sh experiments/gio/preview-linux.sh --build-only
+gio_run=$(mktemp -d)
+export NESTWORTH_GIO_RUN_DIR="$(cd "$gio_run" && pwd -P)"
+unset NESTWORTH_DATABASE_PATH NESTWORTH_SETTINGS_PATH
+gio_preview="bin/gio/linux-$(go env GOARCH)/Nestworth Gio/bin/Nestworth Gio"
+"$gio_preview" --prepare-recovery-fixture
+"$gio_preview"
+"$gio_preview" --verify-pilot-fixture
+```
+
+Run the last command after quitting the window. Verification alone never
+reconciles a pending restore, so use the bundled executable for the first
+launch. The fixture is bound to its original canonical root. Prepare another
+directory to repeat the scenario. Arbitrary restore journals, backups and
+crash layouts remain blocked in the preview.
 
 ## Overview
 

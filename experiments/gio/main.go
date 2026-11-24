@@ -59,6 +59,8 @@ func pilotCommand(args []string) error {
 		return pilot.Prepare(ctx, paths)
 	case "--prepare-onboarding-fixture":
 		return pilot.PrepareOnboarding(ctx, paths)
+	case "--prepare-recovery-fixture":
+		return pilot.PrepareRecovery(ctx, paths)
 	case "--ensure-pilot-fixture":
 		return pilot.Ensure(ctx, paths)
 	case "--verify-pilot-fixture":

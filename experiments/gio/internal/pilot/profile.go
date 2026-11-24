@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -20,15 +19,8 @@ func Prepare(ctx context.Context, paths Paths) error {
 
 // PrepareOnboarding creates the empty onboarding fixture in a fresh explicit run.
 func PrepareOnboarding(ctx context.Context, paths Paths) error {
-	if os.Getenv("NESTWORTH_GIO_RUN_DIR") != paths.RootPath() {
-		return errors.New("preparing onboarding requires an explicit NESTWORTH_GIO_RUN_DIR")
-	}
-	configDir, err := os.UserConfigDir()
-	if err != nil {
+	if err := requireDisposableRun(paths); err != nil {
 		return err
-	}
-	if filepath.Join(configDir, AppID) == paths.RootPath() {
-		return errors.New("use a disposable run directory for onboarding")
 	}
 	return ensureFixture(ctx, paths, false, seedOnboardingFixture)
 }
@@ -42,6 +34,12 @@ func Ensure(ctx context.Context, paths Paths) error {
 }
 
 func ensureFixture(ctx context.Context, paths Paths, reuse bool, seed func(context.Context, Paths) error) error {
+	return publishFixture(ctx, paths, reuse, func(ctx context.Context, candidate Paths) error {
+		return prepareCandidate(ctx, candidate, seed)
+	})
+}
+
+func publishFixture(ctx context.Context, paths Paths, reuse bool, prepare func(context.Context, Paths) error) error {
 	root := paths.RootPath()
 	if err := checkRoot(root); err != nil {
 		return err
@@ -85,7 +83,7 @@ func ensureFixture(ctx context.Context, paths Paths, reuse bool, seed func(conte
 	}
 	defer os.RemoveAll(staging)
 	candidate := dataPaths(staging)
-	if err := prepareCandidate(ctx, candidate, seed); err != nil {
+	if err := prepare(ctx, candidate); err != nil {
 		return err
 	}
 	if err := os.Rename(staging, paths.data); err != nil {
@@ -110,7 +108,7 @@ func prepareCandidate(ctx context.Context, paths Paths, seed func(context.Contex
 	return verifyFixture(ctx, paths, files)
 }
 
-func lockVerifiedFixture(ctx context.Context, paths Paths) (os.FileInfo, func() error, error) {
+func lockVerifiedFixture(ctx context.Context, paths Paths, recoverPending bool) (os.FileInfo, func() error, error) {
 	if err := checkRoot(paths.RootPath()); err != nil {
 		return nil, nil, err
 	}
@@ -135,7 +133,15 @@ func lockVerifiedFixture(ctx context.Context, paths Paths) (os.FileInfo, func() 
 		if !current.lock || !os.SameFile(files.database, current.database) {
 			err = errors.New("the isolated database changed while acquiring its instance lock")
 		} else {
-			err = verifyFixture(ctx, paths, current)
+			if recoverPending && errors.Is(checkRestoreJournal(paths), ErrRecoveryPending) {
+				err = reconcileRecoveryFixture(ctx, paths)
+				if err == nil {
+					current, err = inspectFixture(paths)
+				}
+			}
+			if err == nil {
+				err = verifyFixture(ctx, paths, current)
+			}
 		}
 	}
 	if err != nil {
@@ -147,7 +153,7 @@ func lockVerifiedFixture(ctx context.Context, paths Paths) (os.FileInfo, func() 
 // Verify checks an existing fixture and releases its instance lock without
 // opening a writable SQLite connection.
 func Verify(ctx context.Context, paths Paths) error {
-	_, unlock, err := lockVerifiedFixture(ctx, paths)
+	_, unlock, err := lockVerifiedFixture(ctx, paths, false)
 	if err != nil {
 		return err
 	}
@@ -168,7 +174,7 @@ func OpenSession(ctx context.Context, paths Paths) (*Session, error) {
 	if err := ensureFixture(ctx, paths, true, seedFixture); err != nil {
 		return nil, err
 	}
-	verified, unlock, err := lockVerifiedFixture(ctx, paths)
+	verified, unlock, err := lockVerifiedFixture(ctx, paths, true)
 	if err != nil {
 		return nil, err
 	}

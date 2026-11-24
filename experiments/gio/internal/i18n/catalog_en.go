@@ -111,7 +111,7 @@ var englishCatalog = catalog{
 	NavigationForwardTo:              "Forward to %s",
 	StartupBlocked:                   "Could not open the Gio preview",
 	StartupInUse:                     "Another Nestworth window is using this ledger. Close that window, then reopen the preview.",
-	StartupRecoveryPending:           "A restore is pending for this profile. The Gio preview can only open a verified synthetic profile with no pending restore.",
+	StartupRecoveryPending:           "This restore could not finish as a verified synthetic recovery. The ledger was not opened.",
 	StartupUnavailable:               "Gio could not open the isolated synthetic profile. Check the profile path or reopen the preview with a new private test directory.",
 	StartupQuit:                      "Quit",
 	DirectoryView:                    "View",

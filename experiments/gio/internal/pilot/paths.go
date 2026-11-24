@@ -84,6 +84,20 @@ func requirePrivateDirectory(path string) error {
 	return nil
 }
 
+func requireDisposableRun(paths Paths) error {
+	if os.Getenv("NESTWORTH_GIO_RUN_DIR") != paths.RootPath() {
+		return errors.New("use an explicit NESTWORTH_GIO_RUN_DIR for this disposable fixture")
+	}
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return err
+	}
+	if filepath.Join(configDir, AppID) == paths.RootPath() {
+		return errors.New("use a disposable run directory outside the default Gio profile")
+	}
+	return nil
+}
+
 func isPrivateOwned(info os.FileInfo) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	return ok && int(stat.Uid) == os.Geteuid() && info.Mode().Perm()&0o077 == 0

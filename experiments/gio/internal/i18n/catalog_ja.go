@@ -110,7 +110,7 @@ var japaneseCatalog = catalog{
 	NavigationForwardTo:              "%s に進む",
 	StartupBlocked:                   "Gio プレビューを開けません",
 	StartupInUse:                     "別の Nestworth ウィンドウがこの帳簿を使用しています。そのウィンドウを閉じてからプレビューを開き直してください。",
-	StartupRecoveryPending:           "このプロファイルには保留中の復元があります。Gio プレビューで開けるのは、検証済みで保留中の復元がないテスト用帳簿です。",
+	StartupRecoveryPending:           "検証済みのテスト用復元として完了できなかったため、帳簿を開きませんでした。",
 	StartupUnavailable:               "隔離されたテスト用帳簿を開けませんでした。パスを確認するか、新しい専用テストディレクトリで開き直してください。",
 	StartupQuit:                      "終了",
 	DirectoryView:                    "表示",

@@ -111,7 +111,7 @@ var simplifiedChineseCatalog = catalog{
 	NavigationForwardTo:              "前往 %s",
 	StartupBlocked:                   "无法打开 Gio 预览",
 	StartupInUse:                     "另一个 Nestworth 窗口正在使用此账本。请关闭该窗口后重新打开预览。",
-	StartupRecoveryPending:           "此目录有待处理的恢复操作。Gio 预览只能打开已验证且没有待恢复操作的合成账本。",
+	StartupRecoveryPending:           "这次恢复未能完成合成账本验证。账本未打开。",
 	StartupUnavailable:               "无法打开隔离的合成账本。请检查目录路径，或使用新的私有测试目录重新打开预览。",
 	StartupQuit:                      "退出",
 	DirectoryView:                    "查看",

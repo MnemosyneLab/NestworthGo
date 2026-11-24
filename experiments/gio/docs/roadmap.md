@@ -172,8 +172,10 @@ ledger, an invalid profile and a pending restore.
 
 The [Wails entry point](../../../cmd/nestworth/main.go) reconciles interrupted
 restores under the instance lock and offers recovery on database failure.
-Gio uses the same ownership boundary and blocks on a pending journal, leaving
-it untouched. Gio still requires the pilot marker and has no ledger chooser.
+This ownership milestone blocked every pending restore journal. The later
+[disposable recovery milestone](#disposable-startup-recovery-milestone)
+introduces a verified fixture. Gio still requires the pilot marker and has
+no ledger chooser.
 
 | Check | Evidence |
 | --- | --- |
@@ -489,6 +491,41 @@ institution write. The directory list refreshes on its next visit.
 | Linux X11 | In a 900×660 Xvfb window, the liability draft suggested Harbor Sample Bank. The institution editor rejected empty and overlong names, and canceling it retained the account name and amount. Saved a synthetic exchange with the Vault icon and canceled the liability. A later crypto exchange draft recommended that saved exchange. The searchable picker found it, and review showed the default group. A normal quit and reopen retained the account and institution link. Read-only SQLite comparison found exactly one new exchange, one empty Holdings account and the same existing value, cash, holding and activity rows. A temporary overlay fixed the clock. |
 | Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun for this milestone. |
 
+#### Disposable startup recovery milestone
+
+The [fixture command](../README.md#disposable-startup-recovery-fixture)
+creates a fresh synthetic run and uses the shared application backup service
+and `InstallRestore`. It leaves an installed replacement and a complete
+safety copy at the `replacement-installed` phase, before startup finalization.
+The outgoing synthetic reserve is USD 99.50, and the backup recorded USD
+42.25. The backup also carries a distinct presentation configuration.
+
+Gio takes the canonical instance lock, then validates the exact journal it
+will pass to the shared reconciler. It requires the dedicated receipt bound
+to the canonical run root, fixed live and staging names, a generated safety
+name, private owned files without links, an absent staging group and absent
+SQLite sidecars. It verifies the journal and outgoing settings bytes, and
+checks the sealed SHA-256 hashes and synthetic markers for both databases on
+private read-only copies. This guard relies on the private profile directory
+and cooperating writers honoring the instance lock. The ordinary launcher
+and `--verify-pilot-fixture` continue to reject a pending journal.
+
+After finalization, startup reloads presentation settings and verifies the
+profile again before opening the business database. The same lock remains
+held through the session and is released after checkpoint and close. The
+[Wails entry point](../../../cmd/nestworth/main.go) continues to use the
+shared startup recovery path. Gio accepts the bounded disposable fixture
+phase. Installing a staged replacement at startup, recovering from a second
+interruption during finalization and opening production profiles remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Shared startup comparison | Independent copies of the same pending synthetic layout agreed on USD 42.25 and recovered Dark, Mint and day-first settings. The reference executed the Wails entry point's shared lock, reconciler, settings reload and database open order. The ordinary verifier left the pending files unchanged. After Gio finalization, the journal was gone and the original backup and USD 99.50 safety copy were byte-for-byte intact. A normal close and reopen retained the recovered value. |
+| Rejection and ownership | Go tests refused external journal paths, unsupported phases, link substitutions, unexpected SQLite sidecars, changed settings, a different synthetic database with a matching checksum and a copied receipt at another root. Rejections conserved the file inventory and bytes and released the lock. A separate process took the shared lock through a directory alias and fenced Gio before recovery. |
+| Linux X11 | The native blocked window appeared while the alias process held the lock. SHA-256 and file lists stayed identical. Releasing the lock allowed a fresh launch to show USD 1,776.38 net worth and `21/11/2026` in History. Normal quit, read-only verification and reopen preserved the recovered profile. A separate pending journal with an external staging path displayed the recovery-blocked window and preserved both the fixture and its outside sentinel. |
+| Automated checks | Gio module tests, Gio `go vet`, shared backup package tests and vet, and the Linux preview build passed. |
+| Open evidence | Wails GUI, native macOS, Wayland and VoiceOver were not run. Production path selection, migration and restore phases, package acceptance and the target-platform lifecycle remain release gates. |
+
 #### Remaining account capabilities by dependency
 
 | Wails type or capability | Gio gap | Stage dependency |
@@ -497,18 +534,12 @@ institution write. The directory list refreshes on its next visit.
 | Positions and products | Investment opening, trades, grouped products and Portfolio workflows for Holdings. | Stage 5. |
 | Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
 
-The next Stage 3 slice is the startup recovery lifecycle using a disposable
-verified synthetic profile and a backup produced by the shared backup service.
-Exercise the [Wails startup order](../../../cmd/nestworth/main.go) against that
-fixture. Acquire the canonical ledger lock, reconcile a pending restore,
-reload the resulting preferences, then open the ledger. Verify that a second
-process is blocked through a path alias, that valid recovery opens the expected
-synthetic facts, and that an unrecoverable journal leaves the ledger closed
-and produces a blocking state. Verify that a normal shutdown releases the
-lock and a restart reads the same recovered data. This can run before enabling
-production profile selection. Stage 3 closes with the production startup
-journey and target-platform restart, blocking, ownership and Wails parity
-evidence. Stage 4 and 5 actions keep their own acceptance gates.
+Stage 3 closes with production startup and target-platform restart, blocking,
+ownership and Wails parity evidence. Stage 4 can proceed in parallel on separate
+verified synthetic profiles using the established startup and ownership path.
+Its first slice can verify one reviewed ledger change through the shared preview
+and commit services, then compare exact stored effects and History detail. Stage
+4 and 5 actions keep their own acceptance gates.
 
 ## Moving from the preview to a desktop build
 
