@@ -115,7 +115,7 @@ type navigationRequest struct {
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
 
 func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
-	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() {
+	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingBankAccount() {
 		return
 	}
 	entry := s.trail.current()
@@ -151,6 +151,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()
+		s.accounts.creation.discard()
+		if entry.target.account == s.accounts.createdID {
+			s.accounts.createdID = ""
+		}
 	}
 	if request.step != 0 {
 		s.trail.cursor += request.step

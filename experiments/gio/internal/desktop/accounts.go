@@ -234,6 +234,9 @@ type accountsPage struct {
 	reload, archiveFilter, clear, back widget.Clickable
 	open                               func(navigationTarget, string, event.Tag)
 	backToList                         func()
+	creation                           *bankAccountCreation
+	createBank                         widget.Clickable
+	createdID                          domain.AccountID
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {

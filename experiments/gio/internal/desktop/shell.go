@@ -194,8 +194,20 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
+	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		if record := s.accounts.pollBankAccount(); record.Account.ID != "" {
+			s.accounts.createdID = record.Account.ID
+			if s.overviewPage != nil {
+				s.overviewPage.needsRefresh = true
+			}
+			s.pendingNavigation = &navigationRequest{
+				target: navigationTarget{route: accountsRoute, account: record.Account.ID},
+				name:   record.Account.Name, focus: &s.accounts.createBank,
+			}
+		}
+	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingBankAccount() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -239,8 +251,14 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.settingsPage.layoutConfirmation(windowContext, view)
 	} else if s.confirmingArchive() {
 		s.directory.activeList().layoutConfirmation(windowContext, view)
+	} else if s.confirmingBankAccount() {
+		s.accounts.layoutBankAccountReview(windowContext, view)
 	}
 	return dims
+}
+
+func (s *shell) confirmingBankAccount() bool {
+	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
 }
 
 func (s *shell) confirmingArchive() bool {

@@ -23,6 +23,13 @@ import (
 
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
+	if p.canCreateBankAccount() && p.createBank.Clicked(gtx) {
+		p.startBankAccount()
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if p.creation != nil && p.creation.draft != nil {
+		return p.layoutBankAccount(gtx, view)
+	}
 	detail := p.target.account != ""
 	if p.back.Clicked(gtx) && detail {
 		p.backToList()
@@ -57,6 +64,9 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			if p.target.institution != "" {
 				controls = append(controls, layout.Rigid(view.Button(&p.clear, l.Text(i18n.AccountClearInstitution))))
+			}
+			if p.canCreateBankAccount() {
+				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createBank, l.Text(i18n.AccountCreateAdd))))
 			}
 			controls = append(controls, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }))
 			if !p.invalid {
@@ -113,6 +123,9 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		id = i18n.OverviewEmpty
 	}
 	var lines []layout.FlexChild
+	if p.createdID != "" && p.target.account == p.createdID {
+		lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountCreateSucceeded), view.Colors.Ink)))
+	}
 	if p.current != nil && !p.current.unavailable {
 		if p.target.institution != "" && len(p.current.rows) == 0 {
 			institution := p.current.institutions[p.target.institution]

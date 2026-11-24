@@ -56,8 +56,8 @@ Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
-Stage 3 includes synthetic startup, ledger ownership, live Overview and
-read-only Accounts. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+Stage 3 includes synthetic startup, ledger ownership, live Overview, account
+browsing and standard bank account creation. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -242,6 +242,37 @@ reconciliation and mutation surfaces are outside this slice.
 | Gio frame and build | The Gio module tests, vet, Linux preview build, Wails account adapter tests and focused shared account valuation tests passed on Debian 13 amd64 with Go 1.27.4. Frame tests exercise Back, Recent, restored focus, empty and unavailable targets, and failure followed by Retry. An abandoned read returns after a newer account is visible, and the newer account remains selected. |
 | Linux X11 | The fixed-clock preview ran on Xvfb with Mesa software rendering. From Directory, opened a named institution, selected its account, reloaded, went back, and used Return to reopen the focused row. The account showed USD `125.50` and AUD `188.25` with a stale quote notice. An SGD account retained `75.00` with AUD unavailable. A mixed account showed a known subtotal, both missing-input kinds and a holding quantity with no price. Scrolled to the holding at 700 × 460. The unassigned account showed a true zero. The archived account showed its recorded balance and archived institution, and returning kept the archive filter. Comparison of 11 account, directory and ledger tables before and after the run found identical rows. |
 | Open evidence | Wails GUI, native macOS and Wayland were not run. The comparison covers Go records and valuations. Production startup, onboarding and account writes remain later work. |
+
+#### Institution-first bank account creation milestone
+
+Open an active institution from Directory, choose **View accounts**, then
+choose **Add bank account**. This form creates a bank asset account that
+tracks its total balance in one currency at an existing institution. It
+defaults to the household currency and selects the sole active owner when
+there is one. Multiple selected owners share equally. The review shows the
+exact opening amount, up to three owners with their shares and a count of any
+additional owners, and whether the account contributes to net worth. Group,
+icon and dates use the shared service defaults.
+
+The [Wails create wizard](../../../frontend/src/features/accounts/AccountCreateWizard.tsx)
+and [Go account adapter](../../../internal/wailsapi/account/account.go) both
+reach the same `application.Service.CreateAccount` used by Gio. The service
+validates the selected institution and owners at confirmation and records the
+opening balance according to the ledger's History state. An archived or
+missing institution cannot start a form. If a reference becomes unavailable
+during review, the form retains the other inputs and rereads active references.
+
+Successful confirmation opens the account by its stored ID, invalidates the
+scoped list and refreshes Overview on its next visit. Back restores the scoped
+list and available source focus. If account detail fails after the write, the
+confirmation remains visible and **Retry** only rereads the saved account.
+
+| Check | Evidence |
+| --- | --- |
+| Go adapter and Gio frames | Independent verified synthetic ledger copies with a fixed clock produced the same exact bank balance, ownership, currency, institution and account flags through the Gio form and Wails Go adapter. Frame tests cover validation, canceling review, reference changes between review and submit, a repeated confirmation, a successful write followed by a failed detail read, read-only Retry, Back, Overview refresh and a persisted reopen. The Gio module tests, vet, Linux preview build, Wails account adapter tests and shared application tests passed on Debian 13 amd64 with Go 1.27.4. |
+| Linux X11 | With the clock fixed at `2026-11-21T17:00:00Z`, ran the native preview on a verified synthetic profile under Xvfb with Mesa software rendering. At 700 × 460, a negative balance showed validation. Correcting it to USD `321.09` let the user review the sole owner's `100.00%` share and double-click confirmation. The app opened the new detail. Back showed the original and new accounts in the institution's list, and Overview showed USD `2,055.22`, up from `1,734.13`. After a normal quit and reopen, the new detail and Overview displayed the same values. |
+| Linux X11 read failure and storage | A separate QA build and equivalent synthetic copy forced the first exact-ID detail read to fail after the real write. The native window showed the saved notice and load error together. Retry loaded the same USD `321.09` detail. Both closed profiles held exactly one new bank account, one owner and one opening contribution with one effect. Pre-existing rows in 12 account, directory, ledger and market tables matched the untouched copy. The fixed clock and fault were temporary build overlays. |
+| Remaining Stage 3 work | Household onboarding, production startup and recovery, broader account creation types and tracking modes, and account settings, ownership changes, archive and restore remain open. Creation with custom group, icon, dates or ownership shares remains outside this form. Wails GUI, native macOS and Wayland were not run for this milestone. |
 
 ## Moving from the preview to a desktop build
 

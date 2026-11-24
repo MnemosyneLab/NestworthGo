@@ -33,6 +33,34 @@ const (
 	GroupActivity
 	GroupInsights
 	GroupManage
+	AccountCreateAdd
+	AccountCreateTitle
+	AccountCreateName
+	AccountCreateNameRequired
+	AccountCreateNameTooLong
+	AccountCreateCurrencyLabel
+	AccountCreateCurrencyRequired
+	AccountCreateOpening
+	AccountCreateAmountHint
+	AccountCreateAmountInvalid
+	AccountCreateOwnerLabel
+	AccountCreateEqualShares
+	AccountCreateOwnersRequired
+	AccountCreateOwnersChanged
+	AccountCreateIncluded
+	AccountCreateExcluded
+	AccountCreateReview
+	AccountCreateReviewTitle
+	AccountCreateReviewBalance
+	AccountCreateMoreOwners
+	AccountCreateBackToDetails
+	AccountCreateConfirm
+	AccountCreateSaving
+	AccountCreateSucceeded
+	AccountCreateInstitutionUnavailable
+	AccountCreateReferencesLoading
+	AccountCreateReferencesFailed
+	AccountCreateWriteFailed
 	AccountBack
 	AccountClearInstitution
 	AccountLoading

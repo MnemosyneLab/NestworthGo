@@ -15,7 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 )
 
-// Run serves the native window and joins pending reads before returning to the database owner.
+// Run serves the native window and joins pending work before returning to the database owner.
 func Run(ctx context.Context, service *application.Service, prefs *preferences.Service, clock func() time.Time, wordmark, mark image.Image) error {
 	ctx, cancel := context.WithCancel(ctx)
 	window := new(app.Window)
@@ -32,6 +32,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	timeline := newHistoryPage(activities)
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
+	accounts.creation = &bankAccountCreation{service: service}
 	defer func() {
 		stopWatching()
 		cancel()

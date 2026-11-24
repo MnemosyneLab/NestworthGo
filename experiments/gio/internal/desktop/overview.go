@@ -39,11 +39,12 @@ type overviewPage struct {
 	workers    sync.WaitGroup
 	reads      chan overviewRead
 
-	current *overviewRead
-	loading bool
-	err     error
-	reload  widget.Clickable
-	list    widget.List
+	current      *overviewRead
+	loading      bool
+	needsRefresh bool
+	err          error
+	reload       widget.Clickable
+	list         widget.List
 }
 
 func newOverviewPage(ctx context.Context, reader overviewReader, clock func() time.Time, invalidate func()) *overviewPage {
@@ -78,9 +79,10 @@ func (p *overviewPage) update() {
 			p.list.Position = restoredPosition(p.list.Position, p.rowCount())
 		}
 	default:
-		if p.current == nil && p.err == nil {
-			p.read()
-		}
+	}
+	if !p.loading && (p.needsRefresh || p.current == nil && p.err == nil) {
+		p.needsRefresh = false
+		p.read()
 	}
 }
 

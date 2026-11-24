@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Accounts** opens account details by institution, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Accounts** browses accounts by institution and creates standard bank accounts, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
@@ -170,7 +170,15 @@ prices or exchange rates, and stale cached quotes carry their own labels.
 a recorded value in its own currency, that value remains visible. **Back to
 accounts** restores the preceding account list, including its institution
 scope, archive filter, scroll and available row focus. **Reload** refreshes
-the current list or account. Account actions are limited to browsing and reads.
+the current list or account.
+
+In the account list of an active institution, choose **Add bank account**.
+Enter a name, currency and opening balance, choose active owners, and review
+the amount, equal ownership shares and net-worth inclusion before confirming.
+The standard bank account tracks its total balance in one currency. After
+creation, the new account opens by ID. **Back to accounts** returns to the
+institution's list, and the next visit to **Overview** refreshes the valuation.
+If the new account's details fail to load, **Retry** only reads its details.
 
 ## Ledger activity
 
