@@ -84,6 +84,7 @@ type shell struct {
 	headingFocus                          byte
 	back, forward                         widget.Clickable
 	backHint, forwardHint                 ui.Tooltip
+	recentPicker                          ui.Select
 	navigation                            layout.List
 	languagePicker                        ui.Select
 	themeButton                           widget.Clickable
@@ -366,9 +367,19 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.Y = 0
 		return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.navigationButton(gtx, view, -1) }),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.navigationButton(gtx, view, 1) }),
+			gap := gtx.Dp(8)
+			x := view.Origin.X + gtx.Dp(20)
+			direction := func(step int) layout.Widget {
+				return func(gtx layout.Context) layout.Dimensions {
+					dims := s.navigationButton(gtx, view, step)
+					x += dims.Size.X + gap
+					return dims
+				}
+			}
+			return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx,
+				layout.Rigid(direction(-1)),
+				layout.Rigid(direction(1)),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					for {
 						if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {

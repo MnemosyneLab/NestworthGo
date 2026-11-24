@@ -83,6 +83,8 @@ def build():
         resources.mkdir()
         shutil.copyfile(REPO / "frontend/src/assets/brand/wordmark.png", resources / "wordmark.png")
         shutil.copyfile(REPO / "assets/brand/favicon.png", resources / "mark.png")
+        for notice in ("LICENSE", "NOTICE.md"):
+            shutil.copyfile(REPO / "frontend/public/bank-logos" / notice, resources / f"bank-logos-{notice}")
         subprocess.run(["go", "build", "-mod=readonly", "-trimpath", "-ldflags",
                         "-X gioui.org/app.ID=" + APP_ID, "-o", executable, "."],
                        cwd=GIO, env=env, check=True)

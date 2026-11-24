@@ -106,6 +106,8 @@ var simplifiedChineseCatalog = catalog{
 	NavInstitutions:                  "机构",
 	NavigationBack:                   "后退",
 	NavigationForward:                "前进",
+	NavigationRecent:                 "最近访问",
+	NavigationFiltered:               "已筛选",
 	NavigationBackTo:                 "返回 %s",
 	NavigationForwardTo:              "前往 %s",
 	DirectoryView:                    "查看",

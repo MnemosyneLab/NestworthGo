@@ -7,6 +7,7 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -23,6 +24,8 @@ type SelectOptions struct {
 	Items      []Choice
 	Searchable bool
 	Clearable  bool
+	ValueLabel string
+	FoldSearch func(string) string
 }
 
 func (s *Select) Layout(gtx layout.Context, view View, field PickerField, options SelectOptions, value string, change func(string)) {
@@ -35,7 +38,11 @@ func (s *Select) Layout(gtx layout.Context, view View, field PickerField, option
 	pane.Body = func(gtx layout.Context) layout.Dimensions {
 		return s.popup(gtx, view, options, value, change)
 	}
-	if pickerTrigger(gtx, view, field, &s.Trigger, ChoiceLabel(view, options.Items, value), options.Invalid, pane) {
+	label := options.ValueLabel
+	if label == "" {
+		label = ChoiceLabel(view, options.Items, value)
+	}
+	if pickerTrigger(gtx, view, field, &s.Trigger, label, options.Invalid, pane) {
 		if options.Searchable {
 			s.resetSearch()
 		}
@@ -58,9 +65,13 @@ func ChoiceLabel(view View, items []Choice, value string) string {
 }
 
 func (s *Select) choices(view View, options SelectOptions) []Choice {
+	fold := options.FoldSearch
+	if fold == nil {
+		fold = strings.ToLower
+	}
 	var query string
 	if options.Searchable {
-		query = strings.ToLower(strings.TrimSpace(s.search.Field.Text()))
+		query = fold(strings.TrimSpace(s.search.Field.Text()))
 	}
 	if query == "" && !options.Clearable {
 		return options.Items
@@ -70,7 +81,7 @@ func (s *Select) choices(view View, options SelectOptions) []Choice {
 		items = append(items, Choice{Label: view.Language.Text(i18n.PickerEmptyOption)})
 	}
 	for _, item := range options.Items {
-		if strings.Contains(strings.ToLower(item.Label+" "+item.SearchText), query) {
+		if strings.Contains(fold(item.Label+" "+item.SearchText), query) {
 			items = append(items, item)
 		}
 	}
@@ -137,11 +148,11 @@ func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, val
 }
 
 // menu anchors the same single-select popup to a caller-drawn compact trigger.
-func (s *Select) Menu(gtx layout.Context, view View, bounds image.Rectangle, items []Choice, value string, previous, next event.Tag, change func(string)) {
+func (s *Select) Menu(gtx layout.Context, view View, bounds image.Rectangle, items []Choice, value string, previous, next event.Tag, width unit.Dp, change func(string)) {
 	if !gtx.Enabled() {
 		return
 	}
-	pane := Popover{width: max(150, gtx.Metric.PxToDp(bounds.Dx())), menu: true, focus: s, previous: previous, next: next}
+	pane := Popover{width: max(150, width, gtx.Metric.PxToDp(bounds.Dx())), menu: true, focus: s, previous: previous, next: next}
 	pane.Body = func(gtx layout.Context) layout.Dimensions {
 		return s.popup(gtx, view, SelectOptions{Items: items}, value, change)
 	}

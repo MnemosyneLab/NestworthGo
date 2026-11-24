@@ -29,8 +29,8 @@ func (s testInstitutionService) ListInstitutions(_ context.Context, _ bool) ([]d
 	return s.read()
 }
 
-func (s testInstitutionService) UpdateInstitution(_ context.Context, id domain.InstitutionID, name string) (domain.Institution, error) {
-	return s.write(id, name)
+func (s testInstitutionService) EditInstitution(_ context.Context, id domain.InstitutionID, edit application.DirectoryEdit) (domain.Institution, error) {
+	return s.write(id, *edit.Name)
 }
 
 func (s testInstitutionService) CreateInstitution(context.Context, string, domain.InstitutionType, ...string) (domain.Institution, error) {

@@ -106,6 +106,8 @@ var englishCatalog = catalog{
 	NavInstitutions:                  "Institutions",
 	NavigationBack:                   "Back",
 	NavigationForward:                "Forward",
+	NavigationRecent:                 "Recent",
+	NavigationFiltered:               "Filtered",
 	NavigationBackTo:                 "Back to %s",
 	NavigationForwardTo:              "Forward to %s",
 	DirectoryView:                    "View",

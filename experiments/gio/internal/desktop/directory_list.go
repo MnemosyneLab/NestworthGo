@@ -95,6 +95,7 @@ type directoryList struct {
 	typePicker         ui.Select
 	iconPicker         ui.Select
 	icon, originalIcon string
+	iconCustomized     bool
 	save, cancel       widget.Clickable
 	saveErr            error
 	rejectedDraft      string
@@ -341,8 +342,12 @@ func (p *directoryList) listStatus() (i18n.MessageID, bool) {
 	}
 }
 
+func normalizeDirectoryQuery(query string) string {
+	return strings.ToLower(strings.TrimSpace(query))
+}
+
 func filterDirectoryRows(rows []directoryRow, query string) []directoryRow {
-	query = strings.ToLower(strings.TrimSpace(query))
+	query = normalizeDirectoryQuery(query)
 	if query == "" {
 		return rows
 	}

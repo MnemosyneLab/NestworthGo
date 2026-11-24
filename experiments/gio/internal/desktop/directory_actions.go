@@ -10,6 +10,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/banklogos"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -20,15 +21,12 @@ func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item direct
 	if item.archived {
 		changeLabel, changeName = i18n.InstitutionsRestore, i18n.InstitutionsRestoreName
 	}
-	var children []layout.FlexChild
-	if p.defaultIcon != "" {
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return ui.LayoutGlyph(gtx, p.glyph(item.iconKey()), 20, view.Colors.Accent)
+				return ui.LayoutGlyph(gtx, p.glyph(item.iconKey(), item.institutionType), 20, view.Colors.Accent)
 			})
-		}))
-	}
-	children = append(children,
+		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = 0
@@ -56,19 +54,21 @@ func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item direct
 		layout.Rigid(view.NamedButton(&buttons.edit, view.Language.Text(i18n.InstitutionsEdit), fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name))),
 		layout.Rigid(view.NamedButton(&buttons.archive, view.Language.Text(changeLabel), fmt.Sprintf(view.Language.Text(changeName), item.Name))),
 	)
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
 func (p *directoryList) beginEditor(mode directoryOperation, row directoryRow) {
 	p.editMode, p.editID = mode, row.ID
 	p.draft.Editor.SetText(row.Name)
 	p.draft.Editor.SetCaret(p.draft.Editor.Len(), 0)
-	p.kind = domain.InstitutionBank
+	p.kind = row.institutionType
+	if p.isInstitutions() && mode == directoryCreate {
+		p.kind = domain.InstitutionBank
+	}
 	p.icon = row.iconKey()
 	if p.icon == "" {
-		p.icon = p.defaultIcon
+		p.icon = p.fallbackIcon(p.kind)
 	}
-	p.originalIcon = p.icon
+	p.originalIcon, p.iconCustomized = p.icon, false
 	p.saveErr, p.focusDraft = nil, true
 	p.notice, p.writeProblem = i18n.NoMessage, i18n.NoMessage
 }
@@ -117,11 +117,9 @@ func (p *directoryList) editor(gtx layout.Context, view ui.View) layout.Dimensio
 					return dims
 				}),
 			}
-			if creating || p.defaultIcon != "" {
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return p.editorPicker(gtx, view, pickerOrigin, waiting)
-				}))
-			}
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return p.editorPickers(gtx, view, pickerOrigin, waiting)
+			}))
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if waiting {
 					return view.Message(view.Language.Text(i18n.InstitutionsSaving), view.Colors.SecondaryInk)(gtx)
@@ -129,7 +127,7 @@ func (p *directoryList) editor(gtx layout.Context, view ui.View) layout.Dimensio
 				if p.save.Clicked(gtx) {
 					p.rejectedDraft = p.draft.Text()
 					change := directoryChange{operation: p.editMode, id: p.editID, name: p.rejectedDraft, kind: p.kind}
-					if p.defaultIcon != "" && (creating || p.icon != p.originalIcon) {
+					if creating || p.icon != p.originalIcon {
 						icon := p.icon
 						change.icon = &icon
 					}
@@ -146,20 +144,56 @@ func (p *directoryList) editor(gtx layout.Context, view ui.View) layout.Dimensio
 	})
 }
 
-func (p *directoryList) editorPicker(gtx layout.Context, view ui.View, origin image.Point, disabled bool) layout.Dimensions {
-	field := ui.PickerField{Origin: origin, Disabled: disabled, Previous: &p.draft.Editor, Next: &p.save}
-	gtx = ui.LimitWidth(gtx, 470)
-	if p.defaultIcon != "" {
-		field.Label, field.Glyph = i18n.DirectoryIcon, p.glyph(p.icon)
-		options := ui.SelectOptions{Items: directoryIconChoices[view.Language], Searchable: true}
-		p.iconPicker.Layout(gtx, view, field, options, p.icon, func(value string) { p.icon = value })
-	} else {
-		field.Label = i18n.InstitutionsType
-		p.typePicker.Layout(gtx, view, field, ui.SelectOptions{Items: institutionTypeChoices(view)}, string(p.kind), func(value string) {
-			p.kind = domain.InstitutionType(value)
-		})
+func (p *directoryList) isInstitutions() bool { return p.copy.title == i18n.NavInstitutions }
+
+func (p *directoryList) editorPickers(gtx layout.Context, view ui.View, origin image.Point, disabled bool) layout.Dimensions {
+	field := ui.PickerField{
+		Label: i18n.DirectoryIcon, Origin: origin, Disabled: disabled,
+		Previous: &p.draft.Editor, Next: &p.save,
 	}
-	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	gtx = ui.LimitWidth(gtx, 470)
+	height := gtx.Dp(60)
+	if !p.isInstitutions() || p.editMode != directoryCreate {
+		p.layoutIconPicker(gtx, view, field)
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, height)}
+	}
+	gap := gtx.Dp(10)
+	width := min(gtx.Dp(170), gtx.Constraints.Max.X/2)
+	return layout.Flex{Gap: gap}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			typeField := field
+			typeField.Label, typeField.Next = i18n.InstitutionsType, &p.iconPicker.Trigger
+			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+			p.typePicker.Layout(gtx, view, typeField, ui.SelectOptions{Items: institutionTypeChoices(view)}, string(p.kind), func(value string) {
+				p.kind = domain.InstitutionType(value)
+				if !p.iconCustomized {
+					p.icon = p.fallbackIcon(p.kind)
+				}
+			})
+			return layout.Dimensions{Size: image.Pt(width, height)}
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			field.Previous = &p.typePicker.Trigger
+			field.Origin.X += width + gap
+			p.layoutIconPicker(gtx, view, field)
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, height)}
+		}),
+	)
+}
+
+func (p *directoryList) layoutIconPicker(gtx layout.Context, view ui.View, field ui.PickerField) {
+	field.Glyph = p.glyph(p.icon, p.kind)
+	options := ui.SelectOptions{Items: directoryIconChoices[view.Language], Searchable: true}
+	value := p.icon
+	if p.isInstitutions() {
+		options.Items, options.FoldSearch = institutionIconChoices[view.Language], banklogos.FoldSearch
+	}
+	if logo, ok := directoryBankLogos[p.icon]; ok {
+		value, options.ValueLabel = logo.ID, logo.Label
+	}
+	p.iconPicker.Layout(gtx, view, field, options, value, func(value string) {
+		p.icon, p.iconCustomized = value, true
+	})
 }
 
 func (p *directoryList) editEscape(gtx layout.Context) bool {

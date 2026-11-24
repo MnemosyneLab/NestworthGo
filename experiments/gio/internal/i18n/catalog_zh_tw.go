@@ -106,6 +106,8 @@ var traditionalChineseCatalog = catalog{
 	NavInstitutions:                  "機構",
 	NavigationBack:                   "返回",
 	NavigationForward:                "前進",
+	NavigationRecent:                 "最近造訪",
+	NavigationFiltered:               "已篩選",
 	NavigationBackTo:                 "返回 %s",
 	NavigationForwardTo:              "前往 %s",
 	DirectoryView:                    "檢視",

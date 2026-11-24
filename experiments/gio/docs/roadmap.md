@@ -54,8 +54,9 @@ with read paths, then use the same data to validate writes and reconstruction.
 
 Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Account and instrument names, amount breakdowns,
-filters, detail and write actions remain part of later History work. Stage 2
-is in progress. Stages 3–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+filters, detail and write actions remain part of later History work. The
+scoped Stage 2 workflows are implemented. Platform acceptance remains open.
+Stages 3–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -78,10 +79,10 @@ is in progress. Stages 3–7 are planned. Use [navigation history](../../../docs
 | Persistent preview | The Mac launcher builds `Nestworth Gio.app` with ID `com.nestworth.gio`. A normal quit and direct Launch Services reopen used the same synthetic household, database file and settings contents in the [default Gio profile](../README.md#persistent-test-data). |
 | Automated coverage | Frame tests exercise sidebar actions, draft retention, validation, save failure and retry, timezone filtering, compact scrolling and reset confirmation. Storage tests reopen an isolated fixture and check that save and reset preserve unrelated settings. Changing the display timezone and date format through Settings retains the original recorded ledger day in History. |
 | Native macOS ARM64 | On macOS 27.2.1, the isolated development app saved Mint and DD/MM/YYYY from Settings and switched to Light and Traditional Chinese from the sidebar. The November 12 interest entry displayed as 12/11/2026. After a normal quit and reopen of the same fixture, Overview displayed the saved language and palette. The settings file retained the day-first date format. |
-| Institutions lifecycle | The pilot adds an institution with a name and type, renames it, asks for confirmation before archiving, and restores it from **Show archived**. The default view lists active institutions. **Show archived** includes both states and name search applies to both views. See the milestone evidence below. |
+| Institutions lifecycle | Add an institution with a name, type and icon. Edit its name and icon together, confirm archive, and restore it from **Show archived**. The default view lists active institutions. **Show archived** includes both states and name search applies to both views. The list and object view display saved icons. |
 | Members and groups | Directory opens on Members and offers Institutions and Groups tabs. Members and groups support creation, atomic name and icon edits, archive confirmation, restore, name search and archive filtering. The two member archive guards and the retention of existing group references follow the application service. |
-| Navigation | The page bar supports Back and Forward. Directory member, institution and group rows open read-only object destinations. Returning restores directory tab, filters and scroll, other migrated pages' scroll, and available source focus. Mounted form drafts and ledger paging results survive traversal. |
-| Remaining | Institution icon selection and display and the Wails Recent menu remain open. Native VoiceOver, IME and full keyboard traversal remain open. A macOS accessibility client can now navigate via the sidebar, edit a search field and choose a select option. AI, MCP and backup workflows belong to stage 7. |
+| Navigation | The page bar supports Back, Forward and Recent. Directory member, institution and group rows open read-only object destinations. Returning restores directory tab, filters and scroll, other migrated pages' scroll, and available source focus. Mounted form drafts and ledger paging results survive traversal. |
+| Platform acceptance | Full macOS keyboard traversal, native IME and VoiceOver remain open. Prior AppKit checks reached the sidebar, search editor and select options. Linux Wayland and an interactive Wails comparison remain unrun for the directory and navigation milestones. |
 
 #### Institutions lifecycle milestone
 
@@ -124,7 +125,7 @@ defines the cursor, branch, confirmation and restoration contracts. Gio keeps
 the 40-visit limit and uses a read-only directory object for each currently
 supported entity kind. Account, instrument and activity-detail links depend on
 their later-stage pages. Back and Forward restore the state of the supported
-pages. The Recent menu remains an open parity item.
+pages.
 
 | Check | Evidence |
 | --- | --- |
@@ -132,6 +133,34 @@ pages. The Recent menu remains an open parity item.
 | Object reads and writes | On verified synthetic SQLite fixtures, opening a group read its exact ID. Back after opening restored the source button. Forward read a renamed and later archived object. A failed list reload after a committed edit remained retryable and issued no second write. Tests also covered blocked traversal during confirmation, retained object data after a read error, a missing or malformed object, and a late response to an abandoned visit. |
 | Linux X11 | The full Gio module tests, vet and Linux preview build passed on Debian 13 amd64 with Go 1.27.4. The actual preview on Xvfb with Mesa software rendering used a separate verified synthetic profile. At 700 × 460, Back returned to a filtered group list and pressing Return reopened its source object. Forward showed the new name and archive state after explicit writes. The confirmation blocked Back. In the wide window, typing after Back continued the retained preview draft, and visiting Ledger activity discarded the forward branch. A normal quit and reopen cleared the trail and retained the group's stored archive state. |
 | Open evidence | Linux Wayland, interactive Wails comparison and native macOS were not run for this milestone. Full keyboard traversal, native IME and VoiceOver remain Stage 2 gates. |
+
+#### Institution icons and Recent milestone
+
+The institution chooser includes the generic options and all 272 selectable
+bank symbols from the [Wails picker](../../../frontend/src/components/forms/IconPicker.tsx).
+It shows the type default until the user chooses an icon. The list and object
+view also render the 33 historical wordmarks. Editing only the name preserves
+the original key. The list refresh after a successful edit only rereads data.
+
+Recent follows the [Wails visit rules](../../../frontend/src/app/navigationHistory.ts)
+for pages and object kinds Gio exposes. It records departures in most recent
+order, keeps up to 20 distinct destinations and Directory scopes, and lives
+for the window session. Selecting an entry opens a visit that participates in
+Back and Forward. The menu keeps entries from a discarded forward branch.
+Object visits reread the exact ID and update the label when it is unavailable.
+
+| Check | Evidence |
+| --- | --- |
+| Automated | Gio module tests and vet passed on Debian 13 amd64 with Go 1.27.4. Catalog tests compared every entry to the source presentation set, including aliases, historical wordmarks and asset digests. Frame and synthetic SQLite tests exercised type defaults, explicit icons, atomic validation, reopening, and retry after a committed edit. Recent tests covered order, deduplication, distinct filter scopes, the 20-entry bound, draft restoration, invalid objects, confirmations, discarded branches, a fresh session and the absence of navigation writes. The shared domain, Wails directory adapter and application icon tests passed. |
+| Linux X11 | Built with `sh experiments/gio/preview-linux.sh --build-only`. In the actual preview on Xvfb with Mesa software rendering, used a fresh verified synthetic profile. At 700 × 460, changed the type and saw its default icon, searched for Standard Chartered by alias and kept that choice through a later type change. Edited the saved name and icon to BOCHK. Forward reread the object. In the wide window, chose the object from Recent by keyboard and used Back and Forward between the object and Settings. Choosing Overview after Back discarded Forward, and the object stayed in Recent. After a normal quit and reopen, Recent was empty and the renamed institution still showed BOCHK in its editor. |
+| Open evidence | This milestone did not run Linux Wayland, a paired interactive Wails session or native macOS. Full Mac keyboard traversal, native IME and VoiceOver remain open. |
+
+#### First Stage 3 slice
+
+Extract shared startup checks, blocked-state handling and single-instance
+ownership behind a common Go boundary. Exercise usable, rejected and already
+owned paths with disposable ledgers through the desktop entry point before
+exposing ledger selection or account workflows.
 
 ## Moving from the preview to a desktop build
 

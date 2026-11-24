@@ -47,7 +47,7 @@ func directoryRows[T any](ctx context.Context, archive bool, list func(context.C
 type institutionService interface {
 	ListInstitutions(context.Context, bool) ([]domain.Institution, error)
 	CreateInstitution(context.Context, string, domain.InstitutionType, ...string) (domain.Institution, error)
-	UpdateInstitution(context.Context, domain.InstitutionID, string) (domain.Institution, error)
+	EditInstitution(context.Context, domain.InstitutionID, application.DirectoryEdit) (domain.Institution, error)
 	ArchiveInstitution(context.Context, domain.InstitutionID, bool) error
 }
 
@@ -55,15 +55,15 @@ func newInstitutionsPage(ctx context.Context, service institutionService, invali
 	source := directorySource{
 		list: func(ctx context.Context, archived bool) ([]directoryRow, error) {
 			return directoryRows(ctx, archived, service.ListInstitutions, func(row domain.Institution) directoryRow {
-				return directoryRow{ID: row.ID.String(), Name: row.Name, institutionType: row.InstitutionType, archived: row.ArchivedAt != nil}
+				return directoryRow{ID: row.ID.String(), Name: row.Name, icon: row.IconKey, institutionType: row.InstitutionType, archived: row.ArchivedAt != nil}
 			})
 		},
 		create: func(ctx context.Context, change directoryChange) (string, error) {
-			row, err := service.CreateInstitution(ctx, change.name, change.kind)
+			row, err := service.CreateInstitution(ctx, change.name, change.kind, *change.icon)
 			return row.ID.String(), err
 		},
 		edit: func(ctx context.Context, change directoryChange) error {
-			_, err := service.UpdateInstitution(ctx, domain.InstitutionID(change.id), change.name)
+			_, err := service.EditInstitution(ctx, domain.InstitutionID(change.id), application.DirectoryEdit{Name: &change.name, IconKey: change.icon})
 			return err
 		},
 		archive: func(ctx context.Context, id string, archived bool) error {
@@ -81,7 +81,7 @@ func newInstitutionsPage(ctx context.Context, service institutionService, invali
 		archiveTitle: i18n.InstitutionsArchiveTitle, archiveError: i18n.InstitutionsArchiveError,
 		restoreError: i18n.InstitutionsRestoreError, saveError: i18n.InstitutionsSaveError,
 	}
-	return newDirectoryList(ctx, source, copy, "", invalidate)
+	return newDirectoryList(ctx, source, copy, domain.DefaultInstitutionIcon, invalidate)
 }
 
 type memberService interface {

@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -139,10 +140,13 @@ func TestDirectoryObjectNavigationRevalidatesAndDoesNotReplayWrites(t *testing.T
 	}
 
 	backRect := semanticBounds(t, &h.router, "Back", false)
+	recentRect := semanticBounds(t, &h.router, "Recent", false)
+	beforeRecent := recentTitles(s)
 	h.click("Archive", false)
 	assertPageLabel(t, &h.router, "Archive group?")
 	h.clickAt(backRect.Min.Add(backRect.Max).Div(2))
-	if !s.confirmingArchive() || s.trail.cursor != 1 {
+	h.clickAt(recentRect.Min.Add(recentRect.Max).Div(2))
+	if !s.confirmingArchive() || s.trail.cursor != 1 || s.overlay.Trigger != nil || !slices.Equal(recentTitles(s), beforeRecent) {
 		t.Fatal("the confirmation allowed navigation to change the trail")
 	}
 	h.press(key.NameTab)
@@ -174,6 +178,13 @@ func TestDirectoryObjectNavigationRevalidatesAndDoesNotReplayWrites(t *testing.T
 	}
 	if label := s.visitLabel(i18n.English, s.trail.adjacent(1)); label != "Directory item unavailable." {
 		t.Fatalf("unavailable target label = %q", label)
+	}
+	selectRecent(h, "Directory item unavailable.")
+	finish()
+	assertPageLabel(t, &h.router, "Directory item unavailable.")
+	if s.trail.current().target.object.id != first.ID.String() || s.trail.adjacent(1) != nil ||
+		svc.edits != 1 || svc.archives != 1 {
+		t.Fatal("Recent replaced an unavailable ID or replayed a write")
 	}
 }
 

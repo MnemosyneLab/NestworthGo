@@ -111,6 +111,8 @@ const (
 	NavInstitutions
 	NavigationBack
 	NavigationForward
+	NavigationRecent
+	NavigationFiltered
 	NavigationBackTo
 	NavigationForwardTo
 	DirectoryView

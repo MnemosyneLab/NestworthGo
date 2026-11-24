@@ -13,6 +13,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 var (
@@ -56,11 +57,21 @@ var directoryGlyphs, directoryIconChoices = func() (map[string]ui.Glyph, map[i18
 	return glyphs, localized
 }()
 
-func (p *directoryList) glyph(key string) ui.Glyph {
+func (p *directoryList) glyph(key string, kind domain.InstitutionType) ui.Glyph {
+	if logo, ok := directoryBankLogos[key]; ok {
+		return logo.Glyph
+	}
 	if glyph := directoryGlyphs[key]; glyph != nil {
 		return glyph
 	}
-	return directoryGlyphs[p.defaultIcon]
+	return directoryGlyphs[p.fallbackIcon(kind)]
+}
+
+func (p *directoryList) fallbackIcon(kind domain.InstitutionType) string {
+	if icon := domain.DefaultIconForInstitutionType(kind); icon != "" {
+		return icon
+	}
+	return p.defaultIcon
 }
 
 func loadDirectoryGlyph(key string) ui.Glyph {

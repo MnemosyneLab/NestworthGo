@@ -106,15 +106,18 @@ rejects archiving a member who is a live account's only active owner or the
 household's last active member. Archiving a group preserves existing account
 references to that group.
 
-**Add institution** takes a name and type. The application service assigns the
-type's default icon. **Edit** changes the name.
+**Add institution** takes a name and type. The type sets the default icon, and
+**Icon** searches generic symbols and bank logos by name or alias. **Edit**
+can save the name and icon together. The list and object view display the
+saved icon, including historical wordmarks.
 
 **View** opens a read-only destination for a member, institution or group.
 **Back** and **Forward** in the page bar traverse the current window's visits.
 Back from an object returns to its list with the tab, filters, scroll and
-available source focus restored. A new destination opened after Back replaces
-the forward branch. Object views reread the stored ID on entry and can be
-reloaded. The history starts fresh after a restart.
+available source focus restored. **Recent** shows up to 20 distinct departures
+from this session. Reopening one adds a visit and can replace the forward
+branch when you have gone Back. Object views reread the stored ID on entry
+and can be reloaded. The trail and Recent start fresh after a restart.
 
 Directory rereads the list after each write. If the write succeeds and the
 list fails to reload, **Retry reload** reads the list again without repeating

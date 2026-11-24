@@ -105,6 +105,8 @@ var japaneseCatalog = catalog{
 	NavInstitutions:                  "金融機関",
 	NavigationBack:                   "戻る",
 	NavigationForward:                "進む",
+	NavigationRecent:                 "最近の項目",
+	NavigationFiltered:               "絞り込み中",
 	NavigationBackTo:                 "%s に戻る",
 	NavigationForwardTo:              "%s に進む",
 	DirectoryView:                    "表示",

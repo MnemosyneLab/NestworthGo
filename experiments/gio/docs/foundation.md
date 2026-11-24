@@ -31,15 +31,21 @@ evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](ro
   authoritative rows. A failed reload keeps the previous rows readable with
   their actions disabled until a fresh list arrives. [Engineering guide](../../../docs/development/engineering-guide.md#financial-implementation-rules)
 - Members, Institutions and Groups share the directory list and keep their own
-  search, archive filter, draft and scroll state. The Members and Groups forms
-  save name and icon atomically through `DirectoryEdit`. Member archive
+  search, archive filter, draft and scroll state. All three forms can atomically
+  edit name and icon through `DirectoryEdit`. Member archive
   eligibility comes from the shared service. An archived group remains a valid
   historical reference on existing accounts.
 
 ### Navigation and object reads
 
-The page bar owns Back and Forward. The shell stores up to 40 visits in memory
-and discards the forward branch when a new destination is opened after Back.
+The page bar owns Back, Forward and Recent. The shell stores up to 40 visits in
+memory and discards the forward branch when a new destination is opened after
+Back. Recent keeps up to 20 departures, newest first, for the window session.
+It deduplicates pages and object IDs by destination, including the active
+Directory tab and effective search and archive scope for lists. It retains
+entries when the forward branch is discarded. Opening a Recent entry adds a
+visit with its saved page state. Choosing the current destination and scope
+leaves the visit unchanged.
 Window-level confirmations block navigation. Sidebar entries for unfinished
 pages are disabled. Back and Forward use the adjacent destination's business
 label for accessible names and hover help.
@@ -148,12 +154,22 @@ trigger or to the appropriate control when the command changes the list. Add
 segmented controls, checkboxes, side panels and tables as the directory and
 ledger workflows require them.
 
-Members and Groups use the shared searchable select for icons. Options match
-the Wails picker keys and translated names and use Material shapes for generic
-symbols. The four crypto logos are rasterized from the same Wails assets.
-Legacy icon keys outside the picker keep their stored value until the user
-chooses a replacement. The row displays the entity's default symbol when a
-stored key has no Gio glyph. [Wails crypto-logo provenance](../../../frontend/public/crypto-logos/NOTICE.txt)
+All Directory forms use the shared searchable select for icons. Generic
+options match the Wails picker keys and translated names and use Material
+shapes. The four crypto logos are rasterized from the Wails assets. The
+institution picker includes bank symbols in the same list and searches their
+names and aliases. A new institution follows its type's default until the
+user picks an icon. Historical bank wordmarks still render in rows and object
+views. A name-only edit preserves the original icon key, including historical
+aliases. The row uses the entity's default symbol when a key has no Gio glyph.
+[Wails crypto-logo provenance](../../../frontend/public/crypto-logos/NOTICE.txt)
+[Wails bank-logo provenance](../../../frontend/public/bank-logos/NOTICE.md)
+
+Gio embeds a checked-in bank-logo atlas. Regenerate it from the repository
+root with `python3 experiments/gio/packaging/bank_logo_atlas.py` when the
+Wails assets change. Regeneration uses Pillow and Inkscape. The Gio catalog
+test checks the presentation manifest and source asset digests. Preview builds
+include the Wails license and provenance files.
 
 ## Component preview page
 

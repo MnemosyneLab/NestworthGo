@@ -3,6 +3,7 @@ package desktop
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -13,7 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
-const navigationLimit = 40
+const navigationLimit, recentLimit = 40, 20
 
 type navigationTarget struct {
 	route  routeID
@@ -23,6 +24,7 @@ type navigationTarget struct {
 func (t navigationTarget) hasObject() bool { return t.object != (directoryRef{}) }
 
 type navigationEntry struct {
+	id        uint64
 	target    navigationTarget
 	name      string
 	focus     event.Tag
@@ -34,10 +36,12 @@ type navigationEntry struct {
 type navigationTrail struct {
 	entries []navigationEntry
 	cursor  int
+	recent  []navigationEntry
+	nextID  uint64
 }
 
 func newNavigationTrail(route routeID) navigationTrail {
-	return navigationTrail{entries: []navigationEntry{{target: navigationTarget{route: route}}}}
+	return navigationTrail{entries: []navigationEntry{{id: 1, target: navigationTarget{route: route}}}, nextID: 1}
 }
 
 func (n *navigationTrail) current() *navigationEntry { return &n.entries[n.cursor] }
@@ -54,15 +58,41 @@ func (n *navigationTrail) push(entry navigationEntry) {
 	if len(n.entries) == navigationLimit {
 		n.entries = slices.Delete(n.entries, 0, 1)
 	}
+	n.nextID++
+	entry.id = n.nextID
 	n.entries = append(n.entries, entry)
 	n.cursor = len(n.entries) - 1
 }
 
 func (n *navigationTrail) rename(target navigationTarget, name string) {
-	for i := range n.entries {
-		if n.entries[i].target == target {
-			n.entries[i].name = name
+	for _, entries := range [][]navigationEntry{n.entries, n.recent} {
+		for i := range entries {
+			if entries[i].target == target {
+				entries[i].name = name
+			}
 		}
+	}
+}
+
+func sameRecentDestination(a, b navigationEntry) bool {
+	if a.target != b.target {
+		return false
+	}
+	if a.target.route != directoryRoute || a.target.hasObject() {
+		return true
+	}
+	return a.directory.tab == b.directory.tab &&
+		a.directory.list.includeArchived == b.directory.list.includeArchived &&
+		normalizeDirectoryQuery(a.directory.list.query) == normalizeDirectoryQuery(b.directory.list.query)
+}
+
+func (n *navigationTrail) recordRecent(entry navigationEntry) {
+	n.recent = slices.DeleteFunc(n.recent, func(previous navigationEntry) bool {
+		return previous.id == entry.id || sameRecentDestination(previous, entry)
+	})
+	n.recent = slices.Insert(n.recent, 0, entry)
+	if len(n.recent) > recentLimit {
+		n.recent = slices.Delete(n.recent, recentLimit, len(n.recent))
 	}
 }
 
@@ -71,6 +101,7 @@ type navigationRequest struct {
 	name   string
 	focus  event.Tag
 	step   int
+	recent *navigationEntry
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -86,7 +117,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	} else {
 		item := s.routes[request.target.route]
-		if item == nil || !item.available() || entry.target == request.target {
+		if item == nil || !item.available() || (request.recent == nil && entry.target == request.target) {
 			return
 		}
 		if request.target.hasObject() && (request.target.route != directoryRoute || s.directory == nil) {
@@ -94,15 +125,24 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 
-	s.saveVisit(entry)
-	if request.focus != nil {
-		entry.focus = request.focus
+	source := *entry
+	s.saveVisit(&source)
+	if request.recent != nil && sameRecentDestination(source, *request.recent) {
+		return
 	}
+	if request.focus != nil {
+		source.focus = request.focus
+	}
+	*entry = source
+	s.trail.recordRecent(source)
 	if entry.target.hasObject() {
 		s.directory.object.leave()
 	}
 	if request.step != 0 {
 		s.trail.cursor += request.step
+		s.restoreVisit(s.trail.current())
+	} else if request.recent != nil {
+		s.trail.push(*request.recent)
 		s.restoreVisit(s.trail.current())
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name})
@@ -117,7 +157,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.directory.object.enter(ref, list)
 	}
 	s.narrowExpanded = false
-	s.restoreFocus = request.step != 0 || entry.target.hasObject()
+	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject()
 	gtx.Execute(op.InvalidateCmd{})
 }
 
@@ -246,5 +286,12 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		}
 		return language.Text(i18n.DirectoryObjectUnavailable)
 	}
-	return language.Text(s.routes[entry.target.route].label)
+	title := language.Text(s.routes[entry.target.route].label)
+	if entry.target.route == directoryRoute && entry.visited && s.directory != nil {
+		title += " · " + language.Text(s.directory.lists[entry.directory.tab].copy.title)
+		if entry.directory.list.includeArchived || strings.TrimSpace(entry.directory.list.query) != "" {
+			title += " · " + language.Text(i18n.NavigationFiltered)
+		}
+	}
+	return title
 }

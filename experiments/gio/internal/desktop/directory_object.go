@@ -195,10 +195,7 @@ func (p *directoryObjectPage) details(gtx layout.Context, view ui.View) layout.D
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							if glyph := p.list.glyph(row.iconKey()); glyph != nil {
-								return ui.LayoutGlyph(gtx, glyph, 24, view.Colors.Accent)
-							}
-							return layout.Dimensions{}
+							return ui.LayoutGlyph(gtx, p.list.glyph(row.iconKey(), row.institutionType), 24, view.Colors.Accent)
 						}),
 						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 							return view.Label(gtx, row.Name, 18, font.Medium, view.Colors.Ink)
