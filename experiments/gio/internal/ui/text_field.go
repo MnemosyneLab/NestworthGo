@@ -47,6 +47,11 @@ func (f *TextField) Layout(gtx layout.Context, view View, options FieldOptions) 
 	return f.layoutWithAccessories(gtx, view, options, nil, nil)
 }
 
+func (f *TextField) LayoutCurrency(gtx layout.Context, view View, options FieldOptions, currency string) layout.Dimensions {
+	options.AccessibleName = view.Language.Text(options.Label) + " · " + currency
+	return f.layoutWithAccessories(gtx, view, options, nil, view.Message(currency, view.Colors.SecondaryInk))
+}
+
 func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options FieldOptions, leading, trailing layout.Widget) layout.Dimensions {
 	f.Editor.ReadOnly = options.ReadOnly
 	title := view.Language.Text(options.Label)
@@ -116,8 +121,15 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 				if leading == nil && trailing == nil {
 					return style.Layout(gtx)
 				}
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-					layout.Rigid(leading), layout.Flexed(1, style.Layout), layout.Rigid(trailing))
+				var children []layout.FlexChild
+				if leading != nil {
+					children = append(children, layout.Rigid(leading))
+				}
+				children = append(children, layout.Flexed(1, style.Layout))
+				if trailing != nil {
+					children = append(children, layout.Rigid(trailing))
+				}
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 			})
 		})
 	}

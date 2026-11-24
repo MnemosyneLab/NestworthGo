@@ -54,7 +54,7 @@ with read paths, then use the same data to validate writes and reconstruction.
 
 Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Stage 4 adds reviewed contributions, withdrawals
-and same-currency cash transfers with their saved details. Broader labels,
+and cash transfers with their saved details. Broader labels,
 breakdowns, filters and activity types remain open. The scoped Stage 2
 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
@@ -582,10 +582,10 @@ mutation replay and refreshes History and Overview. Withdrawal uses Wails
 outflow. The cash account scope remains bank, cash-on-hand and digital wallet
 assets in balance mode with a recorded value.
 
-For transfer, the destination picker offers a different active eligible account
-in the source currency. The guarded preview validates both accounts again.
-Changing the source clears an incompatible destination. Wails' same-currency
-contract uses the same amount for sent and received principal. A blank fee is
+For a same-currency transfer, both endpoints are different active eligible
+accounts, and Wails uses the same amount for sent and received principal.
+The guarded preview validates both accounts again. Changing the source clears
+a destination that becomes the same account. A blank fee is
 omitted. A positive fee is deducted separately in the source currency and
 shown alongside both resulting balances. Saved detail identifies the sending
 and receiving accounts, amounts, fee and resulting balances.
@@ -597,7 +597,42 @@ and receiving accounts, amounts, fee and resulting balances.
 | Replay and read retry | A double click during a paid transfer did not create a second write request. A deliberately discarded response replayed the identical envelope and returned the original activity. A following detail load failure offered a read-only retry. After reopening, withdrawal and both transfers replayed to their original IDs. A changed fee with the same ID conflicted. |
 | Linux X11 | At 900×660 on Xvfb, withdrew USD 25.125, verified an EUR source could not choose a USD destination, and changed a reviewed USD 2 fee to USD 1.125 before confirming the USD 30.25 transfer. A double click on each confirmation posted one activity. Overview displayed USD 1,907.88. Both saved details opened after normal quit and relaunch. Read-only SQLite comparison found four new effects and two mutation receipts. A temporary build overlay fixed the clock and prepared the verified synthetic fixture. |
 | Automated checks | The Gio module suite, Gio vet, Linux preview build, and focused Wails History, domain movement, household attribution and application idempotency regressions passed. |
-| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Cross-currency and Holdings cash movements, expense categorization, broader History detail and filters, repeat, correction and reversal are future work. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Holdings cash movements, expense categorization, broader History detail and filters, repeat, correction and reversal are future work. |
+
+#### Cross-currency cash transfer milestone
+
+**Record transfer** accepts different currencies on the same eligible
+balance-mode cash assets as the same-currency workflow. The source and
+destination set the currencies from their account defaults. The user enters
+both actual principal amounts. Changing an account currency clears the amount
+bound to that currency, including the fee when the source currency changes.
+Same-currency transfers retain a single principal input.
+
+Gio uses the [Wails History Go command](../../../internal/wailsapi/history/command.go).
+The [shared domain](../../../internal/domain/change.go) validates the native
+amounts, deducts the optional fee in the source currency, and derives the
+executed rate in the sent-to-received direction. Review and detail show the
+two principal legs with their currencies, the executed rate, the fee and the
+native resulting balances. Both principal legs are internal transfers.
+
+Wails offers an optional amount calculator that requires a market quote.
+Posting an explicit pair works without one. Gio leaves the calculator and
+quote controls open. Overview still needs a supported valuation quote for a
+complete base total. The executed rate stays on the activity.
+The shared analyzer’s [execution-spread bucket](../../../internal/application/analysis_classifier.go)
+currently applies to the distinct `fx_conversion` kind. A cross-account
+`cash_transfer` has no separate spread result in its posting preview or
+stored effects. Holdings cash endpoints and same-account FX conversion remain
+outside this slice.
+
+| Check | Evidence |
+| --- | --- |
+| Exact Wails Go parity | Independent verified fixture copies with a fixed Singapore History clock matched USD 125.625 sent, EUR 100.5 received, and USD 1.2505 fee. The two native balances became USD 1,607.2545 and EUR 142.5. The preview and stored detail matched the executed rate of EUR 0.8 per USD, two internal principal effects and one fee effect. |
+| Missing market FX | Neither fixture had a USD/EUR quote. Both accepted the transfer and returned matching incomplete Overview valuation for the EUR account. A later independent EUR→USD quote of 1.2 made net worth USD 1,978.2545 on both paths with the existing USD 200 reserve. The stored transfer retained the executed rate and native amounts. |
+| Draft and retries | Gio frames rejected blank and zero received amounts, checked that changing destination currency clears only its amount, and edited a reviewed receipt before confirming. Double confirmation made one write attempt, loss of the reply replayed the original ID, and a detail failure after acknowledgement retried only the read. Reopening replayed the receipt, and a changed received amount with the same mutation ID conflicted. Contribution, withdrawal and same-currency frame regressions also passed. |
+| Linux X11 | On Xvfb, the minimum 700×460 window showed the missing-receipt validation and the preview button. At 900×660, edited the reviewed receipt from EUR 99.25 to EUR 100.5, double-clicked confirm, checked incomplete Overview and reopened the saved detail after a normal exit. Read-only SQLite comparison found one new activity, three exact effects, one mutation receipt, both native balances and no market FX quote. A temporary overlay fixed the clock and prepared the verified fixture. |
+| Automated checks | The Gio module suite and vet, the Linux preview build, and focused Wails History, domain transfer, application attribution and mutation regressions passed. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Stage 3 production startup and target-platform cutover gates remain open. |
 
 ## Moving from the preview to a desktop build
 

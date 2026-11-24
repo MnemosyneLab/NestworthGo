@@ -21,7 +21,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	ctx := t.Context()
 	root := createFixtureRoot(t)
 	seed, seedSession := openBankFixture(t, root)
-	source, destination, euro, archived := seedMovementAccounts(t, seed)
+	source, destination, _, archived := seedMovementAccounts(t, seed, false)
 	if err := seedSession.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -169,13 +169,12 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	tick(d, 1)
 	h.click("To account", true)
 	label("Cash Reserve · USD")
-	for _, excluded := range []string{"Euro Cash · EUR", "Archived Cash · USD"} {
-		if findPageLabel(&h.router, excluded) != nil {
-			t.Fatalf("ineligible destination %q was exposed", excluded)
-		}
+	label("Euro Cash · EUR")
+	if findPageLabel(&h.router, "Archived Cash · USD") != nil {
+		t.Fatal("the archived destination was exposed")
 	}
 	h.press(key.NameEscape)
-	for _, invalid := range []domain.AccountID{source, euro, archived, domain.NewAccountID()} {
+	for _, invalid := range []domain.AccountID{source, archived, domain.NewAccountID()} {
 		_, err := history.ReviewCashMovement(ctx, service, history.CashMovementInput{
 			Movement: history.CashTransfer, Account: source, Destination: invalid, Amount: "40", Date: day, Time: d.time,
 		})
@@ -187,12 +186,16 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	setBankField(h, "Transfer amount", &d.amount, "40")
 	h.click("Preview transfer", false)
 	finish()
-	label("Choose a different active cash account in the same currency.")
+	label("Choose a different active cash account.")
 	pickAccountReference(h, "To account", "Reserve", "Cash Reserve · USD")
-	pickAccountReference(h, "From account", "Euro", "Euro Cash · EUR")
-	label("No other active cash account uses this currency.")
+	h.click("From account", true)
+	h.router.Queue(key.EditEvent{Text: "Reserve"})
+	h.frame()
+	h.router.Queue(key.Event{Name: key.NameDownArrow, State: key.Press, Modifiers: key.ModAlt})
+	h.frame()
+	h.press(key.NameReturn)
 	if d.destination != "" {
-		t.Fatal("changing the source retained an incompatible destination")
+		t.Fatal("changing the source retained the same account as the destination")
 	}
 	pickAccountReference(h, "From account", "Harbor", "Harbor Checking · USD")
 	pickAccountReference(h, "To account", "Reserve", "Cash Reserve · USD")
@@ -326,7 +329,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	}
 }
 
-func seedMovementAccounts(t *testing.T, service *application.Service) (source, destination, euro, archived domain.AccountID) {
+func seedMovementAccounts(t *testing.T, service *application.Service, includeEuro bool) (source, destination, euro, archived domain.AccountID) {
 	t.Helper()
 	ctx := t.Context()
 	boot, err := service.Bootstrap(ctx)
@@ -359,7 +362,7 @@ func seedMovementAccounts(t *testing.T, service *application.Service) (source, d
 		return row.Account.ID
 	}
 	destination = create("Cash Reserve", "USD", "200", true)
-	euro = create("Euro Cash", "EUR", "42", false)
+	euro = create("Euro Cash", "EUR", "42", includeEuro)
 	archived = create("Archived Cash", "USD", "0", false)
 	if err := service.ArchiveAccount(ctx, archived, true); err != nil {
 		t.Fatal(err)

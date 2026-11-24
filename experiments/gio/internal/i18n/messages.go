@@ -418,6 +418,12 @@ const (
 	TransferFrom
 	TransferTo
 	TransferAmount
+	TransferSentAmount
+	TransferReceivedAmount
+	TransferInvalidReceived
+	TransferSentPrincipal
+	TransferReceivedPrincipal
+	TransferExecutedRate
 	TransferFeeInput
 	TransferNoDestination
 	TransferInvalidDestination

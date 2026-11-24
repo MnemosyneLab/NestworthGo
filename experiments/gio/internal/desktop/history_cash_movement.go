@@ -26,7 +26,7 @@ type cashMovementDraft struct {
 	loading                                   <-chan cashMovementResult[history.CashMovementSources]
 	sourceError                               i18n.MessageID
 	account, destination                      domain.AccountID
-	amount, fee                               ui.TextField
+	amount, received, fee                     ui.TextField
 	day, time                                 string
 	focusAmount                               bool
 	accountPicker, destinationPicker          ui.Select
@@ -78,7 +78,10 @@ func cashMovementRead[T any](p *historyCashMovements, read func() (T, error)) <-
 }
 
 func (p *historyCashMovements) start(movement history.CashMovement) {
-	p.draft = &cashMovementDraft{movement: movement, amount: ui.NewTextField(true), fee: ui.NewTextField(true), focusAmount: movement != history.CashTransfer}
+	p.draft = &cashMovementDraft{
+		movement: movement, amount: ui.NewTextField(true), received: ui.NewTextField(true), fee: ui.NewTextField(true),
+		focusAmount: movement != history.CashTransfer,
+	}
 	p.loadSources()
 }
 
@@ -102,6 +105,7 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 	}
 	if !d.canSelectDestination(d.destination) {
 		d.destination = ""
+		d.received.Editor.SetText("")
 	}
 }
 
@@ -122,6 +126,34 @@ func (d *cashMovementDraft) canSelectDestination(id domain.AccountID) bool {
 	return history.CanTransferTo(from, to)
 }
 
+func (d *cashMovementDraft) chooseSource(id domain.AccountID) {
+	before, hadSource := d.accountByID(d.account)
+	d.account, d.problem = id, i18n.NoMessage
+	if d.movement != history.CashTransfer {
+		return
+	}
+	after, _ := d.accountByID(id)
+	if hadSource && before.DefaultCurrency != after.DefaultCurrency {
+		d.amount.Editor.SetText("")
+		d.fee.Editor.SetText("")
+	}
+	if !d.canSelectDestination(d.destination) {
+		d.chooseDestination("")
+	} else if to, _ := d.accountByID(d.destination); to.DefaultCurrency == after.DefaultCurrency {
+		d.received.Editor.SetText("")
+	}
+}
+
+func (d *cashMovementDraft) chooseDestination(id domain.AccountID) {
+	before, _ := d.accountByID(d.destination)
+	after, _ := d.accountByID(id)
+	from, _ := d.accountByID(d.account)
+	if before.DefaultCurrency != after.DefaultCurrency || from.DefaultCurrency == after.DefaultCurrency {
+		d.received.Editor.SetText("")
+	}
+	d.destination, d.problem = id, i18n.NoMessage
+}
+
 func (p *historyCashMovements) preview() {
 	d := p.draft
 	if d.previewing != nil {
@@ -135,7 +167,10 @@ func (p *historyCashMovements) preview() {
 		d.problem = i18n.TransferInvalidDestination
 		return
 	}
-	input := history.CashMovementInput{Movement: d.movement, Account: d.account, Destination: d.destination, Amount: d.amount.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time}
+	input := history.CashMovementInput{
+		Movement: d.movement, Account: d.account, Destination: d.destination,
+		Amount: d.amount.Text(), Received: d.received.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time,
+	}
 	d.problem = i18n.NoMessage
 	d.previewing = cashMovementRead(p, func() (history.ReviewedCashMovement, error) {
 		return history.ReviewCashMovement(p.ctx, p.service, input)
@@ -253,6 +288,8 @@ func cashMovementProblem(movement history.CashMovement, err error, fallback i18n
 		return i18n.TransferInvalidDestination
 	case "fee":
 		return i18n.TransferInvalidFee
+	case "received":
+		return i18n.TransferInvalidReceived
 	case "amount":
 		return i18n.ContributionInvalidAmount
 	}

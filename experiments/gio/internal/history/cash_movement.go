@@ -34,7 +34,7 @@ const (
 )
 
 func CanTransferTo(from, to domain.Account) bool {
-	return from.ID != "" && to.ID != "" && from.ID != to.ID && from.DefaultCurrency == to.DefaultCurrency
+	return from.ID != "" && to.ID != "" && from.ID != to.ID
 }
 
 func LoadCashMovementSources(ctx context.Context, ledger CashMovementLedger) (CashMovementSources, error) {
@@ -78,6 +78,7 @@ type CashMovementInput struct {
 	Account     domain.AccountID
 	Destination domain.AccountID
 	Amount      string
+	Received    string
 	Fee         string
 	Date        string
 	Time        string
@@ -169,8 +170,15 @@ func cashMovementRequest(ctx context.Context, ledger CashMovementLedger, input C
 		}
 		request.Kind = historyapi.ChangeCashTransfer
 		request.FromAccountID, request.ToAccountID = account.ID.String(), destination.ID.String()
-		request.Sent, request.Received = amount.CanonicalAmount(), amount.CanonicalAmount()
-		request.SentCurrency, request.ReceivedCurrency, request.FeeCurrency = currency.String(), currency.String(), currency.String()
+		received := amount
+		if destination.DefaultCurrency != currency {
+			received, err = domain.ParseMoney(strings.TrimSpace(input.Received), destination.DefaultCurrency)
+			if err != nil || received.IsZero() {
+				return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "received"}
+			}
+		}
+		request.Sent, request.Received = amount.CanonicalAmount(), received.CanonicalAmount()
+		request.SentCurrency, request.ReceivedCurrency, request.FeeCurrency = currency.String(), received.Currency().String(), currency.String()
 		if raw := strings.TrimSpace(input.Fee); raw != "" {
 			fee, err := domain.ParseMoney(raw, currency)
 			if err != nil || fee.IsZero() {

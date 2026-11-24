@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation. **Accounts** browses accounts by institution, creates total-balance, manual-valuation and empty Holdings accounts, and supports account settings, archive and restore. **Settings → Appearance** edits general display preferences. **Activity → Ledger activity** previews and records cash contributions, withdrawals and same-currency transfers, and opens their saved details. **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation. **Accounts** browses accounts by institution, creates total-balance, manual-valuation and empty Holdings accounts, and supports account settings, archive and restore. **Settings → Appearance** edits general display preferences. **Activity → Ledger activity** previews and records cash contributions, withdrawals and transfers between cash accounts, and opens their saved details. **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
