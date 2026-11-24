@@ -33,6 +33,31 @@ const (
 	GroupActivity
 	GroupInsights
 	GroupManage
+	AccountMaintenanceEdit
+	AccountMaintenanceArchive
+	AccountMaintenanceRestore
+	AccountMaintenanceArchiveHelp
+	AccountMaintenanceRestoreHelp
+	AccountMaintenanceArchived
+	AccountMaintenanceRestored
+	AccountMaintenanceSaved
+	AccountMaintenanceUnsupported
+	AccountMaintenanceReadOnly
+	AccountMaintenanceNoBalance
+	AccountMaintenanceFixed
+	AccountMaintenanceInstitution
+	AccountMaintenanceGroup
+	AccountMaintenanceDefaultIcon
+	AccountMaintenanceEqual
+	AccountMaintenanceCustom
+	AccountMaintenanceShare
+	AccountMaintenanceShareFor
+	AccountMaintenanceSharesInvalid
+	AccountMaintenanceChanged
+	AccountMaintenanceGroupUnavailable
+	AccountMaintenanceArchiveBlocked
+	AccountMaintenanceWriteFailed
+
 	AccountCreateAdd
 	AccountCreateTitle
 	AccountCreateName

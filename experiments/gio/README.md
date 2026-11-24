@@ -210,6 +210,13 @@ creation, the new account opens by ID. **Back to accounts** returns to the
 institution's list, and the next visit to **Overview** refreshes the valuation.
 If the new account's details fail to load, **Retry** only reads its details.
 
+Open a standard bank account's **Account settings** to change its name,
+institution, group, icon, net-worth inclusion, or ownership. Choose equal
+shares or enter positive shares totaling 100%. **Archive account** keeps
+the recorded balance and ledger history. Turn on **Show archived** to find
+the archived account, then use **Restore account** in its detail. A failed
+refresh after a confirmed change can be retried without repeating the change.
+
 ## Ledger activity
 
 Open **Activity → Ledger activity** (简体中文 **活动 → 账务记录**) to browse

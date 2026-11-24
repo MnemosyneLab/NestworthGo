@@ -20,6 +20,7 @@ import (
 
 type FieldOptions struct {
 	Label, Hint, Help  i18n.MessageID
+	AccessibleName     string
 	MaxBytes           int
 	Disabled, ReadOnly bool
 	Problem            func(string) string
@@ -49,6 +50,10 @@ func (f *TextField) Layout(gtx layout.Context, view View, options FieldOptions) 
 func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options FieldOptions, leading, trailing layout.Widget) layout.Dimensions {
 	f.Editor.ReadOnly = options.ReadOnly
 	title := view.Language.Text(options.Label)
+	accessibleName := options.AccessibleName
+	if accessibleName == "" {
+		accessibleName = title
+	}
 	input := gtx
 	if options.Disabled {
 		input = gtx.Disabled()
@@ -104,7 +109,7 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 		size := image.Pt(gtx.Constraints.Max.X, min(gtx.Constraints.Max.Y, gtx.Dp(height)))
 		gtx.Constraints = layout.Exact(size)
 		defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
-		semantic.DescriptionOp(title).Add(gtx.Ops)
+		semantic.DescriptionOp(accessibleName).Add(gtx.Ops)
 		semantic.EnabledOp(!options.Disabled).Add(gtx.Ops)
 		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -121,7 +126,7 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 			gtx = gtx.Disabled()
 		}
 		view.Focus.Watch(gtx, &f.Editor)
-		return accessibility.Editor(gtx, &f.Editor, title, view.Language.Text(options.Help), layoutEditor)
+		return accessibility.Editor(gtx, &f.Editor, accessibleName, view.Language.Text(options.Help), layoutEditor)
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

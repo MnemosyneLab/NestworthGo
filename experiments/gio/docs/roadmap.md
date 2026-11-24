@@ -57,8 +57,8 @@ kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
-live Overview, account browsing and standard bank account creation. Stages 4–7
-are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+live Overview, account browsing, and standard bank account creation and
+maintenance. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -308,7 +308,34 @@ onboarding opens Accounts and refreshes the preferences' household context.
 | Profile guard | Gio tests checked the old sample marker and shared instance lock, explicit fixture preparation, unchanged files on a rejected launch, linked receipts, copied fixtures at a different path, and unmarked synthetic databases with and without a household. Shared backup cross-process and alias tests passed. |
 | Linux X11 | The Gio module tests, vet, Linux preview build, Wails household adapter and targeted application tests passed on Debian 13 amd64 with Go 1.27.4. Native Gio on Xvfb with Mesa software rendering used `2026-11-21T17:00:00Z` from a temporary clock overlay. At 700 × 460, the history picker defaulted to `2026-11-22` in `Asia/Singapore`. The form validated a missing household name, accepted SGD and two members with a `2026-11-20` start, and opened empty Accounts after a double click on Create. After a normal quit, reopening displayed empty Overview and both members in Directory. A second process was blocked at the empty fixture without changing its files. A prior sample fixture still opened directly to its populated Overview. |
 | Linux X11 read failure and storage | A second native build with a temporary fault overlay failed the first Bootstrap after the real write. The window displayed the saved notice and a read error together. Retry opened empty Accounts. Both closed and reopened profiles contained one household, two ordered members, one correctly zoned History origin, and the default institution and group. They had no accounts, holdings, postings or opening components. Both retained their original path-bound proofs. |
-| Open evidence | Wails GUI, native macOS and Wayland were not run. Production startup, ledger selection and recovery, broader account creation, account settings, ownership changes, archive and restore remain Stage 3 work. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. Production startup, ledger selection and recovery, and broader account workflows remain Stage 3 work. |
+
+#### Standard bank account maintenance milestone
+
+Gio implements the [Wails account settings contract](../../../docs/design/account-container-interaction.md#97-account-settings)
+for bank assets tracked as one total balance. The detail settings can change
+the name, institution, group, icon, net-worth inclusion and ownership.
+The form supports equal or exact percentage shares. Type, balance-sheet
+role, tracking method, currency and recorded balance stay fixed in this form.
+A settings save sends one shared `UpdateAccount` call with the changes.
+Untouched setting fields use the [Go adapter's patch semantics](../../../internal/wailsapi/account/account.go).
+Existing archived references can be retained. New references must be active.
+
+Archive and restore are separately confirmed `ArchiveAccount` calls. The
+archived detail keeps its stable ID and recorded balance and offers restore.
+The active list and live valuation exclude it. Back and Forward keep the
+original list scope and archive filter. A committed change updates the
+account label on refresh and invalidates Overview's cached read. A failed
+refresh keeps the previous result and the saved notice, with changes disabled
+until Retry rereads the same ID.
+
+| Check | Evidence |
+| --- | --- |
+| Go adapter and Gio frames | Matched the stored records on independent copies of the same synthetic ledger at `2026-11-21T17:00:00Z`. The flow renamed and moved a bank account, retained its archived group, replaced an archived owner with an active one, stored an exact `75.25%` / `24.75%` split and changed net-worth inclusion. A stale group rejected a combined update and left the record unchanged. Repeated clicks and forced post-commit read failures during edit and archive yielded one mutation each. Retry, Back, Forward, filtered rediscovery, restore, Overview invalidation and reopen passed. The balance and six activities still matched the original account ID. |
+| Archive guard | A valid synthetic Holdings account with an open managed contract was rejected by the Wails Go archive adapter. Gio showed the maintenance scope on the read-only account and offered no mutation. The standard bank-balance archive and restore used the shared writer. |
+| Linux X11 | On Debian 13 amd64 with Go 1.27.4, the Gio module tests, vet, Linux preview build, Wails account adapter and focused shared application tests passed. At 700 × 460 under Xvfb with Mesa rendering, changed the name, default group and Wallet icon, then archived the account, found it through Show archived and restored it. Back kept the archive filter active. Overview and the detail showed USD `1,734.13` after restoration. The activity list and a normal quit and reopen showed the original ledger and updated account. In an independent two-member profile at 1120 × 840, saved `75.25%` / `24.75%`, reopened and matched both exact shares against SQLite. |
+| Linux X11 read failures and storage | A separate native build forced the detail read to fail after both the settings update and archive. The saved notices and stale-result warning appeared, and Retry recovered the same ID. The fault probe counted one update, one archive and one restore. Both closed profiles retained every balance, owner and history row, including six effects-linked activities. Each recorded three state observations for maintenance. The fixed clock and read faults used temporary overlays. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. Other account types, compatible type changes, production startup, ledger selection and recovery remain Stage 3 work. |
 
 ## Moving from the preview to a desktop build
 

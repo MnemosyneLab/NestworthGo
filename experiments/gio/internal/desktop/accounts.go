@@ -105,7 +105,7 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 	for _, member := range members {
 		result.members[member.ID] = member
 	}
-	if records[0].Account.GroupID != nil {
+	if records[0].Account.GroupID != nil || bankAccountSupported(records[0].Account) {
 		groups, err := service.ListGroups(ctx, true)
 		if err != nil {
 			result.err = err
@@ -237,6 +237,7 @@ type accountsPage struct {
 	creation                           *bankAccountCreation
 	createBank                         widget.Clickable
 	createdID                          domain.AccountID
+	maintenance                        *bankMaintenance
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {
@@ -303,6 +304,7 @@ func (p *accountsPage) update(lang i18n.Language) bool {
 				p.position = p.list.Position
 			}
 			p.current = &result
+			p.refreshBankSettings()
 			changed = true
 		}
 	default:

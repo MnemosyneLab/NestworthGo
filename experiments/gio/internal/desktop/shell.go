@@ -207,6 +207,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		if s.accounts.pollBankMaintenance() && s.overviewPage != nil {
+			s.overviewPage.needsRefresh = true
+		}
 		if record := s.accounts.pollBankAccount(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
 			if s.overviewPage != nil {
@@ -219,7 +222,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingBankAccount() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingBankAccount() || s.bankMaintenanceBlocking() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -270,12 +273,22 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.directory.activeList().layoutConfirmation(windowContext, view)
 	} else if s.confirmingBankAccount() {
 		s.accounts.layoutBankAccountReview(windowContext, view)
+	} else if s.bankMaintenanceBlocking() && s.accounts.maintenance.review != nil {
+		s.accounts.layoutBankArchive(windowContext, view)
 	}
 	return dims
 }
 
 func (s *shell) confirmingBankAccount() bool {
 	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
+}
+
+func (s *shell) bankMaintenanceBlocking() bool {
+	if s.activeRoute() != accountsRoute || s.accounts == nil || s.accounts.maintenance == nil {
+		return false
+	}
+	m := s.accounts.maintenance
+	return m.pending != nil || m.review != nil
 }
 
 func (s *shell) confirmingArchive() bool {
