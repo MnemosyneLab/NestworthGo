@@ -78,7 +78,25 @@ is in progress. Stages 3–7 are planned. Use [navigation history](../../../docs
 | Persistent preview | The Mac launcher builds `Nestworth Gio.app` with ID `com.nestworth.gio`. A normal quit and direct Launch Services reopen used the same synthetic household, database file and settings contents in the [default Gio profile](../README.md#persistent-test-data). |
 | Automated coverage | Frame tests exercise sidebar actions, draft retention, validation, save failure and retry, timezone filtering, compact scrolling and reset confirmation. Storage tests reopen an isolated fixture and check that save and reset preserve unrelated settings. Changing the display timezone and date format through Settings retains the original recorded ledger day in History. |
 | Native macOS ARM64 | On macOS 27.2.1, the isolated development app saved Mint and DD/MM/YYYY from Settings and switched to Light and Traditional Chinese from the sidebar. The November 12 interest entry displayed as 12/11/2026. After a normal quit and reopen of the same fixture, Overview displayed the saved language and palette. The settings file retained the day-first date format. |
-| Remaining | Directory workflows beyond the Institutions pilot, navigation history and object links, and wider navigation-state restoration are still open. Native VoiceOver and full keyboard traversal remain open. A macOS accessibility client can now navigate via the sidebar, edit a search field and choose a select option. Linux desktop interaction remains to be verified for this stage. AI, MCP and backup workflows belong to stage 7. |
+| Institutions lifecycle | The pilot adds an institution with a name and type, renames it, asks for confirmation before archiving, and restores it from **Show archived**. The default view lists active institutions. **Show archived** includes both states and name search applies to both views. See the milestone evidence below. |
+| Remaining | Institution icon customization and display, members, groups, navigation history, object links, and wider navigation-state restoration are still open. Native VoiceOver and full keyboard traversal remain open. A macOS accessibility client can now navigate via the sidebar, edit a search field and choose a select option. Linux desktop interaction for the other Stage 2 workflows remains open. AI, MCP and backup workflows belong to stage 7. |
+
+#### Institutions lifecycle milestone
+
+The [Wails directory](../../../frontend/src/features/directory/DirectoryEntityList.tsx)
+and [Go service](../../../internal/application/service.go) define the reference
+workflow. Gio uses the shared type catalog and leaves name normalization,
+validation, default icon assignment and archive timestamps to the same service.
+Restore acts on the same ID. The pilot uses an inline creation form and keeps
+the search and archive filter in the page's session state. A new session
+starts with an empty search and the active list.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and SQLite | On Debian 13 amd64 with Go 1.27.4, Gio module tests and vet passed. The compact Gio frame regression used the normal Directory route with a verified synthetic SQLite fixture. It selected a non-default type by keyboard, checked required-name feedback, and verified the stored name, type, default icon and ID. A canceled archive left the row active. Confirmed archive removed the row from the active search, and the archived view found it without clearing the search. A failed post-write read offered a reload without a duplicate write. A failed restore kept the archived row available for retry. The test reopened the fixture after archive and after restore. |
+| Wails reference | Ran `go test -mod=readonly -count=1 ./internal/wailsapi/directory` against the existing Wails adapter. Production code and schemas were outside the change. |
+| Linux X11 | Built with `sh experiments/gio/preview-linux.sh --build-only`. In the actual preview window on Xvfb with Mesa software rendering, used a separate verified synthetic profile to add an Exchange, cancel and confirm archiving by keyboard, find it again with the same search, and restore it. Normal quit and reopen verified the persisted archive and subsequent restoration. |
+| Open evidence | Interactive Wails comparison, Linux Wayland, and native macOS acceptance for this milestone remain unrun. Full keyboard traversal, native IME and VoiceOver are still Stage 2 gates. |
 
 ## Moving from the preview to a desktop build
 

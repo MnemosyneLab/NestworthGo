@@ -33,6 +33,10 @@ func (v View) Message(text string, fg color.NRGBA) layout.Widget {
 }
 
 func (v View) Button(button *widget.Clickable, title string) layout.Widget {
+	return v.NamedButton(button, title, title)
+}
+
+func (v View) NamedButton(button *widget.Clickable, title, name string) layout.Widget {
 	style := material.Button(v.Theme, button, title)
 	style.Background = v.Colors.Surface
 	style.Color = v.Colors.Ink
@@ -40,7 +44,7 @@ func (v View) Button(button *widget.Clickable, title string) layout.Widget {
 	style.CornerRadius = 7
 	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
 	return func(gtx layout.Context) layout.Dimensions {
-		return accessibility.Button(gtx, button, title, "", false, style.Layout)
+		return accessibility.Button(gtx, button, name, "", false, style.Layout)
 	}
 }
 

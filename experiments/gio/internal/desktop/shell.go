@@ -38,7 +38,7 @@ type pageLayout func(layout.Context, ui.View) layout.Dimensions
 
 type ledgerPages struct {
 	prefs     *preferenceState
-	directory pageLayout
+	directory *institutionsPage
 	history   pageLayout
 }
 
@@ -63,6 +63,7 @@ type navigationGroup struct {
 type shell struct {
 	prefs                                 *preferenceState
 	settingsPage                          *settingsPage
+	directory                             *institutionsPage
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
 	wordmark                              widget.Image
@@ -81,9 +82,14 @@ type shell struct {
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
+	var directoryLayout pageLayout
+	if pages.directory != nil {
+		directoryLayout = pages.directory.layout
+	}
 	s := &shell{
 		prefs:        pages.prefs,
 		settingsPage: newSettingsPage(pages.prefs),
+		directory:    pages.directory,
 		preferences:  sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:        material.NewTheme(),
 		wordmark:     widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
@@ -108,7 +114,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			newItem("asset-changes", i18n.NavAssetChanges, icons.ActionCompareArrows, nil),
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
-			newItem(directoryRoute, i18n.NavDirectory, icons.SocialPeopleOutline, pages.directory),
+			newItem(directoryRoute, i18n.NavDirectory, icons.SocialPeopleOutline, directoryLayout),
 			newItem("data-maintenance", i18n.NavDataMaintenance, icons.NotificationSync, nil),
 			newItem(settingsRoute, i18n.NavSettings, icons.ActionSettings, s.settingsPage.layout),
 			newItem(componentPreviewRoute, i18n.NavComponentPreview, icons.ActionBuild, preview.layout),
@@ -128,7 +134,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
 	windowContext := gtx
-	if s.settingsPage.confirming {
+	if s.settingsPage.confirming || s.confirmingArchive() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -170,8 +176,14 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	s.overlay.Layout(gtx, view)
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
+	} else if s.confirmingArchive() {
+		s.directory.layoutConfirmation(windowContext, view)
 	}
 	return dims
+}
+
+func (s *shell) confirmingArchive() bool {
+	return s.activeRoute == directoryRoute && s.directory != nil && s.directory.archiveTarget != nil
 }
 
 func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {

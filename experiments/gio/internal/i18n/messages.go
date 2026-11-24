@@ -126,6 +126,23 @@ const (
 	InstitutionsCancel
 	InstitutionsSaveError
 	InstitutionsNameLength
+	InstitutionsAdd
+	InstitutionsCreate
+	InstitutionsCreated
+	InstitutionsType
+	InstitutionsShowArchived
+	InstitutionsHideArchived
+	InstitutionsEmptyAll
+	InstitutionsArchive
+	InstitutionsArchiveTitle
+	InstitutionsArchiveName
+	InstitutionsArchived
+	InstitutionsArchivedType
+	InstitutionsArchiveError
+	InstitutionsRestore
+	InstitutionsRestoreName
+	InstitutionsRestored
+	InstitutionsRestoreError
 	InstitutionBank
 	InstitutionBrokerage
 	InstitutionInsurer

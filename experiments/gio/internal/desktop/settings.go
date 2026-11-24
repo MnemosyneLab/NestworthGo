@@ -3,7 +3,6 @@ package desktop
 import (
 	"fmt"
 	"image"
-	"image/color"
 
 	"gioui.org/font"
 	"gioui.org/gesture"
@@ -24,19 +23,19 @@ import (
 )
 
 type settingsPage struct {
-	prefs                                      *preferenceState
-	scroll                                     widget.List
-	fields                                     [8]ui.Select
-	swatches                                   [5]gesture.Click
-	currency                                   ui.TextField
-	save, discard, reset, retry                widget.Clickable
-	cancelReset, confirmReset                  widget.Clickable
-	confirming, focusConfirmation, returnFocus bool
-	edits                                      map[i18n.MessageID]string
-	notice                                     i18n.MessageID
-	zones                                      []ui.Choice
-	choiceLanguage                             i18n.Language
-	choices                                    map[i18n.MessageID][]ui.Choice
+	prefs                       *preferenceState
+	scroll                      widget.List
+	fields                      [8]ui.Select
+	swatches                    [5]gesture.Click
+	currency                    ui.TextField
+	save, discard, reset, retry widget.Clickable
+	confirmation                ui.Confirmation
+	confirming, returnFocus     bool
+	edits                       map[i18n.MessageID]string
+	notice                      i18n.MessageID
+	zones                       []ui.Choice
+	choiceLanguage              i18n.Language
+	choices                     map[i18n.MessageID][]ui.Choice
 }
 
 func newSettingsPage(prefs *preferenceState) *settingsPage {
@@ -364,7 +363,7 @@ func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preference
 	if !p.prefs.busy && p.reset.Clicked(gtx) {
 		p.confirming = true
 		p.prefs.err = nil
-		p.focusConfirmation = true
+		p.confirmation.Open()
 		p.notice = i18n.NoMessage
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -427,71 +426,33 @@ func (p *settingsPage) actions(gtx layout.Context, view ui.View, canSave, dirty 
 	)
 }
 
-func (p *settingsPage) cancelConfirmation(gtx layout.Context) {
-	p.confirming = false
-	p.returnFocus = true
-	gtx.Execute(op.InvalidateCmd{})
-}
-
 // layoutConfirmation is called by the window after drawing its disabled content.
 func (p *settingsPage) layoutConfirmation(gtx layout.Context, view ui.View) {
-	paint.Fill(gtx.Ops, color.NRGBA{A: 0x68})
-	if p.focusConfirmation {
-		p.focusConfirmation = false
-		gtx.Execute(key.FocusCmd{Tag: &p.cancelReset})
+	label := i18n.SettingsReset
+	if p.prefs.busy {
+		label = i18n.SettingsPending
 	}
-	for _, tag := range []event.Tag{&p.cancelReset, &p.confirmReset} {
-		for _, e := range ui.PressedKeys(gtx, tag, key.NameEscape, key.NameTab) {
-			if e.Name == key.NameEscape && !p.prefs.busy {
-				p.cancelConfirmation(gtx)
-				return
-			}
-			if e.Name == key.NameTab {
-				target := &p.cancelReset
-				if tag == &p.cancelReset {
-					target = &p.confirmReset
-				}
-				gtx.Execute(key.FocusCmd{Tag: target})
-			}
-		}
+	options := ui.ConfirmationOptions{
+		Title:   view.Language.Text(i18n.SettingsResetTitle),
+		Body:    view.Language.Text(i18n.SettingsResetBody),
+		Cancel:  view.Language.Text(i18n.SettingsCancel),
+		Confirm: view.Language.Text(label),
+		Busy:    p.prefs.busy,
 	}
-	if !p.prefs.busy && p.cancelReset.Clicked(gtx) {
-		p.cancelConfirmation(gtx)
-		return
+	if p.prefs.err != nil {
+		options.Problem = view.Language.Text(i18n.SettingsSaveError)
 	}
-	if !p.prefs.busy && p.confirmReset.Clicked(gtx) {
-		p.prefs.reset(func() { clear(p.edits); p.notice = i18n.SettingsRestored; p.confirming = false; p.returnFocus = true })
-	}
-	layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx = ui.LimitWidth(gtx, 420)
-		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(22).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				if p.prefs.busy {
-					gtx = gtx.Disabled()
-				}
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, view.Language.Text(i18n.SettingsResetTitle), 17, font.SemiBold, view.Colors.Ink)
-					}),
-					layout.Rigid(view.Message(view.Language.Text(i18n.SettingsResetBody), view.Colors.SecondaryInk)),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if p.prefs.err == nil {
-							return layout.Dimensions{}
-						}
-						return view.Message(view.Language.Text(i18n.SettingsSaveError), view.Colors.ErrorInk)(gtx)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						label := i18n.SettingsReset
-						if p.prefs.busy {
-							label = i18n.SettingsPending
-						}
-						return layout.Flex{Gap: gtx.Dp(12)}.Layout(gtx,
-							layout.Rigid(view.Button(&p.cancelReset, view.Language.Text(i18n.SettingsCancel))),
-							layout.Rigid(view.PrimaryButton(&p.confirmReset, view.Language.Text(label))),
-						)
-					}),
-				)
-			})
+	p.confirmation.Layout(gtx, view, options, func() {
+		p.confirming = false
+		p.returnFocus = true
+		gtx.Execute(op.InvalidateCmd{})
+	}, func() {
+		p.prefs.reset(func() {
+			clear(p.edits)
+			p.notice = i18n.SettingsRestored
+			p.confirming = false
+			p.returnFocus = true
 		})
+		gtx.Execute(op.InvalidateCmd{})
 	})
 }

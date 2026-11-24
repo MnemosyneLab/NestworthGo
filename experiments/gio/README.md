@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory → Institutions** lists, searches and renames institutions. Overview shows three sample balances. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory → Institutions** manages institutions. Overview shows three sample balances. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
@@ -95,10 +95,16 @@ and both pickers offer a clear action.
 
 ## Institutions pilot
 
-The pilot lists active institutions from the synthetic ledger. Search filters
-the list by name. Choose **Edit** to change an institution name, **Save** to
-apply it, and **Reload** to read the list again. The pilot uses the same
-application service as the Wails directory and rereads the list after each save.
+**Add institution** takes a name and type. The application service assigns the
+type's default icon. **Edit** changes the name. **Archive** asks for
+confirmation. **Show archived** includes active and archived institutions in
+the same list, and **Restore** returns an archived institution to active use.
+Name search applies in either view and stays in place after a change.
+
+The pilot rereads the list after each write. If the write succeeds and the
+list fails to reload, **Retry reload** reads the list again without repeating
+the write. The next launch opens the same synthetic ledger with the active
+filter and a fresh search.
 
 ## Persistent test data
 

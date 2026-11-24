@@ -24,9 +24,12 @@ evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](ro
   The controls live in their own [ui package](../internal/ui). The
   [desktop package](../internal/desktop) composes them into pages and the shell.
 - The component preview uses in-memory fixtures. The Institutions pilot calls
-  the existing Go application services for reads and writes and reloads the
-  authoritative result after a successful save. Financial validation and date
-  boundaries remain in the existing Go layers. [Engineering guide](../../../docs/development/engineering-guide.md#financial-implementation-rules)
+  the same Go application service methods as the Wails directory for creation,
+  renaming, archiving, restoring and listing. The domain owns name validation,
+  the allowed types and default icons. Name search runs over the selected list
+  scope and survives each write. After a successful write, the pilot reloads
+  authoritative rows. A failed reload keeps the previous rows readable with
+  their actions disabled until a fresh list arrives. [Engineering guide](../../../docs/development/engineering-guide.md#financial-implementation-rules)
 
 ## Internationalization and appearance
 
@@ -109,10 +112,12 @@ application logic to combine date, time, and timezone into an instant. [Wails da
 
 ### Follow-on controls
 
-General settings owns its reset dialog. Extract a shared confirmation
-dialog when another workflow needs the same behavior. Add segmented
-controls, checkboxes, side panels and tables as the directory and ledger
-workflows require them.
+General settings reset and institution archive use the same window-level
+confirmation control. It focuses Cancel on open, keeps Tab inside the dialog
+and handles Escape. Each page owns the command and restores focus to its
+trigger or to the appropriate control when the command changes the list. Add
+segmented controls, checkboxes, side panels and tables as the directory and
+ledger workflows require them.
 
 ## Component preview page
 

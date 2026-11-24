@@ -99,7 +99,7 @@ func TestGeneralSettingsTimezoneAndConfirmedReset(t *testing.T) {
 	overview := semanticBounds(t, &h.router, "Overview", false)
 	h.click("Restore display defaults", false)
 	h.frame()
-	h.focused(&p.cancelReset)
+	h.focused(&p.confirmation.Cancel)
 	h.clickAt(overview.Min.Add(overview.Max).Div(2))
 	if !p.confirming || h.shell.activeRoute != "settings" {
 		t.Fatal("reset confirmation allowed navigation behind it")
@@ -113,7 +113,7 @@ func TestGeneralSettingsTimezoneAndConfirmedReset(t *testing.T) {
 	h.click("Restore display defaults", false)
 	h.frame()
 	h.press(key.NameTab)
-	h.focused(&p.confirmReset)
+	h.focused(&p.confirmation.Confirm)
 	h.press(key.NameReturn)
 	p.prefs.wait()
 	h.frame()
