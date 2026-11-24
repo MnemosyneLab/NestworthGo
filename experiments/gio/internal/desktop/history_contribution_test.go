@@ -19,40 +19,42 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-type contributionAttempt struct {
+type cashMovementAttempt struct {
 	command  any
 	mutation string
 	hash     string
 	token    string
 }
 
-type contributionFault struct {
+type cashMovementFault struct {
 	*application.Service
-	attempts         []contributionAttempt
+	attempts         []cashMovementAttempt
 	firstActivity    domain.ActivityID
-	lost             bool
+	loseAttempt      int
 	started, release chan struct{}
 	failDetail       atomic.Bool
 }
 
-func (f *contributionFault) RecordChangeGuarded(ctx context.Context, command any, mutationID, hash, token string) (domain.ChangePreview, error) {
-	f.attempts = append(f.attempts, contributionAttempt{command, mutationID, hash, token})
-	if f.lost && len(f.attempts) == 1 {
+func (f *cashMovementFault) RecordChangeGuarded(ctx context.Context, command any, mutationID, hash, token string) (domain.ChangePreview, error) {
+	f.attempts = append(f.attempts, cashMovementAttempt{command, mutationID, hash, token})
+	if len(f.attempts) == f.loseAttempt {
 		close(f.started)
 		<-f.release
 	}
 	record, err := f.Service.RecordChangeGuarded(ctx, command, mutationID, hash, token)
-	if err == nil && f.lost {
-		if len(f.attempts) == 1 {
+	if err == nil && f.loseAttempt > 0 {
+		if len(f.attempts) == f.loseAttempt {
 			f.firstActivity = record.Activity.ID
 			return domain.ChangePreview{}, errors.New("synthetic lost reply after commit")
 		}
-		f.failDetail.Store(true)
+		if len(f.attempts) == f.loseAttempt+1 {
+			f.failDetail.Store(true)
+		}
 	}
 	return record, err
 }
 
-func (f *contributionFault) Activity(ctx context.Context, id domain.ActivityID) (domain.Activity, error) {
+func (f *cashMovementFault) Activity(ctx context.Context, id domain.ActivityID) (domain.Activity, error) {
 	if f.failDetail.Swap(false) {
 		return domain.Activity{}, errors.New("synthetic detail read failure after acknowledged commit")
 	}
@@ -78,9 +80,9 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	}
 	reference, _ := openBankFixture(t, copyBankProfile(t, root))
 	service, session := openBankFixture(t, root)
-	fault := &contributionFault{Service: service, lost: true, started: make(chan struct{}), release: make(chan struct{})}
+	fault := &cashMovementFault{Service: service, loseAttempt: 1, started: make(chan struct{}), release: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.release) })
-	c, timeline, h, finish := contributionHarness(t, fault)
+	c, timeline, h, finish := cashMovementHarness(t, fault)
 	t.Cleanup(func() { release(); c.workers.Wait() })
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
 	h.click("Record contribution", false)
@@ -263,14 +265,14 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 func TestContributionRequiresNewPreviewAndRejectsUnavailableAccount(t *testing.T) {
 	ctx := t.Context()
 	service, _ := openBankFixture(t, createFixtureRoot(t))
-	fault := &contributionFault{Service: service}
-	c, _, h, finish := contributionHarness(t, fault)
+	fault := &cashMovementFault{Service: service}
+	c, _, h, finish := cashMovementHarness(t, fault)
 	h.click("Record contribution", false)
 	finish()
 	d := c.draft
 	id := d.account
 	setBankField(h, "Contribution amount", &d.amount, "25")
-	if _, err := history.ReviewContribution(ctx, fault, history.ContributionInput{Account: id, Amount: "25", Date: "2026-10-31", Time: "23:59"}); err == nil {
+	if _, err := history.ReviewCashMovement(ctx, fault, history.CashMovementInput{Account: id, Amount: "25", Date: "2026-10-31", Time: "23:59"}); err == nil {
 		t.Fatal("a timestamp before the History Origin was reviewed")
 	}
 	h.click("Preview contribution", false)
@@ -286,7 +288,7 @@ func TestContributionRequiresNewPreviewAndRejectsUnavailableAccount(t *testing.T
 	if d.review != nil || len(fault.attempts) != 1 || len(openingActivity(t, service, id)) != 6 {
 		t.Fatal("stale confirmation posted or kept an old authorization")
 	}
-	if _, err := history.ReviewContribution(ctx, fault, history.ContributionInput{Account: id, Amount: "25", Date: "2026-11-21", Time: "01:00"}); err == nil {
+	if _, err := history.ReviewCashMovement(ctx, fault, history.CashMovementInput{Account: id, Amount: "25", Date: "2026-11-21", Time: "01:00"}); err == nil {
 		t.Fatal("the authoritative preview selected an archived account")
 	}
 	h.click("Cancel", false)
@@ -313,8 +315,8 @@ func TestContributionRequiresHistoryOrigin(t *testing.T) {
 	root := createFixtureRoot(t)
 	seedAccountFixture(t, root)
 	service, _ := openBankFixture(t, root)
-	fault := &contributionFault{Service: service}
-	_, _, h, finish := contributionHarness(t, fault)
+	fault := &cashMovementFault{Service: service}
+	_, _, h, finish := cashMovementHarness(t, fault)
 	h.click("Record contribution", false)
 	finish()
 	assertPageLabel(t, &h.router, "Start History before recording a contribution.")
@@ -323,17 +325,17 @@ func TestContributionRequiresHistoryOrigin(t *testing.T) {
 	}
 }
 
-func contributionHarness(t *testing.T, service *contributionFault) (*historyContributions, *historyPage, *previewHarness, func()) {
+func cashMovementHarness(t *testing.T, service *cashMovementFault) (*historyCashMovements, *historyPage, *previewHarness, func()) {
 	t.Helper()
 	ctx := t.Context()
 	clock := func() time.Time { return accountTestClock }
-	contributions := newHistoryContributions(ctx, service, clock, func() {})
+	cashMovements := newHistoryCashMovements(ctx, service, clock, func() {})
 	overview := newOverviewPage(ctx, service, clock, func() {})
 	accounts := newAccountsPage(ctx, service, clock, func() {})
 	timeline := newHistoryPage(history.New(ctx, service, func() {}))
-	timeline.contributions = contributions
+	timeline.cashMovements = cashMovements
 	wait := func() {
-		contributions.workers.Wait()
+		cashMovements.workers.Wait()
 		timeline.model.Wait()
 		overview.workers.Wait()
 		accounts.workers.Wait()
@@ -346,5 +348,5 @@ func contributionHarness(t *testing.T, service *contributionFault) (*historyCont
 	finish() // Cache the before-write Overview to exercise invalidation.
 	h.click("Ledger activity", false)
 	finish()
-	return contributions, timeline, h, finish
+	return cashMovements, timeline, h, finish
 }

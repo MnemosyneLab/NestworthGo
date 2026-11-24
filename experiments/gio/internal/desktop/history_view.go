@@ -23,7 +23,7 @@ type historyPage struct {
 	model                                 *history.Model
 	list                                  widget.List
 	reloadButton, retryButton, moreButton widget.Clickable
-	contributions                         *historyContributions
+	cashMovements                         *historyCashMovements
 	refreshAfterPost                      bool
 	onPosted                              func()
 }
@@ -51,11 +51,11 @@ var historyKindLabels = map[domain.ActivityKind]i18n.MessageID{
 func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.model.Update() {
 		p.list.Position = layout.Position{}
-		if p.contributions != nil {
-			p.contributions.pruneButtons(p.model.Rows())
+		if p.cashMovements != nil {
+			p.cashMovements.pruneButtons(p.model.Rows())
 		}
 	}
-	if c := p.contributions; c != nil {
+	if c := p.cashMovements; c != nil {
 		if c.update() {
 			p.refreshAfterPost = true
 			if p.onPosted != nil {
@@ -69,8 +69,13 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		if c.detail != nil {
 			return c.layoutDetail(gtx, view)
 		}
-		if c.add.Clicked(gtx) && c.draft == nil {
-			c.start()
+		if c.draft == nil {
+			for i := range c.actions {
+				if c.actions[i].Clicked(gtx) {
+					c.start(history.CashMovement(i))
+					break
+				}
+			}
 		}
 		if c.draft != nil {
 			return c.layoutForm(gtx, view)
@@ -89,14 +94,18 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 780),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.cashMovements == nil {
+				return layout.Dimensions{}
+			}
+			var actions []layout.FlexChild
+			for i := range p.cashMovements.actions {
+				actions = append(actions, layout.Rigid(view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))))
+			}
+			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.contributions == nil {
-						return layout.Dimensions{}
-					}
-					return view.PrimaryButton(&p.contributions.add, view.Language.Text(i18n.ContributionAdd))(gtx)
-				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.model.Err() != nil {
 						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)
@@ -191,16 +200,17 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 }
 
 func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	c := p.contributions
-	if c == nil || !history.IsContribution(row.Kind, row.Reason) {
+	c := p.cashMovements
+	movement, supported := history.CashMovementOf(row.Kind, row.Reason)
+	if c == nil || !supported {
 		return historyEntry(gtx, view, row)
 	}
 	button := c.detailButton(row.ID)
 	if button.Clicked(gtx) && c.detail == nil {
-		c.open(row.ID, false)
+		c.open(row.ID, movement, false)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	name := fmt.Sprintf(view.Language.Text(i18n.ContributionViewOn), historyDay(view, row.EffectiveLocalDate))
+	name := fmt.Sprintf(view.Language.Text(cashMovementLabels[movement].viewOn), historyDay(view, row.EffectiveLocalDate))
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
 		layout.Rigid(view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name)),
@@ -220,7 +230,7 @@ func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dime
 	if !ok {
 		kind = i18n.HistoryActivity
 	}
-	if history.IsContribution(row.Kind, row.Reason) {
+	if movement, supported := history.CashMovementOf(row.Kind, row.Reason); supported && movement == history.CashContribution {
 		kind = i18n.ContributionTitle
 	}
 	return layout.Inset{Top: 9, Bottom: 9, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

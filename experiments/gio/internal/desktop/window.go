@@ -30,7 +30,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	)
 	activities := history.New(ctx, service, window.Invalidate)
 	timeline := newHistoryPage(activities)
-	timeline.contributions = newHistoryContributions(ctx, service, clock, window.Invalidate)
+	timeline.cashMovements = newHistoryCashMovements(ctx, service, clock, window.Invalidate)
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &balanceAccountCreation{service: service}
@@ -43,7 +43,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		state.wait()
 		directory.wait()
 		activities.Wait()
-		timeline.contributions.workers.Wait()
+		timeline.cashMovements.workers.Wait()
 		overview.workers.Wait()
 		accounts.workers.Wait()
 		onboarding.workers.Wait()

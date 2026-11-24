@@ -53,10 +53,10 @@ with read paths, then use the same data to validate writes and reconstruction.
 | 7. Desktop integrations and distribution | Complete advanced Settings workflows, backup/restore/export, mobile pairing, MCP runtime, built-in assistant, credentials, native menus/dialogs, About and shutdown. Assemble the signed distributable and verify update and fallback. | Exercise each integration and restore/restart from a backup. Validate mobile assets, sidecar lifecycle and platform packaging on the supported target. |
 
 Stage 1 is implemented on the experimental desktop. The current list displays
-kind, civil date and note. The first Stage 4 slice adds contribution posting
-and contribution detail. Broader labels, breakdowns, filters and activity types
-remain open. The scoped Stage 2 workflows are implemented. Platform acceptance
-remains open.
+kind, civil date and note. Stage 4 adds reviewed contributions, withdrawals
+and same-currency cash transfers with their saved details. Broader labels,
+breakdowns, filters and activity types remain open. The scoped Stage 2
+workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
@@ -571,7 +571,33 @@ application receipt can replay the same known ID after a restart.
 | Replay and read retry | A fault discarded the first successful response. The identical command, mutation ID, payload hash and token returned the original activity. A later detail read failed after confirmed success; Retry read the activity without calling the writer again. On reopen the shared receipt replayed the original ID, while USD 50 with that ID conflicted. One business activity and one effect remained. |
 | Linux X11 | At 900×660 on Xvfb, canceled a USD 50 review, then reviewed USD 50 again, edited it to USD 25 and reviewed the new amount. A double click confirmed one contribution and left the posted detail visible. History reloaded from six to seven entries, and Accounts and Overview showed USD 1,759.13. After normal quit and reopen, History still opened the same contribution detail. Read-only SQLite comparison found one added activity, one USD 25 external-inflow effect and one mutation receipt. A temporary build overlay fixed the clock. |
 | Automated checks | Gio module tests and vet, the Linux preview build, and focused Wails History adapter and shared application preview/mutation regressions passed. |
-| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Other posting kinds, broader History detail and filters, repeat, correction and reversal remain later Stage 4 work. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. |
+
+#### Cash withdrawal and same-currency transfer milestone
+
+**Record withdrawal** and **Record transfer** reuse the contribution workflow
+for the History Origin clock, exact review, explicit confirmation, immutable
+mutation replay and refreshes History and Overview. Withdrawal uses Wails
+`money_removed` with reason `other`. The shared writer posts an external
+outflow. The cash account scope remains bank, cash-on-hand and digital wallet
+assets in balance mode with a recorded value.
+
+For transfer, the destination picker offers a different active eligible account
+in the source currency. The guarded preview validates both accounts again.
+Changing the source clears an incompatible destination. Wails' same-currency
+contract uses the same amount for sent and received principal. A blank fee is
+omitted. A positive fee is deducted separately in the source currency and
+shown alongside both resulting balances. Saved detail identifies the sending
+and receiving accounts, amounts, fee and resulting balances.
+
+| Check | Evidence |
+| --- | --- |
+| Exact Go parity | Separate copies of a verified synthetic profile used the same clock and History timezone. Wails Go and Gio matched preview endpoints, stored activities and effects, exact account balances and Overview net worth. A USD 25.125 withdrawal reduced USD 1,934.13 to USD 1,909.005. A USD 40 fee-free transfer kept net worth at USD 1,909.005. A USD 30.25 transfer with a USD 1.125 fee left USD 1,637.63 and USD 270.25 in the two accounts and USD 1,907.88 net worth. Each principal leg was classified as `internal_transfer`. The fee was a separate `fee` effect. |
+| Invalid choices and review | Gio frames exercised source changes, a missing destination, and an incompatible currency. Guarded review rejected the same account, a foreign-currency account, an archived account and an unknown ID. A zero fee and a balance insufficient for principal plus fee prevented preview. Editing a reviewed fee required a new preview. |
+| Replay and read retry | A double click during a paid transfer did not create a second write request. A deliberately discarded response replayed the identical envelope and returned the original activity. A following detail load failure offered a read-only retry. After reopening, withdrawal and both transfers replayed to their original IDs. A changed fee with the same ID conflicted. |
+| Linux X11 | At 900×660 on Xvfb, withdrew USD 25.125, verified an EUR source could not choose a USD destination, and changed a reviewed USD 2 fee to USD 1.125 before confirming the USD 30.25 transfer. A double click on each confirmation posted one activity. Overview displayed USD 1,907.88. Both saved details opened after normal quit and relaunch. Read-only SQLite comparison found four new effects and two mutation receipts. A temporary build overlay fixed the clock and prepared the verified synthetic fixture. |
+| Automated checks | The Gio module suite, Gio vet, Linux preview build, and focused Wails History, domain movement, household attribution and application idempotency regressions passed. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Cross-currency and Holdings cash movements, expense categorization, broader History detail and filters, repeat, correction and reversal are future work. |
 
 ## Moving from the preview to a desktop build
 

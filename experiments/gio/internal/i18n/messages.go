@@ -405,6 +405,39 @@ const (
 	ContributionDetailFailed
 	ContributionBack
 	ContributionViewOn
+	WithdrawalAdd
+	WithdrawalAccount
+	WithdrawalAmount
+	WithdrawalPreview
+	WithdrawalReview
+	WithdrawalConfirm
+	WithdrawalPosted
+	WithdrawalViewOn
+	WithdrawalDelta
+	TransferAdd
+	TransferFrom
+	TransferTo
+	TransferAmount
+	TransferFeeInput
+	TransferNoDestination
+	TransferInvalidDestination
+	TransferInvalidFee
+	TransferPreview
+	TransferReview
+	TransferConfirm
+	TransferPosted
+	TransferViewOn
+	TransferPrincipal
+	TransferFee
+	TransferSent
+	TransferReceived
+	TransferFeePaid
+	TransferAccountBalance
+	CashMovementDelta
+	CashMovementInsufficient
+	CashMovementHistoryRequired
+	CashMovementPreviewFailed
+	CashMovementStale
 	HistoryActivity
 	HistoryEmpty
 	HistoryMore
