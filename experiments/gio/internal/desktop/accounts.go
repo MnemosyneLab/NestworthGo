@@ -240,6 +240,7 @@ type accountsPage struct {
 	createdID                          domain.AccountID
 	createdMessage                     i18n.MessageID
 	maintenance                        *accountMaintenance
+	cashBalance                        *accountCashBalance
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {

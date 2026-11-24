@@ -32,6 +32,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &balanceAccountCreation{service: service}
 	accounts.maintenance = &accountMaintenance{service: service}
+	accounts.cashBalance = &accountCashBalance{service: service}
 	onboarding := newOnboardingPage(ctx, service, clock, window.Invalidate)
 	onboarding.read()
 	defer func() {

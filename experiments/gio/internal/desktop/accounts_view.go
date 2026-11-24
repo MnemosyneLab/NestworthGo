@@ -48,6 +48,19 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.maintenance != nil && p.maintenance.draft != nil {
 		return p.layoutAccountSettings(gtx, view)
 	}
+	if f := p.cashBalance; f != nil {
+		if f.draft == nil && p.canSetCashBalance() && f.open.Clicked(gtx) {
+			p.startCashBalance()
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return p.layoutCashBalance(gtx, view)
+		}
+		if f.saved.AccountID == p.target.account && f.saved.ActivityID != nil && f.openActivity != nil && f.view.Clicked(gtx) {
+			f.openActivity(*f.saved.ActivityID, &f.view)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
 	detail := p.target.account != ""
 	if p.back.Clicked(gtx) && detail {
 		p.backToList()
@@ -69,6 +82,12 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			if detail {
 				controls = append(controls, layout.Rigid(view.Button(&p.back, l.Text(i18n.AccountBack))))
 				controls = append(controls, p.accountMaintenanceActions(gtx, view)...)
+				if p.canSetCashBalance() {
+					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						view.Focus.Watch(gtx, &p.cashBalance.open)
+						return view.Button(&p.cashBalance.open, l.Text(i18n.AccountCashSet))(gtx)
+					}))
+				}
 			} else if !p.invalid && (p.current == nil || !p.current.unavailable) {
 				archive := i18n.InstitutionsShowArchived
 				if p.archived {
@@ -159,6 +178,18 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 	var lines []layout.FlexChild
 	if p.createdID != "" && p.target.account == p.createdID {
 		lines = append(lines, layout.Rigid(view.Message(l.Text(p.createdMessage), view.Colors.Ink)))
+	}
+	if f := p.cashBalance; f != nil && f.saved.ID != "" && p.target.account == f.saved.AccountID {
+		lines = append(lines, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			children := []layout.FlexChild{layout.Rigid(view.Message(l.Text(i18n.AccountCashSaved), view.Colors.Ink))}
+			if f.saved.ActivityID != nil && f.openActivity != nil {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					view.Focus.Watch(gtx, &f.view)
+					return view.Button(&f.view, l.Text(i18n.AccountCashView))(gtx)
+				}))
+			}
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+		}))
 	}
 	if m := p.maintenance; m != nil && p.target.account != "" {
 		if m.success != i18n.NoMessage {

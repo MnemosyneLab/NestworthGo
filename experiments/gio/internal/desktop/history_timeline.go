@@ -223,6 +223,9 @@ func (p *historyPage) pruneDetailButtons() {
 }
 
 func historyKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i18n.MessageID {
+	if (kind == domain.ActivityCashIn || kind == domain.ActivityCashOut) && reason == domain.ReasonReconciliation {
+		return i18n.HistoryCashReconciled
+	}
 	if kind == domain.ActivityCashIn && reason == domain.ReasonContribution {
 		return i18n.ContributionTitle
 	}

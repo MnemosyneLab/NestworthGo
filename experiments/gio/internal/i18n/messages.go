@@ -552,6 +552,22 @@ const (
 	HistoryStartWriteFailed
 	HistoryStartSaved
 	HistoryStartReadFailed
+	AccountCashSet
+	AccountCashTarget
+	AccountCashReason
+	AccountCashReview
+	AccountCashConfirm
+	AccountCashDelta
+	AccountCashOpeningHint
+	AccountCashReconcileHint
+	AccountCashNoChange
+	AccountCashTimeConflict
+	AccountCashInvalidTarget
+	AccountCashPreviewFailed
+	AccountCashUncertain
+	AccountCashSaved
+	AccountCashView
+	HistoryCashReconciled
 	HistoryAdded
 	HistoryRemoved
 	HistoryUnitPrice
