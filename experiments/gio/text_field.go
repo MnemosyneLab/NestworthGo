@@ -87,6 +87,7 @@ func (f *textField) layoutWithAccessories(gtx layout.Context, view presentation,
 	}
 	style := material.Editor(view.theme, &f.editor, view.language.text(options.hint))
 	style.TextSize, style.HintColor = 15, colors.secondaryInk
+	style.SelectionColor = colors.editorSelection()
 	if options.disabled {
 		style.Color = colors.secondaryInk
 	}

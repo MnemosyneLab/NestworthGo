@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 
 	"gioui.org/font"
@@ -65,6 +66,7 @@ type shell struct {
 	navigation     layout.List
 	languageButton widget.Clickable
 	themeButton    widget.Clickable
+	accentButton   widget.Clickable
 	overlay        popoverHost
 }
 
@@ -118,10 +120,13 @@ func newShell(wordmark, mark image.Image, directory pageLayout) *shell {
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	s.overlay.beginFrame(gtx)
 	if s.languageButton.Clicked(gtx) {
-		s.preferences.language = s.preferences.language.alternate()
+		s.preferences.language = s.preferences.language.next()
 	}
 	if s.themeButton.Clicked(gtx) {
 		s.preferences.dark = !s.preferences.dark
+	}
+	if s.accentButton.Clicked(gtx) {
+		s.preferences.accentIndex = (s.preferences.accentIndex + 1) % len(accentThemes)
 	}
 	gtx.Locale.Language = string(s.preferences.language)
 	colors := s.preferences.colors()
@@ -129,7 +134,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		Bg:         colors.pageBackground,
 		Fg:         colors.ink,
 		ContrastBg: colors.accent,
-		ContrastFg: colors.pageBackground,
+		ContrastFg: colors.onAccent,
 	}
 	view := presentation{language: s.preferences.language, colors: colors, theme: s.theme, overlay: &s.overlay}
 	for _, group := range s.groups {
@@ -175,12 +180,21 @@ func (s *shell) sidebarPreferences(gtx layout.Context, view presentation) layout
 	if s.preferences.dark {
 		themeAction = lightAppearance
 	}
-	languageAction := view.language.alternate().text(languageName)
+	languageAction := view.language.next().text(languageName)
+	accentName := view.language.text(accentThemes[s.preferences.accentIndex].label)
+	accentAction := fmt.Sprintf(view.language.text(colorThemeLabel), accentName)
 	return layout.Inset{Top: 9, Bottom: 10, Left: 11, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{}.Layout(gtx,
-			layout.Flexed(0.58, view.button(&s.languageButton, languageAction)),
-			layout.Rigid(layout.Spacer{Width: 7}.Layout),
-			layout.Flexed(0.42, view.button(&s.themeButton, view.language.text(themeAction))),
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Gap: gtx.Dp(7)}.Layout(gtx,
+					layout.Flexed(0.58, view.button(&s.languageButton, languageAction)),
+					layout.Flexed(0.42, view.button(&s.themeButton, view.language.text(themeAction))),
+				)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return view.button(&s.accentButton, accentAction)(gtx)
+			}),
 		)
 	})
 }

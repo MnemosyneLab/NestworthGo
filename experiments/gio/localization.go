@@ -3,8 +3,9 @@ package main
 type appLanguage string
 
 const (
-	english           appLanguage = "en"
-	simplifiedChinese appLanguage = "zh-CN"
+	english            appLanguage = "en"
+	simplifiedChinese  appLanguage = "zh-CN"
+	traditionalChinese appLanguage = "zh-TW"
 )
 
 type messageID uint8
@@ -131,6 +132,12 @@ const (
 	institutionOther
 	lightAppearance
 	darkAppearance
+	colorThemeLabel
+	indigoAccent
+	lavenderAccent
+	mintAccent
+	skyAccent
+	peachAccent
 	messageCount
 )
 
@@ -233,6 +240,12 @@ var catalogs = map[appLanguage]*catalog{
 		preview12Hour:            "12-hour time",
 		lightAppearance:          "Light",
 		darkAppearance:           "Dark",
+		colorThemeLabel:          "Color theme: %s",
+		indigoAccent:             "Indigo",
+		lavenderAccent:           "Lavender",
+		mintAccent:               "Mint",
+		skyAccent:                "Sky",
+		peachAccent:              "Peach",
 
 		navInstitutions:                  "Institutions",
 		institutionsSynthetic:            "Synthetic test household",
@@ -356,6 +369,12 @@ var catalogs = map[appLanguage]*catalog{
 		preview12Hour:            "12 小时制",
 		lightAppearance:          "浅色",
 		darkAppearance:           "深色",
+		colorThemeLabel:          "颜色主题：%s",
+		indigoAccent:             "靛蓝",
+		lavenderAccent:           "薰衣草",
+		mintAccent:               "薄荷",
+		skyAccent:                "天空",
+		peachAccent:              "蜜桃",
 
 		navInstitutions:                  "机构",
 		institutionsSynthetic:            "合成测试家庭",
@@ -383,6 +402,135 @@ var catalogs = map[appLanguage]*catalog{
 		institutionGovernment:            "政府机构",
 		institutionOther:                 "其他",
 	},
+	traditionalChinese: {
+		languageName:             "繁體中文",
+		navOverview:              "總覽",
+		navAccounts:              "帳戶",
+		navAvailableFunds:        "可用資金",
+		navPortfolio:             "投資資產",
+		navTasks:                 "待辦核查",
+		navHistory:               "帳務紀錄",
+		navHistoricalOverview:    "資產回溯",
+		navReturns:               "收益分析",
+		navAssetChanges:          "資產變動",
+		navDirectory:             "名錄",
+		navDataMaintenance:       "資料維護",
+		navSettings:              "設定",
+		navComponentPreview:      "元件預覽",
+		groupActivity:            "活動",
+		groupInsights:            "洞察",
+		groupManage:              "管理",
+		groupDevelopment:         "開發",
+		sampleData:               "示範資料",
+		netWorth:                 "淨資產",
+		assets:                   "資產",
+		liabilities:              "負債",
+		inputMethodTest:          "輸入法測試",
+		inputMethodHint:          "試著輸入中文、英文或標點符號。按 Enter 即可換行。",
+		previewFormHelp:          "示範表單的草稿會保留到關閉應用程式為止。",
+		previewInstitutionName:   "機構名稱",
+		previewInstitutionHint:   "示範銀行",
+		previewNotes:             "備註",
+		previewNotesHint:         "輸入備註。",
+		previewNotesHelp:         "按 Enter 即可換行。",
+		fieldByteCount:           "%d / %d 位元組",
+		fieldByteExceeded:        "%d / %d 位元組。請縮短文字後再送出。",
+		fieldClearSearch:         "清除搜尋",
+		fieldDismiss:             "關閉",
+		previewSearch:            "搜尋機構",
+		previewSearchHint:        "搜尋示範機構名稱",
+		previewReadOnly:          "唯讀範例",
+		previewDisabled:          "停用範例",
+		previewSubmit:            "送出範例",
+		previewNameRequired:      "請輸入機構名稱。",
+		previewResults:           "示範結果",
+		previewSubmissions:       "送出次數：%d",
+		previewSavedName:         "已送出的名稱：%s",
+		previewSavedNotes:        "已送出的備註：%s",
+		previewQuery:             "搜尋文字：%s",
+		previewHarbor:            "海港銀行",
+		previewEvergreen:         "常青信用合作社",
+		previewWestlake:          "西湖儲蓄銀行",
+		previewNoMatches:         "找不到符合條件的機構",
+		previewInfo:              "表單說明",
+		previewInfoBody:          "表單與搜尋均使用示範資料。按 Esc 或點選面板外即可關閉。",
+		pickerEmpty:              "尚未選擇",
+		pickerEmptyOption:        "無",
+		pickerClear:              "清除選擇",
+		pickerFilter:             "篩選選項",
+		pickerFilterHint:         "輸入文字以篩選",
+		pickerResultsKeys:        "Alt+↓ 移至結果清單，Alt+↑ 返回搜尋欄。",
+		pickerInvalidDate:        "日期無效",
+		pickerInvalidTime:        "時間無效",
+		datePreviousMonth:        "上個月",
+		dateNextMonth:            "下個月",
+		datePreviousYear:         "上一年",
+		dateNextYear:             "下一年",
+		dateToday:                "今天，%s",
+		weekdaySunday:            "日",
+		weekdayMonday:            "一",
+		weekdayTuesday:           "二",
+		weekdayWednesday:         "三",
+		weekdayThursday:          "四",
+		weekdayFriday:            "五",
+		weekdaySaturday:          "六",
+		timeHours:                "小時",
+		timeMinutes:              "分鐘",
+		timeAM:                   "上午",
+		timePM:                   "下午",
+		timeHourDisplay:          "%[2]s%[1]d",
+		timeTwelveDisplay:        "%[3]s%[1]d:%02[2]d",
+		previewCash:              "現金帳戶",
+		previewCredit:            "信用卡",
+		previewBrokerage:         "券商帳戶",
+		previewHarborBranch:      "海港分行 %02d",
+		previewAccountType:       "帳戶類型",
+		previewInstitutionChoice: "選擇機構",
+		previewEffectiveDate:     "生效日期",
+		previewEffectiveTime:     "生效時間",
+		previewAccountResult:     "帳戶類型：%s",
+		previewInstitutionResult: "機構：%s",
+		previewDateResult:        "生效日期：%s",
+		previewTimeResult:        "生效時間：%s",
+		previewMondayFirst:       "星期一開始",
+		previewSundayFirst:       "星期日開始",
+		preview24Hour:            "24 小時制",
+		preview12Hour:            "12 小時制",
+		lightAppearance:          "淺色",
+		darkAppearance:           "深色",
+		colorThemeLabel:          "顏色主題：%s",
+		indigoAccent:             "靛藍",
+		lavenderAccent:           "薰衣草",
+		mintAccent:               "薄荷",
+		skyAccent:                "天空",
+		peachAccent:              "蜜桃",
+
+		navInstitutions:                  "機構",
+		institutionsSynthetic:            "測試用家庭帳本",
+		institutionsSearchHint:           "依機構名稱篩選",
+		institutionsRefresh:              "重新載入",
+		institutionsRetry:                "重試載入",
+		institutionsLoading:              "正在載入機構…",
+		institutionsEmpty:                "這個家庭目前沒有啟用的機構。",
+		institutionsLoadError:            "無法載入機構。",
+		institutionsReloadAfterSaveError: "名稱已儲存。請重試載入清單。",
+		institutionsSaved:                "機構已儲存。",
+		institutionsEdit:                 "編輯",
+		institutionsEditTitle:            "編輯機構",
+		institutionsEditName:             "編輯 %s",
+		institutionsSave:                 "儲存",
+		institutionsSaving:               "正在儲存並重新載入…",
+		institutionsCancel:               "取消",
+		institutionsSaveError:            "無法儲存機構。請再試一次。",
+		institutionsNameLength:           "名稱不得超過 %d 個字元。",
+		institutionBank:                  "銀行",
+		institutionBrokerage:             "券商",
+		institutionInsurer:               "保險機構",
+		institutionExchange:              "交易所",
+		institutionEmployer:              "僱主",
+		institutionGovernment:            "政府機構",
+		institutionOther:                 "其他",
+	},
 }
 
 func (language appLanguage) text(id messageID) string {
@@ -392,9 +540,17 @@ func (language appLanguage) text(id messageID) string {
 	return catalogs[english][id]
 }
 
-func (language appLanguage) alternate() appLanguage {
-	if language == english {
+func (language appLanguage) next() appLanguage {
+	switch language {
+	case english:
+		return traditionalChinese
+	case traditionalChinese:
 		return simplifiedChinese
+	default:
+		return english
 	}
-	return english
+}
+
+func (language appLanguage) usesChineseDates() bool {
+	return language == simplifiedChinese || language == traditionalChinese
 }

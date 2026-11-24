@@ -69,7 +69,7 @@ func (o dateOptions) start(value string) time.Time {
 }
 
 func displayCivil(day time.Time, language appLanguage) string {
-	if language == simplifiedChinese {
+	if language.usesChineseDates() {
 		return fmt.Sprintf("%d年%d月%d日", day.Year(), day.Month(), day.Day())
 	}
 	return day.Format("Jan 2, 2006")
@@ -229,7 +229,7 @@ func (p *datePicker) caption(gtx layout.Context, view presentation, options date
 		nav(0), nav(1),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			title := p.month.Format("January 2006")
-			if view.language == simplifiedChinese {
+			if view.language.usesChineseDates() {
 				title = fmt.Sprintf("%d年%d月", p.month.Year(), p.month.Month())
 			}
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {

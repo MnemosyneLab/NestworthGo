@@ -156,17 +156,17 @@ func TestPreviewCalendarAndClock(t *testing.T) {
 	}
 	h.press(key.NameEscape)
 	h.click("24-hour time", false)
-	h.click("简体中文", false)
+	h.click("繁體中文", false)
 	if p.timeValue != "00:01" || p.day != "2024-02-29" || !p.twelveHour {
 		t.Fatal("changing language or time display rewrote canonical picker values")
 	}
-	h.click("生效时间", true)
-	h.click("清除选择", false)
+	h.click("生效時間", true)
+	h.click("清除選擇", false)
 	if p.timeValue != "" {
 		t.Fatal("time clear did not reset the value")
 	}
 	h.click("生效日期", true)
-	h.click("清除选择", false)
+	h.click("清除選擇", false)
 	if p.day != "" || h.preview.submissions != 0 {
 		t.Fatal("date clear did not reset the value or changed the submit count")
 	}
@@ -191,8 +191,12 @@ func TestTemporalValueRules(t *testing.T) {
 		t.Fatal("weekday offset did not respect week start")
 	}
 	leap, _ := parseCivilDay("2024-02-29")
-	if displayCivil(leap, english) != "Feb 29, 2024" || displayCivil(leap, simplifiedChinese) != "2024年2月29日" {
-		t.Fatal("localized civil day formatting diverged")
+	for language, want := range map[appLanguage]string{
+		english: "Feb 29, 2024", simplifiedChinese: "2024年2月29日", traditionalChinese: "2024年2月29日",
+	} {
+		if got := displayCivil(leap, language); got != want {
+			t.Errorf("%s displayed leap day as %q, want %q", language, got, want)
+		}
 	}
 	if chooseClockPart("", true, 23) != "00:23" || chooseClockPart("", false, 7) != "07:00" ||
 		chooseClockPart("23:59", false, 0) != "00:59" {
@@ -211,6 +215,8 @@ func TestTemporalValueRules(t *testing.T) {
 		{english, "12:05", "12:05 PM"},
 		{simplifiedChinese, "00:00", "上午12:00"},
 		{simplifiedChinese, "23:59", "下午11:59"},
+		{traditionalChinese, "00:00", "上午12:00"},
+		{traditionalChinese, "23:59", "下午11:59"},
 	} {
 		if got := displayClock(presentation{language: sample.language}, sample.value, true); got != sample.want {
 			t.Errorf("%s displayed %s as %q, want %q", sample.language, sample.value, got, sample.want)

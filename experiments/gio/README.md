@@ -2,9 +2,9 @@
 
 This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. **Directory → Institutions** opens the institutions pilot. **Development → Input Method Test** contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains an in-memory form with text fields, search, two selects, and date and time pickers.
 
-The sidebar footer switches between Simplified Chinese and English, and between light and dark appearance. Labels use the message catalog in `localization.go` with an English fallback. Appearance colors come from `appearance.go`. Each preview launch starts in Simplified Chinese and light mode.
+The sidebar footer cycles through Simplified Chinese, English, and Traditional Chinese (`zh-TW`), and switches between light and dark appearance. The **Color theme** button shows the current theme and cycles through Indigo, Lavender, Mint, Sky, and Peach. The four added themes use the corresponding light and dark Wails [color tokens](../../frontend/src/index.css). Each launch starts in Simplified Chinese with the light Indigo palette.
 
-To check live switching, open the component preview, enter text in both fields, and select part of the notes. Switch language and appearance in both directions. The component preview stays open and keeps the draft and selection.
+To check live switching, open the component preview, enter text in both fields, and select part of the notes. Switch language, appearance, and color theme. The component preview stays open and keeps the draft and selection.
 
 Type in the search field to filter the display-only results. Tab to its
 clear button or click it to reset the query and focus the editor again.

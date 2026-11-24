@@ -94,20 +94,32 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 		t.Fatal("a validation failure dropped the active edit")
 	}
 	assertInstitutionLabel(t, &h.router, "Use 120 characters or fewer.")
+	selection := key.Range{Start: 8, End: 2}
+	h.router.Queue(key.SelectionEvent(selection), key.SnippetEvent{End: p.draft.editor.Len()})
+	h.frame()
+	h.click("繁體中文", false)
+	h.click("顏色主題：靛藍", false)
+	h.click("深色", false)
+	if h.shell.activeRoute != directoryRoute || p.editing != bank.ID || p.draft.text() != "Rejected draft" ||
+		h.router.EditorState().Selection.Range != selection {
+		t.Fatal("switching preferences changed the institution route, draft, or selection")
+	}
+	semanticBounds(t, &h.router, "機構名稱", true)
+	assertInstitutionLabel(t, &h.router, "名稱不得超過 120 個字元。")
 	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.editor.Len()}, Text: "Valid draft"})
 	h.frame()
-	h.click("Save", false)
+	h.click("儲存", false)
 	finish()
 	if p.editing != "" || p.awaitingRead != bank.ID || p.saved {
 		t.Fatal("a committed save with a failed reload did not enter the reload-only state")
 	}
-	assertInstitutionLabel(t, &h.router, "The name was saved. Retry to reload the list.")
-	h.click("Retry reload", false)
+	assertInstitutionLabel(t, &h.router, "名稱已儲存。請重試載入清單。")
+	h.click("重試載入", false)
 	finish()
 	if writeCalls != 2 || readCalls != 5 || !p.saved || len(p.rows) != 1 || p.rows[0].Name != "Authoritative name" {
 		t.Fatalf("retry did not load the authoritative list: %d writes, %d reads, saved %v, rows %v", writeCalls, readCalls, p.saved, p.rows)
 	}
-	semanticBounds(t, &h.router, "Edit Authoritative name", true)
+	semanticBounds(t, &h.router, "編輯 Authoritative name", true)
 	h.focused(p.buttons[bank.ID])
 }
 

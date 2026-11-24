@@ -28,7 +28,7 @@ type componentPreview struct {
 }
 
 func newComponentPreview() *componentPreview {
-	p := &componentPreview{
+	return &componentPreview{
 		name:     newTextField(true),
 		notes:    newTextField(false),
 		readOnly: newTextField(true),
@@ -36,12 +36,12 @@ func newComponentPreview() *componentPreview {
 		search:   searchField{field: newTextField(true)},
 		scroll:   layout.List{Axis: layout.Vertical},
 	}
-	p.readOnly.editor.SetText("Harbor Bank")
-	p.disabled.editor.SetText("Evergreen Credit Union")
-	return p
 }
 
 func (p *componentPreview) layout(gtx layout.Context, view presentation) layout.Dimensions {
+	setPreviewExample(&p.readOnly, view.language.text(previewHarbor))
+	setPreviewExample(&p.disabled, view.language.text(previewEvergreen))
+
 	size := gtx.Constraints.Max
 	footerHeight := gtx.Dp(40)
 	footerY := max(0, size.Y-footerHeight)
@@ -63,6 +63,16 @@ func (p *componentPreview) layout(gtx layout.Context, view presentation) layout.
 	p.pickerFields(gtx, view, size.X, pickerY, columns)
 	p.footer(gtx, view, size.X, footerY)
 	return layout.Dimensions{Size: size}
+}
+
+func setPreviewExample(field *textField, text string) {
+	if field.text() == text {
+		return
+	}
+	start, end := field.editor.Selection()
+	field.editor.SetText(text)
+	length := field.editor.Len()
+	field.editor.SetCaret(min(start, length), min(end, length))
 }
 
 func (p *componentPreview) content(gtx layout.Context, view presentation) layout.Dimensions {

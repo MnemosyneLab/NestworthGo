@@ -197,7 +197,7 @@ func choiceButton(gtx layout.Context, view presentation, button *widget.Clickabl
 			fg = view.colors.secondaryInk
 		case selected:
 			paint.FillShape(gtx.Ops, view.colors.accent, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
-			fg = view.colors.pageBackground
+			fg = view.colors.onAccent
 		case button.Hovered() || highlighted:
 			paint.FillShape(gtx.Ops, view.colors.hoverSurface, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
 		}

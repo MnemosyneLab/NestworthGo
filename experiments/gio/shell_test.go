@@ -39,6 +39,7 @@ func TestCatalogCoverage(t *testing.T) {
 			{previewTimeResult, []any{"00:00"}},
 			{institutionsEditName, []any{"Sample Bank"}},
 			{institutionsNameLength, []any{120}},
+			{colorThemeLabel, []any{"Indigo"}},
 		} {
 			if text := fmt.Sprintf(translations[sample.id], sample.args...); strings.Contains(text, "%!") {
 				t.Errorf("%s message %d has incompatible format parameters: %q", language, sample.id, text)
@@ -53,6 +54,8 @@ func TestCatalogCoverage(t *testing.T) {
 func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 	h := newShellHarness(t)
 	shell, router := h.shell, &h.router
+	preview := newComponentPreview()
+	shell.routes[componentPreviewRoute].body = preview.layout
 	edit := func(text string, selection key.Range) {
 		router.Queue(key.EditEvent{Text: text})
 		h.frame()
@@ -85,23 +88,35 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 	assertEditor(notes, selection)
 
 	for _, step := range []struct {
-		button   string
-		language appLanguage
-		colors   *palette
+		button      string
+		language    appLanguage
+		dark        bool
+		accentIndex int
 	}{
-		{"English", english, &lightPalette},
-		{"Dark", english, &darkPalette},
-		{"简体中文", simplifiedChinese, &darkPalette},
-		{"浅色", simplifiedChinese, &lightPalette},
+		{"English", english, false, 0},
+		{"Dark", english, true, 0},
+		{"Color theme: Indigo", english, true, 1},
+		{"繁體中文", traditionalChinese, true, 1},
+		{"顏色主題：薰衣草", traditionalChinese, true, 2},
+		{"淺色", traditionalChinese, false, 2},
+		{"顏色主題：薄荷", traditionalChinese, false, 3},
+		{"顏色主題：天空", traditionalChinese, false, 4},
+		{"顏色主題：蜜桃", traditionalChinese, false, 0},
+		{"简体中文", simplifiedChinese, false, 0},
 	} {
 		h.click(step.button, false)
-		if shell.activeRoute != componentPreviewRoute || shell.preferences.language != step.language {
-			t.Fatalf("after clicking %q, got route %q and language %q", step.button, shell.activeRoute, shell.preferences.language)
+		want := sessionPreferences{language: step.language, dark: step.dark, accentIndex: step.accentIndex}
+		if shell.activeRoute != componentPreviewRoute || shell.preferences != want {
+			t.Fatalf("after clicking %q, got route %q and preferences %+v, want preview and %+v", step.button, shell.activeRoute, shell.preferences, want)
 		}
-		if got := shell.theme.Palette; got.Bg != step.colors.pageBackground || got.Fg != step.colors.ink || got.ContrastBg != step.colors.accent {
+		colors := want.colors()
+		if got := shell.theme.Palette; got.Bg != colors.pageBackground || got.Fg != colors.ink || got.ContrastBg != colors.accent || got.ContrastFg != colors.onAccent {
 			t.Fatalf("after clicking %q, unexpected material palette %+v", step.button, got)
 		}
 		semanticBounds(t, router, step.language.text(previewNotes), true)
+		if preview.readOnly.text() != step.language.text(previewHarbor) || preview.disabled.text() != step.language.text(previewEvergreen) {
+			t.Fatalf("after clicking %q, sample values were not localized", step.button)
+		}
 		assertEditor(notes, selection)
 	}
 
