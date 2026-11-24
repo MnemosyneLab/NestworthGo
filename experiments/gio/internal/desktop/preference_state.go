@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
@@ -18,6 +19,7 @@ type preferenceStore interface {
 
 type preferenceResult struct {
 	values    preferences.Values
+	location  *time.Location
 	err       error
 	onSuccess func()
 }
@@ -36,6 +38,8 @@ type preferenceState struct {
 	systemChanged   atomic.Bool
 	systemLanguage  settings.Language
 	systemTimezone  string
+	systemLocation  *time.Location
+	savedLocation   *time.Location
 	systemDark      bool
 	setLanguage     func(string)
 	appliedLanguage settings.Language
@@ -57,6 +61,7 @@ func (p *preferenceState) update() {
 	if p.systemChanged.Swap(false) {
 		p.systemLanguage = preferences.SystemLanguage()
 		p.systemTimezone = preferences.SystemTimezone()
+		p.systemLocation, _ = time.LoadLocation(p.systemTimezone)
 		p.systemDark = preferences.SystemDark()
 	}
 	select {
@@ -64,6 +69,7 @@ func (p *preferenceState) update() {
 		p.busy, p.err = false, result.err
 		if result.err == nil {
 			p.saved, p.ready = result.values, true
+			p.savedLocation = result.location
 			if result.onSuccess != nil {
 				result.onSuccess()
 			}
@@ -100,12 +106,27 @@ func (p *preferenceState) start(work func() (preferences.Values, error), onSucce
 	p.busy, p.err = true, nil
 	p.workers.Go(func() {
 		values, err := work()
-		p.results <- preferenceResult{values, err, onSuccess}
+		var location *time.Location
+		if err == nil && values.Timezone != settings.TimezoneSystem {
+			location, _ = time.LoadLocation(values.Timezone)
+		}
+		p.results <- preferenceResult{values: values, location: location, err: err, onSuccess: onSuccess}
 		p.invalidate()
 	})
 }
 
 func (p *preferenceState) wait() { p.workers.Wait() }
+
+func (p *preferenceState) displayLocation() *time.Location {
+	location := p.savedLocation
+	if p.saved.Timezone == settings.TimezoneSystem {
+		location = p.systemLocation
+	}
+	if location == nil {
+		return time.UTC
+	}
+	return location
+}
 
 func (p *preferenceState) appearance() sessionPreferences {
 	accent := 0

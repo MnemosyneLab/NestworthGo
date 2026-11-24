@@ -205,13 +205,17 @@ func DateTime(value time.Time, preference settings.Settings, language settings.L
 	if err != nil {
 		return "", err
 	}
-	value = value.In(location)
+	return LocalDateTime(value.In(location), preference, language), nil
+}
+
+// LocalDateTime formats an instant already converted to the display location.
+func LocalDateTime(value time.Time, preference settings.Settings, language settings.Language) string {
 	dateLayout := dateLayout(preference.DateFormat, language)
 	timeLayout := "15:04"
 	if preference.TimeFormat == settings.TimeFormat12 {
 		timeLayout = "3:04 PM"
 	}
-	return value.Format(dateLayout + " " + timeLayout), nil
+	return value.Format(dateLayout + " " + timeLayout)
 }
 
 func dateLayout(value string, language settings.Language) string {

@@ -190,6 +190,10 @@ func (s *shell) updateNavigation(gtx layout.Context) {
 func (s *shell) saveVisit(entry *navigationEntry) {
 	entry.visited = true
 	switch entry.target.route {
+	case overviewRoute:
+		if s.overviewPage != nil {
+			entry.scroll = s.overviewPage.list.Position
+		}
 	case directoryRoute:
 		if s.directory != nil && !entry.target.hasObject() {
 			entry.directory = s.directory.visit()
@@ -210,6 +214,10 @@ func (s *shell) restoreVisit(entry *navigationEntry) {
 		return
 	}
 	switch entry.target.route {
+	case overviewRoute:
+		if s.overviewPage != nil {
+			s.overviewPage.list.Position = restoredPosition(entry.scroll, s.overviewPage.rowCount())
+		}
 	case directoryRoute:
 		if s.directory != nil && !entry.target.hasObject() {
 			s.directory.restore(entry.directory)

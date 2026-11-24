@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. Overview shows three sample balances. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
@@ -147,6 +147,16 @@ To run a disposable scenario or reopen an older verified Gio fixture, set
 `NESTWORTH_GIO_RUN_DIR` to its private, absolute directory when invoking
 the launcher. If you also specify `NESTWORTH_DATABASE_PATH` and
 `NESTWORTH_SETTINGS_PATH`, they must point to those two files under that root.
+
+## Overview
+
+Overview reads net worth, assets and liabilities from the shared Go service.
+It shows the household base currency, local read time and available quote
+dates. When values are missing, the page identifies affected accounts or
+instruments and labels available figures as known contributions or subtotals.
+An empty household has its own state. Reload rereads the ledger and stored
+quotes. A failed reload keeps the previous figures and their original read
+time visible with a retry action.
 
 ## Ledger activity
 

@@ -13,8 +13,8 @@ languages (zh-CN, en, zh-TW), two appearances, five accent themes, shared
 editors/search/select/date/time controls and a development preview. Directory
 could list, search and rename active institutions through the application
 service. Since that baseline, the desktop has gained Ledger activity,
-durable General settings and the four-language sidebar. Overview still shows
-sample balances. The stage records below track which workflows are available
+durable General settings, the four-language sidebar and live Overview reads.
+The stage records below track which workflows are available
 and which still require acceptance. [Foundation design](foundation.md)
 
 ## Implementation boundaries
@@ -56,7 +56,7 @@ Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
-Stage 3 has started with synthetic startup and ledger ownership. Stages 4–7
+Stage 3 has started with synthetic startup, ledger ownership and live Overview. Stages 4–7
 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -75,7 +75,7 @@ are planned. Use [navigation history](../../../docs/design/navigation-history.md
 
 | Area | Current state |
 | --- | --- |
-| General settings | Appearance, accent, language, timezone, date format, time format and decimal/grouping separators have draft, save, discard and confirmed reset. The page displays household currency and the origin timezone when it differs from the display zone. Ledger dates, preview pickers and Overview sample amounts use the applicable saved display formats. |
+| General settings | Appearance, accent, language, timezone, date format, time format and decimal/grouping separators have draft, save, discard and confirmed reset. The page displays household currency and the origin timezone when it differs from the display zone. Ledger dates, preview pickers and Overview use the applicable saved display formats. |
 | Sidebar and shared controls | The collapsible sidebar has a four-language menu and a system/light/dark appearance button. Both write through the same preferences adapter as Settings. The shell and pages share the editors, selects, pickers, popovers, buttons and visual tokens in the [ui package](../internal/ui). |
 | Persistent preview | The Mac launcher builds `Nestworth Gio.app` with ID `com.nestworth.gio`. A normal quit and direct Launch Services reopen used the same synthetic household, database file and settings contents in the [default Gio profile](../README.md#persistent-test-data). |
 | Automated coverage | Frame tests exercise sidebar actions, draft retention, validation, save failure and retry, timezone filtering, compact scrolling and reset confirmation. Storage tests reopen an isolated fixture and check that save and reset preserve unrelated settings. Changing the display timezone and date format through Settings retains the original recorded ledger day in History. |
@@ -180,14 +180,41 @@ it untouched. Gio still requires the pilot marker and has no ledger chooser.
 | Linux X11 failure paths | In a separate synthetic profile, a durable settings attachment failure released the lock before the blocked notice closed. The CLI could verify the same fixture while the notice was open, and Return activated Quit. A marker change committed only to the WAL was detected, and the rejected launch left the files and their hashes unchanged. |
 | Open evidence | This slice did not run native macOS or Wayland, a Wails/Gio paired launch or production restore recovery. Real ledger selection, onboarding and account workflows remain later Stage 3 work. |
 
-#### Next Stage 3 slice
+#### Live Overview milestone
 
-Compare an isolated read-only Overview to the shared Go valuation service at
-a fixed as-of instant. Reuse the `complete`, `missing-price` and `missing-fx`
-scenarios from [analytics-qa-seed](../../../cmd/analytics-qa-seed), with a
-separate empty synthetic household. Give each comparison an independent,
-equivalent fixture copy. The two-process ownership exercise uses one common
-database. The valuation comparison uses separate copies.
+[Wails Overview](../../../frontend/src/queries/portfolio.ts) calls
+`PortfolioService.Overview({})`. Gio calls the same unfiltered
+`application.Service.Overview` and uses its display totals, known subtotals,
+quality and missing inputs. It retains the result and read time on a failed
+reload. Refresh rereads stored data using the configured FX provider key and
+quote freshness policy. It performs no provider requests.
+
+The Go comparison used independent equivalent copies from
+[analytics-qa-seed](../../../cmd/analytics-qa-seed) with the seed anchor fixed
+at `2026-07-26T00:00:00Z`. The live resolver uses the latest stored quotes.
+To exercise the seed's gap in a current valuation, the copies retained
+quotes through August 17, omitted the derived daily snapshots, and retained
+the seeded current ledger facts. An empty onboarded household provided the
+fifth case. The Gio-side copies carried the synthetic household marker and
+passed the normal pilot guard. The shared valuation and display clocks were
+fixed at `2026-09-18T13:14:00Z`, which displayed as `2026-09-18 21:14` in
+`Asia/Singapore`.
+
+| Scenario | Exact shared Go result in AUD | Gio window |
+| --- | --- | --- |
+| Complete | Net worth and assets `59374.42884`, liabilities `0` | Current estimate `59,374.43` |
+| Missing prices | Known net contribution and assets `54668.065`, no net total | `54,668.06`, missing AAPL, QQQ and ES3 prices |
+| Missing FX | Known net contribution and assets `18285`, no net total | `18,285.00`, missing USD and SGD rates against AUD |
+| Both | Known net contribution and assets `18285`, no net total | Both kinds of missing input, with present amounts labelled as known contributions |
+| Empty | 0 accounts, AUD base | Empty state without balance cards |
+
+| Check | Evidence |
+| --- | --- |
+| Go service and adapter | Every copy agreed on exact amounts, display projection, availability, and missing inputs. A separate SQLite regression used a fixed clock, a stale persisted FX observation and an unavailable provider. It checked exact values and the signed liability, retained the stale quote disclosure, and recorded zero calls to either provider endpoint. |
+| Gio frame and build | The Gio module tests, vet and Linux preview build passed on Debian 13 amd64 with Go 1.27.4. Frame tests exercised first load, empty and all-unavailable results, navigation back to a prior result, and a failed reload followed by Retry. The Wails portfolio adapter, shared valuation/provider and formatting tests passed. |
+| Linux X11 | The fixed-clock preview ran the five verified profiles on Xvfb with Mesa software rendering. It displayed the shown amounts, both missing-input kinds in the same result, and no empty-household balances. The 700 × 460 combined case also supported reload and scrolling. Post-run comparisons found the same recorded account, holding, activity and market data rows in both copies. |
+| Linux X11 read failures | A separate fixed-clock QA build injected two read failures at the Overview service boundary. The first showed loading followed by an error with no balances. Retry ran the real query. A failed reload then kept the incomplete figures and original read time visible. A second retry restored the normal state. The clock and fault overrides were temporary build overlays. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. The comparison covered the shared current valuation and Wails Go adapter, with Gio rendering observed separately. Historical replay, provider refresh and account workflows remain separate. |
 
 ## Moving from the preview to a desktop build
 

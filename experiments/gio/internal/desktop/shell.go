@@ -42,6 +42,7 @@ type ledgerPages struct {
 	prefs     *preferenceState
 	directory *directoryPage
 	history   *historyPage
+	overview  *overviewPage
 }
 
 type navigationItem struct {
@@ -58,7 +59,7 @@ func newItem(id routeID, label i18n.MessageID, iconData []byte, body pageLayout)
 }
 
 func (item *navigationItem) available() bool {
-	return item.body != nil || item.id == historyRoute || item.id == directoryRoute
+	return item.body != nil || item.id == historyRoute || item.id == directoryRoute || item.id == overviewRoute
 }
 
 type navigationGroup struct {
@@ -71,6 +72,7 @@ type shell struct {
 	settingsPage                          *settingsPage
 	directory                             *directoryPage
 	historyPage                           *historyPage
+	overviewPage                          *overviewPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -96,18 +98,22 @@ type shell struct {
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
-	var directoryLayout, historyLayout pageLayout
+	var directoryLayout, historyLayout, overviewLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
 	if pages.history != nil {
 		historyLayout = pages.history.layout
 	}
+	if pages.overview != nil {
+		overviewLayout = pages.overview.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
 		directory:        pages.directory,
 		historyPage:      pages.history,
+		overviewPage:     pages.overview,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            material.NewTheme(),
@@ -118,7 +124,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
-			newItem(overviewRoute, i18n.NavOverview, icons.ActionHome, overview),
+			newItem(overviewRoute, i18n.NavOverview, icons.ActionHome, overviewLayout),
 			newItem("accounts", i18n.NavAccounts, icons.ActionAccountBalanceWallet, nil),
 			newItem("available-funds", i18n.NavAvailableFunds, icons.EditorAttachMoney, nil),
 			newItem("portfolio", i18n.NavPortfolio, icons.EditorPieChartOutlined, nil),
@@ -187,6 +193,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay,
 		DateFormat: s.prefs.saved.DateFormat, DecimalSeparator: s.prefs.saved.DecimalSeparator, GroupingSeparator: s.prefs.saved.GroupingSeparator,
 		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
+		TimeLocation: s.prefs.displayLocation(),
 	}
 	s.updateNavigation(gtx)
 	entry := s.trail.current()

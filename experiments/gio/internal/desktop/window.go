@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"image"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/op"
@@ -15,7 +16,7 @@ import (
 )
 
 // Run serves the native window and joins pending reads before returning to the database owner.
-func Run(ctx context.Context, service *application.Service, prefs *preferences.Service, wordmark, mark image.Image) error {
+func Run(ctx context.Context, service *application.Service, prefs *preferences.Service, clock func() time.Time, wordmark, mark image.Image) error {
 	ctx, cancel := context.WithCancel(ctx)
 	window := new(app.Window)
 	state := newPreferenceState(ctx, prefs, window.Invalidate)
@@ -29,14 +30,16 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	)
 	activities := history.New(ctx, service, window.Invalidate)
 	timeline := newHistoryPage(activities)
+	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	defer func() {
 		stopWatching()
 		cancel()
 		state.wait()
 		directory.wait()
 		activities.Wait()
+		overview.workers.Wait()
 	}()
-	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, prefs: state}).run(window)
+	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, prefs: state}).run(window)
 }
 
 func (s *shell) run(window *app.Window) error {

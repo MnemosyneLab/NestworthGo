@@ -33,7 +33,26 @@ const (
 	GroupActivity
 	GroupInsights
 	GroupManage
-	SampleData
+	OverviewBaseCurrency
+	OverviewReadAt
+	OverviewEmpty
+	OverviewLoading
+	OverviewRefreshing
+	OverviewError
+	OverviewStale
+	OverviewCurrentEstimate
+	OverviewIncomplete
+	OverviewKnownSubtotal
+	OverviewKnownNet
+	OverviewNoValue
+	OverviewQuoteDates
+	OverviewCarried
+	OverviewHistoryUnverified
+	OverviewEvidenceUnavailable
+	OverviewMissingPrice
+	OverviewMissingInstrument
+	OverviewMissingFX
+	OverviewMissingAccount
 	NetWorth
 	Assets
 	Liabilities

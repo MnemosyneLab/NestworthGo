@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 	"image/color"
+	"time"
 
 	"gioui.org/font"
 	"gioui.org/io/semantic"
@@ -20,6 +21,7 @@ import (
 type View struct {
 	DateFormat, DecimalSeparator, GroupingSeparator string
 	TimeFormat, WeekStart                           string
+	TimeLocation                                    *time.Location
 	Language                                        i18n.Language
 	Colors                                          *Palette
 	Theme                                           *material.Theme

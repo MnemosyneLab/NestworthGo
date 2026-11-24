@@ -3,7 +3,7 @@
 ## Status and scope
 
 The Gio desktop runs against a verified synthetic household. It includes
-General settings, Ledger activity, Directory and a Component
+live Overview, General settings, Ledger activity, Directory and a Component
 Preview page for the shared controls. Wails remains the
 production desktop. The roadmap records workflow coverage and acceptance
 evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](roadmap.md) · [Shared Wails control contract](../../../docs/development/frontend-controls.md)
@@ -61,6 +61,22 @@ present and leaves the profile for the established recovery workflow.
   eligibility comes from the shared service. An archived group remains a valid
   historical reference on existing accounts.
 
+### Current valuation
+
+Overview runs the same unfiltered `application.Service.Overview` as the
+[Wails portfolio adapter](../../../internal/wailsapi/portfolio/portfolio.go).
+The service owns the current account scope, arithmetic, selection of stored
+quotes, availability and missing inputs. Gio configures the saved FX source
+and quote freshness policy for an offline read session. It formats the
+returned display amounts, shows a known net contribution or subtotal when
+the total is absent, and applies the liability sign for display. The read
+time uses the configured display timezone. Quote dates are civil evidence
+dates returned by the service.
+
+The page starts a single read off the frame loop and retains the last
+successful result across navigation and failed reloads. Reload uses the same
+read path. Market data fetching and historical replay are separate surfaces.
+
 ### Navigation and object reads
 
 The page bar owns Back, Forward and Recent. The shell stores up to 40 visits in
@@ -76,7 +92,7 @@ pages are disabled. Back and Forward use the adjacent destination's business
 label for accessible names and hover help.
 
 Each Directory visit remembers its active tab, name filter, archive scope and
-scroll anchor. History, General settings and Component Preview remember their
+scroll anchor. Overview, History, General settings and Component Preview remember their
 scroll. Pages keep their mounted drafts, editor selections and query results.
 On traversal, the shell restores the previous control when it is still drawn
 and enabled. The page heading is the fallback. A reused form keeps its live

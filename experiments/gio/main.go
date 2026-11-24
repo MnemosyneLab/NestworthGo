@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gioui.org/app"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/desktop"
@@ -28,7 +29,7 @@ func main() {
 		return
 	}
 	go func() {
-		if started, err := run(); err != nil {
+		if started, err := run(time.Now); err != nil {
 			fmt.Fprintln(os.Stderr, pilot.DisplayName+":", err)
 			if !started {
 				if err := desktop.ShowStartupBlocked(startupMessage(err)); err != nil {
@@ -80,7 +81,7 @@ func startupMessage(err error) i18n.MessageID {
 	}
 }
 
-func run() (started bool, result error) {
+func run(clock func() time.Time) (started bool, result error) {
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		return false, err
@@ -100,14 +101,18 @@ func run() (started bool, result error) {
 	}
 	defer func() { result = errors.Join(result, session.Close()) }()
 	service := application.NewService(sqlite.NewRepository(session.DB))
+	service.SetClock(clock)
 	prefs, err := preferences.Open(paths.SettingsPath(), session.DB, service)
 	if err != nil {
+		return false, err
+	}
+	if err := prefs.ConfigureValuation(); err != nil {
 		return false, err
 	}
 	if _, err := service.Bootstrap(ctx); err != nil {
 		return false, err
 	}
-	return true, desktop.Run(ctx, service, prefs, wordmark, mark)
+	return true, desktop.Run(ctx, service, prefs, clock, wordmark, mark)
 }
 
 func loadBrandImage(name string) (image.Image, error) {

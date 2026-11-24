@@ -90,6 +90,17 @@ func (s *Service) SetMarketDataRegistry(registry MarketDataRegistryPort) {
 // SetFXProvider selects the registered provider used by explicit FX refresh.
 // Instrument refresh continues to use each Instrument's own binding.
 func (s *Service) SetFXProvider(key string) error {
+	return s.setFXProvider(key, false)
+}
+
+// SetStoredFXProvider configures the persisted observation selector for a
+// session without a provider registry. The caller loads validated settings.
+// Refresh still requires a registered provider.
+func (s *Service) SetStoredFXProvider(key string) error {
+	return s.setFXProvider(key, true)
+}
+
+func (s *Service) setFXProvider(key string, storedOnly bool) error {
 	s.reviewProviderMu.Lock()
 	defer s.reviewProviderMu.Unlock()
 	key = strings.ToLower(strings.TrimSpace(key))
@@ -97,15 +108,21 @@ func (s *Service) SetFXProvider(key string) error {
 		key = FrankfurterProviderKey
 	}
 	registry := s.MarketDataRegistry()
-	if registry == nil {
+	switch {
+	case storedOnly:
+		if registry != nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "fxProvider", Message: "use registered provider selection when refresh is available"}
+		}
+	case registry == nil:
 		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider is not configured"}
-	}
-	provider, err := registry.Resolve(key)
-	if err != nil {
-		return err
-	}
-	if !provider.Capabilities().LatestFX {
-		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider does not support FX refresh"}
+	default:
+		provider, err := registry.Resolve(key)
+		if err != nil {
+			return err
+		}
+		if !provider.Capabilities().LatestFX {
+			return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider does not support FX refresh"}
+		}
 	}
 	s.stateMu.Lock()
 	s.advanceReviewProviderLocked()

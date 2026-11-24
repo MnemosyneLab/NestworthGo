@@ -54,6 +54,20 @@ func Open(path string, db *sqlite.DB, app *application.Service) (*Service, error
 	return &Service{store: store, app: app}, nil
 }
 
+// ConfigureValuation applies the saved source selection and quote freshness
+// policy before ledger reads. Overview still uses only persisted observations.
+func (s *Service) ConfigureValuation() error {
+	current, err := s.store.Load()
+	if err != nil {
+		return err
+	}
+	if err := s.app.SetStoredFXProvider(current.FXProvider); err != nil {
+		return err
+	}
+	s.app.SetQuoteCacheTTL(current.QuoteCacheTTLDuration())
+	return nil
+}
+
 func (s *Service) withLedgerContext(ctx context.Context, value settings.Settings) (Values, error) {
 	bootstrap, err := s.app.Bootstrap(ctx)
 	if err != nil {
