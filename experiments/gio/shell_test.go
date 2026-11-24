@@ -1,20 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"strings"
 	"testing"
-	"time"
 	"unicode/utf8"
 
-	"gioui.org/f32"
 	"gioui.org/io/input"
 	"gioui.org/io/key"
-	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/unit"
 )
 
 func TestCatalogCoverage(t *testing.T) {
@@ -24,6 +19,21 @@ func TestCatalogCoverage(t *testing.T) {
 				t.Errorf("%s is missing message %d", language, id)
 			}
 		}
+		for _, sample := range []struct {
+			id   messageID
+			args []any
+		}{
+			{fieldByteCount, []any{24, 48}},
+			{fieldByteExceeded, []any{60, 48}},
+			{previewSubmissions, []any{1}},
+			{previewSavedName, []any{"Example Bank"}},
+			{previewSavedNotes, []any{"Sample notes"}},
+			{previewQuery, []any{"Bank"}},
+		} {
+			if text := fmt.Sprintf(translations[sample.id], sample.args...); strings.Contains(text, "%!") {
+				t.Errorf("%s message %d has incompatible format parameters: %q", language, sample.id, text)
+			}
+		}
 	}
 	if got := appLanguage("unknown").text(navComponentPreview); got != english.text(navComponentPreview) {
 		t.Errorf("unknown language gave %q instead of the English preview label", got)
@@ -31,38 +41,13 @@ func TestCatalogCoverage(t *testing.T) {
 }
 
 func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
-	brand := image.NewRGBA(image.Rect(0, 0, 1, 1))
-	shell := newShell(brand, brand)
-	var router input.Router
-	var ops op.Ops
-	now := time.Now()
-	frame := func() {
-		ops.Reset()
-		now = now.Add(time.Second / 60)
-		shell.layout(layout.Context{
-			Ops:         &ops,
-			Source:      router.Source(),
-			Now:         now,
-			Metric:      unit.Metric{PxPerDp: 1, PxPerSp: 1},
-			Constraints: layout.Exact(image.Pt(1120, 840)),
-		})
-		router.Frame(&ops)
-	}
-	click := func(label string, field bool) {
-		t.Helper()
-		bounds := semanticBounds(t, &router, label, field)
-		center := bounds.Min.Add(bounds.Max).Div(2)
-		pos := f32.Pt(float32(center.X), float32(center.Y))
-		router.Queue(pointer.Event{Kind: pointer.Press, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary, Position: pos})
-		frame()
-		router.Queue(pointer.Event{Kind: pointer.Release, Source: pointer.Mouse, Position: pos})
-		frame()
-	}
+	h := newShellHarness(t)
+	shell, router := h.shell, &h.router
 	edit := func(text string, selection key.Range) {
 		router.Queue(key.EditEvent{Text: text})
-		frame()
+		h.frame()
 		router.Queue(key.SelectionEvent(selection), key.SnippetEvent{End: utf8.RuneCountInString(text)})
-		frame()
+		h.frame()
 	}
 	assertEditor := func(text string, selection key.Range) {
 		t.Helper()
@@ -72,18 +57,18 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 		}
 	}
 
-	frame()
-	click("组件预览", false)
+	h.frame()
+	h.click("组件预览", false)
 	if shell.activeRoute != componentPreviewRoute {
 		t.Fatalf("navigated to %q, want %q", shell.activeRoute, componentPreviewRoute)
 	}
-	click("机构名称", true)
+	h.click("机构名称", true)
 	const name = "示例 Bank"
 	nameSelection := key.Range{Start: 2, End: 2}
 	edit(name, nameSelection)
 	assertEditor(name, nameSelection)
 
-	click("备注", true)
+	h.click("备注", true)
 	const notes = "草稿 Draft\nSecond line"
 	selection := key.Range{Start: 8, End: 3}
 	edit(notes, selection)
@@ -99,20 +84,20 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 		{"简体中文", simplifiedChinese, &darkPalette},
 		{"浅色", simplifiedChinese, &lightPalette},
 	} {
-		click(step.button, false)
+		h.click(step.button, false)
 		if shell.activeRoute != componentPreviewRoute || shell.preferences.language != step.language {
 			t.Fatalf("after clicking %q, got route %q and language %q", step.button, shell.activeRoute, shell.preferences.language)
 		}
 		if got := shell.theme.Palette; got.Bg != step.colors.pageBackground || got.Fg != step.colors.ink || got.ContrastBg != step.colors.accent {
 			t.Fatalf("after clicking %q, unexpected material palette %+v", step.button, got)
 		}
-		semanticBounds(t, &router, step.language.text(previewNotes), true)
+		semanticBounds(t, router, step.language.text(previewNotes), true)
 		assertEditor(notes, selection)
 	}
 
-	click("机构名称", true)
+	h.click("机构名称", true)
 	router.Queue(key.SelectionEvent(nameSelection), key.SnippetEvent{End: utf8.RuneCountInString(name)})
-	frame()
+	h.frame()
 	assertEditor(name, nameSelection)
 }
 

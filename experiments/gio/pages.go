@@ -8,11 +8,10 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	"gioui.org/widget"
-	"gioui.org/widget/material"
 )
 
 func overview(gtx layout.Context, view presentation) layout.Dimensions {
+	gtx = limitWidth(gtx, 560)
 	colors := view.colors
 	return view.panel(gtx, colors.divider, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -56,28 +55,11 @@ func amount(view presentation, label messageID, value string, size unit.Sp) layo
 }
 
 type directoryPage struct {
-	editor widget.Editor
+	editor textField
 }
 
 func (p *directoryPage) layout(gtx layout.Context, view presentation) layout.Dimensions {
-	colors := view.colors
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.label(gtx, view.language.text(inputMethodTest), 15, font.Medium, colors.ink)
-		}),
-		layout.Rigid(layout.Spacer{Height: 10}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			border := colors.divider
-			if gtx.Focused(&p.editor) {
-				border = colors.accent
-			}
-			editor := material.Editor(view.theme, &p.editor, view.language.text(inputMethodHint))
-			editor.TextSize, editor.HintColor = 15, colors.secondaryInk
-			return view.panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-				height := min(gtx.Constraints.Max.Y, gtx.Dp(120))
-				gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = height, height
-				return layout.Inset{Top: 12, Bottom: 12, Left: 14, Right: 14}.Layout(gtx, editor.Layout)
-			})
-		}),
-	)
+	return p.editor.layout(limitWidth(gtx, 560), view, fieldOptions{
+		label: inputMethodTest, hint: inputMethodHint,
+	})
 }

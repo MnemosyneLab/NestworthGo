@@ -22,6 +22,11 @@ const (
 	componentPreviewRoute routeID = "component-preview"
 )
 
+const (
+	sidebarWidth = 218
+	headerHeight = 53
+)
+
 type pageLayout func(layout.Context, presentation) layout.Dimensions
 
 type navigationItem struct {
@@ -33,11 +38,15 @@ type navigationItem struct {
 }
 
 func newItem(id routeID, label messageID, iconData []byte, body pageLayout) navigationItem {
+	return navigationItem{id: id, label: label, icon: mustIcon(iconData), body: body}
+}
+
+func mustIcon(iconData []byte) *widget.Icon {
 	icon, err := widget.NewIcon(iconData)
 	if err != nil {
 		panic(err)
 	}
-	return navigationItem{id: id, label: label, icon: icon, body: body}
+	return icon
 }
 
 type navigationGroup struct {
@@ -56,10 +65,11 @@ type shell struct {
 	navigation     layout.List
 	languageButton widget.Clickable
 	themeButton    widget.Clickable
+	overlay        popoverHost
 }
 
 func newShell(wordmark, mark image.Image) *shell {
-	directory := new(directoryPage)
+	directory := &directoryPage{editor: newTextField(false)}
 	preview := newComponentPreview()
 	s := &shell{
 		preferences: sessionPreferences{language: simplifiedChinese},
@@ -105,6 +115,7 @@ func newShell(wordmark, mark image.Image) *shell {
 }
 
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
+	s.overlay.beginFrame(gtx)
 	if s.languageButton.Clicked(gtx) {
 		s.preferences.language = s.preferences.language.alternate()
 	}
@@ -119,7 +130,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		ContrastBg: colors.accent,
 		ContrastFg: colors.pageBackground,
 	}
-	view := presentation{language: s.preferences.language, colors: colors, theme: s.theme}
+	view := presentation{language: s.preferences.language, colors: colors, theme: s.theme, overlay: &s.overlay}
 	for _, group := range s.groups {
 		for i := range group.items {
 			item := &group.items[i]
@@ -129,15 +140,17 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	paint.Fill(gtx.Ops, colors.pageBackground)
-	return layout.Flex{}.Layout(gtx,
+	dims := layout.Flex{}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
 	)
+	s.overlay.layout(gtx, view)
+	return dims
 }
 
 func (s *shell) sidebar(gtx layout.Context, view presentation) layout.Dimensions {
 	colors := view.colors
-	size := image.Pt(gtx.Dp(218), gtx.Constraints.Max.Y)
+	size := image.Pt(gtx.Dp(sidebarWidth), gtx.Constraints.Max.Y)
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.sidebarBackground, clip.Rect{Max: size}.Op())
 	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
@@ -164,21 +177,11 @@ func (s *shell) sidebarPreferences(gtx layout.Context, view presentation) layout
 	languageAction := view.language.alternate().text(languageName)
 	return layout.Inset{Top: 9, Bottom: 10, Left: 11, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{}.Layout(gtx,
-			layout.Flexed(0.58, view.preferenceButton(&s.languageButton, languageAction)),
+			layout.Flexed(0.58, view.button(&s.languageButton, languageAction)),
 			layout.Rigid(layout.Spacer{Width: 7}.Layout),
-			layout.Flexed(0.42, view.preferenceButton(&s.themeButton, view.language.text(themeAction))),
+			layout.Flexed(0.42, view.button(&s.themeButton, view.language.text(themeAction))),
 		)
 	})
-}
-
-func (v presentation) preferenceButton(button *widget.Clickable, title string) layout.Widget {
-	style := material.Button(v.theme, button, title)
-	style.Background = v.colors.surface
-	style.Color = v.colors.ink
-	style.TextSize = 12
-	style.CornerRadius = 7
-	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
-	return style.Layout
 }
 
 func (s *shell) brand(gtx layout.Context) layout.Dimensions {
@@ -263,6 +266,7 @@ func (s *shell) item(gtx layout.Context, view presentation, item *navigationItem
 
 func (s *shell) page(gtx layout.Context, view presentation) layout.Dimensions {
 	route := s.routes[s.activeRoute]
+	view.origin = image.Pt(gtx.Dp(sidebarWidth), gtx.Dp(headerHeight))
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return pageHeader(gtx, view, route.label) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return pageBody(gtx, view, route.body) }),
@@ -271,7 +275,7 @@ func (s *shell) page(gtx layout.Context, view presentation) layout.Dimensions {
 
 func pageHeader(gtx layout.Context, view presentation, title messageID) layout.Dimensions {
 	colors := view.colors
-	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(53))
+	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -287,9 +291,9 @@ func pageBody(gtx layout.Context, view presentation, body pageLayout) layout.Dim
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}
 	return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 26, Left: 28, Right: 28}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(560))
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		inset := layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
+		view.origin = view.origin.Add(image.Pt(gtx.Dp(inset.Left), gtx.Dp(inset.Top)))
+		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return body(gtx, view)
 		})
 	})

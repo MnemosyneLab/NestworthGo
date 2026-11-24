@@ -1,10 +1,21 @@
 # Gio desktop preview
 
-This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains a sample form with an institution name and multiline notes. The form keeps its draft in memory.
+This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains a sample form with an institution name, multiline notes, and a search of sample institutions. The form keeps its draft and submitted examples in memory.
 
 The sidebar footer switches between Simplified Chinese and English, and between light and dark appearance. Labels use the message catalog in `localization.go` with an English fallback. Appearance colors come from `appearance.go`. Each preview launch starts in Simplified Chinese and light mode.
 
 To check live switching, open the component preview, enter text in both fields, and select part of the notes. Switch language and appearance in both directions. The component preview stays open and keeps the draft and selection.
+
+Type in the search field to filter the display-only results. Tab to its
+clear button or click it to reset the query and focus the editor again.
+The institution name allows a draft over 48 UTF-8 bytes and shows an error
+until the draft fits. **Submit sample** advances the result counter only
+when the name is valid. Return in the notes inserts a line break.
+
+Use **About this form** to open a popover near the lower-right edge.
+It opens above the button when space is tight below and follows it when
+the window is resized. Escape, Tab, the Close button, and presses outside
+the panel dismiss it and return focus to the trigger.
 
 ## macOS
 

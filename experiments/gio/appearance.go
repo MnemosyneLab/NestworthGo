@@ -11,6 +11,7 @@ type palette struct {
 	ink               color.NRGBA
 	secondaryInk      color.NRGBA
 	accent            color.NRGBA
+	errorInk          color.NRGBA
 }
 
 var lightPalette = palette{
@@ -22,6 +23,7 @@ var lightPalette = palette{
 	ink:               color.NRGBA{R: 32, G: 27, B: 23, A: 255},
 	secondaryInk:      color.NRGBA{R: 95, G: 88, B: 82, A: 255},
 	accent:            color.NRGBA{R: 52, G: 72, B: 166, A: 255},
+	errorInk:          color.NRGBA{R: 164, G: 36, B: 42, A: 255},
 }
 
 var darkPalette = palette{
@@ -33,6 +35,7 @@ var darkPalette = palette{
 	ink:               color.NRGBA{R: 237, G: 240, B: 246, A: 255},
 	secondaryInk:      color.NRGBA{R: 180, G: 189, B: 205, A: 255},
 	accent:            color.NRGBA{R: 160, G: 174, B: 255, A: 255},
+	errorInk:          color.NRGBA{R: 255, G: 156, B: 157, A: 255},
 }
 
 type sessionPreferences struct {
