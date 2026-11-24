@@ -25,6 +25,10 @@ the startup/onboarding gates are defined by
 - [Future directions](../product/roadmap.md) — Planned designs and uncommitted exploration.
 - [Market-data contracts](../architecture/data-and-ipc-contracts.md) — Current persistence, observation, coverage, provider, and recovery authority.
 
+## Experimental designs
+
+- [Gio desktop foundation and component preview](gio-desktop-foundation.md) covers the proposed shell, localization, appearance, shared controls, and the first native migration pilot.
+
 ## Current screen map
 
 The desktop shell exposes these destinations (with group headings omitted):
