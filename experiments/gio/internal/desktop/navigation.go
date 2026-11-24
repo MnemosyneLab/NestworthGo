@@ -115,7 +115,7 @@ type navigationRequest struct {
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
 
 func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
-	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingBankAccount() || s.bankMaintenanceBlocking() {
+	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.accountMaintenanceBlocking() {
 		return
 	}
 	entry := s.trail.current()

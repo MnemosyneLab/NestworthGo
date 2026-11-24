@@ -217,6 +217,13 @@ the recorded balance and ledger history. Turn on **Show archived** to find
 the archived account, then use **Restore account** in its detail. A failed
 refresh after a confirmed change can be retried without repeating the change.
 
+From **Accounts** with all institutions shown, choose **Add liability account** to
+create a credit card or loan tracked as one amount in the selected currency.
+Choose an existing institution or leave the account unassigned. Enter any
+opening debt as a positive amount. Detail shows its liability sign and
+reports any unavailable household-currency conversion. Account settings,
+archive, and restore use the same workflow as a standard bank account.
+
 ## Ledger activity
 
 Open **Activity → Ledger activity** (简体中文 **活动 → 账务记录**) to browse

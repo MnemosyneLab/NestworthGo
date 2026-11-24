@@ -137,7 +137,7 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	fault := &bankMaintenanceFault{Service: gio, started: make(chan struct{}), release: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.release) })
 	p := newAccountsPage(ctx, fault, clock, func() {})
-	p.maintenance = &bankMaintenance{service: fault}
+	p.maintenance = &accountMaintenance{service: fault}
 	overview := newOverviewPage(ctx, gio, clock, func() {})
 	t.Cleanup(func() { release(); p.workers.Wait(); overview.workers.Wait() })
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p, overview: overview})
@@ -334,7 +334,7 @@ func TestBankMaintenanceRejectsStaleAffiliationWithoutADifferentWrite(t *testing
 		t.Fatal(err)
 	}
 	p := newAccountsPage(ctx, gio, func() time.Time { return accountTestClock }, func() {})
-	p.maintenance = &bankMaintenance{service: gio}
+	p.maintenance = &accountMaintenance{service: gio}
 	t.Cleanup(p.workers.Wait)
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
@@ -400,7 +400,7 @@ func TestBankMaintenanceRejectsStaleAffiliationWithoutADifferentWrite(t *testing
 		t.Fatalf("Wails did not enforce the open contract guard: %v", wailsErr)
 	}
 	show(holdingAccount.Account.ID)
-	assertPageLabel(t, &h.router, "Maintenance is available for bank accounts that track their total balance.")
+	assertPageLabel(t, &h.router, "Maintenance covers total-balance bank accounts, credit cards and loans.")
 	if findPageLabel(&h.router, "Account settings") != nil || findPageLabel(&h.router, "Archive account") != nil {
 		t.Fatal("out-of-scope account offered maintenance")
 	}

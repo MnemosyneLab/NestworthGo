@@ -28,11 +28,15 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.startBankAccount()
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	if p.canCreateLiability() && p.createLiability.Clicked(gtx) {
+		p.startBalanceAccount(domain.TypeCreditCard, domain.Institution{})
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	if p.creation != nil && p.creation.draft != nil {
-		return p.layoutBankAccount(gtx, view)
+		return p.layoutAccountCreation(gtx, view)
 	}
 	if p.maintenance != nil && p.maintenance.draft != nil {
-		return p.layoutBankSettings(gtx, view)
+		return p.layoutAccountSettings(gtx, view)
 	}
 	detail := p.target.account != ""
 	if p.back.Clicked(gtx) && detail {
@@ -54,7 +58,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			var controls []layout.FlexChild
 			if detail {
 				controls = append(controls, layout.Rigid(view.Button(&p.back, l.Text(i18n.AccountBack))))
-				controls = append(controls, p.bankMaintenanceActions(gtx, view)...)
+				controls = append(controls, p.accountMaintenanceActions(gtx, view)...)
 			} else if !p.invalid && (p.current == nil || !p.current.unavailable) {
 				archive := i18n.InstitutionsShowArchived
 				if p.archived {
@@ -72,6 +76,9 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			if p.canCreateBankAccount() {
 				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createBank, l.Text(i18n.AccountCreateAdd))))
+			}
+			if p.canCreateLiability() {
+				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createLiability, l.Text(i18n.AccountCreateLiabilityAdd))))
 			}
 			controls = append(controls, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }))
 			if !p.invalid {
@@ -129,7 +136,7 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 	}
 	var lines []layout.FlexChild
 	if p.createdID != "" && p.target.account == p.createdID {
-		lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountCreateSucceeded), view.Colors.Ink)))
+		lines = append(lines, layout.Rigid(view.Message(l.Text(p.createdMessage), view.Colors.Ink)))
 	}
 	if m := p.maintenance; m != nil && p.target.account != "" {
 		if m.success != i18n.NoMessage {
@@ -140,7 +147,7 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		}
 		if row := p.freshDetail(); row != nil {
 			switch {
-			case !bankAccountSupported(row.record.Account):
+			case !balanceAccountSupported(row.record.Account):
 				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountMaintenanceUnsupported), view.Colors.SecondaryInk)))
 			case row.record.Account.ArchivedAt != nil:
 				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountMaintenanceReadOnly), view.Colors.SecondaryInk)))
@@ -221,6 +228,9 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 func accountTitle(gtx layout.Context, view ui.View, account domain.Account) layout.Dimensions {
 	l := view.Language
 	description := l.Text(accountTypes[account.AccountType])
+	if account.IsLiability() {
+		description += " · " + l.Text(i18n.AccountRoleLiability)
+	}
 	if account.ArchivedAt != nil {
 		description += " · " + l.Text(i18n.DirectoryArchived)
 	}
@@ -360,14 +370,14 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			return layout.UniformInset(14).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(7)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !bankAccountSupported(a) {
+						if !balanceAccountSupported(a) {
 							return accountTitle(gtx, view, a)
 						}
 						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								side := gtx.Dp(24)
 								gtx.Constraints = layout.Exact(image.Pt(side, side))
-								return bankAccountGlyph(a, p.current.institutions).Layout(gtx, view.Colors.Accent)
+								return balanceAccountGlyph(a, p.current.institutions).Layout(gtx, view.Colors.Accent)
 							}),
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, a) }),
 						)

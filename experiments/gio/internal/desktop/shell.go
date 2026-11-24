@@ -207,22 +207,28 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
-		if s.accounts.pollBankMaintenance() && s.overviewPage != nil {
+		if s.accounts.pollAccountMaintenance() && s.overviewPage != nil {
 			s.overviewPage.needsRefresh = true
 		}
-		if record := s.accounts.pollBankAccount(); record.Account.ID != "" {
+		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
+			s.accounts.createdMessage = i18n.AccountCreateSucceeded
+			focus := &s.accounts.createBank
+			if record.Account.IsLiability() {
+				s.accounts.createdMessage = i18n.AccountCreateLiabilitySucceeded
+				focus = &s.accounts.createLiability
+			}
 			if s.overviewPage != nil {
 				s.overviewPage.needsRefresh = true
 			}
 			s.pendingNavigation = &navigationRequest{
 				target: navigationTarget{route: accountsRoute, account: record.Account.ID},
-				name:   record.Account.Name, focus: &s.accounts.createBank,
+				name:   record.Account.Name, focus: focus,
 			}
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingBankAccount() || s.bankMaintenanceBlocking() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.accountMaintenanceBlocking() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -271,19 +277,19 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.settingsPage.layoutConfirmation(windowContext, view)
 	} else if s.confirmingArchive() {
 		s.directory.activeList().layoutConfirmation(windowContext, view)
-	} else if s.confirmingBankAccount() {
-		s.accounts.layoutBankAccountReview(windowContext, view)
-	} else if s.bankMaintenanceBlocking() && s.accounts.maintenance.review != nil {
-		s.accounts.layoutBankArchive(windowContext, view)
+	} else if s.confirmingAccountCreation() {
+		s.accounts.layoutAccountCreationReview(windowContext, view)
+	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
+		s.accounts.layoutAccountArchive(windowContext, view)
 	}
 	return dims
 }
 
-func (s *shell) confirmingBankAccount() bool {
+func (s *shell) confirmingAccountCreation() bool {
 	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
 }
 
-func (s *shell) bankMaintenanceBlocking() bool {
+func (s *shell) accountMaintenanceBlocking() bool {
 	if s.activeRoute() != accountsRoute || s.accounts == nil || s.accounts.maintenance == nil {
 		return false
 	}

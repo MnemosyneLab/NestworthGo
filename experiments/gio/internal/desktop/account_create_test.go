@@ -24,16 +24,21 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-type bankAccountTestService struct {
+type accountCreationTestService struct {
 	*application.Service
 	writes             atomic.Int32
 	started, release   chan struct{}
+	failWrite          bool
 	failRead           bool
 	pendingReadFailure atomic.Bool
 }
 
-func (s *bankAccountTestService) CreateAccount(ctx context.Context, input application.AccountInput) (domain.AccountRecord, error) {
-	if s.writes.Add(1) == 1 && s.started != nil {
+func (s *accountCreationTestService) CreateAccount(ctx context.Context, input application.AccountInput) (domain.AccountRecord, error) {
+	first := s.writes.Add(1) == 1
+	if first && s.failWrite {
+		return domain.AccountRecord{}, errors.New("synthetic write failure before the account transaction")
+	}
+	if first && s.started != nil {
 		close(s.started)
 		select {
 		case <-s.release:
@@ -48,7 +53,7 @@ func (s *bankAccountTestService) CreateAccount(ctx context.Context, input applic
 	return value, err
 }
 
-func (s *bankAccountTestService) ListAccounts(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
+func (s *accountCreationTestService) ListAccounts(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
 	if len(filter.AccountIDs) == 1 && s.pendingReadFailure.Swap(false) {
 		return nil, errors.New("synthetic failure rereading the committed account")
 	}
@@ -151,10 +156,10 @@ func TestBankAccountCreateMatchesWailsAndRefreshesWithoutReplayingWrite(t *testi
 			t.Fatal(err)
 		}
 	}
-	fault := &bankAccountTestService{Service: gio, started: make(chan struct{}), release: make(chan struct{}), failRead: true}
+	fault := &accountCreationTestService{Service: gio, started: make(chan struct{}), release: make(chan struct{}), failRead: true}
 	clock := func() time.Time { return accountTestClock }
 	p := newAccountsPage(ctx, fault, clock, func() {})
-	p.creation = &bankAccountCreation{service: fault}
+	p.creation = &balanceAccountCreation{service: fault}
 	overview := newOverviewPage(ctx, gio, clock, func() {})
 	directory := newDirectoryPage(newInstitutionsPage(ctx, gio, func() {}))
 	release := sync.OnceFunc(func() { close(fault.release) })
@@ -299,8 +304,8 @@ func TestBankAccountRevalidatesArchivedReferencesAtConfirmation(t *testing.T) {
 	s, _ := openBankFixture(t, root)
 	ctx := t.Context()
 	p := newAccountsPage(ctx, s, func() time.Time { return accountTestClock }, func() {})
-	fault := &bankAccountTestService{Service: s}
-	p.creation = &bankAccountCreation{service: fault}
+	fault := &accountCreationTestService{Service: s}
+	p.creation = &balanceAccountCreation{service: fault}
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()

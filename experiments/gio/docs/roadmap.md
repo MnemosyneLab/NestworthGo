@@ -57,8 +57,8 @@ kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
-live Overview, account browsing, and standard bank account creation and
-maintenance. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+live Overview, account browsing, and creation and maintenance for standard
+bank accounts, credit cards and loans. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -336,6 +336,46 @@ until Retry rereads the same ID.
 | Linux X11 | On Debian 13 amd64 with Go 1.27.4, the Gio module tests, vet, Linux preview build, Wails account adapter and focused shared application tests passed. At 700 × 460 under Xvfb with Mesa rendering, changed the name, default group and Wallet icon, then archived the account, found it through Show archived and restored it. Back kept the archive filter active. Overview and the detail showed USD `1,734.13` after restoration. The activity list and a normal quit and reopen showed the original ledger and updated account. In an independent two-member profile at 1120 × 840, saved `75.25%` / `24.75%`, reopened and matched both exact shares against SQLite. |
 | Linux X11 read failures and storage | A separate native build forced the detail read to fail after both the settings update and archive. The saved notices and stale-result warning appeared, and Retry recovered the same ID. The fault probe counted one update, one archive and one restore. Both closed profiles retained every balance, owner and history row, including six effects-linked activities. Each recorded three state observations for maintenance. The fixed clock and read faults used temporary overlays. |
 | Open evidence | Wails GUI, native macOS and Wayland were not run. Other account types, compatible type changes, production startup, ledger selection and recovery remain Stage 3 work. |
+
+#### Total-balance credit card and loan milestone
+
+The [Wails create wizard](../../../frontend/src/features/accounts/AccountCreateWizard.tsx)
+uses [Catalog combinations](../../../internal/domain/account_type.go) to
+select a liability role and a single-currency total for credit cards and
+loans. Both use `CreateAccount` with a nonnegative opening amount in the
+account currency. Before History starts, a nonzero opening amount is a
+stored balance baseline. With History started, the same service records its
+opening contribution and account effect. A zero opening has no activity.
+Loan proceeds, repayments, card purchases, refunds and reconciliation are
+separate ledger actions.
+
+Gio adds the two types from the accounts list with an optional existing
+institution, default household currency and equal shares for chosen active
+members. The institution starts unassigned in this entry point. The
+institution-scoped bank form remains available. A newly archived institution
+requires another choice or an explicit clear. The same settings, archive and
+restore paths use `UpdateAccount` and `ArchiveAccount`. Detail and Overview
+use the shared read models. A missing exchange rate leaves the native debt
+visible and the household-currency value unavailable.
+
+| Check | Evidence |
+| --- | --- |
+| Go adapter and Gio frames | At `2026-11-21T17:00:00Z`, independent verified copies matched the Wails Go adapter on a USD `321.09` card with History, an unassigned SGD `43.21` loan before History with missing SGD/AUD FX, and a zero USD loan with History. The card produced one opening contribution; both loans produced no posting in those cases. Records, net-worth inclusion, native and base amounts, missing-input evidence, maintenance, archive and restore were compared. Frame tests covered negative amounts, an archived institution, a failed write retaining the draft, and a committed write followed by read-only Retry. Back returned focus to the source and the same account ID reopened. |
+| Linux X11 | The full Gio module, vet and Linux preview build passed on Debian 13 amd64 with Go 1.27.4. Focused Wails adapter, shared application and domain tests passed. At 700 × 460 on Xvfb with Mesa rendering, created a USD `321.09` card at Harbor Sample Bank, including validation of a negative input and repeated confirmation. Overview showed USD `1,413.04` net worth with USD `321.09` liabilities. Added an unassigned SGD `43.21` loan and saw the native debt with the USD conversion unavailable. Archive kept the recorded debt, and restore returned the missing-FX state. A normal quit and reopen retained both accounts. The standard bank account flow separately passed creation, Back, Overview refresh and reopen on X11, and its maintenance regression passed in Gio frames. |
+| Linux X11 read failure and storage | A temporary QA overlay failed the credit-card submission before writing, then failed the first exact-ID read after the successful retry. The draft survived the write failure, and the created notice and **Retry** recovered the detail after the read failure. The probe counted two card submissions, including the deliberate pre-write failure, and one loan submission. The two closed profiles each held exactly one card and one loan, one opening contribution per account and unchanged pre-existing account, balance, owner, directory and activity rows. The clock and fault overlays are outside the application. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. The Wails comparison covers the Go adapter and shared contracts. |
+
+#### Remaining account capabilities by dependency
+
+| Wails type or capability | Gio gap | Stage dependency |
+| --- | --- | --- |
+| Single-currency totals | Cash on hand, digital wallet, receivable and Other asset. Other liability also needs explicit role selection. | Stage 3 creation, detail and maintenance. |
+| Single estimated value | Insurance policy, property, vehicle, collectible, and the manual-value choices for brokerage, investment, pension, receivable and Other asset. | Stage 3 creation, detail and maintenance. Stage 4 recorded value changes. |
+| Multi-currency Cash on hand | The Wails Catalog and tracking prompt expose the cash-only Holdings combination. Create opens an empty account and exposes cash per currency in detail. | Stage 3 empty account and cash-component reads. Stage 4 opening cash, cash reconciliation, deposits, withdrawals, FX and transfers. |
+| Mixed Holdings | Bank and digital wallet Holdings modes, brokerage, investment, crypto exchange, pension and Other asset. Wails create omits the total and opens component detail. | Stage 3 account creation and maintenance when components can be represented. Stage 4 opening cash and History boundaries. Stage 5 investment opening, trades, products and Portfolio. |
+| Cross-type settings and additional create fields | Wails-compatible type edits, create-time group, icon, custom shares, opening date when History has started, and creating institutions from the wizard. | Stage 3 for the account form and legal settings; keep creation coupled to the shared History boundary. |
+| Movements on existing accounts | Debt draws and payments, card purchases and refunds, account-total reconciliation, and related History detail. | Stage 4 preview, confirmation, and ledger writes. |
+| Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
 
 ## Moving from the preview to a desktop build
 

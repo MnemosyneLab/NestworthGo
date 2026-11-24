@@ -19,9 +19,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *accountsPage) bankMaintenanceActions(gtx layout.Context, view ui.View) []layout.FlexChild {
+func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.View) []layout.FlexChild {
 	m, row := p.maintenance, p.freshDetail()
-	if m == nil || row == nil || !bankAccountSupported(row.record.Account) {
+	if m == nil || row == nil || !balanceAccountSupported(row.record.Account) {
 		return nil
 	}
 	a, l := row.record.Account, view.Language
@@ -48,7 +48,7 @@ func (p *accountsPage) bankMaintenanceActions(gtx layout.Context, view ui.View) 
 	return append(result, layout.Rigid(view.Button(&m.archive, l.Text(action))))
 }
 
-func (p *accountsPage) layoutBankArchive(gtx layout.Context, view ui.View) {
+func (p *accountsPage) layoutAccountArchive(gtx layout.Context, view ui.View) {
 	m, l := p.maintenance, view.Language
 	review := m.review
 	title, summary := i18n.AccountMaintenanceRestore, i18n.AccountMaintenanceRestoreHelp
@@ -62,12 +62,12 @@ func (p *accountsPage) layoutBankArchive(gtx layout.Context, view ui.View) {
 		m.focus, m.review = &m.archive, nil
 		gtx.Execute(op.InvalidateCmd{})
 	}, func() {
-		p.submitBankMaintenance(&review.archive, application.AccountInput{})
+		p.submitAccountMaintenance(&review.archive, application.AccountInput{})
 		gtx.Execute(op.InvalidateCmd{})
 	})
 }
 
-func (p *accountsPage) layoutBankSettings(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) layout.Dimensions {
 	m, l := p.maintenance, view.Language
 	d := m.draft
 	gtx = ui.LimitWidth(gtx, 760)
@@ -80,7 +80,7 @@ func (p *accountsPage) layoutBankSettings(gtx layout.Context, view ui.View) layo
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), d.record.Account.DefaultCurrency.String())
+			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(accountTypes[d.record.Account.AccountType]), d.record.Account.DefaultCurrency.String())
 			return fieldPosition(gtx, &origin, view.Message(label, view.Colors.SecondaryInk))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -92,10 +92,10 @@ func (p *accountsPage) layoutBankSettings(gtx layout.Context, view ui.View) layo
 			return layout.Flex{Gap: gap}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Max.X, gtx.Constraints.Min.X = width, width
-					return d.layoutBankDetails(gtx, view, origin, p.current)
+					return d.layoutAccountSettingsDetails(gtx, view, origin, p.current)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return d.layoutBankOwners(gtx, view, origin.Add(image.Pt(width+gap, 0)), p.current.members)
+					return d.layoutAccountSettingsOwners(gtx, view, origin.Add(image.Pt(width+gap, 0)), p.current.members)
 				}),
 			)
 		}),
@@ -144,14 +144,14 @@ func (p *accountsPage) layoutBankSettings(gtx layout.Context, view ui.View) layo
 		input, issue := d.input()
 		m.issue = issue
 		if issue == i18n.NoMessage {
-			p.submitBankMaintenance(nil, input)
+			p.submitAccountMaintenance(nil, input)
 		}
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	return dims
 }
 
-func (d *bankSettingsDraft) layoutBankDetails(gtx layout.Context, view ui.View, origin image.Point, current *accountsResult) layout.Dimensions {
+func (d *accountSettingsDraft) layoutAccountSettingsDetails(gtx layout.Context, view ui.View, origin image.Point, current *accountsResult) layout.Dimensions {
 	l := view.Language
 	institutions := []ui.Choice{{Label: l.Text(i18n.AccountNoInstitution)}}
 	for _, entry := range current.institutions {
@@ -190,7 +190,7 @@ func (d *bankSettingsDraft) layoutBankDetails(gtx layout.Context, view ui.View, 
 	)
 }
 
-func (d *bankSettingsDraft) layoutBankOwners(gtx layout.Context, view ui.View, origin image.Point, entries map[domain.MemberID]domain.Member) layout.Dimensions {
+func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, view ui.View, origin image.Point, entries map[domain.MemberID]domain.Member) layout.Dimensions {
 	l := view.Language
 	fallback := ui.Choice{Label: l.Text(i18n.AccountMaintenanceDefaultIcon)}
 	iconChoices := append([]ui.Choice{fallback}, institutionIconChoices[l]...)
@@ -276,7 +276,7 @@ func (d *bankSettingsDraft) layoutBankOwners(gtx layout.Context, view ui.View, o
 	)
 }
 
-func bankAccountGlyph(a domain.Account, institutions map[domain.InstitutionID]domain.Institution) ui.Glyph {
+func balanceAccountGlyph(a domain.Account, institutions map[domain.InstitutionID]domain.Institution) ui.Glyph {
 	icon := refValue(a.IconKey)
 	if icon == "" && a.InstitutionID != nil {
 		icon = refValue(institutions[*a.InstitutionID].IconKey)
@@ -287,5 +287,5 @@ func bankAccountGlyph(a domain.Account, institutions map[domain.InstitutionID]do
 	if glyph := directoryGlyphs[icon]; glyph != nil {
 		return glyph
 	}
-	return directoryGlyphs[domain.DefaultIconForInstitutionType(domain.InstitutionBank)]
+	return directoryGlyphs[domain.DefaultAccountIcon(a.AccountType)]
 }

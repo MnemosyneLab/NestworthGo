@@ -17,51 +17,52 @@ import (
 	"github.com/waltwang/nestworth-go/internal/format"
 )
 
-type bankAccountMaintainer interface {
+type balanceAccountMaintainer interface {
 	UpdateAccount(context.Context, domain.AccountID, application.AccountInput) (domain.AccountRecord, error)
 	ArchiveAccount(context.Context, domain.AccountID, bool) error
 }
 
-type bankOwnerChoice struct {
+type accountOwnerChoice struct {
 	selected widget.Clickable
 	percent  ui.TextField
 }
 
-type bankSettingsDraft struct {
+type accountSettingsDraft struct {
 	record                                     domain.AccountRecord
 	name                                       ui.TextField
 	institution, group, icon                   string
 	included, custom, focusName                bool
 	owners                                     []domain.MemberID
-	ownerControls                              map[domain.MemberID]*bankOwnerChoice
+	ownerControls                              map[domain.MemberID]*accountOwnerChoice
 	ownerList                                  widget.List
 	institutionPicker, groupPicker, iconPicker ui.Select
 	include, shares, save, cancel              widget.Clickable
 }
 
-type bankArchiveReview struct {
+type accountArchiveReview struct {
 	archive bool
 	name    string
 	dialog  ui.Confirmation
 }
 
-type bankMaintenanceResult struct {
+type accountMaintenanceResult struct {
 	message i18n.MessageID
 	err     error
 }
 
-type bankMaintenance struct {
-	service        bankAccountMaintainer
-	draft          *bankSettingsDraft
-	review         *bankArchiveReview
-	pending        <-chan bankMaintenanceResult
+type accountMaintenance struct {
+	service        balanceAccountMaintainer
+	draft          *accountSettingsDraft
+	review         *accountArchiveReview
+	pending        <-chan accountMaintenanceResult
 	edit, archive  widget.Clickable
 	focus          *widget.Clickable
 	success, issue i18n.MessageID
 }
 
-func bankAccountSupported(account domain.Account) bool {
-	return account.AccountType == domain.TypeBankAccount && account.TrackingMode == domain.TrackingBalance && account.BalanceSheetRole == domain.RoleAsset
+func balanceAccountSupported(account domain.Account) bool {
+	role, supported := supportedBalanceRole(account.AccountType)
+	return supported && account.TrackingMode == domain.TrackingBalance && account.BalanceSheetRole == role
 }
 
 func (p *accountsPage) freshDetail() *accountRow {
@@ -78,12 +79,12 @@ func refValue[T ~string](value *T) string {
 	return string(*value)
 }
 
-func (m *bankMaintenance) startEdit(record domain.AccountRecord) {
+func (m *accountMaintenance) startEdit(record domain.AccountRecord) {
 	a := record.Account
-	d := &bankSettingsDraft{
+	d := &accountSettingsDraft{
 		record: record, name: ui.NewTextField(true), focusName: true, institution: refValue(a.InstitutionID),
 		group: refValue(a.GroupID), icon: refValue(a.IconKey), included: a.IncludeInNetWorth,
-		ownerControls: make(map[domain.MemberID]*bankOwnerChoice),
+		ownerControls: make(map[domain.MemberID]*accountOwnerChoice),
 		ownerList:     widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 	d.name.Editor.SetText(a.Name)
@@ -97,16 +98,16 @@ func (m *bankMaintenance) startEdit(record domain.AccountRecord) {
 	m.draft, m.issue, m.success = d, i18n.NoMessage, i18n.NoMessage
 }
 
-func (d *bankSettingsDraft) owner(id domain.MemberID) *bankOwnerChoice {
+func (d *accountSettingsDraft) owner(id domain.MemberID) *accountOwnerChoice {
 	option := d.ownerControls[id]
 	if option == nil {
-		option = &bankOwnerChoice{percent: ui.NewTextField(true)}
+		option = &accountOwnerChoice{percent: ui.NewTextField(true)}
 		d.ownerControls[id] = option
 	}
 	return option
 }
 
-func (d *bankSettingsDraft) input() (application.AccountInput, i18n.MessageID) {
+func (d *accountSettingsDraft) input() (application.AccountInput, i18n.MessageID) {
 	a := d.record.Account
 	name := strings.TrimSpace(d.name.Text())
 	if name == "" {
@@ -153,35 +154,35 @@ func (d *bankSettingsDraft) input() (application.AccountInput, i18n.MessageID) {
 	return input, i18n.NoMessage
 }
 
-func (m *bankMaintenance) startArchive(account domain.Account) {
-	m.review = &bankArchiveReview{archive: account.ArchivedAt == nil, name: account.Name}
+func (m *accountMaintenance) startArchive(account domain.Account) {
+	m.review = &accountArchiveReview{archive: account.ArchivedAt == nil, name: account.Name}
 	m.review.dialog.Open()
 	m.issue, m.success = i18n.NoMessage, i18n.NoMessage
 }
 
-func (p *accountsPage) submitBankMaintenance(archive *bool, input application.AccountInput) {
+func (p *accountsPage) submitAccountMaintenance(archive *bool, input application.AccountInput) {
 	m := p.maintenance
 	if p.freshDetail() == nil || m.pending != nil || p.ctx.Err() != nil {
 		return
 	}
 	id := p.target.account
-	result := make(chan bankMaintenanceResult, 1)
+	result := make(chan accountMaintenanceResult, 1)
 	m.pending, m.issue = result, i18n.NoMessage
 	p.workers.Go(func() {
-		result <- p.writeBankMaintenance(id, archive, input)
+		result <- p.writeAccountMaintenance(id, archive, input)
 		p.invalidate()
 	})
 }
 
-func (p *accountsPage) writeBankMaintenance(id domain.AccountID, archive *bool, input application.AccountInput) bankMaintenanceResult {
+func (p *accountsPage) writeAccountMaintenance(id domain.AccountID, archive *bool, input application.AccountInput) accountMaintenanceResult {
 	// The detail may be older than the draft. Check eligibility before the
 	// single shared mutation, then let the service validate its references.
 	records, err := p.service.ListAccounts(p.ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}, IncludeArchived: true})
 	if err != nil {
-		return bankMaintenanceResult{err: err}
+		return accountMaintenanceResult{err: err}
 	}
-	if len(records) != 1 || records[0].Account.ID != id || !bankAccountSupported(records[0].Account) {
-		return bankMaintenanceResult{message: i18n.AccountMaintenanceChanged}
+	if len(records) != 1 || records[0].Account.ID != id || !balanceAccountSupported(records[0].Account) {
+		return accountMaintenanceResult{message: i18n.AccountMaintenanceChanged}
 	}
 	record := records[0]
 	archived := record.Account.ArchivedAt != nil
@@ -193,15 +194,15 @@ func (p *accountsPage) writeBankMaintenance(id domain.AccountID, archive *bool, 
 		if archived != *archive {
 			err = p.maintenance.service.ArchiveAccount(p.ctx, id, *archive)
 		}
-		return bankMaintenanceResult{message: message, err: err}
+		return accountMaintenanceResult{message: message, err: err}
 	}
 	if archived || record.LatestValue == nil {
-		return bankMaintenanceResult{message: i18n.AccountMaintenanceChanged}
+		return accountMaintenanceResult{message: i18n.AccountMaintenanceChanged}
 	}
 	if input.Name != "" || input.InstitutionIDSet || input.GroupIDSet || input.IconKeySet || input.IncludeInNetWorthSet || input.Ownership != nil {
 		_, err = p.maintenance.service.UpdateAccount(p.ctx, id, input)
 	}
-	return bankMaintenanceResult{message: i18n.AccountMaintenanceSaved, err: err}
+	return accountMaintenanceResult{message: i18n.AccountMaintenanceSaved, err: err}
 }
 
 func maintenanceProblem(err error) i18n.MessageID {
@@ -225,7 +226,7 @@ func maintenanceProblem(err error) i18n.MessageID {
 	return i18n.AccountMaintenanceWriteFailed
 }
 
-func (p *accountsPage) pollBankMaintenance() bool {
+func (p *accountsPage) pollAccountMaintenance() bool {
 	m := p.maintenance
 	if m == nil {
 		return false
@@ -266,13 +267,13 @@ func (p *accountsPage) pollBankMaintenance() bool {
 	}
 }
 
-func (p *accountsPage) refreshBankSettings() {
+func (p *accountsPage) refreshAccountSettings() {
 	m := p.maintenance
 	if m == nil || m.draft == nil {
 		return
 	}
 	row := p.freshDetail()
-	if row == nil || !bankAccountSupported(row.record.Account) || row.record.Account.ArchivedAt != nil || row.record.LatestValue == nil {
+	if row == nil || !balanceAccountSupported(row.record.Account) || row.record.Account.ArchivedAt != nil || row.record.LatestValue == nil {
 		m.draft, m.issue = nil, i18n.AccountMaintenanceChanged
 		return
 	}

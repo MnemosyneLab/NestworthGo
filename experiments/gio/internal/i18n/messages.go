@@ -58,6 +58,19 @@ const (
 	AccountMaintenanceArchiveBlocked
 	AccountMaintenanceWriteFailed
 
+	AccountCreateLiabilityAdd
+	AccountCreateLiabilityTitle
+	AccountCreateLiabilityHelp
+	AccountCreateLiabilityType
+	AccountCreateOpeningOwed
+	AccountCreateReviewOwed
+	AccountCreateLiabilityReview
+	AccountCreateLiabilityConfirm
+	AccountCreateLiabilitySucceeded
+	AccountCreateLiabilityWriteFailed
+	AccountCreateChooseInstitution
+	AccountRoleLiability
+
 	AccountCreateAdd
 	AccountCreateTitle
 	AccountCreateName

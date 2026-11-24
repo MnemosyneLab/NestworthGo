@@ -30,14 +30,16 @@ type accountCreateResult struct {
 	err    error
 }
 
-type bankAccountReview struct {
+type balanceAccountReview struct {
 	input  application.AccountInput
 	money  domain.Money
 	shares []domain.OwnershipShare
 }
 
-type bankAccountDraft struct {
+type balanceAccountDraft struct {
+	kind                         domain.AccountType
 	institution                  domain.Institution
+	institutions                 []domain.Institution
 	available                    bool
 	members                      []domain.Member
 	owners                       []domain.MemberID
@@ -45,7 +47,8 @@ type bankAccountDraft struct {
 	ownerList                    widget.List
 	name, opening                ui.TextField
 	currency                     domain.CurrencyCode
-	currencySelect               ui.Select
+	currencySelect, typeSelect   ui.Select
+	institutionSelect            ui.Select
 	included                     bool
 	include, next, cancel, retry widget.Clickable
 	problem                      i18n.MessageID
@@ -56,39 +59,70 @@ type bankAccountDraft struct {
 	cancelRefs                   context.CancelFunc
 }
 
+// The Gio slice exposes a subset of the shared Catalog, all with one total
+// in the account currency. Role and compatibility come from the domain.
+func supportedBalanceRole(kind domain.AccountType) (domain.BalanceSheetRole, bool) {
+	switch kind {
+	case domain.TypeBankAccount, domain.TypeCreditCard, domain.TypeLoan:
+		role, ok := domain.DefaultBalanceSheetRole(kind)
+		return role, ok && domain.IsValidAccountCombination(kind, role, domain.TrackingBalance)
+	default:
+		return "", false
+	}
+}
+
+func (d *balanceAccountDraft) liability() bool {
+	role, _ := supportedBalanceRole(d.kind)
+	return role == domain.RoleLiability
+}
+
 // Account creation is transient. Navigation retains the scoped browser and
 // created object, never the form or a submit intent.
-type bankAccountCreation struct {
+type balanceAccountCreation struct {
 	service      accountCreator
-	draft        *bankAccountDraft
-	review       *bankAccountReview
+	draft        *balanceAccountDraft
+	review       *balanceAccountReview
 	submission   <-chan accountCreateResult
 	confirmation *ui.Confirmation
 }
 
 func (p *accountsPage) canCreateBankAccount() bool {
-	if p.creation == nil || p.target.institution == "" || p.current == nil || p.current.unavailable || p.request != nil || p.err != nil {
+	if !p.canCreateAccount() || p.target.institution == "" {
 		return false
 	}
 	institution := p.current.institutions[p.target.institution]
 	return institution.ID == p.target.institution && institution.ArchivedAt == nil
 }
 
+func (p *accountsPage) canCreateAccount() bool {
+	return p.creation != nil && p.target.account == "" && p.current != nil && !p.current.unavailable && p.request == nil && p.err == nil
+}
+
+func (p *accountsPage) canCreateLiability() bool {
+	return p.canCreateAccount() && p.target.institution == ""
+}
+
 func (p *accountsPage) startBankAccount() {
-	if !p.canCreateBankAccount() || p.creation.draft != nil {
+	if p.canCreateBankAccount() {
+		p.startBalanceAccount(domain.TypeBankAccount, p.current.institutions[p.target.institution])
+	}
+}
+
+func (p *accountsPage) startBalanceAccount(kind domain.AccountType, institution domain.Institution) {
+	if p.creation.draft != nil {
 		return
 	}
-	p.creation.draft = &bankAccountDraft{
-		institution: p.current.institutions[p.target.institution],
-		name:        ui.NewTextField(true), opening: ui.NewTextField(true),
-		included:     domain.SuggestedInclusion(domain.TypeBankAccount, domain.TrackingBalance).IncludeInNetWorth,
+	p.creation.draft = &balanceAccountDraft{
+		kind: kind, institution: institution,
+		name: ui.NewTextField(true), opening: ui.NewTextField(true),
+		included:     domain.SuggestedInclusion(kind, domain.TrackingBalance).IncludeInNetWorth,
 		ownerButtons: make(map[domain.MemberID]*widget.Clickable),
 		ownerList:    widget.List{List: layout.List{Axis: layout.Vertical}}, focusName: true,
 	}
-	p.loadBankAccountReferences()
+	p.loadAccountCreationReferences()
 }
 
-func (p *accountsPage) loadBankAccountReferences() {
+func (p *accountsPage) loadAccountCreationReferences() {
 	f := p.creation
 	d := f.draft
 	if d.refs != nil || p.ctx.Err() != nil {
@@ -106,17 +140,18 @@ func (p *accountsPage) loadBankAccountReferences() {
 	})
 }
 
-func (d *bankAccountDraft) applyReferences(source accountCreateSource) {
+func (d *balanceAccountDraft) applyReferences(source accountCreateSource) {
 	d.loadFailed = source.err != nil
 	if d.loadFailed {
 		return
 	}
 	d.available = false
 	core := source.bootstrap
-	for _, institution := range core.Institutions {
-		if institution.ID == d.institution.ID && institution.ArchivedAt == nil {
-			d.institution, d.available = institution, core.Household != nil
-			break
+	d.institutions = slices.DeleteFunc(slices.Clone(core.Institutions), func(item domain.Institution) bool { return item.ArchivedAt != nil })
+	if core.Household != nil {
+		d.available = d.liability()
+		if index := d.institutionIndex(); index >= 0 {
+			d.institution, d.available = d.institutions[index], true
 		}
 	}
 	d.members = slices.DeleteFunc(slices.Clone(core.Members), func(member domain.Member) bool { return member.ArchivedAt != nil })
@@ -134,7 +169,11 @@ func (d *bankAccountDraft) applyReferences(source accountCreateSource) {
 	}
 }
 
-func (f *bankAccountCreation) discard() {
+func (d *balanceAccountDraft) institutionIndex() int {
+	return slices.IndexFunc(d.institutions, func(item domain.Institution) bool { return item.ID == d.institution.ID })
+}
+
+func (f *balanceAccountCreation) discard() {
 	if f == nil || f.draft == nil {
 		return
 	}
@@ -144,7 +183,7 @@ func (f *bankAccountCreation) discard() {
 	f.draft, f.review, f.confirmation = nil, nil, nil
 }
 
-func (p *accountsPage) pollBankAccount() domain.AccountRecord {
+func (p *accountsPage) pollAccountCreation() domain.AccountRecord {
 	f := p.creation
 	if f == nil || f.draft == nil {
 		return domain.AccountRecord{}
@@ -164,16 +203,24 @@ func (p *accountsPage) pollBankAccount() domain.AccountRecord {
 			f.discard()
 			return result.record
 		}
-		d.problem = bankAccountProblem(result.err)
+		d.problem = accountCreationProblem(result.err)
 		if d.problem == i18n.AccountCreateInstitutionUnavailable || d.problem == i18n.AccountCreateOwnersChanged {
-			p.loadBankAccountReferences()
+			p.loadAccountCreationReferences()
+		}
+		if d.liability() {
+			switch d.problem {
+			case i18n.AccountCreateWriteFailed:
+				d.problem = i18n.AccountCreateLiabilityWriteFailed
+			case i18n.AccountCreateInstitutionUnavailable:
+				d.problem = i18n.AccountCreateChooseInstitution
+			}
 		}
 	default:
 	}
 	return domain.AccountRecord{}
 }
 
-func bankAccountProblem(err error) i18n.MessageID {
+func accountCreationProblem(err error) i18n.MessageID {
 	var problem *domain.Error
 	if errors.As(err, &problem) {
 		switch problem.Field {
@@ -195,9 +242,17 @@ func bankAccountProblem(err error) i18n.MessageID {
 	return i18n.AccountCreateWriteFailed
 }
 
-func (f *bankAccountCreation) prepareReview() {
+func (f *balanceAccountCreation) prepareReview() {
 	d := f.draft
 	if d.refs != nil || d.loadFailed || !d.available || f.review != nil {
+		return
+	}
+	role, supported := supportedBalanceRole(d.kind)
+	if !supported {
+		return
+	}
+	if d.institution.ID != "" && d.institutionIndex() < 0 {
+		d.problem = i18n.AccountCreateChooseInstitution
 		return
 	}
 	name := strings.TrimSpace(d.name.Text())
@@ -228,12 +283,12 @@ func (f *bankAccountCreation) prepareReview() {
 		d.problem = i18n.AccountCreateOwnersRequired
 		return
 	}
-	defaults := domain.SuggestedInclusion(domain.TypeBankAccount, domain.TrackingBalance)
-	f.review = &bankAccountReview{
+	defaults := domain.SuggestedInclusion(d.kind, domain.TrackingBalance)
+	f.review = &balanceAccountReview{
 		money: money, shares: owners.Shares(),
 		input: application.AccountInput{
-			Name: name, AccountType: domain.TypeBankAccount.String(), BalanceSheetRole: domain.RoleAsset.String(), TrackingMode: string(domain.TrackingBalance),
-			InstitutionID: d.institution.ID.String(), InstitutionIDSet: true,
+			Name: name, AccountType: d.kind.String(), BalanceSheetRole: role.String(), TrackingMode: string(domain.TrackingBalance),
+			InstitutionID: d.institution.ID.String(), InstitutionIDSet: d.institution.ID != "",
 			DefaultCurrency: currency.String(), OwnerIDs: slices.Clone(d.owners), InitialAmount: money.CanonicalAmount(),
 			IncludeInNetWorth: d.included, IncludeInNetWorthSet: true,
 			IncludeInPortfolio: defaults.IncludeInPortfolio, IncludeInPortfolioSet: true,
@@ -245,7 +300,7 @@ func (f *bankAccountCreation) prepareReview() {
 	f.confirmation.Open()
 }
 
-func (p *accountsPage) submitBankAccount() {
+func (p *accountsPage) submitNewAccount() {
 	f := p.creation
 	if f.review == nil || f.submission != nil || p.ctx.Err() != nil {
 		return
