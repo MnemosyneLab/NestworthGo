@@ -136,7 +136,7 @@ after rebuilding the app, reopen that household and its saved preferences.
 | Linux | `$XDG_CONFIG_HOME/com.nestworth.gio/`, or `~/.config/com.nestworth.gio/` |
 
 The profile contains `data/nestworth.db` and `data/settings.json`. Gio takes
-the same per-database instance lock as Wails, verifies the household marker
+the same per-database instance lock as Wails, verifies the fixture identity
 and settings, and then opens the database for writes. The native startup
 window reports an occupied ledger, a pending restore, or an invalid profile.
 Close the owner before opening another session. Gio leaves pending restore
@@ -147,6 +147,36 @@ To run a disposable scenario or reopen an older verified Gio fixture, set
 `NESTWORTH_GIO_RUN_DIR` to its private, absolute directory when invoking
 the launcher. If you also specify `NESTWORTH_DATABASE_PATH` and
 `NESTWORTH_SETTINGS_PATH`, they must point to those two files under that root.
+
+### Empty onboarding fixture
+
+On Linux, build the preview and use its executable to prepare and verify a
+new private run. The command refuses an existing `data` directory and the
+default Gio profile.
+
+```sh
+sh experiments/gio/preview-linux.sh --build-only
+gio_run=$(mktemp -d)
+export NESTWORTH_GIO_RUN_DIR="$(cd "$gio_run" && pwd -P)"
+unset NESTWORTH_DATABASE_PATH NESTWORTH_SETTINGS_PATH
+gio_preview="bin/gio/linux-$(go env GOARCH)/Nestworth Gio/bin/Nestworth Gio"
+"$gio_preview" --prepare-onboarding-fixture
+"$gio_preview" --verify-pilot-fixture
+"$gio_preview"
+```
+
+The macOS development bundle provides the same commands through
+`Nestworth Gio.app/Contents/MacOS/Nestworth Gio`. Keep the profile at its
+original path and launch the executable with the same environment to reopen
+it. The marker is paired with `data/onboarding.fixture` and the canonical
+run path. Prepare another fresh fixture to repeat onboarding.
+
+Enter the household name and at least one initial member. The base currency
+starts at CNY. **Start ledger history** is optional. When enabled, the date
+starts at today in the displayed History timezone and can be moved earlier.
+Creation opens an empty Accounts page. Reopening the same profile loads the
+saved household. Ordinary preview launches continue to seed the standard
+sample household.
 
 ## Overview
 

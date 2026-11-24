@@ -57,13 +57,15 @@ func pilotCommand(args []string) error {
 		fmt.Println(paths.RootPath())
 	case "--prepare-pilot-fixture":
 		return pilot.Prepare(ctx, paths)
+	case "--prepare-onboarding-fixture":
+		return pilot.PrepareOnboarding(ctx, paths)
 	case "--ensure-pilot-fixture":
 		return pilot.Ensure(ctx, paths)
 	case "--verify-pilot-fixture":
 		if err := pilot.Verify(ctx, paths); err != nil {
 			return err
 		}
-		fmt.Println("Verified the isolated Gio Institutions QA fixture.")
+		fmt.Println("Verified the isolated Gio synthetic fixture.")
 	default:
 		return fmt.Errorf("unknown pilot command %q", args[0])
 	}
@@ -107,9 +109,6 @@ func run(clock func() time.Time) (started bool, result error) {
 		return false, err
 	}
 	if err := prefs.ConfigureValuation(); err != nil {
-		return false, err
-	}
-	if _, err := service.Bootstrap(ctx); err != nil {
 		return false, err
 	}
 	return true, desktop.Run(ctx, service, prefs, clock, wordmark, mark)

@@ -284,6 +284,27 @@ const (
 	MintAccent
 	SkyAccent
 	PeachAccent
+	OnboardingTitle
+	OnboardingIntro
+	OnboardingName
+	OnboardingHistorical
+	OnboardingDate
+	OnboardingTimezone
+	OnboardingMembers
+	OnboardingMemberName
+	OnboardingAddMember
+	OnboardingRemoveMember
+	OnboardingCreate
+	OnboardingLoading
+	OnboardingSaving
+	OnboardingSaved
+	OnboardingReadFailed
+	OnboardingWriteFailed
+	OnboardingNameRequired
+	OnboardingNameTooLong
+	OnboardingMemberRequired
+	OnboardingDateInvalid
+
 	HistoryCount
 	HistoryLoading
 	HistoryLoadError

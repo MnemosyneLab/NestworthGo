@@ -2,9 +2,10 @@
 
 ## Status and scope
 
-The Gio desktop runs against a verified synthetic household. It includes
-live Overview, read-only Accounts, General settings, Ledger activity, Directory and a Component
-Preview page for the shared controls. Wails remains the
+The Gio desktop runs against a verified synthetic profile. It includes
+household onboarding, live Overview, account browsing and standard bank
+account creation, General settings, Ledger activity, Directory and a
+Component Preview page for the shared controls. Wails remains the
 production desktop. The roadmap records workflow coverage and acceptance
 evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](roadmap.md) · [Shared Wails control contract](../../../docs/development/frontend-controls.md)
 
@@ -24,9 +25,18 @@ the SQLite main file and any journals. SQLite can build its WAL index on the
 copy without changing the profile. A legacy profile without a lock file must
 pass this check before Gio creates one, and is checked again under the lock.
 
-A successful open attaches settings and runs the shared application bootstrap
-before entering the main window. The window stops and joins work before the
-session checkpoints, closes SQLite and releases ownership. A rejected startup
+An explicit empty onboarding fixture is published with a private random receipt
+and a matching database marker bound to its canonical run path. The pair is
+checked through the same lock and read-only verification path before the live
+database opens. It remains valid after a household is created. The ordinary
+sample fixture still checks its household name and ID marker.
+
+A successful open attaches settings. The window runs the shared application
+bootstrap before rendering the shell. A successful read with no household
+shows setup. A failed read offers Retry. After any submission, another bootstrap
+establishes whether it committed before offering any further write. The window
+stops and joins work before the session checkpoints, closes SQLite and releases
+ownership. A rejected startup
 releases any lock it acquired before displaying the error. The blocked window
 uses system language and appearance. It offers Quit and cannot access the
 ledger. The [Wails entry point](../../../cmd/nestworth/main.go) reconciles restore

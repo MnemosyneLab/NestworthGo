@@ -115,6 +115,9 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 	case *ast.ImportSpec, *ast.Field:
 		return true // Import paths and struct tags.
 	case *ast.ValueSpec:
+		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "domain") && typ.Sel.Name == "CurrencyCode" {
+			return currencyCode.MatchString(value)
+		}
 		return named(n.Type, "routeID") && machineID.MatchString(value)
 	case *ast.KeyValueExpr:
 		return named(n.Key, "ID") && machineID.MatchString(value)

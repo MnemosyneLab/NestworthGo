@@ -33,6 +33,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &bankAccountCreation{service: service}
+	onboarding := newOnboardingPage(ctx, service, clock, window.Invalidate)
+	onboarding.read()
 	defer func() {
 		stopWatching()
 		cancel()
@@ -41,8 +43,11 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		activities.Wait()
 		overview.workers.Wait()
 		accounts.workers.Wait()
+		onboarding.workers.Wait()
 	}()
-	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, accounts: accounts, prefs: state}).run(window)
+	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, accounts: accounts, prefs: state})
+	shell.onboarding = onboarding
+	return shell.run(window)
 }
 
 func (s *shell) run(window *app.Window) error {

@@ -72,6 +72,7 @@ type navigationGroup struct {
 
 type shell struct {
 	prefs                                 *preferenceState
+	onboarding                            *onboardingPage
 	settingsPage                          *settingsPage
 	directory                             *directoryPage
 	historyPage                           *historyPage
@@ -194,6 +195,17 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
+	if p := s.onboarding; p != nil {
+		p.update()
+		if p.opened {
+			s.onboarding = nil
+			if p.attempted && s.accounts != nil {
+				s.trail = newNavigationTrail(accountsRoute)
+				s.accounts.enter(s.trail.current().target, false, layout.Position{})
+				s.prefs.reload()
+			}
+		}
+	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
 		if record := s.accounts.pollBankAccount(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
@@ -233,6 +245,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
 		TimeLocation: s.prefs.displayLocation(),
 	}
+	paint.Fill(gtx.Ops, colors.PageBackground)
+	if p := s.onboarding; p != nil {
+		dims := p.layout(gtx, view, s.prefs, s.wordmark)
+		s.overlay.Layout(gtx, view)
+		return dims
+	}
 	s.updateNavigation(gtx)
 	entry := s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
@@ -241,7 +259,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if entry.target.route == accountsRoute && s.accounts != nil && s.accounts.update(s.preferences.language) {
 		s.trail.rename(entry.target, s.accounts.name())
 	}
-	paint.Fill(gtx.Ops, colors.PageBackground)
 	dims := layout.Flex{}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),

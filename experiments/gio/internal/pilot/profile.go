@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 
@@ -14,18 +15,33 @@ import (
 
 // Prepare creates a fresh sample ledger and rejects any existing data directory.
 func Prepare(ctx context.Context, paths Paths) error {
-	return ensureFixture(ctx, paths, false)
+	return ensureFixture(ctx, paths, false, seedFixture)
+}
+
+// PrepareOnboarding creates the empty onboarding fixture in a fresh explicit run.
+func PrepareOnboarding(ctx context.Context, paths Paths) error {
+	if os.Getenv("NESTWORTH_GIO_RUN_DIR") != paths.RootPath() {
+		return errors.New("preparing onboarding requires an explicit NESTWORTH_GIO_RUN_DIR")
+	}
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return err
+	}
+	if filepath.Join(configDir, AppID) == paths.RootPath() {
+		return errors.New("use a disposable run directory for onboarding")
+	}
+	return ensureFixture(ctx, paths, false, seedOnboardingFixture)
 }
 
 // Ensure initializes a new profile or verifies an existing synthetic ledger.
 func Ensure(ctx context.Context, paths Paths) error {
-	if err := ensureFixture(ctx, paths, true); err != nil {
+	if err := ensureFixture(ctx, paths, true, seedFixture); err != nil {
 		return err
 	}
 	return Verify(ctx, paths)
 }
 
-func ensureFixture(ctx context.Context, paths Paths, reuse bool) error {
+func ensureFixture(ctx context.Context, paths Paths, reuse bool, seed func(context.Context, Paths) error) error {
 	root := paths.RootPath()
 	if err := checkRoot(root); err != nil {
 		return err
@@ -69,7 +85,7 @@ func ensureFixture(ctx context.Context, paths Paths, reuse bool) error {
 	}
 	defer os.RemoveAll(staging)
 	candidate := dataPaths(staging)
-	if err := prepareCandidate(ctx, candidate); err != nil {
+	if err := prepareCandidate(ctx, candidate, seed); err != nil {
 		return err
 	}
 	if err := os.Rename(staging, paths.data); err != nil {
@@ -78,13 +94,13 @@ func ensureFixture(ctx context.Context, paths Paths, reuse bool) error {
 	return nil
 }
 
-func prepareCandidate(ctx context.Context, paths Paths) (result error) {
+func prepareCandidate(ctx context.Context, paths Paths, seed func(context.Context, Paths) error) (result error) {
 	unlock, err := backup.AcquireInstanceLock(paths.database)
 	if err != nil {
 		return err
 	}
 	defer func() { result = errors.Join(result, unlock()) }()
-	if err := seedFixture(ctx, paths); err != nil {
+	if err := seed(ctx, paths); err != nil {
 		return err
 	}
 	files, err := inspectFixture(paths)
@@ -149,7 +165,7 @@ type Session struct {
 func (s *Session) Close() error { return s.close() }
 
 func OpenSession(ctx context.Context, paths Paths) (*Session, error) {
-	if err := ensureFixture(ctx, paths, true); err != nil {
+	if err := ensureFixture(ctx, paths, true, seedFixture); err != nil {
 		return nil, err
 	}
 	verified, unlock, err := lockVerifiedFixture(ctx, paths)

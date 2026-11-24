@@ -155,7 +155,7 @@ func verifyFixture(ctx context.Context, paths Paths, files fixtureFiles) error {
 	if err != nil {
 		return fmt.Errorf("verify the fixture read-only: %w", err)
 	}
-	return errors.Join(verifyHousehold(ctx, probe), probe.Close())
+	return errors.Join(verifyIdentity(ctx, paths, probe), probe.Close())
 }
 
 func copyFixtureFile(source, target string) error {
@@ -193,7 +193,7 @@ func openVerified(ctx context.Context, paths Paths, verified os.FileInfo) (*sqli
 	if err != nil {
 		return nil, err
 	}
-	if err := verifyHousehold(ctx, db); err != nil {
+	if err := verifyIdentity(ctx, paths, db); err != nil {
 		return nil, errors.Join(err, db.Close())
 	}
 	return db, nil

@@ -66,7 +66,7 @@ func TestConcurrentFirstLaunchAndSessionLock(t *testing.T) {
 	for range 2 {
 		go func() {
 			<-start
-			finished <- ensureFixture(ctx, paths, true)
+			finished <- ensureFixture(ctx, paths, true, seedFixture)
 		}()
 	}
 	close(start)

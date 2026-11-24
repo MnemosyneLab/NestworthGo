@@ -17,7 +17,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/format"
 )
 
-var bankAccountCurrencies = func() []ui.Choice {
+var supportedCurrencyChoices = func() []ui.Choice {
 	var choices []ui.Choice
 	for _, currency := range domain.SupportedCurrencies() {
 		code := currency.String()
@@ -96,7 +96,7 @@ func (d *bankAccountDraft) layoutFields(gtx layout.Context, view ui.View, origin
 					d.currencySelect.Layout(gtx, view, ui.PickerField{
 						Label: i18n.AccountCreateCurrencyLabel, Origin: origin, Next: &d.name.Editor,
 						Disabled: !gtx.Enabled(),
-					}, ui.SelectOptions{Items: bankAccountCurrencies}, d.currency.String(), func(value string) {
+					}, ui.SelectOptions{Items: supportedCurrencyChoices}, d.currency.String(), func(value string) {
 						d.currency = domain.CurrencyCode(value)
 					})
 					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}

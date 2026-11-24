@@ -56,8 +56,9 @@ Stage 1 is implemented on the experimental desktop. The current list displays
 kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
-Stage 3 includes synthetic startup, ledger ownership, live Overview, account
-browsing and standard bank account creation. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+Stage 3 includes synthetic startup, ledger ownership, household onboarding,
+live Overview, account browsing and standard bank account creation. Stages 4–7
+are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -272,7 +273,42 @@ confirmation remains visible and **Retry** only rereads the saved account.
 | Go adapter and Gio frames | Independent verified synthetic ledger copies with a fixed clock produced the same exact bank balance, ownership, currency, institution and account flags through the Gio form and Wails Go adapter. Frame tests cover validation, canceling review, reference changes between review and submit, a repeated confirmation, a successful write followed by a failed detail read, read-only Retry, Back, Overview refresh and a persisted reopen. The Gio module tests, vet, Linux preview build, Wails account adapter tests and shared application tests passed on Debian 13 amd64 with Go 1.27.4. |
 | Linux X11 | With the clock fixed at `2026-11-21T17:00:00Z`, ran the native preview on a verified synthetic profile under Xvfb with Mesa software rendering. At 700 × 460, a negative balance showed validation. Correcting it to USD `321.09` let the user review the sole owner's `100.00%` share and double-click confirmation. The app opened the new detail. Back showed the original and new accounts in the institution's list, and Overview showed USD `2,055.22`, up from `1,734.13`. After a normal quit and reopen, the new detail and Overview displayed the same values. |
 | Linux X11 read failure and storage | A separate QA build and equivalent synthetic copy forced the first exact-ID detail read to fail after the real write. The native window showed the saved notice and load error together. Retry loaded the same USD `321.09` detail. Both closed profiles held exactly one new bank account, one owner and one opening contribution with one effect. Pre-existing rows in 12 account, directory, ledger and market tables matched the untouched copy. The fixed clock and fault were temporary build overlays. |
-| Remaining Stage 3 work | Household onboarding, production startup and recovery, broader account creation types and tracking modes, and account settings, ownership changes, archive and restore remain open. Creation with custom group, icon, dates or ownership shares remains outside this form. Wails GUI, native macOS and Wayland were not run for this milestone. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. Creation with custom group, icon, dates or ownership shares remains outside this form. |
+
+#### Household onboarding milestone
+
+The [Wails onboarding form](../../../frontend/src/features/onboarding/OnboardingPage.tsx)
+and [Go household adapter](../../../internal/wailsapi/household/household.go)
+define the form and storage contract. Gio uses `Bootstrap` and
+`CompleteOnboarding` from the same application service. The form defaults to
+CNY, asks for a household name and one or more initial members, and leaves
+History off by default. The language preference applies before creation.
+Enabling History uses today in the resolved display timezone unless the user
+picks an earlier civil date. The service stores the History origin at local
+midnight and creates the default institution and group.
+
+An optional [empty onboarding fixture](../README.md#empty-onboarding-fixture)
+is generated only in a fresh explicit run directory. A private random receipt
+and a matching SQLite marker bind it to that canonical path. The same proof
+remains usable after creation. This lets the initial household be absent while
+the instance lock, private-file checks and read-only verification still apply.
+The existing sample profile keeps its household-bound marker and startup path.
+
+A successful Bootstrap without a household shows setup. An initialized but
+empty household opens the ordinary shell. Read errors show **Retry**. Once a
+submission begins, every outcome is followed by Bootstrap, including an error
+that may have occurred after the household transaction. Retry only reads when
+the outcome is still unknown or the write was confirmed. A failed write with a
+successful read showing no household returns to the retained form. Successful
+onboarding opens Accounts and refreshes the preferences' household context.
+
+| Check | Evidence |
+| --- | --- |
+| Go adapter and Gio frames | Independent empty fixtures used the same fixed clock and form values. Gio and the Wails Go adapter agreed on SGD, member order and metadata, the default institution and group, and the start of `2026-11-20` in `Asia/Singapore` (`2026-11-19T16:00:00Z`). Frame tests covered initial read failure, validation, retained drafts after a failed write, duplicate clicks, a committed write followed by a failed read, and an error returned after the household transaction. Reopening retained stored IDs and the origin. A separate case used default CNY and stored no origin. |
+| Profile guard | Gio tests checked the old sample marker and shared instance lock, explicit fixture preparation, unchanged files on a rejected launch, linked receipts, copied fixtures at a different path, and unmarked synthetic databases with and without a household. Shared backup cross-process and alias tests passed. |
+| Linux X11 | The Gio module tests, vet, Linux preview build, Wails household adapter and targeted application tests passed on Debian 13 amd64 with Go 1.27.4. Native Gio on Xvfb with Mesa software rendering used `2026-11-21T17:00:00Z` from a temporary clock overlay. At 700 × 460, the history picker defaulted to `2026-11-22` in `Asia/Singapore`. The form validated a missing household name, accepted SGD and two members with a `2026-11-20` start, and opened empty Accounts after a double click on Create. After a normal quit, reopening displayed empty Overview and both members in Directory. A second process was blocked at the empty fixture without changing its files. A prior sample fixture still opened directly to its populated Overview. |
+| Linux X11 read failure and storage | A second native build with a temporary fault overlay failed the first Bootstrap after the real write. The window displayed the saved notice and a read error together. Retry opened empty Accounts. Both closed and reopened profiles contained one household, two ordered members, one correctly zoned History origin, and the default institution and group. They had no accounts, holdings, postings or opening components. Both retained their original path-bound proofs. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. Production startup, ledger selection and recovery, broader account creation, account settings, ownership changes, archive and restore remain Stage 3 work. |
 
 ## Moving from the preview to a desktop build
 
