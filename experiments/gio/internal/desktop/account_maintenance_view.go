@@ -10,7 +10,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/banklogos"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -21,7 +20,7 @@ import (
 
 func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.View) []layout.FlexChild {
 	m, row := p.maintenance, p.freshDetail()
-	if m == nil || row == nil || !balanceAccountSupported(row.record.Account) {
+	if m == nil || row == nil || !accountMaintenanceSupported(row.record.Account) {
 		return nil
 	}
 	a, l := row.record.Account, view.Language
@@ -30,7 +29,7 @@ func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.Vie
 		m.focus = nil
 	}
 	var result []layout.FlexChild
-	if a.ArchivedAt == nil && row.record.LatestValue != nil {
+	if canEditAccount(row.record) {
 		if m.edit.Clicked(gtx) {
 			m.startEdit(row.record)
 			gtx.Execute(op.InvalidateCmd{})
@@ -84,7 +83,8 @@ func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) l
 			if d.record.Account.IsLiability() {
 				role = i18n.AccountRoleLiability
 			}
-			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(role), d.record.Account.DefaultCurrency.String())
+			a := d.record.Account
+			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(role), l.Text(accountTrackingLabel(a.TrackingMode, a.AccountType)), a.DefaultCurrency.String())
 			return fieldPosition(gtx, &origin, view.Message(label, view.Colors.SecondaryInk))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -196,12 +196,6 @@ func (d *accountSettingsDraft) layoutAccountSettingsDetails(gtx layout.Context, 
 
 func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, view ui.View, origin image.Point, entries map[domain.MemberID]domain.Member) layout.Dimensions {
 	l := view.Language
-	fallback := ui.Choice{Label: l.Text(i18n.AccountMaintenanceDefaultIcon)}
-	iconChoices := append([]ui.Choice{fallback}, institutionIconChoices[l]...)
-	iconValue, iconLabel := d.icon, ""
-	if choice, ok := directoryBankLogos[d.icon]; ok {
-		iconValue, iconLabel = choice.ID, choice.Label
-	}
 	var members []domain.Member
 	retained := d.record.Ownership.Shares()
 	for id, entry := range entries {
@@ -212,14 +206,6 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 	slices.SortFunc(members, func(a, b domain.Member) int {
 		return cmp.Or(cmp.Compare(a.SortOrder, b.SortOrder), cmp.Compare(a.Name, b.Name), cmp.Compare(a.ID, b.ID))
 	})
-	toggle := func() {
-		d.custom = !d.custom
-		if equal, err := domain.EqualOwnership(d.owners); d.custom && err == nil {
-			for _, share := range equal.Shares() {
-				d.owner(share.MemberID).percent.Editor.SetText(fmt.Sprintf("%d.%02d", share.ShareBPS/100, share.ShareBPS%100))
-			}
-		}
-	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gap := gtx.Dp(8)
@@ -227,15 +213,15 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 			return layout.Flex{Gap: gap}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Max.X = width
-					d.typePicker.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceType, Origin: origin, Disabled: !gtx.Enabled()},
-						ui.SelectOptions{Items: balanceTypeChoices(l, d.record.Account.BalanceSheetRole)}, d.kind.String(), func(id string) { d.kind = domain.AccountType(id) })
+					a := d.record.Account
+					choices := accountTypeChoices(l, a.BalanceSheetRole, a.TrackingMode)
+					choices = slices.DeleteFunc(choices, func(choice ui.Choice) bool { return !compatibleAccountType(a, domain.AccountType(choice.ID)) })
+					d.typePicker.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceType, Origin: origin, Disabled: !gtx.Enabled() || len(choices) == 1},
+						ui.SelectOptions{Items: choices}, d.kind.String(), func(id string) { d.kind = domain.AccountType(id) })
 					return layout.Dimensions{Size: image.Pt(width, gtx.Dp(60))}
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					field := ui.PickerField{Label: i18n.DirectoryIcon, Origin: origin.Add(image.Pt(width+gap, 0)), Disabled: !gtx.Enabled()}
-					d.iconPicker.Layout(gtx, view, field, ui.SelectOptions{Items: iconChoices, Searchable: true, ValueLabel: iconLabel, FoldSearch: banklogos.FoldSearch},
-						iconValue, func(id string) { d.icon = id })
-					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+					return layoutAccountIcon(gtx, view, origin.Add(image.Pt(width+gap, 0)), &d.iconPicker, d.icon, func(id string) { d.icon = id })
 				}),
 			)
 		}),
@@ -250,50 +236,30 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 			return view.TabButton(&d.include, l.Text(label), d.included)(gtx)
 		}),
 		layout.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if d.shares.Clicked(gtx) {
-				toggle()
-			}
-			label := i18n.AccountMaintenanceEqual
-			if d.custom {
-				label = i18n.AccountMaintenanceCustom
-			}
-			return view.TabButton(&d.shares, l.Text(label), d.custom)(gtx)
-		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutShareMode(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &d.ownerList).Layout(gtx, len(members), func(gtx layout.Context, i int) layout.Dimensions {
-				member := members[i]
-				choice := d.owner(member.ID)
-				index := slices.Index(d.owners, member.ID)
-				if choice.selected.Clicked(gtx) {
-					if index >= 0 {
-						d.owners = slices.Delete(d.owners, index, index+1)
-					} else {
-						d.owners = append(d.owners, member.ID)
-					}
-					gtx.Execute(op.InvalidateCmd{})
-				}
-				name := accountReference(l, member.Name, member.ArchivedAt != nil)
-				selected := slices.Contains(d.owners, member.ID)
-				return layout.Inset{Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					if !d.custom || !selected {
-						return view.TabButton(&choice.selected, name, selected)(gtx)
-					}
-					return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(6)}.Layout(gtx,
-						layout.Flexed(1, view.TabButton(&choice.selected, name, true)),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return choice.percent.Layout(ui.LimitWidth(gtx, 88), view, ui.FieldOptions{
-								Label: i18n.AccountMaintenanceShare, AccessibleName: fmt.Sprintf(l.Text(i18n.AccountMaintenanceShareFor), member.Name),
-							})
-						}),
-					)
-				})
-			})
+			return d.layoutOwnerList(gtx, view, members, true)
 		}),
 	)
 }
 
-func balanceAccountGlyph(a domain.Account, institutions map[domain.InstitutionID]domain.Institution) ui.Glyph {
+func accountIconOptions(view ui.View, icon string) (ui.SelectOptions, string) {
+	fallback := ui.Choice{Label: view.Language.Text(i18n.AccountMaintenanceDefaultIcon)}
+	choices := append([]ui.Choice{fallback}, institutionIconChoices[view.Language]...)
+	options := ui.SelectOptions{Items: choices, Searchable: true, FoldSearch: banklogos.FoldSearch}
+	if choice, ok := directoryBankLogos[icon]; ok {
+		icon, options.ValueLabel = choice.ID, choice.Label
+	}
+	return options, icon
+}
+
+func layoutAccountIcon(gtx layout.Context, view ui.View, origin image.Point, picker *ui.Select, icon string, assign func(string)) layout.Dimensions {
+	options, value := accountIconOptions(view, icon)
+	picker.Layout(gtx, view, ui.PickerField{Label: i18n.DirectoryIcon, Origin: origin, Disabled: !gtx.Enabled()}, options, value, assign)
+	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+}
+
+func accountGlyph(a domain.Account, institutions map[domain.InstitutionID]domain.Institution) ui.Glyph {
 	icon := refValue(a.IconKey)
 	if icon == "" && a.InstitutionID != nil {
 		icon = refValue(institutions[*a.InstitutionID].IconKey)

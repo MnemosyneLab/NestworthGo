@@ -57,8 +57,8 @@ kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
-live Overview, account browsing, creation across the account Catalog, and
-maintenance for total-balance accounts. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+live Overview, account browsing, and creation and maintenance across the
+account Catalog. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -421,18 +421,52 @@ types in the same role and tracking mode.
 | Automated checks | The full Gio Go test suite, Gio `go vet`, Linux preview build and focused shared domain, application and Wails Go adapter tests passed. |
 | Open evidence | The Wails comparison covers the Go adapter. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this milestone. |
 
+#### Manual valuation and Holdings maintenance milestone
+
+Account settings use the same single update as the
+[Wails Go adapter](../../../internal/wailsapi/account/account.go). Active
+manual-valuation accounts require a recorded value, including a recorded zero.
+Active Holdings accounts can be edited with or without cash and positions.
+The same settings edit the name, icon, institution, group, net-worth inclusion
+and ownership shares. Conversion preserves role, tracking and currency, and
+the Holdings type picker keeps cash-only accounts within their own boundary.
+Existing archived affiliations and eligible existing owner shares follow the
+shared writer's validation.
+
+Archive and restore keep the account ID and recorded financial facts. The
+shared archive guard rejects open managed contracts, and Gio surfaces that
+result after confirmation. A manual account with missing valuation can still
+be archived and restored. A successful mutation followed by a failed read
+keeps the success notice and exposes a read-only retry. Changes to estimates,
+cash balances and positions belong to the Stage 4 and 5 ledger workflows.
+
+Every create flow now uses the same optional group, opening date, icon and
+ownership controls. The date is offered once History has a Starting Point.
+Custom shares use the shared basis-point parser and appear in the review.
+Group, date, icon and ownership travel with the account in a single create.
+The Wails wizard supplies portfolio and liquidity flags from the Catalog;
+Gio uses those defaults as well.
+
+| Check | Evidence |
+| --- | --- |
+| Fixed-clock adapter comparison | Gio frames and the Wails Go adapter used independent copies of the same marked synthetic ledger. Property converted to collectible, populated and empty brokerage converted to investment account, and cash-only Holdings kept its type while saving settings. The suite compared saved records and valuations, exact ownership, archive/restore state, existing archived group links, and the unchanged manual value, cash in USD and SGD, position, and linked activities. Both paths refused incompatible conversions. Closing and reopening retained the same IDs and financial facts. |
+| Disabled and retry paths | An open managed deposit blocked archive through the real Gio confirmation and the Wails adapter. A manual account with legacy missing valuation exposed archive/restore and blocked settings. Frame tests exercised incompatible input in both form and worker, a settings save and archive each followed by an injected read failure, and a read-only Retry. Existing bank, credit card and loan tests ran with the new controls. |
+| Create fields | A compact Gio frame created a bank account with a selected active group, civil opening date, Vault icon and a 75.25/24.75 ownership split. An invalid allocation was rejected before writing. The saved record matched an independent Wails Go create. |
+| Linux X11 | At 900×660 on Xvfb, opened three accounts through Harbor Sample Bank. Converted the USD 1,234.56 property to a collectible and saved 75.25/24.75 owner shares. Converted a populated brokerage to an investment account and confirmed that the cash-only type control stayed fixed. Archived and restored all three, then quit normally and reopened the same verified synthetic profile. Detail still showed the estimate, USD 15.25 and SGD 18.75 balances, and the brokerage's 2.5-unit position. Read-only SQLite comparisons retained the account IDs and every recorded estimate, cash, position, activity and effect row. A temporary build overlay fixed the clock and seeded the fixture through the application service. |
+| Automated checks | Full Gio Go tests, Gio `go vet`, Linux preview build, and focused shared domain, application and Wails Go adapter tests passed. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver were not run for this milestone. |
+
 #### Remaining account capabilities by dependency
 
 | Wails type or capability | Gio gap | Stage dependency |
 | --- | --- | --- |
-| Manual valuation lifecycle | Verify settings, compatible conversion, archive and restore with recorded and missing values, ownership and archived affiliations. | Stage 3 maintenance. Stage 4 recorded value changes. |
-| Holdings lifecycle | Verify settings, compatible type edits, archive and restore with empty and populated cash/positions, history references and open managed contracts. Cash-only accounts must stay within their Holdings boundary. | Stage 3 maintenance. Stage 4 opening cash, cash reconciliation, deposits, withdrawals, FX and transfers. Stage 5 investment opening, trades, products and Portfolio. |
-| Additional create fields | Create-time icon selection, custom ownership shares, portfolio/liquidity inclusion overrides and creating an institution from the wizard. Group and optional opening date remain to be wired into the total-balance create form. Review unscoped institution suggestions and defaults against Wails. | Stage 3 account form parity. |
-| Movements on existing accounts | Debt draws and payments, card purchases and refunds, account-total reconciliation, and related History detail. | Stage 4 preview, confirmation, and ledger writes. |
+| Account creation workflow parity | Wails can create an institution inside its wizard as a separate directory write and suggests institutions by account type for unscoped creation. Gio uses the Directory to create institutions and defaults an unscoped draft to no institution. Quick total-balance creation starts without a group. Wails suggests the first active group in its wizard, as Gio does for manual valuation and Holdings. | Stage 3 workflow parity or explicit acceptance of these pilot differences. |
+| Movements on existing accounts | Recorded value changes, opening cash and later cash by currency, FX, transfers, debt draws and payments, card purchases and refunds, account-total reconciliation, and related History detail. | Stage 4 preview, confirmation, and ledger writes. |
+| Positions and products | Investment opening, trades, grouped products and Portfolio workflows for Holdings. | Stage 5. |
 | Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
 
-Stage 3 closes once maintenance and remaining form fields cover the applicable
-Catalog modes, the production startup journey is verified with disposable
+Stage 3 closes once the explicit account creation workflow differences are
+resolved or accepted, the production startup journey is verified with disposable
 ledgers, and the target-platform restart, blocked-state, ownership and Wails
 parity checks are recorded. Stage 4 and 5 actions keep their own acceptance gates.
 

@@ -75,6 +75,7 @@ const (
 	AccountCreateShellTitle
 	AccountCreateShellHelp
 	AccountTrackingMethod
+	AccountTrackingBalance
 	AccountTrackingManual
 	AccountTrackingHoldings
 	AccountTrackingCashOnly

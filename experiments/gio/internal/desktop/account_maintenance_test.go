@@ -38,8 +38,10 @@ func (s *bankMaintenanceFault) ListAccounts(ctx context.Context, filter domain.A
 
 func (s *bankMaintenanceFault) UpdateAccount(ctx context.Context, id domain.AccountID, input application.AccountInput) (domain.AccountRecord, error) {
 	s.updates.Add(1)
-	close(s.started)
-	<-s.release
+	if s.started != nil {
+		close(s.started)
+		<-s.release
+	}
 	record, err := s.Service.UpdateAccount(ctx, id, input)
 	if err == nil {
 		s.failDetail.Store(true)
@@ -400,11 +402,16 @@ func TestBankMaintenanceRejectsStaleAffiliationWithoutADifferentWrite(t *testing
 		t.Fatalf("Wails did not enforce the open contract guard: %v", wailsErr)
 	}
 	show(holdingAccount.Account.ID)
-	assertPageLabel(t, &h.router, "Maintenance covers accounts tracked as one total balance.")
-	if findPageLabel(&h.router, "Account settings") != nil || findPageLabel(&h.router, "Archive account") != nil {
-		t.Fatal("out-of-scope account offered maintenance")
-	}
-	if readBankRecord(t, gio, holdingAccount.Account.ID).Account.ArchivedAt != nil {
-		t.Fatal("managed account was archived")
+	assertPageLabel(t, &h.router, "Account settings")
+	beforeBlockedArchive := readBankRecord(t, gio, holdingAccount.Account.ID)
+	beforeBlockedActivity := openingActivity(t, gio, holdingAccount.Account.ID)
+	h.click("Archive account", false)
+	h.frame()
+	h.click("Archive account", false)
+	finish()
+	assertPageLabel(t, &h.router, "Accounts with open managed contracts cannot be archived.")
+	if !reflect.DeepEqual(readBankRecord(t, gio, holdingAccount.Account.ID), beforeBlockedArchive) ||
+		!reflect.DeepEqual(openingActivity(t, gio, holdingAccount.Account.ID), beforeBlockedActivity) {
+		t.Fatal("blocked archive changed the managed account or history")
 	}
 }

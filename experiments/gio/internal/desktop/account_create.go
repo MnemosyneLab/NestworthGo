@@ -9,7 +9,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gioui.org/layout"
 	"gioui.org/widget"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -41,6 +40,7 @@ type balanceAccountReview struct {
 }
 
 type balanceAccountDraft struct {
+	accountOwnershipDraft
 	kind                         domain.AccountType
 	role                         domain.BalanceSheetRole
 	mode                         domain.TrackingMode
@@ -49,20 +49,19 @@ type balanceAccountDraft struct {
 	institutions                 []domain.Institution
 	groups                       []domain.Group
 	group                        string
+	icon                         string
 	openedOn                     string
 	openingDates                 ui.DateOptions
 	showOpeningOptions           bool
 	available                    bool
 	members                      []domain.Member
-	owners                       []domain.MemberID
-	ownerButtons                 map[domain.MemberID]*widget.Clickable
-	ownerList                    widget.List
 	name, opening                ui.TextField
 	currency                     domain.CurrencyCode
 	currencySelect, typeSelect   ui.Select
 	modeSelect, groupSelect      ui.Select
 	datePicker                   ui.DatePicker
 	institutionSelect            ui.Select
+	iconPicker                   ui.Select
 	included                     bool
 	include, next, cancel, retry widget.Clickable
 	options                      widget.Clickable
@@ -138,9 +137,8 @@ func (p *accountsPage) startAccount(kind domain.AccountType, role domain.Balance
 	p.creation.draft = &balanceAccountDraft{
 		kind: kind, role: role, mode: mode, scoped: institution.ID != "", institution: institution,
 		name: ui.NewTextField(true), opening: ui.NewTextField(true),
-		included:     domain.SuggestedInclusion(kind, mode).IncludeInNetWorth,
-		ownerButtons: make(map[domain.MemberID]*widget.Clickable),
-		ownerList:    widget.List{List: layout.List{Axis: layout.Vertical}}, focusName: true,
+		included:              domain.SuggestedInclusion(kind, mode).IncludeInNetWorth,
+		accountOwnershipDraft: newAccountOwnershipDraft(), focusName: true,
 	}
 	p.loadAccountCreationReferences()
 }
@@ -152,13 +150,12 @@ func (p *accountsPage) loadAccountCreationReferences() {
 		return
 	}
 	ctx, cancel := context.WithCancel(p.ctx)
-	readOpening := d.shell()
 	results := make(chan accountCreateSource, 1)
 	d.refs, d.cancelRefs, d.loadFailed = results, cancel, false
 	p.workers.Go(func() {
 		core, err := f.service.Bootstrap(ctx)
 		source := accountCreateSource{bootstrap: core, err: err}
-		if err == nil && readOpening && core.Household != nil {
+		if err == nil && core.Household != nil {
 			origin, err := f.service.HistoryOrigin(ctx)
 			source.err = err
 			if err == nil && origin != nil {
@@ -360,9 +357,10 @@ func (f *balanceAccountCreation) prepareReview() {
 		}
 		amount = money.CanonicalAmount()
 	}
-	owners, err := domain.EqualOwnership(d.owners)
-	if err != nil {
-		d.problem = i18n.AccountCreateOwnersRequired
+	owners, issue := d.ownership()
+	if issue != i18n.NoMessage {
+		d.problem = issue
+		d.showOpeningOptions = issue == i18n.AccountMaintenanceSharesInvalid
 		return
 	}
 	defaults := domain.SuggestedInclusion(d.kind, d.mode)
@@ -372,7 +370,8 @@ func (f *balanceAccountCreation) prepareReview() {
 			Name: name, AccountType: d.kind.String(), BalanceSheetRole: d.role.String(), TrackingMode: string(d.mode),
 			InstitutionID: d.institution.ID.String(), InstitutionIDSet: d.institution.ID != "",
 			GroupID: d.group, GroupIDSet: d.group != "", OpenedOn: openedOn, OpenedOnSet: openedOn != nil,
-			DefaultCurrency: currency.String(), OwnerIDs: slices.Clone(d.owners), InitialAmount: amount,
+			DefaultCurrency: currency.String(), Ownership: owners.Shares(), InitialAmount: amount,
+			IconKey: d.icon, IconKeySet: d.icon != "",
 			IncludeInNetWorth: d.included, IncludeInNetWorthSet: true,
 			IncludeInPortfolio: defaults.IncludeInPortfolio, IncludeInPortfolioSet: true,
 			IncludeInLiquidAssets: defaults.IncludeInLiquidAssets, IncludeInLiquidAssetsSet: true,

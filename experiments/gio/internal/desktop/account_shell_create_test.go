@@ -89,7 +89,7 @@ func TestValuedAndHoldingsCreationThroughInstitution(t *testing.T) {
 			if d.openingDates.Min != "2026-11-01" || d.openingDates.Max != "2026-11-22" {
 				t.Fatalf("date window did not use the History timezone: %+v", d.openingDates)
 			}
-			h.click("Group and opening date", false)
+			h.click("More account details", false)
 			h.frame()
 			h.click("Group", true)
 			h.router.Queue(key.EditEvent{Text: "Long-term"})
@@ -291,5 +291,89 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 		len(value.MissingInputs) != 1 || value.MissingInputs[0].Kind != domain.MissingAccountValue ||
 		liabilityTextAppears(h.router.AppendSemantics(nil), "AUD · A$ 0.00") {
 		t.Fatalf("missing valuation appears as recorded zero: %+v", value)
+	}
+}
+
+func TestBalanceCreationOptionalFieldsMatchWails(t *testing.T) {
+	ctx := t.Context()
+	root := createFixtureRoot(t)
+	seed, prepared := openBankFixture(t, root)
+	core, err := seed.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	member := core.Members[0].ID
+	partner, err := seed.CreateMember(ctx, "Partner Sample")
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := seed.CreateGroup(ctx, "New accounts sample group")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prepared.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reference, _ := openBankFixture(t, copyBankProfile(t, root))
+	service, _ := openBankFixture(t, root)
+	fault := &accountCreationTestService{Service: service}
+	inst := core.Institutions[0].ID
+	p, h, finish := accountShellHarness(t, fault, fault, inst)
+	h.click("Add bank account", false)
+	finish()
+	d := p.creation.draft
+	setBankField(h, "Account name", &d.name, "Synthetic account options")
+	h.click("More account details", false)
+	h.frame()
+	choose := func(field, search, label string) {
+		t.Helper()
+		h.click(field, true)
+		h.router.Queue(key.EditEvent{Text: search})
+		h.frame()
+		h.click(label, false)
+		h.frame()
+	}
+	choose("Group", "New accounts", group.Name)
+	h.click("Opening date", true)
+	h.press(key.NameLeftArrow)
+	h.press(key.NameReturn)
+	choose("Icon", "Vault", "Vault")
+	h.click("Sample member", false)
+	h.click("Partner Sample", false)
+	h.click("Equal shares", false)
+	setBankField(h, "Share for Sample member (%)", &d.owner(member).percent, "75.25")
+	reviewBankAccount(h)
+	assertPageLabel(t, &h.router, "Enter positive owner shares totaling exactly 100%, with up to two decimals.")
+	if fault.writes.Load() != 0 {
+		t.Fatal("invalid create allocation called the writer")
+	}
+	setBankField(h, "Share for Partner Sample (%)", &d.owner(partner.ID).percent, "24.75")
+	reviewBankAccount(h)
+	assertPageLabel(t, &h.router, "Review bank account")
+	for _, text := range []string{"Icon · Vault", "Group · " + group.Name, "Sample member · 75.25%"} {
+		if !liabilityTextAppears(h.router.AppendSemantics(nil), text) {
+			t.Fatalf("review omitted %s", text)
+		}
+	}
+	h.click("Create bank account", false)
+	finish()
+	assertPageLabel(t, &h.router, "Bank account created.")
+	actual := readBankRecord(t, service, p.target.account)
+	institutionID, groupID, icon, day := inst.String(), group.ID.String(), "vault", "2026-11-21"
+	want, err := account.NewService(reference).CreateAccount(ctx, account.CreateAccountRequest{
+		Name: "Synthetic account options", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "USD", InstitutionID: &institutionID, GroupID: &groupID, IconKey: &icon, OpenedOn: &day,
+		InitialAmount: "0", IncludeInNetWorth: true, IncludeInLiquidAssets: true,
+		Ownership: []wire.OwnershipShareDTO{{MemberID: member.String(), ShareBPS: 7525}, {MemberID: partner.ID.String(), ShareBPS: 2475}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = wire.FromAccountRecord(readBankRecord(t, reference, domain.AccountID(want.Account.ID)))
+	got := wire.FromAccountRecord(actual)
+	got.Account.ID, got.LatestValue.ID, got.LatestValue.AccountID = "", "", ""
+	want.Account.ID, want.LatestValue.ID, want.LatestValue.AccountID = "", "", ""
+	if fault.writes.Load() != 1 || !reflect.DeepEqual(got, want) {
+		t.Fatalf("Gio options do not match Wails: %+v, want %+v", got, want)
 	}
 }

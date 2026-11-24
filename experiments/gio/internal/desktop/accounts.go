@@ -105,7 +105,7 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 	for _, member := range members {
 		result.members[member.ID] = member
 	}
-	if records[0].Account.GroupID != nil || balanceAccountSupported(records[0].Account) {
+	if records[0].Account.GroupID != nil || accountMaintenanceSupported(records[0].Account) {
 		groups, err := service.ListGroups(ctx, true)
 		if err != nil {
 			result.err = err

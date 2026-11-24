@@ -7,7 +7,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"gioui.org/layout"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -17,28 +16,21 @@ import (
 	"github.com/waltwang/nestworth-go/internal/format"
 )
 
-type balanceAccountMaintainer interface {
+type accountMaintainer interface {
 	UpdateAccount(context.Context, domain.AccountID, application.AccountInput) (domain.AccountRecord, error)
 	ArchiveAccount(context.Context, domain.AccountID, bool) error
 }
 
-type accountOwnerChoice struct {
-	selected widget.Clickable
-	percent  ui.TextField
-}
-
 type accountSettingsDraft struct {
+	accountOwnershipDraft
 	record                                     domain.AccountRecord
 	kind                                       domain.AccountType
 	name                                       ui.TextField
 	institution, group, icon                   string
-	included, custom, focusName                bool
-	owners                                     []domain.MemberID
-	ownerControls                              map[domain.MemberID]*accountOwnerChoice
-	ownerList                                  widget.List
+	included, focusName                        bool
 	institutionPicker, groupPicker, iconPicker ui.Select
 	typePicker                                 ui.Select
-	include, shares, save, cancel              widget.Clickable
+	include, save, cancel                      widget.Clickable
 }
 
 type accountArchiveReview struct {
@@ -53,7 +45,7 @@ type accountMaintenanceResult struct {
 }
 
 type accountMaintenance struct {
-	service        balanceAccountMaintainer
+	service        accountMaintainer
 	draft          *accountSettingsDraft
 	review         *accountArchiveReview
 	pending        <-chan accountMaintenanceResult
@@ -62,12 +54,19 @@ type accountMaintenance struct {
 	success, issue i18n.MessageID
 }
 
-func balanceAccountSupported(account domain.Account) bool {
-	return compatibleBalanceType(account, account.AccountType)
+func accountMaintenanceSupported(account domain.Account) bool {
+	return domain.IsValidAccountCombination(account.AccountType, account.BalanceSheetRole, account.TrackingMode)
 }
 
-func compatibleBalanceType(account domain.Account, kind domain.AccountType) bool {
-	return account.TrackingMode == domain.TrackingBalance && domain.IsValidAccountCombination(kind, account.BalanceSheetRole, account.TrackingMode)
+func compatibleAccountType(account domain.Account, kind domain.AccountType) bool {
+	if account.TrackingMode == domain.TrackingHoldings && (kind == domain.TypeCashOnHand) != (account.AccountType == domain.TypeCashOnHand) {
+		return false
+	}
+	return domain.IsValidAccountCombination(kind, account.BalanceSheetRole, account.TrackingMode)
+}
+
+func canEditAccount(record domain.AccountRecord) bool {
+	return record.Account.ArchivedAt == nil && (record.LatestValue != nil || record.Account.TrackingMode == domain.TrackingHoldings)
 }
 
 func (p *accountsPage) freshDetail() *accountRow {
@@ -89,8 +88,7 @@ func (m *accountMaintenance) startEdit(record domain.AccountRecord) {
 	d := &accountSettingsDraft{
 		record: record, kind: a.AccountType, name: ui.NewTextField(true), focusName: true, institution: refValue(a.InstitutionID),
 		group: refValue(a.GroupID), icon: refValue(a.IconKey), included: a.IncludeInNetWorth,
-		ownerControls: make(map[domain.MemberID]*accountOwnerChoice),
-		ownerList:     widget.List{List: layout.List{Axis: layout.Vertical}},
+		accountOwnershipDraft: newAccountOwnershipDraft(),
 	}
 	d.name.Editor.SetText(a.Name)
 	shares := record.Ownership.Shares()
@@ -103,18 +101,9 @@ func (m *accountMaintenance) startEdit(record domain.AccountRecord) {
 	m.draft, m.issue, m.success = d, i18n.NoMessage, i18n.NoMessage
 }
 
-func (d *accountSettingsDraft) owner(id domain.MemberID) *accountOwnerChoice {
-	option := d.ownerControls[id]
-	if option == nil {
-		option = &accountOwnerChoice{percent: ui.NewTextField(true)}
-		d.ownerControls[id] = option
-	}
-	return option
-}
-
 func (d *accountSettingsDraft) input() (application.AccountInput, i18n.MessageID) {
 	a := d.record.Account
-	if !compatibleBalanceType(a, d.kind) {
+	if !compatibleAccountType(a, d.kind) {
 		return application.AccountInput{}, i18n.AccountTypeIncompatible
 	}
 	name := strings.TrimSpace(d.name.Text())
@@ -126,26 +115,9 @@ func (d *accountSettingsDraft) input() (application.AccountInput, i18n.MessageID
 		d.focusName = true
 		return application.AccountInput{}, i18n.AccountCreateNameTooLong
 	}
-	if len(d.owners) == 0 {
-		return application.AccountInput{}, i18n.AccountCreateOwnersRequired
-	}
-	var ownership domain.Ownership
-	var err error
-	if !d.custom {
-		ownership, err = domain.EqualOwnership(d.owners)
-	} else {
-		shares := make([]domain.OwnershipShare, 0, len(d.owners))
-		for _, id := range d.owners {
-			bps, err := domain.PercentToBasisPoints(d.owner(id).percent.Text())
-			if err != nil {
-				return application.AccountInput{}, i18n.AccountMaintenanceSharesInvalid
-			}
-			shares = append(shares, domain.OwnershipShare{MemberID: id, ShareBPS: bps})
-		}
-		ownership, err = domain.ParseOwnership(shares)
-	}
-	if err != nil {
-		return application.AccountInput{}, i18n.AccountMaintenanceSharesInvalid
+	ownership, issue := d.ownership()
+	if issue != i18n.NoMessage {
+		return application.AccountInput{}, issue
 	}
 	input := application.AccountInput{
 		InstitutionID: d.institution, InstitutionIDSet: d.institution != refValue(a.InstitutionID),
@@ -192,7 +164,7 @@ func (p *accountsPage) writeAccountMaintenance(id domain.AccountID, archive *boo
 	if err != nil {
 		return accountMaintenanceResult{err: err}
 	}
-	if len(records) != 1 || records[0].Account.ID != id || !balanceAccountSupported(records[0].Account) {
+	if len(records) != 1 || records[0].Account.ID != id || !accountMaintenanceSupported(records[0].Account) {
 		return accountMaintenanceResult{message: i18n.AccountMaintenanceChanged}
 	}
 	record := records[0]
@@ -207,10 +179,10 @@ func (p *accountsPage) writeAccountMaintenance(id domain.AccountID, archive *boo
 		}
 		return accountMaintenanceResult{message: message, err: err}
 	}
-	if archived || record.LatestValue == nil {
+	if !canEditAccount(record) {
 		return accountMaintenanceResult{message: i18n.AccountMaintenanceChanged}
 	}
-	if input.AccountType != "" && !compatibleBalanceType(record.Account, domain.AccountType(input.AccountType)) {
+	if input.AccountType != "" && !compatibleAccountType(record.Account, domain.AccountType(input.AccountType)) {
 		return accountMaintenanceResult{message: i18n.AccountTypeIncompatible}
 	}
 	if input.AccountType != "" || input.Name != "" || input.InstitutionIDSet || input.GroupIDSet || input.IconKeySet || input.IncludeInNetWorthSet || input.Ownership != nil {
@@ -293,7 +265,7 @@ func (p *accountsPage) refreshAccountSettings() {
 		return
 	}
 	row := p.freshDetail()
-	if row == nil || !balanceAccountSupported(row.record.Account) || row.record.Account.ArchivedAt != nil || row.record.LatestValue == nil {
+	if row == nil || !accountMaintenanceSupported(row.record.Account) || !canEditAccount(row.record) {
 		m.draft, m.issue = nil, i18n.AccountMaintenanceChanged
 		return
 	}

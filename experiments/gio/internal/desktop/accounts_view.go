@@ -169,11 +169,11 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		}
 		if row := p.freshDetail(); row != nil {
 			switch {
-			case !balanceAccountSupported(row.record.Account):
+			case !accountMaintenanceSupported(row.record.Account):
 				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountMaintenanceUnsupported), view.Colors.SecondaryInk)))
 			case row.record.Account.ArchivedAt != nil:
 				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountMaintenanceReadOnly), view.Colors.SecondaryInk)))
-			case row.record.LatestValue == nil:
+			case !canEditAccount(row.record):
 				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountMaintenanceNoBalance), view.Colors.SecondaryInk)))
 			}
 		}
@@ -397,14 +397,11 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			return layout.UniformInset(14).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(7)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if !balanceAccountSupported(a) {
-							return accountTitle(gtx, view, a)
-						}
 						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								side := gtx.Dp(24)
 								gtx.Constraints = layout.Exact(image.Pt(side, side))
-								return balanceAccountGlyph(a, p.current.institutions).Layout(gtx, view.Colors.Accent)
+								return accountGlyph(a, p.current.institutions).Layout(gtx, view.Colors.Accent)
 							}),
 							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, a) }),
 						)
