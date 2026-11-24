@@ -207,6 +207,13 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		if s.accounts.pollInlineInstitution() && s.directory != nil {
+			for _, list := range s.directory.lists {
+				if list.isInstitutions() {
+					list.refreshExternal = true
+				}
+			}
+		}
 		if s.accounts.pollAccountMaintenance() && s.overviewPage != nil {
 			s.overviewPage.needsRefresh = true
 		}
@@ -236,7 +243,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.accountMaintenanceBlocking() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -295,6 +302,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 
 func (s *shell) confirmingAccountCreation() bool {
 	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
+}
+
+func (s *shell) savingAccountInstitution() bool {
+	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation.creatingInstitution()
 }
 
 func (s *shell) accountMaintenanceBlocking() bool {

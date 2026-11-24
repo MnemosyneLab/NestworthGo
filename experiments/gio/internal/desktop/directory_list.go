@@ -84,6 +84,7 @@ type directoryList struct {
 	focusRow        directoryFocus
 	focusAdd        bool
 	archiveTarget   *directoryRow
+	refreshExternal bool
 	confirmation    ui.Confirmation
 	openObject      func(directoryRef, string, event.Tag)
 	restoreVisit    *directoryListVisit
@@ -189,7 +190,8 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	p.applyVisit()
 	controlsEnabled := !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && gtx.Enabled()
 	switch {
-	case !p.started, controlsEnabled && p.refresh.Clicked(gtx):
+	case !p.started, controlsEnabled && (p.refreshExternal || p.refresh.Clicked(gtx)):
+		p.refreshExternal = false
 		p.start(directoryChange{})
 	case controlsEnabled && p.archiveFilter.Clicked(gtx):
 		p.setArchiveScope(!p.includeArchived)

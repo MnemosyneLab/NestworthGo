@@ -245,15 +245,15 @@ func TestBankAccountCreateMatchesWailsAndRefreshesWithoutReplayingWrite(t *testi
 	label("Fixture bank savings")
 	label("USD · $ 123.45")
 	label("AUD · A$ 185.18")
-	label("Group · No group")
+	label("Group · Default group")
 	if fault.writes.Load() != 1 {
 		t.Fatal("read retry wrote again")
 	}
 
-	inst := ids.pacific.String()
+	inst, group := ids.pacific.String(), fixtureDefaultAccountGroup(t, wails)
 	want, err := account.NewService(wails).CreateAccount(ctx, account.CreateAccountRequest{
 		Name: "Fixture bank savings", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
-		DefaultCurrency: "USD", InstitutionID: &inst, InitialAmount: "123.45", IncludeInNetWorth: true, IncludeInLiquidAssets: true,
+		DefaultCurrency: "USD", InstitutionID: &inst, GroupID: &group, InitialAmount: "123.45", IncludeInNetWorth: true, IncludeInLiquidAssets: true,
 		Ownership: []wire.OwnershipShareDTO{{MemberID: d.owners[0].String(), ShareBPS: 5000}, {MemberID: d.owners[1].String(), ShareBPS: 5000}},
 	})
 	if err != nil {
@@ -375,4 +375,14 @@ func TestBankAccountRevalidatesArchivedReferencesAtConfirmation(t *testing.T) {
 	}) {
 		t.Fatalf("invalid reference wrote an account: %v", err)
 	}
+}
+
+// The existing creation fixtures have one active group.
+func fixtureDefaultAccountGroup(t *testing.T, service *application.Service) string {
+	t.Helper()
+	groups, err := service.ListGroups(t.Context(), false)
+	if err != nil || len(groups) != 1 || groups[0].Name != "Default group" {
+		t.Fatalf("fixture default group: %+v, %v", groups, err)
+	}
+	return groups[0].ID.String()
 }

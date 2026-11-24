@@ -125,6 +125,8 @@ const (
 	AccountCreateSaving
 	AccountCreateSucceeded
 	AccountCreateInstitutionUnavailable
+	AccountCreateInstitutionSeparate
+	AccountCreateInstitutionSaved
 	AccountCreateReferencesLoading
 	AccountCreateReferencesFailed
 	AccountCreateWriteFailed

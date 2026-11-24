@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -29,6 +30,9 @@ var supportedCurrencyChoices = func() []ui.Choice {
 func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) layout.Dimensions {
 	f, l := p.creation, view.Language
 	d := f.draft
+	if d.newInstitution != nil {
+		return p.layoutInlineInstitution(gtx, view)
+	}
 	if d.cancel.Clicked(gtx) {
 		f.discard()
 		p.read()
@@ -78,10 +82,15 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 			return d.layoutFields(gtx, view, origin)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if !ready || d.problem == i18n.NoMessage {
-				return layout.Dimensions{}
+			var lines []layout.FlexChild
+			if d.savedInstitution != "" {
+				label := fmt.Sprintf(l.Text(i18n.AccountCreateInstitutionSaved), d.savedInstitution)
+				lines = append(lines, layout.Rigid(view.Message(label, view.Colors.SecondaryInk)))
 			}
-			return view.Message(l.Text(d.problem), view.Colors.ErrorInk)(gtx)
+			if !ready || d.problem == i18n.NoMessage {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx, append(lines, layout.Rigid(view.Message(l.Text(d.problem), view.Colors.ErrorInk)))...)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel)))}
@@ -155,6 +164,19 @@ func (d *balanceAccountDraft) layoutFields(gtx layout.Context, view ui.View, ori
 			if !d.scoped || d.shell() {
 				fields = append(fields, layout.Rigid(d.inclusion(view)))
 			}
+			if !d.scoped {
+				fields = append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if d.focusAddInstitution && gtx.Enabled() {
+						gtx.Execute(key.FocusCmd{Tag: &d.addInstitution})
+						d.focusAddInstitution = false
+					}
+					if d.addInstitution.Clicked(gtx) {
+						d.startInstitution()
+						gtx.Execute(op.InvalidateCmd{})
+					}
+					return view.Button(&d.addInstitution, l.Text(i18n.InstitutionsAdd))(gtx)
+				}))
+			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, fields...)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -227,10 +249,16 @@ func (d *balanceAccountDraft) directoryFields(view ui.View, origin image.Point) 
 		typeLabel = i18n.AccountCreateLiabilityType
 	}
 	institutions := []ui.Choice{{Label: l.Text(i18n.AccountNoInstitution)}}
+	var others []ui.Choice
 	for _, item := range d.institutions {
-		institutions = append(institutions, ui.Choice{ID: item.ID.String(), Label: item.Name})
+		choice := ui.Choice{ID: item.ID.String(), Label: item.Name, SearchText: l.Text(institutionTypeLabel(item.InstitutionType))}
+		if slices.Contains(accountInstitutionTypes[d.kind], item.InstitutionType) {
+			institutions = append(institutions, choice)
+		} else {
+			others = append(others, choice)
+		}
 	}
-	slices.SortFunc(institutions[1:], func(a, b ui.Choice) int { return cmp.Or(cmp.Compare(a.Label, b.Label), cmp.Compare(a.ID, b.ID)) })
+	institutions = append(institutions, others...)
 	institutionOptions := ui.SelectOptions{Items: institutions, Searchable: true}
 	if d.institution.ID != "" && d.institutionIndex() < 0 {
 		institutionOptions.ValueLabel = d.institution.Name + " · " + l.Text(i18n.AccountReferenceUnavailable)
@@ -251,12 +279,7 @@ func (d *balanceAccountDraft) directoryFields(view ui.View, origin image.Point) 
 	}
 	fields = append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		d.typeSelect.Layout(gtx, view, ui.PickerField{Label: typeLabel, Origin: origin, Disabled: !gtx.Enabled()},
-			ui.SelectOptions{Items: accountTypeChoices(l, d.role, d.mode)}, d.kind.String(), func(value string) {
-				d.kind = domain.AccountType(value)
-				if d.shell() {
-					d.included = domain.SuggestedInclusion(d.kind, d.mode).IncludeInNetWorth
-				}
-			})
+			ui.SelectOptions{Items: accountTypeChoices(l, d.role, d.mode)}, d.kind.String(), func(value string) { d.selectType(domain.AccountType(value)) })
 		origin.Y += gtx.Dp(66)
 		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 	}))
@@ -265,18 +288,7 @@ func (d *balanceAccountDraft) directoryFields(view ui.View, origin image.Point) 
 	}
 	return append(fields, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		field := ui.PickerField{Label: i18n.AccountMaintenanceInstitution, Origin: origin, Disabled: !gtx.Enabled()}
-		d.institutionSelect.Layout(gtx, view, field, institutionOptions, d.institution.ID.String(), func(value string) {
-			d.institution = domain.Institution{}
-			for _, item := range d.institutions {
-				if item.ID.String() == value {
-					d.institution = item
-					break
-				}
-			}
-			if d.problem == i18n.AccountCreateChooseInstitution {
-				d.problem = i18n.NoMessage
-			}
-		})
+		d.institutionSelect.Layout(gtx, view, field, institutionOptions, d.institution.ID.String(), d.chooseInstitution)
 		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 	}))
 }
@@ -294,7 +306,7 @@ func (d *balanceAccountDraft) layoutOpeningOptions(gtx layout.Context, view ui.V
 	}
 	fields := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		d.groupSelect.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceGroup, Origin: origin, Disabled: !gtx.Enabled()}, choices, d.group, func(id string) {
-			d.group = id
+			d.group, d.groupExplicit = id, true
 			if d.problem == i18n.AccountCreateGroupUnavailable {
 				d.problem = i18n.NoMessage
 			}

@@ -27,6 +27,7 @@ func TestRemainingBalanceTypesMatchWails(t *testing.T) {
 	service, session := openBankFixture(t, root)
 	reference, _ := openBankFixture(t, copyBankProfile(t, root))
 	wails := account.NewService(reference)
+	group := fixtureDefaultAccountGroup(t, reference)
 	var accepted []domain.AccountRecord
 	for _, tc := range []struct {
 		name, label, initial string
@@ -58,8 +59,8 @@ func TestRemainingBalanceTypesMatchWails(t *testing.T) {
 			h.click("Add "+mode+" account", false)
 			finish()
 			d := p.creation.draft
-			if d == nil || d.role != tc.role || len(d.owners) != 1 || d.institution.ID != "" {
-				t.Fatal("expected role, one owner and no institution in the new draft")
+			if d == nil || d.role != tc.role || len(d.owners) != 1 {
+				t.Fatal("expected role and one owner in the new draft")
 			}
 			if tc.kind == domain.TypeCashOnHand {
 				setBankField(h, "Account name", &d.name, "Blocked creation")
@@ -92,9 +93,17 @@ func TestRemainingBalanceTypesMatchWails(t *testing.T) {
 			if amount == "" {
 				amount = "0"
 			}
+			var institution *string
+			if tc.kind == domain.TypeDigitalWallet {
+				if d.institution.Name != "Harbor Sample Bank" {
+					t.Fatal("wallet did not select the suggested bank")
+				}
+				id := d.institution.ID.String()
+				institution = &id
+			}
 			want, err := wails.CreateAccount(ctx, account.CreateAccountRequest{
 				Name: tc.name, AccountType: tc.kind.String(), BalanceSheetRole: tc.role.String(), TrackingMode: "balance",
-				DefaultCurrency: "USD", InitialAmount: amount, IncludeInNetWorth: true, IncludeInLiquidAssets: tc.liquid,
+				DefaultCurrency: "USD", InstitutionID: institution, GroupID: &group, InitialAmount: amount, IncludeInNetWorth: true, IncludeInLiquidAssets: tc.liquid,
 				Ownership: []wire.OwnershipShareDTO{{MemberID: d.owners[0].String(), ShareBPS: 10000}},
 			})
 			if err != nil {

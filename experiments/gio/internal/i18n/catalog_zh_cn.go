@@ -347,6 +347,8 @@ var simplifiedChineseCatalog = catalog{
 	AccountCreateSaving:                 "正在创建银行账户…",
 	AccountCreateSucceeded:              "已创建银行账户。",
 	AccountCreateInstitutionUnavailable: "此机构已不可用于创建账户。",
+	AccountCreateInstitutionSeparate:    "机构会单独保存。取消创建账户后，机构仍保留在名录中。",
+	AccountCreateInstitutionSaved:       "已保存机构 %s。取消创建账户后，机构仍保留在名录中。",
 	AccountCreateReferencesLoading:      "正在加载现用拥有者和机构…",
 	AccountCreateReferencesFailed:       "无法加载拥有者和机构。",
 	AccountCreateWriteFailed:            "无法创建银行账户。",

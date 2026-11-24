@@ -347,6 +347,8 @@ var englishCatalog = catalog{
 	AccountCreateSaving:                 "Creating bank account…",
 	AccountCreateSucceeded:              "Bank account created.",
 	AccountCreateInstitutionUnavailable: "This institution is no longer active.",
+	AccountCreateInstitutionSeparate:    "The institution is saved separately and stays in Directory if you cancel the account.",
+	AccountCreateInstitutionSaved:       "Institution saved: %s. It stays in Directory if you cancel the account.",
 	AccountCreateReferencesLoading:      "Loading active owners and institution…",
 	AccountCreateReferencesFailed:       "Could not load the owners and institution.",
 	AccountCreateWriteFailed:            "Could not create the bank account.",

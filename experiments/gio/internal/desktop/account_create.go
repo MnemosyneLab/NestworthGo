@@ -20,6 +20,7 @@ type accountCreator interface {
 	Bootstrap(context.Context) (application.Bootstrap, error)
 	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	CreateAccount(context.Context, application.AccountInput) (domain.AccountRecord, error)
+	CreateInstitution(context.Context, string, domain.InstitutionType, ...string) (domain.Institution, error)
 }
 
 type accountCreateSource struct {
@@ -46,9 +47,11 @@ type balanceAccountDraft struct {
 	mode                         domain.TrackingMode
 	scoped                       bool
 	institution                  domain.Institution
+	institutionExplicit          bool
 	institutions                 []domain.Institution
 	groups                       []domain.Group
 	group                        string
+	groupExplicit                bool
 	icon                         string
 	openedOn                     string
 	openingDates                 ui.DateOptions
@@ -65,6 +68,10 @@ type balanceAccountDraft struct {
 	included                     bool
 	include, next, cancel, retry widget.Clickable
 	options                      widget.Clickable
+	addInstitution               widget.Clickable
+	focusAddInstitution          bool
+	newInstitution               *accountInstitutionDraft
+	savedInstitution             string
 	problem                      i18n.MessageID
 	loadFailed                   bool
 	loadedOnce                   bool
@@ -87,11 +94,19 @@ func (d *balanceAccountDraft) selectMode(mode domain.TrackingMode) {
 	}
 	d.mode = mode
 	if !domain.IsValidAccountCombination(d.kind, d.role, mode) {
-		d.kind = domain.TypeBrokerage
+		d.selectType(domain.TypeBrokerage)
 	}
 	d.opening.Editor.SetText("")
 	d.included = domain.SuggestedInclusion(d.kind, mode).IncludeInNetWorth
 	d.problem = i18n.NoMessage
+}
+
+func (d *balanceAccountDraft) selectType(kind domain.AccountType) {
+	d.kind = kind
+	d.applyInstitutionDefault()
+	if d.shell() {
+		d.included = domain.SuggestedInclusion(kind, d.mode).IncludeInNetWorth
+	}
 }
 
 // Account creation is transient. Navigation retains the scoped browser and
@@ -184,6 +199,19 @@ func (d *balanceAccountDraft) applyReferences(source accountCreateSource) {
 	d.openingDates = source.opening
 	d.groups = slices.DeleteFunc(slices.Clone(core.Groups), func(group domain.Group) bool { return group.ArchivedAt != nil })
 	d.institutions = slices.DeleteFunc(slices.Clone(core.Institutions), func(item domain.Institution) bool { return item.ArchivedAt != nil })
+	slices.SortFunc(d.institutions, func(a, b domain.Institution) int {
+		return cmp.Or(cmp.Compare(a.SortOrder, b.SortOrder), cmp.Compare(a.ID, b.ID))
+	})
+	d.applyInstitutionDefault()
+	if !d.groupExplicit {
+		d.group = ""
+		if len(d.groups) != 0 {
+			first := slices.MinFunc(d.groups, func(a, b domain.Group) int {
+				return cmp.Or(cmp.Compare(a.SortOrder, b.SortOrder), cmp.Compare(a.ID, b.ID))
+			})
+			d.group = first.ID.String()
+		}
+	}
 	if core.Household != nil {
 		d.available = !d.scoped
 		if index := d.institutionIndex(); index >= 0 {
@@ -200,12 +228,6 @@ func (d *balanceAccountDraft) applyReferences(source accountCreateSource) {
 		}
 		if len(d.members) == 1 {
 			d.owners = []domain.MemberID{d.members[0].ID}
-		}
-		if d.shell() && len(d.groups) != 0 {
-			first := slices.MinFunc(d.groups, func(a, b domain.Group) int {
-				return cmp.Or(cmp.Compare(a.SortOrder, b.SortOrder), cmp.Compare(a.ID, b.ID))
-			})
-			d.group = first.ID.String()
 		}
 		d.loadedOnce = true
 	}

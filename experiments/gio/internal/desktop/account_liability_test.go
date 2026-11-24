@@ -63,8 +63,8 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 			h.click("Add liability account", false)
 			finish()
 			d := p.creation.draft
-			if d == nil || !d.available || d.kind != domain.TypeCreditCard || len(d.owners) != 1 || d.institution.ID != "" {
-				t.Fatal("the liability form did not start with the card, sole owner and optional institution")
+			if d == nil || !d.available || d.kind != domain.TypeCreditCard || len(d.owners) != 1 || d.institution.InstitutionType != domain.InstitutionBank {
+				t.Fatal("the liability form did not start with the card, sole owner and suggested bank")
 			}
 			owner := d.owners[0]
 			label("New liability account")
@@ -74,19 +74,18 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 				h.click("Loan", false)
 				h.frame()
 			}
+			pickAccountReference(h, "Institution", "No institution", "No institution")
+			if d.institution.ID != "" || !d.institutionExplicit {
+				t.Fatal("explicit no institution failed to bind")
+			}
 			if tc.linked {
-				h.click("No institution", false)
-				h.click("Filter options", true)
-				h.router.Queue(key.EditEvent{Text: "Harbor"})
-				h.frame()
-				h.click("Harbor Sample Bank", false)
-				h.frame()
-				if d.institution.ID == "" {
+				pickAccountReference(h, "Institution", "Harbor", "Harbor Sample Bank")
+				if d.institution.ID == "" || !d.institutionExplicit {
 					t.Fatal("selected bank failed to bind")
 				}
 			}
 			if d.currency.String() != tc.currency {
-				h.click(d.currency.String(), false)
+				h.click("Account currency", true)
 				for range 6 {
 					h.press(key.NameDownArrow)
 				}
@@ -147,6 +146,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 
 			wails := account.NewService(reference)
 			kind := tc.kind.String()
+			group := fixtureDefaultAccountGroup(t, reference)
 			var institution *string
 			if tc.linked {
 				value := d.institution.ID.String()
@@ -154,7 +154,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 			}
 			expected, err := wails.CreateAccount(ctx, account.CreateAccountRequest{
 				Name: tc.name, AccountType: kind, BalanceSheetRole: "liability", TrackingMode: "balance",
-				DefaultCurrency: tc.currency, InstitutionID: institution, InitialAmount: tc.opening, IncludeInNetWorth: true,
+				DefaultCurrency: tc.currency, InstitutionID: institution, GroupID: &group, InitialAmount: tc.opening, IncludeInNetWorth: true,
 				Ownership: []wire.OwnershipShareDTO{{MemberID: owner.String(), ShareBPS: domain.TotalOwnershipBPS}},
 			})
 			if err != nil {
@@ -308,10 +308,9 @@ func TestLiabilityCreationDoesNotSilentlyDropAnArchivedInstitution(t *testing.T)
 	finish()
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Synthetic revalidated liability")
-	h.click("No institution", false)
-	h.click("Harbor Sample Bank", false)
-	h.frame()
-	if d.institution.ID == "" {
+	pickAccountReference(h, "Institution", "No institution", "No institution")
+	pickAccountReference(h, "Institution", "Harbor", "Harbor Sample Bank")
+	if d.institution.ID == "" || !d.institutionExplicit {
 		t.Fatal("no institution was selected")
 	}
 	reviewBankAccount(h)
@@ -328,9 +327,7 @@ func TestLiabilityCreationDoesNotSilentlyDropAnArchivedInstitution(t *testing.T)
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("an unavailable institution wrote a liability: %+v %v", rows, err)
 	}
-	h.click("Institution", true)
-	h.click("No institution", false)
-	h.frame()
+	pickAccountReference(h, "Institution", "No institution", "No institution")
 	reviewBankAccount(h)
 	h.click("Create liability account", false)
 	finish()

@@ -347,6 +347,8 @@ var traditionalChineseCatalog = catalog{
 	AccountCreateSaving:                 "正在建立銀行帳戶…",
 	AccountCreateSucceeded:              "已建立銀行帳戶。",
 	AccountCreateInstitutionUnavailable: "此機構已無法用於建立帳戶。",
+	AccountCreateInstitutionSeparate:    "機構會個別儲存。取消建立帳戶後，機構仍保留在名錄中。",
+	AccountCreateInstitutionSaved:       "已儲存機構 %s。取消建立帳戶後，機構仍保留在名錄中。",
 	AccountCreateReferencesLoading:      "正在載入有效持有人和機構…",
 	AccountCreateReferencesFailed:       "無法載入持有人和機構。",
 	AccountCreateWriteFailed:            "無法建立銀行帳戶。",

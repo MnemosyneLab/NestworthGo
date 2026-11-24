@@ -456,19 +456,59 @@ Gio uses those defaults as well.
 | Automated checks | Full Gio Go tests, Gio `go vet`, Linux preview build, and focused shared domain, application and Wails Go adapter tests passed. |
 | Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver were not run for this milestone. |
 
+#### Account creation recommendations and inline institution milestone
+
+The [Wails account wizard](../../../frontend/src/features/accounts/AccountCreateWizard.tsx)
+supplies the preferred institution types. All account create forms default to
+the first active group by directory sort order and ID. Unscoped forms list
+matching institution types first, select the first eligible institution by
+the same order, and allow search across all active institutions by name or
+type. The unscoped draft recomputes an untouched suggestion when its account
+type changes. Gio preserves explicit institution and group choices, including
+an explicit empty choice, through reference refresh. Gio also preserves an
+explicit institution across type changes because its selectors share a form.
+Wails's separate type step resets that choice on a type change. Creation from
+an institution still keeps the originating institution fixed.
+
+Unscoped creation can save an institution using the same application service
+as the [Wails Directory adapter](../../../internal/wailsapi/directory/directory.go).
+The form starts with the first preferred institution type or Other and picks
+the default icon for that type until an icon is explicitly selected. Canceling
+the institution editor returns to the account draft. Saving the institution
+starts a separate commit, selects its stable ID and refreshes the available
+references. If the refresh fails, Retry reads references only. The saved
+notice explains that canceling the account leaves the institution in Directory.
+Canceling or failing the account write cannot roll back an earlier successful
+institution write. The directory list refreshes on its next visit.
+
+| Check | Evidence |
+| --- | --- |
+| Defaults and search | Gio frames checked property with no recommendation, brokerage across eligible bank and brokerage types, crypto exchange with competing active names and an earlier archived candidate, name filtering, and preservation of explicit choices or absence after type changes and reference refresh. Total-balance, liability and scoped bank regressions exercised the shared default group. |
+| Partial success and retry | Gio frames canceled a named institution draft and retained the account fields. A simulated institution write failure preserved name, type and icon. A pending submission suppressed duplicate writes and navigation. A known successful institution write followed by a reference failure exposed read-only Retry; canceling the account kept the institution and refreshed an already visited Directory list. A later account write failure and committed account detail read failure were exercised independently. |
+| Go adapter and persisted records | At a fixed clock, independent marked copies produced equivalent institution metadata and account association, group, ownership and opening amount through the Gio form and the Wails Directory/Account Go adapters. Reopening the same synthetic profile retained the selected IDs. Full Gio Go tests, Gio `go vet`, Linux preview build, and focused shared services and Wails Go adapter tests passed. |
+| Linux X11 | In a 900×660 Xvfb window, the liability draft suggested Harbor Sample Bank. The institution editor rejected empty and overlong names, and canceling it retained the account name and amount. Saved a synthetic exchange with the Vault icon and canceled the liability. A later crypto exchange draft recommended that saved exchange. The searchable picker found it, and review showed the default group. A normal quit and reopen retained the account and institution link. Read-only SQLite comparison found exactly one new exchange, one empty Holdings account and the same existing value, cash, holding and activity rows. A temporary overlay fixed the clock. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun for this milestone. |
+
 #### Remaining account capabilities by dependency
 
 | Wails type or capability | Gio gap | Stage dependency |
 | --- | --- | --- |
-| Account creation workflow parity | Wails can create an institution inside its wizard as a separate directory write and suggests institutions by account type for unscoped creation. Gio uses the Directory to create institutions and defaults an unscoped draft to no institution. Quick total-balance creation starts without a group. Wails suggests the first active group in its wizard, as Gio does for manual valuation and Holdings. | Stage 3 workflow parity or explicit acceptance of these pilot differences. |
 | Movements on existing accounts | Recorded value changes, opening cash and later cash by currency, FX, transfers, debt draws and payments, card purchases and refunds, account-total reconciliation, and related History detail. | Stage 4 preview, confirmation, and ledger writes. |
 | Positions and products | Investment opening, trades, grouped products and Portfolio workflows for Holdings. | Stage 5. |
 | Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
 
-Stage 3 closes once the explicit account creation workflow differences are
-resolved or accepted, the production startup journey is verified with disposable
-ledgers, and the target-platform restart, blocked-state, ownership and Wails
-parity checks are recorded. Stage 4 and 5 actions keep their own acceptance gates.
+The next Stage 3 slice is the startup recovery lifecycle using a disposable
+verified synthetic profile and a backup produced by the shared backup service.
+Exercise the [Wails startup order](../../../cmd/nestworth/main.go) against that
+fixture. Acquire the canonical ledger lock, reconcile a pending restore,
+reload the resulting preferences, then open the ledger. Verify that a second
+process is blocked through a path alias, that valid recovery opens the expected
+synthetic facts, and that an unrecoverable journal leaves the ledger closed
+and produces a blocking state. Verify that a normal shutdown releases the
+lock and a restart reads the same recovered data. This can run before enabling
+production profile selection. Stage 3 closes with the production startup
+journey and target-platform restart, blocking, ownership and Wails parity
+evidence. Stage 4 and 5 actions keep their own acceptance gates.
 
 ## Moving from the preview to a desktop build
 

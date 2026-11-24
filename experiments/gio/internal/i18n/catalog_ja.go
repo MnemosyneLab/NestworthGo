@@ -346,6 +346,8 @@ var japaneseCatalog = catalog{
 	AccountCreateSaving:                 "銀行口座を作成中…",
 	AccountCreateSucceeded:              "銀行口座を作成しました。",
 	AccountCreateInstitutionUnavailable: "この金融機関では口座を作成できなくなりました。",
+	AccountCreateInstitutionSeparate:    "金融機関は別に保存されます。口座の作成を取り消しても名簿に残ります。",
+	AccountCreateInstitutionSaved:       "%sを保存しました。口座の作成を取り消しても名簿に残ります。",
 	AccountCreateReferencesLoading:      "有効な所有者と金融機関を読み込み中…",
 	AccountCreateReferencesFailed:       "所有者と金融機関を読み込めませんでした。",
 	AccountCreateWriteFailed:            "銀行口座を作成できませんでした。",
