@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains a sample form with an institution name, multiline notes, and a search of sample institutions. The form keeps its draft and submitted examples in memory.
+This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains a sample form with text fields, search, two selects, and date and time pickers. The form keeps its draft and submitted examples in memory.
 
 The sidebar footer switches between Simplified Chinese and English, and between light and dark appearance. Labels use the message catalog in `localization.go` with an English fallback. Appearance colors come from `appearance.go`. Each preview launch starts in Simplified Chinese and light mode.
 
@@ -16,6 +16,24 @@ Use **About this form** to open a popover near the lower-right edge.
 It opens above the button when space is tight below and follows it when
 the window is resized. Escape, Tab, the Close button, and presses outside
 the panel dismiss it and return focus to the trigger.
+
+The account-type list skips disabled rows. In the institution picker, type
+to filter the long list, then use Alt+Down to move from the editor to the
+results. Arrow keys move the highlight and Return commits it. Alt+Up moves
+back to the query. Escape, Tab,
+or an outside press discards the search and preserves the selection. Tab
+continues to the next field, and Shift-Tab returns to the previous field.
+
+The calendar uses a synthetic today of February 28, 2024 and an explicit
+range from February 10, 2024 through March 3, 2025. Arrow keys move the
+highlight, Page Up and Page Down change month, and Shift with either page key
+changes year. Return selects the highlighted day. The footer changes the
+first weekday without changing the selected date.
+
+In the time picker, Left and Right switch between hours and minutes. Select
+either part to start with `00` in the other part. The footer switches between
+12- and 24-hour display. The results panel shows the canonical date and time
+and both pickers offer a clear action.
 
 ## macOS
 

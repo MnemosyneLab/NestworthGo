@@ -29,6 +29,14 @@ func TestCatalogCoverage(t *testing.T) {
 			{previewSavedName, []any{"Example Bank"}},
 			{previewSavedNotes, []any{"Sample notes"}},
 			{previewQuery, []any{"Bank"}},
+			{dateToday, []any{"Feb 28, 2024"}},
+			{timeHourDisplay, []any{12, "AM"}},
+			{timeTwelveDisplay, []any{12, 0, "AM"}},
+			{previewHarborBranch, []any{1}},
+			{previewAccountResult, []any{"Cash account"}},
+			{previewInstitutionResult, []any{"Harbor Bank"}},
+			{previewDateResult, []any{"2024-02-29"}},
+			{previewTimeResult, []any{"00:00"}},
 		} {
 			if text := fmt.Sprintf(translations[sample.id], sample.args...); strings.Contains(text, "%!") {
 				t.Errorf("%s message %d has incompatible format parameters: %q", language, sample.id, text)

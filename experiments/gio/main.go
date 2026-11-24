@@ -42,6 +42,11 @@ func (s *shell) run() error {
 		switch event := window.Event().(type) {
 		case app.DestroyEvent:
 			return event.Err
+		case app.ConfigEvent:
+			if !event.Config.Focused && s.overlay.trigger != nil {
+				s.overlay.close()
+				window.Invalidate()
+			}
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, event)
 			s.layout(gtx)

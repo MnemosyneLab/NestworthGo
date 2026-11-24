@@ -1,0 +1,290 @@
+package main
+
+import (
+	"fmt"
+	"image"
+	"time"
+
+	"gioui.org/font"
+	"gioui.org/io/key"
+	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/widget"
+)
+
+const civilLayout = "2006-01-02"
+
+func parseCivilDay(value string) (time.Time, bool) {
+	day, err := time.Parse(civilLayout, value)
+	return day, err == nil && day.Year() > 0 && day.Format(civilLayout) == value
+}
+
+type dateOptions struct {
+	today, min, max string
+	allowFuture     bool
+	clearable       bool
+	weekStart       time.Weekday
+	format          string
+}
+
+func (o dateOptions) limits() (string, string) {
+	lo, hi := "0001-01-01", "9999-12-31"
+	if _, valid := parseCivilDay(o.min); valid {
+		lo = o.min
+	}
+	if _, valid := parseCivilDay(o.max); valid {
+		hi = o.max
+	} else if !o.allowFuture {
+		if _, valid := parseCivilDay(o.today); valid {
+			hi = o.today
+		} else {
+			hi = ""
+		}
+	}
+	return lo, hi
+}
+
+func (o dateOptions) permits(day string) bool {
+	lo, hi := o.limits()
+	_, valid := parseCivilDay(day)
+	return valid && lo <= day && day <= hi
+}
+
+func (o dateOptions) start(value string) time.Time {
+	if o.permits(value) {
+		day, _ := parseCivilDay(value)
+		return day
+	}
+	lo, hi := o.limits()
+	start := lo
+	if _, valid := parseCivilDay(o.today); valid {
+		start = max(o.today, lo)
+	}
+	if hi != "" {
+		start = min(start, hi)
+	}
+	day, _ := parseCivilDay(start)
+	return day
+}
+
+func displayCivil(day time.Time, language appLanguage) string {
+	if language == simplifiedChinese {
+		return fmt.Sprintf("%d年%d月%d日", day.Year(), day.Month(), day.Day())
+	}
+	return day.Format("Jan 2, 2006")
+}
+
+func dateTriggerLabel(day time.Time, language appLanguage, format string) string {
+	switch format {
+	case "localized":
+		return displayCivil(day, language)
+	case "day-first":
+		return day.Format("02/01/2006")
+	case "month-first":
+		return day.Format("01/02/2006")
+	default:
+		return day.Format(civilLayout)
+	}
+}
+
+func monthStart(day time.Time) time.Time {
+	return time.Date(day.Year(), day.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+func leadingDays(month time.Time, weekStart time.Weekday) int {
+	return (int(month.Weekday()) - int(weekStart) + 7) % 7
+}
+
+type datePicker struct {
+	trigger widget.Clickable
+	month   time.Time
+	day     time.Time
+	cells   [42]widget.Clickable
+	moves   [4]widget.Clickable
+	clear   widget.Clickable
+}
+
+func (p *datePicker) layout(gtx layout.Context, view presentation, field pickerField, options dateOptions, value string, change func(string)) {
+	title := view.language.text(pickerEmpty)
+	invalid := value != "" && !options.permits(value)
+	if invalid {
+		title = view.language.text(pickerInvalidDate)
+	} else if value != "" {
+		day, _ := parseCivilDay(value)
+		title = dateTriggerLabel(day, view.language, options.format)
+	}
+
+	pane := popoverPane{width: 340, focus: p, body: func(gtx layout.Context) layout.Dimensions {
+		return p.popup(gtx, view, options, value, change)
+	}}
+	if pickerTrigger(gtx, view, field, &p.trigger, title, invalid, pane) {
+		p.day = options.start(value)
+		p.month = monthStart(p.day)
+	}
+}
+
+func (p *datePicker) moveDay(options dateOptions, delta int) {
+	day := p.day.AddDate(0, 0, delta)
+	if options.permits(day.Format(civilLayout)) {
+		p.day, p.month = day, monthStart(day)
+	}
+}
+
+func (p *datePicker) targetMonth(options dateOptions, delta int) (time.Time, bool) {
+	month := p.month.AddDate(0, delta, 0)
+	first, last := month.Format(civilLayout), month.AddDate(0, 1, -1).Format(civilLayout)
+	lo, hi := options.limits()
+	return month, month.Year() > 0 && month.Year() <= 9999 && first <= hi && last >= lo
+}
+
+func (p *datePicker) moveMonth(options dateOptions, delta int) {
+	if month, ok := p.targetMonth(options, delta); ok {
+		lo, hi := options.limits()
+		p.month = month
+		day, _ := parseCivilDay(min(max(month.Format(civilLayout), lo), hi))
+		p.day = day
+	}
+}
+
+func (p *datePicker) popup(gtx layout.Context, view presentation, options dateOptions, value string, change func(string)) layout.Dimensions {
+	registerPickerFocus(gtx, p)
+	choose := func(day string) {
+		if (day == "" && options.clearable) || options.permits(day) {
+			change(day)
+			view.overlay.close()
+		}
+	}
+	for _, e := range pickerKeys(gtx, p, key.NameLeftArrow, key.NameRightArrow, key.NameUpArrow, key.NameDownArrow,
+		key.NamePageUp, key.NamePageDown, key.NameReturn, key.NameEnter, key.NameSpace, key.NameDeleteBackward, key.NameDeleteForward) {
+		page := 1
+		if e.Modifiers.Contain(key.ModShift) {
+			page = 12
+		}
+		switch e.Name {
+		case key.NameLeftArrow:
+			p.moveDay(options, -1)
+		case key.NameRightArrow:
+			p.moveDay(options, 1)
+		case key.NameUpArrow:
+			p.moveDay(options, -7)
+		case key.NameDownArrow:
+			p.moveDay(options, 7)
+		case key.NamePageUp:
+			p.moveMonth(options, -page)
+		case key.NamePageDown:
+			p.moveMonth(options, page)
+		case key.NameDeleteBackward, key.NameDeleteForward:
+			choose("")
+		default:
+			choose(p.day.Format(civilLayout))
+		}
+	}
+
+	rowHeight := min(gtx.Dp(28), max(0, (gtx.Constraints.Max.Y-gtx.Dp(86))/6))
+	children := []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.caption(gtx, view, options) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return weekdayRow(gtx, view, options.weekStart) }),
+	}
+	for row := range 6 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.dayRow(gtx, view, options, value, row, rowHeight, choose)
+		}))
+	}
+	if options.clearable && value != "" {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.clear.Clicked(gtx) {
+				choose("")
+			}
+			return view.button(&p.clear, view.language.text(pickerClear))(gtx)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
+}
+
+var monthNavigation = [...]struct {
+	symbol string
+	label  messageID
+	step   int
+}{
+	{"«", datePreviousYear, -12},
+	{"‹", datePreviousMonth, -1},
+	{"›", dateNextMonth, 1},
+	{"»", dateNextYear, 12},
+}
+
+func (p *datePicker) caption(gtx layout.Context, view presentation, options dateOptions) layout.Dimensions {
+	nav := func(i int) layout.FlexChild {
+		return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			action := monthNavigation[i]
+			_, enabled := p.targetMonth(options, action.step)
+			if enabled && p.moves[i].Clicked(gtx) {
+				p.moveMonth(options, action.step)
+			}
+			gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(28), gtx.Dp(30)))
+			return choiceButton(gtx, view, &p.moves[i], action.symbol, view.language.text(action.label), enabled, false, false)
+		})
+	}
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(2)}.Layout(gtx,
+		nav(0), nav(1),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			title := p.month.Format("January 2006")
+			if view.language == simplifiedChinese {
+				title = fmt.Sprintf("%d年%d月", p.month.Year(), p.month.Month())
+			}
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.label(gtx, title, 14, font.Medium, view.colors.ink)
+			})
+		}),
+		nav(2), nav(3),
+	)
+}
+
+func weekdayRow(gtx layout.Context, view presentation, start time.Weekday) layout.Dimensions {
+	labels := [...]messageID{weekdaySunday, weekdayMonday, weekdayTuesday, weekdayWednesday, weekdayThursday, weekdayFriday, weekdaySaturday}
+	return calendarRow(gtx, gtx.Dp(20), func(gtx layout.Context, column int) layout.Dimensions {
+		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return view.label(gtx, view.language.text(labels[(int(start)+column)%7]), 12, font.Normal, view.colors.secondaryInk)
+		})
+	})
+}
+
+func (p *datePicker) dayRow(gtx layout.Context, view presentation, options dateOptions, value string, row, height int, choose func(string)) layout.Dimensions {
+	return calendarRow(gtx, height, func(gtx layout.Context, column int) layout.Dimensions {
+		index := row*7 + column
+		day := p.month.AddDate(0, 0, index-leadingDays(p.month, options.weekStart))
+		if day.Month() != p.month.Month() {
+			return layout.Dimensions{Size: gtx.Constraints.Min}
+		}
+		id := day.Format(civilLayout)
+		enabled := options.permits(id)
+		if enabled && p.cells[index].Clicked(gtx) {
+			choose(id)
+		}
+		title := displayCivil(day, view.language)
+		if id == options.today {
+			title = fmt.Sprintf(view.language.text(dateToday), title)
+		}
+		dims := choiceButton(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title,
+			enabled, id == value, day.Equal(p.day) && gtx.Focused(p))
+		if enabled && id == options.today {
+			x := dims.Size.X / 2
+			y := dims.Size.Y - gtx.Dp(3)
+			if y > 0 {
+				paint.FillShape(gtx.Ops, view.colors.accent, clip.Rect(image.Rect(x-2, y, x+2, y+1)).Op())
+			}
+		}
+		return dims
+	})
+}
+
+func calendarRow(gtx layout.Context, height int, cell func(layout.Context, int) layout.Dimensions) layout.Dimensions {
+	children := make([]layout.FlexChild, 7)
+	for i := range children {
+		children[i] = layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = height, height
+			return cell(gtx, i)
+		})
+	}
+	return layout.Flex{Gap: gtx.Dp(2)}.Layout(gtx, children...)
+}

@@ -20,6 +20,7 @@ type componentPreview struct {
 	query              string
 	submit, info       widget.Clickable
 	scroll             layout.List
+	pickers            previewPickers
 	checkName          bool
 	submissions        int
 	submittedName      string
@@ -44,8 +45,13 @@ func (p *componentPreview) layout(gtx layout.Context, view presentation) layout.
 	size := gtx.Constraints.Max
 	footerHeight := gtx.Dp(40)
 	footerY := max(0, size.Y-footerHeight)
+	columns := 4
+	if size.X < gtx.Dp(640) {
+		columns = 2
+	}
+	pickerY := max(0, footerY-gtx.Dp(68)*(4/columns))
 	body := gtx
-	body.Constraints = layout.Exact(image.Pt(size.X, max(0, footerY-gtx.Dp(12))))
+	body.Constraints = layout.Exact(image.Pt(size.X, max(0, pickerY-gtx.Dp(12))))
 	p.scroll.Layout(body, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return p.content(gtx, view)
 	})
@@ -54,9 +60,8 @@ func (p *componentPreview) layout(gtx layout.Context, view presentation) layout.
 	if p.submit.Clicked(gtx) {
 		p.saveSample(gtx)
 	}
-	footer := op.Offset(image.Pt(0, footerY)).Push(gtx.Ops)
-	p.footer(gtx, view, size.X, size.Y-footerY, footerY)
-	footer.Pop()
+	p.pickerFields(gtx, view, size.X, pickerY, columns)
+	p.footer(gtx, view, size.X, footerY)
 	return layout.Dimensions{Size: size}
 }
 
@@ -134,6 +139,9 @@ func (p *componentPreview) results(gtx layout.Context, view presentation) layout
 					message(fmt.Sprintf(view.language.text(previewSavedNotes), p.submittedNotes)),
 				)
 			}
+			for _, line := range p.pickers.resultLines(view) {
+				children = append(children, message(line))
+			}
 			query := strings.ToLower(strings.TrimSpace(p.query))
 			if query != "" {
 				children = append(children, message(fmt.Sprintf(view.language.text(previewQuery), p.query)))
@@ -154,16 +162,43 @@ func (p *componentPreview) results(gtx layout.Context, view presentation) layout
 	})
 }
 
-func (p *componentPreview) footer(gtx layout.Context, view presentation, width, height, y int) {
-	size := image.Pt(min(gtx.Dp(160), width/2), height)
-	gtx.Constraints = layout.Exact(size)
-	view.button(&p.submit, view.language.text(previewSubmit))(gtx)
-
-	x := width - size.X
-	position := op.Offset(image.Pt(x, 0)).Push(gtx.Ops)
-	anchor := view.origin.Add(image.Pt(x, y))
-	view.overlay.register(gtx, &p.info, image.Rectangle{Min: anchor, Max: anchor.Add(size)},
-		view.message(view.language.text(previewInfoBody), view.colors.ink))
-	view.button(&p.info, view.language.text(previewInfo))(gtx)
-	position.Pop()
+func (p *componentPreview) footer(gtx layout.Context, view presentation, width, y int) {
+	if p.pickers.weekButton.Clicked(gtx) {
+		p.pickers.sundayFirst = !p.pickers.sundayFirst
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if p.pickers.clockButton.Clicked(gtx) {
+		p.pickers.twelveHour = !p.pickers.twelveHour
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	weekTitle := previewMondayFirst
+	if p.pickers.sundayFirst {
+		weekTitle = previewSundayFirst
+	}
+	timeTitle := preview24Hour
+	if p.pickers.twelveHour {
+		timeTitle = preview12Hour
+	}
+	buttons := [...]struct {
+		button *widget.Clickable
+		title  messageID
+	}{
+		{&p.submit, previewSubmit},
+		{&p.pickers.weekButton, weekTitle},
+		{&p.pickers.clockButton, timeTitle},
+		{&p.info, previewInfo},
+	}
+	for i, action := range buttons {
+		position, size := pickerSlot(gtx, width, y, len(buttons), i)
+		offset := op.Offset(position).Push(gtx.Ops)
+		gtx.Constraints = layout.Exact(size)
+		if action.button == &p.info {
+			anchor := view.origin.Add(position)
+			view.overlay.register(gtx, action.button, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, popoverPane{
+				body: view.message(view.language.text(previewInfoBody), view.colors.ink),
+			})
+		}
+		view.button(action.button, view.language.text(action.title))(gtx)
+		offset.Pop()
+	}
 }
