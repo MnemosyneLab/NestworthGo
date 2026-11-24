@@ -28,12 +28,18 @@ type historyTimelineVisit struct {
 	focused  domain.ActivityID
 }
 
+type historyDetailState struct {
+	scroll  layout.Position
+	account domain.AccountID
+}
+
 type historyDetailVisit struct {
 	id               domain.ActivityID
 	pending          <-chan historyResult[history.Detail]
 	cancel           context.CancelFunc
 	record           *history.Detail
 	err              error
+	dirty            bool
 	back             widget.Clickable
 	retry            widget.Clickable
 	scroll           widget.List
@@ -42,6 +48,25 @@ type historyDetailVisit struct {
 	repeat           widget.Clickable
 	repeatDraft      *historyRepeatDraft
 	linked           [4]widget.Clickable
+	accounts         map[domain.AccountID]*widget.Clickable
+}
+
+func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickable {
+	if v.accounts[id] == nil {
+		v.accounts[id] = new(widget.Clickable)
+	}
+	return v.accounts[id]
+}
+
+func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
+	state := historyDetailState{scroll: v.scroll.Position}
+	for id, button := range v.accounts {
+		if focus == button {
+			state.account = id
+			break
+		}
+	}
+	return state
 }
 
 type historyReads struct {
@@ -54,18 +79,30 @@ type historyReads struct {
 
 	references   *history.References
 	refsRead     <-chan historyResult[history.References]
+	refsCancel   context.CancelFunc
 	refsErr      error
 	detail       *historyDetailVisit
 	buttons      map[domain.ActivityID]*widget.Clickable
 	posted       domain.Activity
 	postedNotice i18n.MessageID
 	open         func(id domain.ActivityID, focus event.Tag)
+	openAccount  func(id domain.AccountID, name string, focus event.Tag)
 	back         func()
 	rename       func(id domain.ActivityID, name string)
 }
 
+type historyPageReader struct{ service history.AmendmentLedger }
+
+func (r historyPageReader) ListActivityPage(ctx context.Context, query domain.ActivityQuery) (out domain.ActivityPage, err error) {
+	err = r.service.WithRead(ctx, func(ctx context.Context) error {
+		out, err = r.service.ListActivityPage(ctx, query)
+		return err
+	})
+	return out, err
+}
+
 func newLedgerHistory(ctx context.Context, service historyService, clock func() time.Time, invalidate func()) *historyPage {
-	page := newHistoryPage(history.New(ctx, service, invalidate))
+	page := newHistoryPage(history.New(ctx, historyPageReader{service}, invalidate))
 	page.cashMovements = newHistoryCashMovements(ctx, service, clock, invalidate)
 	page.startPoint = &historyStart{service: service, balances: widget.List{List: layout.List{Axis: layout.Vertical}}}
 	page.reads = &historyReads{
@@ -95,49 +132,86 @@ func (r *historyReads) loadReferences() {
 		return
 	}
 	r.refsErr = nil
+	ctx, cancel := context.WithCancel(r.ctx)
+	r.refsCancel = cancel
 	r.refsRead = runHistoryRead(&r.workers, r.invalidate, func() (history.References, error) {
-		return history.LoadReferences(r.ctx, r.service)
+		var refs history.References
+		err := r.service.WithRead(ctx, func(ctx context.Context) error {
+			var err error
+			refs, err = history.LoadReferences(ctx, r.service)
+			return err
+		})
+		return refs, err
 	})
+}
+
+func (r *historyReads) retireReferences() {
+	if r.refsCancel != nil {
+		r.refsCancel()
+	}
+	r.refsCancel, r.refsRead = nil, nil
+}
+
+func (v *historyDetailVisit) retire() {
+	if v.cancel != nil {
+		v.cancel()
+	}
+	v.cancel, v.pending = nil, nil
 }
 
 func (r *historyReads) leaveDetail() {
 	if r.detail != nil {
-		r.detail.cancel()
+		r.detail.retire()
 		r.detail = nil
 	}
 }
 
-func (r *historyReads) enterDetail(id domain.ActivityID) {
-	r.detail = &historyDetailVisit{id: id, scroll: widget.List{List: layout.List{Axis: layout.Vertical}}}
+func (r *historyReads) enterDetail(id domain.ActivityID, state historyDetailState) event.Tag {
+	r.detail = &historyDetailVisit{id: id,
+		scroll:   widget.List{List: layout.List{Axis: layout.Vertical, Position: state.scroll}},
+		accounts: make(map[domain.AccountID]*widget.Clickable)}
 	r.loadDetail()
+	if state.account != "" {
+		return r.detail.accountButton(state.account)
+	}
+	return nil
 }
 
 func (r *historyReads) loadDetail() {
 	visit := r.detail
-	if visit.cancel != nil {
-		visit.cancel()
-	}
+	visit.retire()
 	ctx, cancel := context.WithCancel(r.ctx)
-	visit.cancel, visit.err = cancel, nil
+	visit.cancel, visit.err, visit.dirty = cancel, nil, false
 	id := visit.id
 	visit.pending = runHistoryRead(&r.workers, r.invalidate, func() (history.Detail, error) {
-		return history.LoadDetail(ctx, r.service, id)
+		var detail history.Detail
+		err := r.service.WithRead(ctx, func(ctx context.Context) error {
+			var err error
+			detail, err = history.LoadDetail(ctx, r.service, id)
+			return err
+		})
+		return detail, err
 	})
 }
 
 func (r *historyReads) update() {
 	select {
 	case result := <-r.refsRead:
-		r.refsRead, r.refsErr = nil, result.err
+		r.retireReferences()
+		r.refsErr = result.err
 		if result.err == nil {
 			r.references = &result.value
 		}
 	default:
 	}
 	if visit := r.detail; visit != nil {
+		if visit.dirty {
+			r.loadDetail()
+		}
 		select {
 		case result := <-visit.pending:
-			visit.pending, visit.err = nil, result.err
+			visit.retire()
+			visit.err = result.err
 			if result.err == nil {
 				visit.record = &result.value
 			}
@@ -193,20 +267,43 @@ func (p *historyPage) pollPosted() {
 	if p.cashMovements == nil {
 		return
 	}
+	var focus event.Tag = &p.list
+	if d := p.cashMovements.draft; d != nil {
+		focus = &p.cashMovements.actions[d.movement]
+	}
 	activity := p.cashMovements.update()
 	if activity == nil {
 		return
 	}
-	p.showPosted(*activity, i18n.NoMessage, &p.list)
+	p.showPosted(*activity, i18n.NoMessage, focus)
+}
+
+func (p *historyPage) invalidateLedgerReads() {
+	p.revision++
+	p.model.Refresh()
+	if r := p.reads; r != nil {
+		if r.refsRead != nil || r.references != nil || r.refsErr != nil {
+			r.retireReferences()
+			r.loadReferences()
+		}
+		if r.detail != nil {
+			r.detail.retire()
+			r.detail.dirty = true
+		}
+	}
+}
+
+func (p *historyPage) ledgerChanged() {
+	if p.onPosted != nil {
+		p.onPosted()
+	} else {
+		p.invalidateLedgerReads()
+	}
 }
 
 func (p *historyPage) showPosted(activity domain.Activity, notice i18n.MessageID, focus event.Tag) {
-	p.revision++
-	p.model.Refresh()
+	p.ledgerChanged()
 	p.reads.posted, p.reads.postedNotice = activity, notice
-	if p.onPosted != nil {
-		p.onPosted()
-	}
 	p.reads.open(activity.ID, focus)
 }
 

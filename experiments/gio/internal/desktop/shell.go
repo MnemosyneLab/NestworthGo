@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"image"
+	"time"
 
 	"gioui.org/font"
 	"gioui.org/io/event"
@@ -9,6 +10,7 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
@@ -46,6 +48,7 @@ type ledgerPages struct {
 	history   *historyPage
 	overview  *overviewPage
 	accounts  *accountsPage
+	version   func() string
 }
 
 type navigationItem struct {
@@ -86,6 +89,8 @@ type shell struct {
 	groups                                []navigationGroup
 	routes                                map[routeID]*navigationItem
 	trail                                 navigationTrail
+	ledgerVersion                         func() string
+	seenLedgerVersion                     string
 	pendingNavigation                     *navigationRequest
 	restoreFocus                          bool
 	headingFocus                          byte
@@ -189,8 +194,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			}
 		}
 	}
-	if s.historyPage != nil && s.overviewPage != nil {
-		s.historyPage.onPosted = func() { s.overviewPage.needsRefresh = true }
+	s.ledgerVersion = pages.version
+	if s.ledgerVersion != nil {
+		s.seenLedgerVersion = s.ledgerVersion()
+	}
+	if s.historyPage != nil {
+		s.historyPage.onPosted = s.refreshLedgerReads
 	}
 	if s.historyPage != nil && s.historyPage.reads != nil {
 		s.historyPage.reads.open = func(id domain.ActivityID, focus event.Tag) {
@@ -202,6 +211,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.balanceTarget != nil {
 			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
 		}
+		if s.accounts != nil {
+			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, focus)
+			}
+		}
 		s.historyPage.reads.rename = func(id domain.ActivityID, name string) {
 			target := navigationTarget{route: historyRoute, activity: id}
 			entry := s.trail.current()
@@ -211,8 +225,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		s.historyPage.reads.back = func() {
 			request := navigationRequest{target: navigationTarget{route: historyRoute}}
-			if previous := s.trail.adjacent(-1); previous != nil && previous.target == request.target {
-				request.step = -1
+			for i := s.trail.cursor - 1; i >= 0; i-- {
+				if s.trail.entries[i].target == request.target {
+					request.step = i - s.trail.cursor
+					break
+				}
 			}
 			s.pendingNavigation = &request
 		}
@@ -242,14 +259,14 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				}
 			}
 		}
-		if s.accounts.pollAccountMaintenance() && s.overviewPage != nil {
-			s.overviewPage.needsRefresh = true
+		if s.accounts.pollAccountMaintenance() {
+			s.refreshLedgerReads()
 		}
 		if saved := s.accounts.pollCashBalance(); saved.ID != "" {
-			s.refreshBalanceQueries(saved.ActivityID != nil)
+			s.refreshLedgerReads()
 		}
 		if saved := s.accounts.pollBalanceTarget(); saved.account != "" {
-			s.refreshBalanceQueries(saved.activity != "")
+			s.refreshLedgerReads()
 		}
 		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
@@ -267,9 +284,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
 				focus = &s.accounts.createShell
 			}
-			if s.overviewPage != nil {
-				s.overviewPage.needsRefresh = true
-			}
+			s.refreshLedgerReads()
 			s.pendingNavigation = &navigationRequest{
 				target: navigationTarget{route: accountsRoute, account: record.Account.ID},
 				name:   record.Account.Name, focus: focus,
@@ -312,6 +327,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
 		s.historyPage.pollPosted()
 	}
+	s.observeLedger(gtx)
 	s.updateNavigation(gtx)
 	entry := s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
@@ -341,13 +357,37 @@ func (s *shell) confirmingAccountCreation() bool {
 	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
 }
 
-func (s *shell) refreshBalanceQueries(posted bool) {
-	if s.overviewPage != nil {
-		s.overviewPage.needsRefresh = true
+func (s *shell) observeLedger(gtx layout.Context) {
+	if s.ledgerVersion == nil {
+		return
 	}
-	if posted && s.historyPage != nil {
-		s.historyPage.revision++
-		s.historyPage.model.Refresh()
+	if version := s.ledgerVersion(); version != s.seenLedgerVersion {
+		s.seenLedgerVersion = version
+		s.invalidateLedgerReads()
+	}
+	switch s.activeRoute() {
+	case overviewRoute, accountsRoute, historyRoute:
+		gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(time.Second)})
+	}
+}
+
+// Capture the committed version before scheduling any replacement reads.
+func (s *shell) refreshLedgerReads() {
+	if s.ledgerVersion != nil {
+		s.seenLedgerVersion = s.ledgerVersion()
+	}
+	s.invalidateLedgerReads()
+}
+
+func (s *shell) invalidateLedgerReads() {
+	if s.overviewPage != nil {
+		s.overviewPage.refresh()
+	}
+	if s.historyPage != nil {
+		s.historyPage.invalidateLedgerReads()
+	}
+	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		s.accounts.refresh()
 	}
 }
 

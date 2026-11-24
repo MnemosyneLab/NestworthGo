@@ -37,7 +37,8 @@ type overviewPage struct {
 	clock      func() time.Time
 	invalidate func()
 	workers    sync.WaitGroup
-	reads      chan overviewRead
+	request    <-chan overviewRead
+	cancel     context.CancelFunc
 
 	current      *overviewRead
 	loading      bool
@@ -49,7 +50,7 @@ type overviewPage struct {
 
 func newOverviewPage(ctx context.Context, reader overviewReader, clock func() time.Time, invalidate func()) *overviewPage {
 	return &overviewPage{
-		ctx: ctx, reader: reader, clock: clock, invalidate: invalidate, reads: make(chan overviewRead, 1),
+		ctx: ctx, reader: reader, clock: clock, invalidate: invalidate,
 		list: widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 }
@@ -58,22 +59,37 @@ func (p *overviewPage) read() {
 	if p.loading || p.ctx.Err() != nil {
 		return
 	}
-	p.loading, p.err = true, nil
+	ctx, cancel := context.WithCancel(p.ctx)
+	result := make(chan overviewRead, 1)
+	p.request, p.cancel, p.loading, p.err = result, cancel, true, nil
 	p.workers.Go(func() {
 		readAt := p.clock()
-		value, err := p.reader.Overview(p.ctx, domain.AccountFilter{})
-		if p.ctx.Err() != nil {
+		value, err := p.reader.Overview(ctx, domain.AccountFilter{})
+		if ctx.Err() != nil {
 			return
 		}
-		p.reads <- overviewRead{value: value, readAt: readAt, err: err}
+		result <- overviewRead{value: value, readAt: readAt, err: err}
 		p.invalidate()
 	})
 }
 
+func (p *overviewPage) retireRead() {
+	if p.cancel != nil {
+		p.cancel()
+	}
+	p.request, p.cancel, p.loading = nil, nil, false
+}
+
+func (p *overviewPage) refresh() {
+	p.retireRead()
+	p.needsRefresh = true
+}
+
 func (p *overviewPage) update() {
 	select {
-	case result := <-p.reads:
-		p.loading, p.err = false, result.err
+	case result := <-p.request:
+		p.retireRead()
+		p.err = result.err
 		if p.err == nil {
 			p.current = &result
 			p.list.Position = restoredPosition(p.list.Position, p.rowCount())

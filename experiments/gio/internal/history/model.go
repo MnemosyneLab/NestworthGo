@@ -53,8 +53,14 @@ type pageResult struct {
 
 type pageRead struct {
 	cancel context.CancelFunc
-	after  *domain.ActivityCursor
+	query  pageQuery
 	result chan pageResult
+}
+
+type pageQuery struct {
+	after   *domain.ActivityCursor
+	through domain.ActivityID
+	minimum int
 }
 
 type Visit struct {
@@ -63,7 +69,7 @@ type Visit struct {
 	next        *domain.ActivityCursor
 	started     bool
 	err         error
-	retryAfter  *domain.ActivityCursor
+	retry       pageQuery
 	interrupted bool
 }
 
@@ -88,7 +94,7 @@ func (p *Model) Visit() Visit {
 	visit.rows = slices.Clone(visit.rows)
 	if p.pending != nil {
 		visit.interrupted = true
-		visit.retryAfter = p.pending.after
+		visit.retry = p.pending.query
 	}
 	return visit
 }
@@ -98,7 +104,7 @@ func (p *Model) Restore(visit Visit) {
 	p.visit = visit
 	p.visit.rows = slices.Clone(visit.rows)
 	if visit.interrupted {
-		p.read(visit.retryAfter)
+		p.read(visit.retry)
 	}
 }
 
@@ -108,7 +114,7 @@ func (p *Model) SetFilters(filters Filters) {
 	}
 	p.cancel()
 	p.visit = Visit{filters: filters}
-	p.read(nil)
+	p.Reload()
 }
 
 // Update starts the first read on demand or applies a completed read.
@@ -126,40 +132,47 @@ func (p *Model) Update() bool {
 	case result := <-request.result:
 		p.cancel()
 		p.visit.err = result.err
-		p.visit.retryAfter = request.after
+		p.visit.retry = request.query
 		if result.err != nil {
 			return false
 		}
-		if request.after == nil {
+		if request.query.after == nil {
 			p.visit.rows = result.rows
 		} else {
 			p.visit.rows = append(p.visit.rows, result.rows...)
 		}
 		p.visit.next = result.next
-		return request.after == nil
+		return request.query.after == nil
 	default:
 		return false
 	}
 }
 
 func (p *Model) Reload() {
-	p.read(nil)
+	p.read(pageQuery{})
 }
 
+// Refresh keeps the visited timeline range when a write invalidates it.
+// Start at the head so no continuation cursor comes from an earlier version.
 func (p *Model) Refresh() {
 	p.cancel()
-	p.Reload()
+	reload := pageQuery{}
+	if rows := p.visit.rows; len(rows) != 0 {
+		reload.through = rows[len(rows)-1].ID
+		reload.minimum = len(rows)
+	}
+	p.read(reload)
 }
 
 func (p *Model) LoadMore() {
 	if p.HasMore() && p.visit.err == nil {
-		p.read(p.visit.next)
+		p.read(pageQuery{after: p.visit.next})
 	}
 }
 
 func (p *Model) Retry() {
 	if p.visit.err != nil {
-		p.read(p.visit.retryAfter)
+		p.read(p.visit.retry)
 	}
 }
 
@@ -177,34 +190,57 @@ func (p *Model) cancel() {
 	}
 }
 
-func (p *Model) read(after *domain.ActivityCursor) {
+func (p *Model) read(page pageQuery) {
 	if p.pending != nil || p.ctx.Err() != nil {
 		return
 	}
 	ctx, cancel := context.WithCancel(p.ctx)
-	request := &pageRead{cancel: cancel, after: after, result: make(chan pageResult, 1)}
-	query := p.visit.filters.query(after)
+	request := &pageRead{cancel: cancel, query: page, result: make(chan pageResult, 1)}
+	query := p.visit.filters.query(page.after)
 	p.pending = request
 	p.visit.started, p.visit.interrupted, p.visit.err = true, false, nil
 	p.workers.Go(func() {
-		page, err := p.service.ListActivityPage(ctx, query)
+		result := p.readRange(ctx, query, page)
 		if ctx.Err() != nil {
 			return
-		}
-		result := pageResult{err: err}
-		if err == nil {
-			result.rows = make([]Row, len(page.Activities))
-			for i, activity := range page.Activities {
-				result.rows[i] = Row{
-					ID: activity.ID, Kind: activity.Kind, Reason: activity.Reason,
-					EffectiveLocalDate: activity.EffectiveLocalDate, Note: activity.Note,
-				}
-			}
-			if page.HasMore {
-				result.next = page.Next
-			}
 		}
 		request.result <- result
 		p.invalidate()
 	})
+}
+
+func (p *Model) readRange(ctx context.Context, query domain.ActivityQuery, window pageQuery) pageResult {
+	var result pageResult
+	for {
+		page, err := p.service.ListActivityPage(ctx, query)
+		if err != nil {
+			return pageResult{err: err}
+		}
+		for i, activity := range page.Activities {
+			result.rows = append(result.rows, Row{
+				ID: activity.ID, Kind: activity.Kind, Reason: activity.Reason,
+				EffectiveLocalDate: activity.EffectiveLocalDate, Note: activity.Note,
+			})
+			if window.through != "" && activity.ID == window.through {
+				if len(result.rows) < pageSize {
+					window.through = ""
+					continue
+				}
+				if i+1 < len(page.Activities) || page.HasMore {
+					result.next = &domain.ActivityCursor{ID: activity.ID, EffectiveAt: activity.EffectiveAt, CreatedAt: activity.CreatedAt}
+				}
+				return result
+			}
+		}
+		if !page.HasMore {
+			return result
+		}
+		// A missing anchor may follow a restore. Bound the work to the
+		// former window and one page for newly inserted rows.
+		if window.through == "" || page.Next == nil || len(result.rows) >= window.minimum+pageSize || ctx.Err() != nil {
+			result.next = page.Next
+			return result
+		}
+		query.After = page.Next
+	}
 }

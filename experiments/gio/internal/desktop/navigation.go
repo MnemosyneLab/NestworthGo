@@ -37,6 +37,7 @@ type navigationEntry struct {
 	scroll           layout.Position
 	directory        directoryVisit
 	history          historyTimelineVisit
+	historyDetail    historyDetailState
 	accountsArchived bool
 	visited          bool
 }
@@ -207,7 +208,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
-			s.historyPage.reads.enterDetail(entry.target.activity)
+			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
 		} else {
 			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history)
 			if entry.history.focused != "" && s.historyPage.reads != nil {
@@ -266,8 +267,12 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case settingsRoute:
 		entry.scroll = s.settingsPage.scroll.Position
 	case historyRoute:
-		if s.historyPage != nil && entry.target.activity == "" {
-			entry.history = s.historyPage.timelineVisit(entry.focus)
+		if s.historyPage != nil {
+			if entry.target.activity == "" {
+				entry.history = s.historyPage.timelineVisit(entry.focus)
+			} else if d := s.historyPage.reads.detail; d != nil {
+				entry.historyDetail = d.state(entry.focus)
+			}
 		}
 	case componentPreviewRoute:
 		entry.scroll = s.componentPreview.scroll.Position
@@ -320,6 +325,9 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 
 func (s *shell) waitingForPageFocus() bool {
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
+		if r := s.historyPage.reads; r != nil && r.detail != nil {
+			return r.detail.pending != nil || r.detail.dirty
+		}
 		return s.historyPage.model.Loading()
 	}
 	if s.activeRoute() == accountsRoute && s.accounts != nil {

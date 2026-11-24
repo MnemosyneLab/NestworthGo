@@ -328,11 +328,22 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 
 type accountReadFaults struct {
 	*application.Service
-	block   domain.AccountID
+	held    atomic.Bool
 	started chan struct{}
 	release chan struct{}
 	fail    atomic.Bool
 	calls   atomic.Int32
+}
+
+func (s *accountReadFaults) WithRead(ctx context.Context, read func(context.Context) error) error {
+	first := !s.held.Swap(true)
+	err := s.Service.WithRead(ctx, read)
+	if first {
+		// Hold the completed reply after its coherent snapshot releases the gate.
+		close(s.started)
+		<-s.release
+	}
+	return err
 }
 
 func (s *accountReadFaults) ListAccounts(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
@@ -340,19 +351,13 @@ func (s *accountReadFaults) ListAccounts(ctx context.Context, filter domain.Acco
 	if s.fail.Load() {
 		return nil, errors.New("synthetic account read failure")
 	}
-	if slices.Contains(filter.AccountIDs, s.block) {
-		values, err := s.Service.ListAccounts(ctx, filter)
-		close(s.started)
-		<-s.release
-		return values, err
-	}
 	return s.Service.ListAccounts(ctx, filter)
 }
 
 func TestAccountsDiscardLateReadsAndRetryWithoutLosingTheSelectedObject(t *testing.T) {
 	ids, service, _ := openAccountTestFixture(t)
 	ctx := t.Context()
-	faults := &accountReadFaults{Service: service, block: ids.usd, started: make(chan struct{}), release: make(chan struct{})}
+	faults := &accountReadFaults{Service: service, started: make(chan struct{}), release: make(chan struct{})}
 	p := newAccountsPage(ctx, faults, func() time.Time { return accountTestClock }, func() {})
 	release := sync.OnceFunc(func() { close(faults.release) })
 	t.Cleanup(func() { release(); p.workers.Wait() })

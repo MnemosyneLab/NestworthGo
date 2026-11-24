@@ -223,8 +223,6 @@ func (p *accountsPage) pollBalanceTarget() balanceTargetReceipt {
 		d.confirming = nil
 		if result.value.known() {
 			f.saved, f.savedMessage, f.draft = result.value, copy.saved, nil
-			p.leave()
-			p.read()
 			return result.value
 		}
 		d.problem = copy.problem(result.err, i18n.NoMessage)
@@ -237,8 +235,6 @@ func (p *accountsPage) pollBalanceTarget() balanceTargetReceipt {
 			// An unkeyed append may already have committed. Return to the
 			// account and read its latest observation without reissuing it.
 			f.unverified, f.saved, f.draft = d.account.ID, balanceTargetReceipt{}, nil
-			p.leave()
-			p.read()
 			return balanceTargetReceipt{account: d.account.ID}
 		}
 	default:

@@ -194,11 +194,7 @@ func (p *historyPage) pollRepeat() {
 			// This result did not reach the receipt lookup. Never offer a
 			// replacement preview from this review.
 			d.uncertain, d.missingPlan = false, true
-			p.revision++
-			p.model.Refresh()
-			if p.onPosted != nil {
-				p.onPosted()
-			}
+			p.ledgerChanged()
 		case repeatDefinitelyRejected(result.err):
 			d.review, d.uncertain, d.problem = nil, false, repeatProblem(result.err)
 			p.reads.loadRepeatSources()

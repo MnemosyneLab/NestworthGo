@@ -491,6 +491,7 @@ const (
 	HistoryUnavailable
 	HistoryNoMatches
 	HistoryActivityUnavailable
+	HistoryOpenAccount
 	HistoryFilterType
 	HistoryFilterAccount
 	HistoryFilterInstrument

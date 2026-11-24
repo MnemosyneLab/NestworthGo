@@ -161,8 +161,6 @@ func (p *accountsPage) pollCashBalance() domain.AccountCashValue {
 		d.confirming = nil
 		if result.value.ID != "" {
 			f.saved, f.draft = result.value, nil
-			p.leave()
-			p.read()
 			return result.value
 		}
 		d.problem = cashBalanceProblem(result.err, i18n.NoMessage)

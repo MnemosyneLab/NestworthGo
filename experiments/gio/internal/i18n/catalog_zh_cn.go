@@ -216,6 +216,7 @@ var simplifiedChineseCatalog = catalog{
 	HistoryUnavailable:               "启用历史记录后可查看账务活动。",
 	HistoryNoMatches:                 "没有符合筛选条件的账务活动。",
 	HistoryActivityUnavailable:       "此账务活动不可用。",
+	HistoryOpenAccount:               "打开账户 · %s",
 	HistoryFilterType:                "活动类型",
 	HistoryFilterAccount:             "账户筛选",
 	HistoryFilterInstrument:          "金融工具筛选",

@@ -119,6 +119,69 @@ func TestHistoryCancellationReleasesWorker(t *testing.T) {
 	}
 }
 
+func TestHistoryRefreshRetainsLoadedRangeAndRestartsCursor(t *testing.T) {
+	at := time.Date(2026, time.November, 23, 0, 0, 0, 0, time.UTC)
+	activities := make([]domain.Activity, 2*pageSize+1)
+	for i := range activities {
+		activities[i] = domain.Activity{ID: domain.NewActivityID(), EffectiveAt: at.Add(-time.Duration(i) * time.Hour), CreatedAt: at}
+	}
+	cursor := func(a domain.Activity) *domain.ActivityCursor {
+		return &domain.ActivityCursor{ID: a.ID, EffectiveAt: a.EffectiveAt, CreatedAt: a.CreatedAt}
+	}
+	var queries []domain.ActivityQuery
+	failSecondPage := false
+	p := New(t.Context(), historyReaderFunc(func(_ context.Context, q domain.ActivityQuery) (domain.ActivityPage, error) {
+		queries = append(queries, q)
+		start := 0
+		if q.After != nil {
+			if failSecondPage {
+				return domain.ActivityPage{}, errors.New("temporary second-page error")
+			}
+			for activities[start].ID != q.After.ID {
+				start++
+			}
+			start++
+		}
+		end := min(start+q.Limit, len(activities))
+		page := domain.ActivityPage{Activities: activities[start:end], HasMore: end < len(activities)}
+		if page.HasMore {
+			page.Next = cursor(activities[end-1])
+		}
+		return page, nil
+	}), func() {})
+	finish := func() { p.Wait(); p.Update() }
+	p.SetFilters(Filters{Kind: domain.ActivityCashIn})
+	finish()
+	p.LoadMore()
+	finish()
+	anchor := activities[2*pageSize-1]
+	remainder := activities[2*pageSize]
+
+	newActivity := domain.Activity{ID: domain.NewActivityID(), EffectiveAt: at.Add(time.Hour), CreatedAt: at}
+	activities = append([]domain.Activity{newActivity}, activities...)
+	failSecondPage = true
+	p.Refresh()
+	finish()
+	if p.Err() == nil || len(p.Rows()) != 2*pageSize || p.Rows()[len(p.Rows())-1].ID != anchor.ID {
+		t.Fatal("a failed partial refresh replaced the existing timeline")
+	}
+	failSecondPage = false
+	p.Retry()
+	finish()
+	rows := p.Rows()
+	if p.Err() != nil || len(rows) != 2*pageSize+1 || rows[0].ID != newActivity.ID || rows[len(rows)-1].ID != anchor.ID || !p.HasMore() {
+		t.Fatal("refresh did not retain the existing timeline through the same anchor")
+	}
+	p.LoadMore()
+	finish()
+	if len(p.Rows()) != 2*pageSize+2 || p.Rows()[len(p.Rows())-1].ID != remainder.ID || p.HasMore() {
+		t.Fatal("continuing after the anchor skipped or duplicated a row")
+	}
+	if queries[2].After != nil || queries[4].After != nil || !reflect.DeepEqual(queries[len(queries)-1].After, cursor(anchor)) {
+		t.Fatalf("refresh, retry or append used an incorrect cursor: %+v", queries)
+	}
+}
+
 func TestHistoryFiltersRetireOldPageAndCursor(t *testing.T) {
 	type call struct {
 		query domain.ActivityQuery

@@ -215,6 +215,7 @@ var japaneseCatalog = catalog{
 	HistoryUnavailable:               "帳簿の記録を表示するには履歴を開始してください。",
 	HistoryNoMatches:                 "絞り込み条件に一致する記録がありません。",
 	HistoryActivityUnavailable:       "この記録は利用できません。",
+	HistoryOpenAccount:               "口座を開く · %s",
 	HistoryFilterType:                "記録の種類",
 	HistoryFilterAccount:             "口座",
 	HistoryFilterInstrument:          "銘柄",

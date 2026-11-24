@@ -546,6 +546,24 @@ profiles and the established startup and ownership path.
 
 ### Stage 4 progress
 
+#### Stage 4 exit review
+
+| Gate from the delivery sequence | What the pilot supports | What remains |
+| --- | --- | --- |
+| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, and scoped balance targets. The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Debt draws and payments, card purchases and refunds, expense categorization, broader account value updates and backdated cases remain outside the migrated forms. |
+| History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points for eligible cash/liability balances, repeat for supported cash movements, and linked cash corrections and reversals. | Positive position opening and cost basis are investment prerequisites when importing existing holdings. The account action-sheet shortcut, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions can follow the first investment read. |
+| Cross-page and external invalidation | Confirmed writes refresh History, Account and Overview. History Activity links open the exact account and return to the existing visit. A write made through the same shared application service refreshes the active ledger pages without a page callback. | Exercise connected Mobile and MCP clients when their Gio lifecycles are wired. Keep production startup, target-platform acceptance and Wails GUI parity open. |
+
+The first read-only Stage 5 slice can now use an isolated, funded Holdings
+fixture and compare Portfolio and instrument detail with the shared Go reads.
+Check stable instrument and account IDs, position quantity and cost basis,
+valuation currency and missing or stale prices and FX, then follow links to
+Account and History. Before first investment posting, verify opening quantity
+and cost when importing existing positions, or begin with an empty position.
+Exercise the shared trade command with exact quantity, price, fees, settlement
+cash and available funds. Compare resulting basis, valuation and linked History
+after a duplicate confirmation, read failure and restart.
+
 #### Cash contribution milestone
 
 **Ledger activity → Record contribution** selects an active cash-balance asset
@@ -1037,6 +1055,33 @@ manual quote entry and provider refresh stay outside the Gio transfer form.
 | Tests | The Gio module suite and focused shared application, Wails Go quote and History tests passed. |
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
 | Open evidence | The within-account FX and correction-form calculators remain open. The Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Post-commit refresh and History account links
+
+A confirmed ledger write retires superseded reads in History, Account and
+Overview. Account facts, valuation and Holdings rows share an application read
+scope. History reads the activity, links and references in one scope and queries
+each timeline page under the same coordinator. Overview uses the existing
+portfolio snapshot. While the ledger version is stable, the three destinations
+show the same committed revision. Later writes through the shared application
+service advance that revision and trigger new reads. The Wails client similarly
+invalidates its affected query families after a write. [Wails invalidation](../../../frontend/src/queries/invalidation.ts) · [Shared read coordinator](../../../internal/application/write_coordinator.go)
+
+The acknowledged Activity opens by its saved ID even when the active History
+filter excludes it. Its account links use the effect account IDs and include
+each named account once. Back restores the detail visit and link focus.
+**Back to ledger activity** restores the nearest timeline visit with its filters,
+scroll and source focus. A timeline refresh rebuilds its loaded range from fresh
+cursors. A failed post-commit read offers a read-only retry.
+
+| Check | Evidence |
+| --- | --- |
+| Synthetic shell and Go service | A frame test posted USD 25 in filtered History. It checked the saved Activity ID and result, USD 120 in Account and USD 90 in Overview at one shared application revision. An older Overview read captured before the write arrived after the new result. Injected History and Account read failures retried without submitting again. The test also exercised Back, Forward, both focus targets, a later write through the Wails Go adapter and a database reopen. |
+| Timeline paging | A refresh with a newly inserted row retained the loaded range through the original anchor, even after a second-page failure and retry. Appending then used the anchor's full cursor and returned the next older activity once. |
+| Linux X11 | In a 900×660 native Gio window on Xvfb, double-clicked Confirm on a USD 25 contribution from the Money removed view. The saved Activity opened Harbor Checking at USD 145.50. Back retained the original filter and one matching withdrawal. Overview displayed USD 115.50. Normal quit and reopen retained three activities, the same contribution and both totals. A read-only SQLite comparison found one new activity, effect and mutation receipt and retained both pre-existing activities. A temporary build overlay supplied the verified synthetic fixture and clock. |
+| Tests | The Gio module suite and focused shared application and Wails Go History tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Connected Mobile and MCP client paths, the Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

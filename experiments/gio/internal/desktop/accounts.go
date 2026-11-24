@@ -18,6 +18,7 @@ import (
 )
 
 type accountsReader interface {
+	WithRead(context.Context, func(context.Context) error) error
 	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
 	AccountValuations(context.Context, domain.AccountFilter) ([]domain.AccountValuation, error)
 	ListInstitutions(context.Context, bool) ([]domain.Institution, error)
@@ -279,6 +280,11 @@ func (p *accountsPage) leave() {
 	p.request = nil
 }
 
+func (p *accountsPage) refresh() {
+	p.leave()
+	p.read()
+}
+
 func (p *accountsPage) read() {
 	if p.request != nil || p.invalid || p.ctx.Err() != nil {
 		return
@@ -289,7 +295,11 @@ func (p *accountsPage) read() {
 	p.request, p.cancel, p.err = result, cancel, nil
 	p.workers.Go(func() {
 		readAt := p.clock()
-		value := readAccounts(ctx, p.service, target, archived)
+		var value accountsResult
+		value.err = p.service.WithRead(ctx, func(ctx context.Context) error {
+			value = readAccounts(ctx, p.service, target, archived)
+			return value.err
+		})
 		if ctx.Err() == nil {
 			value.readAt = readAt
 			result <- value

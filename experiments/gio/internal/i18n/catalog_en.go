@@ -216,6 +216,7 @@ var englishCatalog = catalog{
 	HistoryUnavailable:               "Start History to see ledger activity.",
 	HistoryNoMatches:                 "No activity matches these filters.",
 	HistoryActivityUnavailable:       "This activity is unavailable.",
+	HistoryOpenAccount:               "Open account · %s",
 	HistoryFilterType:                "Activity type",
 	HistoryFilterAccount:             "Account filter",
 	HistoryFilterInstrument:          "Instrument filter",

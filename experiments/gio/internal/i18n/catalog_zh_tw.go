@@ -216,6 +216,7 @@ var traditionalChineseCatalog = catalog{
 	HistoryUnavailable:               "啟用歷史記錄後可查看帳務活動。",
 	HistoryNoMatches:                 "沒有符合篩選條件的帳務活動。",
 	HistoryActivityUnavailable:       "此帳務活動無法使用。",
+	HistoryOpenAccount:               "開啟帳戶 · %s",
 	HistoryFilterType:                "活動類型",
 	HistoryFilterAccount:             "帳戶篩選",
 	HistoryFilterInstrument:          "金融工具篩選",

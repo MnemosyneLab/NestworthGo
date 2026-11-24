@@ -252,7 +252,6 @@ func (p *accountsPage) pollAccountMaintenance() bool {
 			p.createdID = ""
 		}
 		m.success = result.message
-		p.read()
 		return true
 	default:
 		return false

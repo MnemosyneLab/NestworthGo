@@ -107,7 +107,7 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		if known.Links != (history.AmendmentLinks{}) {
 			children = append(children, layout.Rigid(r.amendmentLinks(view)))
 		}
-		facts := activityFacts(view, *known)
+		facts := append(r.accountLinks(view, *known), activityFacts(view, *known)...)
 		children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(view.Theme, &d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, facts[i])
@@ -115,6 +115,35 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(9)}.Layout(ui.LimitWidth(gtx, 720), children...)
+}
+
+func (r *historyReads) accountLinks(view ui.View, detail history.Detail) []layout.Widget {
+	if r.openAccount == nil {
+		return nil
+	}
+	var links []layout.Widget
+	seen := make(map[domain.AccountID]bool)
+	for _, effect := range detail.Activity.Effects {
+		if effect.AccountID == nil {
+			continue
+		}
+		id := *effect.AccountID
+		name := detail.Accounts[id]
+		if name == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		button := r.detail.accountButton(id)
+		label := fmt.Sprintf(view.Language.Text(i18n.HistoryOpenAccount), name)
+		links = append(links, func(gtx layout.Context) layout.Dimensions {
+			if button.Clicked(gtx) {
+				r.openAccount(id, name, button)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			return layout.W.Layout(gtx, view.Button(button, label))
+		})
+	}
+	return links
 }
 
 var effectClasses = map[domain.ActivityClassification]i18n.MessageID{

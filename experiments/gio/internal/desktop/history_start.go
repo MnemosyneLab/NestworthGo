@@ -115,11 +115,7 @@ func (p *historyPage) pollStartingPoint() {
 		r.references, r.refsRead, r.refsErr = &result.value, nil, nil
 		if result.value.Origin != nil {
 			s.ready, s.open = true, false
-			p.revision++
-			p.model.Refresh()
-			if p.onPosted != nil {
-				p.onPosted()
-			}
+			p.ledgerChanged()
 		}
 	default:
 	}

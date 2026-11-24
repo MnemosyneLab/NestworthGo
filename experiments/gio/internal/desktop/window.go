@@ -52,7 +52,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		accounts.workers.Wait()
 		onboarding.workers.Wait()
 	}()
-	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, accounts: accounts, prefs: state})
+	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, accounts: accounts, prefs: state,
+		version: service.MobileDataVersion})
 	shell.onboarding = onboarding
 	return shell.run(window)
 }
