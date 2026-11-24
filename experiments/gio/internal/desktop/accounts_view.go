@@ -85,7 +85,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if f := p.trade; f != nil {
 		if f.draft == nil {
 			switch {
-			case p.canFirstBuy() && f.buy.Clicked(gtx):
+			case (p.canFirstBuy() || p.hasTradeHolding(domain.TradeBuy)) && f.buy.Clicked(gtx):
 				p.startTrade(domain.TradeBuy)
 				gtx.Execute(op.InvalidateCmd{})
 			case p.canSell() && f.sell.Clicked(gtx):
@@ -500,14 +500,22 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
-	if buy, sell := p.canFirstBuy(), p.canSell(); buy || sell {
-		label, button := i18n.SellOpen, &p.trade.sell
-		if buy {
-			label, button = i18n.BuyOpen, &p.trade.buy
-		}
+	firstBuy, existingBuy, sell := p.canFirstBuy(), p.hasTradeHolding(domain.TradeBuy), p.canSell()
+	if firstBuy || existingBuy || sell {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, view.Button(button, l.Text(label)))
+				var actions []layout.FlexChild
+				if firstBuy || existingBuy {
+					label := i18n.BuyOpen
+					if existingBuy {
+						label = i18n.BuyExistingOpen
+					}
+					actions = append(actions, layout.Rigid(view.Button(&p.trade.buy, l.Text(label))))
+				}
+				if sell {
+					actions = append(actions, layout.Rigid(view.Button(&p.trade.sell, l.Text(i18n.SellOpen))))
+				}
+				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
 			})
 		})
 	}

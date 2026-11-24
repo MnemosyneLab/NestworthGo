@@ -186,37 +186,74 @@ func (p *accountsPage) layoutTradeReview(gtx layout.Context, view ui.View) layou
 		layout.Rigid(view.Message(d.account.Name+" · "+instrument, view.Colors.Ink)),
 		layout.Rigid(view.Message(contributionTimestamp(view, preview.Activity.EffectiveAt, review.Timezone), view.Colors.SecondaryInk)),
 	}
-	add := func(id i18n.MessageID, value string) {
-		children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(id), value), view.Colors.Ink)))
+	fact := func(id i18n.MessageID, value string) layout.FlexChild {
+		return layout.Rigid(view.Message(fmt.Sprintf(l.Text(id), value), view.Colors.Ink))
 	}
-	add(i18n.AccountQuantity, portfolioDecimal(view, trade.Quantity.Canonical()))
-	add(i18n.BuyExecutionPrice, money(trade.UnitPrice.Canonical()))
-	add(labels.grossFact, money(trade.Gross.CanonicalAmount()))
-	add(i18n.BuyFeeFact, money(fee))
-	if sale := review.Sale; sale != nil {
+	entryFacts := []layout.FlexChild{
+		fact(i18n.AccountQuantity, portfolioDecimal(view, trade.Quantity.Canonical())),
+		fact(i18n.BuyExecutionPrice, money(trade.UnitPrice.Canonical())),
+		fact(labels.grossFact, money(trade.Gross.CanonicalAmount())),
+		fact(i18n.BuyFeeFact, money(fee)),
+	}
+	var ledgerFacts []layout.FlexChild
+	cost := review.ExistingCost
+	existingBuy := cost != nil && trade.Side == domain.TradeBuy
+	switch {
+	case trade.Side == domain.TradeSell:
 		for _, endpoint := range preview.Review {
 			if endpoint.Target == domain.EffectTargetHoldingQuantity {
-				add(i18n.SellRemainingQuantity, portfolioDecimal(view, endpoint.After))
+				ledgerFacts = append(ledgerFacts, fact(i18n.SellRemainingQuantity, portfolioDecimal(view, endpoint.After)))
 			}
 		}
 		remaining, realized := l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue)
-		if sale.RemainingCost != nil {
-			remaining = money(sale.RemainingCost.Amount)
+		if cost != nil && cost.RemainingCost != nil {
+			remaining = money(cost.RemainingCost.Amount)
 		}
-		if sale.RealizedGain != nil {
-			realized = money(sale.RealizedGain.Amount)
+		if cost != nil && cost.RealizedGain != nil {
+			realized = money(cost.RealizedGain.Amount)
 		}
-		add(i18n.SellRemainingCost, remaining)
-		add(i18n.SellRealizedGain, realized)
-	} else {
-		add(i18n.BuyCostBasis, money(review.UnitCost.Canonical()))
+		ledgerFacts = append(ledgerFacts, fact(i18n.SellRemainingCost, remaining), fact(i18n.SellRealizedGain, realized))
+	case existingBuy:
+		for _, endpoint := range preview.Review {
+			if endpoint.Target == domain.EffectTargetHoldingQuantity {
+				ledgerFacts = append(ledgerFacts,
+					fact(i18n.BuyBeforeQuantity, portfolioDecimal(view, endpoint.Before)),
+					fact(i18n.BuyAfterQuantity, portfolioDecimal(view, endpoint.After)))
+			}
+		}
+		before, after, average := l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue)
+		if cost.PreviousCost != nil {
+			before = money(cost.PreviousCost.Amount)
+		}
+		if cost.RemainingCost != nil {
+			after = money(cost.RemainingCost.Amount)
+		}
+		if cost.AverageCost != nil {
+			average = money(cost.AverageCost.Canonical())
+		}
+		ledgerFacts = append(ledgerFacts, fact(i18n.BuyPreviousCost, before), fact(i18n.BuyTotalCost, after), fact(i18n.BuyAverageCost, average))
+		entryFacts = append(entryFacts, fact(i18n.BuyLotCost, money(review.UnitCost.Canonical())))
+	default:
+		entryFacts = append(entryFacts, fact(i18n.BuyCostBasis, money(review.UnitCost.Canonical())))
 	}
 	for _, endpoint := range preview.Review {
 		if endpoint.Target == domain.EffectTargetAccountCash {
-			add(i18n.ContributionBefore, money(endpoint.Before))
-			add(i18n.BuyCashDelta, money(endpoint.Delta))
-			add(i18n.ContributionAfter, money(endpoint.After))
+			ledgerFacts = append(ledgerFacts,
+				fact(i18n.ContributionBefore, money(endpoint.Before)),
+				fact(i18n.BuyCashDelta, money(endpoint.Delta)),
+				fact(i18n.ContributionAfter, money(endpoint.After)))
 		}
+	}
+	if existingBuy {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			stack := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}
+			return layout.Flex{Gap: gtx.Dp(14)}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return stack.Layout(gtx, entryFacts...) }),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return stack.Layout(gtx, ledgerFacts...) }))
+		}))
+	} else {
+		children = append(children, entryFacts...)
+		children = append(children, ledgerFacts...)
 	}
 	if d.uncertain {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))

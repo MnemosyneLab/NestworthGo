@@ -18,7 +18,7 @@ type TradeLedger interface {
 	AccountValuations(context.Context, domain.AccountFilter) ([]domain.AccountValuation, error)
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
 	InstrumentProductOwnership(context.Context) (map[string]string, error)
-	PreviewSaleCost(context.Context, domain.ChangePreview) (application.SaleCostPreview, error)
+	PreviewExistingTradeCost(context.Context, domain.ChangePreview) (application.ExistingTradeCostPreview, error)
 }
 
 type TradeSources struct {
@@ -61,9 +61,6 @@ func tradeSources(ctx context.Context, ledger TradeLedger, id domain.AccountID, 
 	if err != nil {
 		return TradeSources{}, err
 	}
-	if side == domain.TradeBuy && len(holdings[id]) != 0 {
-		return TradeSources{}, &domain.Error{Code: domain.ErrValidation, Field: "holdings"}
-	}
 	if side == domain.TradeBuy {
 		values, err := ledger.AccountValuations(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
 		if err != nil {
@@ -86,17 +83,16 @@ func tradeSources(ctx context.Context, ledger TradeLedger, id domain.AccountID, 
 		return TradeSources{}, err
 	}
 	active := make(map[domain.InstrumentID]domain.Holding)
-	if side == domain.TradeSell {
-		for _, holding := range holdings[id] {
-			if holding.ArchivedAt == nil && !holding.Quantity.IsZero() {
-				active[holding.InstrumentID] = holding
-			}
+	for _, holding := range holdings[id] {
+		if holding.ArchivedAt == nil && (side == domain.TradeBuy || !holding.Quantity.IsZero()) {
+			active[holding.InstrumentID] = holding
 		}
 	}
+	existingOnly := side == domain.TradeSell || len(holdings[id]) != 0
 	instruments = slices.DeleteFunc(instruments, func(i domain.Instrument) bool {
 		_, owned := managed[i.ID.String()]
 		_, held := active[i.ID]
-		return owned || i.ArchivedAt != nil || i.QuoteCurrency != account.DefaultCurrency || (side == domain.TradeSell && !held)
+		return owned || i.ArchivedAt != nil || i.QuoteCurrency != account.DefaultCurrency || (existingOnly && !held)
 	})
 	return TradeSources{Origin: origin, Location: location, Account: account, Instruments: instruments, Holdings: active}, nil
 }
@@ -105,6 +101,7 @@ type TradeInput struct {
 	Side       domain.TradeSide
 	Account    domain.AccountID
 	Instrument domain.InstrumentID
+	Holding    domain.HoldingID
 	Quantity   string
 	Gross      string
 	Fee        string
@@ -115,7 +112,7 @@ type TradeInput struct {
 type ReviewedTrade struct {
 	Preview               domain.ChangePreview
 	UnitCost              domain.UnitPrice
-	Sale                  *application.SaleCostPreview
+	ExistingCost          *application.ExistingTradeCostPreview
 	Timezone              *time.Location
 	command               any
 	mutation, hash, token string
@@ -123,6 +120,7 @@ type ReviewedTrade struct {
 
 func ReviewTrade(ctx context.Context, ledger TradeLedger, input TradeInput) (ReviewedTrade, error) {
 	var review ReviewedTrade
+	var existing bool
 	err := ledger.WithRead(ctx, func(ctx context.Context) error {
 		preview, token, err := ledger.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
 			sources, err := tradeSources(ctx, ledger, input.Account, input.Side)
@@ -132,7 +130,11 @@ func ReviewTrade(ctx context.Context, ledger TradeLedger, input TradeInput) (Rev
 			if !slices.ContainsFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument }) {
 				return nil, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId"}
 			}
-			holding := sources.Holdings[input.Instrument]
+			holding, held := sources.Holdings[input.Instrument]
+			if holding.ID != input.Holding {
+				return nil, &domain.Error{Code: domain.ErrConflict, Field: "holdingId"}
+			}
+			existing = held
 			request, err := tradeRequest(input, sources.Account.DefaultCurrency, holding.ID)
 			if err != nil {
 				return nil, err
@@ -150,19 +152,19 @@ func ReviewTrade(ctx context.Context, ledger TradeLedger, input TradeInput) (Rev
 			return err
 		}
 		review.Preview, review.token = preview, token
-		if input.Side == domain.TradeSell {
-			sale, err := ledger.PreviewSaleCost(ctx, preview)
+		if existing {
+			cost, err := ledger.PreviewExistingTradeCost(ctx, preview)
 			if err != nil {
 				return err
 			}
-			review.Sale = &sale
+			review.ExistingCost = &cost
 		}
 		return nil
 	})
 	if err != nil {
 		return ReviewedTrade{}, err
 	}
-	if review.Sale != nil {
+	if input.Side == domain.TradeSell {
 		return review, nil
 	}
 	trade := review.Preview.Activity.TradeDetail

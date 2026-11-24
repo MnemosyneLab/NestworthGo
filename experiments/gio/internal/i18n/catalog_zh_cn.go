@@ -783,4 +783,14 @@ var simplifiedChineseCatalog = catalog{
 	SellRealizedGain:         "已实现损益 · %s",
 	SellInsufficientQuantity: "该持仓在生效时点的数量不足。",
 	SellDateSequence:         "请选择晚于该持仓最近一次成本或数量变动的时间。",
+
+	BuyExistingOpen:   "记录买入",
+	BuyExistingScope:  "请选择结算币种相同且未归档的既有持仓。",
+	BuyDateSequence:   "请选择晚于该持仓最近一次成本或数量变动的时间。",
+	BuyBeforeQuantity: "买入前数量 · %s",
+	BuyAfterQuantity:  "买入后数量 · %s",
+	BuyPreviousCost:   "买入前成本基础 · %s",
+	BuyTotalCost:      "买入后总成本基础 · %s",
+	BuyAverageCost:    "每单位加权平均成本 · %s",
+	BuyLotCost:        "本笔每单位含费成本 · %s",
 }

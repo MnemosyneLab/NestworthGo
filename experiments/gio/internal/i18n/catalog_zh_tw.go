@@ -783,4 +783,14 @@ var traditionalChineseCatalog = catalog{
 	SellRealizedGain:         "已實現損益 · %s",
 	SellInsufficientQuantity: "該持倉在生效時點的數量不足。",
 	SellDateSequence:         "請選擇晚於該持倉最近一次成本或數量變動的時間。",
+
+	BuyExistingOpen:   "記錄買入",
+	BuyExistingScope:  "請選擇結算幣別相同且未封存的既有持倉。",
+	BuyDateSequence:   "請選擇晚於該持倉最近一次成本或數量變動的時間。",
+	BuyBeforeQuantity: "買入前數量 · %s",
+	BuyAfterQuantity:  "買入後數量 · %s",
+	BuyPreviousCost:   "買入前成本基礎 · %s",
+	BuyTotalCost:      "買入後總成本基礎 · %s",
+	BuyAverageCost:    "每單位加權平均成本 · %s",
+	BuyLotCost:        "本筆每單位含費成本 · %s",
 }

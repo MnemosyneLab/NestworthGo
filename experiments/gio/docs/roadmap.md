@@ -64,8 +64,8 @@ workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
-open. Stage 5 includes Holdings and instrument reads, a scoped first buy,
-and same-currency partial sales and liquidations.
+open. Stage 5 includes Holdings and instrument reads, same-currency buys,
+partial sales and liquidations.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -1148,7 +1148,7 @@ that page. The Activity links to the affected account and instrument.
 | Linux X11 | Native Gio at 900×660 on Xvfb rejected gross plus fee above cash, then reviewed and double-clicked confirmation for the valid buy. History linked to the position and the cash account. Overview displayed USD 223.64. A normal quit and reopen preserved the buy and its fee. A read-only SQLite comparison verified one Holding, one Activity, three effects, one receipt and the exact cash and quantity projections. Opening balances, History Origin and quote rows were preserved. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
 | Tests | The Gio module suite and focused trade, cost basis and mutation tests in the shared application, domain and Wails Go History packages passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Same-currency sales](#same-currency-security-sales) follow this milestone. Existing-position buys, cross-currency settlement, positive opening positions, instrument creation and provider actions remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Same-currency sales](#same-currency-security-sales) and [existing-position buys](#same-currency-buys-into-an-existing-holding) follow this milestone. Cross-currency settlement, positive opening positions, instrument creation and provider actions remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 #### Same-currency security sales
 
@@ -1168,7 +1168,7 @@ sale fees. The preview labels missing cost evidence as unavailable and
 reports an actual zero remaining cost when quantity reaches zero. This
 slice accepts times strictly after the holding's latest affected cost or
 quantity activity. The audit check includes reversals. Market quotes are
-separate from the executed amount. [Application sale preview](../../../internal/application/trade_sale_preview.go) · [Cost basis replay](../../../internal/domain/cost_basis.go)
+separate from the executed amount. [Application trade cost preview](../../../internal/application/trade_cost_preview.go) · [Cost basis replay](../../../internal/domain/cost_basis.go)
 
 Confirmation uses the same immutable command, mutation ID and preview token
 on retry. The saved sale opens by Activity ID and refreshes History, Account,
@@ -1182,7 +1182,39 @@ History. The current-position list omits the zero position.
 | Linux X11 | Native Gio at 900×660 on Xvfb rejected an oversell, then confirmed a partial sale with a double click and navigated through the saved activity to the instrument and account. A second preview showed zero remaining quantity and cost and the USD 23 loss. After liquidation and normal reopen, Overview showed USD 192 and History retained four activities. Read-only SQLite confirmed two sales, one receipt per sale, exact cash and quantity projections, and unchanged Holding identity, buys and quote rows. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | An additional buy into an existing holding is the next trade slice and needs independent weighted-cost and retry acceptance. Backdated sale insertion, cross-currency settlement, opening positive positions, instrument maintenance and tax reporting remain separate. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Existing-position buys](#same-currency-buys-into-an-existing-holding) follow this milestone. Backdated sale insertion, cross-currency settlement, opening positive positions, instrument maintenance and tax reporting remain separate. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+
+#### Same-currency buys into an existing holding
+
+**Accounts → Holdings account → Record buy** records an executed buy against
+an existing unarchived holding in the account's default currency. An
+unarchived zero-quantity holding is eligible after liquidation and keeps
+its ID on reentry. The first-buy entry remains available on an account
+with no holding records. The existing-position picker lists holdings for
+ordinary, active securities already on the account. [Wails trade form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails Go trade command](../../../internal/wailsapi/history/command.go)
+
+The preview shows the executed quantity, gross and fee, together with the
+holding quantity, cost basis and cash before and after. It also shows this
+buy's fee-adjusted unit cost and the resulting weighted average. History's
+shared cost replay retains the previous acquisition facts and realized gains.
+Reentry starts from zero basis. Missing cost evidence is displayed as
+unavailable. The effective time must be later than the holding's last cost
+or quantity event. [Application trade cost preview](../../../internal/application/trade_cost_preview.go) · [Shared cost replay](../../../internal/domain/cost_basis.go)
+
+Cash validation uses gross plus fee. A change to the same Holding after
+preview requires a fresh review. A lost response retries the frozen
+command and mutation ID. A read failure after acknowledgment retries
+only the read. Account, Portfolio, History and Overview refresh after
+confirmation.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent synthetic profiles ran a first buy, a concurrent buy, the newly reviewed addition, a partial sale, a liquidation, and a buy back into the same holding. Five units had USD 135 basis and USD 27 weighted average. Subsequent sales realized USD 15 and a USD 23 loss. Reentry bought four units with USD 100 fee-inclusive basis, leaving USD 92 cash and the prior cumulative USD 8 realized loss. Compared Wails Go trade previews and holdings, and shared gain and valuation reads. |
+| Shell tests | Exercised cash shortfall including fee, a stale plan after a competing buy on the same Holding, double confirmation, a lost response, a read-only retry following acknowledgment, and replay after restarting the shared service. First-buy and sell regressions passed. |
+| Linux X11 | In native Gio at 900×660 on Xvfb, rejected a buy above the available cash including the fee. Double-clicked confirmation on the addition, sold part, liquidated, and used **Record buy** from the closed position. A normal quit and reopen showed five trade records, USD 100 position basis, USD 160 market value and USD 252 net worth. Read-only SQLite verified the original Holding ID, original acquisition and quotes, exact cash and quantity projections, and one receipt per new trade. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
+| Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | The next slice is a same-currency cash dividend for an existing holding using the shared dividend command. Verify native cash, income classification and history linkage separately from trade gains. Adding a new instrument to a populated account, backdated additions that change later cost replay, foreign-currency settlement, positive opening positions and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 ## Moving from the preview to a desktop build
 

@@ -782,4 +782,14 @@ var japaneseCatalog = catalog{
 	SellRealizedGain:         "実現損益 · %s",
 	SellInsufficientQuantity: "指定時点の保有数量が不足しています。",
 	SellDateSequence:         "保有銘柄の最新の取得原価または数量記録より後の時刻を選択してください。",
+
+	BuyExistingOpen:   "買付を記録",
+	BuyExistingScope:  "決済通貨に対応する有効な既存の保有銘柄を選択してください。",
+	BuyDateSequence:   "保有銘柄の最新の取得原価または数量記録より後の時刻を選択してください。",
+	BuyBeforeQuantity: "買付前の数量 · %s",
+	BuyAfterQuantity:  "買付後の数量 · %s",
+	BuyPreviousCost:   "買付前の取得原価 · %s",
+	BuyTotalCost:      "買付後の取得原価合計 · %s",
+	BuyAverageCost:    "加重平均取得単価 · %s",
+	BuyLotCost:        "今回の手数料込み取得単価 · %s",
 }

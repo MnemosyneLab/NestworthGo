@@ -780,6 +780,15 @@ const (
 	SellRealizedGain
 	SellInsufficientQuantity
 	SellDateSequence
+	BuyExistingOpen
+	BuyExistingScope
+	BuyDateSequence
+	BuyBeforeQuantity
+	BuyAfterQuantity
+	BuyPreviousCost
+	BuyTotalCost
+	BuyAverageCost
+	BuyLotCost
 	messageCount
 )
 

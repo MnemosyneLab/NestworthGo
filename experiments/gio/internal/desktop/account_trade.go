@@ -23,6 +23,7 @@ type accountTrade struct {
 
 type accountTradeDraft struct {
 	side                         domain.TradeSide
+	existing                     bool
 	account                      domain.Account
 	instrument                   domain.InstrumentID
 	quantity, gross, fee         ui.TextField
@@ -46,6 +47,10 @@ func (p *accountsPage) canFirstBuy() bool {
 }
 
 func (p *accountsPage) canSell() bool {
+	return p.hasTradeHolding(domain.TradeSell)
+}
+
+func (p *accountsPage) hasTradeHolding(side domain.TradeSide) bool {
 	if !p.canTradeAccount() {
 		return false
 	}
@@ -58,7 +63,7 @@ func (p *accountsPage) canSell() bool {
 			return false
 		}
 		h, ok := p.current.holdings[*component.HoldingID]
-		return ok && h.ArchivedAt == nil && !h.Quantity.IsZero()
+		return ok && h.ArchivedAt == nil && (side == domain.TradeBuy || !h.Quantity.IsZero())
 	})
 }
 
@@ -99,12 +104,17 @@ func (d *accountTradeDraft) labels() tradeLabels {
 	if d.side == domain.TradeSell {
 		return sellLabels
 	}
-	return buyLabels
+	labels := buyLabels
+	if d.existing {
+		labels.action = i18n.BuyExistingOpen
+		labels.scope = i18n.BuyExistingScope
+	}
+	return labels
 }
 
 func (p *accountsPage) startTrade(side domain.TradeSide) {
 	f := p.trade
-	f.draft = &accountTradeDraft{side: side, account: p.freshDetail().record.Account,
+	f.draft = &accountTradeDraft{side: side, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account,
 		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true)}
 	p.loadTradeSources()
 }
@@ -132,7 +142,8 @@ func (p *accountsPage) previewTrade() {
 	if d.previewing != nil || d.sources == nil || d.instrument == "" {
 		return
 	}
-	input := history.TradeInput{Side: d.side, Account: d.account.ID, Instrument: d.instrument, Quantity: d.quantity.Text(),
+	input := history.TradeInput{Side: d.side, Account: d.account.ID, Instrument: d.instrument,
+		Holding: d.sources.Holdings[d.instrument].ID, Quantity: d.quantity.Text(),
 		Gross: d.gross.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time}
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedTrade, error) {
@@ -170,6 +181,7 @@ func (p *accountsPage) pollTrade() {
 		} else {
 			d.sources = &result.value
 			d.account = result.value.Account
+			d.existing = len(result.value.Holdings) > 0
 			if d.day == "" {
 				now := p.clock().In(result.value.Location)
 				d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
@@ -226,10 +238,12 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 	switch issue.Field {
 	case "settlementCash":
 		return i18n.BuyCashRequired
-	case "settlementAccountId", "holdings":
+	case "settlementAccountId", "holdings", "holdingId":
 		return labels.scope
 	case "saleSequence":
 		return i18n.SellDateSequence
+	case "buySequence":
+		return i18n.BuyDateSequence
 	}
 	switch issue.Code {
 	case domain.ErrHistoryNotStarted:

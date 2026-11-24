@@ -300,8 +300,9 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 		t.Fatalf("post-restart replay did not return the original receipt: %+v / %v", r, err)
 	}
 	assertFacts(reopened, ids, fault.firstActivity)
-	if _, err := history.LoadTradeSources(ctx, reopened, ids.account, domain.TradeBuy); err == nil {
-		t.Fatal("first-buy helper admitted an account with an existing position")
+	sources, err := history.LoadTradeSources(ctx, reopened, ids.account, domain.TradeBuy)
+	if err != nil || len(sources.Instruments) != 1 || sources.Holdings[ids.instrument].Quantity.Canonical() != "2.5" {
+		t.Fatalf("recorded first buy did not become an eligible existing position: %+v / %v", sources, err)
 	}
 }
 

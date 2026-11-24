@@ -783,4 +783,14 @@ var englishCatalog = catalog{
 	SellRealizedGain:         "Realized gain or loss · %s",
 	SellInsufficientQuantity: "This holding did not have enough quantity at the effective time.",
 	SellDateSequence:         "Choose a time later than the holding’s latest cost or quantity activity.",
+
+	BuyExistingOpen:   "Record buy",
+	BuyExistingScope:  "Choose an existing, unarchived holding in the settlement currency.",
+	BuyDateSequence:   "Choose a time later than the holding’s latest cost or quantity activity.",
+	BuyBeforeQuantity: "Quantity before buy · %s",
+	BuyAfterQuantity:  "Quantity after buy · %s",
+	BuyPreviousCost:   "Cost basis before buy · %s",
+	BuyTotalCost:      "Total cost basis after buy · %s",
+	BuyAverageCost:    "Weighted average cost per unit · %s",
+	BuyLotCost:        "Cost per unit for this buy including fee · %s",
 }

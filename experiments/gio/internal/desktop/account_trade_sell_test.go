@@ -230,7 +230,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	assertState(service, ids, fault.firstActivity, "2", "70.125", "1.125", "3", "81", "15", "120", "134", "254", 1)
 	assertState(reference, ref, refPartial, "2", "70.125", "1.125", "3", "81", "15", "120", "134", "254", 1)
 	// A second sale in the same minute cannot yet produce a sequential basis.
-	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument,
+	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
 		Quantity: "3", Gross: "60", Fee: "2", Date: "2026-11-22", Time: "01:00"}
 	_, err := history.ReviewTrade(ctx, service, input)
 	var issue *domain.Error
@@ -305,7 +305,7 @@ func TestSellBasisPreviewRejectsInsertionBeforeReversedPositionActivity(t *testi
 		t.Fatalf("test did not restore the original economic facts: %+v / %v", gain, err)
 	}
 
-	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument,
+	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
 		Quantity: "1", Gross: "30", Date: "2026-11-22", Time: "00:30"}
 	_, err = history.ReviewTrade(ctx, service, input)
 	var issue *domain.Error
