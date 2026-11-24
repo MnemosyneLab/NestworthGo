@@ -38,6 +38,8 @@ type balanceAccountReview struct {
 
 type balanceAccountDraft struct {
 	kind                         domain.AccountType
+	role                         domain.BalanceSheetRole
+	scoped                       bool
 	institution                  domain.Institution
 	institutions                 []domain.Institution
 	available                    bool
@@ -59,21 +61,8 @@ type balanceAccountDraft struct {
 	cancelRefs                   context.CancelFunc
 }
 
-// The Gio slice exposes a subset of the shared Catalog, all with one total
-// in the account currency. Role and compatibility come from the domain.
-func supportedBalanceRole(kind domain.AccountType) (domain.BalanceSheetRole, bool) {
-	switch kind {
-	case domain.TypeBankAccount, domain.TypeCreditCard, domain.TypeLoan:
-		role, ok := domain.DefaultBalanceSheetRole(kind)
-		return role, ok && domain.IsValidAccountCombination(kind, role, domain.TrackingBalance)
-	default:
-		return "", false
-	}
-}
-
 func (d *balanceAccountDraft) liability() bool {
-	role, _ := supportedBalanceRole(d.kind)
-	return role == domain.RoleLiability
+	return d.role == domain.RoleLiability
 }
 
 // Account creation is transient. Navigation retains the scoped browser and
@@ -98,22 +87,22 @@ func (p *accountsPage) canCreateAccount() bool {
 	return p.creation != nil && p.target.account == "" && p.current != nil && !p.current.unavailable && p.request == nil && p.err == nil
 }
 
-func (p *accountsPage) canCreateLiability() bool {
+func (p *accountsPage) canCreateUnscoped() bool {
 	return p.canCreateAccount() && p.target.institution == ""
 }
 
 func (p *accountsPage) startBankAccount() {
 	if p.canCreateBankAccount() {
-		p.startBalanceAccount(domain.TypeBankAccount, p.current.institutions[p.target.institution])
+		p.startBalanceAccount(domain.TypeBankAccount, domain.RoleAsset, p.current.institutions[p.target.institution])
 	}
 }
 
-func (p *accountsPage) startBalanceAccount(kind domain.AccountType, institution domain.Institution) {
+func (p *accountsPage) startBalanceAccount(kind domain.AccountType, role domain.BalanceSheetRole, institution domain.Institution) {
 	if p.creation.draft != nil {
 		return
 	}
 	p.creation.draft = &balanceAccountDraft{
-		kind: kind, institution: institution,
+		kind: kind, role: role, scoped: institution.ID != "", institution: institution,
 		name: ui.NewTextField(true), opening: ui.NewTextField(true),
 		included:     domain.SuggestedInclusion(kind, domain.TrackingBalance).IncludeInNetWorth,
 		ownerButtons: make(map[domain.MemberID]*widget.Clickable),
@@ -149,7 +138,7 @@ func (d *balanceAccountDraft) applyReferences(source accountCreateSource) {
 	core := source.bootstrap
 	d.institutions = slices.DeleteFunc(slices.Clone(core.Institutions), func(item domain.Institution) bool { return item.ArchivedAt != nil })
 	if core.Household != nil {
-		d.available = d.liability()
+		d.available = !d.scoped
 		if index := d.institutionIndex(); index >= 0 {
 			d.institution, d.available = d.institutions[index], true
 		}
@@ -207,10 +196,13 @@ func (p *accountsPage) pollAccountCreation() domain.AccountRecord {
 		if d.problem == i18n.AccountCreateInstitutionUnavailable || d.problem == i18n.AccountCreateOwnersChanged {
 			p.loadAccountCreationReferences()
 		}
-		if d.liability() {
+		if !d.scoped {
 			switch d.problem {
 			case i18n.AccountCreateWriteFailed:
-				d.problem = i18n.AccountCreateLiabilityWriteFailed
+				d.problem = i18n.AccountCreateAssetWriteFailed
+				if d.liability() {
+					d.problem = i18n.AccountCreateLiabilityWriteFailed
+				}
 			case i18n.AccountCreateInstitutionUnavailable:
 				d.problem = i18n.AccountCreateChooseInstitution
 			}
@@ -247,8 +239,8 @@ func (f *balanceAccountCreation) prepareReview() {
 	if d.refs != nil || d.loadFailed || !d.available || f.review != nil {
 		return
 	}
-	role, supported := supportedBalanceRole(d.kind)
-	if !supported {
+	if !domain.IsValidAccountCombination(d.kind, d.role, domain.TrackingBalance) {
+		d.problem = i18n.AccountTypeIncompatible
 		return
 	}
 	if d.institution.ID != "" && d.institutionIndex() < 0 {
@@ -287,7 +279,7 @@ func (f *balanceAccountCreation) prepareReview() {
 	f.review = &balanceAccountReview{
 		money: money, shares: owners.Shares(),
 		input: application.AccountInput{
-			Name: name, AccountType: d.kind.String(), BalanceSheetRole: role.String(), TrackingMode: string(domain.TrackingBalance),
+			Name: name, AccountType: d.kind.String(), BalanceSheetRole: d.role.String(), TrackingMode: string(domain.TrackingBalance),
 			InstitutionID: d.institution.ID.String(), InstitutionIDSet: d.institution.ID != "",
 			DefaultCurrency: currency.String(), OwnerIDs: slices.Clone(d.owners), InitialAmount: money.CanonicalAmount(),
 			IncludeInNetWorth: d.included, IncludeInNetWorthSet: true,

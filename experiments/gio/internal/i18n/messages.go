@@ -70,6 +70,17 @@ const (
 	AccountCreateLiabilityWriteFailed
 	AccountCreateChooseInstitution
 	AccountRoleLiability
+	AccountRoleAsset
+	AccountCreateAssetAdd
+	AccountCreateAssetTitle
+	AccountCreateAssetHelp
+	AccountCreateAssetType
+	AccountCreateAssetReview
+	AccountCreateAssetConfirm
+	AccountCreateAssetSucceeded
+	AccountCreateAssetWriteFailed
+	AccountMaintenanceType
+	AccountTypeIncompatible
 
 	AccountCreateAdd
 	AccountCreateTitle

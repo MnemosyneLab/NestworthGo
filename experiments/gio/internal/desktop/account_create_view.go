@@ -43,6 +43,8 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 	contextLabel := fmt.Sprintf(l.Text(i18n.AccountInstitution), d.institution.Name)
 	if d.liability() {
 		title, contextLabel = i18n.AccountCreateLiabilityTitle, l.Text(i18n.AccountCreateLiabilityHelp)
+	} else if !d.scoped {
+		title, contextLabel = i18n.AccountCreateAssetTitle, l.Text(i18n.AccountCreateAssetHelp)
 	}
 	review := false
 	dims := layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(ui.LimitWidth(gtx, 680),
@@ -61,7 +63,7 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 				id, ink := i18n.AccountCreateInstitutionUnavailable, view.Colors.ErrorInk
 				if d.refs != nil {
 					id, ink = i18n.AccountCreateReferencesLoading, view.Colors.SecondaryInk
-				} else if d.loadFailed || d.liability() {
+				} else if d.loadFailed || !d.scoped {
 					id = i18n.AccountCreateReferencesFailed
 				}
 				return view.Message(l.Text(id), ink)(gtx)
@@ -128,21 +130,21 @@ func (d *balanceAccountDraft) layoutFields(gtx layout.Context, view ui.View, ori
 					return d.opening.Layout(gtx, view, ui.FieldOptions{Label: label, Hint: i18n.AccountCreateAmountHint})
 				}),
 			}
-			if d.liability() {
+			if !d.scoped {
 				fields = append(fields, layout.Rigid(d.inclusion(view)))
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, fields...)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			var fields []layout.FlexChild
-			if d.liability() {
-				fields = d.liabilityFields(view, origin.Add(image.Pt(width+gap, 0)))
+			if !d.scoped {
+				fields = d.directoryFields(view, origin.Add(image.Pt(width+gap, 0)))
 			}
 			fields = append(fields,
 				layout.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
 				layout.Rigid(view.Message(l.Text(i18n.AccountCreateEqualShares), view.Colors.SecondaryInk)),
 			)
-			if !d.liability() {
+			if d.scoped {
 				fields = append(fields, layout.Rigid(d.inclusion(view)))
 			}
 			fields = append(fields,
@@ -185,11 +187,21 @@ func (d *balanceAccountDraft) inclusion(view ui.View) layout.Widget {
 	}
 }
 
-func (d *balanceAccountDraft) liabilityFields(view ui.View, origin image.Point) []layout.FlexChild {
+func balanceTypeChoices(l i18n.Language, role domain.BalanceSheetRole) []ui.Choice {
+	var result []ui.Choice
+	for _, option := range domain.LegalAccountCombinations() {
+		if option.BalanceSheetRole == role && option.TrackingMode == domain.TrackingBalance {
+			result = append(result, ui.Choice{ID: option.AccountType.String(), Label: l.Text(accountTypes[option.AccountType])})
+		}
+	}
+	return result
+}
+
+func (d *balanceAccountDraft) directoryFields(view ui.View, origin image.Point) []layout.FlexChild {
 	l := view.Language
-	types := []ui.Choice{
-		{ID: domain.TypeCreditCard.String(), Label: l.Text(i18n.AccountTypeCredit)},
-		{ID: domain.TypeLoan.String(), Label: l.Text(i18n.AccountTypeLoan)},
+	typeLabel := i18n.AccountCreateAssetType
+	if d.liability() {
+		typeLabel = i18n.AccountCreateLiabilityType
 	}
 	institutions := []ui.Choice{{Label: l.Text(i18n.AccountNoInstitution)}}
 	for _, item := range d.institutions {
@@ -203,8 +215,8 @@ func (d *balanceAccountDraft) liabilityFields(view ui.View, origin image.Point) 
 	}
 	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			d.typeSelect.Layout(gtx, view, ui.PickerField{Label: i18n.AccountCreateLiabilityType, Origin: origin, Disabled: !gtx.Enabled()},
-				ui.SelectOptions{Items: types}, d.kind.String(), func(value string) { d.kind = domain.AccountType(value) })
+			d.typeSelect.Layout(gtx, view, ui.PickerField{Label: typeLabel, Origin: origin, Disabled: !gtx.Enabled()},
+				ui.SelectOptions{Items: balanceTypeChoices(l, d.role)}, d.kind.String(), func(value string) { d.kind = domain.AccountType(value) })
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -247,6 +259,10 @@ func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.V
 	lines := []string{r.input.Name}
 	if d.liability() {
 		title, confirm, amount, saving = i18n.AccountCreateLiabilityReview, i18n.AccountCreateLiabilityConfirm, i18n.AccountCreateReviewOwed, i18n.SettingsPending
+	} else if !d.scoped {
+		title, confirm, saving = i18n.AccountCreateAssetReview, i18n.AccountCreateAssetConfirm, i18n.SettingsPending
+	}
+	if !d.scoped {
 		lines = append(lines, l.Text(accountTypes[d.kind]))
 		if d.institution.ID == "" {
 			institution = l.Text(i18n.AccountNoInstitution)

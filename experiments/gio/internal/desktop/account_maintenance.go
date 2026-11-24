@@ -29,6 +29,7 @@ type accountOwnerChoice struct {
 
 type accountSettingsDraft struct {
 	record                                     domain.AccountRecord
+	kind                                       domain.AccountType
 	name                                       ui.TextField
 	institution, group, icon                   string
 	included, custom, focusName                bool
@@ -36,6 +37,7 @@ type accountSettingsDraft struct {
 	ownerControls                              map[domain.MemberID]*accountOwnerChoice
 	ownerList                                  widget.List
 	institutionPicker, groupPicker, iconPicker ui.Select
+	typePicker                                 ui.Select
 	include, shares, save, cancel              widget.Clickable
 }
 
@@ -61,8 +63,11 @@ type accountMaintenance struct {
 }
 
 func balanceAccountSupported(account domain.Account) bool {
-	role, supported := supportedBalanceRole(account.AccountType)
-	return supported && account.TrackingMode == domain.TrackingBalance && account.BalanceSheetRole == role
+	return compatibleBalanceType(account, account.AccountType)
+}
+
+func compatibleBalanceType(account domain.Account, kind domain.AccountType) bool {
+	return account.TrackingMode == domain.TrackingBalance && domain.IsValidAccountCombination(kind, account.BalanceSheetRole, account.TrackingMode)
 }
 
 func (p *accountsPage) freshDetail() *accountRow {
@@ -82,7 +87,7 @@ func refValue[T ~string](value *T) string {
 func (m *accountMaintenance) startEdit(record domain.AccountRecord) {
 	a := record.Account
 	d := &accountSettingsDraft{
-		record: record, name: ui.NewTextField(true), focusName: true, institution: refValue(a.InstitutionID),
+		record: record, kind: a.AccountType, name: ui.NewTextField(true), focusName: true, institution: refValue(a.InstitutionID),
 		group: refValue(a.GroupID), icon: refValue(a.IconKey), included: a.IncludeInNetWorth,
 		ownerControls: make(map[domain.MemberID]*accountOwnerChoice),
 		ownerList:     widget.List{List: layout.List{Axis: layout.Vertical}},
@@ -109,6 +114,9 @@ func (d *accountSettingsDraft) owner(id domain.MemberID) *accountOwnerChoice {
 
 func (d *accountSettingsDraft) input() (application.AccountInput, i18n.MessageID) {
 	a := d.record.Account
+	if !compatibleBalanceType(a, d.kind) {
+		return application.AccountInput{}, i18n.AccountTypeIncompatible
+	}
 	name := strings.TrimSpace(d.name.Text())
 	if name == "" {
 		d.focusName = true
@@ -147,6 +155,9 @@ func (d *accountSettingsDraft) input() (application.AccountInput, i18n.MessageID
 	}
 	if name != a.Name {
 		input.Name = name
+	}
+	if d.kind != a.AccountType {
+		input.AccountType = d.kind.String()
 	}
 	if shares := ownership.Shares(); !slices.Equal(shares, d.record.Ownership.Shares()) {
 		input.Ownership = shares
@@ -199,7 +210,10 @@ func (p *accountsPage) writeAccountMaintenance(id domain.AccountID, archive *boo
 	if archived || record.LatestValue == nil {
 		return accountMaintenanceResult{message: i18n.AccountMaintenanceChanged}
 	}
-	if input.Name != "" || input.InstitutionIDSet || input.GroupIDSet || input.IconKeySet || input.IncludeInNetWorthSet || input.Ownership != nil {
+	if input.AccountType != "" && !compatibleBalanceType(record.Account, domain.AccountType(input.AccountType)) {
+		return accountMaintenanceResult{message: i18n.AccountTypeIncompatible}
+	}
+	if input.AccountType != "" || input.Name != "" || input.InstitutionIDSet || input.GroupIDSet || input.IconKeySet || input.IncludeInNetWorthSet || input.Ownership != nil {
 		_, err = p.maintenance.service.UpdateAccount(p.ctx, id, input)
 	}
 	return accountMaintenanceResult{message: i18n.AccountMaintenanceSaved, err: err}
@@ -215,6 +229,8 @@ func maintenanceProblem(err error) i18n.MessageID {
 			return i18n.AccountMaintenanceChanged
 		}
 		switch problem.Field {
+		case "accountType", "balanceSheetRole", "trackingMode":
+			return i18n.AccountTypeIncompatible
 		case "institutionId":
 			return i18n.AccountCreateInstitutionUnavailable
 		case "groupId":
@@ -251,6 +267,10 @@ func (p *accountsPage) pollAccountMaintenance() bool {
 		if result.message == i18n.AccountMaintenanceChanged {
 			m.draft, m.issue = nil, result.message
 			p.read()
+			return false
+		}
+		if result.message == i18n.AccountTypeIncompatible {
+			m.issue = result.message
 			return false
 		}
 		if m.draft != nil {

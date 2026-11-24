@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Accounts** browses accounts by institution and creates standard bank accounts, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation, **Accounts** browses accounts by institution and manages total-balance accounts, **Settings → Appearance** edits general display preferences, **Activity → Ledger activity** reads the ledger, and **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## General settings and sidebar
 
@@ -218,11 +218,17 @@ the archived account, then use **Restore account** in its detail. A failed
 refresh after a confirmed change can be retried without repeating the change.
 
 From **Accounts** with all institutions shown, choose **Add liability account** to
-create a credit card or loan tracked as one amount in the selected currency.
-Choose an existing institution or leave the account unassigned. Enter any
-opening debt as a positive amount. Detail shows its liability sign and
-reports any unavailable household-currency conversion. Account settings,
-archive, and restore use the same workflow as a standard bank account.
+create a credit card, loan, or other liability. **Add asset account** offers
+cash on hand, a bank account, a digital wallet, a receivable, or another
+asset. These forms record one total in the selected account currency. Choose
+an existing institution or leave the account unassigned. Enter opening debt
+as a positive amount. Detail shows the liability sign and any unavailable
+household-currency conversion.
+
+**Account settings** can change the type to another total-balance type with
+the same asset or liability role. The account ID, currency and recorded
+balance stay fixed. The institution-scoped **Add bank account** entry keeps
+its existing quick form.
 
 ## Ledger activity
 

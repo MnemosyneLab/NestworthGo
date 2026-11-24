@@ -80,7 +80,11 @@ func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) l
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(accountTypes[d.record.Account.AccountType]), d.record.Account.DefaultCurrency.String())
+			role := i18n.AccountRoleAsset
+			if d.record.Account.IsLiability() {
+				role = i18n.AccountRoleLiability
+			}
+			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(role), d.record.Account.DefaultCurrency.String())
 			return fieldPosition(gtx, &origin, view.Message(label, view.Colors.SecondaryInk))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -218,9 +222,22 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			d.iconPicker.Layout(gtx, view, ui.PickerField{Label: i18n.DirectoryIcon, Origin: origin, Disabled: !gtx.Enabled()},
-				ui.SelectOptions{Items: iconChoices, Searchable: true, ValueLabel: iconLabel, FoldSearch: banklogos.FoldSearch}, iconValue, func(id string) { d.icon = id })
-			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+			gap := gtx.Dp(8)
+			width := (gtx.Constraints.Max.X - gap) / 2
+			return layout.Flex{Gap: gap}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = width
+					d.typePicker.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceType, Origin: origin, Disabled: !gtx.Enabled()},
+						ui.SelectOptions{Items: balanceTypeChoices(l, d.record.Account.BalanceSheetRole)}, d.kind.String(), func(id string) { d.kind = domain.AccountType(id) })
+					return layout.Dimensions{Size: image.Pt(width, gtx.Dp(60))}
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					field := ui.PickerField{Label: i18n.DirectoryIcon, Origin: origin.Add(image.Pt(width+gap, 0)), Disabled: !gtx.Enabled()}
+					d.iconPicker.Layout(gtx, view, field, ui.SelectOptions{Items: iconChoices, Searchable: true, ValueLabel: iconLabel, FoldSearch: banklogos.FoldSearch},
+						iconValue, func(id string) { d.icon = id })
+					return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+				}),
+			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.include.Clicked(gtx) {

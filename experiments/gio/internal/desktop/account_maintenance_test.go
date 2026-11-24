@@ -400,7 +400,7 @@ func TestBankMaintenanceRejectsStaleAffiliationWithoutADifferentWrite(t *testing
 		t.Fatalf("Wails did not enforce the open contract guard: %v", wailsErr)
 	}
 	show(holdingAccount.Account.ID)
-	assertPageLabel(t, &h.router, "Maintenance covers total-balance bank accounts, credit cards and loans.")
+	assertPageLabel(t, &h.router, "Maintenance covers accounts tracked as one total balance.")
 	if findPageLabel(&h.router, "Account settings") != nil || findPageLabel(&h.router, "Archive account") != nil {
 		t.Fatal("out-of-scope account offered maintenance")
 	}

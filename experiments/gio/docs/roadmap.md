@@ -57,8 +57,8 @@ kind, civil date and note. Account and instrument names, amount breakdowns,
 filters, detail and write actions remain part of later History work. The
 scoped Stage 2 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
-live Overview, account browsing, and creation and maintenance for standard
-bank accounts, credit cards and loans. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+live Overview, account browsing, and creation and maintenance for every
+total-balance Catalog combination. Stages 4–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -365,17 +365,47 @@ visible and the household-currency value unavailable.
 | Linux X11 read failure and storage | A temporary QA overlay failed the credit-card submission before writing, then failed the first exact-ID read after the successful retry. The draft survived the write failure, and the created notice and **Retry** recovered the detail after the read failure. The probe counted two card submissions, including the deliberate pre-write failure, and one loan submission. The two closed profiles each held exactly one card and one loan, one opening contribution per account and unchanged pre-existing account, balance, owner, directory and activity rows. The clock and fault overlays are outside the application. |
 | Open evidence | Wails GUI, native macOS and Wayland were not run. The Wails comparison covers the Go adapter and shared contracts. |
 
+#### Complete total-balance Catalog milestone
+
+**Add asset account** covers cash on hand, bank account, digital wallet,
+receivable, and Other asset. **Add liability account** covers credit card,
+loan, and Other liability. Both entry points derive their choices from the
+[shared Catalog](../../../internal/domain/account_type.go). The selected
+entry point fixes the role. The institution-scoped bank entry stays
+available. Opening amounts and history evidence still come from the shared
+[account writer](../../../internal/application/service.go).
+
+Settings offers a type change within the existing role and total-balance
+tracking mode, matching [Wails's compatibility filter](../../../frontend/src/features/accounts/accountCatalog.ts).
+It sends only the changed account type to the shared writer for a type-only
+edit. The form and the fresh-account check reject incompatible requests.
+Role, tracking and currency stay fixed. The recorded balance, ownership,
+saved inclusion flags, stable ID and ledger activities remain intact. The
+shared reader may classify the account differently based on its new type.
+
+| Check | Evidence |
+| --- | --- |
+| Fixed-clock Go comparison | On paired synthetic ledgers at `2026-11-21T17:00:00Z`, compared all five new combinations with the Wails Go adapter, including opening amounts, ownership, inclusion defaults, opening activity and zero behavior. Bank-to-receivable and credit-card-to-loan conversions matched and survived reopen. An incompatible creation could not enter review. Cross-role and non-balance destination edits were rejected, and the Gio probes found zero updates or added observations for those attempts. The original balance and activity references survived valid conversions. |
+| Linux X11 | The Gio module tests, vet, Linux preview build and focused Wails adapter, application and domain tests passed on Debian 13 amd64 with Go 1.27.4. At 700 × 460 under Xvfb with Mesa, created all five additions, including a zero Other asset and a positive Other liability, and converted Harbor Checking to Receivable. Native reopen showed all five accounts, USD `1,761.18` net worth, and the original USD `1,734.13` balance on the converted account. Closed SQLite confirmed four opening activities and unchanged values, ownership and history for the original account. Separate X11 runs passed the bank create and reopen path and the credit-card and loan create, archive, restore and reopen path. |
+| Linux X11 invalid requests | The asset settings picker excluded liability and manual-value destinations. A temporary QA overlay then supplied a Loan and a Property to the asset form at submission. The real form rejected both requests, and read-only verification found identical account, value, owner, activity and observation rows before and after. The clock and invalid-input overlays are outside the application. |
+| Open evidence | Wails GUI, native macOS and Wayland were not run. The Wails comparison covers the Go adapter and shared contracts. |
+
 #### Remaining account capabilities by dependency
 
 | Wails type or capability | Gio gap | Stage dependency |
 | --- | --- | --- |
-| Single-currency totals | Cash on hand, digital wallet, receivable and Other asset. Other liability also needs explicit role selection. | Stage 3 creation, detail and maintenance. |
 | Single estimated value | Insurance policy, property, vehicle, collectible, and the manual-value choices for brokerage, investment, pension, receivable and Other asset. | Stage 3 creation, detail and maintenance. Stage 4 recorded value changes. |
 | Multi-currency Cash on hand | The Wails Catalog and tracking prompt expose the cash-only Holdings combination. Create opens an empty account and exposes cash per currency in detail. | Stage 3 empty account and cash-component reads. Stage 4 opening cash, cash reconciliation, deposits, withdrawals, FX and transfers. |
 | Mixed Holdings | Bank and digital wallet Holdings modes, brokerage, investment, crypto exchange, pension and Other asset. Wails create omits the total and opens component detail. | Stage 3 account creation and maintenance when components can be represented. Stage 4 opening cash and History boundaries. Stage 5 investment opening, trades, products and Portfolio. |
-| Cross-type settings and additional create fields | Wails-compatible type edits, create-time group, icon, custom shares, opening date when History has started, and creating institutions from the wizard. | Stage 3 for the account form and legal settings; keep creation coupled to the shared History boundary. |
+| Cross-type settings and additional create fields | Compatible type edits within the manual-value and Holdings modes, create-time group, icon, custom shares, opening date when History has started, and creating institutions from the wizard. | Stage 3 account forms and legal settings. Holdings conversions must preserve the cash-only boundary. |
 | Movements on existing accounts | Debt draws and payments, card purchases and refunds, account-total reconciliation, and related History detail. | Stage 4 preview, confirmation, and ledger writes. |
 | Production profile and recovery | Ledger selection, production startup and recovery on the intended platform. | Stage 3 startup ownership and cutover gates. Stage 7 backup and restore interactions. |
+
+Stage 3 closes when those account forms and shell reads work across the
+remaining Catalog modes, the production startup journey is verified with
+disposable ledgers, and the target-platform restart, blocked-state, ownership
+and Wails parity checks are recorded. Stage 4 and 5 actions keep their own
+acceptance gates.
 
 ## Moving from the preview to a desktop build
 

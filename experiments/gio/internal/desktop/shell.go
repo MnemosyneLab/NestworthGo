@@ -214,6 +214,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			s.accounts.createdID = record.Account.ID
 			s.accounts.createdMessage = i18n.AccountCreateSucceeded
 			focus := &s.accounts.createBank
+			if s.accounts.target.institution == "" {
+				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
+				focus = &s.accounts.createAsset
+			}
 			if record.Account.IsLiability() {
 				s.accounts.createdMessage = i18n.AccountCreateLiabilitySucceeded
 				focus = &s.accounts.createLiability

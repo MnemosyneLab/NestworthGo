@@ -28,9 +28,15 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.startBankAccount()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.canCreateLiability() && p.createLiability.Clicked(gtx) {
-		p.startBalanceAccount(domain.TypeCreditCard, domain.Institution{})
-		gtx.Execute(op.InvalidateCmd{})
+	if p.canCreateUnscoped() {
+		if p.createAsset.Clicked(gtx) {
+			p.startBalanceAccount(domain.TypeCashOnHand, domain.RoleAsset, domain.Institution{})
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if p.createLiability.Clicked(gtx) {
+			p.startBalanceAccount(domain.TypeCreditCard, domain.RoleLiability, domain.Institution{})
+			gtx.Execute(op.InvalidateCmd{})
+		}
 	}
 	if p.creation != nil && p.creation.draft != nil {
 		return p.layoutAccountCreation(gtx, view)
@@ -77,8 +83,11 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			if p.canCreateBankAccount() {
 				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createBank, l.Text(i18n.AccountCreateAdd))))
 			}
-			if p.canCreateLiability() {
-				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createLiability, l.Text(i18n.AccountCreateLiabilityAdd))))
+			if p.canCreateUnscoped() {
+				controls = append(controls,
+					layout.Rigid(view.PrimaryButton(&p.createLiability, l.Text(i18n.AccountCreateLiabilityAdd))),
+					layout.Rigid(view.PrimaryButton(&p.createAsset, l.Text(i18n.AccountCreateAssetAdd))),
+				)
 			}
 			controls = append(controls, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }))
 			if !p.invalid {
@@ -230,6 +239,8 @@ func accountTitle(gtx layout.Context, view ui.View, account domain.Account) layo
 	description := l.Text(accountTypes[account.AccountType])
 	if account.IsLiability() {
 		description += " · " + l.Text(i18n.AccountRoleLiability)
+	} else if account.AccountType == domain.TypeOther {
+		description += " · " + l.Text(i18n.AccountRoleAsset)
 	}
 	if account.ArchivedAt != nil {
 		description += " · " + l.Text(i18n.DirectoryArchived)
