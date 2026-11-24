@@ -53,8 +53,8 @@ with read paths, then use the same data to validate writes and reconstruction.
 | 7. Desktop integrations and distribution | Complete advanced Settings workflows, backup/restore/export, mobile pairing, MCP runtime, built-in assistant, credentials, native menus/dialogs, About and shutdown. Assemble the signed distributable and verify update and fallback. | Exercise each integration and restore/restart from a backup. Validate mobile assets, sidecar lifecycle and platform packaging on the supported target. |
 
 Stage 1 is implemented on the experimental desktop. The current list displays
-kind, civil date and note. Stage 4 adds reviewed contributions, withdrawals
-and cash transfers with their saved details. Broader labels,
+kind, civil date and note. Stage 4 adds reviewed contributions, withdrawals,
+cash transfers and currency conversions with their saved details. Broader labels,
 breakdowns, filters and activity types remain open. The scoped Stage 2
 workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
@@ -597,7 +597,7 @@ and receiving accounts, amounts, fee and resulting balances.
 | Replay and read retry | A double click during a paid transfer did not create a second write request. A deliberately discarded response replayed the identical envelope and returned the original activity. A following detail load failure offered a read-only retry. After reopening, withdrawal and both transfers replayed to their original IDs. A changed fee with the same ID conflicted. |
 | Linux X11 | At 900×660 on Xvfb, withdrew USD 25.125, verified an EUR source could not choose a USD destination, and changed a reviewed USD 2 fee to USD 1.125 before confirming the USD 30.25 transfer. A double click on each confirmation posted one activity. Overview displayed USD 1,907.88. Both saved details opened after normal quit and relaunch. Read-only SQLite comparison found four new effects and two mutation receipts. A temporary build overlay fixed the clock and prepared the verified synthetic fixture. |
 | Automated checks | The Gio module suite, Gio vet, Linux preview build, and focused Wails History, domain movement, household attribution and application idempotency regressions passed. |
-| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Holdings cash movements, expense categorization, broader History detail and filters, repeat, correction and reversal are future work. |
+| Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Production startup and target-platform cutover gates remain open. Expense categorization, broader History detail and filters, repeat, correction and reversal are future work. |
 
 #### Cross-currency cash transfer milestone
 
@@ -622,8 +622,7 @@ complete base total. The executed rate stays on the activity.
 The shared analyzer’s [execution-spread bucket](../../../internal/application/analysis_classifier.go)
 currently applies to the distinct `fx_conversion` kind. A cross-account
 `cash_transfer` has no separate spread result in its posting preview or
-stored effects. Holdings cash endpoints and same-account FX conversion remain
-outside this slice.
+stored effects.
 
 | Check | Evidence |
 | --- | --- |
@@ -633,6 +632,49 @@ outside this slice.
 | Linux X11 | On Xvfb, the minimum 700×460 window showed the missing-receipt validation and the preview button. At 900×660, edited the reviewed receipt from EUR 99.25 to EUR 100.5, double-clicked confirm, checked incomplete Overview and reopened the saved detail after a normal exit. Read-only SQLite comparison found one new activity, three exact effects, one mutation receipt, both native balances and no market FX quote. A temporary overlay fixed the clock and prepared the verified fixture. |
 | Automated checks | The Gio module suite and vet, the Linux preview build, and focused Wails History, domain transfer, application attribution and mutation regressions passed. |
 | Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Stage 3 production startup and target-platform cutover gates remain open. |
+
+#### Holdings cash endpoints and currency conversion milestone
+
+After History starts, contributions, withdrawals and transfers can use a
+currency within an active Holdings asset account. Each Holdings endpoint
+selects a supported currency. Balance-mode endpoints retain their account
+currency. The [Wails History Go commands](../../../internal/wailsapi/history/command.go)
+accept the explicit cash currencies, including for a transfer between
+Holdings and balance mode. Wails' transfer form locks both currency fields
+to the account defaults.
+A valid inflow can create a currency balance. Outflows require sufficient
+cash in that currency at the effective time, including any fee.
+
+**Record conversion** uses a single Holdings account and separately entered
+sold and bought currencies and amounts. A transfer requires different
+accounts even when the currencies differ. A conversion requires different
+currencies in the same account. Both use the shared guarded review and
+mutation receipt. The preview and saved detail show native effects and
+balances, the executed rate and the optional fee in the sold or sent
+currency.
+
+The [shared execution-spread rule](../../../internal/application/analysis_classifier.go)
+applies to `fx_conversion` with base valuation and both endpoints in scope
+when the native legs can be valued. It compares executed principal at
+reference FX and attributes the difference separately from fees. Missing
+reference FX leaves valuation incomplete and the native cash write valid.
+
+Wails uses a distinct [target-balance plan](../../../internal/application/cash_preview.go)
+for opening or reconciling cash. Before History it stores an opening
+observation without a business activity. After History it reconciles the
+delta at the reviewed instant. The tests use that contract to seed and
+preserve opening facts. The Gio target-balance form and market quote
+calculator remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Exact Wails Go parity | On equivalent isolated fixtures, USD 125.625 sent from a balance account opened EUR 100.5 in Holdings. Converting USD 40 into EUR 32 with a USD 1.25 fee left USD 58.75 and EUR 132.5. The native endpoints, executed rate of EUR 0.8 per USD, two internal conversion effects and separate fee matched Wails. |
+| Opening cash and money movements | Two independently generated onboarding fixtures recorded and replayed a Wails USD 100 opening baseline without an activity. Gio History blocked writes until History started. After starting History, a SGD 20 contribution and SGD 8.125 withdrawal matched Wails cash effects and ended at SGD 11.875 while preserving each original USD baseline. |
+| Spread and missing FX | The shared Asset Change query was incomplete without a reference quote and exposed no execution spread. With a historically applicable EUR→USD reference of 1.2, the conversion day's household analysis showed USD −1.60 execution spread and a separate USD −1.25 fee, with zero external flow. Both amounts came from the shared analyzer. |
+| Validation and retry | Frames and guarded app calls rejected the same account for a transfer, the same currency for conversion, an unsupported currency, a non-Holdings conversion account and principal plus fee above the available balance. The second confirmation click made no additional call. A lost reply replayed the original ID, the acknowledged detail load retried only reads, and a reopened copy replayed the same receipt. |
+| Linux X11 | In a 900×660 Xvfb window, chose EUR on the Holdings endpoint of a bank transfer, reset a same-currency conversion choice, rejected insufficient cash for principal plus fee, and double-clicked conversion confirmation. Both details reopened normally. Read-only SQLite comparison found two added activities, five exact effects and two receipts, with unchanged positions and market quotes. A temporary overlay fixed the clock and prepared the verified fixture. |
+| Automated checks | The Gio module suite, vet and Linux preview build passed, along with focused Wails History, Holdings cash, domain conversion and application attribution and mutation regressions. |
+| Open evidence | Stage 3 production startup and target-platform cutover gates remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun. Holdings investment positions and trades remain Stage 5. |
 
 ## Moving from the preview to a desktop build
 

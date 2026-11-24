@@ -444,6 +444,23 @@ const (
 	CashMovementHistoryRequired
 	CashMovementPreviewFailed
 	CashMovementStale
+	CashCurrency
+	CashCurrencyRequired
+	TransferSentCurrency
+	TransferReceivedCurrency
+	ConversionAdd
+	ConversionAccount
+	ConversionNoAccounts
+	ConversionSoldAmount
+	ConversionBoughtAmount
+	ConversionSoldCurrency
+	ConversionBoughtCurrency
+	ConversionCurrencyRequired
+	ConversionPreview
+	ConversionReview
+	ConversionConfirm
+	ConversionPosted
+	ConversionViewOn
 	HistoryActivity
 	HistoryEmpty
 	HistoryMore
