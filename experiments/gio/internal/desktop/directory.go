@@ -12,6 +12,7 @@ type directoryPage struct {
 	lists  []*directoryList
 	tabs   []widget.Clickable
 	active int
+	object directoryObjectPage
 }
 
 func newDirectoryPage(lists ...*directoryList) *directoryPage {
@@ -20,7 +21,20 @@ func newDirectoryPage(lists ...*directoryList) *directoryPage {
 
 func (p *directoryPage) activeList() *directoryList { return p.lists[p.active] }
 
+func (p *directoryPage) objectList(ref directoryRef) *directoryList {
+	if !ref.valid() {
+		return nil
+	}
+	for _, list := range p.lists {
+		if list.copy.title == ref.kind {
+			return list
+		}
+	}
+	return nil
+}
+
 func (p *directoryPage) wait() {
+	p.object.workers.Wait()
 	for _, list := range p.lists {
 		list.workers.Wait()
 	}

@@ -36,6 +36,30 @@ evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](ro
   eligibility comes from the shared service. An archived group remains a valid
   historical reference on existing accounts.
 
+### Navigation and object reads
+
+The page bar owns Back and Forward. The shell stores up to 40 visits in memory
+and discards the forward branch when a new destination is opened after Back.
+Window-level confirmations block navigation. Sidebar entries for unfinished
+pages are disabled. Back and Forward use the adjacent destination's business
+label for accessible names and hover help.
+
+Each Directory visit remembers its active tab, name filter, archive scope and
+scroll anchor. History, General settings and Component Preview remember their
+scroll. Pages keep their mounted drafts, editor selections and query results.
+On traversal, the shell restores the previous control when it is still drawn
+and enabled. The page heading is the fallback. A reused form keeps its live
+draft or committed state without replaying its submit action.
+
+Directory object links store the entity kind and stable ID. Each arrival
+and explicit reload starts an asynchronous authoritative read, including
+archived rows. Leaving cancels the outstanding read. A failed refresh retains
+the current object and offers retry. An absent or malformed target shows an
+unavailable state. Successful object reads can also update a settled list in
+the same tab when its request generation has not changed. An outstanding list
+mutation or failed reload keeps ownership of that list's query state.
+[Wails navigation design](../../../docs/design/navigation-history.md)
+
 ## Internationalization and appearance
 
 English, Simplified Chinese, Traditional Chinese and Japanese have complete

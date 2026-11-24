@@ -116,7 +116,7 @@ func (s *shell) sidebarPreferences(gtx layout.Context, view ui.View, height int)
 	return layout.Inset{Left: 12, Right: 12, Top: 8, Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if s.prefs == nil || !s.prefs.ready || s.prefs.err == nil || s.activeRoute == settingsRoute {
+				if s.prefs == nil || !s.prefs.ready || s.prefs.err == nil || s.activeRoute() == settingsRoute {
 					return layout.Dimensions{}
 				}
 				return view.Message(view.Language.Text(i18n.SidebarSaveError), view.Colors.ErrorInk)(gtx)

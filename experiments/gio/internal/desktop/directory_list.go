@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -43,7 +44,7 @@ type directoryResult struct {
 }
 
 type directoryRowButtons struct {
-	edit, archive widget.Clickable
+	view, edit, archive widget.Clickable
 }
 
 type directoryFocus struct {
@@ -65,6 +66,7 @@ type directoryList struct {
 	results     chan directoryResult
 
 	started, loaded, busy bool
+	readGeneration        uint64
 	operation             directoryOperation
 	rows                  []directoryRow
 	readErr               error
@@ -83,6 +85,8 @@ type directoryList struct {
 	focusAdd        bool
 	archiveTarget   *directoryRow
 	confirmation    ui.Confirmation
+	openObject      func(directoryRef, string, event.Tag)
+	restoreVisit    *directoryListVisit
 
 	editMode           directoryOperation
 	editID             string
@@ -108,6 +112,7 @@ func newDirectoryList(ctx context.Context, source directorySource, copy director
 
 func (p *directoryList) start(change directoryChange) {
 	p.started, p.busy = true, true
+	p.readGeneration++
 	p.operation = change.operation
 	p.notice, p.writeProblem, p.saveErr = i18n.NoMessage, i18n.NoMessage, nil
 	includeArchived := p.includeArchived
@@ -180,15 +185,13 @@ func (p *directoryList) applyWriteNotice() {
 
 func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.receive()
+	p.applyVisit()
 	controlsEnabled := !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && gtx.Enabled()
 	switch {
 	case !p.started, controlsEnabled && p.refresh.Clicked(gtx):
 		p.start(directoryChange{})
 	case controlsEnabled && p.archiveFilter.Clicked(gtx):
-		p.includeArchived = !p.includeArchived
-		p.list.Position = layout.Position{}
-		p.rows, p.loaded, p.readErr = nil, false, nil
-		p.start(directoryChange{})
+		p.setArchiveScope(!p.includeArchived)
 	case controlsEnabled && p.awaitingRead.operation == directoryRead && p.add.Clicked(gtx):
 		p.beginEditor(directoryCreate, directoryRow{})
 	}
@@ -371,6 +374,9 @@ func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow,
 			gtx.Execute(key.FocusCmd{Tag: target})
 		}
 		switch {
+		case p.openObject != nil && buttons.view.Clicked(gtx):
+			p.openObject(directoryRef{kind: p.copy.title, id: item.ID}, item.Name, &buttons.view)
+			gtx.Execute(op.InvalidateCmd{})
 		case buttons.edit.Clicked(gtx):
 			p.beginEditor(directoryEdit, item)
 			gtx.Execute(op.InvalidateCmd{})

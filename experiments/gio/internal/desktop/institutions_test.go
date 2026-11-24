@@ -117,7 +117,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.selectSidebarLanguage(i18n.SettingsLanguageZhTW)
 	h.cycleAppearance()
 	start, end := p.draft.Editor.Selection()
-	if h.shell.activeRoute != directoryRoute || p.editMode != directoryEdit || p.editID != bank.ID.String() || p.draft.Text() != "Rejected draft" ||
+	if h.shell.activeRoute() != directoryRoute || p.editMode != directoryEdit || p.editID != bank.ID.String() || p.draft.Text() != "Rejected draft" ||
 		start != selection.Start || end != selection.End {
 		t.Fatal("switching preferences changed the institution route, draft, or selection")
 	}
@@ -254,8 +254,8 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 			h.frame()
 		}
 		h.click("Directory", false)
-		if h.shell.activeRoute != directoryRoute {
-			t.Fatalf("could not open Directory from the sidebar at %s: active route %s", h.size, h.shell.activeRoute)
+		if h.shell.activeRoute() != directoryRoute {
+			t.Fatalf("could not open Directory from the sidebar at %s: active route %s", h.size, h.shell.activeRoute())
 		}
 		h.size = image.Pt(700, 460)
 		finish()

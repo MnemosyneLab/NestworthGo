@@ -52,6 +52,7 @@ func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item direct
 				)
 			})
 		}),
+		layout.Rigid(view.NamedButton(&buttons.view, view.Language.Text(i18n.DirectoryView), fmt.Sprintf(view.Language.Text(i18n.DirectoryViewName), item.Name))),
 		layout.Rigid(view.NamedButton(&buttons.edit, view.Language.Text(i18n.InstitutionsEdit), fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name))),
 		layout.Rigid(view.NamedButton(&buttons.archive, view.Language.Text(changeLabel), fmt.Sprintf(view.Language.Text(changeName), item.Name))),
 	)

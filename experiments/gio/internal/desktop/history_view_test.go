@@ -39,7 +39,7 @@ func TestHistoryViewScrollLanguageAndRetry(t *testing.T) {
 	})
 	model := history.New(t.Context(), reader, func() {})
 	page := newHistoryPage(model)
-	h := newShellHarnessWithPages(t, ledgerPages{history: page.layout})
+	h := newShellHarnessWithPages(t, ledgerPages{history: page})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	h.click("Ledger activity", false)
@@ -81,4 +81,11 @@ func TestHistoryViewScrollLanguageAndRetry(t *testing.T) {
 	h.press(key.NameEnd)
 	assertPageLabel(t, &h.router, "帳務變更")
 	assertPageLabel(t, &h.router, "2026-10-19")
+	position := page.list.Position
+	h.click(i18n.TraditionalChinese.Text(i18n.NavSettings), false)
+	h.click(i18n.TraditionalChinese.Text(i18n.NavigationBack), false)
+	h.focused(&page.list)
+	if page.list.Position.First != position.First || len(model.Rows()) != 41 || attempts != 2 {
+		t.Fatal("returning to History lost its scroll, loaded rows or query state")
+	}
 }

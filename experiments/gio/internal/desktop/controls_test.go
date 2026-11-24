@@ -48,7 +48,7 @@ func newPreviewHarness(t *testing.T) *previewHarness {
 	preview := newComponentPreview()
 	h.preview = preview
 	h.shell.routes[componentPreviewRoute].body = preview.layout
-	h.shell.activeRoute = componentPreviewRoute
+	h.shell.trail = newNavigationTrail(componentPreviewRoute)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	return h
@@ -208,7 +208,7 @@ func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 	h.focused(anchor)
 
 	h.press(key.NameReturn)
-	h.shell.activeRoute = overviewRoute
+	h.shell.trail = newNavigationTrail(overviewRoute)
 	h.frame()
 	if host.Trigger != nil || h.router.Source().Focused(anchor) {
 		t.Fatal("removing the trigger left the popover or its focus active")

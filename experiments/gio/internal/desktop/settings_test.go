@@ -101,7 +101,7 @@ func TestGeneralSettingsTimezoneAndConfirmedReset(t *testing.T) {
 	h.frame()
 	h.focused(&p.confirmation.Cancel)
 	h.clickAt(overview.Min.Add(overview.Max).Div(2))
-	if !p.confirming || h.shell.activeRoute != "settings" {
+	if !p.confirming || h.shell.activeRoute() != "settings" {
 		t.Fatal("reset confirmation allowed navigation behind it")
 	}
 	h.press(key.NameEscape)

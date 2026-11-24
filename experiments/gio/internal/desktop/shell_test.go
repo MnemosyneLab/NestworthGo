@@ -80,8 +80,8 @@ func TestShortSidebarScrollsToManagementPreview(t *testing.T) {
 		t.Fatalf("scrolling sidebar navigation moved the footer: %v -> %v", footer, got)
 	}
 	h.click("Component Preview", false)
-	if h.shell.activeRoute != componentPreviewRoute {
-		t.Fatalf("clicking the scrolled preview row opened %q", h.shell.activeRoute)
+	if h.shell.activeRoute() != componentPreviewRoute {
+		t.Fatalf("clicking the scrolled preview row opened %q", h.shell.activeRoute())
 	}
 	semanticBounds(t, &h.router, i18n.English.Text(i18n.PreviewInstitutionName), true)
 	h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: pos, Scroll: f32.Pt(0, -2000)})
@@ -90,7 +90,7 @@ func TestShortSidebarScrollsToManagementPreview(t *testing.T) {
 		t.Fatalf("scrolling back did not restore the top navigation row: %v -> %v", top, got)
 	}
 	h.click("Overview", false)
-	if h.shell.activeRoute != overviewRoute {
+	if h.shell.activeRoute() != overviewRoute {
 		t.Fatal("top navigation row was no longer reachable")
 	}
 }
@@ -116,8 +116,8 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 
 	h.frame()
 	h.click("组件预览", false)
-	if shell.activeRoute != componentPreviewRoute {
-		t.Fatalf("navigated to %q, want %q", shell.activeRoute, componentPreviewRoute)
+	if shell.activeRoute() != componentPreviewRoute {
+		t.Fatalf("navigated to %q, want %q", shell.activeRoute(), componentPreviewRoute)
 	}
 	h.click("机构名称", true)
 	const name = "示例 Bank"
@@ -134,8 +134,8 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 	check := func(language i18n.Language, dark bool, accent int) {
 		t.Helper()
 		want := sessionPreferences{language: language, dark: dark, accentIndex: accent}
-		if shell.activeRoute != componentPreviewRoute || shell.preferences != want {
-			t.Fatalf("got route %q and preferences %+v, want preview and %+v", shell.activeRoute, shell.preferences, want)
+		if shell.activeRoute() != componentPreviewRoute || shell.preferences != want {
+			t.Fatalf("got route %q and preferences %+v, want preview and %+v", shell.activeRoute(), shell.preferences, want)
 		}
 		colors := want.colors()
 		if got := shell.theme.Palette; got.Bg != colors.PageBackground || got.Fg != colors.Ink || got.ContrastBg != colors.Accent || got.ContrastFg != colors.OnAccent {

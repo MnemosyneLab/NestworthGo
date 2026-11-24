@@ -36,7 +36,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		directory.wait()
 		activities.Wait()
 	}()
-	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline.layout, prefs: state}).run(window)
+	return newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, prefs: state}).run(window)
 }
 
 func (s *shell) run(window *app.Window) error {

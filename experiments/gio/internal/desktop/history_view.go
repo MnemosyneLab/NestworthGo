@@ -123,6 +123,7 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 	return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(6).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+			view.Focus.Watch(gtx, &p.list)
 			semantic.DescriptionOp(view.Language.Text(i18n.NavHistory)).Add(gtx.Ops)
 			event.Op(gtx.Ops, &p.list)
 			for _, pressed := range ui.PressedKeys(gtx, &p.list,

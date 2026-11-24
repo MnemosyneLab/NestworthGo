@@ -52,15 +52,15 @@ func TestLedgerHistoryUsesSavedGeneralFormatAndRecordedDay(t *testing.T) {
 	prefs.wait()
 	model := history.New(ctx, service, func() {})
 	defer model.Wait()
-	h := newShellHarnessWithPages(t, ledgerPages{prefs: prefs, history: newHistoryPage(model).layout})
+	h := newShellHarnessWithPages(t, ledgerPages{prefs: prefs, history: newHistoryPage(model)})
 	h.size = image.Pt(1120, 960)
 	h.frame()
 	lang := h.shell.preferences.language
 	h.click(lang.Text(i18n.NavHistory), false)
 	model.Wait()
 	h.frame()
-	if model.Err() != nil || h.shell.activeRoute != historyRoute {
-		t.Fatalf("sidebar loaded route %q with error %v", h.shell.activeRoute, model.Err())
+	if model.Err() != nil || h.shell.activeRoute() != historyRoute {
+		t.Fatalf("sidebar loaded route %q with error %v", h.shell.activeRoute(), model.Err())
 	}
 	assertPageLabel(t, &h.router, "Bank interest")
 	assertPageLabel(t, &h.router, "2026-11-12")

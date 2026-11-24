@@ -25,6 +25,7 @@ type View struct {
 	Theme                                           *material.Theme
 	Overlay                                         *Overlay
 	Origin                                          image.Point
+	Focus                                           *PageFocus
 }
 
 func (v View) Message(text string, fg color.NRGBA) layout.Widget {
@@ -45,6 +46,7 @@ func (v View) NamedButton(button *widget.Clickable, title, name string) layout.W
 	style.CornerRadius = 7
 	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
 	return func(gtx layout.Context) layout.Dimensions {
+		v.Focus.Watch(gtx, button)
 		return accessibility.Button(gtx, button, name, "", false, style.Layout)
 	}
 }
@@ -58,6 +60,7 @@ func (v View) TabButton(button *widget.Clickable, title string, selected bool) l
 		style.Background, ink = v.Colors.Accent, v.Colors.OnAccent
 	}
 	return func(gtx layout.Context) layout.Dimensions {
+		v.Focus.Watch(gtx, button)
 		return accessibility.Button(gtx, button, title, "", false, func(gtx layout.Context) layout.Dimensions {
 			return style.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				semantic.SelectedOp(selected).Add(gtx.Ops)
@@ -75,6 +78,7 @@ func (v View) PrimaryButton(button *widget.Clickable, title string) layout.Widge
 	style.TextSize = 13
 	style.CornerRadius = 8
 	return func(gtx layout.Context) layout.Dimensions {
+		v.Focus.Watch(gtx, button)
 		return accessibility.Button(gtx, button, title, "", false, style.Layout)
 	}
 }

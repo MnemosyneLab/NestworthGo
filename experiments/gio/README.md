@@ -109,6 +109,13 @@ references to that group.
 **Add institution** takes a name and type. The application service assigns the
 type's default icon. **Edit** changes the name.
 
+**View** opens a read-only destination for a member, institution or group.
+**Back** and **Forward** in the page bar traverse the current window's visits.
+Back from an object returns to its list with the tab, filters, scroll and
+available source focus restored. A new destination opened after Back replaces
+the forward branch. Object views reread the stored ID on entry and can be
+reloaded. The history starts fresh after a restart.
+
 Directory rereads the list after each write. If the write succeeds and the
 list fails to reload, **Retry reload** reads the list again without repeating
 the write. The next launch opens the same synthetic ledger with active entries

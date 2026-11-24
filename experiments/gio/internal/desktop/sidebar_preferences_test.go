@@ -68,7 +68,7 @@ func TestNarrowSidebarKeepsItsControlsAndWidePreference(t *testing.T) {
 		t.Fatal("narrow sidebar did not expand")
 	}
 	h.click("Ledger activity", false)
-	if h.shell.activeRoute != historyRoute || !h.shell.collapsed() {
+	if h.shell.activeRoute() != historyRoute || !h.shell.collapsed() {
 		t.Fatal("narrow navigation did not close the expanded sidebar")
 	}
 	h.size.X = 960

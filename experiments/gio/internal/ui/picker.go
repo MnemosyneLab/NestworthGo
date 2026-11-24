@@ -48,6 +48,7 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 		gtx = gtx.Disabled()
 	}
 
+	view.Focus.Watch(gtx, trigger)
 	accessibility.Button(gtx, trigger, title, value, true, func(gtx layout.Context) layout.Dimensions {
 		return layoutPickerButton(gtx, view, trigger, title, value, invalid, field.Glyph)
 	})

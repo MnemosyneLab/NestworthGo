@@ -4,6 +4,8 @@ import (
 	"image"
 
 	"gioui.org/font"
+	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
@@ -39,7 +41,7 @@ type pageLayout func(layout.Context, ui.View) layout.Dimensions
 type ledgerPages struct {
 	prefs     *preferenceState
 	directory *directoryPage
-	history   pageLayout
+	history   *historyPage
 }
 
 type navigationItem struct {
@@ -55,6 +57,10 @@ func newItem(id routeID, label i18n.MessageID, iconData []byte, body pageLayout)
 	return navigationItem{id: id, label: label, icon: ui.MustIcon(iconData), body: body}
 }
 
+func (item *navigationItem) available() bool {
+	return item.body != nil || item.id == historyRoute || item.id == directoryRoute
+}
+
 type navigationGroup struct {
 	label i18n.MessageID
 	items []navigationItem
@@ -64,13 +70,20 @@ type shell struct {
 	prefs                                 *preferenceState
 	settingsPage                          *settingsPage
 	directory                             *directoryPage
+	historyPage                           *historyPage
+	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
 	wordmark                              widget.Image
 	mark                                  widget.Image
 	groups                                []navigationGroup
 	routes                                map[routeID]*navigationItem
-	activeRoute                           routeID
+	trail                                 navigationTrail
+	pendingNavigation                     *navigationRequest
+	restoreFocus                          bool
+	headingFocus                          byte
+	back, forward                         widget.Clickable
+	backHint, forwardHint                 ui.Tooltip
 	navigation                            layout.List
 	languagePicker                        ui.Select
 	themeButton                           widget.Clickable
@@ -82,20 +95,25 @@ type shell struct {
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
-	var directoryLayout pageLayout
+	var directoryLayout, historyLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
+	if pages.history != nil {
+		historyLayout = pages.history.layout
+	}
 	s := &shell{
-		prefs:        pages.prefs,
-		settingsPage: newSettingsPage(pages.prefs),
-		directory:    pages.directory,
-		preferences:  sessionPreferences{language: i18n.SimplifiedChinese},
-		theme:        material.NewTheme(),
-		wordmark:     widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
-		mark:         widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
-		activeRoute:  overviewRoute,
-		navigation:   layout.List{Axis: layout.Vertical},
+		prefs:            pages.prefs,
+		settingsPage:     newSettingsPage(pages.prefs),
+		directory:        pages.directory,
+		historyPage:      pages.history,
+		componentPreview: preview,
+		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
+		theme:            material.NewTheme(),
+		wordmark:         widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
+		mark:             widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
+		trail:            newNavigationTrail(overviewRoute),
+		navigation:       layout.List{Axis: layout.Vertical},
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
@@ -106,7 +124,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}},
 		{label: i18n.GroupActivity, items: []navigationItem{
 			newItem("tasks", i18n.NavTasks, icons.ActionAssignmentTurnedIn, nil),
-			newItem(historyRoute, i18n.NavHistory, icons.ActionReceipt, pages.history),
+			newItem(historyRoute, i18n.NavHistory, icons.ActionReceipt, historyLayout),
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
 			newItem("historical-overview", i18n.NavHistoricalOverview, icons.ActionHistory, nil),
@@ -125,6 +143,16 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		for i := range group.items {
 			item := &group.items[i]
 			s.routes[item.id] = item
+		}
+	}
+	if s.directory != nil {
+		for _, list := range s.directory.lists {
+			list.openObject = func(ref directoryRef, name string, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{
+					target: navigationTarget{route: directoryRoute, object: ref},
+					name:   name, focus: from,
+				}
+			}
 		}
 	}
 	return s
@@ -159,14 +187,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		DateFormat: s.prefs.saved.DateFormat, DecimalSeparator: s.prefs.saved.DecimalSeparator, GroupingSeparator: s.prefs.saved.GroupingSeparator,
 		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
 	}
-	for _, group := range s.groups {
-		for i := range group.items {
-			item := &group.items[i]
-			if item.button.Clicked(gtx) {
-				s.activeRoute = item.id
-				s.narrowExpanded = false
-			}
-		}
+	s.updateNavigation(gtx)
+	entry := s.trail.current()
+	if entry.target.hasObject() && s.directory.object.update() {
+		s.trail.rename(entry.target, s.directory.object.name())
 	}
 	paint.Fill(gtx.Ops, colors.PageBackground)
 	dims := layout.Flex{}.Layout(gtx,
@@ -183,7 +207,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 }
 
 func (s *shell) confirmingArchive() bool {
-	return s.activeRoute == directoryRoute && s.directory != nil && s.directory.activeList().archiveTarget != nil
+	return s.activeRoute() == directoryRoute && !s.trail.current().target.hasObject() &&
+		s.directory != nil && s.directory.activeList().archiveTarget != nil
 }
 
 func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -253,6 +278,9 @@ func (s *shell) group(gtx layout.Context, view ui.View, group *navigationGroup) 
 func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) layout.Dimensions {
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(36))
 	gtx.Constraints = layout.Exact(size)
+	if !item.available() {
+		gtx = gtx.Disabled()
+	}
 	return accessibility.Button(gtx, &item.button, view.Language.Text(item.label), "", false, func(gtx layout.Context) layout.Dimensions {
 		return item.layoutButton(gtx, s, view, size)
 	})
@@ -260,10 +288,10 @@ func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) lay
 
 func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.View, size image.Point) layout.Dimensions {
 	colors := view.Colors
-	return item.button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		pointer.CursorPointer.Add(gtx.Ops)
-		selected := s.activeRoute == item.id
+		selected := s.activeRoute() == item.id
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
 		radius := gtx.Dp(9)
@@ -301,27 +329,57 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 				)
 			})
 		})
-	})
+	}
+	if gtx.Enabled() {
+		return item.button.Layout(gtx, content)
+	}
+	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
+	semantic.EnabledOp(false).Add(gtx.Ops)
+	return content(gtx)
 }
 
 func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
-	route := s.routes[s.activeRoute]
+	entry := s.trail.current()
+	route := s.routes[entry.target.route]
+	body := route.body
+	if entry.target.hasObject() {
+		body = s.directory.object.layout
+	}
 	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return pageHeader(gtx, view, route.label) }),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return pageBody(gtx, view, route.body) }),
+	focus := ui.PageFocus{Target: entry.focus}
+	dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.pageHeader(gtx, view, route.label) }),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			view.Focus = &focus
+			return pageBody(gtx, view, body)
+		}),
 	)
+	s.finishPageFocus(gtx, focus)
+	return dims
 }
 
-func pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
+func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
 	colors := view.Colors
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.Y = 0
-		return layout.Inset{Left: 28}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, view.Language.Text(title), 19, font.Medium, colors.Ink)
+		return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.navigationButton(gtx, view, -1) }),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.navigationButton(gtx, view, 1) }),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					for {
+						if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {
+							break
+						}
+					}
+					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+					event.Op(gtx.Ops, &s.headingFocus)
+					return view.Label(gtx, view.Language.Text(title), 19, font.Medium, colors.Ink)
+				}),
+			)
 		})
 	})
 }

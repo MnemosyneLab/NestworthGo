@@ -120,6 +120,7 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 		if options.Disabled {
 			gtx = gtx.Disabled()
 		}
+		view.Focus.Watch(gtx, &f.Editor)
 		return accessibility.Editor(gtx, &f.Editor, title, view.Language.Text(options.Help), layoutEditor)
 	}
 	children := []layout.FlexChild{
@@ -171,6 +172,7 @@ func (s *SearchField) Layout(gtx layout.Context, view View, label, hint i18n.Mes
 		clear := material.IconButton(view.Theme, &s.Clear, clearIcon, name)
 		clear.Background, clear.Color = view.Colors.Surface, view.Colors.Ink
 		clear.Size, clear.Inset = 16, layout.UniformInset(4)
+		view.Focus.Watch(gtx, &s.Clear)
 		return accessibility.Button(gtx, &s.Clear, name, "", false, clear.Layout)
 	}
 	dims := s.Field.layoutWithAccessories(gtx, view, FieldOptions{Label: label, Hint: hint}, leading, trailing)

@@ -109,6 +109,16 @@ const (
 	Preview24Hour
 	Preview12Hour
 	NavInstitutions
+	NavigationBack
+	NavigationForward
+	NavigationBackTo
+	NavigationForwardTo
+	DirectoryView
+	DirectoryViewName
+	DirectoryObjectUnavailable
+	DirectoryObjectLoading
+	DirectoryObjectLoadError
+	DirectoryObjectActive
 	InstitutionsSynthetic
 	InstitutionsSearchHint
 	InstitutionsRefresh
