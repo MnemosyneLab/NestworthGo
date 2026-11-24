@@ -104,6 +104,31 @@ const (
 	previewSundayFirst
 	preview24Hour
 	preview12Hour
+	navInstitutions
+	institutionsSynthetic
+	institutionsSearchHint
+	institutionsRefresh
+	institutionsRetry
+	institutionsLoading
+	institutionsEmpty
+	institutionsLoadError
+	institutionsReloadAfterSaveError
+	institutionsSaved
+	institutionsEdit
+	institutionsEditTitle
+	institutionsEditName
+	institutionsSave
+	institutionsSaving
+	institutionsCancel
+	institutionsSaveError
+	institutionsNameLength
+	institutionBank
+	institutionBrokerage
+	institutionInsurer
+	institutionExchange
+	institutionEmployer
+	institutionGovernment
+	institutionOther
 	lightAppearance
 	darkAppearance
 	messageCount
@@ -208,6 +233,32 @@ var catalogs = map[appLanguage]*catalog{
 		preview12Hour:            "12-hour time",
 		lightAppearance:          "Light",
 		darkAppearance:           "Dark",
+
+		navInstitutions:                  "Institutions",
+		institutionsSynthetic:            "Synthetic test household",
+		institutionsSearchHint:           "Filter by institution name",
+		institutionsRefresh:              "Reload",
+		institutionsRetry:                "Retry reload",
+		institutionsLoading:              "Loading institutions…",
+		institutionsEmpty:                "This household has no active institutions.",
+		institutionsLoadError:            "Could not load institutions.",
+		institutionsReloadAfterSaveError: "The name was saved. Retry to reload the list.",
+		institutionsSaved:                "Institution saved.",
+		institutionsEdit:                 "Edit",
+		institutionsEditTitle:            "Edit institution",
+		institutionsEditName:             "Edit %s",
+		institutionsSave:                 "Save",
+		institutionsSaving:               "Saving and reloading…",
+		institutionsCancel:               "Cancel",
+		institutionsSaveError:            "Could not save the institution. Try again.",
+		institutionsNameLength:           "Use %d characters or fewer.",
+		institutionBank:                  "Bank",
+		institutionBrokerage:             "Brokerage",
+		institutionInsurer:               "Insurer",
+		institutionExchange:              "Exchange",
+		institutionEmployer:              "Employer",
+		institutionGovernment:            "Government",
+		institutionOther:                 "Other",
 	},
 	simplifiedChinese: {
 		languageName:             "简体中文",
@@ -305,6 +356,32 @@ var catalogs = map[appLanguage]*catalog{
 		preview12Hour:            "12 小时制",
 		lightAppearance:          "浅色",
 		darkAppearance:           "深色",
+
+		navInstitutions:                  "机构",
+		institutionsSynthetic:            "合成测试家庭",
+		institutionsSearchHint:           "按机构名称筛选",
+		institutionsRefresh:              "重新加载",
+		institutionsRetry:                "重试加载",
+		institutionsLoading:              "正在加载机构…",
+		institutionsEmpty:                "此家庭没有启用的机构。",
+		institutionsLoadError:            "无法加载机构。",
+		institutionsReloadAfterSaveError: "名称已保存。请重试加载列表。",
+		institutionsSaved:                "机构已保存。",
+		institutionsEdit:                 "编辑",
+		institutionsEditTitle:            "编辑机构",
+		institutionsEditName:             "编辑 %s",
+		institutionsSave:                 "保存",
+		institutionsSaving:               "正在保存并重新加载…",
+		institutionsCancel:               "取消",
+		institutionsSaveError:            "无法保存机构。请重试。",
+		institutionsNameLength:           "名称不得超过 %d 个字符。",
+		institutionBank:                  "银行",
+		institutionBrokerage:             "券商",
+		institutionInsurer:               "保险机构",
+		institutionExchange:              "交易所",
+		institutionEmployer:              "雇主",
+		institutionGovernment:            "政府机构",
+		institutionOther:                 "其他",
 	},
 }
 

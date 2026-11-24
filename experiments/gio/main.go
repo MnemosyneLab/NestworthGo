@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -9,9 +11,18 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/op"
+	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		if err := pilotCommand(os.Args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	go func() {
 		if err := run(); err != nil {
 			fmt.Fprintln(os.Stderr, "Nestworth could not start:", err)
@@ -22,7 +33,30 @@ func main() {
 	app.Main()
 }
 
-func run() error {
+func pilotCommand(args []string) error {
+	if len(args) != 1 || (args[0] != "--prepare-pilot-fixture" && args[0] != "--verify-pilot-fixture") {
+		return errors.New("expected --prepare-pilot-fixture or --verify-pilot-fixture")
+	}
+	paths, err := pilotPathsFromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	if args[0] == "--prepare-pilot-fixture" {
+		return preparePilotFixture(ctx, paths)
+	}
+	if _, err := verifyPilotFixture(ctx, paths); err != nil {
+		return err
+	}
+	fmt.Println("Verified the isolated Gio Institutions QA fixture.")
+	return nil
+}
+
+func run() (result error) {
+	paths, err := pilotPathsFromEnv()
+	if err != nil {
+		return err
+	}
 	wordmark, err := loadBrandImage("wordmark.png")
 	if err != nil {
 		return err
@@ -31,11 +65,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	return newShell(wordmark, mark).run()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	db, err := openPilot(ctx, paths)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		result = errors.Join(result, db.CheckpointWAL(context.Background()), db.Close())
+	}()
+	window := new(app.Window)
+	directory := newInstitutionsPage(ctx, application.NewService(sqlite.NewRepository(db)), window.Invalidate)
+	defer func() {
+		cancel()
+		directory.workers.Wait()
+	}()
+	return newShell(wordmark, mark, directory.layout).run(window)
 }
 
-func (s *shell) run() error {
-	window := new(app.Window)
+func (s *shell) run(window *app.Window) error {
 	window.Option(app.Title("Nestworth"), app.Size(1120, 840), app.MinSize(700, 460))
 	var ops op.Ops
 	for {

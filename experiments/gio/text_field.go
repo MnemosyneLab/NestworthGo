@@ -19,7 +19,7 @@ type fieldOptions struct {
 	label, hint, help  messageID
 	maxBytes           int
 	disabled, readOnly bool
-	validate           func(string) messageID
+	problem            func(string) string
 }
 
 type textField struct {
@@ -73,14 +73,14 @@ func (f *textField) layoutWithAccessories(gtx layout.Context, view presentation,
 	value := f.text()
 	used := len(value)
 	overLimit := options.maxBytes > 0 && used > options.maxBytes
-	problem := noMessage
-	if options.validate != nil {
-		problem = options.validate(value)
+	problem := ""
+	if options.problem != nil {
+		problem = options.problem(value)
 	}
 	colors := view.colors
 	border := colors.divider
 	switch {
-	case overLimit || problem != noMessage:
+	case overLimit || problem != "":
 		border = colors.errorInk
 	case input.Focused(&f.editor):
 		border = colors.accent
@@ -123,8 +123,8 @@ func (f *textField) layoutWithAccessories(gtx layout.Context, view presentation,
 	if options.help != noMessage {
 		children = append(children, layout.Rigid(view.message(view.language.text(options.help), colors.secondaryInk)))
 	}
-	if problem != noMessage {
-		children = append(children, layout.Rigid(view.message(view.language.text(problem), colors.errorInk)))
+	if problem != "" {
+		children = append(children, layout.Rigid(view.message(problem, colors.errorInk)))
 	}
 	if options.maxBytes > 0 {
 		message, fg := fieldByteCount, colors.secondaryInk

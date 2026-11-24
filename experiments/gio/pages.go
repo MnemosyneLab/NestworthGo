@@ -54,11 +54,11 @@ func amount(view presentation, label messageID, value string, size unit.Sp) layo
 	}
 }
 
-type directoryPage struct {
+type inputMethodPage struct {
 	editor textField
 }
 
-func (p *directoryPage) layout(gtx layout.Context, view presentation) layout.Dimensions {
+func (p *inputMethodPage) layout(gtx layout.Context, view presentation) layout.Dimensions {
 	return p.editor.layout(limitWidth(gtx, 560), view, fieldOptions{
 		label: inputMethodTest, hint: inputMethodHint,
 	})

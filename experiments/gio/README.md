@@ -1,6 +1,6 @@
 # Gio desktop preview
 
-This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. Directory contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains a sample form with text fields, search, two selects, and date and time pickers. The form keeps its draft and submitted examples in memory.
+This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. **Directory → Institutions** opens the institutions pilot. **Development → Input Method Test** contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains an in-memory form with text fields, search, two selects, and date and time pickers.
 
 The sidebar footer switches between Simplified Chinese and English, and between light and dark appearance. Labels use the message catalog in `localization.go` with an English fallback. Appearance colors come from `appearance.go`. Each preview launch starts in Simplified Chinese and light mode.
 
@@ -35,6 +35,19 @@ either part to start with `00` in the other part. The footer switches between
 12- and 24-hour display. The results panel shows the canonical date and time
 and both pickers offer a clear action.
 
+## Institutions pilot
+
+The pilot lists active institutions from the synthetic ledger. Search filters
+the list by name. Choose **Edit** to change an institution name, **Save** to
+apply it, and **Reload** to read the list again. The pilot uses the same
+application service as the Wails directory and rereads the list after each save.
+
+Each launcher creates a private run directory and seeds a synthetic
+`Gio Institutions QA` household. Gio requires explicit database and settings
+paths in that directory. It checks the paths, settings, and the ledger's
+fixture marker before connecting to the writable database. A missing or
+invalid fixture stops startup.
+
 ## macOS
 
 On Apple Silicon with the repository's Go and Xcode toolchain, run from the repository root:
@@ -50,7 +63,7 @@ The preview launcher prepares an isolated synthetic fixture and presents the dev
 Use Go 1.27.4 or newer, a C compiler, and pkg-config. The default build includes
 X11 and Wayland support and needs their development libraries as well as EGL
 and Vulkan headers. The launcher also uses Python 3 to verify the development
-identity and the synthetic SQLite fixture. [Gio Linux requirements](https://gioui.org/doc/install/linux)
+identity. [Gio Linux requirements](https://gioui.org/doc/install/linux)
 
 For example, on Debian 13 with Mesa:
 
@@ -76,10 +89,17 @@ or X11 desktop session with a working graphics driver:
 sh experiments/gio/preview-linux.sh
 ```
 
-The launcher builds the preview and seeds a fresh directory under
-`TMPDIR` (default `/tmp`). It checks the development identity and the
-`Analytics QA` household before starting the preview with the isolated
-database and settings paths. The printed run directory contains the seed log.
+The launcher builds the preview in a fresh directory under `TMPDIR`
+(default `/tmp`) and prints the path. To reopen the same fixture and see a
+saved edit, use the printed run directory in a terminal on the same display:
+
+```sh
+run_dir=/absolute/path/from-launcher
+export NESTWORTH_GIO_RUN_DIR="$run_dir"
+export NESTWORTH_DATABASE_PATH="$run_dir/data/nestworth.db"
+export NESTWORTH_SETTINGS_PATH="$run_dir/data/settings.json"
+"$run_dir/Nestworth.app/Contents/MacOS/Nestworth"
+```
 
 ### Optional X11 troubleshooting
 

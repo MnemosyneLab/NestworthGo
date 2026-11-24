@@ -29,7 +29,7 @@ type previewHarness struct {
 func newShellHarness(t *testing.T) *previewHarness {
 	t.Helper()
 	brand := image.NewRGBA(image.Rect(0, 0, 1, 1))
-	return &previewHarness{t: t, shell: newShell(brand, brand), size: image.Pt(1120, 840), now: time.Unix(1, 0)}
+	return &previewHarness{t: t, shell: newShell(brand, brand, nil), size: image.Pt(1120, 840), now: time.Unix(1, 0)}
 }
 
 func newPreviewHarness(t *testing.T) *previewHarness {

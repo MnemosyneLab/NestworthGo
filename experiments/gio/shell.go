@@ -68,8 +68,8 @@ type shell struct {
 	overlay        popoverHost
 }
 
-func newShell(wordmark, mark image.Image) *shell {
-	directory := &directoryPage{editor: newTextField(false)}
+func newShell(wordmark, mark image.Image, directory pageLayout) *shell {
+	inputTest := &inputMethodPage{editor: newTextField(false)}
 	preview := newComponentPreview()
 	s := &shell{
 		preferences: sessionPreferences{language: simplifiedChinese},
@@ -96,11 +96,12 @@ func newShell(wordmark, mark image.Image) *shell {
 			newItem("asset-changes", navAssetChanges, icons.ActionCompareArrows, nil),
 		}},
 		{label: groupManage, items: []navigationItem{
-			newItem(directoryRoute, navDirectory, icons.SocialPeopleOutline, directory.layout),
+			newItem(directoryRoute, navDirectory, icons.SocialPeopleOutline, directory),
 			newItem("data-maintenance", navDataMaintenance, icons.NotificationSync, nil),
 			newItem("settings", navSettings, icons.ActionSettings, nil),
 		}},
 		{label: groupDevelopment, items: []navigationItem{
+			newItem("input-method-test", inputMethodTest, icons.HardwareKeyboard, inputTest.layout),
 			newItem(componentPreviewRoute, navComponentPreview, icons.ActionBuild, preview.layout),
 		}},
 	}

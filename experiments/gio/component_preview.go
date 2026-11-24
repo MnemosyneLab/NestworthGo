@@ -90,7 +90,8 @@ func (p *componentPreview) form(gtx layout.Context, view presentation) layout.Di
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.name.layout(gtx, view, fieldOptions{
 				label: previewInstitutionName, hint: previewInstitutionHint,
-				maxBytes: institutionNameBudget, validate: p.nameProblem,
+				maxBytes: institutionNameBudget,
+				problem:  func(value string) string { return view.language.text(p.nameProblem(value)) },
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
