@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
@@ -209,8 +211,18 @@ func TestManualPriceRepairKeepsOutdatedSnapshotIssueUntilRebuild(t *testing.T) {
 
 func TestScanMarketDataHealthVerifiesRepairClearsExecutableGaps(t *testing.T) {
 	t.Parallel()
-	equityInner := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
+	equityInner := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, _ InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		out := mappedYahooClose("2026-09-04", "185.25")
+		out.Batch.Observations = nil
+		for _, day := range []int{2, 3, 4, 8} {
+			closedAt := time.Date(2026, 9, day, 20, 0, 0, 0, time.UTC)
+			date := MarketDate(closedAt.Format(time.DateOnly))
+			if date >= rng.Start && date <= rng.End {
+				observation := mappedYahooClose(string(date), "185.25").Batch.Observations[0]
+				observation.ValueEffectiveAt = closedAt
+				out.Batch.Observations = append(out.Batch.Observations, observation)
+			}
+		}
 		out.Batch.VerifiedRanges = []DateRange{rng}
 		return out, nil
 	}}
@@ -222,6 +234,15 @@ func TestScanMarketDataHealthVerifiesRepairClearsExecutableGaps(t *testing.T) {
 	equity := &statusProvider{countingProvider: &countingProvider{inner: equityInner}, code: ProviderConfigOK, reason: ""}
 	cryptoProvider := &countingProvider{inner: cryptoInner}
 	service, _, first, second := newSyncFixture(t, equity, cryptoProvider)
+	// U.S. Labor Day is a known closure. Missing bars on trading days are
+	// deliberately not enough to clear a market-data health issue.
+	_, err := service.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{
+		InstrumentID: first.ID.String(), Kind: "closed", Date: "2026-09-07",
+		Timezone: "America/New_York", SourceTitle: "Fixture U.S. Labor Day closure",
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	before, err := service.ScanMarketDataHealth(context.Background())
 	if err != nil {
 		t.Fatal(err)
