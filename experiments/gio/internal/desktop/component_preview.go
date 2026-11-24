@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 const institutionNameBudget = 48
@@ -39,8 +41,8 @@ func newComponentPreview() *componentPreview {
 }
 
 func (p *componentPreview) layout(gtx layout.Context, view presentation) layout.Dimensions {
-	setPreviewExample(&p.readOnly, view.language.text(previewHarbor))
-	setPreviewExample(&p.disabled, view.language.text(previewEvergreen))
+	setPreviewExample(&p.readOnly, view.language.Text(i18n.PreviewHarbor))
+	setPreviewExample(&p.disabled, view.language.Text(i18n.PreviewEvergreen))
 
 	size := gtx.Constraints.Max
 	footerHeight := gtx.Dp(40)
@@ -77,7 +79,7 @@ func setPreviewExample(field *textField, text string) {
 
 func (p *componentPreview) content(gtx layout.Context, view presentation) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(16)}.Layout(gtx,
-		layout.Rigid(view.message(view.language.text(previewFormHelp), view.colors.secondaryInk)),
+		layout.Rigid(view.message(view.language.Text(i18n.PreviewFormHelp), view.colors.secondaryInk)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			form := func(gtx layout.Context) layout.Dimensions { return p.form(gtx, view) }
 			results := func(gtx layout.Context) layout.Dimensions { return p.results(gtx, view) }
@@ -87,10 +89,10 @@ func (p *componentPreview) content(gtx layout.Context, view presentation) layout
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(16)}.Layout(gtx, layout.Rigid(form), layout.Rigid(results))
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.readOnly.layout(limitWidth(gtx, 460), view, fieldOptions{label: previewReadOnly, readOnly: true})
+			return p.readOnly.layout(limitWidth(gtx, 460), view, fieldOptions{label: i18n.PreviewReadOnly, readOnly: true})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.disabled.layout(limitWidth(gtx, 460), view, fieldOptions{label: previewDisabled, disabled: true})
+			return p.disabled.layout(limitWidth(gtx, 460), view, fieldOptions{label: i18n.PreviewDisabled, disabled: true})
 		}),
 	)
 }
@@ -99,31 +101,31 @@ func (p *componentPreview) form(gtx layout.Context, view presentation) layout.Di
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.name.layout(gtx, view, fieldOptions{
-				label: previewInstitutionName, hint: previewInstitutionHint,
+				label: i18n.PreviewInstitutionName, hint: i18n.PreviewInstitutionHint,
 				maxBytes: institutionNameBudget,
-				problem:  func(value string) string { return view.language.text(p.nameProblem(value)) },
+				problem:  func(value string) string { return view.language.Text(p.nameProblem(value)) },
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.notes.layout(gtx, view, fieldOptions{label: previewNotes, hint: previewNotesHint, help: previewNotesHelp})
+			return p.notes.layout(gtx, view, fieldOptions{label: i18n.PreviewNotes, hint: i18n.PreviewNotesHint, help: i18n.PreviewNotesHelp})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.search.layout(gtx, view, previewSearch, previewSearchHint, func(query string) { p.query = query })
+			return p.search.layout(gtx, view, i18n.PreviewSearch, i18n.PreviewSearchHint, func(query string) { p.query = query })
 		}),
 	)
 }
 
-func (p *componentPreview) nameProblem(text string) messageID {
+func (p *componentPreview) nameProblem(text string) i18n.MessageID {
 	if p.checkName && strings.TrimSpace(text) == "" {
-		return previewNameRequired
+		return i18n.PreviewNameRequired
 	}
-	return noMessage
+	return i18n.NoMessage
 }
 
 func (p *componentPreview) saveSample(gtx layout.Context) {
 	p.checkName = true
 	name := p.name.text()
-	if p.nameProblem(name) != noMessage || len(name) > institutionNameBudget {
+	if p.nameProblem(name) != i18n.NoMessage || len(name) > institutionNameBudget {
 		p.name.focus(gtx)
 	} else {
 		p.submissions++
@@ -140,14 +142,14 @@ func (p *componentPreview) results(gtx layout.Context, view presentation) layout
 			}
 			children := []layout.FlexChild{
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.label(gtx, view.language.text(previewResults), 14, font.Medium, view.colors.ink)
+					return view.label(gtx, view.language.Text(i18n.PreviewResults), 14, font.Medium, view.colors.ink)
 				}),
-				message(fmt.Sprintf(view.language.text(previewSubmissions), p.submissions)),
+				message(fmt.Sprintf(view.language.Text(i18n.PreviewSubmissions), p.submissions)),
 			}
 			if p.submissions > 0 {
 				children = append(children,
-					message(fmt.Sprintf(view.language.text(previewSavedName), p.submittedName)),
-					message(fmt.Sprintf(view.language.text(previewSavedNotes), p.submittedNotes)),
+					message(fmt.Sprintf(view.language.Text(i18n.PreviewSavedName), p.submittedName)),
+					message(fmt.Sprintf(view.language.Text(i18n.PreviewSavedNotes), p.submittedNotes)),
 				)
 			}
 			for _, line := range p.pickers.resultLines(view) {
@@ -155,18 +157,18 @@ func (p *componentPreview) results(gtx layout.Context, view presentation) layout
 			}
 			query := strings.ToLower(strings.TrimSpace(p.query))
 			if query != "" {
-				children = append(children, message(fmt.Sprintf(view.language.text(previewQuery), p.query)))
+				children = append(children, message(fmt.Sprintf(view.language.Text(i18n.PreviewQuery), p.query)))
 			}
 			found := false
-			for _, id := range [...]messageID{previewHarbor, previewEvergreen, previewWestlake} {
-				name := view.language.text(id)
+			for _, id := range [...]i18n.MessageID{i18n.PreviewHarbor, i18n.PreviewEvergreen, i18n.PreviewWestlake} {
+				name := view.language.Text(id)
 				if strings.Contains(strings.ToLower(name), query) {
 					children = append(children, message(name))
 					found = true
 				}
 			}
 			if !found {
-				children = append(children, message(view.language.text(previewNoMatches)))
+				children = append(children, message(view.language.Text(i18n.PreviewNoMatches)))
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx, children...)
 		})
@@ -182,22 +184,22 @@ func (p *componentPreview) footer(gtx layout.Context, view presentation, width, 
 		p.pickers.twelveHour = !p.pickers.twelveHour
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	weekTitle := previewMondayFirst
+	weekTitle := i18n.PreviewMondayFirst
 	if p.pickers.sundayFirst {
-		weekTitle = previewSundayFirst
+		weekTitle = i18n.PreviewSundayFirst
 	}
-	timeTitle := preview24Hour
+	timeTitle := i18n.Preview24Hour
 	if p.pickers.twelveHour {
-		timeTitle = preview12Hour
+		timeTitle = i18n.Preview12Hour
 	}
 	buttons := [...]struct {
 		button *widget.Clickable
-		title  messageID
+		title  i18n.MessageID
 	}{
-		{&p.submit, previewSubmit},
+		{&p.submit, i18n.PreviewSubmit},
 		{&p.pickers.weekButton, weekTitle},
 		{&p.pickers.clockButton, timeTitle},
-		{&p.info, previewInfo},
+		{&p.info, i18n.PreviewInfo},
 	}
 	for i, action := range buttons {
 		position, size := pickerSlot(gtx, width, y, len(buttons), i)
@@ -206,10 +208,10 @@ func (p *componentPreview) footer(gtx layout.Context, view presentation, width, 
 		if action.button == &p.info {
 			anchor := view.origin.Add(position)
 			view.overlay.register(gtx, action.button, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, popoverPane{
-				body: view.message(view.language.text(previewInfoBody), view.colors.ink),
+				body: view.message(view.language.Text(i18n.PreviewInfoBody), view.colors.ink),
 			})
 		}
-		view.button(action.button, view.language.text(action.title))(gtx)
+		view.button(action.button, view.language.Text(action.title))(gtx)
 		offset.Pop()
 	}
 }

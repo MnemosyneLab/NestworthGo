@@ -10,7 +10,8 @@ import (
 	"path/filepath"
 
 	"gioui.org/app"
-	"gioui.org/op"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/desktop"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
@@ -37,15 +38,15 @@ func pilotCommand(args []string) error {
 	if len(args) != 1 || (args[0] != "--prepare-pilot-fixture" && args[0] != "--verify-pilot-fixture") {
 		return errors.New("expected --prepare-pilot-fixture or --verify-pilot-fixture")
 	}
-	paths, err := pilotPathsFromEnv()
+	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
 	if args[0] == "--prepare-pilot-fixture" {
-		return preparePilotFixture(ctx, paths)
+		return pilot.Prepare(ctx, paths)
 	}
-	if _, err := verifyPilotFixture(ctx, paths); err != nil {
+	if err := pilot.Verify(ctx, paths); err != nil {
 		return err
 	}
 	fmt.Println("Verified the isolated Gio Institutions QA fixture.")
@@ -53,7 +54,7 @@ func pilotCommand(args []string) error {
 }
 
 func run() (result error) {
-	paths, err := pilotPathsFromEnv()
+	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		return err
 	}
@@ -65,42 +66,15 @@ func run() (result error) {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	db, err := openPilot(ctx, paths)
+	ctx := context.Background()
+	db, err := pilot.Open(ctx, paths)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		result = errors.Join(result, db.CheckpointWAL(context.Background()), db.Close())
 	}()
-	window := new(app.Window)
-	directory := newInstitutionsPage(ctx, application.NewService(sqlite.NewRepository(db)), window.Invalidate)
-	defer func() {
-		cancel()
-		directory.workers.Wait()
-	}()
-	return newShell(wordmark, mark, directory.layout).run(window)
-}
-
-func (s *shell) run(window *app.Window) error {
-	window.Option(app.Title("Nestworth"), app.Size(1120, 840), app.MinSize(700, 460))
-	var ops op.Ops
-	for {
-		switch event := window.Event().(type) {
-		case app.DestroyEvent:
-			return event.Err
-		case app.ConfigEvent:
-			if !event.Config.Focused && s.overlay.trigger != nil {
-				s.overlay.close()
-				window.Invalidate()
-			}
-		case app.FrameEvent:
-			gtx := app.NewContext(&ops, event)
-			s.layout(gtx)
-			event.Frame(gtx.Ops)
-		}
-	}
+	return desktop.Run(ctx, application.NewService(sqlite.NewRepository(db)), wordmark, mark)
 }
 
 func loadBrandImage(name string) (image.Image, error) {

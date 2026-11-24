@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"image"
@@ -11,10 +11,12 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type presentation struct {
-	language appLanguage
+	language i18n.Language
 	colors   *palette
 	theme    *material.Theme
 	overlay  *popoverHost

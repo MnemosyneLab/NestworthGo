@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 const clockLayout = "15:04"
@@ -34,9 +36,9 @@ func chooseClockPart(value string, isMinute bool, part int) string {
 
 func clockPeriod(view presentation, hour int) string {
 	if hour < 12 {
-		return view.language.text(timeAM)
+		return view.language.Text(i18n.TimeAM)
 	}
-	return view.language.text(timePM)
+	return view.language.Text(i18n.TimePM)
 }
 
 func clockDisplayHour(hour int) int {
@@ -47,14 +49,14 @@ func displayClock(view presentation, value string, twelveHour bool) string {
 	hour, minute, valid := clockParts(value)
 	if !valid {
 		if value == "" {
-			return view.language.text(pickerEmpty)
+			return view.language.Text(i18n.PickerEmpty)
 		}
-		return view.language.text(pickerInvalidTime)
+		return view.language.Text(i18n.PickerInvalidTime)
 	}
 	if !twelveHour {
 		return value
 	}
-	return fmt.Sprintf(view.language.text(timeTwelveDisplay), clockDisplayHour(hour), minute, clockPeriod(view, hour))
+	return fmt.Sprintf(view.language.Text(i18n.TimeTwelveDisplay), clockDisplayHour(hour), minute, clockPeriod(view, hour))
 }
 
 type timePicker struct {
@@ -88,7 +90,7 @@ func clockChoices(view presentation, count int, twelveHour bool) []choice {
 		id := clockPartID(i)
 		label := id
 		if twelveHour {
-			label = fmt.Sprintf(view.language.text(timeHourDisplay), clockDisplayHour(i), clockPeriod(view, i))
+			label = fmt.Sprintf(view.language.Text(i18n.TimeHourDisplay), clockDisplayHour(i), clockPeriod(view, i))
 		}
 		items[i] = choice{id: id, label: label}
 	}
@@ -141,11 +143,11 @@ func (p *timePicker) popup(gtx layout.Context, view presentation, value string, 
 	children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Gap: gtx.Dp(10)}.Layout(gtx,
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return clockColumn(gtx, view, timeHours, &p.hours, hours, selectedHour, gtx.Focused(p) && !p.minuteActive,
+				return clockColumn(gtx, view, i18n.TimeHours, &p.hours, hours, selectedHour, gtx.Focused(p) && !p.minuteActive,
 					func(item choice) { pick(false, item) })
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return clockColumn(gtx, view, timeMinutes, &p.minutes, minutes, selectedMinute, gtx.Focused(p) && p.minuteActive,
+				return clockColumn(gtx, view, i18n.TimeMinutes, &p.minutes, minutes, selectedMinute, gtx.Focused(p) && p.minuteActive,
 					func(item choice) { pick(true, item) })
 			}),
 		)
@@ -155,16 +157,16 @@ func (p *timePicker) popup(gtx layout.Context, view presentation, value string, 
 			if p.clear.Clicked(gtx) {
 				clear()
 			}
-			return view.button(&p.clear, view.language.text(pickerClear))(gtx)
+			return view.button(&p.clear, view.language.Text(i18n.PickerClear))(gtx)
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx, children...)
 }
 
-func clockColumn(gtx layout.Context, view presentation, title messageID, list *optionList, items []choice, selected string, active bool, pick func(choice)) layout.Dimensions {
+func clockColumn(gtx layout.Context, view presentation, title i18n.MessageID, list *optionList, items []choice, selected string, active bool, pick func(choice)) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.label(gtx, view.language.text(title), 13, font.Medium, view.colors.ink)
+			return view.label(gtx, view.language.Text(title), 13, font.Medium, view.colors.ink)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = max(0, gtx.Constraints.Max.Y-gtx.Dp(36))

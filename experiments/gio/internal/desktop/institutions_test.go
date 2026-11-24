@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"github.com/waltwang/nestworth-go/internal/domain"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type testInstitutionService struct {
@@ -60,7 +62,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	p := newInstitutionsPage(ctx, svc, func() {})
 	t.Cleanup(func() { cancel(); p.workers.Wait() })
 	h.shell.routes[directoryRoute].body = p.layout
-	h.shell.preferences.language = english
+	h.shell.preferences.language = i18n.English
 	h.frame()
 	finish := func() {
 		p.workers.Wait()
@@ -71,17 +73,17 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 		t.Fatal("the route did not start in the loading state")
 	}
 	finish()
-	assertInstitutionLabel(t, &h.router, "Could not load institutions.")
+	assertPageLabel(t, &h.router, "Could not load institutions.")
 	h.click("Retry reload", false)
 	finish()
-	assertInstitutionLabel(t, &h.router, "This household has no active institutions.")
+	assertPageLabel(t, &h.router, "This household has no active institutions.")
 	h.click("Reload", false)
 	finish()
 
 	h.click("Search institutions", true)
 	h.router.Queue(key.EditEvent{Text: "no match"})
 	h.frame()
-	assertInstitutionLabel(t, &h.router, "No matching institutions")
+	assertPageLabel(t, &h.router, "No matching institutions")
 	h.click("Clear search", true)
 	h.click("Edit Harbor Sample Bank", true)
 	h.frame()
@@ -93,7 +95,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	if p.editing != bank.ID || p.draft.text() != "Rejected draft" {
 		t.Fatal("a validation failure dropped the active edit")
 	}
-	assertInstitutionLabel(t, &h.router, "Use 120 characters or fewer.")
+	assertPageLabel(t, &h.router, "Use 120 characters or fewer.")
 	selection := key.Range{Start: 8, End: 2}
 	h.router.Queue(key.SelectionEvent(selection), key.SnippetEvent{End: p.draft.editor.Len()})
 	h.frame()
@@ -105,7 +107,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 		t.Fatal("switching preferences changed the institution route, draft, or selection")
 	}
 	semanticBounds(t, &h.router, "機構名稱", true)
-	assertInstitutionLabel(t, &h.router, "名稱不得超過 120 個字元。")
+	assertPageLabel(t, &h.router, "名稱不得超過 120 個字元。")
 	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.editor.Len()}, Text: "Valid draft"})
 	h.frame()
 	h.click("儲存", false)
@@ -113,7 +115,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	if p.editing != "" || p.awaitingRead != bank.ID || p.saved {
 		t.Fatal("a committed save with a failed reload did not enter the reload-only state")
 	}
-	assertInstitutionLabel(t, &h.router, "名稱已儲存。請重試載入清單。")
+	assertPageLabel(t, &h.router, "名稱已儲存。請重試載入清單。")
 	h.click("重試載入", false)
 	finish()
 	if writeCalls != 2 || readCalls != 5 || !p.saved || len(p.rows) != 1 || p.rows[0].Name != "Authoritative name" {
@@ -123,7 +125,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.focused(p.buttons[bank.ID])
 }
 
-func assertInstitutionLabel(t *testing.T, router *input.Router, label string) {
+func assertPageLabel(t *testing.T, router *input.Router, label string) {
 	t.Helper()
 	var visit func([]input.SemanticNode) bool
 	visit = func(nodes []input.SemanticNode) bool {

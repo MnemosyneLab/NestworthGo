@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"image"
@@ -14,6 +14,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type previewHarness struct {
@@ -27,9 +29,13 @@ type previewHarness struct {
 }
 
 func newShellHarness(t *testing.T) *previewHarness {
+	return newShellHarnessWithPages(t, ledgerPages{})
+}
+
+func newShellHarnessWithPages(t *testing.T, pages ledgerPages) *previewHarness {
 	t.Helper()
 	brand := image.NewRGBA(image.Rect(0, 0, 1, 1))
-	return &previewHarness{t: t, shell: newShell(brand, brand, nil), size: image.Pt(1120, 840), now: time.Unix(1, 0)}
+	return &previewHarness{t: t, shell: newShell(brand, brand, pages), size: image.Pt(1120, 840), now: time.Unix(1, 0)}
 }
 
 func newPreviewHarness(t *testing.T) *previewHarness {
@@ -39,7 +45,7 @@ func newPreviewHarness(t *testing.T) *previewHarness {
 	h.preview = preview
 	h.shell.routes[componentPreviewRoute].body = preview.layout
 	h.shell.activeRoute = componentPreviewRoute
-	h.shell.preferences.language = english
+	h.shell.preferences.language = i18n.English
 	h.frame()
 	return h
 }
@@ -86,7 +92,7 @@ func TestPreviewTextSearchAndExplicitSubmission(t *testing.T) {
 	h := newPreviewHarness(t)
 	p := h.preview
 	h.click("Submit sample", false)
-	if p.submissions != 0 || p.nameProblem(p.name.text()) != previewNameRequired {
+	if p.submissions != 0 || p.nameProblem(p.name.text()) != i18n.PreviewNameRequired {
 		t.Fatal("an empty institution name was accepted")
 	}
 	h.focused(&p.name.editor)

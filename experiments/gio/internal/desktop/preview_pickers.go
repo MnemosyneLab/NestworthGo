@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type previewPickers struct {
@@ -22,22 +24,22 @@ type previewPickers struct {
 
 func previewAccountChoices(view presentation) []choice {
 	return []choice{
-		{id: "cash", label: view.language.text(previewCash)},
-		{id: "credit", label: view.language.text(previewCredit), disabled: true},
-		{id: "brokerage", label: view.language.text(previewBrokerage)},
+		{id: "cash", label: view.language.Text(i18n.PreviewCash)},
+		{id: "credit", label: view.language.Text(i18n.PreviewCredit), disabled: true},
+		{id: "brokerage", label: view.language.Text(i18n.PreviewBrokerage)},
 	}
 }
 
 func previewInstitutionChoices(view presentation) []choice {
 	items := []choice{
-		{id: "harbor", label: view.language.text(previewHarbor)},
-		{id: "evergreen", label: view.language.text(previewEvergreen), disabled: true},
-		{id: "westlake", label: view.language.text(previewWestlake)},
+		{id: "harbor", label: view.language.Text(i18n.PreviewHarbor)},
+		{id: "evergreen", label: view.language.Text(i18n.PreviewEvergreen), disabled: true},
+		{id: "westlake", label: view.language.Text(i18n.PreviewWestlake)},
 	}
 	for i := 1; i <= 36; i++ {
 		items = append(items, choice{
 			id:    fmt.Sprintf("harbor-branch-%02d", i),
-			label: fmt.Sprintf(view.language.text(previewHarborBranch), i),
+			label: fmt.Sprintf(view.language.Text(i18n.PreviewHarborBranch), i),
 		})
 	}
 	return items
@@ -58,21 +60,21 @@ func (p *componentPreview) pickerFields(gtx layout.Context, view presentation, w
 	c := &p.pickers
 	tabs := [...]event.Tag{&p.readOnly.editor, &c.account.trigger, &c.institution.trigger, &c.date.trigger, &c.clock.trigger, &p.submit}
 	fields := [...]struct {
-		label messageID
+		label i18n.MessageID
 		draw  func(layout.Context, pickerField)
 	}{
-		{previewAccountType, func(gtx layout.Context, field pickerField) {
+		{i18n.PreviewAccountType, func(gtx layout.Context, field pickerField) {
 			options := selectOptions{items: previewAccountChoices(view), clearable: true}
 			c.account.layout(gtx, view, field, options, c.accountID, func(id string) { c.accountID = id })
 		}},
-		{previewInstitutionChoice, func(gtx layout.Context, field pickerField) {
+		{i18n.PreviewInstitutionChoice, func(gtx layout.Context, field pickerField) {
 			options := selectOptions{items: previewInstitutionChoices(view), clearable: true, searchable: true}
 			c.institution.layout(gtx, view, field, options, c.institutionID, func(id string) { c.institutionID = id })
 		}},
-		{previewEffectiveDate, func(gtx layout.Context, field pickerField) {
+		{i18n.PreviewEffectiveDate, func(gtx layout.Context, field pickerField) {
 			c.date.layout(gtx, view, field, c.dateOptions(), c.day, func(day string) { c.day = day })
 		}},
-		{previewEffectiveTime, func(gtx layout.Context, field pickerField) {
+		{i18n.PreviewEffectiveTime, func(gtx layout.Context, field pickerField) {
 			c.clock.layout(gtx, view, field, c.timeValue, c.twelveHour, true, func(value string) { c.timeValue = value })
 		}},
 	}
@@ -96,7 +98,7 @@ func pickerSlot(gtx layout.Context, width, y, columns, index int) (image.Point, 
 }
 
 func (p *previewPickers) resultLines(view presentation) []string {
-	absent := view.language.text(pickerEmpty)
+	absent := view.language.Text(i18n.PickerEmpty)
 	day, clock := p.day, p.timeValue
 	if day == "" {
 		day = absent
@@ -105,9 +107,9 @@ func (p *previewPickers) resultLines(view presentation) []string {
 		clock = absent
 	}
 	return []string{
-		fmt.Sprintf(view.language.text(previewAccountResult), choiceLabel(view, previewAccountChoices(view), p.accountID)),
-		fmt.Sprintf(view.language.text(previewInstitutionResult), choiceLabel(view, previewInstitutionChoices(view), p.institutionID)),
-		fmt.Sprintf(view.language.text(previewDateResult), day),
-		fmt.Sprintf(view.language.text(previewTimeResult), clock),
+		fmt.Sprintf(view.language.Text(i18n.PreviewAccountResult), choiceLabel(view, previewAccountChoices(view), p.accountID)),
+		fmt.Sprintf(view.language.Text(i18n.PreviewInstitutionResult), choiceLabel(view, previewInstitutionChoices(view), p.institutionID)),
+		fmt.Sprintf(view.language.Text(i18n.PreviewDateResult), day),
+		fmt.Sprintf(view.language.Text(i18n.PreviewTimeResult), clock),
 	}
 }

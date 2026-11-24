@@ -27,7 +27,8 @@ the startup/onboarding gates are defined by
 
 ## Experimental designs
 
-- [Gio desktop foundation and component preview](gio-desktop-foundation.md) covers the proposed shell, localization, appearance, shared controls, and the first native migration pilot.
+- [Gio desktop foundation and component preview](../../experiments/gio/docs/foundation.md) covers the proposed shell, localization, appearance, shared controls, and the first native migration pilot.
+- [Gio desktop migration roadmap](../../experiments/gio/docs/roadmap.md) tracks the remaining desktop journeys, their implementation order, parity evidence and release gates.
 
 ## Current screen map
 

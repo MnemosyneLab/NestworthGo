@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"context"
@@ -16,6 +16,8 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 	"github.com/waltwang/nestworth-go/internal/domain"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type institutionService interface {
@@ -132,7 +134,7 @@ func (p *institutionsPage) layout(gtx layout.Context, view presentation) layout.
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(limitWidth(gtx, 780),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.header(gtx, view) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.search.layout(limitWidth(gtx, 470), view, previewSearch, institutionsSearchHint, func(query string) {
+			return p.search.layout(limitWidth(gtx, 470), view, i18n.PreviewSearch, i18n.InstitutionsSearchHint, func(query string) {
 				p.query = query
 				p.list.Position = layout.Position{}
 			})
@@ -152,20 +154,20 @@ func (p *institutionsPage) header(gtx layout.Context, view presentation) layout.
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.label(gtx, view.language.text(navInstitutions), 19, font.Medium, view.colors.ink)
+					return view.label(gtx, view.language.Text(i18n.NavInstitutions), 19, font.Medium, view.colors.ink)
 				}),
-				layout.Rigid(view.message(view.language.text(institutionsSynthetic), view.colors.secondaryInk)),
+				layout.Rigid(view.message(view.language.Text(i18n.InstitutionsSynthetic), view.colors.secondaryInk)),
 			)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.request != institutionIdle || p.editing != "" {
 				return layout.Dimensions{}
 			}
-			label := institutionsRefresh
+			label := i18n.InstitutionsRefresh
 			if p.readErr != nil {
-				label = institutionsRetry
+				label = i18n.InstitutionsRetry
 			}
-			return view.button(&p.refresh, view.language.text(label))(gtx)
+			return view.button(&p.refresh, view.language.Text(label))(gtx)
 		}),
 	)
 }
@@ -173,13 +175,13 @@ func (p *institutionsPage) header(gtx layout.Context, view presentation) layout.
 func (p *institutionsPage) listContent(gtx layout.Context, view presentation) layout.Dimensions {
 	switch {
 	case p.request == institutionLoading:
-		return view.message(view.language.text(institutionsLoading), view.colors.secondaryInk)(gtx)
+		return view.message(view.language.Text(i18n.InstitutionsLoading), view.colors.secondaryInk)(gtx)
 	case p.readErr != nil:
-		message := institutionsLoadError
+		message := i18n.InstitutionsLoadError
 		if p.awaitingRead != "" {
-			message = institutionsReloadAfterSaveError
+			message = i18n.InstitutionsReloadAfterSaveError
 		}
-		return view.message(view.language.text(message), view.colors.errorInk)(gtx)
+		return view.message(view.language.Text(message), view.colors.errorInk)(gtx)
 	}
 
 	visible := filterInstitutions(p.rows, p.query)
@@ -199,15 +201,15 @@ func (p *institutionsPage) listContent(gtx layout.Context, view presentation) la
 			if !p.saved {
 				return layout.Dimensions{}
 			}
-			return layout.Inset{Bottom: 10}.Layout(gtx, view.message(view.language.text(institutionsSaved), view.colors.ink))
+			return layout.Inset{Bottom: 10}.Layout(gtx, view.message(view.language.Text(i18n.InstitutionsSaved), view.colors.ink))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			if len(visible) == 0 {
-				message := institutionsEmpty
+				message := i18n.InstitutionsEmpty
 				if len(p.rows) > 0 {
-					message = previewNoMatches
+					message = i18n.PreviewNoMatches
 				}
-				return view.message(view.language.text(message), view.colors.secondaryInk)(gtx)
+				return view.message(view.language.Text(message), view.colors.secondaryInk)(gtx)
 			}
 			return p.list.Layout(gtx, len(visible), func(gtx layout.Context, i int) layout.Dimensions {
 				item := visible[i]
@@ -258,7 +260,7 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 	gtx.Constraints = layout.Exact(image.Pt(gtx.Constraints.Max.X, gtx.Dp(56)))
 	return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
-		semantic.DescriptionOp(fmt.Sprintf(view.language.text(institutionsEditName), item.Name)).Add(gtx.Ops)
+		semantic.DescriptionOp(fmt.Sprintf(view.language.Text(i18n.InstitutionsEditName), item.Name)).Add(gtx.Ops)
 		border := view.colors.divider
 		if gtx.Focused(button) || (!disabled && button.Hovered()) {
 			border = view.colors.accent
@@ -273,7 +275,7 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return view.label(gtx, item.Name, 15, font.Medium, view.colors.ink)
 								}),
-								layout.Rigid(view.message(view.language.text(institutionTypeLabel(item.InstitutionType)), view.colors.secondaryInk)),
+								layout.Rigid(view.message(view.language.Text(institutionTypeLabel(item.InstitutionType)), view.colors.secondaryInk)),
 							)
 						})
 					}),
@@ -281,7 +283,7 @@ func (p *institutionsPage) row(gtx layout.Context, view presentation, item domai
 						if disabled {
 							return layout.Dimensions{}
 						}
-						return layout.Center.Layout(gtx, view.message(view.language.text(institutionsEdit), view.colors.secondaryInk))
+						return layout.Center.Layout(gtx, view.message(view.language.Text(i18n.InstitutionsEdit), view.colors.secondaryInk))
 					}),
 				)
 			})
@@ -305,17 +307,17 @@ func (p *institutionsPage) editor(gtx layout.Context, view presentation) layout.
 		return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.label(gtx, view.language.text(institutionsEditTitle), 15, font.Medium, view.colors.ink)
+					return view.label(gtx, view.language.Text(i18n.InstitutionsEditTitle), 15, font.Medium, view.colors.ink)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return p.draft.layout(limitWidth(gtx, 470), view, fieldOptions{
-						label: previewInstitutionName, disabled: waiting,
+						label: i18n.PreviewInstitutionName, disabled: waiting,
 						problem: func(value string) string { return p.editProblem(view, value) },
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if waiting {
-						return view.message(view.language.text(institutionsSaving), view.colors.secondaryInk)(gtx)
+						return view.message(view.language.Text(i18n.InstitutionsSaving), view.colors.secondaryInk)(gtx)
 					}
 					if p.save.Clicked(gtx) {
 						p.rejectedDraft = p.draft.text()
@@ -323,8 +325,8 @@ func (p *institutionsPage) editor(gtx layout.Context, view presentation) layout.
 						gtx.Execute(op.InvalidateCmd{})
 					}
 					return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-						layout.Rigid(view.button(&p.save, view.language.text(institutionsSave))),
-						layout.Rigid(view.button(&p.cancel, view.language.text(institutionsCancel))),
+						layout.Rigid(view.button(&p.save, view.language.Text(i18n.InstitutionsSave))),
+						layout.Rigid(view.button(&p.cancel, view.language.Text(i18n.InstitutionsCancel))),
 					)
 				}),
 			)
@@ -354,28 +356,28 @@ func (p *institutionsPage) editProblem(view presentation, value string) string {
 	var problem *domain.Error
 	if errors.As(p.saveErr, &problem) && problem.Code == domain.ErrValidation && problem.Field == "name" {
 		if problem.MaxLength > 0 {
-			return fmt.Sprintf(view.language.text(institutionsNameLength), problem.MaxLength)
+			return fmt.Sprintf(view.language.Text(i18n.InstitutionsNameLength), problem.MaxLength)
 		}
-		return view.language.text(previewNameRequired)
+		return view.language.Text(i18n.PreviewNameRequired)
 	}
-	return view.language.text(institutionsSaveError)
+	return view.language.Text(i18n.InstitutionsSaveError)
 }
 
-func institutionTypeLabel(kind domain.InstitutionType) messageID {
+func institutionTypeLabel(kind domain.InstitutionType) i18n.MessageID {
 	switch kind {
 	case domain.InstitutionBank:
-		return institutionBank
+		return i18n.InstitutionBank
 	case domain.InstitutionBrokerage:
-		return institutionBrokerage
+		return i18n.InstitutionBrokerage
 	case domain.InstitutionInsurer:
-		return institutionInsurer
+		return i18n.InstitutionInsurer
 	case domain.InstitutionExchange:
-		return institutionExchange
+		return i18n.InstitutionExchange
 	case domain.InstitutionEmployer:
-		return institutionEmployer
+		return i18n.InstitutionEmployer
 	case domain.InstitutionGovernment:
-		return institutionGovernment
+		return i18n.InstitutionGovernment
 	default:
-		return institutionOther
+		return i18n.InstitutionOther
 	}
 }

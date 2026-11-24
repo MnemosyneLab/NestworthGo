@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"strings"
@@ -7,6 +7,8 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type selectControl struct {
@@ -52,7 +54,7 @@ func choiceLabel(view presentation, items []choice, value string) string {
 			return item.label
 		}
 	}
-	return view.language.text(pickerEmpty)
+	return view.language.Text(i18n.PickerEmpty)
 }
 
 func (s *selectControl) choices(view presentation, options selectOptions) []choice {
@@ -62,7 +64,7 @@ func (s *selectControl) choices(view presentation, options selectOptions) []choi
 	}
 	items := make([]choice, 0, len(options.items)+1)
 	if query == "" {
-		items = append(items, choice{label: view.language.text(pickerEmptyOption)})
+		items = append(items, choice{label: view.language.Text(i18n.PickerEmptyOption)})
 	}
 	for _, item := range options.items {
 		if strings.Contains(strings.ToLower(item.label), query) {
@@ -91,7 +93,7 @@ func (s *selectControl) popup(gtx layout.Context, view presentation, options sel
 			}
 		}
 		if len(items) == 0 {
-			return view.message(view.language.text(previewNoMatches), view.colors.secondaryInk)(gtx)
+			return view.message(view.language.Text(i18n.PreviewNoMatches), view.colors.secondaryInk)(gtx)
 		}
 		return s.list.layout(gtx, view, items, value, gtx.Focused(s), choose)
 	}
@@ -121,13 +123,13 @@ func (s *selectControl) popup(gtx layout.Context, view presentation, options sel
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.search.layout(gtx, view, pickerFilter, pickerFilterHint, func(query string) {
+			return s.search.layout(gtx, view, i18n.PickerFilter, i18n.PickerFilterHint, func(query string) {
 				s.query = query
 				s.list.scroll.Position = layout.Position{}
 				s.list.setActive(s.choices(view, options), value)
 			})
 		}),
-		layout.Rigid(view.message(view.language.text(pickerResultsKeys), view.colors.secondaryInk)),
+		layout.Rigid(view.message(view.language.Text(i18n.PickerResultsKeys), view.colors.secondaryInk)),
 		layout.Rigid(rows),
 	)
 }

@@ -1,6 +1,10 @@
-package main
+package desktop
 
-import "image/color"
+import (
+	"image/color"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+)
 
 type palette struct {
 	pageBackground    color.NRGBA
@@ -42,16 +46,16 @@ var darkPalette = palette{
 }
 
 type accentTheme struct {
-	label       messageID
+	label       i18n.MessageID
 	light, dark palette
 }
 
 // The non-default themes map the Wails OKLCH surface and primary tokens in
 // frontend/src/index.css to sRGB. Error colors stay independent of the accent.
 var accentThemes = [...]accentTheme{
-	{label: indigoAccent, light: lightPalette, dark: darkPalette},
+	{label: i18n.IndigoAccent, light: lightPalette, dark: darkPalette},
 	{
-		label: lavenderAccent,
+		label: i18n.LavenderAccent,
 		light: palette{
 			pageBackground:    rgb(0xf9f6fe),
 			sidebarBackground: rgb(0xf5f2fc),
@@ -78,7 +82,7 @@ var accentThemes = [...]accentTheme{
 		},
 	},
 	{
-		label: mintAccent,
+		label: i18n.MintAccent,
 		light: palette{
 			pageBackground:    rgb(0xeffaf7),
 			sidebarBackground: rgb(0xeaf6f4),
@@ -105,7 +109,7 @@ var accentThemes = [...]accentTheme{
 		},
 	},
 	{
-		label: skyAccent,
+		label: i18n.SkyAccent,
 		light: palette{
 			pageBackground:    rgb(0xf0f9fe),
 			sidebarBackground: rgb(0xebf5fc),
@@ -132,7 +136,7 @@ var accentThemes = [...]accentTheme{
 		},
 	},
 	{
-		label: peachAccent,
+		label: i18n.PeachAccent,
 		light: palette{
 			pageBackground:    rgb(0xfef7f0),
 			sidebarBackground: rgb(0xfbf3ea),
@@ -172,7 +176,7 @@ func (p palette) editorSelection() color.NRGBA {
 }
 
 type sessionPreferences struct {
-	language    appLanguage
+	language    i18n.Language
 	dark        bool
 	accentIndex int
 }

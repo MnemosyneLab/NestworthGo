@@ -1,9 +1,11 @@
-package main
+package desktop
 
 import (
 	"image/color"
 	"math"
 	"testing"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 func TestThemeContrast(t *testing.T) {
@@ -15,7 +17,7 @@ func TestThemeContrast(t *testing.T) {
 			{"light", theme.light},
 			{"dark", theme.dark},
 		} {
-			t.Run(english.text(theme.label)+"/"+mode.name, func(t *testing.T) {
+			t.Run(i18n.English.Text(theme.label)+"/"+mode.name, func(t *testing.T) {
 				c := mode.colors
 				check := func(label string, fg, bg float64, minimum float64) {
 					t.Helper()

@@ -1,4 +1,4 @@
-package main
+package pilot
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func testPilotPaths(t *testing.T) (string, pilotPaths) {
+func testPaths(t *testing.T) (string, Paths) {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -23,7 +23,7 @@ func testPilotPaths(t *testing.T) (string, pilotPaths) {
 	}
 	database := filepath.Join(root, "data", "nestworth.db")
 	settings := filepath.Join(root, "data", "settings.json")
-	paths, err := resolvePilotPaths(root, database, settings)
+	paths, err := resolvePaths(root, database, settings)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,23 +31,23 @@ func testPilotPaths(t *testing.T) (string, pilotPaths) {
 }
 
 func TestPilotRejectsImplicitPathsAndLinkedFiles(t *testing.T) {
-	root, paths := testPilotPaths(t)
+	root, paths := testPaths(t)
 	for _, input := range [][3]string{
 		{},
 		{root, "", paths.settings},
 		{root, paths.database, filepath.Join(root, "settings.json")},
 		{root, filepath.Join(root, "nestworth.db"), paths.settings},
 	} {
-		if _, err := resolvePilotPaths(input[0], input[1], input[2]); err == nil {
+		if _, err := resolvePaths(input[0], input[1], input[2]); err == nil {
 			t.Fatalf("accepted unsafe path configuration %v", input)
 		}
 	}
 
 	ctx := context.Background()
-	if err := preparePilotFixture(ctx, paths); err != nil {
+	if err := Prepare(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
-	if err := preparePilotFixture(ctx, paths); err == nil {
+	if err := Prepare(ctx, paths); err == nil {
 		t.Fatal("the seeder accepted an existing data directory")
 	}
 	outside := filepath.Join(root, "saved-settings.json")
@@ -57,7 +57,7 @@ func TestPilotRejectsImplicitPathsAndLinkedFiles(t *testing.T) {
 	if err := os.Symlink(outside, paths.settings); err != nil {
 		t.Fatal(err)
 	}
-	if db, err := openPilot(ctx, paths); err == nil {
+	if db, err := Open(ctx, paths); err == nil {
 		_ = db.Close()
 		t.Fatal("accepted a linked settings file")
 	}
@@ -70,28 +70,28 @@ func TestPilotRejectsImplicitPathsAndLinkedFiles(t *testing.T) {
 	if err := os.Link(paths.database, filepath.Join(root, "second-database-link")); err != nil {
 		t.Fatal(err)
 	}
-	if db, err := openPilot(ctx, paths); err == nil {
+	if db, err := Open(ctx, paths); err == nil {
 		_ = db.Close()
 		t.Fatal("accepted a hard-linked database")
 	}
 }
 
 func TestPilotRequiresTheHouseholdMarker(t *testing.T) {
-	_, paths := testPilotPaths(t)
+	_, paths := testPaths(t)
 	ctx := context.Background()
-	if err := preparePilotFixture(ctx, paths); err != nil {
+	if err := Prepare(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
 	db, err := sqlite.Open(paths.database)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sqlite.NewConfigurationRepository(db).SaveConfiguration(pilotMarkerKey, []byte("a different household"))
+	err = sqlite.NewConfigurationRepository(db).SaveConfiguration(markerKey, []byte("a different household"))
 	closeErr := db.Close()
 	if err != nil || closeErr != nil {
 		t.Fatalf("could not corrupt the test marker: %v, %v", err, closeErr)
 	}
-	if db, err := openPilot(ctx, paths); err == nil {
+	if db, err := Open(ctx, paths); err == nil {
 		_ = db.Close()
 		t.Fatal("accepted a database with a mismatched marker")
 	} else if !strings.Contains(err.Error(), "fixture marker does not match") {
@@ -100,12 +100,12 @@ func TestPilotRequiresTheHouseholdMarker(t *testing.T) {
 }
 
 func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
-	_, paths := testPilotPaths(t)
+	_, paths := testPaths(t)
 	ctx := context.Background()
-	if err := preparePilotFixture(ctx, paths); err != nil {
+	if err := Prepare(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
-	db, err := openPilot(ctx, paths)
+	db, err := Open(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := openPilot(ctx, paths)
+	reopened, err := Open(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"image"
@@ -7,6 +7,8 @@ import (
 
 	"gioui.org/io/input"
 	"gioui.org/io/key"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 func TestPreviewSelectSeparatesHighlightAndCommit(t *testing.T) {
@@ -191,8 +193,8 @@ func TestTemporalValueRules(t *testing.T) {
 		t.Fatal("weekday offset did not respect week start")
 	}
 	leap, _ := parseCivilDay("2024-02-29")
-	for language, want := range map[appLanguage]string{
-		english: "Feb 29, 2024", simplifiedChinese: "2024年2月29日", traditionalChinese: "2024年2月29日",
+	for language, want := range map[i18n.Language]string{
+		i18n.English: "Feb 29, 2024", i18n.SimplifiedChinese: "2024年2月29日", i18n.TraditionalChinese: "2024年2月29日",
 	} {
 		if got := displayCivil(leap, language); got != want {
 			t.Errorf("%s displayed leap day as %q, want %q", language, got, want)
@@ -208,15 +210,15 @@ func TestTemporalValueRules(t *testing.T) {
 		}
 	}
 	for _, sample := range []struct {
-		language    appLanguage
+		language    i18n.Language
 		value, want string
 	}{
-		{english, "00:00", "12:00 AM"},
-		{english, "12:05", "12:05 PM"},
-		{simplifiedChinese, "00:00", "上午12:00"},
-		{simplifiedChinese, "23:59", "下午11:59"},
-		{traditionalChinese, "00:00", "上午12:00"},
-		{traditionalChinese, "23:59", "下午11:59"},
+		{i18n.English, "00:00", "12:00 AM"},
+		{i18n.English, "12:05", "12:05 PM"},
+		{i18n.SimplifiedChinese, "00:00", "上午12:00"},
+		{i18n.SimplifiedChinese, "23:59", "下午11:59"},
+		{i18n.TraditionalChinese, "00:00", "上午12:00"},
+		{i18n.TraditionalChinese, "23:59", "下午11:59"},
 	} {
 		if got := displayClock(presentation{language: sample.language}, sample.value, true); got != sample.want {
 			t.Errorf("%s displayed %s as %q, want %q", sample.language, sample.value, got, sample.want)

@@ -2,18 +2,14 @@
 
 ## Status and scope
 
-This proposal builds on the [Gio desktop preview](../../experiments/gio/README.md)
-on `experiment/gio-desktop`. The preview already has the Nestworth sidebar,
-sample overview balances, and a multiline editor in Directory. It supports
-in-memory switching between Simplified Chinese and English and between light
-and dark appearance.
-
-The first milestone delivers a reusable application shell, shared presentation
-preferences, and a component preview covering text input, search, selection,
-date, and time. The next milestone uses those controls in **Directory →
-Institutions** with an isolated synthetic household. Wails remains the
-production desktop shell during the experiment. Its interaction and financial
-contracts provide the migration baseline. [Shared Wails control contract](../development/frontend-controls.md)
+The [Gio desktop preview](../README.md) implements the shell, session
+preferences, shared editors and pickers, component preview and **Directory →
+Institutions** pilot designed below. The multiline IME test lives under
+Development. English, Simplified Chinese and Traditional Chinese are available
+in the [localization package](../internal/i18n). The
+[desktop migration roadmap](roadmap.md) tracks further workflows and the
+evidence needed for Wails parity. Wails remains the production desktop.
+[Shared Wails control contract](../../../docs/development/frontend-controls.md)
 
 ## Application shell
 
@@ -31,7 +27,7 @@ contracts provide the migration baseline. [Shared Wails control contract](../dev
 - The component preview uses in-memory fixtures. The Institutions pilot calls
   the existing Go application services for reads and writes and reloads the
   authoritative result after a successful save. Financial validation and date
-  boundaries remain in the existing Go layers. [Engineering guide](../development/engineering-guide.md#financial-implementation-rules)
+  boundaries remain in the existing Go layers. [Engineering guide](../../../docs/development/engineering-guide.md#financial-implementation-rules)
 
 ## Internationalization and appearance
 
@@ -42,7 +38,7 @@ Catalog checks verify key coverage and matching interpolation parameters for
 each enabled language. Labels, hints, empty states, field errors, and accessible
 names use the same catalog service. New languages can be added through the
 catalogs and language registry. Add Traditional Chinese and Japanese before
-claiming Wails language coverage. [Current language resolver](../../internal/settings/language.go)
+claiming Wails language coverage. [Current language resolver](../../../internal/settings/language.go)
 
 Keep translated messages separate from value formatting. A locale change can
 change the displayed date, weekday, currency, or time label while preserving
@@ -57,7 +53,7 @@ Resolve the active palette in the shell and adapt it to any Gio Material
 controls in use. Keep session-only switching in the first milestone. The
 settings integration reuses the existing persistence and `system`, `light`,
 and `dark` preferences. Verify system appearance changes and the native
-title bar separately from the themed Gio content. [Existing settings types](../../internal/settings/settings.go) · [Gio theme](https://gioui.org/doc/architecture/theme)
+title bar separately from the themed Gio content. [Existing settings types](../../../internal/settings/settings.go) · [Gio theme](https://gioui.org/doc/architecture/theme)
 
 ## Shared controls and Wails parity
 
@@ -84,7 +80,7 @@ outside press and dismissal. Escape closes the active popup and restores its
 trigger focus. For a searchable select, Tab dismisses the query and continues
 focus traversal. Removing or disabling the trigger closes its popup. During
 IME composition, candidate navigation and confirmation take precedence over
-popup shortcuts and form submission. [Wails picker and focus behavior](../development/frontend-controls.md#interaction-and-visual-conventions) · [Gio input events](https://gioui.org/doc/architecture/input)
+popup shortcuts and form submission. [Wails picker and focus behavior](../../../docs/development/frontend-controls.md#interaction-and-visual-conventions) · [Gio input events](https://gioui.org/doc/architecture/input)
 
 ### Date and time values
 
@@ -98,7 +94,7 @@ today are separate actions. Invalid dates receive field feedback.
 Times are validated `HH:mm` values, including midnight `00:00`. A locale or
 12/24-hour display change preserves the canonical hour and minute. Callers
 preserve their existing empty-string or null boundary and use the existing
-application logic to combine date, time, and timezone into an instant. [Wails date and form contract](../development/frontend-controls.md#dates-and-forms)
+application logic to combine date, time, and timezone into an instant. [Wails date and form contract](../../../docs/development/frontend-controls.md#dates-and-forms)
 
 ### Follow-on controls
 
@@ -152,4 +148,4 @@ selection, and errors. If the first controls
 still fail this check, investigate the macOS accessibility bridge in the pilot.
 Report native results separately from automated or offscreen checks. Use the
 existing `com.nestworth.dev` bundle and verified synthetic database and settings
-paths for all native checks. [Isolated native development QA](../development/local-workflow.md#isolated-native-development-qa)
+paths for all native checks. [Isolated native development QA](../../../docs/development/local-workflow.md#isolated-native-development-qa)

@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"image"
@@ -11,6 +11,8 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/unit"
 	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type popoverPane struct {
@@ -128,7 +130,7 @@ func (h *popoverHost) layout(gtx layout.Context, view presentation) {
 					return h.pane.body(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.E.Layout(gtx, view.button(&h.dismiss, view.language.text(fieldDismiss)))
+					return layout.E.Layout(gtx, view.button(&h.dismiss, view.language.Text(i18n.FieldDismiss)))
 				}),
 			)
 		})

@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"fmt"
@@ -11,6 +11,8 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 const civilLayout = "2006-01-02"
@@ -68,14 +70,14 @@ func (o dateOptions) start(value string) time.Time {
 	return day
 }
 
-func displayCivil(day time.Time, language appLanguage) string {
-	if language.usesChineseDates() {
+func displayCivil(day time.Time, language i18n.Language) string {
+	if language.UsesChineseDates() {
 		return fmt.Sprintf("%d年%d月%d日", day.Year(), day.Month(), day.Day())
 	}
 	return day.Format("Jan 2, 2006")
 }
 
-func dateTriggerLabel(day time.Time, language appLanguage, format string) string {
+func dateTriggerLabel(day time.Time, language i18n.Language, format string) string {
 	switch format {
 	case "localized":
 		return displayCivil(day, language)
@@ -106,10 +108,10 @@ type datePicker struct {
 }
 
 func (p *datePicker) layout(gtx layout.Context, view presentation, field pickerField, options dateOptions, value string, change func(string)) {
-	title := view.language.text(pickerEmpty)
+	title := view.language.Text(i18n.PickerEmpty)
 	invalid := value != "" && !options.permits(value)
 	if invalid {
-		title = view.language.text(pickerInvalidDate)
+		title = view.language.Text(i18n.PickerInvalidDate)
 	} else if value != "" {
 		day, _ := parseCivilDay(value)
 		title = dateTriggerLabel(day, view.language, options.format)
@@ -196,7 +198,7 @@ func (p *datePicker) popup(gtx layout.Context, view presentation, options dateOp
 			if p.clear.Clicked(gtx) {
 				choose("")
 			}
-			return view.button(&p.clear, view.language.text(pickerClear))(gtx)
+			return view.button(&p.clear, view.language.Text(i18n.PickerClear))(gtx)
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
@@ -204,13 +206,13 @@ func (p *datePicker) popup(gtx layout.Context, view presentation, options dateOp
 
 var monthNavigation = [...]struct {
 	symbol string
-	label  messageID
+	label  i18n.MessageID
 	step   int
 }{
-	{"«", datePreviousYear, -12},
-	{"‹", datePreviousMonth, -1},
-	{"›", dateNextMonth, 1},
-	{"»", dateNextYear, 12},
+	{"«", i18n.DatePreviousYear, -12},
+	{"‹", i18n.DatePreviousMonth, -1},
+	{"›", i18n.DateNextMonth, 1},
+	{"»", i18n.DateNextYear, 12},
 }
 
 func (p *datePicker) caption(gtx layout.Context, view presentation, options dateOptions) layout.Dimensions {
@@ -222,14 +224,14 @@ func (p *datePicker) caption(gtx layout.Context, view presentation, options date
 				p.moveMonth(options, action.step)
 			}
 			gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(28), gtx.Dp(30)))
-			return choiceButton(gtx, view, &p.moves[i], action.symbol, view.language.text(action.label), enabled, false, false)
+			return choiceButton(gtx, view, &p.moves[i], action.symbol, view.language.Text(action.label), enabled, false, false)
 		})
 	}
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(2)}.Layout(gtx,
 		nav(0), nav(1),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			title := p.month.Format("January 2006")
-			if view.language.usesChineseDates() {
+			if view.language.UsesChineseDates() {
 				title = fmt.Sprintf("%d年%d月", p.month.Year(), p.month.Month())
 			}
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -241,10 +243,10 @@ func (p *datePicker) caption(gtx layout.Context, view presentation, options date
 }
 
 func weekdayRow(gtx layout.Context, view presentation, start time.Weekday) layout.Dimensions {
-	labels := [...]messageID{weekdaySunday, weekdayMonday, weekdayTuesday, weekdayWednesday, weekdayThursday, weekdayFriday, weekdaySaturday}
+	labels := [...]i18n.MessageID{i18n.WeekdaySunday, i18n.WeekdayMonday, i18n.WeekdayTuesday, i18n.WeekdayWednesday, i18n.WeekdayThursday, i18n.WeekdayFriday, i18n.WeekdaySaturday}
 	return calendarRow(gtx, gtx.Dp(20), func(gtx layout.Context, column int) layout.Dimensions {
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.label(gtx, view.language.text(labels[(int(start)+column)%7]), 12, font.Normal, view.colors.secondaryInk)
+			return view.label(gtx, view.language.Text(labels[(int(start)+column)%7]), 12, font.Normal, view.colors.secondaryInk)
 		})
 	})
 }
@@ -263,7 +265,7 @@ func (p *datePicker) dayRow(gtx layout.Context, view presentation, options dateO
 		}
 		title := displayCivil(day, view.language)
 		if id == options.today {
-			title = fmt.Sprintf(view.language.text(dateToday), title)
+			title = fmt.Sprintf(view.language.Text(i18n.DateToday), title)
 		}
 		dims := choiceButton(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title,
 			enabled, id == value, day.Equal(p.day) && gtx.Focused(p))

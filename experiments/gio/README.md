@@ -1,8 +1,25 @@
 # Gio desktop preview
 
-This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. **Directory → Institutions** opens the institutions pilot. **Development → Input Method Test** contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains an in-memory form with text fields, search, two selects, and date and time pickers.
+This standalone Go module contains the Nestworth sidebar and a Gio application shell. Overview shows three sample balances. **Activity → Activity history** reads the isolated ledger, and **Directory → Institutions** opens the institutions pilot. **Development → Input Method Test** contains a multiline input for testing input methods, editing, and selection. **Development → Component Preview** contains an in-memory form with text fields, search, two selects, and date and time pickers. The [desktop migration roadmap](docs/roadmap.md) covers the remaining workflows and acceptance criteria.
 
 The sidebar footer cycles through Simplified Chinese, English, and Traditional Chinese (`zh-TW`), and switches between light and dark appearance. The **Color theme** button shows the current theme and cycles through Indigo, Lavender, Mint, Sky, and Peach. The four added themes use the corresponding light and dark Wails [color tokens](../../frontend/src/index.css). Each launch starts in Simplified Chinese with the light Indigo palette.
+
+## Module layout
+
+| Location | Responsibility |
+| --- | --- |
+| [main.go](main.go) and the two preview launchers | Build and launch the desktop executable, load bundle assets, and manage the isolated database lifetime. |
+| [internal/desktop](internal/desktop) | Gio window, shell, page layouts, shared controls and their frame-level interaction tests. |
+| [internal/history](internal/history) | Activity list reads, pagination and retry state. This model can be tested without a Gio window. |
+| [internal/i18n](internal/i18n) | Typed message keys, language selection, translations and catalog checks. |
+| [internal/pilot](internal/pilot) | Synthetic household preparation, file and marker verification, and safe database opening. |
+| [docs](docs) | [Migration stages and acceptance](docs/roadmap.md) and [interaction and control design](docs/foundation.md). |
+
+Keep page-specific query state beside its feature model and Gio widget state
+in the desktop view. Shared financial rules and storage remain in the parent
+module. Run `go test -mod=readonly ./...` from this module for changes here.
+
+## Component preview
 
 To check live switching, open the component preview, enter text in both fields, and select part of the notes. Switch language, appearance, and color theme. The component preview stays open and keeps the draft and selection.
 
@@ -47,6 +64,19 @@ Each launcher creates a private run directory and seeds a synthetic
 paths in that directory. It checks the paths, settings, and the ledger's
 fixture marker before connecting to the writable database. A missing or
 invalid fixture stops startup.
+
+## Activity history
+
+Open **Activity → Activity history** (简体中文 **活动 → 账务记录**) to browse
+recorded activities in service order. Each row shows the activity label,
+recorded local date and optional note. The first request reads up to 50 rows.
+If the service returns a continuation, load the next page to see older rows.
+Reload starts again at the newest entry. A failed read offers a retry and
+keeps previously displayed rows available.
+
+New preview runs include a small set of posted sample activities.
+Opening an older, verified fixture that contains no activities shows the
+empty state. The route only reads the ledger.
 
 ## macOS
 

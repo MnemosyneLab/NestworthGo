@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"fmt"
@@ -13,12 +13,15 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type routeID string
 
 const (
 	overviewRoute         routeID = "overview"
+	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
 	componentPreviewRoute routeID = "component-preview"
 )
@@ -30,15 +33,20 @@ const (
 
 type pageLayout func(layout.Context, presentation) layout.Dimensions
 
+type ledgerPages struct {
+	directory pageLayout
+	history   pageLayout
+}
+
 type navigationItem struct {
 	id     routeID
-	label  messageID
+	label  i18n.MessageID
 	icon   *widget.Icon
 	body   pageLayout
 	button widget.Clickable
 }
 
-func newItem(id routeID, label messageID, iconData []byte, body pageLayout) navigationItem {
+func newItem(id routeID, label i18n.MessageID, iconData []byte, body pageLayout) navigationItem {
 	return navigationItem{id: id, label: label, icon: mustIcon(iconData), body: body}
 }
 
@@ -51,7 +59,7 @@ func mustIcon(iconData []byte) *widget.Icon {
 }
 
 type navigationGroup struct {
-	label messageID
+	label i18n.MessageID
 	items []navigationItem
 }
 
@@ -70,11 +78,11 @@ type shell struct {
 	overlay        popoverHost
 }
 
-func newShell(wordmark, mark image.Image, directory pageLayout) *shell {
+func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	inputTest := &inputMethodPage{editor: newTextField(false)}
 	preview := newComponentPreview()
 	s := &shell{
-		preferences: sessionPreferences{language: simplifiedChinese},
+		preferences: sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:       material.NewTheme(),
 		wordmark:    widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
 		mark:        widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
@@ -83,28 +91,28 @@ func newShell(wordmark, mark image.Image, directory pageLayout) *shell {
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
-			newItem(overviewRoute, navOverview, icons.ActionHome, overview),
-			newItem("accounts", navAccounts, icons.ActionAccountBalanceWallet, nil),
-			newItem("available-funds", navAvailableFunds, icons.EditorAttachMoney, nil),
-			newItem("portfolio", navPortfolio, icons.EditorPieChartOutlined, nil),
+			newItem(overviewRoute, i18n.NavOverview, icons.ActionHome, overview),
+			newItem("accounts", i18n.NavAccounts, icons.ActionAccountBalanceWallet, nil),
+			newItem("available-funds", i18n.NavAvailableFunds, icons.EditorAttachMoney, nil),
+			newItem("portfolio", i18n.NavPortfolio, icons.EditorPieChartOutlined, nil),
 		}},
-		{label: groupActivity, items: []navigationItem{
-			newItem("tasks", navTasks, icons.ActionAssignmentTurnedIn, nil),
-			newItem("history", navHistory, icons.ActionReceipt, nil),
+		{label: i18n.GroupActivity, items: []navigationItem{
+			newItem("tasks", i18n.NavTasks, icons.ActionAssignmentTurnedIn, nil),
+			newItem(historyRoute, i18n.NavHistory, icons.ActionReceipt, pages.history),
 		}},
-		{label: groupInsights, items: []navigationItem{
-			newItem("historical-overview", navHistoricalOverview, icons.ActionHistory, nil),
-			newItem("returns", navReturns, icons.ActionTrendingUp, nil),
-			newItem("asset-changes", navAssetChanges, icons.ActionCompareArrows, nil),
+		{label: i18n.GroupInsights, items: []navigationItem{
+			newItem("historical-overview", i18n.NavHistoricalOverview, icons.ActionHistory, nil),
+			newItem("returns", i18n.NavReturns, icons.ActionTrendingUp, nil),
+			newItem("asset-changes", i18n.NavAssetChanges, icons.ActionCompareArrows, nil),
 		}},
-		{label: groupManage, items: []navigationItem{
-			newItem(directoryRoute, navDirectory, icons.SocialPeopleOutline, directory),
-			newItem("data-maintenance", navDataMaintenance, icons.NotificationSync, nil),
-			newItem("settings", navSettings, icons.ActionSettings, nil),
+		{label: i18n.GroupManage, items: []navigationItem{
+			newItem(directoryRoute, i18n.NavDirectory, icons.SocialPeopleOutline, pages.directory),
+			newItem("data-maintenance", i18n.NavDataMaintenance, icons.NotificationSync, nil),
+			newItem("settings", i18n.NavSettings, icons.ActionSettings, nil),
 		}},
-		{label: groupDevelopment, items: []navigationItem{
-			newItem("input-method-test", inputMethodTest, icons.HardwareKeyboard, inputTest.layout),
-			newItem(componentPreviewRoute, navComponentPreview, icons.ActionBuild, preview.layout),
+		{label: i18n.GroupDevelopment, items: []navigationItem{
+			newItem("input-method-test", i18n.InputMethodTest, icons.HardwareKeyboard, inputTest.layout),
+			newItem(componentPreviewRoute, i18n.NavComponentPreview, icons.ActionBuild, preview.layout),
 		}},
 	}
 	s.routes = make(map[routeID]*navigationItem)
@@ -120,7 +128,7 @@ func newShell(wordmark, mark image.Image, directory pageLayout) *shell {
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	s.overlay.beginFrame(gtx)
 	if s.languageButton.Clicked(gtx) {
-		s.preferences.language = s.preferences.language.next()
+		s.preferences.language = s.preferences.language.Next()
 	}
 	if s.themeButton.Clicked(gtx) {
 		s.preferences.dark = !s.preferences.dark
@@ -176,19 +184,19 @@ func (s *shell) sidebar(gtx layout.Context, view presentation) layout.Dimensions
 
 func (s *shell) sidebarPreferences(gtx layout.Context, view presentation) layout.Dimensions {
 	paint.FillShape(gtx.Ops, view.colors.divider, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X-1, 1)).Op())
-	themeAction := darkAppearance
+	themeAction := i18n.DarkAppearance
 	if s.preferences.dark {
-		themeAction = lightAppearance
+		themeAction = i18n.LightAppearance
 	}
-	languageAction := view.language.next().text(languageName)
-	accentName := view.language.text(accentThemes[s.preferences.accentIndex].label)
-	accentAction := fmt.Sprintf(view.language.text(colorThemeLabel), accentName)
+	languageAction := view.language.Next().Text(i18n.LanguageName)
+	accentName := view.language.Text(accentThemes[s.preferences.accentIndex].label)
+	accentAction := fmt.Sprintf(view.language.Text(i18n.ColorThemeLabel), accentName)
 	return layout.Inset{Top: 9, Bottom: 10, Left: 11, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(7)}.Layout(gtx,
 					layout.Flexed(0.58, view.button(&s.languageButton, languageAction)),
-					layout.Flexed(0.42, view.button(&s.themeButton, view.language.text(themeAction))),
+					layout.Flexed(0.42, view.button(&s.themeButton, view.language.Text(themeAction))),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -218,10 +226,10 @@ func (s *shell) brand(gtx layout.Context) layout.Dimensions {
 
 func (s *shell) group(gtx layout.Context, view presentation, group *navigationGroup) layout.Dimensions {
 	children := make([]layout.FlexChild, 0, len(group.items)+1)
-	if group.label != noMessage {
+	if group.label != i18n.NoMessage {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 15, Bottom: 7, Left: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.label(gtx, view.language.text(group.label), 11, font.Medium, view.colors.secondaryInk)
+				return view.label(gtx, view.language.Text(group.label), 11, font.Medium, view.colors.secondaryInk)
 			})
 		}))
 	}
@@ -271,7 +279,7 @@ func (s *shell) item(gtx layout.Context, view presentation, item *navigationItem
 					}),
 					layout.Rigid(layout.Spacer{Width: 12}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.label(gtx, view.language.text(item.label), 13, weight, textColor)
+						return view.label(gtx, view.language.Text(item.label), 13, weight, textColor)
 					}),
 				)
 			})
@@ -288,7 +296,7 @@ func (s *shell) page(gtx layout.Context, view presentation) layout.Dimensions {
 	)
 }
 
-func pageHeader(gtx layout.Context, view presentation, title messageID) layout.Dimensions {
+func pageHeader(gtx layout.Context, view presentation, title i18n.MessageID) layout.Dimensions {
 	colors := view.colors
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
 	gtx.Constraints = layout.Exact(size)
@@ -296,7 +304,7 @@ func pageHeader(gtx layout.Context, view presentation, title messageID) layout.D
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.Y = 0
 		return layout.Inset{Left: 28}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.label(gtx, view.language.text(title), 19, font.Medium, colors.ink)
+			return view.label(gtx, view.language.Text(title), 19, font.Medium, colors.ink)
 		})
 	})
 }

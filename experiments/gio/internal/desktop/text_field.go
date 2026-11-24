@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"fmt"
@@ -13,10 +13,12 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type fieldOptions struct {
-	label, hint, help  messageID
+	label, hint, help  i18n.MessageID
 	maxBytes           int
 	disabled, readOnly bool
 	problem            func(string) string
@@ -45,7 +47,7 @@ func (f *textField) layout(gtx layout.Context, view presentation, options fieldO
 
 func (f *textField) layoutWithAccessories(gtx layout.Context, view presentation, options fieldOptions, leading, trailing layout.Widget) layout.Dimensions {
 	f.editor.ReadOnly = options.readOnly
-	title := view.language.text(options.label)
+	title := view.language.Text(options.label)
 	input := gtx
 	if options.disabled {
 		input = gtx.Disabled()
@@ -85,7 +87,7 @@ func (f *textField) layoutWithAccessories(gtx layout.Context, view presentation,
 	case input.Focused(&f.editor):
 		border = colors.accent
 	}
-	style := material.Editor(view.theme, &f.editor, view.language.text(options.hint))
+	style := material.Editor(view.theme, &f.editor, view.language.Text(options.hint))
 	style.TextSize, style.HintColor = 15, colors.secondaryInk
 	style.SelectionColor = colors.editorSelection()
 	if options.disabled {
@@ -121,18 +123,18 @@ func (f *textField) layoutWithAccessories(gtx layout.Context, view presentation,
 		}),
 		layout.Rigid(field),
 	}
-	if options.help != noMessage {
-		children = append(children, layout.Rigid(view.message(view.language.text(options.help), colors.secondaryInk)))
+	if options.help != i18n.NoMessage {
+		children = append(children, layout.Rigid(view.message(view.language.Text(options.help), colors.secondaryInk)))
 	}
 	if problem != "" {
 		children = append(children, layout.Rigid(view.message(problem, colors.errorInk)))
 	}
 	if options.maxBytes > 0 {
-		message, fg := fieldByteCount, colors.secondaryInk
+		message, fg := i18n.FieldByteCount, colors.secondaryInk
 		if overLimit {
-			message, fg = fieldByteExceeded, colors.errorInk
+			message, fg = i18n.FieldByteExceeded, colors.errorInk
 		}
-		children = append(children, layout.Rigid(view.message(fmt.Sprintf(view.language.text(message), used, options.maxBytes), fg)))
+		children = append(children, layout.Rigid(view.message(fmt.Sprintf(view.language.Text(message), used, options.maxBytes), fg)))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx, children...)
 }
@@ -145,7 +147,7 @@ type searchField struct {
 var searchIcon = mustIcon(icons.ActionSearch)
 var clearIcon = mustIcon(icons.NavigationClose)
 
-func (s *searchField) layout(gtx layout.Context, view presentation, label, hint messageID, onChange func(string)) layout.Dimensions {
+func (s *searchField) layout(gtx layout.Context, view presentation, label, hint i18n.MessageID, onChange func(string)) layout.Dimensions {
 	previous := s.field.text()
 	if s.clear.Clicked(gtx) && previous != "" {
 		s.field.editor.SetText("")
@@ -160,7 +162,7 @@ func (s *searchField) layout(gtx layout.Context, view presentation, label, hint 
 		if s.field.text() == "" {
 			return layout.Dimensions{}
 		}
-		clear := material.IconButton(view.theme, &s.clear, clearIcon, view.language.text(fieldClearSearch))
+		clear := material.IconButton(view.theme, &s.clear, clearIcon, view.language.Text(i18n.FieldClearSearch))
 		clear.Background, clear.Color = view.colors.surface, view.colors.ink
 		clear.Size, clear.Inset = 16, layout.UniformInset(4)
 		return clear.Layout(gtx)

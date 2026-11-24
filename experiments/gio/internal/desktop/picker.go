@@ -1,4 +1,4 @@
-package main
+package desktop
 
 import (
 	"image"
@@ -13,10 +13,12 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"golang.org/x/exp/shiny/materialdesign/icons"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
 type pickerField struct {
-	label          messageID
+	label          i18n.MessageID
 	origin         image.Point
 	next, previous event.Tag
 	disabled       bool
@@ -25,7 +27,7 @@ type pickerField struct {
 var expandIcon = mustIcon(icons.NavigationArrowDropDown)
 
 func pickerTrigger(gtx layout.Context, view presentation, field pickerField, trigger *widget.Clickable, value string, invalid bool, pane popoverPane) bool {
-	title := view.language.text(field.label)
+	title := view.language.Text(field.label)
 	view.label(gtx, title, 13, font.Medium, view.colors.ink)
 	y := gtx.Dp(22)
 	offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)

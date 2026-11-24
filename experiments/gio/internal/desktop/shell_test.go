@@ -1,55 +1,16 @@
-package main
+package desktop
 
 import (
-	"fmt"
 	"image"
-	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"gioui.org/io/semantic"
-)
 
-func TestCatalogCoverage(t *testing.T) {
-	for language, translations := range catalogs {
-		for id := languageName; id < messageCount; id++ {
-			if strings.TrimSpace(translations[id]) == "" {
-				t.Errorf("%s is missing message %d", language, id)
-			}
-		}
-		for _, sample := range []struct {
-			id   messageID
-			args []any
-		}{
-			{fieldByteCount, []any{24, 48}},
-			{fieldByteExceeded, []any{60, 48}},
-			{previewSubmissions, []any{1}},
-			{previewSavedName, []any{"Example Bank"}},
-			{previewSavedNotes, []any{"Sample notes"}},
-			{previewQuery, []any{"Bank"}},
-			{dateToday, []any{"Feb 28, 2024"}},
-			{timeHourDisplay, []any{12, "AM"}},
-			{timeTwelveDisplay, []any{12, 0, "AM"}},
-			{previewHarborBranch, []any{1}},
-			{previewAccountResult, []any{"Cash account"}},
-			{previewInstitutionResult, []any{"Harbor Bank"}},
-			{previewDateResult, []any{"2024-02-29"}},
-			{previewTimeResult, []any{"00:00"}},
-			{institutionsEditName, []any{"Sample Bank"}},
-			{institutionsNameLength, []any{120}},
-			{colorThemeLabel, []any{"Indigo"}},
-		} {
-			if text := fmt.Sprintf(translations[sample.id], sample.args...); strings.Contains(text, "%!") {
-				t.Errorf("%s message %d has incompatible format parameters: %q", language, sample.id, text)
-			}
-		}
-	}
-	if got := appLanguage("unknown").text(navComponentPreview); got != english.text(navComponentPreview) {
-		t.Errorf("unknown language gave %q instead of the English preview label", got)
-	}
-}
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+)
 
 func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 	h := newShellHarness(t)
@@ -89,20 +50,20 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 
 	for _, step := range []struct {
 		button      string
-		language    appLanguage
+		language    i18n.Language
 		dark        bool
 		accentIndex int
 	}{
-		{"English", english, false, 0},
-		{"Dark", english, true, 0},
-		{"Color theme: Indigo", english, true, 1},
-		{"繁體中文", traditionalChinese, true, 1},
-		{"顏色主題：薰衣草", traditionalChinese, true, 2},
-		{"淺色", traditionalChinese, false, 2},
-		{"顏色主題：薄荷", traditionalChinese, false, 3},
-		{"顏色主題：天空", traditionalChinese, false, 4},
-		{"顏色主題：蜜桃", traditionalChinese, false, 0},
-		{"简体中文", simplifiedChinese, false, 0},
+		{"English", i18n.English, false, 0},
+		{"Dark", i18n.English, true, 0},
+		{"Color theme: Indigo", i18n.English, true, 1},
+		{"繁體中文", i18n.TraditionalChinese, true, 1},
+		{"顏色主題：薰衣草", i18n.TraditionalChinese, true, 2},
+		{"淺色", i18n.TraditionalChinese, false, 2},
+		{"顏色主題：薄荷", i18n.TraditionalChinese, false, 3},
+		{"顏色主題：天空", i18n.TraditionalChinese, false, 4},
+		{"顏色主題：蜜桃", i18n.TraditionalChinese, false, 0},
+		{"简体中文", i18n.SimplifiedChinese, false, 0},
 	} {
 		h.click(step.button, false)
 		want := sessionPreferences{language: step.language, dark: step.dark, accentIndex: step.accentIndex}
@@ -113,8 +74,8 @@ func TestComponentPreviewKeepsDraftAcrossPreferenceChanges(t *testing.T) {
 		if got := shell.theme.Palette; got.Bg != colors.pageBackground || got.Fg != colors.ink || got.ContrastBg != colors.accent || got.ContrastFg != colors.onAccent {
 			t.Fatalf("after clicking %q, unexpected material palette %+v", step.button, got)
 		}
-		semanticBounds(t, router, step.language.text(previewNotes), true)
-		if preview.readOnly.text() != step.language.text(previewHarbor) || preview.disabled.text() != step.language.text(previewEvergreen) {
+		semanticBounds(t, router, step.language.Text(i18n.PreviewNotes), true)
+		if preview.readOnly.text() != step.language.Text(i18n.PreviewHarbor) || preview.disabled.text() != step.language.Text(i18n.PreviewEvergreen) {
 			t.Fatalf("after clicking %q, sample values were not localized", step.button)
 		}
 		assertEditor(notes, selection)
