@@ -64,7 +64,8 @@ workflows are implemented. Platform acceptance remains open.
 Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
-open. Stages 5–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+open. Stage 5 begins with the read-only Holdings and instrument workflow.
+Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -550,16 +551,14 @@ profiles and the established startup and ownership path.
 
 | Gate from the delivery sequence | What the pilot supports | What remains |
 | --- | --- | --- |
-| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, and scoped balance targets. The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Debt draws and payments, card purchases and refunds, expense categorization, broader account value updates and backdated cases remain outside the migrated forms. |
+| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, and scoped balance targets. The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Debt draws and payments, card purchases and refunds, expense categorization, broader reconciliation and account value updates, and backdated cases remain outside the migrated forms. |
 | History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points for eligible cash/liability balances, repeat for supported cash movements, and linked cash corrections and reversals. | Positive position opening and cost basis are investment prerequisites when importing existing holdings. The account action-sheet shortcut, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions can follow the first investment read. |
 | Cross-page and external invalidation | Confirmed writes refresh History, Account and Overview. History Activity links open the exact account and return to the existing visit. A write made through the same shared application service refreshes the active ledger pages without a page callback. | Exercise connected Mobile and MCP clients when their Gio lifecycles are wired. Keep production startup, target-platform acceptance and Wails GUI parity open. |
 
-The first read-only Stage 5 slice can now use an isolated, funded Holdings
-fixture and compare Portfolio and instrument detail with the shared Go reads.
-Check stable instrument and account IDs, position quantity and cost basis,
-valuation currency and missing or stale prices and FX, then follow links to
-Account and History. Before first investment posting, verify opening quantity
-and cost when importing existing positions, or begin with an empty position.
+The [read-only Stage 5 milestone](#holdings-and-instrument-detail) uses
+isolated, funded Holdings fixtures. Before first investment posting, verify
+opening quantity and cost when importing existing positions, or begin with an
+empty position.
 Exercise the shared trade command with exact quantity, price, fees, settlement
 cash and available funds. Compare resulting basis, valuation and linked History
 after a duplicate confirmation, read failure and restart.
@@ -1082,6 +1081,41 @@ cursors. A failed post-commit read offers a read-only retry.
 | Tests | The Gio module suite and focused shared application and Wails Go History tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
 | Open evidence | Connected Mobile and MCP client paths, the Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+### Stage 5 progress
+
+#### Holdings and instrument detail
+
+**Investment assets** displays current positions, searchable by instrument
+name or symbol. Gio reads the shared quantity, cost basis and native market
+value across Holdings accounts. **Portfolio value** uses the shared
+base-currency valuation and its quality, with a known subtotal when some
+inputs are missing. Portfolio value covers securities. Household net worth in
+Overview also reflects cash and other eligible balances. A funded account can
+show no investment holdings. Zero-quantity positions are omitted from the
+current list. [Wails Portfolio view](../../../frontend/src/features/portfolio/PortfolioPage.tsx) · [Shared holdings read](../../../internal/application/instrument_holdings.go)
+
+Instrument detail shows the shared aggregate and each account's position.
+It reads current price and the stored market FX quote independently and shows
+the quote's currency direction and date. The local FX reference follows the
+configured source. A position with a price can retain its native value when
+household FX is missing. Missing prices preserve the cost basis and make
+market value unavailable. A failed read offers an explicit retry. Ledger
+version changes retire pending results before rereading the current page.
+[Wails instrument view](../../../frontend/src/features/investments/InstrumentDetailPage.tsx) · [Wails Go quote adapter](../../../internal/wailsapi/quote/quote.go)
+
+Account and Activity detail link to the security by ID. Security detail links
+to its accounts and a History visit scoped to that instrument. Back restores
+the prior visit, including search, scroll and available source focus.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Separate synthetic profiles at a fixed clock agreed on quantity 3, EUR 60.36 cost, EUR 90.3702 native value, EUR 30.1234 price and EUR→USD 1.2. An instrument without FX kept GBP 13 of native value. Fixtures covered missing price, missing FX, both gaps and empty positions. The complete portfolio returned USD 108.4442, while the mixed fixture returned the same known subtotal with an incomplete valuation. The Overview comparison also checked the household cash and exact net worth of USD 208.44424 in the complete case. |
+| Shell tests | Exercised Account and Activity links by stable ID, scoped History, returning to the filtered list and source focus, empty and nonexistent results, read retry, a superseded quote response, and normal storage reopen. |
+| Linux X11 | Native Gio at 900×660 on Xvfb displayed complete, mixed and empty portfolios. The mixed profile showed missing price, missing FX and both gaps separately. The window exercised search, account navigation, instrument-filtered History and normal quit and reopen. A read-only SQLite comparison retained all financial and quote rows. A temporary overlay seeded the verified synthetic profiles and fixed the clock. |
+| Tests | The Gio module suite and Wails Go Portfolio, Quote and Analytics package tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Portfolio grouping and allocation, performance and market-data maintenance, positions import, trades, dividends and products remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 ## Moving from the preview to a desktop build
 

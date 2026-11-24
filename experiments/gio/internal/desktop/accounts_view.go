@@ -523,6 +523,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 				continue
 			}
 			name := domain.InstrumentDisplayLabel(component.InstrumentName, component.InstrumentSymbol, component.InstrumentShortName)
+			instrumentName := name
 			if name == "" {
 				name = l.Text(i18n.OverviewMissingInstrument)
 			}
@@ -535,6 +536,18 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 				}
 			}
 			investments = append(investments, accountLine(view, name+" · "+accountComponentAmount(view, component)))
+			if instrumentName != "" && p.openInstrument != nil {
+				id := *component.InstrumentID
+				button := portfolioButton(p.instruments, id)
+				investments = append(investments, func(gtx layout.Context) layout.Dimensions {
+					if button.Clicked(gtx) {
+						p.openInstrument(id, instrumentName, button)
+						gtx.Execute(op.InvalidateCmd{})
+					}
+					label := fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), instrumentName)
+					return layout.W.Layout(gtx, view.Button(button, label))
+				})
+			}
 		}
 		rows = append(rows, accountLine(view, l.Text(i18n.AccountCash)))
 		if len(cash) == 0 {

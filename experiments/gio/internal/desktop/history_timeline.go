@@ -29,8 +29,9 @@ type historyTimelineVisit struct {
 }
 
 type historyDetailState struct {
-	scroll  layout.Position
-	account domain.AccountID
+	scroll     layout.Position
+	account    domain.AccountID
+	instrument domain.InstrumentID
 }
 
 type historyDetailVisit struct {
@@ -49,6 +50,7 @@ type historyDetailVisit struct {
 	repeatDraft      *historyRepeatDraft
 	linked           [4]widget.Clickable
 	accounts         map[domain.AccountID]*widget.Clickable
+	instruments      map[domain.InstrumentID]*widget.Clickable
 }
 
 func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickable {
@@ -63,6 +65,12 @@ func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 	for id, button := range v.accounts {
 		if focus == button {
 			state.account = id
+			return state
+		}
+	}
+	for id, button := range v.instruments {
+		if focus == button {
+			state.instrument = id
 			break
 		}
 	}
@@ -77,18 +85,19 @@ type historyReads struct {
 	invalidate func()
 	workers    sync.WaitGroup
 
-	references   *history.References
-	refsRead     <-chan historyResult[history.References]
-	refsCancel   context.CancelFunc
-	refsErr      error
-	detail       *historyDetailVisit
-	buttons      map[domain.ActivityID]*widget.Clickable
-	posted       domain.Activity
-	postedNotice i18n.MessageID
-	open         func(id domain.ActivityID, focus event.Tag)
-	openAccount  func(id domain.AccountID, name string, focus event.Tag)
-	back         func()
-	rename       func(id domain.ActivityID, name string)
+	references     *history.References
+	refsRead       <-chan historyResult[history.References]
+	refsCancel     context.CancelFunc
+	refsErr        error
+	detail         *historyDetailVisit
+	buttons        map[domain.ActivityID]*widget.Clickable
+	posted         domain.Activity
+	postedNotice   i18n.MessageID
+	open           func(id domain.ActivityID, focus event.Tag)
+	openAccount    func(id domain.AccountID, name string, focus event.Tag)
+	openInstrument func(id domain.InstrumentID, name string, focus event.Tag)
+	back           func()
+	rename         func(id domain.ActivityID, name string)
 }
 
 type historyPageReader struct{ service history.AmendmentLedger }
@@ -168,11 +177,15 @@ func (r *historyReads) leaveDetail() {
 
 func (r *historyReads) enterDetail(id domain.ActivityID, state historyDetailState) event.Tag {
 	r.detail = &historyDetailVisit{id: id,
-		scroll:   widget.List{List: layout.List{Axis: layout.Vertical, Position: state.scroll}},
-		accounts: make(map[domain.AccountID]*widget.Clickable)}
+		scroll:      widget.List{List: layout.List{Axis: layout.Vertical, Position: state.scroll}},
+		accounts:    make(map[domain.AccountID]*widget.Clickable),
+		instruments: make(map[domain.InstrumentID]*widget.Clickable)}
 	r.loadDetail()
 	if state.account != "" {
 		return r.detail.accountButton(state.account)
+	}
+	if state.instrument != "" {
+		return portfolioButton(r.detail.instruments, state.instrument)
 	}
 	return nil
 }
@@ -233,7 +246,7 @@ func (p *historyPage) timelineVisit(focus event.Tag) historyTimelineVisit {
 	return visit
 }
 
-func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimelineVisit) {
+func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimelineVisit, instrument domain.InstrumentID) {
 	if p.bound == id {
 		return
 	}
@@ -247,6 +260,9 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 	} else {
 		if p.model.Filters() != (history.Filters{}) {
 			p.model.Restore(history.Visit{})
+		}
+		if instrument != "" {
+			p.model.SetFilters(history.Filters{Instrument: instrument})
 		}
 		p.list.Position = layout.Position{}
 	}

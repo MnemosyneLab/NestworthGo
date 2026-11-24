@@ -107,7 +107,8 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		if known.Links != (history.AmendmentLinks{}) {
 			children = append(children, layout.Rigid(r.amendmentLinks(view)))
 		}
-		facts := append(r.accountLinks(view, *known), activityFacts(view, *known)...)
+		facts := append(r.accountLinks(view, *known), r.instrumentLinks(view, *known)...)
+		facts = append(facts, activityFacts(view, *known)...)
 		children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return material.List(view.Theme, &d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, facts[i])
@@ -115,6 +116,44 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(9)}.Layout(ui.LimitWidth(gtx, 720), children...)
+}
+
+func (r *historyReads) instrumentLinks(view ui.View, detail history.Detail) []layout.Widget {
+	if r.openInstrument == nil {
+		return nil
+	}
+	activity := detail.Activity
+	var ids []domain.InstrumentID
+	if activity.TradeDetail != nil {
+		ids = append(ids, activity.TradeDetail.InstrumentID)
+	}
+	if activity.DividendDetail != nil {
+		ids = append(ids, activity.DividendDetail.InstrumentID)
+	}
+	for _, effect := range activity.Effects {
+		if effect.InstrumentID != nil {
+			ids = append(ids, *effect.InstrumentID)
+		}
+	}
+	var links []layout.Widget
+	seen := make(map[domain.InstrumentID]bool)
+	for _, id := range ids {
+		name := detail.Instruments[id]
+		if name == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		button := portfolioButton(r.detail.instruments, id)
+		label := fmt.Sprintf(view.Language.Text(i18n.PortfolioOpenInstrument), name)
+		links = append(links, func(gtx layout.Context) layout.Dimensions {
+			if button.Clicked(gtx) {
+				r.openInstrument(id, name, button)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			return layout.W.Layout(gtx, view.Button(button, label))
+		})
+	}
+	return links
 }
 
 func (r *historyReads) accountLinks(view ui.View, detail history.Detail) []layout.Widget {

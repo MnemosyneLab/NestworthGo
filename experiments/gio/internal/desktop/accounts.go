@@ -232,8 +232,10 @@ type accountsPage struct {
 	position                           layout.Position
 	list                               widget.List
 	buttons                            map[domain.AccountID]*widget.Clickable
+	instruments                        map[domain.InstrumentID]*widget.Clickable
 	reload, archiveFilter, clear, back widget.Clickable
 	open                               func(navigationTarget, string, event.Tag)
+	openInstrument                     func(domain.InstrumentID, string, event.Tag)
 	backToList                         func()
 	creation                           *balanceAccountCreation
 	createBank, createLiability        widget.Clickable
@@ -248,7 +250,8 @@ type accountsPage struct {
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {
 	return &accountsPage{ctx: ctx, service: service, clock: clock, invalidate: invalidate,
-		list: widget.List{List: layout.List{Axis: layout.Vertical}}, buttons: make(map[domain.AccountID]*widget.Clickable)}
+		list: widget.List{List: layout.List{Axis: layout.Vertical}}, buttons: make(map[domain.AccountID]*widget.Clickable),
+		instruments: make(map[domain.InstrumentID]*widget.Clickable)}
 }
 
 func (p *accountsPage) enter(target navigationTarget, archived bool, position layout.Position) {

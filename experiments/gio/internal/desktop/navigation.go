@@ -23,10 +23,11 @@ type navigationTarget struct {
 	account     domain.AccountID
 	institution domain.InstitutionID
 	activity    domain.ActivityID
+	instrument  domain.InstrumentID
 }
 
 func (t navigationTarget) hasObject() bool {
-	return t.object != (directoryRef{}) || t.account != "" || t.activity != ""
+	return t.object != (directoryRef{}) || t.account != "" || t.activity != "" || t.instrument != ""
 }
 
 type navigationEntry struct {
@@ -39,6 +40,7 @@ type navigationEntry struct {
 	history          historyTimelineVisit
 	historyDetail    historyDetailState
 	accountsArchived bool
+	portfolioSearch  string
 	visited          bool
 }
 
@@ -148,6 +150,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if request.target.activity != "" && (request.target.route != historyRoute || s.historyPage == nil || s.historyPage.reads == nil) {
 			return
 		}
+		if request.target.instrument != "" && request.target.route != portfolioRoute &&
+			(request.target.route != historyRoute || request.target.activity != "" || s.historyPage == nil || s.historyPage.reads == nil) {
+			return
+		}
 	}
 
 	source := *entry
@@ -185,6 +191,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.accounts.createdID = ""
 		}
 	}
+	if entry.target.route == portfolioRoute {
+		s.portfolio.leave()
+	}
 	if request.step != 0 {
 		s.trail.cursor += request.step
 		s.restoreVisit(s.trail.current())
@@ -206,11 +215,14 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == accountsRoute {
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 	}
+	if entry.target.route == portfolioRoute {
+		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
+	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
 			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
 		} else {
-			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history)
+			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, entry.target.instrument)
 			if entry.history.focused != "" && s.historyPage.reads != nil {
 				entry.focus = s.historyPage.detailButton(entry.history.focused)
 			}
@@ -256,6 +268,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
 		entry.scroll = s.accounts.list.Position
+	case portfolioRoute:
+		entry.portfolioSearch = s.portfolio.search.Field.Text()
+		entry.scroll = s.portfolio.list.Position
 	case overviewRoute:
 		if s.overviewPage != nil {
 			entry.scroll = s.overviewPage.list.Position
@@ -333,6 +348,9 @@ func (s *shell) waitingForPageFocus() bool {
 	if s.activeRoute() == accountsRoute && s.accounts != nil {
 		return s.accounts.request != nil
 	}
+	if s.activeRoute() == portfolioRoute && s.portfolio != nil {
+		return s.portfolio.request != nil
+	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false
 	}
@@ -364,11 +382,17 @@ func (s *shell) navigationButton(gtx layout.Context, view ui.View, step int) lay
 
 func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) string {
 	if entry.target.hasObject() {
+		if entry.target.route == historyRoute && entry.target.instrument != "" {
+			return language.Text(i18n.NavHistory) + " · " + entry.name
+		}
 		if entry.name != "" {
 			return entry.name
 		}
 		if entry.target.route == accountsRoute {
 			return language.Text(i18n.AccountUnavailable)
+		}
+		if entry.target.route == portfolioRoute {
+			return language.Text(i18n.PortfolioInstrumentUnavailable)
 		}
 		if entry.target.route == historyRoute {
 			return language.Text(i18n.HistoryDetailTitle)

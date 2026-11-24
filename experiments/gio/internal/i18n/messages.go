@@ -723,6 +723,22 @@ const (
 	SettingsSaveError
 	SettingsPending
 	PickerNoMatches
+	PortfolioLoading
+	PortfolioReadFailed
+	PortfolioSearch
+	PortfolioSearchHint
+	PortfolioEmpty
+	PortfolioNoMatches
+	PortfolioInstrumentUnavailable
+	PortfolioValue
+	PortfolioCost
+	PortfolioNativeValue
+	PortfolioCurrentPrice
+	PortfolioPriceMissing
+	PortfolioMarketFX
+	PortfolioFXMissing
+	PortfolioInstrumentHistory
+	PortfolioOpenInstrument
 	messageCount
 )
 
