@@ -793,4 +793,18 @@ var simplifiedChineseCatalog = catalog{
 	BuyTotalCost:      "买入后总成本基础 · %s",
 	BuyAverageCost:    "每单位加权平均成本 · %s",
 	BuyLotCost:        "本笔每单位含费成本 · %s",
+
+	DividendOpen:               "记现金股息",
+	DividendReview:             "预览现金股息",
+	DividendConfirm:            "确认记录现金股息",
+	DividendPosted:             "现金股息已记录。",
+	DividendAmount:             "实际到账金额",
+	DividendNetHint:            "请输入扣除预扣税或手续费后实际到账的金额。",
+	DividendNetCredit:          "净到账 · %s",
+	DividendHoldingUnavailable: "请选择以该账户默认币种计价且未归档的持仓。",
+	DividendHistoryRequired:    "请先启用历史记录，再记录现金股息。",
+	DividendNoHoldings:         "没有符合条件且以该账户默认币种计价的持仓。",
+	DividendPreviewFailed:      "无法预览现金股息。请核对后重试。",
+	DividendStale:              "账本已变化。请重新预览股息后再确认。",
+	DividendInvalidAmount:      "请输入正数金额，最多四位小数。",
 }

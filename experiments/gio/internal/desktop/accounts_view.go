@@ -82,19 +82,22 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if f := p.trade; f != nil {
+	if f := p.investment; f != nil {
 		if f.draft == nil {
 			switch {
-			case (p.canFirstBuy() || p.hasTradeHolding(domain.TradeBuy)) && f.buy.Clicked(gtx):
-				p.startTrade(domain.TradeBuy)
+			case (p.canFirstBuy() || p.hasInvestmentHolding(domain.ActivityBuy)) && f.buy.Clicked(gtx):
+				p.startInvestment(domain.ActivityBuy)
 				gtx.Execute(op.InvalidateCmd{})
 			case p.canSell() && f.sell.Clicked(gtx):
-				p.startTrade(domain.TradeSell)
+				p.startInvestment(domain.ActivitySell)
+				gtx.Execute(op.InvalidateCmd{})
+			case p.hasInvestmentHolding(domain.ActivityCashDividend) && f.dividend.Clicked(gtx):
+				p.startInvestment(domain.ActivityCashDividend)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
 		if f.draft != nil {
-			return p.layoutTrade(gtx, view)
+			return p.layoutInvestment(gtx, view)
 		}
 	}
 	detail := p.target.account != ""
@@ -500,8 +503,9 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
-	firstBuy, existingBuy, sell := p.canFirstBuy(), p.hasTradeHolding(domain.TradeBuy), p.canSell()
-	if firstBuy || existingBuy || sell {
+	firstBuy, existingBuy, sell := p.canFirstBuy(), p.hasInvestmentHolding(domain.ActivityBuy), p.canSell()
+	dividend := p.hasInvestmentHolding(domain.ActivityCashDividend)
+	if firstBuy || existingBuy || sell || dividend {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				var actions []layout.FlexChild
@@ -510,10 +514,13 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					if existingBuy {
 						label = i18n.BuyExistingOpen
 					}
-					actions = append(actions, layout.Rigid(view.Button(&p.trade.buy, l.Text(label))))
+					actions = append(actions, layout.Rigid(view.Button(&p.investment.buy, l.Text(label))))
 				}
 				if sell {
-					actions = append(actions, layout.Rigid(view.Button(&p.trade.sell, l.Text(i18n.SellOpen))))
+					actions = append(actions, layout.Rigid(view.Button(&p.investment.sell, l.Text(i18n.SellOpen))))
+				}
+				if dividend {
+					actions = append(actions, layout.Rigid(view.Button(&p.investment.dividend, l.Text(i18n.DividendOpen))))
 				}
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
 			})

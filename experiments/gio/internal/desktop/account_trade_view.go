@@ -18,26 +18,26 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-func (p *accountsPage) layoutTrade(gtx layout.Context, view ui.View) layout.Dimensions {
-	f, l := p.trade, view.Language
+func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout.Dimensions {
+	f, l := p.investment, view.Language
 	d := f.draft
 	labels := d.labels()
-	if !p.tradeUnresolved() && d.cancel.Clicked(gtx) {
+	if !p.investmentUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
-		gtx.Execute(key.FocusCmd{Tag: f.action(d.side)})
+		gtx.Execute(key.FocusCmd{Tag: f.action(d.kind)})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	gtx = ui.LimitWidth(gtx, 690)
 	if d.review != nil {
-		return p.layoutTradeReview(gtx, view)
+		return p.layoutInvestmentReview(gtx, view)
 	}
 	if d.sourceProblem != i18n.NoMessage && d.retry.Clicked(gtx) {
-		p.loadTradeSources()
+		p.loadInvestmentSources()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.previewing == nil && d.preview.Clicked(gtx) {
-		p.previewTrade()
+		p.previewInvestment()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	origin := view.Origin
@@ -52,13 +52,13 @@ func (p *accountsPage) layoutTrade(gtx layout.Context, view ui.View) layout.Dime
 	if d.sources != nil && len(d.sources.Instruments) != 0 {
 		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return fieldPosition(gtx, &origin, d.layoutTradeInstrument(view, origin))
+				return fieldPosition(gtx, &origin, d.layoutInvestmentInstrument(view, origin))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return fieldPosition(gtx, &origin, d.layoutTradeAmounts(view))
+				return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return d.layoutTradeTime(gtx, view, origin, p.clock())
+				return d.layoutInvestmentTime(gtx, view, origin, p.clock())
 			}),
 			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), d.sources.Location), view.Colors.SecondaryInk)),
 		)
@@ -80,7 +80,8 @@ func (p *accountsPage) layoutTrade(gtx layout.Context, view ui.View) layout.Dime
 			buttons = append(buttons, layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))))
 		} else if d.sources != nil && len(d.sources.Instruments) != 0 {
 			buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if d.previewing != nil || d.instrument == "" || strings.TrimSpace(d.quantity.Text()) == "" || strings.TrimSpace(d.gross.Text()) == "" {
+				needsQuantity := d.kind != domain.ActivityCashDividend && strings.TrimSpace(d.quantity.Text()) == ""
+				if d.previewing != nil || d.instrument == "" || needsQuantity || strings.TrimSpace(d.gross.Text()) == "" {
 					gtx = gtx.Disabled()
 				}
 				return view.PrimaryButton(&d.preview, l.Text(labels.review))(gtx)
@@ -91,7 +92,7 @@ func (p *accountsPage) layoutTrade(gtx layout.Context, view ui.View) layout.Dime
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (d *accountTradeDraft) layoutTradeInstrument(view ui.View, origin image.Point) layout.Widget {
+func (d *accountInvestmentDraft) layoutInvestmentInstrument(view ui.View, origin image.Point) layout.Widget {
 	items := make([]ui.Choice, 0, len(d.sources.Instruments))
 	for _, item := range d.sources.Instruments {
 		label := item.SelectionLabel()
@@ -102,6 +103,9 @@ func (d *accountTradeDraft) layoutTradeInstrument(view ui.View, origin image.Poi
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		field := ui.PickerField{Label: i18n.BuyInstrument, Origin: origin, Disabled: d.previewing != nil, Next: &d.quantity.Editor}
+		if d.kind == domain.ActivityCashDividend {
+			field.Next = &d.gross.Editor
+		}
 		d.selectInstrument.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.instrument.String(), func(id string) {
 			d.chooseInstrument(domain.InstrumentID(id))
 		})
@@ -109,9 +113,14 @@ func (d *accountTradeDraft) layoutTradeInstrument(view ui.View, origin image.Poi
 	}
 }
 
-func (d *accountTradeDraft) layoutTradeAmounts(view ui.View) layout.Widget {
+func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		currency := d.account.DefaultCurrency.String()
+		if d.kind == domain.ActivityCashDividend {
+			return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{
+				Label: i18n.DividendAmount, Help: i18n.DividendNetHint, Disabled: d.previewing != nil,
+			}, currency)
+		}
 		labels := d.labels()
 		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -127,7 +136,7 @@ func (d *accountTradeDraft) layoutTradeAmounts(view ui.View) layout.Widget {
 	}
 }
 
-func (d *accountTradeDraft) layoutTradeTime(gtx layout.Context, view ui.View, origin image.Point, now time.Time) layout.Dimensions {
+func (d *accountInvestmentDraft) layoutInvestmentTime(gtx layout.Context, view ui.View, origin image.Point, now time.Time) layout.Dimensions {
 	zone := d.sources.Location
 	today := now.In(zone).Format(time.DateOnly)
 	weekStart := time.Monday
@@ -153,10 +162,10 @@ func (d *accountTradeDraft) layoutTradeTime(gtx layout.Context, view ui.View, or
 	)
 }
 
-func (p *accountsPage) layoutTradeReview(gtx layout.Context, view ui.View) layout.Dimensions {
-	d, l := p.trade.draft, view.Language
+func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) layout.Dimensions {
+	d, l := p.investment.draft, view.Language
 	labels := d.labels()
-	if !p.tradeUnresolved() && d.edit.Clicked(gtx) {
+	if !p.investmentUnresolved() && d.edit.Clicked(gtx) {
 		d.review = nil
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -166,19 +175,13 @@ func (p *accountsPage) layoutTradeReview(gtx layout.Context, view ui.View) layou
 		confirm = &d.retryConfirm
 	}
 	if d.posting == nil && confirm.Clicked(gtx) {
-		p.postTrade()
+		p.postInvestment()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	review := d.review
-	preview, trade := review.Preview, review.Preview.Activity.TradeDetail
-	currency := trade.Gross.Currency()
-	money := func(amount string) string { return portfolioDecimal(view, amount) + " " + currency.String() }
-	fee := "0"
-	if trade.Fee != nil {
-		fee = trade.Fee.CanonicalAmount()
-	}
+	preview := review.Preview
 	instrument := ""
-	if at := slices.IndexFunc(d.sources.Instruments, func(i domain.Instrument) bool { return i.ID == trade.InstrumentID }); at >= 0 {
+	if at := slices.IndexFunc(d.sources.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }); at >= 0 {
 		instrument = d.sources.Instruments[at].SelectionLabel()
 	}
 	children := []layout.FlexChild{
@@ -189,10 +192,39 @@ func (p *accountsPage) layoutTradeReview(gtx layout.Context, view ui.View) layou
 	fact := func(id i18n.MessageID, value string) layout.FlexChild {
 		return layout.Rigid(view.Message(fmt.Sprintf(l.Text(id), value), view.Colors.Ink))
 	}
+	if d.kind == domain.ActivityCashDividend {
+		for _, endpoint := range preview.Review {
+			money := func(amount string) string { return portfolioDecimal(view, amount) + " " + endpoint.Currency.String() }
+			children = append(children,
+				fact(i18n.ContributionBefore, money(endpoint.Before)),
+				fact(i18n.DividendNetCredit, money(endpoint.Delta)),
+				fact(i18n.ContributionAfter, money(endpoint.After)))
+		}
+	} else {
+		children = append(children, d.investmentTradeFacts(gtx, view, fact)...)
+	}
+	if d.uncertain {
+		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))
+	}
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, labels.confirm)
+	}))
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx, children...)
+}
+
+func (d *accountInvestmentDraft) investmentTradeFacts(gtx layout.Context, view ui.View, fact func(i18n.MessageID, string) layout.FlexChild) []layout.FlexChild {
+	preview, review, l := d.review.Preview, d.review, view.Language
+	trade := preview.Activity.TradeDetail
+	currency := trade.Gross.Currency()
+	money := func(amount string) string { return portfolioDecimal(view, amount) + " " + currency.String() }
+	fee := "0"
+	if trade.Fee != nil {
+		fee = trade.Fee.CanonicalAmount()
+	}
 	entryFacts := []layout.FlexChild{
 		fact(i18n.AccountQuantity, portfolioDecimal(view, trade.Quantity.Canonical())),
 		fact(i18n.BuyExecutionPrice, money(trade.UnitPrice.Canonical())),
-		fact(labels.grossFact, money(trade.Gross.CanonicalAmount())),
+		fact(d.labels().grossFact, money(trade.Gross.CanonicalAmount())),
 		fact(i18n.BuyFeeFact, money(fee)),
 	}
 	var ledgerFacts []layout.FlexChild
@@ -245,23 +277,14 @@ func (p *accountsPage) layoutTradeReview(gtx layout.Context, view ui.View) layou
 		}
 	}
 	if existingBuy {
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			stack := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}
 			return layout.Flex{Gap: gtx.Dp(14)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return stack.Layout(gtx, entryFacts...) }),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return stack.Layout(gtx, ledgerFacts...) }))
-		}))
-	} else {
-		children = append(children, entryFacts...)
-		children = append(children, ledgerFacts...)
+		})}
 	}
-	if d.uncertain {
-		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))
-	}
-	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, labels.confirm)
-	}))
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx, children...)
+	return append(entryFacts, ledgerFacts...)
 }
 
 func tradeTitle(view ui.View, id i18n.MessageID) layout.Widget {

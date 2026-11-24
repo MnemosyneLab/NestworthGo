@@ -792,4 +792,18 @@ var japaneseCatalog = catalog{
 	BuyTotalCost:      "買付後の取得原価合計 · %s",
 	BuyAverageCost:    "加重平均取得単価 · %s",
 	BuyLotCost:        "今回の手数料込み取得単価 · %s",
+
+	DividendOpen:               "現金配当を記録",
+	DividendReview:             "現金配当を確認",
+	DividendConfirm:            "現金配当を確定",
+	DividendPosted:             "現金配当を記録しました。",
+	DividendAmount:             "受取金額",
+	DividendNetHint:            "源泉徴収や手数料を差し引いた実際の入金額を入力してください。",
+	DividendNetCredit:          "入金額（差引後） · %s",
+	DividendHoldingUnavailable: "この口座の既定通貨建ての有効な保有銘柄を選んでください。",
+	DividendHistoryRequired:    "現金配当を記録するには履歴を開始してください。",
+	DividendNoHoldings:         "この口座の既定通貨建ての対象銘柄はありません。",
+	DividendPreviewFailed:      "現金配当を確認できませんでした。入力内容を確認して再試行してください。",
+	DividendStale:              "台帳が変更されました。確定する前に配当を再確認してください。",
+	DividendInvalidAmount:      "小数点以下4桁以内の正の金額を入力してください。",
 }

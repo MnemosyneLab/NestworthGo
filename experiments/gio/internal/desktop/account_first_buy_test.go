@@ -88,7 +88,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	release := sync.OnceFunc(func() { close(fault.release) })
 	clock := func() time.Time { return accountTestClock }
 	accounts := newAccountsPage(ctx, app, clock, func() {})
-	accounts.trade = &accountTrade{service: fault}
+	accounts.investment = &accountInvestment{service: fault}
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
 	investments := newPortfolioPage(ctx, app, func() {})
 	overview := newOverviewPage(ctx, app, clock, func() {})
@@ -114,7 +114,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record first buy")
-	d := accounts.trade.draft
+	d := accounts.investment.draft
 	if len(d.sources.Instruments) != 1 || d.instrument != ids.instrument || d.day != "2026-11-22" || d.time != "01:00" {
 		t.Fatalf("wrong eligible choices or History date and time: %+v", d)
 	}
@@ -171,7 +171,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	noBuy()
 
 	click("Record first buy")
-	d = accounts.trade.draft
+	d = accounts.investment.draft
 	setBankField(h, "Bought quantity", &d.quantity, "2.5")
 	setBankField(h, "Gross before fees · USD", &d.gross, "75.1234")
 	setBankField(h, "Fee (optional) · USD", &d.fee, "1.2345")
@@ -188,7 +188,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	release()
 	settle()
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
-	if len(fault.attempts) != 2 || !accounts.tradeUnresolved() {
+	if len(fault.attempts) != 2 || !accounts.investmentUnresolved() {
 		t.Fatal("a duplicate click started another write or the uncertain plan was discarded")
 	}
 	h.click("Overview", false)
@@ -300,7 +300,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 		t.Fatalf("post-restart replay did not return the original receipt: %+v / %v", r, err)
 	}
 	assertFacts(reopened, ids, fault.firstActivity)
-	sources, err := history.LoadTradeSources(ctx, reopened, ids.account, domain.TradeBuy)
+	sources, err := history.LoadInvestmentSources(ctx, reopened, ids.account, domain.ActivityBuy)
 	if err != nil || len(sources.Instruments) != 1 || sources.Holdings[ids.instrument].Quantity.Canonical() != "2.5" {
 		t.Fatalf("recorded first buy did not become an eligible existing position: %+v / %v", sources, err)
 	}
@@ -319,7 +319,7 @@ func TestFirstBuyRejectsForeignSettlementAndSpentCash(t *testing.T) {
 	if _, err := service.AppendAccountCashValue(ctx, ids.account, "0", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
-	_, err = history.LoadTradeSources(ctx, service, ids.account, domain.TradeBuy)
+	_, err = history.LoadInvestmentSources(ctx, service, ids.account, domain.ActivityBuy)
 	if !errors.As(err, &issue) || issue.Code != domain.ErrInsufficientBalance || issue.Field != "settlementCash" {
 		t.Fatalf("historical cash made an unfunded account eligible: %v", err)
 	}

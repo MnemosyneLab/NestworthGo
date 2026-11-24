@@ -58,7 +58,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	app.SetClock(clock)
 	ref.SetClock(clock)
 	accounts := newAccountsPage(ctx, app, clock, func() {})
-	accounts.trade = &accountTrade{service: fault}
+	accounts.investment = &accountInvestment{service: fault}
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
 	investments := newPortfolioPage(ctx, app, func() {})
 	overview := newOverviewPage(ctx, app, clock, func() {})
@@ -79,7 +79,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	}
 	click := func(label string) { t.Helper(); h.click(label, false); settle() }
 	label := func(text string) { t.Helper(); assertPageLabel(t, &h.router, text) }
-	fields := func(d *accountTradeDraft, quantity, gross, fee string) {
+	fields := func(d *accountInvestmentDraft, quantity, gross, fee string) {
 		t.Helper()
 		setBankField(h, "Bought quantity", &d.quantity, quantity)
 		setBankField(h, "Gross before fees · USD", &d.gross, gross)
@@ -92,7 +92,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 			EffectiveLocalDate: "2026-11-22", EffectiveLocalTime: at, MutationID: domain.NewMutationID().String(),
 		}
 	}
-	commitReference := func(plan history.ReviewedTrade, r historyapi.ChangeCommandRequest) domain.ActivityID {
+	commitReference := func(plan history.ReviewedInvestment, r historyapi.ChangeCommandRequest) domain.ActivityID {
 		t.Helper()
 		api := historyapi.NewService(ref)
 		w, err := api.PreviewChange(ctx, r)
@@ -151,7 +151,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record buy")
-	d := accounts.trade.draft
+	d := accounts.investment.draft
 	if len(d.sources.Instruments) != 1 || d.sources.Holdings[d.instrument].ID != ids.holding {
 		t.Fatalf("picker offered an unexpected instrument: %+v", d.sources)
 	}
@@ -251,7 +251,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 		t.Fatal("a liquidated holding became eligible for sell or a new first holding")
 	}
 	click("Record buy")
-	d = accounts.trade.draft
+	d = accounts.investment.draft
 	if holding := d.sources.Holdings[d.instrument]; holding.ID != ids.holding || !holding.Quantity.IsZero() {
 		t.Fatalf("closed holding was not selectable: %+v", holding)
 	}

@@ -65,7 +65,7 @@ Stage 3 includes synthetic startup, ledger ownership, household onboarding,
 live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
-partial sales and liquidations.
+partial sales, liquidations and cash dividends.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -1214,7 +1214,35 @@ confirmation.
 | Linux X11 | In native Gio at 900×660 on Xvfb, rejected a buy above the available cash including the fee. Double-clicked confirmation on the addition, sold part, liquidated, and used **Record buy** from the closed position. A normal quit and reopen showed five trade records, USD 100 position basis, USD 160 market value and USD 252 net worth. Read-only SQLite verified the original Holding ID, original acquisition and quotes, exact cash and quantity projections, and one receipt per new trade. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | The next slice is a same-currency cash dividend for an existing holding using the shared dividend command. Verify native cash, income classification and history linkage separately from trade gains. Adding a new instrument to a populated account, backdated additions that change later cost replay, foreign-currency settlement, positive opening positions and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Cash dividends](#same-currency-cash-dividends) follow this milestone. Adding a new instrument to a populated account, backdated additions that change later cost replay, foreign-currency settlement, positive opening positions and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+
+#### Same-currency cash dividends
+
+From a Holdings account, **Record cash dividend** lists its ordinary,
+unarchived holdings whose quote currency matches the account's default
+currency. An unarchived holding remains eligible after liquidation. Enter the
+positive amount actually credited, with up to four decimal places. The Wails
+dividend command accepts one amount. Separately posted withholding or fees use
+distinct Wails cash-removal operations and remain outside this slice. Gio uses
+the History Origin timezone and the shared rules for effective times from the
+origin through the current time. [Wails entry](../../../frontend/src/features/accounts/AccountActionSheets.tsx) · [Wails form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails Go command](../../../internal/wailsapi/history/command.go)
+
+Review shows the cash balance before, the exact net credit and the resulting
+balance at the effective time. Confirmation records one cash dividend, opens
+its History detail with links to the account and instrument, and refreshes the
+shared ledger views. The cash effect is income and the investment return is
+attributed to the holding. The shared ledger leaves quantity, cost basis,
+realized trade gain and external flows unchanged by the dividend.
+[Dividend effect](../../../internal/domain/change.go) · [Investment attribution](../../../internal/application/analysis_classifier.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent marked profiles used a fixed clock and `Asia/Singapore` History Origin. The USD 12.3456 dividend produced one cash income effect and the same account and holding links. After a separate USD 7.125 contribution, cash was USD 153.4706 and net worth was USD 273.4706. The three units retained USD 81 basis, USD 120 native market value and USD 15 realized trade gain. Closed-day analysis attributed USD 12.3456 to dividend income and investment return and only the contribution to external flow. |
+| Shell tests | Rejected zero, negative and overprecision amounts, dates outside History and an archived holding. Accepted an active zero-quantity holding in preview. A change to the cash balance invalidated a reviewed plan. Double-click did not submit twice, a lost response replayed the original ID, a detail failure after acknowledgment retried only the read, and reopening preserved the receipt. |
+| Linux X11 | In a 900×660 Xvfb window, rejected zero, reviewed USD 12.3456, double-clicked confirmation, and followed the History links to the instrument and account. Overview showed USD 266.35 with no separate contribution in this fixture. A normal quit and reopen retained the four records and the exact dividend. Read-only SQLite verification found one added activity, one income effect, one mutation receipt and USD 146.3456 cash in both event and replay projections. The holding, prior trades and market quotes were unchanged. A temporary build overlay seeded the verified synthetic profile and controlled the clock. |
+| Tests | The Gio module suite and focused shared application, domain and Wails Go dividend, gain and mutation tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Dividend notes, separate withholding or fees, foreign-currency dividends, reinvestment and capital-return operations remain outside this slice. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

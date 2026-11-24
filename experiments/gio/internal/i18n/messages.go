@@ -789,6 +789,19 @@ const (
 	BuyTotalCost
 	BuyAverageCost
 	BuyLotCost
+	DividendOpen
+	DividendReview
+	DividendConfirm
+	DividendPosted
+	DividendAmount
+	DividendNetHint
+	DividendNetCredit
+	DividendHoldingUnavailable
+	DividendHistoryRequired
+	DividendNoHoldings
+	DividendPreviewFailed
+	DividendStale
+	DividendInvalidAmount
 	messageCount
 )
 

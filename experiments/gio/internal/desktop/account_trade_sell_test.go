@@ -76,7 +76,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	service.SetClock(clock)
 	reference.SetClock(clock)
 	accounts := newAccountsPage(ctx, service, clock, func() {})
-	accounts.trade = &accountTrade{service: fault}
+	accounts.investment = &accountInvestment{service: fault}
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
 	investments := newPortfolioPage(ctx, service, func() {})
 	overview := newOverviewPage(ctx, service, clock, func() {})
@@ -102,11 +102,11 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record sell")
-	d := accounts.trade.draft
-	if d.side != domain.TradeSell || len(d.sources.Instruments) != 1 || d.sources.Holdings[d.instrument].ID != ids.holding {
+	d := accounts.investment.draft
+	if d.kind != domain.ActivitySell || len(d.sources.Instruments) != 1 || d.sources.Holdings[d.instrument].ID != ids.holding {
 		t.Fatalf("unexpected sell target: %+v", d.sources)
 	}
-	setFields := func(d *accountTradeDraft, quantity, gross, fee string) {
+	setFields := func(d *accountInvestmentDraft, quantity, gross, fee string) {
 		t.Helper()
 		setBankField(h, "Sold quantity", &d.quantity, quantity)
 		setBankField(h, "Gross proceeds before fees · USD", &d.gross, gross)
@@ -141,7 +141,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	settle()
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
 	h.click("Overview", false)
-	if h.shell.activeRoute() != accountsRoute || len(fault.attempts) != 1 || !accounts.tradeUnresolved() {
+	if h.shell.activeRoute() != accountsRoute || len(fault.attempts) != 1 || !accounts.investmentUnresolved() {
 		t.Fatal("the uncertain sale allowed navigation or an extra submission")
 	}
 	click("Retry same submission")
@@ -161,7 +161,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	label("Cost basis · USD $ 81.00")
 	label("Native market value · USD $ 120.00")
 
-	recordReference := func(review history.ReviewedTrade, quantity, gross, fee, at string) domain.ActivityID {
+	recordReference := func(review history.ReviewedInvestment, quantity, gross, fee, at string) domain.ActivityID {
 		t.Helper()
 		request := historyapi.ChangeCommandRequest{
 			Kind: historyapi.ChangeTrade, Side: "sell", SettlementAccountID: ref.account.String(), InstrumentID: ref.instrument.String(),
@@ -241,7 +241,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	now = accountTestClock.Add(2 * time.Minute)
 	click("Open account · Harbor Brokerage")
 	click("Record sell")
-	d = accounts.trade.draft
+	d = accounts.investment.draft
 	setFields(d, "3", "60", "2")
 	click("Review sell")
 	label("Remaining quantity · 0")

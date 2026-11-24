@@ -793,4 +793,18 @@ var englishCatalog = catalog{
 	BuyTotalCost:      "Total cost basis after buy · %s",
 	BuyAverageCost:    "Weighted average cost per unit · %s",
 	BuyLotCost:        "Cost per unit for this buy including fee · %s",
+
+	DividendOpen:               "Record cash dividend",
+	DividendReview:             "Review cash dividend",
+	DividendConfirm:            "Confirm cash dividend",
+	DividendPosted:             "Cash dividend recorded.",
+	DividendAmount:             "Cash received",
+	DividendNetHint:            "Enter the cash actually credited after any withholding or fees.",
+	DividendNetCredit:          "Net cash credited · %s",
+	DividendHoldingUnavailable: "Choose an active holding in this account’s default currency.",
+	DividendHistoryRequired:    "Start History before recording a cash dividend.",
+	DividendNoHoldings:         "No eligible holdings use this account’s default currency.",
+	DividendPreviewFailed:      "Could not review this cash dividend. Check the details and try again.",
+	DividendStale:              "The ledger changed. Review the dividend again before confirming.",
+	DividendInvalidAmount:      "Enter a positive cash amount with up to four decimal places.",
 }

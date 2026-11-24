@@ -14,15 +14,15 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-type accountTrade struct {
-	service   history.TradeLedger
-	buy, sell widget.Clickable
-	draft     *accountTradeDraft
-	onPosted  func(domain.Activity, i18n.MessageID, event.Tag)
+type accountInvestment struct {
+	service             history.InvestmentLedger
+	buy, sell, dividend widget.Clickable
+	draft               *accountInvestmentDraft
+	onPosted            func(domain.Activity, i18n.MessageID, event.Tag)
 }
 
-type accountTradeDraft struct {
-	side                         domain.TradeSide
+type accountInvestmentDraft struct {
+	kind                         domain.ActivityKind
 	existing                     bool
 	account                      domain.Account
 	instrument                   domain.InstrumentID
@@ -34,10 +34,10 @@ type accountTradeDraft struct {
 	cancel, retry, preview, edit widget.Clickable
 	confirm, retryConfirm        widget.Clickable
 	sourceProblem, problem       i18n.MessageID
-	sources                      *history.TradeSources
-	loading                      <-chan historyResult[history.TradeSources]
-	previewing                   <-chan historyResult[history.ReviewedTrade]
-	review                       *history.ReviewedTrade
+	sources                      *history.InvestmentSources
+	loading                      <-chan historyResult[history.InvestmentSources]
+	previewing                   <-chan historyResult[history.ReviewedInvestment]
+	review                       *history.ReviewedInvestment
 	posting                      <-chan historyResult[domain.ChangePreview]
 	uncertain                    bool
 }
@@ -47,10 +47,10 @@ func (p *accountsPage) canFirstBuy() bool {
 }
 
 func (p *accountsPage) canSell() bool {
-	return p.hasTradeHolding(domain.TradeSell)
+	return p.hasInvestmentHolding(domain.ActivitySell)
 }
 
-func (p *accountsPage) hasTradeHolding(side domain.TradeSide) bool {
+func (p *accountsPage) hasInvestmentHolding(kind domain.ActivityKind) bool {
 	if !p.canTradeAccount() {
 		return false
 	}
@@ -63,20 +63,24 @@ func (p *accountsPage) hasTradeHolding(side domain.TradeSide) bool {
 			return false
 		}
 		h, ok := p.current.holdings[*component.HoldingID]
-		return ok && h.ArchivedAt == nil && (side == domain.TradeBuy || !h.Quantity.IsZero())
+		return ok && h.ArchivedAt == nil && (kind != domain.ActivitySell || !h.Quantity.IsZero())
 	})
 }
 
 func (p *accountsPage) canTradeAccount() bool {
 	row := p.freshDetail()
-	return p.trade != nil && p.trade.onPosted != nil && row != nil && history.TradeAccount(row.record.Account)
+	return p.investment != nil && p.investment.onPosted != nil && row != nil && history.TradeAccount(row.record.Account)
 }
 
-func (f *accountTrade) action(side domain.TradeSide) *widget.Clickable {
-	if side == domain.TradeSell {
+func (f *accountInvestment) action(kind domain.ActivityKind) *widget.Clickable {
+	switch kind {
+	case domain.ActivitySell:
 		return &f.sell
+	case domain.ActivityCashDividend:
+		return &f.dividend
+	default:
+		return &f.buy
 	}
-	return &f.buy
 }
 
 type tradeLabels struct {
@@ -100,9 +104,18 @@ var sellLabels = tradeLabels{
 	previewFailed: i18n.SellPreviewFailed, stale: i18n.SellStale,
 }
 
-func (d *accountTradeDraft) labels() tradeLabels {
-	if d.side == domain.TradeSell {
+var dividendLabels = tradeLabels{
+	action: i18n.DividendOpen, review: i18n.DividendReview, confirm: i18n.DividendConfirm, posted: i18n.DividendPosted,
+	scope: i18n.DividendHoldingUnavailable, history: i18n.DividendHistoryRequired, empty: i18n.DividendNoHoldings,
+	previewFailed: i18n.DividendPreviewFailed, stale: i18n.DividendStale,
+}
+
+func (d *accountInvestmentDraft) labels() tradeLabels {
+	switch d.kind {
+	case domain.ActivitySell:
 		return sellLabels
+	case domain.ActivityCashDividend:
+		return dividendLabels
 	}
 	labels := buyLabels
 	if d.existing {
@@ -112,14 +125,14 @@ func (d *accountTradeDraft) labels() tradeLabels {
 	return labels
 }
 
-func (p *accountsPage) startTrade(side domain.TradeSide) {
-	f := p.trade
-	f.draft = &accountTradeDraft{side: side, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account,
+func (p *accountsPage) startInvestment(kind domain.ActivityKind) {
+	f := p.investment
+	f.draft = &accountInvestmentDraft{kind: kind, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account,
 		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true)}
-	p.loadTradeSources()
+	p.loadInvestmentSources()
 }
 
-func (d *accountTradeDraft) chooseInstrument(id domain.InstrumentID) {
+func (d *accountInvestmentDraft) chooseInstrument(id domain.InstrumentID) {
 	if d.instrument != id {
 		d.instrument, d.problem = id, i18n.NoMessage
 		d.quantity.Editor.SetText("")
@@ -128,31 +141,42 @@ func (d *accountTradeDraft) chooseInstrument(id domain.InstrumentID) {
 	}
 }
 
-func (p *accountsPage) loadTradeSources() {
-	f, d := p.trade, p.trade.draft
+func (p *accountsPage) loadInvestmentSources() {
+	f, d := p.investment, p.investment.draft
 	d.sources, d.sourceProblem = nil, i18n.NoMessage
-	id, side := d.account.ID, d.side
-	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.TradeSources, error) {
-		return history.LoadTradeSources(p.ctx, f.service, id, side)
+	id, kind := d.account.ID, d.kind
+	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.InvestmentSources, error) {
+		return history.LoadInvestmentSources(p.ctx, f.service, id, kind)
 	})
 }
 
-func (p *accountsPage) previewTrade() {
-	f, d := p.trade, p.trade.draft
+func (p *accountsPage) previewInvestment() {
+	f, d := p.investment, p.investment.draft
 	if d.previewing != nil || d.sources == nil || d.instrument == "" {
 		return
 	}
-	input := history.TradeInput{Side: d.side, Account: d.account.ID, Instrument: d.instrument,
+	kind := d.kind
+	side := domain.TradeBuy
+	if kind == domain.ActivitySell {
+		side = domain.TradeSell
+	}
+	input := history.TradeInput{Side: side, Account: d.account.ID, Instrument: d.instrument,
 		Holding: d.sources.Holdings[d.instrument].ID, Quantity: d.quantity.Text(),
 		Gross: d.gross.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time}
 	d.problem = i18n.NoMessage
-	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedTrade, error) {
+	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedInvestment, error) {
+		if kind == domain.ActivityCashDividend {
+			return history.ReviewDividend(p.ctx, f.service, history.DividendInput{
+				Account: input.Account, Instrument: input.Instrument, Holding: input.Holding,
+				Amount: input.Gross, Date: input.Date, Time: input.Time,
+			})
+		}
 		return history.ReviewTrade(p.ctx, f.service, input)
 	})
 }
 
-func (p *accountsPage) postTrade() {
-	f, d := p.trade, p.trade.draft
+func (p *accountsPage) postInvestment() {
+	f, d := p.investment, p.investment.draft
 	if d.review == nil || d.posting != nil || p.ctx.Err() != nil {
 		return
 	}
@@ -162,12 +186,12 @@ func (p *accountsPage) postTrade() {
 	})
 }
 
-func (p *accountsPage) tradeUnresolved() bool {
-	return p.trade != nil && p.trade.draft != nil && (p.trade.draft.posting != nil || p.trade.draft.uncertain)
+func (p *accountsPage) investmentUnresolved() bool {
+	return p.investment != nil && p.investment.draft != nil && (p.investment.draft.posting != nil || p.investment.draft.uncertain)
 }
 
-func (p *accountsPage) pollTrade() {
-	f := p.trade
+func (p *accountsPage) pollInvestment() {
+	f := p.investment
 	if f == nil || f.draft == nil {
 		return
 	}
@@ -202,7 +226,7 @@ func (p *accountsPage) pollTrade() {
 		if result.err != nil {
 			d.problem = tradeProblem(result.err, labels, labels.previewFailed)
 			if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable {
-				p.loadTradeSources()
+				p.loadInvestmentSources()
 			}
 		} else {
 			d.review = &result.value
@@ -214,7 +238,7 @@ func (p *accountsPage) pollTrade() {
 		d.posting = nil
 		if result.err == nil && result.value.Activity.ID != "" {
 			f.draft = nil
-			f.onPosted(result.value.Activity, labels.posted, f.action(d.side))
+			f.onPosted(result.value.Activity, labels.posted, f.action(d.kind))
 			return
 		}
 		var issue *domain.Error
@@ -222,7 +246,7 @@ func (p *accountsPage) pollTrade() {
 			// The shared service checks committed receipts before the
 			// guard, so this mutation can be discarded on a stale token.
 			d.review, d.uncertain, d.problem = nil, false, labels.stale
-			p.loadTradeSources()
+			p.loadInvestmentSources()
 		} else {
 			d.uncertain = true
 		}
@@ -264,6 +288,8 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return i18n.BuyInvalidFee
 	case "instrumentId":
 		return i18n.BuyInstrumentUnavailable
+	case "amount":
+		return i18n.DividendInvalidAmount
 	}
 	return fallback
 }

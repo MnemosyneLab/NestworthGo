@@ -11,7 +11,7 @@ import (
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
-type TradeLedger interface {
+type InvestmentLedger interface {
 	CashMovementLedger
 	WithRead(context.Context, func(context.Context) error) error
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
@@ -21,7 +21,7 @@ type TradeLedger interface {
 	PreviewExistingTradeCost(context.Context, domain.ChangePreview) (application.ExistingTradeCostPreview, error)
 }
 
-type TradeSources struct {
+type InvestmentSources struct {
 	Origin      domain.HistoryOrigin
 	Location    *time.Location
 	Account     domain.Account
@@ -33,68 +33,68 @@ func TradeAccount(account domain.Account) bool {
 	return acceptsHoldingsCash(account) && account.AccountType != domain.TypeCashOnHand
 }
 
-func LoadTradeSources(ctx context.Context, ledger TradeLedger, account domain.AccountID, side domain.TradeSide) (sources TradeSources, err error) {
+func LoadInvestmentSources(ctx context.Context, ledger InvestmentLedger, account domain.AccountID, kind domain.ActivityKind) (sources InvestmentSources, err error) {
 	err = ledger.WithRead(ctx, func(ctx context.Context) error {
 		var readErr error
-		sources, readErr = tradeSources(ctx, ledger, account, side)
+		sources, readErr = investmentSources(ctx, ledger, account, kind)
 		return readErr
 	})
 	return sources, err
 }
 
-func tradeSources(ctx context.Context, ledger TradeLedger, id domain.AccountID, side domain.TradeSide) (TradeSources, error) {
-	if side != domain.TradeBuy && side != domain.TradeSell {
-		return TradeSources{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "side"}
+func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.AccountID, kind domain.ActivityKind) (InvestmentSources, error) {
+	if kind != domain.ActivityBuy && kind != domain.ActivitySell && kind != domain.ActivityCashDividend {
+		return InvestmentSources{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "side"}
 	}
 	origin, location, err := cashMovementOrigin(ctx, ledger)
 	if err != nil {
-		return TradeSources{}, err
+		return InvestmentSources{}, err
 	}
 	account, err := cashMovementAccount(ctx, ledger, id, "settlementAccountId")
 	if err != nil {
-		return TradeSources{}, err
+		return InvestmentSources{}, err
 	}
 	if !TradeAccount(account) {
-		return TradeSources{}, &domain.Error{Code: domain.ErrValidation, Field: "settlementAccountId"}
+		return InvestmentSources{}, &domain.Error{Code: domain.ErrValidation, Field: "settlementAccountId"}
 	}
 	holdings, err := ledger.HoldingsByAccounts(ctx, []domain.AccountID{id})
 	if err != nil {
-		return TradeSources{}, err
+		return InvestmentSources{}, err
 	}
-	if side == domain.TradeBuy {
+	if kind == domain.ActivityBuy {
 		values, err := ledger.AccountValuations(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
 		if err != nil {
-			return TradeSources{}, err
+			return InvestmentSources{}, err
 		}
 		// The pilot uses the account's default-currency sleeve. Historical
 		// spendable cash at the chosen time is checked by the trade command.
 		if len(values) != 1 || !slices.ContainsFunc(values[0].Components, func(row domain.ValuationComponent) bool {
 			return row.InstrumentID == nil && row.NativeCurrency == account.DefaultCurrency && row.NativeAmount != "" && row.NativeAmount != "0"
 		}) {
-			return TradeSources{}, &domain.Error{Code: domain.ErrInsufficientBalance, Field: "settlementCash"}
+			return InvestmentSources{}, &domain.Error{Code: domain.ErrInsufficientBalance, Field: "settlementCash"}
 		}
 	}
 	instruments, err := ledger.ListInstruments(ctx, false)
 	if err != nil {
-		return TradeSources{}, err
+		return InvestmentSources{}, err
 	}
 	managed, err := ledger.InstrumentProductOwnership(ctx)
 	if err != nil {
-		return TradeSources{}, err
+		return InvestmentSources{}, err
 	}
 	active := make(map[domain.InstrumentID]domain.Holding)
 	for _, holding := range holdings[id] {
-		if holding.ArchivedAt == nil && (side == domain.TradeBuy || !holding.Quantity.IsZero()) {
+		if holding.ArchivedAt == nil && (kind != domain.ActivitySell || !holding.Quantity.IsZero()) {
 			active[holding.InstrumentID] = holding
 		}
 	}
-	existingOnly := side == domain.TradeSell || len(holdings[id]) != 0
+	existingOnly := kind != domain.ActivityBuy || len(holdings[id]) != 0
 	instruments = slices.DeleteFunc(instruments, func(i domain.Instrument) bool {
 		_, owned := managed[i.ID.String()]
 		_, held := active[i.ID]
 		return owned || i.ArchivedAt != nil || i.QuoteCurrency != account.DefaultCurrency || (existingOnly && !held)
 	})
-	return TradeSources{Origin: origin, Location: location, Account: account, Instruments: instruments, Holdings: active}, nil
+	return InvestmentSources{Origin: origin, Location: location, Account: account, Instruments: instruments, Holdings: active}, nil
 }
 
 type TradeInput struct {
@@ -109,7 +109,7 @@ type TradeInput struct {
 	Time       string
 }
 
-type ReviewedTrade struct {
+type ReviewedInvestment struct {
 	Preview               domain.ChangePreview
 	UnitCost              domain.UnitPrice
 	ExistingCost          *application.ExistingTradeCostPreview
@@ -118,12 +118,21 @@ type ReviewedTrade struct {
 	mutation, hash, token string
 }
 
-func ReviewTrade(ctx context.Context, ledger TradeLedger, input TradeInput) (ReviewedTrade, error) {
-	var review ReviewedTrade
+func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput) (ReviewedInvestment, error) {
+	var review ReviewedInvestment
+	var kind domain.ActivityKind
+	switch input.Side {
+	case domain.TradeBuy:
+		kind = domain.ActivityBuy
+	case domain.TradeSell:
+		kind = domain.ActivitySell
+	default:
+		return review, &domain.Error{Code: domain.ErrInvalidTrade, Field: "side"}
+	}
 	var existing bool
 	err := ledger.WithRead(ctx, func(ctx context.Context) error {
 		preview, token, err := ledger.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
-			sources, err := tradeSources(ctx, ledger, input.Account, input.Side)
+			sources, err := investmentSources(ctx, ledger, input.Account, kind)
 			if err != nil {
 				return nil, err
 			}
@@ -139,14 +148,7 @@ func ReviewTrade(ctx context.Context, ledger TradeLedger, input TradeInput) (Rev
 			if err != nil {
 				return nil, err
 			}
-			request.MutationID = domain.NewMutationID().String()
-			review.command, err = request.ToCommand(sources.Origin.HouseholdID, sources.Origin.Timezone)
-			if err != nil {
-				return nil, err
-			}
-			review.mutation, review.hash, err = request.MutationEnvelope()
-			review.Timezone = sources.Location
-			return review.command, err
+			return review.bind(sources, request)
 		})
 		if err != nil {
 			return err
@@ -162,24 +164,38 @@ func ReviewTrade(ctx context.Context, ledger TradeLedger, input TradeInput) (Rev
 		return nil
 	})
 	if err != nil {
-		return ReviewedTrade{}, err
+		return ReviewedInvestment{}, err
 	}
 	if input.Side == domain.TradeSell {
 		return review, nil
 	}
 	trade := review.Preview.Activity.TradeDetail
 	if trade == nil {
-		return ReviewedTrade{}, &domain.Error{Code: domain.ErrIntegrity, Field: "trade"}
+		return ReviewedInvestment{}, &domain.Error{Code: domain.ErrIntegrity, Field: "trade"}
 	}
 	basis, err := domain.ReplayCostBasis(nil, []domain.CostBasisEvent{{
 		Kind: domain.CostBasisBuy, Quantity: trade.Quantity, UnitPrice: &trade.UnitPrice,
 		Gross: &trade.Gross, Fee: trade.Fee, Currency: trade.Gross.Currency(),
 	}})
 	if err != nil {
-		return ReviewedTrade{}, err
+		return ReviewedInvestment{}, err
 	}
 	review.UnitCost = basis.Current.AverageUnitCost
 	return review, nil
+}
+
+// bind freezes the same request identity used by Wails Go. The plan and its
+// token stay together across retries, including a lost response after commit.
+func (r *ReviewedInvestment) bind(sources InvestmentSources, request historyapi.ChangeCommandRequest) (any, error) {
+	request.MutationID = domain.NewMutationID().String()
+	var err error
+	r.command, err = request.ToCommand(sources.Origin.HouseholdID, sources.Origin.Timezone)
+	if err != nil {
+		return nil, err
+	}
+	r.mutation, r.hash, err = request.MutationEnvelope()
+	r.Timezone = sources.Location
+	return r.command, err
 }
 
 func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain.HoldingID) (historyapi.ChangeCommandRequest, error) {
@@ -210,6 +226,6 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 	return request, nil
 }
 
-func (r ReviewedTrade) Commit(ctx context.Context, ledger TradeLedger) (domain.ChangePreview, error) {
+func (r ReviewedInvestment) Commit(ctx context.Context, ledger InvestmentLedger) (domain.ChangePreview, error) {
 	return ledger.RecordChangeGuarded(ctx, r.command, r.mutation, r.hash, r.token)
 }
