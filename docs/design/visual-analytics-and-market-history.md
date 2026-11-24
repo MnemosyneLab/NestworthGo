@@ -185,6 +185,11 @@ acceptance, which remain unverified in the v0.3.2/v0.3.3 release records:
   validation before becoming local append-only quote observations.
 - The provider adapter does not write SQLite directly. A validated batch is
   committed atomically and uses target/source/observation/value idempotency.
+- For Yahoo equity history, an omitted weekday in the seven calendar dates
+  ending on the latest finalized market date remains pending. Valid closes in
+  the same response are saved. Sync reports the pending dates and normal
+  planning retries them, including recent gaps cached by earlier versions.
+  Explicitly known closures remain excluded from repair.
 - Existing manual observations are never overwritten. Required valuation targets
   run before optional extra pairs when rate limits apply.
 

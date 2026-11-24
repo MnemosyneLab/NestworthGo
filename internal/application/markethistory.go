@@ -57,6 +57,8 @@ const (
 	MappingInvalid     MappingStatus = "invalid"
 )
 
+const HistoryPendingCloseReason = "missing_history"
+
 type InstrumentObservationKind string
 
 const (

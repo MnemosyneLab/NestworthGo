@@ -97,6 +97,19 @@ func DateInLastN(date, lastFinalized string, n int) (bool, error) {
 	return false, nil
 }
 
+// YahooEquityCloseMayBePending identifies recent dates where an omitted bar
+// cannot establish that an equity did not trade.
+func YahooEquityCloseMayBePending(kind InstrumentType, market, date, lastFinalized string) bool {
+	if kind != InstrumentStock && kind != InstrumentETF {
+		return false
+	}
+	if _, supported := EquitySessionScheduleForMarket(market); !supported || DefaultInstrumentClosedDate(kind, date) {
+		return false
+	}
+	recent, err := DateInLastN(date, lastFinalized, RecentNoObservationWindow)
+	return err == nil && recent
+}
+
 // NoObservationExpiresAt is the negative-cache expiry for a successful
 // omission. Recent omissions (last 7 finalized dates) expire after 24 hours;
 // older omissions expire after 30 days. checkedAt is the successful check
