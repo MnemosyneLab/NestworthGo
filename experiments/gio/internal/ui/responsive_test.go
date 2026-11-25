@@ -54,3 +54,22 @@ func TestGridPlacesCellsWithTheirOwnOrigin(t *testing.T) {
 		t.Errorf("grid size = %v, want (330, 80)", dims.Size)
 	}
 }
+
+func TestWrapStartsANewLineWhenAChildOverflows(t *testing.T) {
+	var ops op.Ops
+	gtx := testContext(&ops, nil, time.Unix(0, 0), 250)
+	widths := []int{100, 100, 100}
+	dims := Wrap{Gap: 10}.Layout(gtx, len(widths), func(gtx layout.Context, index int) layout.Dimensions {
+		return layout.Dimensions{Size: image.Pt(widths[index], 30)}
+	})
+	// Two children fit on the first line (210); the third wraps below.
+	if want := image.Pt(210, 30+10+30); dims.Size != want {
+		t.Fatalf("wrapped size = %v, want %v", dims.Size, want)
+	}
+	gtx.Constraints.Max.X = 400
+	if got := (Wrap{Gap: 10}).Layout(gtx, len(widths), func(gtx layout.Context, index int) layout.Dimensions {
+		return layout.Dimensions{Size: image.Pt(widths[index], 30)}
+	}).Size; got != image.Pt(320, 30) {
+		t.Fatalf("single-line size = %v, want (320, 30)", got)
+	}
+}

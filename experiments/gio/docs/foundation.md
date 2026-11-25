@@ -273,14 +273,18 @@ becomes a rail below `BreakpointMedium`. Container-level decisions use
 `ui.Grid`, which flows equal-width cells into as many columns as fit (a minimum
 column width and a gap, an optional column cap, and `Balanced` to avoid an
 orphan cell) and hands each cell its own origin so popups stay anchored.
-`ui.Place` is the same primitive for a single child. Pages scroll vertically
+`ui.Place` is the same primitive for a single child, and `ui.Wrap` flows natural-width children onto new lines for action rows. Pages scroll vertically
 through `View.List` instead of pinning content to the bottom edge, and popups
 that anchor inside a scrolled list move with it (see `OffsetAnchor`). A guard
 test rejects comparing a width with an inline `gtx.Dp(<number>)`; name the
 threshold instead. `TestShellAdaptsToWindowSize` and
 `TestPreviewControlsStayReachableAtEverySize` cover four window sizes, and the
 `responsive` snapshots render Overview, Settings and Component Preview at the
-same sizes for review.
+same sizes for review. Ledger activity is the first list page on this
+foundation: it fills the window up to a readable maximum, its actions wrap, its
+six filters reflow through `ui.Grid`, and the whole page scrolls when the window
+is too short to give the list its minimum height (`TestVisualSnapshotsLedgerActivity`
+renders it at each size).
 
 ### Follow-on controls
 

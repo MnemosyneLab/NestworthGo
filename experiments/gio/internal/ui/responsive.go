@@ -93,3 +93,34 @@ func (g Grid) Layout(gtx layout.Context, view View, count int, cell func(gtx lay
 	}
 	return layout.Dimensions{Size: image.Pt(width, y)}
 }
+
+// Wrap lays children out left to right at their natural widths and starts a
+// new line when the next child would overflow, like a flex row with wrap. Use
+// it for action rows whose labels differ in length or translate to longer text.
+type Wrap struct {
+	// Gap separates children horizontally and lines vertically.
+	Gap unit.Dp
+}
+
+// Layout places count children. A child that is wider than the row still gets
+// a line of its own and is clipped by its own constraints.
+func (w Wrap) Layout(gtx layout.Context, count int, child func(gtx layout.Context, index int) layout.Dimensions) layout.Dimensions {
+	width, gap := gtx.Constraints.Max.X, gtx.Dp(w.Gap)
+	gtx.Constraints.Min = image.Point{}
+	var x, y, line, widest int
+	for i := 0; i < count; i++ {
+		macro := op.Record(gtx.Ops)
+		dims := child(gtx, i)
+		call := macro.Stop()
+		if x > 0 && x+dims.Size.X > width {
+			x, y, line = 0, y+line+gap, 0
+		}
+		stack := op.Offset(image.Pt(x, y)).Push(gtx.Ops)
+		call.Add(gtx.Ops)
+		stack.Pop()
+		x += dims.Size.X + gap
+		line = max(line, dims.Size.Y)
+		widest = max(widest, x-gap)
+	}
+	return layout.Dimensions{Size: image.Pt(widest, y+line)}
+}

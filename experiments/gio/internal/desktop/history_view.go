@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"image"
 	"slices"
 
 	"gioui.org/font"
@@ -11,6 +12,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
@@ -21,7 +23,7 @@ import (
 
 type historyPage struct {
 	model                                 *history.Model
-	list                                  widget.List
+	list, pageScroll                      widget.List
 	reloadButton, retryButton, moreButton widget.Clickable
 	filter                                historyFilterControls
 	cashMovements                         *historyCashMovements
@@ -32,8 +34,20 @@ type historyPage struct {
 }
 
 func newHistoryPage(model *history.Model) *historyPage {
-	return &historyPage{model: model, list: widget.List{List: layout.List{Axis: layout.Vertical}}}
+	return &historyPage{
+		model: model, list: widget.List{List: layout.List{Axis: layout.Vertical}},
+		pageScroll: widget.List{List: layout.List{Axis: layout.Vertical}},
+	}
 }
+
+// historyPageWidth caps the activity page so rows stay readable on a large
+// window; below it the page fills the available width.
+const historyPageWidth unit.Dp = 1040
+
+// historyListMinHeight keeps a few rows visible. When the controls above plus
+// this minimum exceed the window, the whole page scrolls instead of squeezing
+// the list.
+const historyListMinHeight unit.Dp = 220
 
 var historyKindLabels = map[domain.ActivityKind]i18n.MessageID{
 	domain.ActivityCashIn:           i18n.HistoryCashIn,
@@ -110,21 +124,48 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 	}
 
 	filterView := view
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 780),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	height := gtx.Constraints.Max.Y
+	dims := view.List(&p.pageScroll).Layout(ui.LimitWidth(gtx, historyPageWidth), 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		gtx.Constraints.Max.Y = height
+		return p.layoutActivity(gtx, view, filterView)
+	})
+	// Filter popups anchor in content coordinates; move them with the page.
+	viewport := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(image.Pt(gtx.Constraints.Max.X, height))}
+	offset := image.Pt(0, -p.pageScroll.Position.Offset)
+	for _, trigger := range p.filter.triggers() {
+		view.Overlay.OffsetAnchor(trigger, offset, viewport)
+	}
+	return dims
+}
+
+// layoutActivity stacks the actions, filters, status and the activity list in
+// the height it is given. The list takes what is left, never less than its
+// minimum.
+func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.View) layout.Dimensions {
+	// Flex clamps its own height to the window. Track what the children use so
+	// a short window can report the real height and let the page scroll.
+	gap, used, listHeight := gtx.Dp(12), 0, 0
+	row := func(child layout.Widget) layout.FlexChild {
+		return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			dims := child(gtx)
+			used += dims.Size.Y
+			return dims
+		})
+	}
+	const children = 5
+	dims := layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(gtx,
+		row(func(gtx layout.Context) layout.Dimensions {
 			if p.cashMovements == nil {
 				return layout.Dimensions{}
 			}
-			var actions []layout.FlexChild
-			for i := range p.cashMovements.actions {
-				actions = append(actions, layout.Rigid(view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))))
-			}
-			dims := layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
+			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(p.cashMovements.actions), func(gtx layout.Context, i int) layout.Dimensions {
+				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
+			})
 			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)
 			return dims
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		row(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
+		row(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if p.startPoint == nil || !p.startPoint.ready || p.reads.references == nil || p.reads.references.Origin == nil {
@@ -162,9 +203,12 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			if len(p.model.Rows()) == 0 || p.noHistory() {
 				return layout.Dimensions{}
 			}
+			gtx.Constraints.Max.Y = max(gtx.Constraints.Max.Y, gtx.Dp(historyListMinHeight))
+			gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+			listHeight = gtx.Constraints.Max.Y
 			return p.activityList(gtx, view)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		row(func(gtx layout.Context) layout.Dimensions {
 			if !p.model.HasMore() || p.model.Err() != nil || p.noHistory() {
 				return layout.Dimensions{}
 			}
@@ -174,6 +218,8 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			return view.Button(&p.moreButton, view.Language.Text(i18n.HistoryMore))(gtx)
 		}),
 	)
+	dims.Size.Y = max(dims.Size.Y, used+(children-1)*gap+listHeight)
+	return dims
 }
 
 func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions {
