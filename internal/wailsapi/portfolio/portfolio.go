@@ -32,6 +32,7 @@ type OverviewDTO struct {
 	Liabilities       string                            `json:"liabilities"`
 	NetWorth          string                            `json:"netWorth"`
 	AssetsByType      []wire.BreakdownDTO               `json:"assetsByType"`
+	AssetComposition  AssetCompositionDTO               `json:"assetComposition"`
 	LiabilitiesByType []wire.BreakdownDTO               `json:"liabilitiesByType"`
 	ByMember          []wire.BreakdownDTO               `json:"byMember"`
 	ByInstitution     []wire.BreakdownDTO               `json:"byInstitution"`
@@ -93,7 +94,8 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 		Currency:         value.Currency.String(), AccountCount: value.AccountCount, Complete: value.Complete,
 		MissingInputs: wire.FromMissingInputs(value.MissingInputs),
 		Assets:        assets, Liabilities: liabilities, NetWorth: netWorth,
-		AssetsByType: wire.FromBreakdowns(value.AssetsByType), LiabilitiesByType: wire.FromBreakdowns(value.LiabilitiesByType), ByMember: wire.FromBreakdowns(value.ByMember),
+		AssetComposition: fromAssetComposition(value.AssetComposition),
+		AssetsByType:     wire.FromBreakdowns(value.AssetsByType), LiabilitiesByType: wire.FromBreakdowns(value.LiabilitiesByType), ByMember: wire.FromBreakdowns(value.ByMember),
 		ByInstitution: wire.FromBreakdowns(value.ByInstitution), ByGroup: wire.FromBreakdowns(value.ByGroup),
 		ByAccountType:  wire.FromBreakdowns(value.ByAccountType),
 		HistoryStarted: value.HistoryStarted, RecentActivities: wire.FromActivities(value.RecentActivities),

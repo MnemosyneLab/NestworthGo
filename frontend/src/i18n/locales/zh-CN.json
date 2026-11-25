@@ -746,6 +746,30 @@
       "sunday": "星期日"
     }
   },
+  "assetSankey": {
+    "account": "账户",
+    "allocation": "配置",
+    "amount": "金额",
+    "assetClass": "资产类别",
+    "description": "按资产类别、机构和账户查看计入净资产的当前资产配置。",
+    "details": "查看配置明细",
+    "duplicateName": "{{name}}（{{ordinal}}）",
+    "empty": "没有可绘制的正值资产",
+    "grouped": "图中合并了较小的分支。明细列出所有正值配置。",
+    "institution": "机构",
+    "known": "已估值资产小计",
+    "missing_one": "{{count}} 个资产项目没有家庭本位币估值，未计入。",
+    "missing_other": "{{count}} 个资产项目没有家庭本位币估值，未计入。",
+    "negative": "负值资产项目",
+    "otherAccounts": "其他账户",
+    "otherInstitutions": "其他机构",
+    "positive": "正值资产",
+    "title": "资产构成桑基图",
+    "total": "资产总额",
+    "unavailable": "资产估值不可用",
+    "zero_one": "{{count}} 个估值为零的项目未绘制带状连线。",
+    "zero_other": "{{count}} 个估值为零的项目未绘制带状连线。"
+  },
   "overview": {
     "currentValuationIncomplete": "当前估值不完整",
     "accountCountDetail": "个活跃账户",
