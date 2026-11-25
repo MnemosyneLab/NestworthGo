@@ -22,7 +22,7 @@ type OverviewAssetPath struct {
 	Amount          decimal.Decimal
 }
 
-// OverviewAssetNode is a bounded projection of the paths for chart display.
+// OverviewAssetNode identifies a real branch of the exact allocation tree.
 // IDs are unique per path. Key identifies the dimension value within Kind.
 type OverviewAssetNode struct {
 	ID, ParentID, Kind, Key string

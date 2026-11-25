@@ -1317,7 +1317,10 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 			accountCount++
 		}
 	}
-	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: accountCount, Complete: true}
+	result := domain.OverviewResult{
+		Currency: snapshot.Household.BaseCurrency, AccountCount: accountCount, Complete: true,
+		ValuationReadDate: displayDate(snapshot, s.clock()),
+	}
 	composition := overviewAssetComposition{paths: make(map[overviewAssetPathKey]domain.OverviewAssetPath)}
 	assetsByType := map[string]decimal.Decimal{}
 	liabilitiesByType := map[string]decimal.Decimal{}
@@ -1420,7 +1423,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	sortMissing(result.MissingInputs)
 	result.MissingInputs = deduplicateMissing(result.MissingInputs)
 	result.DisplayScopeKey, result.DisplayBasisKey = currentValuationCompatibility(valuations, snapshot)
-	result.DisplayValuation, err = currentHouseholdDisplay(valuations, snapshot, s.clock())
+	result.DisplayValuation, err = currentHouseholdDisplay(valuations, snapshot, result.ValuationReadDate)
 	if err != nil {
 		return domain.OverviewResult{}, err
 	}

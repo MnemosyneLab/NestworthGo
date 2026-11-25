@@ -8,10 +8,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// Keep the largest path in each class, then name additional paths up to this
-// target. Every positive path remains in the detail table.
-const overviewNamedAssetPaths = 8
-
 type overviewAssetPathKey struct {
 	class, institution, account string
 }
@@ -53,38 +49,18 @@ func (c *overviewAssetComposition) finish() domain.OverviewAssetComposition {
 	for _, path := range c.paths {
 		out.Paths = append(out.Paths, path)
 	}
-	slices.SortFunc(out.Paths, func(a, b domain.OverviewAssetPath) int {
-		return cmp.Or(b.Amount.Cmp(a.Amount), cmp.Compare(a.AssetClass, b.AssetClass), cmp.Compare(a.AccountID, b.AccountID))
-	})
 	if len(out.Paths) == 0 {
 		return out
 	}
 
-	// An institution is scoped within its class so its outbound widths show
-	// that class's allocation to each account, including mixed accounts.
+	// Keep siblings contiguous at each depth so the chart can lay out the
+	// tree in this order without crossing paths from different branches.
+	slices.SortFunc(out.Paths, func(a, b domain.OverviewAssetPath) int {
+		return cmp.Or(cmp.Compare(a.AssetClass, b.AssetClass),
+			cmp.Compare(a.InstitutionName, b.InstitutionName), cmp.Compare(a.InstitutionID, b.InstitutionID),
+			b.Amount.Cmp(a.Amount), cmp.Compare(a.AccountName, b.AccountName), cmp.Compare(a.AccountID, b.AccountID))
+	})
 	const rootID = "assets"
-	institutionNodeID := func(path domain.OverviewAssetPath) string {
-		return rootID + "/" + path.AssetClass + "/institution:" + path.InstitutionID
-	}
-	namedPaths := make(map[int]bool)
-	seenClasses := make(map[string]bool)
-	namedInstitutions := make(map[string]bool)
-	namePath := func(index int, path domain.OverviewAssetPath) {
-		namedPaths[index] = true
-		namedInstitutions[institutionNodeID(path)] = true
-	}
-	for index, path := range out.Paths {
-		if !seenClasses[path.AssetClass] {
-			seenClasses[path.AssetClass] = true
-			namePath(index, path)
-		}
-	}
-	for index, path := range out.Paths {
-		if len(namedPaths) >= overviewNamedAssetPaths {
-			break
-		}
-		namePath(index, path)
-	}
 	out.Nodes = []domain.OverviewAssetNode{{ID: rootID, Kind: "total", Amount: out.Positive}}
 	indices := make(map[string]int)
 	addNode := func(id, parent, kind, key string, amount decimal.Decimal) {
@@ -95,19 +71,16 @@ func (c *overviewAssetComposition) finish() domain.OverviewAssetComposition {
 		indices[id] = len(out.Nodes)
 		out.Nodes = append(out.Nodes, domain.OverviewAssetNode{ID: id, ParentID: parent, Kind: kind, Key: key, Amount: amount})
 	}
-	for index, path := range out.Paths {
+	for _, path := range out.Paths {
 		classID := rootID + "/" + path.AssetClass
-		institutionID, institutionKind, institutionKey := institutionNodeID(path), "institution", path.InstitutionID
-		if !namedInstitutions[institutionID] && path.InstitutionID != "" {
-			institutionID, institutionKind, institutionKey = classID+"/other-institutions", "otherInstitutions", ""
-		}
-		accountID, accountKind, accountKey := institutionID+"/other-accounts", "otherAccounts", ""
-		if namedPaths[index] {
-			accountID, accountKind, accountKey = institutionID+"/account:"+path.AccountID, "account", path.AccountID
-		}
+		institutionID := classID + "/institution:" + path.InstitutionID
+		accountID := institutionID + "/account:" + path.AccountID
 		addNode(classID, rootID, "assetClass", path.AssetClass, path.Amount)
-		addNode(institutionID, classID, institutionKind, institutionKey, path.Amount)
-		addNode(accountID, institutionID, accountKind, accountKey, path.Amount)
+		addNode(institutionID, classID, "institution", path.InstitutionID, path.Amount)
+		addNode(accountID, institutionID, "account", path.AccountID, path.Amount)
 	}
+	slices.SortFunc(out.Paths, func(a, b domain.OverviewAssetPath) int {
+		return cmp.Or(b.Amount.Cmp(a.Amount), cmp.Compare(a.AssetClass, b.AssetClass), cmp.Compare(a.AccountID, b.AccountID))
+	})
 	return out
 }
