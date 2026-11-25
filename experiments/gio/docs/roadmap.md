@@ -1627,8 +1627,8 @@ Wails Market data catalog does. The FX list combines saved source preferences
 with currency pairs from Overview's missing FX inputs. Each row distinguishes
 the configured source from the selected local observation and shows amount
 or rate, quote direction, as-of information and explicit absence. Back and
-Forward preserve the tab, search and scroll. Quote history, the Data Health
-link, manual entry, source configuration and provider operations remain open.
+Forward preserve the tab, search and scroll. Quote history, manual entry,
+source configuration and provider operations remain open.
 The current reload action refreshes the local view.
 
 | Check | Evidence |
@@ -1637,6 +1637,25 @@ The current reload action refreshes the local view.
 | Gio interaction | A rendered frame narrowed the list to Unquoted bond, retried a saved FX read failure, and restored the FX rates tab and the instrument search on Back. The Settings and Manage regressions distinguish the new Market data route from the Settings tab with the same visible name. |
 | Linux X11 | The packaged preview showed the same exact instrument and FX values and the JPY/USD missing row. At 700×480 the amount wrapped and remained readable. Back restored FX rates, and Instruments retained the filtered bond. A second marked fixture launch compared all SQLite tables. The only row changes came from initial Settings configuration and its financial-source revision bookkeeping. |
 | Build and tests | The full Gio suite, Gio vet, packaged Linux build and focused shared application, Wails quote and Wails market data tests passed. Interactive Wails, macOS, VoiceOver and IME verification remain open. |
+
+#### Local Data Health diagnosis
+
+The Market data introduction opens **Data health** without adding a separate
+sidebar group. The local scan shows coverage, gap and prerequisite counts
+before the executable, prerequisite and reported sections. Findings display
+their severity, date range and available evidence. Related findings collapsed
+by the shared report stay under their causes. Recheck repeats the local read
+and a failed scan offers Retry. Provider prerequisites link to the Market data
+tab in Settings. Account-value findings can open Accounts. Back restores the
+originating button. Repair preview, execution, focused issue navigation,
+compaction of adjacent snapshot days and manual-quote actions remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Shared diagnosis | The Gio interaction test compared the complete report against the Wails Go adapter. One unresolved manual JPY/USD prerequisite cleared after the fixture stored exactly 1 USD = 140.1234 JPY. Both scans made zero provider requests. Focused shared Go scan and plan tests passed. |
+| Gio interaction | Injected failure exposed Retry. Recheck switched to the healthy summary after the stored quote. Another frame verified the provider-settings tab and returned keyboard focus to the issue action. |
+| Linux X11 | The packaged preview on a marked synthetic profile opened Data health from Market data, displayed one blocking JPY/USD gap, rechecked, and retained the finding at 700×480. Back then Return reopened Data health. Logical row fingerprints matched for every SQLite table. |
+| Build and tests | The full Gio suite, vet, packaged Linux build, focused application and Wails Go market data tests and the 16 Wails Data Health frontend tests passed. Interactive Wails, macOS, VoiceOver and IME verification remain open. |
 
 ## Moving from the preview to a desktop build
 

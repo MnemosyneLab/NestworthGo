@@ -38,6 +38,7 @@ const (
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
 	marketDataRoute       routeID = "market-data"
+	dataHealthRoute       routeID = "data-health"
 	settingsRoute         routeID = "settings"
 	componentPreviewRoute routeID = "component-preview"
 )
@@ -63,6 +64,7 @@ type ledgerPages struct {
 	returns       *returnAnalysisPage
 	assets        *assetChangesPage
 	marketData    *marketDataPage
+	dataHealth    *dataHealthPage
 	version       func() string
 }
 
@@ -106,6 +108,7 @@ type shell struct {
 	returns                               *returnAnalysisPage
 	assets                                *assetChangesPage
 	marketData                            *marketDataPage
+	dataHealth                            *dataHealthPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -183,6 +186,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		returns:          pages.returns,
 		assets:           pages.assets,
 		marketData:       pages.marketData,
+		dataHealth:       pages.dataHealth,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            ui.NewTheme(),
@@ -220,6 +224,21 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		for i := range group.items {
 			item := &group.items[i]
 			s.routes[item.id] = item
+		}
+	}
+	if s.marketData != nil && s.dataHealth != nil {
+		item := newItem(dataHealthRoute, i18n.NavDataHealth, nil, s.dataHealth.layout)
+		s.routes[dataHealthRoute] = &item
+		s.marketData.openHealth = func(focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute}, focus: focus}
+		}
+		s.dataHealth.openSettings = func(focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: focus, providerSettings: true}
+		}
+		if s.accounts != nil {
+			s.dataHealth.openAccount = func(id domain.AccountID, name string, focus *widget.Clickable) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute, account: id}, name: name, focus: focus}
+			}
 		}
 	}
 	if s.returns != nil && s.assets != nil {
@@ -653,7 +672,8 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		pointer.CursorPointer.Add(gtx.Ops)
-		selected := s.activeRoute() == item.id
+		active := s.activeRoute()
+		selected := active == item.id || active == dataHealthRoute && item.id == marketDataRoute
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
 		enabled := gtx.Enabled()
@@ -799,7 +819,7 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		s.stage.Position = layout.Position{}
 		if entry.visited {
 			switch entry.target.route {
-			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute:
+			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute, dataHealthRoute:
 				s.stage.Position = entry.scroll
 			}
 		}

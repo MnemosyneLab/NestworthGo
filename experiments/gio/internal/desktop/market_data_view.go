@@ -40,12 +40,28 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	if p.openHealth != nil && p.health.Clicked(gtx) {
+		p.openHealth(&p.health)
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	action := i18n.MarketReload
 	if p.err != nil {
 		action = i18n.HistoryRetry
 	}
 	rows := []ui.ColumnChild{
-		ui.Rigid(view.Message(l.Text(i18n.MarketDescription), view.Colors.SecondaryInk)),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			description := view.Message(l.Text(i18n.MarketDescription), view.Colors.SecondaryInk)
+			if p.openHealth == nil {
+				return description(gtx)
+			}
+			return (ui.Grid{MinColumn: 240, Gap: 8, MaxColumns: 2}).Layout(gtx, view, 2,
+				func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
+					if index == 0 {
+						return description(gtx)
+					}
+					return layout.W.Layout(gtx, returnMonthButton(view, &p.health, i18n.HealthOpen, nil, true))
+				})
+		}),
 		ui.Rigid(returnMonthButton(view, &p.reload, action, nil, p.request == nil)),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return (ui.Wrap{Gap: 8}).Layout(gtx, len(marketTabs), func(gtx layout.Context, index int) layout.Dimensions {

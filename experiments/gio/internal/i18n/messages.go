@@ -50,6 +50,56 @@ const (
 	MarketBonds
 	MarketMetals
 	MarketOther
+	NavDataHealth
+	HealthOpen
+	HealthDescription
+	HealthLoading
+	HealthFailed
+	HealthHealthy
+	HealthCompleteThrough
+	HealthIncomplete
+	HealthIncompleteSince
+	HealthGapCount
+	HealthSnapshotCount
+	HealthPrerequisiteCount
+	HealthGrouped
+	HealthRecheck
+	HealthFindings
+	HealthFinding
+	HealthExecutable
+	HealthPrerequisites
+	HealthReported
+	HealthInstrumentHistory
+	HealthFXHistory
+	HealthManualPrice
+	HealthManualFX
+	HealthAgentPrice
+	HealthAgentFX
+	HealthProviderKey
+	HealthBinding
+	HealthAnchor
+	HealthUnsupported
+	HealthStaleValue
+	HealthMissingValue
+	HealthIncompleteValuation
+	HealthPending
+	HealthProvisional
+	HealthSnapshotIncomplete
+	HealthSnapshotMissing
+	HealthSnapshotOutdated
+	HealthSyncFailure
+	HealthHistoryNotStarted
+	HealthBlocking
+	HealthWarning
+	HealthInfo
+	HealthCurrentMissing
+	HealthAgentNeeded
+	HealthInputsReady
+	HealthHoldingOutOfRange
+	HealthRepairAvailable
+	HealthCheckInstrument
+	HealthEnterManual
+	HealthOpenSettings
 	NavSettings
 	NavComponentPreview
 	GroupActivity

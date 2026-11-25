@@ -49,6 +49,7 @@ type navigationEntry struct {
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	marketData       marketDataVisit
+	healthScroll     layout.Position
 	settingsSection  settingsSection
 	visited          bool
 }
@@ -138,6 +139,7 @@ type navigationRequest struct {
 	step                 int
 	recent               *navigationEntry
 	accountsArchived     bool
+	providerSettings     bool
 	verifyProductReceipt bool
 	asset                assetChangesVisit
 	historyFilters       history.Filters
@@ -257,6 +259,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == marketDataRoute {
 		s.marketData.leave()
 	}
+	if entry.target.route == dataHealthRoute {
+		s.dataHealth.leave()
+	}
 	if entry.target.route == settingsRoute {
 		s.settingsPage.credential.clearInput()
 	}
@@ -306,6 +311,12 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == marketDataRoute {
 		s.marketData.enter(entry.marketData)
+	}
+	if entry.target.route == dataHealthRoute {
+		s.dataHealth.enter(entry.healthScroll)
+	}
+	if entry.target.route == settingsRoute && request.providerSettings {
+		s.settingsPage.active = settingsMarket
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
@@ -394,6 +405,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case marketDataRoute:
 		entry.scroll = s.stage.Position
 		entry.marketData = s.marketData.visit()
+	case dataHealthRoute:
+		entry.scroll = s.stage.Position
+		entry.healthScroll = s.dataHealth.list.Position
 	case historyRoute:
 		if s.historyPage != nil {
 			if entry.target.activity == "" {
@@ -487,6 +501,9 @@ func (s *shell) waitingForPageFocus() bool {
 	}
 	if s.activeRoute() == marketDataRoute && s.marketData != nil {
 		return s.marketData.request != nil
+	}
+	if s.activeRoute() == dataHealthRoute && s.dataHealth != nil {
+		return s.dataHealth.request != nil
 	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false

@@ -70,6 +70,8 @@ type marketDataPage struct {
 	tabs       [2]widget.Clickable
 	search     ui.SearchField
 	reload     widget.Clickable
+	health     widget.Clickable
+	openHealth func(*widget.Clickable)
 	list       [2]widget.List
 }
 
