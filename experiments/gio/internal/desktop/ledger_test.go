@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -27,14 +28,13 @@ func TestLedgerHistoryUsesSavedGeneralFormatAndRecordedDay(t *testing.T) {
 	if err := os.Chmod(runDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", runDir)
 	t.Setenv("NESTWORTH_DATABASE_PATH", filepath.Join(runDir, "data", "nestworth.db"))
 	t.Setenv("NESTWORTH_SETTINGS_PATH", filepath.Join(runDir, "data", "settings.json"))
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pilot.Prepare(ctx, paths); err != nil {
+	if err := testledger.Seed(ctx, filepath.Join(runDir, "data", "nestworth.db"), paths.SettingsPath()); err != nil {
 		t.Fatal(err)
 	}
 	session, err := pilot.OpenSession(ctx, paths)

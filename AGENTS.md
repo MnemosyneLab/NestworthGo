@@ -99,11 +99,10 @@ tools; an app launch without verified overrides is prohibited. Never use or
 modify a real household ledger for tests. Do not change system security settings
 or automatically remove previously created QA applications.
 
-The Gio preview has its own fixed identity, `com.nestworth.gio` (`Nestworth Gio`).
-Daily launches reuse its verified synthetic ledger and preferences under the
-platform's user config directory. For a disposable Gio test, set
-`NESTWORTH_GIO_RUN_DIR` to a separate private fixture root. Use the
-[Gio launch instructions](experiments/gio/README.md#persistent-test-data).
+The Gio preview uses the fixed identity `com.nestworth.gio` (`Nestworth Gio`)
+and its own data directory. Isolate Gio developer and native QA sessions with
+`NESTWORTH_DATABASE_PATH` and `NESTWORTH_SETTINGS_PATH` pointing to separate
+synthetic test files. Use the [Gio launch instructions](experiments/gio/README.md#persistent-test-data).
 
 If an accepted authorization flow stalls or repeats, stop requesting the same
 permission. Preserve completed work and logs, mark blocked checks accurately,

@@ -554,6 +554,9 @@ const (
 	StartupInUse
 	StartupRecoveryPending
 	StartupUnavailable
+	StartupUpgradeRequired
+	StartupNewerDatabase
+	StartupIntegrityFailed
 	StartupQuit
 	DirectoryView
 	DirectoryViewName

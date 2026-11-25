@@ -48,7 +48,7 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 	service := application.NewService(repo)
 	service.SetClock(func() time.Time { return accountTestClock.Add(-4 * time.Hour) })
 	check(service.CompleteOnboarding(ctx, application.OnboardingInput{
-		HouseholdName: "Gio Institutions QA", BaseCurrency: "AUD", MemberNames: []string{"Ana Example", "Bea Example"},
+		HouseholdName: "Account Test Household", BaseCurrency: "AUD", MemberNames: []string{"Ana Example", "Bea Example"},
 	}))
 	core, err := service.Bootstrap(ctx)
 	check(err)
@@ -100,7 +100,6 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 	check(service.ArchiveInstitution(ctx, legacy.ID, true))
 	check(service.ArchiveGroup(ctx, group.ID, true))
 	check(service.ArchiveMember(ctx, core.Members[1].ID, true))
-	check(sqlite.NewConfigurationRepository(db).SaveConfiguration("gio.institutions.fixture.v1", []byte(core.Household.ID.String())))
 	saved := settings.Default()
 	saved.Currency, saved.Language, saved.Timezone = "AUD", settings.LanguageEnglish, "Asia/Singapore"
 	saved.QuoteCacheTTL = settings.QuoteCacheTTL1h
@@ -139,9 +138,8 @@ func openAccountTestFixture(t *testing.T) (accountFixture, *application.Service,
 	if err := wails.SetFXProvider(application.FrankfurterProviderKey); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", root)
-	t.Setenv("NESTWORTH_DATABASE_PATH", "")
-	t.Setenv("NESTWORTH_SETTINGS_PATH", "")
+	t.Setenv("NESTWORTH_DATABASE_PATH", filepath.Join(root, "data", "nestworth.db"))
+	t.Setenv("NESTWORTH_SETTINGS_PATH", filepath.Join(root, "data", "settings.json"))
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		t.Fatal(err)

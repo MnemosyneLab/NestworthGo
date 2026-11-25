@@ -1,10 +1,10 @@
 # Gio desktop preview
 
-The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation. **Accounts** browses accounts by institution, creates total-balance, manual-valuation and empty Holdings accounts, and supports account settings, archive and restore. Bank account details can reconcile a native balance, and Holdings account details can reconcile cash by currency. **Settings → Appearance** edits general display preferences. **Activity → Ledger activity** can start history for an existing household without positive positions. It filters saved records and previews and records contributions, withdrawals, cash transfers and currency conversion within a Holdings account. Eligible cash movements can be corrected or reversed from their details. **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
+The Gio preview opens its own Nestworth ledger. An empty profile opens household setup. **Overview** reads the current valuation. **Accounts** browses accounts by institution, creates total-balance, manual-valuation and empty Holdings accounts, and supports account settings, archive and restore. Bank account details can reconcile a native balance, and Holdings account details can reconcile cash by currency. **Settings → Appearance** edits general display preferences. **Activity → Ledger activity** can start history for an existing household without positive positions. It filters saved records and previews and records contributions, withdrawals, cash transfers and currency conversion within a Holdings account. Eligible cash movements can be corrected or reversed from their details. **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
 ## Checking an interrupted transfer
 
-After reopening the same synthetic profile, a receipt notice can link to
+After reopening the same profile, a receipt notice can link to
 the recorded transfer or in-account conversion. If the outcome is
 unconfirmed or the current ledger has no receipt, check **Ledger activity**
 before recording again. **Dismiss receipt** closes the notice. The preview
@@ -192,82 +192,70 @@ and an empty search.
 
 ## Persistent test data
 
-The application ID is `com.nestworth.gio`. On first launch, Nestworth Gio
-creates the `Gio Institutions QA` household. Subsequent launches, including
-after rebuilding the app, reopen that household and its saved preferences.
+The application ID is `com.nestworth.gio`.
 
-| Platform | Default profile directory |
+| Platform | Default data directory |
 | --- | --- |
-| macOS | `~/Library/Application Support/com.nestworth.gio/` |
-| Linux | `$XDG_CONFIG_HOME/com.nestworth.gio/`, or `~/.config/com.nestworth.gio/` |
+| macOS | `~/Library/Application Support/com.nestworth.gio/data/` |
+| Linux | `$XDG_CONFIG_HOME/com.nestworth.gio/data/`, or `~/.config/com.nestworth.gio/data/` |
 
-The profile contains `data/nestworth.db` and `data/settings.json`. Gio takes
-the same per-database instance lock as Wails, verifies the fixture identity
-and settings, and then opens the database for writes. The native startup
-window reports an occupied ledger, a pending restore, or an invalid profile.
-Close the owner before opening another session. Gio leaves unrecognized
-pending restores in place. The empty `data/nestworth.db.instance-lock` file
-can remain after quit. Its operating-system lock is released when the session ends.
+Gio uses the Wails SQLite format, instance lock, schema migrations, startup
+restore reconciliation and settings store. An empty profile opens household
+setup. An existing ledger opens and saves to the Gio profile. The
+`nestworth.db.instance-lock` file can remain after quit. Its operating-system
+lock is released with the session.
 
-To run a disposable scenario or reopen an older verified Gio fixture, set
-`NESTWORTH_GIO_RUN_DIR` to its private, absolute directory when invoking
-the launcher. If you also specify `NESTWORTH_DATABASE_PATH` and
-`NESTWORTH_SETTINGS_PATH`, they must point to those two files under that root.
+### Use a local Wails copy on macOS
 
-### Empty onboarding fixture
+1. Quit Wails and Gio completely. Move any existing Gio `data` directory
+   aside as a backup. Use independent files in the standard Gio directory.
+2. From the repository root, create the SQLite copy and bring over the
+   presentation settings. Use the actual Wails source directory if you
+   configured a custom location.
 
-On Linux, build the preview and use its executable to prepare and verify a
-new private run. The command refuses an existing `data` directory and the
-default Gio profile.
+   ```sh
+   (
+     set -e
+     wails_data="$HOME/Library/Application Support/Nestworth"
+     gio_data="$HOME/Library/Application Support/com.nestworth.gio/data"
+     install -d -m 700 "$gio_data"
+     test -z "$(ls -A "$gio_data")"
+     /usr/bin/sqlite3 -readonly "$wails_data/nestworth.db" ".backup \"$gio_data/nestworth.db\""
+     chmod 600 "$gio_data/nestworth.db"
+     if test -f "$wails_data/settings.json"; then
+       install -m 600 "$wails_data/settings.json" "$gio_data/settings.json"
+     fi
+   )
+   ```
 
-```sh
-sh experiments/gio/preview-linux.sh --build-only
-gio_run=$(mktemp -d)
-export NESTWORTH_GIO_RUN_DIR="$(cd "$gio_run" && pwd -P)"
-unset NESTWORTH_DATABASE_PATH NESTWORTH_SETTINGS_PATH
-gio_preview="bin/gio/linux-$(go env GOARCH)/Nestworth Gio/bin/Nestworth Gio"
-"$gio_preview" --prepare-onboarding-fixture
-"$gio_preview" --verify-pilot-fixture
-"$gio_preview"
-```
+   SQLite's `.backup` includes committed changes in the source WAL. Gio creates
+   its own SQLite sidecars and lock. Copying just the main database while
+   a nonempty WAL remains can lose transactions. Keep the copy local and
+   private because a Wails database may contain stored provider keys. The copy
+   consists of the ledger and presentation settings. Keychain and external
+   service settings stay with the original installation.
+3. Build with `sh experiments/gio/preview-macos.sh --build-only` and
+   double-click `bin/gio/Nestworth Gio.app`, or run
+   `open "bin/gio/Nestworth Gio.app"`. Subsequent normal launches reopen the
+   copy.
 
-The macOS development bundle provides the same commands through
-`Nestworth Gio.app/Contents/MacOS/Nestworth Gio`. Keep the profile at its
-original path and launch the executable with the same environment to reopen
-it. The marker is paired with `data/onboarding.fixture` and the canonical
-run path. Prepare another fresh fixture to repeat onboarding.
+### Run an independent onboarding test
 
-Enter the household name and at least one initial member. The base currency
-starts at CNY. **Start ledger history** is optional. When enabled, the date
-starts at today in the displayed History timezone and can be moved earlier.
-Creation opens an empty Accounts page. Reopening the same profile loads the
-saved household. Ordinary preview launches continue to seed the standard
-sample household.
-
-### Disposable startup recovery fixture
-
-Use a fresh private directory. Preparation creates a shared-service backup,
-installs its replacement inside the disposable profile, and leaves it at the
-`replacement-installed` journal phase. The first direct window launch checks
-the pending plan, finalizes the restore and opens the fixture. It shows the
-USD 42.25 Recovery Sample Reserve, Mint on Dark appearance and day-first dates.
+Use the same database and settings overrides as Wails to give a synthetic
+test a fresh directory. Omit these overrides when opening the normal Gio
+profile.
 
 ```sh
-sh experiments/gio/preview-linux.sh --build-only
 gio_run=$(mktemp -d)
-export NESTWORTH_GIO_RUN_DIR="$(cd "$gio_run" && pwd -P)"
-unset NESTWORTH_DATABASE_PATH NESTWORTH_SETTINGS_PATH
-gio_preview="bin/gio/linux-$(go env GOARCH)/Nestworth Gio/bin/Nestworth Gio"
-"$gio_preview" --prepare-recovery-fixture
-"$gio_preview"
-"$gio_preview" --verify-pilot-fixture
+NESTWORTH_DATABASE_PATH="$gio_run/nestworth.db" \
+NESTWORTH_SETTINGS_PATH="$gio_run/settings.json" \
+sh experiments/gio/preview-linux.sh
 ```
 
-Run the last command after quitting the window. Verification alone never
-reconciles a pending restore, so use the bundled executable for the first
-launch. The fixture is bound to its original canonical root. Prepare another
-directory to repeat the scenario. Arbitrary restore journals, backups and
-crash layouts remain blocked in the preview.
+Use `preview-macos.sh` in the same command on macOS. An empty ledger opens
+household setup. Enter a household name and an initial member, and decide
+whether to start History. Creation opens Accounts. Reopening the same
+database loads the saved household.
 
 ## Wealth History
 
@@ -346,7 +334,7 @@ Reload starts again at the newest entry. A failed read offers a retry and
 keeps previously displayed rows available.
 
 Newly created profiles include a small set of posted sample activities.
-Opening an older, verified fixture that contains no activities shows the
+Opening a ledger that contains no activities shows the
 empty state. The route only reads the ledger.
 
 ## macOS

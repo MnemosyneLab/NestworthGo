@@ -9,18 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
-	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
-func TestCashReceiptRemainsUnconfirmedAfterSealedOlderRestore(t *testing.T) {
+func TestCashReceiptRemainsUnconfirmedAfterOlderRestore(t *testing.T) {
 	ctx := t.Context()
-	root, paths := testPaths(t)
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", root)
-	if err := Prepare(ctx, paths); err != nil {
+	_, paths := testPaths(t)
+	if err := seedTestLedger(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
 	session, err := OpenSession(ctx, paths)
@@ -28,13 +27,9 @@ func TestCashReceiptRemainsUnconfirmedAfterSealedOlderRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
-	token := bytes.Repeat([]byte{0x2a}, receiptSize)
 	repo := sqlite.NewRepository(session.DB)
-	if err := sqlite.NewConfigurationRepository(session.DB).SaveConfiguration(recoveryMarkerKey, onboardingMarker(paths, token)); err != nil {
-		t.Fatal(err)
-	}
 	app := application.NewService(repo)
-	now := historyStart().AddDate(0, 0, 21)
+	now := testledger.HistoryStart().AddDate(0, 0, 21)
 	app.SetClock(func() time.Time { return now })
 	core, err := app.Bootstrap(ctx)
 	if err != nil {
@@ -102,7 +97,7 @@ func TestCashReceiptRemainsUnconfirmedAfterSealedOlderRestore(t *testing.T) {
 		t.Fatal("old receipt store worked after releasing its instance lock")
 	}
 
-	installOlderReceiptBackup(t, paths, pkg, token, now)
+	installOlderReceiptBackup(t, paths, pkg, now)
 	reopened, err := OpenSession(ctx, paths)
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +126,7 @@ func TestCashReceiptRemainsUnconfirmedAfterSealedOlderRestore(t *testing.T) {
 	}
 }
 
-func installOlderReceiptBackup(t *testing.T, paths Paths, pkg backup.Package, token []byte, now time.Time) {
+func installOlderReceiptBackup(t *testing.T, paths Paths, pkg backup.Package, now time.Time) {
 	t.Helper()
 	unlock, err := backup.AcquireInstanceLock(paths.database)
 	if err != nil {
@@ -141,34 +136,12 @@ func installOlderReceiptBackup(t *testing.T, paths Paths, pkg backup.Package, to
 	if err := backup.InstallRestore(t.Context(), paths.database, pkg, nil, backup.RestoreClasses{Chrome: true, Format: true}, now); err != nil {
 		t.Fatal(err)
 	}
-	journal, err := backup.ReadJournal(paths.database)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hashFile := func(path string) string {
-		t.Helper()
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return recoveryHash(raw)
-	}
-	raw, err := jsoncodec.Marshal(recoverySeal{
-		Token: token, Journal: hashFile(backup.JournalPath(paths.database)),
-		Safety: hashFile(filepath.Join(paths.data, journal.SafetyName)), Settings: hashFile(paths.settings),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := backup.WriteAtomicFile(filepath.Join(paths.data, recoveryReceipt), raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestCashReceiptStoreRejectsLinksAndOtherHousehold(t *testing.T) {
 	ctx := t.Context()
 	root, paths := testPaths(t)
-	if err := Prepare(ctx, paths); err != nil {
+	if err := seedTestLedger(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
 	session, err := OpenSession(ctx, paths)
@@ -205,7 +178,7 @@ func TestCashReceiptStoreRejectsLinksAndOtherHousehold(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, different := testPaths(t)
-	if err := Prepare(ctx, different); err != nil {
+	if err := seedTestLedger(ctx, different); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(different.database)
