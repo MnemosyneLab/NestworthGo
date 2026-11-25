@@ -27,6 +27,7 @@ type holdingProductDraft struct {
 	settlement *holdingProductSettlement
 	terms      *holdingProductTerms
 	renewal    *holdingProductRenewal
+	add        *holdingProductAdd
 
 	loading    <-chan historyResult[application.ProductDetail]
 	loadFailed bool
@@ -104,12 +105,12 @@ func (p *tasksPage) previewHoldingProduct(d *holdingReconDraft) {
 		return
 	}
 	amount := strings.TrimSpace(d.total.Text())
-	if f.interest != nil || f.settlement != nil || f.renewal != nil {
-		req, ok := f.operationRequest(*link, amount)
-		if !ok {
-			d.problem = i18n.ProductEditValidDays
-			return
-		}
+	req, valid := f.operationRequest(*link, amount)
+	if !valid {
+		d.problem = i18n.ProductEditValidDays
+		return
+	}
+	if req.Kind != "" {
 		d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
 			review, err := p.holdingRecon.service.PreviewProductOperation(p.ctx, req)
 			return holdingReconReview{planID: review.PlanID, operation: review.Operation}, err
@@ -131,12 +132,17 @@ func (f *holdingProductDraft) operationRequest(link domain.ReconciliationLink, a
 		return f.settlement.request(link, f.id, amount), true
 	case f.renewal != nil:
 		return f.renewal.request(link, f.id, amount)
+	case f.add != nil:
+		return f.add.request(link, f.currency)
 	default:
-		return liquidity.ProductCommandRequest{}, false
+		return liquidity.ProductCommandRequest{}, true
 	}
 }
 
 func (f *holdingProductDraft) title() i18n.MessageID {
+	if f.add != nil {
+		return i18n.ProductAddAction
+	}
 	if f.renewal != nil {
 		return i18n.ProductRenewAction
 	}

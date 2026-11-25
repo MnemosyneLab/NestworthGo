@@ -1879,6 +1879,28 @@ principal and fees beside the shared cash and valuation projections.
 | Checks | Full Gio tests and vet, standard Linux package, focused Go application and Wails adapter tests, and 90 Wails Reconciliation and Product Correction frontend tests passed. |
 | Remaining | Add-product, linked term-deposit terms and receipts, and interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
 
+#### Add product from Holdings reconciliation
+
+The account's completeness checkpoint offers **Add product** in an active
+Holdings session. The form fixes the account and offers the supported contract
+currencies, term deposit or locked product, and Buy/open now or Record already
+held. Opening reviews the cash debit and optional fee and effective time.
+Recording an existing product requires acknowledgement that cash excludes the
+product, then reviews the position, valuation and basis without a cash debit.
+Both use the Wails adapter's shared preview and commit, and retain the product
+operation and associated activity on the completeness checkpoint. Gio uses
+the checkpoint cash balance for its inline value and shows unavailable if
+that checkpoint has no balance in the selected currency. The review shows the
+shared service's cash projections.
+[Wails form](../../../frontend/src/features/liquidity/ProductFormSheet.tsx) · [Shared adapter](../../../internal/wailsapi/reconciliation/products.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Independent files reopened an opened USD term deposit at principal 50.1234 and cash 105.8643 after a 0.0123 fee. Recording an existing EUR locked product preserved exact principal 40.1234, basis 39.2345, value 41.3456 and USD cash 156. The regression also checks Cancel, Back, stale review, retry of the same plan after a lost acknowledgement, exact linked IDs and unchanged earlier activities. |
+| Packaged Gio Linux X11 | At 1140×920, keyboard date selection and review showed USD 105.8643; Cancel left all financial and reconciliation rows unchanged and Return reopened Add product. At 665×480, Back to details kept the form and Return confirmed the corrected review. A normal restart showed the new product and linked activity. SQLite matched the USD 50.1234 principal and quote, 0.0123 fee, operation and activity IDs. Both source hashes matched. The record-existing mode was exercised by the automated comparison. |
+| Checks | Full Gio tests and vet, Linux package, fixture exporter, focused shared Go and Wails adapter tests, and 142 Wails Reconciliation and Liquidity frontend tests passed. |
+| Remaining | Linked term-deposit terms and receipts. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+
 #### Product and removed-item checkpoint evidence
 
 Reconciliation shows managed product terms from the saved working point.

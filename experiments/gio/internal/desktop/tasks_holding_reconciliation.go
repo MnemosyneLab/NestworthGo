@@ -99,6 +99,7 @@ type holdingReconDraft struct {
 type holdingReconItemActions struct {
 	cost, quantity, record, check, cash, importPosition, valuation, interest, settle widget.Clickable
 	terms, renew                                                                     widget.Clickable
+	addProduct                                                                       widget.Clickable
 	attempts                                                                         holdingEvidenceDisclosure
 }
 
@@ -220,6 +221,9 @@ func checkpointInSession(session *domain.ReconciliationSession, accountID, itemI
 
 func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 	if f := d.product; f != nil {
+		if f.add != nil {
+			return f.link() != nil && strings.TrimSpace(f.add.principal.Text()) != ""
+		}
 		if f.terms != nil {
 			return f.loading == nil && !f.loadFailed && f.link() != nil && f.terms.current != nil
 		}
@@ -422,6 +426,12 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		default:
 			if d.product != nil && d.product.terms != nil {
 				d.problem = i18n.ProductEditReviewFailed
+			} else if d.product != nil && d.product.add != nil {
+				d.problem = i18n.ProductAddFailed
+				var issue *apierror.WireError
+				if errors.As(result.err, &issue) && issue.Field == "cashExcludesProduct" {
+					d.problem = i18n.ProductAddConfirmCash
+				}
 			} else if d.product != nil && d.product.renewal != nil {
 				d.problem = i18n.ProductRenewFailed
 			} else if d.product != nil && d.product.settlement != nil {
@@ -447,6 +457,8 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			} else {
 				c.draft, c.restore, c.saved = nil, d.entry, i18n.NoMessage
 				switch {
+				case d.product != nil && d.product.add != nil:
+					c.saved = i18n.ProductAddSaved
 				case d.product != nil && d.product.terms != nil:
 					c.saved = i18n.ProductEditSaved
 				case d.product != nil && d.product.renewal != nil:
@@ -477,7 +489,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		}
 		if holdingReconStale(result.err) {
 			d.review, d.uncertain, d.problem, d.initialFocus = nil, false, i18n.HoldingReconChanged, true
-			if d.product != nil {
+			if d.product != nil && d.product.add == nil {
 				p.loadHoldingProduct(d.product)
 			}
 			if c.id != "" {

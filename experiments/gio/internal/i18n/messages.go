@@ -1764,6 +1764,33 @@ const (
 	ProductRenewPrincipalFact
 	ProductRenewOpeningFeeFact
 
+	ProductAddAction
+	ProductAddCurrency
+	ProductAddMethod
+	ProductAddOpen
+	ProductAddRecordExisting
+	ProductAddOpenHelp
+	ProductAddExistingHelp
+	ProductAddKind
+	ProductAddDeposit
+	ProductAddLocked
+	ProductAddPrincipal
+	ProductAddCurrent
+	ProductAddCost
+	ProductAddExcludeCash
+	ProductAddConfirmCash
+	ProductDepositInterest
+	ProductDepositNone
+	ProductDepositAnnualRate
+	ProductDepositMaturityInterest
+	ProductDepositPaidThrough
+	ProductDepositYearBasis
+	ProductAddFailed
+	ProductAddSaved
+	ProductAddCash
+	ProductAddCostFact
+	ProductAddValueFact
+
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab

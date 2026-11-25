@@ -95,7 +95,9 @@ func holdingProductOperationReviewRows(view ui.View, f *holdingProductDraft, rev
 		return fact(label, holdingSnapshotValue(view, value.Amount, value.Currency))
 	}
 	rows := []layout.Widget{view.Message(f.name, view.Colors.Ink)}
-	if f.renewal != nil {
+	if f.add != nil {
+		rows = append(rows, holdingProductAddFacts(view, []byte(review.NormalizedJSON))...)
+	} else if f.renewal != nil {
 		rows = append(rows, holdingRenewalFacts(view, []byte(review.NormalizedJSON), f.currency)...)
 	} else if f.settlement != nil {
 		rows = append(rows, holdingSettlementFacts(view, []byte(review.NormalizedJSON), f.currency)...)

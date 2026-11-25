@@ -215,6 +215,9 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 	if after.Kind == string(domain.ProductOpRenew) && before != nil {
 		rows = append(rows, holdingRenewalFacts(view, after.Request, before.Currency)...)
 	}
+	if after.Kind == string(domain.ProductOpOpen) || after.Kind == string(domain.ProductOpRecordExisting) {
+		rows = append(rows, holdingProductAddFacts(view, after.Request)...)
+	}
 	if after.Note != nil && *after.Note != "" {
 		rows = append(rows, view.Message(*after.Note, view.Colors.Ink))
 	}

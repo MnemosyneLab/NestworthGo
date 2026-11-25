@@ -57,7 +57,16 @@ func TestHoldingCheckAndClosureMatchWails(t *testing.T) {
 			tasks.workers.Wait()
 		}
 	}
-	click := func(s string) { t.Helper(); h.click(s, false); settle() }
+	click := func(s string) {
+		t.Helper()
+		bounds := semanticBounds(t, &h.router, s, false)
+		if y := bounds.Min.Add(bounds.Max).Y / 2; y < 70 || y >= h.size.Y-20 {
+			h.shell.stage.Position.Offset = max(0, h.shell.stage.Position.Offset+y-245)
+			settle()
+		}
+		h.click(s, false)
+		settle()
+	}
 	label := func(s string) { t.Helper(); assertPageLabel(t, &h.router, s) }
 	rec := func(state string, checked int) domain.ReconciliationSession {
 		t.Helper()
@@ -147,10 +156,6 @@ func TestHoldingCheckAndClosureMatchWails(t *testing.T) {
 
 	for _, target := range []struct{ label, id string }{{"Record completeness", "scope"}, {"USD cash", "cash:USD"}} {
 		check := "Check · " + target.label
-		if bottom := semanticBounds(t, &h.router, check, false).Max.Y; bottom >= h.size.Y {
-			h.shell.stage.Position.Offset += bottom - h.size.Y + 55
-			settle()
-		}
 		click(check)
 		click("Review")
 		confirm()

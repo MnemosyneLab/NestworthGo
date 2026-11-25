@@ -23,6 +23,7 @@ type holdingProductTerms struct {
 	name, note, days, fee, earlyDays, earlyFee, earlyGross ui.TextField
 	start, maturity, unlock, receipt                       ui.DatePicker
 	access, basis, early, earlyBasis, earlyMode            ui.Select
+	deposit                                                *holdingDepositTerms
 }
 
 func newHoldingProductTerms() *holdingProductTerms {
@@ -57,6 +58,14 @@ func (f *holdingProductTerms) receive(detail application.ProductDetail) {
 		return
 	}
 	f.terms, f.policy = productTermInputs(next)
+	if f.terms.Kind == string(domain.ProductTermDeposit) {
+		f.deposit = newHoldingDepositTerms()
+		if detail.Contract.AnnualRate != nil {
+			f.deposit.rate.Editor.SetText(detail.Contract.AnnualRate.Decimal().Shift(2).String())
+		}
+		f.deposit.maturityInterest.Editor.SetText(productString(f.terms.MaturityInterest))
+		f.deposit.lastPaidThrough = f.terms.InterestPaidThroughOn
+	}
 	f.name.Editor.SetText(f.terms.Name)
 	f.note.Editor.SetText(productString(f.terms.Note))
 	f.days.Editor.SetText(productDays(f.policy.SettlementDays))
@@ -98,12 +107,23 @@ func parseProductDays(value string) (*int, bool) {
 
 func (f *holdingProductTerms) inputs() (application.ProductTermsInput, application.ProductPolicyInput, bool) {
 	terms, policy := f.terms, f.policy
-	if f.current.State != string(domain.ProductStateOpen) {
+	if f.current != nil && f.current.State != string(domain.ProductStateOpen) {
 		terms, policy = productTermInputs(*f.current)
 		terms.Name, terms.Note = f.name.Text(), productOptional(f.note.Text())
 		return terms, policy, true
 	}
 	terms.Name, terms.Note = f.name.Text(), productOptional(f.note.Text())
+	if f.deposit != nil {
+		terms.AnnualRate = nil
+		if depositSimple(terms.InterestMode) {
+			terms.AnnualRatePercent = productOptional(f.deposit.rate.Text())
+		}
+		if terms.InterestMode == string(domain.InterestManualMaturityAmount) {
+			terms.MaturityInterest = productOptional(f.deposit.maturityInterest.Text())
+		}
+		policy.UnlockOn = terms.MaturityOn
+		policy.AccessKind = depositAccess(policy.AccessKind)
+	}
 	days, ok := parseProductDays(f.days.Text())
 	early, earlyOK := parseProductDays(f.earlyDays.Text())
 	policy.SettlementDays = days
@@ -142,7 +162,7 @@ var productEarlyModeChoices = []productFormChoice{
 }
 
 func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.Point, d *holdingReconDraft, f *holdingProductTerms, ready, editing bool) []layout.Widget {
-	if f.current == nil {
+	if f.current == nil && d.product.add == nil {
 		return nil
 	}
 	l := view.Language
@@ -159,7 +179,7 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 		}
 	}
 	rows := []layout.Widget{view.Message(l.Text(i18n.ProductEditTermsHeading), view.Colors.Ink), text(&f.name, i18n.ProductEditName, false)}
-	if f.current.State != string(domain.ProductStateOpen) {
+	if f.current != nil && f.current.State != string(domain.ProductStateOpen) {
 		return append(rows, text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditClosed), view.Colors.SecondaryInk))
 	}
 	today := ""
@@ -189,11 +209,33 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 		}
 	}
 	rows = append(rows, date(&f.start, i18n.ProductEditStart, f.terms.StartOn, editing, func(day string) { f.terms.StartOn = day }),
-		date(&f.maturity, i18n.ProductEditMaturity, productString(f.terms.MaturityOn), false, func(day string) { f.terms.MaturityOn = productOptional(day) }),
-		text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditPolicy), view.Colors.Ink),
-		selectField(&f.access, i18n.ProductEditAccess, productAccessChoices, f.policy.AccessKind, func(value string) { f.policy.AccessKind = value }))
-	if f.policy.AccessKind == string(domain.AccessOnDate) || f.policy.AccessKind == string(domain.AccessOnRequest) {
-		rows = append(rows, date(&f.unlock, i18n.ProductEditUnlock, productString(f.policy.UnlockOn), false, func(day string) { f.policy.UnlockOn = productOptional(day) }))
+		date(&f.maturity, i18n.ProductEditMaturity, productString(f.terms.MaturityOn), false, func(day string) { f.terms.MaturityOn = productOptional(day) }))
+	access, accessChoices := f.policy.AccessKind, productAccessChoices
+	unlock := f.policy.UnlockOn
+	if deposit := f.deposit; deposit != nil {
+		mode := f.terms.InterestMode
+		if depositSimple(mode) {
+			mode = string(domain.InterestSimpleAct365)
+		}
+		rows = append(rows, selectField(&deposit.mode, i18n.ProductDepositInterest, productDepositModes, mode, f.changeDepositMode))
+		if depositSimple(mode) {
+			rows = append(rows, text(&deposit.rate, i18n.ProductDepositAnnualRate, false),
+				selectField(&deposit.yearBasis, i18n.ProductDepositYearBasis, productDepositBases, f.terms.InterestMode, func(value string) { f.terms.InterestMode = value }))
+			if editing {
+				rows = append(rows, date(&deposit.paidThrough, i18n.ProductDepositPaidThrough, productString(f.terms.InterestPaidThroughOn), false, func(day string) {
+					deposit.lastPaidThrough = productOptional(day)
+					f.terms.InterestPaidThroughOn = deposit.lastPaidThrough
+				}))
+			}
+		} else if mode == string(domain.InterestManualMaturityAmount) {
+			rows = append(rows, text(&deposit.maturityInterest, i18n.ProductDepositMaturityInterest, true))
+		}
+		access, accessChoices, unlock = depositAccess(access), accessChoices[1:], f.terms.MaturityOn
+	}
+	rows = append(rows, text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditPolicy), view.Colors.Ink),
+		selectField(&f.access, i18n.ProductEditAccess, accessChoices, access, func(value string) { f.policy.AccessKind = value }))
+	if access == string(domain.AccessOnDate) || access == string(domain.AccessOnRequest) {
+		rows = append(rows, date(&f.unlock, i18n.ProductEditUnlock, productString(unlock), f.deposit != nil, func(day string) { f.policy.UnlockOn = productOptional(day) }))
 	}
 	basis := productString(f.policy.DayBasis)
 	if basis == "" {
@@ -205,6 +247,12 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 		text(&f.fee, i18n.ProductEditExitFee, true), view.Message(l.Text(i18n.ProductEditMissingPolicy), view.Colors.SecondaryInk),
 		selectField(&f.early, i18n.ProductEditEarly, productEarlyChoices, f.policy.EarlyKind, func(value string) {
 			f.policy.EarlyKind = value
+			if f.deposit != nil && (editing || f.current == nil) && value == string(domain.EarlyAllowed) && f.policy.EarlyAmountMode == nil {
+				f.policy.EarlyAmountMode = productOptional(string(domain.EarlyAmountFixedGross))
+				f.earlyGross.Editor.SetText(d.product.depositPrincipal())
+				f.earlyFee.Editor.SetText("0")
+				f.earlyDays.Editor.SetText("0")
+			}
 			if f.policy.EarlyDayBasis == nil {
 				f.policy.EarlyDayBasis = productOptional(string(domain.DayBasisCalendar))
 			}

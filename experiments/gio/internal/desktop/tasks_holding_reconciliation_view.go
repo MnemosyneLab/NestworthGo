@@ -198,6 +198,11 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 						fields = append(fields, c.link(view, &buttons.importPosition, l.Text(i18n.OpeningPositionOpen), func() {
 							p.startHoldingDatedChange(account, item, &buttons.importPosition)
 						}))
+						if account.Mode == "holdings" {
+							fields = append(fields, c.link(view, &buttons.addProduct, l.Text(i18n.ProductAddAction), func() {
+								p.openHoldingProductAdd(account, item, &buttons.addProduct, l.Text(i18n.ProductAddDeposit))
+							}))
+						}
 					}
 				}
 				if contract, ok := lockedProductCheckpoint(item); s.Status == "in_progress" && ok {
@@ -309,6 +314,8 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	ready := c.loading == nil && !c.readFailed && d.reading == nil
 	if d.check != nil {
 		rows = append(rows, c.holdingCheckFields(view, d, &origin, ready)...)
+	} else if d.product != nil && d.product.add != nil {
+		rows = append(rows, c.holdingProductAddFields(view, &origin, d, ready)...)
 	} else if d.product != nil {
 		rows = append(rows, p.holdingProductFields(view, d, ready)...)
 		productReady := ready && d.product.loading == nil && !d.product.loadFailed

@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -216,6 +216,18 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   the new USD 101.2345 position and the renewal plus both Ledger links in
   Linked changes. The automated test also covers stale review and idempotent
   retry after the shared service saves the operation.
+
+- Run `run_copy add-product gio` and `run_copy add-product wails`. In
+  Harbor Brokerage's Holdings reconciliation, choose **Add product** on the
+  completeness card. Open a USD term deposit with USD 50.1234 principal,
+  USD 0.0123 opening fee, November 23 start and December 23, 2026 maturity.
+  Review USD 105.8643 remaining cash, cancel once, then reopen the focused
+  action and confirm on a fresh draft. Restart and check the cash, the new
+  deposit and its operation and activity IDs in Linked changes. From an
+  independent fresh copy also record an existing EUR locked product with
+  EUR 40.1234 principal, EUR 39.2345 basis and EUR 41.3456 current value.
+  Acknowledge that account cash excludes the position. USD cash should stay
+  at 156, and the linked activity should retain the given basis.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These
