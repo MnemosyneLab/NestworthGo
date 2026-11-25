@@ -48,7 +48,7 @@ func (p *assetChangesPage) layout(gtx layout.Context, view ui.View) layout.Dimen
 			})
 		})
 		offset += filters.Size.Y + gap
-		if p.state.tab != assetDriversTab {
+		if p.state.tab == assetCategoriesTab || p.state.tab == assetTrendTab && (p.current == nil || p.current.trend == nil) {
 			options := ui.Place(gtx, view, image.Pt(0, offset), width, p.options)
 			offset += options.Size.Y + gap
 		}
@@ -73,24 +73,18 @@ func (p *assetChangesPage) options(gtx layout.Context, view ui.View) layout.Dime
 			p.change()
 		}))
 	} else {
-		metrics := []ui.Choice{
-			{ID: string(application.TrendNetWorth), Label: l.Text(i18n.NetWorth)},
-			{ID: string(application.TrendAssets), Label: l.Text(i18n.Assets)},
-			{ID: string(application.TrendLiabilities), Label: l.Text(i18n.Liabilities)},
-			{ID: string(application.TrendNetChange), Label: l.Text(i18n.AssetNetChange)},
-		}
 		intervals := []ui.Choice{
 			{ID: string(application.TrendDay), Label: l.Text(i18n.AssetDaily)},
 			{ID: string(application.TrendWeek), Label: l.Text(i18n.AssetWeekly)},
 			{ID: string(application.TrendMonth), Label: l.Text(i18n.AssetMonthly)},
 		}
 		fields = append(fields,
-			analysisSelect(&p.metric, i18n.ReturnDisplay, metrics, string(p.trendMetric()), false, func(value string) {
-				p.state.metric = application.AssetTrendMetric(value)
-				p.change()
-			}),
 			analysisSelect(&p.interval, i18n.AssetInterval, intervals, string(p.trendInterval()), false, func(value string) {
 				p.state.interval = application.AssetTrendGranularity(value)
+				p.change()
+			}),
+			analysisSelect(&p.metric, i18n.AssetTrendMetric, assetTrendChoices(l), string(p.trendMetric()), false, func(value string) {
+				p.state.metric = application.AssetTrendMetric(value)
 				p.change()
 			}))
 	}
@@ -128,7 +122,7 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		case result.drivers != nil:
 			rows = append(rows, p.assetDriverRows(view, *result.drivers, result.query.Valuation)...)
 		case result.trend != nil:
-			rows = append(rows, p.assetTrendRows(view, *result.trend)...)
+			rows = append(rows, p.assetTrendRows(view, *result.trend, result.query)...)
 		case result.categories != nil:
 			rows = append(rows, p.categoryRows(view, *result.categories)...)
 		}
@@ -192,7 +186,7 @@ func assetSummary(view ui.View, totals application.AssetChangeSummary, debts boo
 		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				labels := [...]i18n.MessageID{i18n.AssetBeginning, i18n.AssetEnding, i18n.AssetNetChange, i18n.AssetChangeRate}
-				values := [...]string{assetMoney(view, totals.BeginningValue, debts), assetMoney(view, totals.EndingValue, debts),
+				values := [...]string{assetLevelMoney(view, totals.BeginningValue, debts), assetLevelMoney(view, totals.EndingValue, debts),
 					assetMoney(view, totals.Change, debts), returnRate(view, totals.ChangeRate)}
 				return (ui.Grid{MinColumn: 135, Gap: 10, MaxColumns: len(labels), Balanced: true}).Layout(gtx, view, len(labels),
 					func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
@@ -212,38 +206,11 @@ func assetMoney(view ui.View, value *domain.SignedMoney, debts bool) string {
 	return valuationMoney(view, domain.MoneyView{Amount: value.Amount().Neg().String(), Currency: value.Currency()}, false)
 }
 
-func (p *assetChangesPage) assetTrendRows(view ui.View, data application.AssetTrendResult) []ui.ColumnChild {
-	l := view.Language
-	var rows []ui.ColumnChild
-	debts := p.trendMetric() == application.TrendLiabilities
-	if data.ValueChange != nil {
-		rows = append(rows, ui.Rigid(assetSummary(view, *data.ValueChange, debts)))
+func assetLevelMoney(view ui.View, value *domain.SignedMoney, debts bool) string {
+	if value == nil {
+		return returnMoney(view, nil)
 	}
-	if !data.Available {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetNoData), view.Colors.SecondaryInk)))
-	}
-	if len(data.Points) != 0 {
-		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return analysisResultList(gtx, view, &p.list, l.Text(i18n.AssetTrend), len(data.Points), func(gtx layout.Context, i int) layout.Dimensions {
-				point := data.Points[i]
-				value := assetMoney(view, point.Value, debts)
-				if display := point.DisplayValuation; display != nil {
-					money := display.Total
-					if money == nil && display.KnownSubtotal != nil {
-						money = display.KnownSubtotal
-						value = valuationMoney(view, *money, debts) + " · " + l.Text(i18n.OverviewKnownSubtotal)
-					} else if money != nil {
-						value = valuationMoney(view, *money, debts)
-						if display.Quality.Coverage == domain.CoverageProvisional {
-							value += " · " + l.Text(i18n.WealthHistoryProvisional)
-						}
-					}
-				}
-				return view.Message(wealthDay(view, point.Period)+" · "+value, view.Colors.Ink)(gtx)
-			})
-		}))
-	}
-	return rows
+	return valuationMoney(view, domain.MoneyView{Amount: value.CanonicalAmount(), Currency: value.Currency()}, debts)
 }
 
 func (p *assetChangesPage) categoryRows(view ui.View, data application.CategoriesResult) []ui.ColumnChild {

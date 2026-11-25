@@ -665,6 +665,14 @@ var japaneseCatalog = catalog{
 	AssetDriverByAccount:     "口座別",
 	AssetNoDriverDetail:      "利用できる内訳はありません。",
 
+	AssetTrendMetric:           "指標",
+	AssetTrendInvestmentReturn: "投資リターン",
+	AssetTrendChartHelp:        "選択期間の値。矢印キーで各点を確認できます。",
+	AssetTrendMissingValue:     "この期間に表示できる値はありません",
+	AssetTrendMissingPeriods:   "値のない期間 · %d",
+	AssetTrendTable:            "資産推移データ",
+	AssetTrendPeriodValue:      "期間の値",
+
 	ContributionOpenHistory:        "取引履歴で見る",
 	ContributionHistoryWider:       "取引履歴には日付、口座、銘柄、取引種別のフィルターが引き継がれます。通貨と資産区分のフィルターは引き継がれません。",
 	ContributionHistoryUnavailable: "取引履歴で使用できるフィルターがありません。",

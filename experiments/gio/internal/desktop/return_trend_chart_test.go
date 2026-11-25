@@ -77,7 +77,7 @@ func TestReturnTrendChartProjectionKeepsCivilDatesAndGaps(t *testing.T) {
 				t.Fatalf("lost observed amounts or rates: %+v", rows)
 			}
 			gap := rows[1]
-			if points[1].Value.Valid() || !gap.Missing || gap.ID != "2026-08-02" || !strings.Contains(returnTrendTableText(gap), "Missing valuation") {
+			if points[1].Value.Valid() || !gap.Missing || gap.ID != "2026-08-02" || !strings.Contains(analysisLineTableText(gap), "Missing valuation") {
 				t.Fatalf("the dated missing valuation did not interrupt the chart: %+v", gap)
 			}
 		})

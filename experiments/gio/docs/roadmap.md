@@ -1631,8 +1631,8 @@ among net worth, assets, liabilities or net change and day, week or month.
 Change drivers shows the beginning and ending values, the net change, rate
 and the shared driver groups. Categories shows the chosen shared category
 total and attributed rows. The trend and category tables support keyboard
-scrolling. The layout follows the Wails section order. Trend and Categories
-still need their chart and detail work.
+scrolling. The layout follows the Wails section order. The following
+checkpoints cover Change Drivers and Asset Trend. Category details remain open.
 
 The Return Calendar detail action **View asset changes for this day** opens
 Change drivers with that single date and the existing supported filters. Back
@@ -1668,6 +1668,28 @@ open.
 | Projection and interaction | Gio checks signed steps, the missing opening, the reported ending and the ties-to-even discrepancy threshold. A Calendar day link used the Wails-backed Price change driver read for the selected day. A failed first read retried in place, matched the breakdown, and restored chart focus on Escape. |
 | Linux X11 | The packaged app displayed USD 300.00 beginning, USD 2.75 Price change, and USD 302.75 ending. The chart opened a sheet showing Gain fund USD 5.25, Loss fund −USD 2.50 and Sample broker USD 2.75. Escape and Enter reopened that sheet. All three steps and their labels remained readable at 700×480. |
 | Build and tests | Full Gio tests and vet, the Linux launcher, focused shared Go Asset Changes and driver tests, and all 43 Wails Asset Changes and Return Analysis reference tests passed. Native Mac, Wayland and VoiceOver remain open. |
+
+#### Asset Trend chart and period coverage
+
+Asset Trend offers all fifteen shared Wails metrics and day, week and month
+frequencies. Level summaries lead the metric controls and chart. The chart
+and keyboard-readable table keep the full selected range. Week keys begin
+Monday and month keys begin on the first, with their first plotted anchors
+clamped to the selected range. Rate and flow summaries follow the detailed
+series. Liability levels use the Wails display sign.
+
+Gio exposes missing periods as selectable dated markers and interruptions in
+the line. The markers share the keyboard order of available observations.
+The table and readout keep a known subtotal, provisional status and available
+quote provenance when the shared valuation supplies them. These states keep
+missing totals outside the chart geometry. The dated link to Data health
+remains open.
+
+| Check | Evidence |
+| --- | --- |
+| Projection and interaction | Tests cover clamped week and month boundaries, an absent week, an unplotted known subtotal, provisional quote evidence, negative debt levels, and a missing or exact rate. The Calendar-linked day moved to the Return rate metric with the keyboard and matched the Wails Go value at +25% and 1/1 rated days. Return Trend's existing viewport, gap and focus tests pass through the shared chart frame. |
+| Linux X11 | The packaged app selected November 4 in the net worth chart and displayed an unavailable total and USD 105.25 known net contribution. Weekly retained the chosen dates, then Return rate showed the 3/7 uncovered week and later 0% weeks with 7/7 coverage. The compact table remained readable at 700×480. |
+| Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared Go trend tests and 20 Wails Asset Trend and Asset Changes tests passed. Native Mac and Wayland remain open. |
 
 #### Contribution detail and Ledger activity
 

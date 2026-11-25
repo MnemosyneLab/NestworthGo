@@ -666,6 +666,14 @@ var simplifiedChineseCatalog = catalog{
 	AssetDriverByAccount:     "按账户",
 	AssetNoDriverDetail:      "没有可用的变动明细。",
 
+	AssetTrendMetric:           "指标",
+	AssetTrendInvestmentReturn: "投资收益",
+	AssetTrendChartHelp:        "所选期间的数值。使用方向键查看各点。",
+	AssetTrendMissingValue:     "该期间没有可绘制的数值",
+	AssetTrendMissingPeriods:   "缺少数值的期间 · %d",
+	AssetTrendTable:            "资产趋势数据",
+	AssetTrendPeriodValue:      "期间数值",
+
 	ContributionOpenHistory:        "在账本活动中查看",
 	ContributionHistoryWider:       "账本活动会保留日期、账户、投资标的和活动类型筛选。货币和资产类别筛选不会带入。",
 	ContributionHistoryUnavailable: "来源未提供账本活动支持的筛选条件。",

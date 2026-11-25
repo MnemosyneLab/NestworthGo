@@ -298,6 +298,22 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if point.Period != wailsPoint.Period || point.Value == nil || wailsPoint.Value == nil || point.Value.CanonicalAmount() != wailsPoint.Value.Amount {
 		t.Fatalf("trend point %+v differs from Wails %+v", point, wailsPoint)
 	}
+	wailsRate, err := adapter.AssetTrend(ctx, dayQuery, string(application.TrendDay), string(application.TrendReturnRate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Metric", true)
+	for range 8 {
+		h.press(key.NameDownArrow)
+	}
+	h.press(key.NameReturn)
+	assets.workers.Wait()
+	h.frame()
+	if assets.trendMetric() != application.TrendReturnRate || assets.current == nil || assets.current.trend == nil ||
+		assets.current.trend.Rate == nil || wailsRate.Rate == nil || assets.current.trend.Rate.String() != *wailsRate.Rate {
+		t.Fatalf("the linked day's return rate differs from Wails: %v", assets.err)
+	}
+	assertPageLabel(t, &h.router, "2026-02-02 · +25% · Rated days 1/1")
 	wailsCategories, err := adapter.Categories(ctx, dayQuery, string(application.CategoryInvestmentReturn))
 	if err != nil {
 		t.Fatal(err)
