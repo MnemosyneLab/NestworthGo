@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -30,9 +32,9 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	}
 	if d.record != nil && d.err == nil && d.pending == nil && d.record.Amendable {
 		if d.correct.Clicked(gtx) {
-			r.startAmendment(history.CorrectCash)
+			r.startAmendment(history.CorrectActivity)
 		} else if d.record.Reversible && d.reverse.Clicked(gtx) {
-			r.startAmendment(history.ReverseCash)
+			r.startAmendment(history.ReverseActivity)
 		}
 		if d.amendment != nil {
 			return p.layoutAmendment(gtx, view)
@@ -104,9 +106,22 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			}))
 		}
 		if known.Amendable {
-			buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.correct, l.Text(i18n.HistoryCorrectAction)))}
+			correct := i18n.HistoryCorrectAction
+			if _, custody := history.CustodyAmendment(known.Activity); custody {
+				correct = i18n.CustodyAmendmentCorrect
+			}
+			action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
+				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if d.amendmentFocus == button {
+						gtx.Execute(key.FocusCmd{Tag: button})
+						d.amendmentFocus = nil
+					}
+					return view.Button(button, l.Text(label))(gtx)
+				})
+			}
+			buttons := []layout.FlexChild{action(&d.correct, correct)}
 			if known.Reversible {
-				buttons = append(buttons, layout.Rigid(view.Button(&d.reverse, l.Text(i18n.HistoryReverseAction))))
+				buttons = append(buttons, action(&d.reverse, i18n.HistoryReverseAction))
 			}
 			children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
@@ -273,7 +288,8 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	} else if dividend := activity.DividendDetail; dividend != nil {
 		facts = append(facts, ink(instrument(dividend.InstrumentID)))
 	}
-	positionChange := activity.Kind == domain.ActivityPositionTransfer && activity.ProductContext == nil
+	positionReversal := activity.Kind == domain.ActivityReversal && len(detail.HoldingAccounts) > 0
+	positionChange := (activity.Kind == domain.ActivityPositionTransfer || positionReversal) && activity.ProductContext == nil
 	var positionEndpoints map[domain.HoldingID]i18n.MessageID
 	if positionChange {
 		positionEndpoints = make(map[domain.HoldingID]i18n.MessageID, 2)
@@ -296,6 +312,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 				quantity = i18n.CustodySourceAfter
 			case domain.EffectRoleTransferTo:
 				quantity = i18n.CustodyDestinationAfter
+			}
+			if positionReversal {
+				quantity = i18n.CustodyAmendmentAfterReversal
 			}
 			caption = fmt.Sprintf(l.Text(change), name, portfolioDecimal(view, effect.Quantity.Canonical()))
 			positionEndpoints[*effect.HoldingID] = quantity
@@ -356,7 +375,12 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	for _, result := range activity.Resulting {
 		if result.Quantity != "" {
 			if result.HoldingID != nil && positionEndpoints[*result.HoldingID] != i18n.NoMessage {
-				facts = append(facts, ink(fmt.Sprintf(l.Text(positionEndpoints[*result.HoldingID]), portfolioDecimal(view, result.Quantity))))
+				quantity := fmt.Sprintf(l.Text(positionEndpoints[*result.HoldingID]), portfolioDecimal(view, result.Quantity))
+				if positionReversal {
+					id := detail.HoldingAccounts[*result.HoldingID]
+					quantity = account(&id) + " · " + quantity
+				}
+				facts = append(facts, ink(quantity))
 			} else if result.Name != "" {
 				facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.HistoryResultQuantity), result.Name, result.Quantity)))
 			}

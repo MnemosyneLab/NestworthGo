@@ -17,6 +17,7 @@ import (
 
 type historyService interface {
 	history.AmendmentLedger
+	history.PositionSourceReader
 	cashMovementService
 	historyStartLedger
 }
@@ -32,6 +33,7 @@ type historyDetailState struct {
 	scroll     layout.Position
 	account    domain.AccountID
 	instrument domain.InstrumentID
+	linked     int
 }
 
 type historyDetailVisit struct {
@@ -45,6 +47,7 @@ type historyDetailVisit struct {
 	retry            widget.Clickable
 	scroll           widget.List
 	amendment        *historyAmendmentDraft
+	amendmentFocus   *widget.Clickable
 	correct, reverse widget.Clickable
 	repeat           widget.Clickable
 	repeatDraft      *historyRepeatDraft
@@ -62,6 +65,12 @@ func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickabl
 
 func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 	state := historyDetailState{scroll: v.scroll.Position}
+	for i := range v.linked {
+		if focus == &v.linked[i] {
+			state.linked = i + 1
+			return state
+		}
+	}
 	for id, button := range v.accounts {
 		if focus == button {
 			state.account = id
@@ -79,7 +88,7 @@ func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 
 type historyReads struct {
 	ctx        context.Context
-	service    history.AmendmentLedger
+	service    historyService
 	repeatAPI  historyRepeatAPI
 	clock      func() time.Time
 	invalidate func()
@@ -188,6 +197,9 @@ func (r *historyReads) enterDetail(id domain.ActivityID, state historyDetailStat
 	}
 	if state.instrument != "" {
 		return portfolioButton(r.detail.instruments, state.instrument)
+	}
+	if state.linked > 0 {
+		return &r.detail.linked[state.linked-1]
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"strings"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
@@ -13,45 +14,56 @@ import (
 )
 
 type historyAmendmentDraft struct {
-	action    history.AmendmentAction
-	movement  history.AmendableCash
-	amount    ui.TextField
-	received  ui.TextField
-	fee       ui.TextField
-	scroll    widget.List
-	review    *history.ReviewedAmendment
-	preview   <-chan historyResult[history.ReviewedAmendment]
-	commit    <-chan historyResult[domain.ChangePreview]
-	problem   i18n.MessageID
-	uncertain bool
-	focus     bool
+	action      history.AmendmentAction
+	movement    history.AmendableCash
+	custody     *custodyAmendmentDraft
+	amount      ui.TextField
+	received    ui.TextField
+	fee         ui.TextField
+	scroll      widget.List
+	review      *history.ReviewedAmendment
+	preview     <-chan historyResult[history.ReviewedAmendment]
+	commit      <-chan historyResult[domain.ChangePreview]
+	problem     i18n.MessageID
+	uncertain   bool
+	focus       bool
+	reviewFocus bool
 
 	cancel, prepare, confirm, edit widget.Clickable
 }
 
 func (r *historyReads) startAmendment(action history.AmendmentAction) {
 	d := r.detail
-	if d.record == nil || !d.record.Amendable || (action == history.ReverseCash && !d.record.Reversible) {
+	if d.record == nil || !d.record.Amendable || (action == history.ReverseActivity && !d.record.Reversible) {
 		return
 	}
 	movement, supported := history.CashAmendment(d.record.Activity)
-	if !supported {
+	custody, isCustody := history.CustodyAmendment(d.record.Activity)
+	if !supported && !isCustody {
 		return
 	}
 	form := &historyAmendmentDraft{
-		action: action, movement: movement, focus: action == history.CorrectCash,
+		action: action, movement: movement, focus: action == history.CorrectActivity,
 		amount: ui.NewTextField(true), received: ui.NewTextField(true), fee: ui.NewTextField(true),
 		scroll: widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
-	form.amount.Editor.SetText(movement.Principal.Money.CanonicalAmount())
-	if movement.Paired() {
+	d.amendment = form
+	if isCustody {
+		form.custody = newCustodyAmendment(custody, d.record.Activity.Note)
+		form.amount.Editor.SetText(custody.From.Quantity.Canonical())
+		if action == history.CorrectActivity {
+			r.loadCustodyAmendment(form)
+		}
+	} else {
+		form.amount.Editor.SetText(movement.Principal.Money.CanonicalAmount())
+	}
+	if supported && movement.Paired() {
 		form.received.Editor.SetText(movement.Received.Money.CanonicalAmount())
 		if movement.Fee.Money != nil {
 			form.fee.Editor.SetText(movement.Fee.Money.CanonicalAmount())
 		}
 	}
-	d.amendment = form
-	if action == history.ReverseCash {
+	if action == history.ReverseActivity {
 		r.previewAmendment()
 	}
 }
@@ -63,7 +75,13 @@ func (r *historyReads) previewAmendment() {
 		return
 	}
 	at := r.clock().UTC()
-	amounts := history.AmendmentAmounts{Amount: form.amount.Text(), Received: form.received.Text(), Fee: form.fee.Text()}
+	amounts := history.AmendmentInput{Amount: form.amount.Text(), Received: form.received.Text(), Fee: form.fee.Text()}
+	if c := form.custody; c != nil && form.action == history.CorrectActivity {
+		if !c.selected() || strings.TrimSpace(amounts.Amount) == "" {
+			return
+		}
+		amounts.From, amounts.To, amounts.Note = c.from, c.to, c.note.Text()
+	}
 	form.problem = i18n.NoMessage
 	form.preview = runHistoryRead(&r.workers, r.invalidate, func() (history.ReviewedAmendment, error) {
 		return history.ReviewAmendment(r.ctx, r.service, form.action, d.id, amounts, at)
@@ -95,6 +113,14 @@ func (p *historyPage) pollAmendment() {
 		return
 	}
 	form := d.amendment
+	if c := form.custody; c != nil {
+		select {
+		case result := <-c.loading:
+			c.loading = nil
+			c.sources, c.readFailed = result.value, result.err != nil
+		default:
+		}
+	}
 	select {
 	case result := <-form.preview:
 		form.preview = nil
@@ -102,6 +128,7 @@ func (p *historyPage) pollAmendment() {
 			form.problem = amendmentProblem(result.err, i18n.HistoryAmendmentPreviewFailed)
 		} else {
 			form.review = &result.value
+			form.reviewFocus = form.custody != nil
 			form.scroll.Position = layout.Position{}
 		}
 	default:
@@ -114,10 +141,16 @@ func (p *historyPage) pollAmendment() {
 		if result.value.Activity.ID != "" {
 			notice := i18n.HistoryReversalSaved
 			focus := &d.reverse
-			if form.action == history.CorrectCash {
+			if form.action == history.CorrectActivity {
 				notice, focus = i18n.HistoryCorrectionSaved, &d.correct
 				if result.err != nil {
 					notice = i18n.HistoryCorrectionSavedRefreshFailed
+				}
+			}
+			if form.custody != nil {
+				focus = &d.linked[2]
+				if form.action == history.CorrectActivity {
+					focus = &d.linked[3]
 				}
 			}
 			d.amendment = nil
@@ -127,9 +160,16 @@ func (p *historyPage) pollAmendment() {
 		problem := amendmentProblem(result.err, i18n.NoMessage)
 		if problem != i18n.NoMessage {
 			form.review, form.uncertain, form.problem = nil, false, problem
+			if form.custody != nil && form.action == history.CorrectActivity {
+				form.focus = true
+				if problem == i18n.HistoryAmendmentStale {
+					p.reads.loadCustodyAmendment(form)
+				}
+			}
 			form.scroll.Position = layout.Position{}
 		} else {
 			form.uncertain = true
+			form.reviewFocus = form.custody != nil
 		}
 	default:
 	}
@@ -147,6 +187,13 @@ func amendmentProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 		return i18n.HistoryAmendmentNoChange
 	case domain.ErrInsufficientBalance:
 		return i18n.CashMovementInsufficient
+	case domain.ErrInsufficientQuantity:
+		return i18n.SellInsufficientQuantity
+	case domain.ErrTransferMismatch:
+		if issue.Field == "quantity" {
+			return i18n.CustodyAmendmentInvalidQuantity
+		}
+		return i18n.HistoryAmendmentRefused
 	case domain.ErrAlreadyUndone, domain.ErrNotFound:
 		return i18n.HistoryAmendmentUnavailable
 	case domain.ErrInvalidChange:
@@ -169,6 +216,8 @@ func amendmentProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 			return i18n.TransferInvalidReceived
 		case "fee":
 			return i18n.TransferInvalidFee
+		case "quantity":
+			return i18n.CustodyAmendmentInvalidQuantity
 		}
 		return i18n.HistoryAmendmentRefused
 	default:

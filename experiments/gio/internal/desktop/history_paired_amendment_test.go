@@ -124,8 +124,8 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 			t.Fatalf("native balances %+v, want USD %s and EUR %s", latest, wantUSD, wantEUR)
 		}
 	}
-	normal := history.AmendmentAmounts{}
-	changed := history.AmendmentAmounts{Amount: "62.5", Received: "49.25", Fee: "1.5"}
+	normal := history.AmendmentInput{}
+	changed := history.AmendmentInput{Amount: "62.5", Received: "49.25", Fee: "1.5"}
 	cross := historyapi.ChangeCommandRequest{Kind: historyapi.ChangeCashTransfer, FromAccountID: bank.String(), ToAccountID: studio.String(),
 		Sent: changed.Amount, SentCurrency: "USD", Received: changed.Received, ReceivedCurrency: "EUR", Fee: changed.Fee, FeeCurrency: "USD"}
 	h.frame()
@@ -193,13 +193,13 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 			t.Fatalf("got %v, want %s", err, code)
 		}
 	}
-	_, err := history.ReviewAmendment(ctx, service, history.ReverseCash, saved, normal, accountTestClock)
+	_, err := history.ReviewAmendment(ctx, service, history.ReverseActivity, saved, normal, accountTestClock)
 	assertCode(err, domain.ErrAlreadyUndone)
-	_, err = history.ReviewAmendment(ctx, service, history.CorrectCash, ids[0], history.AmendmentAmounts{Amount: "10000"}, accountTestClock)
+	_, err = history.ReviewAmendment(ctx, service, history.CorrectActivity, ids[0], history.AmendmentInput{Amount: "10000"}, accountTestClock)
 	assertCode(err, domain.ErrInsufficientBalance)
-	_, err = history.ReviewAmendment(ctx, service, history.CorrectCash, ids[0], history.AmendmentAmounts{Amount: "10.5"}, accountTestClock)
+	_, err = history.ReviewAmendment(ctx, service, history.CorrectActivity, ids[0], history.AmendmentInput{Amount: "10.5"}, accountTestClock)
 	assertCode(err, domain.ErrNoChange)
-	retained, err := history.ReviewAmendment(ctx, service, history.CorrectCash, ids[0], history.AmendmentAmounts{Amount: "11.25"}, accountTestClock)
+	retained, err := history.ReviewAmendment(ctx, service, history.CorrectActivity, ids[0], history.AmendmentInput{Amount: "11.25"}, accountTestClock)
 	if err != nil || len(retained.Preview.Effects) != 3 || retained.Preview.Effects[2].Money.CanonicalAmount() != "0.5" {
 		t.Fatalf("blank transfer fee failed to retain the original: %+v, %v", retained.Preview.Effects, err)
 	}
@@ -208,16 +208,16 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 	// uses the original effective instant when its Fix request has no date.
 	cases := []struct {
 		id      domain.ActivityID
-		amounts history.AmendmentAmounts
+		amounts history.AmendmentInput
 		request historyapi.ChangeCommandRequest
 	}{
-		{ids[0], history.AmendmentAmounts{Amount: "11.25", Fee: "0"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeCashTransfer,
+		{ids[0], history.AmendmentInput{Amount: "11.25", Fee: "0"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeCashTransfer,
 			FromAccountID: bank.String(), ToAccountID: reserve.String(), Sent: "11.25", SentCurrency: "USD", Received: "11.25", ReceivedCurrency: "USD", Fee: "0", FeeCurrency: "USD"}},
-		{ids[2], history.AmendmentAmounts{Amount: "20.125"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeMoneyAdded,
+		{ids[2], history.AmendmentInput{Amount: "20.125"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeMoneyAdded,
 			AccountID: studio.String(), Amount: "20.125", Currency: "EUR", Reason: "contribution"}},
-		{ids[3], history.AmendmentAmounts{Amount: "6.25"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeMoneyRemoved,
+		{ids[3], history.AmendmentInput{Amount: "6.25"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeMoneyRemoved,
 			AccountID: studio.String(), Amount: "6.25", Currency: "EUR", Reason: "other"}},
-		{ids[4], history.AmendmentAmounts{Amount: "50", Received: "41", Fee: "1.75"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeFXConversion,
+		{ids[4], history.AmendmentInput{Amount: "50", Received: "41", Fee: "1.75"}, historyapi.ChangeCommandRequest{Kind: historyapi.ChangeFXConversion,
 			AccountID: studio.String(), Sold: "50", SoldCurrency: "USD", Bought: "41", BoughtCurrency: "EUR", Fee: "1.75", FeeCurrency: "USD"}},
 	}
 	for _, tc := range cases {
@@ -233,7 +233,7 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 				t.Fatalf("archived endpoint action state: %+v, %v", detail, err)
 			}
 		}
-		review, err := history.ReviewAmendment(ctx, service, history.CorrectCash, tc.id, tc.amounts, accountTestClock)
+		review, err := history.ReviewAmendment(ctx, service, history.CorrectActivity, tc.id, tc.amounts, accountTestClock)
 		if err != nil {
 			t.Fatalf("%s correction preview: %v", tc.request.Kind, err)
 		}
@@ -246,7 +246,7 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 			if len(result.Effects) != 2 {
 				t.Fatalf("explicit zero retained a fee: %+v", result.Effects)
 			}
-			_, err := history.ReviewAmendment(ctx, service, history.ReverseCash, result.Activity.ID, normal, accountTestClock)
+			_, err := history.ReviewAmendment(ctx, service, history.ReverseActivity, result.Activity.ID, normal, accountTestClock)
 			assertCode(err, domain.ErrConflict)
 			if _, err := adapter.UndoChange(ctx, otherID.String()); err == nil {
 				t.Fatal("Wails allowed reversal into an archived endpoint")
@@ -269,7 +269,7 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 				app.SetClock(func() time.Time { return accountTestClock })
 			}
 		}
-		undo, err := history.ReviewAmendment(ctx, service, history.ReverseCash, result.Activity.ID, normal, accountTestClock)
+		undo, err := history.ReviewAmendment(ctx, service, history.ReverseActivity, result.Activity.ID, normal, accountTestClock)
 		if err != nil {
 			t.Fatalf("%s reversal preview: %v", tc.request.Kind, err)
 		}

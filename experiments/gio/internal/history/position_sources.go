@@ -20,7 +20,14 @@ type PositionSources struct {
 	Holdings []PositionHolding
 }
 
-func LoadPositionSources(ctx context.Context, ledger InvestmentLedger) (out PositionSources, err error) {
+type PositionSourceReader interface {
+	ReferenceReader
+	WithRead(context.Context, func(context.Context) error) error
+	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
+	InstrumentProductOwnership(context.Context) (map[string]string, error)
+}
+
+func LoadPositionSources(ctx context.Context, ledger PositionSourceReader) (out PositionSources, err error) {
 	err = ledger.WithRead(ctx, func(ctx context.Context) error {
 		origin, zone, err := cashMovementOrigin(ctx, ledger)
 		if err != nil {

@@ -1563,6 +1563,12 @@ var simplifiedChineseCatalog = catalog{
 	HistoryStartDraftFailed:       "无法加载期初持仓。",
 	HistoryStartInvalidCost:       "请输入零或正数单位成本，最多八位小数。",
 
+	CustodyAmendmentBeforeAfter:     "原生效时点数量 · %s → %s",
+	CustodyAmendmentAfterReversal:   "冲销后数量 · %s",
+	CustodyAmendmentInvalidQuantity: "请输入有效的转移数量。",
+	CustodyAmendmentBack:            "返回原活动",
+	CustodyAmendmentCorrect:         "更正持仓转移",
+
 	FundsLoading:             "正在读取可用资金…",
 	FundsReadFailed:          "无法读取可用资金。",
 	FundsToday:               "今日 · %s（%s）",

@@ -1562,6 +1562,12 @@ var japaneseCatalog = catalog{
 	HistoryStartDraftFailed:       "期初保有を読み込めませんでした。",
 	HistoryStartInvalidCost:       "0 または小数点以下8桁以内の正の取得単価を入力してください。",
 
+	CustodyAmendmentBeforeAfter:     "元の有効時点の数量 · %s → %s",
+	CustodyAmendmentAfterReversal:   "取消後の数量 · %s",
+	CustodyAmendmentInvalidQuantity: "移管する数量を正しく入力してください。",
+	CustodyAmendmentBack:            "元の取引に戻る",
+	CustodyAmendmentCorrect:         "移管を訂正",
+
 	FundsLoading:             "利用可能資金を読み込んでいます…",
 	FundsReadFailed:          "利用可能資金を読み込めませんでした。",
 	FundsToday:               "今日 · %s（%s）",

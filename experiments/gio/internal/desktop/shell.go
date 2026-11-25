@@ -402,6 +402,10 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			if source == nil {
 				return i18n.NoMessage
 			}
+			if source.target.route == historyRoute && source.target.activity != "" &&
+				source.historyDetail.linked >= 3 && s.trail.current().target.activity == s.historyPage.reads.posted.ID {
+				return i18n.CustodyAmendmentBack
+			}
 			if source.target.route == portfolioRoute && s.portfolio != nil && s.portfolio.investment != nil && source.focus == &s.portfolio.investment.importOpen {
 				return i18n.PositionImportBackPortfolio
 			}

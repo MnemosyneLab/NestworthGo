@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"strings"
 
 	"gioui.org/font"
 	"gioui.org/io/key"
@@ -18,17 +19,19 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	r, l := p.reads, view.Language
 	d := r.detail
 	form := d.amendment
-	fix := form.action == history.CorrectCash
+	fix := form.action == history.CorrectActivity
 	busy := form.preview != nil || form.commit != nil
 	actionTitle, prepareTitle, reviewTitle, confirmTitle := i18n.HistoryReverseAction, i18n.HistoryReversePreview, i18n.HistoryReverseReview, i18n.HistoryReverseConfirm
 	focus := &d.reverse
 	if fix {
 		actionTitle, prepareTitle, reviewTitle, confirmTitle = i18n.HistoryCorrectAction, i18n.HistoryCorrectPreview, i18n.HistoryCorrectReview, i18n.HistoryCorrectConfirm
+		if form.custody != nil {
+			actionTitle = i18n.CustodyAmendmentCorrect
+		}
 		focus = &d.correct
 	}
 	if form.commit == nil && !form.uncertain && form.cancel.Clicked(gtx) {
-		d.amendment = nil
-		gtx.Execute(key.FocusCmd{Tag: focus})
+		d.amendment, d.amendmentFocus = nil, focus
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -47,6 +50,9 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	}
 	busy = form.preview != nil || form.commit != nil
 
+	if form.custody != nil {
+		return p.layoutCustodyAmendment(gtx, view, fix, busy, actionTitle, prepareTitle, reviewTitle, confirmTitle)
+	}
 	movement := form.movement
 	accountName := func(id *domain.AccountID) string { return d.record.Accounts[*id] }
 	title := actionTitle
@@ -144,27 +150,7 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	} else if form.problem != i18n.NoMessage {
 		children = append(children, layout.Rigid(view.Message(l.Text(form.problem), view.Colors.ErrorInk)))
 	}
-	actions := func(gtx layout.Context) layout.Dimensions {
-		if form.commit != nil {
-			return view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)(gtx)
-		}
-		if form.uncertain {
-			return view.PrimaryButton(&form.confirm, l.Text(i18n.ContributionRetryPost))(gtx)
-		}
-		buttons := []layout.FlexChild{layout.Rigid(view.Button(&form.cancel, l.Text(i18n.InstitutionsCancel)))}
-		switch {
-		case form.preview != nil:
-			buttons = append(buttons, layout.Rigid(view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)))
-		case form.review == nil:
-			buttons = append(buttons, layout.Rigid(view.PrimaryButton(&form.prepare, l.Text(prepareTitle))))
-		default:
-			if fix {
-				buttons = append(buttons, layout.Rigid(view.Button(&form.edit, l.Text(i18n.HistoryAmendmentEdit))))
-			}
-			buttons = append(buttons, layout.Rigid(view.PrimaryButton(&form.confirm, l.Text(confirmTitle))))
-		}
-		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
-	}
+	actions := amendmentActions(view, form, fix, prepareTitle, confirmTitle)
 	gtx, view = view.Measure(gtx, 640)
 	if !movement.Paired() {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, append(children, layout.Rigid(actions))...)
@@ -176,6 +162,46 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 			})
 		}), ui.Rigid(actions),
 	)
+}
+
+func amendmentActions(view ui.View, form *historyAmendmentDraft, fix bool, prepareTitle, confirmTitle i18n.MessageID) layout.Widget {
+	l := view.Language
+	return func(gtx layout.Context) layout.Dimensions {
+		if form.reviewFocus && form.commit == nil && form.review != nil {
+			gtx.Execute(key.FocusCmd{Tag: &form.confirm})
+			form.reviewFocus = false
+		}
+		if form.commit != nil {
+			return view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)(gtx)
+		}
+		if form.uncertain {
+			return view.PrimaryButton(&form.confirm, l.Text(i18n.ContributionRetryPost))(gtx)
+		}
+		buttons := []layout.Widget{view.Button(&form.cancel, l.Text(i18n.InstitutionsCancel))}
+		switch {
+		case form.preview != nil:
+			buttons = append(buttons, view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk))
+		case form.review == nil:
+			buttons = append(buttons, func(gtx layout.Context) layout.Dimensions {
+				if form.custody != nil && fix && (!form.custody.selected() || strings.TrimSpace(form.amount.Text()) == "") {
+					gtx = gtx.Disabled()
+				}
+				return view.PrimaryButton(&form.prepare, l.Text(prepareTitle))(gtx)
+			})
+		default:
+			if fix {
+				label := i18n.HistoryAmendmentEdit
+				if form.custody != nil {
+					label = i18n.AccountCreateBackToDetails
+				}
+				buttons = append(buttons, view.Button(&form.edit, l.Text(label)))
+			}
+			buttons = append(buttons, view.PrimaryButton(&form.confirm, l.Text(confirmTitle)))
+		}
+		return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
+			return buttons[i](gtx)
+		})
+	}
 }
 
 func pairedAmendmentEffects(view ui.View, effects []domain.ActivityEffect, account func(*domain.AccountID) string, reverse bool) []layout.FlexChild {

@@ -142,7 +142,10 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			detail.InstrumentCurrencies[instrument.ID] = instrument.QuoteCurrency
 		}
 	}
-	if record.Kind == domain.ActivityPositionTransfer && record.ProductContext == nil {
+	if _, custody := CustodyAmendment(record); custody && zone != nil && detail.Links.Reversal == "" {
+		detail.Amendable, detail.Reversible = true, true
+	}
+	if (record.Kind == domain.ActivityPositionTransfer || record.Kind == domain.ActivityReversal) && record.ProductContext == nil {
 		if err := readPositionAccounts(ctx, service, &detail); err != nil {
 			return Detail{}, err
 		}

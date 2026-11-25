@@ -1507,6 +1507,11 @@ const (
 	CustodyReceive
 	CustodyLockedHolding
 	CustodyHoldingAction
+	CustodyAmendmentBeforeAfter
+	CustodyAmendmentAfterReversal
+	CustodyAmendmentInvalidQuantity
+	CustodyAmendmentBack
+	CustodyAmendmentCorrect
 	QuantityAdjustOpen
 	QuantityAdjustReview
 	QuantityAdjustConfirm

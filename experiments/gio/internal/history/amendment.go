@@ -23,14 +23,16 @@ type AmendmentLedger interface {
 type AmendmentAction string
 
 const (
-	CorrectCash AmendmentAction = "fix"
-	ReverseCash AmendmentAction = "undo"
+	CorrectActivity AmendmentAction = "fix"
+	ReverseActivity AmendmentAction = "undo"
 )
 
-type AmendmentAmounts struct {
+type AmendmentInput struct {
 	Amount   string
 	Received string
 	Fee      string
+	From, To domain.HoldingID
+	Note     string
 }
 
 type ReviewedAmendment struct {
@@ -46,25 +48,35 @@ type ReviewedAmendment struct {
 
 // ReviewAmendment freezes the target, exact replacement, reviewed effective
 // instant and mutation envelope. The application owns replay and projection.
-func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action AmendmentAction, id domain.ActivityID, amounts AmendmentAmounts, at time.Time) (ReviewedAmendment, error) {
+func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action AmendmentAction, id domain.ActivityID, amounts AmendmentInput, at time.Time) (ReviewedAmendment, error) {
 	review := ReviewedAmendment{Action: action, original: id, mutation: domain.NewMutationID().String()}
 	var request *historyapi.ChangeCommandRequest
 	var err error
 	switch action {
-	case CorrectCash:
+	case CorrectActivity:
 		review.Preview, review.token, err = ledger.PreviewFixChangeGuardedWith(ctx, id, func(ctx context.Context) (any, error) {
-			original, movement, accounts, err := amendmentTarget(ctx, ledger, id)
+			original, err := ledger.Activity(ctx, id)
 			if err != nil {
 				return nil, err
 			}
-			replacement, err := movement.replacement(amounts, accounts)
-			if err != nil {
-				return nil, err
+			var replacement historyapi.ChangeCommandRequest
+			if _, custody := CustodyAmendment(original); custody && original.ID == id {
+				replacement = custodyReplacement(amounts)
+			} else {
+				movement, accounts, err := cashAmendmentTarget(ctx, ledger, id, original)
+				if err != nil {
+					return nil, err
+				}
+				replacement, err = movement.replacement(amounts, accounts)
+				if err != nil {
+					return nil, err
+				}
+				if movement.unchanged(replacement) {
+					return nil, &domain.Error{Code: domain.ErrNoChange, Field: "amount"}
+				}
+				replacement.Note = original.Note
 			}
-			if movement.unchanged(replacement) {
-				return nil, &domain.Error{Code: domain.ErrNoChange, Field: "amount"}
-			}
-			replacement.EffectiveAt, replacement.Note = original.EffectiveAt.UTC().Format(time.RFC3339Nano), original.Note
+			replacement.EffectiveAt = original.EffectiveAt.UTC().Format(time.RFC3339Nano)
 			request = &replacement
 			origin, err := ledger.HistoryOrigin(ctx)
 			if err != nil {
@@ -76,14 +88,20 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 			review.replacement, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
 			return review.replacement, err
 		})
-	case ReverseCash:
+	case ReverseActivity:
 		err = ledger.WithRead(ctx, func(ctx context.Context) error {
-			_, _, accounts, err := amendmentTarget(ctx, ledger, id)
+			original, err := ledger.Activity(ctx, id)
 			if err != nil {
 				return err
 			}
-			if !accounts.active() {
-				return &domain.Error{Code: domain.ErrConflict, Field: "accountId"}
+			if _, custody := CustodyAmendment(original); !custody || original.ID != id {
+				_, accounts, err := cashAmendmentTarget(ctx, ledger, id, original)
+				if err != nil {
+					return err
+				}
+				if !accounts.active() {
+					return &domain.Error{Code: domain.ErrConflict, Field: "accountId"}
+				}
 			}
 			preview, token, err := ledger.PreviewUndoChangeGuardedAt(ctx, id, at.UTC())
 			review.Preview, review.token = preview, token
@@ -105,16 +123,12 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 	if err != nil {
 		return ReviewedAmendment{}, err
 	}
-	digest := sha256.Sum256(append([]byte("gio_cash_amendment\n"), payload...))
+	digest := sha256.Sum256(append([]byte("gio_activity_amendment\n"), payload...))
 	review.hash = hex.EncodeToString(digest[:])
 	return review, nil
 }
 
-func amendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID) (domain.Activity, AmendableCash, amendmentAccounts, error) {
-	activity, err := ledger.Activity(ctx, id)
-	if err != nil {
-		return domain.Activity{}, AmendableCash{}, amendmentAccounts{}, err
-	}
+func cashAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID, activity domain.Activity) (AmendableCash, amendmentAccounts, error) {
 	if movement, supported := CashAmendment(activity); supported && activity.ID == id {
 		ids := []domain.AccountID{*movement.Principal.AccountID}
 		if movement.Paired() && *movement.Received.AccountID != ids[0] {
@@ -122,17 +136,17 @@ func amendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.Acti
 		}
 		rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: ids, IncludeArchived: true})
 		if err != nil {
-			return domain.Activity{}, AmendableCash{}, amendmentAccounts{}, err
+			return AmendableCash{}, amendmentAccounts{}, err
 		}
 		if accounts, ok := movement.accounts(rows); ok {
-			return activity, movement, accounts, nil
+			return movement, accounts, nil
 		}
 	}
-	return domain.Activity{}, AmendableCash{}, amendmentAccounts{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+	return AmendableCash{}, amendmentAccounts{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
 }
 
 func (r ReviewedAmendment) Commit(ctx context.Context, ledger AmendmentLedger) (domain.ChangePreview, error) {
-	if r.Action == CorrectCash {
+	if r.Action == CorrectActivity {
 		return ledger.RecordFixChangeGuarded(ctx, r.original, r.replacement, r.mutation, r.hash, r.token)
 	}
 	return ledger.RecordUndoChangeGuardedAt(ctx, r.original, r.effectiveAt, r.mutation, r.hash, r.token)

@@ -1563,6 +1563,12 @@ var englishCatalog = catalog{
 	HistoryStartDraftFailed:       "Could not load opening holdings.",
 	HistoryStartInvalidCost:       "Enter zero or a positive unit cost with up to eight decimal places.",
 
+	CustodyAmendmentBeforeAfter:     "Quantity at original time · %s → %s",
+	CustodyAmendmentAfterReversal:   "Quantity after reversal · %s",
+	CustodyAmendmentInvalidQuantity: "Enter a valid quantity to transfer.",
+	CustodyAmendmentBack:            "Back to original activity",
+	CustodyAmendmentCorrect:         "Correct transfer",
+
 	FundsLoading:             "Loading available funds…",
 	FundsReadFailed:          "Could not load available funds.",
 	FundsToday:               "Today · %s (%s)",
