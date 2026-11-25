@@ -62,6 +62,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	tasks.checks = service
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)
 	funds.reservationLedger = service
+	funds.productLedger, funds.productClock = service, clock
 	funds.productPage = newProductDetailPage(ctx, service, window.Invalidate)
 	funds.productPage.receipts, funds.productPage.clock = service, clock
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)

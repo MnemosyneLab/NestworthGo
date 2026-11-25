@@ -759,7 +759,7 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View) []layo
 	for _, product := range p.current.products {
 		name, id := productName(product), product.Contract.ID
 		fields := []layout.Widget{
-			productState(view, product.DisplayState),
+			productState(view, product.Contract.Kind, product.DisplayState),
 			fundsAmount(view, i18n.ProductValue, product.CurrentValue),
 			productMaturity(view, product.Contract.MaturityOn),
 		}

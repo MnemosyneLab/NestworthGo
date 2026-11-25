@@ -1848,6 +1848,9 @@ var simplifiedChineseCatalog = catalog{
 	ProductRenewOpeningFeeFact: "开户费用 · %s",
 
 	ProductAddAction:               "添加产品",
+	ProductChooseAccount:           "选择账户",
+	ProductSetupSaved:              "已记录产品。",
+	ProductSetupInvalid:            "请检查输入的产品详情后重试。",
 	ProductAddCurrency:             "合同币种",
 	ProductAddMethod:               "录入方式",
 	ProductAddOpen:                 "立即买入/开立",

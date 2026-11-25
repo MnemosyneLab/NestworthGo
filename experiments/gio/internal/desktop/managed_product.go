@@ -49,7 +49,7 @@ func readProduct(ctx context.Context, service productReader, id domain.ProductCo
 		if err != nil {
 			return err
 		}
-		if detail.Contract.Kind != domain.ProductTermDeposit {
+		if detail.Contract.Kind != domain.ProductTermDeposit && detail.Contract.Kind != domain.ProductLockedProduct {
 			return nil
 		}
 		out.detail = &detail
@@ -233,7 +233,7 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 	product := p.current.detail
 	contract := product.Contract
 	fields := []layout.Widget{
-		productState(view, product.DisplayState),
+		productState(view, contract.Kind, product.DisplayState),
 		fundsAmount(view, i18n.ProductPrincipal, &contract.Principal),
 		fundsAmount(view, i18n.ProductValue, product.CurrentValue),
 		view.Message(fmt.Sprintf(l.Text(i18n.ProductStart), historyDay(view, contract.StartOn)), view.Colors.Ink),
@@ -355,7 +355,7 @@ func productName(product application.ProductDetail) string {
 	return domain.InstrumentDisplayLabel(product.Contract.Name, product.Symbol, product.Contract.ShortName)
 }
 
-func productState(view ui.View, state domain.ProductDisplayState) layout.Widget {
+func productState(view ui.View, kind domain.ProductKind, state domain.ProductDisplayState) layout.Widget {
 	l := view.Language
 	var label i18n.MessageID
 	switch state {
@@ -372,7 +372,11 @@ func productState(view ui.View, state domain.ProductDisplayState) layout.Widget 
 	case domain.ProductDisplayCancelled:
 		label = i18n.ProductCancelled
 	}
-	text := l.Text(i18n.ProductTermDeposit)
+	name := i18n.ProductTermDeposit
+	if kind == domain.ProductLockedProduct {
+		name = i18n.ProductAddLocked
+	}
+	text := l.Text(name)
 	if label != i18n.NoMessage {
 		text += " · " + l.Text(label)
 	}

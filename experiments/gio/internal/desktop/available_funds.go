@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"time"
 
 	"gioui.org/font"
 	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -67,6 +69,12 @@ type availableFundsPage struct {
 	current           *availableFundsRead
 	reservationLedger fundsReservationLedger
 	reservation       *fundsReservationSession
+	productLedger     fundsProductLedger
+	productClock      func() time.Time
+	setup             *fundsProductSetup
+	addProduct        widget.Clickable
+	productSaved      bool
+	restoreAddFocus   bool
 	err               error
 
 	list           widget.List
@@ -85,6 +93,7 @@ func newAvailableFundsPage(ctx context.Context, service availableFundsReader, in
 
 func (p *availableFundsPage) enter(position layout.Position) {
 	p.list.Position, p.current = position, nil
+	p.productSaved, p.restoreAddFocus = false, false
 	p.read()
 }
 
@@ -135,6 +144,13 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if p.setup != nil {
+		p.pollProductSetup()
+		if p.setup != nil {
+			return p.layoutProductSetup(gtx, view)
+		}
+		view.RestorePageScroll(0)
+	}
 	if p.reservation != nil {
 		p.pollReservations()
 		return p.layoutReservations(gtx, view)
@@ -144,6 +160,13 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	l := view.Language
+	accounts := p.productAccounts()
+	if len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
+		p.startProductSetup(accounts, l.Text(i18n.ProductAddDeposit))
+		view.RestorePageScroll(0)
+		gtx.Execute(op.InvalidateCmd{})
+		return layout.Dimensions{}
+	}
 	var status i18n.MessageID
 	action := i18n.HistoryRefresh
 	switch {
@@ -168,12 +191,32 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 					return view.Message(l.Text(status), color)(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if len(accounts) == 0 {
+						return layout.Dimensions{}
+					}
+					if p.restoreAddFocus && p.request == nil {
+						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
+						p.restoreAddFocus = false
+					}
+					if p.request != nil {
+						gtx = gtx.Disabled()
+					}
+					view.Focus.Watch(gtx, &p.addProduct)
+					return view.PrimaryButton(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.request != nil {
 						gtx = gtx.Disabled()
 					}
 					view.Focus.Watch(gtx, &p.reload)
 					return view.Button(&p.reload, l.Text(action))(gtx)
 				}))
+		}),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.productSaved {
+				return view.Message(l.Text(i18n.ProductSetupSaved), view.Colors.Ink)(gtx)
+			}
+			return layout.Dimensions{}
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if p.current == nil || p.request != nil {
@@ -243,7 +286,10 @@ func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, 
 
 func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadSource, day string) layout.Widget {
 	source := row.Result
-	termDeposit := source.ProductID != nil && row.ProductKind != nil && domain.ProductKind(*row.ProductKind) == domain.ProductTermDeposit
+	var kind domain.ProductKind
+	if source.ProductID != nil && row.ProductKind != nil {
+		kind = domain.ProductKind(*row.ProductKind)
+	}
 	l := view.Language
 	fields := []layout.Widget{fundsAmount(view, i18n.FundsCurrent, source.CurrentNativeValue)}
 	at := slices.IndexFunc(source.BucketResults, func(r domain.LiquidityBucketResult) bool { return r.HorizonOn == day })
@@ -285,7 +331,7 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		}
 	}
 	for _, reason := range reasons {
-		if termDeposit && reason == i18n.FundsDue && source.DisplayState == domain.ProductDisplayDueUnconfirmed {
+		if kind != "" && reason == i18n.FundsDue && source.DisplayState == domain.ProductDisplayDueUnconfirmed {
 			continue // The product state below already explains the unconfirmed receipt.
 		}
 		fields = append(fields, view.Message(l.Text(reason), view.Colors.SecondaryInk))
@@ -294,8 +340,8 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 	if source.ProductID == nil && row.InstrumentID != nil {
 		instrument = domain.InstrumentID(*row.InstrumentID)
 	}
-	if termDeposit {
-		fields = append(fields, productState(view, source.DisplayState))
+	if kind == domain.ProductTermDeposit || kind == domain.ProductLockedProduct {
+		fields = append(fields, productState(view, kind, source.DisplayState))
 		if p.openProduct != nil {
 			fields = append(fields, productLink(view, *source.ProductID, source.DisplayName, &p.sourceButtons(source.SourceKey).product, p.openProduct))
 		}

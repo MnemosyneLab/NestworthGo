@@ -1848,6 +1848,9 @@ var traditionalChineseCatalog = catalog{
 	ProductRenewOpeningFeeFact: "開立費用 · %s",
 
 	ProductAddAction:               "新增產品",
+	ProductChooseAccount:           "選擇帳戶",
+	ProductSetupSaved:              "已記錄產品。",
+	ProductSetupInvalid:            "請檢查輸入的產品詳細資料後再試。",
 	ProductAddCurrency:             "合約幣別",
 	ProductAddMethod:               "輸入方式",
 	ProductAddOpen:                 "立即買入/開立",

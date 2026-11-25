@@ -1765,6 +1765,9 @@ const (
 	ProductRenewOpeningFeeFact
 
 	ProductAddAction
+	ProductChooseAccount
+	ProductSetupSaved
+	ProductSetupInvalid
 	ProductAddCurrency
 	ProductAddMethod
 	ProductAddOpen

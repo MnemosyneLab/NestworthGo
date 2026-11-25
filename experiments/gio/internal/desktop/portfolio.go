@@ -364,7 +364,7 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 		}
 		product := r.product
 		name := productName(*product)
-		fields := []layout.Widget{productState(view, product.DisplayState), fundsAmount(view, i18n.ProductValue, product.CurrentValue)}
+		fields := []layout.Widget{productState(view, product.Contract.Kind, product.DisplayState), fundsAmount(view, i18n.ProductValue, product.CurrentValue)}
 		if p.openProduct != nil {
 			fields = append(fields, productLink(view, product.Contract.ID, name, portfolioButton(p.productButtons, product.Contract.ID), p.openProduct))
 		}

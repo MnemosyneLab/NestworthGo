@@ -24,7 +24,7 @@ type productReceiptLedger interface {
 }
 
 func (r productRead) canConfirmReceipt() bool {
-	if r.detail == nil || r.detail.Contract.State != domain.ProductStateOpen ||
+	if r.detail == nil || r.detail.Contract.Kind != domain.ProductTermDeposit || r.detail.Contract.State != domain.ProductStateOpen ||
 		r.detail.DisplayState != domain.ProductDisplayDueUnconfirmed || !r.accountActive ||
 		r.detail.Contract.MaturityOn == nil || r.localDate < *r.detail.Contract.MaturityOn {
 		return false

@@ -1847,6 +1847,9 @@ var japaneseCatalog = catalog{
 	ProductRenewOpeningFeeFact: "契約時手数料 · %s",
 
 	ProductAddAction:               "商品を追加",
+	ProductChooseAccount:           "口座を選択",
+	ProductSetupSaved:              "商品を記録しました。",
+	ProductSetupInvalid:            "入力した商品情報を確認して再試行してください。",
 	ProductAddCurrency:             "契約通貨",
 	ProductAddMethod:               "記録方法",
 	ProductAddOpen:                 "今すぐ購入・開設",

@@ -162,18 +162,22 @@ var productEarlyModeChoices = []productFormChoice{
 }
 
 func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.Point, d *holdingReconDraft, f *holdingProductTerms, ready, editing bool) []layout.Widget {
-	if f.current == nil && d.product.add == nil {
+	if f.current == nil {
 		return nil
 	}
+	return f.fields(view, origin, c.formCalendar(), d.product.currency, d.product.depositPrincipal(), ready, editing, d.focusAdjustmentField)
+}
+
+func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar productFormCalendar, currency, principal string, ready, editing bool, focus func(layout.Context, *ui.TextField)) []layout.Widget {
 	l := view.Language
 	text := func(field *ui.TextField, label i18n.MessageID, money bool) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
 			if ready && field == &f.name {
-				d.focusAdjustmentField(gtx, field)
+				focus(gtx, field)
 			}
 			opts := ui.FieldOptions{Label: label, Disabled: !ready}
 			if money {
-				return field.LayoutCurrency(gtx, view, opts, d.product.currency)
+				return field.LayoutCurrency(gtx, view, opts, currency)
 			}
 			return field.Layout(gtx, view, opts)
 		}
@@ -182,18 +186,14 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 	if f.current != nil && f.current.State != string(domain.ProductStateOpen) {
 		return append(rows, text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditClosed), view.Colors.SecondaryInk))
 	}
-	today := ""
-	if c.zone != nil {
-		today = c.clock().In(c.zone).Format(time.DateOnly)
-	}
 	week := time.Monday
 	if view.WeekStart == "sunday" {
 		week = time.Sunday
 	}
 	date := func(control *ui.DatePicker, label i18n.MessageID, value string, disabled bool, change func(string)) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
-			options := ui.DateOptions{Today: today, AllowFuture: true, Clearable: true, WeekStart: week, Format: view.DateFormat}
-			field := ui.PickerField{Label: label, Origin: *origin, Disabled: disabled || !ready || c.zone == nil}
+			options := ui.DateOptions{Today: calendar.today, AllowFuture: true, Clearable: true, WeekStart: week, Format: view.DateFormat}
+			field := ui.PickerField{Label: label, Origin: *origin, Disabled: disabled || !ready || calendar.today == ""}
 			control.Layout(gtx, view, field, options, value, change)
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
 		}
@@ -254,7 +254,7 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 			f.policy.EarlyKind = value
 			if f.deposit != nil && (editing || f.current == nil) && value == string(domain.EarlyAllowed) && f.policy.EarlyAmountMode == nil {
 				f.policy.EarlyAmountMode = productOptional(string(domain.EarlyAmountFixedGross))
-				f.earlyGross.Editor.SetText(d.product.depositPrincipal())
+				f.earlyGross.Editor.SetText(principal)
 				f.earlyFee.Editor.SetText("0")
 				f.earlyDays.Editor.SetText("0")
 			}

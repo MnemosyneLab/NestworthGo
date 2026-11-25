@@ -2054,6 +2054,35 @@ new explicit review. Released rows remain visible in the source manager.
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
 | Open evidence | Editing active reservations and managing other source kinds, including archived sources, remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
+#### Standalone product setup in Available Funds
+
+**Add product** appears above the funding sources. An eligible Holdings
+account opens directly when it is the only one. With multiple eligible
+accounts, the chooser keeps the account and its default currency in the draft.
+The form supports buying a term deposit or locked product from account cash,
+and recording an existing product with explicit confirmation that cash
+excludes it. Currency, contract dates, interest and availability rules use the
+same Gio controls as linked setup. Gio keeps these fields in one scrollable
+form. Wails groups advanced deposit settings, recorded values and transaction
+settings under disclosures.
+
+The preview uses the standalone shared operation and shows before and after
+cash and contract value. A reviewed opening preserves the selected civil time
+or the review instant if left blank. Record existing uses the shared recording
+time. Cancel returns to Add product, and Back to details retains the inputs.
+When the outcome is unknown, retry uses the same command, state hash and
+mutation ID. Confirmed products appear by exact ID in Available Funds,
+including read-only locked-product detail.
+[Wails Available Funds](../../../frontend/src/features/liquidity/AvailableFundsPage.tsx) · [Wails form](../../../frontend/src/features/liquidity/ProductFormSheet.tsx) · [Shared standalone adapter](../../../internal/wailsapi/liquidity/liquidity.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Independent SQLite profiles matched the USD 50.1234 term deposit, USD 0.0123 opening fee, USD 105.8643 cash, November 23 at 18:00 Asia/Singapore and ACT/360 rate 3.1259%. The EUR locked product retained cost 49.7891, value 52.0123 and USD 156 cash. Both cases exercised Back, Cancel, stale review and retry after a lost acknowledgement. Exact operation and product IDs persisted, and earlier Gio activities were unchanged. Multiple eligible accounts opened a chooser that excluded archived and cash-on-hand accounts. |
+| Packaged Gio Linux X11 | Wide review at 1140×920 and Cancel preserved nine financial and linkage tables. Return reopened Add product. At 665×480, Back retained the draft and Return confirmed a new review. Reopen showed USD 105.8643 cash and the exact term deposit from its source button. SQLite matched the review instant, USD 50.1234 principal and quote, and the December 23 unlock date and USD 0.0021 exit fee. The source hashes matched. |
+| Packaged Gio existing product | An independent copy at 665×480 confirmed the EUR 50.1234 locked product. Reopen opened the correct source detail with EUR 52.0123 value and the November 23 and December 23 contract dates. SQLite matched EUR 49.7891 basis, the service recording time and one new position activity with no cash legs. The source hashes matched. |
+| Checks | Full Gio tests, vet, Linux packaging, the fixture exporter, focused shared Go and adapter tests, and 94 Wails Available Funds, account products and form tests passed. |
+| Remaining | Account-detail setup navigation and standalone lifecycle actions remain open. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+
 #### Read-only term deposits
 
 **Available funds** links term-deposit sources to details by contract ID.

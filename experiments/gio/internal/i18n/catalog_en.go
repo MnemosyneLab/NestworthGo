@@ -1848,6 +1848,9 @@ var englishCatalog = catalog{
 	ProductRenewOpeningFeeFact: "Opening fee · %s",
 
 	ProductAddAction:               "Add product",
+	ProductChooseAccount:           "Choose account",
+	ProductSetupSaved:              "Product recorded.",
+	ProductSetupInvalid:            "Check the entered product details and try again.",
 	ProductAddCurrency:             "Contract currency",
 	ProductAddMethod:               "Entry method",
 	ProductAddOpen:                 "Buy/open now",

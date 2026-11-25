@@ -60,12 +60,17 @@ func (p *tasksPage) openHoldingProductAdd(account domain.ReconciliationAccount, 
 }
 
 func (f *holdingProductAdd) request(link domain.ReconciliationLink, currency string) (liquidity.ProductCommandRequest, bool) {
+	command, valid := f.command(link.AccountID, currency)
+	return liquidity.ProductCommandRequest{Kind: string(command.Kind), ReconciliationLink: &link, Open: command.Open, RecordExisting: command.RecordExisting}, valid
+}
+
+func (f *holdingProductAdd) command(accountID, currency string) (application.ProductCommand, bool) {
 	terms, policy, valid := f.terms.inputs()
 	if f.terms.deposit != nil && strings.TrimSpace(terms.Name) == "" {
 		terms.Name = f.depositName
 	}
 	principal := strings.TrimSpace(f.principal.Text())
-	req := liquidity.ProductCommandRequest{Kind: string(f.mode), ReconciliationLink: &link}
+	req := application.ProductCommand{Kind: f.mode}
 	if f.mode == domain.ProductOpRecordExisting {
 		value, cost := strings.TrimSpace(f.currentValue.Text()), strings.TrimSpace(f.cost.Text())
 		if f.terms.deposit != nil {
@@ -76,18 +81,31 @@ func (f *holdingProductAdd) request(link domain.ReconciliationLink, currency str
 				cost = principal
 			}
 		}
-		req.RecordExisting = &application.RecordExistingProductCommand{AccountID: link.AccountID, Currency: currency, Principal: principal,
+		req.RecordExisting = &application.RecordExistingProductCommand{AccountID: accountID, Currency: currency, Principal: principal,
 			CurrentValue: value, TotalCostBasis: cost, CashExcludesProduct: f.excludesCash.Value, Terms: terms, Policy: policy}
 	} else {
-		req.Open = &application.OpenProductCommand{AccountID: link.AccountID, Currency: currency, Principal: principal,
+		req.Open = &application.OpenProductCommand{AccountID: accountID, Currency: currency, Principal: principal,
 			OpeningFee: productOptional(strings.TrimSpace(f.openingFee.Text())), EffectiveLocalDate: f.time.day, EffectiveLocalTime: f.time.minute, Terms: terms, Policy: policy}
 	}
 	return req, valid
 }
 
 func (c *holdingReconciliation) holdingProductAddFields(view ui.View, origin *image.Point, d *holdingReconDraft, ready bool) []layout.Widget {
-	product, l := d.product, view.Language
-	f := product.add
+	product := d.product
+	cash := view.Language.Text(i18n.OverviewNoValue)
+	if account, _, ok := c.checkpoint(d.accountID, d.itemID, false); ok {
+		for _, item := range account.Items {
+			if item.Kind == "cash" && item.Currency == product.currency && item.Value != "" {
+				cash = holdingSnapshotValue(view, item.Value, item.Currency)
+				break
+			}
+		}
+	}
+	return product.add.fields(view, origin, c.formCalendar(), product.name, &product.currency, cash, ready, d.focusAdjustmentField, func() { d.problem = i18n.NoMessage })
+}
+
+func (f *holdingProductAdd) fields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func()) []layout.Widget {
+	l := view.Language
 	pick := func(selectControl *ui.Select, label i18n.MessageID, options []ui.Choice, value string, searchable bool, change func(string)) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
 			selectControl.Layout(gtx, view, ui.PickerField{Label: label, Origin: *origin, Disabled: !ready}, ui.SelectOptions{Items: options, Searchable: searchable}, value, change)
@@ -97,9 +115,9 @@ func (c *holdingReconciliation) holdingProductAddFields(view ui.View, origin *im
 	text := func(field *ui.TextField, label i18n.MessageID) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
 			if ready && field == &f.principal {
-				d.focusAdjustmentField(gtx, field)
+				focus(gtx, field)
 			}
-			return field.LayoutCurrency(gtx, view, ui.FieldOptions{Label: label, Disabled: !ready}, product.currency)
+			return field.LayoutCurrency(gtx, view, ui.FieldOptions{Label: label, Disabled: !ready}, *currency)
 		}
 	}
 	currencies := make([]ui.Choice, 0, len(domain.SupportedCurrencies()))
@@ -108,21 +126,12 @@ func (c *holdingReconciliation) holdingProductAddFields(view ui.View, origin *im
 	}
 	methods := []ui.Choice{{ID: string(domain.ProductOpOpen), Label: l.Text(i18n.ProductAddOpen)}, {ID: string(domain.ProductOpRecordExisting), Label: l.Text(i18n.ProductAddRecordExisting)}}
 	kinds := []ui.Choice{{ID: string(domain.ProductTermDeposit), Label: l.Text(i18n.ProductAddDeposit)}, {ID: string(domain.ProductLockedProduct), Label: l.Text(i18n.ProductAddLocked)}}
-	cash := l.Text(i18n.OverviewNoValue)
-	if account, _, ok := c.checkpoint(d.accountID, d.itemID, false); ok {
-		for _, item := range account.Items {
-			if item.Kind == "cash" && item.Currency == product.currency && item.Value != "" {
-				cash = holdingSnapshotValue(view, item.Value, item.Currency)
-				break
-			}
-		}
-	}
 	help := i18n.ProductAddOpenHelp
 	if f.mode == domain.ProductOpRecordExisting {
 		help = i18n.ProductAddExistingHelp
 	}
-	rows := []layout.Widget{view.Message(product.name, view.Colors.Ink),
-		pick(&f.currency, i18n.ProductAddCurrency, currencies, product.currency, true, func(v string) { product.currency = v }),
+	rows := []layout.Widget{view.Message(name, view.Colors.Ink),
+		pick(&f.currency, i18n.ProductAddCurrency, currencies, *currency, true, func(v string) { *currency = v }),
 		view.Message(fmt.Sprintf(l.Text(i18n.ProductAddCash), cash), view.Colors.SecondaryInk),
 		pick(&f.method, i18n.ProductAddMethod, methods, string(f.mode), false, func(v string) { f.mode = domain.ProductOperationKind(v) }),
 		view.Message(l.Text(help), view.Colors.SecondaryInk),
@@ -132,10 +141,10 @@ func (c *holdingReconciliation) holdingProductAddFields(view ui.View, origin *im
 		rows = append(rows, text(&f.currentValue, i18n.ProductAddCurrent), text(&f.cost, i18n.ProductAddCost),
 			checkpointCheckbox(view, &f.excludesCash, i18n.ProductAddExcludeCash, ready))
 	}
-	rows = append(rows, c.productTermsFields(view, origin, d, f.terms, ready, false)...)
+	rows = append(rows, f.terms.fields(view, origin, calendar, *currency, f.principal.Text(), ready, false, focus)...)
 	if f.mode == domain.ProductOpOpen {
 		rows = append(rows, text(&f.openingFee, i18n.ProductRenewOpeningFee))
-		rows = append(rows, c.holdingProductTimeFields(view, origin, d, &f.time, &f.openingFee.Editor, ready)...)
+		rows = append(rows, f.time.fields(view, origin, calendar, &f.openingFee.Editor, ready, changed)...)
 	}
 	return rows
 }

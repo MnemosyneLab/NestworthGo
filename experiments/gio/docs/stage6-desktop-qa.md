@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -244,6 +244,17 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   USD 40 successor with USD 0.1111 opening fee, November 23 start and December
   23 maturity, and USD 3.4567 fixed maturity interest. Cash should be USD
   119.4444 and the successor should reference the predecessor and renewal.
+
+- Run `run_copy funds-product gio` and `run_copy funds-product wails`.
+  In Available Funds, choose **Add product**. The single eligible account is
+  Harbor Brokerage. Use USD 50.1234 principal, USD 0.0123 opening fee,
+  November 23 start and December 23, 2026 maturity. Review USD 105.8643
+  remaining cash. Cancel and reopen the focused action, then confirm on a
+  fresh draft. After closing and restarting the app, open the new product
+  from its funding source and verify the exact amount and dates. On a separate
+  fresh copy, record an existing EUR locked product with EUR 50.1234 principal,
+  value 52.0123 and basis 49.7891. Acknowledge that cash excludes it and verify
+  USD 156 cash is unchanged and the locked product opens from funding sources.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These
