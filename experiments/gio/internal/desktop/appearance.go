@@ -158,6 +158,17 @@ var accentThemes = [...]accentTheme{
 	},
 }
 
+func init() {
+	// Fill the status, provenance, category and shadow tokens that do not vary
+	// by accent. accentThemes copied lightPalette and darkPalette at variable
+	// initialization, so each theme is completed on its own.
+	lightPalette, darkPalette = lightPalette.WithSemantics(false), darkPalette.WithSemantics(true)
+	for i := range accentThemes {
+		accentThemes[i].light = accentThemes[i].light.WithSemantics(false)
+		accentThemes[i].dark = accentThemes[i].dark.WithSemantics(true)
+	}
+}
+
 func rgb(hex uint32) color.NRGBA {
 	return color.NRGBA{R: uint8(hex >> 16), G: uint8(hex >> 8), B: uint8(hex), A: 255}
 }

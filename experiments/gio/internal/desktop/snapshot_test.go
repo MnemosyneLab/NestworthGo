@@ -3,6 +3,7 @@ package desktop
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -247,12 +249,82 @@ func (g *controlGallery) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	})
 }
 
+// layoutTokens draws the semantic palette: status, provenance and category
+// colors with their soft tints, plus the accent surface vocabulary.
+func (g *controlGallery) layoutTokens(gtx layout.Context, view ui.View) layout.Dimensions {
+	p := view.Colors
+	swatch := func(name string, fill, edge color.NRGBA) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					size := image.Pt(gtx.Dp(76), gtx.Dp(44))
+					bounds := image.Rectangle{Max: size}
+					radius := gtx.Dp(ui.RadiusLG)
+					paint.FillShape(gtx.Ops, edge, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+					paint.FillShape(gtx.Ops, fill, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
+					return layout.Dimensions{Size: size}
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = gtx.Dp(84)
+					return view.Label(gtx, name, 11, font.Normal, p.SecondaryInk)
+				}),
+			)
+		}
+	}
+	group := func(title string, swatches ...layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, 0, len(swatches))
+			for _, s := range swatches {
+				children = append(children, layout.Rigid(s))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Label(gtx, title, 12, font.Medium, p.SecondaryInk)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Gap: gtx.Dp(10)}.Layout(gtx, children...)
+				}),
+			)
+		}
+	}
+	edge := p.Divider
+	surfaces := group("Surfaces and ink",
+		swatch("page", p.PageBackground, edge), swatch("sidebar", p.SidebarBackground, edge),
+		swatch("surface", p.Surface, edge), swatch("hover", p.HoverSurface, edge),
+		swatch("divider", p.Divider, edge), swatch("ink", p.Ink, edge),
+		swatch("secondary", p.SecondaryInk, edge), swatch("accent", p.Accent, edge),
+		swatch("on accent", p.OnAccent, edge),
+	)
+	status := group("Status, solid and tinted",
+		swatch("success", p.Success, edge), swatch("success 14%", p.Tint(p.Success, 0.14), edge),
+		swatch("warning", p.Warning, edge), swatch("warning 18%", p.Tint(p.Warning, 0.18), edge),
+		swatch("warning ink", p.WarningInk, edge),
+		swatch("destructive", p.Destructive, edge), swatch("destr. 12%", p.Tint(p.Destructive, 0.12), edge),
+		swatch("accent 10%", p.Tint(p.Accent, 0.10), edge), swatch("error ink", p.ErrorInk, edge),
+	)
+	provenance := group("Data provenance",
+		swatch("current", p.Provenance.Current, edge), swatch("manual", p.Provenance.Manual, edge),
+		swatch("remote", p.Provenance.Remote, edge), swatch("stale", p.Provenance.Stale, edge),
+		swatch("unavailable", p.Provenance.Unavailable, edge),
+	)
+	var categories, softs []layout.Widget
+	for i := range p.Category {
+		categories = append(categories, swatch(fmt.Sprintf("cat %d", i+1), p.Category[i], edge))
+		softs = append(softs, swatch(fmt.Sprintf("soft %d", i+1), p.CategorySoft(i), edge))
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(22)}.Layout(gtx,
+		layout.Rigid(surfaces), layout.Rigid(status), layout.Rigid(provenance),
+		layout.Rigid(group("Category", categories...)), layout.Rigid(group("Category, soft", softs...)),
+	)
+}
+
 // galleryScenario drives pointer state. Only one pointer exists, so each
 // interactive state gets its own snapshot.
 type galleryScenario struct {
 	name         string
 	hover, press string
 	focusField   bool
+	tokens       bool
 }
 
 var galleryScenarios = []galleryScenario{
@@ -260,6 +332,7 @@ var galleryScenarios = []galleryScenario{
 	{name: "hover-secondary", hover: "Secondary", focusField: true},
 	{name: "hover-primary", hover: "Primary", focusField: true},
 	{name: "press-primary", press: "Primary", focusField: true},
+	{name: "tokens", tokens: true},
 }
 
 type galleryHarness struct {
@@ -271,6 +344,7 @@ type galleryHarness struct {
 	now     time.Time
 	size    image.Point
 	scale   float32
+	tokens  bool
 }
 
 func newGalleryHarness(t *testing.T, accent int, dark bool) *galleryHarness {
@@ -304,12 +378,16 @@ func (h *galleryHarness) frame(focus bool) {
 		if focus {
 			h.gallery.focused.Focus(gtx)
 		}
+		if h.tokens {
+			return h.gallery.layoutTokens(gtx, h.view)
+		}
 		return h.gallery.layout(gtx, h.view)
 	})
 	h.router.Frame(&h.ops)
 }
 
 func (h *galleryHarness) run(s galleryScenario) {
+	h.tokens = s.tokens
 	h.frame(s.focusField)
 	h.frame(false)
 	target := s.hover
