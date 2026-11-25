@@ -946,6 +946,7 @@ var japaneseCatalog = catalog{
 	AssetAdjustment:      "調整",
 	AssetResidual:        "説明できない差額",
 	AssetOpenDay:         "この日の資産変動を見る",
+	AssetOpenReturn:      "リターン分析を開く",
 
 	AssetCategoryComponents: "内訳",
 	AssetCategoryRecords:    "台帳の記録",

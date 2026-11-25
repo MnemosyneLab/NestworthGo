@@ -2235,7 +2235,7 @@ Change drivers shows the beginning and ending values, the net change, rate
 and the shared driver groups. Categories shows the chosen shared category
 total and attributed rows. The trend and category tables support keyboard
 scrolling. The layout follows the Wails section order. The following
-checkpoints cover Change Drivers and Asset Trend. Category details remain open.
+checkpoints cover Change Drivers, Asset Trend and category records.
 
 The Return Calendar detail action **View asset changes for this day** opens
 Change drivers with that single date and the existing supported filters. Back
@@ -2263,14 +2263,36 @@ A chart driver or grouped row opens its breakdown with the effective civil
 dates, exact total and the shared account and instrument projections. Failed
 reads can be retried. Escape restores focus to the chart or row. Residual
 details can open Ledger activity at the affected day and dimensions. The
-Return Analysis link and the residual link's end-to-end acceptance remain
-open.
+residual link's end-to-end acceptance remains open. The Contribution handoff
+is covered below.
 
 | Check | Evidence |
 | --- | --- |
 | Projection and interaction | Gio checks signed steps, the missing opening, the reported ending and the ties-to-even discrepancy threshold. A Calendar day link used the Wails-backed Price change driver read for the selected day. A failed first read retried in place, matched the breakdown, and restored chart focus on Escape. |
 | Linux X11 | The packaged app displayed USD 300.00 beginning, USD 2.75 Price change, and USD 302.75 ending. The chart opened a sheet showing Gain fund USD 5.25, Loss fund −USD 2.50 and Sample broker USD 2.75. Escape and Enter reopened that sheet. All three steps and their labels remained readable at 700×480. |
 | Build and tests | Full Gio tests and vet, the Linux launcher, focused shared Go Asset Changes and driver tests, and all 43 Wails Asset Changes and Return Analysis reference tests passed. Native Mac, Wayland and VoiceOver remain open. |
+
+#### Change Drivers to Contribution
+
+Price change, dividend and interest, FX impact, FX conversion spread and fees
+offer **Open return analysis** from their driver details. The action opens
+Contribution with the driver's effective dates, scope, valuation mode, cash
+choice and additional filters. Dividend and interest selects its matching
+return type. The other eligible drivers open Total return, following the
+[Wails Change Drivers contract](../../../frontend/src/features/insights/ChangeDriversTab.tsx).
+Gio places the action in the sheet footer so it stays accessible while the
+breakdown scrolls.
+
+Back restores Change drivers, the source date range and the original chart
+or row focus. Forward restores the scoped Contribution visit. Returning
+through an earlier Calendar entry also restores its month, filters and day
+button.
+
+| Check | Evidence |
+| --- | --- |
+| Shared application and Wails references | Independent copies matched a February 2 Price change and Contribution of USD 25 for the same instrument. Gio verified the Back and Forward sequence and the original Calendar focus. A separate interaction case retained native valuation, excluded cash, account, instrument, currency, asset class and member filters and the exact day. An income driver offered no Contribution action. The 43 Wails Asset Changes and Return Analysis frontend tests passed. |
+| Packaged Gio on Linux X11 | At 1160×940 and 665×480, Tab and Return opened Contribution from the Price change breakdown. The November 22–24 range and USD 25.00 for HARBOR matched the driver. Back restored the range and Enter reopened the same source detail. The source database and settings hashes matched, as did the account, instrument, holding, quote and activity rows. |
+| Wails Linux runtime | The matching Debian amd64 WebKitGTK 2.54.0 package contains `WebKitNetworkProcess` at the expected system path. The runtime is absent from the host package database, and the unpacked SDK has the file only under its temporary prefix. The existing stock X11 failure therefore still applies. The paired checks used the application and Wails adapter on independent synthetic copies. The interactive Wails comparison remains open. |
 
 #### Asset Trend chart and period coverage
 
@@ -2794,7 +2816,8 @@ choices remain selected.
   disposable inputs. Cover Return Calendar detail → Asset Changes with the
   selected day, account, instrument, currency, native valuation and cash
   filters; Contribution → Ledger with supported dates and kinds plus feedback
-  for unsupported filters; and Back to the originating selection and focus.
+  for unsupported filters; Change drivers → Contribution with the same
+  filters and effective range; and Back to the originating selection and focus.
   Compare Wealth History with priced and missing inputs, preserving date and
   quote/FX provenance. Verify Market Data partial refresh and Data Health
   canceled, retried and stale repair plans with a deterministic local provider.

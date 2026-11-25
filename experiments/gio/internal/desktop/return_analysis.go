@@ -11,6 +11,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -31,6 +32,25 @@ const (
 	returnTrendTab
 	returnContributionTab
 )
+
+type returnAnalysisVisit struct {
+	selection                  analysisSelection
+	expanded                   bool
+	preset                     int
+	presetAt                   analysisDateWindow
+	month                      time.Time
+	year                       bool
+	tab                        returnAnalysisTab
+	display                    application.ReturnTrendDisplay
+	metric                     application.ContributionReturnType
+	group                      application.ContributionGroupBy
+	sort                       application.ContributionSort
+	list, rankingList          layout.Position
+	rankingDirection           contributionDirection
+	rankingLimit               int
+	rankingSearch, selectedKey string
+	trendSelection             charts.Selection
+}
 
 type returnCalendarFrame struct {
 	summary      application.ReturnCalendarResult
@@ -93,6 +113,34 @@ func (p *returnAnalysisPage) enter() {
 	} else {
 		p.readMonth(p.month, p.sunday)
 	}
+}
+
+func (p *returnAnalysisPage) visit() returnAnalysisVisit {
+	o := &p.output
+	return returnAnalysisVisit{
+		selection: p.filters.selection, expanded: p.filters.expanded,
+		preset: p.filters.shortcuts.chosen, presetAt: p.filters.shortcuts.at,
+		month: p.month, year: p.year, tab: p.tab,
+		display: o.display, metric: o.metric, group: o.group, sort: o.sort,
+		list: o.list.Position, rankingList: o.ranking.list.Position,
+		rankingDirection: o.ranking.direction, rankingLimit: o.ranking.limit, rankingSearch: o.ranking.search.Field.Text(),
+		selectedKey: o.selectedKey, trendSelection: o.trendSelection,
+	}
+}
+
+func (p *returnAnalysisPage) restore(visit returnAnalysisVisit) {
+	p.filters.selection, p.filters.expanded = visit.selection, visit.expanded
+	p.filters.shortcuts.chosen, p.filters.shortcuts.at = visit.preset, visit.presetAt
+	p.month, p.year, p.tab = visit.month, visit.year, visit.tab
+	o := &p.output
+	o.display, o.metric, o.group, o.sort = visit.display, visit.metric, visit.group, visit.sort
+	o.list.Position, o.ranking.list.Position = visit.list, visit.rankingList
+	o.ranking.direction, o.ranking.limit = visit.rankingDirection, visit.rankingLimit
+	if o.ranking.search.Field.Text() != visit.rankingSearch {
+		o.ranking.search.Field.Editor.SetText(visit.rankingSearch)
+	}
+	o.selectedKey, o.trendSelection = visit.selectedKey, visit.trendSelection
+	p.current = nil
 }
 
 func (p *returnAnalysisPage) leave() {

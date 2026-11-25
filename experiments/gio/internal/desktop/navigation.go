@@ -50,6 +50,7 @@ type navigationEntry struct {
 	portfolioSearch  string
 	tasks            tasksVisit
 	asset            assetChangesVisit
+	returns          *returnAnalysisVisit
 	marketData       marketDataVisit
 	quoteHistory     *marketQuoteHistoryVisit
 	healthScroll     layout.Position
@@ -111,6 +112,10 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	if a.target.route == assetChangesRoute {
 		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
 	}
+	if a.target.route == returnAnalysisRoute && a.returns != nil && b.returns != nil {
+		return a.returns.tab == b.returns.tab && a.returns.selection == b.returns.selection &&
+			a.returns.month.Equal(b.returns.month) && a.returns.year == b.returns.year && a.returns.metric == b.returns.metric
+	}
 	if a.target.route == marketDataRoute {
 		return a.marketData.tab == b.marketData.tab && strings.EqualFold(strings.TrimSpace(a.marketData.search), strings.TrimSpace(b.marketData.search))
 	}
@@ -145,6 +150,7 @@ type navigationRequest struct {
 	providerSettings     bool
 	verifyProductReceipt bool
 	asset                assetChangesVisit
+	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
 }
 
@@ -306,7 +312,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.restoreVisit(s.trail.current())
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
-			asset: request.asset, historyFilters: request.historyFilters})
+			asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -340,6 +346,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.wealthHistory.enter()
 	}
 	if entry.target.route == returnAnalysisRoute {
+		if entry.returns != nil {
+			s.returns.restore(*entry.returns)
+		}
 		s.returns.enter()
 	}
 	if entry.target.route == assetChangesRoute {
@@ -437,8 +446,14 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case settingsRoute:
 		entry.scroll = s.stage.Position
 		entry.settingsSection = s.settingsPage.active
-	case wealthHistoryRoute, returnAnalysisRoute:
+	case wealthHistoryRoute:
 		entry.scroll = s.stage.Position
+	case returnAnalysisRoute:
+		entry.scroll = s.stage.Position
+		if s.returns != nil {
+			visit := s.returns.visit()
+			entry.returns = &visit
+		}
 	case assetChangesRoute:
 		entry.scroll = s.stage.Position
 		entry.asset = s.assets.visit()

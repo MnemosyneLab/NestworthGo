@@ -83,6 +83,7 @@ type assetChangesPage struct {
 	categoryButtons            map[string]*widget.Clickable
 	categoryFocus              event.Tag
 	openHistory                func(history.Filters, domain.ActivityID, event.Tag)
+	openReturns                func(analysisSelection, bool, application.ContributionReturnType, event.Tag)
 }
 
 func (p *assetChangesPage) enter(state assetChangesVisit) {

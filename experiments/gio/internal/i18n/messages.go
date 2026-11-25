@@ -772,6 +772,7 @@ const (
 	AssetDriverByAccount
 	AssetNoDriverDetail
 	AssetOpenDay
+	AssetOpenReturn
 	ContributionOpenHistory
 	ContributionHistoryWider
 	ContributionHistoryUnavailable

@@ -81,9 +81,32 @@ func (p *assetChangesPage) layoutDriverSheet(gtx layout.Context, view ui.View) {
 		gtx.Execute(key.FocusCmd{Tag: &sheet.close})
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	action := i18n.NoMessage
+	if kind := returnMetricForDriver(sheet.row.Bucket); p.openReturns != nil && sheet.value != nil && kind != "" {
+		action = i18n.AssetOpenReturn
+		if sheet.action.Clicked(gtx) {
+			selection := p.filters.selection
+			selection.from, selection.to = sheet.query.From, sheet.query.To
+			p.closeDriver()
+			p.openReturns(selection, p.filters.expanded, kind, sheet.trigger)
+			gtx.Execute(op.InvalidateCmd{})
+			return
+		}
+	}
 	sheet.layout(gtx, view, assetBucketLabel(view.Language, sheet.row.Bucket), func(gtx layout.Context) layout.Dimensions {
 		return p.driverDetails(gtx, view, sheet)
-	}, i18n.NoMessage)
+	}, action)
+}
+
+func returnMetricForDriver(bucket domain.AttributionBucket) application.ContributionReturnType {
+	switch bucket {
+	case domain.BucketDividendInterest:
+		return application.ContributionDividendInterest
+	case domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFXConversionSpread, domain.BucketFee:
+		return application.ContributionTotalReturn
+	default:
+		return ""
+	}
 }
 
 func (p *assetChangesPage) driverDetails(gtx layout.Context, view ui.View, sheet *assetDriverSheet) layout.Dimensions {

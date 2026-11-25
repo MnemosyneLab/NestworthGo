@@ -947,6 +947,7 @@ var simplifiedChineseCatalog = catalog{
 	AssetAdjustment:      "调整",
 	AssetResidual:        "未解释差额",
 	AssetOpenDay:         "查看当天资产变动",
+	AssetOpenReturn:      "打开收益分析",
 
 	AssetCategoryComponents: "明细",
 	AssetCategoryRecords:    "账本记录",

@@ -281,8 +281,44 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Total · $ 25.00")
 	assertPageLabel(t, &h.router, "By account")
-	h.press(key.NameEscape)
-	h.frame()
+	wantDriverRanks, err := adapter.Contribution(ctx, dayQuery, string(application.ContributionTotalReturn),
+		string(application.ContributionGroupInstrument), string(application.ContributionSortAmountDesc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	settleHandoff := func() {
+		for range 3 {
+			page.workers.Wait()
+			assets.workers.Wait()
+			h.frame()
+		}
+	}
+	h.click("Open return analysis", false)
+	settleHandoff()
+	if h.shell.activeRoute() != returnAnalysisRoute || page.tab != returnContributionTab ||
+		page.current == nil || page.current.contribution == nil || page.current.query.From != dayQuery.From || page.current.query.To != dayQuery.To {
+		t.Fatalf("price driver did not open the exact contribution range: %v", page.err)
+	}
+	driverRanks := page.current.contribution.Rows
+	if len(driverRanks) != 1 || len(wantDriverRanks.Rows) != 1 || driverRanks[0].Key != instrument.ID.String() ||
+		driverRanks[0].Key != wantDriverRanks.Rows[0].Key || driverRanks[0].Amount == nil || wantDriverRanks.Rows[0].Amount == nil ||
+		driverRanks[0].Amount.CanonicalAmount() != "25" || driverRanks[0].Amount.CanonicalAmount() != wantDriverRanks.Rows[0].Amount.Amount {
+		t.Fatalf("price driver contribution does not match Wails: %+v and %+v", driverRanks, wantDriverRanks.Rows)
+	}
+	h.click("Back", false)
+	settleHandoff()
+	if h.shell.activeRoute() != assetChangesRoute || assets.state.tab != assetDriversTab {
+		t.Fatal("Back lost Change drivers")
+	}
+	h.focused(&assets.waterfall)
+	h.click("Forward", false)
+	settleHandoff()
+	if h.shell.activeRoute() != returnAnalysisRoute || page.tab != returnContributionTab ||
+		page.current == nil || page.current.query.From != dayQuery.From || page.current.query.To != dayQuery.To {
+		t.Fatal("Forward lost the contribution visit")
+	}
+	h.click("Back", false)
+	settleHandoff()
 	h.focused(&assets.waterfall)
 	wailsAssetTrend, err := adapter.AssetTrend(ctx, dayQuery, string(application.TrendDay), string(application.TrendNetWorth))
 	if err != nil {
@@ -333,6 +369,9 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	page.workers.Wait()
 	h.frame()
 	h.focused(trigger)
+	if page.tab != returnCalendarTab || page.month.Format("2006-01") != "2026-02" {
+		t.Fatal("Contribution handoff overwrote the original Calendar visit")
+	}
 
 	wantTrend, err := adapter.ReturnTrend(ctx, query, string(application.ReturnTrendCumulativeAmount))
 	if err != nil {
@@ -557,7 +596,13 @@ func (r *calendarFilterReader) ReturnCalendar(_ context.Context, q domain.Analys
 
 func (r *calendarFilterReader) AssetChange(_ context.Context, q domain.AnalysisQuery) (application.AssetChangeResult, error) {
 	r.lastAssets = q
-	return application.AssetChangeResult{}, nil
+	return application.AssetChangeResult{
+		AnalysisAvailability: application.AnalysisAvailability{Available: true},
+		Groups: []application.AssetChangeGroup{
+			{Key: "market", Rows: []application.AssetChangeRow{{Key: "price", Bucket: domain.BucketPriceChange}}},
+			{Key: "cash", Rows: []application.AssetChangeRow{{Key: "income", Bucket: domain.BucketIncome}}},
+		},
+	}, nil
 }
 
 func (r *calendarFilterReader) AssetDriverDetail(context.Context, domain.AnalysisQuery, string) (application.AssetDriverDetailResult, error) {
@@ -701,6 +746,23 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 		t.Fatal("calendar day did not open Change drivers")
 	}
 	want(reader.lastAssets, "2026-08-01")
+	h.click("Income · Unavailable", false)
+	settle()
+	if findPageLabel(&h.router, "Open return analysis") != nil {
+		t.Fatal("a cash-flow driver offered a Contribution handoff")
+	}
+	h.press(key.NameEscape)
+	h.click("Price change · Unavailable", false)
+	settle()
+	h.click("Open return analysis", false)
+	settle()
+	if h.shell.activeRoute() != returnAnalysisRoute || p.tab != returnContributionTab {
+		t.Fatal("a price driver did not open Contribution")
+	}
+	want(reader.lastRanks, "2026-08-01")
+	h.click("Back", false)
+	settle()
+	h.focused(assets.driverButtons["price"])
 	h.click("Back", false)
 	settle()
 	h.focused(trigger)

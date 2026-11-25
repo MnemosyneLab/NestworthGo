@@ -296,6 +296,14 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: assetChangesRoute},
 				focus: focus, asset: assetChangesVisit{selection: selection, tab: assetDriversTab}}
 		}
+		s.assets.openReturns = func(selection analysisSelection, expanded bool, metric application.ContributionReturnType, focus event.Tag) {
+			visit := s.returns.visit()
+			visit.selection, visit.expanded, visit.tab, visit.metric = selection, expanded, returnContributionTab, metric
+			visit.preset, visit.presetAt = 0, analysisDateWindow{}
+			visit.list, visit.rankingList, visit.selectedKey = layout.Position{}, layout.Position{}, ""
+			visit.rankingDirection, visit.rankingLimit, visit.rankingSearch = contributionLargest, 0, ""
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: returnAnalysisRoute}, focus: focus, returns: &visit}
+		}
 	}
 	if s.returns != nil && s.historyPage != nil && s.historyPage.reads != nil {
 		s.returns.openHistory = func(filters history.Filters, focus event.Tag) {

@@ -947,6 +947,7 @@ var englishCatalog = catalog{
 	AssetAdjustment:      "Adjustment",
 	AssetResidual:        "Unexplained difference",
 	AssetOpenDay:         "View asset changes for this day",
+	AssetOpenReturn:      "Open return analysis",
 
 	AssetCategoryComponents: "Breakdown",
 	AssetCategoryRecords:    "Ledger records",
