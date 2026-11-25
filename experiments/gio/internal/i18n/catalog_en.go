@@ -1265,6 +1265,7 @@ var englishCatalog = catalog{
 	HistoryStartConfirm:       "Confirm Starting Point",
 	HistoryStartEdit:          "Change date",
 	HistoryStartScope:         "Use today to capture existing balances. An earlier date requires zero balances and holdings.",
+	HistoryStartHousehold:     "The Starting Point applies to the whole household.",
 	HistoryStartCaptureNow:    "Capture current balances at confirmation on %s (%s)",
 	HistoryStartBaseline:      "The Starting Point records opening balances without posting ledger activity.",
 	HistoryStartEmpty:         "No opening amounts to capture.",

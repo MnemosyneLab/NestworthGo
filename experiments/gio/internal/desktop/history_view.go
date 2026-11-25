@@ -81,12 +81,10 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 	if c := p.cashMovements; c != nil {
 		if s := p.startPoint; s != nil && c.draft == nil {
 			if p.noHistory() && s.start.Clicked(gtx) {
-				s.open = true
-				s.cost = ui.NewTextField(true)
-				p.loadStartingPointHolding()
+				p.beginStartingPoint(s)
 			}
 			if s.open {
-				return p.layoutStartingPoint(gtx, view)
+				return p.layoutStartingPoint(gtx, view, s)
 			}
 		}
 		if c.draft == nil {

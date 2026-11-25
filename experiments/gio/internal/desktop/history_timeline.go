@@ -115,7 +115,7 @@ func (r historyPageReader) ListActivityPage(ctx context.Context, query domain.Ac
 func newLedgerHistory(ctx context.Context, service historyService, clock func() time.Time, invalidate func()) *historyPage {
 	page := newHistoryPage(history.New(ctx, historyPageReader{service}, invalidate))
 	page.cashMovements = newHistoryCashMovements(ctx, service, clock, invalidate)
-	page.startPoint = &historyStart{service: service, balances: widget.List{List: layout.List{Axis: layout.Vertical}}}
+	page.startPoint = newHistoryStart(service)
 	page.reads = &historyReads{
 		ctx: ctx, service: service, clock: clock, invalidate: invalidate,
 		buttons: make(map[domain.ActivityID]*widget.Clickable),
@@ -277,7 +277,7 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 // Poll before the shell handles navigation so acknowledgement can open the exact
 // saved ID, even when the active query excludes it.
 func (p *historyPage) pollPosted() {
-	p.pollStartingPoint()
+	p.pollStartingPoint(p.startPoint)
 	if p.reads != nil {
 		p.pollAmendment()
 		p.pollRepeat()

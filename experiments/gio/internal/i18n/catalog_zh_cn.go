@@ -1265,6 +1265,7 @@ var simplifiedChineseCatalog = catalog{
 	HistoryStartConfirm:       "确认历史起点",
 	HistoryStartEdit:          "更改日期",
 	HistoryStartScope:         "选择今天可保存已有余额。选择较早日期要求余额和持仓均为零。",
+	HistoryStartHousehold:     "起始点适用于整个家庭。",
 	HistoryStartCaptureNow:    "在 %s（%s）确认时记录当前余额",
 	HistoryStartBaseline:      "历史起点保存期初余额，不会生成账务活动。",
 	HistoryStartEmpty:         "没有需要记录的期初金额。",

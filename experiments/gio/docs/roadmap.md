@@ -614,7 +614,7 @@ profiles and the established startup and ownership path.
 | Gate from the delivery sequence | What the pilot supports | What remains |
 | --- | --- | --- |
 | Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, scoped balance targets, and [card and debt posting](#card-purchases-refunds-and-debt-posting). The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Cash-account entry to debt posting, additional liability reasons, expense categorization, broader reconciliation and account value updates, and additional backdated cases. |
-| History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points for eligible cash/liability balances, repeat for supported cash movements, and linked cash corrections and reversals. | Positive position opening and cost basis are investment prerequisites when importing existing holdings. The account action-sheet shortcut, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions can follow the first investment read. |
+| History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points, the [liability account Starting Point handoff](#starting-point-from-a-liability-account), repeat for supported cash movements, and linked cash corrections and reversals. | Multi-position opening and cost basis, Starting Point handoffs from more account action types, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions. |
 | Cross-page and external invalidation | Confirmed writes refresh History, Account and Overview. History Activity links open the exact account and return to the existing visit. A write made through the same shared application service refreshes the active ledger pages without a page callback. | Exercise connected Mobile and MCP clients when their Gio lifecycles are wired. Keep production startup, target-platform acceptance and Wails GUI parity open. |
 
 The [Holdings reads](#holdings-and-instrument-detail) and [first buy](#first-recorded-security-buy)
@@ -920,7 +920,24 @@ another write. When verification fails, Retry rereads the saved state.
 | Linux X11 | In a 900×660 native Gio window on Xvfb, rejected an earlier date with balances, reviewed native balances and double-clicked the confirmation. History was empty immediately after start. A subsequent USD 5 contribution brought savings to USD 130.5. Normal quit and reopen showed that single activity and the same balance. The empty profile accepted November 20 at midnight, then reopened with empty History. Closed read-only SQLite checks found exactly one origin in each profile, four opening components in the populated profile and none in the empty profile. The populated file retained original balances and contained only the separate contribution and its mutation receipt. A temporary overlay set the clock and seeded the verified profiles. |
 | Tests | The Gio module suite and focused application, Wails History adapter and SQLite History tests passed. |
 | Build and vet | The Linux Gio preview build and Gio and shared application vet checks passed. |
-| Open evidence | The account action-sheet Starting Point entry remains open. [One positive opening position](#opening-position-and-original-cost) is covered in Stage 5. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were not run. The Stage 3 production startup and target-platform cutover gates remain open. |
+| Open evidence | The [liability account entry](#starting-point-from-a-liability-account) has separate evidence below. [One positive opening position](#opening-position-and-original-cost) is covered in Stage 5. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were not run. The Stage 3 production startup and target-platform cutover gates remain open. |
+
+#### Starting Point from a liability account
+
+**Accounts → liability account → Record a change** opens the shared Starting
+Point form when the household has no Origin, following the
+[Wails account sheet](../../../frontend/src/features/accounts/AccountActionSheets.tsx).
+The account stays visible in the form and the preview shows all household
+opening balances. An origin read error offers Retry before displaying the
+start form. Cancel restores focus to Record a change. After confirmation,
+Gio reads back the persisted Origin before resuming the same card or debt
+form with the selected account, its currency and the Origin timezone.
+
+| Check | Evidence |
+| --- | --- |
+| Shared behavior | A synthetic ledger and an independent Wails reference both captured the Origin on November 22 in Asia/Singapore. The account origin read failure offered Retry. Cancel produced zero writes. A lost confirmation reply and failed verification blocked navigation until a read-only retry recovered the one Origin. The continued USD 1.2345 purchase matched Wails and survived reopen. |
+| Linux X11 | In the packaged app, cancelling a review at 1160×820 left no Origin or activities. At 640×480, Return reentered the same account action and confirmed the Starting Point. SQLite showed four opening balances in the America/Vancouver Origin and zero activities. The resumed card form separately posted USD 2.3456. Back and Return restored Record a change. Restart showed one Origin and that one card purchase, and the synthetic source hashes matched. |
+| Suites and remaining scope | The full Gio suite and vet, repeated focused Gio regressions, standard Linux package build, focused shared application and Wails History Go tests, and six Wails frontend account reference tests passed. Additional account types and multi-position opening remain open. Interactive Wails, macOS, Wayland, native IME and VoiceOver remain unverified. |
 
 #### Holdings cash target balance
 
@@ -2165,10 +2182,10 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Finish account Starting Point handoffs and the remaining Stage 4 account
-workflows after the verified card and debt posting slice. Then continue Stage
-5 with multi-position opening, cross-currency
-trades and broader Holdings actions. Put additional Agent audit filters,
+Finish the remaining Stage 4 account workflows, including the cash-account
+debt entry and additional Starting Point handoffs. Then continue Stage 5
+with multi-position opening, cross-currency trades and broader Holdings
+actions. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor
 remains part of investment parity. External enrollment and permissions stay

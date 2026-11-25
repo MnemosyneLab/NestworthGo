@@ -1146,6 +1146,7 @@ const (
 	HistoryStartConfirm
 	HistoryStartEdit
 	HistoryStartScope
+	HistoryStartHousehold
 	HistoryStartCaptureNow
 	HistoryStartBaseline
 	HistoryStartEmpty

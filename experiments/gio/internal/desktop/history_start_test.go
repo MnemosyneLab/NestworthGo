@@ -145,7 +145,7 @@ func TestHistoryStartingPointCapturesExistingBalances(t *testing.T) {
 	}
 	h.clickAt(point)
 	h.click("Back", false)
-	if h.shell.activeRoute() != historyRoute || !page.startingPointUnresolved() {
+	if h.shell.activeRoute() != historyRoute || !page.startPoint.unresolved() {
 		t.Fatal("confirmation escaped to another page")
 	}
 	release()

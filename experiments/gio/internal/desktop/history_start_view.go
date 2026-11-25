@@ -15,11 +15,11 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
-func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layout.Dimensions {
-	s, l := p.startPoint, view.Language
+func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View, s *historyStart) layout.Dimensions {
+	l := view.Language
 	gtx, view = view.Measure(gtx, 660)
 	if s.verifying {
-		return p.layoutStartingPointRead(gtx, view)
+		return p.layoutStartingPointRead(gtx, view, s)
 	}
 	if s.write != nil {
 		return view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)(gtx)
@@ -27,12 +27,14 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layo
 	if s.cancel.Clicked(gtx) {
 		s.open, s.day, s.problem, s.preview, s.review = false, "", i18n.NoMessage, nil, nil
 		s.loading, s.holding, s.cost = nil, nil, ui.NewTextField(true)
-		gtx.Execute(key.FocusCmd{Tag: &s.start})
+		if s.accountName == "" {
+			gtx.Execute(key.FocusCmd{Tag: &s.start})
+		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	if s.review != nil {
-		return p.layoutStartingPointReview(gtx, view)
+		return p.layoutStartingPointReview(gtx, view, s)
 	}
 
 	zone := view.TimeLocation.String()
@@ -42,7 +44,7 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layo
 		day = today
 	}
 	if s.loading == nil && s.draftProblem != i18n.NoMessage && s.retry.Clicked(gtx) {
-		p.loadStartingPointHolding()
+		p.loadStartingPointHolding(s)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	canReview := func() bool {
@@ -50,7 +52,7 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layo
 			(s.holding == nil || strings.TrimSpace(s.cost.Text()) != "")
 	}
 	if canReview() && s.prepare.Clicked(gtx) {
-		p.previewStartHistory(zone, day)
+		p.previewStartHistory(s, zone, day)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	origin := view.Origin
@@ -64,10 +66,21 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layo
 				return view.Label(gtx, l.Text(i18n.HistoryStartAction), 19, font.Medium, view.Colors.Ink)
 			})
 		}),
+	}
+	if s.accountName != "" {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return fieldPosition(gtx, &origin, view.Message(s.accountName+" · "+l.Text(i18n.HistoryStartHousehold), view.Colors.Ink))
+		}))
+	}
+	children = append(children,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, view.Message(fmt.Sprintf(l.Text(i18n.OnboardingTimezone), zone), view.Colors.SecondaryInk))
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if s.focusDate && gtx.Enabled() && s.loading == nil {
+				gtx.Execute(key.FocusCmd{Tag: &s.calendar.Trigger})
+				s.focusDate = false
+			}
 			s.calendar.Layout(gtx, view, ui.PickerField{Label: i18n.OnboardingDate, Origin: origin, Disabled: s.preview != nil},
 				ui.DateOptions{Today: today, Max: today, WeekStart: weekStart, Format: view.DateFormat}, day, func(value string) {
 					s.day, s.problem = value, i18n.NoMessage
@@ -75,7 +88,7 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layo
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 		}),
 		layout.Rigid(view.Message(l.Text(i18n.HistoryStartScope), view.Colors.SecondaryInk)),
-	}
+	)
 	if s.holding != nil && s.draftProblem == i18n.NoMessage {
 		holding := s.holding
 		children = append(children,
@@ -112,15 +125,15 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layo
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View) layout.Dimensions {
-	s, l := p.startPoint, view.Language
+func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View, s *historyStart) layout.Dimensions {
+	l := view.Language
 	if s.edit.Clicked(gtx) {
 		s.review = nil
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	if s.confirm.Clicked(gtx) {
-		p.confirmStartHistory()
+		p.confirmStartHistory(s)
 		gtx.Execute(op.InvalidateCmd{})
 		return view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)(gtx)
 	}
@@ -173,6 +186,10 @@ func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View
 			})
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if s.focusConfirm && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &s.confirm})
+				s.focusConfirm = false
+			}
 			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Rigid(view.Button(&s.cancel, l.Text(i18n.InstitutionsCancel))),
 				layout.Rigid(view.Button(&s.edit, l.Text(editLabel))),
@@ -182,10 +199,10 @@ func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View
 	)
 }
 
-func (p *historyPage) layoutStartingPointRead(gtx layout.Context, view ui.View) layout.Dimensions {
-	s, l := p.startPoint, view.Language
+func (p *historyPage) layoutStartingPointRead(gtx layout.Context, view ui.View, s *historyStart) layout.Dimensions {
+	l := view.Language
 	if s.read == nil && s.retry.Clicked(gtx) {
-		p.readStartingPoint()
+		p.readStartingPoint(s)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	var children []layout.FlexChild

@@ -374,6 +374,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.accounts != nil && s.accounts.liabilityPosting != nil {
 			s.accounts.liabilityPosting.onPosted = s.historyPage.showPosted
+			s.accounts.liabilityPosting.history = s.historyPage
 		}
 		if s.accounts != nil && s.accounts.investment != nil {
 			s.accounts.investment.onPosted = func(activity domain.Activity, notice i18n.MessageID, from event.Tag) {

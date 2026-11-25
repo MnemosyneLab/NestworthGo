@@ -1265,6 +1265,7 @@ var traditionalChineseCatalog = catalog{
 	HistoryStartConfirm:       "確認歷史起點",
 	HistoryStartEdit:          "變更日期",
 	HistoryStartScope:         "選擇今天可儲存現有餘額。選擇較早日期時，餘額及持倉必須為零。",
+	HistoryStartHousehold:     "起始點適用於整個家庭。",
 	HistoryStartCaptureNow:    "在 %s（%s）確認時記錄目前的餘額",
 	HistoryStartBaseline:      "歷史起點儲存期初餘額，不會產生帳務活動。",
 	HistoryStartEmpty:         "沒有需要記錄的期初金額。",

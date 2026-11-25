@@ -1264,6 +1264,7 @@ var japaneseCatalog = catalog{
 	HistoryStartConfirm:       "履歴の開始点を確定",
 	HistoryStartEdit:          "日付を変更",
 	HistoryStartScope:         "現在の残高を記録するには今日を選択してください。過去の日付を選ぶには残高と保有数量がゼロである必要があります。",
+	HistoryStartHousehold:     "開始点は世帯全体に適用されます。",
 	HistoryStartCaptureNow:    "%s（%s）の確定時点の残高を記録します",
 	HistoryStartBaseline:      "開始点には期首残高を記録し、取引は計上しません。",
 	HistoryStartEmpty:         "記録する期首金額はありません。",
