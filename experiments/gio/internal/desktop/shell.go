@@ -1076,10 +1076,18 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 	if body == nil {
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}
-	if entry := s.trail.current(); entry != s.stageEntry {
-		s.stageEntry = entry
+	entry := s.trail.current()
+	// A returning calendar briefly lays out a shorter loading view. Wait
+	// for the grid so the stage does not clamp the saved offset to it.
+	deferReturnScroll := entry != s.stageEntry && entry.visited && entry.target.route == returnAnalysisRoute &&
+		entry.scroll.Offset != 0 && s.returns != nil && s.returns.current == nil &&
+		(s.returns.request != nil || s.returns.refsRead != nil)
+	if entry != s.stageEntry {
+		if !deferReturnScroll {
+			s.stageEntry = entry
+		}
 		s.stage.Position = layout.Position{}
-		if entry.visited {
+		if entry.visited && !deferReturnScroll {
 			switch entry.target.route {
 			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute, dataHealthRoute, tasksRoute:
 				s.stage.Position = entry.scroll
@@ -1100,6 +1108,9 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		})
 	})
 	view.Overlay.OffsetScrollAnchor(&s.stage, bounds)
+	if deferReturnScroll && (s.returns.current != nil || s.returns.err != nil) {
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	return dims
 }
 

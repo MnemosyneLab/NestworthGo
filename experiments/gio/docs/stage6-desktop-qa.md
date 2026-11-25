@@ -1,4 +1,4 @@
-# Stage 6 Data Health and Market Data acceptance
+# Stage 6 paired desktop acceptance
 
 ## Reproduce the automated pair
 
@@ -6,9 +6,13 @@ From the repository root, run:
 
 ```sh
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
-  -run 'Test(Stage6PairedMixedLatestRefresh|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
+  -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
+go test ./internal/wailsapi/analysis -count=1
 (cd frontend && TZ=Asia/Shanghai pnpm exec vitest run src/features/data-health src/features/marketdata)
+(cd frontend && TZ=Asia/Shanghai pnpm exec vitest run \
+  src/features/insights/ReturnAnalysisPage.test.tsx src/features/insights/AssetChangesPage.test.tsx \
+  src/features/insights/AnalysisFilterBar.test.tsx)
 ```
 
 Each paired test checkpoints and closes a seeded SQLite database, then gives
@@ -26,6 +30,15 @@ for SGD/USD. The retry fetches SGD/USD at 1.3456 and reuses the
 successful quotes. The test compares each target status through the Wails
 completion event, verifies Quote history provenance, and reopens both copies.
 Both providers are local test doubles.
+
+The Return Calendar pair uses the same synthetic fund in two accounts.
+Harbor Brokerage holds 10 units and Second Brokerage holds 20. An explicit
+EUR rate of 1.25 USD makes the native amount distinguishable from base
+valuation. The exact October 2 native return and linked Asset Changes are
+EUR 25 for Harbor alone. The Gio regression verifies the typed month and
+day requests, focus after Escape and Back, and reopening the same day with
+Return. The Wails frontend test verifies keyboard activation and the
+navigation payload through a mocked desktop binding.
 
 ## Stock macOS pair on synthetic data
 
@@ -48,8 +61,9 @@ sh experiments/gio/preview-macos.sh --build-only
 
 The exporter prints the selected and adjacent dates. It puts the selected
 dirty date outside Overview's startup trend, which can materialize recent
-derived snapshots. The expected household names are `Synthetic Stage 6
-snapshots` and `Synthetic Stage 6 market`. Each scenario has a `source`
+derived snapshots. The expected households are `Synthetic Stage 6 snapshots`,
+`Synthetic Stage 6 market` and `Synthetic Stage 6 return calendar`.
+Each scenario has a `source`
 directory and separate writable `gio` and `wails` directories. Keep the
 source closed in the apps so it remains a baseline.
 
@@ -78,6 +92,7 @@ run_copy() (
   case "$scenario" in
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
+    return-calendar) household='Synthetic Stage 6 return calendar' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -132,6 +147,17 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   provider registry replaced by the same deterministic doubles. The
   `market` fixture is the pre-refresh database for that test build. Keep
   the stock run to the saved-data screens and snapshot repair.
+
+- Run `run_copy return-calendar gio` and `run_copy return-calendar wails`.
+  Open Return Analysis and go to the previous calendar month. Select
+  Instrument scope, Synthetic euro fund (EURO), Harbor Brokerage and EUR
+  as the additional filters, Native currency, and disable Include cash.
+  The exporter prints `return_calendar_day`. Focus that date and open it
+  with Return. Confirm EUR 25 and 25% in the day details. Focus **View asset
+  changes for this day** and press Return. Verify the same date in both
+  date fields, the same filters, and a price change from EUR 100 to EUR 125.
+  Go Back and check the original month, filters and day focus. Press Return
+  again to verify the same day opens. Repeat at a compact window size.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These

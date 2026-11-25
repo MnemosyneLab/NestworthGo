@@ -2876,7 +2876,7 @@ macOS-specific interactions in the last column.
 | --- | --- | --- | --- |
 | 1. Data Health finding → preview → cancel or repair → recheck | Shared snapshot and repair tests plus Gio cancellation and batch retry cases. | Compare the selected dates and provider target, cancel before posting, stop mid-run, recover after a stale plan, and verify the repaired dates after quit and reopen. | Verify native window close during confirmation, focus after dismissal, and reopen from the bundled app. |
 | 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | Force one target to fail, confirm that the successful quote is visible, retry the failed target only, and compare the stored source and date in Quote history. | Verify progress and failure sheets, compact scrolling, and VoiceOver announcements. |
-| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and Gio day handoff coverage. | Verify selected day, account, instrument, currency, native valuation and cash filters across the two packaged apps. Return to the same day and focus at wide and compact sizes. | Verify native Back keyboard commands and focus in the Calendar side sheet. |
+| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes, with the same day, filters and visible focus after Back. The interactive Wails comparison remains open. | Verify native Back keyboard commands and focus in the Calendar side sheet. |
 | 4. Change Drivers → Contribution → Ledger → Back | Wails Contribution reference and Gio date, filter, unsupported-filter feedback and route-state tests. | Keep the effective range and driver filters, open an exact Ledger record, then restore its originating result and focus. Verify the unsupported-filter message. | Verify search composition with native IME and screen reader focus after Back. |
 | 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
@@ -2891,6 +2891,28 @@ readback. Recorded Linux results and automated Wails evidence are below.
 | Exact-date Data Health repair | Both copies persisted one complete USD 125.25 revision on November 22 with the same predecessor and component provenance. November 23 and all other days matched their original rows. Gio inspection, preview and dismissal wrote no revisions. Normal reopen retained the repaired rows on both copies. The separate batch regression covered stop and retry after a scripted failed batch. No provider requests. | The stock packaged Gio at 1140×860 opened the October 12 finding. At 665×480, Escape dismissed the one-day preview with no writes and Return restored it. Confirmation appended one complete USD 125.25 revision. October 13, the earlier revision and the authoritative ledger rows matched the source. Reopen showed only October 13 still needing repair. |
 | Mixed current refresh | Independent providers blocked the first FX request until cancellation. Neither copy stored a quote. The next run saved the instrument and JPY/USD and reported SGD/USD unavailable. Retry fetched only SGD/USD and reused both successful quotes. Gio and Wails adapter results agreed on per-target status and exact Quote history evidence. Both copies reopened with all three saved quotes. | A Gio QA build replaced only its provider registry. At 1140×860, Cancel saved zero quotes. The next run showed **Updated 2, Failed 1**. Keyboard retry showed **Updated 1, Reused 2, Failed 0**. The 665×480 Quote history showed USD 17.12345678, Yahoo source and its quote timestamp. Escape restored focus and Return reopened Quote history. The stock app reopened the same ledger and displayed all three quotes, including JPY/USD 140.4321 and SGD/USD 1.3456 from Frankfurter. SQLite matched the source ledger rows and provider preferences. |
 | Check scope | Full Gio suite and vet, 57 Wails Data Health and Market Data frontend tests, and the focused shared application and Wails adapter tests passed. | Stock Wails built against GTK 4.18.6 and WebKitGTK 2.54.0. X11 launch ended before displaying a window because the host path for `WebKitNetworkProcess` was missing. Interactive Wails, native macOS, VoiceOver, IME and Wayland remain open. |
+
+#### Paired filtered Return Calendar keyboard handoff
+
+The [desktop fixture and steps](stage6-desktop-qa.md) give both apps the
+same previous-month ledger in separate SQLite copies. Harbor Brokerage
+and Second Brokerage hold 10 and 20 units of the same EUR stock. The
+instrument scope, Harbor account filter, EUR filter, native valuation and
+cash exclusion produce EUR 25 on the target day. The Wails adapter also
+returns the Harbor price attribution alone.
+
+Gio Back now waits to restore the saved scroll until the returning analysis
+view has loaded. The compact Calendar's loading frame had clamped the
+offset and hidden the focused day. With the earlier shell and a paused
+Calendar read, the new regression restored offset 3 instead of the saved
+410. The fixed shell restores 410 and Return reopens the selected day.
+
+| Check | Evidence |
+| --- | --- |
+| Wails references | Separate Go adapter copies returned EUR 25 for the October 2 day and its same-day Asset Changes. The new Wails frontend regression used Enter on the filtered day and handoff, and verified the destination payload and retained calendar month. All 55 tests across Return Analysis, Asset Changes and Analysis Filter Bar passed. |
+| Automated Gio | The independent copy matched the typed month and day requests and exact native valuation. Escape and Back restored day focus. The test delayed the returning grid and verified the saved compact scroll after it loaded. Neither application reference requested quotes. Full Gio tests and vet and the focused Wails analysis and shared Go tests passed. |
+| Packaged Gio Linux X11 | At 1140×860 and 665×480, the keyboard opened October 2, showed EUR 25 and +25%, and opened Change drivers for that day. Both date fields and the scope and filters matched. Asset Changes displayed EUR 100 → EUR 125 and a EUR 25 price change. Back restored October, the filters and visible focus on October 2. Return reopened the same day. Source database and settings hashes matched, and accounts, holdings, cash, activities and quotes were identical. The writable copy saved app settings and materialized the ordinary derived snapshots. |
+| Remaining | Interactive Wails comparison and native macOS keyboard and assistive technology acceptance remain open. |
 
 #### Wealth History quote evidence and Linux comparison
 

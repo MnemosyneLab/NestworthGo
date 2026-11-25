@@ -50,6 +50,9 @@ interactions separately.
 The [paired repair and refresh checkpoint](roadmap.md#paired-data-health-repair-and-mixed-latest-refresh)
 records the independent-copy results and the Linux Wails launch limit. The
 [desktop procedure](stage6-desktop-qa.md) covers the stock macOS fixture and run commands.
+The [filtered Calendar handoff checkpoint](roadmap.md#paired-filtered-return-calendar-keyboard-handoff)
+records back-navigation scroll and day focus separately from the Wails
+automated reference.
 
 ## Return Analysis and related navigation
 
