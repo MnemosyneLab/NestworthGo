@@ -27,7 +27,29 @@ const (
 	NavReturns
 	NavAssetChanges
 	NavDirectory
-	NavDataMaintenance
+	NavMarketData
+	MarketInstruments
+	MarketFX
+	MarketDescription
+	MarketFXDescription
+	MarketReload
+	MarketSearch
+	MarketSearchHint
+	MarketLoading
+	MarketFailed
+	MarketNoFX
+	MarketNoInstruments
+	MarketNoMatches
+	MarketNoQuote
+	MarketNoSource
+	MarketDelayed
+	MarketStocks
+	MarketETFs
+	MarketFunds
+	MarketCrypto
+	MarketBonds
+	MarketMetals
+	MarketOther
 	NavSettings
 	NavComponentPreview
 	GroupActivity

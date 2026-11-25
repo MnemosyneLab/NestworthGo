@@ -1618,6 +1618,26 @@ ranking row and its keyboard focus.
 | Linux X11 | The packaged Gio preview opened Synthetic fund and showed USD 25, +25% and 24/24 rated days. The action opened Ledger activity with November 1–24, Synthetic broker and Synthetic fund. The fixture had no matching activities. Back followed by Return reopened the same contribution. The isolated synthetic fixture was verified again on exit. |
 | Build and tests | The full Gio suite, Gio vet, the native Linux package build and focused shared application, domain, Wails analysis and Wails History Go tests passed. Interactive Wails, macOS, VoiceOver and IME verification remain open. |
 
+#### Stored Market data
+
+**Manage → Market data** opens on Instruments, with FX rates beside it. The
+page puts its local reload action above the tabs and instrument search above
+the type groups. It excludes instruments owned by managed products, as the
+Wails Market data catalog does. The FX list combines saved source preferences
+with currency pairs from Overview's missing FX inputs. Each row distinguishes
+the configured source from the selected local observation and shows amount
+or rate, quote direction, as-of information and explicit absence. Back and
+Forward preserve the tab, search and scroll. Quote history, the Data Health
+link, manual entry, source configuration and provider operations remain open.
+The current reload action refreshes the local view.
+
+| Check | Evidence |
+| --- | --- |
+| Wails reference | All 23 tests in `MarketDataPage.test.tsx` passed. The Gio fixture matched the Wails Go selected quote at exactly USD 12.34567891 with delay evidence and the stored direction 1 USD = 0.92345678 EUR. JPY/USD showed a missing quote and source. The app made zero requests to the fixture provider. |
+| Gio interaction | A rendered frame narrowed the list to Unquoted bond, retried a saved FX read failure, and restored the FX rates tab and the instrument search on Back. The Settings and Manage regressions distinguish the new Market data route from the Settings tab with the same visible name. |
+| Linux X11 | The packaged preview showed the same exact instrument and FX values and the JPY/USD missing row. At 700×480 the amount wrapped and remained readable. Back restored FX rates, and Instruments retained the filtered bond. A second marked fixture launch compared all SQLite tables. The only row changes came from initial Settings configuration and its financial-source revision bookkeeping. |
+| Build and tests | The full Gio suite, Gio vet, packaged Linux build and focused shared application, Wails quote and Wails market data tests passed. Interactive Wails, macOS, VoiceOver and IME verification remain open. |
+
 ## Moving from the preview to a desktop build
 
 1. During the pilot, run the Gio module's tests explicitly. The root

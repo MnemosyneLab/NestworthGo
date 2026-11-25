@@ -48,6 +48,7 @@ type navigationEntry struct {
 	portfolioSearch  string
 	tasks            tasksVisit
 	asset            assetChangesVisit
+	marketData       marketDataVisit
 	settingsSection  settingsSection
 	visited          bool
 }
@@ -105,6 +106,9 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	}
 	if a.target.route == assetChangesRoute {
 		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
+	}
+	if a.target.route == marketDataRoute {
+		return a.marketData.tab == b.marketData.tab && strings.EqualFold(strings.TrimSpace(a.marketData.search), strings.TrimSpace(b.marketData.search))
 	}
 	if a.target.route == historyRoute && a.target.activity == "" {
 		return a.historyFilters.Equal(b.historyFilters)
@@ -250,6 +254,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == assetChangesRoute {
 		s.assets.leave()
 	}
+	if entry.target.route == marketDataRoute {
+		s.marketData.leave()
+	}
 	if entry.target.route == settingsRoute {
 		s.settingsPage.credential.clearInput()
 	}
@@ -296,6 +303,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == assetChangesRoute {
 		s.assets.enter(entry.asset)
+	}
+	if entry.target.route == marketDataRoute {
+		s.marketData.enter(entry.marketData)
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
@@ -381,6 +391,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case assetChangesRoute:
 		entry.scroll = s.stage.Position
 		entry.asset = s.assets.visit()
+	case marketDataRoute:
+		entry.scroll = s.stage.Position
+		entry.marketData = s.marketData.visit()
 	case historyRoute:
 		if s.historyPage != nil {
 			if entry.target.activity == "" {
@@ -471,6 +484,9 @@ func (s *shell) waitingForPageFocus() bool {
 	}
 	if s.activeRoute() == assetChangesRoute && s.assets != nil {
 		return s.assets.refsRead != nil || s.assets.request != nil
+	}
+	if s.activeRoute() == marketDataRoute && s.marketData != nil {
+		return s.marketData.request != nil
 	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false

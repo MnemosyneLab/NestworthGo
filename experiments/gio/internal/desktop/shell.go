@@ -37,6 +37,7 @@ const (
 	tasksRoute            routeID = "tasks"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
+	marketDataRoute       routeID = "market-data"
 	settingsRoute         routeID = "settings"
 	componentPreviewRoute routeID = "component-preview"
 )
@@ -61,6 +62,7 @@ type ledgerPages struct {
 	wealthHistory *wealthHistoryPage
 	returns       *returnAnalysisPage
 	assets        *assetChangesPage
+	marketData    *marketDataPage
 	version       func() string
 }
 
@@ -103,6 +105,7 @@ type shell struct {
 	wealthHistory                         *wealthHistoryPage
 	returns                               *returnAnalysisPage
 	assets                                *assetChangesPage
+	marketData                            *marketDataPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -132,7 +135,7 @@ type shell struct {
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
 	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
-	var wealthHistoryLayout, returnAnalysisLayout, assetChangesLayout pageLayout
+	var wealthHistoryLayout, returnAnalysisLayout, assetChangesLayout, marketDataLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -163,6 +166,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if pages.assets != nil {
 		assetChangesLayout = pages.assets.layout
 	}
+	if pages.marketData != nil {
+		marketDataLayout = pages.marketData.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
@@ -176,6 +182,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		wealthHistory:    pages.wealthHistory,
 		returns:          pages.returns,
 		assets:           pages.assets,
+		marketData:       pages.marketData,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            ui.NewTheme(),
@@ -203,7 +210,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
 			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
-			newItem("data-maintenance", i18n.NavDataMaintenance, lucide.RefreshCw, nil),
+			newItem(marketDataRoute, i18n.NavMarketData, lucide.RefreshCw, marketDataLayout),
 			newItem(settingsRoute, i18n.NavSettings, lucide.Settings, s.settingsPage.layout),
 			newItem(componentPreviewRoute, i18n.NavComponentPreview, lucide.Wrench, preview.layout),
 		}},
@@ -792,7 +799,7 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		s.stage.Position = layout.Position{}
 		if entry.visited {
 			switch entry.target.route {
-			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute:
+			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute:
 				s.stage.Position = entry.scroll
 			}
 		}
