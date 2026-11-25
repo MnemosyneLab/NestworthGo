@@ -21,14 +21,14 @@ var custodyTransferLabels = tradeLabels{
 	previewFailed: i18n.CustodyPreviewFailed, stale: i18n.CustodyStale,
 }
 
-type custodyScope struct {
+type positionScope struct {
 	account domain.Account
 	holding domain.Holding
 	action  *widget.Clickable
 }
 
 type custodyTransferDraft struct {
-	scope         custodyScope
+	scope         positionScope
 	incoming      bool
 	send, receive widget.Clickable
 	from          domain.HoldingID
@@ -48,7 +48,7 @@ func (p *historyPage) investmentRuntime() investmentRuntime {
 	return investmentRuntime{ctx: r.ctx, workers: &r.workers, clock: r.clock, invalidate: r.invalidate}
 }
 
-func (f *accountInvestment) startCustody(run investmentRuntime, scope custodyScope) {
+func (f *accountInvestment) startCustody(run investmentRuntime, scope positionScope) {
 	f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, scope.account)
 	f.draft.custody = &custodyTransferDraft{scope: scope, from: scope.holding.ID}
 	f.loadSources(run)

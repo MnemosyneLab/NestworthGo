@@ -83,12 +83,12 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		run := p.investmentRuntime()
 		f.poll(run)
 		if f.draft == nil && p.positionActionsAvailable() && f.custodyOpen.Clicked(gtx) {
-			f.startCustody(run, custodyScope{})
+			f.startCustody(run, positionScope{})
 			view.RestorePageScroll(0)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 		if f.draft == nil && p.positionActionsAvailable() && f.adjustmentOpen.Clicked(gtx) {
-			f.startAdjustment(run)
+			f.startAdjustment(run, positionScope{})
 			view.RestorePageScroll(0)
 			gtx.Execute(op.InvalidateCmd{})
 		}

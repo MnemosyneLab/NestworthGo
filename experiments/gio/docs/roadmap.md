@@ -1577,7 +1577,27 @@ account, exact quantity change, resulting quantity and any recorded unit cost.
 | Wails and Gio | The reference and Gio both rejected an omitted acquisition cost. Gio kept an invalid nine-place input editable and then accepted USD 12.12345678. The shared stores agreed on addition of 0.625 units, removal of 0.125, 2.5 resulting units and the full holding cost and valuation read. SQLite reopen retained one original Holding, both events, the exact unit cost, and unchanged USD 156 cash. |
 | Focus and validation | Keyboard confirmation, Ledger Back and Cancel restored the action. An excess removal failed through the shared preview. Switching to Remove cleared the cost. The adjustment selector and custody selector share the same batch account, instrument and holding read. |
 | Packaged Linux X11 | The 1160×820 form rejected nine decimal places, then posted 0.5 added units at USD 12.12345678 using keyboard confirmation. At 640×480, Remove hid the cost input and keyboard confirmation removed 0.125 units. Ledger Back restored the action. Normal reopen and read-only SQLite showed 1.125 units on the same Harbor Holding, one exact acquisition cost and a removal that recorded only quantity. The other holding, both cash balances, original quote, and source-file hashes were unchanged. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared application/domain/Wails Go checks and four Wails adjustment frontend cases passed. Account- and holding-scoped adjustment entry, standalone basis correction in Reconciliation, and custody correction and reversal remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared application/domain/Wails Go checks and four Wails adjustment frontend cases passed. See the separate [account and holding entry](#account-and-holding-quantity-adjustments). Standalone basis correction in Reconciliation and custody correction and reversal remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+
+#### Account and holding quantity adjustments
+
+**Accounts → Holdings account → Adjust position** filters the existing Ledger
+adjustment to that account. **Adjust · instrument** in its Investments section
+locks the original Holding and focuses quantity. The form uses the Ledger and
+Wails quantity adjustment preview and posting, including explicit acquisition
+cost for added units and the History civil date and time. Cancel and Ledger
+Back restore the initiating action. If an adjustment removes the entire
+position from the visible list, focus returns to the account-level action.
+Gio exposes both shortcuts beside the Holdings actions. Wails exposes the
+account scope within **Record a change**, and the locked holding context
+within the Reconciliation form.
+[Wails Account actions](../../../frontend/src/features/accounts/AccountActionSheets.tsx) · [Wails adjustment form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails Reconciliation](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | The synthetic regression verified the account picker excludes an unrelated holding, the row action locks the original Holding ID, and Cancel and Ledger Back restore focus. Independent Go adapter posts agreed on adding 0.125 units with USD 18.12345678 original unit cost and removing 0.25 units. The reopened position held 1.875 units, with the unrelated 7-unit position and USD 156 cash intact. |
+| Packaged Linux X11 | At 1160×820, the Harbor Brokerage picker selected ALPHA and keyboard confirmation added 0.5 units at USD 12.12345678. At 640×480, the holding shortcut removed 0.125 units without a cost input. Return after Ledger Back reopened the same holding action. Quit and reopen showed both receipts. SQLite verified 1.375 units on the same Holding, two exact position effects and two mutation keys, with the source database and settings hashes unchanged. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and four focused Wails frontend cases passed. Session-linked **Record a change** for quantity changes and custody amendments remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -2382,8 +2402,8 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with standalone Reconciliation cost corrections, scoped
-quantity adjustments, custody amendments and broader account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with standalone Reconciliation cost corrections, custody
+amendments, session-linked quantity adjustments and broader account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

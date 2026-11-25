@@ -1554,6 +1554,8 @@ var traditionalChineseCatalog = catalog{
 	QuantityAdjustAdded:           "增加數量 · %s",
 	QuantityAdjustRemoved:         "減少數量 · %s",
 	QuantityAdjustAfter:           "調整後數量 · %s",
+	QuantityAdjustLocked:          "持倉 · %s",
+	QuantityAdjustHoldingAction:   "調整 · %s",
 	HistoryStartOriginalCost:      "原始單位成本",
 	HistoryStartOriginalCostHelp:  "請輸入實際的期初單位成本。成本為零時可輸入 0。",
 	HistoryStartReviewedCost:      "期初單位成本 · %s",

@@ -1554,6 +1554,8 @@ var englishCatalog = catalog{
 	QuantityAdjustAdded:           "Quantity added · %s",
 	QuantityAdjustRemoved:         "Quantity removed · %s",
 	QuantityAdjustAfter:           "Resulting quantity · %s",
+	QuantityAdjustLocked:          "Holding · %s",
+	QuantityAdjustHoldingAction:   "Adjust · %s",
 	HistoryStartOriginalCost:      "Original cost per unit",
 	HistoryStartOriginalCostHelp:  "Enter your actual opening cost per unit, including zero if applicable.",
 	HistoryStartReviewedCost:      "Opening cost per unit · %s",

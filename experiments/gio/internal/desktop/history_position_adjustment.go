@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"image"
 	"slices"
 
@@ -21,6 +22,7 @@ var quantityAdjustmentLabels = tradeLabels{
 }
 
 type quantityAdjustmentDraft struct {
+	scope       positionScope
 	holding     domain.HoldingID
 	adding      bool
 	holdingPick ui.Select
@@ -29,9 +31,9 @@ type quantityAdjustmentDraft struct {
 	loading     <-chan historyResult[history.PositionSources]
 }
 
-func (f *accountInvestment) startAdjustment(run investmentRuntime) {
-	f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, domain.Account{})
-	f.draft.adjustment = &quantityAdjustmentDraft{adding: true}
+func (f *accountInvestment) startAdjustment(run investmentRuntime, scope positionScope) {
+	f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, scope.account)
+	f.draft.adjustment = &quantityAdjustmentDraft{scope: scope, adding: true, holding: scope.holding.ID}
 	f.loadSources(run)
 }
 
@@ -55,6 +57,11 @@ func (f *accountInvestment) pollAdjustmentSources(run investmentRuntime) {
 		if result.err != nil {
 			d.sourceProblem = tradeProblem(result.err, quantityAdjustmentLabels, i18n.QuantityAdjustFailed)
 			return
+		}
+		if account := a.scope.account.ID; account != "" {
+			result.value.Holdings = slices.DeleteFunc(result.value.Holdings, func(item history.PositionHolding) bool {
+				return item.Account.ID != account || a.scope.holding.ID != "" && item.Holding.ID != a.scope.holding.ID
+			})
 		}
 		a.sources = &result.value
 		d.sources = &history.InvestmentSources{Origin: result.value.Origin, Location: result.value.Location}
@@ -106,23 +113,33 @@ func (f *accountInvestment) adjustmentFields(view ui.View, origin *image.Point) 
 	field := func(w layout.Widget) layout.FlexChild {
 		return layout.Rigid(func(gtx layout.Context) layout.Dimensions { return fieldPosition(gtx, origin, w) })
 	}
-	fields := []layout.FlexChild{
-		field(func(gtx layout.Context) layout.Dimensions {
-			if d.focusInput && gtx.Enabled() {
-				gtx.Execute(key.FocusCmd{Tag: &a.holdingPick.Trigger})
-				d.focusInput = false
-			}
-			options := ui.PickerField{Label: i18n.QuantityAdjustHolding, Origin: *origin, Disabled: d.previewing != nil, Next: &a.add}
-			a.holdingPick.Layout(gtx, view, options, ui.SelectOptions{Items: choices, Searchable: true}, a.holding.String(), func(id string) {
-				if a.holding.String() != id {
-					a.holding = domain.HoldingID(id)
-					d.quantity.Editor.SetText("")
-					d.unitCost.Editor.SetText("")
-					d.problem = i18n.NoMessage
+	var fields []layout.FlexChild
+	if a.scope.holding.ID != "" {
+		title := fmt.Sprintf(l.Text(i18n.QuantityAdjustLocked), custodyHoldingLabel(view, item))
+		fields = append(fields, field(view.Message(title, view.Colors.Ink)))
+	} else {
+		if a.scope.account.ID != "" {
+			fields = append(fields, field(view.Message(a.scope.account.Name, view.Colors.Ink)))
+		}
+		fields = append(fields,
+			field(func(gtx layout.Context) layout.Dimensions {
+				if d.focusInput && gtx.Enabled() {
+					gtx.Execute(key.FocusCmd{Tag: &a.holdingPick.Trigger})
+					d.focusInput = false
 				}
-			})
-			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
-		}),
+				options := ui.PickerField{Label: i18n.QuantityAdjustHolding, Origin: *origin, Disabled: d.previewing != nil, Next: &a.add}
+				a.holdingPick.Layout(gtx, view, options, ui.SelectOptions{Items: choices, Searchable: true}, a.holding.String(), func(id string) {
+					if a.holding.String() != id {
+						a.holding = domain.HoldingID(id)
+						d.quantity.Editor.SetText("")
+						d.unitCost.Editor.SetText("")
+						d.problem = i18n.NoMessage
+					}
+				})
+				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+			}))
+	}
+	fields = append(fields,
 		field(func(gtx layout.Context) layout.Dimensions {
 			if d.previewing != nil {
 				gtx = gtx.Disabled()
@@ -139,9 +156,12 @@ func (f *accountInvestment) adjustmentFields(view ui.View, origin *image.Point) 
 				layout.Rigid(view.TabButton(&a.remove, l.Text(i18n.QuantityAdjustRemove), !a.adding)))
 		}),
 		field(func(gtx layout.Context) layout.Dimensions {
+			if a.scope.holding.ID != "" && d.focusInput && gtx.Enabled() {
+				d.quantity.Focus(gtx)
+				d.focusInput = false
+			}
 			return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: i18n.QuantityAdjustQuantity, Disabled: !selected || d.previewing != nil})
-		}),
-	}
+		}))
 	if a.adding && selected {
 		fields = append(fields, field(func(gtx layout.Context) layout.Dimensions {
 			options := ui.FieldOptions{Label: i18n.QuantityAdjustCost, Disabled: d.previewing != nil}

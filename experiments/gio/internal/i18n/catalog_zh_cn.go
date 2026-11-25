@@ -1554,6 +1554,8 @@ var simplifiedChineseCatalog = catalog{
 	QuantityAdjustAdded:           "增加数量 · %s",
 	QuantityAdjustRemoved:         "减少数量 · %s",
 	QuantityAdjustAfter:           "调整后数量 · %s",
+	QuantityAdjustLocked:          "持仓 · %s",
+	QuantityAdjustHoldingAction:   "调整 · %s",
 	HistoryStartOriginalCost:      "原始单位成本",
 	HistoryStartOriginalCostHelp:  "请输入实际的期初单位成本。成本为零时可输入 0。",
 	HistoryStartReviewedCost:      "期初单位成本 · %s",

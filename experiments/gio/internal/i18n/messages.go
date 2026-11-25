@@ -1524,6 +1524,8 @@ const (
 	QuantityAdjustAdded
 	QuantityAdjustRemoved
 	QuantityAdjustAfter
+	QuantityAdjustLocked
+	QuantityAdjustHoldingAction
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost

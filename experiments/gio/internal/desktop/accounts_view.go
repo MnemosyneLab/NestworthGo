@@ -125,7 +125,11 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				view.RestorePageScroll(0)
 				gtx.Execute(op.InvalidateCmd{})
 			case p.canImportPosition() && f.custodyOpen.Clicked(gtx):
-				f.startCustody(p.investmentRuntime(), custodyScope{account: p.freshDetail().record.Account})
+				f.startCustody(p.investmentRuntime(), positionScope{account: p.freshDetail().record.Account})
+				view.RestorePageScroll(0)
+				gtx.Execute(op.InvalidateCmd{})
+			case p.canImportPosition() && f.adjustmentOpen.Clicked(gtx):
+				f.startAdjustment(p.investmentRuntime(), positionScope{account: p.freshDetail().record.Account})
 				view.RestorePageScroll(0)
 				gtx.Execute(op.InvalidateCmd{})
 			}
@@ -606,11 +610,10 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	if p.canImportPosition() {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			f := p.investment
-			return ui.Wrap{Gap: ui.Space8}.Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
-				if i == 0 {
-					return f.accountPositionAction(gtx, view, &f.importOpen, l.Text(i18n.OpeningPositionOpen))
-				}
-				return f.accountPositionAction(gtx, view, &f.custodyOpen, l.Text(i18n.CustodyOpen))
+			buttons := []*widget.Clickable{&f.importOpen, &f.custodyOpen, &f.adjustmentOpen}
+			labels := []i18n.MessageID{i18n.OpeningPositionOpen, i18n.CustodyOpen, i18n.QuantityAdjustOpen}
+			return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
+				return f.accountPositionAction(gtx, view, buttons[i], l.Text(labels[i]))
 			})
 		})
 	}
@@ -686,7 +689,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					if label == "" {
 						label = l.Text(i18n.OverviewMissingInstrument)
 					}
-					investments = append(investments, p.custodyHoldingButton(view, a, holding, label))
+					investments = append(investments, p.holdingPositionActions(view, a, holding, label))
 				}
 			}
 		}
@@ -715,21 +718,35 @@ func (f *accountInvestment) accountPositionAction(gtx layout.Context, view ui.Vi
 	return view.Button(button, label)(gtx)
 }
 
-func (p *accountsPage) custodyHoldingButton(view ui.View, account domain.Account, holding domain.Holding, name string) layout.Widget {
+func (p *accountsPage) holdingPositionActions(view ui.View, account domain.Account, holding domain.Holding, name string) layout.Widget {
 	f := p.investment
 	if f.custodyHoldings == nil {
 		f.custodyHoldings = make(map[domain.HoldingID]*widget.Clickable)
 	}
-	button := portfolioButton(f.custodyHoldings, holding.ID)
+	if f.adjustmentHoldings == nil {
+		f.adjustmentHoldings = make(map[domain.HoldingID]*widget.Clickable)
+	}
+	custody := portfolioButton(f.custodyHoldings, holding.ID)
+	adjust := portfolioButton(f.adjustmentHoldings, holding.ID)
 	return func(gtx layout.Context) layout.Dimensions {
-		if button.Clicked(gtx) {
-			f.startCustody(p.investmentRuntime(), custodyScope{account: account, holding: holding, action: button})
+		scope := positionScope{account: account, holding: holding}
+		if custody.Clicked(gtx) {
+			scope.action = custody
+			f.startCustody(p.investmentRuntime(), scope)
+		} else if adjust.Clicked(gtx) {
+			scope.action = adjust
+			f.startAdjustment(p.investmentRuntime(), scope)
+		}
+		if scope.action != nil {
 			view.RestorePageScroll(0)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		label := fmt.Sprintf(view.Language.Text(i18n.CustodyHoldingAction), name)
-		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return f.accountPositionAction(gtx, view, button, label)
+		return ui.Wrap{Gap: ui.Space8}.Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+			button, label := custody, i18n.CustodyHoldingAction
+			if i == 1 {
+				button, label = adjust, i18n.QuantityAdjustHoldingAction
+			}
+			return f.accountPositionAction(gtx, view, button, fmt.Sprintf(view.Language.Text(label), name))
 		})
 	}
 }

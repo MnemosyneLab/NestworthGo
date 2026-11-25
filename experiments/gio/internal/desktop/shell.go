@@ -412,7 +412,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				return i18n.LiabilityBackToAccount
 			}
 			if f := s.accounts.investment; f != nil && (source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend || source.focus == &f.importOpen ||
-				source.focus == &f.custodyOpen || f.custodyHoldingAction(source.focus)) {
+				source.focus == &f.custodyOpen || source.focus == &f.adjustmentOpen || f.holdingActionFallback(source.focus) != nil) {
 				return i18n.LiabilityBackToAccount
 			}
 			return i18n.NoMessage

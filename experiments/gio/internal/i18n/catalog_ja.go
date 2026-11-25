@@ -1553,6 +1553,8 @@ var japaneseCatalog = catalog{
 	QuantityAdjustAdded:           "追加した数量 · %s",
 	QuantityAdjustRemoved:         "減らした数量 · %s",
 	QuantityAdjustAfter:           "調整後の数量 · %s",
+	QuantityAdjustLocked:          "保有 · %s",
+	QuantityAdjustHoldingAction:   "調整 · %s",
 	HistoryStartOriginalCost:      "当初の取得単価",
 	HistoryStartOriginalCostHelp:  "当初の取得単価を入力してください。取得単価がゼロの場合は 0 を入力できます。",
 	HistoryStartReviewedCost:      "期初取得単価 · %s",
