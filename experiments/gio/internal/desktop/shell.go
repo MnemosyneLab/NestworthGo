@@ -113,6 +113,7 @@ type shell struct {
 	languageHint, appearanceHint          ui.Tooltip
 	wideCollapsed, narrowExpanded, narrow bool
 	overlay                               ui.Overlay
+	motion                                ui.Motion
 }
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
@@ -329,6 +330,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 }
 
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
+	// Drop animation state for controls that were not drawn this frame.
+	defer s.motion.EndFrame()
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
 	if p := s.onboarding; p != nil {
@@ -406,7 +409,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		ContrastFg: colors.OnAccent,
 	}
 	view := ui.View{
-		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay,
+		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay, Motion: &s.motion,
 		DateFormat: s.prefs.saved.DateFormat, DecimalSeparator: s.prefs.saved.DecimalSeparator, GroupingSeparator: s.prefs.saved.GroupingSeparator,
 		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
 		TimeLocation: s.prefs.displayLocation(),

@@ -11,7 +11,9 @@ import (
 
 	"gioui.org/f32"
 	"gioui.org/font"
+	"gioui.org/io/event"
 	"gioui.org/io/input"
+	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -20,6 +22,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/snapshot"
@@ -131,11 +134,11 @@ func (h *previewHarness) snapshot(t *testing.T, dir, name string) {
 // to compare. It is the visual contract for later control work: change a
 // control, regenerate the snapshots and review the matrix.
 type controlGallery struct {
-	secondary, secondaryDisabled, primary, primaryDisabled widget.Clickable
-	tabOff, tabOn                                          widget.Clickable
-	rest, filled, focused, invalid, disabled, readOnly     ui.TextField
-	search                                                 ui.SearchField
-	scroll                                                 layout.List
+	buttons                                            [6][6]widget.Clickable
+	tabOff, tabOn                                      widget.Clickable
+	rest, filled, focused, invalid, disabled, readOnly ui.TextField
+	search                                             ui.SearchField
+	scroll                                             layout.List
 }
 
 func newControlGallery() *controlGallery {
@@ -184,24 +187,42 @@ func (g *controlGallery) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			return layout.W.Layout(gtx, w)
 		}
 	}
-	buttons := section("Buttons",
-		layout.Widget(func(gtx layout.Context) layout.Dimensions {
+	variants := []struct {
+		name    string
+		variant ui.ButtonVariant
+	}{
+		{"Primary", ui.ButtonPrimary}, {"Soft", ui.ButtonSoft}, {"Destructive", ui.ButtonDestructive},
+		{"Outline", ui.ButtonOutline}, {"Ghost", ui.ButtonGhost}, {"Link", ui.ButtonLink},
+	}
+	var buttonRows []layout.Widget
+	for row, variant := range variants {
+		buttonRows = append(buttonRows, func(gtx layout.Context) layout.Dimensions {
+			cell := func(col int, spec ui.ButtonSpec, disabled bool) layout.FlexChild {
+				spec.Variant = variant.variant
+				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if disabled {
+						gtx = gtx.Disabled()
+					}
+					return view.ButtonOf(&g.buttons[row][col], spec)(gtx)
+				})
+			}
 			return layout.Flex{Gap: gtx.Dp(12), Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(view.NamedButton(&g.secondary, "Secondary", "secondary")),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx = gtx.Disabled()
-					return view.NamedButton(&g.secondaryDisabled, "Disabled", "secondary disabled")(gtx)
-				}),
-				layout.Rigid(view.PrimaryButton(&g.primary, "Primary")),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx = gtx.Disabled()
-					return view.PrimaryButton(&g.primaryDisabled, "Disabled")(gtx)
-				}),
-				layout.Rigid(view.TabButton(&g.tabOff, "Tab", false)),
-				layout.Rigid(view.TabButton(&g.tabOn, "Selected tab", true)),
+				cell(0, ui.ButtonSpec{Title: variant.name, Name: variant.name + " default"}, false),
+				cell(1, ui.ButtonSpec{Title: "Small", Name: variant.name + " small", Size: ui.ButtonSmall}, false),
+				cell(2, ui.ButtonSpec{Title: "Large", Name: variant.name + " large", Size: ui.ButtonLarge}, false),
+				cell(3, ui.ButtonSpec{Title: "With icon", Name: variant.name + " icon text", Icon: galleryIcon}, false),
+				cell(4, ui.ButtonSpec{Name: variant.name + " icon", Icon: galleryIcon}, false),
+				cell(5, ui.ButtonSpec{Title: "Disabled", Name: variant.name + " disabled"}, true),
 			)
-		}),
-	)
+		})
+	}
+	buttonRows = append(buttonRows, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Gap: gtx.Dp(12), Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(view.TabButton(&g.tabOff, "Tab", false)),
+			layout.Rigid(view.TabButton(&g.tabOn, "Selected tab", true)),
+		)
+	})
+	buttons := section("Buttons", buttonRows...)
 	fields := section("Text fields",
 		row(
 			field(&g.rest, ui.FieldOptions{Label: i18n.PreviewInstitutionName, Hint: i18n.PreviewInstitutionHint}),
@@ -431,14 +452,19 @@ type galleryScenario struct {
 	name         string
 	hover, press string
 	focusField   bool
+	focusButton  string
 	page         string
 }
 
+var galleryIcon = ui.MustIcon(icons.ContentAdd)
+
 var galleryScenarios = []galleryScenario{
 	{name: "rest", focusField: true},
-	{name: "hover-secondary", hover: "Secondary", focusField: true},
-	{name: "hover-primary", hover: "Primary", focusField: true},
-	{name: "press-primary", press: "Primary", focusField: true},
+	{name: "hover-primary", hover: "Primary default"},
+	{name: "hover-outline", hover: "Outline default"},
+	{name: "hover-ghost", hover: "Ghost default"},
+	{name: "press-primary", press: "Primary default"},
+	{name: "focus-primary", focusButton: "Primary default"},
 	{name: "tokens", page: "tokens"},
 	{name: "elevation", page: "elevation"},
 	{name: "type", page: "type"},
@@ -454,6 +480,8 @@ type galleryHarness struct {
 	size    image.Point
 	scale   float32
 	page    string
+	// focusTag, when set, replaces the text field as the initially focused control.
+	focusTag event.Tag
 }
 
 func newGalleryHarness(t *testing.T, accent int, dark bool) *galleryHarness {
@@ -464,7 +492,7 @@ func newGalleryHarness(t *testing.T, accent int, dark bool) *galleryHarness {
 	theme.Palette = material.Palette{Bg: colors.PageBackground, Fg: colors.Ink, ContrastBg: colors.Accent, ContrastFg: colors.OnAccent}
 	return &galleryHarness{
 		t: t, gallery: newControlGallery(), now: time.Unix(1, 0),
-		size: image.Pt(900, 740), scale: snapshotScale,
+		size: image.Pt(900, 860), scale: snapshotScale,
 		view: ui.View{
 			Language: prefs.language, Colors: colors, Theme: theme, Overlay: &ui.Overlay{},
 			DateFormat: "YYYY-MM-DD", DecimalSeparator: ".", GroupingSeparator: ",",
@@ -485,7 +513,11 @@ func (h *galleryHarness) frame(focus bool) {
 	paint.Fill(gtx.Ops, h.view.Colors.PageBackground)
 	layout.UniformInset(28).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		if focus {
-			h.gallery.focused.Focus(gtx)
+			if h.focusTag != nil {
+				gtx.Execute(key.FocusCmd{Tag: h.focusTag})
+			} else {
+				h.gallery.focused.Focus(gtx)
+			}
 		}
 		switch h.page {
 		case "tokens":
@@ -502,7 +534,10 @@ func (h *galleryHarness) frame(focus bool) {
 
 func (h *galleryHarness) run(s galleryScenario) {
 	h.page = s.page
-	h.frame(s.focusField)
+	if s.focusButton != "" {
+		h.focusTag = &h.gallery.buttons[0][0]
+	}
+	h.frame(s.focusField || s.focusButton != "")
 	h.frame(false)
 	target := s.hover
 	if s.press != "" {

@@ -84,10 +84,19 @@ func roundRadius(gtx layout.Context, bounds image.Rectangle, radius unit.Dp) int
 // focus-visible:ring-2 ring-primary/50 ring-offset-2 in the Wails controls.
 // The ring lies outside bounds, so a parent that clips to the control hides it.
 func (p *Palette) FocusRing(gtx layout.Context, bounds image.Rectangle, radius unit.Dp) {
+	p.FocusRingAt(gtx, bounds, radius, 1)
+}
+
+// FocusRingAt draws the focus ring at a fraction of its full strength, for a
+// fade-in while a tween runs.
+func (p *Palette) FocusRingAt(gtx layout.Context, bounds image.Rectangle, radius unit.Dp, amount float64) {
 	const gap, width = 2, 2
+	if amount <= 0 {
+		return
+	}
 	grow := gtx.Dp(gap + width)
 	outer := bounds.Inset(-grow)
-	StrokeRoundRect(gtx, outer, radius+gap+width, width, WithAlpha(p.Accent, 0.5))
+	StrokeRoundRect(gtx, outer, radius+gap+width, width, WithAlpha(p.Accent, 0.5*amount))
 }
 
 // FocusBorder draws the inset accent border used by text-like inputs, where

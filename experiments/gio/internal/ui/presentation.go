@@ -26,30 +26,15 @@ type View struct {
 	Colors                                          *Palette
 	Theme                                           *material.Theme
 	Overlay                                         *Overlay
-	Origin                                          image.Point
-	Focus                                           *PageFocus
+	// Motion holds hover, press and focus animation state. It may be nil.
+	Motion *Motion
+	Origin image.Point
+	Focus  *PageFocus
 }
 
 // Message is a wrapping paragraph in the body style.
 func (v View) Message(text string, fg color.NRGBA) layout.Widget {
 	return v.Body(TextBody, text, fg)
-}
-
-func (v View) Button(button *widget.Clickable, title string) layout.Widget {
-	return v.NamedButton(button, title, title)
-}
-
-func (v View) NamedButton(button *widget.Clickable, title, name string) layout.Widget {
-	style := material.Button(v.Theme, button, title)
-	style.Background = v.Colors.Surface
-	style.Color = v.Colors.Ink
-	style.TextSize = 12
-	style.CornerRadius = 7
-	style.Inset = layout.Inset{Top: 7, Bottom: 7, Left: 8, Right: 8}
-	return func(gtx layout.Context) layout.Dimensions {
-		v.Focus.Watch(gtx, button)
-		return accessibility.Button(gtx, button, name, "", false, style.Layout)
-	}
 }
 
 func (v View) TabButton(button *widget.Clickable, title string, selected bool) layout.Widget {
@@ -71,16 +56,6 @@ func (v View) TabButton(button *widget.Clickable, title string, selected bool) l
 				})
 			})
 		})
-	}
-}
-
-func (v View) PrimaryButton(button *widget.Clickable, title string) layout.Widget {
-	style := material.Button(v.Theme, button, title)
-	style.TextSize = 13
-	style.CornerRadius = 8
-	return func(gtx layout.Context) layout.Dimensions {
-		v.Focus.Watch(gtx, button)
-		return accessibility.Button(gtx, button, title, "", false, style.Layout)
 	}
 }
 
