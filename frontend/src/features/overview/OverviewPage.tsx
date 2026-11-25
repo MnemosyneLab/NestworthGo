@@ -498,6 +498,7 @@ export function OverviewPage({
           composition={data.assetComposition}
           assets={data.assets}
           currency={currency}
+          isActive={isActive}
           onOpenAccount={navigation ? accountId => navigation.open({ page: "accounts", accountId }) : undefined}
         />}
         <p className="text-sm text-muted-foreground">{t("overview.dimensionHint")}</p>

@@ -12,10 +12,11 @@ import type { AssetCompositionDTO, AssetNodeDTO, AssetPathDTO } from "../../../b
 
 const MIN_CHART_WIDTH = 620;
 
-export function AssetCompositionSankey({ composition, assets, currency, onOpenAccount }: {
+export function AssetCompositionSankey({ composition, assets, currency, isActive = true, onOpenAccount }: {
   composition: AssetCompositionDTO;
   assets: string;
   currency: string;
+  isActive?: boolean;
   onOpenAccount?: (id: string) => void;
 }) {
   const { t } = useTranslation();
@@ -64,7 +65,7 @@ export function AssetCompositionSankey({ composition, assets, currency, onOpenAc
             {zeroCount > 0 && <p className="text-sm text-muted-foreground">{t("assetSankey.zero", { count: zeroCount })}</p>}
           </div>
           {hasPositive ? <>
-            {wide && <AssetSankeyChart nodes={composition.nodes ?? []} labels={labels} rootLabel={rootLabel} width={width} currency={currency} onOpenAccount={onOpenAccount} />}
+            {wide && isActive && <AssetSankeyChart nodes={composition.nodes ?? []} labels={labels} rootLabel={rootLabel} width={width} currency={currency} onOpenAccount={onOpenAccount} />}
             <details open={!wide}>
               <summary className="w-fit cursor-pointer rounded-lg text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                 {t("assetSankey.details")}
@@ -238,7 +239,6 @@ function AssetSankeyChart({ nodes, labels, rootLabel, width, currency, onOpenAcc
           const node = name ? nodesByID.get(name) : undefined;
           if (node?.kind === "account") onOpenAccount(node.key);
         } : undefined}
-        replaceSeries
       />
       {nodes.some(node => node.kind === "otherAccounts") && <p className="text-xs text-muted-foreground">{t("assetSankey.grouped")}</p>}
     </div>
