@@ -7,6 +7,7 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -69,6 +70,16 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			})
 		}),
 	}
+	if p.tab == marketFX && p.manual.service != nil {
+		if p.manual.addFX.Clicked(gtx) {
+			p.openManualQuote(marketManualTarget{}, &p.manual.addFX)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		rows = append([]ui.ColumnChild{ui.Rigid(returnMonthButton(view, &p.manual.addFX, i18n.MarketManualFX, nil, true))}, rows...)
+	}
+	if receipt := p.manual.latest; receipt.saved() && (receipt.fx.ID != "") == (p.tab == marketFX) {
+		rows = append(rows, ui.Rigid(manualQuoteNotice(view, receipt)))
+	}
 	if p.tab == marketInstruments {
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.search.Layout(gtx, view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
@@ -127,12 +138,12 @@ func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.
 					group = i18n.MarketOther
 				}
 			}
-			return marketInstrumentCard(gtx, view, row, group)
+			return p.marketInstrumentCard(gtx, view, row, group)
 		})
 	})}
 }
 
-func marketInstrumentCard(gtx layout.Context, view ui.View, row marketInstrumentRow, group i18n.MessageID) layout.Dimensions {
+func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, row marketInstrumentRow, group i18n.MessageID) layout.Dimensions {
 	l := view.Language
 	i := row.instrument
 	name := i.DisplayLabel()
@@ -149,7 +160,19 @@ func marketInstrumentCard(gtx layout.Context, view ui.View, row marketInstrument
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(group), view.Colors.Ink)))
 	}
 	source := i.QuoteCurrency.String() + " · " + marketSourceLabel(l, i.QuoteSource)
-	rows = append(rows, ui.Rigid(marketQuoteCard(view, name, source, price, evidence)))
+	var action layout.Widget
+	if p.manual.service != nil && manualPriceAvailable(i) {
+		if p.manual.prices == nil {
+			p.manual.prices = make(map[string]*widget.Clickable)
+		}
+		button := portfolioButton(p.manual.prices, i.ID.String())
+		if button.Clicked(gtx) && p.request == nil && p.err == nil {
+			p.openManualQuote(marketManualTarget{instrumentID: i.ID}, button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		action = returnMonthButton(view, button, i18n.MarketManualPrice, nil, p.request == nil && p.err == nil)
+	}
+	rows = append(rows, ui.Rigid(marketQuoteCard(view, name, source, price, evidence, action)))
 	return (ui.Column{Gap: 8}).Layout(gtx, rows...)
 }
 
@@ -160,26 +183,34 @@ func marketFXCard(gtx layout.Context, view ui.View, row marketFXRow) layout.Dime
 		rate = fmt.Sprintf(l.Text(i18n.TransferQuoteRate), q.BaseCurrency, portfolioDecimal(view, q.Rate.Canonical()), q.QuoteCurrency)
 		evidence = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	}
-	return marketQuoteCard(view, row.pair.first.String()+"/"+row.pair.second.String(), marketSourceLabel(l, row.source), rate, evidence)(gtx)
+	return marketQuoteCard(view, row.pair.first.String()+"/"+row.pair.second.String(), marketSourceLabel(l, row.source), rate, evidence, nil)(gtx)
 }
 
-func marketQuoteCard(view ui.View, name, source, value, evidence string) layout.Widget {
+func marketQuoteCard(view ui.View, name, source, value, evidence string, action layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Grid{MinColumn: 244, Gap: 8, MaxColumns: 2, Balanced: true}).Layout(gtx, view, 2,
-					func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
-						if index == 0 {
-							return (ui.Column{Gap: 3}).Layout(gtx,
-								ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink)),
-								ui.Rigid(view.Message(source, view.Colors.SecondaryInk)))
-						}
-						rows := []ui.ColumnChild{ui.Rigid(view.Message(value, view.Colors.Ink))}
-						if evidence != "" {
-							rows = append(rows, ui.Rigid(view.Message(evidence, view.Colors.SecondaryInk)))
-						}
-						return (ui.Column{Gap: 3}).Layout(gtx, rows...)
-					})
+				data := func(gtx layout.Context) layout.Dimensions {
+					return (ui.Grid{MinColumn: 244, Gap: 8, MaxColumns: 2, Balanced: true}).Layout(gtx, view, 2,
+						func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
+							if index == 0 {
+								return (ui.Column{Gap: 3}).Layout(gtx,
+									ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink)),
+									ui.Rigid(view.Message(source, view.Colors.SecondaryInk)))
+							}
+							rows := []ui.ColumnChild{ui.Rigid(view.Message(value, view.Colors.Ink))}
+							if evidence != "" {
+								rows = append(rows, ui.Rigid(view.Message(evidence, view.Colors.SecondaryInk)))
+							}
+							return (ui.Column{Gap: 3}).Layout(gtx, rows...)
+						})
+				}
+				if action == nil {
+					return data(gtx)
+				}
+				return (ui.Column{Gap: 6}).Layout(gtx, ui.Rigid(data), ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.W.Layout(gtx, action)
+				}))
 			})
 		})
 	}

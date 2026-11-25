@@ -50,6 +50,26 @@ const (
 	MarketBonds
 	MarketMetals
 	MarketOther
+	MarketManualFX
+	MarketManualPrice
+	MarketManualAdd
+	MarketManualSaveFX
+	MarketManualSavePrice
+	MarketManualBase
+	MarketManualQuote
+	MarketManualRate
+	MarketManualUnitPrice
+	MarketManualDate
+	MarketManualDateHelp
+	MarketManualSourceHelp
+	MarketManualInvalidDate
+	MarketManualInvalidPrice
+	MarketManualInvalidRate
+	MarketManualInvalidPair
+	MarketManualUnavailable
+	MarketManualSaveFailed
+	MarketManualSaved
+	MarketManualDerivedPending
 	NavDataHealth
 	HealthOpen
 	HealthDescription

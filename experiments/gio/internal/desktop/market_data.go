@@ -73,10 +73,12 @@ type marketDataPage struct {
 	health     widget.Clickable
 	openHealth func(*widget.Clickable)
 	list       [2]widget.List
+	manual     marketManualQuotes
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {
 	p.tab = visit.tab
+	p.search.Field.Editor.SingleLine = true
 	if p.search.Field.Text() != visit.search {
 		p.search.Field.Editor.SetText(visit.search)
 	}

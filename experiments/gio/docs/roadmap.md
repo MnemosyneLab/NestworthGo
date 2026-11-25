@@ -1862,8 +1862,10 @@ Wails Market data catalog does. The FX list combines saved source preferences
 with currency pairs from Overview's missing FX inputs. Each row distinguishes
 the configured source from the selected local observation and shows amount
 or rate, quote direction, as-of information and explicit absence. Back and
-Forward preserve the tab, search and scroll. Quote history, manual entry,
-source configuration and provider operations remain open.
+Forward preserve the tab, search and scroll.
+[Manual price and FX entry](#manual-instrument-price-and-fx-entry) follows this
+read milestone. Quote history, source configuration and provider operations
+remain open.
 The current reload action refreshes the local view.
 
 | Check | Evidence |
@@ -1883,7 +1885,8 @@ by the shared report stay under their causes. Recheck repeats the local read
 and a failed scan offers Retry. Provider prerequisites link to the Market data
 tab in Settings. Account-value findings can open Accounts. Back restores the
 originating button. [Focused snapshot inspection and repair](#focused-snapshot-inspection-and-repair)
-adds snapshot scope and adjacent-day grouping. Manual quote actions remain open.
+adds snapshot scope and adjacent-day grouping. [Manual quote actions](#manual-instrument-price-and-fx-entry)
+follow these milestones.
 
 | Check | Evidence |
 | --- | --- |
@@ -1935,7 +1938,38 @@ report or focus changes, with no benchmark run for this milestone.
 | Wails reference | All 19 tests across Data Health, Snapshot Repair and the Overview net-worth card passed. Focused shared application, History and Market Data adapter snapshot/health/repair tests passed. |
 | Packaged Linux X11 | At 1260×1050, Overview's November 1–24 coverage link opened the report and inspected the November 4 Synthetic Australian cash finding. Back and Return reopened that finding. The blocked flow left snapshot rows unchanged. On a second synthetic profile at 640×480, Escape and Return restored the October 12 repair preview without writing. Confirmation added one USD 125.25 revision for October 12. October 13 and the authoritative account, activity, holding, quote and History origin rows were identical. The focused recheck cleared October 12. Both source databases and settings hashes matched. |
 | Build and tests | Full Gio tests, Gio vet and the native Linux package passed. |
-| Remaining | Next is manual instrument price and FX entry through Market Data, followed by linked Data Health manual prerequisites and detailed sync evidence. Wails GUI, native macOS, Wayland, VoiceOver and IME remain open. |
+| Follow-up | [Manual instrument price and FX entry](#manual-instrument-price-and-fx-entry) covers linked Data Health manual prerequisites. Detailed sync evidence and Wails GUI, native macOS, Wayland, VoiceOver and IME verification remain open. |
+
+#### Manual instrument price and FX entry
+
+In **Manage → Market data**, an eligible instrument's **Set price** action
+opens a right-hand form for that instrument. Gio places this action on the
+instrument row while the broader Wails instrument editor remains open work.
+**Add manual FX quote** is the FX tab's page action, including an empty FX
+list. A Data Health manual entry starts with the finding's instrument or
+ordered currency pair and its date within the selected focus. Unfocused
+entry leaves the date blank to use the current time. Date-only input uses
+the saved History timezone, or UTC before History.
+
+Saving uses the same application operations as Wails. The domain validates
+the canonical decimal, including a real zero instrument price and a positive
+FX rate. Validation keeps the draft. Escape or Close leaves without a write.
+While a save is pending, the form blocks another submission and waits for the
+result. If a rate committed but subsequent metal repricing failed, Gio shows
+the saved observation and the follow-up failure. The existing Wails Go
+adapter keeps its current error contract.
+
+After save, the active view rereads stored evidence and restores focus to
+the originating control when present. Quote entry leaves the configured
+source and unrelated diagnostics in place. The receipt identifies the saved
+observation separately from the currently selected quote.
+
+| Check | Evidence |
+| --- | --- |
+| Shared Go and Wails | Focused application, quote and Market Data adapter tests passed. All 83 Wails Market Data, Instrument Management, Data Health and Snapshot Repair frontend tests passed. A synthetic repository failure after the FX insert verified that the committed observation remains readable by its ID and that the legacy API still returns its original error result. |
+| Gio regression | An unquoted instrument and a focused JPY/USD prerequisite opened with the expected defaults. Escape and invalid attempts appended nothing. A stored USD 12.34567891 price and 1 JPY = 0.006789012345 USD reopened through the Wails quote adapter with their Asia/Singapore dates. Their exact shared known subtotal was USD 31.480370165. The SGD prerequisite and existing snapshot rows remained unchanged. A scripted failure verified keyboard Retry, disabled overlapping submissions and the committed-rate warning. The two Gio manual tests and the Ledger refresh regression passed 15 consecutive runs. The Ledger fixture exercises the live valuation read independently from background trend publication and keeps its five version assertions. |
+| Packaged Linux X11 | At 640×480, Escape cancelled a typed price. The form retained the rejected nine-decimal text, then saved USD 12.34567891 for November 24 selected by keyboard. An injected SQLite insert failure retained 1 JPY = 0.006789012345 USD. A double-click on Retry appended exactly one manual observation. On a normal reopen, both quote values were readable in Market Data. Overview showed USD 31.48 known and the missing SGD rate. Authoritative account, activity and holding rows and snapshot rows matched before and after entry. The untouched source database and settings retained their hashes. |
+| Checks and remaining work | Full Gio tests and vet and the packaged Linux launcher passed. Native Mac, Wayland, VoiceOver, IME and interactive Wails remain open. Instrument and source management, quote history, explicit provider refresh and detailed historical sync remain open. The Overview home action placement is separate. No benchmark was run. |
 
 #### Additional analysis filters and effective dates
 

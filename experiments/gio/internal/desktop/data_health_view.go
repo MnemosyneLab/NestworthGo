@@ -55,6 +55,9 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.HealthDescription), view.Colors.SecondaryInk))}
+	if p.manualSaved.saved() {
+		rows = append(rows, ui.Rigid(manualQuoteNotice(view, p.manualSaved)))
+	}
 	if p.focus.active() {
 		var fields []string
 		if p.focus.label != "" {
@@ -280,6 +283,29 @@ func healthIssueAction(issue application.HealthIssue) i18n.MessageID {
 func (p *dataHealthPage) issueAction(gtx layout.Context, view ui.View, issue application.HealthIssue, name string) layout.Widget {
 	l := view.Language
 	switch {
+	case issue.Action == application.HealthActionManualEntry && p.openManual != nil:
+		target := marketManualTarget{date: max(issue.RangeStart, p.focus.from)}
+		if issue.InstrumentID != "" {
+			id, err := domain.ParseInstrumentID(issue.InstrumentID)
+			if err != nil {
+				return nil
+			}
+			target.instrumentID = id
+		} else {
+			base, baseErr := domain.ParseSupportedCurrency(issue.CurrencyA)
+			quote, quoteErr := domain.ParseSupportedCurrency(issue.CurrencyB)
+			if baseErr != nil || quoteErr != nil || base == quote {
+				return nil
+			}
+			target.base, target.quote = base, quote
+		}
+		button := p.issueButton(issue.ID)
+		ready := p.request == nil && p.err == nil && (p.repair == nil || !p.repair.inProgress())
+		if button.Clicked(gtx) && ready {
+			p.openManual(target, button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return returnMonthButton(view, button, i18n.MarketManualAdd, nil, ready)
 	case issue.Action == application.HealthActionProviderSettings && p.openSettings != nil:
 		button := p.issueButton(issue.ID)
 		if button.Clicked(gtx) {

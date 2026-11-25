@@ -42,6 +42,8 @@ type dataHealthPage struct {
 	issueActions map[string]*widget.Clickable
 	openSettings func(*widget.Clickable)
 	openAccount  func(domain.AccountID, string, *widget.Clickable)
+	openManual   func(marketManualTarget, event.Tag)
+	manualSaved  marketManualReceipt
 	clearFocus   func(event.Tag)
 	inspect      func(healthFindingFocus, event.Tag)
 	clear        widget.Clickable
@@ -85,6 +87,7 @@ func focusedHealthFindings(issues []application.HealthIssue, focus healthFinding
 }
 
 func (p *dataHealthPage) enter(position layout.Position, focus healthFindingFocus) {
+	p.manualSaved = marketManualReceipt{}
 	p.list.Position = position
 	p.focus = focus
 	p.refreshFindings()

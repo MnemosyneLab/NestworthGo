@@ -41,7 +41,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	wealthHistory := newWealthHistoryPage(ctx, service, clock, window.Invalidate)
 	returns := &returnAnalysisPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
 	assets := &assetChangesPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
-	marketData := &marketDataPage{ctx: ctx, reader: service, invalidate: window.Invalidate}
+	marketData := &marketDataPage{ctx: ctx, reader: service, invalidate: window.Invalidate,
+		manual: marketManualQuotes{service: service, clock: clock}}
 	healthRepair := &dataHealthRepair{service: service}
 	service.SetMarketDataSyncListener(func(string, application.SyncJobSnapshot) {
 		healthRepair.revision.Add(1)

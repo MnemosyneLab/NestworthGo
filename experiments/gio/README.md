@@ -325,6 +325,11 @@ inputs. A ready finding offers **Preview snapshot repair**. Confirm to rebuild
 the displayed closed dates from saved data. **Stop after current batch** keeps
 completed work, and Retry starts at the batch that failed.
 
+In **Manage → Market data**, choose **Set price** on an instrument or
+**Add manual FX quote** on FX rates. Data Health can open the same form with
+the finding's item and date filled in. Leave the date blank to save with
+the current time. The saved observation preserves the existing quote source.
+
 The asset and liability category cards use the household's base currency.
 **View allocation breakdowns** jumps to institution, account type, member
 and group. Open a row to see the matching accounts. **Back to accounts**

@@ -52,19 +52,29 @@ func (s *analysisSheet) layout(gtx layout.Context, view ui.View, title string, b
 }
 
 func (s *analysisSheet) layoutActions(gtx layout.Context, view ui.View, title string, body layout.Widget, action i18n.MessageID, canClose bool) {
+	var footer layout.Widget
+	if action != i18n.NoMessage {
+		footer = view.Button(&s.action, view.Language.Text(action))
+	}
+	s.layoutPanel(gtx, view, title, func(gtx layout.Context, _ ui.View) layout.Dimensions { return body(gtx) }, footer, canClose)
+}
+
+func (s *analysisSheet) layoutPanel(gtx layout.Context, view ui.View, title string, body func(layout.Context, ui.View) layout.Dimensions, footer layout.Widget, canClose bool) {
 	width := min(gtx.Constraints.Max.X, gtx.Dp(450))
 	backdrop := image.Rect(0, 0, gtx.Constraints.Max.X-width, gtx.Constraints.Max.Y)
 	paint.Fill(gtx.Ops, color.NRGBA{A: 0x65})
 	mask := clip.Rect(backdrop).Push(gtx.Ops)
 	event.Op(gtx.Ops, s)
 	mask.Pop()
+	view.Origin = image.Pt(backdrop.Max.X+gtx.Dp(16), gtx.Dp(16))
 	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints = layout.Exact(image.Pt(width, gtx.Constraints.Max.Y))
 		return view.Floating(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				var headHeight int
 				rows := []ui.ColumnChild{
 					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
+						dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 							layout.Flexed(1, view.Body(ui.TextHeading, title, view.Colors.Ink)),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								if !canClose {
@@ -72,11 +82,17 @@ func (s *analysisSheet) layoutActions(gtx layout.Context, view ui.View, title st
 								}
 								return view.Button(&s.close, view.Language.Text(i18n.FieldDismiss))(gtx)
 							}))
+						headHeight = dims.Size.Y
+						return dims
 					}),
-					ui.Fill(body),
+					ui.Fill(func(gtx layout.Context) layout.Dimensions {
+						bodyView := view
+						bodyView.Origin.Y += headHeight + gtx.Dp(12)
+						return body(gtx, bodyView)
+					}),
 				}
-				if action != i18n.NoMessage {
-					rows = append(rows, ui.Rigid(view.Button(&s.action, view.Language.Text(action))))
+				if footer != nil {
+					rows = append(rows, ui.Rigid(footer))
 				}
 				return (ui.Column{Gap: 12}).Layout(gtx, rows...)
 			})

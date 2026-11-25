@@ -234,6 +234,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.marketData != nil {
 			s.marketData.openHealth = func(focus *widget.Clickable) { openHealth(healthFindingFocus{}, focus) }
+			if s.marketData.manual.service != nil {
+				s.dataHealth.openManual = s.marketData.openManualQuote
+			}
 		}
 		if s.overviewPage != nil {
 			s.overviewPage.openHealth = openHealth
@@ -501,7 +504,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -572,6 +575,20 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.dataHealth.layoutRepair(windowContext, view)
 	} else if s.snapshotRepairOpen() {
 		s.dataHealth.layoutSnapshotRebuild(windowContext, view)
+	} else if s.manualQuoteOpen() {
+		if source, receipt := s.marketData.layoutManualQuote(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+			if receipt.saved() {
+				s.marketData.manual.latest = receipt
+				s.refreshLedgerReads()
+				if s.activeRoute() == dataHealthRoute {
+					s.dataHealth.manualSaved = receipt
+					s.dataHealth.read()
+				} else {
+					s.marketData.read()
+				}
+			}
+		}
 	}
 	return dims
 }
@@ -594,6 +611,10 @@ func (s *shell) healthRepairOpen() bool {
 
 func (s *shell) snapshotRepairOpen() bool {
 	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.snapshots.active != nil
+}
+
+func (s *shell) manualQuoteOpen() bool {
+	return s.marketData != nil && s.marketData.manual.draft != nil
 }
 
 func (s *shell) confirmingAccountCreation() bool {

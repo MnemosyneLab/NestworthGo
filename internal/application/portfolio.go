@@ -823,6 +823,17 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]domain.FXPreference,
 }
 
 func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (domain.FXQuote, error) {
+	quote, err := s.AppendManualFXQuoteWithReceipt(ctx, baseCurrency, quoteCurrency, rate, quotedAt)
+	if err != nil {
+		return domain.FXQuote{}, err
+	}
+	return quote, nil
+}
+
+// AppendManualFXQuoteWithReceipt returns the stored observation even if the
+// subsequent metal repricing fails. Callers can report that partial outcome
+// without asking the user to append the same quote again.
+func (s *Service) AppendManualFXQuoteWithReceipt(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (domain.FXQuote, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.FXQuote{}, err
@@ -860,7 +871,7 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 		return domain.FXQuote{}, err
 	}
 	if err := s.repriceMetalsForFX(ctx, household.ID, base, quoteCurrencyCode); err != nil {
-		return domain.FXQuote{}, err
+		return fxQuote, err
 	}
 	s.invalidateAnalysis()
 	return fxQuote, nil
