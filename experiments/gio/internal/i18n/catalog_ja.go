@@ -1748,6 +1748,16 @@ var japaneseCatalog = catalog{
 	HoldingReconShowAttempts:   "過去の確認を表示（%d）",
 	HoldingReconHideAttempts:   "過去の確認を非表示",
 
+	HoldingReconRemoved:          "現在の保有から削除されています。以前の値と確認結果は保持されます。",
+	HoldingReconProductOpen:      "契約中",
+	HoldingReconInterestNone:     "利息 · なし",
+	HoldingReconInterestManual:   "利息 · 満期額を手動入力",
+	HoldingReconInterest365:      "利息 · 単利 ACT/365",
+	HoldingReconInterest360:      "利息 · 単利 ACT/360",
+	HoldingReconAnnualRate:       "年利 · %s%%",
+	HoldingReconMaturityInterest: "満期利息 · %s",
+	HoldingReconPaidThrough:      "利息支払済み期限 · %s",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",

@@ -1749,6 +1749,16 @@ var englishCatalog = catalog{
 	HoldingReconShowAttempts:   "Show check attempts (%d)",
 	HoldingReconHideAttempts:   "Hide check attempts",
 
+	HoldingReconRemoved:          "Removed from current holdings. Prior values and checks are retained.",
+	HoldingReconProductOpen:      "Contract open",
+	HoldingReconInterestNone:     "Interest · None",
+	HoldingReconInterestManual:   "Interest · Manual maturity amount",
+	HoldingReconInterest365:      "Interest · Simple ACT/365",
+	HoldingReconInterest360:      "Interest · Simple ACT/360",
+	HoldingReconAnnualRate:       "Annual rate · %s%%",
+	HoldingReconMaturityInterest: "Maturity interest · %s",
+	HoldingReconPaidThrough:      "Interest paid through · %s",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

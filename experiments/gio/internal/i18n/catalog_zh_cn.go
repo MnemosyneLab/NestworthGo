@@ -1749,6 +1749,16 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconShowAttempts:   "显示检查记录（%d）",
 	HoldingReconHideAttempts:   "隐藏检查记录",
 
+	HoldingReconRemoved:          "此项已从当前持仓中移除。之前的数值和检查记录仍会保留。",
+	HoldingReconProductOpen:      "合约有效",
+	HoldingReconInterestNone:     "利息 · 无",
+	HoldingReconInterestManual:   "利息 · 手动输入到期金额",
+	HoldingReconInterest365:      "利息 · 单利 ACT/365",
+	HoldingReconInterest360:      "利息 · 单利 ACT/360",
+	HoldingReconAnnualRate:       "年利率 · %s%%",
+	HoldingReconMaturityInterest: "到期利息 · %s",
+	HoldingReconPaidThrough:      "利息已付至 · %s",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",

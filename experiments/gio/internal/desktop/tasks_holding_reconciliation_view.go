@@ -180,12 +180,9 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 				if item.Kind == "holding" || !holdingCheckable(item) {
 					continue
 				}
-				var fields []layout.Widget
-				if item.Kind == "cash" {
-					fields = append(fields, holdingCheckValue(view, item))
-				}
+				fields := holdingCheckpointFacts(view, item)
 				buttons := c.checkpointActions(account.AccountID, item.ID)
-				if s.Status == "in_progress" {
+				if s.Status == "in_progress" && (item.Kind == "cash" || item.Kind == "scope") {
 					label := l.Text(i18n.HoldingReconRecordCash)
 					if item.Currency != "" {
 						label += " · " + item.Currency
@@ -227,7 +224,7 @@ func (p *tasksPage) holdingCheckpointRows(view ui.View, account domain.Reconcili
 		label := fmt.Sprintf(l.Text(i18n.HoldingReconShowAttempts), len(item.Attempts))
 		rows = append(rows, buttons.attempts.toggle(view, label, l.Text(i18n.HoldingReconHideAttempts)))
 		if buttons.attempts.open {
-			rows = append(rows, holdingAttemptRows(view, item.Attempts, c.zone)...)
+			rows = append(rows, holdingAttemptRows(view, item, c.zone)...)
 		}
 	}
 	if c.session.Status == "in_progress" {
@@ -402,7 +399,7 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 			if _, item, ok := checkpointInSession(r.session, d.accountID, d.itemID, false); ok {
 				rows = append(rows, view.Message(holdingCheckLabel(view, item), view.Colors.Ink))
 				if item.Kind != "scope" {
-					rows = append(rows, holdingCheckValue(view, item))
+					rows = append(rows, holdingCheckpointFacts(view, item)...)
 				}
 				rows = append(rows, holdingCheckEvidence(view, item)...)
 			}

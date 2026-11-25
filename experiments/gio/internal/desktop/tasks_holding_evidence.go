@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/format"
+	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -155,13 +156,14 @@ func holdingEvidenceSourceDate(view ui.View, source domain.ReconciliationSource)
 	return date
 }
 
-func holdingAttemptRows(view ui.View, attempts []domain.ReconciliationAttempt, zone *time.Location) []layout.Widget {
+func holdingAttemptRows(view ui.View, checkpoint domain.ReconciliationItem, zone *time.Location) []layout.Widget {
 	l := view.Language
 	var rows []layout.Widget
-	for _, attempt := range attempts {
+	for _, attempt := range checkpoint.Attempts {
 		// Use the stored evidence fields, not the live item that may have
 		// changed since this attempt.
 		item := domain.ReconciliationItem{Kind: attempt.Kind, Currency: attempt.Currency, Value: attempt.Value, Cost: attempt.Cost,
+			HoldingID: checkpoint.HoldingID, ProductID: checkpoint.ProductID,
 			Outcome: attempt.Outcome, Note: attempt.Note, Source: attempt.Source, ReferenceValue: attempt.ReferenceValue}
 		if checkedAt, err := time.Parse(time.RFC3339Nano, attempt.CheckedAt); err == nil {
 			rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.StatementCheckedAt), holdingEvidenceTime(view, checkedAt, zone)), view.Colors.SecondaryInk))
@@ -173,6 +175,75 @@ func holdingAttemptRows(view ui.View, attempts []domain.ReconciliationAttempt, z
 			}
 		}
 		rows = append(rows, holdingCheckEvidence(view, item)...)
+	}
+	return rows
+}
+
+func holdingCheckpointFacts(view ui.View, item domain.ReconciliationItem) []layout.Widget {
+	var rows []layout.Widget
+	if item.Kind == "scope" {
+		return nil
+	}
+	if item.Kind == "removed" {
+		rows = append(rows, view.Message(view.Language.Text(i18n.HoldingReconRemoved), view.Colors.SecondaryInk))
+	}
+	if item.Kind == "product" || item.Kind == "removed" && item.ProductID != "" {
+		return append(rows, holdingProductEvidence(view, item)...)
+	}
+	rows = append(rows, holdingCheckValue(view, item))
+	if item.Kind == "removed" && item.Cost != "" {
+		cost := holdingSnapshotValue(view, item.Cost, item.Currency)
+		rows = append(rows, view.Message(fmt.Sprintf(view.Language.Text(i18n.HoldingReconBasis), cost), view.Colors.Ink))
+	}
+	return rows
+}
+
+func holdingProductEvidence(view ui.View, item domain.ReconciliationItem) []layout.Widget {
+	l := view.Language
+	fact := func(label i18n.MessageID, value string) layout.Widget {
+		return view.Message(fmt.Sprintf(l.Text(label), value), view.Colors.Ink)
+	}
+	rows := []layout.Widget{fact(i18n.ProductPrincipal, holdingSnapshotValue(view, item.Value, item.Currency))}
+	var contract domain.ProductContract
+	if err := jsoncodec.Unmarshal(item.Detail, &contract); err != nil {
+		return append(rows, view.Message(l.Text(i18n.ProductUnavailable), view.Colors.SecondaryInk))
+	}
+	state := i18n.OverviewNoValue
+	switch contract.State {
+	case domain.ProductStateOpen:
+		state = i18n.HoldingReconProductOpen
+	case domain.ProductStateSettled:
+		state = i18n.ProductSettled
+	case domain.ProductStateCancelled:
+		state = i18n.ProductCancelled
+	}
+	rows = append(rows, view.Message(l.Text(state), view.Colors.SecondaryInk),
+		fact(i18n.ProductStart, historyDay(view, contract.StartOn)), productMaturity(view, contract.MaturityOn))
+	mode := i18n.OverviewNoValue
+	switch contract.InterestMode {
+	case domain.InterestNone:
+		mode = i18n.HoldingReconInterestNone
+	case domain.InterestManualMaturityAmount:
+		mode = i18n.HoldingReconInterestManual
+	case domain.InterestSimpleAct365:
+		mode = i18n.HoldingReconInterest365
+	case domain.InterestSimpleAct360:
+		mode = i18n.HoldingReconInterest360
+	}
+	rows = append(rows, view.Message(l.Text(mode), view.Colors.Ink))
+	if contract.AnnualRate != nil {
+		percent := portfolioDecimal(view, contract.AnnualRate.Decimal().Shift(2).String())
+		rows = append(rows, fact(i18n.HoldingReconAnnualRate, percent))
+	}
+	if contract.MaturityInterest != nil {
+		amount := holdingSnapshotValue(view, contract.MaturityInterest.CanonicalAmount(), contract.Currency.String())
+		rows = append(rows, fact(i18n.HoldingReconMaturityInterest, amount))
+	}
+	if contract.InterestPaidThroughOn != nil {
+		rows = append(rows, fact(i18n.HoldingReconPaidThrough, historyDay(view, *contract.InterestPaidThroughOn)))
+	}
+	if contract.Note != nil && *contract.Note != "" {
+		rows = append(rows, view.Message(*contract.Note, view.Colors.SecondaryInk))
 	}
 	return rows
 }

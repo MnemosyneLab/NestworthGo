@@ -1671,6 +1671,15 @@ const (
 	HoldingReconLinkedResult
 	HoldingReconShowAttempts
 	HoldingReconHideAttempts
+	HoldingReconRemoved
+	HoldingReconProductOpen
+	HoldingReconInterestNone
+	HoldingReconInterestManual
+	HoldingReconInterest365
+	HoldingReconInterest360
+	HoldingReconAnnualRate
+	HoldingReconMaturityInterest
+	HoldingReconPaidThrough
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab

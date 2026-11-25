@@ -1749,6 +1749,16 @@ var traditionalChineseCatalog = catalog{
 	HoldingReconShowAttempts:   "顯示檢查記錄（%d）",
 	HoldingReconHideAttempts:   "隱藏檢查記錄",
 
+	HoldingReconRemoved:          "此項已從目前持倉中移除。先前的數值與檢查記錄仍會保留。",
+	HoldingReconProductOpen:      "合約有效",
+	HoldingReconInterestNone:     "利息 · 無",
+	HoldingReconInterestManual:   "利息 · 手動輸入到期金額",
+	HoldingReconInterest365:      "利息 · 單利 ACT/365",
+	HoldingReconInterest360:      "利息 · 單利 ACT/360",
+	HoldingReconAnnualRate:       "年利率 · %s%%",
+	HoldingReconMaturityInterest: "到期利息 · %s",
+	HoldingReconPaidThrough:      "利息已付至 · %s",
+
 	TasksUpcomingTab:          "即將發生",
 	TasksInvestmentTab:        "投資核查",
 	TasksReconciliationTab:    "待對帳",

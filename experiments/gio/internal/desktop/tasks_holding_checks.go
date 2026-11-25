@@ -54,7 +54,7 @@ func (c *holdingReconciliation) checkDate(f *holdingCheckpointDraft) (day, today
 
 func holdingCheckable(item domain.ReconciliationItem) bool {
 	switch item.Kind {
-	case "scope", "cash", "holding":
+	case "scope", "cash", "holding", "product", "removed":
 		return true
 	}
 	return false
@@ -94,7 +94,7 @@ func holdingCheckValue(view ui.View, item domain.ReconciliationItem) layout.Widg
 	if item.Value == "" {
 		return view.Message(view.Language.Text(i18n.OverviewNoValue), view.Colors.SecondaryInk)
 	}
-	if item.Kind == "holding" {
+	if item.Kind == "holding" || item.Kind == "removed" && item.HoldingID != "" && item.ProductID == "" {
 		return view.Message(fmt.Sprintf(view.Language.Text(i18n.AccountQuantity), portfolioDecimal(view, item.Value)), view.Colors.Ink)
 	}
 	return view.Message(portfolioDecimal(view, item.Value)+" "+item.Currency, view.Colors.Ink)
@@ -127,7 +127,7 @@ func (c *holdingReconciliation) holdingCheckFields(view ui.View, d *holdingRecon
 	day, today := c.checkDate(f)
 	rows := []layout.Widget{view.Message(a.Name+" · "+holdingCheckLabel(view, item), view.Colors.Ink)}
 	if item.Kind != "scope" {
-		rows = append(rows, holdingCheckValue(view, item))
+		rows = append(rows, holdingCheckpointFacts(view, item)...)
 	} else {
 		rows = append(rows, view.Message(l.Text(i18n.HoldingReconScopeHelp), view.Colors.SecondaryInk))
 	}
