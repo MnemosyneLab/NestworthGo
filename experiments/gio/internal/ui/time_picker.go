@@ -14,24 +14,18 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
-const clockLayout = "15:04"
-
-func clockParts(value string) (hour, minute int, valid bool) {
-	t, err := time.Parse(clockLayout, value)
-	if err != nil || t.Format(clockLayout) != value {
-		return 0, 0, false
+func clockParts(value, format string) ([3]int, bool) {
+	t, err := time.Parse(format, value)
+	if err != nil || t.Format(format) != value {
+		return [3]int{}, false
 	}
-	return t.Hour(), t.Minute(), true
+	return [3]int{t.Hour(), t.Minute(), t.Second()}, true
 }
 
-func chooseClockPart(value string, isMinute bool, part int) string {
-	hour, minute, _ := clockParts(value)
-	if isMinute {
-		minute = part
-	} else {
-		hour = part
-	}
-	return fmt.Sprintf("%02d:%02d", hour, minute)
+func chooseClockPart(value, format string, column, part int) string {
+	parts, _ := clockParts(value, format)
+	parts[column] = part
+	return time.Date(0, 1, 1, parts[0], parts[1], parts[2], 0, time.UTC).Format(format)
 }
 
 func clockPeriod(view View, hour int) string {
@@ -45,8 +39,8 @@ func clockDisplayHour(hour int) int {
 	return (hour+11)%12 + 1
 }
 
-func displayClock(view View, value string, twelveHour bool) string {
-	hour, minute, valid := clockParts(value)
+func displayClock(view View, value, format string, twelveHour bool) string {
+	parts, valid := clockParts(value, format)
 	if !valid {
 		if value == "" {
 			return view.Language.Text(i18n.PickerEmpty)
@@ -56,28 +50,49 @@ func displayClock(view View, value string, twelveHour bool) string {
 	if !twelveHour {
 		return value
 	}
+	hour, minute, second := parts[0], parts[1], parts[2]
+	if format == time.TimeOnly {
+		return fmt.Sprintf(view.Language.Text(i18n.TimeTwelveSecondsDisplay), clockDisplayHour(hour), minute, second, clockPeriod(view, hour))
+	}
 	return fmt.Sprintf(view.Language.Text(i18n.TimeTwelveDisplay), clockDisplayHour(hour), minute, clockPeriod(view, hour))
 }
 
 type TimePicker struct {
-	Trigger        widget.Clickable
-	hours, minutes optionList
-	minuteActive   bool
-	clear          widget.Clickable
+	Trigger widget.Clickable
+	columns [3]optionList
+	active  int
+	clear   widget.Clickable
 }
 
 func (p *TimePicker) Layout(gtx layout.Context, view View, field PickerField, value string, twelveHour, clearable bool, change func(string)) {
-	_, _, valid := clockParts(value)
+	p.layout(gtx, view, field, value, "15:04", twelveHour, clearable, change)
+}
+
+func (p *TimePicker) LayoutSeconds(gtx layout.Context, view View, field PickerField, value string, twelveHour bool, change func(string)) {
+	p.layout(gtx, view, field, value, time.TimeOnly, twelveHour, false, change)
+}
+
+func (p *TimePicker) layout(gtx layout.Context, view View, field PickerField, value, format string, twelveHour, clearable bool, change func(string)) {
+	parts, valid := clockParts(value, format)
 	pane := Popover{focus: p, Body: func(gtx layout.Context) layout.Dimensions {
-		return p.popup(gtx, view, value, twelveHour, clearable, change)
+		return p.popup(gtx, view, value, format, timeChoices(view, format, twelveHour), clearable, change)
 	}}
-	if pickerTrigger(gtx, view, field, &p.Trigger, displayClock(view, value, twelveHour), value != "" && !valid, pane) {
-		p.minuteActive = false
-		hour, minute, _ := clockParts(value)
-		p.hours.scroll.Position, p.minutes.scroll.Position = layout.Position{}, layout.Position{}
-		p.hours.setActive(clockChoices(view, 24, twelveHour), clockPartID(hour))
-		p.minutes.setActive(clockChoices(view, 60, false), clockPartID(minute))
+	if pickerTrigger(gtx, view, field, &p.Trigger, displayClock(view, value, format, twelveHour), value != "" && !valid, pane) {
+		p.active = 0
+		for i, items := range timeChoices(view, format, twelveHour) {
+			p.columns[i].scroll.Position = layout.Position{}
+			p.columns[i].setActive(items, clockPartID(parts[i]))
+		}
 	}
+}
+
+func timeChoices(view View, format string, twelveHour bool) [][]Choice {
+	minutes := clockChoices(view, 60, false)
+	choices := [][]Choice{clockChoices(view, 24, twelveHour), minutes}
+	if format == time.TimeOnly {
+		choices = append(choices, minutes)
+	}
+	return choices
 }
 
 func clockPartID(part int) string {
@@ -97,14 +112,12 @@ func clockChoices(view View, count int, twelveHour bool) []Choice {
 	return items
 }
 
-func (p *TimePicker) popup(gtx layout.Context, view View, value string, twelveHour, clearable bool, change func(string)) layout.Dimensions {
+func (p *TimePicker) popup(gtx layout.Context, view View, value, format string, choices [][]Choice, clearable bool, change func(string)) layout.Dimensions {
 	registerPickerFocus(gtx, p)
-	hours := clockChoices(view, 24, twelveHour)
-	minutes := clockChoices(view, 60, false)
-	pick := func(isMinute bool, item Choice) {
+	pick := func(column int, item Choice) {
 		part, _ := strconv.Atoi(item.ID)
-		value = chooseClockPart(value, isMinute, part)
-		p.minuteActive = isMinute
+		value = chooseClockPart(value, format, column, part)
+		p.active = column
 		change(value)
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -116,15 +129,12 @@ func (p *TimePicker) popup(gtx layout.Context, view View, value string, twelveHo
 	}
 	for _, e := range PressedKeys(gtx, p, key.NameLeftArrow, key.NameRightArrow, key.NameUpArrow, key.NameDownArrow,
 		key.NameReturn, key.NameEnter, key.NameSpace, key.NameDeleteBackward, key.NameDeleteForward) {
-		active, items := &p.hours, hours
-		if p.minuteActive {
-			active, items = &p.minutes, minutes
-		}
+		active, items := &p.columns[p.active], choices[p.active]
 		switch e.Name {
 		case key.NameLeftArrow:
-			p.minuteActive = false
+			p.active = max(0, p.active-1)
 		case key.NameRightArrow:
-			p.minuteActive = true
+			p.active = min(len(choices)-1, p.active+1)
 		case key.NameUpArrow:
 			active.move(items, -1)
 		case key.NameDownArrow:
@@ -132,25 +142,25 @@ func (p *TimePicker) popup(gtx layout.Context, view View, value string, twelveHo
 		case key.NameDeleteBackward, key.NameDeleteForward:
 			clear()
 		default:
-			active.accept(items, func(item Choice) { pick(p.minuteActive, item) })
+			active.accept(items, func(item Choice) { pick(p.active, item) })
 		}
 	}
 
-	selectedHour, selectedMinute := "", ""
-	if hour, minute, valid := clockParts(value); valid {
-		selectedHour, selectedMinute = clockPartID(hour), clockPartID(minute)
+	parts, valid := clockParts(value, format)
+	titles := [...]i18n.MessageID{i18n.TimeHours, i18n.TimeMinutes, i18n.TimeSeconds}
+	columns := make([]layout.FlexChild, 0, len(choices))
+	for i, items := range choices {
+		selected := ""
+		if valid {
+			selected = clockPartID(parts[i])
+		}
+		columns = append(columns, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return clockColumn(gtx, view, titles[i], &p.columns[i], items, selected, gtx.Focused(p) && p.active == i,
+				func(item Choice) { pick(i, item) })
+		}))
 	}
 	children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Gap: gtx.Dp(10)}.Layout(gtx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return clockColumn(gtx, view, i18n.TimeHours, &p.hours, hours, selectedHour, gtx.Focused(p) && !p.minuteActive,
-					func(item Choice) { pick(false, item) })
-			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return clockColumn(gtx, view, i18n.TimeMinutes, &p.minutes, minutes, selectedMinute, gtx.Focused(p) && p.minuteActive,
-					func(item Choice) { pick(true, item) })
-			}),
-		)
+		return layout.Flex{Gap: gtx.Dp(10)}.Layout(gtx, columns...)
 	})}
 	if clearable && value != "" {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {

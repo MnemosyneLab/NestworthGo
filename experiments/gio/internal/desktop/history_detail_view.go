@@ -220,11 +220,15 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 		}
 		return l.Text(i18n.HistoryInstrumentUnavailable)
 	}
+	timestamp := contributionTimestamp
+	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell {
+		timestamp = tradeTimestamp
+	}
 	var facts []layout.Widget
 	if detail.Location != nil {
-		facts = append(facts, muted(contributionTimestamp(view, activity.EffectiveAt, detail.Location)))
+		facts = append(facts, muted(timestamp(view, activity.EffectiveAt, detail.Location)))
 	} else {
-		facts = append(facts, muted(historyDay(view, activity.EffectiveLocalDate)), muted(contributionTimestamp(view, activity.EffectiveAt, time.UTC)))
+		facts = append(facts, muted(historyDay(view, activity.EffectiveLocalDate)), muted(timestamp(view, activity.EffectiveAt, time.UTC)))
 	}
 	if activity.Note != nil && *activity.Note != "" {
 		facts = append(facts, ink(*activity.Note))

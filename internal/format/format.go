@@ -210,12 +210,19 @@ func DateTime(value time.Time, preference settings.Settings, language settings.L
 
 // LocalDateTime formats an instant already converted to the display location.
 func LocalDateTime(value time.Time, preference settings.Settings, language settings.Language) string {
-	dateLayout := dateLayout(preference.DateFormat, language)
-	timeLayout := "15:04"
+	return localDateTime(value, preference, language, "15:04", "3:04 PM")
+}
+
+// LocalDateTimeSeconds preserves the ledger's timestamp precision.
+func LocalDateTimeSeconds(value time.Time, preference settings.Settings, language settings.Language) string {
+	return localDateTime(value, preference, language, "15:04:05.999", "3:04:05.999 PM")
+}
+
+func localDateTime(value time.Time, preference settings.Settings, language settings.Language, timeLayout, twelveHourLayout string) string {
 	if preference.TimeFormat == settings.TimeFormat12 {
-		timeLayout = "3:04 PM"
+		timeLayout = twelveHourLayout
 	}
-	return value.Format(dateLayout + " " + timeLayout)
+	return value.Format(dateLayout(preference.DateFormat, language) + " " + timeLayout)
 }
 
 func dateLayout(value string, language settings.Language) string {

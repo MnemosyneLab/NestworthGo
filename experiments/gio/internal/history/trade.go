@@ -98,15 +98,16 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 }
 
 type TradeInput struct {
-	Side       domain.TradeSide
-	Account    domain.AccountID
-	Instrument domain.InstrumentID
-	Holding    domain.HoldingID
-	Quantity   string
-	Gross      string
-	Fee        string
-	Date       string
-	Time       string
+	Side        domain.TradeSide
+	Account     domain.AccountID
+	Instrument  domain.InstrumentID
+	Holding     domain.HoldingID
+	Quantity    string
+	Gross       string
+	Fee         string
+	Date        string
+	Time        string
+	EffectiveAt time.Time
 }
 
 type ReviewedInvestment struct {
@@ -208,13 +209,17 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 	if err != nil || gross.IsZero() {
 		return request, &domain.Error{Code: domain.ErrValidation, Field: "gross"}
 	}
-	if strings.TrimSpace(input.Date) == "" || strings.TrimSpace(input.Time) == "" {
+	if input.EffectiveAt.IsZero() && (strings.TrimSpace(input.Date) == "" || strings.TrimSpace(input.Time) == "") {
 		return request, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 	}
 	request = historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeTrade, Side: string(input.Side), SettlementAccountID: input.Account.String(), HoldingID: holding.String(),
 		InstrumentID: input.Instrument.String(), Quantity: quantity.Canonical(), Gross: gross.CanonicalAmount(), GrossCurrency: currency.String(),
-		EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,
+	}
+	if input.EffectiveAt.IsZero() {
+		request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time
+	} else {
+		request.EffectiveAt = input.EffectiveAt.UTC().Format(time.RFC3339Nano)
 	}
 	if value := strings.TrimSpace(input.Fee); value != "" {
 		fee, err := domain.ParseMoney(value, currency)

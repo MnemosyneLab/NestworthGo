@@ -1701,13 +1701,18 @@ func ResolveLocalDateTime(date, clock, timezone string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, changeError(ErrInvalidChangeTime, "date", "date must use YYYY-MM-DD")
 	}
-	parsedClock, err := time.Parse("15:04", strings.TrimSpace(clock))
-	if err != nil {
-		return time.Time{}, changeError(ErrInvalidChangeTime, "time", "time must use HH:MM")
+	clock = strings.TrimSpace(clock)
+	clockLayout := "15:04"
+	if len(clock) == len("15:04:05") {
+		clockLayout = "15:04:05"
 	}
-	wall := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), parsedClock.Hour(), parsedClock.Minute(), 0, 0, location)
-	wallParts := func(value time.Time) string { return value.In(location).Format("2006-01-02 15:04") }
-	wallText := strings.TrimSpace(date) + " " + strings.TrimSpace(clock)
+	parsedClock, err := time.Parse(clockLayout, clock)
+	if err != nil || parsedClock.Format(clockLayout) != clock {
+		return time.Time{}, changeError(ErrInvalidChangeTime, "time", "time must use HH:MM or HH:MM:SS")
+	}
+	wall := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), parsedClock.Hour(), parsedClock.Minute(), parsedClock.Second(), 0, location)
+	wallParts := func(value time.Time) string { return value.In(location).Format(dateLayout + " " + clockLayout) }
+	wallText := strings.TrimSpace(date) + " " + clock
 	offsets := map[int]struct{}{}
 	for delta := -36 * time.Hour; delta <= 36*time.Hour; delta += 15 * time.Minute {
 		candidate := wall.Add(delta)
@@ -1716,7 +1721,7 @@ func ResolveLocalDateTime(date, clock, timezone string) (time.Time, error) {
 	}
 	candidates := make([]time.Time, 0, len(offsets))
 	for offset := range offsets {
-		candidate := time.Date(wall.Year(), wall.Month(), wall.Day(), wall.Hour(), wall.Minute(), 0, 0, time.UTC).Add(-time.Duration(offset) * time.Second)
+		candidate := time.Date(wall.Year(), wall.Month(), wall.Day(), wall.Hour(), wall.Minute(), wall.Second(), 0, time.UTC).Add(-time.Duration(offset) * time.Second)
 		if wallParts(candidate) == wallText {
 			candidates = append(candidates, candidate)
 		}

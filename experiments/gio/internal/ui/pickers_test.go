@@ -43,12 +43,12 @@ func TestTemporalValueRules(t *testing.T) {
 			t.Errorf("%s calendar heading was %q, want %q", sample.language, got, sample.month)
 		}
 	}
-	if chooseClockPart("", true, 23) != "00:23" || chooseClockPart("", false, 7) != "07:00" ||
-		chooseClockPart("23:59", false, 0) != "00:59" {
+	if chooseClockPart("", "15:04", 1, 23) != "00:23" || chooseClockPart("", "15:04", 0, 7) != "07:00" ||
+		chooseClockPart("23:59", "15:04", 0, 0) != "00:59" {
 		t.Fatal("changing a time part overwrote its partner or missed the initial zero")
 	}
 	for _, value := range []string{"", "24:00", "03:60", "0:00", "00:0"} {
-		if _, _, ok := clockParts(value); ok {
+		if _, ok := clockParts(value, "15:04"); ok {
 			t.Errorf("%q was parsed as a canonical time", value)
 		}
 	}
@@ -64,9 +64,22 @@ func TestTemporalValueRules(t *testing.T) {
 		{i18n.TraditionalChinese, "00:00", "上午12:00"},
 		{i18n.TraditionalChinese, "23:59", "下午11:59"},
 	} {
-		if got := displayClock(View{Language: sample.language}, sample.value, true); got != sample.want {
+		if got := displayClock(View{Language: sample.language}, sample.value, "15:04", true); got != sample.want {
 			t.Errorf("%s displayed %s as %q, want %q", sample.language, sample.value, got, sample.want)
 		}
+	}
+}
+
+func TestTimePickerSecondsKeepOtherClockParts(t *testing.T) {
+	const clock = "15:04:05"
+	if got := chooseClockPart("23:58:53", clock, 2, 59); got != "23:58:59" {
+		t.Fatalf("editing seconds gave %q", got)
+	}
+	if got := chooseClockPart("23:58:53", clock, 1, 0); got != "23:00:53" {
+		t.Fatalf("editing minutes lost seconds: %q", got)
+	}
+	if got := displayClock(View{Language: i18n.Japanese}, "23:58:53", clock, true); got != "午後11:58:53" {
+		t.Fatalf("localized 12-hour time = %q", got)
 	}
 }
 

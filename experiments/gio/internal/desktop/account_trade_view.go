@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/format"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -154,9 +155,17 @@ func (d *accountInvestmentDraft) layoutInvestmentTime(gtx layout.Context, view u
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			field := ui.PickerField{Label: i18n.PreviewEffectiveTime, Origin: timeOrigin, Disabled: d.previewing != nil, Previous: &d.datePicker.Trigger, Next: &d.preview}
-			d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, func(value string) {
+			setTime := func(value string) {
+				if value != d.time {
+					d.defaultTime = time.Time{}
+				}
 				d.time, d.problem = value, i18n.NoMessage
-			})
+			}
+			if d.kind == domain.ActivityCashDividend {
+				d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, setTime)
+			} else {
+				d.timePicker.LayoutSeconds(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, setTime)
+			}
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 		}),
 	)
@@ -184,10 +193,14 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 	if at := slices.IndexFunc(d.sources.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }); at >= 0 {
 		instrument = d.sources.Instruments[at].SelectionLabel()
 	}
+	timestamp := contributionTimestamp(view, preview.Activity.EffectiveAt, review.Timezone)
+	if d.kind != domain.ActivityCashDividend {
+		timestamp = tradeTimestamp(view, preview.Activity.EffectiveAt, review.Timezone)
+	}
 	children := []layout.FlexChild{
 		layout.Rigid(tradeTitle(view, labels.review)),
 		layout.Rigid(view.Message(d.account.Name+" · "+instrument, view.Colors.Ink)),
-		layout.Rigid(view.Message(contributionTimestamp(view, preview.Activity.EffectiveAt, review.Timezone), view.Colors.SecondaryInk)),
+		layout.Rigid(view.Message(timestamp, view.Colors.SecondaryInk)),
 	}
 	fact := func(id i18n.MessageID, value string) layout.FlexChild {
 		return layout.Rigid(view.Message(fmt.Sprintf(l.Text(id), value), view.Colors.Ink))
@@ -291,4 +304,9 @@ func tradeTitle(view ui.View, id i18n.MessageID) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return view.Label(gtx, view.Language.Text(id), 19, font.Medium, view.Colors.Ink)
 	}
+}
+
+func tradeTimestamp(view ui.View, instant time.Time, zone *time.Location) string {
+	value := format.LocalDateTimeSeconds(instant.In(zone), settings.Settings{DateFormat: view.DateFormat, TimeFormat: view.TimeFormat}, settings.Language(view.Language))
+	return fmt.Sprintf(view.Language.Text(i18n.ContributionEffective), value, zone)
 }

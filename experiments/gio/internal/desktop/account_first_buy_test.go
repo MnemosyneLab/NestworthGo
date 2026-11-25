@@ -26,6 +26,10 @@ type firstBuyFixture struct {
 }
 
 func seedFirstBuy(ctx context.Context, service *application.Service, now time.Time) (firstBuyFixture, error) {
+	return seedFirstBuyAtOrigin(ctx, service, now, now.Add(-48*time.Hour))
+}
+
+func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now, originAt time.Time) (firstBuyFixture, error) {
 	var fixture firstBuyFixture
 	service.SetClock(func() time.Time { return now.Add(-48 * time.Hour) })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
@@ -48,6 +52,7 @@ func seedFirstBuy(ctx context.Context, service *application.Service, now time.Ti
 	if _, err = service.AppendAccountCashValue(ctx, fixture.account, "200", "USD", ""); err != nil {
 		return fixture, err
 	}
+	service.SetClock(func() time.Time { return originAt })
 	if _, err = service.StartHistory(ctx, "Asia/Singapore"); err != nil {
 		return fixture, err
 	}
@@ -115,7 +120,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Harbor Brokerage")
 	click("Record first buy")
 	d := accounts.investment.draft
-	if len(d.sources.Instruments) != 1 || d.instrument != ids.instrument || d.day != "2026-11-22" || d.time != "01:00" {
+	if len(d.sources.Instruments) != 1 || d.instrument != ids.instrument || d.day != "2026-11-22" || d.time != "01:00:00" {
 		t.Fatalf("wrong eligible choices or History date and time: %+v", d)
 	}
 	setBankField(h, "Bought quantity", &d.quantity, "2.500000001")
@@ -326,5 +331,38 @@ func TestFirstBuyRejectsForeignSettlementAndSpentCash(t *testing.T) {
 	rows, err := service.ListActivities(ctx, 50)
 	if err != nil || len(rows) != 1 || rows[0].Kind == domain.ActivityBuy {
 		t.Fatalf("rejected buy created an activity: %+v / %v", rows, err)
+	}
+}
+
+func TestFirstBuyDefaultPreservesImmediateHistoryTime(t *testing.T) {
+	ctx := t.Context()
+	now := accountTestClock.Add(345 * time.Millisecond)
+	originAt := accountTestClock.Add(123 * time.Millisecond)
+	app, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
+	ids, err := seedFirstBuyAtOrigin(ctx, app, now, originAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, err := app.AccountValuation(ctx, ids.account)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := newAccountsPage(ctx, app, func() time.Time { return now }, func() {})
+	page.investment = &accountInvestment{service: app, draft: &accountInvestmentDraft{account: row.Account, kind: domain.ActivityBuy}}
+	page.loadInvestmentSources()
+	page.workers.Wait()
+	page.pollInvestment()
+	draft := page.investment.draft
+	draft.quantity.Editor.SetText("1")
+	draft.gross.Editor.SetText("20")
+	page.previewInvestment()
+	page.workers.Wait()
+	page.pollInvestment()
+	if draft.review == nil || !draft.review.Preview.Activity.EffectiveAt.Equal(now) {
+		t.Fatalf("default must preserve %s after origin %s: %+v / %v", now, originAt, draft.review, draft.problem)
+	}
+	result, err := draft.review.Commit(ctx, app)
+	if err != nil || !result.Activity.EffectiveAt.Equal(now) {
+		t.Fatalf("post lost the default instant: %+v / %v", result.Activity, err)
 	}
 }

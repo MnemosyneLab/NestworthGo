@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"image"
 	"reflect"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	portfolioapi "github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 func seedExistingBuy(ctx context.Context, app *application.Service, now time.Time) (saleFixture, error) {
@@ -53,7 +55,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	fault := &cashMovementFault{Service: app, loseAttempt: 2, started: make(chan struct{}), release: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.release) })
-	now := accountTestClock
+	now := accountTestClock.Add(2345 * time.Millisecond)
 	clock := func() time.Time { return now }
 	app.SetClock(clock)
 	ref.SetClock(clock)
@@ -108,6 +110,10 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 		w, err = api.RecordChange(ctx, r)
 		if err != nil || w.Activity.TradeDetail.HoldingID != r.HoldingID {
 			t.Fatalf("unexpected Wails commit: %+v / %v", w, err)
+		}
+		if w.Activity.EffectiveAt != wire.FormatTime(plan.Preview.Activity.EffectiveAt) ||
+			w.Activity.TradeDetail.Fee.Amount != r.Fee {
+			t.Fatalf("Wails returned different time or fee: %+v", w.Activity)
 		}
 		return domain.ActivityID(w.Activity.ID)
 	}
@@ -173,7 +179,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 		app *application.Service
 		ids saleFixture
 	}{{app, ids}, {ref, refIDs}} {
-		if _, err := historyapi.NewService(f.app).RecordChange(ctx, request(f.ids, "buy", "1", "26", "1", "00:59")); err != nil {
+		if _, err := historyapi.NewService(f.app).RecordChange(ctx, request(f.ids, "buy", "1", "26", "1", "01:00:01")); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -210,6 +216,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	label("Could not load this activity.")
 	click("Retry")
 	label("Unit price · 31.5 USD")
+	label("Effective: 2026-11-22 01:00:02.345 (Asia/Singapore)")
 	if len(fault.attempts) != 3 {
 		t.Fatal("an acknowledged activity read submitted another buy")
 	}
@@ -217,20 +224,38 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	label("Quantity 5")
 	label("Cost basis · USD $ 135.00")
 	label("Native market value · USD $ 200.00")
-	commitReference(addition, request(refIDs, "buy", "2", "63", "1", "01:00"))
+	refAddition := request(refIDs, "buy", "2", "63", "1", "")
+	refAddition.EffectiveLocalDate = ""
+	refAddition.EffectiveAt = now.Format(time.RFC3339Nano)
+	commitReference(addition, refAddition)
 	assertPosition(app, ids, "5", "135", "0", "65", "265", 3)
 	assertPosition(ref, refIDs, "5", "135", "0", "65", "265", 3)
 
+	// A reviewed trade at an older or exactly equal instant must not
+	// rewrite an existing Holding's cost sequence.
+	for _, side := range []domain.TradeSide{domain.TradeBuy, domain.TradeSell} {
+		for _, at := range []time.Time{now.Add(-time.Millisecond), now} {
+			_, err := history.ReviewTrade(ctx, app, history.TradeInput{
+				Side: side, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
+				Quantity: "1", Gross: "40", Fee: "1", EffectiveAt: at,
+			})
+			var issue *domain.Error
+			if !errors.As(err, &issue) || issue.Code != domain.ErrInvalidChangeTime {
+				t.Fatalf("%s at %s should preserve strict cost order: %v", side, at, err)
+			}
+		}
+	}
+
 	for _, sale := range []struct {
-		minute                           int
+		second                           int
 		qty, gross, fee, at              string
 		remaining, cost, gain, cash, net string
 		count                            int
 	}{
-		{2, "2", "70.125", "1.125", "01:02", "3", "81", "15", "134", "254", 4},
-		{4, "3", "60", "2", "01:04", "0", "0", "-8", "192", "192", 5},
+		{3, "2", "70.125", "1.125", "01:00:03", "3", "81", "15", "134", "254", 4},
+		{4, "3", "60", "2", "01:00:04", "0", "0", "-8", "192", "192", 5},
 	} {
-		now = accountTestClock.Add(time.Duration(sale.minute) * time.Minute)
+		now = accountTestClock.Add(time.Duration(sale.second) * time.Second)
 		plan, err := history.ReviewTrade(ctx, app, history.TradeInput{
 			Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
 			Quantity: sale.qty, Gross: sale.gross, Fee: sale.fee, Date: "2026-11-22", Time: sale.at,
@@ -238,8 +263,10 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := plan.Commit(ctx, app); err != nil {
-			t.Fatal(err)
+		result, err := plan.Commit(ctx, app)
+		if err != nil || !result.Activity.EffectiveAt.Equal(now) ||
+			result.Activity.TradeDetail.Fee.CanonicalAmount() != sale.fee {
+			t.Fatalf("sale did not store its exact time and fee: %+v / %v", result.Activity, err)
 		}
 		commitReference(plan, request(refIDs, "sell", sale.qty, sale.gross, sale.fee, sale.at))
 		assertPosition(app, ids, sale.remaining, sale.cost, sale.gain, sale.cash, sale.net, sale.count)

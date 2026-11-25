@@ -239,10 +239,12 @@ const (
 	WeekdaySaturday
 	TimeHours
 	TimeMinutes
+	TimeSeconds
 	TimeAM
 	TimePM
 	TimeHourDisplay
 	TimeTwelveDisplay
+	TimeTwelveSecondsDisplay
 	PreviewCash
 	PreviewCredit
 	PreviewBrokerage

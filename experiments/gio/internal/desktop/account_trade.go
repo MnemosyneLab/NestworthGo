@@ -28,6 +28,7 @@ type accountInvestmentDraft struct {
 	instrument                   domain.InstrumentID
 	quantity, gross, fee         ui.TextField
 	day, time                    string
+	defaultTime                  time.Time
 	selectInstrument             ui.Select
 	datePicker                   ui.DatePicker
 	timePicker                   ui.TimePicker
@@ -166,6 +167,11 @@ func (p *accountsPage) previewInvestment() {
 	input := history.TradeInput{Side: side, Account: d.account.ID, Instrument: d.instrument,
 		Holding: d.sources.Holdings[d.instrument].ID, Quantity: d.quantity.Text(),
 		Gross: d.gross.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time}
+	// Keep the actual default instant, including its sub-second position
+	// after History Origin. Edited wall times resolve in the Origin timezone.
+	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
+		input.EffectiveAt = d.defaultTime
+	}
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedInvestment, error) {
 		if kind == domain.ActivityCashDividend {
@@ -212,6 +218,9 @@ func (p *accountsPage) pollInvestment() {
 			if d.day == "" {
 				now := p.clock().In(result.value.Location)
 				d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
+				if d.kind != domain.ActivityCashDividend {
+					d.time, d.defaultTime = now.Format(time.TimeOnly), now
+				}
 			}
 			if d.instrument != "" && !slices.ContainsFunc(result.value.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }) {
 				d.chooseInstrument("")
