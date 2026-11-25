@@ -95,6 +95,10 @@ type marketDataPage struct {
 	instrumentSources                   marketInstrumentSourceService
 	instrumentSource                    *marketInstrumentSourceDraft
 	instrumentSourceActions             map[string]*widget.Clickable
+	agentReader                         marketAgentReader
+	closedDateWriter                    marketClosedDateWriter
+	agentEvidence                       *marketAgentEvidence
+	agentActions                        map[string]*widget.Clickable
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {

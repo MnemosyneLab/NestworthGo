@@ -2104,7 +2104,45 @@ and existing quote observations. Lookup and save are separate actions.
 | Gio and shared Go | The compact interaction fixture typed into the lookup editor, verified the query stayed local until submission, retried a failed lookup, disabled a mismatched result, and used the compatible result. The first save failed with no write and the draft remained for retry. Wails readback matched Yahoo Finance, DEMO, NASDAQ and US. The USD 12.34567891 manual quote, name, alias, ticker, currency, note and sort order were preserved. A Data Health fixture verified dismissal restored the same finding without rescanning and Save rechecked that same scope. |
 | Wails reference | All 82 Instrument Management, Market Data and Data Health frontend tests passed. Focused shared application and Wails instrument and Market Data adapter tests passed. |
 | Packaged Linux X11 | At 1260×1050 saving a blank Provider draft showed the binding validation. At 640×480 actual keyboard text reached the lookup, an injected provider error retried, and the USD result was selectable beside the disabled EUR result. The native test caught that the sheet's shortcut listener was consuming editor events. The listener now reads only its shortcut keys. Save restored the originating row's focus. Return reopened the same instrument, and quit and reopen showed Yahoo Finance and DEMO. SQLite confirmed NASDAQ and US, the original USD 12.34567891 manual quote and untouched catalog metadata. Source database and settings hashes matched. The packaged test used deterministic providers. |
-| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. Agent coverage evidence and closed-date actions remain in the parity checklist. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain open. No benchmark was run. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. [Local Agent evidence and closed dates](#local-agent-coverage-evidence-and-closed-dates) follow this checkpoint. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain open. No benchmark was run. |
+
+#### Local Agent coverage evidence and closed dates
+
+**Agent evidence** opens the saved evidence for a Market data instrument or
+FX pair. An Agent prerequisite in Data Health opens the same view initially
+limited to the finding's dates. **Show all dates** exposes the selected
+target's other evidence. Coverage findings come from the shared Data Health
+scan. The evidence list uses the local Agent audit, showing exact stored
+amounts, civil dates, source titles and URLs, closures and superseded or
+withdrawn facts. FX evidence keeps the stored direction. A source URL is
+displayed as provenance.
+
+An active instrument can record a closed date using the same command as the
+Wails instrument editor. The confirmation stores a dated closure fact and
+preserves the saved quotes. A failed response retains the date and operation ID for
+retry. The view rereads stored evidence after success, reports a pending
+snapshot recheck separately when the shared result requires it, and rechecks
+the originating Data Health scope on save. Close or Escape returns to the
+same row or finding. These workflows use the local ledger and its saved
+Agent evidence.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | A compact Data Health fixture switched from a dated finding to all evidence while isolating the scope to the selected instrument. It retained the exact USD 12.34567891 NAV and its source. A simulated lost acknowledgement retried the same Wails operation ID and read back one closure with the original quote history intact. A separate FX projection preserved the stored direction and the withdrawal of the selected pair. |
+| Wails reference | All 60 Instrument Management, Quote History and Data Health frontend tests passed. Focused shared application and Wails quote adapter Agent and closure tests passed. |
+| Packaged Linux X11 | At 1260×1050 the synthetic fund showed its USD 17.12345678 NAV and source. At 640×480 the date picker saved November 24 and showed the closed-date receipt. Escape and Return reopened the selected row. Quit and reopen showed the closure alongside the original NAV. SQLite retained both original price rows and one added closure receipt. Source database and settings hashes matched. The packaged test used deterministic providers. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. This view loads the shared household audit only when opened and filters to the selected target. No benchmark was run. Wails GUI, macOS, Wayland, VoiceOver and native IME remain open. |
+
+#### Follow-up order across Stages 4 to 6
+
+Finish Stage 4 debit and credit account workflows next, starting with debt
+draws and payments, card purchases and refunds, and account Starting Point
+handoffs. Then continue Stage 5 with multi-position opening, cross-currency
+trades and broader Holdings actions. Put additional Agent audit filters,
+large-history paging, and possible local correction and withdrawal authoring
+after these account and investment workflows. The broader catalog editor
+remains part of investment parity. External enrollment and permissions stay
+paused with Stage 7.
 
 #### Additional analysis filters and effective dates
 

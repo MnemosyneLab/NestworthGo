@@ -47,6 +47,7 @@ type dataHealthPage struct {
 	openAccount                func(domain.AccountID, string, *widget.Clickable)
 	openManual                 func(marketManualTarget, event.Tag)
 	openInstrumentSource       func(domain.InstrumentID, string, event.Tag)
+	openAgentEvidence          func(marketQuoteHistoryTarget, event.Tag)
 	quoteHistory               func(layout.Context, ui.View, marketQuoteHistoryTarget, *widget.Clickable, bool) layout.Widget
 	previewQuoteRepair         func(application.SyncRequest, event.Tag)
 	openRepairDetails          func(event.Tag)

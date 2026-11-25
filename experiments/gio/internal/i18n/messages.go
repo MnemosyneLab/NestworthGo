@@ -61,6 +61,27 @@ const (
 	InstrumentBindingSaveFailed
 	InstrumentBindingMetal
 
+	AgentEvidenceOpen
+	AgentEvidenceTitle
+	AgentEvidenceRecords
+	AgentEvidenceFindings
+	AgentEvidenceNoFindings
+	AgentEvidenceEmpty
+	AgentEvidenceReadFailed
+	AgentEvidenceClosureHelp
+	AgentEvidenceClosedDate
+	AgentEvidenceDeclare
+	AgentEvidenceSaved
+	AgentEvidenceSavedPending
+	AgentEvidenceSaveFailed
+	AgentEvidenceObservation
+	AgentEvidenceCorrection
+	AgentEvidenceWithdrawal
+	AgentEvidenceSuperseded
+	AgentEvidenceClosure
+	AgentEvidenceNoPrice
+	AgentEvidenceSource
+
 	MarketReload
 	MarketSearch
 	MarketSearchHint

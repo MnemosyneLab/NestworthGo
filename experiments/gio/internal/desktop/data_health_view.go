@@ -291,6 +291,19 @@ func healthIssueAction(issue application.HealthIssue) i18n.MessageID {
 func (p *dataHealthPage) issueAction(gtx layout.Context, view ui.View, issue application.HealthIssue, name string) layout.Widget {
 	l := view.Language
 	switch {
+	case p.openAgentEvidence != nil && (issue.Kind == application.HealthKindMissingAgentPrice ||
+		issue.Kind == application.HealthKindMissingAgentFX || issue.Reason == "agent_data_required"):
+		target, valid := quoteHistoryFinding(issue, name)
+		if !valid {
+			return nil
+		}
+		button := p.issueButton(issue.ID)
+		ready := p.request == nil && p.err == nil
+		if ready && button.Clicked(gtx) {
+			p.openAgentEvidence(target, button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return returnMonthButton(view, button, i18n.AgentEvidenceOpen, nil, ready)
 	case issue.Action == application.HealthActionInstrumentEditor && p.openInstrumentSource != nil:
 		id, err := domain.ParseInstrumentID(issue.InstrumentID)
 		if err != nil {

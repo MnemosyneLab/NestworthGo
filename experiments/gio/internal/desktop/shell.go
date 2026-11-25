@@ -241,6 +241,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			if s.marketData.instrumentSources != nil {
 				s.dataHealth.openInstrumentSource = s.marketData.openInstrumentSource
 			}
+			if s.marketData.agentReader != nil {
+				s.dataHealth.openAgentEvidence = s.marketData.openAgentEvidence
+			}
 			if s.marketData.quoteHistoryReader != nil {
 				s.dataHealth.quoteHistory = s.marketData.quoteHistoryAction
 			}
@@ -535,7 +538,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -644,6 +647,19 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				}
 			}
 		}
+	} else if s.agentEvidenceOpen() {
+		source, saved := s.marketData.layoutAgentEvidence(windowContext, view)
+		if source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+		}
+		if saved {
+			s.refreshLedgerReads()
+			if s.activeRoute() == dataHealthRoute {
+				s.dataHealth.read()
+			} else {
+				s.marketData.read()
+			}
+		}
 	} else if s.manualQuoteOpen() {
 		if source, receipt := s.marketData.layoutManualQuote(windowContext, view); source != nil {
 			s.trail.current().focus, s.restoreFocus = source, true
@@ -697,6 +713,10 @@ func (s *shell) fxSourceOpen() bool {
 
 func (s *shell) instrumentSourceOpen() bool {
 	return s.marketData != nil && s.marketData.instrumentSource != nil
+}
+
+func (s *shell) agentEvidenceOpen() bool {
+	return s.marketData != nil && s.marketData.agentEvidence != nil
 }
 
 func (s *shell) marketOperationOpen() bool {

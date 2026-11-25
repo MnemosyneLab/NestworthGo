@@ -175,6 +175,7 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 	if p.instrumentSources != nil {
 		actions = append(actions, p.instrumentSourceAction(gtx, view, i))
 	}
+	actions = append(actions, p.marketAgentAction(gtx, view, i.ID.String(), marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel()})...)
 	if p.manual.service != nil && manualPriceAvailable(i) {
 		if p.manual.prices == nil {
 			p.manual.prices = make(map[string]*widget.Clickable)
@@ -205,6 +206,7 @@ func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row mark
 	if p.fxSourceWriter != nil {
 		actions = append(actions, p.fxSourceAction(gtx, view, row))
 	}
+	actions = append(actions, p.marketAgentAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), marketQuoteHistoryTarget{pair: row.pair})...)
 	if row.source == domain.QuoteSourceProvider {
 		actions = append(actions, p.marketTargetActions(gtx, view, marketLatestTarget{pair: row.pair}, application.SyncRequest{
 			Scope: application.SyncScopeFX, CurrencyA: row.pair.first.String(), CurrencyB: row.pair.second.String(),
