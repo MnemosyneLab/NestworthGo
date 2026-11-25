@@ -1696,6 +1696,16 @@ var japaneseCatalog = catalog{
 	TasksPartialEstimate: "手取り見込み · %s（一部情報不足）",
 	TasksWeekdays:        "祝日を考慮せず平日で見積もっています。",
 
+	HoldingReconAdjustQuantity:         "保有数量を調整",
+	HoldingReconTargetQuantity:         "目標数量",
+	HoldingReconAcquisitionCost:        "追加分の単位原価（任意）",
+	HoldingReconOptionalTotal:          "保有分全体の取得原価（任意）",
+	HoldingReconAcquisitionCostValue:   "追加分の単位原価 · %s",
+	HoldingReconQuantitySaved:          "数量の調整を記録しました。",
+	HoldingReconQuantityUnchanged:      "現在の保有内容が目標と一致しています。",
+	HoldingReconQuantityInvalid:        "目標数量を正しく入力してください。",
+	HoldingReconAcquisitionCostInvalid: "追加する場合は追加分の単位原価か保有分全体の取得原価を入力してください。",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",

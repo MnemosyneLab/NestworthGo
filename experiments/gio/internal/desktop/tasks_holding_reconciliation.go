@@ -34,28 +34,39 @@ type holdingReconciliation struct {
 	service                     holdingReconcileAPI
 	directory                   holdingReconDirectory
 	start, back, reload, resume widget.Clickable
-	sessionButtons, itemButtons map[string]*widget.Clickable
+	sessionButtons              map[string]*widget.Clickable
+	itemButtons                 map[string]*holdingReconItemActions
 	restore, sessionEntry       *widget.Clickable
 	id                          string
 	session                     *domain.ReconciliationSession
 	loading                     <-chan historyResult[domain.ReconciliationSession]
-	readFailed, saved           bool
+	readFailed                  bool
+	saved                       i18n.MessageID
 	draft                       *holdingReconDraft
 }
 
 type holdingReconDraft struct {
-	// A holding item identifies a cost correction. Otherwise action is start or resume.
+	// A holding item identifies an adjustment. Otherwise action is start or resume.
 	itemID, accountID                    string
 	action                               statement.Action
 	entry                                *widget.Clickable
 	accountPick                          ui.Select
 	total, note                          ui.TextField
+	target                               *holdingReconQuantity
 	cancel, preview, edit, confirm       widget.Clickable
 	reading                              <-chan historyResult[holdingReconReview]
 	writing                              <-chan historyResult[string]
 	review                               *holdingReconReview
 	problem                              i18n.MessageID
 	initialFocus, reviewFocus, uncertain bool
+}
+
+type holdingReconItemActions struct {
+	cost, quantity widget.Clickable
+}
+
+type holdingReconQuantity struct {
+	quantity, unitCost ui.TextField
 }
 
 type holdingReconReview struct {
@@ -75,7 +86,7 @@ func (c *holdingReconciliation) unresolved() bool {
 func (c *holdingReconciliation) discard() {
 	if c != nil {
 		c.id, c.session, c.loading, c.draft = "", nil, nil, nil
-		c.saved, c.readFailed, c.restore, c.sessionEntry = false, false, nil, nil
+		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
 		c.itemButtons = nil
 	}
 }
@@ -86,8 +97,8 @@ func newHoldingReconDraft(entry *widget.Clickable) *holdingReconDraft {
 
 func (p *tasksPage) openHoldingReconciliation(id string, entry *widget.Clickable) {
 	c := p.holdingRecon
-	c.id, c.sessionEntry, c.saved, c.draft = id, entry, false, nil
-	c.itemButtons = make(map[string]*widget.Clickable)
+	c.id, c.sessionEntry, c.saved, c.draft = id, entry, i18n.NoMessage, nil
+	c.itemButtons = make(map[string]*holdingReconItemActions)
 	c.restore = &c.back
 	p.readHoldingReconciliation()
 }
@@ -121,12 +132,19 @@ func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 	if d.itemID != "" {
 		_, item, ok := c.item(d)
 		return ok && c.session.Status == "in_progress" && item.ProductID == "" &&
-			!item.ArchivedNonzero && strings.TrimSpace(d.total.Text()) != ""
+			!item.ArchivedNonzero && d.targetReady()
 	}
 	if d.action == statement.Start {
 		return d.accountID != ""
 	}
 	return c.session != nil && c.session.Status == "paused"
+}
+
+func (d *holdingReconDraft) targetReady() bool {
+	if d.target != nil {
+		return strings.TrimSpace(d.target.quantity.Text()) != ""
+	}
+	return strings.TrimSpace(d.total.Text()) != ""
 }
 
 func (p *tasksPage) previewHoldingReconciliation() {
@@ -146,8 +164,12 @@ func (p *tasksPage) previewHoldingReconciliation() {
 				ExpectedRevision: c.session.Revision, FinancialRevision: a.FinancialRevision},
 			HoldingID: item.HoldingID, Currency: item.Currency, TotalCost: strings.TrimSpace(d.total.Text()), Note: d.note.Text(),
 		}
-		// The shared target supports a total-cost-only request. An omitted
-		// quantity keeps the exact position even if the source view is old.
+		// A cost-only request leaves quantity to the shared service. An explicit
+		// target uses the checkpoint's currency and the reviewed revision.
+		if d.target != nil {
+			request.Quantity = strings.TrimSpace(d.target.quantity.Text())
+			request.UnitCost = strings.TrimSpace(d.target.unitCost.Text())
+		}
 		d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
 			preview, err := c.service.PreviewAdjustment(p.ctx, request)
 			return holdingReconReview{planID: preview.PlanID, changes: preview.Changes}, err
@@ -215,7 +237,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			d.problem = i18n.HoldingReconChanged
 			p.readHoldingReconciliation()
 		default:
-			d.problem = holdingReconIssue(result.err)
+			d.problem = holdingReconIssue(result.err, d.target != nil)
 		}
 	default:
 	}
@@ -226,7 +248,12 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			if c.id != result.value {
 				p.openHoldingReconciliation(result.value, d.entry)
 			} else {
-				c.draft, c.restore, c.saved = nil, d.entry, d.itemID != ""
+				c.draft, c.restore, c.saved = nil, d.entry, i18n.NoMessage
+				if d.target != nil {
+					c.saved = i18n.HoldingReconQuantitySaved
+				} else if d.itemID != "" {
+					c.saved = i18n.HoldingReconSaved
+				}
 				if d.action == statement.Resume {
 					c.restore = &c.back
 				}
@@ -264,14 +291,23 @@ func holdingReconStale(err error) bool {
 	return false
 }
 
-func holdingReconIssue(err error) i18n.MessageID {
+func holdingReconIssue(err error, quantity bool) i18n.MessageID {
 	var issue *apierror.WireError
 	if errors.As(err, &issue) {
 		if issue.Code == string(domain.ErrNoChange) {
+			if quantity {
+				return i18n.HoldingReconQuantityUnchanged
+			}
 			return i18n.HoldingReconUnchanged
 		}
-		if issue.Field == "totalCost" {
+		field := issue.Field[strings.LastIndexByte(issue.Field, '.')+1:]
+		switch field {
+		case "totalCost":
 			return i18n.HoldingReconInvalidTotal
+		case "quantity", "targetQuantity":
+			return i18n.HoldingReconQuantityInvalid
+		case "unitCost":
+			return i18n.HoldingReconAcquisitionCostInvalid
 		}
 	}
 	return i18n.HoldingReconFailed

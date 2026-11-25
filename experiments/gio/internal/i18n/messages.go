@@ -1683,6 +1683,15 @@ const (
 	HoldingReconFailed
 	HoldingReconRetry
 	HoldingReconEmpty
+	HoldingReconAdjustQuantity
+	HoldingReconTargetQuantity
+	HoldingReconAcquisitionCost
+	HoldingReconOptionalTotal
+	HoldingReconAcquisitionCostValue
+	HoldingReconQuantitySaved
+	HoldingReconQuantityUnchanged
+	HoldingReconQuantityInvalid
+	HoldingReconAcquisitionCostInvalid
 	TasksChecksLoading
 	TasksChecksReadFailed
 	TasksReviewPublished

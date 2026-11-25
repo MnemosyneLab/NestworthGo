@@ -1697,6 +1697,16 @@ var englishCatalog = catalog{
 	TasksPartialEstimate: "Estimated net proceeds · %s (partial)",
 	TasksWeekdays:        "Uses weekdays without a holiday calendar.",
 
+	HoldingReconAdjustQuantity:         "Adjust holding quantity",
+	HoldingReconTargetQuantity:         "Target quantity",
+	HoldingReconAcquisitionCost:        "Unit cost for added units (optional)",
+	HoldingReconOptionalTotal:          "Whole holding total cost (optional)",
+	HoldingReconAcquisitionCostValue:   "Cost per added unit · %s",
+	HoldingReconQuantitySaved:          "Quantity adjustment recorded.",
+	HoldingReconQuantityUnchanged:      "The holding already matches the target.",
+	HoldingReconQuantityInvalid:        "Enter a valid target quantity.",
+	HoldingReconAcquisitionCostInvalid: "For added units, enter either their unit cost or the whole holding’s total cost.",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

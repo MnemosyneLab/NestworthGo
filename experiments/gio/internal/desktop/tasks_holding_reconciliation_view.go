@@ -86,8 +86,8 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	c, l := p.holdingRecon, view.Language
 	s := c.session
 	rows := []layout.Widget{view.Message(l.Text(statementStatus(*s)), view.Colors.Ink)}
-	if c.saved {
-		rows = append(rows, view.Message(l.Text(i18n.HoldingReconSaved), view.Colors.Ink))
+	if c.saved != i18n.NoMessage {
+		rows = append(rows, view.Message(l.Text(c.saved), view.Colors.Ink))
 	}
 	if s.Status == "paused" {
 		rows = append(rows, c.link(view, &c.resume, l.Text(i18n.HoldingReconResume), func() {
@@ -109,11 +109,23 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 			fields := c.itemEvidence(view, item)
 			if s.Status == "in_progress" && item.ProductID == "" && !item.ArchivedNonzero {
 				at := account.AccountID + "/" + item.ID
-				button := portfolioButton(c.itemButtons, at)
-				fields = append(fields, c.link(view, button, l.Text(i18n.HoldingReconCorrect), func() {
-					c.saved = false
+				buttons := c.itemButtons[at]
+				if buttons == nil {
+					buttons = new(holdingReconItemActions)
+					c.itemButtons[at] = buttons
+				}
+				open := func(button *widget.Clickable) {
+					c.saved = i18n.NoMessage
 					c.draft = newHoldingReconDraft(button)
 					c.draft.accountID, c.draft.itemID = account.AccountID, item.ID
+				}
+				fields = append(fields, c.link(view, &buttons.quantity, l.Text(i18n.HoldingReconAdjustQuantity), func() {
+					open(&buttons.quantity)
+					target := &holdingReconQuantity{quantity: ui.NewTextField(true), unitCost: ui.NewTextField(true)}
+					target.quantity.Editor.SetText(item.Value)
+					c.draft.target = target
+				}), c.link(view, &buttons.cost, l.Text(i18n.HoldingReconCorrect), func() {
+					open(&buttons.cost)
 				}))
 			}
 			rows = append(rows, fundsCard(view, item.Label, fields...))
@@ -149,6 +161,9 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		return p.layoutHoldingReconReview(gtx, view)
 	}
 	title := i18n.HoldingReconCorrect
+	if d.target != nil {
+		title = i18n.HoldingReconAdjustQuantity
+	}
 	switch d.action {
 	case statement.Start:
 		title = i18n.HoldingReconStart
@@ -162,13 +177,24 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		if a, item, ok := c.item(d); ok {
 			rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
 			rows = append(rows, c.itemEvidence(view, item)...)
+			totalLabel := i18n.HoldingReconTotal
+			if d.target != nil {
+				totalLabel = i18n.HoldingReconOptionalTotal
+				rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+					d.focusAdjustmentField(gtx, &d.target.quantity)
+					return d.target.quantity.Layout(gtx, view, ui.FieldOptions{Label: i18n.HoldingReconTargetQuantity, Disabled: !ready})
+				}, func(gtx layout.Context) layout.Dimensions {
+					return d.target.unitCost.LayoutCurrency(gtx, view, ui.FieldOptions{
+						Label: i18n.HoldingReconAcquisitionCost, Disabled: !ready,
+					}, item.Currency)
+				})
+			}
 			rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-				if d.initialFocus {
-					gtx.Execute(key.FocusCmd{Tag: &d.total.Editor})
-					d.initialFocus = false
+				if d.target == nil {
+					d.focusAdjustmentField(gtx, &d.total)
 				}
 				return d.total.LayoutCurrency(gtx, view, ui.FieldOptions{
-					Label: i18n.HoldingReconTotal, Disabled: !ready,
+					Label: totalLabel, Disabled: !ready,
 				}, item.Currency)
 			})
 		}
@@ -231,6 +257,13 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
+func (d *holdingReconDraft) focusAdjustmentField(gtx layout.Context, field *ui.TextField) {
+	if d.initialFocus {
+		gtx.Execute(key.FocusCmd{Tag: &field.Editor})
+		d.initialFocus = false
+	}
+}
+
 func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) layout.Dimensions {
 	c, l := p.holdingRecon, view.Language
 	d := c.draft
@@ -243,15 +276,38 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 		rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
 		rows = append(rows, c.itemEvidence(view, item)...)
 		for _, change := range r.changes {
-			for _, effect := range change.Effects {
-				if effect.Target == string(domain.EffectTargetHoldingCost) && effect.CostUnitPrice != nil {
-					rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.HoldingReconNewBasis),
-						portfolioDecimal(view, *effect.CostUnitPrice)+" "+item.Currency), view.Colors.Ink))
+			for _, result := range change.Resulting {
+				if result.Target == string(domain.EffectTargetHoldingQuantity) && result.HoldingID != nil && *result.HoldingID == item.HoldingID {
+					rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.QuantityAdjustAfter),
+						portfolioDecimal(view, result.Quantity)), view.Colors.Ink))
 				}
 			}
+			for _, effect := range change.Effects {
+				if effect.HoldingID == nil || *effect.HoldingID != item.HoldingID {
+					continue
+				}
+				if effect.Target == string(domain.EffectTargetHoldingQuantity) && effect.Quantity != nil {
+					label := i18n.QuantityAdjustAdded
+					if effect.Direction == string(domain.EffectRemoved) {
+						label = i18n.QuantityAdjustRemoved
+					}
+					rows = append(rows, view.Message(fmt.Sprintf(l.Text(label), portfolioDecimal(view, *effect.Quantity)), view.Colors.Ink))
+				}
+				if effect.CostUnitPrice == nil {
+					continue
+				}
+				label := i18n.HoldingReconNewBasis
+				if effect.Target == string(domain.EffectTargetHoldingQuantity) {
+					label = i18n.HoldingReconAcquisitionCostValue
+				}
+				rows = append(rows, view.Message(fmt.Sprintf(l.Text(label),
+					portfolioDecimal(view, *effect.CostUnitPrice)+" "+item.Currency), view.Colors.Ink))
+			}
 		}
-		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.HoldingReconReviewedTotal),
-			strings.TrimSpace(d.total.Text())+" "+item.Currency), view.Colors.Ink))
+		if total := strings.TrimSpace(d.total.Text()); total != "" {
+			rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.HoldingReconReviewedTotal),
+				portfolioDecimal(view, total)+" "+item.Currency), view.Colors.Ink))
+		}
 	}
 	if note := strings.TrimSpace(d.note.Text()); note != "" {
 		rows = append(rows, view.Message(note, view.Colors.SecondaryInk))

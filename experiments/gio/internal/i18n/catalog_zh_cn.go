@@ -1697,6 +1697,16 @@ var simplifiedChineseCatalog = catalog{
 	TasksPartialEstimate: "预计净到账 · %s（资料不全）",
 	TasksWeekdays:        "按工作日估算，未计入节假日日历。",
 
+	HoldingReconAdjustQuantity:         "调整持仓数量",
+	HoldingReconTargetQuantity:         "目标数量",
+	HoldingReconAcquisitionCost:        "新增单位成本（可选）",
+	HoldingReconOptionalTotal:          "整笔持仓总成本（可选）",
+	HoldingReconAcquisitionCostValue:   "新增单位成本 · %s",
+	HoldingReconQuantitySaved:          "已记录数量调整。",
+	HoldingReconQuantityUnchanged:      "当前持仓已符合目标。",
+	HoldingReconQuantityInvalid:        "请输入有效的目标数量。",
+	HoldingReconAcquisitionCostInvalid: "新增数量时，请填写新增单位成本或整笔持仓总成本。",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",

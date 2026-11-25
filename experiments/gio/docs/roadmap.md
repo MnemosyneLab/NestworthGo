@@ -1618,7 +1618,7 @@ within the Reconciliation form.
 | --- | --- |
 | Gio and Wails adapter | The synthetic regression verified the account picker excludes an unrelated holding, the row action locks the original Holding ID, and Cancel and Ledger Back restore focus. Independent Go adapter posts agreed on adding 0.125 units with USD 18.12345678 original unit cost and removing 0.25 units. The reopened position held 1.875 units, with the unrelated 7-unit position and USD 156 cash intact. |
 | Packaged Linux X11 | At 1160×820, the Harbor Brokerage picker selected ALPHA and keyboard confirmation added 0.5 units at USD 12.12345678. At 640×480, the holding shortcut removed 0.125 units without a cost input. Return after Ledger Back reopened the same holding action. Quit and reopen showed both receipts. SQLite verified 1.375 units on the same Holding, two exact position effects and two mutation keys, with the source database and settings hashes unchanged. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and four focused Wails frontend cases passed. Session-linked **Record a change** for quantity changes remains open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and four focused Wails frontend cases passed. [Reconciliation quantity targets](#session-linked-holding-quantity-targets) have separate evidence; the ordinary dated **Record a change** handoff remains open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Reconciliation total cost correction
 
@@ -1646,7 +1646,31 @@ session-linked quantity changes remain separate.
 | --- | --- |
 | Gio and Wails adapter | The same holding, account and session item were retained through review and reopen. Against the independent Wails adapter request, total USD 31.2468 yielded USD 15.6234 unit cost on 2 units. Validation retained invalid input. Cancel left no financial link, a real pause and resume invalidated the old preview, and a synthetic lost acknowledgement retried the same plan with one correction. Cancel, Back and successful readback restored the initiating focus. USD 156 cash was unchanged. |
 | Packaged Linux X11 | At 1160×820, a session review showed the selected account, and canceling a second start did not create another session. At 640×480, keyboard review of USD 13.5802 on 1.375 units showed USD 9.87650909 per unit. Cancel and Return reopened the same holding. Keyboard confirmation and normal reopen showed the corrected unit cost on the original Holding. Read-only SQLite verified a single linked correction, unchanged quantity, source hashes, cash and quote rows. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go application and Wails adapter tests, and eight focused Wails Reconciliation frontend cases passed. Multi-account creation, general item verification and closure, session-linked quantity changes remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go application and Wails adapter tests, and eight focused Wails Reconciliation frontend cases passed. Multi-account creation, general item verification and closure and the ordinary dated **Record a change** handoff remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+
+#### Session-linked holding quantity targets
+
+**Tasks & checks → Reconciliation → Holdings reconciliation → Adjust holding
+quantity** opens the selected checkpoint with its current quantity and cost.
+The target quantity starts at the exact current value. Enter the cost per
+added unit or the whole holding's total cost when applicable. The shared
+Wails reconciliation service validates the combination and prepares the
+linked adjustment plan. Review shows the current and resulting quantity,
+the signed direction, and the exact costs returned by that service. Cancel
+and readback restore the same holding action. A stale plan keeps the draft
+for another review, while an uncertain commit reuses its original plan ID.
+[Wails holding adjustment form](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared target rules](../../../internal/application/reconciliation.go)
+
+The action is a target at the current reconciliation point. The Wails
+**Record a change** handoff also supports an ordinary dated quantity change
+linked to the same item. That handoff remains open in Gio, along with
+session-wide item verification, multi-account creation, pause and closure.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Independent adapters agreed on adding 0.125 units at USD 18.12345678, removing 0.25 units, and raising the target back to 2 units with USD 40 total cost. The latter reviewed two effects and reopened at USD 20 per unit. The fixture covered missing added-unit cost, cancel, a simulated lost acknowledgement with same-plan retry, exact checkpoint IDs and unchanged USD 156 cash. |
+| Packaged Linux X11 | The wide 1160×820 form started at 1 unit, showed the missing-cost error without dropping its target, then reviewed and added 0.25 units at USD 11.12345678. At 640×480, the same checkpoint reviewed and removed 0.125 units without a unit-cost write. Readback after restart showed 1.125 units; SQLite verified both linked effects on the original Holding and unchanged cash, quotes and source hashes. |
+| Checks and limits | The Gio suite, vet and standard Linux package build passed. Focused shared Go application and Wails Reconciliation adapter tests and all 87 Wails Reconciliation frontend cases passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1836,13 +1860,13 @@ dated position import from Accounts and Investment Assets, and custody transfers
 Ledger and Holdings account detail. Ledger and account or holding actions
 support quantity adjustments with original unit costs on additions. The
 Holdings reconciliation session supports a standalone whole-position cost
-correction. Available Funds has a Today view
+correction and quantity targets. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes session-linked quantity changes, inline instrument creation, market quote calculators,
+Broader investment work still includes the dated session-linked History handoff, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
@@ -2458,12 +2482,12 @@ details** after expanding. Its cause remains unresolved. A local run of the
 file and the later [`37030357` run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45650312662)
 passed. The [`1108ef3b` run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45652375887)
 for scoped adjustments and the [`b4cab09f` run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45653320238)
-for cost correction also passed. No Wails timing behavior changed.
+for cost correction passed, as did the [`78443715` custody run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45656514756).
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with session-linked quantity adjustments and broader
-account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with reconciliation checking and closure, the ordinary dated
+session-linked History handoff and broader account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor
@@ -2541,6 +2565,21 @@ choices remain selected.
 | Gio interaction | In the filtered August Calendar and Asset Changes round trip, removing Stocks preserved the other four additional filters and dated selection. Clearing the remainder preserved scope, valuation and cash. |
 | Linux X11 | Last week selected November 18–24. Previous selected November 11–17. Removing the Sample owner chip preserved those dates. Asset Changes showed November 18–24 at 700×480 after choosing the same shortcut. |
 | Build and tests | The full Gio module suite, Gio vet and native Linux package build passed. Interactive Wails, macOS, VoiceOver and IME remain open. |
+
+### Stage 6 exit gates
+
+- Complete the [page-by-page parity gaps](parity.md), including Wealth
+  History capture shortcuts, contribution detail, dated Data Health and
+  Ledger links from Asset Changes, the broader instrument catalog and the
+  remaining provider and coverage recovery cases.
+- Exercise the complete comparison across both desktop shells with identical
+  disposable inputs. Record exact values, civil date windows, currencies,
+  quote and FX provenance, incomplete coverage, empty and error states,
+  and repair results after reopen.
+- Verify wide and compact layout, keyboard traversal and return focus through
+  each remaining handoff. Interactive Wails, native macOS with VoiceOver and
+  IME, and the paired desktop performance evidence remain open. Linux X11
+  evidence is recorded per workflow. Stage 7 remains paused.
 
 ### Follow-up Linux acceptance
 
