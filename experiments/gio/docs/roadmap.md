@@ -1486,7 +1486,7 @@ and shows its exact unit cost in the instrument currency. [Shared position impor
 | Gio workflow | The shell test preserved invalid input, left the ledger unchanged on cancel, and showed an empty picker once every eligible security was held. A competing contribution invalidated review. A simulated lost response reused the same receipt after a retry and normal reopen. A failed receipt read recovered without resubmitting the import. The exact quantity, instrument and account focus were preserved. |
 | Packaged Linux X11 | At 1160×820, validation rejected a nine-decimal cost and Cancel restored the account action. The synthetic database still contained no activity. At 640×480, Tab moved from quantity to cost and Return confirmed 2.5 units at EUR 7.12345678 per unit. Ledger Back restored the import action, which reopened to the empty eligible picker. On normal reopen the Ledger showed the original timestamp and exact cost. Read-only SQLite found one linked quantity effect and one mutation receipt, with USD 200 cash, opening Origin, domestic holding, quotes and source-file hashes unchanged. The compact sale form also showed the full gross and fee labels. |
 | Checks | Full Gio tests and vet, the standard Linux package, focused shared application/domain/Wails Go suites and four Wails account and Holdings frontend cases passed. |
-| Remaining scope | The [Investment Assets entry](#dated-import-from-investment-assets) has a separate milestone. Inline instrument creation, position transfers between accounts, cost corrections, adjustments and reversals remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Remaining scope | The [Investment Assets entry](#dated-import-from-investment-assets) has a separate milestone. Inline instrument creation, [Ledger custody transfers](#position-transfers-between-holdings-accounts) have a separate milestone. Cost corrections, adjustments and reversals remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Dated import from Investment Assets
 
@@ -1509,6 +1509,33 @@ custody transfers and adjustments. Gio follows that scope for import.
 | Gio workflow | With two Holdings accounts and a cash-only account, the picker excluded the cash-only account. Switching accounts discarded the instrument-specific values. Cancel preserved search and the ledger version. Import targeted the selected account and restored the action focus on Ledger Back. Reopened SQLite linked the new holding to the imported activity. |
 | Packaged Linux X11 | At 1160×820, Return opened the focused account picker and Cancel returned to Holdings. At 640×480, keyboard selection, Tab and Return posted 1.125 units at EUR 2.12345678. Ledger Back restored the action. Reopen showed the persisted quantity and original cost. SQLite found one linked activity and one receipt, with USD 200 and USD 25 cash and both source hashes unchanged. |
 | Checks and open scope | Full Gio tests and vet, the standard Linux package, focused shared position-import tests and the targeted Wails Accounts and Holdings references passed. Inline instrument creation, interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+
+#### Position transfers between Holdings accounts
+
+**Ledger activity → Transfer position** records custody movement between two
+active Holdings accounts. It is the Gio toolbar entry for Wails’
+**Record activity → Investment → Position transfer**. Select an ordinary
+source Holding and a different destination account, then enter the exact
+quantity, effective time in the History Origin timezone and an optional note.
+The destination resolves to the same instrument. Gio shows both expected
+resulting quantities from Wails’ shared preview. The application creates a
+missing destination Holding or adds to the existing one, records paired
+quantity effects, and replays cost basis and cash using the existing shared
+rules. The new flow leaves cash unchanged.
+[Wails transfer form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared transfer service](../../../internal/application/position_transfer.go)
+
+The confirmation freezes a mutation and its preview token. A stale preview
+keeps compatible inputs for review again. Retry after a lost response uses
+the committed mutation, and a failed receipt read retries only that read.
+Ledger names both accounts and links their account and instrument details.
+Cancel and Ledger Back restore the transfer action and timeline filters.
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio compare | An independent Wails-format fixture with two units at USD 44 basis first transferred 0.625 into a new Holding in the destination. A second transfer of 0.125 reused that same Holding. Both services showed 1.25 units and USD 27.50 cost at source and 0.75 units and USD 16.50 cost at destination. The only cash change was an independent USD 1 deposit that deliberately invalidated the first review. |
+| Gio workflow | Covered insufficient quantity, same-account exclusion, cancellation, a stale confirmation, pending navigation, a lost reply and read-only receipt retry. Ledger Back restored account and instrument filters and the transfer action. A retry after normal reopen returned the original receipt. |
+| Packaged Linux X11 | At 1160×820, rejected 1.00000001 against one available unit. Cancel kept the ledger untouched and Return reopened the transfer. At 640×480, keyboard selection and confirmation moved 0.375 units from Harbor Brokerage to Second desk. Back restored the action. Reopen showed both linked accounts and resulting quantities of 0.625 and 0.375. Read-only SQLite verified one custody receipt and both exact effects, unchanged cash and quotes, the prior imported EUR holding, and the untouched source hashes. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go suites and three Wails Ledger transfer cases passed. Account and holding choices are read on entry. Receipt reads batch historical account references. No benchmark was run. The account-scoped transfer directions in the general Accounts form, custody corrections and reversal, position adjustments and cost corrections remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1694,14 +1721,15 @@ link focus, and Forward can reopen the same session. [Wails reconciliation list]
 The experimental shell now supports Holdings and instrument detail, domestic
 and foreign-currency settlement for ordinary buys and sales, cash dividends in
 the default account currency, multiple pre-History positions with native costs,
-and dated position import from Accounts and Investment Assets. Available Funds has a Today view
+dated position import from Accounts and Investment Assets, and custody transfers
+from general Ledger. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes custody transfers, position adjustments
-and cost corrections, inline instrument creation, market quote
+Broader investment work still includes account-scoped custody transfer,
+position adjustments and cost corrections, inline instrument creation, market quote
 calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
@@ -2311,9 +2339,8 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with the remaining Holdings workflows, including custody
-transfers, position adjustments and cost corrections, and broader account
-context actions. Stage 4 still has additional Starting
+Continue Stage 5 with position adjustments and cost corrections, custody
+amendments and broader account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

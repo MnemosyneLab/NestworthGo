@@ -17,11 +17,11 @@ import (
 )
 
 type accountInvestment struct {
-	service                         history.InvestmentLedger
-	buy, sell, dividend, importOpen widget.Clickable
-	restore                         *widget.Clickable
-	draft                           *accountInvestmentDraft
-	onPosted                        func(domain.Activity, i18n.MessageID, event.Tag)
+	service                                      history.InvestmentLedger
+	buy, sell, dividend, importOpen, custodyOpen widget.Clickable
+	restore                                      *widget.Clickable
+	draft                                        *accountInvestmentDraft
+	onPosted                                     func(domain.Activity, i18n.MessageID, event.Tag)
 }
 
 type investmentRuntime struct {
@@ -37,6 +37,7 @@ func (p *accountsPage) investmentRuntime() investmentRuntime {
 
 type accountInvestmentDraft struct {
 	kind                                 domain.ActivityKind
+	custody                              *custodyTransferDraft
 	existing                             bool
 	account                              domain.Account
 	instrument                           domain.InstrumentID
@@ -107,8 +108,11 @@ func (p *accountsPage) canImportPosition() bool {
 	return p.canTradeAccount() && !p.current.beforeHistory
 }
 
-func (f *accountInvestment) action(kind domain.ActivityKind) *widget.Clickable {
-	switch kind {
+func (f *accountInvestment) action(d *accountInvestmentDraft) *widget.Clickable {
+	if d.custody != nil {
+		return &f.custodyOpen
+	}
+	switch d.kind {
 	case domain.ActivitySell:
 		return &f.sell
 	case domain.ActivityCashDividend:
@@ -154,6 +158,9 @@ var positionImportLabels = tradeLabels{
 }
 
 func (d *accountInvestmentDraft) labels() tradeLabels {
+	if d.custody != nil {
+		return custodyTransferLabels
+	}
 	switch d.kind {
 	case domain.ActivitySell:
 		return sellLabels
@@ -212,6 +219,10 @@ func (d *accountInvestmentDraft) captureTime(now time.Time) {
 func (f *accountInvestment) loadSources(run investmentRuntime) {
 	d := f.draft
 	d.sources, d.sourceProblem = nil, i18n.NoMessage
+	if d.custody != nil {
+		f.loadCustodySources(run)
+		return
+	}
 	id, kind := d.account.ID, d.kind
 	d.loading = runHistoryRead(run.workers, run.invalidate, func() (history.InvestmentSources, error) {
 		return history.LoadInvestmentSources(run.ctx, f.service, id, kind)
@@ -220,6 +231,10 @@ func (f *accountInvestment) loadSources(run investmentRuntime) {
 
 func (f *accountInvestment) preview(run investmentRuntime) {
 	d := f.draft
+	if d.custody != nil {
+		f.previewCustody(run)
+		return
+	}
 	if d.previewing != nil || d.sources == nil || d.instrument == "" {
 		return
 	}
@@ -276,6 +291,7 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 	}
 	d := f.draft
 	labels := d.labels()
+	f.pollCustodySources(run)
 	select {
 	case result := <-d.loading:
 		d.loading = nil
@@ -323,7 +339,7 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 		d.posting = nil
 		if result.err == nil && result.value.Activity.ID != "" {
 			f.draft = nil
-			f.onPosted(result.value.Activity, labels.posted, f.action(d.kind))
+			f.onPosted(result.value.Activity, labels.posted, f.action(d))
 			return
 		}
 		var issue *domain.Error
@@ -348,7 +364,7 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 	switch issue.Field {
 	case "grossCurrency", "currency":
 		return i18n.TradeCurrencyChanged
-	case "settlementAccountId", "holdings", "holdingId":
+	case "settlementAccountId", "holdings", "holdingId", "fromHoldingId", "toHoldingId", "toAccountId":
 		return labels.scope
 	case "saleSequence":
 		return i18n.SellDateSequence

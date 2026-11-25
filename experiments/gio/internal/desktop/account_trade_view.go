@@ -25,7 +25,7 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 	labels := d.labels()
 	if !f.unresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
-		f.restore = f.action(d.kind)
+		f.restore = f.action(d)
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -53,7 +53,9 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			return fieldPosition(gtx, &origin, tradeTitle(view, labels.action))
 		}),
 	}
-	if d.pickAccount {
+	if d.custody != nil {
+		children = append(children, f.custodyFields(view, &origin)...)
+	} else if d.pickAccount {
 		if len(d.accounts) != 0 {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, f.layoutImportAccount(view, origin, run))
@@ -64,7 +66,7 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			return fieldPosition(gtx, &origin, view.Message(d.account.Name+" · "+d.account.DefaultCurrency.String(), view.Colors.Ink))
 		}))
 	}
-	if d.sources != nil && len(d.sources.Instruments) != 0 {
+	if d.custody == nil && d.sources != nil && len(d.sources.Instruments) != 0 {
 		if d.kind == domain.ActivityPositionTransfer {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.PositionImportHelp), view.Colors.SecondaryInk))
@@ -80,10 +82,12 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 				return fieldPosition(gtx, &origin, view.Message(fmt.Sprintf(l.Text(i18n.TradeForeignSettlement), d.currency.String()), view.Colors.SecondaryInk))
 			}))
 		}
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view))
+		}))
+	}
+	if d.investmentFieldsVisible() {
 		children = append(children,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view))
-			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return d.layoutInvestmentTime(gtx, view, origin, run.clock())
 			}),
@@ -99,11 +103,11 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 		}
 	}
 	switch {
-	case d.loading != nil || d.previewing != nil:
+	case d.loading != nil || d.previewing != nil || d.custody != nil && d.custody.loading != nil:
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)))
 	case d.sourceProblem != i18n.NoMessage:
 		children = append(children, layout.Rigid(view.Message(l.Text(d.sourceProblem), view.Colors.ErrorInk)))
-	case d.sources != nil && len(d.sources.Instruments) == 0:
+	case d.sources != nil && !d.investmentFieldsVisible():
 		children = append(children, layout.Rigid(view.Message(l.Text(labels.empty), view.Colors.SecondaryInk)))
 	}
 	if d.problem != i18n.NoMessage && d.problem != d.sourceProblem {
@@ -113,14 +117,9 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 		buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel)))}
 		if d.sourceProblem != i18n.NoMessage {
 			buttons = append(buttons, layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))))
-		} else if d.sources != nil && len(d.sources.Instruments) != 0 {
+		} else if d.investmentFieldsVisible() {
 			buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				needsQuantity := d.kind != domain.ActivityCashDividend && strings.TrimSpace(d.quantity.Text()) == ""
-				amount := d.gross.Text()
-				if d.kind == domain.ActivityPositionTransfer {
-					amount = d.unitCost.Text()
-				}
-				if d.previewing != nil || d.instrument == "" || needsQuantity || strings.TrimSpace(amount) == "" {
+				if d.previewing != nil || !d.investmentInputComplete() {
 					gtx = gtx.Disabled()
 				}
 				return view.PrimaryButton(&d.preview, l.Text(labels.review))(gtx)
@@ -129,6 +128,31 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+}
+
+func (d *accountInvestmentDraft) investmentFieldsVisible() bool {
+	if d.custody != nil {
+		return d.custody.sources != nil && len(d.custody.sources.Holdings) != 0
+	}
+	return d.sources != nil && len(d.sources.Instruments) != 0
+}
+
+func (d *accountInvestmentDraft) investmentInputComplete() bool {
+	quantity := strings.TrimSpace(d.quantity.Text()) != ""
+	if d.custody != nil {
+		return quantity && d.custody.from != "" && d.custody.to != ""
+	}
+	if d.instrument == "" {
+		return false
+	}
+	switch d.kind {
+	case domain.ActivityPositionTransfer:
+		return quantity && strings.TrimSpace(d.unitCost.Text()) != ""
+	case domain.ActivityCashDividend:
+		return strings.TrimSpace(d.gross.Text()) != ""
+	default:
+		return quantity && strings.TrimSpace(d.gross.Text()) != ""
+	}
 }
 
 func (f *accountInvestment) layoutImportAccount(view ui.View, origin image.Point, run investmentRuntime) layout.Widget {
@@ -289,9 +313,13 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 	}
 	review := d.review
 	preview := review.Preview
-	instrument := ""
-	if at := slices.IndexFunc(d.sources.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }); at >= 0 {
-		instrument = d.sources.Instruments[at].SelectionLabel()
+	contextName := d.account.Name
+	if d.custody != nil {
+		if source, ok := d.custody.source(); ok {
+			contextName = source.Instrument.SelectionLabel()
+		}
+	} else if at := slices.IndexFunc(d.sources.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }); at >= 0 {
+		contextName += " · " + d.sources.Instruments[at].SelectionLabel()
 	}
 	timestamp := contributionTimestamp(view, preview.Activity.EffectiveAt, review.Timezone)
 	if d.kind != domain.ActivityCashDividend {
@@ -299,7 +327,7 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(tradeTitle(view, labels.review)),
-		layout.Rigid(view.Message(d.account.Name+" · "+instrument, view.Colors.Ink)),
+		layout.Rigid(view.Message(contextName, view.Colors.Ink)),
 		layout.Rigid(view.Message(timestamp, view.Colors.SecondaryInk)),
 	}
 	fact := func(id i18n.MessageID, value string) layout.FlexChild {
@@ -315,6 +343,10 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 				fact(i18n.ContributionAfter, money(endpoint.After)))
 		}
 	case domain.ActivityPositionTransfer:
+		if d.custody != nil {
+			children = append(children, d.custody.reviewFacts(view, preview, fact)...)
+			break
+		}
 		for _, endpoint := range preview.Resulting {
 			if endpoint.Target == domain.EffectTargetHoldingQuantity {
 				children = append(children, fact(i18n.AccountQuantity, portfolioDecimal(view, endpoint.Quantity)))

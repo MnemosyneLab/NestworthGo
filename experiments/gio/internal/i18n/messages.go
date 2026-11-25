@@ -1486,6 +1486,23 @@ const (
 	PositionImportAccount
 	PositionImportPortfolioAction
 	PositionImportBackPortfolio
+	CustodyOpen
+	CustodyReview
+	CustodyConfirm
+	CustodyPosted
+	CustodyUnavailable
+	CustodyStartRequired
+	CustodyEmpty
+	CustodyPreviewFailed
+	CustodyStale
+	CustodyFromHolding
+	CustodyToAccount
+	CustodyQuantity
+	CustodyFromFact
+	CustodyToFact
+	CustodySourceAfter
+	CustodyDestinationAfter
+	CustodyNoCash
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost

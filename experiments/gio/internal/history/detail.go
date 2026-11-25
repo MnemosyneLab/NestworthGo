@@ -18,6 +18,7 @@ type DetailReader interface {
 	Reader
 	ReferenceReader
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
+	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
 	RepeatEligibleActivities(context.Context, []domain.Activity) (map[domain.ActivityID]bool, error)
 }
 
@@ -56,6 +57,7 @@ func historyClock(ctx context.Context, service ReferenceReader) (*domain.History
 type Detail struct {
 	Activity             domain.Activity
 	Accounts             map[domain.AccountID]string
+	HoldingAccounts      map[domain.HoldingID]domain.AccountID
 	Instruments          map[domain.InstrumentID]string
 	InstrumentCurrencies map[domain.InstrumentID]domain.CurrencyCode
 	Location             *time.Location
@@ -140,5 +142,44 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			detail.InstrumentCurrencies[instrument.ID] = instrument.QuoteCurrency
 		}
 	}
+	if record.Kind == domain.ActivityPositionTransfer && record.Reason == domain.ReasonOther && record.ProductContext == nil {
+		if err := readCustodyAccounts(ctx, service, &detail); err != nil {
+			return Detail{}, err
+		}
+	}
 	return detail, nil
+}
+
+func readCustodyAccounts(ctx context.Context, service DetailReader, detail *Detail) error {
+	detail.HoldingAccounts = make(map[domain.HoldingID]domain.AccountID)
+	for _, effect := range detail.Activity.Effects {
+		if effect.HoldingID != nil && (effect.Role == domain.EffectRoleTransferFrom || effect.Role == domain.EffectRoleTransferTo) {
+			detail.HoldingAccounts[*effect.HoldingID] = ""
+		}
+	}
+	if len(detail.HoldingAccounts) == 0 {
+		return nil
+	}
+	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return err
+	}
+	ids := make([]domain.AccountID, 0, len(accounts))
+	for _, row := range accounts {
+		if row.Account.TrackingMode == domain.TrackingHoldings {
+			ids = append(ids, row.Account.ID)
+		}
+	}
+	holdings, err := service.HoldingsByAccounts(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, row := range accounts {
+		for _, holding := range holdings[row.Account.ID] {
+			if _, needed := detail.HoldingAccounts[holding.ID]; needed {
+				detail.HoldingAccounts[holding.ID], detail.Accounts[row.Account.ID] = row.Account.ID, row.Account.Name
+			}
+		}
+	}
+	return nil
 }

@@ -154,7 +154,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
 		return
 	}
-	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved()) {
+	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
 		return
 	}
 	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved()) {
@@ -216,6 +216,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == historyRoute && entry.target.activity != "" {
 		s.historyPage.reads.leaveDetail()
+	}
+	if entry.target.route == historyRoute && s.historyPage != nil && s.historyPage.investment != nil {
+		s.historyPage.investment.draft, s.historyPage.investment.restore = nil, nil
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()

@@ -26,6 +26,7 @@ type historyPage struct {
 	reloadButton, retryButton, moreButton widget.Clickable
 	filter                                historyFilterControls
 	cashMovements                         *historyCashMovements
+	investment                            *accountInvestment
 	startPoint                            *historyStart
 	reads                                 *historyReads
 	bound, revision                       uint64
@@ -78,6 +79,18 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			return p.layoutDetail(gtx, view)
 		}
 	}
+	if f := p.investment; f != nil {
+		run := p.investmentRuntime()
+		f.poll(run)
+		if f.draft == nil && p.custodyAvailable() && f.custodyOpen.Clicked(gtx) {
+			f.startCustody(run)
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return f.layoutForm(gtx, view, run)
+		}
+	}
 	if c := p.cashMovements; c != nil {
 		if s := p.startPoint; s != nil && c.draft == nil {
 			if p.noHistory() && s.start.Clicked(gtx) {
@@ -124,7 +137,21 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.Vie
 			if p.cashMovements == nil {
 				return layout.Dimensions{}
 			}
-			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(p.cashMovements.actions), func(gtx layout.Context, i int) layout.Dimensions {
+			cashActions := len(p.cashMovements.actions)
+			count := cashActions
+			if p.custodyAvailable() {
+				count++
+			}
+			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, count, func(gtx layout.Context, i int) layout.Dimensions {
+				if i == cashActions {
+					f := p.investment
+					view.Focus.Watch(gtx, &f.custodyOpen)
+					if f.restore == &f.custodyOpen && gtx.Enabled() {
+						gtx.Execute(key.FocusCmd{Tag: &f.custodyOpen})
+						f.restore = nil
+					}
+					return view.Button(&f.custodyOpen, view.Language.Text(i18n.CustodyOpen))(gtx)
+				}
 				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
 			})
 			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)

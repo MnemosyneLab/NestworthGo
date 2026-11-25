@@ -37,7 +37,7 @@ func ReviewDividend(ctx context.Context, ledger InvestmentLedger, input Dividend
 		if strings.TrimSpace(input.Date) == "" || strings.TrimSpace(input.Time) == "" {
 			return nil, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 		}
-		return review.bind(sources, historyapi.ChangeCommandRequest{
+		return review.bind(sources.Origin, sources.Location, historyapi.ChangeCommandRequest{
 			Kind: historyapi.ChangeCashDividend, HoldingID: input.Holding.String(),
 			Amount: amount.CanonicalAmount(), Currency: currency.String(),
 			EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,

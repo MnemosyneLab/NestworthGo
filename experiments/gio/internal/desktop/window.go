@@ -34,6 +34,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		newGroupsList(ctx, service, window.Invalidate),
 	)
 	timeline := newLedgerHistory(ctx, service, clock, window.Invalidate)
+	timeline.investment = &accountInvestment{service: service}
 	timeline.reads.repeatAPI = historyapi.NewService(service)
 	recovery := &cashReceiptRecovery{ctx: ctx, store: receipts, reader: service, invalidate: window.Invalidate}
 	timeline.cashMovements.recovery = recovery

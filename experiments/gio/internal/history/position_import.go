@@ -64,7 +64,7 @@ func ReviewPositionImport(ctx context.Context, ledger InvestmentLedger, input Po
 			if err != nil {
 				return nil, err
 			}
-			return review.bind(sources, request)
+			return review.bind(sources.Origin, sources.Location, request)
 		})
 		review.Preview, review.token = preview, token
 		return err

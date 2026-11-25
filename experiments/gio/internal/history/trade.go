@@ -152,7 +152,7 @@ func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput)
 			if err != nil {
 				return nil, err
 			}
-			return review.bind(sources, request)
+			return review.bind(sources.Origin, sources.Location, request)
 		})
 		if err != nil {
 			return err
@@ -190,15 +190,15 @@ func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput)
 
 // bind freezes the same request identity used by Wails Go. The plan and its
 // token stay together across retries, including a lost response after commit.
-func (r *ReviewedInvestment) bind(sources InvestmentSources, request historyapi.ChangeCommandRequest) (any, error) {
+func (r *ReviewedInvestment) bind(origin domain.HistoryOrigin, location *time.Location, request historyapi.ChangeCommandRequest) (any, error) {
 	request.MutationID = domain.NewMutationID().String()
 	var err error
-	r.command, err = request.ToCommand(sources.Origin.HouseholdID, sources.Origin.Timezone)
+	r.command, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
 	if err != nil {
 		return nil, err
 	}
 	r.mutation, r.hash, err = request.MutationEnvelope()
-	r.Timezone = sources.Location
+	r.Timezone = location
 	return r.command, err
 }
 
