@@ -82,8 +82,13 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 	if f := p.investment; f != nil {
 		run := p.investmentRuntime()
 		f.poll(run)
-		if f.draft == nil && p.custodyAvailable() && f.custodyOpen.Clicked(gtx) {
+		if f.draft == nil && p.positionActionsAvailable() && f.custodyOpen.Clicked(gtx) {
 			f.startCustody(run, custodyScope{})
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft == nil && p.positionActionsAvailable() && f.adjustmentOpen.Clicked(gtx) {
+			f.startAdjustment(run)
 			view.RestorePageScroll(0)
 			gtx.Execute(op.InvalidateCmd{})
 		}
@@ -139,18 +144,17 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.Vie
 			}
 			cashActions := len(p.cashMovements.actions)
 			count := cashActions
-			if p.custodyAvailable() {
-				count++
+			if p.positionActionsAvailable() {
+				count += 2
 			}
 			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, count, func(gtx layout.Context, i int) layout.Dimensions {
 				if i == cashActions {
 					f := p.investment
-					view.Focus.Watch(gtx, &f.custodyOpen)
-					if f.restore == &f.custodyOpen && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &f.custodyOpen})
-						f.restore = nil
-					}
-					return view.Button(&f.custodyOpen, view.Language.Text(i18n.CustodyOpen))(gtx)
+					return f.accountPositionAction(gtx, view, &f.custodyOpen, view.Language.Text(i18n.CustodyOpen))
+				}
+				if i == cashActions+1 {
+					f := p.investment
+					return f.accountPositionAction(gtx, view, &f.adjustmentOpen, view.Language.Text(i18n.QuantityAdjustOpen))
 				}
 				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
 			})

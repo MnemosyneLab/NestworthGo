@@ -1507,6 +1507,23 @@ const (
 	CustodyReceive
 	CustodyLockedHolding
 	CustodyHoldingAction
+	QuantityAdjustOpen
+	QuantityAdjustReview
+	QuantityAdjustConfirm
+	QuantityAdjustPosted
+	QuantityAdjustStart
+	QuantityAdjustEmpty
+	QuantityAdjustFailed
+	QuantityAdjustStale
+	QuantityAdjustNeedsCost
+	QuantityAdjustHolding
+	QuantityAdjustAdd
+	QuantityAdjustRemove
+	QuantityAdjustQuantity
+	QuantityAdjustCost
+	QuantityAdjustAdded
+	QuantityAdjustRemoved
+	QuantityAdjustAfter
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost

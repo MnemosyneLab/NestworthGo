@@ -1535,7 +1535,7 @@ Cancel and Ledger Back restore the transfer action and timeline filters.
 | Wails and Gio compare | An independent Wails-format fixture with two units at USD 44 basis first transferred 0.625 into a new Holding in the destination. A second transfer of 0.125 reused that same Holding. Both services showed 1.25 units and USD 27.50 cost at source and 0.75 units and USD 16.50 cost at destination. The only cash change was an independent USD 1 deposit that deliberately invalidated the first review. |
 | Gio workflow | Covered insufficient quantity, same-account exclusion, cancellation, a stale confirmation, pending navigation, a lost reply and read-only receipt retry. Ledger Back restored account and instrument filters and the transfer action. A retry after normal reopen returned the original receipt. |
 | Packaged Linux X11 | At 1160×820, rejected 1.00000001 against one available unit. Cancel kept the ledger untouched and Return reopened the transfer. At 640×480, keyboard selection and confirmation moved 0.375 units from Harbor Brokerage to Second desk. Back restored the action. Reopen showed both linked accounts and resulting quantities of 0.625 and 0.375. Read-only SQLite verified one custody receipt and both exact effects, unchanged cash and quotes, the prior imported EUR holding, and the untouched source hashes. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go suites and three Wails Ledger transfer cases passed. Account and holding choices are read on entry. Receipt reads batch historical account references. No benchmark was run. [Account-scoped directions](#account-scoped-custody-transfers) have a separate milestone. Custody corrections and reversal, position adjustments and cost corrections remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go suites and three Wails Ledger transfer cases passed. Account and holding choices are read on entry. Receipt reads batch historical account references. No benchmark was run. [Account-scoped directions](#account-scoped-custody-transfers) have a separate milestone. [Ledger quantity adjustments](#ledger-quantity-adjustments) have a separate milestone. Custody corrections and reversal and standalone cost corrections remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Account-scoped custody transfers
 
@@ -1559,6 +1559,25 @@ transfer action then provides a focus target.
 | Wails and Gio | The synthetic flow transferred 0.625 units out, then brought 0.125 into the exact original Holding. Independent Wails commands and reopened Gio shared reads showed 1.5 units and USD 33 cost at source and 0.5 units and USD 11 cost at destination. The incoming picker excluded an unrelated instrument. Account and holding focus and the original Holdings search returned as expected. |
 | Packaged Linux X11 | At 1160×820, Cancel and Return reopened the account action, then a keyboard confirmation sent 0.375 units from Harbor Brokerage. At 640×480, the row action brought 0.125 into the same Harbor Holding and received focus again on Ledger Back. Reopen and SQLite verified 0.75 and 0.25 units, four exact effects on the original Holding pair, two mutation receipts, unchanged USD 200 and USD 25 cash and source hashes. |
 | Checks | Full Gio tests and vet, standard Linux packaging, focused shared Go checks and the Wails Accounts, History and holding-context frontend references passed. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+
+#### Ledger quantity adjustments
+
+**Ledger activity → Adjust position** opens the Wails quantity adjustment for
+an existing ordinary Holding. Select the holding, add or remove units, and
+enter the exact quantity and civil effective time. The form shows an original
+unit-cost field only for additions. Gio forwards quantity, time and cost to
+the existing Go preview. The reference fixture rejects an omitted cost on
+addition, including when the holding already has a prior trade. Removing
+units clears the cost field. The review and Ledger detail show the selected
+account, exact quantity change, resulting quantity and any recorded unit cost.
+[Wails adjustment form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared adjustment rules](../../../internal/domain/change.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio | The reference and Gio both rejected an omitted acquisition cost. Gio kept an invalid nine-place input editable and then accepted USD 12.12345678. The shared stores agreed on addition of 0.625 units, removal of 0.125, 2.5 resulting units and the full holding cost and valuation read. SQLite reopen retained one original Holding, both events, the exact unit cost, and unchanged USD 156 cash. |
+| Focus and validation | Keyboard confirmation, Ledger Back and Cancel restored the action. An excess removal failed through the shared preview. Switching to Remove cleared the cost. The adjustment selector and custody selector share the same batch account, instrument and holding read. |
+| Packaged Linux X11 | The 1160×820 form rejected nine decimal places, then posted 0.5 added units at USD 12.12345678 using keyboard confirmation. At 640×480, Remove hid the cost input and keyboard confirmation removed 0.125 units. Ledger Back restored the action. Normal reopen and read-only SQLite showed 1.125 units on the same Harbor Holding, one exact acquisition cost and a removal that recorded only quantity. The other holding, both cash balances, original quote, and source-file hashes were unchanged. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared application/domain/Wails Go checks and four Wails adjustment frontend cases passed. Account- and holding-scoped adjustment entry, standalone basis correction in Reconciliation, and custody correction and reversal remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1745,14 +1764,15 @@ The experimental shell now supports Holdings and instrument detail, domestic
 and foreign-currency settlement for ordinary buys and sales, cash dividends in
 the default account currency, multiple pre-History positions with native costs,
 dated position import from Accounts and Investment Assets, and custody transfers from
-Ledger and Holdings account detail. Available Funds has a Today view
+Ledger and Holdings account detail. Ledger also supports quantity adjustments
+with original unit costs on additions. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes position adjustments, custody amendments
-and cost corrections, inline instrument creation, market quote
+Broader investment work still includes scoped position adjustments, custody
+amendments, standalone Reconciliation cost corrections, inline instrument creation, market quote
 calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
@@ -2362,8 +2382,8 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with position adjustments and cost corrections, custody
-amendments and broader account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with standalone Reconciliation cost corrections, scoped
+quantity adjustments, custody amendments and broader account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

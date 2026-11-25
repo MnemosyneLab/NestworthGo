@@ -273,27 +273,32 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	} else if dividend := activity.DividendDetail; dividend != nil {
 		facts = append(facts, ink(instrument(dividend.InstrumentID)))
 	}
-	custody := activity.Kind == domain.ActivityPositionTransfer && activity.Reason == domain.ReasonOther && activity.ProductContext == nil
-	var custodyEndpoints map[domain.HoldingID]i18n.MessageID
-	if custody {
-		custodyEndpoints = make(map[domain.HoldingID]i18n.MessageID, 2)
+	positionChange := activity.Kind == domain.ActivityPositionTransfer && activity.ProductContext == nil
+	var positionEndpoints map[domain.HoldingID]i18n.MessageID
+	if positionChange {
+		positionEndpoints = make(map[domain.HoldingID]i18n.MessageID, 2)
 	}
 	for _, effect := range activity.Effects {
 		var caption string
 		switch {
-		case custody && effect.HoldingID != nil && effect.Quantity != nil &&
-			(effect.Role == domain.EffectRoleTransferFrom || effect.Role == domain.EffectRoleTransferTo):
+		case positionChange && effect.HoldingID != nil && effect.Quantity != nil && effect.Target == domain.EffectTargetHoldingQuantity:
 			id := detail.HoldingAccounts[*effect.HoldingID]
 			name := account(&id)
 			if effect.InstrumentID != nil {
 				name += " · " + instrument(*effect.InstrumentID)
 			}
-			change, quantity := i18n.HistoryRemoved, i18n.CustodySourceAfter
-			if effect.Role == domain.EffectRoleTransferTo {
-				change, quantity = i18n.HistoryAdded, i18n.CustodyDestinationAfter
+			change, quantity := i18n.HistoryAdded, i18n.QuantityAdjustAfter
+			if effect.Direction == domain.EffectRemoved {
+				change = i18n.HistoryRemoved
+			}
+			switch effect.Role {
+			case domain.EffectRoleTransferFrom:
+				quantity = i18n.CustodySourceAfter
+			case domain.EffectRoleTransferTo:
+				quantity = i18n.CustodyDestinationAfter
 			}
 			caption = fmt.Sprintf(l.Text(change), name, portfolioDecimal(view, effect.Quantity.Canonical()))
-			custodyEndpoints[*effect.HoldingID] = quantity
+			positionEndpoints[*effect.HoldingID] = quantity
 		case (liabilityChange || effect.Role == domain.EffectRoleDebt) && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil:
 			label := i18n.HistoryDebtIncreased
 			if effect.Direction == domain.EffectRemoved {
@@ -350,8 +355,8 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	shown := make(map[balanceRow]bool)
 	for _, result := range activity.Resulting {
 		if result.Quantity != "" {
-			if result.HoldingID != nil && custodyEndpoints[*result.HoldingID] != i18n.NoMessage {
-				facts = append(facts, ink(fmt.Sprintf(l.Text(custodyEndpoints[*result.HoldingID]), portfolioDecimal(view, result.Quantity))))
+			if result.HoldingID != nil && positionEndpoints[*result.HoldingID] != i18n.NoMessage {
+				facts = append(facts, ink(fmt.Sprintf(l.Text(positionEndpoints[*result.HoldingID]), portfolioDecimal(view, result.Quantity))))
 			} else if result.Name != "" {
 				facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.HistoryResultQuantity), result.Name, result.Quantity)))
 			}

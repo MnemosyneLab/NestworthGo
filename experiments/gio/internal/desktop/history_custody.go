@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"slices"
-	"time"
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -36,11 +35,11 @@ type custodyTransferDraft struct {
 	to            domain.AccountID
 	fromPicker    ui.Select
 	toPicker      ui.Select
-	sources       *history.CustodySources
-	loading       <-chan historyResult[history.CustodySources]
+	sources       *history.PositionSources
+	loading       <-chan historyResult[history.PositionSources]
 }
 
-func (p *historyPage) custodyAvailable() bool {
+func (p *historyPage) positionActionsAvailable() bool {
 	return p.investment != nil && p.reads != nil && p.reads.references != nil && p.reads.references.Origin != nil
 }
 
@@ -58,8 +57,8 @@ func (f *accountInvestment) startCustody(run investmentRuntime, scope custodySco
 func (f *accountInvestment) loadCustodySources(run investmentRuntime) {
 	c := f.draft.custody
 	c.sources = nil
-	c.loading = runHistoryRead(run.workers, run.invalidate, func() (history.CustodySources, error) {
-		return history.LoadCustodySources(run.ctx, f.service)
+	c.loading = runHistoryRead(run.workers, run.invalidate, func() (history.PositionSources, error) {
+		return history.LoadPositionSources(run.ctx, f.service)
 	})
 }
 
@@ -96,7 +95,7 @@ func (f *accountInvestment) pollCustodySources(run investmentRuntime) {
 	}
 }
 
-func (c *custodyTransferDraft) source() (history.CustodyHolding, bool) {
+func (c *custodyTransferDraft) source() (history.PositionHolding, bool) {
 	if c.sources != nil {
 		for _, item := range c.sources.Holdings {
 			if item.Holding.ID == c.from && c.offersSource(item) {
@@ -104,19 +103,19 @@ func (c *custodyTransferDraft) source() (history.CustodyHolding, bool) {
 			}
 		}
 	}
-	return history.CustodyHolding{}, false
+	return history.PositionHolding{}, false
 }
 
 func (c *custodyTransferDraft) scopeAvailable() bool {
 	if c.sources == nil || !slices.ContainsFunc(c.sources.Accounts, func(a domain.Account) bool { return a.ID == c.scope.account.ID }) {
 		return false
 	}
-	return c.scope.holding.ID == "" || slices.ContainsFunc(c.sources.Holdings, func(item history.CustodyHolding) bool {
+	return c.scope.holding.ID == "" || slices.ContainsFunc(c.sources.Holdings, func(item history.PositionHolding) bool {
 		return item.Holding.ID == c.scope.holding.ID && item.Account.ID == c.scope.account.ID
 	})
 }
 
-func (c *custodyTransferDraft) offersSource(item history.CustodyHolding) bool {
+func (c *custodyTransferDraft) offersSource(item history.PositionHolding) bool {
 	if item.Holding.Quantity.IsZero() {
 		return false
 	}
@@ -154,9 +153,7 @@ func (f *accountInvestment) previewCustody(run investmentRuntime) {
 	if d.custody.incoming && d.custody.scope.holding.ID != "" {
 		input.To, input.ToHolding = "", d.custody.scope.holding.ID
 	}
-	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
-		input.EffectiveAt = d.defaultTime
-	}
+	input.EffectiveAt = d.effectiveAt()
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(run.workers, run.invalidate, func() (history.ReviewedInvestment, error) {
 		return history.ReviewCustodyTransfer(run.ctx, f.service, input)
@@ -264,7 +261,7 @@ func (f *accountInvestment) custodyFields(view ui.View, origin *image.Point) []l
 	}))
 }
 
-func custodyHoldingLabel(view ui.View, item history.CustodyHolding) string {
+func custodyHoldingLabel(view ui.View, item history.PositionHolding) string {
 	return item.Instrument.SelectionLabel() + " · " + item.Account.Name + " · " + portfolioDecimal(view, item.Holding.Quantity.Canonical())
 }
 

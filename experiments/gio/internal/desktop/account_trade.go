@@ -17,12 +17,12 @@ import (
 )
 
 type accountInvestment struct {
-	service                                      history.InvestmentLedger
-	buy, sell, dividend, importOpen, custodyOpen widget.Clickable
-	custodyHoldings                              map[domain.HoldingID]*widget.Clickable
-	restore                                      *widget.Clickable
-	draft                                        *accountInvestmentDraft
-	onPosted                                     func(domain.Activity, i18n.MessageID, event.Tag)
+	service                                                      history.InvestmentLedger
+	buy, sell, dividend, importOpen, custodyOpen, adjustmentOpen widget.Clickable
+	custodyHoldings                                              map[domain.HoldingID]*widget.Clickable
+	restore                                                      *widget.Clickable
+	draft                                                        *accountInvestmentDraft
+	onPosted                                                     func(domain.Activity, i18n.MessageID, event.Tag)
 }
 
 type investmentRuntime struct {
@@ -39,6 +39,7 @@ func (p *accountsPage) investmentRuntime() investmentRuntime {
 type accountInvestmentDraft struct {
 	kind                                 domain.ActivityKind
 	custody                              *custodyTransferDraft
+	adjustment                           *quantityAdjustmentDraft
 	existing                             bool
 	account                              domain.Account
 	instrument                           domain.InstrumentID
@@ -125,6 +126,9 @@ func (f *accountInvestment) action(d *accountInvestmentDraft) *widget.Clickable 
 		}
 		return &f.custodyOpen
 	}
+	if d.adjustment != nil {
+		return &f.adjustmentOpen
+	}
 	switch d.kind {
 	case domain.ActivitySell:
 		return &f.sell
@@ -173,6 +177,9 @@ var positionImportLabels = tradeLabels{
 func (d *accountInvestmentDraft) labels() tradeLabels {
 	if d.custody != nil {
 		return custodyTransferLabels
+	}
+	if d.adjustment != nil {
+		return quantityAdjustmentLabels
 	}
 	switch d.kind {
 	case domain.ActivitySell:
@@ -229,11 +236,22 @@ func (d *accountInvestmentDraft) captureTime(now time.Time) {
 	}
 }
 
+func (d *accountInvestmentDraft) effectiveAt() time.Time {
+	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
+		return d.defaultTime
+	}
+	return time.Time{}
+}
+
 func (f *accountInvestment) loadSources(run investmentRuntime) {
 	d := f.draft
 	d.sources, d.sourceProblem = nil, i18n.NoMessage
 	if d.custody != nil {
 		f.loadCustodySources(run)
+		return
+	}
+	if d.adjustment != nil {
+		f.loadAdjustmentSources(run)
 		return
 	}
 	id, kind := d.account.ID, d.kind
@@ -246,6 +264,10 @@ func (f *accountInvestment) preview(run investmentRuntime) {
 	d := f.draft
 	if d.custody != nil {
 		f.previewCustody(run)
+		return
+	}
+	if d.adjustment != nil {
+		f.previewAdjustment(run)
 		return
 	}
 	if d.previewing != nil || d.sources == nil || d.instrument == "" {
@@ -261,9 +283,7 @@ func (f *accountInvestment) preview(run investmentRuntime) {
 		Gross: d.gross.Text(), Fee: d.fee.Text(), Note: d.note.Text(), Date: d.day, Time: d.time}
 	// Keep the actual default instant, including its sub-second position
 	// after History Origin. Edited wall times resolve in the Origin timezone.
-	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
-		input.EffectiveAt = d.defaultTime
-	}
+	input.EffectiveAt = d.effectiveAt()
 	unitCost := d.unitCost.Text()
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(run.workers, run.invalidate, func() (history.ReviewedInvestment, error) {
@@ -305,6 +325,7 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 	d := f.draft
 	labels := d.labels()
 	f.pollCustodySources(run)
+	f.pollAdjustmentSources(run)
 	select {
 	case result := <-d.loading:
 		d.loading = nil
@@ -373,6 +394,9 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 	var issue *domain.Error
 	if !errors.As(err, &issue) {
 		return fallback
+	}
+	if issue.Code == domain.ErrCostBasisRequired && labels.action == i18n.QuantityAdjustOpen {
+		return i18n.QuantityAdjustNeedsCost
 	}
 	switch issue.Field {
 	case "grossCurrency", "currency":

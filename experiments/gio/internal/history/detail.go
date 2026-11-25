@@ -142,18 +142,18 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			detail.InstrumentCurrencies[instrument.ID] = instrument.QuoteCurrency
 		}
 	}
-	if record.Kind == domain.ActivityPositionTransfer && record.Reason == domain.ReasonOther && record.ProductContext == nil {
-		if err := readCustodyAccounts(ctx, service, &detail); err != nil {
+	if record.Kind == domain.ActivityPositionTransfer && record.ProductContext == nil {
+		if err := readPositionAccounts(ctx, service, &detail); err != nil {
 			return Detail{}, err
 		}
 	}
 	return detail, nil
 }
 
-func readCustodyAccounts(ctx context.Context, service DetailReader, detail *Detail) error {
+func readPositionAccounts(ctx context.Context, service DetailReader, detail *Detail) error {
 	detail.HoldingAccounts = make(map[domain.HoldingID]domain.AccountID)
 	for _, effect := range detail.Activity.Effects {
-		if effect.HoldingID != nil && (effect.Role == domain.EffectRoleTransferFrom || effect.Role == domain.EffectRoleTransferTo) {
+		if effect.HoldingID != nil && effect.Target == domain.EffectTargetHoldingQuantity {
 			detail.HoldingAccounts[*effect.HoldingID] = ""
 		}
 	}

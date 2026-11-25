@@ -55,6 +55,8 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 	}
 	if d.custody != nil {
 		children = append(children, f.custodyFields(view, &origin)...)
+	} else if d.adjustment != nil {
+		children = append(children, f.adjustmentFields(view, &origin)...)
 	} else if d.pickAccount {
 		if len(d.accounts) != 0 {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -66,7 +68,7 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			return fieldPosition(gtx, &origin, view.Message(d.account.Name+" · "+d.account.DefaultCurrency.String(), view.Colors.Ink))
 		}))
 	}
-	if d.custody == nil && d.sources != nil && len(d.sources.Instruments) != 0 {
+	if d.custody == nil && d.adjustment == nil && d.sources != nil && len(d.sources.Instruments) != 0 {
 		if d.kind == domain.ActivityPositionTransfer {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.PositionImportHelp), view.Colors.SecondaryInk))
@@ -103,7 +105,8 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 		}
 	}
 	switch {
-	case d.loading != nil || d.previewing != nil || d.custody != nil && d.custody.loading != nil:
+	case d.loading != nil || d.previewing != nil || d.custody != nil && d.custody.loading != nil ||
+		d.adjustment != nil && d.adjustment.loading != nil:
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)))
 	case d.sourceProblem != i18n.NoMessage:
 		children = append(children, layout.Rigid(view.Message(l.Text(d.sourceProblem), view.Colors.ErrorInk)))
@@ -134,6 +137,9 @@ func (d *accountInvestmentDraft) investmentFieldsVisible() bool {
 	if d.custody != nil {
 		return d.custody.available()
 	}
+	if d.adjustment != nil {
+		return d.adjustment.sources != nil && len(d.adjustment.sources.Holdings) != 0
+	}
 	return d.sources != nil && len(d.sources.Instruments) != 0
 }
 
@@ -141,6 +147,9 @@ func (d *accountInvestmentDraft) investmentInputComplete() bool {
 	quantity := strings.TrimSpace(d.quantity.Text()) != ""
 	if d.custody != nil {
 		return quantity && d.custody.from != "" && d.custody.to != ""
+	}
+	if d.adjustment != nil {
+		return quantity && d.adjustment.holding != ""
 	}
 	if d.instrument == "" {
 		return false
@@ -318,6 +327,10 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 		if source, ok := d.custody.source(); ok {
 			contextName = source.Instrument.SelectionLabel()
 		}
+	} else if d.adjustment != nil {
+		if item, ok := d.adjustment.selected(); ok {
+			contextName = item.Instrument.SelectionLabel() + " · " + item.Account.Name
+		}
 	} else if at := slices.IndexFunc(d.sources.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }); at >= 0 {
 		contextName += " · " + d.sources.Instruments[at].SelectionLabel()
 	}
@@ -345,6 +358,10 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 	case domain.ActivityPositionTransfer:
 		if d.custody != nil {
 			children = append(children, d.custody.reviewFacts(view, preview, fact)...)
+			break
+		}
+		if d.adjustment != nil {
+			children = append(children, d.adjustment.reviewFacts(view, preview, fact)...)
 			break
 		}
 		for _, endpoint := range preview.Resulting {
