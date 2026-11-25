@@ -102,7 +102,7 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			}
 		}
 	}
-	hasInstruments := record.TradeDetail != nil || record.DividendDetail != nil
+	hasInstruments := record.TradeDetail != nil || record.DividendDetail != nil || record.ProductContext != nil
 	for _, effect := range record.Effects {
 		addAccount(effect.AccountID)
 		hasInstruments = hasInstruments || effect.InstrumentID != nil

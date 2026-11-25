@@ -119,10 +119,16 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 }
 
 func (r *historyReads) instrumentLinks(view ui.View, detail history.Detail) []layout.Widget {
+	activity := detail.Activity
+	if product := activity.ProductContext; product != nil && product.ProductKind == domain.ProductTermDeposit && r.openProduct != nil {
+		if name := detail.Instruments[product.InstrumentID]; name != "" {
+			button := portfolioButton(r.detail.instruments, product.InstrumentID)
+			return []layout.Widget{productLink(view, product.ProductID, name, button, r.openProduct)}
+		}
+	}
 	if r.openInstrument == nil {
 		return nil
 	}
-	activity := detail.Activity
 	var ids []domain.InstrumentID
 	if activity.TradeDetail != nil {
 		ids = append(ids, activity.TradeDetail.InstrumentID)
@@ -251,6 +257,10 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			caption = effectCaption(l, effect, paired, supported, movement, account, instrument)
 		}
 		class := l.Text(effectClasses[effect.Classification])
+		if product := activity.ProductContext; product != nil && product.Purpose == domain.ProductPurposeInterest &&
+			effect.Target == domain.EffectTargetAccountCash && effect.Role == domain.EffectRoleAmount {
+			class = l.Text(i18n.HistoryIncome)
+		}
 		if activity.ReversesActivityID != nil && class != "" {
 			class = fmt.Sprintf(l.Text(i18n.HistoryReversedEffect), class)
 		}

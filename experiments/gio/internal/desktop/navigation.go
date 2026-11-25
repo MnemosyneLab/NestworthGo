@@ -132,7 +132,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.statementUnresolved() || s.accounts.investmentUnresolved() || s.accounts.openingPositionUnresolved()) {
 		return
 	}
-	if s.funds != nil && s.funds.reservationUnresolved() {
+	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.productPage.receiptUnresolved()) {
 		return
 	}
 	entry := s.trail.current()
@@ -210,6 +210,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.funds.leave()
 		} else {
 			s.funds.productPage.leave()
+			s.funds.productPage.receipt = nil
 		}
 	}
 	if entry.target.route == portfolioRoute {

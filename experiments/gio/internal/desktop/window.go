@@ -36,6 +36,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)
 	funds.reservationLedger = service
 	funds.productPage = newProductDetailPage(ctx, service, window.Invalidate)
+	funds.productPage.receipts, funds.productPage.clock = service, clock
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &balanceAccountCreation{service: service}
 	accounts.maintenance = &accountMaintenance{service: service}

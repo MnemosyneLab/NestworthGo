@@ -899,6 +899,34 @@ const (
 	ProductConfirmReceipt
 	ProductReceiveInterest
 	PortfolioManagedOnly
+	ProductForecastInterest
+	ProductReceiptAction
+	ProductReceiptHelp
+	ProductReturnedPrincipal
+	ProductActualInterest
+	ProductReceiptReview
+	ProductReceiptPost
+	ProductReceiptTimeHelp
+	ProductReceiptTimeInvalid
+	ProductReceiptChanged
+	ProductReceiptStale
+	ProductReceiptAmountsInvalid
+	ProductReceiptPreviewFailed
+	ProductReceiptSaved
+	ProductReceiptRecorded
+	ProductReceiptHistory
+	ProductInterestHistory
+	ProductReceiptNotDue
+	ProductPrincipalFact
+	ProductInterestFact
+	ProductNoInterestPosted
+	ProductNoReceiptFee
+	ProductCashBefore
+	ProductCashAfter
+	ProductValueBefore
+	ProductValueAfter
+	ProductReceiptReleases
+	ProductFeeFact
 	messageCount
 )
 

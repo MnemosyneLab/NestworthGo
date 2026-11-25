@@ -292,6 +292,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if p.productPage != nil {
 			p.productPage.openAccount = p.openAccount
+			p.productPage.onReceiptSaved = s.refreshLedgerReads
+			if s.historyPage != nil && s.historyPage.reads != nil {
+				p.productPage.openActivity = s.historyPage.reads.open
+				s.historyPage.reads.openProduct = p.openProduct
+			}
 		}
 		if s.portfolio != nil {
 			p.openInstrument = s.portfolio.openInstrument

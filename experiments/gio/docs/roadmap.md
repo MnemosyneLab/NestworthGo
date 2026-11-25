@@ -1362,7 +1362,42 @@ confirmation is unavailable. The statuses are read-only. [Wails product sheet](.
 | Linux X11 | In a 900×660 Xvfb window, opened the locked term deposit from Available Funds, followed its account link, opened the settled deposit, and navigated back to the original scroll position. Checked the due and incomplete contracts, then quit and reopened normally. After the existing first-launch preference initialization, a read-only SQLite comparison found identical rows in all 77 tables across both browsing sessions. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
 | Tests | The Gio module suite and focused application, domain and Wails Go liquidity and product tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Other managed product types, product commands, policy and broader reservation editing, and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | [Confirming a term deposit receipt](#confirm-actual-term-deposit-receipt) follows this milestone. Other managed product types and actions, policy and broader reservation editing, and Tasks remained open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Confirm actual term deposit receipt
+
+On an open term deposit at or after contractual maturity, **Confirm actual
+receipt** follows the Wails due-receipt entry for a product whose modeled
+normal receipt is due and unconfirmed. The shared display state and settle
+permission are re-read before preparing the command. The draft uses the
+original principal as the initial value and zero for interest and fee.
+Enter the actual amounts from the receipt. The unpaid maturity interest and
+normal net proceeds remain separate estimates. [Wails due receipt entry and form](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx) · [Shared due-state projection](../../../internal/domain/liquidity_evaluate.go)
+
+The user can specify the actual date and time in the History timezone.
+Leaving both fields empty freezes the time of review. The receipt date must
+be at or after contractual maturity. The shared command enforces acceptable
+amounts, the latest financial operation, and the current-time ceiling.
+The preview shows returned principal, actual interest and fee, both cash
+balances, and the change in the contract value. Any active reservations on
+that holding are listed for release as part of the same settlement, per Wails.
+[Wails Go adapter](../../../internal/wailsapi/liquidity/liquidity.go) · [Shared operation service](../../../internal/application/product_operations.go)
+
+Confirmation sends the reviewed command, state hash and one mutation ID.
+A stale review returns to the draft. An unknown outcome can replay the same
+confirmation. Once acknowledged, all retries refresh reads. The settled
+product links to its posted principal and optional interest activities.
+The links use the persisted operation receipt and remain available after
+reopen. Each linked History record returns to the product. [Shared receipt read](../../../internal/application/liquidity.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent marked profiles used Asia/Singapore. A USD 606.25 forecast remained separate from USD 595.125 returned principal, USD 4.25 actual interest and USD 0.375 fee. Shared preview and posting agreed on exact cash (USD 1,100 to USD 1,699), zero remaining quantity, the settled contract, and the two linked activities. Today recognized USD 1,699. Asset change attributed USD 4.25 to dividend and interest, with zero external flow. |
+| Shell tests | Covered not-yet-mature and settled products, invalid amounts and dates, frozen default time, reservation changes invalidating review, and release of both reviewed reservations. Double confirmation sent one request. After a lost committed reply, the same command, ID and hash resolved to the original receipt. A failed refresh after acknowledgement retried only reads. Checked links in both directions, normal reopen, and persistence of the receipt. |
+| Linux X11 | In a 900×660 Xvfb window, checked the locked product, entered actual amounts on a due deposit, reviewed the cash increase, and double-clicked the posting control. Followed the History links and reopened normally. Read-only SQLite verification found one new settlement operation, two linked activities, zero remaining quantity, USD 1,699 cash, and unchanged earlier activity, effect and quote rows. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
+| Tests | The Gio module suite and focused shared application, domain and Wails Go liquidity tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | This entry covers normal maturity receipts for term deposits. Early redemption, renewal, opening products, standalone interest recording, other managed product types, and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

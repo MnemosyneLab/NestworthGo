@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"time"
 
 	"gioui.org/io/event"
 	"gioui.org/layout"
@@ -22,12 +23,18 @@ import (
 type productReader interface {
 	availableFundsReader
 	Product(context.Context, domain.ProductContractID) (application.ProductDetail, error)
+	ReadProductOperationReceipt(context.Context, domain.ProductOperationID) (application.ProductOperationReceipt, error)
+	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
 }
 
 type productRead struct {
-	detail  *application.ProductDetail
-	source  *domain.LiquiditySourceResult
-	account string
+	detail              *application.ProductDetail
+	source              *domain.LiquiditySourceResult
+	account             string
+	accountActive       bool
+	localDate, timezone string
+	unpaidInterest      *domain.Money
+	settlement          []domain.Activity
 }
 
 func readProduct(ctx context.Context, service productReader, id domain.ProductContractID) (out productRead, err error) {
@@ -53,17 +60,40 @@ func readProduct(ctx context.Context, service productReader, id domain.ProductCo
 		}
 		for _, account := range accounts {
 			if account.Account.ID == detail.Contract.AccountID {
-				out.account = account.Account.Name
+				out.account, out.accountActive = account.Account.Name, account.Account.ArchivedAt == nil
 				break
+			}
+		}
+		if detail.Contract.State == domain.ProductStateSettled && detail.Contract.ClosedOperationID != nil {
+			receipt, err := service.ReadProductOperationReceipt(ctx, *detail.Contract.ClosedOperationID)
+			if err != nil {
+				return err
+			}
+			if receipt.Kind == domain.ProductOpSettle {
+				for _, id := range receipt.ActivityIDs {
+					activity, err := service.Activity(ctx, id)
+					if err != nil {
+						return err
+					}
+					if link := activity.ProductContext; link != nil && link.ProductID == detail.Contract.ID &&
+						link.OperationID == receipt.OperationID {
+						out.settlement = append(out.settlement, activity)
+					}
+				}
 			}
 		}
 		if detail.Contract.State != domain.ProductStateOpen {
 			return nil
 		}
+		out.unpaidInterest, err = detail.Contract.EstimatedUnpaidMaturityInterest()
+		if err != nil {
+			return err
+		}
 		report, err := service.LiquidityRead(ctx, application.LiquidityOverviewQuery{})
 		if err != nil {
 			return err
 		}
+		out.localDate, out.timezone = report.Overview.LocalDate, report.Overview.Timezone
 		for _, row := range report.Sources {
 			if row.Result.ProductID != nil && *row.Result.ProductID == id {
 				out.source = &row.Result
@@ -76,28 +106,37 @@ func readProduct(ctx context.Context, service productReader, id domain.ProductCo
 }
 
 type productDetailPage struct {
-	ctx         context.Context
-	service     productReader
-	invalidate  func()
-	workers     sync.WaitGroup
-	id          domain.ProductContractID
-	cancel      context.CancelFunc
-	request     <-chan historyResult[productRead]
-	current     *productRead
-	err         error
-	list        widget.List
-	reload      widget.Clickable
-	accounts    map[domain.AccountID]*widget.Clickable
-	openAccount func(domain.AccountID, string, event.Tag)
+	ctx               context.Context
+	service           productReader
+	invalidate        func()
+	workers           sync.WaitGroup
+	id                domain.ProductContractID
+	cancel            context.CancelFunc
+	request           <-chan historyResult[productRead]
+	current           *productRead
+	err               error
+	list              widget.List
+	reload            widget.Clickable
+	accounts          map[domain.AccountID]*widget.Clickable
+	openAccount       func(domain.AccountID, string, event.Tag)
+	openActivity      func(domain.ActivityID, event.Tag)
+	activities        map[domain.ActivityID]*widget.Clickable
+	receipts          productReceiptLedger
+	receipt           *productReceiptDraft
+	receiptSaved      bool
+	startConfirmation widget.Clickable
+	clock             func() time.Time
+	onReceiptSaved    func()
 }
 
 func newProductDetailPage(ctx context.Context, service productReader, invalidate func()) *productDetailPage {
 	return &productDetailPage{ctx: ctx, service: service, invalidate: invalidate,
-		list: widget.List{List: layout.List{Axis: layout.Vertical}}, accounts: make(map[domain.AccountID]*widget.Clickable)}
+		list: widget.List{List: layout.List{Axis: layout.Vertical}}, accounts: make(map[domain.AccountID]*widget.Clickable), activities: make(map[domain.ActivityID]*widget.Clickable)}
 }
 
 func (p *productDetailPage) enter(id domain.ProductContractID, position layout.Position) {
 	p.id, p.current, p.list.Position = id, nil, position
+	p.receipt, p.receiptSaved = nil, false
 	p.read()
 }
 
@@ -126,6 +165,10 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 		p.current, p.err = &result.value, result.err
 	default:
 	}
+	p.pollReceipt()
+	if p.receipt != nil {
+		return p.layoutReceipt(gtx, view)
+	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
@@ -151,6 +194,12 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 					view.Focus.Watch(gtx, &p.reload)
 					return view.Button(&p.reload, l.Text(reload))(gtx)
 				}))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.receiptSaved {
+				return view.Message(l.Text(i18n.ProductReceiptSaved), view.Colors.Ink)(gtx)
+			}
+			return layout.Dimensions{}
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			if status != i18n.NoMessage {
@@ -209,6 +258,7 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 			receipt = l.Text(i18n.OverviewNoValue)
 		}
 		fields := []layout.Widget{
+			fundsAmount(view, i18n.ProductForecastInterest, p.current.unpaidInterest),
 			fundsAmount(view, i18n.ProductForecastNet, estimated),
 			view.Message(fmt.Sprintf(l.Text(i18n.ProductReceiptDate), receipt), view.Colors.Ink),
 		}
@@ -222,16 +272,55 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 		}
 		rows = append(rows, fundsCard(view, l.Text(i18n.ProductForecast), fields...))
 	}
-	return append(rows, fundsCard(view, l.Text(i18n.ProductActions), productActions(view, *product)...))
+	if len(p.current.settlement) > 0 {
+		var links []layout.Widget
+		for _, activity := range p.current.settlement {
+			if p.openActivity == nil {
+				break
+			}
+			label := i18n.ProductReceiptHistory
+			if activity.ProductContext.Purpose == domain.ProductPurposeInterest {
+				label = i18n.ProductInterestHistory
+			}
+			button := portfolioButton(p.activities, activity.ID)
+			links = append(links, func(gtx layout.Context) layout.Dimensions {
+				if button.Clicked(gtx) {
+					p.openActivity(activity.ID, button)
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				view.Focus.Watch(gtx, button)
+				return layout.W.Layout(gtx, view.Button(button, l.Text(label)))
+			})
+		}
+		if len(links) != 0 {
+			rows = append(rows, fundsCard(view, l.Text(i18n.ProductReceiptRecorded), links...))
+		}
+	}
+	canRecord := p.receipts != nil && p.current.canConfirmReceipt()
+	actions := productActions(view, *product, p.receipts == nil || canRecord)
+	if canRecord {
+		actions = append([]layout.Widget{func(gtx layout.Context) layout.Dimensions {
+			if p.startConfirmation.Clicked(gtx) {
+				p.startReceipt()
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			view.Focus.Watch(gtx, &p.startConfirmation)
+			return layout.W.Layout(gtx, view.PrimaryButton(&p.startConfirmation, l.Text(i18n.ProductReceiptAction)))
+		}}, actions[1:]...)
+	}
+	return append(rows, fundsCard(view, l.Text(i18n.ProductActions), actions...))
 }
 
-func productActions(view ui.View, product application.ProductDetail) []layout.Widget {
+func productActions(view ui.View, product application.ProductDetail, allowReceipt bool) []layout.Widget {
 	l := view.Language
 	settle, interest := i18n.ProductNotPermitted, i18n.ProductNotPermitted
 	for _, action := range product.PermittedActions {
 		switch action {
 		case "settle":
-			settle = i18n.ProductCanReview
+			settle = i18n.ProductReceiptNotDue
+			if allowReceipt {
+				settle = i18n.ProductCanReview
+			}
 		case "receive_interest":
 			interest = i18n.ProductCanReview
 		}

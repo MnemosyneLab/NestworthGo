@@ -96,6 +96,7 @@ type historyReads struct {
 	open           func(id domain.ActivityID, focus event.Tag)
 	openAccount    func(id domain.AccountID, name string, focus event.Tag)
 	openInstrument func(id domain.InstrumentID, name string, focus event.Tag)
+	openProduct    func(id domain.ProductContractID, name string, focus event.Tag)
 	back           func()
 	rename         func(id domain.ActivityID, name string)
 }

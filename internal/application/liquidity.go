@@ -232,6 +232,22 @@ func (s *Service) productDetailSnapshot(ctx context.Context) (domain.LiquiditySn
 	return snapshot, nil
 }
 
+// ReadProductOperationReceipt returns the recorded activity IDs without replaying a write.
+func (s *Service) ReadProductOperationReceipt(ctx context.Context, id domain.ProductOperationID) (ProductOperationReceipt, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return ProductOperationReceipt{}, err
+	}
+	operation, err := s.repository.LookupProductOperation(ctx, household.ID, id)
+	if err != nil {
+		return ProductOperationReceipt{}, err
+	}
+	if operation == nil {
+		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrNotFound, Field: "operationId", Message: "product operation was not found"}
+	}
+	return receiptFromOperation(*operation)
+}
+
 func (s *Service) ListProductOperations(ctx context.Context, productID domain.ProductContractID, cursor string, limit int) (ProductOperationPage, error) {
 	unlock, err := s.beginPreviewRead(ctx)
 	if err != nil {
