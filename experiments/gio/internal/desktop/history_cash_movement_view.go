@@ -407,6 +407,9 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 	if d.uncertain {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))
 	}
+	if d.problem == i18n.CashReceiptSaveFailed {
+		children = append(children, layout.Rigid(view.Message(l.Text(d.problem), view.Colors.ErrorInk)))
+	}
 	if d.posting != nil {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)))
 	} else {

@@ -110,6 +110,11 @@ type ReviewedCashMovement struct {
 	token    string
 }
 
+// ReceiptIdentity returns the original mutation identity of the frozen command.
+func (r ReviewedCashMovement) ReceiptIdentity() (mutationID, payloadHash string) {
+	return r.mutation, r.hash
+}
+
 // ReviewCashMovement freezes a Wails History request and its mutation
 // envelope. Accounts and Origin are read under the same shared preview gate
 // that establishes the state token used at confirmation.

@@ -44,8 +44,48 @@ ownership. A rejected startup
 releases any lock it acquired before displaying the error. The blocked window
 uses system language and appearance. It offers Quit and cannot access the
 ledger. The [Wails entry point](../../../cmd/nestworth/main.go) reconciles restore
-journals and exposes recovery. The Gio preview blocks when a journal is
-present and leaves the profile for the established recovery workflow.
+journals and exposes recovery. The Gio preview accepts only the sealed
+disposable recovery layout described above.
+
+### Transfer and conversion receipts after restart
+
+Before dispatching a confirmed cash transfer or in-account conversion, Gio
+writes the original mutation ID, full request SHA-256 and a ledger binding
+to a private file in the verified profile's `cash-receipts` directory. The
+binding covers the canonical run path, household, and database file identity.
+The pilot owns the instance lock for the entire operation. It flushes the
+identity file and directory before dispatch and refuses linked or nonprivate
+files. The sidecar carries no form, credentials or financial details. The
+shared backup continues to contain the database and presentation settings.
+A backup can include committed SQLite receipts as ledger data.
+
+At startup, the shell uses `InspectChangeReceipt` on matching identities.
+The activity link opens the existing Ledger activity detail. A missing receipt
+describes the current ledger only. A different binding, a digest conflict or
+a read failure leaves the outcome unconfirmed. Restoring by replacing the
+database changes the binding. If an older image is written in place, the
+receipt lookup still needs an exact match. Neither startup nor checking
+again dispatches a write to the ledger.
+
+Closing the window preserves identities pending acknowledgement. Dismissing
+a notice removes only the private file. Within the same window a lost
+response can still use the frozen command and original mutation ID. Recording
+another transfer intentionally starts from a fresh form and a fresh ID even
+if the amounts and effective time are identical. This covers the new
+transfer and conversion forms. Amendments and other write flows keep their
+existing receipt behavior. [Pilot receipt storage](../internal/pilot/cash_receipts.go) · [Shared read-only lookup](../../../internal/application/change_mutation.go)
+
+The subprocess regression stops each form before its SQLite commit and after
+commit but before the response. It reopens through the verified session and
+checks the receipt, activity link, balances and a second intentional
+submission. The pilot tests exercise a sealed same-household restore to an
+older backup, another household and linked files. The backup test also checks
+that a precommit identity is absent from the exported package. Run the focused
+tests with `go -C experiments/gio test -mod=readonly ./internal/desktop ./internal/pilot -run TestCashReceipt`.
+Linux X11 windows under Xvfb exercised both failure boundaries for each form
+with independent synthetic profiles, then checked the resulting rows and
+balances through read-only SQLite. Wayland, macOS and the Wails GUI were not
+part of that native run.
 
 ## Application shell
 

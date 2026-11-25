@@ -33,9 +33,14 @@ type cashMovementDraft struct {
 
 	previewing <-chan historyResult[history.ReviewedCashMovement]
 	review     *history.ReviewedCashMovement
-	posting    <-chan historyResult[domain.ChangePreview]
+	posting    <-chan historyResult[cashMovementPost]
 	uncertain  bool
 	problem    i18n.MessageID
+}
+
+type cashMovementPost struct {
+	result       domain.ChangePreview
+	receiptError bool
 }
 
 type historyCashMovements struct {
@@ -46,6 +51,7 @@ type historyCashMovements struct {
 	workers    sync.WaitGroup
 	actions    [len(cashMovementLabels)]widget.Clickable
 	draft      *cashMovementDraft
+	recovery   *cashReceiptRecovery
 }
 
 func newHistoryCashMovements(ctx context.Context, service cashMovementService, clock func() time.Time, invalidate func()) *historyCashMovements {
@@ -179,8 +185,20 @@ func (p *historyCashMovements) post() {
 		return
 	}
 	review := *d.review
-	d.posting = runHistoryRead(&p.workers, p.invalidate, func() (domain.ChangePreview, error) {
-		return review.Commit(p.ctx, p.service)
+	recoverable := d.movement == history.CashTransfer || d.movement == history.CashConversion
+	id, digest := review.ReceiptIdentity()
+	if recoverable && p.recovery != nil {
+		p.recovery.liveMutation = id
+	}
+	d.problem = i18n.NoMessage
+	d.posting = runHistoryRead(&p.workers, p.invalidate, func() (cashMovementPost, error) {
+		if recoverable && p.recovery != nil {
+			if err := p.recovery.store.Remember(p.ctx, id, digest); err != nil {
+				return cashMovementPost{receiptError: true}, err
+			}
+		}
+		result, err := review.Commit(p.ctx, p.service)
+		return cashMovementPost{result: result}, err
 	})
 }
 
@@ -220,9 +238,20 @@ func (p *historyCashMovements) update() *domain.Activity {
 	select {
 	case result := <-d.posting:
 		d.posting = nil
-		if result.err == nil && result.value.Activity.ID != "" {
+		activity := result.value.result.Activity
+		if result.err == nil && activity.ID != "" {
+			if p.recovery != nil && isCashReceiptActivity(activity) {
+				id, _ := d.review.ReceiptIdentity()
+				p.recovery.remember(cashReceiptNotice{mutation: id, message: i18n.CashReceiptRecorded, activity: activity.ID})
+			}
 			p.discard()
-			return &result.value.Activity
+			return &activity
+		}
+		if result.value.receiptError {
+			// The failed attempt never reached the ledger. If an older
+			// attempt lost its response, keep its frozen review retryable.
+			d.problem = i18n.CashReceiptSaveFailed
+			break
 		}
 		var issue *domain.Error
 		if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {

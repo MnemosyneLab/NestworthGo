@@ -2,6 +2,15 @@
 
 The Gio preview opens an isolated synthetic Nestworth household. **Overview** reads the current valuation. **Accounts** browses accounts by institution, creates total-balance, manual-valuation and empty Holdings accounts, and supports account settings, archive and restore. Bank account details can reconcile a native balance, and Holdings account details can reconcile cash by currency. **Settings → Appearance** edits general display preferences. **Activity → Ledger activity** can start history for an existing household without positive positions. It filters saved records and previews and records contributions, withdrawals, cash transfers and currency conversion within a Holdings account. Eligible cash movements can be corrected or reversed from their details. **Directory** manages members, institutions and groups. **Manage → Component Preview** opens a working form for trying the shared controls. The [desktop migration roadmap](docs/roadmap.md) tracks the remaining Wails workflows.
 
+## Checking an interrupted transfer
+
+After reopening the same synthetic profile, a receipt notice can link to
+the recorded transfer or in-account conversion. If the outcome is
+unconfirmed or the current ledger has no receipt, check **Ledger activity**
+before recording again. **Dismiss receipt** closes the notice. The preview
+only queries the ledger during this restart check.
+[Profile and receipt behavior](docs/foundation.md#transfer-and-conversion-receipts-after-restart)
+
 ## General settings and sidebar
 
 Open **Settings → Appearance** to edit appearance, color theme, language,

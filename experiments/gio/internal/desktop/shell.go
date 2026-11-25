@@ -655,6 +655,14 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	focus := ui.PageFocus{Target: entry.focus}
 	dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.pageHeader(gtx, view, route.label) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p := s.historyPage; p != nil && p.cashMovements != nil && p.cashMovements.recovery != nil {
+				dims := p.cashMovements.recovery.layout(gtx, view, p.reads.open)
+				view.Origin.Y += dims.Size.Y
+				return dims
+			}
+			return layout.Dimensions{}
+		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			view.Focus = &focus
 			return pageBody(gtx, view, body)

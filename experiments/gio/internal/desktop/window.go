@@ -17,7 +17,7 @@ import (
 )
 
 // Run serves the native window and joins pending work before returning to the database owner.
-func Run(ctx context.Context, service *application.Service, prefs *preferences.Service, clock func() time.Time, wordmark, mark image.Image) error {
+func Run(ctx context.Context, service *application.Service, prefs *preferences.Service, receipts *pilot.CashReceiptStore, clock func() time.Time, wordmark, mark image.Image) error {
 	ctx, cancel := context.WithCancel(ctx)
 	window := new(app.Window)
 	state := newPreferenceState(ctx, prefs, window.Invalidate)
@@ -31,6 +31,9 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	)
 	timeline := newLedgerHistory(ctx, service, clock, window.Invalidate)
 	timeline.reads.repeatAPI = historyapi.NewService(service)
+	recovery := &cashReceiptRecovery{ctx: ctx, store: receipts, reader: service, invalidate: window.Invalidate}
+	timeline.cashMovements.recovery = recovery
+	recovery.read()
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
 	tasks := newTasksPage(ctx, service, window.Invalidate)
@@ -57,6 +60,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		timeline.model.Wait()
 		timeline.reads.workers.Wait()
 		timeline.cashMovements.workers.Wait()
+		recovery.workers.Wait()
 		overview.workers.Wait()
 		portfolio.workers.Wait()
 		tasks.workers.Wait()

@@ -113,7 +113,7 @@ func run(clock func() time.Time) (started bool, result error) {
 	if err := prefs.ConfigureValuation(); err != nil {
 		return false, err
 	}
-	return true, desktop.Run(ctx, service, prefs, clock, wordmark, mark)
+	return true, desktop.Run(ctx, service, prefs, session.CashReceipts, clock, wordmark, mark)
 }
 
 func loadBrandImage(name string) (image.Image, error) {

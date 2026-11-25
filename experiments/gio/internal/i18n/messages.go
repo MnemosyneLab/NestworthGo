@@ -402,6 +402,14 @@ const (
 	ContributionConfirm
 	ContributionStale
 	ContributionUncertain
+	CashReceiptSaveFailed
+	CashReceiptUnconfirmed
+	CashReceiptAbsent
+	CashReceiptRecorded
+	CashReceiptOpen
+	CashReceiptRetry
+	CashReceiptDismiss
+	CashReceiptDismissFailed
 	ContributionRetryPost
 	ContributionPosted
 	ContributionDetailFailed

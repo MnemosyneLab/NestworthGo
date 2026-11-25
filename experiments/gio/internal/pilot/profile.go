@@ -162,8 +162,9 @@ func Verify(ctx context.Context, paths Paths) error {
 
 // Session owns a verified writable database and its shared Wails instance lock.
 type Session struct {
-	DB    *sqlite.DB
-	close func() error
+	DB           *sqlite.DB
+	CashReceipts *CashReceiptStore
+	close        func() error
 }
 
 // Close checkpoints and closes the database before releasing its lock.
@@ -182,7 +183,11 @@ func OpenSession(ctx context.Context, paths Paths) (*Session, error) {
 	if err != nil {
 		return nil, errors.Join(err, unlock())
 	}
-	return &Session{DB: db, close: sync.OnceValue(func() error {
+	receipts := &CashReceiptStore{paths: paths, verified: verified, db: db}
+	return &Session{DB: db, CashReceipts: receipts, close: sync.OnceValue(func() error {
+		receipts.mu.Lock()
+		receipts.closed = true
+		receipts.mu.Unlock()
 		return errors.Join(db.CheckpointWAL(context.Background()), db.Close(), unlock())
 	})}, nil
 }
