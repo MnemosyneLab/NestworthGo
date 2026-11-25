@@ -8,6 +8,7 @@ import (
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/unit"
 	"gioui.org/widget"
 
@@ -47,10 +48,14 @@ const (
 // ButtonSpec describes one button. Title is the visible text and may be empty
 // for an icon-only button, which is then square and needs a Name.
 type ButtonSpec struct {
-	Variant     ButtonVariant
-	Size        ButtonSize
-	Title       string
-	Name        string // accessible name; defaults to Title
+	Variant ButtonVariant
+	Size    ButtonSize
+	Title   string
+	Name    string // accessible name; defaults to Title
+	// ShortName labels the icon of an icon-only button whose Name carries
+	// context, such as "Back to Accounts". Assistive technology and tests can
+	// then find the control by its plain action word.
+	ShortName   string
 	Description string
 	// Toggle marks a button that reports Selected as its state, as a tab does.
 	Toggle, Selected bool
@@ -226,6 +231,11 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 		FillRoundRect(gtx, bounds, metrics.radius, Fade(colors.fill, opacity))
 		StrokeRoundRect(gtx, bounds, metrics.radius, 1, Fade(colors.border, opacity))
 		offset := op.Offset(image.Pt((size.X-content.Size.X)/2, (size.Y-content.Size.Y)/2)).Push(gtx.Ops)
+		if spec.ShortName != "" {
+			area := clip.Rect{Max: content.Size}.Push(gtx.Ops)
+			semantic.LabelOp(spec.ShortName).Add(gtx.Ops)
+			area.Pop()
+		}
 		drawContent.Add(gtx.Ops)
 		if spec.Variant == ButtonLink && hover > 0 {
 			underline := image.Rect(0, content.Size.Y-gtx.Dp(3), content.Size.X, content.Size.Y-gtx.Dp(2))

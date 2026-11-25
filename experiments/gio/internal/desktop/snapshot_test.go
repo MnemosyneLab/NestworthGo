@@ -139,10 +139,11 @@ func (h *previewHarness) snapshot(t *testing.T, dir, name string) {
 	size := h.size
 	h.size = size.Mul(snapshotScale)
 	defer func() { h.size, h.scale = size, 0 }()
-	h.frame()
-	// A second frame lets one-frame state, such as focus and layout-derived
-	// positions, settle before the capture.
-	h.frame()
+	// Extra frames let one-frame state, such as focus and layout-derived
+	// positions, and the 150ms control tweens settle before the capture.
+	for range 14 {
+		h.frame()
+	}
 	writeSnapshot(t, dir, name, h.size, &h.ops)
 }
 

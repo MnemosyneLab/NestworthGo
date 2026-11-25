@@ -6,13 +6,14 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
 func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layout.Dimensions {
-	size := image.Pt(min(gtx.Dp(96), gtx.Constraints.Max.X), gtx.Dp(31))
+	size := image.Pt(min(gtx.Dp(112), gtx.Constraints.Max.X), gtx.Dp(ui.ControlDefault))
 	gtx.Constraints = layout.Exact(size)
 	title := view.Language.Text(i18n.NavigationRecent)
 	if len(s.trail.recent) == 0 {
@@ -39,5 +40,7 @@ func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layo
 			gtx.Execute(op.InvalidateCmd{})
 		})
 	}
-	return view.Button(&s.recentPicker.Trigger, title)(gtx)
+	return view.ButtonOf(&s.recentPicker.Trigger, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: title, Name: title, Icon: recentIcon, Fill: true})(gtx)
 }
+
+var recentIcon = ui.MustIcon(icons.ActionHistory)

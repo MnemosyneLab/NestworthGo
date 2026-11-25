@@ -600,19 +600,33 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 		selected := s.activeRoute() == item.id
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
-		radius := gtx.Dp(9)
-		textColor, iconColor := colors.SecondaryInk, colors.SecondaryInk
+		enabled := gtx.Enabled()
+		motion := view.Motion.For(&item.button)
+		motion.Hover.Set(gtx, boolFloat(enabled && item.button.Hovered()), ui.DurationBase, ui.EaseOut)
+		motion.Select.Set(gtx, boolFloat(selected), ui.DurationBase, ui.EaseOut)
+		motion.Focus.Set(gtx, boolFloat(enabled && gtx.Focused(&item.button)), ui.DurationBase, ui.EaseOut)
+		hover, pick, focus := motion.Hover.Value(gtx), motion.Select.Value(gtx), motion.Focus.Value(gtx)
+
+		// Hover and keyboard focus tint the row; the selected row lifts onto a
+		// bordered card with the Wails accent marker.
+		radius := ui.RadiusLG
+		tint := max(hover, focus) * (1 - pick)
+		ui.FillRoundRect(gtx, bounds, radius, ui.WithAlpha(colors.HoverSurface, tint))
+		if pick > 0 {
+			colors.DrawShadow(gtx, bounds, radius, ui.ElevationXS)
+			ui.FillRoundRect(gtx, bounds, radius, ui.WithAlpha(colors.Surface, pick))
+			ui.StrokeRoundRect(gtx, bounds, radius, 1, ui.WithAlpha(colors.Divider, pick))
+			marker := image.Rect(gtx.Dp(1), gtx.Dp(8), gtx.Dp(3), size.Y-gtx.Dp(8))
+			ui.FillRoundRect(gtx, marker, 1, ui.WithAlpha(colors.Accent, pick))
+		}
+		if focus > 0 {
+			colors.FocusRingAt(gtx, bounds, radius, focus)
+		}
+		textColor := ui.Mix(colors.SecondaryInk, colors.Ink, max(pick, hover*0.6))
+		iconColor := ui.Mix(colors.SecondaryInk, colors.Accent, pick)
 		weight := font.Normal
-		focused := gtx.Focused(&item.button)
-		switch {
-		case selected:
-			paint.FillShape(gtx.Ops, colors.Divider, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
-			paint.FillShape(gtx.Ops, colors.Surface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
-			marker := image.Rect(1, gtx.Dp(7), gtx.Dp(3), size.Y-gtx.Dp(7))
-			paint.FillShape(gtx.Ops, colors.Accent, clip.UniformRRect(marker, 1).Op(gtx.Ops))
-			textColor, iconColor, weight = colors.Ink, colors.Accent, font.Medium
-		case focused, item.button.Hovered():
-			paint.FillShape(gtx.Ops, colors.HoverSurface, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+		if selected {
+			weight = font.Medium
 		}
 		item.hint.Layout(gtx, view, s.collapsed() && item.button.Hovered(), view.Language.Text(item.label))
 		if s.collapsed() {
@@ -630,7 +644,9 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 					}),
 					layout.Rigid(layout.Spacer{Width: 12}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, view.Language.Text(item.label), 13, weight, textColor)
+						style := ui.TextBody
+						style.Weight = weight
+						return view.Line(gtx, style, view.Language.Text(item.label), textColor)
 					}),
 				)
 			})
@@ -722,4 +738,11 @@ func pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensio
 			return body(gtx, view)
 		})
 	})
+}
+
+func boolFloat(on bool) float64 {
+	if on {
+		return 1
+	}
+	return 0
 }

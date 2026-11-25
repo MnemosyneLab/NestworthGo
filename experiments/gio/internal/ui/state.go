@@ -18,8 +18,8 @@ type Motion struct {
 
 // ControlMotion is the animated state shared by buttons and similar controls.
 type ControlMotion struct {
-	Hover, Press, Focus Tween
-	used                uint64
+	Hover, Press, Focus, Select Tween
+	used                        uint64
 }
 
 // For returns the state for tag, creating it on first use. It marks the entry
