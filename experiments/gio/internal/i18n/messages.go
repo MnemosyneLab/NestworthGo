@@ -1683,6 +1683,10 @@ const (
 	HoldingReconFailed
 	HoldingReconRetry
 	HoldingReconEmpty
+	HoldingReconRecordChange
+	HoldingReconDatedSaved
+	HoldingReconViewActivity
+	HoldingReconViewDatedActivity
 	HoldingReconAdjustQuantity
 	HoldingReconTargetQuantity
 	HoldingReconAcquisitionCost

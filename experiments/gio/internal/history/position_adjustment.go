@@ -18,12 +18,14 @@ type QuantityAdjustmentInput struct {
 	Date        string
 	Time        string
 	EffectiveAt time.Time
+	Link        *domain.ReconciliationLink
 }
 
 func ReviewQuantityAdjustment(ctx context.Context, ledger InvestmentLedger, input QuantityAdjustmentInput) (ReviewedInvestment, error) {
 	request := historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangePositionAdjustment, HoldingID: input.Holding.String(),
 		Added: input.Added, Quantity: strings.TrimSpace(input.Quantity),
+		ReconciliationLink: input.Link,
 	}
 	if input.Added {
 		request.UnitCost = strings.TrimSpace(input.UnitCost)
@@ -50,7 +52,10 @@ func reviewPositionCommand(ctx context.Context, ledger InvestmentLedger, request
 			return review.bind(origin, location, request)
 		})
 		review.Preview, review.token = preview, token
-		return err
+		if err != nil || review.link == nil {
+			return err
+		}
+		return ledger.ValidateReconciliationCommandLink(ctx, review.link, review.command, preview)
 	})
 	if err != nil {
 		return ReviewedInvestment{}, err

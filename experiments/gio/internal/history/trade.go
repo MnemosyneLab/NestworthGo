@@ -18,6 +18,7 @@ type InvestmentLedger interface {
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
 	InstrumentProductOwnership(context.Context) (map[string]string, error)
 	PreviewExistingTradeCost(context.Context, domain.ChangePreview) (application.ExistingTradeCostPreview, error)
+	ValidateReconciliationCommandLink(context.Context, *domain.ReconciliationLink, any, domain.ChangePreview) error
 }
 
 type InvestmentSources struct {
@@ -115,6 +116,7 @@ type ReviewedInvestment struct {
 	Timezone              *time.Location
 	command               any
 	mutation, hash, token string
+	link                  *domain.ReconciliationLink
 }
 
 func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput) (ReviewedInvestment, error) {
@@ -198,6 +200,10 @@ func (r *ReviewedInvestment) bind(origin domain.HistoryOrigin, location *time.Lo
 		return nil, err
 	}
 	r.mutation, r.hash, err = request.MutationEnvelope()
+	if request.ReconciliationLink != nil {
+		link := *request.ReconciliationLink
+		r.link = &link
+	}
 	r.Timezone = location
 	return r.command, err
 }
@@ -238,5 +244,5 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 }
 
 func (r ReviewedInvestment) Commit(ctx context.Context, ledger InvestmentLedger) (domain.ChangePreview, error) {
-	return ledger.RecordChangeGuarded(ctx, r.command, r.mutation, r.hash, r.token)
+	return ledger.RecordChangeGuarded(domain.WithReconciliationLink(ctx, r.link), r.command, r.mutation, r.hash, r.token)
 }

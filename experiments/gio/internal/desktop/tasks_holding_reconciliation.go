@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/statement"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -19,6 +21,7 @@ import (
 
 type holdingReconcileAPI interface {
 	Get(context.Context, string) (domain.ReconciliationSession, error)
+	Links(context.Context, string) ([]domain.ReconciliationLinkedChange, error)
 	Preview(context.Context, application.ReconciliationAction) (reconciliation.SessionPreview, error)
 	Commit(context.Context, string) (domain.ReconciliationSession, error)
 	PreviewAdjustment(context.Context, reconciliation.AdjustmentRequest) (reconciliation.AdjustmentPreview, error)
@@ -32,6 +35,12 @@ type holdingReconDirectory struct {
 
 type holdingReconciliation struct {
 	service                     holdingReconcileAPI
+	ledger                      history.InvestmentLedger
+	clock                       func() time.Time
+	zone                        *time.Location
+	links                       []domain.ReconciliationLinkedChange
+	receiptButtons              map[domain.ActivityID]*widget.Clickable
+	dated                       *accountInvestment
 	directory                   holdingReconDirectory
 	start, back, reload, resume widget.Clickable
 	sessionButtons              map[string]*widget.Clickable
@@ -39,7 +48,7 @@ type holdingReconciliation struct {
 	restore, sessionEntry       *widget.Clickable
 	id                          string
 	session                     *domain.ReconciliationSession
-	loading                     <-chan historyResult[domain.ReconciliationSession]
+	loading                     <-chan historyResult[holdingReconRead]
 	readFailed                  bool
 	saved                       i18n.MessageID
 	draft                       *holdingReconDraft
@@ -62,11 +71,17 @@ type holdingReconDraft struct {
 }
 
 type holdingReconItemActions struct {
-	cost, quantity widget.Clickable
+	cost, quantity, record, check widget.Clickable
 }
 
 type holdingReconQuantity struct {
 	quantity, unitCost ui.TextField
+}
+
+type holdingReconRead struct {
+	session domain.ReconciliationSession
+	links   []domain.ReconciliationLinkedChange
+	zone    *time.Location
 }
 
 type holdingReconReview struct {
@@ -80,14 +95,14 @@ func (c *holdingReconciliation) active() bool {
 }
 
 func (c *holdingReconciliation) unresolved() bool {
-	return c != nil && c.draft != nil && (c.draft.writing != nil || c.draft.uncertain)
+	return c != nil && (c.draft != nil && (c.draft.writing != nil || c.draft.uncertain) || c.dated.unresolved())
 }
 
 func (c *holdingReconciliation) discard() {
 	if c != nil {
 		c.id, c.session, c.loading, c.draft = "", nil, nil, nil
 		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
-		c.itemButtons = nil
+		c.itemButtons, c.receiptButtons, c.dated, c.links, c.zone = nil, nil, nil, nil, nil
 	}
 }
 
@@ -99,6 +114,7 @@ func (p *tasksPage) openHoldingReconciliation(id string, entry *widget.Clickable
 	c := p.holdingRecon
 	c.id, c.sessionEntry, c.saved, c.draft = id, entry, i18n.NoMessage, nil
 	c.itemButtons = make(map[string]*holdingReconItemActions)
+	c.receiptButtons = make(map[domain.ActivityID]*widget.Clickable)
 	c.restore = &c.back
 	p.readHoldingReconciliation()
 }
@@ -107,19 +123,43 @@ func (p *tasksPage) readHoldingReconciliation() {
 	c := p.holdingRecon
 	c.session, c.readFailed = nil, false
 	id := c.id
-	c.loading = runHistoryRead(&p.workers, p.invalidate, func() (domain.ReconciliationSession, error) {
-		return c.service.Get(p.ctx, id)
+	c.loading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconRead, error) {
+		var out holdingReconRead
+		if c.ledger == nil {
+			session, err := c.service.Get(p.ctx, id)
+			out.session = session
+			return out, err
+		}
+		err := c.ledger.WithRead(p.ctx, func(ctx context.Context) error {
+			var err error
+			if out.session, err = c.service.Get(ctx, id); err != nil {
+				return err
+			}
+			if out.links, err = c.service.Links(ctx, id); err != nil {
+				return err
+			}
+			origin, err := c.ledger.HistoryOrigin(ctx)
+			if err == nil && origin != nil {
+				out.zone, err = time.LoadLocation(origin.Timezone)
+			}
+			return err
+		})
+		return out, err
 	})
 }
 
 func (c *holdingReconciliation) item(d *holdingReconDraft) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
+	return c.checkpoint(d.accountID, d.itemID, true)
+}
+
+func (c *holdingReconciliation) checkpoint(accountID, itemID string, holdingOnly bool) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
 	if c.session != nil {
 		for _, a := range c.session.Accounts {
-			if a.AccountID != d.accountID {
+			if a.AccountID != accountID {
 				continue
 			}
 			for _, item := range a.Items {
-				if item.ID == d.itemID && item.Kind == "holding" && item.HoldingID != "" {
+				if item.ID == itemID && (!holdingOnly || item.Kind == "holding" && item.HoldingID != "") {
 					return a, item, true
 				}
 			}
@@ -219,9 +259,18 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		c.loading = nil
 		c.readFailed = result.err != nil
 		if result.err == nil {
-			c.session = &result.value
+			c.session, c.links, c.zone = &result.value.session, result.value.links, result.value.zone
 		}
 	default:
+	}
+	if c.dated != nil {
+		c.dated.poll(p.holdingChangeRuntime())
+		if c.dated.draft == nil {
+			if c.dated.restore != nil {
+				c.restore = c.dated.restore
+			}
+			c.dated = nil
+		}
 	}
 	d := c.draft
 	if d == nil {

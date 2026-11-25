@@ -29,6 +29,7 @@ type quantityAdjustmentDraft struct {
 	add, remove widget.Clickable
 	sources     *history.PositionSources
 	loading     <-chan historyResult[history.PositionSources]
+	link        func() *domain.ReconciliationLink
 }
 
 func (f *accountInvestment) startAdjustment(run investmentRuntime, scope positionScope) {
@@ -93,6 +94,12 @@ func (f *accountInvestment) previewAdjustment(run investmentRuntime) {
 	input := history.QuantityAdjustmentInput{Holding: d.adjustment.holding, Added: d.adjustment.adding,
 		Quantity: d.quantity.Text(), UnitCost: d.unitCost.Text(), Note: d.note.Text(),
 		Date: d.day, Time: d.time, EffectiveAt: d.effectiveAt()}
+	if d.adjustment.link != nil {
+		input.Link = d.adjustment.link()
+		if input.Link == nil {
+			return
+		}
+	}
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(run.workers, run.invalidate, func() (history.ReviewedInvestment, error) {
 		return history.ReviewQuantityAdjustment(run.ctx, f.service, input)

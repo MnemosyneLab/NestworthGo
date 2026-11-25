@@ -1707,6 +1707,11 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconQuantityInvalid:        "请输入有效的目标数量。",
 	HoldingReconAcquisitionCostInvalid: "新增数量时，请填写新增单位成本或整笔持仓总成本。",
 
+	HoldingReconRecordChange:      "记录指定日期的持仓变动",
+	HoldingReconDatedSaved:        "已记录并关联指定日期的变动。",
+	HoldingReconViewActivity:      "查看关联活动",
+	HoldingReconViewDatedActivity: "查看关联活动 · %s",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",

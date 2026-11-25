@@ -58,7 +58,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
 	portfolio.investment, portfolio.clock = &accountInvestment{service: service}, clock
 	tasks := newTasksPage(ctx, service, window.Invalidate)
-	tasks.holdingRecon = &holdingReconciliation{service: reconciliation.NewService(service)}
+	tasks.holdingRecon = &holdingReconciliation{service: reconciliation.NewService(service), ledger: service, clock: clock}
 	tasks.checks = service
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)
 	funds.reservationLedger = service

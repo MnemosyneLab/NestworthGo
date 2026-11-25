@@ -369,6 +369,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		s.historyPage.reads.open = func(id domain.ActivityID, focus event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus}
 		}
+		if s.tasks != nil {
+			s.tasks.openActivity = s.historyPage.reads.open
+		}
 		if s.accounts != nil && s.accounts.cashBalance != nil {
 			s.accounts.cashBalance.openActivity = s.historyPage.reads.open
 		}
@@ -401,6 +404,10 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			source := s.trail.adjacent(-1)
 			if source == nil {
 				return i18n.NoMessage
+			}
+			if source.target.route == tasksRoute && source.tasks.holdingReceipt == s.trail.current().target.activity &&
+				source.tasks.holdingSession != "" {
+				return i18n.HoldingReconBack
 			}
 			if source.target.route == historyRoute && source.target.activity != "" &&
 				source.historyDetail.linked >= 3 && s.trail.current().target.activity == s.historyPage.reads.posted.ID {
@@ -1055,7 +1062,7 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		s.stage.Position = layout.Position{}
 		if entry.visited {
 			switch entry.target.route {
-			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute, dataHealthRoute:
+			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute, dataHealthRoute, tasksRoute:
 				s.stage.Position = entry.scroll
 			}
 		}

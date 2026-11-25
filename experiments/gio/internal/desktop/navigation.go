@@ -329,7 +329,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == tasksRoute {
-		s.tasks.enter(entry.tasks)
+		if focus := s.tasks.enter(entry.tasks); focus != nil {
+			entry.focus = focus
+		}
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
@@ -420,7 +422,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 			entry.scroll = s.funds.productPage.list.Position
 		}
 	case tasksRoute:
-		entry.tasks = s.tasks.visit()
+		entry.tasks, entry.scroll = s.tasks.visit(entry.focus), s.stage.Position
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
@@ -534,7 +536,7 @@ func (s *shell) waitingForPageFocus() bool {
 		return s.portfolio.request != nil
 	}
 	if s.activeRoute() == tasksRoute && s.tasks != nil {
-		return s.tasks.request != nil
+		return s.tasks.request != nil || s.tasks.holdingRecon != nil && s.tasks.holdingRecon.loading != nil
 	}
 	if s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil {
 		return s.wealthHistory.originRead != nil || s.wealthHistory.seriesRead != nil || s.wealthHistory.accounts.request != nil

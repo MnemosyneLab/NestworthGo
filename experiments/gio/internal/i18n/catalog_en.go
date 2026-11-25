@@ -1707,6 +1707,11 @@ var englishCatalog = catalog{
 	HoldingReconQuantityInvalid:        "Enter a valid target quantity.",
 	HoldingReconAcquisitionCostInvalid: "For added units, enter either their unit cost or the whole holding’s total cost.",
 
+	HoldingReconRecordChange:      "Record dated position change",
+	HoldingReconDatedSaved:        "Dated change recorded and linked.",
+	HoldingReconViewActivity:      "View linked activity",
+	HoldingReconViewDatedActivity: "View linked activity · %s",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

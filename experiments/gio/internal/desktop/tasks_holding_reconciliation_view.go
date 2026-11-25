@@ -62,6 +62,9 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 	if c.draft != nil {
 		return p.layoutHoldingReconDraft(gtx, view)
 	}
+	if c.dated != nil {
+		return c.dated.layoutForm(gtx, view, p.holdingChangeRuntime())
+	}
 	rows := []layout.Widget{
 		c.link(view, &c.back, l.Text(i18n.HoldingReconBack), func() {
 			entry := c.sessionEntry
@@ -127,7 +130,13 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 				}), c.link(view, &buttons.cost, l.Text(i18n.HoldingReconCorrect), func() {
 					open(&buttons.cost)
 				}))
+				if c.ledger != nil {
+					fields = append(fields, c.link(view, &buttons.record, l.Text(i18n.HoldingReconRecordChange), func() {
+						p.startHoldingDatedChange(account, item, &buttons.record)
+					}))
+				}
 			}
+			fields = append(fields, p.holdingReceiptLinks(view, account.AccountID, item.ID)...)
 			rows = append(rows, fundsCard(view, item.Label, fields...))
 		}
 	}

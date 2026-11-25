@@ -26,10 +26,11 @@ type accountInvestment struct {
 }
 
 type investmentRuntime struct {
-	ctx        context.Context
-	workers    *sync.WaitGroup
-	clock      func() time.Time
-	invalidate func()
+	ctx         context.Context
+	workers     *sync.WaitGroup
+	clock       func() time.Time
+	invalidate  func()
+	refreshLink func()
 }
 
 func (p *accountsPage) investmentRuntime() investmentRuntime {
@@ -368,7 +369,10 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 		d.previewing = nil
 		if result.err != nil {
 			d.problem = tradeProblem(result.err, labels, labels.previewFailed)
-			if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable || d.problem == i18n.TradeCurrencyChanged {
+			if run.refreshLink != nil && staleReconciliationLink(result.err) {
+				d.problem = i18n.HoldingReconChanged
+				run.refreshLink()
+			} else if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable || d.problem == i18n.TradeCurrencyChanged {
 				f.loadSources(run)
 			}
 		} else {
@@ -385,17 +389,37 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 			return
 		}
 		var issue *domain.Error
-		if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {
+		if errors.As(result.err, &issue) && (issue.Code == domain.ErrStalePreview || run.refreshLink != nil && staleReconciliationLink(result.err)) {
 			// The shared service checks committed receipts before the
 			// guard, so this mutation can be discarded on a stale token.
 			d.review, d.uncertain, d.problem = nil, false, labels.stale
 			d.focusInput = true
 			f.loadSources(run)
+			if run.refreshLink != nil {
+				run.refreshLink()
+			}
 		} else {
 			d.uncertain, d.focusReview = true, true
 		}
 	default:
 	}
+}
+
+func staleReconciliationLink(err error) bool {
+	var issue *domain.Error
+	if !errors.As(err, &issue) {
+		return false
+	}
+	if issue.Code == domain.ErrStalePreview {
+		return true
+	}
+	if issue.Code == domain.ErrConflict {
+		switch issue.Field {
+		case "reconciliationLink", "financialRevision", "expectedRevision":
+			return true
+		}
+	}
+	return false
 }
 
 func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.MessageID {

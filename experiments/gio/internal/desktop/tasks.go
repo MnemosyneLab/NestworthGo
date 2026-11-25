@@ -34,9 +34,11 @@ const (
 var taskTabLabels = [...]i18n.MessageID{i18n.TasksUpcomingTab, i18n.TasksInvestmentTab, i18n.TasksReconciliationTab}
 
 type tasksVisit struct {
-	tab           tasksTab
-	position      layout.Position
-	reviewCursors []string
+	tab            tasksTab
+	position       layout.Position
+	reviewCursors  []string
+	holdingSession string
+	holdingReceipt domain.ActivityID
 }
 
 type tasksRead struct {
@@ -75,6 +77,7 @@ type tasksPage struct {
 	previous, next widget.Clickable
 	openInstrument func(domain.InstrumentID, string, event.Tag)
 	openStatement  openTaskStatement
+	openActivity   func(domain.ActivityID, event.Tag)
 	holdingRecon   *holdingReconciliation
 }
 
@@ -84,14 +87,35 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 		instruments: make(map[domain.InstrumentID]*widget.Clickable), statementLinks: make(map[string]*widget.Clickable)}
 }
 
-func (p *tasksPage) enter(visit tasksVisit) {
+func (p *tasksPage) enter(visit tasksVisit) event.Tag {
 	p.tab, p.list.Position = visit.tab, visit.position
 	p.reviewCursors = slices.Clone(visit.reviewCursors)
 	p.read()
+	if c := p.holdingRecon; c != nil && visit.holdingSession != "" {
+		if c.sessionButtons == nil {
+			c.sessionButtons = make(map[string]*widget.Clickable)
+		}
+		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(c.sessionButtons, visit.holdingSession))
+		if visit.holdingReceipt != "" {
+			c.restore = nil
+			return portfolioButton(c.receiptButtons, visit.holdingReceipt)
+		}
+	}
+	return nil
 }
 
-func (p *tasksPage) visit() tasksVisit {
-	return tasksVisit{p.tab, p.list.Position, slices.Clone(p.reviewCursors)}
+func (p *tasksPage) visit(focus event.Tag) tasksVisit {
+	visit := tasksVisit{tab: p.tab, position: p.list.Position, reviewCursors: slices.Clone(p.reviewCursors)}
+	if c := p.holdingRecon; c != nil && c.id != "" {
+		visit.holdingSession = c.id
+		for id, button := range c.receiptButtons {
+			if focus == button {
+				visit.holdingReceipt = id
+				break
+			}
+		}
+	}
+	return visit
 }
 
 func (p *tasksPage) leave() {

@@ -1706,6 +1706,11 @@ var japaneseCatalog = catalog{
 	HoldingReconQuantityInvalid:        "目標数量を正しく入力してください。",
 	HoldingReconAcquisitionCostInvalid: "追加する場合は追加分の単位原価か保有分全体の取得原価を入力してください。",
 
+	HoldingReconRecordChange:      "日付を指定して保有数量を記録",
+	HoldingReconDatedSaved:        "日付を指定した変更を記録して照合に関連付けました。",
+	HoldingReconViewActivity:      "関連する取引を表示",
+	HoldingReconViewDatedActivity: "関連する取引を表示 · %s",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",

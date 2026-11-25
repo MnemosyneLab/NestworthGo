@@ -149,7 +149,7 @@ func (d *accountInvestmentDraft) investmentInputComplete() bool {
 		return quantity && d.custody.from != "" && d.custody.to != ""
 	}
 	if d.adjustment != nil {
-		return quantity && d.adjustment.holding != ""
+		return quantity && d.adjustment.holding != "" && (d.adjustment.link == nil || d.adjustment.link() != nil)
 	}
 	if d.instrument == "" {
 		return false
