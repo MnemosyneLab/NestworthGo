@@ -139,6 +139,13 @@ func ReconcileOnStartup(liveDBPath string, store *settings.Store) error {
 	if err != nil {
 		return err
 	}
+	return ReconcileJournalOnStartup(liveDBPath, store, journal)
+}
+
+// ReconcileJournalOnStartup applies the supplied plan under the caller's
+// instance lock. Callers that constrain which journals are allowed can pass
+// the exact plan they checked instead of having it read again.
+func ReconcileJournalOnStartup(liveDBPath string, store *settings.Store, journal Journal) error {
 	dir := filepath.Dir(liveDBPath)
 	safety := filepath.Join(dir, journal.SafetyName)
 	liveExists := GroupExists(liveDBPath)

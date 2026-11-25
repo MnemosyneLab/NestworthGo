@@ -1,0 +1,102 @@
+package ui
+
+import (
+	"image/color"
+
+	"gioui.org/f32"
+	"gioui.org/io/key"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/paint"
+	"gioui.org/widget"
+)
+
+// Confirmation draws a window-level dialog over disabled page content.
+// The caller owns the operation, the open state, and focus after dismissal.
+type Confirmation struct {
+	Cancel, Confirm widget.Clickable
+	focusOnOpen     bool
+	enter           Tween
+}
+
+type ConfirmationOptions struct {
+	Title, Body, Cancel, Confirm, Problem string
+	Busy                                  bool
+}
+
+func (c *Confirmation) Open() {
+	c.focusOnOpen = true
+	c.enter.Snap(0)
+}
+
+func (c *Confirmation) Layout(gtx layout.Context, view View, options ConfirmationOptions, cancel, confirm func()) {
+	if c.focusOnOpen {
+		c.focusOnOpen = false
+		gtx.Execute(key.FocusCmd{Tag: &c.Cancel})
+	}
+	for _, button := range []*widget.Clickable{&c.Cancel, &c.Confirm} {
+		for _, e := range PressedKeys(gtx, button, key.NameEscape, key.NameTab) {
+			if e.Name == key.NameEscape && !options.Busy {
+				cancel()
+				return
+			}
+			if e.Name == key.NameTab {
+				target := &c.Cancel
+				if button == &c.Cancel {
+					target = &c.Confirm
+				}
+				gtx.Execute(key.FocusCmd{Tag: target})
+			}
+		}
+	}
+	if !options.Busy && c.Cancel.Clicked(gtx) {
+		cancel()
+		return
+	}
+	if !options.Busy && c.Confirm.Clicked(gtx) {
+		confirm()
+	}
+	c.enter.Set(gtx, 1, DurationBase, EaseOut)
+	progress := c.enter.Value(gtx)
+	paint.Fill(gtx.Ops, color.NRGBA{A: uint8(0x68 * progress)})
+	layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx = LimitWidth(gtx, 420)
+		// The dialog scales up from 96% while it fades in.
+		macro := op.Record(gtx.Ops)
+		dims := view.Surface(gtx, SurfaceSpec{Elevation: ElevationLG}, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(22).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				if options.Busy {
+					gtx = gtx.Disabled()
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Line(gtx, TextHeading, options.Title, view.Colors.Ink)
+					}),
+					layout.Rigid(view.Body(TextBody, options.Body, view.Colors.SecondaryInk)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if options.Problem == "" {
+							return layout.Dimensions{}
+						}
+						return view.Message(options.Problem, view.Colors.ErrorInk)(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Gap: gtx.Dp(12)}.Layout(gtx,
+							layout.Rigid(view.Button(&c.Cancel, options.Cancel)),
+							layout.Rigid(view.PrimaryButton(&c.Confirm, options.Confirm)),
+						)
+					}),
+				)
+			})
+		})
+		call := macro.Stop()
+		scale := float32(0.96 + 0.04*progress)
+		if ReducedMotion() {
+			scale = 1
+		}
+		center := f32.Pt(float32(dims.Size.X)/2, float32(dims.Size.Y)/2)
+		defer op.Affine(f32.Affine2D{}.Scale(center, f32.Pt(scale, scale))).Push(gtx.Ops).Pop()
+		defer paint.PushOpacity(gtx.Ops, float32(progress)).Pop()
+		call.Add(gtx.Ops)
+		return dims
+	})
+}

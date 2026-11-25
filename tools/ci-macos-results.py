@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-GATES = ('bindings', 'format', 'go-tests', 'vet', 'build', 'tooling', 'lint',
+GATES = ('bindings', 'format', 'go-tests', 'gio-i18n', 'vet', 'build', 'tooling', 'lint',
          'typecheck', 'frontend-build', 'frontend-tests', 'whitespace')
 
 

@@ -1,0 +1,650 @@
+package desktop
+
+import (
+	"fmt"
+	"image"
+	"image/color"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"gioui.org/f32"
+	"gioui.org/font"
+	"gioui.org/io/event"
+	"gioui.org/io/input"
+	"gioui.org/io/key"
+	"gioui.org/io/pointer"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/unit"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
+	"golang.org/x/exp/shiny/materialdesign/icons"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/snapshot"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
+	"github.com/waltwang/nestworth-go/internal/settings"
+)
+
+// Visual snapshots render real frames on the GPU. They are an opt-in review
+// tool, not an assertion: set NESTWORTH_GIO_SNAPSHOT_DIR to an absolute output
+// directory to write PNGs. Ordinary test runs skip them.
+//
+//	NESTWORTH_GIO_SNAPSHOT_DIR=/tmp/gio-shots go -C experiments/gio test \
+//	  -mod=readonly -run TestVisualSnapshots ./internal/desktop
+const snapshotEnv = "NESTWORTH_GIO_SNAPSHOT_DIR"
+
+// snapshotScale renders at the density of a Retina display.
+const snapshotScale = 2
+
+func snapshotDir(t *testing.T) string {
+	t.Helper()
+	dir := os.Getenv(snapshotEnv)
+	if dir == "" {
+		t.Skipf("set %s to write visual snapshots", snapshotEnv)
+	}
+	if !filepath.IsAbs(dir) {
+		t.Fatalf("%s must be an absolute path, got %q", snapshotEnv, dir)
+	}
+	return dir
+}
+
+func writeSnapshot(t *testing.T, dir, name string, size image.Point, ops *op.Ops) {
+	t.Helper()
+	img, err := snapshot.Render(size, ops)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := snapshot.WritePNG(filepath.Join(dir, name+".png"), img); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestVisualSnapshots(t *testing.T) {
+	dir := snapshotDir(t)
+	accents := []settings.Accent{
+		settings.AccentIndigo, settings.AccentLavender, settings.AccentMint,
+		settings.AccentSky, settings.AccentPeach,
+	}
+	modes := []struct {
+		name       string
+		appearance settings.Appearance
+	}{{"light", settings.AppearanceLight}, {"dark", settings.AppearanceDark}}
+
+	t.Run("shell", func(t *testing.T) {
+		for _, accent := range accents {
+			for _, mode := range modes {
+				h := newPreviewHarness(t)
+				h.shell.prefs.saved.Accent, h.shell.prefs.saved.Appearance = accent, mode.appearance
+				h.snapshot(t, dir, fmt.Sprintf("preview-%s-%s", accent, mode.name))
+			}
+		}
+	})
+	t.Run("languages", func(t *testing.T) {
+		for _, language := range []settings.Language{
+			settings.LanguageEnglish, settings.LanguageZhCN, settings.LanguageZhTW, settings.LanguageJa,
+		} {
+			h := newPreviewHarness(t)
+			h.shell.prefs.saved.Language = language
+			h.snapshot(t, dir, fmt.Sprintf("preview-language-%s", language))
+		}
+	})
+	t.Run("settings", func(t *testing.T) {
+		for _, mode := range modes {
+			h := newPreviewHarness(t)
+			h.shell.trail = newNavigationTrail(settingsRoute)
+			h.shell.prefs.saved.Appearance = mode.appearance
+			h.snapshot(t, dir, "settings-"+mode.name)
+		}
+	})
+	t.Run("pickers", func(t *testing.T) {
+		for _, mode := range modes {
+			for _, picker := range []struct{ name, label string }{
+				{"select", "Account type"}, {"date", "Effective date"}, {"time", "Effective time"},
+			} {
+				h := newPreviewHarness(t)
+				h.shell.prefs.saved.Appearance = mode.appearance
+				h.click(picker.label, true)
+				// Run past the enter tween.
+				for range 12 {
+					h.frame()
+				}
+				h.snapshot(t, dir, fmt.Sprintf("picker-%s-%s", picker.name, mode.name))
+			}
+		}
+	})
+	t.Run("settings-picker", func(t *testing.T) {
+		for _, mode := range modes {
+			h := newPreviewHarness(t)
+			h.shell.trail = newNavigationTrail(settingsRoute)
+			h.shell.prefs.saved.Appearance = mode.appearance
+			h.frame()
+			h.click("Language", true)
+			for range 12 {
+				h.frame()
+			}
+			h.snapshot(t, dir, "settings-language-open-"+mode.name)
+		}
+	})
+	t.Run("responsive", func(t *testing.T) {
+		for _, size := range responsiveSizes {
+			for _, route := range []struct {
+				name string
+				id   routeID
+			}{{"settings", settingsRoute}, {"preview", componentPreviewRoute}, {"overview", overviewRoute}} {
+				h := newPreviewHarness(t)
+				h.size = size
+				h.shell.trail = newNavigationTrail(route.id)
+				h.snapshot(t, dir, fmt.Sprintf("responsive-%s-%dx%d", route.name, size.X, size.Y))
+				if route.id == componentPreviewRoute {
+					h.preview.scroll.ScrollBy(1)
+					h.snapshot(t, dir, fmt.Sprintf("responsive-%s-end-%dx%d", route.name, size.X, size.Y))
+				}
+			}
+		}
+	})
+	t.Run("gallery", func(t *testing.T) {
+		for _, accent := range []struct {
+			name  string
+			index int
+		}{{"indigo", 0}, {"mint", 2}} {
+			for _, mode := range modes {
+				for _, scenario := range galleryScenarios {
+					h := newGalleryHarness(t, accent.index, mode.appearance == settings.AppearanceDark)
+					h.run(scenario)
+					h.snapshot(t, dir, fmt.Sprintf("gallery-%s-%s-%s", accent.name, mode.name, scenario.name))
+				}
+			}
+		}
+	})
+}
+
+func (h *previewHarness) snapshot(t *testing.T, dir, name string) {
+	t.Helper()
+	h.scale = snapshotScale
+	size := h.size
+	h.size = size.Mul(snapshotScale)
+	defer func() { h.size, h.scale = size, 0 }()
+	// Extra frames let one-frame state, such as focus and layout-derived
+	// positions, and the 150ms control tweens settle before the capture.
+	for range 14 {
+		h.frame()
+	}
+	writeSnapshot(t, dir, name, h.size, &h.ops)
+}
+
+// controlGallery lays out the shared controls in every state a reviewer needs
+// to compare. It is the visual contract for later control work: change a
+// control, regenerate the snapshots and review the matrix.
+type controlGallery struct {
+	buttons                                            [6][6]widget.Clickable
+	tabOff, tabOn                                      widget.Clickable
+	rest, filled, focused, invalid, disabled, readOnly ui.TextField
+	search                                             ui.SearchField
+	scroll                                             layout.List
+	dialog                                             ui.Confirmation
+}
+
+func newControlGallery() *controlGallery {
+	g := &controlGallery{
+		rest: ui.NewTextField(true), filled: ui.NewTextField(true), focused: ui.NewTextField(true),
+		invalid: ui.NewTextField(true), disabled: ui.NewTextField(true), readOnly: ui.NewTextField(true),
+		search: ui.SearchField{Field: ui.NewTextField(true)},
+		scroll: layout.List{Axis: layout.Vertical},
+	}
+	g.filled.Editor.SetText("Harbor Savings")
+	g.focused.Editor.SetText("Harbor Savings")
+	g.invalid.Editor.SetText("")
+	g.disabled.Editor.SetText("Evergreen Credit Union")
+	g.readOnly.Editor.SetText("Westlake Bank")
+	g.search.Field.Editor.SetText("harbor")
+	return g
+}
+
+func (g *controlGallery) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+	section := func(title string, rows ...layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, title, 12, font.Medium, view.Colors.SecondaryInk)
+			})}
+			for _, row := range rows {
+				children = append(children, layout.Rigid(row))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(gtx, children...)
+		}
+	}
+	row := func(cells ...layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, len(cells))
+			for i, cell := range cells {
+				children[i] = layout.Flexed(1, cell)
+			}
+			return layout.Flex{Gap: gtx.Dp(14)}.Layout(gtx, children...)
+		}
+	}
+	field := func(f *ui.TextField, options ui.FieldOptions) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions { return f.Layout(gtx, view, options) }
+	}
+	left := func(w layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = 0
+			return layout.W.Layout(gtx, w)
+		}
+	}
+	variants := []struct {
+		name    string
+		variant ui.ButtonVariant
+	}{
+		{"Primary", ui.ButtonPrimary}, {"Soft", ui.ButtonSoft}, {"Destructive", ui.ButtonDestructive},
+		{"Outline", ui.ButtonOutline}, {"Ghost", ui.ButtonGhost}, {"Link", ui.ButtonLink},
+	}
+	var buttonRows []layout.Widget
+	for row, variant := range variants {
+		buttonRows = append(buttonRows, func(gtx layout.Context) layout.Dimensions {
+			cell := func(col int, spec ui.ButtonSpec, disabled bool) layout.FlexChild {
+				spec.Variant = variant.variant
+				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if disabled {
+						gtx = gtx.Disabled()
+					}
+					return view.ButtonOf(&g.buttons[row][col], spec)(gtx)
+				})
+			}
+			return layout.Flex{Gap: gtx.Dp(12), Alignment: layout.Middle}.Layout(gtx,
+				cell(0, ui.ButtonSpec{Title: variant.name, Name: variant.name + " default"}, false),
+				cell(1, ui.ButtonSpec{Title: "Small", Name: variant.name + " small", Size: ui.ButtonSmall}, false),
+				cell(2, ui.ButtonSpec{Title: "Large", Name: variant.name + " large", Size: ui.ButtonLarge}, false),
+				cell(3, ui.ButtonSpec{Title: "With icon", Name: variant.name + " icon text", Icon: galleryIcon}, false),
+				cell(4, ui.ButtonSpec{Name: variant.name + " icon", Icon: galleryIcon}, false),
+				cell(5, ui.ButtonSpec{Title: "Disabled", Name: variant.name + " disabled"}, true),
+			)
+		})
+	}
+	buttonRows = append(buttonRows, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Gap: gtx.Dp(12), Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(view.TabButton(&g.tabOff, "Tab", false)),
+			layout.Rigid(view.TabButton(&g.tabOn, "Selected tab", true)),
+		)
+	})
+	buttons := section("Buttons", buttonRows...)
+	fields := section("Text fields",
+		row(
+			field(&g.rest, ui.FieldOptions{Label: i18n.PreviewInstitutionName, Hint: i18n.PreviewInstitutionHint}),
+			field(&g.filled, ui.FieldOptions{Label: i18n.PreviewInstitutionName, Hint: i18n.PreviewInstitutionHint, MaxBytes: institutionNameBudget}),
+		),
+		row(
+			field(&g.focused, ui.FieldOptions{Label: i18n.PreviewInstitutionName, Hint: i18n.PreviewInstitutionHint}),
+			field(&g.invalid, ui.FieldOptions{
+				Label: i18n.PreviewInstitutionName, Hint: i18n.PreviewInstitutionHint,
+				Problem: func(string) string { return view.Language.Text(i18n.PreviewNameRequired) },
+			}),
+		),
+		row(
+			field(&g.disabled, ui.FieldOptions{Label: i18n.PreviewDisabled, Disabled: true}),
+			field(&g.readOnly, ui.FieldOptions{Label: i18n.PreviewReadOnly, ReadOnly: true}),
+		),
+		func(gtx layout.Context) layout.Dimensions {
+			return g.search.Layout(ui.LimitWidth(gtx, 420), view, i18n.PreviewSearch, i18n.PreviewSearchHint, func(string) {})
+		},
+	)
+	surfaces := section("Surfaces and text",
+		func(gtx layout.Context) layout.Dimensions {
+			return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return view.Label(gtx, "Net worth", 13, font.Normal, view.Colors.SecondaryInk)
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							label := material.Label(view.Theme, 32, "CNY 1,234,567.89")
+							label.Color, label.Font.Weight = view.Colors.Ink, font.Medium
+							return label.Layout(gtx)
+						}),
+						layout.Rigid(view.Message("Secondary text sits under the figure.", view.Colors.SecondaryInk)),
+						layout.Rigid(view.Message("Something needs attention.", view.Colors.ErrorInk)),
+					)
+				})
+			})
+		},
+	)
+	return g.scroll.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(26)}.Layout(gtx,
+			layout.Rigid(left(buttons)), layout.Rigid(fields), layout.Rigid(surfaces),
+		)
+	})
+}
+
+// layoutTokens draws the semantic palette: status, provenance and category
+// colors with their soft tints, plus the accent surface vocabulary.
+func (g *controlGallery) layoutTokens(gtx layout.Context, view ui.View) layout.Dimensions {
+	p := view.Colors
+	swatch := func(name string, fill, edge color.NRGBA) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					size := image.Pt(gtx.Dp(76), gtx.Dp(44))
+					bounds := image.Rectangle{Max: size}
+					radius := gtx.Dp(ui.RadiusLG)
+					paint.FillShape(gtx.Ops, edge, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+					paint.FillShape(gtx.Ops, fill, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
+					return layout.Dimensions{Size: size}
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = gtx.Dp(84)
+					return view.Label(gtx, name, 11, font.Normal, p.SecondaryInk)
+				}),
+			)
+		}
+	}
+	group := func(title string, swatches ...layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, 0, len(swatches))
+			for _, s := range swatches {
+				children = append(children, layout.Rigid(s))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Label(gtx, title, 12, font.Medium, p.SecondaryInk)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Gap: gtx.Dp(10)}.Layout(gtx, children...)
+				}),
+			)
+		}
+	}
+	edge := p.Divider
+	surfaces := group("Surfaces and ink",
+		swatch("page", p.PageBackground, edge), swatch("sidebar", p.SidebarBackground, edge),
+		swatch("surface", p.Surface, edge), swatch("hover", p.HoverSurface, edge),
+		swatch("divider", p.Divider, edge), swatch("ink", p.Ink, edge),
+		swatch("secondary", p.SecondaryInk, edge), swatch("accent", p.Accent, edge),
+		swatch("on accent", p.OnAccent, edge),
+	)
+	status := group("Status, solid and tinted",
+		swatch("success", p.Success, edge), swatch("success 14%", p.Tint(p.Success, 0.14), edge),
+		swatch("warning", p.Warning, edge), swatch("warning 18%", p.Tint(p.Warning, 0.18), edge),
+		swatch("warning ink", p.WarningInk, edge),
+		swatch("destructive", p.Destructive, edge), swatch("destr. 12%", p.Tint(p.Destructive, 0.12), edge),
+		swatch("accent 10%", p.Tint(p.Accent, 0.10), edge), swatch("error ink", p.ErrorInk, edge),
+	)
+	provenance := group("Data provenance",
+		swatch("current", p.Provenance.Current, edge), swatch("manual", p.Provenance.Manual, edge),
+		swatch("remote", p.Provenance.Remote, edge), swatch("stale", p.Provenance.Stale, edge),
+		swatch("unavailable", p.Provenance.Unavailable, edge),
+	)
+	var categories, softs []layout.Widget
+	for i := range p.Category {
+		categories = append(categories, swatch(fmt.Sprintf("cat %d", i+1), p.Category[i], edge))
+		softs = append(softs, swatch(fmt.Sprintf("soft %d", i+1), p.CategorySoft(i), edge))
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(22)}.Layout(gtx,
+		layout.Rigid(surfaces), layout.Rigid(status), layout.Rigid(provenance),
+		layout.Rigid(group("Category", categories...)), layout.Rigid(group("Category, soft", softs...)),
+	)
+}
+
+// layoutIcons draws every Lucide icon at the sizes the UI uses.
+func (g *controlGallery) layoutIcons(gtx layout.Context, view ui.View) layout.Dimensions {
+	all := lucide.All()
+	cell := func(size unit.Dp) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Gap: gtx.Dp(14)}.Layout(gtx, func() []layout.FlexChild {
+				children := make([]layout.FlexChild, len(all))
+				for i, icon := range all {
+					children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return ui.LayoutGlyph(gtx, icon, size, view.Colors.Ink)
+					})
+				}
+				return children
+			}()...)
+		}
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(18)}.Layout(gtx,
+		layout.Rigid(cell(16)), layout.Rigid(cell(24)), layout.Rigid(cell(40)))
+}
+
+// layoutType shows the type scale, tabular figures and CJK fallback.
+func (g *controlGallery) layoutType(gtx layout.Context, view ui.View) layout.Dimensions {
+	p := view.Colors
+	specimens := []struct {
+		name  string
+		style ui.TextStyle
+		text  string
+	}{
+		{"hero 36 serif", ui.TextHero, "CNY 1,234,567.89"},
+		{"page title 18 serif", ui.TextPageTitle, "Ledger activity \u00b7 \u8d26\u52a1\u8bb0\u5f55 \u8cec\u52d9\u8a18\u9304 \u53d6\u5f15\u5c65\u6b74"},
+		{"money 24 bold", ui.TextMoneyLG, "-USD 48,201.50"},
+		{"money 18 semibold", ui.TextMoneyMD, "JPY 9,876,543"},
+		{"heading 16 semibold", ui.TextHeading, "Account settings"},
+		{"label 14 medium", ui.TextLabel, "Institution name"},
+		{"body 14", ui.TextBody, "A sample form keeps its draft for the current session. \u793a\u4f8b\u8868\u5355\u7684\u8349\u7a3f\u4ec5\u5728\u5f53\u524d\u4f1a\u8bdd\u4fdd\u7559\u3002"},
+		{"caption 12", ui.TextCaption, "0 / 48 bytes \u00b7 Updated 3 minutes ago"},
+		{"caption strong 12", ui.TextCaptionStrong, "Known subtotal"},
+	}
+	amounts := []string{"1,111,111.11", "8,888,888.88", "  -204.50", "     0.07", "12,345.67"}
+	var rows []layout.FlexChild
+	for _, sample := range specimens {
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Label(gtx, sample.name, 11, font.Normal, p.SecondaryInk)
+				}),
+				layout.Rigid(view.Body(sample.style, sample.text, p.Ink)),
+			)
+		}))
+	}
+	rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		gtx = ui.LimitWidth(gtx, 220)
+		children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return view.Label(gtx, "tabular figures, trailing aligned", 11, font.Normal, p.SecondaryInk)
+		})}
+		for _, amount := range amounts {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.LineEnd(gtx, ui.TextMoneyMD, amount, p.Ink)
+			}))
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
+	}))
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx, rows...)
+}
+
+// layoutElevation compares the shadow scale, hairline borders and focus rings
+// on the page background and on a tinted surface.
+func (g *controlGallery) layoutElevation(gtx layout.Context, view ui.View) layout.Dimensions {
+	p := view.Colors
+	card := func(name string, level ui.Elevation) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			size := image.Pt(gtx.Dp(120), gtx.Dp(84))
+			bounds := image.Rectangle{Max: size}
+			p.DrawShadow(gtx, bounds, ui.RadiusXL, level)
+			ui.FillRoundRect(gtx, bounds, ui.RadiusXL, p.Surface)
+			ui.StrokeRoundRect(gtx, bounds, ui.RadiusXL, 1, p.Divider)
+			gtx.Constraints = layout.Exact(size)
+			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, name, 12, font.Medium, p.Ink)
+			})
+			return layout.Dimensions{Size: size}
+		}
+	}
+	row := func(title string, children ...layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			flex := make([]layout.FlexChild, len(children))
+			for i, child := range children {
+				flex[i] = layout.Rigid(child)
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Label(gtx, title, 12, font.Medium, p.SecondaryInk)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Gap: gtx.Dp(28)}.Layout(gtx, flex...)
+				}),
+			)
+		}
+	}
+	rings := func(name string, radius unit.Dp, size image.Point, ring func(layout.Context, image.Rectangle)) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			s := image.Pt(gtx.Dp(unit.Dp(size.X)), gtx.Dp(unit.Dp(size.Y)))
+			bounds := image.Rectangle{Max: s}
+			ui.FillRoundRect(gtx, bounds, radius, p.Surface)
+			ui.StrokeRoundRect(gtx, bounds, radius, 1, p.Divider)
+			if ring != nil {
+				ring(gtx, bounds)
+			}
+			gtx.Constraints = layout.Exact(s)
+			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, name, 12, font.Normal, p.Ink)
+			})
+			return layout.Dimensions{Size: s}
+		}
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(34)}.Layout(gtx,
+		layout.Rigid(row("Elevation: none, xs, sm, md, lg",
+			card("none", ui.ElevationNone), card("xs", ui.ElevationXS), card("sm", ui.ElevationSM),
+			card("md", ui.ElevationMD), card("lg", ui.ElevationLG))),
+		layout.Rigid(row("Focus ring (outside, 2dp gap) and input focus border",
+			rings("button", ui.RadiusLG, image.Pt(110, 36), func(gtx layout.Context, b image.Rectangle) { p.FocusRing(gtx, b, ui.RadiusLG) }),
+			rings("input", ui.RadiusLG, image.Pt(180, 36), func(gtx layout.Context, b image.Rectangle) { p.FocusBorder(gtx, b, ui.RadiusLG) }),
+			rings("pill", ui.RadiusFull, image.Pt(90, 28), func(gtx layout.Context, b image.Rectangle) { p.FocusRing(gtx, b, ui.RadiusFull) }),
+			rings("no ring", ui.RadiusLG, image.Pt(110, 36), nil))),
+	)
+}
+
+// galleryScenario drives pointer state. Only one pointer exists, so each
+// interactive state gets its own snapshot.
+type galleryScenario struct {
+	name         string
+	hover, press string
+	focusField   bool
+	focusButton  string
+	page         string
+}
+
+var galleryIcon = ui.MustIcon(icons.ContentAdd)
+
+var galleryScenarios = []galleryScenario{
+	{name: "rest", focusField: true},
+	{name: "hover-primary", hover: "Primary default"},
+	{name: "hover-outline", hover: "Outline default"},
+	{name: "hover-ghost", hover: "Ghost default"},
+	{name: "press-primary", press: "Primary default"},
+	{name: "focus-primary", focusButton: "Primary default"},
+	{name: "tokens", page: "tokens"},
+	{name: "elevation", page: "elevation"},
+	{name: "type", page: "type"},
+	{name: "icons", page: "icons"},
+	{name: "confirmation", page: "confirmation"},
+}
+
+type galleryHarness struct {
+	t       *testing.T
+	gallery *controlGallery
+	view    ui.View
+	router  input.Router
+	ops     op.Ops
+	now     time.Time
+	size    image.Point
+	scale   float32
+	page    string
+	// focusTag, when set, replaces the text field as the initially focused control.
+	focusTag event.Tag
+}
+
+func newGalleryHarness(t *testing.T, accent int, dark bool) *galleryHarness {
+	t.Helper()
+	prefs := sessionPreferences{language: i18n.English, dark: dark, accentIndex: accent}
+	colors := prefs.colors()
+	theme := ui.NewTheme()
+	theme.Palette = material.Palette{Bg: colors.PageBackground, Fg: colors.Ink, ContrastBg: colors.Accent, ContrastFg: colors.OnAccent}
+	return &galleryHarness{
+		t: t, gallery: newControlGallery(), now: time.Unix(1, 0),
+		size: image.Pt(900, 860), scale: snapshotScale,
+		view: ui.View{
+			Language: prefs.language, Colors: colors, Theme: theme, Overlay: &ui.Overlay{},
+			DateFormat: "YYYY-MM-DD", DecimalSeparator: ".", GroupingSeparator: ",",
+			TimeLocation: time.UTC,
+		},
+	}
+}
+
+func (h *galleryHarness) frame(focus bool) {
+	h.ops.Reset()
+	h.now = h.now.Add(time.Second / 60)
+	gtx := layout.Context{
+		Ops: &h.ops, Source: h.router.Source(), Now: h.now,
+		Metric:      unit.Metric{PxPerDp: h.scale, PxPerSp: h.scale},
+		Constraints: layout.Exact(h.size.Mul(int(h.scale))),
+	}
+	gtx.Locale.Language = string(h.view.Language)
+	paint.Fill(gtx.Ops, h.view.Colors.PageBackground)
+	layout.UniformInset(28).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		if focus {
+			if h.focusTag != nil {
+				gtx.Execute(key.FocusCmd{Tag: h.focusTag})
+			} else {
+				h.gallery.focused.Focus(gtx)
+			}
+		}
+		switch h.page {
+		case "tokens":
+			return h.gallery.layoutTokens(gtx, h.view)
+		case "elevation":
+			return h.gallery.layoutElevation(gtx, h.view)
+		case "type":
+			return h.gallery.layoutType(gtx, h.view)
+		case "icons":
+			return h.gallery.layoutIcons(gtx, h.view)
+		}
+		return h.gallery.layout(gtx, h.view)
+	})
+	if h.page == "confirmation" {
+		h.gallery.dialog.Layout(gtx, h.view, ui.ConfirmationOptions{
+			Title: "Archive this account?", Body: "The account leaves the active lists. Its history stays available.",
+			Cancel: "Cancel", Confirm: "Archive",
+		}, func() {}, func() {})
+	}
+	h.router.Frame(&h.ops)
+}
+
+func (h *galleryHarness) run(s galleryScenario) {
+	h.page = s.page
+	if s.page == "confirmation" {
+		h.gallery.dialog.Open()
+		// Run past the enter tween so the capture shows the settled dialog.
+		for range 15 {
+			h.frame(false)
+		}
+		return
+	}
+	if s.focusButton != "" {
+		h.focusTag = &h.gallery.buttons[0][0]
+	}
+	h.frame(s.focusField || s.focusButton != "")
+	h.frame(false)
+	target := s.hover
+	if s.press != "" {
+		target = s.press
+	}
+	if target == "" {
+		return
+	}
+	bounds := semanticBounds(h.t, &h.router, target, false)
+	centre := bounds.Min.Add(bounds.Max).Div(2)
+	pos := f32.Pt(float32(centre.X), float32(centre.Y))
+	h.router.Queue(pointer.Event{Kind: pointer.Move, Source: pointer.Mouse, Position: pos})
+	if s.press != "" {
+		h.router.Queue(pointer.Event{Kind: pointer.Press, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary, Position: pos})
+	}
+	h.frame(false)
+	h.frame(false)
+}
+
+func (h *galleryHarness) snapshot(t *testing.T, dir, name string) {
+	t.Helper()
+	writeSnapshot(t, dir, name, h.size.Mul(int(h.scale)), &h.ops)
+}

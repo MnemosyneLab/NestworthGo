@@ -1,0 +1,774 @@
+package desktop
+
+import (
+	"image"
+	"time"
+
+	"gioui.org/font"
+	"gioui.org/io/event"
+	"gioui.org/io/key"
+	"gioui.org/io/pointer"
+	"gioui.org/io/semantic"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
+
+type routeID string
+
+const (
+	overviewRoute         routeID = "overview"
+	accountsRoute         routeID = "accounts"
+	fundsRoute            routeID = "available-funds"
+	portfolioRoute        routeID = "portfolio"
+	tasksRoute            routeID = "tasks"
+	historyRoute          routeID = "history"
+	directoryRoute        routeID = "directory"
+	settingsRoute         routeID = "settings"
+	componentPreviewRoute routeID = "component-preview"
+)
+
+const (
+	sidebarWidth     = 224
+	sidebarRailWidth = 64
+	headerHeight     = 53
+)
+
+type pageLayout func(layout.Context, ui.View) layout.Dimensions
+
+type ledgerPages struct {
+	prefs     *preferenceState
+	directory *directoryPage
+	history   *historyPage
+	overview  *overviewPage
+	funds     *availableFundsPage
+	tasks     *tasksPage
+	accounts  *accountsPage
+	portfolio *portfolioPage
+	version   func() string
+}
+
+type navigationItem struct {
+	id     routeID
+	label  i18n.MessageID
+	icon   ui.Glyph
+	body   pageLayout
+	button widget.Clickable
+	hint   ui.Tooltip
+}
+
+func newItem(id routeID, label i18n.MessageID, icon ui.Glyph, body pageLayout) navigationItem {
+	return navigationItem{id: id, label: label, icon: icon, body: body}
+}
+
+func (item *navigationItem) available() bool {
+	return item.body != nil || item.id == historyRoute || item.id == directoryRoute || item.id == overviewRoute
+}
+
+type navigationGroup struct {
+	label i18n.MessageID
+	items []navigationItem
+}
+
+type shell struct {
+	// stage scrolls the active page; stageEntry is the visit it was reset for.
+	stage                                 widget.List
+	stageEntry                            *navigationEntry
+	prefs                                 *preferenceState
+	onboarding                            *onboardingPage
+	settingsPage                          *settingsPage
+	directory                             *directoryPage
+	historyPage                           *historyPage
+	overviewPage                          *overviewPage
+	funds                                 *availableFundsPage
+	tasks                                 *tasksPage
+	accounts                              *accountsPage
+	portfolio                             *portfolioPage
+	componentPreview                      *componentPreview
+	preferences                           sessionPreferences
+	theme                                 *material.Theme
+	wordmark                              widget.Image
+	mark                                  widget.Image
+	groups                                []navigationGroup
+	routes                                map[routeID]*navigationItem
+	trail                                 navigationTrail
+	ledgerVersion                         func() string
+	seenLedgerVersion                     string
+	pendingNavigation                     *navigationRequest
+	restoreFocus                          bool
+	headingFocus                          byte
+	back, forward                         widget.Clickable
+	backHint, forwardHint                 ui.Tooltip
+	recentPicker                          ui.Select
+	navigation                            layout.List
+	languagePicker                        ui.Select
+	themeButton                           widget.Clickable
+	railButton                            widget.Clickable
+	languageHint, appearanceHint          ui.Tooltip
+	wideCollapsed, narrowExpanded, narrow bool
+	overlay                               ui.Overlay
+	motion                                ui.Motion
+}
+
+func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
+	preview := newComponentPreview()
+	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
+	if pages.directory != nil {
+		directoryLayout = pages.directory.layout
+	}
+	if pages.history != nil {
+		historyLayout = pages.history.layout
+	}
+	if pages.overview != nil {
+		overviewLayout = pages.overview.layout
+	}
+	if pages.tasks != nil {
+		tasksLayout = pages.tasks.layout
+	}
+	if pages.funds != nil {
+		fundsLayout = pages.funds.layout
+	}
+	if pages.accounts != nil {
+		accountsLayout = pages.accounts.layout
+	}
+	if pages.portfolio != nil {
+		portfolioLayout = pages.portfolio.layout
+	}
+	s := &shell{
+		prefs:            pages.prefs,
+		settingsPage:     newSettingsPage(pages.prefs),
+		directory:        pages.directory,
+		historyPage:      pages.history,
+		overviewPage:     pages.overview,
+		funds:            pages.funds,
+		tasks:            pages.tasks,
+		accounts:         pages.accounts,
+		portfolio:        pages.portfolio,
+		componentPreview: preview,
+		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
+		theme:            ui.NewTheme(),
+		wordmark:         widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
+		mark:             widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
+		trail:            newNavigationTrail(overviewRoute),
+		navigation:       layout.List{Axis: layout.Vertical},
+		stage:            widget.List{List: layout.List{Axis: layout.Vertical}},
+	}
+	s.groups = []navigationGroup{
+		{items: []navigationItem{
+			newItem(overviewRoute, i18n.NavOverview, lucide.House, overviewLayout),
+			newItem(accountsRoute, i18n.NavAccounts, lucide.Wallet, accountsLayout),
+			newItem(fundsRoute, i18n.NavAvailableFunds, lucide.Banknote, fundsLayout),
+			newItem(portfolioRoute, i18n.NavPortfolio, lucide.ChartPie, portfolioLayout),
+		}},
+		{label: i18n.GroupActivity, items: []navigationItem{
+			newItem(tasksRoute, i18n.NavTasks, lucide.ClipboardCheck, tasksLayout),
+			newItem(historyRoute, i18n.NavHistory, lucide.ReceiptText, historyLayout),
+		}},
+		{label: i18n.GroupInsights, items: []navigationItem{
+			newItem("historical-overview", i18n.NavHistoricalOverview, lucide.CalendarClock, nil),
+			newItem("returns", i18n.NavReturns, lucide.ChartLine, nil),
+			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
+		}},
+		{label: i18n.GroupManage, items: []navigationItem{
+			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
+			newItem("data-maintenance", i18n.NavDataMaintenance, lucide.RefreshCw, nil),
+			newItem(settingsRoute, i18n.NavSettings, lucide.Settings, s.settingsPage.layout),
+			newItem(componentPreviewRoute, i18n.NavComponentPreview, lucide.Wrench, preview.layout),
+		}},
+	}
+	s.routes = make(map[routeID]*navigationItem)
+	for _, group := range s.groups {
+		for i := range group.items {
+			item := &group.items[i]
+			s.routes[item.id] = item
+		}
+	}
+	if s.directory != nil {
+		for _, list := range s.directory.lists {
+			list.openObject = func(ref directoryRef, name string, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{
+					target: navigationTarget{route: directoryRoute, object: ref},
+					name:   name, focus: from,
+				}
+			}
+		}
+	}
+	if s.accounts != nil {
+		s.accounts.open = func(target navigationTarget, name string, from event.Tag) {
+			keepArchiveFilter := s.activeRoute() == accountsRoute && target.account == "" && s.accounts.archived
+			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
+		}
+		s.accounts.backToList = func() {
+			if previous := s.trail.adjacent(-1); previous != nil && previous.target.route == accountsRoute && !previous.target.hasObject() {
+				s.pendingNavigation = &navigationRequest{step: -1}
+				return
+			}
+			s.accounts.open(navigationTarget{route: accountsRoute}, "", nil)
+		}
+		if s.directory != nil {
+			s.directory.object.openAccounts = func(id domain.InstitutionID, name string, from event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, institution: id}, name, from)
+			}
+		}
+	}
+	s.ledgerVersion = pages.version
+	if s.accounts != nil && s.accounts.opening != nil {
+		s.accounts.opening.onSaved = s.refreshLedgerReads
+	}
+	if s.ledgerVersion != nil {
+		s.seenLedgerVersion = s.ledgerVersion()
+	}
+	if s.historyPage != nil {
+		s.historyPage.onPosted = s.refreshLedgerReads
+	}
+	if s.historyPage != nil && s.historyPage.reads != nil {
+		s.historyPage.reads.open = func(id domain.ActivityID, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus}
+		}
+		if s.accounts != nil && s.accounts.cashBalance != nil {
+			s.accounts.cashBalance.openActivity = s.historyPage.reads.open
+		}
+		if s.accounts != nil && s.accounts.balanceTarget != nil {
+			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
+		}
+		if s.accounts != nil && s.accounts.investment != nil {
+			s.accounts.investment.onPosted = func(activity domain.Activity, notice i18n.MessageID, from event.Tag) {
+				s.historyPage.showPosted(activity, notice, from)
+			}
+		}
+		if s.accounts != nil {
+			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, focus)
+			}
+		}
+		s.historyPage.reads.rename = func(id domain.ActivityID, name string) {
+			target := navigationTarget{route: historyRoute, activity: id}
+			entry := s.trail.current()
+			if entry.target == target && entry.name != name {
+				s.trail.rename(target, name)
+			}
+		}
+		s.historyPage.reads.back = func() {
+			request := navigationRequest{target: navigationTarget{route: historyRoute}}
+			for i := s.trail.cursor - 1; i >= 0; i-- {
+				if target := s.trail.entries[i].target; target.route == historyRoute && target.activity == "" {
+					request.step = i - s.trail.cursor
+					break
+				}
+			}
+			s.pendingNavigation = &request
+		}
+	}
+	if p := s.portfolio; p != nil {
+		p.openInstrument = func(id domain.InstrumentID, name string, from event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id}, name: name, focus: from}
+		}
+		if s.tasks != nil {
+			s.tasks.openInstrument = p.openInstrument
+		}
+		if s.accounts != nil {
+			p.openAccount = func(id domain.AccountID, name string, from event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
+			}
+			s.accounts.openInstrument = p.openInstrument
+		}
+		if s.historyPage != nil && s.historyPage.reads != nil {
+			p.openHistory = func(id domain.InstrumentID, name string, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, instrument: id}, name: name, focus: from}
+			}
+			s.historyPage.reads.openInstrument = p.openInstrument
+		}
+	}
+	if s.tasks != nil && s.accounts != nil && s.accounts.statement != nil {
+		s.tasks.openStatement = func(account domain.AccountID, session, name string, from event.Tag) {
+			s.accounts.open(navigationTarget{route: accountsRoute, account: account, statement: session}, name, from)
+		}
+	}
+	if p := s.funds; p != nil {
+		if p.productPage != nil {
+			p.openProduct = func(id domain.ProductContractID, name string, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from}
+			}
+			if s.tasks != nil {
+				s.tasks.openProduct = p.openProduct
+				s.tasks.verify = func(id domain.ProductContractID, name string, from event.Tag) {
+					s.pendingNavigation = &navigationRequest{
+						target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from, verifyProductReceipt: true,
+					}
+				}
+			}
+			if s.portfolio != nil {
+				s.portfolio.openProduct = p.openProduct
+			}
+			if s.accounts != nil {
+				s.accounts.openProduct = p.openProduct
+			}
+		}
+		if s.accounts != nil {
+			p.openAccount = func(id domain.AccountID, name string, from event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
+			}
+		}
+		if p.productPage != nil {
+			p.productPage.openAccount = p.openAccount
+			p.productPage.onReceiptSaved = s.refreshLedgerReads
+			if s.historyPage != nil && s.historyPage.reads != nil {
+				p.productPage.openActivity = s.historyPage.reads.open
+				s.historyPage.reads.openProduct = p.openProduct
+			}
+		}
+		if s.portfolio != nil {
+			p.openInstrument = s.portfolio.openInstrument
+		}
+	}
+	return s
+}
+
+func (s *shell) layout(gtx layout.Context) layout.Dimensions {
+	// Drop animation state for controls that were not drawn this frame.
+	defer s.motion.EndFrame()
+	s.prefs.update()
+	s.preferences = s.prefs.appearance()
+	if p := s.onboarding; p != nil {
+		p.update()
+		if p.opened {
+			s.onboarding = nil
+			if p.attempted && s.accounts != nil {
+				s.trail = newNavigationTrail(accountsRoute)
+				s.accounts.enter(s.trail.current().target, false, layout.Position{})
+				s.prefs.reload()
+			}
+		}
+	}
+	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		s.accounts.pollInvestment()
+		s.accounts.pollOpeningPosition()
+		if s.accounts.pollInlineInstitution() && s.directory != nil {
+			for _, list := range s.directory.lists {
+				if list.isInstitutions() {
+					list.refreshExternal = true
+				}
+			}
+		}
+		if s.accounts.pollAccountMaintenance() {
+			s.refreshLedgerReads()
+		}
+		if saved := s.accounts.pollCashBalance(); saved.ID != "" {
+			s.refreshLedgerReads()
+		}
+		if saved := s.accounts.pollBalanceTarget(); saved.account != "" {
+			s.refreshLedgerReads()
+		}
+		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {
+			s.accounts.createdID = record.Account.ID
+			s.accounts.createdMessage = i18n.AccountCreateSucceeded
+			focus := &s.accounts.createBank
+			if s.accounts.target.institution == "" {
+				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
+				focus = &s.accounts.createAsset
+			}
+			if record.Account.IsLiability() {
+				s.accounts.createdMessage = i18n.AccountCreateLiabilitySucceeded
+				focus = &s.accounts.createLiability
+			}
+			if record.Account.TrackingMode != domain.TrackingBalance {
+				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
+				focus = &s.accounts.createShell
+			}
+			s.refreshLedgerReads()
+			s.pendingNavigation = &navigationRequest{
+				target: navigationTarget{route: accountsRoute, account: record.Account.ID},
+				name:   record.Account.Name, focus: focus,
+			}
+		}
+	}
+	windowContext := gtx
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
+		gtx = gtx.Disabled()
+	}
+	s.overlay.BeginFrame(gtx)
+	s.narrow = !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium)
+	if s.railButton.Clicked(gtx) {
+		if s.narrow {
+			s.narrowExpanded = !s.narrowExpanded
+		} else {
+			s.wideCollapsed = !s.wideCollapsed
+		}
+	}
+	gtx.Locale.Language = string(s.preferences.language)
+	colors := s.preferences.colors()
+	s.theme.Palette = material.Palette{
+		Bg:         colors.PageBackground,
+		Fg:         colors.Ink,
+		ContrastBg: colors.Accent,
+		ContrastFg: colors.OnAccent,
+	}
+	view := ui.View{
+		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay, Motion: &s.motion,
+		DateFormat: s.prefs.saved.DateFormat, DecimalSeparator: s.prefs.saved.DecimalSeparator, GroupingSeparator: s.prefs.saved.GroupingSeparator,
+		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
+		TimeLocation: s.prefs.displayLocation(),
+	}
+	paint.Fill(gtx.Ops, colors.PageBackground)
+	if p := s.onboarding; p != nil {
+		dims := p.layout(gtx, view, s.prefs, s.wordmark)
+		s.overlay.Layout(gtx, view)
+		return dims
+	}
+	if s.activeRoute() == historyRoute && s.historyPage != nil {
+		s.historyPage.pollPosted()
+	}
+	s.observeLedger(gtx)
+	s.updateNavigation(gtx)
+	entry := s.trail.current()
+	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
+		s.trail.rename(entry.target, s.directory.object.name())
+	}
+	if entry.target.route == accountsRoute && s.accounts != nil && s.accounts.update(s.preferences.language) {
+		s.trail.rename(entry.target, s.accounts.name())
+	}
+	dims := layout.Flex{}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
+	)
+	s.overlay.Layout(gtx, view)
+	if s.settingsPage.confirming {
+		s.settingsPage.layoutConfirmation(windowContext, view)
+	} else if s.confirmingArchive() {
+		s.directory.activeList().layoutConfirmation(windowContext, view)
+	} else if s.confirmingAccountCreation() {
+		s.accounts.layoutAccountCreationReview(windowContext, view)
+	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
+		s.accounts.layoutAccountArchive(windowContext, view)
+	}
+	return dims
+}
+
+func (s *shell) confirmingAccountCreation() bool {
+	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
+}
+
+func (s *shell) observeLedger(gtx layout.Context) {
+	if s.ledgerVersion == nil {
+		return
+	}
+	if version := s.ledgerVersion(); version != s.seenLedgerVersion {
+		s.seenLedgerVersion = version
+		s.invalidateLedgerReads()
+	}
+	switch s.activeRoute() {
+	case overviewRoute, accountsRoute, historyRoute, portfolioRoute, fundsRoute, tasksRoute:
+		gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(time.Second)})
+	}
+}
+
+// Capture the committed version before scheduling any replacement reads.
+func (s *shell) refreshLedgerReads() {
+	if s.ledgerVersion != nil {
+		s.seenLedgerVersion = s.ledgerVersion()
+	}
+	s.invalidateLedgerReads()
+}
+
+func (s *shell) invalidateLedgerReads() {
+	if s.overviewPage != nil {
+		s.overviewPage.refresh()
+	}
+	if s.historyPage != nil {
+		s.historyPage.invalidateLedgerReads()
+	}
+	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		s.accounts.refresh()
+	}
+	if s.funds != nil && s.activeRoute() == fundsRoute {
+		if s.trail.current().target.product == "" {
+			s.funds.read()
+		} else {
+			s.funds.productPage.read()
+		}
+	}
+	if s.portfolio != nil && s.activeRoute() == portfolioRoute {
+		s.portfolio.read()
+	}
+	if s.tasks != nil && s.activeRoute() == tasksRoute {
+		s.tasks.read()
+	}
+}
+
+func (s *shell) savingAccountInstitution() bool {
+	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation.creatingInstitution()
+}
+
+func (s *shell) accountMaintenanceBlocking() bool {
+	if s.activeRoute() != accountsRoute || s.accounts == nil || s.accounts.maintenance == nil {
+		return false
+	}
+	m := s.accounts.maintenance
+	return m.pending != nil || m.review != nil
+}
+
+func (s *shell) confirmingArchive() bool {
+	return s.activeRoute() == directoryRoute && !s.trail.current().target.hasObject() &&
+		s.directory != nil && s.directory.activeList().archiveTarget != nil
+}
+
+func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
+	colors := view.Colors
+	size := image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Constraints.Max.Y)
+	gtx.Constraints = layout.Exact(size)
+	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect{Max: size}.Op())
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
+
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarBrand(gtx, view) }),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: 12, Right: 12, Top: 4, Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return s.sidebarNavigation(gtx, view)
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarPreferences(gtx, view, size.Y) }),
+	)
+}
+
+func (s *shell) sidebarNavigation(gtx layout.Context, view ui.View) layout.Dimensions {
+	height := gtx.Constraints.Max.Y
+	return s.navigation.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		// Fill the viewport when there is room and scroll all the groups together
+		// when their natural height exceeds it.
+		gtx.Constraints.Min.Y = height
+		last := len(s.groups) - 1
+		gap := gtx.Dp(20)
+		return layout.Flex{Axis: layout.Vertical, Spacing: layout.SpaceBetween, Gap: gap}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				groups := make([]layout.FlexChild, 0, last)
+				for i := range s.groups[:last] {
+					groups = append(groups, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return s.group(gtx, view, &s.groups[i])
+					}))
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(gtx, groups...)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				paint.FillShape(gtx.Ops, view.Colors.Divider, clip.Rect(image.Rect(0, 0, gtx.Constraints.Max.X, 1)).Op())
+				return layout.Inset{Top: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return s.group(gtx, view, &s.groups[last])
+				})
+			}),
+		)
+	})
+}
+
+func (s *shell) group(gtx layout.Context, view ui.View, group *navigationGroup) layout.Dimensions {
+	children := make([]layout.FlexChild, 0, len(group.items)+1)
+	if group.label != i18n.NoMessage && !s.collapsed() {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: 6, Left: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, view.Language.Text(group.label), 11, font.Medium, view.Colors.SecondaryInk)
+			})
+		}))
+	}
+	for i := range group.items {
+		item := &group.items[i]
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return s.item(gtx, view, item)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
+}
+
+func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) layout.Dimensions {
+	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(36))
+	gtx.Constraints = layout.Exact(size)
+	if !item.available() {
+		gtx = gtx.Disabled()
+	}
+	return accessibility.Button(gtx, &item.button, view.Language.Text(item.label), "", false, func(gtx layout.Context) layout.Dimensions {
+		return item.layoutButton(gtx, s, view, size)
+	})
+}
+
+func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.View, size image.Point) layout.Dimensions {
+	colors := view.Colors
+	content := func(gtx layout.Context) layout.Dimensions {
+		semantic.Button.Add(gtx.Ops)
+		pointer.CursorPointer.Add(gtx.Ops)
+		selected := s.activeRoute() == item.id
+		semantic.SelectedOp(selected).Add(gtx.Ops)
+		bounds := image.Rectangle{Max: size}
+		enabled := gtx.Enabled()
+		motion := view.Motion.For(&item.button)
+		motion.Hover.Set(gtx, boolFloat(enabled && item.button.Hovered()), ui.DurationBase, ui.EaseOut)
+		motion.Select.Set(gtx, boolFloat(selected), ui.DurationBase, ui.EaseOut)
+		motion.Focus.Set(gtx, boolFloat(enabled && gtx.Focused(&item.button)), ui.DurationBase, ui.EaseOut)
+		hover, pick, focus := motion.Hover.Value(gtx), motion.Select.Value(gtx), motion.Focus.Value(gtx)
+
+		// Hover and keyboard focus tint the row; the selected row lifts onto a
+		// bordered card with the Wails accent marker.
+		radius := ui.RadiusLG
+		tint := max(hover, focus) * (1 - pick)
+		ui.FillRoundRect(gtx, bounds, radius, ui.WithAlpha(colors.HoverSurface, tint))
+		if pick > 0 {
+			colors.DrawShadow(gtx, bounds, radius, ui.ElevationXS)
+			ui.FillRoundRect(gtx, bounds, radius, ui.WithAlpha(colors.Surface, pick))
+			ui.StrokeRoundRect(gtx, bounds, radius, 1, ui.WithAlpha(colors.Divider, pick))
+			marker := image.Rect(gtx.Dp(1), gtx.Dp(8), gtx.Dp(3), size.Y-gtx.Dp(8))
+			ui.FillRoundRect(gtx, marker, 1, ui.WithAlpha(colors.Accent, pick))
+		}
+		if focus > 0 {
+			colors.FocusRingAt(gtx, bounds, radius, focus)
+		}
+		textColor := ui.Mix(colors.SecondaryInk, colors.Ink, max(pick, hover*0.6))
+		iconColor := ui.Mix(colors.SecondaryInk, colors.Accent, pick)
+		weight := font.Normal
+		if selected {
+			weight = font.Medium
+		}
+		item.hint.Layout(gtx, view, s.collapsed() && item.button.Hovered(), view.Language.Text(item.label))
+		if s.collapsed() {
+			semantic.LabelOp(view.Language.Text(item.label)).Add(gtx.Ops)
+			return layout.Center.Layout(gtx, sidebarIcon(item.icon, iconColor, 18))
+		}
+		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = 0
+			return layout.Inset{Left: 11}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return ui.LayoutGlyph(gtx, item.icon, 16, iconColor)
+					}),
+					layout.Rigid(layout.Spacer{Width: 12}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						style := ui.TextBody
+						style.Weight = weight
+						return view.Line(gtx, style, view.Language.Text(item.label), textColor)
+					}),
+				)
+			})
+		})
+	}
+	if gtx.Enabled() {
+		return item.button.Layout(gtx, content)
+	}
+	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
+	semantic.EnabledOp(false).Add(gtx.Ops)
+	return content(gtx)
+}
+
+func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
+	entry := s.trail.current()
+	route := s.routes[entry.target.route]
+	body := route.body
+	if entry.target.route == directoryRoute && entry.target.hasObject() {
+		body = s.directory.object.layout
+	}
+	if entry.target.product != "" {
+		body = s.funds.productPage.layout
+	}
+	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
+	focus := ui.PageFocus{Target: entry.focus}
+	dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.pageHeader(gtx, view, route.label) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p := s.historyPage; p != nil && p.cashMovements != nil && p.cashMovements.recovery != nil {
+				dims := p.cashMovements.recovery.layout(gtx, view, p.reads.open)
+				view.Origin.Y += dims.Size.Y
+				return dims
+			}
+			return layout.Dimensions{}
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			view.Focus = &focus
+			return s.pageBody(gtx, view, body)
+		}),
+	)
+	s.finishPageFocus(gtx, focus)
+	return dims
+}
+
+func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
+	colors := view.Colors
+	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
+	gtx.Constraints = layout.Exact(size)
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
+	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.Y = 0
+		return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gap := gtx.Dp(8)
+			x := view.Origin.X + gtx.Dp(20)
+			direction := func(step int) layout.Widget {
+				return func(gtx layout.Context) layout.Dimensions {
+					dims := s.navigationButton(gtx, view, step)
+					x += dims.Size.X + gap
+					return dims
+				}
+			}
+			return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx,
+				layout.Rigid(direction(-1)),
+				layout.Rigid(direction(1)),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					for {
+						if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {
+							break
+						}
+					}
+					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+					event.Op(gtx.Ops, &s.headingFocus)
+					return view.Line(gtx, ui.TextPageTitle, view.Language.Text(title), colors.Ink)
+				}),
+			)
+		})
+	})
+}
+
+// pageInset is the gutter around page content.
+var pageInset = layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
+
+// pageBody is the stage every page is laid out on. It gives a page the full
+// width of the window (a page that wants a readable column centers itself with
+// View.Measure), lets it be taller than the window and scrolls it, and tells it
+// the viewport height through Constraints.Min.Y so a list can fill what is
+// left. Pages that scroll internally keep doing so: a shared list inside the
+// stage takes the viewport height instead of laying out every row.
+func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensions {
+	if body == nil {
+		return layout.Dimensions{Size: gtx.Constraints.Min}
+	}
+	if entry := s.trail.current(); entry != s.stageEntry {
+		s.stageEntry = entry
+		s.stage.Position = layout.Position{}
+		if entry.visited && entry.target.route == settingsRoute {
+			s.stage.Position = entry.scroll
+		}
+	}
+	inset := pageInset
+	top, bottom := gtx.Dp(inset.Top), gtx.Dp(inset.Bottom)
+	viewport := gtx.Constraints.Max
+	bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(viewport)}
+	view.Overlay.ScrollOutsidePanel(gtx, &s.stage, bounds)
+	dims := view.List(&s.stage).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = max(0, viewport.Y-top-bottom)
+			view := view.WithScrollAnchors(&s.stage)
+			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), top))
+			return body(gtx, view)
+		})
+	})
+	view.Overlay.OffsetScrollAnchor(&s.stage, bounds)
+	return dims
+}
+
+func boolFloat(on bool) float64 {
+	if on {
+		return 1
+	}
+	return 0
+}

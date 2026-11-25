@@ -354,9 +354,21 @@ func TestResolveLocalDateTimeRejectsDSTGapAndAmbiguity(t *testing.T) {
 	if _, err := ResolveLocalDateTime("2026-11-01", "01:30", "America/New_York"); err == nil || err.(*Error).Code != ErrInvalidChangeTime {
 		t.Fatalf("DST ambiguity error = %v", err)
 	}
-	resolved, err := ResolveLocalDateTime("2026-08-23", "20:00", "Asia/Shanghai")
-	if err != nil || resolved.Location() != time.UTC || resolved.Format(time.RFC3339) != "2026-08-23T12:00:00Z" {
-		t.Fatalf("resolved time = %v, error=%v", resolved, err)
+	for _, sample := range []struct{ clock, want string }{
+		{"20:00", "2026-08-23T12:00:00Z"}, {"20:00:17", "2026-08-23T12:00:17Z"},
+	} {
+		resolved, err := ResolveLocalDateTime("2026-08-23", sample.clock, "Asia/Shanghai")
+		if err != nil || resolved.Location() != time.UTC || resolved.Format(time.RFC3339) != sample.want {
+			t.Fatalf("resolved %s as %v, error=%v", sample.clock, resolved, err)
+		}
+	}
+	for _, sample := range []struct{ day, clock string }{
+		{"2026-03-08", "02:30:01"}, {"2026-11-01", "01:30:01"},
+		{"2026-10-01", "11:00:60"}, {"2026-10-01", "11:00:01.2"}, {"2026-10-01", "1:00:01"},
+	} {
+		if _, err := ResolveLocalDateTime(sample.day, sample.clock, "America/New_York"); err == nil || err.(*Error).Code != ErrInvalidChangeTime {
+			t.Fatalf("%s %s should be rejected: %v", sample.day, sample.clock, err)
+		}
 	}
 }
 
