@@ -10,6 +10,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -27,7 +28,7 @@ type taskStatement struct {
 	account domain.Account
 }
 
-func readTaskStatements(ctx context.Context, service taskChecksReader) (out []taskStatement, err error) {
+func readTaskReconciliation(ctx context.Context, service taskChecksReader, includeHoldings bool) (out []taskStatement, holdings holdingReconDirectory, err error) {
 	err = service.WithRead(ctx, func(ctx context.Context) error {
 		sessions, err := service.ListReconciliationSessions(ctx)
 		if err != nil {
@@ -48,27 +49,47 @@ func readTaskStatements(ctx context.Context, service taskChecksReader) (out []ta
 				ids = append(ids, id)
 			}
 		}
-		if len(ids) == 0 {
+		if !includeHoldings && len(ids) == 0 {
 			return nil
 		}
-		accounts, err := service.ListAccounts(ctx, domain.AccountFilter{AccountIDs: ids})
+		filter := domain.AccountFilter{AccountIDs: ids}
+		if includeHoldings {
+			filter.AccountIDs = nil
+		}
+		accounts, err := service.ListAccounts(ctx, filter)
 		if err != nil {
 			return err
 		}
 		cards := make(map[domain.AccountID]domain.Account)
+		holdingIDs := make(map[string]bool)
 		for _, row := range accounts {
-			if statementCard(row.Account) && row.Account.ArchivedAt == nil {
+			if row.Account.ArchivedAt != nil {
+				continue
+			}
+			if statementCard(row.Account) {
 				cards[row.Account.ID] = row.Account
+			}
+			if includeHoldings && history.TradeAccount(row.Account) {
+				holdings.accounts = append(holdings.accounts, row.Account)
+				holdingIDs[row.Account.ID.String()] = true
 			}
 		}
 		for _, session := range sessions {
 			if account, ok := cards[candidates[session.ID]]; ok {
 				out = append(out, taskStatement{session, account})
 			}
+			if session.Status == "in_progress" || session.Status == "paused" {
+				for _, id := range session.AccountIDs {
+					if holdingIDs[id] {
+						holdings.sessions = append(holdings.sessions, session)
+						break
+					}
+				}
+			}
 		}
 		return nil
 	})
-	return out, err
+	return out, holdings, err
 }
 
 func (p *tasksPage) reviewRows(view ui.View) []layout.Widget {

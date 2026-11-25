@@ -263,7 +263,7 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	reopened.SetClock(late)
 	reopenedRef.SetClock(late)
 	checkReview(wailsReview(reopened), wailsReview(reopenedRef), "stale")
-	reopenedSessions, err := readTaskStatements(ctx, reopened)
+	reopenedSessions, _, err := readTaskReconciliation(ctx, reopened, false)
 	if err != nil || len(reopenedSessions) != 2 || !slices.ContainsFunc(reopenedSessions, func(row taskStatement) bool { return row.session.ID == fixture.paused }) {
 		t.Fatalf("session list was not preserved at reopen: %+v / %v", reopenedSessions, err)
 	}

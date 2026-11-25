@@ -1577,7 +1577,7 @@ account, exact quantity change, resulting quantity and any recorded unit cost.
 | Wails and Gio | The reference and Gio both rejected an omitted acquisition cost. Gio kept an invalid nine-place input editable and then accepted USD 12.12345678. The shared stores agreed on addition of 0.625 units, removal of 0.125, 2.5 resulting units and the full holding cost and valuation read. SQLite reopen retained one original Holding, both events, the exact unit cost, and unchanged USD 156 cash. |
 | Focus and validation | Keyboard confirmation, Ledger Back and Cancel restored the action. An excess removal failed through the shared preview. Switching to Remove cleared the cost. The adjustment selector and custody selector share the same batch account, instrument and holding read. |
 | Packaged Linux X11 | The 1160×820 form rejected nine decimal places, then posted 0.5 added units at USD 12.12345678 using keyboard confirmation. At 640×480, Remove hid the cost input and keyboard confirmation removed 0.125 units. Ledger Back restored the action. Normal reopen and read-only SQLite showed 1.125 units on the same Harbor Holding, one exact acquisition cost and a removal that recorded only quantity. The other holding, both cash balances, original quote, and source-file hashes were unchanged. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared application/domain/Wails Go checks and four Wails adjustment frontend cases passed. See the separate [account and holding entry](#account-and-holding-quantity-adjustments). Standalone basis correction in Reconciliation and custody correction and reversal remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared application/domain/Wails Go checks and four Wails adjustment frontend cases passed. See the separate [account and holding entry](#account-and-holding-quantity-adjustments). See also [standalone basis correction](#reconciliation-total-cost-correction). Custody correction and reversal remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Account and holding quantity adjustments
 
@@ -1598,6 +1598,34 @@ within the Reconciliation form.
 | Gio and Wails adapter | The synthetic regression verified the account picker excludes an unrelated holding, the row action locks the original Holding ID, and Cancel and Ledger Back restore focus. Independent Go adapter posts agreed on adding 0.125 units with USD 18.12345678 original unit cost and removing 0.25 units. The reopened position held 1.875 units, with the unrelated 7-unit position and USD 156 cash intact. |
 | Packaged Linux X11 | At 1160×820, the Harbor Brokerage picker selected ALPHA and keyboard confirmation added 0.5 units at USD 12.12345678. At 640×480, the holding shortcut removed 0.125 units without a cost input. Return after Ledger Back reopened the same holding action. Quit and reopen showed both receipts. SQLite verified 1.375 units on the same Holding, two exact position effects and two mutation keys, with the source database and settings hashes unchanged. |
 | Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and four focused Wails frontend cases passed. Session-linked **Record a change** for quantity changes and custody amendments remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+
+#### Reconciliation total cost correction
+
+**Tasks & checks → Reconciliation → Holdings reconciliation** lists open and
+paused sessions with active Holdings accounts. Start a session for one account
+or open and, if necessary, resume an existing session. In the session, each
+ordinary holding shows its quantity and current unit cost or missing cost
+evidence. **Correct total cost** opens the selected account and Holding with
+its currency fixed. Enter the whole position's total cost and review the
+shared result with the unchanged quantity, old and new unit costs, and
+entered total. Gio uses the same session and adjustment preview, posting,
+revision guards and receipts as Wails.
+[Wails session and adjustment forms](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Wails Go adapter](../../../internal/wailsapi/reconciliation/reconciliation.go)
+
+Gio places the cost-only action on the holding card. Wails places the whole
+holding total in the general adjustment form alongside quantity and added-unit
+cost. Gio sends a total-cost-only request to the same service, which resolves
+the unchanged quantity and supported precision. Cancel returns to the same
+action. A stale review retains the draft and refreshes the evidence before a
+new review. An uncertain save retries the same plan, and successful readback
+returns to the same Holding. The broader Wails session lifecycle and
+session-linked quantity changes remain separate.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | The same holding, account and session item were retained through review and reopen. Against the independent Wails adapter request, total USD 31.2468 yielded USD 15.6234 unit cost on 2 units. Validation retained invalid input. Cancel left no financial link, a real pause and resume invalidated the old preview, and a synthetic lost acknowledgement retried the same plan with one correction. Cancel, Back and successful readback restored the initiating focus. USD 156 cash was unchanged. |
+| Packaged Linux X11 | At 1160×820, a session review showed the selected account, and canceling a second start did not create another session. At 640×480, keyboard review of USD 13.5802 on 1.375 units showed USD 9.87650909 per unit. Cancel and Return reopened the same holding. Keyboard confirmation and normal reopen showed the corrected unit cost on the original Holding. Read-only SQLite verified a single linked correction, unchanged quantity, source hashes, cash and quote rows. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go application and Wails adapter tests, and eight focused Wails Reconciliation frontend cases passed. Multi-account creation, general item verification and closure, session-linked quantity changes and custody amendments remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1784,16 +1812,18 @@ The experimental shell now supports Holdings and instrument detail, domestic
 and foreign-currency settlement for ordinary buys and sales, cash dividends in
 the default account currency, multiple pre-History positions with native costs,
 dated position import from Accounts and Investment Assets, and custody transfers from
-Ledger and Holdings account detail. Ledger also supports quantity adjustments
-with original unit costs on additions. Available Funds has a Today view
+Ledger and Holdings account detail. Ledger and account or holding actions
+support quantity adjustments with original unit costs on additions. The
+Holdings reconciliation session supports a standalone whole-position cost
+correction. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes scoped position adjustments, custody
-amendments, standalone Reconciliation cost corrections, inline instrument creation, market quote
-calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
+Broader investment work still includes custody amendments, session-linked
+quantity changes, inline instrument creation, market quote calculators,
+instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
@@ -2400,10 +2430,19 @@ Agent evidence.
 | Packaged Linux X11 | At 1260×1050 the synthetic fund showed its USD 17.12345678 NAV and source. At 640×480 the date picker saved November 24 and showed the closed-date receipt. Escape and Return reopened the selected row. Quit and reopen showed the closure alongside the original NAV. SQLite retained both original price rows and one added closure receipt. Source database and settings hashes matched. The packaged test used deterministic providers. |
 | Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. This view loads the shared household audit only when opened and filters to the selected target. No benchmark was run. Wails GUI, macOS, Wayland, VoiceOver and native IME remain open. |
 
+#### Stage 5 CI follow-up
+
+The earlier [`05017cf6` Wails frontend run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45649787889)
+failed the Holdings account grouping test when it could not find **Holding
+details** after expanding. Its cause remains unresolved. A local run of the
+file and the later [`37030357` run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45650312662)
+passed. The [`1108ef3b` run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45652375887)
+for scoped adjustments also passed. No Wails timing behavior was changed.
+
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with standalone Reconciliation cost corrections, custody
-amendments, session-linked quantity adjustments and broader account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with custody amendments, session-linked quantity adjustments
+and broader account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

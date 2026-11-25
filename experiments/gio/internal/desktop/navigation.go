@@ -160,6 +160,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved()) {
 		return
 	}
+	if s.tasks != nil && s.tasks.holdingRecon.unresolved() {
+		return
+	}
 	if s.portfolio != nil && s.portfolio.investment.unresolved() {
 		return
 	}
@@ -260,6 +263,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == tasksRoute {
+		s.tasks.holdingRecon.discard()
 		s.tasks.leave()
 	}
 	if entry.target.route == portfolioRoute {

@@ -1659,6 +1659,25 @@ const (
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab
+	HoldingReconTitle
+	HoldingReconStart
+	HoldingReconOpen
+	HoldingReconBack
+	HoldingReconCorrect
+	HoldingReconTotal
+	HoldingReconBasis
+	HoldingReconNewBasis
+	HoldingReconReviewedTotal
+	HoldingReconReview
+	HoldingReconResume
+	HoldingReconConfirm
+	HoldingReconSaved
+	HoldingReconChanged
+	HoldingReconInvalidTotal
+	HoldingReconUnchanged
+	HoldingReconFailed
+	HoldingReconRetry
+	HoldingReconEmpty
 	TasksChecksLoading
 	TasksChecksReadFailed
 	TasksReviewPublished
