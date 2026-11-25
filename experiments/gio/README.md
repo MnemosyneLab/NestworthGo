@@ -32,6 +32,9 @@ verified run directory to see saved preferences. A new fixture uses system
 appearance, system language, the Indigo color theme, a 12-hour quote cache,
 and file logging off.
 
+The preview remembers the last window size in the active profile. Resize the
+window and reopen that profile to restore the same dimensions.
+
 The sidebar footer applies its choices immediately. Its language menu offers
 English, Simplified Chinese, Traditional Chinese and Japanese. Its appearance
 button cycles through system, light and dark. Both are available when the

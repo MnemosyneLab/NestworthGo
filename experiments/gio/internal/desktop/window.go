@@ -3,15 +3,18 @@ package desktop
 import (
 	"context"
 	"image"
+	"math"
 	"time"
 
 	"gioui.org/app"
 	"gioui.org/op"
+	"gioui.org/unit"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/settings"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
@@ -72,11 +75,34 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
 		version: service.MobileDataVersion})
 	shell.onboarding = onboarding
-	return shell.run(window)
+	return shell.run(window, prefs)
 }
 
-func (s *shell) run(window *app.Window) error {
-	window.Option(app.Title(pilot.DisplayName), app.Size(1120, 840), app.MinSize(700, 460))
+func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
+	initial := prefs.WindowSize()
+	window.Option(app.Title(pilot.DisplayName), app.Size(unit.Dp(initial.X), unit.Dp(initial.Y)),
+		app.MinSize(settings.MinWindowWidth, settings.MinWindowHeight))
+
+	pending := make(chan image.Point, 1)
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		for size := range pending {
+			prefs.RememberWindowSize(s.prefs.ctx, size)
+		}
+	}()
+	var lastSize image.Point
+	defer func() {
+		close(pending)
+		<-finished
+		// A Settings reset already in progress may have restored the defaults.
+		// Flush the actual closing size after that write completes.
+		s.prefs.wait()
+		if lastSize != (image.Point{}) {
+			prefs.RememberWindowSize(s.prefs.ctx, lastSize)
+		}
+	}()
+
 	ax := accessibility.New(window)
 	defer ax.Close()
 	var ops op.Ops
@@ -92,6 +118,17 @@ func (s *shell) run(window *app.Window) error {
 				window.Invalidate()
 			}
 		case app.FrameEvent:
+			size := image.Pt(int(math.Round(float64(event.Metric.PxToDp(event.Size.X)))),
+				int(math.Round(float64(event.Metric.PxToDp(event.Size.Y)))))
+			if size != lastSize && preferences.ValidWindowSize(size) {
+				lastSize = size
+				// Keep the newest resize queued without blocking the render loop.
+				select {
+				case <-pending:
+				default:
+				}
+				pending <- size
+			}
 			gtx := ax.Begin(app.NewContext(&ops, event))
 			s.layout(gtx)
 			event.Frame(gtx.Ops)
