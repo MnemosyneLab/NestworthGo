@@ -195,7 +195,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	release()
 	settle()
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
-	if len(fault.attempts) != 2 || !accounts.investmentUnresolved() {
+	if len(fault.attempts) != 2 || !accounts.investment.unresolved() {
 		t.Fatal("a duplicate click started another write or the uncertain plan was discarded")
 	}
 	h.click("Overview", false)
@@ -361,16 +361,16 @@ func TestFirstBuyDefaultPreservesImmediateHistoryTime(t *testing.T) {
 	}
 	page := newAccountsPage(ctx, app, func() time.Time { return now }, func() {})
 	page.investment = &accountInvestment{service: app, draft: &accountInvestmentDraft{account: row.Account, kind: domain.ActivityBuy}}
-	page.loadInvestmentSources()
+	page.investment.loadSources(page.investmentRuntime())
 	page.workers.Wait()
-	page.pollInvestment()
+	page.investment.poll(page.investmentRuntime())
 	draft := page.investment.draft
 	draft.chooseInstrument(ids.instrument)
 	draft.quantity.Editor.SetText("1")
 	draft.gross.Editor.SetText("20")
-	page.previewInvestment()
+	page.investment.preview(page.investmentRuntime())
 	page.workers.Wait()
-	page.pollInvestment()
+	page.investment.poll(page.investmentRuntime())
 	if draft.review == nil || !draft.review.Preview.Activity.EffectiveAt.Equal(now) {
 		t.Fatalf("default must preserve %s after origin %s: %+v / %v", now, originAt, draft.review, draft.problem)
 	}

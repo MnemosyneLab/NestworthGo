@@ -127,7 +127,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 		}
 		if f.draft != nil {
-			return p.layoutInvestment(gtx, view)
+			return f.layoutForm(gtx, view, p.investmentRuntime())
 		}
 	}
 	detail := p.target.account != ""

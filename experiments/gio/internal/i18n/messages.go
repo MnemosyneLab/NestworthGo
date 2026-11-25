@@ -1483,6 +1483,9 @@ const (
 	PositionImportReviewFailed
 	PositionImportStale
 	PositionImportPosted
+	PositionImportAccount
+	PositionImportPortfolioAction
+	PositionImportBackPortfolio
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost

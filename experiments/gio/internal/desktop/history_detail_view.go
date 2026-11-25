@@ -61,8 +61,10 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		title = historyKindLabel(r.posted.Kind, r.posted.Reason)
 	}
 	backLabel := i18n.ContributionBack
-	if r.backToAccount != nil && r.backToAccount() {
-		backLabel = i18n.LiabilityBackToAccount
+	if r.postedBackLabel != nil {
+		if label := r.postedBackLabel(); label != i18n.NoMessage {
+			backLabel = label
+		}
 	}
 
 	children := []ui.ColumnChild{

@@ -132,7 +132,7 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	}
 	h.clickAt(box.Min.Add(box.Max).Div(2))
 	h.click("Back", false)
-	if h.shell.activeRoute() != accountsRoute || !p.investmentUnresolved() {
+	if h.shell.activeRoute() != accountsRoute || !p.investment.unresolved() {
 		t.Fatal("pending trade allowed dismissal")
 	}
 	release()

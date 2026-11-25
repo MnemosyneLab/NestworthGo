@@ -141,7 +141,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	settle()
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
 	h.click("Overview", false)
-	if h.shell.activeRoute() != accountsRoute || len(fault.attempts) != 1 || !accounts.investmentUnresolved() {
+	if h.shell.activeRoute() != accountsRoute || len(fault.attempts) != 1 || !accounts.investment.unresolved() {
 		t.Fatal("the uncertain sale allowed navigation or an extra submission")
 	}
 	click("Retry same submission")

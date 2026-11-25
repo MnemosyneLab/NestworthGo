@@ -377,9 +377,10 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.accounts.liabilityPosting.history = s.historyPage
 		}
 		if s.accounts != nil && s.accounts.investment != nil {
-			s.accounts.investment.onPosted = func(activity domain.Activity, notice i18n.MessageID, from event.Tag) {
-				s.historyPage.showPosted(activity, notice, from)
-			}
+			s.accounts.investment.onPosted = s.historyPage.showPosted
+		}
+		if s.portfolio != nil && s.portfolio.investment != nil {
+			s.portfolio.investment.onPosted = s.historyPage.showPosted
 		}
 		if s.accounts != nil {
 			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
@@ -393,21 +394,27 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				s.trail.rename(target, name)
 			}
 		}
-		s.historyPage.reads.backToAccount = func() bool {
+		s.historyPage.reads.postedBackLabel = func() i18n.MessageID {
 			source := s.trail.adjacent(-1)
-			if source == nil || source.target.route != accountsRoute || s.accounts == nil {
-				return false
+			if source == nil {
+				return i18n.NoMessage
+			}
+			if source.target.route == portfolioRoute && s.portfolio != nil && s.portfolio.investment != nil && source.focus == &s.portfolio.investment.importOpen {
+				return i18n.PositionImportBackPortfolio
+			}
+			if source.target.route != accountsRoute || s.accounts == nil {
+				return i18n.NoMessage
 			}
 			if f := s.accounts.liabilityPosting; f != nil && source.focus == &f.open {
-				return true
+				return i18n.LiabilityBackToAccount
 			}
-			if f := s.accounts.investment; f != nil {
-				return source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend || source.focus == &f.importOpen
+			if f := s.accounts.investment; f != nil && (source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend || source.focus == &f.importOpen) {
+				return i18n.LiabilityBackToAccount
 			}
-			return false
+			return i18n.NoMessage
 		}
 		s.historyPage.reads.back = func() {
-			if s.historyPage.reads.backToAccount() {
+			if s.historyPage.reads.postedBackLabel() != i18n.NoMessage {
 				s.pendingNavigation = &navigationRequest{step: -1}
 				return
 			}
@@ -507,7 +514,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
 		s.accounts.pollLiabilityPosting()
-		s.accounts.pollInvestment()
+		s.accounts.investment.poll(s.accounts.investmentRuntime())
 		s.accounts.pollOpeningPosition()
 		if s.accounts.pollInlineInstitution() && s.directory != nil {
 			for _, list := range s.directory.lists {

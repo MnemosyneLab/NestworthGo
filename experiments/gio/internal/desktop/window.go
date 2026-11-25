@@ -55,6 +55,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	dataHealth := &dataHealthPage{ctx: ctx, reader: service, invalidate: window.Invalidate, repair: healthRepair,
 		snapshots: dataHealthSnapshots{service: service}}
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
+	portfolio.investment, portfolio.clock = &accountInvestment{service: service}, clock
 	tasks := newTasksPage(ctx, service, window.Invalidate)
 	tasks.checks = service
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)

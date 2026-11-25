@@ -19,11 +19,11 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout.Dimensions {
-	f, l := p.investment, view.Language
+func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run investmentRuntime) layout.Dimensions {
+	l := view.Language
 	d := f.draft
 	labels := d.labels()
-	if !p.investmentUnresolved() && d.cancel.Clicked(gtx) {
+	if !f.unresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
 		f.restore = f.action(d.kind)
 		view.RestorePageScroll(0)
@@ -32,18 +32,18 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 	}
 	gtx, view = view.Measure(gtx, 690)
 	if d.review != nil {
-		return p.layoutInvestmentReview(gtx, view)
+		return f.layoutReview(gtx, view, run)
 	}
 	if d.sourceProblem != i18n.NoMessage && d.retry.Clicked(gtx) {
-		p.loadInvestmentSources()
+		f.loadSources(run)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.previewing == nil && d.preview.Clicked(gtx) {
-		p.previewInvestment()
+		f.preview(run)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.sources != nil && d.previewing == nil && d.useNow.Clicked(gtx) {
-		d.captureTime(p.clock())
+		d.captureTime(run.clock())
 		d.problem = i18n.NoMessage
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -52,9 +52,17 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, tradeTitle(view, labels.action))
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	}
+	if d.pickAccount {
+		if len(d.accounts) != 0 {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return fieldPosition(gtx, &origin, f.layoutImportAccount(view, origin, run))
+			}))
+		}
+	} else {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, view.Message(d.account.Name+" · "+d.account.DefaultCurrency.String(), view.Colors.Ink))
-		}),
+		}))
 	}
 	if d.sources != nil && len(d.sources.Instruments) != 0 {
 		if d.kind == domain.ActivityPositionTransfer {
@@ -77,7 +85,7 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 				return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view))
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return d.layoutInvestmentTime(gtx, view, origin, p.clock())
+				return d.layoutInvestmentTime(gtx, view, origin, run.clock())
 			}),
 			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), d.sources.Location), view.Colors.SecondaryInk)),
 		)
@@ -121,6 +129,34 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+}
+
+func (f *accountInvestment) layoutImportAccount(view ui.View, origin image.Point, run investmentRuntime) layout.Widget {
+	d := f.draft
+	items := make([]ui.Choice, 0, len(d.accounts))
+	for _, account := range d.accounts {
+		items = append(items, ui.Choice{ID: account.ID.String(), Label: account.Name + " · " + account.DefaultCurrency.String()})
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		if d.focusAccount && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: &d.selectAccount.Trigger})
+			d.focusAccount = false
+		}
+		field := ui.PickerField{Label: i18n.PositionImportAccount, Origin: origin, Disabled: d.previewing != nil, Next: &d.selectInstrument.Trigger}
+		d.selectAccount.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.account.ID.String(), func(id string) {
+			if id == d.account.ID.String() {
+				return
+			}
+			at := slices.IndexFunc(d.accounts, func(account domain.Account) bool { return account.ID.String() == id })
+			if at < 0 {
+				return
+			}
+			d.account, d.focusInput = d.accounts[at], true
+			d.chooseInstrument("")
+			f.loadSources(run)
+		})
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+	}
 }
 
 func (d *accountInvestmentDraft) layoutInvestmentInstrument(view ui.View, origin image.Point) layout.Widget {
@@ -229,10 +265,10 @@ func (d *accountInvestmentDraft) layoutInvestmentTime(gtx layout.Context, view u
 	)
 }
 
-func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) layout.Dimensions {
-	d, l := p.investment.draft, view.Language
+func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run investmentRuntime) layout.Dimensions {
+	d, l := f.draft, view.Language
 	labels := d.labels()
-	if !p.investmentUnresolved() && d.edit.Clicked(gtx) {
+	if !f.unresolved() && d.edit.Clicked(gtx) {
 		d.review, d.focusInput = nil, true
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
@@ -243,7 +279,7 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 		confirm = &d.retryConfirm
 	}
 	if d.posting == nil && confirm.Clicked(gtx) {
-		p.postInvestment()
+		f.post(run)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.focusReview && gtx.Enabled() {

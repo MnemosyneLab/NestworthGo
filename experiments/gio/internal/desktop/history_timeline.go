@@ -85,21 +85,21 @@ type historyReads struct {
 	invalidate func()
 	workers    sync.WaitGroup
 
-	references     *history.References
-	refsRead       <-chan historyResult[history.References]
-	refsCancel     context.CancelFunc
-	refsErr        error
-	detail         *historyDetailVisit
-	buttons        map[domain.ActivityID]*widget.Clickable
-	posted         domain.Activity
-	postedNotice   i18n.MessageID
-	open           func(id domain.ActivityID, focus event.Tag)
-	openAccount    func(id domain.AccountID, name string, focus event.Tag)
-	openInstrument func(id domain.InstrumentID, name string, focus event.Tag)
-	openProduct    func(id domain.ProductContractID, name string, focus event.Tag)
-	back           func()
-	backToAccount  func() bool
-	rename         func(id domain.ActivityID, name string)
+	references      *history.References
+	refsRead        <-chan historyResult[history.References]
+	refsCancel      context.CancelFunc
+	refsErr         error
+	detail          *historyDetailVisit
+	buttons         map[domain.ActivityID]*widget.Clickable
+	posted          domain.Activity
+	postedNotice    i18n.MessageID
+	open            func(id domain.ActivityID, focus event.Tag)
+	openAccount     func(id domain.AccountID, name string, focus event.Tag)
+	openInstrument  func(id domain.InstrumentID, name string, focus event.Tag)
+	openProduct     func(id domain.ProductContractID, name string, focus event.Tag)
+	back            func()
+	postedBackLabel func() i18n.MessageID
+	rename          func(id domain.ActivityID, name string)
 }
 
 type historyPageReader struct{ service history.AmendmentLedger }

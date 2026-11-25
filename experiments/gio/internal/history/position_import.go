@@ -10,6 +10,29 @@ import (
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
+type PositionImportAccountReader interface {
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
+	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
+}
+
+func PositionImportAccounts(ctx context.Context, reader PositionImportAccountReader) ([]domain.Account, error) {
+	origin, err := reader.HistoryOrigin(ctx)
+	if err != nil || origin == nil {
+		return nil, err
+	}
+	rows, err := reader.ListAccounts(ctx, domain.AccountFilter{})
+	if err != nil {
+		return nil, err
+	}
+	var accounts []domain.Account
+	for _, row := range rows {
+		if TradeAccount(row.Account) {
+			accounts = append(accounts, row.Account)
+		}
+	}
+	return accounts, nil
+}
+
 type PositionImportInput struct {
 	Account     domain.AccountID
 	Instrument  domain.InstrumentID
