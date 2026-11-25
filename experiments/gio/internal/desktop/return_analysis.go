@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/widget"
 
@@ -81,9 +82,9 @@ type returnAnalysisPage struct {
 	yearCells                     [12]widget.Clickable
 	day                           *returnDaySheet
 	item                          *contributionSheet
-	returnFocus                   *widget.Clickable
+	returnFocus                   event.Tag
 	openAssets                    func(analysisSelection, *widget.Clickable)
-	openHistory                   func(history.Filters, *widget.Clickable)
+	openHistory                   func(history.Filters, event.Tag)
 }
 
 func (p *returnAnalysisPage) enter() {

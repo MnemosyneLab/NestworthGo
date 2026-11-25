@@ -574,6 +574,8 @@ var simplifiedChineseCatalog = catalog{
 	RankingRateDesc:  "收益率最高",
 	RankingRateAsc:   "收益率最低",
 
+	RankingChartSummary: "按金额显示贡献。使用方向键移动，按 Enter 打开明细。",
+
 	ReturnMetric:  "收益类型",
 	ReturnGroupBy: "分组依据",
 	ReturnSort:    "排序",

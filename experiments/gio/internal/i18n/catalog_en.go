@@ -574,6 +574,8 @@ var englishCatalog = catalog{
 	RankingRateDesc:  "Highest return rate",
 	RankingRateAsc:   "Lowest return rate",
 
+	RankingChartSummary: "Contributions by amount. Use the arrow keys to move and Enter to open the breakdown.",
+
 	ReturnMetric:  "Return type",
 	ReturnGroupBy: "Group by",
 	ReturnSort:    "Sort",

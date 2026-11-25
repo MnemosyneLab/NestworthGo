@@ -381,6 +381,7 @@ const (
 	RankingNegative
 	RankingLargest
 	RankingMain
+	RankingChartSummary
 	RankingDetails
 	RankingSearch
 	RankingNoMatches

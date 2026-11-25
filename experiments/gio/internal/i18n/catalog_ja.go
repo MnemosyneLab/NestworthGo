@@ -573,6 +573,8 @@ var japaneseCatalog = catalog{
 	RankingRateDesc:  "リターン率の高い順",
 	RankingRateAsc:   "リターン率の低い順",
 
+	RankingChartSummary: "金額別の寄与。矢印キーで移動し、Enter キーで内訳を開きます。",
+
 	ReturnMetric:  "収益の種類",
 	ReturnGroupBy: "グループ化",
 	ReturnSort:    "並べ替え",

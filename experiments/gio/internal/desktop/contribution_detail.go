@@ -3,10 +3,10 @@ package desktop
 import (
 	"context"
 
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -22,19 +22,19 @@ type contributionSheet struct {
 	metric  application.ContributionReturnType
 	key     string
 	name    string
-	button  *widget.Clickable
+	trigger event.Tag
 	request <-chan historyResult[application.ContributionItemResult]
 	cancel  context.CancelFunc
 	value   *application.ContributionItemResult
 	err     error
 }
 
-func (p *returnAnalysisPage) openContribution(rowKey, name string, button *widget.Clickable) {
+func (p *returnAnalysisPage) openContribution(rowKey, name string, trigger event.Tag) {
 	result := p.current
 	p.item = &contributionSheet{
 		analysisSheet: newAnalysisSheet(), query: result.query,
 		group: result.contribution.GroupBy, metric: result.contribution.ReturnType,
-		key: rowKey, name: name, button: button,
+		key: rowKey, name: name, trigger: trigger,
 	}
 	p.output.selectedKey = rowKey
 	p.readContribution()
@@ -52,7 +52,7 @@ func (p *returnAnalysisPage) readContribution() {
 
 func (p *returnAnalysisPage) closeContribution() {
 	p.item.cancel()
-	p.returnFocus = p.item.button
+	p.returnFocus = p.item.trigger
 	p.item = nil
 }
 
@@ -83,7 +83,7 @@ func (p *returnAnalysisPage) layoutContributionSheet(gtx layout.Context, view ui
 			action = i18n.ContributionOpenHistory
 			if sheet.action.Clicked(gtx) {
 				p.closeContribution()
-				p.openHistory(filters, sheet.button)
+				p.openHistory(filters, sheet.trigger)
 				gtx.Execute(op.InvalidateCmd{})
 				return
 			}

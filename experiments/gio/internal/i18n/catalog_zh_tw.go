@@ -574,6 +574,8 @@ var traditionalChineseCatalog = catalog{
 	RankingRateDesc:  "報酬率最高",
 	RankingRateAsc:   "報酬率最低",
 
+	RankingChartSummary: "按金額顯示貢獻。使用方向鍵移動，按 Enter 開啟明細。",
+
 	ReturnMetric:  "收益類型",
 	ReturnGroupBy: "分組依據",
 	ReturnSort:    "排序",

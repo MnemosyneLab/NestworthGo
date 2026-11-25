@@ -1599,7 +1599,28 @@ the data table in the page scroll.
 | Wails and Gio | 66 Wails Return Analysis and insight tab tests passed. The focused root Go projection and Wails request tests passed. Gio frame tests exercised the normal shell, chart selection and clearing with the keyboard, linked mode, and the keyboard-readable table at 700×480 in dark appearance. |
 | Build and tests | The full Gio module suite, `go vet ./...` and the packaged native Linux launcher passed on the combined tree. |
 | Linux X11 | The packaged preview on a verified synthetic portfolio showed the October 31 zero and November 2 USD 5.25. Keyboard selection of November 4 showed Missing valuation and Unavailable. Daily mode selected November 6 at −USD 2.50. Linked-rate mode started November 1 with no cumulative baseline. At 1180×1000 the gap interrupted the chart; after reopening the synthetic fixture in dark appearance, the plot and daily table remained readable at 700×480. |
-| Open | Contribution ranking, Asset Changes and Wealth History chart adapters remain separate milestones. Native Mac, Wayland and assistive technology acceptance remain open. |
+| Open | Asset Changes and Wealth History chart adapters remain separate milestones. Native Mac, Wayland and assistive technology acceptance remain open. |
+
+#### Contribution ranking chart and detail
+
+Contribution follows the Wails order of summary, direction and count, main
+ranking, then searchable details. The signed bars share a centered zero axis
+and reuse the same exact magnitude ordering and limit as the ranking table.
+The chart has one tab stop and supports arrows and Enter. Gio keeps a separate
+keyboard-readable list of the ranked rows alongside the independent Details
+search. It also keeps the established detail and Ledger activity actions.
+
+Selecting a bar opens the same Wails-backed Contribution detail as selecting
+the corresponding text row. Closing the detail restores its trigger. Opening
+Ledger activity carries the supported account, instrument, civil dates and
+activity kinds. Back restores the chart focus and selected contribution, and
+Enter can reopen the same detail.
+
+| Check | Evidence |
+| --- | --- |
+| Projection and interaction | The signed fixture preserves USD 5.25, −USD 2.50 and an actual zero in magnitude order. A row without an amount stays out of the ranking. The Wails-backed Gio interaction checks the chart and text-row detail, the effective Ledger activity filters, and Back and Escape focus. |
+| Linux X11 | The packaged app displayed both signed funds. Selecting Loss fund opened −USD 2.50. Escape and Enter restored the detail. Ledger activity retained Sample broker, Loss fund and November 1–24. Back plus Enter reopened Loss fund. The chart and amounts remained visible at 700×480 after scrolling. |
+| Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared Contribution Go tests and 39 Wails Contribution and Insight Tabs tests passed. Native Mac, Wayland and VoiceOver remain open. |
 
 #### Asset Changes and the Return day link
 

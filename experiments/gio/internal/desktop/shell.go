@@ -248,7 +248,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 	}
 	if s.returns != nil && s.historyPage != nil && s.historyPage.reads != nil {
-		s.returns.openHistory = func(filters history.Filters, focus *widget.Clickable) {
+		s.returns.openHistory = func(filters history.Filters, focus event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
 				focus: focus, historyFilters: filters}
 		}

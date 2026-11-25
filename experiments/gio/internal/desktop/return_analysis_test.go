@@ -380,7 +380,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.")
 	assertPageLabel(t, &h.router, "The member filter does not carry over to Ledger activity.")
-	rank := page.item.button
+	rank := page.item.trigger
 	h.click("View in Ledger activity", false)
 	for range 3 {
 		ledger.model.Wait()
@@ -402,6 +402,39 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if page.output.ranking.search.Field.Text() != "synthetic" || page.output.ranking.limit != 20 {
 		t.Fatal("Back lost the Contribution result controls")
 	}
+	chart := &page.output.ranking.chart
+	h.router.Source().Execute(key.FocusCmd{Tag: chart})
+	h.frame()
+	h.focused(chart)
+	h.press(key.NameHome)
+	h.press(key.NameReturn)
+	page.workers.Wait()
+	h.frame()
+	if page.item == nil || page.item.trigger != chart || page.item.key != instrument.ID.String() || page.item.value == nil {
+		t.Fatal("the chart selection did not open the matching Contribution detail")
+	}
+	h.click("View in Ledger activity", false)
+	for range 3 {
+		ledger.model.Wait()
+		ledger.reads.workers.Wait()
+		h.frame()
+	}
+	if h.shell.activeRoute() != historyRoute || !ledger.model.Filters().Equal(wantHistory) {
+		t.Fatal("the chart selection changed the supported ledger filters")
+	}
+	h.click("Back", false)
+	page.workers.Wait()
+	h.frame()
+	h.focused(chart)
+	h.press(key.NameReturn)
+	page.workers.Wait()
+	h.frame()
+	if page.item == nil || page.item.key != instrument.ID.String() {
+		t.Fatal("Back did not restore the originating chart selection")
+	}
+	h.press(key.NameEscape)
+	h.frame()
+	h.focused(chart)
 }
 
 func TestReturnCalendarGridUsesWholeWeeks(t *testing.T) {

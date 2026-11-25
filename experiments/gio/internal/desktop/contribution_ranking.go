@@ -13,6 +13,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -37,6 +38,7 @@ type contributionRanking struct {
 	list      widget.List
 	search    ui.SearchField
 	buttons   map[string]*widget.Clickable
+	chart     charts.BarChart
 }
 
 func rankedContributionRows(rows []application.ContributionRow, direction contributionDirection, limit int) []application.ContributionRow {
@@ -174,8 +176,12 @@ func (p *returnAnalysisPage) layoutRankedContributions(gtx layout.Context, view 
 		})
 	}
 	count := fmt.Sprintf(l.Text(i18n.RankingVisible), len(ranked), len(data.Rows))
-	return (ui.Column{Gap: 8}).Layout(gtx,
-		ui.Rigid(controls), ui.Rigid(body), ui.Rigid(view.Message(count, view.Colors.SecondaryInk)))
+	rows := []ui.ColumnChild{ui.Rigid(controls)}
+	if len(ranked) > 0 {
+		rows = append(rows, ui.Rigid(p.contributionRankingChart(view, data, ranked)))
+	}
+	return (ui.Column{Gap: 8}).Layout(gtx, append(rows,
+		ui.Rigid(body), ui.Rigid(view.Message(count, view.Colors.SecondaryInk)))...)
 }
 
 func (p *returnAnalysisPage) contributionName(l i18n.Language, group application.ContributionGroupBy, row application.ContributionRow) string {
