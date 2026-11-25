@@ -168,7 +168,13 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(group), view.Colors.Ink)))
 	}
 	source := i.QuoteCurrency.String() + " · " + marketSourceLabel(l, i.QuoteSource)
+	if i.QuoteSource == domain.QuoteSourceProvider && i.ProviderKey != nil && i.ProviderSymbol != nil {
+		source += " · " + instrumentProviderLabel(l, *i.ProviderKey) + " · " + *i.ProviderSymbol
+	}
 	actions := p.marketHistoryAction(gtx, view, i.ID.String(), marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel()})
+	if p.instrumentSources != nil {
+		actions = append(actions, p.instrumentSourceAction(gtx, view, i))
+	}
 	if p.manual.service != nil && manualPriceAvailable(i) {
 		if p.manual.prices == nil {
 			p.manual.prices = make(map[string]*widget.Clickable)

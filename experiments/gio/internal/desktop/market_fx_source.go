@@ -18,14 +18,14 @@ type marketFXSourceWriter interface {
 	SetFXPreference(context.Context, string, string, string) (domain.FXPreference, error)
 }
 
-var marketFXSourceOptions = [...]domain.QuoteSourceKind{domain.QuoteSourceManual, domain.QuoteSourceProvider, domain.QuoteSourceAgent}
+var marketQuoteSourceChoices = [...]domain.QuoteSourceKind{domain.QuoteSourceManual, domain.QuoteSourceProvider, domain.QuoteSourceAgent}
 
 type marketFXSourceDraft struct {
 	sheet         analysisSheet
 	pair          marketFXPair
 	old, selected domain.QuoteSourceKind
 	from          event.Tag
-	options       [len(marketFXSourceOptions)]widget.Clickable
+	options       [len(marketQuoteSourceChoices)]widget.Clickable
 	request       <-chan historyResult[domain.FXPreference]
 	err           error
 }
@@ -69,7 +69,7 @@ func (p *marketDataPage) layoutFXSource(gtx layout.Context, view ui.View) (event
 		gtx.Execute(op.InvalidateCmd{})
 		return d.from, nil
 	}
-	for i, source := range marketFXSourceOptions {
+	for i, source := range marketQuoteSourceChoices {
 		if d.request == nil && d.options[i].Clicked(gtx) {
 			d.selected, d.err = source, nil
 			gtx.Execute(op.InvalidateCmd{})
@@ -98,7 +98,7 @@ func (p *marketDataPage) layoutFXSource(gtx layout.Context, view ui.View) (event
 						gtx = gtx.Disabled()
 					}
 					return (ui.Wrap{Gap: 7}).Layout(gtx, len(d.options), func(gtx layout.Context, i int) layout.Dimensions {
-						source := marketFXSourceOptions[i]
+						source := marketQuoteSourceChoices[i]
 						return analysisToggle(view, &d.options[i], marketSourceLabel(l, source), d.selected == source)(gtx)
 					})
 				}),

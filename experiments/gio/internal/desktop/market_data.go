@@ -92,6 +92,9 @@ type marketDataPage struct {
 	fxSourceWriter                      marketFXSourceWriter
 	fxSourceDraft                       *marketFXSourceDraft
 	fxSourceActions                     map[marketFXPair]*widget.Clickable
+	instrumentSources                   marketInstrumentSourceService
+	instrumentSource                    *marketInstrumentSourceDraft
+	instrumentSourceActions             map[string]*widget.Clickable
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {

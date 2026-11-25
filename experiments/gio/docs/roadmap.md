@@ -2072,7 +2072,39 @@ use their existing selected-date confirmation.
 | Gio and shared Go | Tests matched the JPY/USD plan with the Wails adapter, verified zero new scans or requests on preview dismissal, and verified one recheck per terminal job. A cancelled request retried the same scope and committed quotes only for JPY/USD. A separate FX source test covered compact dismissal, overlapping submission, a local storage error with retained choice, a successful Agent save without refresh, and a Provider save that read back 140.4321. The other pair kept its source. |
 | Wails reference | All 48 Quote History, Market Data, sync bar, Data Health and Snapshot Repair frontend tests passed. Focused shared Go and Wails Market Data adapter tests passed. |
 | Packaged Linux X11 | Overview opened the JPY/USD finding. At 640×480 Escape and Return reopened its preview. Confirming, cancelling and retrying committed 11 dated JPY/USD observations at 139.123456 and cleared the focused finding while the job retained other unresolved coverage. At 640×480, a Manual draft closed with JPY/USD still on Provider. An SGD/USD Agent selection saved at 1260×1050 and reopened on a new launch. SQLite contained only the selected JPY/USD historical quotes and the two expected source preferences. Source database and settings hashes matched. The packaged test substituted a deterministic provider. |
-| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. The instrument source and provider binding editor, provider instrument lookup and Agent coverage/closure workflows remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. [The instrument source editor](#instrument-quote-source-and-provider-binding) follows this checkpoint. Interactive Wails, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
+
+#### Instrument quote source and provider binding
+
+**Edit quote source** opens from a Market data instrument row or a Data
+Health binding prerequisite. The sheet shows the configured source and the
+instrument's currency. Manual, Provider and Agent are explicit choices.
+Provider exposes the available provider, its symbol and the market and
+country routing fields. Metal templates keep their fixed futures binding.
+
+The lookup uses the same application API as Wails. It is available for
+stocks and ETFs through Yahoo Finance and for cryptocurrencies through
+CoinGecko. Gio uses a **Look up instrument** button before sending the typed
+query. A result is identified by symbol, name, venue and currency. The
+source editor applies the provider binding and routing fields and keeps the
+existing catalog name, type, currency and other metadata. Results with a
+different reported type or currency can be inspected with their mismatch
+label. The selected source can also be configured with a known provider
+symbol without a lookup.
+
+Save uses the shared instrument writer under the ledger lock. Missing
+Provider fields show validation before submission. Failed lookups and saves
+can be retried, and failed saves retain the draft. A save rereads the active
+view and restores focus to the originating row or finding when it remains
+visible. Changing to Manual or Agent preserves the saved provider identity
+and existing quote observations. Lookup and save are separate actions.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | The compact interaction fixture typed into the lookup editor, verified the query stayed local until submission, retried a failed lookup, disabled a mismatched result, and used the compatible result. The first save failed with no write and the draft remained for retry. Wails readback matched Yahoo Finance, DEMO, NASDAQ and US. The USD 12.34567891 manual quote, name, alias, ticker, currency, note and sort order were preserved. A Data Health fixture verified dismissal restored the same finding without rescanning and Save rechecked that same scope. |
+| Wails reference | All 82 Instrument Management, Market Data and Data Health frontend tests passed. Focused shared application and Wails instrument and Market Data adapter tests passed. |
+| Packaged Linux X11 | At 1260×1050 saving a blank Provider draft showed the binding validation. At 640×480 actual keyboard text reached the lookup, an injected provider error retried, and the USD result was selectable beside the disabled EUR result. The native test caught that the sheet's shortcut listener was consuming editor events. The listener now reads only its shortcut keys. Save restored the originating row's focus. Return reopened the same instrument, and quit and reopen showed Yahoo Finance and DEMO. SQLite confirmed NASDAQ and US, the original USD 12.34567891 manual quote and untouched catalog metadata. Source database and settings hashes matched. The packaged test used deterministic providers. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. Agent coverage evidence and closed-date actions remain in the parity checklist. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain open. No benchmark was run. |
 
 #### Additional analysis filters and effective dates
 

@@ -32,7 +32,19 @@ func (s *analysisSheet) dismissed(gtx layout.Context, extra ...event.Tag) bool {
 		gtx.Execute(key.FocusCmd{Tag: &s.close})
 	}
 	for _, tag := range append([]event.Tag{&s.close, &s.retry, &s.action, &s.list}, extra...) {
-		for _, press := range ui.PressedKeys(gtx, tag, key.NameEscape, key.NamePageUp, key.NamePageDown) {
+		for {
+			// A FocusFilter also matches edit and IME events. Leave those
+			// to the focused editor when an action sheet contains a form.
+			e, ok := gtx.Event(key.Filter{Focus: tag, Name: key.NameEscape, Optional: key.ModShift},
+				key.Filter{Focus: tag, Name: key.NamePageUp, Optional: key.ModShift},
+				key.Filter{Focus: tag, Name: key.NamePageDown, Optional: key.ModShift})
+			if !ok {
+				break
+			}
+			press := e.(key.Event)
+			if press.State != key.Press {
+				continue
+			}
 			switch press.Name {
 			case key.NameEscape:
 				return true

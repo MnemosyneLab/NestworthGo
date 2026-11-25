@@ -291,6 +291,18 @@ func healthIssueAction(issue application.HealthIssue) i18n.MessageID {
 func (p *dataHealthPage) issueAction(gtx layout.Context, view ui.View, issue application.HealthIssue, name string) layout.Widget {
 	l := view.Language
 	switch {
+	case issue.Action == application.HealthActionInstrumentEditor && p.openInstrumentSource != nil:
+		id, err := domain.ParseInstrumentID(issue.InstrumentID)
+		if err != nil {
+			return nil
+		}
+		button := p.issueButton(issue.ID)
+		ready := p.request == nil && p.err == nil && (p.repair == nil || !p.repair.inProgress())
+		if ready && button.Clicked(gtx) {
+			p.openInstrumentSource(id, name, button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return returnMonthButton(view, button, i18n.InstrumentBindingOpen, nil, ready)
 	case issue.Executable && issue.Action == application.HealthActionRepair && p.previewQuoteRepair != nil:
 		scope, valid := healthQuoteRepairScope(issue)
 		if !valid {

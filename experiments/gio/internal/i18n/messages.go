@@ -38,6 +38,29 @@ const (
 	MarketFXProviderRefresh
 	MarketFXSourceFailed
 	MarketFXSourceSaving
+
+	InstrumentBindingOpen
+	InstrumentBindingTitle
+	InstrumentBindingCurrency
+	InstrumentBindingSave
+	InstrumentBindingUnavailable
+	InstrumentBindingProvider
+	InstrumentBindingYahoo
+	InstrumentBindingQuery
+	InstrumentBindingLookup
+	InstrumentBindingLooking
+	InstrumentBindingLookupEmpty
+	InstrumentBindingLookupFailed
+	InstrumentBindingLookupMismatch
+	InstrumentBindingChosen
+	InstrumentBindingSymbol
+	InstrumentBindingMarket
+	InstrumentBindingCountry
+	InstrumentBindingRequired
+	InstrumentBindingRoutingInvalid
+	InstrumentBindingSaveFailed
+	InstrumentBindingMetal
+
 	MarketReload
 	MarketSearch
 	MarketSearchHint
