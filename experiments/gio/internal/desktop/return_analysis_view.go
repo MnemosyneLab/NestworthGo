@@ -3,18 +3,13 @@ package desktop
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"strings"
 	"time"
 
-	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"github.com/shopspring/decimal"
 
@@ -292,28 +287,7 @@ func (p *returnAnalysisPage) dayCell(gtx layout.Context, view ui.View, date time
 
 func (p *returnAnalysisPage) layoutDay(gtx layout.Context, view ui.View) {
 	sheet := p.day
-	width := min(gtx.Constraints.Max.X, gtx.Dp(450))
-	backdrop := image.Rect(0, 0, gtx.Constraints.Max.X-width, gtx.Constraints.Max.Y)
-	if sheet.focus {
-		sheet.focus = false
-		gtx.Execute(key.FocusCmd{Tag: &sheet.close})
-	}
-	for _, tag := range []*widget.Clickable{&sheet.close, &sheet.retry, &sheet.assets} {
-		for _, press := range ui.PressedKeys(gtx, tag, key.NameEscape, key.NamePageUp, key.NamePageDown) {
-			switch press.Name {
-			case key.NameEscape:
-				p.closeDay()
-				gtx.Execute(op.InvalidateCmd{})
-				return
-			case key.NamePageUp:
-				sheet.list.Position.Offset -= gtx.Dp(180)
-			case key.NamePageDown:
-				sheet.list.Position.Offset += gtx.Dp(180)
-			}
-		}
-	}
-	_, outside := gtx.Event(pointer.Filter{Target: sheet, Kinds: pointer.Press})
-	if outside || sheet.close.Clicked(gtx) {
+	if sheet.dismissed(gtx) {
 		p.closeDay()
 		gtx.Execute(op.InvalidateCmd{})
 		return
@@ -332,40 +306,21 @@ func (p *returnAnalysisPage) layoutDay(gtx layout.Context, view ui.View) {
 		gtx.Execute(key.FocusCmd{Tag: &sheet.close})
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.openAssets != nil && sheet.hasValue && sheet.assets.Clicked(gtx) {
-		selection := p.filters.selection
-		selection.from, selection.to = sheet.date, sheet.date
-		p.closeDay()
-		p.openAssets(selection, sheet.button)
-		gtx.Execute(op.InvalidateCmd{})
-		return
+	action := i18n.NoMessage
+	if p.openAssets != nil && sheet.hasValue {
+		action = i18n.AssetOpenDay
+		if sheet.action.Clicked(gtx) {
+			selection := p.filters.selection
+			selection.from, selection.to = sheet.date, sheet.date
+			p.closeDay()
+			p.openAssets(selection, sheet.button)
+			gtx.Execute(op.InvalidateCmd{})
+			return
+		}
 	}
-	paint.Fill(gtx.Ops, color.NRGBA{A: 0x65})
-	mask := clip.Rect(backdrop).Push(gtx.Ops)
-	event.Op(gtx.Ops, sheet)
-	mask.Pop()
-	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		size := image.Pt(width, gtx.Constraints.Max.Y)
-		gtx.Constraints = layout.Exact(size)
-		return view.Floating(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				rows := []ui.ColumnChild{
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
-							layout.Flexed(1, view.Body(ui.TextHeading, wealthDay(view, string(sheet.date)), view.Colors.Ink)),
-							layout.Rigid(view.Button(&sheet.close, view.Language.Text(i18n.FieldDismiss))))
-					}),
-					ui.Fill(func(gtx layout.Context) layout.Dimensions {
-						return p.dayDetails(gtx, view, sheet)
-					}),
-				}
-				if p.openAssets != nil && sheet.hasValue {
-					rows = append(rows, ui.Rigid(view.Button(&sheet.assets, view.Language.Text(i18n.AssetOpenDay))))
-				}
-				return (ui.Column{Gap: 12}).Layout(gtx, rows...)
-			})
-		})
-	})
+	sheet.layout(gtx, view, wealthDay(view, sheet.date), func(gtx layout.Context) layout.Dimensions {
+		return p.dayDetails(gtx, view, sheet)
+	}, action)
 }
 
 func (p *returnAnalysisPage) dayDetails(gtx layout.Context, view ui.View, sheet *returnDaySheet) layout.Dimensions {

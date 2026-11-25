@@ -247,7 +247,7 @@ func (p *historyPage) timelineVisit(focus event.Tag) historyTimelineVisit {
 	return visit
 }
 
-func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimelineVisit, instrument domain.InstrumentID) {
+func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimelineVisit, filters history.Filters) {
 	if p.bound == id {
 		return
 	}
@@ -259,11 +259,11 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 			p.model.Refresh()
 		}
 	} else {
-		if p.model.Filters() != (history.Filters{}) {
+		if !p.model.Filters().Empty() {
 			p.model.Restore(history.Visit{})
 		}
-		if instrument != "" {
-			p.model.SetFilters(history.Filters{Instrument: instrument})
+		if !filters.Empty() {
+			p.model.SetFilters(filters)
 		}
 		p.list.Position = layout.Position{}
 	}

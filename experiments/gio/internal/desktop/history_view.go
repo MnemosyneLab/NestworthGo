@@ -197,7 +197,7 @@ func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions
 		color = view.Colors.ErrorInk
 		text = view.Language.Text(i18n.HistoryLoadError)
 	case len(p.model.Rows()) == 0:
-		if p.model.Filters() != (history.Filters{}) {
+		if !p.model.Filters().Empty() {
 			text = view.Language.Text(i18n.HistoryNoMatches)
 		} else {
 			text = view.Language.Text(i18n.HistoryEmpty)

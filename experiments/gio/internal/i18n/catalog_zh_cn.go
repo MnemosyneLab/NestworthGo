@@ -466,6 +466,10 @@ var simplifiedChineseCatalog = catalog{
 	AssetResidual:        "未解释差额",
 	AssetOpenDay:         "查看当天资产变动",
 
+	ContributionOpenHistory:        "在账本活动中查看",
+	ContributionHistoryWider:       "账本活动会保留日期、账户、投资标的和活动类型筛选。货币和资产类别筛选不会带入。",
+	ContributionHistoryUnavailable: "来源未提供账本活动支持的筛选条件。",
+
 	AccountBack:                 "返回账户列表",
 	AccountClearInstitution:     "全部机构",
 	AccountLoading:              "正在加载账户…",

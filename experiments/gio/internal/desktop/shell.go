@@ -17,6 +17,7 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
@@ -220,6 +221,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				focus: focus, asset: assetChangesVisit{selection: selection, tab: assetDriversTab}}
 		}
 	}
+	if s.returns != nil && s.historyPage != nil && s.historyPage.reads != nil {
+		s.returns.openHistory = func(filters history.Filters, focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
+				focus: focus, historyFilters: filters}
+		}
+	}
 	if s.directory != nil {
 		for _, list := range s.directory.lists {
 			list.openObject = func(ref directoryRef, name string, from event.Tag) {
@@ -420,7 +427,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDayOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -477,14 +484,18 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.accounts.layoutAccountCreationReview(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
-	} else if s.returnDayOpen() {
-		s.returns.layoutDay(windowContext, view)
+	} else if s.returnDetailOpen() {
+		if s.returns.day != nil {
+			s.returns.layoutDay(windowContext, view)
+		} else {
+			s.returns.layoutContributionSheet(windowContext, view)
+		}
 	}
 	return dims
 }
 
-func (s *shell) returnDayOpen() bool {
-	return s.activeRoute() == returnAnalysisRoute && s.returns != nil && s.returns.day != nil
+func (s *shell) returnDetailOpen() bool {
+	return s.activeRoute() == returnAnalysisRoute && s.returns != nil && (s.returns.day != nil || s.returns.item != nil)
 }
 
 func (s *shell) confirmingAccountCreation() bool {

@@ -1563,9 +1563,9 @@ Trend shows the shared period amount, linked period rate, coverage,
 composition and the selected daily values. Contribution shows the shared
 summary and ranking, with return type, grouping and ordering. Both begin with
 keyboard-scrollable lists so the supplied daily values and ranked rows are
-readable at small window sizes. Chart geometry, presets, the year view,
-additional filter types, contribution detail and context links remain
-separate work in the [parity checklist](parity.md#return-analysis-and-related-navigation).
+readable at small window sizes. Presets, the year view and additional filter
+types remain open in the [parity checklist](parity.md#return-analysis-and-related-navigation).
+Chart development and integration are paused.
 
 | Check | Evidence |
 | --- | --- |
@@ -1598,6 +1598,25 @@ and restores focus to the day button.
 | Gio interaction | A closed August day carried the selected instrument, additional account and USD, native valuation and excluded cash into Asset Changes. Back retained the August range and focused the originating day. |
 | Linux X11 | The packaged Linux preview followed November 2 into Change drivers with the selected date in both fields. The synthetic value went from USD 100 to USD 125 and Price change showed USD 25. Back and Return reopened the same day. |
 | Build and tests | The full Gio suite, Gio vet, native Linux preview build, and focused application, domain and Wails analysis Go tests passed. |
+
+#### Contribution detail and Ledger activity
+
+Selecting a ranked contribution opens a right-hand detail with the amount,
+rate, rated days, contribution components and account or instrument
+breakdown. It uses the same effective range and grouping as the ranking.
+The Ledger activity action carries the shared hint's civil dates, account,
+instrument and supported activity kinds. This includes a hint with
+multiple kinds. The detail explains which currency and asset-class filters
+Ledger activity cannot apply before leaving the page. Closing the detail
+returns to the ranking. Back from Ledger activity restores the selected
+ranking row and its keyboard focus.
+
+| Check | Evidence |
+| --- | --- |
+| Wails reference | The 79 tests in `insightTabs.test.tsx`, `ReturnAnalysisPage.test.tsx`, and `AssetChangesPage.test.tsx` passed. The Gio fixture compared exact contribution values and the History hint against the Wails Go adapter. |
+| Gio interaction | The Contribution sheet reported the active currency filter it could not carry. Ledger activity used the hint dates, account and instrument. Back restored the originating ranking row's focus. A History regression verified that multiple exact activity kinds survive copy and reload and that changing the activity type replaces the linked set. |
+| Linux X11 | The packaged Gio preview opened Synthetic fund and showed USD 25, +25% and 24/24 rated days. The action opened Ledger activity with November 1–24, Synthetic broker and Synthetic fund. The fixture had no matching activities. Back followed by Return reopened the same contribution. The isolated synthetic fixture was verified again on exit. |
+| Build and tests | The full Gio suite, Gio vet, the native Linux package build and focused shared application, domain, Wails analysis and Wails History Go tests passed. Interactive Wails, macOS, VoiceOver and IME verification remain open. |
 
 ## Moving from the preview to a desktop build
 

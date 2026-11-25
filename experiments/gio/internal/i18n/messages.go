@@ -288,6 +288,9 @@ const (
 	AssetAdjustment
 	AssetResidual
 	AssetOpenDay
+	ContributionOpenHistory
+	ContributionHistoryWider
+	ContributionHistoryUnavailable
 	NetWorth
 	Assets
 	Liabilities

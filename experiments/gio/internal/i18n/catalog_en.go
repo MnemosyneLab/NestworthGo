@@ -466,6 +466,10 @@ var englishCatalog = catalog{
 	AssetResidual:        "Unexplained difference",
 	AssetOpenDay:         "View asset changes for this day",
 
+	ContributionOpenHistory:        "View in Ledger activity",
+	ContributionHistoryWider:       "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.",
+	ContributionHistoryUnavailable: "The source did not provide a supported Ledger activity filter.",
+
 	AccountBack:                 "Back to accounts",
 	AccountClearInstitution:     "All institutions",
 	AccountLoading:              "Loading accounts…",

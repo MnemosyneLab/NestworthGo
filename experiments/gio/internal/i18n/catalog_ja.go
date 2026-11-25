@@ -465,6 +465,10 @@ var japaneseCatalog = catalog{
 	AssetResidual:        "説明できない差額",
 	AssetOpenDay:         "この日の資産変動を見る",
 
+	ContributionOpenHistory:        "取引履歴で見る",
+	ContributionHistoryWider:       "取引履歴には日付、口座、銘柄、取引種別のフィルターが引き継がれます。通貨と資産区分のフィルターは引き継がれません。",
+	ContributionHistoryUnavailable: "取引履歴で使用できるフィルターがありません。",
+
 	AccountBack:                 "口座一覧に戻る",
 	AccountClearInstitution:     "すべての金融機関",
 	AccountLoading:              "口座を読み込み中…",

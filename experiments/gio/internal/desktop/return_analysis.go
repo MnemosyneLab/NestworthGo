@@ -8,6 +8,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -19,6 +20,7 @@ type returnAnalysisReader interface {
 	ReturnDay(context.Context, domain.AnalysisQuery, domain.LocalDate) (application.ReturnDayResult, error)
 	ReturnTrend(context.Context, domain.AnalysisQuery, application.ReturnTrendDisplay) (application.ReturnTrendResult, error)
 	Contribution(context.Context, domain.AnalysisQuery, application.ContributionReturnType, application.ContributionGroupBy, application.ContributionSort) (application.ContributionResult, error)
+	ContributionItem(context.Context, domain.AnalysisQuery, application.ContributionReturnType, application.ContributionGroupBy, string) (application.ContributionItemResult, error)
 }
 
 type returnAnalysisTab int
@@ -33,6 +35,7 @@ type returnCalendarFrame struct {
 	summary      application.ReturnCalendarResult
 	days         map[domain.LocalDate]application.ReturnDayResult
 	gridQuery    domain.AnalysisQuery
+	query        domain.AnalysisQuery
 	summaryFrom  domain.LocalDate
 	summaryTo    domain.LocalDate
 	trend        *application.ReturnTrendResult
@@ -40,18 +43,14 @@ type returnCalendarFrame struct {
 }
 
 type returnDaySheet struct {
+	analysisSheet
 	date     domain.LocalDate
 	button   *widget.Clickable
-	close    widget.Clickable
-	retry    widget.Clickable
-	assets   widget.Clickable
-	list     widget.List
 	request  <-chan historyResult[application.ReturnDayResult]
 	cancel   context.CancelFunc
 	value    application.ReturnDayResult
 	err      error
 	hasValue bool
-	focus    bool
 }
 
 type returnAnalysisPage struct {
@@ -77,8 +76,10 @@ type returnAnalysisPage struct {
 	previous, next, today, reload widget.Clickable
 	cells                         [42]widget.Clickable
 	day                           *returnDaySheet
+	item                          *contributionSheet
 	returnFocus                   *widget.Clickable
 	openAssets                    func(analysisSelection, *widget.Clickable)
+	openHistory                   func(history.Filters, *widget.Clickable)
 }
 
 func (p *returnAnalysisPage) enter() {
@@ -155,7 +156,7 @@ func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 	p.cancel = cancel
 	tab, display, metric, group, sort := p.tab, p.output.trendDisplay(), p.output.contributionMetric(), p.output.contributionGroup(), p.output.contributionSort()
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (returnCalendarFrame, error) {
-		out := returnCalendarFrame{summaryFrom: monthQuery.From, summaryTo: monthQuery.To, gridQuery: gridQuery}
+		out := returnCalendarFrame{summaryFrom: monthQuery.From, summaryTo: monthQuery.To, gridQuery: gridQuery, query: monthQuery}
 		if tab != returnCalendarTab && monthQuery.From <= monthQuery.To {
 			switch tab {
 			case returnTrendTab:
@@ -233,6 +234,20 @@ func (p *returnAnalysisPage) update(sunday bool) {
 		p.err = result.err
 		if p.err == nil {
 			p.current = &result.value
+			if ranks := p.current.contribution; ranks != nil {
+				present := make(map[string]bool, len(ranks.Rows))
+				for _, row := range ranks.Rows {
+					present[row.Key] = true
+				}
+				for key := range p.output.rankButtons {
+					if !present[key] {
+						delete(p.output.rankButtons, key)
+					}
+				}
+				if !present[p.output.selectedKey] {
+					p.output.selectedKey = ""
+				}
+			}
 		}
 	default:
 	}
@@ -254,7 +269,7 @@ func (p *returnAnalysisPage) changeFilters(previous, selection analysisSelection
 }
 
 func (p *returnAnalysisPage) openDay(date domain.LocalDate, trigger *widget.Clickable) {
-	p.day = &returnDaySheet{date: date, button: trigger, focus: true, list: widget.List{List: layout.List{Axis: layout.Vertical}}}
+	p.day = &returnDaySheet{analysisSheet: newAnalysisSheet(), date: date, button: trigger}
 	p.readDay()
 }
 

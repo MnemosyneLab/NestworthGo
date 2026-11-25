@@ -27,6 +27,8 @@ type returnProjectionControls struct {
 
 	mode, kind, groupBy, order ui.Select
 	list                       widget.List
+	rankButtons                map[string]*widget.Clickable
+	selectedKey                string
 }
 
 func (p *returnProjectionControls) trendDisplay() application.ReturnTrendDisplay {
@@ -212,9 +214,32 @@ func (p *returnAnalysisPage) contributionRows(view ui.View, data application.Con
 			if row.Status == domain.CompletenessPartial {
 				value += " · " + l.Text(i18n.ReturnInsufficient)
 			}
-			return view.Message(value, view.Colors.Ink)(gtx)
+			button := p.output.rankButton(row.Key)
+			view.Focus.Watch(gtx, button)
+			if gtx.Enabled() && p.returnFocus == button {
+				p.returnFocus = nil
+				gtx.Execute(key.FocusCmd{Tag: button})
+			}
+			if button.Clicked(gtx) {
+				p.openContribution(row.Key, name, button)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			return view.ButtonOf(button, ui.ButtonSpec{Title: value, Variant: ui.ButtonGhost, Toggle: true,
+				Selected: p.output.selectedKey == row.Key, Fill: true})(gtx)
 		})
 	}))
+}
+
+func (p *returnProjectionControls) rankButton(key string) *widget.Clickable {
+	if p.rankButtons == nil {
+		p.rankButtons = make(map[string]*widget.Clickable)
+	}
+	button := p.rankButtons[key]
+	if button == nil {
+		button = new(widget.Clickable)
+		p.rankButtons[key] = button
+	}
+	return button
 }
 
 func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {

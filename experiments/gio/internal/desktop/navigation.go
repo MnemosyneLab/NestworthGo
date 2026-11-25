@@ -10,6 +10,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
@@ -41,6 +42,7 @@ type navigationEntry struct {
 	scroll           layout.Position
 	directory        directoryVisit
 	history          historyTimelineVisit
+	historyFilters   history.Filters
 	historyDetail    historyDetailState
 	accountsArchived bool
 	portfolioSearch  string
@@ -104,6 +106,9 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	if a.target.route == assetChangesRoute {
 		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
 	}
+	if a.target.route == historyRoute && a.target.activity == "" {
+		return a.historyFilters.Equal(b.historyFilters)
+	}
 	if a.target.route != directoryRoute || a.target.hasObject() {
 		return true
 	}
@@ -131,6 +136,7 @@ type navigationRequest struct {
 	accountsArchived     bool
 	verifyProductReceipt bool
 	asset                assetChangesVisit
+	historyFilters       history.Filters
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -254,7 +260,8 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.trail.push(*request.recent)
 		s.restoreVisit(s.trail.current())
 	} else {
-		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived, asset: request.asset})
+		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
+			asset: request.asset, historyFilters: request.historyFilters})
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -294,7 +301,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if entry.target.activity != "" {
 			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
 		} else {
-			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, entry.target.instrument)
+			filters := entry.historyFilters
+			if entry.target.instrument != "" {
+				filters.Instrument = entry.target.instrument
+			}
+			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, filters)
 			if entry.history.focused != "" && s.historyPage.reads != nil {
 				entry.focus = s.historyPage.detailButton(entry.history.focused)
 			}

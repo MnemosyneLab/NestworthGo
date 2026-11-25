@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"image"
+	"strings"
 	"time"
 
 	"gioui.org/io/key"
@@ -33,7 +34,7 @@ func (p *historyPage) noHistory() bool {
 }
 
 func (p *historyPage) applyFilters(gtx layout.Context, filters history.Filters) {
-	if p.model.Filters() == filters {
+	if p.model.Filters().Equal(filters) {
 		return
 	}
 	p.model.SetFilters(filters)
@@ -85,6 +86,17 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 	for _, kind := range filterActivityKinds {
 		kindChoices = append(kindChoices, ui.Choice{ID: kind.String(), Label: l.Text(historyKindLabel(kind, ""))})
 	}
+	linkChoice := ui.Choice{ID: "linked-kinds"}
+	selectedKind := filters.Kind.String()
+	if len(filters.Kinds) != 0 {
+		names := make([]string, 0, len(filters.Kinds))
+		for _, kind := range filters.Kinds {
+			names = append(names, l.Text(historyKindLabel(kind, "")))
+		}
+		linkChoice.Label = strings.Join(names, ", ")
+		kindChoices = append(kindChoices, linkChoice)
+		selectedKind = linkChoice.ID
+	}
 
 	layoutPicker := func(picker *ui.Select, label, fallback i18n.MessageID, choices []ui.Choice, id string, searchable bool, change func(string)) func(layout.Context, image.Point) layout.Dimensions {
 		return func(gtx layout.Context, at image.Point) layout.Dimensions {
@@ -125,9 +137,13 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 		toMin = filters.From
 	}
 	pickers := []func(layout.Context, image.Point) layout.Dimensions{
-		layoutPicker(&c.kind, i18n.HistoryFilterType, i18n.HistoryActivity, kindChoices, filters.Kind.String(), false, func(value string) {
+		layoutPicker(&c.kind, i18n.HistoryFilterType, i18n.HistoryActivity, kindChoices, selectedKind, false, func(value string) {
+			if value == linkChoice.ID {
+				return
+			}
 			next := p.model.Filters()
 			next.Kind = domain.ActivityKind(value)
+			next.Kinds = nil
 			p.applyFilters(gtx, next)
 		}),
 		layoutPicker(&c.account, i18n.HistoryFilterAccount, i18n.AccountReferenceUnavailable, accountChoices, filters.Account.String(), true, func(value string) {
@@ -152,7 +168,7 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 		}),
 		// The clear button sits level with the controls, below the label line.
 		func(gtx layout.Context, _ image.Point) layout.Dimensions {
-			if filters == (history.Filters{}) {
+			if filters.Empty() {
 				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
 			}
 			defer op.Offset(image.Pt(0, gtx.Dp(ui.PickerHeight-ui.ControlDefault))).Push(gtx.Ops).Pop()

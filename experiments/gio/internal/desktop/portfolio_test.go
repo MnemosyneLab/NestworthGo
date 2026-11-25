@@ -334,7 +334,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	h.focused(portfolioButton(portfolio.accounts, ids.account))
 	click("View instrument history")
 	filters := historyui.Filters{Instrument: full.ID}
-	if ledger.model.Filters() != filters || len(ledger.model.Rows()) != 2 {
+	if !ledger.model.Filters().Equal(filters) || len(ledger.model.Rows()) != 2 {
 		t.Fatalf("History opened the wrong filtered scope: %+v / %d", ledger.model.Filters(), len(ledger.model.Rows()))
 	}
 	h.click("View", false)
@@ -350,7 +350,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	}
 	h.focused(portfolioButton(ledger.reads.detail.instruments, full.ID))
 	click("Back to ledger activity")
-	if ledger.model.Filters() != filters {
+	if !ledger.model.Filters().Equal(filters) {
 		t.Fatal("Back lost instrument filter")
 	}
 	h.focused(ledger.detailButton(activity))

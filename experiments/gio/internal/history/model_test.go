@@ -16,6 +16,33 @@ func (f historyReaderFunc) ListActivityPage(ctx context.Context, q domain.Activi
 	return f(ctx, q)
 }
 
+func TestLinkedKindsRemainExactAndOwnedByHistory(t *testing.T) {
+	calls := make(chan domain.ActivityQuery, 2)
+	reader := historyReaderFunc(func(_ context.Context, query domain.ActivityQuery) (domain.ActivityPage, error) {
+		calls <- query
+		return domain.ActivityPage{}, nil
+	})
+	p := New(t.Context(), reader, func() {})
+	kinds := []domain.ActivityKind{domain.ActivitySell, domain.ActivityCashDividend}
+	p.SetFilters(Filters{From: "2026-02-01", To: "2026-02-03", Kinds: kinds})
+	kinds[0] = domain.ActivityBuy
+	p.Wait()
+	p.Update()
+	original := <-calls
+	want := []domain.ActivityKind{domain.ActivitySell, domain.ActivityCashDividend}
+	if !reflect.DeepEqual(original.Kinds, want) {
+		t.Fatalf("read kinds = %v, want %v", original.Kinds, want)
+	}
+	copyOfFilters := p.Filters()
+	copyOfFilters.Kinds[0] = domain.ActivityCashIn
+	p.Reload()
+	p.Wait()
+	p.Update()
+	if reloaded := <-calls; !reflect.DeepEqual(reloaded.Kinds, want) {
+		t.Fatalf("reload kinds = %v, want %v", reloaded.Kinds, want)
+	}
+}
+
 func TestHistoryPaginationRetryAndReload(t *testing.T) {
 	at := time.Date(2026, time.November, 2, 0, 15, 0, 0, time.UTC)
 	note := "Local day before UTC midnight"
@@ -231,7 +258,7 @@ func TestHistoryFiltersRetireOldPageAndCursor(t *testing.T) {
 	saved := p.Visit()
 	p.Restore(Visit{})
 	p.Restore(saved)
-	if p.Filters() != scope || p.Loading() || len(p.Rows()) != 1 || p.Rows()[0].ID != newID {
+	if !p.Filters().Equal(scope) || p.Loading() || len(p.Rows()) != 1 || p.Rows()[0].ID != newID {
 		t.Fatal("restoring a settled visit refetched it or lost its filter")
 	}
 }

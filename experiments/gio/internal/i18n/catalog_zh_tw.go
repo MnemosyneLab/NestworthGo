@@ -466,6 +466,10 @@ var traditionalChineseCatalog = catalog{
 	AssetResidual:        "未解釋差額",
 	AssetOpenDay:         "查看當天資產變動",
 
+	ContributionOpenHistory:        "在帳本活動中查看",
+	ContributionHistoryWider:       "帳本活動會保留日期、帳戶、投資標的和活動類型篩選。幣別和資產類別篩選不會帶入。",
+	ContributionHistoryUnavailable: "來源未提供帳本活動支援的篩選條件。",
+
 	AccountBack:                 "返回帳戶列表",
 	AccountClearInstitution:     "所有機構",
 	AccountLoading:              "正在載入帳戶…",

@@ -11,6 +11,7 @@ import (
 
 	"gioui.org/io/key"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -134,9 +135,12 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	reader := &retryReturnReads{Service: gio, failCalendar: true, failDay: true}
 	page := &returnAnalysisPage{ctx: ctx, reader: reader, clock: clock, invalidate: func() {}}
 	assets := &assetChangesPage{ctx: ctx, reader: gio, clock: clock, invalidate: func() {}}
+	ledger := newLedgerHistory(ctx, gio, clock, func() {})
 	t.Cleanup(page.workers.Wait)
 	t.Cleanup(assets.workers.Wait)
-	h := newShellHarnessWithPages(t, ledgerPages{returns: page, assets: assets})
+	t.Cleanup(ledger.model.Wait)
+	t.Cleanup(ledger.reads.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{returns: page, assets: assets, history: ledger})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	h.click("Return analysis", false)
@@ -286,6 +290,51 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatalf("Gio and Wails contributions or provider reads differ: %+v and %+v", ranking, wantRanks)
 	}
+	if ranking.Rows[0].Key != instrument.ID.String() {
+		t.Fatalf("expected the fund to appear first, got %+v", ranking.Rows)
+	}
+	h.click("More filters", false)
+	h.click("Currency", true)
+	h.router.Queue(key.EditEvent{Text: "USD"})
+	h.frame()
+	h.click("USD", false)
+	page.workers.Wait()
+	h.frame()
+	itemQuery := query
+	currency := "USD"
+	itemQuery.Currency = &currency
+	wailsItem, err := adapter.ContributionItem(ctx, itemQuery, string(application.ContributionTotalReturn),
+		string(application.ContributionGroupInstrument), instrument.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Synthetic fund · $ 25.00 · +25%", false)
+	page.workers.Wait()
+	h.frame()
+	if page.item == nil || page.item.value == nil || page.item.value.Amount == nil || wailsItem.Amount == nil ||
+		page.item.value.Amount.CanonicalAmount() != wailsItem.Amount.Amount {
+		t.Fatalf("the linked contribution item did not match Wails: %+v", page.item)
+	}
+	assertPageLabel(t, &h.router, "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.")
+	rank := page.item.button
+	h.click("View in Ledger activity", false)
+	for range 3 {
+		ledger.model.Wait()
+		ledger.reads.workers.Wait()
+		h.frame()
+	}
+	wantHistory := history.Filters{From: wailsItem.HistoryHint.From, To: wailsItem.HistoryHint.To,
+		Account: domain.AccountID(wailsItem.HistoryHint.AccountID), Instrument: domain.InstrumentID(wailsItem.HistoryHint.InstrumentID)}
+	if h.shell.activeRoute() != historyRoute || !ledger.model.Filters().Equal(wantHistory) {
+		t.Fatalf("History did not use the Wails hint: got %+v, want %+v", ledger.model.Filters(), wantHistory)
+	}
+	h.click("Back", false)
+	page.workers.Wait()
+	h.frame()
+	h.focused(rank)
+	if page.tab != returnContributionTab || page.output.selectedKey != instrument.ID.String() {
+		t.Fatal("Back did not restore Contribution and the selected fund")
+	}
 }
 
 func TestReturnCalendarGridUsesWholeWeeks(t *testing.T) {
@@ -302,6 +351,24 @@ func TestReturnCalendarGridUsesWholeWeeks(t *testing.T) {
 		if first.Format(time.DateOnly) != tc.first || count != tc.count {
 			t.Errorf("grid with Sunday start %v: got %v with %d days", tc.sunday, first, count)
 		}
+	}
+}
+
+func TestContributionHistoryHintKeepsMultipleActivityKinds(t *testing.T) {
+	owner := domain.NewAccountID()
+	security := domain.NewInstrumentID()
+	hint := application.ContributionHistoryHint{From: "2026-08-01", To: "2026-08-29",
+		AccountID: owner.String(), InstrumentID: security.String(),
+		Kinds: []string{"sell", "cash_dividend"}}
+	got, valid := contributionHistoryFilters(hint)
+	want := history.Filters{From: hint.From, To: hint.To, Account: owner, Instrument: security,
+		Kinds: []domain.ActivityKind{domain.ActivitySell, domain.ActivityCashDividend}}
+	if !valid || !got.Equal(want) {
+		t.Fatalf("hint produced %+v, want %+v", got, want)
+	}
+	hint.Kinds = []string{"price_change"}
+	if _, valid := contributionHistoryFilters(hint); valid {
+		t.Fatal("a return component was accepted as a ledger activity type")
 	}
 }
 
@@ -360,6 +427,10 @@ func (r *calendarFilterReader) Contribution(_ context.Context, q domain.Analysis
 		return application.ContributionResult{}, errors.New("unexpected default contribution options")
 	}
 	return application.ContributionResult{}, nil
+}
+
+func (r *calendarFilterReader) ContributionItem(context.Context, domain.AnalysisQuery, application.ContributionReturnType, application.ContributionGroupBy, string) (application.ContributionItemResult, error) {
+	return application.ContributionItemResult{}, nil
 }
 
 func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
