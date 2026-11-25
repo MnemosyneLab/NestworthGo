@@ -1740,7 +1740,7 @@ uses the shared executed rate and resulting balances.
 | --- | --- |
 | Gio and Wails adapter | USD 10.1234 sold for EUR 8.7654 with a USD 0.1 fee. A second entry sold EUR 2.5 for USD 2.8125 with a EUR 0.125 fee. Both matched the same USD cash item, including the bought-side match, the shared effective times with seconds and the executed rate. Cancel wrote no activity or link. Reopen matched both links and USD 148.5891 and EUR 6.1404. |
 | Packaged Linux X11 | The 1160×820 preview showed the exact legs and fee, and Cancel left zero activities and zero links. Return reopened the cash action. At 640×480, the keyboard chose EUR, November 24 in Vancouver, and confirmed USD 10.1234 sold and EUR 8.7654 bought with a USD 0.1 fee. The executed rate was 0.865855345042. The packaged app and SQLite retained the dated note, the USD checkpoint link and exact USD 189.7766 and EUR 8.7654 balances after restart. The second account stayed at USD 25. Holdings, quotes, accounts, contracts and the original hashes matched. Full Gio, vet, Linux packaging, shared Go checks and the focused Wails cross-currency reference passed. |
-| Linked product valuation gate | The [opt-in reopen regression](#linked-product-valuation-reopen-regression) reproduces the shared SQLite failure on main and this PR. This action requires a verified compatibility repair. |
+| Linked product valuation | The [shared reopen regression](#linked-product-valuation-reopen-regression) verifies that previously written linked observations open with their original evidence. Gio's entry is a separate workflow. |
 
 #### Linked product valuation reopen regression
 
@@ -1754,11 +1754,11 @@ Wails reconciliation adapter committed successfully, and a second commit
 of the same plan produced one quote and one linked receipt in total. After
 checkpointing the WAL and closing, the normal SQLite open returned
 `integrity_failed` with `product: valuation receipt disagrees with recorded facts`.
-The test calls the production open on every case and the linked subtest is
-expected to fail until the shared verifier is corrected.
+The regression now requires successful production reopen for all three receipt
+shapes.
 
 ```sh
-go test -tags linked_valuation_reopen_repro ./internal/wailsapi/reconciliation -run '^TestValuationReceiptReopen$' -count=1 -v
+go test ./internal/wailsapi/reconciliation -run '^Test(ValuationReceiptReopen|LinkedValuationVerificationCompatibility)$' -count=1 -v
 ```
 
 [Guarded preview and commit](../../../internal/application/product_data_guarded.go)
@@ -1770,22 +1770,22 @@ same hash validates idempotent retries. The
 saves the quote and the [session link](../../../internal/infrastructure/sqlite/reconciliation_link.go)
 in the same transaction. At open,
 [`verifyProductValuationReceipts`](../../../internal/infrastructure/sqlite/product_valuation_receipt.go)
-decodes a three-field command containing `productId`, `amount` and `observedAt`.
-The saved digest matches the full command. Omitting only the link reproduces
-the verifier hash and only the standalone guarded control matches it. The
-[legacy writer](../../../internal/application/liquidity.go) stores a quote-only
-result using its original digest convention. This guarded receipt query selects
-rows with a command or immutable receipt.
+now reconstructs the original normalized command, including its optional link.
+A linked command must have exactly one matching product link. Its household,
+account, checkpoint, recorded revisions and copies of the command and receipt
+must agree. The checkpoint saved with the write is the reference after the
+session advances. Unlinked commands retain the original three-field hash shape.
+The [legacy writer](../../../internal/application/liquidity.go) keeps its
+quote-only convention. The verifier reads the existing schema and stored
+digests. For linked amounts it checks the original literal text, then uses
+the posting path's whitespace handling when comparing the decimal value.
 
-Both refs have the same product writers, valuation verifier, link persistence
-and SQLite schema. The failure applies to saved guarded linked observations
-with this shape, including records already written through Wails. Both controls
-pass on the same schema version, and posting does not change `user_version`.
-A read-side compatibility repair could reconstruct the original typed,
-link-inclusive digest and retain every existing fact and link check. This
-approach can preserve stored hashes and retry identities. Schema 21 and 22,
-tamper regressions and backup verification remain to be tested in any repair.
-Gio will need the shared repair before it can offer the linked valuation action.
+| Check | Evidence |
+| --- | --- |
+| Main-written SQLite | Schema 23 synthetic databases were written through unmodified main `e981ba00303e0ee6f4fc925bf462110152c7add6`. Each had one legacy, one standalone guarded and two linked observations. The session advanced to paused revision 4 after the relevant checkpoint at revision 1. Normal reopen and read-only backup verification preserved the amount literal `" 131.2300 "`, its USD 131.23 recorded value, the normalized observation `2026-09-21T13:59:00.123Z`, and the full database SHA-256 on both copies. |
+| Fail-closed regression | Nineteen refusal cases cover missing, unexpected and competing product links, wrong account or item with valid foreign keys, a wrong family, altered checkpoint evidence, an equivalent amount with a different literal and an ambiguous command copied into both records. Receipt, quote, amount, date and digest checks still run. A forced failure after link insertion left the link, operation and quote counts unchanged. An acknowledged retry after reopen retained the same digest. |
+| Packaged Gio Linux X11 | The standard preview opened the main-written file at 1140×860 and displayed the paused reconciliation and two existing journal links. After quit, product, quote, link and session rows matched the source, and the original file hash matched. |
+| Open evidence | Older schema 21 and 22 migration checks run in the SQLite suite. The main-written linked fixture used schema 23. Gio's linked valuation entry and interactive macOS or Wails acceptance are separate from this SQLite evidence. |
 
 #### Product and removed-item checkpoint evidence
 
