@@ -174,7 +174,7 @@ func (d *marketManualDraft) layoutFields(gtx layout.Context, view ui.View, now t
 			amount = "…"
 		}
 		place(func(gtx layout.Context, view ui.View) layout.Dimensions {
-			return view.Message(fmt.Sprintf(l.Text(i18n.TransferQuoteRate), d.base, amount, d.quote), view.Colors.SecondaryInk)(gtx)
+			return view.Message(manualFXDirection(d.base, amount, d.quote), view.Colors.SecondaryInk)(gtx)
 		})
 	}
 	place(func(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -200,6 +200,10 @@ func manualPickerSize(gtx layout.Context) layout.Dimensions {
 	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(24+ui.ControlDefault))}
 }
 
+func manualFXDirection(base domain.CurrencyCode, rate string, quote domain.CurrencyCode) string {
+	return fmt.Sprintf("1 %s = %s %s", base, rate, quote)
+}
+
 func manualQuoteNotice(view ui.View, receipt marketManualReceipt) layout.Widget {
 	l := view.Language
 	var value, provenance string
@@ -208,7 +212,7 @@ func manualQuoteNotice(view ui.View, receipt marketManualReceipt) layout.Widget 
 		provenance = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	} else {
 		q := receipt.fx
-		value = fmt.Sprintf(l.Text(i18n.TransferQuoteRate), q.BaseCurrency, portfolioDecimal(view, q.Rate.Canonical()), q.QuoteCurrency)
+		value = manualFXDirection(q.BaseCurrency, portfolioDecimal(view, q.Rate.Canonical()), q.QuoteCurrency)
 		provenance = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	}
 	return func(gtx layout.Context) layout.Dimensions {
