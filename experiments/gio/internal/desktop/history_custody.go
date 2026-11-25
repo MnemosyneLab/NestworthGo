@@ -143,13 +143,13 @@ func (d *accountInvestmentDraft) setCustodyDirection(incoming bool) {
 	d.problem = i18n.NoMessage
 }
 
-func (f *accountInvestment) previewCustody(run investmentRuntime) {
+func (f *accountInvestment) previewCustody(run investmentRuntime, link *domain.ReconciliationLink) {
 	d := f.draft
 	if d.previewing != nil || d.sources == nil || !d.investmentInputComplete() {
 		return
 	}
 	input := history.CustodyTransferInput{From: d.custody.from, To: d.custody.to,
-		Quantity: d.quantity.Text(), Note: d.note.Text(), Date: d.day, Time: d.time}
+		Quantity: d.quantity.Text(), Note: d.note.Text(), Date: d.day, Time: d.time, Link: link}
 	if d.custody.incoming && d.custody.scope.holding.ID != "" {
 		input.To, input.ToHolding = "", d.custody.scope.holding.ID
 	}

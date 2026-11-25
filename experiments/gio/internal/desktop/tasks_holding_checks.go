@@ -104,11 +104,7 @@ func holdingCheckEvidence(view ui.View, item domain.ReconciliationItem) []layout
 	l := view.Language
 	rows := []layout.Widget{view.Message(l.Text(holdingCheckOutcome(item)), view.Colors.SecondaryInk)}
 	if item.Source.AsOfDate != "" {
-		date := historyDay(view, item.Source.AsOfDate)
-		if item.Source.AsOfTime != "" {
-			date += " " + item.Source.AsOfTime + " (" + item.Source.Timezone + ")"
-		}
-		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.HoldingReconEvidenceDate), date), view.Colors.SecondaryInk))
+		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.HoldingReconEvidenceDate), holdingEvidenceSourceDate(view, item.Source)), view.Colors.SecondaryInk))
 	}
 	if item.Source.Reference != "" {
 		rows = append(rows, view.Message(item.Source.Reference, view.Colors.Ink))

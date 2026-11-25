@@ -329,7 +329,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == tasksRoute {
-		if focus := s.tasks.enter(entry.tasks); focus != nil {
+		if focus := s.tasks.enter(entry.tasks, entry.scroll.Offset); focus != nil {
 			entry.focus = focus
 		}
 	}

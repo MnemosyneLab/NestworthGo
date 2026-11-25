@@ -1674,22 +1674,33 @@ handles ordinary activity with an explicit effective date and time.
 #### Dated History posting from a reconciliation checkpoint
 
 On an open ordinary holding checkpoint, **Record dated position change**
-opens the existing Ledger quantity adjustment form with that Holding and its
-account fixed. The effective date and time use the History timezone. Gio
-freezes the session and financial revisions with the shared command preview
-and posts the effect and the reconciliation link in the same transaction.
-After save, the session refreshes and the same action regains focus.
-**View linked activity** opens the exact Ledger receipt. Back returns to the
-session and its receipt link. Wails offers this quantity adjustment in the
-broader checkpoint **Record a change** form. Gio keeps the narrower action
-beside the supported cost and quantity target forms.
-[Wails Reconciliation entry](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared History service](../../../internal/wailsapi/history/history.go)
+opens Buy by default. The same route offers Sell, Cash dividend, Transfer
+position and Adjust position. The account, instrument and Holding come from
+the checkpoint. A transfer out locks that source and a transfer in locks that
+destination. A dividend defaults to the instrument currency and lets the
+user choose the actual payment currency. The date, time and explicit note
+follow a change of action. Effective times use the History timezone. Review consumes the final editor input before freezing the note.
+
+Gio uses an action strip with separate Buy and Sell buttons in place of the
+Wails kind and trade-side controls. This keeps all supported actions in one
+route and uses the same forms as Accounts and Ledger. Both use a shared
+preview and write the activity and link together. Gio freezes the session
+and financial revisions with the preview. After save or Cancel the initiating
+action regains focus.
+
+**View linked activity** opens the exact Ledger receipt. The checkpoint also
+offers the saved reviewed value, unit cost and source where present, the
+effective and recorded times, exact effects, results at posting and the note.
+Gio puts that disclosure beside its receipt and puts prior attempts on the
+checked item. Wails places linked changes in a paginated section on the
+session. Back to the Gio session restores the receipt focus and open evidence.
+[Wails Reconciliation entry](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Wails Record Change](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared History service](../../../internal/wailsapi/history/history.go)
 
 | Check | Evidence |
 | --- | --- |
-| Gio and Wails adapter | A Singapore civil time of November 21, 2026 at 20:45 resolved to 12:45 UTC and added 0.125 units at USD 13.12345678. A session revision change retired the review while keeping its draft. Cancel wrote no activity or link. A lost acknowledgement retried the same mutation and reopened with one linked receipt on the exact item and Holding. |
-| Packaged Linux X11 | The wide form reviewed a Vancouver November 24 entry and canceled with zero activity or link writes. At 640×480 the date picker selected November 24 using the keyboard, then confirmed 0.25 added units at USD 12.12345678. Ledger Back restored the exact link. Reopen retained it and the original Holding with 1.25 units. Cash, quote rows and source-file hashes matched. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go checks and 89 Wails Reconciliation and record-flow frontend tests passed. General linked entry for trades, dividends, transfers and other History families remains open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Gio and Wails adapter | The dated adjustment regression adds 0.125 units at USD 13.12345678 on November 21, 2026 at 20:45 Singapore time (12:45 UTC). It exercises a stale session revision, draft retention, cancel and a lost acknowledgement retry. A second regression compares Buy, Sell, an exact EUR 1.2345 dividend and both custody directions with separate Wails adapter fixtures. Reopen keeps the original holding at 2 units, the second account at 0.25 units, and the exact USD 149.625 and EUR 1.2345 cash sleeves. The dividend retry keeps one link and one cash credit. Prior check evidence and the buy's reviewed quantity of 2 remain readable after later postings. The regression checks read-only inspection and restores the exact receipt focus and evidence disclosures after Back. |
+| Packaged Linux X11 | The earlier adjustment run used the compact date picker to post 0.25 units at USD 12.12345678 and confirmed the receipt and cash/quote preservation after reopen. At 1160×820, Cancel returned keyboard focus to the dated action, and a second review posted 0.25 units with USD 7.50 gross and USD 0.25 fee. At 640×480, the keyboard selected EUR and November 24, then confirmed the exact EUR 1.2345 dividend. Both explicit notes persisted. Normal restart showed 1.25 units and both links. Compact Back restored the visible receipt and expanded evidence, and Return reopened that receipt. SQLite confirmed the two writes on the same checkpoint, USD 192.25 and EUR 1.2345 at Harbor Brokerage, USD 25 at the second account, and matching account rows, quotes and source-file hashes. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go application and Wails adapter tests, 89 Wails Reconciliation and record-flow frontend tests, and four focused Wails History frontend tests passed. Open Wails gaps include account-scope import, dated cash and other nonholding changes, product and removed-item checkpoints, archived account inventory, links added after closure, and paging for long evidence journals. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Check and finish a holdings reconciliation
 
@@ -1714,7 +1725,7 @@ preview and recovery behavior, and retry keeps the reviewed plan ID.
 | --- | --- |
 | Gio and Wails adapter | The fixture rejected a current source value of 2.00000001 against 2 units without an explanation and rejected a historical value as comparable. A reviewed explanation saved the exact source value, date, time and timezone. Scope and cash checks brought the total to three confirmed. Partial closure required explicit intent and a note. Cancel left the session open, then a full finish matched Wails and recovered a lost acknowledgement with the original plan. Reopen preserved the three outcomes and closing note. |
 | Packaged Linux X11 | The wide form reviewed a comparable source of 1.25000001 against 1.25 units. It refused the difference until a note was entered. The compact workflow reviewed partial closure, required a closing explanation and confirmed by keyboard. Reopen showed the completed session with its evidence and one original dated activity link. SQLite verified the exact source, note and counts, and the preexisting Holding, activity, cash and quotes. |
-| Checks and remaining scope | Full Gio tests and vet, Linux packaging, the focused shared Go checks and 89 Wails frontend cases passed. Multi-account creation, product and removed-item checks, broader attempt history and archived inventory evidence remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, Linux packaging, the focused shared Go checks and 89 Wails frontend cases passed. Multi-account creation, product and removed-item checks and archived inventory evidence remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1904,7 +1915,7 @@ dated position import from Accounts and Investment Assets, and custody transfers
 Ledger and Holdings account detail. Ledger and account or holding actions
 support quantity adjustments with original unit costs on additions. The
 Holdings reconciliation session supports a standalone whole-position cost
-correction, quantity targets and ordinary dated adjustments. The session can
+correction, quantity targets and dated buys, sells, dividends, custody transfers and adjustments for ordinary holdings. The session can
 check ordinary holdings, cash and completeness, and finish with complete or
 explicit partial evidence. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
@@ -1912,7 +1923,7 @@ terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes additional session-linked History activity families, inline instrument creation, market quote calculators,
+Broader investment work still includes account-scope import, dated cash and other nonholding reconciliation changes, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
@@ -2530,11 +2541,14 @@ passed. The [`1108ef3b` run](https://github.com/MnemosyneLab/NestworthGo/actions
 for scoped adjustments and the [`b4cab09f` run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45653320238)
 for cost correction passed, as did the [`78443715` custody run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45656514756)
 and [`b06ddc08` quantity target run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45657472080).
+The [dated posting run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45660311623)
+and the [`afba649c` check and closure run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45661054447)
+also completed successfully.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with additional session-linked History activity families,
-broader reconciliation evidence and account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with account-scope import, dated cash changes, product and
+removed-item evidence and account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor
@@ -2615,18 +2629,24 @@ choices remain selected.
 
 ### Stage 6 exit gates
 
-- Complete the [page-by-page parity gaps](parity.md), including Wealth
-  History capture shortcuts, contribution detail, dated Data Health and
-  Ledger links from Asset Changes, the broader instrument catalog and the
-  remaining provider and coverage recovery cases.
-- Exercise the complete comparison across both desktop shells with identical
-  disposable inputs. Record exact values, civil date windows, currencies,
-  quote and FX provenance, incomplete coverage, empty and error states,
-  and repair results after reopen.
-- Verify wide and compact layout, keyboard traversal and return focus through
-  each remaining handoff. Interactive Wails, native macOS with VoiceOver and
-  IME, and the paired desktop performance evidence remain open. Linux X11
-  evidence is recorded per workflow. Stage 7 remains paused.
+- Close the remaining capabilities listed in the [page-by-page parity matrix](parity.md).
+  Stage 6 still has Wealth History capture shortcuts, contribution detail,
+  dated Data Health and Ledger links from Asset Changes, instrument catalog
+  work, and the remaining provider and coverage recovery cases.
+- Run paired regressions in the interactive Wails and Gio apps with matching
+  disposable inputs. Cover Return Calendar detail → Asset Changes with the
+  selected day, account, instrument, currency, native valuation and cash
+  filters; Contribution → Ledger with supported dates and kinds plus feedback
+  for unsupported filters; and Back to the originating selection and focus.
+  Compare Wealth History with priced and missing inputs, preserving date and
+  quote/FX provenance. Verify Market Data partial refresh and Data Health
+  canceled, retried and stale repair plans with a deterministic local provider.
+  Check the exact values, scopes, failures, coverage and readback after reopen.
+- Exercise wide and compact layouts and keyboard traversal on the target
+  platforms. Native macOS with VoiceOver and IME, Linux Wayland and paired
+  native startup, navigation and memory measurements remain open. Workflow
+  entries label the existing packaged Linux X11, adapter and hosted CI evidence.
+  Stage 7 remains paused.
 
 ### Follow-up Linux acceptance
 

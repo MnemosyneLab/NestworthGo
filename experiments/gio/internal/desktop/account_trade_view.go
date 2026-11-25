@@ -12,6 +12,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -36,10 +37,6 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 	}
 	if d.sourceProblem != i18n.NoMessage && d.retry.Clicked(gtx) {
 		f.loadSources(run)
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	if d.previewing == nil && d.preview.Clicked(gtx) {
-		f.preview(run)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.sources != nil && d.previewing == nil && d.useNow.Clicked(gtx) {
@@ -85,7 +82,7 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			}))
 		}
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view))
+			return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view, origin))
 		}))
 	}
 	if d.investmentFieldsVisible() {
@@ -95,7 +92,7 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			}),
 			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), d.sources.Location), view.Colors.SecondaryInk)),
 		)
-		if d.kind != domain.ActivityCashDividend {
+		if d.kind != domain.ActivityCashDividend || d.link != nil {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.W.Layout(gtx, view.Button(&d.useNow, l.Text(i18n.LiabilityUseNow)))
 			}),
@@ -122,6 +119,12 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			buttons = append(buttons, layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))))
 		} else if d.investmentFieldsVisible() {
 			buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				// Editors and pickers above consume this frame's changes before
+				// Review freezes the draft, even when the last edit and click arrive together.
+				if d.previewing == nil && d.preview.Clicked(gtx) {
+					f.preview(run)
+					gtx.Execute(op.InvalidateCmd{})
+				}
 				if d.previewing != nil || !d.investmentInputComplete() {
 					gtx = gtx.Disabled()
 				}
@@ -144,12 +147,15 @@ func (d *accountInvestmentDraft) investmentFieldsVisible() bool {
 }
 
 func (d *accountInvestmentDraft) investmentInputComplete() bool {
+	if d.link != nil && d.link() == nil {
+		return false
+	}
 	quantity := strings.TrimSpace(d.quantity.Text()) != ""
 	if d.custody != nil {
 		return quantity && d.custody.from != "" && d.custody.to != ""
 	}
 	if d.adjustment != nil {
-		return quantity && d.adjustment.holding != "" && (d.adjustment.link == nil || d.adjustment.link() != nil)
+		return quantity && d.adjustment.holding != ""
 	}
 	if d.instrument == "" {
 		return false
@@ -193,6 +199,11 @@ func (f *accountInvestment) layoutImportAccount(view ui.View, origin image.Point
 }
 
 func (d *accountInvestmentDraft) layoutInvestmentInstrument(view ui.View, origin image.Point) layout.Widget {
+	if d.lockedHolding.ID != "" {
+		instrument := d.sources.Instruments[0]
+		item := history.PositionHolding{Holding: d.sources.Holdings[instrument.ID], Instrument: instrument, Account: d.account}
+		return view.Message(fmt.Sprintf(view.Language.Text(i18n.QuantityAdjustLocked), custodyHoldingLabel(view, item)), view.Colors.Ink)
+	}
 	items := make([]ui.Choice, 0, len(d.sources.Instruments))
 	for _, item := range d.sources.Instruments {
 		label := item.SelectionLabel()
@@ -217,7 +228,7 @@ func (d *accountInvestmentDraft) layoutInvestmentInstrument(view ui.View, origin
 	}
 }
 
-func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View) layout.Widget {
+func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View, origin image.Point) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		if d.focusInput && d.instrument != "" && gtx.Enabled() {
 			if d.kind == domain.ActivityCashDividend {
@@ -229,6 +240,18 @@ func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View) layout.Wi
 		}
 		currency := d.currency.String()
 		if d.kind == domain.ActivityCashDividend {
+			if d.link != nil {
+				if d.previewing != nil {
+					gtx = gtx.Disabled()
+				}
+				return layoutCashCurrencyAmount(gtx, view, origin, &d.gross, i18n.DividendAmount, &d.selectDividendCurrency,
+					i18n.CashCurrency, d.dividendCurrency, "", func(value domain.CurrencyCode) {
+						if value != d.dividendCurrency {
+							d.dividendCurrency, d.problem = value, i18n.NoMessage
+							d.gross.Editor.SetText("")
+						}
+					})
+			}
 			return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{
 				Label: i18n.DividendAmount, Help: i18n.DividendNetHint, Disabled: d.previewing != nil,
 			}, currency)
@@ -287,7 +310,7 @@ func (d *accountInvestmentDraft) layoutInvestmentTime(gtx layout.Context, view u
 				}
 				d.time, d.problem = value, i18n.NoMessage
 			}
-			if d.kind == domain.ActivityCashDividend {
+			if d.kind == domain.ActivityCashDividend && d.link == nil {
 				d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, setTime)
 			} else {
 				field.Next = &d.useNow
@@ -335,7 +358,7 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 		contextName += " · " + d.sources.Instruments[at].SelectionLabel()
 	}
 	timestamp := contributionTimestamp(view, preview.Activity.EffectiveAt, review.Timezone)
-	if d.kind != domain.ActivityCashDividend {
+	if d.kind != domain.ActivityCashDividend || d.link != nil {
 		timestamp = tradeTimestamp(view, preview.Activity.EffectiveAt, review.Timezone)
 	}
 	children := []layout.FlexChild{

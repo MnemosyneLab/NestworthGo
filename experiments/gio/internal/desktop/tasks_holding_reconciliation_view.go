@@ -67,7 +67,7 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 		return p.layoutHoldingReconDraft(gtx, view)
 	}
 	if c.dated != nil {
-		return c.dated.layoutForm(gtx, view, p.holdingChangeRuntime())
+		return p.layoutHoldingDatedChange(gtx, view)
 	}
 	if c.restoreEditScroll && c.loading == nil {
 		view.RestorePageScroll(c.editScroll)
@@ -203,6 +203,14 @@ func (c *holdingReconciliation) checkpointActions(accountID, itemID string) *hol
 func (p *tasksPage) holdingCheckpointRows(view ui.View, account domain.ReconciliationAccount, item domain.ReconciliationItem, buttons *holdingReconItemActions) []layout.Widget {
 	c := p.holdingRecon
 	rows := holdingCheckEvidence(view, item)
+	if len(item.Attempts) != 0 {
+		l := view.Language
+		label := fmt.Sprintf(l.Text(i18n.HoldingReconShowAttempts), len(item.Attempts))
+		rows = append(rows, buttons.attempts.toggle(view, label, l.Text(i18n.HoldingReconHideAttempts)))
+		if buttons.attempts.open {
+			rows = append(rows, holdingAttemptRows(view, item.Attempts, c.zone)...)
+		}
+	}
 	if c.session.Status == "in_progress" {
 		rows = append(rows, c.link(view, &buttons.check, fmt.Sprintf(view.Language.Text(i18n.HoldingReconCheck), holdingCheckLabel(view, item)), func() {
 			p.openHoldingCheckpoint(account, item, &buttons.check)

@@ -1661,6 +1661,15 @@ const (
 	TasksAwaiting
 	TasksPartialEstimate
 	TasksWeekdays
+	HoldingReconShowAudit
+	HoldingReconHideAudit
+	HoldingReconReviewedBefore
+	HoldingReconRecordedAt
+	HoldingReconAmountAdded
+	HoldingReconAmountRemoved
+	HoldingReconLinkedResult
+	HoldingReconShowAttempts
+	HoldingReconHideAttempts
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab

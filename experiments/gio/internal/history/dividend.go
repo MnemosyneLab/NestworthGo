@@ -4,24 +4,35 @@ import (
 	"context"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
 type DividendInput struct {
-	Account    domain.AccountID
-	Instrument domain.InstrumentID
-	Holding    domain.HoldingID
-	Amount     string
-	Date       string
-	Time       string
+	Account     domain.AccountID
+	Instrument  domain.InstrumentID
+	Holding     domain.HoldingID
+	Amount      string
+	Date        string
+	Time        string
+	Note        string
+	Currency    domain.CurrencyCode
+	EffectiveAt time.Time
+	Link        *domain.ReconciliationLink
 }
 
 func ReviewDividend(ctx context.Context, ledger InvestmentLedger, input DividendInput) (ReviewedInvestment, error) {
 	var review ReviewedInvestment
 	preview, token, err := ledger.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
-		sources, err := investmentSources(ctx, ledger, input.Account, domain.ActivityCashDividend)
+		kind := domain.ActivityCashDividend
+		if input.Link != nil {
+			// The linked Ledger form accepts any supported payment currency.
+			// It still resolves the exact ordinary Holding in this account.
+			kind = domain.ActivityBuy
+		}
+		sources, err := investmentSources(ctx, ledger, input.Account, kind)
 		if err != nil {
 			return nil, err
 		}
@@ -30,22 +41,36 @@ func ReviewDividend(ctx context.Context, ledger InvestmentLedger, input Dividend
 			return nil, &domain.Error{Code: domain.ErrValidation, Field: "holdingId"}
 		}
 		currency := sources.Account.DefaultCurrency
+		if input.Link != nil {
+			currency = input.Currency
+		}
 		amount, err := domain.ParseMoney(strings.TrimSpace(input.Amount), currency)
 		if err != nil || amount.IsZero() {
 			return nil, &domain.Error{Code: domain.ErrValidation, Field: "amount"}
 		}
-		if strings.TrimSpace(input.Date) == "" || strings.TrimSpace(input.Time) == "" {
+		if input.EffectiveAt.IsZero() && (strings.TrimSpace(input.Date) == "" || strings.TrimSpace(input.Time) == "") {
 			return nil, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 		}
-		return review.bind(sources.Origin, sources.Location, historyapi.ChangeCommandRequest{
-			Kind: historyapi.ChangeCashDividend, HoldingID: input.Holding.String(),
+		request := historyapi.ChangeCommandRequest{
+			Kind: historyapi.ChangeCashDividend, HoldingID: input.Holding.String(), ReconciliationLink: input.Link,
 			Amount: amount.CanonicalAmount(), Currency: currency.String(),
-			EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,
-		})
+		}
+		if input.EffectiveAt.IsZero() {
+			request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time
+		} else {
+			request.EffectiveAt = input.EffectiveAt.UTC().Format(time.RFC3339Nano)
+		}
+		if note := strings.TrimSpace(input.Note); note != "" {
+			request.Note = &note
+		}
+		return review.bind(sources.Origin, sources.Location, request)
 	})
 	if err != nil {
 		return ReviewedInvestment{}, err
 	}
 	review.Preview, review.token = preview, token
+	if err := review.validateLink(ctx, ledger); err != nil {
+		return ReviewedInvestment{}, err
+	}
 	return review, nil
 }

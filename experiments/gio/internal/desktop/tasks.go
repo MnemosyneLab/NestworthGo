@@ -34,11 +34,13 @@ const (
 var taskTabLabels = [...]i18n.MessageID{i18n.TasksUpcomingTab, i18n.TasksInvestmentTab, i18n.TasksReconciliationTab}
 
 type tasksVisit struct {
-	tab            tasksTab
-	position       layout.Position
-	reviewCursors  []string
-	holdingSession string
-	holdingReceipt domain.ActivityID
+	tab             tasksTab
+	position        layout.Position
+	reviewCursors   []string
+	holdingSession  string
+	holdingReceipt  domain.ActivityID
+	holdingAudit    []domain.ActivityID
+	holdingAttempts []string
 }
 
 type tasksRead struct {
@@ -87,7 +89,7 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 		instruments: make(map[domain.InstrumentID]*widget.Clickable), statementLinks: make(map[string]*widget.Clickable)}
 }
 
-func (p *tasksPage) enter(visit tasksVisit) event.Tag {
+func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 	p.tab, p.list.Position = visit.tab, visit.position
 	p.reviewCursors = slices.Clone(visit.reviewCursors)
 	p.read()
@@ -96,6 +98,15 @@ func (p *tasksPage) enter(visit tasksVisit) event.Tag {
 			c.sessionButtons = make(map[string]*widget.Clickable)
 		}
 		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(c.sessionButtons, visit.holdingSession))
+		// The loading placeholder cannot keep the session's previous offset.
+		// Restore it when the receipt and its preceding evidence are drawn.
+		c.editScroll, c.restoreEditScroll = scroll, scroll != 0
+		for _, id := range visit.holdingAudit {
+			c.audit[id] = &holdingEvidenceDisclosure{open: true}
+		}
+		for _, item := range visit.holdingAttempts {
+			c.itemButtons[item] = &holdingReconItemActions{attempts: holdingEvidenceDisclosure{open: true}}
+		}
 		if visit.holdingReceipt != "" {
 			c.restore = nil
 			return portfolioButton(c.receiptButtons, visit.holdingReceipt)
@@ -108,6 +119,16 @@ func (p *tasksPage) visit(focus event.Tag) tasksVisit {
 	visit := tasksVisit{tab: p.tab, position: p.list.Position, reviewCursors: slices.Clone(p.reviewCursors)}
 	if c := p.holdingRecon; c != nil && c.id != "" {
 		visit.holdingSession = c.id
+		for id, state := range c.audit {
+			if state.open {
+				visit.holdingAudit = append(visit.holdingAudit, id)
+			}
+		}
+		for id, state := range c.itemButtons {
+			if state.attempts.open {
+				visit.holdingAttempts = append(visit.holdingAttempts, id)
+			}
+		}
 		for id, button := range c.receiptButtons {
 			if focus == button {
 				visit.holdingReceipt = id
@@ -202,14 +223,14 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.checks != nil {
 		for i := range p.tabs {
 			if p.tabs[i].Clicked(gtx) && p.tab != tasksTab(i) {
-				p.enter(tasksVisit{tab: tasksTab(i)})
+				p.enter(tasksVisit{tab: tasksTab(i)}, 0)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		if p.tab == tasksInvestment && len(p.reviewCursors) > 0 {
-			p.enter(tasksVisit{tab: p.tab})
+			p.enter(tasksVisit{tab: p.tab}, 0)
 		} else {
 			p.read()
 		}

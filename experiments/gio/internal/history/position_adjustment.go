@@ -52,10 +52,10 @@ func reviewPositionCommand(ctx context.Context, ledger InvestmentLedger, request
 			return review.bind(origin, location, request)
 		})
 		review.Preview, review.token = preview, token
-		if err != nil || review.link == nil {
+		if err != nil {
 			return err
 		}
-		return ledger.ValidateReconciliationCommandLink(ctx, review.link, review.command, preview)
+		return review.validateLink(ctx, ledger)
 	})
 	if err != nil {
 		return ReviewedInvestment{}, err

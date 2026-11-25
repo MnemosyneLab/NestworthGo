@@ -22,6 +22,7 @@ type accountInvestment struct {
 	custodyHoldings, adjustmentHoldings                          map[domain.HoldingID]*widget.Clickable
 	restore                                                      *widget.Clickable
 	draft                                                        *accountInvestmentDraft
+	linked                                                       *holdingLinkedActivity
 	onPosted                                                     func(domain.Activity, i18n.MessageID, event.Tag)
 }
 
@@ -39,6 +40,10 @@ func (p *accountsPage) investmentRuntime() investmentRuntime {
 
 type accountInvestmentDraft struct {
 	kind                                 domain.ActivityKind
+	link                                 func() *domain.ReconciliationLink
+	lockedHolding                        domain.Holding
+	dividendCurrency                     domain.CurrencyCode
+	selectDividendCurrency               ui.Select
 	custody                              *custodyTransferDraft
 	adjustment                           *quantityAdjustmentDraft
 	existing                             bool
@@ -126,6 +131,9 @@ func (f *accountInvestment) holdingActionFallback(tag event.Tag) *widget.Clickab
 }
 
 func (f *accountInvestment) action(d *accountInvestmentDraft) *widget.Clickable {
+	if f.linked != nil {
+		return f.linked.scope.action
+	}
 	if d.custody != nil {
 		if d.custody.scope.action != nil {
 			return d.custody.scope.action
@@ -240,7 +248,7 @@ func (d *accountInvestmentDraft) chooseInstrument(id domain.InstrumentID) {
 func (d *accountInvestmentDraft) captureTime(now time.Time) {
 	now = now.In(d.sources.Location)
 	d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
-	if d.kind != domain.ActivityCashDividend {
+	if d.kind != domain.ActivityCashDividend || d.link != nil {
 		d.time, d.defaultTime = now.Format(time.TimeOnly), now
 	}
 }
@@ -264,6 +272,9 @@ func (f *accountInvestment) loadSources(run investmentRuntime) {
 		return
 	}
 	id, kind := d.account.ID, d.kind
+	if kind == domain.ActivityCashDividend && d.link != nil {
+		kind = domain.ActivityBuy
+	}
 	d.loading = runHistoryRead(run.workers, run.invalidate, func() (history.InvestmentSources, error) {
 		return history.LoadInvestmentSources(run.ctx, f.service, id, kind)
 	})
@@ -271,12 +282,19 @@ func (f *accountInvestment) loadSources(run investmentRuntime) {
 
 func (f *accountInvestment) preview(run investmentRuntime) {
 	d := f.draft
+	var link *domain.ReconciliationLink
+	if d.link != nil {
+		link = d.link()
+		if link == nil {
+			return
+		}
+	}
 	if d.custody != nil {
-		f.previewCustody(run)
+		f.previewCustody(run, link)
 		return
 	}
 	if d.adjustment != nil {
-		f.previewAdjustment(run)
+		f.previewAdjustment(run, link)
 		return
 	}
 	if d.previewing != nil || d.sources == nil || d.instrument == "" {
@@ -289,18 +307,19 @@ func (f *accountInvestment) preview(run investmentRuntime) {
 	}
 	input := history.TradeInput{Side: side, Account: d.account.ID, Instrument: d.instrument,
 		Holding: d.sources.Holdings[d.instrument].ID, Currency: d.currency, Quantity: d.quantity.Text(),
-		Gross: d.gross.Text(), Fee: d.fee.Text(), Note: d.note.Text(), Date: d.day, Time: d.time}
+		Gross: d.gross.Text(), Fee: d.fee.Text(), Note: d.note.Text(), Date: d.day, Time: d.time, Link: link}
 	// Keep the actual default instant, including its sub-second position
 	// after History Origin. Edited wall times resolve in the Origin timezone.
 	input.EffectiveAt = d.effectiveAt()
-	unitCost := d.unitCost.Text()
+	unitCost, dividendCurrency := d.unitCost.Text(), d.dividendCurrency
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(run.workers, run.invalidate, func() (history.ReviewedInvestment, error) {
 		switch kind {
 		case domain.ActivityCashDividend:
 			return history.ReviewDividend(run.ctx, f.service, history.DividendInput{
 				Account: input.Account, Instrument: input.Instrument, Holding: input.Holding,
-				Amount: input.Gross, Date: input.Date, Time: input.Time,
+				Amount: input.Gross, Date: input.Date, Time: input.Time, Note: input.Note,
+				Currency: dividendCurrency, EffectiveAt: input.EffectiveAt, Link: input.Link,
 			})
 		case domain.ActivityPositionTransfer:
 			return history.ReviewPositionImport(run.ctx, f.service, history.PositionImportInput{
@@ -341,6 +360,12 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 		if result.err != nil {
 			d.sourceProblem = tradeProblem(result.err, labels, i18n.BuySourcesFailed)
 		} else {
+			if locked := d.lockedHolding; locked.ID != "" {
+				op := &result.value
+				op.Instruments = slices.DeleteFunc(op.Instruments, func(i domain.Instrument) bool {
+					return i.ID != locked.InstrumentID || op.Holdings[i.ID].ID != locked.ID
+				})
+			}
 			d.sources = &result.value
 			d.account = result.value.Account
 			d.existing = len(result.value.Holdings) > 0
@@ -360,6 +385,9 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 			}
 			if len(result.value.Instruments) == 1 && d.instrument == "" {
 				d.chooseInstrument(result.value.Instruments[0].ID)
+			}
+			if d.kind == domain.ActivityCashDividend && d.link != nil && d.dividendCurrency == "" {
+				d.dividendCurrency = d.currency
 			}
 		}
 	default:

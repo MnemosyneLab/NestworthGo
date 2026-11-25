@@ -103,6 +103,7 @@ func TestHoldingReconciliationDatedHistoryHandoffMatchesWails(t *testing.T) {
 	click("Open holdings reconciliation · Harbor Brokerage")
 	button := &c.itemButtons[account.AccountID+"/"+item.ID].record
 	click("Record dated position change")
+	click("Adjust position")
 	const day, clockText = "2026-11-21", "20:45"
 	note := "Synthetic dated checkpoint change"
 	fill := func() *accountInvestmentDraft {
@@ -127,6 +128,7 @@ func TestHoldingReconciliationDatedHistoryHandoffMatchesWails(t *testing.T) {
 		t.Fatalf("canceled preview wrote financial evidence: %+v / %v", links, err)
 	}
 	click("Record dated position change")
+	click("Adjust position")
 	d = fill()
 	click("Review position adjustment")
 

@@ -40,6 +40,7 @@ type holdingReconciliation struct {
 	zone                                       *time.Location
 	links                                      []domain.ReconciliationLinkedChange
 	receiptButtons                             map[domain.ActivityID]*widget.Clickable
+	audit                                      map[domain.ActivityID]*holdingEvidenceDisclosure
 	dated                                      *accountInvestment
 	directory                                  holdingReconDirectory
 	start, back, reload, resume, pause, finish widget.Clickable
@@ -76,6 +77,7 @@ type holdingReconDraft struct {
 
 type holdingReconItemActions struct {
 	cost, quantity, record, check widget.Clickable
+	attempts                      holdingEvidenceDisclosure
 }
 
 type holdingReconQuantity struct {
@@ -107,6 +109,7 @@ func (c *holdingReconciliation) discard() {
 		c.id, c.session, c.loading, c.draft = "", nil, nil, nil
 		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
 		c.itemButtons, c.receiptButtons, c.dated, c.links, c.zone = nil, nil, nil, nil, nil
+		c.audit = nil
 		c.editScroll, c.restoreEditScroll = 0, false
 	}
 }
@@ -120,6 +123,7 @@ func (p *tasksPage) openHoldingReconciliation(id string, entry *widget.Clickable
 	c.id, c.sessionEntry, c.saved, c.draft = id, entry, i18n.NoMessage, nil
 	c.itemButtons = make(map[string]*holdingReconItemActions)
 	c.receiptButtons = make(map[domain.ActivityID]*widget.Clickable)
+	c.audit = make(map[domain.ActivityID]*holdingEvidenceDisclosure)
 	c.restore = &c.back
 	p.readHoldingReconciliation()
 }

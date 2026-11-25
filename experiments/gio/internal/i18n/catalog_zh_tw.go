@@ -1738,6 +1738,16 @@ var traditionalChineseCatalog = catalog{
 	HoldingReconCheckUnavailable:  "目前數值或成本無法取得，或此檢查點已無法檢查。",
 	HoldingReconScopeHelp:         "請檢查此帳戶的幣別、持倉及產品中是否有缺漏或未結算的記錄。",
 
+	HoldingReconShowAudit:      "顯示關聯證據",
+	HoldingReconHideAudit:      "隱藏關聯證據",
+	HoldingReconReviewedBefore: "審核前 · %s",
+	HoldingReconRecordedAt:     "記錄時間 · %s",
+	HoldingReconAmountAdded:    "增加現金 · %s",
+	HoldingReconAmountRemoved:  "減少現金 · %s",
+	HoldingReconLinkedResult:   "入帳時的結果 · %s",
+	HoldingReconShowAttempts:   "顯示檢查記錄（%d）",
+	HoldingReconHideAttempts:   "隱藏檢查記錄",
+
 	TasksUpcomingTab:          "即將發生",
 	TasksInvestmentTab:        "投資核查",
 	TasksReconciliationTab:    "待對帳",

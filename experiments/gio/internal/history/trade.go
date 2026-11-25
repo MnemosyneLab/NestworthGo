@@ -107,6 +107,7 @@ type TradeInput struct {
 	Date        string
 	Time        string
 	EffectiveAt time.Time
+	Link        *domain.ReconciliationLink
 }
 
 type ReviewedInvestment struct {
@@ -160,6 +161,9 @@ func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput)
 			return err
 		}
 		review.Preview, review.token = preview, token
+		if err := review.validateLink(ctx, ledger); err != nil {
+			return err
+		}
 		if existing {
 			cost, err := ledger.PreviewExistingTradeCost(ctx, preview)
 			if err != nil {
@@ -222,7 +226,7 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 		return request, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 	}
 	request = historyapi.ChangeCommandRequest{
-		Kind: historyapi.ChangeTrade, Side: string(input.Side), SettlementAccountID: input.Account.String(), HoldingID: holding.String(),
+		Kind: historyapi.ChangeTrade, ReconciliationLink: input.Link, Side: string(input.Side), SettlementAccountID: input.Account.String(), HoldingID: holding.String(),
 		InstrumentID: input.Instrument.String(), Quantity: quantity.Canonical(), Gross: gross.CanonicalAmount(), GrossCurrency: currency.String(),
 	}
 	if note := strings.TrimSpace(input.Note); note != "" {
@@ -241,6 +245,13 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 		request.Fee, request.FeeCurrency = fee.CanonicalAmount(), currency.String()
 	}
 	return request, nil
+}
+
+func (r ReviewedInvestment) validateLink(ctx context.Context, ledger InvestmentLedger) error {
+	if r.link == nil {
+		return nil
+	}
+	return ledger.ValidateReconciliationCommandLink(ctx, r.link, r.command, r.Preview)
 }
 
 func (r ReviewedInvestment) Commit(ctx context.Context, ledger InvestmentLedger) (domain.ChangePreview, error) {

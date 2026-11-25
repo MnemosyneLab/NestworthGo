@@ -1738,6 +1738,16 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconCheckUnavailable:  "当前数值或成本不可用，或此检查点已无法检查。",
 	HoldingReconScopeHelp:         "请检查该账户的币种、持仓及产品中是否有缺失或未结算的记录。",
 
+	HoldingReconShowAudit:      "显示关联证据",
+	HoldingReconHideAudit:      "隐藏关联证据",
+	HoldingReconReviewedBefore: "审核前 · %s",
+	HoldingReconRecordedAt:     "记录时间 · %s",
+	HoldingReconAmountAdded:    "增加现金 · %s",
+	HoldingReconAmountRemoved:  "减少现金 · %s",
+	HoldingReconLinkedResult:   "入账时的结果 · %s",
+	HoldingReconShowAttempts:   "显示检查记录（%d）",
+	HoldingReconHideAttempts:   "隐藏检查记录",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",
