@@ -241,6 +241,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		s.dataHealth.clearFocus = func(focus event.Tag) {
 			openHealth(healthFindingFocus{}, focus)
 		}
+		s.dataHealth.inspect = openHealth
+		s.dataHealth.snapshots.rebuilt = func() {
+			if s.overviewPage != nil {
+				s.overviewPage.trend.invalidate()
+			}
+		}
 		s.dataHealth.openSettings = func(focus *widget.Clickable) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: focus, providerSettings: true}
 		}
@@ -495,7 +501,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.wealthDetailOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -564,6 +570,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.wealthHistory.layoutWealthDetail(windowContext, view)
 	} else if s.healthRepairOpen() {
 		s.dataHealth.layoutRepair(windowContext, view)
+	} else if s.snapshotRepairOpen() {
+		s.dataHealth.layoutSnapshotRebuild(windowContext, view)
 	}
 	return dims
 }
@@ -582,6 +590,10 @@ func (s *shell) returnDetailOpen() bool {
 
 func (s *shell) healthRepairOpen() bool {
 	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.repair != nil && s.dataHealth.repair.plan != nil
+}
+
+func (s *shell) snapshotRepairOpen() bool {
+	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.snapshots.active != nil
 }
 
 func (s *shell) confirmingAccountCreation() bool {

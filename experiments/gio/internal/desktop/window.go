@@ -47,7 +47,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		healthRepair.revision.Add(1)
 		window.Invalidate()
 	})
-	dataHealth := &dataHealthPage{ctx: ctx, reader: service, invalidate: window.Invalidate, repair: healthRepair}
+	dataHealth := &dataHealthPage{ctx: ctx, reader: service, invalidate: window.Invalidate, repair: healthRepair,
+		snapshots: dataHealthSnapshots{service: service}}
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
 	tasks := newTasksPage(ctx, service, window.Invalidate)
 	tasks.checks = service

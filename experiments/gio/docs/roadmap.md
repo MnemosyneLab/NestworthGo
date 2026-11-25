@@ -282,7 +282,7 @@ Back to Overview restores the original coverage control and position.
 | --- | --- |
 | Regression | The routed test distinguishes open and closed days, filters an unrelated date and FX pair, includes a matching collapsed finding, opens the precise daily scope, and restores keyboard focus on Back. |
 | Packaged Linux X11 | Overview displayed USD 112.75 current net worth and 23 of 24 closed days valued. Data health opened November 1–24, including the November 4 snapshot gap and AUD/USD prerequisite. Back and Enter reopened that range. Wealth History opened from the Overview card. At 640×480 the period, currency, closed-day count and coverage action remained visible while scrolling. The source database and settings hashes matched after quit. |
-| Remaining | Wails' arbitrary custom date ranges and the focused snapshot repair actions are separate follow-ups. Native Mac, VoiceOver and Wayland remain open. |
+| Follow-up | [Focused snapshot inspection and repair](#focused-snapshot-inspection-and-repair) uses this coverage handoff. Wails' arbitrary custom date ranges and native Mac, VoiceOver and Wayland verification remain open. |
 
 #### Overview allocation summaries and filtered accounts
 
@@ -1882,8 +1882,8 @@ their severity, date range and available evidence. Related findings collapsed
 by the shared report stay under their causes. Recheck repeats the local read
 and a failed scan offers Retry. Provider prerequisites link to the Market data
 tab in Settings. Account-value findings can open Accounts. Back restores the
-originating button. Focused issue navigation, compaction of adjacent snapshot
-days and manual-quote actions remain open.
+originating button. [Focused snapshot inspection and repair](#focused-snapshot-inspection-and-repair)
+adds snapshot scope and adjacent-day grouping. Manual quote actions remain open.
 
 | Check | Evidence |
 | --- | --- |
@@ -1902,8 +1902,7 @@ the shared application job. The report shows live progress and supports
 cancellation. A fresh scan follows terminal outcomes so job success and
 outstanding coverage stay visible independently. Work that survives page
 navigation stays attached to the running preview process and is cancelled
-and joined on quit. Focused repair actions, detailed per-target results and
-snapshot-specific review remain open.
+and joined on quit. Detailed per-target results remain open.
 
 | Check | Evidence |
 | --- | --- |
@@ -1911,6 +1910,32 @@ snapshot-specific review remain open.
 | Gio interaction | Ran the repair test three times. The first confirmed request blocked at a deterministic provider and was cancelled. The retry saved one exact provider rate of 140.1234. The fresh Gio report matched the Wails report and kept the historical gap visible after the latest quote was saved. The pre-History test verified the repair prerequisite. |
 | Linux X11 | The packaged launcher opened the plan on a marked household and displayed one estimated provider request at 1100×900 and 700×480. Escape and Return restored the plan without storing a new FX quote. A separate native build with only a deterministic provider substituted at build time confirmed the plan, cancelled the first request, then saved the exact 140.1234 rate on a second confirmation. It showed Repair completed and the remaining gaps, and the isolated fixture was verified after shutdown. |
 | Build and tests | The full Gio suite, Gio vet and vanilla Linux package build passed. Live providers, Wails GUI, native macOS, VoiceOver and IME remain unverified for this workflow. |
+
+#### Focused snapshot inspection and repair
+
+From Overview coverage, **Inspect snapshot finding** narrows Data Health to
+the same component and dates. Adjacent incomplete days group only when the
+component and diagnosis match. A valued day keeps the surrounding findings
+separate. The focused report shows blocking inputs alongside collapsed
+snapshot evidence. Scan, filtering and preview read saved data.
+
+For an executable finding, **Preview snapshot repair** shows the exact closed
+dates inside the current focus. **Confirm and rebuild** uses the same shared
+historical snapshot operation as Wails. It processes up to 31 dates per call.
+**Stop after current batch** pauses new work and keeps completed revisions.
+Retry starts at the failed batch. Recheck refreshes the report on completion,
+failure and pause. Close returns focus to the preview control when that
+finding is still actionable, or to Recheck when it has cleared. The existing
+global Repair all keeps its broader scope. The found rows are grouped when a
+report or focus changes, with no benchmark run for this milestone.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | Scoped read compared the report to the Wails adapter. Opening, inspecting, previewing and dismissing changed no synthetic snapshot rows. Confirmation appended one superseding USD 125.25 revision for November 22 and preserved the other dates. A deterministic 64-day sequence verified a stop after the first 31 days, failure with two committed revisions in the next batch, retry from that batch and completion of the remaining dates. No provider requests. |
+| Wails reference | All 19 tests across Data Health, Snapshot Repair and the Overview net-worth card passed. Focused shared application, History and Market Data adapter snapshot/health/repair tests passed. |
+| Packaged Linux X11 | At 1260×1050, Overview's November 1–24 coverage link opened the report and inspected the November 4 Synthetic Australian cash finding. Back and Return reopened that finding. The blocked flow left snapshot rows unchanged. On a second synthetic profile at 640×480, Escape and Return restored the October 12 repair preview without writing. Confirmation added one USD 125.25 revision for October 12. October 13 and the authoritative account, activity, holding, quote and History origin rows were identical. The focused recheck cleared October 12. Both source databases and settings hashes matched. |
+| Build and tests | Full Gio tests, Gio vet and the native Linux package passed. |
+| Remaining | Next is manual instrument price and FX entry through Market Data, followed by linked Data Health manual prerequisites and detailed sync evidence. Wails GUI, native macOS, Wayland, VoiceOver and IME remain open. |
 
 #### Additional analysis filters and effective dates
 

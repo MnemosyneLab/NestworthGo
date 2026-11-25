@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -14,7 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-var healthSections = [...]i18n.MessageID{i18n.HealthExecutable, i18n.HealthPrerequisites, i18n.HealthReported}
+var healthSections = [...]i18n.MessageID{i18n.HealthExecutable, i18n.HealthPrerequisites, i18n.HealthReported, i18n.HealthSnapshotDependencies}
 
 var healthKinds = map[string]i18n.MessageID{
 	application.HealthKindMissingInstrumentHistory: i18n.HealthInstrumentHistory,
@@ -55,14 +56,14 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	}
 	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.HealthDescription), view.Colors.SecondaryInk))}
 	if p.focus.active() {
-		scope := p.focus.label
-		if p.focus.from != "" {
-			scope = wealthDay(view, p.focus.from)
-			if p.focus.to != "" && p.focus.from != p.focus.to {
-				scope += " – " + wealthDay(view, p.focus.to)
-			}
+		var fields []string
+		if p.focus.label != "" {
+			fields = append(fields, p.focus.label)
 		}
-		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HealthFocused), scope), view.Colors.Ink)))
+		if p.focus.from != "" {
+			fields = append(fields, healthDateRange(view, p.focus.from, p.focus.to))
+		}
+		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HealthFocused), strings.Join(fields, " · ")), view.Colors.Ink)))
 		if p.clearFocus != nil {
 			if p.clear.Clicked(gtx) {
 				p.clearFocus(&p.clear)
@@ -93,8 +94,8 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.HealthFailed), view.Colors.ErrorInk)))
 	}
 	rows = append(rows, ui.Rigid(returnMonthButton(view, &p.recheck, recheck, nil, p.request == nil)))
-	if report := p.report; report != nil {
-		issues := healthIssueRows(focusedHealthFindings(report.Issues, p.focus))
+	if p.report != nil {
+		issues := p.findings
 		if len(issues) != 0 {
 			rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 				return analysisResultList(gtx, view, &p.list, l.Text(i18n.HealthFindings), len(issues), func(gtx layout.Context, index int) layout.Dimensions {
@@ -105,7 +106,12 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.HealthFocusedEmpty), view.Colors.SecondaryInk)))
 		}
 	}
-	return (ui.Column{Gap: 12, MinFill: 250}).Layout(gtx, rows...)
+	dims := (ui.Column{Gap: 12, MinFill: 250}).Layout(gtx, rows...)
+	if p.snapshots.restore != nil && p.request == nil && gtx.Enabled() {
+		p.snapshots.restore = nil
+		gtx.Execute(key.FocusCmd{Tag: &p.recheck})
+	}
+	return dims
 }
 
 func healthSummary(view ui.View, report application.MarketDataHealthReport) layout.Widget {
@@ -169,15 +175,35 @@ func (p *dataHealthPage) issueRow(gtx layout.Context, view ui.View, row healthIs
 				if name == "" {
 					name = l.Text(kind)
 				}
+				if isSnapshotFinding(issue) && issue.AccountID != "" {
+					account := p.accountNames[issue.AccountID]
+					if account == "" {
+						account = l.Text(i18n.OverviewAllocationUnknownAccount)
+					}
+					name = account + " · " + name
+				}
 				items := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink))}
 				if evidence := healthIssueEvidence(view, issue); evidence != "" {
 					items = append(items, ui.Rigid(view.Message(evidence, view.Colors.SecondaryInk)))
+				}
+				if row.combined {
+					items = append(items, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HealthSnapshotAffected), issue.RangeCount), view.Colors.SecondaryInk)))
+				}
+				if isSnapshotFinding(issue) && issue.Collapsed {
+					items = append(items, ui.Rigid(view.Message(l.Text(i18n.HealthSnapshotBlocked), view.Colors.WarningInk)))
 				}
 				if message := healthIssueAction(issue); message != i18n.NoMessage {
 					items = append(items, ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk)))
 				}
 				if action := p.issueAction(gtx, view, issue, name); action != nil {
 					items = append(items, ui.Rigid(action))
+				}
+				if actions := p.snapshotActions(gtx, view, row, name); len(actions) > 0 {
+					items = append(items, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return (ui.Wrap{Gap: 6}).Layout(gtx, len(actions), func(gtx layout.Context, index int) layout.Dimensions {
+							return actions[index](gtx)
+						})
+					}))
 				}
 				return (ui.Column{Gap: 6}).Layout(gtx, items...)
 			})

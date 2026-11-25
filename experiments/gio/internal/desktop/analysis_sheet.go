@@ -48,6 +48,10 @@ func (s *analysisSheet) dismissed(gtx layout.Context) bool {
 }
 
 func (s *analysisSheet) layout(gtx layout.Context, view ui.View, title string, body layout.Widget, action i18n.MessageID) {
+	s.layoutActions(gtx, view, title, body, action, true)
+}
+
+func (s *analysisSheet) layoutActions(gtx layout.Context, view ui.View, title string, body layout.Widget, action i18n.MessageID, canClose bool) {
 	width := min(gtx.Constraints.Max.X, gtx.Dp(450))
 	backdrop := image.Rect(0, 0, gtx.Constraints.Max.X-width, gtx.Constraints.Max.Y)
 	paint.Fill(gtx.Ops, color.NRGBA{A: 0x65})
@@ -62,7 +66,12 @@ func (s *analysisSheet) layout(gtx layout.Context, view ui.View, title string, b
 					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 							layout.Flexed(1, view.Body(ui.TextHeading, title, view.Colors.Ink)),
-							layout.Rigid(view.Button(&s.close, view.Language.Text(i18n.FieldDismiss))))
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								if !canClose {
+									gtx = gtx.Disabled()
+								}
+								return view.Button(&s.close, view.Language.Text(i18n.FieldDismiss))(gtx)
+							}))
 					}),
 					ui.Fill(body),
 				}

@@ -85,6 +85,22 @@ const (
 	HealthPending
 	HealthProvisional
 	HealthSnapshotIncomplete
+	HealthSnapshotDependencies
+	HealthSnapshotAffected
+	HealthSnapshotBlocked
+	HealthInspectSnapshot
+	HealthPreviewSnapshot
+	HealthSnapshotRepairTitle
+	HealthSnapshotRepairNote
+	HealthConfirmSnapshot
+	HealthStopSnapshot
+	HealthResumeSnapshot
+	HealthSnapshotWorking
+	HealthSnapshotStopping
+	HealthSnapshotFailed
+	HealthSnapshotPaused
+	HealthSnapshotDone
+	HealthSnapshotRevisions
 	HealthSnapshotMissing
 	HealthSnapshotOutdated
 	HealthSyncFailure

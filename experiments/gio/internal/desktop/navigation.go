@@ -270,6 +270,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == dataHealthRoute {
 		s.dataHealth.leave()
+		s.dataHealth.snapshots.restore = nil
 		if repair := s.dataHealth.repair; repair != nil {
 			repair.retirePreview()
 		}

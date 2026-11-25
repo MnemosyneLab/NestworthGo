@@ -320,6 +320,11 @@ open Data health for the period or day. **Open Wealth history** goes to
 the analysis page. Before History starts, the card links to the existing
 starting-point workflow in Ledger activity.
 
+In **Data health**, inspect a snapshot finding to see its dates and blocking
+inputs. A ready finding offers **Preview snapshot repair**. Confirm to rebuild
+the displayed closed dates from saved data. **Stop after current batch** keeps
+completed work, and Retry starts at the batch that failed.
+
 The asset and liability category cards use the household's base currency.
 **View allocation breakdowns** jumps to institution, account type, member
 and group. Open a row to see the matching accounts. **Back to accounts**
