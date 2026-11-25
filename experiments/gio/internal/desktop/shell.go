@@ -405,9 +405,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			if source == nil {
 				return i18n.NoMessage
 			}
-			if source.target.route == tasksRoute && source.tasks.holdingReceipt == s.trail.current().target.activity &&
-				source.tasks.holdingSession != "" {
-				return i18n.HoldingReconBack
+			if source.target.route == tasksRoute && source.tasks.holdingSession != "" {
+				id := s.trail.current().target.activity
+				if source.tasks.holdingReceipt == id || source.tasks.journalReceipt.operation == id.String() {
+					return i18n.HoldingReconBack
+				}
 			}
 			if source.target.route == historyRoute && source.target.activity != "" &&
 				source.historyDetail.linked >= 3 && s.trail.current().target.activity == s.historyPage.reads.posted.ID {

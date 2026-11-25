@@ -34,13 +34,15 @@ const (
 var taskTabLabels = [...]i18n.MessageID{i18n.TasksUpcomingTab, i18n.TasksInvestmentTab, i18n.TasksReconciliationTab}
 
 type tasksVisit struct {
-	tab             tasksTab
-	position        layout.Position
-	reviewCursors   []string
-	holdingSession  string
-	holdingReceipt  domain.ActivityID
-	holdingAudit    []domain.ActivityID
-	holdingAttempts []string
+	tab                          tasksTab
+	position                     layout.Position
+	reviewCursors                []string
+	holdingSession               string
+	holdingReceipt               domain.ActivityID
+	holdingAudit                 []domain.ActivityID
+	holdingAttempts              []string
+	linkedJournal, recentJournal reconciliationJournalVisit
+	journalReceipt               reconciliationReceiptKey
 }
 
 type tasksRead struct {
@@ -107,6 +109,12 @@ func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 		for _, item := range visit.holdingAttempts {
 			c.itemButtons[item] = &holdingReconItemActions{attempts: holdingEvidenceDisclosure{open: true}}
 		}
+		c.linkedJournal.reconciliationJournalVisit, c.recentJournal.reconciliationJournalVisit = visit.linkedJournal, visit.recentJournal
+		if visit.journalReceipt.operation != "" {
+			c.journalReturn = visit.journalReceipt
+			c.restore = nil
+			return c.journalReceiptButton(visit.journalReceipt)
+		}
 		if visit.holdingReceipt != "" {
 			c.restore = nil
 			return portfolioButton(c.receiptButtons, visit.holdingReceipt)
@@ -119,6 +127,13 @@ func (p *tasksPage) visit(focus event.Tag) tasksVisit {
 	visit := tasksVisit{tab: p.tab, position: p.list.Position, reviewCursors: slices.Clone(p.reviewCursors)}
 	if c := p.holdingRecon; c != nil && c.id != "" {
 		visit.holdingSession = c.id
+		visit.linkedJournal, visit.recentJournal = c.linkedJournal.reconciliationJournalVisit, c.recentJournal.reconciliationJournalVisit
+		for id, button := range c.journalReceipts {
+			if focus == button {
+				visit.journalReceipt = id
+				break
+			}
+		}
 		for id, state := range c.audit {
 			if state.open {
 				visit.holdingAudit = append(visit.holdingAudit, id)

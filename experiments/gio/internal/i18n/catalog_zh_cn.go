@@ -1759,6 +1759,18 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconMaturityInterest: "到期利息 · %s",
 	HoldingReconPaidThrough:      "利息已付至 · %s",
 
+	HoldingReconRecentJournal:     "最近变动",
+	HoldingReconLinkedJournal:     "关联变动",
+	HoldingReconJournalRange:      "第 %d–%d 条，共 %d 条",
+	HoldingReconJournalEntry:      "关联变动 %d",
+	HoldingReconFirstBaseline:     "%s · 首次对账基准",
+	HoldingReconOriginalInterval:  "对账期间内",
+	HoldingReconAfterCompletion:   "对账完成后",
+	HoldingReconJournalReadFailed: "无法加载变动。",
+	HoldingReconRecentEmpty:       "没有最近变动。",
+	HoldingReconLinkedEmpty:       "没有关联变动。",
+	HoldingReconMoreReceipts:      "更多凭证可在关联变动中查看。",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",

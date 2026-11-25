@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"gioui.org/layout"
@@ -35,9 +36,28 @@ type holdingLinkedEvidence struct {
 			Target    domain.EffectTarget    `json:"target"`
 		} `json:"effects"`
 		Resulting []struct {
-			Name, Amount, Currency, Quantity string
+			AccountID, Name, Amount, Currency, Quantity string
 		} `json:"resulting"`
+		Contract  *holdingJournalProduct  `json:"contract"`
+		Contracts []holdingJournalProduct `json:"contracts"`
 	} `json:"committed"`
+}
+
+type holdingJournalProduct struct {
+	Name, Principal, Currency    string
+	MaturityOn, AnnualRate, Note *string
+}
+
+// The reconciliation ledger stores debt magnitudes. Apply the account's
+// display sign to frozen balances, preserving their recorded digits.
+func holdingJournalBalance(view ui.View, amount, currency string, role domain.BalanceSheetRole) string {
+	if role == "" {
+		return view.Language.Text(i18n.OverviewNoValue)
+	}
+	if role == domain.RoleLiability && !strings.HasPrefix(amount, "-") && strings.Trim(amount, "0.") != "" {
+		amount = "-" + amount
+	}
+	return holdingSnapshotValue(view, amount, currency)
 }
 
 func (d *holdingEvidenceDisclosure) toggle(view ui.View, show, hide string) layout.Widget {
@@ -67,7 +87,7 @@ func holdingSnapshotValue(view ui.View, value, currency string) string {
 	return value
 }
 
-func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zone *time.Location) []layout.Widget {
+func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zone *time.Location, roles map[string]domain.BalanceSheetRole) []layout.Widget {
 	l := view.Language
 	fact := func(label i18n.MessageID, value string) layout.Widget {
 		return view.Message(fmt.Sprintf(l.Text(label), value), view.Colors.Ink)
@@ -82,6 +102,8 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 		value := holdingSnapshotValue(view, before.Value, currency)
 		if before.Kind == "scope" {
 			value = l.Text(i18n.StatementScope)
+		} else if before.Kind == "balance" {
+			value = holdingJournalBalance(view, before.Value, before.Currency, roles[before.AccountID])
 		}
 		rows = append(rows, fact(i18n.HoldingReconReviewedBefore, value))
 		if before.Cost != "" {
@@ -132,15 +154,36 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 		}
 	}
 	for _, result := range after.Resulting {
-		value, currency := result.Quantity, ""
+		text := holdingSnapshotValue(view, result.Quantity, "")
 		if result.Amount != "" {
-			value, currency = result.Amount, result.Currency
+			account := result.AccountID
+			if account == "" && before != nil {
+				account = before.AccountID
+			}
+			text = holdingJournalBalance(view, result.Amount, result.Currency, roles[account])
 		}
-		text := holdingSnapshotValue(view, value, currency)
 		if result.Name != "" {
 			text = result.Name + " · " + text
 		}
 		rows = append(rows, fact(i18n.HoldingReconLinkedResult, text))
+	}
+	contracts := after.Contracts
+	if after.Contract != nil {
+		contracts = append(contracts, *after.Contract)
+	}
+	for _, contract := range contracts {
+		if contract.Name != "" {
+			rows = append(rows, view.Message(contract.Name, view.Colors.Ink))
+		}
+		rows = append(rows, fact(i18n.ProductPrincipal, holdingSnapshotValue(view, contract.Principal, contract.Currency)), productMaturity(view, contract.MaturityOn))
+		if contract.AnnualRate != nil {
+			if rate, err := domain.ParseAnnualRateRatio(*contract.AnnualRate); err == nil {
+				rows = append(rows, fact(i18n.HoldingReconAnnualRate, portfolioDecimal(view, rate.Decimal().Shift(2).String())))
+			}
+		}
+		if contract.Note != nil && *contract.Note != "" {
+			rows = append(rows, view.Message(*contract.Note, view.Colors.SecondaryInk))
+		}
 	}
 	if after.Note != nil && *after.Note != "" {
 		rows = append(rows, view.Message(*after.Note, view.Colors.Ink))

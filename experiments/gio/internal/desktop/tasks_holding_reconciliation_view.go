@@ -45,10 +45,7 @@ func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
 
 func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, label string, open func()) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		if c.restore == button {
-			gtx.Execute(key.FocusCmd{Tag: button})
-			c.restore = nil
-		}
+		c.restoreFocus(gtx, button)
 		return taskLink(view, button, label, func() {
 			offset := view.PageScrollOffset()
 			view.RestorePageScroll(0)
@@ -57,6 +54,13 @@ func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, lab
 				c.editScroll = offset
 			}
 		})(gtx)
+	}
+}
+
+func (c *holdingReconciliation) restoreFocus(gtx layout.Context, button *widget.Clickable) {
+	if c.restore == button {
+		gtx.Execute(key.FocusCmd{Tag: button})
+		c.restore = nil
 	}
 }
 
@@ -204,6 +208,9 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	}
 	if !found {
 		rows = append(rows, view.Message(l.Text(i18n.HoldingReconEmpty), view.Colors.SecondaryInk))
+	}
+	if c.ledger != nil {
+		rows = append(rows, p.reconciliationJournalRows(view)...)
 	}
 	return rows
 }

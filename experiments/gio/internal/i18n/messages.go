@@ -1680,6 +1680,17 @@ const (
 	HoldingReconAnnualRate
 	HoldingReconMaturityInterest
 	HoldingReconPaidThrough
+	HoldingReconRecentJournal
+	HoldingReconLinkedJournal
+	HoldingReconJournalRange
+	HoldingReconJournalEntry
+	HoldingReconFirstBaseline
+	HoldingReconOriginalInterval
+	HoldingReconAfterCompletion
+	HoldingReconJournalReadFailed
+	HoldingReconRecentEmpty
+	HoldingReconLinkedEmpty
+	HoldingReconMoreReceipts
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab

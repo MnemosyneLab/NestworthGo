@@ -1758,6 +1758,18 @@ var japaneseCatalog = catalog{
 	HoldingReconMaturityInterest: "満期利息 · %s",
 	HoldingReconPaidThrough:      "利息支払済み期限 · %s",
 
+	HoldingReconRecentJournal:     "最近の変更",
+	HoldingReconLinkedJournal:     "関連する変更",
+	HoldingReconJournalRange:      "%d–%d 件目（全 %d 件）",
+	HoldingReconJournalEntry:      "関連する変更 %d",
+	HoldingReconFirstBaseline:     "%s · 初回の照合基準",
+	HoldingReconOriginalInterval:  "照合対象期間内",
+	HoldingReconAfterCompletion:   "照合完了後",
+	HoldingReconJournalReadFailed: "変更を読み込めませんでした。",
+	HoldingReconRecentEmpty:       "最近の変更はありません。",
+	HoldingReconLinkedEmpty:       "関連する変更はありません。",
+	HoldingReconMoreReceipts:      "その他の記録は関連する変更で確認できます。",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",

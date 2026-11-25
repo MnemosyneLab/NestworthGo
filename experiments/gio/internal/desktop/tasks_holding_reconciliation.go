@@ -22,6 +22,7 @@ import (
 type holdingReconcileAPI interface {
 	Get(context.Context, string) (domain.ReconciliationSession, error)
 	Links(context.Context, string) ([]domain.ReconciliationLinkedChange, error)
+	Changes(context.Context, string, string) ([]domain.ReconciliationFinancialChange, error)
 	Preview(context.Context, application.ReconciliationAction) (reconciliation.SessionPreview, error)
 	Commit(context.Context, string) (domain.ReconciliationSession, error)
 	PreviewAdjustment(context.Context, reconciliation.AdjustmentRequest) (reconciliation.AdjustmentPreview, error)
@@ -44,6 +45,13 @@ type holdingReconciliation struct {
 	clock                                      func() time.Time
 	zone                                       *time.Location
 	links                                      []domain.ReconciliationLinkedChange
+	activityLinks                              map[checkpointReceiptGroup][]domain.ReconciliationLinkedChange
+	changes                                    []domain.ReconciliationFinancialChange
+	accountRoles                               map[string]domain.BalanceSheetRole
+	linksFailed, changesFailed                 bool
+	linkedJournal, recentJournal               reconciliationJournal
+	journalReceipts                            map[reconciliationReceiptKey]*widget.Clickable
+	journalReturn                              reconciliationReceiptKey
 	receiptButtons                             map[domain.ActivityID]*widget.Clickable
 	audit                                      map[domain.ActivityID]*holdingEvidenceDisclosure
 	dated                                      *accountInvestment
@@ -91,9 +99,12 @@ type holdingReconQuantity struct {
 }
 
 type holdingReconRead struct {
-	session domain.ReconciliationSession
-	links   []domain.ReconciliationLinkedChange
-	zone    *time.Location
+	session                    domain.ReconciliationSession
+	links                      []domain.ReconciliationLinkedChange
+	changes                    []domain.ReconciliationFinancialChange
+	accountRoles               map[string]domain.BalanceSheetRole
+	linksFailed, changesFailed bool
+	zone                       *time.Location
 }
 
 type holdingReconReview struct {
@@ -116,6 +127,9 @@ func (c *holdingReconciliation) discard() {
 		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
 		c.itemButtons, c.receiptButtons, c.dated, c.links, c.zone = nil, nil, nil, nil, nil
 		c.audit, c.cashDated = nil, nil
+		c.changes, c.accountRoles, c.journalReceipts, c.activityLinks = nil, nil, nil, nil
+		c.linksFailed, c.changesFailed = false, false
+		c.linkedJournal, c.recentJournal, c.journalReturn = reconciliationJournal{}, reconciliationJournal{}, reconciliationReceiptKey{}
 		c.editScroll, c.restoreEditScroll = 0, false
 	}
 }
@@ -130,6 +144,8 @@ func (p *tasksPage) openHoldingReconciliation(id string, entry *widget.Clickable
 	c.itemButtons = make(map[string]*holdingReconItemActions)
 	c.receiptButtons = make(map[domain.ActivityID]*widget.Clickable)
 	c.audit = make(map[domain.ActivityID]*holdingEvidenceDisclosure)
+	c.journalReceipts = make(map[reconciliationReceiptKey]*widget.Clickable)
+	c.linkedJournal, c.recentJournal, c.journalReturn = reconciliationJournal{}, reconciliationJournal{}, reconciliationReceiptKey{}
 	c.restore = &c.back
 	p.readHoldingReconciliation()
 }
@@ -150,8 +166,12 @@ func (p *tasksPage) readHoldingReconciliation() {
 			if out.session, err = c.service.Get(ctx, id); err != nil {
 				return err
 			}
-			if out.links, err = c.service.Links(ctx, id); err != nil {
-				return err
+			out.links, err = c.service.Links(ctx, id)
+			out.linksFailed = err != nil
+			out.changes, err = c.service.Changes(ctx, id, "")
+			out.changesFailed = err != nil
+			if len(out.links) != 0 {
+				out.accountRoles = reconciliationAccountRoles(ctx, c.ledger)
 			}
 			origin, err := c.ledger.HistoryOrigin(ctx)
 			if err == nil && origin != nil {
@@ -313,6 +333,10 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		c.readFailed = result.err != nil
 		if result.err == nil {
 			c.session, c.links, c.zone = &result.value.session, result.value.links, result.value.zone
+			c.changes, c.accountRoles = result.value.changes, result.value.accountRoles
+			c.linksFailed, c.changesFailed = result.value.linksFailed, result.value.changesFailed
+			c.activityLinks = groupReconciliationActivityLinks(c.links)
+			c.restoreJournalReceipt()
 		}
 	default:
 	}

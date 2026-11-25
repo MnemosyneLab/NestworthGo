@@ -1759,6 +1759,18 @@ var englishCatalog = catalog{
 	HoldingReconMaturityInterest: "Maturity interest · %s",
 	HoldingReconPaidThrough:      "Interest paid through · %s",
 
+	HoldingReconRecentJournal:     "Recent changes",
+	HoldingReconLinkedJournal:     "Linked changes",
+	HoldingReconJournalRange:      "%d–%d of %d",
+	HoldingReconJournalEntry:      "Linked change %d",
+	HoldingReconFirstBaseline:     "%s · First reconciliation baseline",
+	HoldingReconOriginalInterval:  "During the reconciliation interval",
+	HoldingReconAfterCompletion:   "After completion",
+	HoldingReconJournalReadFailed: "Could not load the changes.",
+	HoldingReconRecentEmpty:       "No recent changes.",
+	HoldingReconLinkedEmpty:       "No linked changes.",
+	HoldingReconMoreReceipts:      "More receipts are available in Linked changes.",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

@@ -210,32 +210,38 @@ func (p *tasksPage) layoutDatedCheckpointCash(gtx layout.Context, view ui.View) 
 	return dims
 }
 
+func holdingLinkedReceiptLabel(view ui.View, zone *time.Location, evidence holdingLinkedEvidence) string {
+	l := view.Language
+	label := l.Text(i18n.HoldingReconViewActivity)
+	if zone != nil && !evidence.Committed.EffectiveAt.IsZero() {
+		label = fmt.Sprintf(l.Text(i18n.HoldingReconViewDatedActivity),
+			historyDay(view, evidence.Committed.EffectiveAt.In(zone).Format(time.DateOnly)))
+	}
+	if note := evidence.Committed.Note; note != nil && *note != "" {
+		label += " · " + *note
+	}
+	return label
+}
+
 func (p *tasksPage) holdingReceiptLinks(view ui.View, accountID, itemID string) []layout.Widget {
 	c, l := p.holdingRecon, view.Language
 	if p.openActivity == nil {
 		return nil
 	}
+	itemLinks := c.activityLinks[checkpointReceiptGroup{accountID, itemID}]
 	var rows []layout.Widget
-	for _, link := range c.links {
-		if link.Family != "activity" || link.AccountID != accountID || link.ItemID != itemID {
-			continue
-		}
+	limited := len(itemLinks) > reconciliationJournalPageSize
+	if limited {
+		itemLinks = itemLinks[len(itemLinks)-5:]
+	}
+	for _, link := range itemLinks {
 		id, err := domain.ParseActivityID(link.OperationID)
 		if err != nil {
 			continue
 		}
 		var evidence holdingLinkedEvidence
-		label := l.Text(i18n.HoldingReconViewActivity)
 		decoded := jsoncodec.Unmarshal(link.Evidence, &evidence) == nil
-		if decoded {
-			if c.zone != nil && !evidence.Committed.EffectiveAt.IsZero() {
-				label = fmt.Sprintf(l.Text(i18n.HoldingReconViewDatedActivity),
-					historyDay(view, evidence.Committed.EffectiveAt.In(c.zone).Format(time.DateOnly)))
-			}
-			if evidence.Committed.Note != nil && *evidence.Committed.Note != "" {
-				label += " · " + *evidence.Committed.Note
-			}
-		}
+		label := holdingLinkedReceiptLabel(view, c.zone, evidence)
 		button := portfolioButton(c.receiptButtons, id)
 		rows = append(rows, taskLink(view, button, label, func() { p.openActivity(id, button) }))
 		if decoded && evidence.Before != nil {
@@ -246,9 +252,12 @@ func (p *tasksPage) holdingReceiptLinks(view ui.View, accountID, itemID string) 
 			}
 			rows = append(rows, d.toggle(view, l.Text(i18n.HoldingReconShowAudit), l.Text(i18n.HoldingReconHideAudit)))
 			if d.open {
-				rows = append(rows, holdingLinkedEvidenceRows(view, evidence, c.zone)...)
+				rows = append(rows, holdingLinkedEvidenceRows(view, evidence, c.zone, c.accountRoles)...)
 			}
 		}
+	}
+	if limited {
+		rows = append(rows, view.Message(l.Text(i18n.HoldingReconMoreReceipts), view.Colors.SecondaryInk))
 	}
 	return rows
 }

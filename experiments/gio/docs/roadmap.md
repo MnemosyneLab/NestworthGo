@@ -1692,15 +1692,14 @@ action regains focus.
 offers the saved reviewed value, unit cost and source where present, the
 effective and recorded times, exact effects, results at posting and the note.
 Gio puts that disclosure beside its receipt and puts prior attempts on the
-checked item. Wails places linked changes in a paginated section on the
-session. Back to the Gio session restores the receipt focus and open evidence.
+checked item. Both apps also provide a paginated session-wide journal. Back to the Gio session restores the receipt focus and open evidence.
 [Wails Reconciliation entry](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Wails Record Change](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared History service](../../../internal/wailsapi/history/history.go)
 
 | Check | Evidence |
 | --- | --- |
 | Gio and Wails adapter | The dated adjustment regression adds 0.125 units at USD 13.12345678 on November 21, 2026 at 20:45 Singapore time (12:45 UTC). It exercises a stale session revision, draft retention, cancel and a lost acknowledgement retry. A second regression compares Buy, Sell, an exact EUR 1.2345 dividend and both custody directions with separate Wails adapter fixtures. Reopen keeps the original holding at 2 units, the second account at 0.25 units, and the exact USD 149.625 and EUR 1.2345 cash sleeves. The dividend retry keeps one link and one cash credit. Prior check evidence and the buy's reviewed quantity of 2 remain readable after later postings. The regression checks read-only inspection and restores the exact receipt focus and evidence disclosures after Back. |
 | Packaged Linux X11 | The earlier adjustment run used the compact date picker to post 0.25 units at USD 12.12345678 and confirmed the receipt and cash/quote preservation after reopen. At 1160×820, Cancel returned keyboard focus to the dated action, and a second review posted 0.25 units with USD 7.50 gross and USD 0.25 fee. At 640×480, the keyboard selected EUR and November 24, then confirmed the exact EUR 1.2345 dividend. Both explicit notes persisted. Normal restart showed 1.25 units and both links. Compact Back restored the visible receipt and expanded evidence, and Return reopened that receipt. SQLite confirmed the two writes on the same checkpoint, USD 192.25 and EUR 1.2345 at Harbor Brokerage, USD 25 at the second account, and matching account rows, quotes and source-file hashes. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go application and Wails adapter tests, 89 Wails Reconciliation and record-flow frontend tests, and four focused Wails History frontend tests passed. The following account-scope checkpoint extends the route to imported positions and dated cash entries. Product and removed-item checkpoints, archived inventory and the session-wide journals are tracked separately. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go application and Wails adapter tests, 89 Wails Reconciliation and record-flow frontend tests, and four focused Wails History frontend tests passed. The following account-scope and journal checkpoints extend the route to imported positions, dated cash entries and session-wide evidence. Archived inventory remains open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Account completeness import and linked cash entries
 
@@ -1746,7 +1745,32 @@ or completeness. Those controls do not appear for product or removed items.
 | --- | --- |
 | Gio and shared adapter | A managed deposit retained USD 1000 principal and USD 12.3456 maturity interest. An archived zero-quantity holding kept its former check and source. Cancel preserved the revision and links. The product and removed-item checks retained their exact IDs, civil date and notes across reopen, and the complete financial activity list matched. |
 | Packaged Linux X11 | At 1160×820, review and Cancel returned to the product Check action. A keyboard confirmation then saved the November 25 check for USD 20.125 principal and USD 1.2345 maturity interest. At 640×480 the former holding showed its original statement and zero units before keyboard confirmation of its new note. Reopen and SQLite retained one product attempt and both former-holding attempts. Financial activities and effects, accounts, holdings, cash, product contracts, quotes, the link journal and synthetic source hashes matched. Full Gio tests and vet, standard Linux packaging, shared Go reconciliation tests and three focused Wails UI cases passed. |
-| Still open | Wails has financial product correction and add-product actions. Its session-wide Linked changes and Recent changes sections page 25 entries, including product operations and activity after closure. Gio keeps per-checkpoint activity links and evidence and still needs those session-wide journals, archived account inventory and product correction workflows. |
+| Still open | Wails has financial product correction and add-product actions. The following section covers the session-wide journals. Archived account inventory and product correction workflows remain open. |
+
+#### Reconciliation journals and paging
+
+Holdings sessions show separate **Recent changes** and **Linked changes**
+sections. Both use the Wails read adapters and display up to 25 records per
+page in the order supplied by the service. Recent changes keeps the original
+interval, first-baseline explanation and changes after completion distinct.
+Linked changes shows the reviewed checkpoint, recorded and effective dates,
+exact amounts and quantities, notes and any recorded product contract facts.
+Liability balance signs use the associated account metadata, including archived
+accounts. Missing metadata leaves the corresponding balance unavailable.
+
+Gio places page controls above the records so users can page without traversing
+25 audit cards. The existing direct receipt links remain on their checkpoints.
+Checkpoints with more than 25 activity links keep the last five shortcuts and
+direct users to the complete Linked changes journal. Back from a journal
+receipt restores the session, the separate page and disclosure for each
+journal, and the exact receipt using its account and operation IDs.
+[Wails journal views](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared reconciliation read adapter](../../../internal/wailsapi/reconciliation/reconciliation.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | A 26-receipt fixture verified the 25/1 split, separate recent pages, the exact last activity, stored IDs and order after restart, and a later change on a completed session. An isolated Recent changes failure retained linked evidence and let Retry restore the journal and focus. The compact Back regression retains the selected page, disclosure and scroll position. The balance remained USD 156.126 throughout the journal inspection. |
+| Packaged Linux X11 | At 1160×820, Recent changes reached 51–54 of 54 with the keyboard and showed the USD 200.126 post-completion balance. At 640×480, Tab and Return opened linked row 26 after the 25-row first page. Back restored the visible focused receipt on page two and Return reopened the same activity. Read-only SQLite comparison matched all 26 distinct links, the reconciliation journals, balances, financial rows and source hashes. Full Gio and vet, standard Linux packaging, targeted shared Go tests and all 89 Wails Reconciliation and record-flow UI cases passed. |
+| Scope | This checkpoint covers the existing Gio Holdings session view. The card statement screen and broader account-mode sessions still have their own parity gaps. |
 
 #### Check and finish a holdings reconciliation
 
@@ -2590,13 +2614,13 @@ and [`b06ddc08` quantity target run](https://github.com/MnemosyneLab/NestworthGo
 The [dated posting run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45660311623)
 and the [`afba649c` check and closure run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45661054447)
 also completed successfully. The [`689cfd86` linked activity and evidence run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45665235206)
-and the [`8d052fb1` scope import and cash run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45669293030)
-passed.
+the [`8d052fb1` scope import and cash run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45669293030),
+and the [`dcc9e774` product evidence run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45670260642) passed.
 
 #### Follow-up order across Stages 4 to 6
 
 Continue Stage 5 with remaining linked cash and account-value changes,
-product corrections, paginated session-wide journals, archived inventory and account context actions. Stage 4 still has additional Starting
+product corrections, archived inventory and account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor
