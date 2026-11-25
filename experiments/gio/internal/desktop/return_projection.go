@@ -1,9 +1,7 @@
 package desktop
 
 import (
-	"fmt"
 	"image"
-	"strings"
 
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -27,6 +25,7 @@ type returnProjectionControls struct {
 
 	mode, kind, groupBy, order ui.Select
 	list                       widget.List
+	ranking                    contributionRanking
 	rankButtons                map[string]*widget.Clickable
 	selectedKey                string
 }
@@ -46,14 +45,16 @@ func (p *returnProjectionControls) contributionMetric() application.Contribution
 }
 
 func (p *returnProjectionControls) contributionGroup() application.ContributionGroupBy {
-	if p.group == "" {
+	if p.group == "" || p.contributionMetric() == application.ContributionRealized &&
+		(p.group == application.ContributionGroupCurrency || p.group == application.ContributionGroupAssetClass) {
 		return application.ContributionGroupInstrument
 	}
 	return p.group
 }
 
 func (p *returnProjectionControls) contributionSort() application.ContributionSort {
-	if p.sort == "" {
+	if p.sort == "" || p.contributionMetric() != application.ContributionTotalReturn &&
+		(p.sort == application.ContributionSortRateAsc || p.sort == application.ContributionSortRateDesc) {
 		return application.ContributionSortAmountDesc
 	}
 	return p.sort
@@ -62,6 +63,7 @@ func (p *returnProjectionControls) contributionSort() application.ContributionSo
 func (p *returnAnalysisPage) changeProjection() {
 	p.current = nil
 	p.output.list.Position = layout.Position{}
+	p.output.ranking.list.Position = layout.Position{}
 	p.readMonth(p.month, p.sunday)
 }
 
@@ -131,20 +133,32 @@ func (p *returnAnalysisPage) projectionOptions(gtx layout.Context, view ui.View)
 		groups := []ui.Choice{
 			{ID: string(application.ContributionGroupInstrument), Label: l.Text(i18n.AnalysisInstrument)},
 			{ID: string(application.ContributionGroupAccount), Label: l.Text(i18n.AnalysisAccount)},
-			{ID: string(application.ContributionGroupCurrency), Label: l.Text(i18n.AnalysisCurrency)},
+		}
+		if out.contributionMetric() != application.ContributionRealized {
+			groups = append(groups,
+				ui.Choice{ID: string(application.ContributionGroupCurrency), Label: l.Text(i18n.AnalysisCurrency)},
+				ui.Choice{ID: string(application.ContributionGroupAssetClass), Label: l.Text(i18n.AnalysisAssetClass)})
 		}
 		sorts := []ui.Choice{
 			{ID: string(application.ContributionSortAmountDesc), Label: l.Text(i18n.ReturnSortLargest)},
 			{ID: string(application.ContributionSortAmountAsc), Label: l.Text(i18n.ReturnSortSmallest)},
 			{ID: string(application.ContributionSortNameAsc), Label: l.Text(i18n.ReturnSortName)},
 		}
+		if out.contributionMetric() == application.ContributionTotalReturn {
+			sorts = append(sorts,
+				ui.Choice{ID: string(application.ContributionSortRateDesc), Label: l.Text(i18n.RankingRateDesc)},
+				ui.Choice{ID: string(application.ContributionSortRateAsc), Label: l.Text(i18n.RankingRateAsc)})
+		}
 		fields = append(fields,
 			analysisSelect(&out.kind, i18n.ReturnMetric, metrics, string(out.contributionMetric()), false, func(value string) {
 				out.metric = application.ContributionReturnType(value)
+				out.group, out.sort = out.contributionGroup(), out.contributionSort()
+				out.selectedKey = ""
 				p.changeProjection()
 			}),
 			analysisSelect(&out.groupBy, i18n.ReturnGroupBy, groups, string(out.contributionGroup()), false, func(value string) {
 				out.group = application.ContributionGroupBy(value)
+				out.selectedKey = ""
 				p.changeProjection()
 			}),
 			analysisSelect(&out.order, i18n.ReturnSort, sorts, string(out.contributionSort()), false, func(value string) {
@@ -185,61 +199,6 @@ func (p *returnAnalysisPage) trendRows(view ui.View, trend application.ReturnTre
 		}))
 	}
 	return rows
-}
-
-func (p *returnAnalysisPage) contributionRows(view ui.View, data application.ContributionResult) []ui.ColumnChild {
-	l := view.Language
-	summary := data.Summary
-	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.ReturnAmount)+" · "+returnAmountText(view, summary.Total, summary.AmountStatus), view.Colors.Ink))}
-	if !data.Available || len(data.Rows) == 0 {
-		return append(rows, ui.Rigid(view.Message(l.Text(i18n.ReturnInsufficient), view.Colors.SecondaryInk)))
-	}
-	return append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnContribution), len(data.Rows), func(gtx layout.Context, i int) layout.Dimensions {
-			row := data.Rows[i]
-			name := p.refs.names[row.Key]
-			kind, currency, _ := strings.Cut(row.Key, ":")
-			switch {
-			case data.GroupBy == application.ContributionGroupCurrency:
-				name = row.Key
-			case kind == domain.BucketCash:
-				name = l.Text(i18n.AccountCash)
-				if currency != "" {
-					name += " · " + currency
-				}
-			case name == "":
-				name = l.Text(i18n.OverviewEvidenceUnavailable)
-			}
-			value := fmt.Sprintf("%s · %s · %s", name, returnMoney(view, row.Amount), returnRate(view, row.Rate))
-			if row.Status == domain.CompletenessPartial {
-				value += " · " + l.Text(i18n.ReturnInsufficient)
-			}
-			button := p.output.rankButton(row.Key)
-			view.Focus.Watch(gtx, button)
-			if gtx.Enabled() && p.returnFocus == button {
-				p.returnFocus = nil
-				gtx.Execute(key.FocusCmd{Tag: button})
-			}
-			if button.Clicked(gtx) {
-				p.openContribution(row.Key, name, button)
-				gtx.Execute(op.InvalidateCmd{})
-			}
-			return view.ButtonOf(button, ui.ButtonSpec{Title: value, Variant: ui.ButtonGhost, Toggle: true,
-				Selected: p.output.selectedKey == row.Key, Fill: true})(gtx)
-		})
-	}))
-}
-
-func (p *returnProjectionControls) rankButton(key string) *widget.Clickable {
-	if p.rankButtons == nil {
-		p.rankButtons = make(map[string]*widget.Clickable)
-	}
-	button := p.rankButtons[key]
-	if button == nil {
-		button = new(widget.Clickable)
-		p.rankButtons[key] = button
-	}
-	return button
 }
 
 func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {

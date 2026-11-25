@@ -1713,6 +1713,26 @@ the recorded History period show their missing state and are disabled.
 | Linux X11 | The packaged preview showed the November Year card at USD 25, +25%, 24/24. At 700×480 the cards wrapped and the November result was reachable by scrolling. Selecting it showed November 2026 and November 1–24 in Month. The synthetic fixture verified after quit. |
 | Build and tests | The entire Gio module suite, Gio vet and native Linux package build passed. Native macOS, VoiceOver and IME remain open. |
 
+#### Contribution ranking and search
+
+Contribution shows the shared total, positive and negative summaries, then
+Main contributions and All contribution details. The ranking uses the exact
+absolute amounts and supports positive and negative filters and 10, 20 or
+all rows. Gio uses keyboard-scrollable rows while chart integration is
+paused. Count buttons use a separate wrapping row so the choices stay visible at compact sizes.
+The details search is independent of the ranking's direction and limit.
+Total Return can sort details by the shared return rate, and supported
+metrics can group by asset class. Metric changes reset incompatible group
+or sort choices. The result controls and link focus survive the History
+round trip.
+
+| Check | Evidence |
+| --- | --- |
+| Wails comparison | All 36 Insight Tabs frontend tests and focused shared Go Contribution tests passed. Gio preserves the shared amount and rate, and the Wails direction, limit and absolute-value order. The ranking test distinguishes magnitude 1.00000001 from 1, breaks ties by key, and excludes missing amounts without changing the details order. |
+| Gio interaction | With one positive USD 25 item, Negative reduced the ranking to zero. Searching independently hid and recovered the item in Details. Show 20 and the search survived Contribution → Ledger activity → Back. |
+| Linux X11 | The packaged preview showed zero of one in the negative ranking, found Synthetic fund in Details, and opened the same November 1–24 Ledger activity context. Back and Return reopened that detail. At 700×480 the search and result remained reachable after scrolling. |
+| Build and tests | The full Gio module suite, Gio vet and native Linux package build passed. Interactive Wails, macOS, VoiceOver and IME remain open. |
+
 ### Follow-up Linux acceptance
 
 Independent Linux QA on an earlier preview found a Directory caption,

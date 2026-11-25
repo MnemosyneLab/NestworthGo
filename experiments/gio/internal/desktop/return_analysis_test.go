@@ -321,6 +321,24 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if ranking.Rows[0].Key != instrument.ID.String() {
 		t.Fatalf("expected the fund to appear first, got %+v", ranking.Rows)
 	}
+	h.size.Y = 1000
+	h.frame()
+	h.click("Negative contributions", false)
+	assertPageLabel(t, &h.router, "Showing 0 of 1 contributions")
+	h.click("Search contributions", true)
+	h.router.Queue(key.EditEvent{Text: "No match"})
+	h.frame()
+	h.frame()
+	if findPageLabel(&h.router, "Synthetic fund · $ 25.00 · +25%") != nil {
+		t.Fatal("the details list did not respond to search")
+	}
+	h.router.Queue(key.EditEvent{Range: key.Range{End: len("No match")}, Text: "synthetic"})
+	h.frame()
+	h.frame()
+	assertPageLabel(t, &h.router, "Synthetic fund · $ 25.00 · +25%")
+	h.click("Largest impact", false)
+	h.click("Show 20", false)
+	assertPageLabel(t, &h.router, "Showing 1 of 1 contributions")
 	h.click("More filters", false)
 	h.click("Currency", true)
 	h.router.Queue(key.EditEvent{Text: "USD"})
@@ -380,6 +398,9 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	h.focused(rank)
 	if page.tab != returnContributionTab || page.output.selectedKey != instrument.ID.String() {
 		t.Fatal("Back did not restore Contribution and the selected fund")
+	}
+	if page.output.ranking.search.Field.Text() != "synthetic" || page.output.ranking.limit != 20 {
+		t.Fatal("Back lost the Contribution result controls")
 	}
 }
 

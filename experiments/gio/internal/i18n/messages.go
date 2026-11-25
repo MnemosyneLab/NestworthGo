@@ -344,6 +344,19 @@ const (
 	ReturnSortLargest
 	ReturnSortSmallest
 	ReturnSortName
+	RankingTotal
+	RankingPositive
+	RankingNegative
+	RankingLargest
+	RankingMain
+	RankingDetails
+	RankingSearch
+	RankingNoMatches
+	RankingShowCount
+	RankingAll
+	RankingVisible
+	RankingRateDesc
+	RankingRateAsc
 	ReturnMetric
 	ReturnGroupBy
 	ReturnSort

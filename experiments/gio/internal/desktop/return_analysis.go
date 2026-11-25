@@ -248,6 +248,7 @@ func (p *returnAnalysisPage) changeTab(tab returnAnalysisTab) {
 	}
 	p.tab, p.current = tab, nil
 	p.output.list.Position = layout.Position{}
+	p.output.ranking.list.Position = layout.Position{}
 	if p.refs.origin != nil {
 		p.readMonth(p.month, p.sunday)
 	}
@@ -271,9 +272,11 @@ func (p *returnAnalysisPage) update(sunday bool) {
 				for _, row := range ranks.Rows {
 					present[row.Key] = true
 				}
-				for key := range p.output.rankButtons {
-					if !present[key] {
-						delete(p.output.rankButtons, key)
+				for _, buttons := range []map[string]*widget.Clickable{p.output.rankButtons, p.output.ranking.buttons} {
+					for key := range buttons {
+						if !present[key] {
+							delete(buttons, key)
+						}
 					}
 				}
 				if !present[p.output.selectedKey] {
@@ -297,6 +300,7 @@ func (p *returnAnalysisPage) changeFilters(previous, selection analysisSelection
 	}
 	p.current = nil
 	p.output.list.Position = layout.Position{}
+	p.output.ranking.list.Position = layout.Position{}
 	p.readMonth(month, p.sunday)
 }
 
