@@ -1769,9 +1769,8 @@ refresh controls in the calculator.
 
 #### Linked debt and account value changes
 
-From **Tasks & checks → Reconciliation**, the shared session view can start
-one active account and open existing Holdings, Balance and Manual value
-sessions. Within an active session, **Record a change** at a balance or
+From **Tasks & checks → Reconciliation**, the shared session view opens Holdings, Balance and Manual value sessions,
+including mixed sessions. Within an active session, **Record a change** at a balance or
 completeness checkpoint and the dated cash action at an eligible Holdings cash
 checkpoint keep the selected account and item fixed. The separate credit-card
 statement shortcut keeps its existing scope.
@@ -1797,7 +1796,34 @@ transaction. The exact receipt and effective date can be opened in Ledger.
 | Gio and Wails Go adapter | Independent synthetic SQLite ledgers matched a USD 30.125 draw from the Holdings cash checkpoint, a USD 10.1234 principal payment with USD 0.0567 fee from the loan balance checkpoint, and a USD 424.5678 manual value. The amounts reopened as USD 175.9449 cash, USD 100.0016 loan and USD 424.5678 property. The three November 23 Asia/Singapore dates, notes and activity IDs reopened under their original item IDs. Cancel left the journal unchanged, a stale session retained the draft, and a lost response retried the same mutation. Earlier activity and unrelated USD 12.34 savings were unchanged. |
 | Packaged Gio Linux X11 | At 1140×920, Back retained the selected loan, principal and dated note, and Cancel left nine financial and link tables unchanged. Return reopened the focused USD cash action. The final package posted the 12:00 draw and the 14:00 property value with Return at 665×480, and the 13:00 payment at wide width. Restart showed the three exact checkpoint links and balances. Ledger Back restored the property receipt's focus. SQLite matched the amounts, local date, UTC instants, activity and checkpoint IDs, prior rows and source hashes. Full Gio tests, vet and the stock Linux package build passed. |
 | Wails reference | All 89 Reconciliation and record-flow frontend tests, the Ledger unchanged-value test, and the targeted shared Go and Wails adapter tests passed. |
-| Remaining | Multi-account **creation**, broader account-scope investment activity, standalone product lifecycle, interactive Wails and native-platform acceptance remain open. Existing multi-account sessions open through the shared account-group view. |
+| Remaining | Broader account-scope investment activity, standalone product lifecycle, interactive Wails and native-platform acceptance remain open. See [mixed-session creation](#start-a-mixed-account-reconciliation) for the picker. |
+
+#### Start a mixed-account reconciliation
+
+**Tasks & checks → Reconciliation → Start reconciliation** opens the account
+picker. Every active account is selected initially. Owner, account type and
+institution filters update visibility, including accounts without an institution.
+Selecting or deselecting the filtered set keeps the hidden selections. Counts
+show the total, filtered and hidden selections. Overlap with an unfinished
+session is advisory and the shared service can still start a separate record.
+An empty selection disables review. Archived accounts are excluded.
+
+Review sends explicit selected account IDs to the existing start action.
+It shows the captured checkpoint count, the service's start time, and read-only
+checkpoint details per selected account. The start time is the shared preview
+clock. There is no date input. Gio puts the picker on a dedicated page and
+retains its existing optional opening note. Wails places selection on the
+reconciliation list and starts with an empty note. Back keeps the draft,
+and Cancel returns to the initiating action. A stale preview refreshes the
+selection against active accounts, and an uncertain confirmation retries the
+frozen plan.
+[Wails selection](../../../frontend/src/features/reconciliation/AccountSelection.tsx) · [Wails session list](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared start and commit](../../../internal/application/reconciliation_session.go)
+
+| Check | Evidence |
+| --- | --- |
+| Paired Gio and Wails Go adapter | Independent SQLite profiles matched the Holdings cash and position, Balance loan, Manual value property and three completeness checkpoints. Filters and keyboard checkbox edits retained hidden selections. Empty selection and Cancel preserved the existing session. An intervening property update to USD 415.4321 invalidated the old preview. The next preview kept the selected IDs and its exact time when confirmed 17 minutes later on the fixture clock. A lost acknowledgement retried the same plan and reopened exactly one mixed receipt. The unrelated account and earlier session and journal matched. |
+| Stock Linux X11 | At 1140×920, five active accounts were selected initially. Deselecting the two filtered bank accounts kept three hidden selections. At 665×480, Shift+Tab and Return retained the filter and selection. Cancel and Return restored the initiating action and opened a fresh default selection. SQLite confirmed that Cancel preserved all published reconciliation and financial rows. Return on a fresh compact review created one session and seven checkpoints. Restart showed the new mixed and prior single-account sessions. SQLite matched the captured timestamp, exact IDs, USD 156 cash, quantity 2, USD 80 owed and USD 410.25 property value. Source hashes matched. |
+| Checks and gaps | Full Gio tests and vet, stock Linux packaging, 90 Wails frontend tests, and focused shared Go and Wails adapter tests passed. Interactive Wails and native Mac acceptance remain open. Stage 7 remains paused. |
 
 #### Linked product valuation reopen regression
 
@@ -2985,20 +3011,15 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 
 #### Follow-up order across Stages 4 to 6
 
-1. Add multi-account reconciliation creation from the [Wails account
-   picker](../../../frontend/src/features/reconciliation/AccountSelection.tsx)
-   using the existing shared start preview. Compare mixed account groups, search,
-   selection and focus, and receipt ownership on Back. Existing mixed sessions
-   can already be opened in Gio.
-2. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
+1. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
    Prioritize locked product value and receipt, applicable interest, terms and
    grouped undo. Verify actual Wails entry points for renewal before expanding
    the standalone view. Keep funding source and reservation effects explicit.
-3. Continue broader account-scope investment entries, archived inventory,
+2. Continue broader account-scope investment entries, archived inventory,
    account Starting Point handoffs, and liability-specific amendments. Then
    address additional Agent audit filters and large-history paging. The
    instrument catalog editor remains part of investment parity.
-4. Run the [native platform acceptance](#stage-6-exit-gates) in parallel when
+3. Run the [native platform acceptance](#stage-6-exit-gates) in parallel when
    the paired desktop apps are available. Use the [synthetic desktop
    runbook](stage6-desktop-qa.md) for compact focus and exact readback. Keep
    interactive Wails, native macOS, VoiceOver, Wayland and IME separate from CI.

@@ -1799,6 +1799,19 @@ const (
 	TasksInvestmentTab
 	TasksReconciliationTab
 	HoldingReconTitle
+	ReconciliationAllFilters
+	ReconciliationClearFilters
+	ReconciliationSelectVisible
+	ReconciliationDeselectVisible
+	ReconciliationDeselectAll
+	ReconciliationNoMatches
+	ReconciliationSelectionSummary
+	ReconciliationOverlap
+	ReconciliationInstitution
+	ReconciliationOwner
+	ReconciliationScopeRefresh
+	ReconciliationShowScope
+	ReconciliationHideScope
 	ReconciliationStart
 	ReconciliationSessions
 	ReconciliationOpen

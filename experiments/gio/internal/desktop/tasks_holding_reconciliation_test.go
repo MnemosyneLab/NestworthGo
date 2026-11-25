@@ -102,21 +102,16 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	click("Tasks & checks")
 	click("Reconciliation")
 	sessions(app, 0)
+	start := &linkedProductHarness{previewHarness: h, c: c, tasks: tasks}
 	click("Start reconciliation")
-	h.focused(&c.draft.accountPick.Trigger)
-	h.press(key.NameReturn)
-	settle()
-	click("Harbor Brokerage")
-	click("Review")
-	click("Cancel")
+	h.focused(&c.draft.selection.ownerPick.Trigger)
+	start.activate(t, "Review")
+	start.activate(t, "Cancel")
 	h.focused(&c.start)
 	sessions(app, 0)
 
 	click("Start reconciliation")
-	h.press(key.NameReturn)
-	settle()
-	click("Harbor Brokerage")
-	click("Review")
+	start.activate(t, "Review")
 	if findPageLabel(&h.router, "Harbor Brokerage") == nil {
 		t.Fatal("start review omitted the selected account")
 	}

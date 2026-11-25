@@ -36,16 +36,18 @@ type holdingReconcileAPI interface {
 }
 
 type holdingReconDirectory struct {
-	sessions []domain.ReconciliationSession
-	accounts []domain.Account
+	sessions     []domain.ReconciliationSession
+	accounts     []domain.AccountRecord
+	members      []domain.Member
+	ownersFailed bool
 }
 
 func (d holdingReconDirectory) account(id string) (domain.Account, bool) {
-	i := slices.IndexFunc(d.accounts, func(a domain.Account) bool { return a.ID.String() == id })
+	i := slices.IndexFunc(d.accounts, func(row domain.AccountRecord) bool { return row.Account.ID.String() == id })
 	if i < 0 {
 		return domain.Account{}, false
 	}
-	return d.accounts[i], true
+	return d.accounts[i].Account, true
 }
 
 type reconciliationActivityLedger interface {
@@ -91,7 +93,7 @@ type holdingReconDraft struct {
 	itemID, accountID                    string
 	action                               statement.Action
 	entry                                *widget.Clickable
-	accountPick                          ui.Select
+	selection                            *reconciliationSelection
 	total, note                          ui.TextField
 	target                               *holdingReconQuantity
 	product                              *holdingProductDraft
@@ -255,7 +257,7 @@ func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 			!item.ArchivedNonzero && d.targetReady()
 	}
 	if d.action == statement.Start {
-		return d.accountID != ""
+		return len(d.selection.chosen(c.directory.accounts)) != 0
 	}
 	if c.session == nil {
 		return false
@@ -313,10 +315,11 @@ func (p *tasksPage) previewHoldingReconciliation() {
 	}
 	action := application.ReconciliationAction{Action: string(d.action), Note: d.note.Text()}
 	if d.action == statement.Start {
-		if d.accountID == "" {
+		action.AccountIDs = d.selection.chosen(c.directory.accounts)
+		if len(action.AccountIDs) == 0 {
 			return
 		}
-		action.AccountIDs = []string{d.accountID}
+		d.selection.freeze(action.AccountIDs)
 	} else if c.session != nil {
 		action.SessionID, action.ExpectedRevision = c.id, c.session.Revision
 	} else {
@@ -431,6 +434,9 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		switch {
 		case result.err == nil && result.value.planID != "":
 			d.review, d.reviewFocus = &result.value, true
+		case d.action == statement.Start && reconciliationStartAccountsChanged(result.err):
+			d.problem = i18n.ReconciliationScopeRefresh
+			p.read()
 		case holdingReconStale(result.err) && c.id != "":
 			d.problem = i18n.HoldingReconChanged
 			if d.product != nil && d.product.terms != nil {
@@ -503,19 +509,26 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			p.read()
 			return
 		}
-		if holdingReconStale(result.err) {
+		if holdingReconStale(result.err) || d.action == statement.Start && reconciliationStartAccountsChanged(result.err) {
 			d.review, d.uncertain, d.problem, d.initialFocus = nil, false, i18n.HoldingReconChanged, true
 			if d.product != nil && d.product.add == nil {
 				p.loadHoldingProduct(d.product)
 			}
 			if c.id != "" {
 				p.readHoldingReconciliation()
+			} else if d.action == statement.Start {
+				p.read()
 			}
 		} else {
 			d.uncertain, d.reviewFocus = true, true
 		}
 	default:
 	}
+}
+
+func reconciliationStartAccountsChanged(err error) bool {
+	var issue *apierror.WireError
+	return errors.As(err, &issue) && issue.Field == "accountIds" && issue.Code == string(domain.ErrValidation)
 }
 
 func holdingReconStale(err error) bool {

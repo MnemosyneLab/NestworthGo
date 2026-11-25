@@ -61,12 +61,12 @@ func (c *holdingReconciliation) datedCheckpointLink(accountID string, item domai
 
 func (p *tasksPage) startHoldingDatedChange(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable) {
 	c := p.holdingRecon
-	at := slices.IndexFunc(c.directory.accounts, func(a domain.Account) bool { return a.ID.String() == account.AccountID })
-	if at < 0 {
+	active, ok := c.directory.account(account.AccountID)
+	if !ok {
 		return
 	}
 	linked := &holdingLinkedActivity{
-		scope:      positionScope{account: c.directory.accounts[at], action: entry},
+		scope:      positionScope{account: active, action: entry},
 		link:       c.datedCheckpointLink(account.AccountID, item),
 		importOnly: item.Kind == "scope",
 	}

@@ -2,7 +2,6 @@ package desktop
 
 import (
 	"fmt"
-	"image"
 	"slices"
 	"strings"
 
@@ -27,7 +26,7 @@ func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
 		c.sessionButtons = make(map[string]*widget.Clickable)
 	}
 	rows := []layout.Widget{tradeTitle(view, i18n.ReconciliationSessions)}
-	for _, session := range c.directory.sessions {
+	sessionCard := func(session domain.ReconciliationSession) layout.Widget {
 		button := portfolioButton(c.sessionButtons, session.ID)
 		name := strings.Join(session.AccountNames, " · ")
 		status := l.Text(statementStatus(session))
@@ -38,19 +37,30 @@ func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
 				openLabel = i18n.HoldingReconOpen
 			}
 		}
-		rows = append(rows, fundsCard(view, name,
+		return fundsCard(view, name,
 			view.Message(status+" · "+when, view.Colors.SecondaryInk),
 			c.link(view, button, fmt.Sprintf(l.Text(openLabel), name), func() {
 				p.openHoldingReconciliation(session.ID, button)
-			})))
+			}))
 	}
-	if len(c.directory.accounts) == 0 {
-		return rows
+	for _, session := range c.directory.sessions {
+		if session.Status != "completed" {
+			rows = append(rows, sessionCard(session))
+		}
 	}
-	return append(rows, c.link(view, &c.start, l.Text(i18n.ReconciliationStart), func() {
-		c.draft = newHoldingReconDraft(&c.start)
-		c.draft.action = statement.Start
-	}))
+	if len(c.directory.accounts) != 0 {
+		rows = append(rows, c.link(view, &c.start, l.Text(i18n.ReconciliationStart), func() {
+			c.draft = newHoldingReconDraft(&c.start)
+			c.draft.action = statement.Start
+			c.draft.selection = &reconciliationSelection{checks: make(map[domain.AccountID]*widget.Bool)}
+		}))
+	}
+	for _, session := range c.directory.sessions {
+		if session.Status == "completed" {
+			rows = append(rows, sessionCard(session))
+		}
+	}
+	return rows
 }
 
 func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, label string, open func()) layout.Widget {
@@ -157,7 +167,7 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	found := false
 	for _, account := range s.Accounts {
 		activeAccount, active := c.directory.account(account.AccountID)
-		if !slices.ContainsFunc(c.directory.accounts, func(a domain.Account) bool { return a.ID.String() == account.AccountID }) {
+		if !active {
 			continue
 		}
 		rows = append(rows, view.Message(account.Name, view.Colors.Ink))
@@ -345,6 +355,9 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	origin := view.Origin
 	rows := []layout.Widget{tradeTitle(view, title)}
 	ready := c.loading == nil && !c.readFailed && d.reading == nil
+	if d.action == statement.Start {
+		ready = ready && p.request == nil && p.err == nil
+	}
 	if d.check != nil {
 		rows = append(rows, c.holdingCheckFields(view, d, &origin, ready)...)
 	} else if d.product != nil && d.product.add != nil {
@@ -387,21 +400,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 			})
 		}
 	} else if d.action == statement.Start {
-		choices := make([]ui.Choice, 0, len(c.directory.accounts))
-		for _, a := range c.directory.accounts {
-			choices = append(choices, ui.Choice{ID: a.ID.String(), Label: a.Name})
-		}
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			if d.initialFocus {
-				gtx.Execute(key.FocusCmd{Tag: &d.accountPick.Trigger})
-				d.initialFocus = false
-			}
-			d.accountPick.Layout(gtx, view, ui.PickerField{Label: i18n.AnalysisAccount, Origin: origin, Next: &d.note.Editor, Disabled: !ready},
-				ui.SelectOptions{Items: choices, Searchable: true}, d.accountID, func(id string) {
-					d.accountID, d.problem = id, i18n.NoMessage
-				})
-			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
-		})
+		rows = append(rows, p.reconciliationSelectionRows(view, &origin, d, ready)...)
 	} else if c.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(c.session), view.Colors.Ink))
 	}
@@ -427,7 +426,10 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	if c.readFailed {
 		rows = append(rows, c.link(view, &c.reload, l.Text(i18n.HistoryRetry), p.readHoldingReconciliation))
 	}
-	if !ready && !c.readFailed {
+	if d.action == statement.Start && p.err != nil {
+		rows = append(rows, view.Message(l.Text(i18n.TasksChecksReadFailed), view.Colors.ErrorInk),
+			reconciliationSelectionButton(view, &c.reload, i18n.HistoryRetry, p.request == nil, p.read))
+	} else if !ready && !c.readFailed {
 		rows = append(rows, view.Message(l.Text(i18n.TasksChecksLoading), view.Colors.SecondaryInk))
 	}
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
@@ -477,8 +479,13 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	} else if r.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(r.session), view.Colors.Ink),
 			view.Message(l.Text(statementStatus(*r.session)), view.Colors.Ink))
-		if d.action == statement.Finish || d.check != nil {
+		if d.action == statement.Start || d.action == statement.Finish || d.check != nil {
 			rows = append(rows, holdingReconCounts(view, *r.session))
+		}
+		if d.action == statement.Start {
+			started := statementRecordedTime(view, r.session.StartedAt)
+			rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.TasksStatementStarted), started), view.Colors.SecondaryInk))
+			rows = append(rows, reconciliationStartEvidence(view, d.selection, r.session.Accounts)...)
 		}
 		if d.action == statement.Finish {
 			rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk))

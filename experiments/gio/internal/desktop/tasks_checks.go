@@ -20,6 +20,7 @@ type taskChecksReader interface {
 	ListReviewAlertGroupsV2(context.Context, domain.ReviewAlertFilter, string, int) (domain.ReviewAlertPage, error)
 	ListReconciliationSessions(context.Context) ([]domain.ReconciliationSession, error)
 	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
+	ListMembers(context.Context, bool) ([]domain.Member, error)
 }
 
 type taskStatement struct {
@@ -68,8 +69,12 @@ func readTaskReconciliation(ctx context.Context, service taskChecksReader, inclu
 				cards[row.Account.ID] = row.Account
 			}
 			if includeHoldings {
-				holdings.accounts = append(holdings.accounts, row.Account)
+				holdings.accounts = append(holdings.accounts, row)
 			}
+		}
+		if includeHoldings && len(holdings.accounts) != 0 {
+			members, memberErr := service.ListMembers(ctx, true)
+			holdings.members, holdings.ownersFailed = members, memberErr != nil
 		}
 		for _, session := range sessions {
 			if account, ok := cards[candidates[session.ID]]; ok {

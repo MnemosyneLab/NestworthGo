@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|linked-cash-transfer|linked-debt-value|check-account|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -292,6 +292,20 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   three civil times and resulting USD 175.9449 cash, USD 100.0016 loan,
   USD 424.5678 property and unchanged USD 12.34 savings. The Manual value
   form offers no debt action.
+
+- Run `run_copy multi-account-reconciliation gio` and
+  `run_copy multi-account-reconciliation wails`. In Tasks, Reconciliation,
+  start a new session beside the existing Synthetic Unrelated Savings
+  session. The picker initially selects five active accounts and excludes
+  Synthetic Archived Account. Filter to Bank account and deselect the two
+  displayed rows. The three hidden accounts stay selected. Clear the filter,
+  review the seven pending checkpoints, return to the picker and check that
+  the chosen accounts remain. Cancel once and confirm the existing session
+  is still the only saved session. Repeat and confirm. Quit and relaunch,
+  then open the mixed session and inspect Harbor Brokerage cash and holding,
+  Synthetic Fixed Loan balance and Synthetic Manual Property value. Verify
+  that the two bank accounts and archived account are outside the new scope
+  and that their balances and the existing session are unchanged.
 
 - Run `run_copy check-account gio` and `run_copy check-account wails`.
   Open Harbor Brokerage's active Holdings reconciliation. Choose **Confirm
