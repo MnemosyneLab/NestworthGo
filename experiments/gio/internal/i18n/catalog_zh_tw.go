@@ -1785,6 +1785,12 @@ var traditionalChineseCatalog = catalog{
 	HoldingReconLinkedEmpty:       "沒有關聯變動。",
 	HoldingReconMoreReceipts:      "更多憑證可在關聯變動中查看。",
 
+	HoldingReconProductValuation: "更新合約估值",
+	HoldingReconValuationSaved:   "已記錄合約估值並關聯到對帳。",
+	HoldingReconValuationFailed:  "無法審核此合約估值。請檢查金額後重試。",
+	HoldingReconObservedValue:    "觀測到的合約價值 · %s",
+	HoldingReconValuationImpact:  "已知淨資產變動 · %s",
+
 	TasksUpcomingTab:          "即將發生",
 	TasksInvestmentTab:        "投資核查",
 	TasksReconciliationTab:    "待對帳",

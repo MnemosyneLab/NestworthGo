@@ -1785,6 +1785,12 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconLinkedEmpty:       "没有关联变动。",
 	HoldingReconMoreReceipts:      "更多凭证可在关联变动中查看。",
 
+	HoldingReconProductValuation: "更新合约估值",
+	HoldingReconValuationSaved:   "已记录合约估值并关联到对账。",
+	HoldingReconValuationFailed:  "无法审核此合约估值。请检查金额后重试。",
+	HoldingReconObservedValue:    "观测到的合约价值 · %s",
+	HoldingReconValuationImpact:  "已知净资产变动 · %s",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",

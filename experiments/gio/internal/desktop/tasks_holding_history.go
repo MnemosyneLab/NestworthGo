@@ -51,7 +51,7 @@ func (c *holdingReconciliation) datedCheckpointLink(accountID string, item domai
 		if !found || c.id != sessionID || c.session.Status != "in_progress" ||
 			current.Kind != item.Kind || current.Currency != item.Currency ||
 			current.HoldingID != item.HoldingID || current.InstrumentID != item.InstrumentID ||
-			current.ArchivedNonzero || current.ProductID != "" {
+			current.ArchivedNonzero || current.ProductID != item.ProductID {
 			return nil
 		}
 		return &domain.ReconciliationLink{SessionID: sessionID, AccountID: a.AccountID, ItemID: current.ID,

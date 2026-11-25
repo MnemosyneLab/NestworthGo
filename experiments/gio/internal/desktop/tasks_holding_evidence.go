@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ type holdingEvidenceDisclosure struct {
 type holdingLinkedEvidence struct {
 	Before    *domain.ReconciliationItem `json:"reviewedBefore"`
 	Committed struct {
+		Kind        string    `json:"kind"`
 		EffectiveAt time.Time `json:"effectiveAt"`
 		RecordedAt  time.Time `json:"recordedAt"`
 		Note        *string   `json:"note"`
@@ -40,7 +42,21 @@ type holdingLinkedEvidence struct {
 		} `json:"resulting"`
 		Contract  *holdingJournalProduct  `json:"contract"`
 		Contracts []holdingJournalProduct `json:"contracts"`
+		Result    json.RawMessage         `json:"result"`
 	} `json:"committed"`
+}
+
+func (e holdingLinkedEvidence) productValuationReceipt() *domain.ProductValuationReceipt {
+	if e.Committed.Kind != string(domain.ProductOpValueObservation) {
+		return nil
+	}
+	var result struct {
+		Receipt *domain.ProductValuationReceipt `json:"receipt"`
+	}
+	if err := jsoncodec.Unmarshal(e.Committed.Result, &result); err != nil {
+		return nil
+	}
+	return result.Receipt
 }
 
 type holdingJournalProduct struct {
@@ -184,6 +200,10 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 		if contract.Note != nil && *contract.Note != "" {
 			rows = append(rows, view.Message(*contract.Note, view.Colors.SecondaryInk))
 		}
+	}
+	if observed := evidence.productValuationReceipt(); observed != nil {
+		rows = append(rows, fact(i18n.HoldingReconObservedValue,
+			holdingSnapshotValue(view, observed.Amount.CanonicalAmount(), observed.Amount.Currency().String())))
 	}
 	if after.Note != nil && *after.Note != "" {
 		rows = append(rows, view.Message(*after.Note, view.Colors.Ink))

@@ -1785,6 +1785,12 @@ var englishCatalog = catalog{
 	HoldingReconLinkedEmpty:       "No linked changes.",
 	HoldingReconMoreReceipts:      "More receipts are available in Linked changes.",
 
+	HoldingReconProductValuation: "Update contract valuation",
+	HoldingReconValuationSaved:   "Contract valuation recorded and linked.",
+	HoldingReconValuationFailed:  "Could not review this contract valuation. Check the amount and try again.",
+	HoldingReconObservedValue:    "Observed contract value · %s",
+	HoldingReconValuationImpact:  "Known net worth change · %s",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

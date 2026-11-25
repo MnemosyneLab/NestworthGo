@@ -1740,7 +1740,7 @@ uses the shared executed rate and resulting balances.
 | --- | --- |
 | Gio and Wails adapter | USD 10.1234 sold for EUR 8.7654 with a USD 0.1 fee. A second entry sold EUR 2.5 for USD 2.8125 with a EUR 0.125 fee. Both matched the same USD cash item, including the bought-side match, the shared effective times with seconds and the executed rate. Cancel wrote no activity or link. Reopen matched both links and USD 148.5891 and EUR 6.1404. |
 | Packaged Linux X11 | The 1160×820 preview showed the exact legs and fee, and Cancel left zero activities and zero links. Return reopened the cash action. At 640×480, the keyboard chose EUR, November 24 in Vancouver, and confirmed USD 10.1234 sold and EUR 8.7654 bought with a USD 0.1 fee. The executed rate was 0.865855345042. The packaged app and SQLite retained the dated note, the USD checkpoint link and exact USD 189.7766 and EUR 8.7654 balances after restart. The second account stayed at USD 25. Holdings, quotes, accounts, contracts and the original hashes matched. Full Gio, vet, Linux packaging, shared Go checks and the focused Wails cross-currency reference passed. |
-| Linked product valuation | The [shared reopen regression](#linked-product-valuation-reopen-regression) verifies that previously written linked observations open with their original evidence. Gio's entry is a separate workflow. |
+| Linked product valuation | The [shared reopen regression](#linked-product-valuation-reopen-regression) verifies existing linked observations. The [locked-product workflow](#linked-locked-product-valuation-in-holdings-reconciliation) records new ones from Gio. |
 
 #### Linked product valuation reopen regression
 
@@ -1785,7 +1785,23 @@ the posting path's whitespace handling when comparing the decimal value.
 | Main-written SQLite | Schema 23 synthetic databases were written through unmodified main `e981ba00303e0ee6f4fc925bf462110152c7add6`. Each had one legacy, one standalone guarded and two linked observations. The session advanced to paused revision 4 after the relevant checkpoint at revision 1. Normal reopen and read-only backup verification preserved the amount literal `" 131.2300 "`, its USD 131.23 recorded value, the normalized observation `2026-09-21T13:59:00.123Z`, and the full database SHA-256 on both copies. |
 | Fail-closed regression | Nineteen refusal cases cover missing, unexpected and competing product links, wrong account or item with valid foreign keys, a wrong family, altered checkpoint evidence, an equivalent amount with a different literal and an ambiguous command copied into both records. Receipt, quote, amount, date and digest checks still run. A forced failure after link insertion left the link, operation and quote counts unchanged. An acknowledged retry after reopen retained the same digest. |
 | Packaged Gio Linux X11 | The standard preview opened the main-written file at 1140×860 and displayed the paused reconciliation and two existing journal links. After quit, product, quote, link and session rows matched the source, and the original file hash matched. |
-| Open evidence | Older schema 21 and 22 migration checks run in the SQLite suite. The main-written linked fixture used schema 23. Gio's linked valuation entry and interactive macOS or Wails acceptance are separate from this SQLite evidence. |
+| Open evidence | Older schema 21 and 22 migration checks run in the SQLite suite. The main-written linked fixture used schema 23. Interactive macOS and Wails acceptance remain open. |
+
+#### Linked locked-product valuation in holdings reconciliation
+
+An in-progress Holdings session offers **Update contract valuation** on the
+active locked-product checkpoint. The form reads the current contract value
+and keeps the contract currency fixed. Review shows exact before and after
+amounts, net worth impact when available, and the observation time in the
+ledger's zone. Confirmation posts through the shared service. The linked
+journal displays the stored observation and its effective and recorded times.
+[Wails form](../../../frontend/src/features/reconciliation/ProductCorrection.tsx) · [Shared reconciliation adapter](../../../internal/wailsapi/reconciliation/products.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | `TestReconciliationLockedProductValuationMatchesWails` matched the before and after values, net worth delta and observation time against an independent Wails adapter fixture. A precision error retained the input. Cancel restored the action and left the session revision and links intact. Retrying a simulated lost acknowledgement used the same plan and produced one receipt. Reopen preserved the exact link and observation, cash, contract and activity rows. Three focused Wails `ProductCorrection` frontend cases passed. |
+| Packaged Linux X11 | At 1140×860, review showed USD 123.4567 before, USD 131.2345 after and a USD 7.7778 net worth increase. Cancel left zero links or valuation operations and Return reopened the focused action. At 665×480, Tab and Return opened Review and Return confirmed. After quit and reopen, Linked changes displayed the observed USD 131.2345 and its November 25 effective time in America/Vancouver. SQLite matched one manual quote, one operation and the original product, account, session and checkpoint IDs. Accounts, holdings, cash, activities, contracts and source hashes matched the synthetic source. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and the focused Wails reference passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. Other product corrections, including terms, receipt of interest, renewal and settlement, and add-product remain open. |
 
 #### Product and removed-item checkpoint evidence
 
@@ -1798,16 +1814,16 @@ so a prior check or completed session keeps the evidence it reviewed.
 
 A removed item remains on its original account with its former quantity or
 value, cost where known, and prior attempts. The removal is explicitly labelled.
-Check uses the existing session review and stores only its evidence. The
-financial correction controls stay scoped to active ordinary holdings, cash
-or completeness. Those controls do not appear for product or removed items.
+Check uses the existing session review and stores only its evidence.
+Financial corrections are scoped to the active checkpoint. Locked products
+offer the linked valuation workflow above. Removed items retain check evidence.
 [Wails checkpoint and product evidence](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared refresh](../../../internal/application/reconciliation_refresh.go)
 
 | Check | Evidence |
 | --- | --- |
 | Gio and shared adapter | A managed deposit retained USD 1000 principal and USD 12.3456 maturity interest. An archived zero-quantity holding kept its former check and source. Cancel preserved the revision and links. The product and removed-item checks retained their exact IDs, civil date and notes across reopen, and the complete financial activity list matched. |
 | Packaged Linux X11 | At 1160×820, review and Cancel returned to the product Check action. A keyboard confirmation then saved the November 25 check for USD 20.125 principal and USD 1.2345 maturity interest. At 640×480 the former holding showed its original statement and zero units before keyboard confirmation of its new note. Reopen and SQLite retained one product attempt and both former-holding attempts. Financial activities and effects, accounts, holdings, cash, product contracts, quotes, the link journal and synthetic source hashes matched. Full Gio tests and vet, standard Linux packaging, shared Go reconciliation tests and three focused Wails UI cases passed. |
-| Still open | Wails has financial product correction and add-product actions. The following section covers the session-wide journals. Archived account inventory and product correction workflows remain open. |
+| Still open | Other Wails financial product corrections, add-product and archived account inventory remain open. The following section covers the session-wide journals. |
 
 #### Reconciliation journals and paging
 

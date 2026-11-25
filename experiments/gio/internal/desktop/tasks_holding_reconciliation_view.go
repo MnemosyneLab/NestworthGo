@@ -200,6 +200,11 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 						}))
 					}
 				}
+				if s.Status == "in_progress" && canReconcileProductValuation(item) {
+					fields = append(fields, c.link(view, &buttons.valuation, l.Text(i18n.HoldingReconProductValuation), func() {
+						p.openHoldingProductValuation(account, item, &buttons.valuation)
+					}))
+				}
 				fields = append(fields, p.holdingCheckpointRows(view, account, item, buttons)...)
 				fields = append(fields, p.holdingReceiptLinks(view, account.AccountID, item.ID)...)
 				rows = append(rows, fundsCard(view, holdingCheckLabel(view, item), fields...))
@@ -281,11 +286,16 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	case statement.Finish:
 		title = i18n.HoldingReconFinish
 	}
+	if d.valuation != nil {
+		title = i18n.HoldingReconProductValuation
+	}
 	origin := view.Origin
 	rows := []layout.Widget{tradeTitle(view, title)}
 	ready := c.loading == nil && !c.readFailed && d.reading == nil
 	if d.check != nil {
 		rows = append(rows, c.holdingCheckFields(view, d, &origin, ready)...)
+	} else if d.valuation != nil {
+		rows = append(rows, p.holdingProductValuationFields(view, d, ready)...)
 	} else if d.itemID != "" {
 		if a, item, ok := c.item(d); ok {
 			rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
@@ -337,7 +347,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk),
 			checkpointCheckbox(view, &d.partial, i18n.HoldingReconPartial, ready))
 	}
-	if d.action != statement.Resume && d.action != statement.Pause {
+	if d.valuation == nil && d.action != statement.Resume && d.action != statement.Pause {
 		label := i18n.PreviewNotes
 		if d.action == statement.Finish {
 			label = i18n.HoldingReconClosingNote
@@ -393,7 +403,9 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	d := c.draft
 	r := d.review
 	rows := []layout.Widget{tradeTitle(view, i18n.HoldingReconReview)}
-	if r.session != nil {
+	if r.valuation != nil {
+		rows = append(rows, p.holdingProductValuationReviewRows(view, r.valuation)...)
+	} else if r.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(r.session), view.Colors.Ink),
 			view.Message(l.Text(statementStatus(*r.session)), view.Colors.Ink))
 		if d.action == statement.Finish || d.check != nil {

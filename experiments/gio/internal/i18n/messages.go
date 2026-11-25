@@ -1704,6 +1704,11 @@ const (
 	HoldingReconRecentEmpty
 	HoldingReconLinkedEmpty
 	HoldingReconMoreReceipts
+	HoldingReconProductValuation
+	HoldingReconValuationSaved
+	HoldingReconValuationFailed
+	HoldingReconObservedValue
+	HoldingReconValuationImpact
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab
