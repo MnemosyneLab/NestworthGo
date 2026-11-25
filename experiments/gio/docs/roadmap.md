@@ -1631,8 +1631,8 @@ among net worth, assets, liabilities or net change and day, week or month.
 Change drivers shows the beginning and ending values, the net change, rate
 and the shared driver groups. Categories shows the chosen shared category
 total and attributed rows. The trend and category tables support keyboard
-scrolling. The layout follows the Wails section order. The trend, driver and
-category chart adapters and detail workflows remain open.
+scrolling. The layout follows the Wails section order. Trend and Categories
+still need their chart and detail work.
 
 The Return Calendar detail action **View asset changes for this day** opens
 Change drivers with that single date and the existing supported filters. Back
@@ -1646,6 +1646,28 @@ and restores focus to the day button.
 | Gio interaction | A closed August day carried the selected instrument, additional account and USD, native valuation and excluded cash into Asset Changes. Back retained the August range and focused the originating day. |
 | Linux X11 | The packaged Linux preview followed November 2 into Change drivers with the selected date in both fields. The synthetic value went from USD 100 to USD 125 and Price change showed USD 25. Back and Return reopened the same day. |
 | Build and tests | The full Gio suite, Gio vet, native Linux preview build, and focused application, domain and Wails analysis Go tests passed. |
+
+#### Change Drivers waterfall and breakdown
+
+Change drivers shows the value summary, native waterfall, and grouped
+attribution in Wails order. The adapter uses the shared beginning, signed
+drivers and ending. It accumulates levels with decimal arithmetic and warns
+when exact inputs disagree at Wails' comparison precision. The reported
+ending remains visible. Missing beginnings and unavailable driver values
+remain missing.
+
+A chart driver or grouped row opens its breakdown with the effective civil
+dates, exact total and the shared account and instrument projections. Failed
+reads can be retried. Escape restores focus to the chart or row. Residual
+details can open Ledger activity at the affected day and dimensions. The
+Return Analysis link and the residual link's end-to-end acceptance remain
+open.
+
+| Check | Evidence |
+| --- | --- |
+| Projection and interaction | Gio checks signed steps, the missing opening, the reported ending and the ties-to-even discrepancy threshold. A Calendar day link used the Wails-backed Price change driver read for the selected day. A failed first read retried in place, matched the breakdown, and restored chart focus on Escape. |
+| Linux X11 | The packaged app displayed USD 300.00 beginning, USD 2.75 Price change, and USD 302.75 ending. The chart opened a sheet showing Gain fund USD 5.25, Loss fund −USD 2.50 and Sample broker USD 2.75. Escape and Enter reopened that sheet. All three steps and their labels remained readable at 700×480. |
+| Build and tests | Full Gio tests and vet, the Linux launcher, focused shared Go Asset Changes and driver tests, and all 43 Wails Asset Changes and Return Analysis reference tests passed. Native Mac, Wayland and VoiceOver remain open. |
 
 #### Contribution detail and Ledger activity
 

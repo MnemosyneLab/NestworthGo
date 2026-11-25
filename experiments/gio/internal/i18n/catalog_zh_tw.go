@@ -656,6 +656,16 @@ var traditionalChineseCatalog = catalog{
 	AssetResidual:        "未解釋差額",
 	AssetOpenDay:         "查看當天資產變動",
 
+	AssetAttribution:         "變動歸因",
+	AssetDriverChart:         "價值變動瀑布圖",
+	AssetDriverChartHelp:     "期初價值、變動因素和期末價值。選擇因素查看明細。",
+	AssetDriverMismatch:      "變動因素合計與期末價值不符。",
+	AssetDriverTotal:         "合計",
+	AssetDriverComponentDays: "受影響的項目和日期",
+	AssetDriverByInstrument:  "按標的",
+	AssetDriverByAccount:     "按帳戶",
+	AssetNoDriverDetail:      "沒有可用的變動明細。",
+
 	ContributionOpenHistory:        "在帳本活動中查看",
 	ContributionHistoryWider:       "帳本活動會保留日期、帳戶、投資標的和活動類型篩選。幣別和資產類別篩選不會帶入。",
 	ContributionHistoryUnavailable: "來源未提供帳本活動支援的篩選條件。",

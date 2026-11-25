@@ -126,7 +126,7 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, rangeLabel, view.Colors.Ink)))
 		switch {
 		case result.drivers != nil:
-			rows = append(rows, assetDriverRows(view, *result.drivers, result.query.Valuation)...)
+			rows = append(rows, p.assetDriverRows(view, *result.drivers, result.query.Valuation)...)
 		case result.trend != nil:
 			rows = append(rows, p.assetTrendRows(view, *result.trend)...)
 		case result.categories != nil:
@@ -136,7 +136,7 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 	return (ui.Column{Gap: 10, MinFill: 300}).Layout(gtx, rows...)
 }
 
-func assetDriverRows(view ui.View, data application.AssetChangeResult, valuation domain.Valuation) []ui.ColumnChild {
+func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetChangeResult, valuation domain.Valuation) []ui.ColumnChild {
 	l := view.Language
 	rows := []ui.ColumnChild{ui.Rigid(view.Message(analysisBasis(l, valuation, data.ValuationForced), view.Colors.SecondaryInk))}
 	if !data.Available {
@@ -146,6 +146,11 @@ func assetDriverRows(view ui.View, data application.AssetChangeResult, valuation
 	if data.Status == domain.CompletenessPartial {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
 	}
+	rows = append(rows, ui.Rigid(p.driverWaterfall(view, data)))
+	if len(data.Groups) > 0 || data.ResidualIssueCount > 0 {
+		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.AssetAttribution), view.Colors.Ink)))
+	}
+	seenResidual := false
 	for _, group := range data.Groups {
 		groupLabel := i18n.AssetOther
 		switch group.Key {
@@ -153,6 +158,11 @@ func assetDriverRows(view ui.View, data application.AssetChangeResult, valuation
 			groupLabel = i18n.AssetCashFlows
 		case "market":
 			groupLabel = i18n.AssetMarketMoves
+		case "residual":
+			groupLabel = i18n.AssetResidual
+		}
+		for _, row := range group.Rows {
+			seenResidual = seenResidual || row.Bucket == domain.BucketResidual
 		}
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -161,13 +171,17 @@ func assetDriverRows(view ui.View, data application.AssetChangeResult, valuation
 						layout.Rigid(view.Body(ui.TextLabel, l.Text(groupLabel)+" · "+returnMoney(view, group.Amount), view.Colors.Ink)),
 					}
 					for _, row := range group.Rows {
-						label := assetBucketLabel(l, row.Bucket) + " · " + returnMoney(view, row.Amount)
-						lines = append(lines, layout.Rigid(view.Message(label, view.Colors.Ink)))
+						lines = append(lines, layout.Rigid(p.driverButton(view, row)))
 					}
 					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(7)}.Layout(gtx, lines...)
 				})
 			})
 		}))
+	}
+	if data.ResidualIssueCount > 0 && !seenResidual {
+		rows = append(rows, ui.Rigid(p.driverButton(view, application.AssetChangeRow{
+			Key: string(domain.BucketResidual), Bucket: domain.BucketResidual,
+		})))
 	}
 	return rows
 }

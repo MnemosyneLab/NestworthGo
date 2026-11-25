@@ -656,6 +656,16 @@ var englishCatalog = catalog{
 	AssetResidual:        "Unexplained difference",
 	AssetOpenDay:         "View asset changes for this day",
 
+	AssetAttribution:         "Attribution",
+	AssetDriverChart:         "Value change waterfall",
+	AssetDriverChartHelp:     "Beginning value, drivers and ending value. Select a driver to open its detail.",
+	AssetDriverMismatch:      "The driver totals and ending value differ.",
+	AssetDriverTotal:         "Total",
+	AssetDriverComponentDays: "Affected components and dates",
+	AssetDriverByInstrument:  "By instrument",
+	AssetDriverByAccount:     "By account",
+	AssetNoDriverDetail:      "No driver details are available.",
+
 	ContributionOpenHistory:        "View in Ledger activity",
 	ContributionHistoryWider:       "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.",
 	ContributionHistoryUnavailable: "The source did not provide a supported Ledger activity filter.",

@@ -655,6 +655,16 @@ var japaneseCatalog = catalog{
 	AssetResidual:        "説明できない差額",
 	AssetOpenDay:         "この日の資産変動を見る",
 
+	AssetAttribution:         "変動要因",
+	AssetDriverChart:         "資産価値の変動",
+	AssetDriverChartHelp:     "開始時の価値、変動要因、終了時の価値。要因を選ぶと内訳が開きます。",
+	AssetDriverMismatch:      "変動要因の合計と終了時の価値が一致しません。",
+	AssetDriverTotal:         "合計",
+	AssetDriverComponentDays: "対象の構成項目と日付",
+	AssetDriverByInstrument:  "銘柄別",
+	AssetDriverByAccount:     "口座別",
+	AssetNoDriverDetail:      "利用できる内訳はありません。",
+
 	ContributionOpenHistory:        "取引履歴で見る",
 	ContributionHistoryWider:       "取引履歴には日付、口座、銘柄、取引種別のフィルターが引き継がれます。通貨と資産区分のフィルターは引き継がれません。",
 	ContributionHistoryUnavailable: "取引履歴で使用できるフィルターがありません。",

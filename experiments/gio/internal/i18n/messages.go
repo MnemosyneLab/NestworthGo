@@ -464,6 +464,15 @@ const (
 	AssetLiabilityImpact
 	AssetAdjustment
 	AssetResidual
+	AssetAttribution
+	AssetDriverChart
+	AssetDriverChartHelp
+	AssetDriverMismatch
+	AssetDriverTotal
+	AssetDriverComponentDays
+	AssetDriverByInstrument
+	AssetDriverByAccount
+	AssetNoDriverDetail
 	AssetOpenDay
 	ContributionOpenHistory
 	ContributionHistoryWider

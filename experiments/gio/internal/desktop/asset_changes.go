@@ -5,10 +5,13 @@ import (
 	"sync"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -16,6 +19,7 @@ import (
 type assetChangesReader interface {
 	analysisContextReader
 	AssetChange(context.Context, domain.AnalysisQuery) (application.AssetChangeResult, error)
+	AssetDriverDetail(context.Context, domain.AnalysisQuery, string) (application.AssetDriverDetailResult, error)
 	AssetTrend(context.Context, domain.AnalysisQuery, application.AssetTrendGranularity, application.AssetTrendMetric) (application.AssetTrendResult, error)
 	Categories(context.Context, domain.AnalysisQuery, application.AnalysisCategoryType) (application.CategoriesResult, error)
 }
@@ -66,6 +70,12 @@ type assetChangesPage struct {
 	reload                     widget.Clickable
 	metric, interval, category ui.Select
 	list                       widget.List
+	waterfall                  charts.WaterfallChart
+	waterfallSelected          charts.Selection
+	driver                     *assetDriverSheet
+	driverButtons              map[string]*widget.Clickable
+	driverFocus                event.Tag
+	openHistory                func(history.Filters, event.Tag)
 }
 
 func (p *assetChangesPage) enter(state assetChangesVisit) {
@@ -95,6 +105,10 @@ func (p *assetChangesPage) leave() {
 		p.cancel()
 	}
 	p.cancel, p.request, p.refsRead = nil, nil, nil
+	if p.driver != nil {
+		p.driver.cancel()
+		p.driver = nil
+	}
 }
 
 func (p *assetChangesPage) readRefs() {
@@ -169,6 +183,7 @@ func (p *assetChangesPage) update() {
 
 func (p *assetChangesPage) change() {
 	p.current = nil
+	p.waterfallSelected = charts.Selection{}
 	p.list.Position = layout.Position{}
 	if p.refs.origin != nil {
 		p.read()

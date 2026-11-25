@@ -133,6 +133,9 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "font") && typ.Sel.Name == "Typeface" {
 			return true
 		}
+		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "charts") && typ.Sel.Name == "ID" {
+			return machineID.MatchString(value)
+		}
 		return named(n.Type, "routeID") && machineID.MatchString(value)
 	case *ast.KeyValueExpr:
 		if named(n.Key, "ID") && machineID.MatchString(value) {
