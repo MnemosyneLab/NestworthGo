@@ -318,13 +318,75 @@ func (g *controlGallery) layoutTokens(gtx layout.Context, view ui.View) layout.D
 	)
 }
 
+// layoutElevation compares the shadow scale, hairline borders and focus rings
+// on the page background and on a tinted surface.
+func (g *controlGallery) layoutElevation(gtx layout.Context, view ui.View) layout.Dimensions {
+	p := view.Colors
+	card := func(name string, level ui.Elevation) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			size := image.Pt(gtx.Dp(120), gtx.Dp(84))
+			bounds := image.Rectangle{Max: size}
+			p.DrawShadow(gtx, bounds, ui.RadiusXL, level)
+			ui.FillRoundRect(gtx, bounds, ui.RadiusXL, p.Surface)
+			ui.StrokeRoundRect(gtx, bounds, ui.RadiusXL, 1, p.Divider)
+			gtx.Constraints = layout.Exact(size)
+			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, name, 12, font.Medium, p.Ink)
+			})
+			return layout.Dimensions{Size: size}
+		}
+	}
+	row := func(title string, children ...layout.Widget) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			flex := make([]layout.FlexChild, len(children))
+			for i, child := range children {
+				flex[i] = layout.Rigid(child)
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Label(gtx, title, 12, font.Medium, p.SecondaryInk)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Gap: gtx.Dp(28)}.Layout(gtx, flex...)
+				}),
+			)
+		}
+	}
+	rings := func(name string, radius unit.Dp, size image.Point, ring func(layout.Context, image.Rectangle)) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			s := image.Pt(gtx.Dp(unit.Dp(size.X)), gtx.Dp(unit.Dp(size.Y)))
+			bounds := image.Rectangle{Max: s}
+			ui.FillRoundRect(gtx, bounds, radius, p.Surface)
+			ui.StrokeRoundRect(gtx, bounds, radius, 1, p.Divider)
+			if ring != nil {
+				ring(gtx, bounds)
+			}
+			gtx.Constraints = layout.Exact(s)
+			layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Label(gtx, name, 12, font.Normal, p.Ink)
+			})
+			return layout.Dimensions{Size: s}
+		}
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(34)}.Layout(gtx,
+		layout.Rigid(row("Elevation: none, xs, sm, md, lg",
+			card("none", ui.ElevationNone), card("xs", ui.ElevationXS), card("sm", ui.ElevationSM),
+			card("md", ui.ElevationMD), card("lg", ui.ElevationLG))),
+		layout.Rigid(row("Focus ring (outside, 2dp gap) and input focus border",
+			rings("button", ui.RadiusLG, image.Pt(110, 36), func(gtx layout.Context, b image.Rectangle) { p.FocusRing(gtx, b, ui.RadiusLG) }),
+			rings("input", ui.RadiusLG, image.Pt(180, 36), func(gtx layout.Context, b image.Rectangle) { p.FocusBorder(gtx, b, ui.RadiusLG) }),
+			rings("pill", ui.RadiusFull, image.Pt(90, 28), func(gtx layout.Context, b image.Rectangle) { p.FocusRing(gtx, b, ui.RadiusFull) }),
+			rings("no ring", ui.RadiusLG, image.Pt(110, 36), nil))),
+	)
+}
+
 // galleryScenario drives pointer state. Only one pointer exists, so each
 // interactive state gets its own snapshot.
 type galleryScenario struct {
 	name         string
 	hover, press string
 	focusField   bool
-	tokens       bool
+	page         string
 }
 
 var galleryScenarios = []galleryScenario{
@@ -332,7 +394,8 @@ var galleryScenarios = []galleryScenario{
 	{name: "hover-secondary", hover: "Secondary", focusField: true},
 	{name: "hover-primary", hover: "Primary", focusField: true},
 	{name: "press-primary", press: "Primary", focusField: true},
-	{name: "tokens", tokens: true},
+	{name: "tokens", page: "tokens"},
+	{name: "elevation", page: "elevation"},
 }
 
 type galleryHarness struct {
@@ -344,7 +407,7 @@ type galleryHarness struct {
 	now     time.Time
 	size    image.Point
 	scale   float32
-	tokens  bool
+	page    string
 }
 
 func newGalleryHarness(t *testing.T, accent int, dark bool) *galleryHarness {
@@ -378,8 +441,11 @@ func (h *galleryHarness) frame(focus bool) {
 		if focus {
 			h.gallery.focused.Focus(gtx)
 		}
-		if h.tokens {
+		switch h.page {
+		case "tokens":
 			return h.gallery.layoutTokens(gtx, h.view)
+		case "elevation":
+			return h.gallery.layoutElevation(gtx, h.view)
 		}
 		return h.gallery.layout(gtx, h.view)
 	})
@@ -387,7 +453,7 @@ func (h *galleryHarness) frame(focus bool) {
 }
 
 func (h *galleryHarness) run(s galleryScenario) {
-	h.tokens = s.tokens
+	h.page = s.page
 	h.frame(s.focusField)
 	h.frame(false)
 	target := s.hover

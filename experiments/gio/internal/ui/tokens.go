@@ -100,9 +100,9 @@ const (
 	ElevationLG
 )
 
-// Shadow returns the layers for an elevation. Dark appearances use heavier
+// ShadowLayers returns the layers for an elevation. Dark appearances use heavier
 // layers, as in the .dark overrides of --shadow-* in index.css.
-func (p *Palette) Shadow(level Elevation) []ShadowLayer {
+func (p *Palette) ShadowLayers(level Elevation) []ShadowLayer {
 	if p.Dark {
 		return darkShadows[level]
 	}
