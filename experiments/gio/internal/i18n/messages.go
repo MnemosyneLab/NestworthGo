@@ -32,6 +32,12 @@ const (
 	MarketFX
 	MarketDescription
 	MarketFXDescription
+	MarketFXChangeSource
+	MarketFXSourceTitle
+	MarketFXSaveSource
+	MarketFXProviderRefresh
+	MarketFXSourceFailed
+	MarketFXSourceSaving
 	MarketReload
 	MarketSearch
 	MarketSearchHint

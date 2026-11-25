@@ -81,11 +81,15 @@ func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View, relo
 		actions = append(actions, button(&r.retry, i18n.MarketRetryLatest, !busy, func() { p.startLatest(r.last) }))
 	}
 	if r.progress != nil {
-		actions = append(actions, button(&r.details, i18n.MarketLatestDetails, true, func() { p.openMarketOperation(marketLatestDetails, &r.details) }))
+		actions = append(actions, button(&r.details, i18n.MarketLatestDetails, true, func() {
+			p.openMarketOperation(marketDataRoute, marketLatestDetails, &r.details)
+		}))
 	}
 	if job != nil {
 		if job.job.JobID != "" {
-			actions = append(actions, button(&p.syncDetails, i18n.MarketSyncDetails, true, func() { p.openMarketOperation(marketSyncDetails, &p.syncDetails) }))
+			actions = append(actions, button(&p.syncDetails, i18n.MarketSyncDetails, true, func() {
+				p.openMarketOperation(marketDataRoute, marketSyncDetails, &p.syncDetails)
+			}))
 		}
 		if job.job.Outcome == application.SyncOutcomeRunning {
 			actions = append(actions, button(&job.cancel, i18n.HealthRepairCancel, job.cancelRead == nil, func() { job.cancelJob(&p.workers, p.invalidate) }))

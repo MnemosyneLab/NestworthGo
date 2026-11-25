@@ -128,14 +128,15 @@ const (
 
 type marketOperationSheet struct {
 	kind    marketOperationKind
+	route   routeID
 	sheet   analysisSheet
 	source  event.Tag
 	request application.SyncRequest
 	force   widget.Clickable
 }
 
-func (p *marketDataPage) openMarketOperation(kind marketOperationKind, from event.Tag) {
-	p.operation = &marketOperationSheet{kind: kind, sheet: newAnalysisSheet(), source: from}
+func (p *marketDataPage) openMarketOperation(route routeID, kind marketOperationKind, from event.Tag) {
+	p.operation = &marketOperationSheet{kind: kind, route: route, sheet: newAnalysisSheet(), source: from}
 }
 
 func (p *marketDataPage) closeMarketOperation() {
@@ -147,16 +148,20 @@ func (p *marketDataPage) closeMarketOperation() {
 }
 
 func (p *marketDataPage) previewMarketSync(request application.SyncRequest, from event.Tag) {
+	p.previewMarketSyncFrom(marketDataRoute, request, from)
+}
+
+func (p *marketDataPage) previewMarketSyncFrom(route routeID, request application.SyncRequest, from event.Tag) {
 	if p.providerBusy() {
 		return
 	}
-	p.openMarketOperation(marketSyncPreview, from)
+	p.openMarketOperation(route, marketSyncPreview, from)
 	p.operation.request = request
 	p.loadMarketSyncPreview()
 }
 
 func (p *marketDataPage) loadMarketSyncPreview() {
 	r := p.sync
-	r.owner = marketDataRoute
+	r.owner = p.operation.route
 	r.preview(p.ctx, &p.workers, p.invalidate, p.operation.request)
 }

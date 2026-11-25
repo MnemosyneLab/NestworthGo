@@ -89,6 +89,9 @@ type marketDataPage struct {
 	quoteHistoryReader                  marketQuoteHistoryReader
 	quoteHistoryClock                   func() time.Time
 	historyActions                      map[string]*widget.Clickable
+	fxSourceWriter                      marketFXSourceWriter
+	fxSourceDraft                       *marketFXSourceDraft
+	fxSourceActions                     map[marketFXPair]*widget.Clickable
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {

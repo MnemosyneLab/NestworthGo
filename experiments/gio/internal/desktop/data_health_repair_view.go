@@ -83,12 +83,34 @@ func (p *dataHealthPage) repairProgress(gtx layout.Context, view ui.View) layout
 	}
 	progress := syncJobCounts(view, job)
 	rows = append(rows, ui.Rigid(view.Message(progress, view.Colors.SecondaryInk)))
+	var actions []layout.Widget
+	if p.openRepairDetails != nil {
+		if p.repairDetails.Clicked(gtx) {
+			p.openRepairDetails(&p.repairDetails)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		actions = append(actions, returnMonthButton(view, &p.repairDetails, i18n.MarketSyncDetails, nil, true))
+	}
+	if p.previewQuoteRepair != nil && marketSyncRetryable(job.Outcome) &&
+		(job.Scope.Scope == application.SyncScopeInstrument || job.Scope.Scope == application.SyncScopeFX) {
+		ready := !r.inProgress()
+		if ready && p.retryRepair.Clicked(gtx) {
+			p.previewQuoteRepair(job.Scope, &p.retryRepair)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		actions = append(actions, returnMonthButton(view, &p.retryRepair, i18n.MarketRetrySync, nil, ready))
+	}
 	if job.Outcome == application.SyncOutcomeRunning {
 		if r.cancelRead == nil && r.cancel.Clicked(gtx) {
 			p.cancelRepair()
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		rows = append(rows, ui.Rigid(returnMonthButton(view, &r.cancel, i18n.HealthRepairCancel, nil, r.cancelRead == nil)))
+		actions = append(actions, returnMonthButton(view, &r.cancel, i18n.HealthRepairCancel, nil, r.cancelRead == nil))
+	}
+	if len(actions) > 0 {
+		rows = append(rows, ui.Rigid(marketActionRow(view, actions)))
+	}
+	if job.Outcome == application.SyncOutcomeRunning {
 		if job.Current != nil {
 			lines := syncItemLines(view, *job.Current)
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return healthRepairLines(gtx, view, lines) }))

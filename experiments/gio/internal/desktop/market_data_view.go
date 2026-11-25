@@ -196,6 +196,9 @@ func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row mark
 		evidence = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	}
 	actions := p.marketHistoryAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), marketQuoteHistoryTarget{pair: row.pair})
+	if p.fxSourceWriter != nil {
+		actions = append(actions, p.fxSourceAction(gtx, view, row))
+	}
 	if row.source == domain.QuoteSourceProvider {
 		actions = append(actions, p.marketTargetActions(gtx, view, marketLatestTarget{pair: row.pair}, application.SyncRequest{
 			Scope: application.SyncScopeFX, CurrencyA: row.pair.first.String(), CurrencyB: row.pair.second.String(),

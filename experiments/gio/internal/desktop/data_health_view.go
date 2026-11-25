@@ -291,6 +291,18 @@ func healthIssueAction(issue application.HealthIssue) i18n.MessageID {
 func (p *dataHealthPage) issueAction(gtx layout.Context, view ui.View, issue application.HealthIssue, name string) layout.Widget {
 	l := view.Language
 	switch {
+	case issue.Executable && issue.Action == application.HealthActionRepair && p.previewQuoteRepair != nil:
+		scope, valid := healthQuoteRepairScope(issue)
+		if !valid {
+			return nil
+		}
+		button := p.issueButton(issue.ID)
+		ready := p.request == nil && p.err == nil && !p.repair.inProgress()
+		if button.Clicked(gtx) && ready {
+			p.previewQuoteRepair(scope, button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return returnMonthButton(view, button, i18n.MarketPreviewTarget, nil, ready)
 	case issue.Action == application.HealthActionManualEntry && p.openManual != nil:
 		target, valid := healthManualTarget(issue, p.focus)
 		if !valid {
@@ -340,4 +352,18 @@ func quoteHistoryFinding(issue application.HealthIssue, label string) (marketQuo
 	focus := healthFindingFocus{from: issue.RangeStart, to: issue.RangeEnd, id: issue.ID, label: label}
 	return marketQuoteHistoryTarget{instrument: found.instrumentID, name: label,
 		pair: marketFXPair{found.base, found.quote}, finding: focus}, valid
+}
+
+func healthQuoteRepairScope(issue application.HealthIssue) (application.SyncRequest, bool) {
+	if isSnapshotFinding(issue) {
+		return application.SyncRequest{}, false
+	}
+	target, valid := healthManualTarget(issue, healthFindingFocus{})
+	if !valid {
+		return application.SyncRequest{}, false
+	}
+	if target.instrumentID != "" {
+		return application.SyncRequest{Scope: application.SyncScopeInstrument, InstrumentID: target.instrumentID.String()}, true
+	}
+	return application.SyncRequest{Scope: application.SyncScopeFX, CurrencyA: target.base.String(), CurrencyB: target.quote.String()}, true
 }

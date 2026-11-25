@@ -2044,7 +2044,35 @@ finding and its control without a new scan.
 | Gio and shared Go | A SQLite fixture matched the Wails instrument and reversed FX series, including USD 12.34567891, a delayed flag, and the exact reciprocal 0.142857142857. It exercised empty versus outside-range states, local failure and retry, Home and Escape, focused Data Health and Back. A projection test kept date-only NAV apart from timed provider observations, isolated intraday marks, and kept a nonmatching currency off the plot. Reads left the ledger version unchanged. |
 | Wails reference | All 40 tests across Quote History, Market Data and Data Health passed. Focused shared application and Wails quote-adapter tests passed. |
 | Packaged Linux X11 | At 1260×1050 the default instrument window was empty and the selected quote showed USD 13.98765432. Show all dates revealed two observations. At 640×480 View data table reached the exact delayed USD 12.34567891 entry. Escape and Return reopened the instrument. FX history kept the stored USD/JPY reference while the historical direction switched. The empty SGD/USD sheet carried scope to Data Health, opened the November 21–24 missing-rate finding, and restored the selected sheet on Back. Both source hashes matched. The copy's instrument quotes, FX quotes and FX preferences matched the synthetic source rows. The packaged test launch substituted a deterministic provider. |
-| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. Source editing, provider prerequisites, Agent coverage/closure workflows and direct scoped repair remain in the parity checklist. Interactive Wails, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. [FX sources and focused quote repair](#fx-sources-and-focused-provider-repair) follow this checkpoint. Interactive Wails, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
+
+#### FX sources and focused provider repair
+
+**Change FX source** opens the selected pair's Manual, Provider and Agent
+settings. The same selector covers pairs that have no saved preference.
+Gio uses an explicit Save for its compact sheet, with Close or Escape
+before submission. A pending write disables duplicate submission and
+dismissal. Failure retains the selected source for retry. The shared write
+preserves recorded quotes. As in Wails, saving Provider follows with the
+shared missing-or-stale refresh. The sheet states this consequence before
+Save. Manual and Agent changes reread local data.
+
+Executable provider findings in Data Health open the existing historical
+repair preview for the exact instrument or pair. Plans follow the shared
+request scope and may include opening-anchor dates outside the displayed
+finding. Dismissing a preview restores the finding and starts no job.
+Confirmation starts the existing cancellable job. The summary, per-target
+details and scoped retry stay available on Data Health, with a local report
+recheck after the job terminates. A scoped finding can clear even when the
+shared job reports other unresolved coverage. Snapshot-date repairs still
+use their existing selected-date confirmation.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | Tests matched the JPY/USD plan with the Wails adapter, verified zero new scans or requests on preview dismissal, and verified one recheck per terminal job. A cancelled request retried the same scope and committed quotes only for JPY/USD. A separate FX source test covered compact dismissal, overlapping submission, a local storage error with retained choice, a successful Agent save without refresh, and a Provider save that read back 140.4321. The other pair kept its source. |
+| Wails reference | All 48 Quote History, Market Data, sync bar, Data Health and Snapshot Repair frontend tests passed. Focused shared Go and Wails Market Data adapter tests passed. |
+| Packaged Linux X11 | Overview opened the JPY/USD finding. At 640×480 Escape and Return reopened its preview. Confirming, cancelling and retrying committed 11 dated JPY/USD observations at 139.123456 and cleared the focused finding while the job retained other unresolved coverage. At 640×480, a Manual draft closed with JPY/USD still on Provider. An SGD/USD Agent selection saved at 1260×1050 and reopened on a new launch. SQLite contained only the selected JPY/USD historical quotes and the two expected source preferences. Source database and settings hashes matched. The packaged test substituted a deterministic provider. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. The instrument source and provider binding editor, provider instrument lookup and Agent coverage/closure workflows remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
 
 #### Additional analysis filters and effective dates
 

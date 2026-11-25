@@ -21,6 +21,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -239,6 +240,14 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			}
 			if s.marketData.quoteHistoryReader != nil {
 				s.dataHealth.quoteHistory = s.marketData.quoteHistoryAction
+			}
+			if s.marketData.sync != nil && s.dataHealth.repair == s.marketData.sync {
+				s.dataHealth.previewQuoteRepair = func(scope application.SyncRequest, from event.Tag) {
+					s.marketData.previewMarketSyncFrom(dataHealthRoute, scope, from)
+				}
+				s.dataHealth.openRepairDetails = func(from event.Tag) {
+					s.marketData.openMarketOperation(dataHealthRoute, marketSyncDetails, from)
+				}
 			}
 		}
 		if s.overviewPage != nil {
@@ -523,7 +532,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -609,6 +618,17 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		if source := s.marketData.layoutMarketOperation(windowContext, view); source != nil {
 			s.trail.current().focus, s.restoreFocus = source, true
 		}
+	} else if s.fxSourceOpen() {
+		if source, preference := s.marketData.layoutFXSource(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+			if preference != nil {
+				s.refreshLedgerReads()
+				s.marketData.read()
+				if preference.SourceKind == domain.QuoteSourceProvider {
+					s.marketData.startLatest(marketLatestTarget{})
+				}
+			}
+		}
 	} else if s.manualQuoteOpen() {
 		if source, receipt := s.marketData.layoutManualQuote(windowContext, view); source != nil {
 			s.trail.current().focus, s.restoreFocus = source, true
@@ -641,7 +661,7 @@ func (s *shell) returnDetailOpen() bool {
 
 func (s *shell) healthRepairOpen() bool {
 	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.repair != nil &&
-		s.dataHealth.repair.owner == dataHealthRoute && s.dataHealth.repair.plan != nil
+		s.dataHealth.repair.owner == dataHealthRoute && s.dataHealth.repair.plan != nil && !s.marketOperationOpen()
 }
 
 func (s *shell) snapshotRepairOpen() bool {
@@ -656,8 +676,12 @@ func (s *shell) quoteHistoryOpen() bool {
 	return s.marketData != nil && s.marketData.quoteHistory != nil
 }
 
+func (s *shell) fxSourceOpen() bool {
+	return s.activeRoute() == marketDataRoute && s.marketData != nil && s.marketData.fxSourceDraft != nil
+}
+
 func (s *shell) marketOperationOpen() bool {
-	return s.activeRoute() == marketDataRoute && s.marketData != nil && s.marketData.operation != nil
+	return s.marketData != nil && s.marketData.operation != nil && s.marketData.operation.route == s.activeRoute()
 }
 
 func (s *shell) confirmingAccountCreation() bool {
