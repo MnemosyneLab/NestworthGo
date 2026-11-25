@@ -40,7 +40,10 @@ func (p *assetChangesPage) layout(gtx layout.Context, view ui.View) layout.Dimen
 	offset := tabs.Size.Y + gap
 	if p.refs.origin != nil {
 		filters := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-			return p.filters.layout(gtx, view, p.refs.analysisReferences, p.refs.origin, p.clock(), func(analysisSelection, analysisSelection) {
+			now := p.clock()
+			month := returnMonth(now.In(p.refs.origin.location))
+			effective := returnCalendarQuery(month, month.AddDate(0, 1, -1), p.refs.origin, now)
+			return p.filters.layout(gtx, view, p.refs.analysisReferences, p.refs.origin, now, effective, func(analysisSelection, analysisSelection) {
 				p.change()
 			})
 		})

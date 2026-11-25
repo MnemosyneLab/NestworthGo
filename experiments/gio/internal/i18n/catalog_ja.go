@@ -533,7 +533,20 @@ var japaneseCatalog = catalog{
 	AnalysisCurrency:      "通貨",
 	AnalysisScopeRequired: "対象の口座または銘柄を選択してください。",
 	AnalysisInvalidRange:  "開始日を早めるか、終了日を遅らせてください。",
-	AnalysisBaseFallback:  "複数通貨を含むため基準通貨で評価",
+
+	AnalysisAssetClass:        "資産クラス",
+	AnalysisMember:            "メンバー",
+	AnalysisInstrumentFilter:  "銘柄フィルター",
+	AnalysisAllClasses:        "すべての資産クラス",
+	AnalysisAllMembers:        "すべてのメンバー",
+	AnalysisAllInstruments:    "すべての銘柄",
+	AnalysisCash:              "現金",
+	AnalysisCashIncluded:      "現金を含む",
+	AnalysisCashExcluded:      "現金を除く",
+	AnalysisClearAdditional:   "追加フィルターをクリア",
+	ContributionHistoryMember: "メンバーフィルターは元帳のアクティビティに引き継がれません。",
+
+	AnalysisBaseFallback: "複数通貨を含むため基準通貨で評価",
 
 	AssetTrend:           "資産の推移",
 	AssetDrivers:         "変動要因",

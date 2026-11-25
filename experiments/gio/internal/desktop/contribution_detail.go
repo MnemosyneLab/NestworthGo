@@ -175,6 +175,9 @@ func (p *returnAnalysisPage) contributionDetails(gtx layout.Context, view ui.Vie
 			sheet.group == application.ContributionGroupCurrency || sheet.group == application.ContributionGroupAssetClass {
 			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.ContributionHistoryWider), view.Colors.SecondaryInk)))
 		}
+		if sheet.query.Filters.MemberID != nil {
+			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.ContributionHistoryMember), view.Colors.SecondaryInk)))
+		}
 		if _, valid := contributionHistoryFilters(value.HistoryHint); !valid {
 			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.ContributionHistoryUnavailable), view.Colors.SecondaryInk)))
 		}

@@ -534,7 +534,20 @@ var englishCatalog = catalog{
 	AnalysisCurrency:      "Currency",
 	AnalysisScopeRequired: "Choose an account or instrument for this scope.",
 	AnalysisInvalidRange:  "Choose an earlier start date or a later end date.",
-	AnalysisBaseFallback:  "Base currency used for a mixed-currency scope",
+
+	AnalysisAssetClass:        "Asset class",
+	AnalysisMember:            "Member",
+	AnalysisInstrumentFilter:  "Instrument filter",
+	AnalysisAllClasses:        "All asset classes",
+	AnalysisAllMembers:        "All members",
+	AnalysisAllInstruments:    "All instruments",
+	AnalysisCash:              "Cash",
+	AnalysisCashIncluded:      "Cash included",
+	AnalysisCashExcluded:      "Cash excluded",
+	AnalysisClearAdditional:   "Clear additional filters",
+	ContributionHistoryMember: "The member filter does not carry over to Ledger activity.",
+
+	AnalysisBaseFallback: "Base currency used for a mixed-currency scope",
 
 	AssetTrend:           "Asset trend",
 	AssetDrivers:         "Change drivers",

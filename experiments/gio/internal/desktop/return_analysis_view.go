@@ -63,7 +63,9 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 	gtx.Constraints.Min.Y = 0
 	offset := tabs(gtx).Size.Y + gtx.Dp(12)
 	filter := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		return p.filters.layout(gtx, view, p.refs.analysisReferences, origin, p.clock(), p.changeFilters)
+		now := p.clock()
+		effective := returnCalendarQuery(p.month, p.month.AddDate(0, 1, -1), origin, now)
+		return p.filters.layout(gtx, view, p.refs.analysisReferences, origin, now, effective, p.changeFilters)
 	})
 	offset += filter.Size.Y + gtx.Dp(12)
 	layoutBody := p.layoutCalendar

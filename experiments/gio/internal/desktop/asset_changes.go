@@ -35,6 +35,7 @@ type assetChangesVisit struct {
 	interval  application.AssetTrendGranularity
 	category  application.AnalysisCategoryType
 	list      layout.Position
+	expanded  bool
 }
 
 type assetChangesResult struct {
@@ -68,6 +69,7 @@ type assetChangesPage struct {
 func (p *assetChangesPage) enter(state assetChangesVisit) {
 	p.state = state
 	p.filters.selection = state.selection
+	p.filters.expanded = state.expanded
 	p.list.Position = state.list
 	p.current = nil
 	if p.refs.origin == nil {
@@ -80,6 +82,7 @@ func (p *assetChangesPage) enter(state assetChangesVisit) {
 func (p *assetChangesPage) visit() assetChangesVisit {
 	state := p.state
 	state.selection, state.list = p.filters.selection, p.list.Position
+	state.expanded = p.filters.expanded
 	return state
 }
 

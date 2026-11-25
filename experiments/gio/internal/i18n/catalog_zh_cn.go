@@ -534,7 +534,20 @@ var simplifiedChineseCatalog = catalog{
 	AnalysisCurrency:      "货币",
 	AnalysisScopeRequired: "请选择该范围的账户或投资标的。",
 	AnalysisInvalidRange:  "请选择更早的起始日期或更晚的结束日期。",
-	AnalysisBaseFallback:  "范围涉及多种货币，使用基准货币",
+
+	AnalysisAssetClass:        "资产类别",
+	AnalysisMember:            "成员",
+	AnalysisInstrumentFilter:  "投资标的筛选",
+	AnalysisAllClasses:        "所有资产类别",
+	AnalysisAllMembers:        "全部成员",
+	AnalysisAllInstruments:    "全部投资标的",
+	AnalysisCash:              "现金",
+	AnalysisCashIncluded:      "包含现金",
+	AnalysisCashExcluded:      "排除现金",
+	AnalysisClearAdditional:   "清除附加筛选",
+	ContributionHistoryMember: "成员筛选不会带入流水记录。",
+
+	AnalysisBaseFallback: "范围涉及多种货币，使用基准货币",
 
 	AssetTrend:           "资产趋势",
 	AssetDrivers:         "变动因素",

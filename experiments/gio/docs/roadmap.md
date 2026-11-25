@@ -1677,6 +1677,26 @@ snapshot-specific review remain open.
 | Linux X11 | The packaged launcher opened the plan on a marked household and displayed one estimated provider request at 1100×900 and 700×480. Escape and Return restored the plan without storing a new FX quote. A separate native build with only a deterministic provider substituted at build time confirmed the plan, cancelled the first request, then saved the exact 140.1234 rate on a second confirmation. It showed Repair completed and the remaining gaps, and the isolated fixture was verified after shutdown. |
 | Build and tests | The full Gio suite, Gio vet and vanilla Linux package build passed. Live providers, Wails GUI, native macOS, VoiceOver and IME remain unverified for this workflow. |
 
+#### Additional analysis filters and effective dates
+
+Return Analysis and Asset Changes show scope and the effective dates in
+the primary row. More filters shows the valuation and cash options with
+account, currency, asset class, member and instrument. A summary shows the
+active choices while the controls are collapsed. Gio uses that summary and
+the pickers for individual clearing, which keeps the compact header to one
+summary row when it fits. The bulk clear action preserves the date range,
+scope, valuation and cash setting. Editing one date keeps the other date and
+respects the recorded History period. The Return day link carries the exact
+filters into Asset Changes. Contribution detail explains that Ledger activity
+cannot apply an additional member filter.
+
+| Check | Evidence |
+| --- | --- |
+| Wails comparison | All 90 tests across Analysis Filter Bar, Return Analysis, Asset Changes and Insight Tabs passed. Focused shared Go query and analysis tests passed. On independent synthetic ledgers, Gio and the Wails Go adapter matched the contribution with USD, Stocks, the member and the named instrument selected. |
+| Gio interaction | August 1–31 stayed effective across Return tabs. Calendar day → Asset Changes retained the additional instrument, member, asset class and earlier account, currency, native valuation and cash choices. Back restored focus and the originating filters. Clearing the additional set retained other choices and focused More filters. |
+| Linux X11 | The packaged preview selected Stocks, Sample owner and Synthetic fund for November 1–24 and retained them in Contribution and at 700×480. The contribution remained USD 25 and +25%. Its detail showed separate member and currency or asset-class notices before Ledger activity. |
+| Build and tests | The full Gio suite, Gio vet and native Linux package build passed. Presets, individual filter chips, interactive Wails, macOS, VoiceOver and IME remain open. |
+
 ## Moving from the preview to a desktop build
 
 1. During the pilot, run the Gio module's tests explicitly. The root

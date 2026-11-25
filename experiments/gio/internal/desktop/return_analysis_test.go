@@ -300,9 +300,26 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	h.click("USD", false)
 	page.workers.Wait()
 	h.frame()
+	h.click("Member", true)
+	h.click("Sample owner", false)
+	page.workers.Wait()
+	h.frame()
+	h.click("Asset class", true)
+	h.click("Stocks", false)
+	page.workers.Wait()
+	h.frame()
+	h.click("Instrument filter", true)
+	h.click(instrument.SelectionLabel(), false)
+	page.workers.Wait()
+	h.frame()
 	itemQuery := query
 	currency := "USD"
 	itemQuery.Currency = &currency
+	member := bootstrap.Members[0].ID.String()
+	itemQuery.MemberID = &member
+	itemQuery.AssetClass = string(domain.InstrumentStock)
+	instrumentID := instrument.ID.String()
+	itemQuery.InstrumentID = &instrumentID
 	wailsItem, err := adapter.ContributionItem(ctx, itemQuery, string(application.ContributionTotalReturn),
 		string(application.ContributionGroupInstrument), instrument.ID.String())
 	if err != nil {
@@ -316,6 +333,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		t.Fatalf("the linked contribution item did not match Wails: %+v", page.item)
 	}
 	assertPageLabel(t, &h.router, "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.")
+	assertPageLabel(t, &h.router, "The member filter does not carry over to Ledger activity.")
 	rank := page.item.button
 	h.click("View in Ledger activity", false)
 	for range 3 {
@@ -375,6 +393,8 @@ func TestContributionHistoryHintKeepsMultipleActivityKinds(t *testing.T) {
 type calendarFilterReader struct {
 	account    domain.AccountID
 	instrument domain.InstrumentID
+	secondary  domain.InstrumentID
+	member     domain.MemberID
 	lastTrend  domain.AnalysisQuery
 	lastRanks  domain.AnalysisQuery
 	lastAssets domain.AnalysisQuery
@@ -385,11 +405,18 @@ func (r *calendarFilterReader) HistoryOrigin(context.Context) (*domain.HistoryOr
 }
 
 func (r *calendarFilterReader) ListInstruments(context.Context, bool) ([]domain.Instrument, error) {
-	return []domain.Instrument{{ID: r.instrument, Name: "Synthetic fund"}}, nil
+	return []domain.Instrument{
+		{ID: r.instrument, Name: "Synthetic fund"},
+		{ID: r.secondary, Name: "Synthetic treasuries"},
+	}, nil
 }
 
 func (r *calendarFilterReader) ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error) {
 	return []domain.AccountRecord{{Account: domain.Account{ID: r.account, Name: "Synthetic brokerage"}}}, nil
+}
+
+func (r *calendarFilterReader) ListMembers(context.Context, bool) ([]domain.Member, error) {
+	return []domain.Member{{ID: r.member, Name: "Synthetic owner"}}, nil
 }
 
 func (r *calendarFilterReader) ReturnCalendar(_ context.Context, q domain.AnalysisQuery, _, _ string) (application.ReturnCalendarResult, error) {
@@ -434,7 +461,8 @@ func (r *calendarFilterReader) ContributionItem(context.Context, domain.Analysis
 }
 
 func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
-	reader := &calendarFilterReader{account: domain.NewAccountID(), instrument: domain.NewInstrumentID()}
+	reader := &calendarFilterReader{account: domain.NewAccountID(), instrument: domain.NewInstrumentID(),
+		secondary: domain.NewInstrumentID(), member: domain.NewMemberID()}
 	now := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 	p := &returnAnalysisPage{ctx: t.Context(), reader: reader, clock: func() time.Time { return now }, invalidate: func() {}}
 	assets := &assetChangesPage{ctx: t.Context(), reader: reader, clock: func() time.Time { return now }, invalidate: func() {}}
@@ -460,15 +488,20 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 	selectOption("Scope", "Instrument")
 	assertPageLabel(t, &h.router, "Choose an account or instrument for this scope.")
 	selectOption("Instrument", "Synthetic fund")
+	h.click("More filters", false)
 	selectOption("Valuation", "Native currency")
 	h.click("Include cash", false)
 	settle()
-	h.click("More filters", false)
 	selectOption("Account filter", "Synthetic brokerage")
 	h.click("Currency", true)
 	h.router.Queue(key.EditEvent{Text: "USD"})
 	h.frame()
 	h.click("USD", false)
+	settle()
+	selectOption("Asset class", "Stocks")
+	selectOption("Member", "Synthetic owner")
+	selectOption("Instrument filter", "Synthetic treasuries")
+	h.click("More filters", false)
 	settle()
 	h.click("Previous month", false)
 	settle()
@@ -480,7 +513,9 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 			got.Scope != (domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: reader.instrument.String()}) ||
 			got.Valuation != domain.ValuationNative || got.IncludeCash ||
 			got.Filters.AccountID == nil || *got.Filters.AccountID != reader.account ||
-			got.Filters.Currency == nil || *got.Filters.Currency != "USD" {
+			got.Filters.Currency == nil || *got.Filters.Currency != "USD" ||
+			got.Filters.AssetClass != "stock" || got.Filters.MemberID == nil || *got.Filters.MemberID != reader.member ||
+			got.Filters.InstrumentID == nil || *got.Filters.InstrumentID != reader.secondary {
 			t.Fatalf("historical month and typed filters differ from Wails contract: %+v", got)
 		}
 	}
@@ -516,4 +551,11 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 	if p.filters.selection != selection {
 		t.Fatal("returning from Asset Changes did not restore the originating filters")
 	}
+	h.click("More filters", false)
+	h.click("Clear additional filters", false)
+	settle()
+	if p.filters.selection != selection.clearAdditional() {
+		t.Fatalf("clearing additional filters changed the dates, scope or valuation: %+v", p.filters.selection)
+	}
+	h.focused(&p.filters.more)
 }

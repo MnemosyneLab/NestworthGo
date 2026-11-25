@@ -356,6 +356,17 @@ const (
 	AnalysisCurrency
 	AnalysisScopeRequired
 	AnalysisInvalidRange
+	AnalysisAssetClass
+	AnalysisMember
+	AnalysisInstrumentFilter
+	AnalysisAllClasses
+	AnalysisAllMembers
+	AnalysisAllInstruments
+	AnalysisCash
+	AnalysisCashIncluded
+	AnalysisCashExcluded
+	AnalysisClearAdditional
+	ContributionHistoryMember
 	AnalysisBaseFallback
 	AssetTrend
 	AssetDrivers

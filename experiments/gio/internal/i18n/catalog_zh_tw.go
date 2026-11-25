@@ -534,7 +534,20 @@ var traditionalChineseCatalog = catalog{
 	AnalysisCurrency:      "幣別",
 	AnalysisScopeRequired: "請選擇此範圍的帳戶或投資標的。",
 	AnalysisInvalidRange:  "請選擇更早的起始日期或更晚的結束日期。",
-	AnalysisBaseFallback:  "範圍涉及多種幣別，使用基準幣別",
+
+	AnalysisAssetClass:        "資產類別",
+	AnalysisMember:            "成員",
+	AnalysisInstrumentFilter:  "投資標的篩選",
+	AnalysisAllClasses:        "所有資產類別",
+	AnalysisAllMembers:        "全部成員",
+	AnalysisAllInstruments:    "全部投資標的",
+	AnalysisCash:              "現金",
+	AnalysisCashIncluded:      "包含現金",
+	AnalysisCashExcluded:      "排除現金",
+	AnalysisClearAdditional:   "清除附加篩選",
+	ContributionHistoryMember: "成員篩選不會帶入流水記錄。",
+
+	AnalysisBaseFallback: "範圍涉及多種幣別，使用基準幣別",
 
 	AssetTrend:           "資產趨勢",
 	AssetDrivers:         "變動因素",
