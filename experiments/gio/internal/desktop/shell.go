@@ -226,11 +226,20 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.routes[item.id] = item
 		}
 	}
-	if s.marketData != nil && s.dataHealth != nil {
+	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil) {
 		item := newItem(dataHealthRoute, i18n.NavDataHealth, nil, s.dataHealth.layout)
 		s.routes[dataHealthRoute] = &item
-		s.marketData.openHealth = func(focus *widget.Clickable) {
-			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute}, focus: focus}
+		openHealth := func(scope healthFindingFocus, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute, health: scope}, focus: focus}
+		}
+		if s.marketData != nil {
+			s.marketData.openHealth = func(focus *widget.Clickable) { openHealth(healthFindingFocus{}, focus) }
+		}
+		if s.overviewPage != nil {
+			s.overviewPage.openHealth = openHealth
+		}
+		s.dataHealth.clearFocus = func(focus event.Tag) {
+			openHealth(healthFindingFocus{}, focus)
 		}
 		s.dataHealth.openSettings = func(focus *widget.Clickable) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: focus, providerSettings: true}
@@ -239,6 +248,15 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.dataHealth.openAccount = func(id domain.AccountID, name string, focus *widget.Clickable) {
 				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute, account: id}, name: name, focus: focus}
 			}
+		}
+	}
+	if s.overviewPage != nil && s.wealthHistory != nil && s.historyPage != nil {
+		s.overviewPage.openHistory = func(started bool, focus event.Tag) {
+			route := historyRoute
+			if started {
+				route = wealthHistoryRoute
+			}
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: route}, focus: focus}
 		}
 	}
 	if s.returns != nil && s.assets != nil {
@@ -281,6 +299,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
 		}
 		if s.overviewPage != nil {
+			s.overviewPage.openAccounts = func(focus event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute}, "", focus)
+			}
 			s.overviewPage.allocation.openAccount = func(id domain.AccountID, name string, from event.Tag) {
 				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
 			}

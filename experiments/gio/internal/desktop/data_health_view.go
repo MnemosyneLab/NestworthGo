@@ -54,7 +54,24 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.HealthDescription), view.Colors.SecondaryInk))}
-	if report := p.report; report != nil {
+	if p.focus.active() {
+		scope := p.focus.label
+		if p.focus.from != "" {
+			scope = wealthDay(view, p.focus.from)
+			if p.focus.to != "" && p.focus.from != p.focus.to {
+				scope += " – " + wealthDay(view, p.focus.to)
+			}
+		}
+		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HealthFocused), scope), view.Colors.Ink)))
+		if p.clearFocus != nil {
+			if p.clear.Clicked(gtx) {
+				p.clearFocus(&p.clear)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.clear, i18n.HealthShowAll, nil, true)))
+		}
+	}
+	if report := p.report; report != nil && !p.focus.active() {
 		rows = append(rows, ui.Rigid(healthSummary(view, *report)))
 		if p.repair != nil && !report.Healthy {
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -77,13 +94,15 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	}
 	rows = append(rows, ui.Rigid(returnMonthButton(view, &p.recheck, recheck, nil, p.request == nil)))
 	if report := p.report; report != nil {
-		issues := healthIssueRows(report.Issues)
+		issues := healthIssueRows(focusedHealthFindings(report.Issues, p.focus))
 		if len(issues) != 0 {
 			rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 				return analysisResultList(gtx, view, &p.list, l.Text(i18n.HealthFindings), len(issues), func(gtx layout.Context, index int) layout.Dimensions {
 					return p.issueRow(gtx, view, issues[index])
 				})
 			}))
+		} else if p.focus.active() && p.request == nil && p.err == nil {
+			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.HealthFocusedEmpty), view.Colors.SecondaryInk)))
 		}
 	}
 	return (ui.Column{Gap: 12, MinFill: 250}).Layout(gtx, rows...)

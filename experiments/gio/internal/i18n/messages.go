@@ -292,6 +292,24 @@ const (
 	OverviewAllocationDate
 	OverviewAllocationQuoteDates
 	OverviewAllocationCarriedDate
+	OverviewOpenAccounts
+	OverviewOpenWealthHistory
+	OverviewNetWorthTrend
+	OverviewTrendMonth
+	OverviewTrendYTD
+	OverviewTrendYear
+	OverviewTrendAll
+	OverviewTrendEmpty
+	OverviewTrendBasis
+	OverviewTrendCoverage
+	OverviewTrendGaps
+	OverviewTrendSelectedGap
+	OverviewTrendChange
+	OverviewTrendEstimate
+	OverviewTrendData
+	HealthFocused
+	HealthShowAll
+	HealthFocusedEmpty
 	OverviewKnownNet
 	OverviewNoValue
 	OverviewQuoteDates

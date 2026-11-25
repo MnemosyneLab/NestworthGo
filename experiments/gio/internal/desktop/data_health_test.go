@@ -133,7 +133,7 @@ func TestDataHealthOpensProviderSettingsAndRestoresFocus(t *testing.T) {
 	health.read()
 	health.workers.Wait()
 	h.frame()
-	if len(healthIssueRows(health.report.Issues)) != 1 {
+	if len(healthIssueRows(focusedHealthFindings(health.report.Issues, healthFindingFocus{}))) != 1 {
 		t.Fatal("collapsed prerequisite details escaped into the global findings")
 	}
 	h.click("Open provider settings", false)

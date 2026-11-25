@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/widget"
 
@@ -30,11 +31,44 @@ type dataHealthPage struct {
 	issueActions map[string]*widget.Clickable
 	openSettings func(*widget.Clickable)
 	openAccount  func(domain.AccountID, string, *widget.Clickable)
+	clearFocus   func(event.Tag)
+	clear        widget.Clickable
+	focus        healthFindingFocus
 	repair       *dataHealthRepair
 }
 
-func (p *dataHealthPage) enter(position layout.Position) {
+type healthFindingFocus struct {
+	from, to, account, instrument, currencyA, currencyB, label string
+}
+
+func (f healthFindingFocus) active() bool { return f != (healthFindingFocus{}) }
+
+func focusedHealthFindings(issues []application.HealthIssue, focus healthFindingFocus) []application.HealthIssue {
+	var matches []application.HealthIssue
+	for _, issue := range issues {
+		if !focus.active() && issue.Collapsed {
+			continue
+		}
+		if focus.instrument != "" && focus.instrument != issue.InstrumentID || focus.account != "" && focus.account != issue.AccountID {
+			continue
+		}
+		if focus.currencyA != "" &&
+			!(focus.currencyA == issue.CurrencyA && focus.currencyB == issue.CurrencyB) &&
+			!(focus.currencyA == issue.CurrencyB && focus.currencyB == issue.CurrencyA) {
+			continue
+		}
+		if focus.from != "" && issue.RangeEnd != "" && issue.RangeEnd < focus.from ||
+			focus.to != "" && issue.RangeStart != "" && issue.RangeStart > focus.to {
+			continue
+		}
+		matches = append(matches, issue)
+	}
+	return matches
+}
+
+func (p *dataHealthPage) enter(position layout.Position, focus healthFindingFocus) {
 	p.list.Position = position
+	p.focus = focus
 	p.read()
 }
 
@@ -85,9 +119,6 @@ type healthIssueRow struct {
 func healthIssueRows(issues []application.HealthIssue) []healthIssueRow {
 	var sections [3][]application.HealthIssue
 	for _, issue := range issues {
-		if issue.Collapsed {
-			continue
-		}
 		section := healthReported
 		switch {
 		case issue.Executable:

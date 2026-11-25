@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gioui.org/font"
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -49,13 +50,24 @@ type overviewPage struct {
 	reload       widget.Clickable
 	list         widget.List
 	allocation   overviewAllocation
+	trend        overviewTrend
+	health       widget.Clickable
+	accounts     widget.Clickable
+	missingLinks map[string]*widget.Clickable
+	openHealth   func(healthFindingFocus, event.Tag)
+	openHistory  func(bool, event.Tag)
+	openAccounts func(event.Tag)
 }
 
 func newOverviewPage(ctx context.Context, reader overviewReader, clock func() time.Time, invalidate func()) *overviewPage {
-	return &overviewPage{
+	page := &overviewPage{
 		ctx: ctx, reader: reader, clock: clock, invalidate: invalidate,
-		list: widget.List{List: layout.List{Axis: layout.Vertical}},
+		list:         widget.List{List: layout.List{Axis: layout.Vertical}},
+		trend:        overviewTrend{period: domain.Trend30Days},
+		missingLinks: make(map[string]*widget.Clickable),
 	}
+	page.trend.reader, _ = reader.(overviewTrendReader)
+	return page
 }
 
 func (p *overviewPage) read() {
@@ -86,6 +98,7 @@ func (p *overviewPage) retireRead() {
 func (p *overviewPage) refresh() {
 	p.retireRead()
 	p.needsRefresh = true
+	p.trend.invalidate()
 }
 
 func (p *overviewPage) update() {
@@ -107,14 +120,16 @@ func (p *overviewPage) update() {
 
 func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	p.updateTrend(gtx)
 	if p.reload.Clicked(gtx) {
 		p.read()
+		p.trend.invalidate()
 	}
 	if p.current != nil && p.current.value.AccountCount > 0 {
 		p.allocation.update(view, p.current)
 	}
 	if p.current != nil && len(p.current.value.AssetComposition.Paths) > 0 {
-		section := len(p.current.value.MissingInputs) + 1
+		section := p.compositionIndex()
 		switch {
 		case p.allocation.details.Clicked(gtx):
 			p.list.ScrollTo(section + 1)
@@ -126,7 +141,7 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	return ui.Column{Gap: 12}.Layout(gtx,
+	children := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
@@ -142,30 +157,51 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				}),
 			)
 		}),
-		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return analysisResultList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
-				return p.overviewRow(gtx, view, row)
-			})
-		}),
-	)
+	}
+	if p.openHealth != nil {
+		if p.health.Clicked(gtx) {
+			p.openHealth(healthFindingFocus{}, &p.health)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		children = append(children, ui.Rigid(returnMonthButton(view, &p.health, i18n.NavDataHealth, nil, true)))
+	}
+	children = append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions {
+		return analysisResultList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
+			return p.overviewRow(gtx, view, row)
+		})
+	}))
+	return (ui.Column{Gap: 12}).Layout(gtx, children...)
 }
 
 func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) layout.Dimensions {
 	result, l := p.current.value, view.Language
+	composition := p.compositionIndex()
 	switch {
 	case result.AccountCount == 0:
-		return view.Message(l.Text(i18n.OverviewEmpty), view.Colors.SecondaryInk)(gtx)
+		rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.OverviewEmpty), view.Colors.SecondaryInk))}
+		if p.openAccounts != nil {
+			if p.accounts.Clicked(gtx) {
+				p.openAccounts(&p.accounts)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.accounts, i18n.OverviewOpenAccounts, nil, true)))
+		}
+		return (ui.Column{Gap: 8}).Layout(gtx, rows...)
 	case row == 0:
 		return p.totals(gtx, view)
 	case row <= len(result.MissingInputs):
-		return view.Message(overviewIssue(l, result.MissingInputs[row-1]), view.Colors.Ink)(gtx)
-	case row == len(result.MissingInputs)+1:
+		return p.overviewMissingRow(gtx, view, result.MissingInputs[row-1])
+	case row == p.trendIndex() && row < composition:
+		return p.overviewTrendCard(gtx, view, result.HistoryStarted)
+	case row < composition:
+		return p.overviewTrendDataRow(gtx, view, p.trend.current.Points[row-p.trendIndex()-1])
+	case row == composition:
 		return p.allocation.section(gtx, view, result)
-	case row == len(result.MissingInputs)+2:
+	case row == composition+1:
 		return returnMonthButton(view, &p.allocation.back, i18n.OverviewAllocationBack, nil, true)(gtx)
 	default:
 		details := p.allocation.model.rows
-		return p.allocation.row(gtx, view, details[row-len(result.MissingInputs)-3])
+		return p.allocation.row(gtx, view, details[row-composition-2])
 	}
 }
 
@@ -176,11 +212,53 @@ func (p *overviewPage) rowCount() int {
 	if p.current.value.AccountCount == 0 {
 		return 1
 	}
-	n := 2 + len(p.current.value.MissingInputs)
+	n := p.compositionIndex() + 1
 	if paths := len(p.current.value.AssetComposition.Paths); paths > 0 {
 		n += paths + 1
 	}
 	return n
+}
+
+func (p *overviewPage) compositionIndex() int {
+	index := p.trendIndex()
+	if p.trend.reader != nil || p.openHistory != nil {
+		index++
+	}
+	if p.current.value.HistoryStarted && p.trend.showData && p.trend.current != nil {
+		index += len(p.trend.current.Points)
+	}
+	return index
+}
+
+func (p *overviewPage) trendIndex() int { return len(p.current.value.MissingInputs) + 1 }
+
+func (p *overviewPage) overviewMissingRow(gtx layout.Context, view ui.View, item domain.MissingInputView) layout.Dimensions {
+	label := overviewIssue(view.Language, item)
+	if p.openHealth == nil {
+		return view.Message(label, view.Colors.Ink)(gtx)
+	}
+	focus := healthFindingFocus{label: label}
+	switch item.Kind {
+	case domain.MissingFXRate:
+		focus.currencyA, focus.currencyB = item.BaseCurrency.String(), item.QuoteCurrency.String()
+	case domain.MissingAccountValue:
+		focus.account = item.AccountID.String()
+	default:
+		if item.InstrumentID != nil {
+			focus.instrument = item.InstrumentID.String()
+		}
+		if focus.instrument == "" {
+			focus.account = item.AccountID.String()
+		}
+	}
+	id := strings.Join([]string{string(item.Kind), focus.account, focus.instrument, focus.currencyA, focus.currencyB}, "/")
+	button := portfolioButton(p.missingLinks, id)
+	view.Focus.Watch(gtx, button)
+	if button.Clicked(gtx) {
+		p.openHealth(focus, button)
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	return view.ButtonOf(button, ui.ButtonSpec{Title: label, Variant: ui.ButtonLink, Size: ui.ButtonSmall})(gtx)
 }
 
 func (p *overviewPage) status(gtx layout.Context, view ui.View) layout.Dimensions {

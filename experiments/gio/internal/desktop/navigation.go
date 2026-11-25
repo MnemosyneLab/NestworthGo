@@ -28,6 +28,7 @@ type navigationTarget struct {
 	instrument  domain.InstrumentID
 	product     domain.ProductContractID
 	statement   string
+	health      healthFindingFocus
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -247,6 +248,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == portfolioRoute {
 		s.portfolio.leave()
 	}
+	if entry.target.route == overviewRoute && s.overviewPage != nil {
+		s.overviewPage.leave()
+	}
 	if entry.target.route == wealthHistoryRoute {
 		s.wealthHistory.leave()
 	}
@@ -316,7 +320,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.marketData.enter(entry.marketData)
 	}
 	if entry.target.route == dataHealthRoute {
-		s.dataHealth.enter(entry.healthScroll)
+		s.dataHealth.enter(entry.healthScroll, entry.target.health)
 	}
 	if entry.target.route == settingsRoute && request.providerSettings {
 		s.settingsPage.active = settingsMarket

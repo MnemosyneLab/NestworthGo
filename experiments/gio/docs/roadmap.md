@@ -262,6 +262,28 @@ keeps every class, institution, account and amount available by keyboard.
 | Automated checks | Full Gio suite, Gio vet, native Linux package, focused shared Overview tests and 21 Wails Overview and Sankey frontend tests passed. |
 | Open evidence | Native macOS, Wayland and VoiceOver remain open. Overview supporting cards and links and Portfolio allocation have separate parity work. |
 
+#### Overview net-worth history and coverage links
+
+Overview shows the shared net-worth series before allocation. The 30-day,
+year-to-date, one-year and all-history presets use the shared trend
+service. The chart and daily data keep a missing total separate from a
+known subtotal and distinguish the current estimate from closed days.
+The service may materialize derived daily snapshots, as in Wails.
+The History entry opens Wealth History when a starting point exists and
+Ledger activity's starting-point workflow otherwise.
+
+Period and date coverage links open the selected local dates in Data
+health. Current missing rows carry the source account, instrument or FX
+pair when available. Data health uses its shared saved report, including a
+matching collapsed finding, and offers a route back to all findings.
+Back to Overview restores the original coverage control and position.
+
+| Check | Evidence |
+| --- | --- |
+| Regression | The routed test distinguishes open and closed days, filters an unrelated date and FX pair, includes a matching collapsed finding, opens the precise daily scope, and restores keyboard focus on Back. |
+| Packaged Linux X11 | Overview displayed USD 112.75 current net worth and 23 of 24 closed days valued. Data health opened November 1–24, including the November 4 snapshot gap and AUD/USD prerequisite. Back and Enter reopened that range. Wealth History opened from the Overview card. The source database and settings hashes matched after quit. |
+| Remaining | Wails' arbitrary custom date ranges and the focused snapshot repair actions are separate follow-ups. Native Mac, VoiceOver and Wayland remain open. |
+
 #### Read-only Accounts milestone
 
 The [Wails account interaction contract](../../../docs/design/account-container-interaction.md)
