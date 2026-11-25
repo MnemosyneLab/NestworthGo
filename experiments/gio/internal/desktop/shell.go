@@ -30,6 +30,7 @@ const (
 	accountsRoute         routeID = "accounts"
 	fundsRoute            routeID = "available-funds"
 	portfolioRoute        routeID = "portfolio"
+	tasksRoute            routeID = "tasks"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
 	settingsRoute         routeID = "settings"
@@ -50,6 +51,7 @@ type ledgerPages struct {
 	history   *historyPage
 	overview  *overviewPage
 	funds     *availableFundsPage
+	tasks     *tasksPage
 	accounts  *accountsPage
 	portfolio *portfolioPage
 	version   func() string
@@ -85,6 +87,7 @@ type shell struct {
 	historyPage                           *historyPage
 	overviewPage                          *overviewPage
 	funds                                 *availableFundsPage
+	tasks                                 *tasksPage
 	accounts                              *accountsPage
 	portfolio                             *portfolioPage
 	componentPreview                      *componentPreview
@@ -114,7 +117,7 @@ type shell struct {
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
-	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout pageLayout
+	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -123,6 +126,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	if pages.overview != nil {
 		overviewLayout = pages.overview.layout
+	}
+	if pages.tasks != nil {
+		tasksLayout = pages.tasks.layout
 	}
 	if pages.funds != nil {
 		fundsLayout = pages.funds.layout
@@ -140,6 +146,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		historyPage:      pages.history,
 		overviewPage:     pages.overview,
 		funds:            pages.funds,
+		tasks:            pages.tasks,
 		accounts:         pages.accounts,
 		portfolio:        pages.portfolio,
 		componentPreview: preview,
@@ -158,7 +165,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			newItem(portfolioRoute, i18n.NavPortfolio, icons.EditorPieChartOutlined, portfolioLayout),
 		}},
 		{label: i18n.GroupActivity, items: []navigationItem{
-			newItem("tasks", i18n.NavTasks, icons.ActionAssignmentTurnedIn, nil),
+			newItem(tasksRoute, i18n.NavTasks, icons.ActionAssignmentTurnedIn, tasksLayout),
 			newItem(historyRoute, i18n.NavHistory, icons.ActionReceipt, historyLayout),
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
@@ -277,6 +284,14 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if p.productPage != nil {
 			p.openProduct = func(id domain.ProductContractID, name string, from event.Tag) {
 				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from}
+			}
+			if s.tasks != nil {
+				s.tasks.openProduct = p.openProduct
+				s.tasks.verify = func(id domain.ProductContractID, name string, from event.Tag) {
+					s.pendingNavigation = &navigationRequest{
+						target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from, verifyProductReceipt: true,
+					}
+				}
 			}
 			if s.portfolio != nil {
 				s.portfolio.openProduct = p.openProduct
@@ -436,7 +451,7 @@ func (s *shell) observeLedger(gtx layout.Context) {
 		s.invalidateLedgerReads()
 	}
 	switch s.activeRoute() {
-	case overviewRoute, accountsRoute, historyRoute, portfolioRoute, fundsRoute:
+	case overviewRoute, accountsRoute, historyRoute, portfolioRoute, fundsRoute, tasksRoute:
 		gtx.Execute(op.InvalidateCmd{At: gtx.Now.Add(time.Second)})
 	}
 }
@@ -468,6 +483,9 @@ func (s *shell) invalidateLedgerReads() {
 	}
 	if s.portfolio != nil && s.activeRoute() == portfolioRoute {
 		s.portfolio.read()
+	}
+	if s.tasks != nil && s.activeRoute() == tasksRoute {
+		s.tasks.read()
 	}
 }
 

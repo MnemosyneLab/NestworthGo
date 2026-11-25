@@ -33,6 +33,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	timeline.reads.repeatAPI = historyapi.NewService(service)
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
+	tasks := newTasksPage(ctx, service, window.Invalidate)
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)
 	funds.reservationLedger = service
 	funds.productPage = newProductDetailPage(ctx, service, window.Invalidate)
@@ -57,12 +58,13 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		timeline.cashMovements.workers.Wait()
 		overview.workers.Wait()
 		portfolio.workers.Wait()
+		tasks.workers.Wait()
 		funds.workers.Wait()
 		funds.productPage.workers.Wait()
 		accounts.workers.Wait()
 		onboarding.workers.Wait()
 	}()
-	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, funds: funds, accounts: accounts, portfolio: portfolio, prefs: state,
+	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
 		version: service.MobileDataVersion})
 	shell.onboarding = onboarding
 	return shell.run(window)

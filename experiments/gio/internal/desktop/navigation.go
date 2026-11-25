@@ -112,12 +112,13 @@ func (n *navigationTrail) recordRecent(entry navigationEntry) {
 }
 
 type navigationRequest struct {
-	target           navigationTarget
-	name             string
-	focus            event.Tag
-	step             int
-	recent           *navigationEntry
-	accountsArchived bool
+	target               navigationTarget
+	name                 string
+	focus                event.Tag
+	step                 int
+	recent               *navigationEntry
+	accountsArchived     bool
+	verifyProductReceipt bool
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -213,6 +214,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.funds.productPage.receipt = nil
 		}
 	}
+	if entry.target.route == tasksRoute {
+		s.tasks.leave()
+	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.leave()
 	}
@@ -241,8 +245,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if entry.target.product == "" {
 			s.funds.enter(entry.scroll)
 		} else {
-			s.funds.productPage.enter(entry.target.product, entry.scroll)
+			s.funds.productPage.enter(entry.target.product, entry.scroll, request.verifyProductReceipt)
 		}
+	}
+	if entry.target.route == tasksRoute {
+		s.tasks.enter(entry.scroll)
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
@@ -303,6 +310,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 		} else {
 			entry.scroll = s.funds.productPage.list.Position
 		}
+	case tasksRoute:
+		entry.scroll = s.tasks.list.Position
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
@@ -391,6 +400,9 @@ func (s *shell) waitingForPageFocus() bool {
 	}
 	if s.activeRoute() == portfolioRoute && s.portfolio != nil {
 		return s.portfolio.request != nil
+	}
+	if s.activeRoute() == tasksRoute && s.tasks != nil {
+		return s.tasks.request != nil
 	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false

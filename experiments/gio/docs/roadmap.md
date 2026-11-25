@@ -1397,7 +1397,36 @@ reopen. Each linked History record returns to the product. [Shared receipt read]
 | Linux X11 | In a 900×660 Xvfb window, checked the locked product, entered actual amounts on a due deposit, reviewed the cash increase, and double-clicked the posting control. Followed the History links and reopened normally. Read-only SQLite verification found one new settlement operation, two linked activities, zero remaining quantity, USD 1,699 cash, and unchanged earlier activity, effect and quote rows. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | This entry covers normal maturity receipts for term deposits. Early redemption, renewal, opening products, standalone interest recording, other managed product types, and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | [Term deposit Tasks](#term-deposit-tasks) follows this milestone. Early redemption, renewal, opening products, standalone interest recording and other managed product types remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Term deposit Tasks
+
+**Tasks & checks** presents the term deposit schedules from the shared
+`UpcomingActions` read used by the Wails **Upcoming** tab. The projection
+supplies the History timezone, the 30-calendar-day forward window, attention
+and scheduled groups, order, and reasons. A due receipt can stay on the list
+past its estimated date. A blocked schedule shows which inputs are missing.
+Missing dates and amounts stay unavailable. All proceeds on the list are
+estimates. [Wails Tasks](../../../frontend/src/features/tasks/TasksPage.tsx) · [Wails upcoming list](../../../frontend/src/features/upcoming-actions/UpcomingActionsPage.tsx) · [Shared read](../../../internal/application/upcoming_actions.go) · [Shared projection](../../../internal/domain/upcoming_actions.go)
+
+Each supported row opens the exact product by its shared target ID.
+**Verify receipt** requests the existing confirmation draft only for a
+due receipt. Gio checks the freshly read product and its settlement
+eligibility before opening the draft. If the product has already settled,
+the shortcut shows the updated details. Back restores the list scroll
+and surviving link focus. Forward to a product does not repeat a consumed
+receipt intent. Browsing and opening the draft are read-only. After an
+explicit settlement, the list refresh follows the shared projection and
+omits the settled receipt. [Wails receipt navigation](../../../frontend/src/features/upcoming-actions/upcomingActionPresentation.ts) · [Existing Gio receipt](#confirm-actual-term-deposit-receipt)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent synthetic profiles fixed the read at `2026-11-21T17:00:00Z`. Both projections showed November 22 through December 22 in Asia/Singapore. The December 22 boundary was included, December 23 was omitted, and overdue, same-day receipt, blocked, awaiting and upcoming items agreed. The overdue estimate was USD 606.25. The blocked row kept its maturity date and had no estimated receipt date or amount. |
+| Shell tests | Exercised an empty ledger, failed list and product reads with Retry, exact product targets, Back with focus and scroll, and Forward after opening a draft. A stale receipt link after settlement opened the settled facts without a new draft. An explicit settlement through the existing form removed the task on return and after reopening. Read-only interaction preserved activities and ledger version. |
+| Linux X11 | In a 900×660 Xvfb window, opened the due receipt draft, checked upcoming and blocked products, returned to Tasks, quit and reopened. After first-launch preference initialization, the SQLite database was byte-for-byte identical across the read-only run. A separate explicit confirmation posted USD 600 principal and brought cash to USD 1,700. The settled item disappeared on Back and after another normal reopen. SQLite showed one new settlement operation and one linked redemption activity. A temporary build overlay seeded the verified synthetic profile and fixed its clock. |
+| Tests | The Gio module suite and focused shared application, domain and Wails Go Upcoming Actions and liquidity tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | The other Upcoming item types and standalone data checks, the investment review and reconciliation tabs, and reminders remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

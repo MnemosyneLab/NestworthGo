@@ -927,6 +927,22 @@ const (
 	ProductValueAfter
 	ProductReceiptReleases
 	ProductFeeFact
+	TasksTermDeposits
+	TasksLoading
+	TasksReadFailed
+	TasksEmpty
+	TasksWindow
+	TasksReadAt
+	TasksAttention
+	TasksScheduled
+	TasksVerify
+	TasksOverdue
+	TasksBlocked
+	TasksMaturesToday
+	TasksUpcoming
+	TasksAwaiting
+	TasksPartialEstimate
+	TasksWeekdays
 	messageCount
 )
 

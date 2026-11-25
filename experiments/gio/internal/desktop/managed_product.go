@@ -124,6 +124,8 @@ type productDetailPage struct {
 	receipts          productReceiptLedger
 	receipt           *productReceiptDraft
 	receiptSaved      bool
+	receiptRequested  bool
+	receiptChanged    bool
 	startConfirmation widget.Clickable
 	clock             func() time.Time
 	onReceiptSaved    func()
@@ -134,9 +136,10 @@ func newProductDetailPage(ctx context.Context, service productReader, invalidate
 		list: widget.List{List: layout.List{Axis: layout.Vertical}}, accounts: make(map[domain.AccountID]*widget.Clickable), activities: make(map[domain.ActivityID]*widget.Clickable)}
 }
 
-func (p *productDetailPage) enter(id domain.ProductContractID, position layout.Position) {
+func (p *productDetailPage) enter(id domain.ProductContractID, position layout.Position, verifyReceipt bool) {
 	p.id, p.current, p.list.Position = id, nil, position
 	p.receipt, p.receiptSaved = nil, false
+	p.receiptRequested, p.receiptChanged = verifyReceipt, false
 	p.read()
 }
 
@@ -163,6 +166,16 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	case result := <-p.request:
 		p.leave()
 		p.current, p.err = &result.value, result.err
+		if p.receiptRequested && p.err == nil {
+			// This is a one-shot navigation intent. Only a freshly read,
+			// eligible contract can open the draft, and opening it never posts.
+			p.receiptRequested = false
+			if p.receipts != nil && p.current.canConfirmReceipt() {
+				p.startReceipt()
+			} else if p.current.detail != nil {
+				p.receiptChanged = true
+			}
+		}
 	default:
 	}
 	p.pollReceipt()
@@ -198,6 +211,9 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.receiptSaved {
 				return view.Message(l.Text(i18n.ProductReceiptSaved), view.Colors.Ink)(gtx)
+			}
+			if p.receiptChanged {
+				return view.Message(l.Text(i18n.ProductReceiptChanged), view.Colors.SecondaryInk)(gtx)
 			}
 			return layout.Dimensions{}
 		}),
