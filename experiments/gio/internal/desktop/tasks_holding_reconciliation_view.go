@@ -205,23 +205,25 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 						}
 					}
 				}
-				if contract, ok := lockedProductCheckpoint(item); s.Status == "in_progress" && ok {
+				if contract, ok := managedProductCheckpoint(item); s.Status == "in_progress" && ok {
 					fields = append(fields, c.link(view, &buttons.terms, l.Text(i18n.ProductEditTerms), func() {
-						p.openHoldingProductCorrection(account, item, &buttons.terms, holdingEditProductTerms)
+						p.openHoldingProductCorrection(account, item, contract, &buttons.terms, holdingEditProductTerms)
 					}))
 					if contract.State == domain.ProductStateOpen {
+						if contract.Kind == domain.ProductLockedProduct {
+							fields = append(fields, c.link(view, &buttons.valuation, l.Text(i18n.HoldingReconProductValuation), func() {
+								p.openHoldingProductCorrection(account, item, contract, &buttons.valuation, holdingObserveProductValue)
+							}))
+						}
 						fields = append(fields,
 							c.link(view, &buttons.interest, l.Text(i18n.HoldingReconProductInterest), func() {
-								p.openHoldingProductCorrection(account, item, &buttons.interest, holdingReceiveProductInterest)
-							}),
-							c.link(view, &buttons.valuation, l.Text(i18n.HoldingReconProductValuation), func() {
-								p.openHoldingProductCorrection(account, item, &buttons.valuation, holdingObserveProductValue)
+								p.openHoldingProductCorrection(account, item, contract, &buttons.interest, holdingReceiveProductInterest)
 							}),
 							c.link(view, &buttons.settle, l.Text(i18n.ProductReceiptAction), func() {
-								p.openHoldingProductCorrection(account, item, &buttons.settle, holdingSettleProduct)
+								p.openHoldingProductCorrection(account, item, contract, &buttons.settle, holdingSettleProduct)
 							}),
 							c.link(view, &buttons.renew, l.Text(i18n.ProductRenewAction), func() {
-								p.openHoldingProductCorrection(account, item, &buttons.renew, holdingRenewProduct)
+								p.openHoldingProductCorrection(account, item, contract, &buttons.renew, holdingRenewProduct)
 							}))
 					}
 				}

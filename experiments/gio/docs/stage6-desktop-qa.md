@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -228,6 +228,22 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   EUR 40.1234 principal, EUR 39.2345 basis and EUR 41.3456 current value.
   Acknowledge that account cash excludes the position. USD cash should stay
   at 156, and the linked activity should retain the given basis.
+
+- Run `run_copy deposit-corrections gio` and `run_copy deposit-corrections wails`.
+  Open Harbor Brokerage's Holdings reconciliation and select Synthetic deposit
+  checkpoint. Edit the terms to 3.1259% ACT/360. Review the old 2.5001% rate,
+  cancel and reopen the focused action before confirming. Record USD 2.3456
+  interest paid through November 23, 2026, effective November 23 at 12:00 in
+  Asia/Singapore. Review for USD 108.2099 cash. Settle at 18:00 on the same
+  date with USD 50.1234 returned principal, USD 1.2345 interest and USD 0.0123
+  fee. Cancel once and confirm an unchanged position before reviewing again.
+  Reopen and check USD 159.5555 cash, the settled contract, and the original
+  product checkpoint's terms receipt, two product operations and three
+  activity links.
+  An independent copy can repeat the sequence with renewal instead. Use a
+  USD 40 successor with USD 0.1111 opening fee, November 23 start and December
+  23 maturity, and USD 3.4567 fixed maturity interest. Cash should be USD
+  119.4444 and the successor should reference the predecessor and renewal.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These

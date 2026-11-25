@@ -114,6 +114,19 @@ func seedStage6LockedSettlement(t *testing.T) []byte {
 	return stage6SeedBytes(t, db)
 }
 
+func seedStage6TermDeposit(t *testing.T) []byte {
+	t.Helper()
+	clock := func() time.Time { return accountTestClock }
+	db, _, svc := openStage6Database(t, filepath.Join(t.TempDir(), "deposit.db"), clock)
+	ids, err := seedExistingBuy(t.Context(), svc, clock())
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedLinkedTermDeposit(t, svc, ids.account)
+	startTestHoldingReconciliation(t, reconciliation.NewService(svc), ids.account)
+	return stage6SeedBytes(t, db)
+}
+
 func TestExportStage6DesktopFixtures(t *testing.T) {
 	output := os.Getenv("NESTWORTH_STAGE6_QA_DIR")
 	if output == "" {
@@ -149,6 +162,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	}
 	marketReadback := stage6SeedBytes(t, db)
 	lockedProductSeed := seedStage6LockedSettlement(t)
+	termDepositSeed := seedStage6TermDeposit(t)
 	for _, profile := range []struct {
 		name string
 		seed []byte
@@ -162,6 +176,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"locked-terms", lockedProductSeed},
 		{"locked-renewal", lockedProductSeed},
 		{"add-product", lockedProductSeed},
+		{"deposit-corrections", termDepositSeed},
 	} {
 		dir := filepath.Join(root, profile.name)
 		if err := os.Mkdir(dir, 0o700); err != nil {

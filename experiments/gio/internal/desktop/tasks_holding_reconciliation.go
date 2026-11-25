@@ -407,6 +407,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			}
 			if f.interest != nil {
 				f.interest.manualMaturityInterest = result.value.Contract.InterestMode == domain.InterestManualMaturityAmount
+				f.interest.simple = depositSimple(string(result.value.Contract.InterestMode))
 			}
 		default:
 		}

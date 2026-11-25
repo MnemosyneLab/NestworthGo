@@ -21,9 +21,9 @@ type holdingProductRenewal struct {
 	principal, openingFee ui.TextField
 }
 
-func newHoldingProductRenewal() *holdingProductRenewal {
+func newHoldingProductRenewal(kind domain.ProductKind) *holdingProductRenewal {
 	return &holdingProductRenewal{
-		settlement: holdingProductSettlement{fee: ui.NewTextField(true)}, terms: newHoldingProductTerms(),
+		settlement: newHoldingProductSettlement(kind), terms: newHoldingProductTerms(),
 		principal: ui.NewTextField(true), openingFee: ui.NewTextField(true),
 	}
 }

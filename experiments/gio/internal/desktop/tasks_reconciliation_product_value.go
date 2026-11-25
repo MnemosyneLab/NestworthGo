@@ -19,6 +19,7 @@ import (
 
 type holdingProductDraft struct {
 	id         domain.ProductContractID
+	kind       domain.ProductKind
 	link       func() *domain.ReconciliationLink
 	name       string
 	currency   string
@@ -44,14 +45,14 @@ const (
 	holdingRenewProduct
 )
 
-func lockedProductCheckpoint(item domain.ReconciliationItem) (domain.ProductContract, bool) {
+func managedProductCheckpoint(item domain.ReconciliationItem) (domain.ProductContract, bool) {
 	var contract domain.ProductContract
 	ok := item.Kind == "product" && item.ProductID != "" && !item.ArchivedNonzero &&
-		jsoncodec.Unmarshal(item.Detail, &contract) == nil && contract.Kind == domain.ProductLockedProduct
+		jsoncodec.Unmarshal(item.Detail, &contract) == nil && (contract.Kind == domain.ProductLockedProduct || contract.Kind == domain.ProductTermDeposit)
 	return contract, ok
 }
 
-func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable, action holdingProductAction) {
+func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAccount, item domain.ReconciliationItem, contract domain.ProductContract, entry *widget.Clickable, action holdingProductAction) {
 	id, err := domain.ParseProductContractID(item.ProductID)
 	if err != nil {
 		return
@@ -59,18 +60,18 @@ func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAc
 	c := p.holdingRecon
 	d := newHoldingReconDraft(entry)
 	d.accountID, d.itemID = account.AccountID, item.ID
-	d.product = &holdingProductDraft{id: id, link: c.datedCheckpointLink(account.AccountID, item),
+	d.product = &holdingProductDraft{id: id, kind: contract.Kind, link: c.datedCheckpointLink(account.AccountID, item),
 		name: account.Name + " · " + item.Label, currency: item.Currency}
 	switch action {
 	case holdingEditProductTerms:
 		d.product.terms = newHoldingProductTerms()
 	case holdingReceiveProductInterest:
-		d.product.interest = &holdingProductInterest{}
-		d.product.interest.remaining.Editor.SingleLine = true
+		d.product.interest = &holdingProductInterest{remaining: ui.NewTextField(true)}
 	case holdingSettleProduct:
-		d.product.settlement = &holdingProductSettlement{fee: ui.NewTextField(true)}
+		settlement := newHoldingProductSettlement(contract.Kind)
+		d.product.settlement = &settlement
 	case holdingRenewProduct:
-		d.product.renewal = newHoldingProductRenewal()
+		d.product.renewal = newHoldingProductRenewal(contract.Kind)
 	}
 	c.draft, c.saved = d, i18n.NoMessage
 	p.loadHoldingProduct(d.product)
@@ -180,6 +181,9 @@ func (p *tasksPage) holdingProductFields(view ui.View, d *holdingReconDraft, rea
 	}
 	if f.settlement != nil || f.renewal != nil {
 		amountLabel = i18n.HoldingReconGrossProceeds
+		if f.kind == domain.ProductTermDeposit {
+			amountLabel = i18n.ProductReturnedPrincipal
+		}
 	}
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 		if enabled {

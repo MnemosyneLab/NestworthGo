@@ -21,7 +21,10 @@ import (
 
 type holdingProductInterest struct {
 	manualMaturityInterest bool
+	simple                 bool
 	remaining              ui.TextField
+	paidThrough            ui.DatePicker
+	paidOn                 string
 	holdingProductTime
 }
 
@@ -38,14 +41,31 @@ func (f *holdingProductInterest) request(link domain.ReconciliationLink, id doma
 	if remaining := strings.TrimSpace(f.remaining.Text()); f.manualMaturityInterest && remaining != "" {
 		command.RemainingInterest = &remaining
 	}
+	if f.simple {
+		command.InterestPaidThroughOn = productOptional(f.paidOn)
+	}
 	return liquidity.ProductCommandRequest{Kind: string(domain.ProductOpReceiveInterest), ReconciliationLink: &link, ReceiveInterest: command}
 }
 
 func (c *holdingReconciliation) holdingProductInterestFields(view ui.View, origin *image.Point, d *holdingReconDraft, ready bool) []layout.Widget {
 	f := d.product.interest
 	rows := c.holdingProductTimeFields(view, origin, d, &f.holdingProductTime, &d.total.Editor, ready)
-	// Locked products cannot use simple interest. Only manual maturity
-	// interest has an applicable forecast field on this receipt.
+	if f.simple {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			week := time.Monday
+			if view.WeekStart == "sunday" {
+				week = time.Sunday
+			}
+			today := ""
+			if c.zone != nil {
+				today = c.clock().In(c.zone).Format(time.DateOnly)
+			}
+			field := ui.PickerField{Label: i18n.ProductDepositPaidThrough, Origin: *origin, Disabled: !ready || c.zone == nil}
+			options := ui.DateOptions{Today: today, Max: today, Clearable: true, WeekStart: week, Format: view.DateFormat}
+			f.paidThrough.Layout(gtx, view, field, options, f.paidOn, func(day string) { f.paidOn, d.problem = day, i18n.NoMessage })
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+		})
+	}
 	if f.manualMaturityInterest {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return f.remaining.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.HoldingReconRemainingInterest, Disabled: !ready}, d.product.currency)
@@ -136,9 +156,13 @@ func holdingProductOperationReviewRows(view ui.View, f *holdingProductDraft, rev
 	}
 	if f.interest != nil {
 		var command application.ProductCommand
-		if jsoncodec.Unmarshal([]byte(review.NormalizedJSON), &command) == nil && command.ReceiveInterest != nil && command.ReceiveInterest.RemainingInterest != nil {
-			rows = append(rows, fact(i18n.HoldingReconRemainingInterestFact,
-				holdingSnapshotValue(view, *command.ReceiveInterest.RemainingInterest, f.currency)))
+		if jsoncodec.Unmarshal([]byte(review.NormalizedJSON), &command) == nil && command.ReceiveInterest != nil {
+			if remaining := command.ReceiveInterest.RemainingInterest; remaining != nil {
+				rows = append(rows, fact(i18n.HoldingReconRemainingInterestFact, holdingSnapshotValue(view, *remaining, f.currency)))
+			}
+			if day := command.ReceiveInterest.InterestPaidThroughOn; day != nil {
+				rows = append(rows, fact(i18n.HoldingReconPaidThrough, historyDay(view, *day)))
+			}
 		}
 	}
 	return rows
@@ -161,6 +185,9 @@ func holdingProductInterestEvidenceRows(view ui.View, evidence holdingLinkedEvid
 		if contract.MaturityInterest != nil {
 			rows = append(rows, fact(i18n.HoldingReconRemainingInterestFact, *contract.MaturityInterest, contract.Currency))
 		}
+	}
+	if day := command.ReceiveInterest.InterestPaidThroughOn; day != nil {
+		rows = append(rows, view.Message(fmt.Sprintf(view.Language.Text(i18n.HoldingReconPaidThrough), historyDay(view, *day)), view.Colors.Ink))
 	}
 	return rows
 }

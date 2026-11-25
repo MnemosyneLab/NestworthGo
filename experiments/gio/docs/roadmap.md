@@ -1901,6 +1901,28 @@ shared service's cash projections.
 | Checks | Full Gio tests and vet, Linux package, fixture exporter, focused shared Go and Wails adapter tests, and 142 Wails Reconciliation and Liquidity frontend tests passed. |
 | Remaining | Linked term-deposit terms and receipts. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
 
+#### Linked term-deposit terms and receipts
+
+An active term-deposit checkpoint offers **Edit terms and rules**, **Record
+interest received**, **Confirm actual receipt** and **Record actual renewal**.
+Gio places these actions on the checkpoint, while Wails presents the same
+choices in Product Correction. Shared previews preserve the existing contract
+and account currency. Terms show the before and after values for the rate, day
+basis, forecast and paid-through date where applicable. For interest, Gio only
+shows the input applicable to the saved contract's interest mode. Settlement
+and renewal record returned principal, actual interest and fees separately.
+The journal retains the product and activity links and the exact receipt facts.
+Valuation stays an action for locked products.
+[Wails Product Correction](../../../frontend/src/features/reconciliation/ProductCorrection.tsx) · [Shared product operations](../../../internal/application/product_operations.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Independent SQLite copies reopened with ACT/360, annual rate 3.1259%, paid through November 23, 2026 and the original USD 50.1234 principal. USD 2.3456 of interest brought cash to 108.2099. Settling with USD 50.1234 returned, USD 1.2345 interest and USD 0.0123 fee left cash at 159.5555. Renewing from the same prior state instead left USD 119.4444 and a USD 40 successor with USD 3.4567 forecast, the original predecessor ID and the exact renewal ID. The tests cover Back and Cancel, validation and stale review, a retry after a lost acknowledgement, exact links and dates, and unchanged earlier activities. |
+| Packaged Gio Linux X11 | At 1140×920, reviewing ACT/360 and 3.1259% then canceling left all seven checked financial and linkage tables unchanged. Return reopened the initiating terms action. At 665×480, a keyboard-selected November 23 paid-through date survived Back to details, and Return posted the USD 2.3456 receipt. Compact settlement separated principal, interest and fee and confirmed USD 159.5555 by keyboard. Stock reopen showed that cash, the settled deposit and saved terms. SQLite matched the terms receipt, two product operations and three exact activity links. The unrelated financial rows and both source hashes matched. |
+| Native renewal on a fresh copy | With no earlier interest entry in this copy, compact confirmation left USD 117.0988 cash. Stock reopen showed the settled predecessor and USD 40 successor with December 23 maturity and USD 3.4567 maturity interest. SQLite matched the predecessor and successor IDs, the new quote, the single renewal and its three activity links. |
+| Checks | Full Gio tests and vet, native Linux package, the opt-in exporter, focused Gio comparison, shared application and Wails adapter tests, and 142 Wails Reconciliation and Liquidity frontend tests passed. |
+| Remaining | Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+
 #### Product and removed-item checkpoint evidence
 
 Reconciliation shows managed product terms from the saved working point.

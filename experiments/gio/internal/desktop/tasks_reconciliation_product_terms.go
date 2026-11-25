@@ -217,7 +217,12 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 		if depositSimple(mode) {
 			mode = string(domain.InterestSimpleAct365)
 		}
-		rows = append(rows, selectField(&deposit.mode, i18n.ProductDepositInterest, productDepositModes, mode, f.changeDepositMode))
+		rows = append(rows, selectField(&deposit.mode, i18n.ProductDepositInterest, productDepositModes, mode, func(value string) {
+			if !editing {
+				deposit.lastPaidThrough = nil
+			}
+			f.changeDepositMode(value)
+		}))
 		if depositSimple(mode) {
 			rows = append(rows, text(&deposit.rate, i18n.ProductDepositAnnualRate, false),
 				selectField(&deposit.yearBasis, i18n.ProductDepositYearBasis, productDepositBases, f.terms.InterestMode, func(value string) { f.terms.InterestMode = value }))
@@ -318,6 +323,31 @@ func holdingProductTermsReviewRows(view ui.View, before, after liquidity.Product
 	fact(i18n.ProductEditName, before.Name, after.Name)
 	fact(i18n.ProductEditStart, historyDay(view, before.StartOn), historyDay(view, after.StartOn))
 	fact(i18n.ProductEditMaturity, date(before.MaturityOn), date(after.MaturityOn))
+	if after.Kind == string(domain.ProductTermDeposit) {
+		mode := func(value string) string {
+			if depositSimple(value) {
+				return choice(value, productDepositBases)
+			}
+			return choice(value, productDepositModes)
+		}
+		percent := func(value *string) string {
+			rate, err := domain.ParseAnnualRateRatio(productString(value))
+			if err != nil {
+				return ""
+			}
+			return portfolioDecimal(view, rate.Decimal().Shift(2).String()) + "%"
+		}
+		fact(i18n.ProductDepositInterest, mode(before.InterestMode), mode(after.InterestMode))
+		if before.AnnualRate != nil || after.AnnualRate != nil {
+			fact(i18n.ProductDepositAnnualRate, percent(before.AnnualRate), percent(after.AnnualRate))
+		}
+		if before.MaturityInterest != nil || after.MaturityInterest != nil {
+			fact(i18n.ProductDepositMaturityInterest, money(before.MaturityInterest), money(after.MaturityInterest))
+		}
+		if before.InterestPaidThroughOn != nil || after.InterestPaidThroughOn != nil {
+			fact(i18n.ProductDepositPaidThrough, date(before.InterestPaidThroughOn), date(after.InterestPaidThroughOn))
+		}
+	}
 	fact(i18n.ProductEditNote, productString(before.Note), productString(after.Note))
 	b, a := before.Policy, after.Policy
 	fact(i18n.ProductEditAccess, choice(b.AccessKind, productAccessChoices), choice(a.AccessKind, productAccessChoices))
