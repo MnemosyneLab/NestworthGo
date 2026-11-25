@@ -9,6 +9,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 
@@ -34,6 +35,8 @@ type Overlay struct {
 	focusOnOpen   bool
 	closePending  bool
 	returnFocus   event.Tag
+	enter         Tween
+	entered       bool
 }
 
 func (h *Overlay) BeginFrame(gtx layout.Context) {
@@ -139,7 +142,7 @@ func (h *Overlay) Layout(gtx layout.Context, view View) {
 	popup := gtx
 	popup.Constraints = layout.Constraints{Min: image.Pt(pixels, 0), Max: image.Pt(pixels, max(above, below))}
 	content := op.Record(gtx.Ops)
-	dims := view.Panel(popup, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
+	dims := view.Floating(popup, func(gtx layout.Context) layout.Dimensions {
 		if h.pane.menu {
 			return layout.UniformInset(4).Layout(gtx, h.pane.Body)
 		}
@@ -165,8 +168,21 @@ func (h *Overlay) Layout(gtx layout.Context, view View) {
 	event.Op(gtx.Ops, h)
 	mask.Pop()
 	h.Panel = placePopover(safe, h.Anchor, dims.Size, gap, below, above)
-	offset := op.Offset(h.Panel.Min).Push(gtx.Ops)
+	// Fade in and settle a few dp toward the anchor, like Wails popovers.
+	if !h.entered {
+		h.enter.Snap(0)
+		h.entered = true
+	}
+	h.enter.Set(gtx, 1, DurationBase, EaseOut)
+	progress := h.enter.Value(gtx)
+	slide := int(float64(gtx.Dp(4)) * (1 - progress))
+	if h.Panel.Min.Y < h.Anchor.Min.Y {
+		slide = -slide
+	}
+	offset := op.Offset(h.Panel.Min.Add(image.Pt(0, -slide))).Push(gtx.Ops)
+	fade := paint.PushOpacity(gtx.Ops, float32(progress))
 	draw.Add(gtx.Ops)
+	fade.Pop()
 	offset.Pop()
 
 	if h.focusOnOpen {
@@ -207,4 +223,5 @@ func (h *Overlay) reset() {
 	h.pane = Popover{}
 	h.Anchor, h.Panel = image.Rectangle{}, image.Rectangle{}
 	h.focusOnOpen, h.closePending = false, false
+	h.entered = false
 }

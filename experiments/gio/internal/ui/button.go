@@ -52,7 +52,9 @@ type ButtonSpec struct {
 	Title       string
 	Name        string // accessible name; defaults to Title
 	Description string
-	Icon        *widget.Icon
+	// Toggle marks a button that reports Selected as its state, as a tab does.
+	Toggle, Selected bool
+	Icon             *widget.Icon
 	// Fill stretches the button across the available width.
 	Fill bool
 }
@@ -206,10 +208,11 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 	cgtx.Constraints = layout.Exact(size)
 	dims := button.Layout(cgtx, func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
-		semantic.SelectedOp(false).Add(gtx.Ops)
+		semantic.SelectedOp(spec.Selected).Add(gtx.Ops)
 		semantic.LabelOp(name).Add(gtx.Ops)
-		if spec.Title == "" {
-			// An icon has no text, so the name doubles as its description.
+		if spec.Title == "" || spec.Toggle {
+			// An icon has no text, and a tab is found by its name, so the name
+			// doubles as the description.
 			semantic.DescriptionOp(name).Add(gtx.Ops)
 		}
 		if enabled {

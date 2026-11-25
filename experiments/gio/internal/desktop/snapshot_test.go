@@ -139,6 +139,7 @@ type controlGallery struct {
 	rest, filled, focused, invalid, disabled, readOnly ui.TextField
 	search                                             ui.SearchField
 	scroll                                             layout.List
+	dialog                                             ui.Confirmation
 }
 
 func newControlGallery() *controlGallery {
@@ -468,6 +469,7 @@ var galleryScenarios = []galleryScenario{
 	{name: "tokens", page: "tokens"},
 	{name: "elevation", page: "elevation"},
 	{name: "type", page: "type"},
+	{name: "confirmation", page: "confirmation"},
 }
 
 type galleryHarness struct {
@@ -529,11 +531,25 @@ func (h *galleryHarness) frame(focus bool) {
 		}
 		return h.gallery.layout(gtx, h.view)
 	})
+	if h.page == "confirmation" {
+		h.gallery.dialog.Layout(gtx, h.view, ui.ConfirmationOptions{
+			Title: "Archive this account?", Body: "The account leaves the active lists. Its history stays available.",
+			Cancel: "Cancel", Confirm: "Archive",
+		}, func() {}, func() {})
+	}
 	h.router.Frame(&h.ops)
 }
 
 func (h *galleryHarness) run(s galleryScenario) {
 	h.page = s.page
+	if s.page == "confirmation" {
+		h.gallery.dialog.Open()
+		// Run past the enter tween so the capture shows the settled dialog.
+		for range 15 {
+			h.frame(false)
+		}
+		return
+	}
 	if s.focusButton != "" {
 		h.focusTag = &h.gallery.buttons[0][0]
 	}
