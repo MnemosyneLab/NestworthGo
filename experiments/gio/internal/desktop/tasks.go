@@ -24,34 +24,73 @@ type upcomingActionsReader interface {
 	UpcomingActions(context.Context) (domain.UpcomingActions, error)
 }
 
+type tasksTab int
+
+const (
+	tasksUpcoming tasksTab = iota
+	tasksInvestment
+	tasksReconciliation
+)
+
+var taskTabLabels = [...]i18n.MessageID{i18n.TasksUpcomingTab, i18n.TasksInvestmentTab, i18n.TasksReconciliationTab}
+
+type tasksVisit struct {
+	tab           tasksTab
+	position      layout.Position
+	reviewCursors []string
+}
+
+type tasksRead struct {
+	upcoming   *domain.UpcomingActions
+	review     *domain.ReviewAlertPage
+	statements []taskStatement
+}
+
 type taskLinks struct {
 	product, receipt widget.Clickable
 }
 
 type tasksPage struct {
-	ctx         context.Context
-	service     upcomingActionsReader
-	invalidate  func()
-	workers     sync.WaitGroup
-	cancel      context.CancelFunc
-	request     <-chan historyResult[domain.UpcomingActions]
-	current     *domain.UpcomingActions
-	err         error
-	list        widget.List
-	reload      widget.Clickable
-	links       map[string]*taskLinks
-	openProduct func(domain.ProductContractID, string, event.Tag)
-	verify      func(domain.ProductContractID, string, event.Tag)
+	ctx            context.Context
+	service        upcomingActionsReader
+	invalidate     func()
+	workers        sync.WaitGroup
+	cancel         context.CancelFunc
+	request        <-chan historyResult[tasksRead]
+	current        *domain.UpcomingActions
+	err            error
+	list           widget.List
+	reload         widget.Clickable
+	links          map[string]*taskLinks
+	openProduct    func(domain.ProductContractID, string, event.Tag)
+	verify         func(domain.ProductContractID, string, event.Tag)
+	checks         taskChecksReader
+	tab            tasksTab
+	tabs           [len(taskTabLabels)]widget.Clickable
+	review         *domain.ReviewAlertPage
+	reviewCursors  []string
+	statements     []taskStatement
+	instruments    map[domain.InstrumentID]*widget.Clickable
+	statementLinks map[string]*widget.Clickable
+	previous, next widget.Clickable
+	openInstrument func(domain.InstrumentID, string, event.Tag)
+	openStatement  openTaskStatement
 }
 
 func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate func()) *tasksPage {
 	return &tasksPage{ctx: ctx, service: service, invalidate: invalidate,
-		list: widget.List{List: layout.List{Axis: layout.Vertical}}, links: make(map[string]*taskLinks)}
+		list: widget.List{List: layout.List{Axis: layout.Vertical}}, links: make(map[string]*taskLinks),
+		instruments: make(map[domain.InstrumentID]*widget.Clickable), statementLinks: make(map[string]*widget.Clickable)}
 }
 
-func (p *tasksPage) enter(position layout.Position) {
-	p.list.Position, p.current = position, nil
+func (p *tasksPage) enter(visit tasksVisit) {
+	p.tab, p.list.Position = visit.tab, visit.position
+	p.reviewCursors = slices.Clone(visit.reviewCursors)
 	p.read()
+}
+
+func (p *tasksPage) visit() tasksVisit {
+	return tasksVisit{p.tab, p.list.Position, slices.Clone(p.reviewCursors)}
 }
 
 func (p *tasksPage) leave() {
@@ -66,8 +105,23 @@ func (p *tasksPage) read() {
 	p.err = nil
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel = cancel
-	p.request = runHistoryRead(&p.workers, p.invalidate, func() (domain.UpcomingActions, error) {
-		return p.service.UpcomingActions(ctx)
+	tab := p.tab
+	cursor := ""
+	if len(p.reviewCursors) != 0 {
+		cursor = p.reviewCursors[len(p.reviewCursors)-1]
+	}
+	p.request = runHistoryRead(&p.workers, p.invalidate, func() (tasksRead, error) {
+		switch tab {
+		case tasksInvestment:
+			page, err := p.checks.ListReviewAlertGroupsV2(ctx, domain.ReviewAlertFilter{Status: "pending"}, cursor, 50)
+			return tasksRead{review: &page}, err
+		case tasksReconciliation:
+			sessions, err := readTaskStatements(ctx, p.checks)
+			return tasksRead{statements: sessions}, err
+		default:
+			actions, err := p.service.UpcomingActions(ctx)
+			return tasksRead{upcoming: &actions}, err
+		}
 	})
 }
 
@@ -86,13 +140,17 @@ func (p *tasksPage) update() {
 	select {
 	case result := <-p.request:
 		p.leave()
-		p.err, p.current = result.err, nil
+		p.err, p.current, p.review, p.statements = result.err, nil, nil, nil
 		if p.err != nil {
 			return
 		}
-		actions := result.value
+		p.review, p.statements = result.value.review, result.value.statements
+		actions := result.value.upcoming
+		if actions == nil {
+			return
+		}
 		actions.Items = termDepositTasks(actions.Items)
-		p.current = &actions
+		p.current = actions
 		present := make(map[string]bool, len(actions.Items))
 		for _, row := range actions.Items {
 			present[row.ID] = true
@@ -108,8 +166,20 @@ func (p *tasksPage) update() {
 
 func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if p.checks != nil {
+		for i := range p.tabs {
+			if p.tabs[i].Clicked(gtx) && p.tab != tasksTab(i) {
+				p.enter(tasksVisit{tab: tasksTab(i)})
+				gtx.Execute(op.InvalidateCmd{})
+			}
+		}
+	}
 	if p.request == nil && p.reload.Clicked(gtx) {
-		p.read()
+		if p.tab == tasksInvestment && len(p.reviewCursors) > 0 {
+			p.enter(tasksVisit{tab: p.tab})
+		} else {
+			p.read()
+		}
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	l := view.Language
@@ -120,37 +190,62 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(ui.LimitWidth(gtx, 820),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-				layout.Flexed(1, tradeTitle(view, i18n.TasksTermDeposits)),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.request != nil {
-						gtx = gtx.Disabled()
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					if p.checks == nil {
+						return tradeTitle(view, i18n.TasksTermDeposits)(gtx)
 					}
-					view.Focus.Watch(gtx, &p.reload)
-					return view.Button(&p.reload, l.Text(reload))(gtx)
-				}))
+					tabs := make([]layout.FlexChild, 0, len(p.tabs))
+					for i, label := range taskTabLabels {
+						tabs = append(tabs, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							view.Focus.Watch(gtx, &p.tabs[i])
+							return view.TabButton(&p.tabs[i], l.Text(label), p.tab == tasksTab(i))(gtx)
+						}))
+					}
+					return layout.Flex{Gap: gtx.Dp(6)}.Layout(gtx, tabs...)
+				}),
+				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			loading, failed := i18n.TasksLoading, i18n.TasksReadFailed
+			if p.tab != tasksUpcoming {
+				loading, failed = i18n.TasksChecksLoading, i18n.TasksChecksReadFailed
+			}
 			switch {
 			case p.request != nil:
-				return view.Message(l.Text(i18n.TasksLoading), view.Colors.SecondaryInk)(gtx)
+				return view.Message(l.Text(loading), view.Colors.SecondaryInk)(gtx)
 			case p.err != nil:
-				return view.Message(l.Text(i18n.TasksReadFailed), view.Colors.ErrorInk)(gtx)
-			case p.current == nil:
-				return layout.Dimensions{}
+				return view.Message(l.Text(failed), view.Colors.ErrorInk)(gtx)
 			}
-			rows := p.rows(view)
+			var rows []layout.Widget
+			switch p.tab {
+			case tasksInvestment:
+				if p.review != nil {
+					rows = p.reviewRows(view)
+				}
+			case tasksReconciliation:
+				rows = p.statementRows(view)
+			default:
+				if p.current != nil {
+					rows = p.rows(view)
+				}
+			}
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
 			return material.List(view.Theme, &p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, rows[i])
 			})
-		}))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewPager(gtx, view) }))
 }
 
 func (p *tasksPage) rows(view ui.View) []layout.Widget {
 	l := view.Language
 	data := p.current
 	window := fmt.Sprintf(l.Text(i18n.TasksWindow), historyDay(view, data.WindowStartOn), historyDay(view, data.WindowEndOn), data.Timezone)
-	rows := []layout.Widget{view.Message(window, view.Colors.SecondaryInk)}
+	var rows []layout.Widget
+	if p.checks != nil {
+		rows = append(rows, tradeTitle(view, i18n.TasksTermDeposits))
+	}
+	rows = append(rows, view.Message(window, view.Colors.SecondaryInk))
 	if zone, err := time.LoadLocation(data.Timezone); err == nil && !data.AsOf.IsZero() {
 		readAt := format.LocalDateTime(data.AsOf.In(zone), settings.Settings{DateFormat: view.DateFormat, TimeFormat: view.TimeFormat}, settings.Language(l))
 		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.TasksReadAt), readAt), view.Colors.SecondaryInk))

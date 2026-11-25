@@ -25,6 +25,7 @@ type navigationTarget struct {
 	activity    domain.ActivityID
 	instrument  domain.InstrumentID
 	product     domain.ProductContractID
+	statement   string
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -42,6 +43,7 @@ type navigationEntry struct {
 	historyDetail    historyDetailState
 	accountsArchived bool
 	portfolioSearch  string
+	tasks            tasksVisit
 	visited          bool
 }
 
@@ -92,6 +94,9 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	}
 	if a.target.route == accountsRoute && !a.target.hasObject() {
 		return a.accountsArchived == b.accountsArchived
+	}
+	if a.target.route == tasksRoute {
+		return a.tasks.tab == b.tasks.tab
 	}
 	if a.target.route != directoryRoute || a.target.hasObject() {
 		return true
@@ -150,6 +155,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			return
 		}
 		if (request.target.account != "" || request.target.institution != "") && (request.target.route != accountsRoute || s.accounts == nil) {
+			return
+		}
+		if request.target.statement != "" && (request.target.route != accountsRoute || request.target.account == "" || s.accounts.statement == nil) {
 			return
 		}
 		if request.target.activity != "" && (request.target.route != historyRoute || s.historyPage == nil || s.historyPage.reads == nil) {
@@ -249,7 +257,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == tasksRoute {
-		s.tasks.enter(entry.scroll)
+		s.tasks.enter(entry.tasks)
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
@@ -304,6 +312,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
 		entry.scroll = s.accounts.list.Position
+		if entry.target.statement != "" && s.accounts.statement.screen != nil {
+			entry.scroll = s.accounts.statement.screen.list.Position
+		}
 	case fundsRoute:
 		if entry.target.product == "" {
 			entry.scroll = s.funds.list.Position
@@ -311,7 +322,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 			entry.scroll = s.funds.productPage.list.Position
 		}
 	case tasksRoute:
-		entry.scroll = s.tasks.list.Position
+		entry.tasks = s.tasks.visit()
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
@@ -390,6 +401,9 @@ func (s *shell) waitingForPageFocus() bool {
 		return s.historyPage.model.Loading()
 	}
 	if s.activeRoute() == accountsRoute && s.accounts != nil {
+		if p := s.accounts.statement; p != nil && p.screen != nil && p.screen.loading != nil {
+			return true
+		}
 		return s.accounts.request != nil
 	}
 	if s.activeRoute() == fundsRoute && s.funds != nil {
@@ -439,6 +453,9 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 			return language.Text(i18n.NavHistory) + " · " + entry.name
 		}
 		if entry.name != "" {
+			if entry.target.statement != "" {
+				return language.Text(i18n.StatementOpen) + " · " + entry.name
+			}
 			return entry.name
 		}
 		if entry.target.route == accountsRoute {
@@ -456,6 +473,9 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		return language.Text(i18n.DirectoryObjectUnavailable)
 	}
 	title := language.Text(s.routes[entry.target.route].label)
+	if entry.target.route == tasksRoute && s.tasks.checks != nil && entry.visited {
+		return title + " · " + language.Text(taskTabLabels[entry.tasks.tab])
+	}
 	if entry.target.route == accountsRoute {
 		if entry.target.institution != "" {
 			if entry.name == "" {

@@ -120,7 +120,17 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 		}
 		return named(n.Type, "routeID") && machineID.MatchString(value)
 	case *ast.KeyValueExpr:
-		return named(n.Key, "ID") && machineID.MatchString(value)
+		if named(n.Key, "ID") && machineID.MatchString(value) {
+			return true
+		}
+		// A published review filter is a query value, not visible status copy.
+		if named(n.Key, "Status") && machineID.MatchString(value) {
+			if literal, ok := parents[len(parents)-2].(*ast.CompositeLit); ok {
+				typ, ok := literal.Type.(*ast.SelectorExpr)
+				return ok && named(typ.X, "domain") && typ.Sel.Name == "ReviewAlertFilter"
+			}
+		}
+		return false
 	case *ast.CaseClause:
 		return slices.Contains(n.List, ast.Expr(lit))
 	case *ast.BinaryExpr:

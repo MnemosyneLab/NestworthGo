@@ -943,6 +943,24 @@ const (
 	TasksAwaiting
 	TasksPartialEstimate
 	TasksWeekdays
+	TasksUpcomingTab
+	TasksInvestmentTab
+	TasksReconciliationTab
+	TasksChecksLoading
+	TasksChecksReadFailed
+	TasksReviewPublished
+	TasksReviewStale
+	TasksReviewRepair
+	TasksReviewPending
+	TasksReviewEmpty
+	TasksReviewTriggered
+	TasksReviewWindow
+	TasksStatementsEmpty
+	TasksStatementStarted
+	TasksStatementCounts
+	TasksOpenStatement
+	TasksPrevious
+	TasksNext
 	messageCount
 )
 

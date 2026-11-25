@@ -81,9 +81,12 @@ func statementAccount(session domain.ReconciliationSession, id string) *domain.R
 	return nil
 }
 
-func (p *accountsPage) startStatements(account domain.Account) {
+func (p *accountsPage) startStatements(account domain.Account, session string) {
 	p.statement.screen = &statementScreen{account: account, list: widget.List{List: layout.List{Axis: layout.Vertical}}}
-	p.selectStatement("")
+	p.selectStatement(session)
+	if session != "" {
+		p.statement.screen.list.Position = p.position
+	}
 }
 
 func (p *accountsPage) selectStatement(id string) {

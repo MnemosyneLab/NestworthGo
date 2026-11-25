@@ -1426,7 +1426,58 @@ omits the settled receipt. [Wails receipt navigation](../../../frontend/src/feat
 | Linux X11 | In a 900×660 Xvfb window, opened the due receipt draft, checked upcoming and blocked products, returned to Tasks, quit and reopened. After first-launch preference initialization, the SQLite database was byte-for-byte identical across the read-only run. A separate explicit confirmation posted USD 600 principal and brought cash to USD 1,700. The settled item disappeared on Back and after another normal reopen. SQLite showed one new settlement operation and one linked redemption activity. A temporary build overlay seeded the verified synthetic profile and fixed its clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go Upcoming Actions and liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | The other Upcoming item types and standalone data checks, the investment review and reconciliation tabs, and reminders remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | The [investment and reconciliation tabs](#investment-review-and-card-reconciliation-tasks) follow this milestone. Other Upcoming item types, standalone data checks and reminders remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Investment review and card reconciliation Tasks
+
+**Investment review** lists actionable rule episodes from the shared published
+review with the Wails `pending` filter and cursor contract. It shows the
+published date, rule name, trigger date and evaluated window, and opens the
+instrument's existing holdings detail by instrument ID. The published review
+can be out of date. Gio displays the shared stale or repair status and
+distinguishes a missing publication from a complete publication with no
+pending items. Reload reads the publication. Rule evaluation and publication
+remain separate service operations. [Wails investment review](../../../frontend/src/features/investment-review/InvestmentReviewPage.tsx) · [Published review read](../../../internal/application/review_alert_read.go)
+
+**Reconciliation** lists open sessions for one active balance-mode credit card
+from the same read as Wails. Each card uses the saved start date, open status
+and checkpoint counts. Opening it selects the exact saved session in the
+existing statement screen. The screen rereads that session on entry. Its latest
+status governs what can be continued. Back restores the task tab, position and
+link focus, and Forward can reopen the same session. [Wails reconciliation list](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared session read](../../../internal/application/reconciliation_session.go) · [Existing Gio account statement workflow](#credit-card-statement-reconciliation)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent marked ledgers triggered the published cost rule on November 21 in Asia/Singapore. Both reads agreed on the rule, trigger, window and daily evidence. Moving the clock one day forward surfaced the same stale status on the retained report. Both ledgers had two supported open sessions for the same card and two out-of-scope sessions. The paused and in-progress records retained their own IDs, counts and start time. |
+| Shell tests | Covered unpublished review and no eligible card sessions, a late review read after switching tabs, stable instrument and card-session targets, Back focus, Forward to the exact paused record, and term-deposit regression. Activity records and the ledger version stayed unchanged. Both reads survived a normal reopen. |
+| Linux X11 | In a 900×660 Xvfb window, followed the review task into the instrument's three-share holding and the paused card task into the saved statement with USD 30 owed. Returned to both task lists, revisited Upcoming, and repeated the two jumps after normal reopen. Once preferences were initialized, the full synthetic SQLite file was byte-for-byte identical before and after browsing. A temporary build overlay seeded the fixture and fixed its clock. |
+| Tests | The Gio module suite and focused shared investment-review publication, Upcoming Actions and reconciliation tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Rule management, refresh publication, acknowledgement, suppression, evidence and coverage browsing, and the broader reconciliation workspace remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. |
+
+#### Stage 5 review checkpoint
+
+The experimental shell now supports Holdings and instrument detail, same-currency
+buys including additions, partial sales and liquidation, cash dividends, and
+one pre-History opening position with cost. Available Funds has a Today view
+with bank reservation creation and release. Term deposits support read-only
+terms and actual maturity receipt with linked History. Tasks covers term deposit
+schedules, published pending investment checks, and supported open card
+statement sessions.
+
+Broader investment work still includes cross-currency securities, instrument
+catalog maintenance, and wider investment lifecycle coverage. Product gaps
+include new and existing product setup, early redemption, renewal, standalone
+interest, and other managed product types. Tasks still has the broader Upcoming
+item types and data checks, review management, general reconciliation, and
+reminders. Production startup and target-platform acceptance also remain open.
+
+The first independent read-only Stage 6 candidate is Wealth History for a fixed
+date range and base currency, with a keyboard-readable table. The existing
+historical Overview series supplies daily values, missing inputs and coverage.
+Return Analysis, Asset Changes, provider operations and repairs can be evaluated
+separately. Stage 6 remains paused at this review checkpoint.
+[Wails historical series adapter](../../../internal/wailsapi/analytics/historical_series.go)
 
 ## Moving from the preview to a desktop build
 

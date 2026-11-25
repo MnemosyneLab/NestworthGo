@@ -94,11 +94,14 @@ func readPortfolio(ctx context.Context, service portfolioReader, id domain.Instr
 		out.positions, err = service.InstrumentHoldings(ctx)
 		if err == nil {
 			out.positions = slices.DeleteFunc(out.positions, func(row domain.InstrumentHoldingsView) bool {
+				if id != "" {
+					return row.InstrumentID != id
+				}
 				if ownership[row.InstrumentID.String()] != "" {
 					out.managed = out.managed || row.Amounts.Quantity != "0"
 					return true
 				}
-				return id != "" && row.InstrumentID != id
+				return false
 			})
 		}
 		return err

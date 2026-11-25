@@ -25,8 +25,13 @@ import (
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
 	if f := p.statement; f != nil {
-		if row := p.freshDetail(); f.screen == nil && row != nil && statementCard(row.record.Account) && f.open.Clicked(gtx) {
-			p.startStatements(row.record.Account)
+		row := p.freshDetail()
+		if f.screen == nil && row != nil && (p.target.statement != "" || f.open.Clicked(gtx)) {
+			if statementCard(row.record.Account) {
+				p.startStatements(row.record.Account, p.target.statement)
+			} else if p.target.statement != "" {
+				return view.Message(l.Text(i18n.StatementLoadFailed), view.Colors.ErrorInk)(gtx)
+			}
 		}
 		if f.screen != nil {
 			return p.layoutStatements(gtx, view)

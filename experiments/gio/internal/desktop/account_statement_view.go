@@ -34,6 +34,8 @@ func (p *accountsPage) layoutStatements(gtx layout.Context, view ui.View) layout
 		case d.form != nil:
 			d.form, d.problem = nil, i18n.NoMessage
 			gtx.Execute(key.FocusCmd{Tag: &d.check})
+		case p.target.statement != "":
+			p.open(navigationTarget{route: accountsRoute, account: d.account.ID}, d.account.Name, nil)
 		case d.selected != "":
 			p.selectStatement("")
 		default:
@@ -56,11 +58,14 @@ func (p *accountsPage) layoutStatements(gtx layout.Context, view ui.View) layout
 	}
 
 	backLabel := i18n.StatementBackAccount
-	if d.selected != "" {
+	if d.selected != "" && p.target.statement == "" {
 		backLabel = i18n.StatementBackList
 	}
 	children := []layout.FlexChild{
-		layout.Rigid(view.Button(&d.back, l.Text(backLabel))),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			view.Focus.Watch(gtx, &d.back)
+			return view.Button(&d.back, l.Text(backLabel))(gtx)
+		}),
 		layout.Rigid(statementTitle(view, i18n.StatementOpen, d.account.Name)),
 	}
 	children = append(children, d.feedback(view)...)
