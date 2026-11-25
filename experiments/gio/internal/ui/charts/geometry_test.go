@@ -158,3 +158,111 @@ func TestRingAngleAndPointAreInverse(t *testing.T) {
 		}
 	}
 }
+
+// checkTicks asserts the invariants every axis needs: finite, strictly
+// increasing, covering the data and within the budget (never below two).
+func checkTicks(t *testing.T, name string, ticks []float64, lo, hi float64, budget int) {
+	t.Helper()
+	budget = max(2, budget)
+	if len(ticks) < 2 || len(ticks) > budget {
+		t.Fatalf("%s: %v has %d ticks, want 2..%d", name, ticks, len(ticks), budget)
+	}
+	for i, tick := range ticks {
+		if !finite(tick) {
+			t.Fatalf("%s: tick %d of %v is not finite", name, i, ticks)
+		}
+		if i > 0 && tick <= ticks[i-1] {
+			t.Fatalf("%s: %v is not strictly increasing", name, ticks)
+		}
+	}
+	lo, hi = paddedDomain(lo, hi)
+	slack := 1e-9 * (hi - lo)
+	if ticks[0] > lo+slack || ticks[len(ticks)-1] < hi-slack {
+		t.Fatalf("%s: %v does not cover [%v, %v]", name, ticks, lo, hi)
+	}
+}
+
+func TestNiceTicksTwoTickBudgetOnRangesCrossingZero(t *testing.T) {
+	for _, c := range []struct{ lo, hi float64 }{{-1, 1}, {-3, 0.2}, {-0.001, 5e6}, {-7, 100}} {
+		ticks := niceTicks(c.lo, c.hi, 2)
+		checkTicks(t, "crossing", ticks, c.lo, c.hi, 2)
+		// Zero cannot be kept within two ticks, so the endpoints are used.
+		if len(ticks) != 2 || ticks[0] != c.lo || ticks[1] != c.hi {
+			t.Fatalf("niceTicks(%v, %v, 2) = %v, want the endpoints", c.lo, c.hi, ticks)
+		}
+	}
+	// A budget below two is treated as two.
+	checkTicks(t, "budget 0", niceTicks(-1, 1, 0), -1, 1, 2)
+	checkTicks(t, "budget 1", niceTicks(-1, 1, 1), -1, 1, 2)
+}
+
+func TestNiceTicksOtherRangesKeepRoundTicks(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		lo, hi float64
+		budget int
+	}{
+		{"all positive, 2", 4, 10, 2}, {"all positive, 5", 4, 10, 5},
+		{"all negative, 2", -9, -2, 2}, {"all negative, 4", -9, -2, 4},
+		{"touches zero above, 2", 0, 5, 2}, {"touches zero below, 2", -3, 0, 2},
+		{"crossing, 3", -1, 1, 3}, {"asymmetric, 3", -3, 0.2, 3}, {"asymmetric, 6", -3, 0.2, 6},
+		{"large crossing, 5", -32_400, 120_000, 5}, {"constant, 2", 7, 7, 2}, {"constant zero, 4", 0, 0, 4},
+		{"reversed, 4", 10, -10, 4},
+	} {
+		ticks := niceTicks(c.lo, c.hi, c.budget)
+		lo, hi := c.lo, c.hi
+		if lo > hi {
+			lo, hi = hi, lo
+		}
+		checkTicks(t, c.name, ticks, lo, hi, c.budget)
+		if lo < 0 && hi > 0 && c.budget >= 3 {
+			hasZero := false
+			for _, tick := range ticks {
+				hasZero = hasZero || tick == 0
+			}
+			if !hasZero {
+				t.Fatalf("%s: %v lost the zero tick", c.name, ticks)
+			}
+		}
+	}
+	// The round ticks of the original behavior are unchanged.
+	for _, c := range []struct {
+		lo, hi float64
+		budget int
+		want   []float64
+	}{
+		{-1, 1, 3, []float64{-1, 0, 1}},
+		{0, 100, 5, []float64{0, 25, 50, 75, 100}},
+		{4, 10, 2, []float64{0, 10}},
+	} {
+		got := niceTicks(c.lo, c.hi, c.budget)
+		if len(got) != len(c.want) {
+			t.Fatalf("niceTicks(%v, %v, %d) = %v, want %v", c.lo, c.hi, c.budget, got, c.want)
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Fatalf("niceTicks(%v, %v, %d) = %v, want %v", c.lo, c.hi, c.budget, got, c.want)
+			}
+		}
+	}
+}
+
+func TestNiceTicksNeverReturnBadTicks(t *testing.T) {
+	huge := math.MaxFloat64
+	for _, c := range []struct{ lo, hi float64 }{
+		{-huge, huge}, {-huge, 0}, {0, huge}, {-1e-300, 1e-300}, {1e300, 1.0000001e300},
+		{math.NaN(), 1}, {0, math.Inf(1)}, {math.Inf(-1), math.Inf(1)},
+	} {
+		for budget := 0; budget <= 8; budget++ {
+			ticks := niceTicks(c.lo, c.hi, budget)
+			if len(ticks) < 2 || len(ticks) > max(2, budget) {
+				t.Fatalf("niceTicks(%v, %v, %d) = %v: wrong count", c.lo, c.hi, budget, ticks)
+			}
+			for i, tick := range ticks {
+				if !finite(tick) || (i > 0 && tick <= ticks[i-1]) {
+					t.Fatalf("niceTicks(%v, %v, %d) = %v: bad tick", c.lo, c.hi, budget, ticks)
+				}
+			}
+		}
+	}
+}

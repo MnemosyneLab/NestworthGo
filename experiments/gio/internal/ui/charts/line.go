@@ -143,6 +143,13 @@ func (s LineSpec) pointCount() int {
 	return n
 }
 
+// yTickBudget is how many value ticks fit a plot of the given height when
+// each needs spacing pixels. It is between two and six: a short chart keeps
+// its two end labels rather than a taller minimum height.
+func yTickBudget(plotHeight, spacing int) int {
+	return min(6, max(2, plotHeight/max(1, spacing)))
+}
+
 // lineDomain is the data extent of a line chart.
 type lineDomain struct {
 	from, to time.Time
@@ -453,7 +460,7 @@ func (c *LineChart) Layout(gtx layout.Context, view ui.View, spec LineSpec) (lay
 		return textBlock{style: labelStyle, content: s, ink: colors.SecondaryInk, maxWidth: inner, maxLines: 1}
 	}
 	lineHeight := label("0").measure(gtx, view).Y
-	maxYTicks := min(6, max(2, plotHeight/gtx.Dp(44)))
+	maxYTicks := yTickBudget(plotHeight, gtx.Dp(44))
 	domain := spec.domain(maxYTicks)
 	if !domain.plottable {
 		dims := drawNotice(gtx, view, image.Pt(width, plotHeight), spec.Messages.Missing)

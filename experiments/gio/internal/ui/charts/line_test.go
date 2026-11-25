@@ -3,6 +3,7 @@ package charts
 import (
 	"image"
 	"math"
+	"strconv"
 	"testing"
 	"time"
 
@@ -257,5 +258,60 @@ func TestItemLabelDoesNotRelyOnColorForSelection(t *testing.T) {
 	}
 	if itemLabel(readout{label: "x"}, Messages{Selected: "Selected"}) != "x" {
 		t.Fatal("unselected items carry no marker")
+	}
+}
+
+func TestLineChartShortPlotCrossingZeroKeepsFiniteEndLabels(t *testing.T) {
+	const height = 80
+	pts := []LinePoint{point("a", 1, Num(-1)), point("b", 11, Num(0)), point("c", 21, Num(1))}
+	spec := lineSpecForPlan(pts...)
+	spec.Height = height
+	spec.FormatValue = func(v float64) string {
+		if !finite(v) {
+			t.Fatalf("value tick %v is not finite", v)
+		}
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+
+	// An 80dp plot affords two value ticks.
+	if got := yTickBudget(height, 44); got != 2 {
+		t.Fatalf("budget for %ddp = %d, want 2", height, got)
+	}
+	d := spec.domain(yTickBudget(height, 44))
+	if len(d.yTicks) != 2 || d.yTicks[0] != -1 || d.yTicks[1] != 1 {
+		t.Fatalf("ticks = %v, want the two finite endpoints -1 and 1", d.yTicks)
+	}
+
+	plot := image.Rect(40, 8, 300, 60)
+	p := spec.plan(d, plot, 3, 8, testPalette(false))
+	if !p.plottable {
+		t.Fatal("a short crossing chart must stay plottable")
+	}
+	pts2 := p.series[0].points
+	for i, pt := range pts2 {
+		if !finite(float64(pt.at.X)) || !finite(float64(pt.at.Y)) {
+			t.Fatalf("point %d is at %v", i, pt.at)
+		}
+	}
+	// Both ends sit exactly on the plot edges and the zero line between them.
+	if pts2[0].at.Y != float32(plot.Max.Y) || pts2[2].at.Y != float32(plot.Min.Y) {
+		t.Fatalf("ends at y=%v and y=%v, want the plot bottom %d and top %d", pts2[0].at.Y, pts2[2].at.Y, plot.Max.Y, plot.Min.Y)
+	}
+	if mid := float32(plot.Min.Y+plot.Max.Y) / 2; pts2[1].at.Y != mid {
+		t.Fatalf("real zero at y=%v, want the middle %v", pts2[1].at.Y, mid)
+	}
+	if !finite(p.zero) || !finite(p.y.at(p.yTicks[0])) || !finite(p.y.at(p.yTicks[1])) {
+		t.Fatalf("axis positions are not finite: zero %v", p.zero)
+	}
+
+	// The whole widget lays out at that height in both themes.
+	for _, dark := range []bool{false, true} {
+		var chart LineChart
+		size, _ := newRig(320, dark).frame(func(gtx layout.Context, v ui.View, _ Selection) (layout.Dimensions, []Event) {
+			return chart.Layout(gtx, v, spec)
+		}, Selection{})
+		if size.X != 320 || size.Y < height {
+			t.Fatalf("dark=%v: size %v for a %ddp chart", dark, size, height)
+		}
 	}
 }

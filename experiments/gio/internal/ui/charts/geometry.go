@@ -38,27 +38,81 @@ func paddedDomain(lo, hi float64) (float64, float64) {
 	return lo - delta, hi + delta
 }
 
+// maxTickSearch bounds the step search of niceTicks. The step grows by about 1%
+// per iteration and snaps to the 1, 2, 2.5, 5 sequence, so a few dozen
+// iterations already span many orders of magnitude; the bound only protects
+// against a pathological input.
+const maxTickSearch = 2000
+
 // niceTicks returns round tick values that cover [lo, hi] with at most
-// maxTicks entries. The first and last tick bound the data, so the plotted
-// domain is [ticks[0], ticks[len-1]]. The step is 1, 2, 2.5 or 5 times a power
-// of ten.
+// maxTicks entries (never fewer than two). The first and last tick bound the
+// data, so the plotted domain is [ticks[0], ticks[len-1]]. The step is 1, 2,
+// 2.5 or 5 times a power of ten.
+//
+// A range that strictly crosses zero needs at least three round ticks (below
+// zero, zero, above zero), so with a budget of two it returns the finite
+// endpoints lo and hi instead of exceeding the budget. The result is always
+// finite and strictly increasing: if the step search cannot settle, it falls
+// back to the endpoints. Non-finite input yields the unit range 0..1.
 func niceTicks(lo, hi float64, maxTicks int) []float64 {
+	if !finite(lo) || !finite(hi) {
+		return []float64{0, 1}
+	}
+	if lo > hi {
+		lo, hi = hi, lo
+	}
 	lo, hi = paddedDomain(lo, hi)
+	endpoints := []float64{lo, hi}
+	if !finite(lo) || !finite(hi) || !(lo < hi) {
+		return []float64{0, 1}
+	}
 	maxTicks = max(2, maxTicks)
+	if maxTicks == 2 && lo < 0 && hi > 0 {
+		return endpoints
+	}
 	raw := (hi - lo) / float64(maxTicks-1)
+	if !finite(raw) || raw <= 0 {
+		return endpoints
+	}
 	step := niceStep(raw)
-	for {
+	for range maxTickSearch {
+		if !finite(step) || step <= 0 {
+			return endpoints
+		}
 		first, last := math.Floor(lo/step), math.Ceil(hi/step)
-		count := int(last-first) + 1
-		if count <= maxTicks || count <= 2 {
-			ticks := make([]float64, 0, count)
+		count := last - first + 1
+		if finite(count) && (count <= float64(maxTicks) || count <= 2) {
+			ticks := make([]float64, 0, int(count))
 			for k := first; k <= last; k++ {
 				ticks = append(ticks, cleanTick(k*step, step))
 			}
-			return ticks
+			if validTicks(ticks, lo, hi) {
+				return ticks
+			}
+			return endpoints
 		}
-		step = niceStep(step * 1.01)
+		next := niceStep(step * 1.01)
+		if !(next > step) {
+			return endpoints
+		}
+		step = next
 	}
+	return endpoints
+}
+
+// validTicks reports whether ticks are finite, strictly increasing and cover
+// [lo, hi], within the rounding noise cleanTick removes.
+func validTicks(ticks []float64, lo, hi float64) bool {
+	slack := 1e-9 * (hi - lo)
+	if len(ticks) < 2 || ticks[0] > lo+slack || ticks[len(ticks)-1] < hi-slack {
+		return false
+	}
+	for i, t := range ticks {
+		if !finite(t) || (i > 0 && t <= ticks[i-1]) {
+			return false
+		}
+	}
+	return true
 }
 
 func niceStep(raw float64) float64 {
