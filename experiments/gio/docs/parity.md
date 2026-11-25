@@ -17,7 +17,9 @@ roadmap.
 
 Shared chart components landed through #286. Return Trend uses the line
 component. The shared Sankey flow diagram, the counterpart of the Wails asset
-composition Sankey, is a component only; no page uses it yet. Each additional
+composition Sankey, is a component only; no page uses it yet. Component
+Preview shows a typical and an edge-case example of every chart type with
+localized synthetic data. Each additional
 chart integration needs its accessible table and its own rendering,
 interaction and platform evidence.
 
