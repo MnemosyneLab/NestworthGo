@@ -99,12 +99,11 @@ func (p *Palette) FocusRingAt(gtx layout.Context, bounds image.Rectangle, radius
 	StrokeRoundRect(gtx, outer, radius+gap+width, width, WithAlpha(p.Accent, 0.5*amount))
 }
 
-// FocusBorder draws the inset accent border used by text-like inputs, where
-// Wails pairs border-primary/50 with a ring-2 ring-primary/50. The ring sits
-// flush against the border instead of floating away from it.
+// FocusBorder draws the ring used by text-like inputs, where Wails pairs
+// border-primary/50 with ring-2 ring-primary/50. The ring sits flush against
+// the border instead of floating away from it.
 func (p *Palette) FocusBorder(gtx layout.Context, bounds image.Rectangle, radius unit.Dp) {
-	width := gtx.Dp(2)
-	StrokeRoundRect(gtx, bounds.Inset(-width), radius+2, 2, WithAlpha(p.Accent, 0.5))
+	strokeRing(gtx, bounds, radius, p.Accent, 1)
 }
 
 // DrawShadow paints a CSS-style box shadow for bounds. Gio has no blur, so each

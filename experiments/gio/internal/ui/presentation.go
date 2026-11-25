@@ -8,8 +8,6 @@ import (
 	"gioui.org/font"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -71,14 +69,4 @@ func (v View) Label(gtx layout.Context, text string, size unit.Sp, weight font.W
 	label.Font.Weight = weight
 	label.MaxLines = 1
 	return label.Layout(gtx)
-}
-
-func (v View) Panel(gtx layout.Context, border color.NRGBA, content layout.Widget) layout.Dimensions {
-	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		bounds := image.Rectangle{Max: gtx.Constraints.Min}
-		radius := gtx.Dp(10)
-		paint.FillShape(gtx.Ops, border, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
-		paint.FillShape(gtx.Ops, v.Colors.Surface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
-		return layout.Dimensions{Size: bounds.Size()}
-	}, content)
 }

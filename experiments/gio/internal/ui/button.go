@@ -40,6 +40,8 @@ const (
 	ButtonDefault ButtonSize = iota // 36dp
 	ButtonSmall                     // 32dp
 	ButtonLarge                     // 40dp
+	// ButtonCompact is 28dp, for icon buttons inside a field or a dense row.
+	ButtonCompact
 )
 
 // ButtonSpec describes one button. Title is the visible text and may be empty
@@ -66,6 +68,9 @@ func (s ButtonSize) metrics() buttonMetrics {
 	case ButtonSmall:
 		label.Size = 12
 		return buttonMetrics{height: ControlSmall, padding: Space12, radius: RadiusMD, text: label}
+	case ButtonCompact:
+		label.Size = 12
+		return buttonMetrics{height: ControlCompact, padding: Space8, radius: RadiusMD, text: label}
 	case ButtonLarge:
 		return buttonMetrics{height: ControlLarge, padding: Space24, radius: RadiusLG, text: label}
 	}
@@ -203,6 +208,10 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 		semantic.Button.Add(gtx.Ops)
 		semantic.SelectedOp(false).Add(gtx.Ops)
 		semantic.LabelOp(name).Add(gtx.Ops)
+		if spec.Title == "" {
+			// An icon has no text, so the name doubles as its description.
+			semantic.DescriptionOp(name).Add(gtx.Ops)
+		}
 		if enabled {
 			pointer.CursorPointer.Add(gtx.Ops)
 		}

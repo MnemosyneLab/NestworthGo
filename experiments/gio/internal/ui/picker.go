@@ -4,9 +4,9 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
+	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -32,11 +32,11 @@ var ExpandIcon = MustIcon(icons.NavigationArrowDropDown)
 
 func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *widget.Clickable, value string, invalid bool, pane Popover) bool {
 	title := view.Language.Text(field.Label)
-	view.Label(gtx, title, 13, font.Medium, view.Colors.Ink)
-	y := gtx.Dp(22)
+	view.Line(gtx, TextLabel, title, view.Colors.Ink)
+	y := gtx.Dp(24)
 	offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
 	defer offset.Pop()
-	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(38))
+	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(ControlDefault))
 	gtx.Constraints = layout.Exact(size)
 
 	opened := false
@@ -56,19 +56,20 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 }
 
 func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable, title, value string, invalid bool, glyph Glyph) layout.Dimensions {
-	return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		semantic.Button.Add(gtx.Ops)
-		semantic.DescriptionOp(title).Add(gtx.Ops)
-		colors := view.Colors
-		border := colors.Divider
-		switch {
-		case invalid:
-			border = colors.ErrorInk
-		case gtx.Focused(trigger) || view.Overlay.Trigger == trigger:
-			border = colors.Accent
-		}
-		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: 10, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	colors := view.Colors
+	open := view.Overlay != nil && view.Overlay.Trigger == trigger
+	chrome := fieldChrome{Tag: trigger, Active: gtx.Focused(trigger) || open, Invalid: invalid, Disabled: !gtx.Enabled()}
+	return view.fieldFrame(gtx, chrome, func(gtx layout.Context) layout.Dimensions {
+		return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			semantic.Button.Add(gtx.Ops)
+			semantic.DescriptionOp(title).Add(gtx.Ops)
+			if gtx.Enabled() {
+				pointer.CursorPointer.Add(gtx.Ops)
+			}
+			size := image.Pt(gtx.Constraints.Max.X, max(gtx.Constraints.Min.Y, gtx.Dp(ControlDefault)))
+			gtx.Constraints = layout.Exact(size)
+			layout.Inset{Left: 12, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.Y = size.Y
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min.Y = 0
@@ -81,6 +82,7 @@ func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable
 					}),
 				)
 			})
+			return layout.Dimensions{Size: size}
 		})
 	})
 }
@@ -127,7 +129,7 @@ func LayoutGlyph(gtx layout.Context, glyph Glyph, size unit.Dp, ink color.NRGBA)
 }
 
 func glyphLabel(gtx layout.Context, view View, glyph Glyph, label string, ink color.NRGBA) layout.Dimensions {
-	text := func(gtx layout.Context) layout.Dimensions { return view.Label(gtx, label, 13, font.Normal, ink) }
+	text := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, TextBody, label, ink) }
 	if glyph == nil {
 		return text(gtx)
 	}

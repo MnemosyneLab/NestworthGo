@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"image"
 
-	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
@@ -92,45 +91,60 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 		problem = options.Problem(value)
 	}
 	colors := view.Colors
-	border := colors.Divider
-	switch {
-	case overLimit || problem != "":
-		border = colors.ErrorInk
-	case input.Focused(&f.Editor):
-		border = colors.Accent
-	}
+	invalid := overLimit || problem != ""
 	style := material.Editor(view.Theme, &f.Editor, view.Language.Text(options.Hint))
-	style.TextSize, style.HintColor = 15, colors.SecondaryInk
+	style.TextSize, style.HintColor = TextBody.Size, colors.SecondaryInk
+	style.LineHeightScale = TextBody.LineHeight
 	style.SelectionColor = colors.EditorSelection()
 	if options.Disabled {
 		style.Color = colors.SecondaryInk
 	}
 
-	height := unit.Dp(40)
+	height := ControlDefault
 	if !f.Editor.SingleLine {
 		height = 120
 	}
 	layoutEditor := func(gtx layout.Context) layout.Dimensions {
 		size := image.Pt(gtx.Constraints.Max.X, min(gtx.Constraints.Max.Y, gtx.Dp(height)))
 		gtx.Constraints = layout.Exact(size)
-		defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
-		semantic.DescriptionOp(accessibleName).Add(gtx.Ops)
-		semantic.EnabledOp(!options.Disabled).Add(gtx.Ops)
-		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				if leading == nil && trailing == nil {
-					return style.Layout(gtx)
+		chrome := fieldChrome{Tag: &f.Editor, Active: input.Focused(&f.Editor), Invalid: invalid, Disabled: options.Disabled}
+		return view.fieldFrame(gtx, chrome, func(gtx layout.Context) layout.Dimensions {
+			defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
+			semantic.DescriptionOp(accessibleName).Add(gtx.Ops)
+			semantic.EnabledOp(!options.Disabled).Add(gtx.Ops)
+			inset := layout.Inset{Left: 12, Right: 8}
+			if !f.Editor.SingleLine {
+				inset.Top, inset.Bottom = 8, 8
+			}
+			inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				body := func(gtx layout.Context) layout.Dimensions {
+					if leading == nil && trailing == nil {
+						return style.Layout(gtx)
+					}
+					var children []layout.FlexChild
+					if leading != nil {
+						children = append(children, layout.Rigid(leading))
+					}
+					children = append(children, layout.Flexed(1, style.Layout))
+					if trailing != nil {
+						children = append(children, layout.Rigid(trailing))
+					}
+					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(Space8)}.Layout(gtx, children...)
 				}
-				var children []layout.FlexChild
-				if leading != nil {
-					children = append(children, layout.Rigid(leading))
+				if f.Editor.SingleLine {
+					// Centre one line vertically while the editor keeps the full
+					// width, so the whole control stays a click and caret target.
+					gtx.Constraints.Min = image.Pt(gtx.Constraints.Max.X, 0)
+					macro := op.Record(gtx.Ops)
+					dims := body(gtx)
+					call := macro.Stop()
+					defer op.Offset(image.Pt(0, (size.Y-dims.Size.Y)/2)).Push(gtx.Ops).Pop()
+					call.Add(gtx.Ops)
+					return dims
 				}
-				children = append(children, layout.Flexed(1, style.Layout))
-				if trailing != nil {
-					children = append(children, layout.Rigid(trailing))
-				}
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+				return body(gtx)
 			})
+			return layout.Dimensions{Size: size}
 		})
 	}
 	field := func(gtx layout.Context) layout.Dimensions {
@@ -142,24 +156,24 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, title, 14, font.Medium, colors.Ink)
+			return view.Line(gtx, TextLabel, title, colors.Ink)
 		}),
 		layout.Rigid(field),
 	}
 	if options.Help != i18n.NoMessage {
-		children = append(children, layout.Rigid(view.Message(view.Language.Text(options.Help), colors.SecondaryInk)))
+		children = append(children, layout.Rigid(view.Body(TextCaption, view.Language.Text(options.Help), colors.SecondaryInk)))
 	}
 	if problem != "" {
-		children = append(children, layout.Rigid(view.Message(problem, colors.ErrorInk)))
+		children = append(children, layout.Rigid(view.Body(TextCaption, problem, colors.ErrorInk)))
 	}
 	if options.MaxBytes > 0 {
 		message, fg := i18n.FieldByteCount, colors.SecondaryInk
 		if overLimit {
 			message, fg = i18n.FieldByteExceeded, colors.ErrorInk
 		}
-		children = append(children, layout.Rigid(view.Message(fmt.Sprintf(view.Language.Text(message), used, options.MaxBytes), fg)))
+		children = append(children, layout.Rigid(view.Body(TextCaption, fmt.Sprintf(view.Language.Text(message), used, options.MaxBytes), fg)))
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx, children...)
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(Space6)}.Layout(gtx, children...)
 }
 
 type SearchField struct {
@@ -186,11 +200,7 @@ func (s *SearchField) Layout(gtx layout.Context, view View, label, hint i18n.Mes
 			return layout.Dimensions{}
 		}
 		name := view.Language.Text(i18n.FieldClearSearch)
-		clear := material.IconButton(view.Theme, &s.Clear, clearIcon, name)
-		clear.Background, clear.Color = view.Colors.Surface, view.Colors.Ink
-		clear.Size, clear.Inset = 16, layout.UniformInset(4)
-		view.Focus.Watch(gtx, &s.Clear)
-		return accessibility.Button(gtx, &s.Clear, name, "", false, clear.Layout)
+		return view.ButtonOf(&s.Clear, ButtonSpec{Variant: ButtonGhost, Size: ButtonCompact, Name: name, Icon: clearIcon})(gtx)
 	}
 	dims := s.Field.layoutWithAccessories(gtx, view, FieldOptions{Label: label, Hint: hint}, leading, trailing)
 	if query := s.Field.Text(); query != previous {
