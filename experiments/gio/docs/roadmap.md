@@ -281,8 +281,33 @@ Back to Overview restores the original coverage control and position.
 | Check | Evidence |
 | --- | --- |
 | Regression | The routed test distinguishes open and closed days, filters an unrelated date and FX pair, includes a matching collapsed finding, opens the precise daily scope, and restores keyboard focus on Back. |
-| Packaged Linux X11 | Overview displayed USD 112.75 current net worth and 23 of 24 closed days valued. Data health opened November 1–24, including the November 4 snapshot gap and AUD/USD prerequisite. Back and Enter reopened that range. Wealth History opened from the Overview card. The source database and settings hashes matched after quit. |
+| Packaged Linux X11 | Overview displayed USD 112.75 current net worth and 23 of 24 closed days valued. Data health opened November 1–24, including the November 4 snapshot gap and AUD/USD prerequisite. Back and Enter reopened that range. Wealth History opened from the Overview card. At 640×480 the period, currency, closed-day count and coverage action remained visible while scrolling. The source database and settings hashes matched after quit. |
 | Remaining | Wails' arbitrary custom date ranges and the focused snapshot repair actions are separate follow-ups. Native Mac, VoiceOver and Wayland remain open. |
+
+#### Overview allocation summaries and filtered accounts
+
+The Wails layout places the asset and liability categories after the history
+card, then the Sankey and the institution, account type, member and group
+breakdowns. Gio follows that order. The summary charts read the shared
+amounts and basis-point shares and show unpriced components separately. Signed
+bars keep negative category amounts visible when a ring cannot represent the
+breakdown. The dimension rows open Accounts with the shared filter. Unassigned
+institution and group rows match accounts without that assignment. Those
+filtered results also scope the valuation read.
+
+Gio adds **View allocation breakdowns** above the scroll area. It places
+focus on the first breakdown link so keyboard users can reach the filters
+without traversing every Sankey path. Pairs of cards sit side by side when
+space permits and stack in a narrow window. Back from account detail restores
+the scoped Accounts list. Toolbar Back restores the source Overview row.
+
+| Check | Evidence |
+| --- | --- |
+| Gio regression | Shared SQLite fixture verified institution, account type, member and group destinations plus both unassigned filters. The compact frame verified focus order, exact account detail and both Back steps. Chart tests verify signed debt and a signed asset breakdown with the shared exact shares. |
+| Wails reference | 148 frontend tests across Overview, Sankey, Net Worth Trend, Data Health and Accounts passed. Focused shared Go Overview, trend, health and Portfolio tests passed. |
+| Packaged Linux X11 | At 1260×1050, both category cards showed USD 125.25 in assets and −USD 12.30 in liabilities. The Overview History action opened the Ledger activity starting point. The Sample bank link included Selected savings and excluded Unassigned cash. After opening the account, Back to accounts restored the scoped list. Toolbar Back and Enter reopened the same filter. At 640×480, Tab moved from Sample bank to Unassigned institution, which opened only Unassigned cash. Back and Enter reopened that filter. An empty synthetic household showed Open accounts and the Accounts empty state. All three synthetic sources retained matching database and settings hashes. |
+| Checks | Full Gio tests, Gio vet and the native Linux package passed. Wails adapter tests passed for analytics, account and portfolio. Native macOS, Linux Wayland, VoiceOver and native IME remain open. |
+| Remaining | Overview's home Tasks, upcoming actions, recent activity and provider repair actions remain open alongside custom history dates. Continue with focused Data Health snapshot breakdown and repair, then Market Data manual prices and FX rates with explicit save, retry and persisted evidence. The broader Stage 1–6 workflow gaps remain in the parity checklist. |
 
 #### Read-only Accounts milestone
 

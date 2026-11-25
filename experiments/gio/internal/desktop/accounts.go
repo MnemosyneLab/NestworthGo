@@ -58,6 +58,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		filter.AccountIDs = []domain.AccountID{target.account}
 	} else if target.institution != "" {
 		filter.InstitutionID = &target.institution
+	} else if !target.accountList.filter(&filter) {
+		result.unavailable = true
+		return
 	}
 	institutions, err := service.ListInstitutions(ctx, true)
 	if err != nil {
@@ -80,6 +83,12 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 	if target.account != "" {
 		records = slices.DeleteFunc(records, func(r domain.AccountRecord) bool { return r.Account.ID != target.account })
 		result.unavailable = len(records) == 0
+	}
+	if target.accountList.unassigned() {
+		records = slices.DeleteFunc(records, func(r domain.AccountRecord) bool { return !target.accountList.includes(r) })
+		for _, record := range records {
+			filter.AccountIDs = append(filter.AccountIDs, record.Account.ID)
+		}
 	}
 	if len(records) == 0 {
 		return
@@ -238,13 +247,14 @@ func accountRank(row accountRow) decimal.Decimal {
 }
 
 type accountsPage struct {
-	ctx        context.Context
-	service    accountsReader
-	clock      func() time.Time
-	invalidate func()
-	workers    sync.WaitGroup
-	request    <-chan accountsResult
-	cancel     context.CancelFunc
+	filterLabel string
+	ctx         context.Context
+	service     accountsReader
+	clock       func() time.Time
+	invalidate  func()
+	workers     sync.WaitGroup
+	request     <-chan accountsResult
+	cancel      context.CancelFunc
 
 	target                             navigationTarget
 	archived                           bool
@@ -292,6 +302,9 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 }
 
 func validAccountTarget(target navigationTarget) bool {
+	if target.accountList.active() {
+		return target.account == "" && target.institution == "" && target.accountList.filter(&domain.AccountFilter{})
+	}
 	if target.account != "" {
 		_, err := domain.ParseAccountID(target.account.String())
 		return err == nil && target.institution == ""
@@ -367,6 +380,9 @@ func (p *accountsPage) update(lang i18n.Language) bool {
 }
 
 func (p *accountsPage) name() string {
+	if p.target.accountList.active() {
+		return p.target.accountList.name(p.locale, p.filterLabel)
+	}
 	if p.current == nil || p.current.unavailable {
 		return ""
 	}

@@ -29,6 +29,7 @@ type navigationTarget struct {
 	product     domain.ProductContractID
 	statement   string
 	health      healthFindingFocus
+	accountList accountListScope
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -174,7 +175,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if request.target.object != (directoryRef{}) && (request.target.route != directoryRoute || s.directory == nil) {
 			return
 		}
-		if (request.target.account != "" || request.target.institution != "") && (request.target.route != accountsRoute || s.accounts == nil) {
+		if (request.target.account != "" || request.target.institution != "" || request.target.accountList.active()) &&
+			(request.target.route != accountsRoute || s.accounts == nil) {
+			return
+		}
+		if request.target.accountList.active() && !validAccountTarget(request.target) {
 			return
 		}
 		if request.target.statement != "" && (request.target.route != accountsRoute || request.target.account == "" || s.accounts.statement == nil) {
@@ -292,6 +297,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.directory.object.enter(ref, list)
 	}
 	if entry.target.route == accountsRoute {
+		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 	}
 	if entry.target.route == fundsRoute {

@@ -299,6 +299,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
 		}
 		if s.overviewPage != nil {
+			s.overviewPage.breakdowns.open = s.accounts.open
 			s.overviewPage.openAccounts = func(focus event.Tag) {
 				s.accounts.open(navigationTarget{route: accountsRoute}, "", focus)
 			}

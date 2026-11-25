@@ -121,7 +121,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.backToList()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.clear.Clicked(gtx) && p.target.institution != "" {
+	if p.clear.Clicked(gtx) && (p.target.institution != "" || p.target.accountList.active()) {
 		p.open(navigationTarget{route: accountsRoute}, "", &p.clear)
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -164,6 +164,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			if p.target.institution != "" {
 				controls = append(controls, layout.Rigid(view.Button(&p.clear, l.Text(i18n.AccountClearInstitution))))
+			} else if p.target.accountList.active() {
+				controls = append(controls, layout.Rigid(returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false)))
 			}
 			if p.canCreateBankAccount() {
 				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createBank, l.Text(i18n.AccountCreateAdd))))
@@ -236,8 +238,15 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		id = i18n.AccountUnavailable
 	case p.current != nil && len(p.current.rows) == 0:
 		id = i18n.OverviewEmpty
+		if p.target.accountList.active() {
+			id = i18n.AccountOverviewFilterEmpty
+		}
 	}
 	var lines []layout.FlexChild
+	if p.target.accountList.active() {
+		label := p.target.accountList.name(l, p.filterLabel)
+		lines = append(lines, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountOverviewFilter), label), view.Colors.Ink)))
+	}
 	if p.createdID != "" && p.target.account == p.createdID {
 		lines = append(lines, layout.Rigid(view.Message(l.Text(p.createdMessage), view.Colors.Ink)))
 	}

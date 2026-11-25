@@ -132,7 +132,7 @@ func (p *accountsPage) canCreateAccount() bool {
 }
 
 func (p *accountsPage) canCreateUnscoped() bool {
-	return p.canCreateAccount() && p.target.institution == ""
+	return p.canCreateAccount() && p.target.institution == "" && !p.target.accountList.active()
 }
 
 func (p *accountsPage) startBankAccount() {

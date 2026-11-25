@@ -229,6 +229,9 @@ const (
 	AccountCreateWriteFailed
 	AccountBack
 	AccountClearInstitution
+	AccountClearOverviewFilter
+	AccountOverviewFilter
+	AccountOverviewFilterEmpty
 	AccountLoading
 	AccountLoadError
 	AccountUnavailable
@@ -273,6 +276,16 @@ const (
 	OverviewIncomplete
 	OverviewKnownSubtotal
 	OverviewAllocationTitle
+	OverviewAssetsComposition
+	OverviewLiabilitiesComposition
+	OverviewCompositionMissing
+	OverviewOpenBreakdowns
+	OverviewBreakdownHint
+	OverviewByInstitution
+	OverviewByAccountType
+	OverviewByMember
+	OverviewByGroup
+	OverviewAccountTypeHint
 	OverviewAllocationScope
 	OverviewAllocationTotal
 	OverviewAllocationPositive

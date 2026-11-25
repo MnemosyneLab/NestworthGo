@@ -50,6 +50,7 @@ type overviewPage struct {
 	reload       widget.Clickable
 	list         widget.List
 	allocation   overviewAllocation
+	breakdowns   overviewBreakdowns
 	trend        overviewTrend
 	health       widget.Clickable
 	accounts     widget.Clickable
@@ -158,12 +159,28 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			)
 		}),
 	}
+	var actions []layout.Widget
 	if p.openHealth != nil {
 		if p.health.Clicked(gtx) {
 			p.openHealth(healthFindingFocus{}, &p.health)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		children = append(children, ui.Rigid(returnMonthButton(view, &p.health, i18n.NavDataHealth, nil, true)))
+		actions = append(actions, returnMonthButton(view, &p.health, i18n.NavDataHealth, nil, true))
+	}
+	if p.hasDimensions() {
+		if p.breakdowns.jump.Clicked(gtx) {
+			p.list.ScrollTo(p.dimensionsIndex())
+			p.breakdowns.focusFirst = p.breakdowns.open != nil
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		actions = append(actions, returnMonthButton(view, &p.breakdowns.jump, i18n.OverviewOpenBreakdowns, nil, true))
+	}
+	if len(actions) > 0 {
+		children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return (ui.Wrap{Gap: 8}).Layout(gtx, len(actions), func(gtx layout.Context, index int) layout.Dimensions {
+				return actions[index](gtx)
+			})
+		}))
 	}
 	children = append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
@@ -191,12 +208,22 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		return p.totals(gtx, view)
 	case row <= len(result.MissingInputs):
 		return p.overviewMissingRow(gtx, view, result.MissingInputs[row-1])
+	case row == composition-1 && p.hasCompositionSummary():
+		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
 		return p.overviewTrendCard(gtx, view, result.HistoryStarted)
 	case row < composition:
 		return p.overviewTrendDataRow(gtx, view, p.trend.current.Points[row-p.trendIndex()-1])
 	case row == composition:
 		return p.allocation.section(gtx, view, result)
+	case row >= p.dimensionsIndex():
+		pair := row - p.dimensionsIndex()
+		if pair == 0 {
+			return (ui.Column{Gap: 8}).Layout(gtx,
+				ui.Rigid(view.Message(l.Text(i18n.OverviewBreakdownHint), view.Colors.SecondaryInk)),
+				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.breakdowns.dimensions(gtx, view, result, pair) }))
+		}
+		return p.breakdowns.dimensions(gtx, view, result, pair)
 	case row == composition+1:
 		return returnMonthButton(view, &p.allocation.back, i18n.OverviewAllocationBack, nil, true)(gtx)
 	default:
@@ -212,6 +239,14 @@ func (p *overviewPage) rowCount() int {
 	if p.current.value.AccountCount == 0 {
 		return 1
 	}
+	n := p.dimensionsIndex()
+	if p.hasDimensions() {
+		n += 2
+	}
+	return n
+}
+
+func (p *overviewPage) dimensionsIndex() int {
 	n := p.compositionIndex() + 1
 	if paths := len(p.current.value.AssetComposition.Paths); paths > 0 {
 		n += paths + 1
@@ -227,10 +262,29 @@ func (p *overviewPage) compositionIndex() int {
 	if p.current.value.HistoryStarted && p.trend.showData && p.trend.current != nil {
 		index += len(p.trend.current.Points)
 	}
+	if p.hasCompositionSummary() {
+		index++
+	}
 	return index
 }
 
 func (p *overviewPage) trendIndex() int { return len(p.current.value.MissingInputs) + 1 }
+
+func (p *overviewPage) hasCompositionSummary() bool {
+	return len(overviewSummaries(p.current.value)) > 0
+}
+
+func (p *overviewPage) hasDimensions() bool {
+	if p.current == nil || p.current.value.AccountCount == 0 {
+		return false
+	}
+	for _, dimension := range overviewDimensions(p.current.value) {
+		if len(dimension.items) > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 func (p *overviewPage) overviewMissingRow(gtx layout.Context, view ui.View, item domain.MissingInputView) layout.Dimensions {
 	label := overviewIssue(view.Language, item)

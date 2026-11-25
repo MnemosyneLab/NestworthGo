@@ -262,6 +262,8 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	if row.account.id.String() != ref.AssetComposition.Paths[0].AccountID || row.amount != "A$ 123.51" {
 		t.Fatalf("allocation row did not use the Wails path: %+v", row)
 	}
+	page.list.ScrollTo(page.compositionIndex())
+	h.frame()
 	h.click("View allocation details", false)
 	h.frame()
 	h.focused(&page.list)
@@ -270,7 +272,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	h.frame()
 	h.focused(&page.allocation.details)
 	h.size = image.Pt(700, 480)
-	page.list.ScrollTo(page.rowCount() - 1)
+	page.list.ScrollTo(page.dimensionsIndex() - 1)
 	h.frame()
 	h.click("USD Cash · A$ 123.51", false)
 	h.frame()

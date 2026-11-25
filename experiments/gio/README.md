@@ -314,6 +314,18 @@ An empty household has its own state. Reload rereads the ledger and stored
 quotes. A failed reload keeps the previous figures and their original read
 time visible with a retry action.
 
+**Net worth history** shows the shared daily series. Choose a period or
+expand **Daily valuation data** to read the values by date. Coverage links
+open Data health for the period or day. **Open Wealth history** goes to
+the analysis page. Before History starts, the card links to the existing
+starting-point workflow in Ledger activity.
+
+The asset and liability category cards use the household's base currency.
+**View allocation breakdowns** jumps to institution, account type, member
+and group. Open a row to see the matching accounts. **Back to accounts**
+returns from an account to its filtered list. The toolbar Back restores
+the Overview row and its focus.
+
 **Asset composition Sankey** shows each positive allocation by asset class,
 institution and account. The section shows the valuation read date,
 quote and FX reference dates, and oldest carried reference when available.
