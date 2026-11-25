@@ -172,8 +172,8 @@ func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 	h.click("About this form", false)
 	h.focused(&host.Dismiss)
 	initial := host.Panel
-	if initial.Empty() || initial.Max.Y >= host.Anchor.Min.Y {
-		t.Fatalf("popover should flip above the footer trigger: panel %v, trigger %v", initial, host.Anchor)
+	if initial.Empty() || initial.Min.Y <= host.Anchor.Max.Y {
+		t.Fatalf("popover should open below the footer trigger in the tall window: panel %v, trigger %v", initial, host.Anchor)
 	}
 
 	// The picker and action rows scroll with the page, so keep them in view.
@@ -182,7 +182,7 @@ func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 	h.frame()
 	window := image.Rectangle{Max: h.size}
 	if host.Panel.Empty() || !host.Panel.In(window) || host.Panel == initial || host.Panel.Max.Y >= host.Anchor.Min.Y {
-		t.Fatalf("popover did not follow its anchor inside the resized window: %v", host.Panel)
+		t.Fatalf("popover should follow its trigger and flip above it in the short window: panel %v, trigger %v", host.Panel, host.Anchor)
 	}
 	h.clickAt(host.Panel.Min.Add(image.Pt(18, 14)))
 	if host.Trigger != anchor {

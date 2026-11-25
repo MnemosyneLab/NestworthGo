@@ -26,6 +26,15 @@ type View struct {
 	Motion *Motion
 	Origin image.Point
 	Focus  *PageFocus
+
+	anchorScroll *widget.List
+}
+
+// WithScrollAnchors associates popovers registered by this view with the list
+// that lays out their triggers in unscrolled content coordinates.
+func (v View) WithScrollAnchors(list *widget.List) View {
+	v.anchorScroll = list
+	return v
 }
 
 // Message is a wrapping paragraph in the body style.

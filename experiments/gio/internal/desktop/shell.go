@@ -749,17 +749,17 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 	inset := pageInset
 	top, bottom := gtx.Dp(inset.Top), gtx.Dp(inset.Bottom)
 	viewport := gtx.Constraints.Max
+	bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(viewport)}
+	view.Overlay.ScrollOutsidePanel(gtx, &s.stage, bounds)
 	dims := view.List(&s.stage).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = max(0, viewport.Y-top-bottom)
-			view := view
+			view := view.WithScrollAnchors(&s.stage)
 			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), top))
 			return body(gtx, view)
 		})
 	})
-	// Popups anchor in content coordinates; move them with the scrolled stage.
-	bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(viewport)}
-	view.Overlay.Shift(image.Pt(0, -s.stage.Position.Offset), bounds)
+	view.Overlay.OffsetScrollAnchor(&s.stage, bounds)
 	return dims
 }
 

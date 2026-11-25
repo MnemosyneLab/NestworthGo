@@ -231,7 +231,7 @@ func (p *componentPreview) footer(gtx layout.Context, view ui.View) layout.Dimen
 		gtx.Constraints = layout.Exact(size)
 		if action.button == &p.info {
 			anchor := view.Origin
-			view.Overlay.Register(gtx, action.button, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, ui.Popover{
+			view.RegisterPopover(gtx, action.button, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, ui.Popover{
 				Body: view.Message(view.Language.Text(i18n.PreviewInfoBody), view.Colors.Ink),
 			})
 		}

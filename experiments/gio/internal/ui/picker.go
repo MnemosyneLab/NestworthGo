@@ -44,7 +44,7 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 	if !field.Disabled {
 		anchor := field.Origin.Add(image.Pt(0, y))
 		pane.next, pane.previous = field.Next, field.Previous
-		opened = view.Overlay.Register(gtx, trigger, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, pane)
+		opened = view.RegisterPopover(gtx, trigger, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, pane)
 	} else {
 		gtx = gtx.Disabled()
 	}

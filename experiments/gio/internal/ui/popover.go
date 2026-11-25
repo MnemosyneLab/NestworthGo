@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"math"
 
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -43,6 +44,7 @@ type Overlay struct {
 	Trigger       *widget.Clickable
 	Anchor, Panel image.Rectangle
 	pane          Popover
+	anchorScroll  *widget.List
 	Dismiss       widget.Clickable
 	focusOnOpen   bool
 	closePending  bool
@@ -96,9 +98,10 @@ func (h *Overlay) dismissEvents(gtx layout.Context) {
 	}
 }
 
-// Register receives current visible trigger bounds. Disabled or hidden triggers
-// omit registration. It reports the start of a new popup session.
-func (h *Overlay) Register(gtx layout.Context, trigger *widget.Clickable, bounds image.Rectangle, pane Popover) bool {
+// RegisterPopover records the trigger bounds and their layout scope. Disabled
+// or hidden triggers omit registration. It reports the start of a new popup session.
+func (v View) RegisterPopover(gtx layout.Context, trigger *widget.Clickable, bounds image.Rectangle, pane Popover) bool {
+	h := v.Overlay
 	opened := trigger.Clicked(gtx)
 	if opened {
 		if h.Trigger != trigger {
@@ -110,6 +113,7 @@ func (h *Overlay) Register(gtx layout.Context, trigger *widget.Clickable, bounds
 	}
 	if h.Trigger == trigger {
 		h.Anchor, h.pane = bounds, pane
+		h.anchorScroll = v.anchorScroll
 	}
 	if opened {
 		// Register keys for the new focus targets before the first visible frame.
@@ -130,17 +134,28 @@ func (h *Overlay) OffsetAnchor(trigger *widget.Clickable, delta image.Point, vie
 	}
 }
 
-// Shift moves the open popup's anchor by a container's scroll offset. Call it
-// after laying out a scrolling container, once per container, so anchors
-// registered inside it follow the content. A popup whose trigger scrolled out of
-// the viewport closes. It does nothing unless the trigger registered this frame.
-func (h *Overlay) Shift(delta image.Point, viewport image.Rectangle) {
-	if h.Trigger == nil || h.pane.Body == nil || delta == (image.Point{}) {
-		return
+// ScrollOutsidePanel lets a page scroll outside its own open popup while the
+// overlay still intercepts outside presses. Wheel input over the popup stays there.
+func (h *Overlay) ScrollOutsidePanel(gtx layout.Context, list *widget.List, viewport image.Rectangle) {
+	filter := pointer.Filter{Target: h, Kinds: pointer.Scroll, ScrollY: pointer.ScrollRange{Min: math.MinInt, Max: math.MaxInt}}
+	for {
+		e, ok := gtx.Event(filter)
+		if !ok {
+			return
+		}
+		scroll := e.(pointer.Event)
+		position := image.Pt(int(scroll.Position.X), int(scroll.Position.Y))
+		if h.anchorScroll == list && !h.closePending && position.In(viewport) && !position.In(h.Panel) {
+			list.Position.Offset += int(scroll.Scroll.Y)
+		}
 	}
-	h.Anchor = h.Anchor.Add(delta)
-	if !h.Anchor.Overlaps(viewport) {
-		h.Close()
+}
+
+// OffsetScrollAnchor translates and clips a popup registered in this list.
+// Call it after the list finishes layout and has its current scroll position.
+func (h *Overlay) OffsetScrollAnchor(list *widget.List, viewport image.Rectangle) {
+	if h.anchorScroll == list && h.pane.Body != nil {
+		h.OffsetAnchor(h.Trigger, image.Pt(0, -list.Position.Offset), viewport)
 	}
 }
 
@@ -260,6 +275,7 @@ func (h *Overlay) reset() {
 	}
 	h.Trigger, h.returnFocus = nil, nil
 	h.pane = Popover{}
+	h.anchorScroll = nil
 	h.Anchor, h.Panel = image.Rectangle{}, image.Rectangle{}
 	h.focusOnOpen, h.closePending = false, false
 	h.entered = false

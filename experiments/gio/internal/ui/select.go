@@ -158,7 +158,7 @@ func (s *Select) Menu(gtx layout.Context, view View, bounds image.Rectangle, ite
 	pane.Body = func(gtx layout.Context) layout.Dimensions {
 		return s.popup(gtx, view, SelectOptions{Items: items}, value, change)
 	}
-	if view.Overlay.Register(gtx, &s.Trigger, bounds, pane) {
+	if view.RegisterPopover(gtx, &s.Trigger, bounds, pane) {
 		s.list.scroll.Position = layout.Position{}
 		s.list.setActive(items, value, view.Overlay.ByKeyboard)
 	}
