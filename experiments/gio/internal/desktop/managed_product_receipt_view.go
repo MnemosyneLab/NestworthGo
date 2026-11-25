@@ -9,7 +9,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -133,7 +132,7 @@ func (p *productDetailPage) layoutReceiptReview(gtx layout.Context, view ui.View
 		layout.Rigid(view.Message(d.name+" · "+d.currency, view.Colors.Ink)),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			rows := d.reviewRows(view)
-			return material.List(view.Theme, &d.reviewList).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
+			return view.List(&d.reviewList).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 6}.Layout(gtx, rows[i])
 			})
 		}),

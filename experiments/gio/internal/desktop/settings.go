@@ -14,7 +14,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
@@ -110,7 +109,7 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	}
 	draft := p.draft()
 	gtx = ui.LimitWidth(gtx, 896)
-	dims := material.List(view.Theme, &p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+	dims := view.List(&p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return p.content(gtx, view, draft)
 	})
 	// The controls register their bounds in content coordinates; the list

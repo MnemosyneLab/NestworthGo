@@ -325,7 +325,7 @@ func statementTitle(view ui.View, label i18n.MessageID, name string) layout.Widg
 }
 
 func statementLines(gtx layout.Context, view ui.View, list *widget.List, rows []layout.Widget) layout.Dimensions {
-	return material.List(view.Theme, list).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
+	return view.List(list).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
 		return layout.Inset{Bottom: 7}.Layout(gtx, rows[index])
 	})
 }

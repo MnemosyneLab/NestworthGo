@@ -318,7 +318,7 @@ func (p *accountsPage) scrolling(gtx layout.Context, view ui.View, count int, ro
 		}
 	}
 	return accessibility.List(gtx, &p.list, view.Language.Text(i18n.AccountReadList), func(gtx layout.Context) layout.Dimensions {
-		return material.List(view.Theme, &p.list).Layout(gtx, count, row)
+		return view.List(&p.list).Layout(gtx, count, row)
 	})
 }
 

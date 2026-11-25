@@ -13,7 +13,7 @@ import (
 // rawControls are Gio material constructors that bypass the shared controls in
 // internal/ui. Pages must use ui.View.ButtonOf and friends so a visual fix at
 // the owning component reaches every call site.
-var rawControls = map[string]bool{"Button": true, "IconButton": true, "ButtonLayout": true, "CheckBox": true, "RadioButton": true, "Switch": true}
+var rawControls = map[string]bool{"Button": true, "IconButton": true, "ButtonLayout": true, "CheckBox": true, "RadioButton": true, "Switch": true, "List": true}
 
 // rawControlExceptions are the deliberate exceptions, each tied to a control
 // the shared kit does not provide yet. Remove an entry when its control moves.

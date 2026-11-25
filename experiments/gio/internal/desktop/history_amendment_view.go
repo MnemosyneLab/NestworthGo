@@ -7,7 +7,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -171,7 +170,7 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(ui.LimitWidth(gtx, 640),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &form.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+			return view.List(&form.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 			})
 		}), layout.Rigid(actions),

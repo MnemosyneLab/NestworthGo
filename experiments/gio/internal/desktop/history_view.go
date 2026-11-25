@@ -12,7 +12,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -230,7 +229,7 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 				}
 			}
 			return accessibility.List(gtx, &p.list, view.Language.Text(i18n.NavHistory), func(gtx layout.Context) layout.Dimensions {
-				return material.List(view.Theme, &p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
+				return view.List(&p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
 					row := p.model.Rows()[i]
 					return accessibility.Row(gtx, row.ID, func(gtx layout.Context) layout.Dimensions {
 						return p.layoutActivityRow(gtx, view, row)

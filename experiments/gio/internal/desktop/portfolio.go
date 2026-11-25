@@ -13,7 +13,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -232,7 +231,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				return layout.Dimensions{}
 			}
 			rows := p.rows(view)
-			return material.List(view.Theme, &p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
+			return view.List(&p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 10}.Layout(gtx, rows[i])
 			})
 		}),

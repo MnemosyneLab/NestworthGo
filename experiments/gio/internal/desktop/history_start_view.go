@@ -10,7 +10,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -169,7 +168,7 @@ func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View
 			return view.Label(gtx, l.Text(i18n.HistoryStartReview), 19, font.Medium, view.Colors.Ink)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &s.balances).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
+			return view.List(&s.balances).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, rows[index])
 			})
 		}),

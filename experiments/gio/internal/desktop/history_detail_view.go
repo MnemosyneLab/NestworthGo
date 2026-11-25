@@ -8,7 +8,6 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -110,7 +109,7 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		facts := append(r.accountLinks(view, *known), r.instrumentLinks(view, *known)...)
 		facts = append(facts, activityFacts(view, *known)...)
 		children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
+			return view.List(&d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, facts[i])
 			})
 		}))

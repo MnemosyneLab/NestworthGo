@@ -7,7 +7,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -87,7 +86,7 @@ func (d *accountOwnershipDraft) layoutShareMode(gtx layout.Context, view ui.View
 }
 
 func (d *accountOwnershipDraft) layoutOwnerList(gtx layout.Context, view ui.View, members []domain.Member, editShares bool) layout.Dimensions {
-	return material.List(view.Theme, &d.ownerList).Layout(gtx, len(members), func(gtx layout.Context, i int) layout.Dimensions {
+	return view.List(&d.ownerList).Layout(gtx, len(members), func(gtx layout.Context, i int) layout.Dimensions {
 		member := members[i]
 		choice := d.owner(member.ID)
 		index := slices.Index(d.owners, member.ID)

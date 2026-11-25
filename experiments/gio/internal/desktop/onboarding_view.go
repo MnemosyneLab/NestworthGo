@@ -11,7 +11,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -216,7 +215,7 @@ func (p *onboardingPage) layoutInitialMembers(gtx layout.Context, view ui.View, 
 			)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &p.membersList).Layout(gtx, len(p.members), func(gtx layout.Context, i int) layout.Dimensions {
+			return view.List(&p.membersList).Layout(gtx, len(p.members), func(gtx layout.Context, i int) layout.Dimensions {
 				m := p.members[i]
 				return layout.Inset{Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(6)}.Layout(gtx,
