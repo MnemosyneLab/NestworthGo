@@ -19,6 +19,10 @@ Shared chart components landed through #286. Return Trend and Asset Trend
 use lines, Contribution uses signed bars, Change Drivers uses a waterfall,
 and single-date Wealth History Allocation uses a donut or signed bars.
 Each integration has a keyboard-readable view of the underlying values.
+Component Preview shows localized synthetic examples of every chart type,
+including the shared Sankey flow diagram. Each additional chart integration
+needs an accessible table and its own rendering, interaction and platform
+evidence.
 
 | Wails entry and stage | Implemented in Gio and layout | Verified evidence | Open capabilities and layout |
 | --- | --- | --- | --- |

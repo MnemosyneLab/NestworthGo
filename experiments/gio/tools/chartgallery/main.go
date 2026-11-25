@@ -41,7 +41,7 @@ func parseOptions(args []string) (options, error) {
 	var o options
 	fs := flag.NewFlagSet("chartgallery", flag.ContinueOnError)
 	chart := fs.String("chart", "line", "initial chart: "+strings.Join(chartNames[:], ", "))
-	variant := fs.Int("variant", 0, "initial dataset: 0 standard, 1 edge cases, 2 no values, 3 empty")
+	variant := fs.Int("variant", 0, "initial dataset: 0 standard, 1 edge cases, 2 no values, 3 empty, 4 dense allocation (Sankey)")
 	size := fs.String("size", "1100x900", "initial window size in dp, WIDTHxHEIGHT")
 	fs.BoolVar(&o.dark, "dark", false, "start in the dark appearance")
 	fs.BoolVar(&o.selectSample, "select", false, "start with a sample item selected")
@@ -57,7 +57,7 @@ func parseOptions(args []string) (options, error) {
 	if o.chart < 0 {
 		return o, fmt.Errorf("unknown chart %q", *chart)
 	}
-	if *variant < 0 || *variant >= len(variantNames) {
+	if *variant < 0 || *variant >= variantCount(o.chart) {
 		return o, fmt.Errorf("variant %d is out of range", *variant)
 	}
 	o.variant = *variant

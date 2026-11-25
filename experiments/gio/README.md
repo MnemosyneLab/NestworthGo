@@ -114,6 +114,23 @@ either part to start with `00` in the other part. The footer switches between
 12- and 24-hour display. The results panel shows the canonical date and time
 and both pickers offer a clear action.
 
+Under **Chart examples**, scroll to **Sankey flow → Dense allocation**.
+The synthetic example has 24 account paths across four columns. In the
+diagram, hover or select a node or band to trace its upstream and downstream
+flow. Use Tab to focus the chart, arrow keys to move, Return to select, and
+Escape to clear a selection. The compact list includes each account's asset
+class and institution and scrolls the focused row into view. Item details use the supplied display amounts.
+
+The same dense fixture is available in the standalone native gallery:
+
+```sh
+go -C experiments/gio run -mod=readonly ./tools/chartgallery \
+  -chart sankey -variant 4 -size 1100x900
+```
+
+Resize to about 710dp and 390dp to see the medium diagram and the compact
+list. **Data rows** exposes all nodes and links, including the smallest flows.
+
 ## Visual snapshots
 
 `TestVisualSnapshots` renders the shell and a control-state gallery to PNG

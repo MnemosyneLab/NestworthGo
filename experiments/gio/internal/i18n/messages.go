@@ -1337,6 +1337,31 @@ const (
 	TasksOpenStatement
 	TasksPrevious
 	TasksNext
+	ChartPreviewTitle
+	ChartPreviewHelp
+	ChartPreviewHint
+	ChartTitleLine
+	ChartTitleBars
+	ChartTitleWaterfall
+	ChartTitleDonut
+	ChartTitleSankey
+	ChartExampleStandard
+	ChartExampleEdge
+	ChartExampleDense
+	ChartSampleChecking
+	ChartSampleSavings
+	ChartSampleRetirement
+	ChartSampleGrowth
+	ChartSampleLongName
+	ChartSampleMortgage
+	ChartSampleMoneyMarket
+	ChartSampleZeroNote
+	ChartSampleEstimated
+	ChartSampleAmountsUnknown
+	ChartSampleDifference
+	ChartNotInRing
+	ChartNothingToDraw
+	PreviewTabControls
 	messageCount
 )
 

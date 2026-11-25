@@ -134,6 +134,12 @@ const (
 	// ProblemRepeatedID means two items or two series share an ID, so they
 	// would select together.
 	ProblemRepeatedID
+	// ProblemUnknownNode means a Sankey link names a source or target that is
+	// not among the nodes, so the link is not drawn.
+	ProblemUnknownNode
+	// ProblemCycle means a Sankey link joins a node to itself or lies on or
+	// after a cycle, so the link is not drawn.
+	ProblemCycle
 )
 
 // Problem locates one invalid identifier. Series is empty for the items of
