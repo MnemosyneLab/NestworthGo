@@ -1705,6 +1705,11 @@ const (
 	HoldingReconLinkedEmpty
 	HoldingReconMoreReceipts
 	HoldingReconProductValuation
+	HoldingReconProductInterest
+	HoldingReconRemainingInterest
+	HoldingReconRemainingInterestFact
+	HoldingReconProductInterestSaved
+	HoldingReconProductInterestFailed
 	HoldingReconValuationSaved
 	HoldingReconValuationFailed
 	HoldingReconObservedValue

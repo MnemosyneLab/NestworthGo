@@ -1801,7 +1801,27 @@ journal displays the stored observation and its effective and recorded times.
 | --- | --- |
 | Gio and Wails adapter | `TestReconciliationLockedProductValuationMatchesWails` matched the before and after values, net worth delta and observation time against an independent Wails adapter fixture. A precision error retained the input. Cancel restored the action and left the session revision and links intact. Retrying a simulated lost acknowledgement used the same plan and produced one receipt. Reopen preserved the exact link and observation, cash, contract and activity rows. Three focused Wails `ProductCorrection` frontend cases passed. |
 | Packaged Linux X11 | At 1140×860, review showed USD 123.4567 before, USD 131.2345 after and a USD 7.7778 net worth increase. Cancel left zero links or valuation operations and Return reopened the focused action. At 665×480, Tab and Return opened Review and Return confirmed. After quit and reopen, Linked changes displayed the observed USD 131.2345 and its November 25 effective time in America/Vancouver. SQLite matched one manual quote, one operation and the original product, account, session and checkpoint IDs. Accounts, holdings, cash, activities, contracts and source hashes matched the synthetic source. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and the focused Wails reference passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. Other product corrections, including terms, receipt of interest, renewal and settlement, and add-product remain open. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and the focused Wails reference passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. See [linked locked-product interest](#linked-locked-product-interest-receipt) for the interest receipt. Terms, renewal, settlement and add-product remain open. |
+
+#### Linked locked-product interest receipt
+
+An open locked-product checkpoint in an in-progress Holdings session offers
+**Record interest received** beside Update contract valuation. The draft fixes
+the account, product and currency, and accepts the receipt amount and optional
+effective date and time in the History timezone. Both time fields can stay
+blank to use the review instant. Like Wails, Gio uses the shared
+`receive_interest` preview and commits that exact plan. Gio uses a direct
+checkpoint action. It shows Remaining interest for the manual maturity
+interest mode. Wails displays the wider receipt form including a paid-through
+date, which applies to simple-interest term deposits.
+[Wails Product Correction](../../../frontend/src/features/reconciliation/ProductCorrection.tsx) · [Shared interest service](../../../internal/application/product_operations.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | `TestLinkedLockedProductInterestMatchesWails` matched the explicit Singapore civil date and effective instant, cash, product value and net worth preview against an independent fixture. Missing remaining interest kept the amount editable. Cancel preserved the ledger and restored the same action. A later checkpoint revision refused the stale review and kept the dates and amounts. A simulated lost acknowledgement retried the same plan and reopened with one product operation and one companion interest activity linked to the same checkpoint. |
+| Packaged Gio on Linux X11 | At 1140×860, a missing forecast field kept the entered amount. Cancel after Review preserved all financial and reconciliation rows and left the already-staged shared plan untouched. Return reopened the checkpoint action. At 665×480, the keyboard chose November 24 at 01:02 in America/Vancouver and opened Review. Back to details kept both amounts, the date and time, and returned focus to the receipt amount. Return confirmed USD 3.4568 in interest, USD 203.4568 cash and USD 6.4197 remaining interest. After quit and reopen, the journal retained both linked records. The companion link opened the exact Ledger activity at 665×480. Back restored the journal and Return reopened its focused receipt link. SQLite preserved the existing financial rows, quotes and source hashes. The original product stayed open with USD 125.25 principal and the second account kept USD 25. |
+| Automated checks | Full Gio tests and vet, the standard Linux package, focused shared application and Wails Go adapter tests, and 90 Wails Reconciliation and Product Correction frontend cases passed. |
+| Remaining scope | Terms, renewal, settlement, linked term-deposit receipts and add-product are separate parity gaps. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
 
 #### Product and removed-item checkpoint evidence
 
@@ -2843,6 +2863,22 @@ choices remain selected.
   native startup, navigation and memory measurements remain open. Workflow
   entries label the existing packaged Linux X11, adapter and hosted CI evidence.
   Stage 7 remains paused.
+
+#### Five highest-priority paired desktop flows
+
+Use separate synthetic copies of the same ledger and deterministic local
+providers for the write flows. Packaged desktop checks below mean interactive
+Gio and Wails. A working Linux desktop with its installed WebKit runtime can
+cover the paired business workflow. Native macOS is required for the
+macOS-specific interactions in the last column.
+
+| Priority and flow | Automated reference | Remaining packaged desktop check | Native macOS check |
+| --- | --- | --- | --- |
+| 1. Data Health finding → preview → cancel or repair → recheck | Shared snapshot and repair tests plus Gio cancellation and batch retry cases. | Compare the selected dates and provider target, cancel before posting, stop mid-run, recover after a stale plan, and verify the repaired dates after quit and reopen. | Verify native window close during confirmation, focus after dismissal, and reopen from the bundled app. |
+| 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | Force one target to fail, confirm that the successful quote is visible, retry the failed target only, and compare the stored source and date in Quote history. | Verify progress and failure sheets, compact scrolling, and VoiceOver announcements. |
+| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and Gio day handoff coverage. | Verify selected day, account, instrument, currency, native valuation and cash filters across the two packaged apps. Return to the same day and focus at wide and compact sizes. | Verify native Back keyboard commands and focus in the Calendar side sheet. |
+| 4. Change Drivers → Contribution → Ledger → Back | Wails Contribution reference and Gio date, filter, unsupported-filter feedback and route-state tests. | Keep the effective range and driver filters, open an exact Ledger record, then restore its originating result and focus. Verify the unsupported-filter message. | Verify search composition with native IME and screen reader focus after Back. |
+| 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
 #### Wealth History quote evidence and Linux comparison
 

@@ -17,20 +17,47 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
-type linkedProductValuationFault struct {
+type linkedProductCommitFault struct {
 	holdingReconcileAPI
 	loseNext bool
 	plans    []string
 }
 
-func (s *linkedProductValuationFault) CommitProduct(ctx context.Context, id string) error {
+func (s *linkedProductCommitFault) CommitProduct(ctx context.Context, id string) error {
 	s.plans = append(s.plans, id)
 	err := s.holdingReconcileAPI.CommitProduct(ctx, id)
 	if err == nil && s.loseNext {
 		s.loseNext = false
-		return errors.New("synthetic lost product observation acknowledgement")
+		return errors.New("synthetic lost product operation acknowledgement")
 	}
 	return err
+}
+
+func seedTestLockedProduct(t *testing.T, service *application.Service, account domain.AccountID, maturityInterest *string) domain.ProductContractID {
+	t.Helper()
+	service.SetClock(func() time.Time { return accountTestClock.Add(-time.Minute) })
+	unlock, days, calendar, fee := "2026-12-22", 0, "calendar", "0"
+	request := application.ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &application.RecordExistingProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "125.25", TotalCostBasis: "120", CurrentValue: "123.4567", CashExcludesProduct: true,
+		Terms: application.ProductTermsInput{Kind: "locked_product", Name: "Synthetic locked product", StartOn: "2026-11-20", InterestMode: "none"},
+		Policy: application.ProductPolicyInput{AccessKind: "on_date", UnlockOn: &unlock, EarlyKind: "not_allowed",
+			SettlementDays: &days, DayBasis: &calendar, NormalExitFee: &fee},
+	}}
+	if maturityInterest != nil {
+		maturity := "2026-12-22"
+		terms := &request.RecordExisting.Terms
+		terms.MaturityOn, terms.InterestMode, terms.MaturityInterest = &maturity, "manual_maturity_amount", maturityInterest
+	}
+	preview, err := service.PreviewProductOperation(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := service.RecordProductOperation(t.Context(), request, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
+	if err != nil || len(receipt.ProductIDs) != 1 {
+		t.Fatalf("synthetic product: %+v / %v", receipt, err)
+	}
+	service.SetClock(func() time.Time { return accountTestClock })
+	return receipt.ProductIDs[0]
 }
 
 func TestReconciliationLockedProductValuationMatchesWails(t *testing.T) {
@@ -38,28 +65,8 @@ func TestReconciliationLockedProductValuationMatchesWails(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	addLocked := func(service *application.Service, account domain.AccountID) domain.ProductContractID {
-		t.Helper()
-		service.SetClock(func() time.Time { return accountTestClock.Add(-time.Minute) })
-		unlock, days, calendar, fee := "2026-12-22", 0, "calendar", "0"
-		request := application.ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &application.RecordExistingProductCommand{
-			AccountID: account.String(), Currency: "USD", Principal: "125.25", TotalCostBasis: "120", CurrentValue: "123.4567", CashExcludesProduct: true,
-			Terms: application.ProductTermsInput{Kind: "locked_product", Name: "Synthetic locked product", StartOn: "2026-11-20", InterestMode: "none"},
-			Policy: application.ProductPolicyInput{AccessKind: "on_date", UnlockOn: &unlock, EarlyKind: "not_allowed",
-				SettlementDays: &days, DayBasis: &calendar, NormalExitFee: &fee},
-		}}
-		preview, err := service.PreviewProductOperation(ctx, request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		receipt, err := service.RecordProductOperation(ctx, request, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
-		if err != nil || len(receipt.ProductIDs) != 1 {
-			t.Fatalf("synthetic product: %+v / %v", receipt, err)
-		}
-		service.SetClock(clock)
-		return receipt.ProductIDs[0]
-	}
-	id, refID := addLocked(app, ids.account), addLocked(ref, refIDs.account)
+	id := seedTestLockedProduct(t, app, ids.account, nil)
+	refID := seedTestLockedProduct(t, ref, refIDs.account, nil)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session, refSession := startTestHoldingReconciliation(t, api, ids.account), startTestHoldingReconciliation(t, refAPI, refIDs.account)
 	initial, err := app.Product(ctx, id)
@@ -71,7 +78,7 @@ func TestReconciliationLockedProductValuationMatchesWails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fault := &linkedProductValuationFault{holdingReconcileAPI: api}
+	fault := &linkedProductCommitFault{holdingReconcileAPI: api}
 	tasks := newTasksPage(ctx, app, func() {})
 	tasks.checks = app
 	c := &holdingReconciliation{service: fault, ledger: app, clock: clock}
@@ -108,7 +115,7 @@ func TestReconciliationLockedProductValuationMatchesWails(t *testing.T) {
 		click(action)
 		d := c.draft
 		h.focused(&d.total.Editor)
-		if d.valuation.id != id || d.valuation.link().ItemID != itemID {
+		if d.product.id != id || d.product.link().ItemID != itemID {
 			t.Fatal("the valuation opened a different product checkpoint")
 		}
 		label("Current contract value · 123.4567 USD")

@@ -42,6 +42,7 @@ type holdingLinkedEvidence struct {
 		} `json:"resulting"`
 		Contract  *holdingJournalProduct  `json:"contract"`
 		Contracts []holdingJournalProduct `json:"contracts"`
+		Request   json.RawMessage         `json:"request"`
 		Result    json.RawMessage         `json:"result"`
 	} `json:"committed"`
 }
@@ -60,8 +61,8 @@ func (e holdingLinkedEvidence) productValuationReceipt() *domain.ProductValuatio
 }
 
 type holdingJournalProduct struct {
-	Name, Principal, Currency    string
-	MaturityOn, AnnualRate, Note *string
+	Name, Principal, Currency                      string
+	MaturityOn, AnnualRate, MaturityInterest, Note *string
 }
 
 // The reconciliation ledger stores debt magnitudes. Apply the account's
@@ -204,6 +205,9 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 	if observed := evidence.productValuationReceipt(); observed != nil {
 		rows = append(rows, fact(i18n.HoldingReconObservedValue,
 			holdingSnapshotValue(view, observed.Amount.CanonicalAmount(), observed.Amount.Currency().String())))
+	}
+	if after.Kind == string(domain.ProductOpReceiveInterest) {
+		rows = append(rows, holdingProductInterestEvidenceRows(view, evidence)...)
 	}
 	if after.Note != nil && *after.Note != "" {
 		rows = append(rows, view.Message(*after.Note, view.Colors.Ink))
