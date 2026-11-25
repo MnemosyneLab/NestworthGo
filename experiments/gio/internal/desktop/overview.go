@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -46,6 +48,7 @@ type overviewPage struct {
 	err          error
 	reload       widget.Clickable
 	list         widget.List
+	allocation   overviewAllocation
 }
 
 func newOverviewPage(ctx context.Context, reader overviewReader, clock func() time.Time, invalidate func()) *overviewPage {
@@ -107,6 +110,22 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.reload.Clicked(gtx) {
 		p.read()
 	}
+	if p.current != nil && p.current.value.AccountCount > 0 {
+		p.allocation.update(view, p.current)
+	}
+	if p.current != nil && len(p.current.value.AssetComposition.Paths) > 0 {
+		section := len(p.current.value.MissingInputs) + 1
+		switch {
+		case p.allocation.details.Clicked(gtx):
+			p.list.ScrollTo(section + 1)
+			gtx.Execute(key.FocusCmd{Tag: &p.list})
+			gtx.Execute(op.InvalidateCmd{})
+		case p.allocation.back.Clicked(gtx):
+			p.list.ScrollTo(section)
+			p.allocation.restoreFocus = true
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
@@ -124,18 +143,30 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			)
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return view.List(&p.list).Layout(gtx, p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
-				if row == 0 {
-					if p.current.value.AccountCount == 0 {
-						return view.Message(view.Language.Text(i18n.OverviewEmpty), view.Colors.SecondaryInk)(gtx)
-					}
-					return p.totals(gtx, view)
-				}
-				return layout.Inset{Top: 10, Left: 4, Right: 4}.Layout(gtx,
-					view.Message(overviewIssue(view.Language, p.current.value.MissingInputs[row-1]), view.Colors.Ink))
+			return analysisResultList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
+				return p.overviewRow(gtx, view, row)
 			})
 		}),
 	)
+}
+
+func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) layout.Dimensions {
+	result, l := p.current.value, view.Language
+	switch {
+	case result.AccountCount == 0:
+		return view.Message(l.Text(i18n.OverviewEmpty), view.Colors.SecondaryInk)(gtx)
+	case row == 0:
+		return p.totals(gtx, view)
+	case row <= len(result.MissingInputs):
+		return view.Message(overviewIssue(l, result.MissingInputs[row-1]), view.Colors.Ink)(gtx)
+	case row == len(result.MissingInputs)+1:
+		return p.allocation.section(gtx, view, result)
+	case row == len(result.MissingInputs)+2:
+		return returnMonthButton(view, &p.allocation.back, i18n.OverviewAllocationBack, nil, true)(gtx)
+	default:
+		details := p.allocation.model.rows
+		return p.allocation.row(gtx, view, details[row-len(result.MissingInputs)-3])
+	}
 }
 
 func (p *overviewPage) rowCount() int {
@@ -145,7 +176,11 @@ func (p *overviewPage) rowCount() int {
 	if p.current.value.AccountCount == 0 {
 		return 1
 	}
-	return 1 + len(p.current.value.MissingInputs)
+	n := 2 + len(p.current.value.MissingInputs)
+	if paths := len(p.current.value.AssetComposition.Paths); paths > 0 {
+		n += paths + 1
+	}
+	return n
 }
 
 func (p *overviewPage) status(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -193,7 +228,7 @@ func (p *overviewPage) totals(gtx layout.Context, view ui.View) layout.Dimension
 					)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return overviewEvidence(gtx, view, values.NetWorth.Quality)
+					return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
 				}),
 			)
 		})
@@ -243,7 +278,7 @@ func valuationMoney(view ui.View, money domain.MoneyView, liability bool) string
 	})
 }
 
-func overviewEvidence(gtx layout.Context, view ui.View, quality domain.ValuationQuality) layout.Dimensions {
+func overviewEvidence(gtx layout.Context, view ui.View, quality domain.ValuationQuality, referenceDates i18n.MessageID) layout.Dimensions {
 	var rows []layout.FlexChild
 	l := view.Language
 	if quality.OldestMarketDate != nil {
@@ -257,7 +292,7 @@ func overviewEvidence(gtx layout.Context, view ui.View, quality domain.Valuation
 		if quality.NewestMarketDate != nil && *quality.NewestMarketDate != *quality.OldestMarketDate {
 			dates += " – " + localDay(*quality.NewestMarketDate)
 		}
-		rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewQuoteDates), dates), view.Colors.SecondaryInk)))
+		rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(referenceDates), dates), view.Colors.SecondaryInk)))
 	}
 	if quality.CarriedCount > 0 || quality.StaleCount > 0 {
 		rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.OverviewCarried), view.Colors.SecondaryInk)))

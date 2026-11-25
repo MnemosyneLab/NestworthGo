@@ -3,12 +3,19 @@ package desktop
 import (
 	"context"
 	"errors"
+	"fmt"
+	"image"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
+	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -226,7 +233,9 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 		t.Fatal(err)
 	}
 	page := newOverviewPage(ctx, gio, clock, func() {})
-	h := newShellHarnessWithPages(t, ledgerPages{overview: page})
+	accountsPage := newAccountsPage(ctx, gio, clock, func() {})
+	h := newShellHarnessWithPages(t, ledgerPages{overview: page, accounts: accountsPage})
+	t.Cleanup(accountsPage.workers.Wait)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	page.workers.Wait()
@@ -244,5 +253,191 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	}
 	for _, label := range []string{"A$ 98.41", "A$ 123.51", "-A$ 25.10", "Some cached quotes await an update.", "Current estimate"} {
 		assertPageLabel(t, &h.router, label)
+	}
+	model := page.allocation.model
+	if len(model.rows) != len(ref.AssetComposition.Paths) || len(model.spec.Nodes) != len(ref.AssetComposition.Nodes) {
+		t.Fatalf("path or node omitted by Gio: %+v", model)
+	}
+	row := model.rows[0]
+	if row.account.id.String() != ref.AssetComposition.Paths[0].AccountID || row.amount != "A$ 123.51" {
+		t.Fatalf("allocation row did not use the Wails path: %+v", row)
+	}
+	h.click("View allocation details", false)
+	h.frame()
+	h.focused(&page.list)
+	assertPageLabel(t, &h.router, "Back to asset composition")
+	h.click("Back to asset composition", false)
+	h.frame()
+	h.focused(&page.allocation.details)
+	h.size = image.Pt(700, 480)
+	page.list.ScrollTo(page.rowCount() - 1)
+	h.frame()
+	h.click("USD Cash · A$ 123.51", false)
+	h.frame()
+	if h.shell.trail.current().target.account != row.account.id {
+		t.Fatal("allocation row did not open the exact account")
+	}
+	h.click("Back", false)
+	h.frame()
+	h.focused(page.allocation.buttons[string(row.id)])
+	h.press(key.NameReturn)
+	h.frame()
+	if h.shell.trail.current().target.account != row.account.id {
+		t.Fatal("restored allocation row could not reopen the account")
+	}
+}
+
+func TestOverviewSankeyKeepsEveryPositivePathAndBusinessLabel(t *testing.T) {
+	const count = 160
+	view := ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}
+	unit := decimal.RequireFromString("2.75")
+	total := unit.Mul(decimal.NewFromInt(count))
+	data := domain.OverviewResult{Currency: "USD", Assets: total,
+		AssetComposition: domain.OverviewAssetComposition{Positive: total, MissingCount: 2, ZeroCount: 1}}
+	c := &data.AssetComposition
+	c.Nodes = []domain.OverviewAssetNode{
+		{ID: "assets", Kind: "total", Amount: total},
+		{ID: "assets/cash", ParentID: "assets", Key: "cash", Kind: "assetClass", Amount: total},
+		{ID: "assets/cash/institution:", ParentID: "assets/cash", Kind: "institution", Amount: total},
+	}
+	for i := range count {
+		id := fmt.Sprintf("account-%03d", i)
+		c.Paths = append(c.Paths, domain.OverviewAssetPath{AssetClass: "cash", AccountID: id, AccountName: "Savings", Amount: unit})
+		c.Nodes = append(c.Nodes, domain.OverviewAssetNode{ID: "assets/cash/institution:/account:" + id, ParentID: "assets/cash/institution:", Kind: "account", Key: id, Amount: unit})
+	}
+	model := overviewAssetAllocation(view, data)
+	if len(model.spec.Validate()) != 0 || len(model.rows) != count || len(model.spec.Nodes) != count+3 ||
+		len(model.spec.Links) != count+2 || len(model.accounts) != count*2 {
+		t.Fatal("dense allocation lost or combined real paths")
+	}
+	last := model.rows[count-1]
+	if last.account.id != domain.AccountID("account-159") || last.account.label != "Savings (160)" || last.institution != "Unassigned institution" ||
+		last.amount != "$ 2.75" || model.spec.Nodes[0].Label != "Known subtotal" {
+		t.Fatalf("last real path and partial summary: %+v, %+v", last, model.spec.Nodes[0])
+	}
+	node := charts.ID(c.Nodes[len(c.Nodes)-1].ID)
+	if model.accounts[node] != last.account || model.accounts[charts.ID("/")+node] != last.account {
+		t.Fatal("chart node and path do not target the same account")
+	}
+}
+
+func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
+	db, err := sqlite.Open(filepath.Join(t.TempDir(), "allocation.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	service := application.NewService(sqlite.NewRepository(db))
+	service.SetClock(func() time.Time { return now })
+	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
+		HouseholdName: "Synthetic allocation paths", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeAccount := func(name, accountType, tracking, amount string) domain.AccountID {
+		t.Helper()
+		record, err := service.CreateAccount(ctx, application.AccountInput{
+			Name: name, AccountType: accountType, TrackingMode: tracking, BalanceSheetRole: "asset",
+			DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: amount, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return record.Account.ID
+	}
+	mixed := makeAccount("Mixed holdings", "brokerage", "holdings", "")
+	small := makeAccount("Small flow", "bank_account", "balance", "0.25")
+	if _, err := service.AppendAccountCashValue(ctx, mixed, "123.45", "USD", now.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	fund, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Sample equity", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, application.HoldingInput{AccountID: mixed.String(), InstrumentID: fund.ID.String(), Quantity: "2"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, fund.ID, "45.67", now.Format(time.RFC3339Nano), false); err != nil {
+		t.Fatal(err)
+	}
+	read, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reference, err := portfolio.NewService(service).Overview(ctx, account.AccountFilterRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}
+	got := overviewAssetAllocation(view, read)
+	if len(got.spec.Validate()) != 0 || len(got.rows) != 3 || len(got.rows) != len(reference.AssetComposition.Paths) ||
+		len(got.spec.Nodes) != len(reference.AssetComposition.Nodes) {
+		t.Fatalf("projection and Wails path counts: %+v", got.rows)
+	}
+	want := map[string]string{mixed.String() + "/cash": "123.45", mixed.String() + "/stock": "91.34", small.String() + "/cash": "0.25"}
+	total := decimal.Zero
+	for i, path := range reference.AssetComposition.Paths {
+		amount, ok := want[path.AccountID+"/"+path.AssetClass]
+		if !ok || path.Amount != amount || got.rows[i].account.id.String() != path.AccountID ||
+			got.rows[i].amount != "$ "+amount {
+			t.Fatalf("allocation row %d = %+v, Wails = %+v", i, got.rows[i], path)
+		}
+		total = total.Add(decimal.RequireFromString(path.Amount))
+	}
+	leaves := map[domain.AccountID]int{}
+	for _, link := range got.spec.Links {
+		target, ok := got.accounts[link.Target]
+		if !ok {
+			continue
+		}
+		if target.id.String() == string(link.Target) || got.accounts[link.ID] != target || !link.Value.Valid() || link.Value.Number <= 0 {
+			t.Fatalf("path-scoped link or exact account route lost: %+v, %+v", link, target)
+		}
+		leaves[target.id]++
+	}
+	if leaves[mixed] != 2 || leaves[small] != 1 || !total.Equal(read.AssetComposition.Positive) ||
+		total.String() != "215.04" || total.String() != reference.Assets || got.spec.Nodes[0].Text != "$ 215.04" {
+		t.Fatalf("leaf coverage %v, exact total %s, Wails assets %s", leaves, total, reference.Assets)
+	}
+}
+
+func TestOverviewSankeyDistinguishesZeroNegativeAndMissingValues(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		amount        decimal.Decimal
+		zero, missing int
+		labels        []string
+	}{
+		{"zero", decimal.Zero, 1, 0, []string{"Total assets · $ 0.00", "Zero-value asset components · 1", "No positive asset values to chart."}},
+		{"missing", decimal.Zero, 0, 1, []string{"Asset components without a base-currency value · 1", "Asset values are unavailable."}},
+		{"negative", decimal.RequireFromString("-12.25"), 0, 1, []string{"Negative components · -$ 12.25", "Known subtotal · -$ 12.25", "No positive asset values to chart."}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			quoteDate, carriedDate := "2026-11-01", "2026-10-29"
+			read := overviewRead{readAt: time.Now(), value: domain.OverviewResult{Currency: "USD", AccountCount: 1, Assets: tt.amount,
+				ValuationReadDate: "2026-11-25",
+				DisplayValuation: domain.HouseholdDisplayValuation{Assets: domain.ValuationAmount{Quality: domain.ValuationQuality{
+					OldestMarketDate: &carriedDate, NewestMarketDate: &quoteDate, OldestCarriedMarketDate: &carriedDate, CarriedCount: 1,
+				}}},
+				AssetComposition: domain.OverviewAssetComposition{Negative: tt.amount, ZeroCount: tt.zero, MissingCount: tt.missing}}}
+			p := newOverviewPage(t.Context(), nil, time.Now, func() {})
+			p.current = &read
+			h := newShellHarnessWithPages(t, ledgerPages{overview: p})
+			h.shell.prefs.saved.Language = settings.LanguageEnglish
+			h.frame()
+			for _, label := range append(tt.labels, "Valuation read date · 2026-11-25", "Quote and FX reference dates · 2026-10-29 – 2026-11-01",
+				"Oldest carried reference date · 2026-10-29") {
+				assertPageLabel(t, &h.router, label)
+			}
+			if len(p.allocation.model.spec.Links) != 0 || findPageLabel(&h.router, "View allocation details") != nil {
+				t.Fatal("nonpositive or unavailable assets appeared as chart paths")
+			}
+		})
 	}
 }

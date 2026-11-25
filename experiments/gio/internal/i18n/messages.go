@@ -272,6 +272,26 @@ const (
 	OverviewCurrentEstimate
 	OverviewIncomplete
 	OverviewKnownSubtotal
+	OverviewAllocationTitle
+	OverviewAllocationScope
+	OverviewAllocationTotal
+	OverviewAllocationPositive
+	OverviewAllocationNegative
+	OverviewAllocationClass
+	OverviewAllocationAccount
+	OverviewAllocationDetails
+	OverviewAllocationBack
+	OverviewAllocationHelp
+	OverviewAllocationMissing
+	OverviewAllocationZero
+	OverviewAllocationEmpty
+	OverviewAllocationUnavailable
+	OverviewAllocationUnassigned
+	OverviewAllocationUnknownAccount
+	OverviewAllocationOrdinal
+	OverviewAllocationDate
+	OverviewAllocationQuoteDates
+	OverviewAllocationCarriedDate
 	OverviewKnownNet
 	OverviewNoValue
 	OverviewQuoteDates

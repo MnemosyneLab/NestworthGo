@@ -254,7 +254,7 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 			overviewAmount(view, i18n.PortfolioValue, summary.DisplayValuation, 25),
 			view.Message(fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk),
 			func(gtx layout.Context) layout.Dimensions {
-				return overviewEvidence(gtx, view, summary.DisplayValuation.Quality)
+				return overviewEvidence(gtx, view, summary.DisplayValuation.Quality, i18n.OverviewQuoteDates)
 			})
 	}
 	active := func(row domain.InstrumentHoldingsView) bool { return row.Amounts.Quantity != "0" }

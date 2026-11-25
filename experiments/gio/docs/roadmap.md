@@ -236,6 +236,32 @@ fixed at `2026-09-18T13:14:00Z`, which displayed as `2026-09-18 21:14` in
 | Linux X11 read failures | A separate fixed-clock QA build injected two read failures at the Overview service boundary. The first showed loading followed by an error with no balances. Retry ran the real query. A failed reload then kept the incomplete figures and original read time visible. A second retry restored the normal state. The clock and fault overrides were temporary build overlays. |
 | Open evidence | Wails GUI, native macOS and Wayland were not run. The comparison covered the shared current valuation and Wails Go adapter, with Gio rendering observed separately. Historical replay, provider refresh and account workflows remain separate. |
 
+#### Overview asset composition Sankey
+
+The live Overview feeds the native Sankey from #288 with the shared
+`OverviewAssetComposition` used by Wails. This preserves the real paths
+from #287, including separate holdings classes in the same account and
+unassigned institutions. Amounts are formatted in the household currency.
+The valuation read date, quote and FX reference dates, and oldest carried
+reference date have separate labels. Freshness, missing coverage, zero
+components and negative amounts come from the same Overview result. A
+failed reread keeps that result visible with Retry.
+
+The chart and the complete keyboard-scrollable path list open the same
+account ID. Back restores the originating control and scroll. A control
+above the diagram jumps directly to the details so the list stays easy to
+reach even with many chart rows. At compact widths Wails #287 keeps the
+scrollable diagram and opens its complete details. Gio switches to labeled
+bars grouped by level so the columns fit the window. Its complete list
+keeps every class, institution, account and amount available by keyboard.
+
+| Check | Evidence |
+| --- | --- |
+| Shared projection | The independent read-only comparison used a stale stored FX observation and unavailable provider. Gio matched Wails' AUD 123.51 asset display and exact AUD 98.411725 net worth, exposed the stale quote, and issued zero provider requests. The dense adapter test retained all 160 paths and their exact account targets. A separate Wails comparison preserved USD 123.45 cash and USD 91.34 stocks for the same account and the USD 0.25 account. The three exact amounts reconciled to USD 215.04. |
+| Packaged Linux X11 | The 131-path synthetic household showed USD 567.04 known assets, one missing USD/AUD rate, and one zero component. The USD 123.45 cash and USD 91.34 stock paths each opened the same holdings account at USD 214.79. Account navigation opened the USD 0.25 path, and Back and Enter reopened it. End reached that path at 1260×1050 and 640×480. A second fixture at 640×480 showed AUD 214.79 and grouped cash and stock bars. Its November 25 valuation read date and November 1 quote and FX reference dates were separate. Both synthetic source database and settings hashes matched after quit. |
+| Automated checks | Full Gio suite, Gio vet, native Linux package, focused shared Overview tests and 21 Wails Overview and Sankey frontend tests passed. |
+| Open evidence | Native macOS, Wayland and VoiceOver remain open. Overview supporting cards and links and Portfolio allocation have separate parity work. |
+
 #### Read-only Accounts milestone
 
 The [Wails account interaction contract](../../../docs/design/account-container-interaction.md)

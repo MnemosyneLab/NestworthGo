@@ -280,6 +280,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			keepArchiveFilter := s.activeRoute() == accountsRoute && target.account == "" && s.accounts.archived
 			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
 		}
+		if s.overviewPage != nil {
+			s.overviewPage.allocation.openAccount = func(id domain.AccountID, name string, from event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
+			}
+		}
 		s.accounts.backToList = func() {
 			if previous := s.trail.adjacent(-1); previous != nil && previous.target.route == accountsRoute && !previous.target.hasObject() {
 				s.pendingNavigation = &navigationRequest{step: -1}

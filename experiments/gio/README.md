@@ -314,6 +314,16 @@ An empty household has its own state. Reload rereads the ledger and stored
 quotes. A failed reload keeps the previous figures and their original read
 time visible with a retry action.
 
+**Asset composition Sankey** shows each positive allocation by asset class,
+institution and account. The section shows the valuation read date,
+quote and FX reference dates, and oldest carried reference when available.
+It also shows the known subtotal when coverage is incomplete and counts of
+missing and zero-value components. Use arrows and Enter in the diagram to open an
+account. **View allocation details** jumps to the keyboard-scrollable list of
+all paths, including the smallest ones. Back from an account restores the
+diagram or list control that opened it.
+[Overview allocation scope and verification](docs/roadmap.md#overview-asset-composition-sankey)
+
 ## Accounts
 
 Accounts groups rows by institution. From a Directory institution's detail,
