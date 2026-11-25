@@ -1838,6 +1838,15 @@ var traditionalChineseCatalog = catalog{
 	ProductEditValidDays:     "請輸入整數天數。",
 	ProductEditAfter:         "預覽結果",
 
+	ProductRenewAction:         "記錄實際續期",
+	ProductRenewPrincipal:      "新本金",
+	ProductRenewOpeningFee:     "開立費用",
+	ProductRenewSuccessor:      "新合約",
+	ProductRenewSaved:          "已記錄並連結續期。",
+	ProductRenewFailed:         "無法預覽續期，請檢查入帳與新合約詳情後重試。",
+	ProductRenewPrincipalFact:  "新本金 · %s",
+	ProductRenewOpeningFeeFact: "開立費用 · %s",
+
 	TasksUpcomingTab:          "即將發生",
 	TasksInvestmentTab:        "投資核查",
 	TasksReconciliationTab:    "待對帳",

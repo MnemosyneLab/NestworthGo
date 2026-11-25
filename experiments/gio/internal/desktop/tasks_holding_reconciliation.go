@@ -98,7 +98,7 @@ type holdingReconDraft struct {
 
 type holdingReconItemActions struct {
 	cost, quantity, record, check, cash, importPosition, valuation, interest, settle widget.Clickable
-	terms                                                                            widget.Clickable
+	terms, renew                                                                     widget.Clickable
 	attempts                                                                         holdingEvidenceDisclosure
 }
 
@@ -222,6 +222,9 @@ func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 	if f := d.product; f != nil {
 		if f.terms != nil {
 			return f.loading == nil && !f.loadFailed && f.link() != nil && f.terms.current != nil
+		}
+		if f.renewal != nil && (f.renewal.terms.current == nil || strings.TrimSpace(f.renewal.principal.Text()) == "") {
+			return false
 		}
 		return f.loading == nil && !f.loadFailed && f.link() != nil && strings.TrimSpace(d.total.Text()) != ""
 	}
@@ -395,6 +398,9 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			if f.terms != nil && result.err == nil {
 				f.terms.receive(result.value)
 			}
+			if f.renewal != nil && result.err == nil {
+				f.renewal.terms.receive(result.value)
+			}
 			if f.interest != nil {
 				f.interest.manualMaturityInterest = result.value.Contract.InterestMode == domain.InterestManualMaturityAmount
 			}
@@ -416,6 +422,8 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		default:
 			if d.product != nil && d.product.terms != nil {
 				d.problem = i18n.ProductEditReviewFailed
+			} else if d.product != nil && d.product.renewal != nil {
+				d.problem = i18n.ProductRenewFailed
 			} else if d.product != nil && d.product.settlement != nil {
 				d.problem = i18n.HoldingReconProductSettlementFailed
 			} else if d.product != nil && d.product.interest != nil {
@@ -441,6 +449,8 @@ func (p *tasksPage) pollHoldingReconciliation() {
 				switch {
 				case d.product != nil && d.product.terms != nil:
 					c.saved = i18n.ProductEditSaved
+				case d.product != nil && d.product.renewal != nil:
+					c.saved, c.restore, c.editScroll = i18n.ProductRenewSaved, &c.back, 0
 				case d.product != nil && d.product.settlement != nil:
 					c.saved, c.restore, c.editScroll = i18n.HoldingReconProductSettlementSaved, &c.back, 0
 				case d.product != nil && d.product.interest != nil:

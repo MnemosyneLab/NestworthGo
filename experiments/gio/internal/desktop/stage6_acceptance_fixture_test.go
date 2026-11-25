@@ -160,6 +160,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"contribution", contributionSeed},
 		{"locked-settlement", lockedProductSeed},
 		{"locked-terms", lockedProductSeed},
+		{"locked-renewal", lockedProductSeed},
 	} {
 		dir := filepath.Join(root, profile.name)
 		if err := os.Mkdir(dir, 0o700); err != nil {

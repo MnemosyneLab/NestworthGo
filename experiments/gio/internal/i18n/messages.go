@@ -1755,6 +1755,15 @@ const (
 	ProductEditValidDays
 	ProductEditAfter
 
+	ProductRenewAction
+	ProductRenewPrincipal
+	ProductRenewOpeningFee
+	ProductRenewSuccessor
+	ProductRenewSaved
+	ProductRenewFailed
+	ProductRenewPrincipalFact
+	ProductRenewOpeningFeeFact
+
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab

@@ -8,7 +8,7 @@ From the repository root, run:
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
-  -run '^TestLinkedLockedProduct(Settlement|Terms)MatchesWails$')
+  -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
 go test ./internal/wailsapi/analysis -count=1
 (cd frontend && TZ=Asia/Shanghai pnpm exec vitest run src/features/data-health src/features/marketdata)
@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -204,6 +204,18 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   Review and confirm on a fresh draft. Reopen the app and check the saved name,
   note, policy and linked terms receipt. Principal and cash should stay at
   USD 125.25 and USD 156 respectively.
+
+- Run `run_copy locked-renewal gio` and `run_copy locked-renewal wails`.
+  From the same open product checkpoint choose **Record actual renewal**.
+  Enter USD 132.1234 gross, a USD 1.2222 receipt fee, and November 23, 2026
+  at 18:00 Asia/Singapore. Set new principal to USD 101.2345 and the opening
+  fee to USD 0.1275. Name the successor Synthetic successor. Set its start
+  to November 23 and its maturity and unlock date to December 23, 2026.
+  Review, cancel, then reopen the focused action. Confirm once at a compact
+  size and reopen the app. Check USD 185.5392 cash, the settled predecessor,
+  the new USD 101.2345 position and the renewal plus both Ledger links in
+  Linked changes. The automated test also covers stale review and idempotent
+  retry after the shared service saves the operation.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These

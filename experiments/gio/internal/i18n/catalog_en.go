@@ -1838,6 +1838,15 @@ var englishCatalog = catalog{
 	ProductEditValidDays:     "Enter a whole number of days.",
 	ProductEditAfter:         "After review",
 
+	ProductRenewAction:         "Record actual renewal",
+	ProductRenewPrincipal:      "New principal",
+	ProductRenewOpeningFee:     "Opening fee",
+	ProductRenewSuccessor:      "New contract",
+	ProductRenewSaved:          "Renewal recorded and linked.",
+	ProductRenewFailed:         "Could not review renewal. Check the receipt and new contract details and try again.",
+	ProductRenewPrincipalFact:  "New principal · %s",
+	ProductRenewOpeningFeeFact: "Opening fee · %s",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

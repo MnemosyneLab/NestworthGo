@@ -1837,6 +1837,15 @@ var japaneseCatalog = catalog{
 	ProductEditValidDays:     "日数を整数で入力してください。",
 	ProductEditAfter:         "確認後",
 
+	ProductRenewAction:         "実際の更新を記録する",
+	ProductRenewPrincipal:      "新しい元本",
+	ProductRenewOpeningFee:     "契約時手数料",
+	ProductRenewSuccessor:      "新しい契約",
+	ProductRenewSaved:          "更新を記録し、照合に関連付けました。",
+	ProductRenewFailed:         "更新を確認できませんでした。受取と新しい契約の項目を確認して再試行してください。",
+	ProductRenewPrincipalFact:  "新しい元本 · %s",
+	ProductRenewOpeningFeeFact: "契約時手数料 · %s",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",

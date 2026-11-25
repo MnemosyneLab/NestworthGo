@@ -214,6 +214,9 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 							}),
 							c.link(view, &buttons.settle, l.Text(i18n.ProductReceiptAction), func() {
 								p.openHoldingProductCorrection(account, item, &buttons.settle, holdingSettleProduct)
+							}),
+							c.link(view, &buttons.renew, l.Text(i18n.ProductRenewAction), func() {
+								p.openHoldingProductCorrection(account, item, &buttons.renew, holdingRenewProduct)
 							}))
 					}
 				}
@@ -314,7 +317,9 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		} else if d.product.interest != nil {
 			rows = append(rows, c.holdingProductInterestFields(view, &origin, d, productReady)...)
 		} else if d.product.settlement != nil {
-			rows = append(rows, c.holdingProductSettlementFields(view, &origin, d, productReady)...)
+			rows = append(rows, c.holdingProductSettlementFields(view, &origin, d, d.product.settlement, productReady)...)
+		} else if d.product.renewal != nil {
+			rows = append(rows, c.holdingProductRenewalFields(view, &origin, d, productReady)...)
 		}
 	} else if d.itemID != "" {
 		if a, item, ok := c.item(d); ok {

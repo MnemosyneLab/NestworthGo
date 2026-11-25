@@ -1838,6 +1838,15 @@ var simplifiedChineseCatalog = catalog{
 	ProductEditValidDays:     "请输入整数天数。",
 	ProductEditAfter:         "预览结果",
 
+	ProductRenewAction:         "记录实际续期",
+	ProductRenewPrincipal:      "新本金",
+	ProductRenewOpeningFee:     "开户费用",
+	ProductRenewSuccessor:      "新合约",
+	ProductRenewSaved:          "已记录并关联续期。",
+	ProductRenewFailed:         "无法预览续期，请检查到账和新合约详情后重试。",
+	ProductRenewPrincipalFact:  "新本金 · %s",
+	ProductRenewOpeningFeeFact: "开户费用 · %s",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",

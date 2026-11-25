@@ -26,6 +26,7 @@ type holdingProductDraft struct {
 	interest   *holdingProductInterest
 	settlement *holdingProductSettlement
 	terms      *holdingProductTerms
+	renewal    *holdingProductRenewal
 
 	loading    <-chan historyResult[application.ProductDetail]
 	loadFailed bool
@@ -39,6 +40,7 @@ const (
 	holdingObserveProductValue
 	holdingReceiveProductInterest
 	holdingSettleProduct
+	holdingRenewProduct
 )
 
 func lockedProductCheckpoint(item domain.ReconciliationItem) (domain.ProductContract, bool) {
@@ -66,6 +68,8 @@ func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAc
 		d.product.interest.remaining.Editor.SingleLine = true
 	case holdingSettleProduct:
 		d.product.settlement = &holdingProductSettlement{fee: ui.NewTextField(true)}
+	case holdingRenewProduct:
+		d.product.renewal = newHoldingProductRenewal()
 	}
 	c.draft, c.saved = d, i18n.NoMessage
 	p.loadHoldingProduct(d.product)
@@ -100,7 +104,12 @@ func (p *tasksPage) previewHoldingProduct(d *holdingReconDraft) {
 		return
 	}
 	amount := strings.TrimSpace(d.total.Text())
-	if req, ok := f.operationRequest(*link, amount); ok {
+	if f.interest != nil || f.settlement != nil || f.renewal != nil {
+		req, ok := f.operationRequest(*link, amount)
+		if !ok {
+			d.problem = i18n.ProductEditValidDays
+			return
+		}
 		d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
 			review, err := p.holdingRecon.service.PreviewProductOperation(p.ctx, req)
 			return holdingReconReview{planID: review.PlanID, operation: review.Operation}, err
@@ -120,12 +129,17 @@ func (f *holdingProductDraft) operationRequest(link domain.ReconciliationLink, a
 		return f.interest.request(link, f.id, amount), true
 	case f.settlement != nil:
 		return f.settlement.request(link, f.id, amount), true
+	case f.renewal != nil:
+		return f.renewal.request(link, f.id, amount)
 	default:
 		return liquidity.ProductCommandRequest{}, false
 	}
 }
 
 func (f *holdingProductDraft) title() i18n.MessageID {
+	if f.renewal != nil {
+		return i18n.ProductRenewAction
+	}
 	if f.terms != nil {
 		return i18n.ProductEditTerms
 	}
@@ -158,7 +172,7 @@ func (p *tasksPage) holdingProductFields(view ui.View, d *holdingReconDraft, rea
 	if f.interest != nil {
 		amountLabel = i18n.ProductActualInterest
 	}
-	if f.settlement != nil {
+	if f.settlement != nil || f.renewal != nil {
 		amountLabel = i18n.HoldingReconGrossProceeds
 	}
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
