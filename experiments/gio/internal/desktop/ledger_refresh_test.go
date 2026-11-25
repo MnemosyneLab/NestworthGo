@@ -98,7 +98,9 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	previousID := domain.ActivityID(withdrawal.Activity.ID)
 	probe := &ledgerRefreshProbe{Service: app, staleRead: make(chan struct{}), releaseStale: make(chan struct{}), versions: make(map[string]string)}
 	clock := func() time.Time { return accountTestClock }
-	overview := newOverviewPage(ctx, probe, clock, func() {})
+	// Exercise the live valuation read in this refresh test. The optional trend
+	// read can independently publish derived snapshots and advance the version.
+	overview := newOverviewPage(ctx, overviewReaderFunc(probe.Overview), clock, func() {})
 	accounts := newAccountsPage(ctx, probe, clock, func() {})
 	ledger := newLedgerHistory(ctx, probe, clock, func() {})
 	release := sync.OnceFunc(func() { close(probe.releaseStale) })
