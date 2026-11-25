@@ -1535,7 +1535,30 @@ Cancel and Ledger Back restore the transfer action and timeline filters.
 | Wails and Gio compare | An independent Wails-format fixture with two units at USD 44 basis first transferred 0.625 into a new Holding in the destination. A second transfer of 0.125 reused that same Holding. Both services showed 1.25 units and USD 27.50 cost at source and 0.75 units and USD 16.50 cost at destination. The only cash change was an independent USD 1 deposit that deliberately invalidated the first review. |
 | Gio workflow | Covered insufficient quantity, same-account exclusion, cancellation, a stale confirmation, pending navigation, a lost reply and read-only receipt retry. Ledger Back restored account and instrument filters and the transfer action. A retry after normal reopen returned the original receipt. |
 | Packaged Linux X11 | At 1160×820, rejected 1.00000001 against one available unit. Cancel kept the ledger untouched and Return reopened the transfer. At 640×480, keyboard selection and confirmation moved 0.375 units from Harbor Brokerage to Second desk. Back restored the action. Reopen showed both linked accounts and resulting quantities of 0.625 and 0.375. Read-only SQLite verified one custody receipt and both exact effects, unchanged cash and quotes, the prior imported EUR holding, and the untouched source hashes. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go suites and three Wails Ledger transfer cases passed. Account and holding choices are read on entry. Receipt reads batch historical account references. No benchmark was run. The account-scoped transfer directions in the general Accounts form, custody corrections and reversal, position adjustments and cost corrections remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go suites and three Wails Ledger transfer cases passed. Account and holding choices are read on entry. Receipt reads batch historical account references. No benchmark was run. [Account-scoped directions](#account-scoped-custody-transfers) have a separate milestone. Custody corrections and reversal, position adjustments and cost corrections remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+
+#### Account-scoped custody transfers
+
+**Accounts → Holdings account → Transfer position** opens the same custody
+form as Ledger after History starts. **Transfer out** limits the source picker
+to that account. **Transfer in** fixes it as the destination and lists eligible
+holdings from other accounts. The holding-row action opens the same form with
+that holding fixed on the relevant side. A holding-scoped incoming transfer
+supplies the exact destination Holding ID, as the Wails reconciliation entry
+does. Gio places the account and holding entry directly beside the related
+actions. Wails puts them in the general **Record a change** forms.
+[Wails Account action](../../../frontend/src/features/accounts/AccountActionSheets.tsx) · [Wails directions and command](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails holding context](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx)
+
+Cancel and Ledger Back restore the initiating action and account context.
+The existing navigation trail retains the original Investment Assets search.
+A fully transferred source may leave the visible positions list. The account
+transfer action then provides a focus target.
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio | The synthetic flow transferred 0.625 units out, then brought 0.125 into the exact original Holding. Independent Wails commands and reopened Gio shared reads showed 1.5 units and USD 33 cost at source and 0.5 units and USD 11 cost at destination. The incoming picker excluded an unrelated instrument. Account and holding focus and the original Holdings search returned as expected. |
+| Packaged Linux X11 | At 1160×820, Cancel and Return reopened the account action, then a keyboard confirmation sent 0.375 units from Harbor Brokerage. At 640×480, the row action brought 0.125 into the same Harbor Holding and received focus again on Ledger Back. Reopen and SQLite verified 0.75 and 0.25 units, four exact effects on the original Holding pair, two mutation receipts, unchanged USD 200 and USD 25 cash and source hashes. |
+| Checks | Full Gio tests and vet, standard Linux packaging, focused shared Go checks and the Wails Accounts, History and holding-context frontend references passed. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1721,15 +1744,15 @@ link focus, and Forward can reopen the same session. [Wails reconciliation list]
 The experimental shell now supports Holdings and instrument detail, domestic
 and foreign-currency settlement for ordinary buys and sales, cash dividends in
 the default account currency, multiple pre-History positions with native costs,
-dated position import from Accounts and Investment Assets, and custody transfers
-from general Ledger. Available Funds has a Today view
+dated position import from Accounts and Investment Assets, and custody transfers from
+Ledger and Holdings account detail. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes account-scoped custody transfer,
-position adjustments and cost corrections, inline instrument creation, market quote
+Broader investment work still includes position adjustments, custody amendments
+and cost corrections, inline instrument creation, market quote
 calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming

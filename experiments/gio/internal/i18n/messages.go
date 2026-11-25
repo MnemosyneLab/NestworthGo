@@ -1503,6 +1503,10 @@ const (
 	CustodySourceAfter
 	CustodyDestinationAfter
 	CustodyNoCash
+	CustodySend
+	CustodyReceive
+	CustodyLockedHolding
+	CustodyHoldingAction
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost

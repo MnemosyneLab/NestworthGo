@@ -1,12 +1,14 @@
 package desktop
 
 import (
+	"fmt"
 	"image"
 	"slices"
 	"time"
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -20,13 +22,22 @@ var custodyTransferLabels = tradeLabels{
 	previewFailed: i18n.CustodyPreviewFailed, stale: i18n.CustodyStale,
 }
 
+type custodyScope struct {
+	account domain.Account
+	holding domain.Holding
+	action  *widget.Clickable
+}
+
 type custodyTransferDraft struct {
-	from       domain.HoldingID
-	to         domain.AccountID
-	fromPicker ui.Select
-	toPicker   ui.Select
-	sources    *history.CustodySources
-	loading    <-chan historyResult[history.CustodySources]
+	scope         custodyScope
+	incoming      bool
+	send, receive widget.Clickable
+	from          domain.HoldingID
+	to            domain.AccountID
+	fromPicker    ui.Select
+	toPicker      ui.Select
+	sources       *history.CustodySources
+	loading       <-chan historyResult[history.CustodySources]
 }
 
 func (p *historyPage) custodyAvailable() bool {
@@ -38,9 +49,9 @@ func (p *historyPage) investmentRuntime() investmentRuntime {
 	return investmentRuntime{ctx: r.ctx, workers: &r.workers, clock: r.clock, invalidate: r.invalidate}
 }
 
-func (f *accountInvestment) startCustody(run investmentRuntime) {
-	f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, domain.Account{})
-	f.draft.custody = new(custodyTransferDraft)
+func (f *accountInvestment) startCustody(run investmentRuntime, scope custodyScope) {
+	f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, scope.account)
+	f.draft.custody = &custodyTransferDraft{scope: scope, from: scope.holding.ID}
 	f.loadSources(run)
 }
 
@@ -78,6 +89,9 @@ func (f *accountInvestment) pollCustodySources(run investmentRuntime) {
 			c.to = ""
 			d.problem = i18n.CustodyUnavailable
 		}
+		if c.scope.account.ID != "" && !c.scopeAvailable() {
+			d.problem = i18n.CustodyUnavailable
+		}
 	default:
 	}
 }
@@ -85,12 +99,49 @@ func (f *accountInvestment) pollCustodySources(run investmentRuntime) {
 func (c *custodyTransferDraft) source() (history.CustodyHolding, bool) {
 	if c.sources != nil {
 		for _, item := range c.sources.Holdings {
-			if item.Holding.ID == c.from {
+			if item.Holding.ID == c.from && c.offersSource(item) {
 				return item, true
 			}
 		}
 	}
 	return history.CustodyHolding{}, false
+}
+
+func (c *custodyTransferDraft) scopeAvailable() bool {
+	if c.sources == nil || !slices.ContainsFunc(c.sources.Accounts, func(a domain.Account) bool { return a.ID == c.scope.account.ID }) {
+		return false
+	}
+	return c.scope.holding.ID == "" || slices.ContainsFunc(c.sources.Holdings, func(item history.CustodyHolding) bool {
+		return item.Holding.ID == c.scope.holding.ID && item.Account.ID == c.scope.account.ID
+	})
+}
+
+func (c *custodyTransferDraft) offersSource(item history.CustodyHolding) bool {
+	if item.Holding.Quantity.IsZero() {
+		return false
+	}
+	if c.scope.account.ID == "" {
+		return true
+	}
+	if c.incoming {
+		return item.Account.ID != c.scope.account.ID && (c.scope.holding.ID == "" || item.Instrument.ID == c.scope.holding.InstrumentID)
+	}
+	return item.Account.ID == c.scope.account.ID && (c.scope.holding.ID == "" || item.Holding.ID == c.scope.holding.ID)
+}
+
+func (c *custodyTransferDraft) available() bool {
+	return c.sources != nil && len(c.sources.Accounts) >= 2 &&
+		(c.scope.account.ID == "" || c.scopeAvailable()) && slices.ContainsFunc(c.sources.Holdings, c.offersSource)
+}
+
+func (d *accountInvestmentDraft) setCustodyDirection(incoming bool) {
+	c := d.custody
+	c.incoming, c.from, c.to = incoming, c.scope.holding.ID, ""
+	if incoming {
+		c.from, c.to = "", c.scope.account.ID
+	}
+	d.quantity.Editor.SetText("")
+	d.problem = i18n.NoMessage
 }
 
 func (f *accountInvestment) previewCustody(run investmentRuntime) {
@@ -100,6 +151,9 @@ func (f *accountInvestment) previewCustody(run investmentRuntime) {
 	}
 	input := history.CustodyTransferInput{From: d.custody.from, To: d.custody.to,
 		Quantity: d.quantity.Text(), Note: d.note.Text(), Date: d.day, Time: d.time}
+	if d.custody.incoming && d.custody.scope.holding.ID != "" {
+		input.To, input.ToHolding = "", d.custody.scope.holding.ID
+	}
 	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
 		input.EffectiveAt = d.defaultTime
 	}
@@ -111,59 +165,107 @@ func (f *accountInvestment) previewCustody(run investmentRuntime) {
 
 func (f *accountInvestment) custodyFields(view ui.View, origin *image.Point) []layout.FlexChild {
 	d, c := f.draft, f.draft.custody
-	if !d.investmentFieldsVisible() {
-		return nil
+	l := view.Language
+	var fields []layout.FlexChild
+	field := func(w layout.Widget) layout.FlexChild {
+		return layout.Rigid(func(gtx layout.Context) layout.Dimensions { return fieldPosition(gtx, origin, w) })
 	}
-	from := make([]ui.Choice, 0, len(c.sources.Holdings))
-	for _, item := range c.sources.Holdings {
-		label := item.Instrument.SelectionLabel() + " · " + item.Account.Name + " · " + portfolioDecimal(view, item.Holding.Quantity.Canonical())
-		from = append(from, ui.Choice{ID: item.Holding.ID.String(), Label: label})
+	static := func(s string) layout.FlexChild { return field(view.Message(s, view.Colors.Ink)) }
+	if c.scope.account.ID != "" {
+		fields = append(fields, static(c.scope.account.Name))
+		fields = append(fields, field(func(gtx layout.Context) layout.Dimensions {
+			if d.previewing != nil {
+				gtx = gtx.Disabled()
+			}
+			if c.send.Clicked(gtx) && c.incoming {
+				d.setCustodyDirection(false)
+			}
+			if c.receive.Clicked(gtx) && !c.incoming {
+				d.setCustodyDirection(true)
+			}
+			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
+				layout.Rigid(view.TabButton(&c.send, l.Text(i18n.CustodySend), !c.incoming)),
+				layout.Rigid(view.TabButton(&c.receive, l.Text(i18n.CustodyReceive), c.incoming)))
+		}))
+	}
+	if !c.available() {
+		return fields
 	}
 	source, selected := c.source()
-	to := make([]ui.Choice, 0, len(c.sources.Accounts))
-	for _, a := range c.sources.Accounts {
-		if a.ID != source.Account.ID {
-			to = append(to, ui.Choice{ID: a.ID.String(), Label: a.Name})
+	lockedSource := c.scope.holding.ID != "" && !c.incoming
+	if lockedSource {
+		fields = append(fields, static(fmt.Sprintf(l.Text(i18n.CustodyLockedHolding), custodyHoldingLabel(view, source))))
+	} else {
+		var from []ui.Choice
+		for _, item := range c.sources.Holdings {
+			if c.offersSource(item) {
+				from = append(from, ui.Choice{ID: item.Holding.ID.String(), Label: custodyHoldingLabel(view, item)})
+			}
 		}
-	}
-	return []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, origin, func(gtx layout.Context) layout.Dimensions {
-				if d.focusInput && gtx.Enabled() {
-					gtx.Execute(key.FocusCmd{Tag: &c.fromPicker.Trigger})
-					d.focusInput = false
-				}
-				field := ui.PickerField{Label: i18n.CustodyFromHolding, Origin: *origin, Disabled: d.previewing != nil, Next: &c.toPicker.Trigger}
-				c.fromPicker.Layout(gtx, view, field, ui.SelectOptions{Items: from, Searchable: true}, c.from.String(), func(id string) {
-					if c.from.String() == id {
-						return
-					}
+		fields = append(fields, field(func(gtx layout.Context) layout.Dimensions {
+			if d.focusInput && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &c.fromPicker.Trigger})
+				d.focusInput = false
+			}
+			next := any(&c.toPicker.Trigger)
+			if c.incoming {
+				next = &d.quantity.Editor
+			}
+			picker := ui.PickerField{Label: i18n.CustodyFromHolding, Origin: *origin, Disabled: d.previewing != nil, Next: next}
+			c.fromPicker.Layout(gtx, view, picker, ui.SelectOptions{Items: from, Searchable: true}, c.from.String(), func(id string) {
+				if c.from.String() != id {
 					c.from = domain.HoldingID(id)
 					d.quantity.Editor.SetText("")
 					d.problem = i18n.NoMessage
 					if item, ok := c.source(); ok && item.Account.ID == c.to {
 						c.to = ""
 					}
-				})
-				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+				}
 			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, origin, func(gtx layout.Context) layout.Dimensions {
-				field := ui.PickerField{Label: i18n.CustodyToAccount, Origin: *origin, Disabled: !selected || d.previewing != nil,
-					Previous: &c.fromPicker.Trigger, Next: &d.quantity.Editor}
-				c.toPicker.Layout(gtx, view, field, ui.SelectOptions{Items: to, Searchable: true}, c.to.String(), func(id string) {
-					c.to, d.problem = domain.AccountID(id), i18n.NoMessage
-				})
-				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, origin, func(gtx layout.Context) layout.Dimensions {
-				return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: i18n.CustodyQuantity, Disabled: !selected || d.previewing != nil})
-			})
-		}),
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+		}))
 	}
+	if c.incoming {
+		destination := c.scope.account.Name
+		if c.scope.holding.ID != "" {
+			for _, item := range c.sources.Holdings {
+				if item.Holding.ID == c.scope.holding.ID {
+					destination += " · " + item.Instrument.DisplayLabel()
+					break
+				}
+			}
+		}
+		fields = append(fields, static(fmt.Sprintf(l.Text(i18n.CustodyToFact), destination)))
+	} else {
+		var to []ui.Choice
+		for _, a := range c.sources.Accounts {
+			if a.ID != source.Account.ID && a.ID != c.scope.account.ID {
+				to = append(to, ui.Choice{ID: a.ID.String(), Label: a.Name})
+			}
+		}
+		fields = append(fields, field(func(gtx layout.Context) layout.Dimensions {
+			if lockedSource && d.focusInput && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &c.toPicker.Trigger})
+				d.focusInput = false
+			}
+			picker := ui.PickerField{Label: i18n.CustodyToAccount, Origin: *origin, Disabled: !selected || d.previewing != nil,
+				Next: &d.quantity.Editor}
+			if !lockedSource {
+				picker.Previous = &c.fromPicker.Trigger
+			}
+			c.toPicker.Layout(gtx, view, picker, ui.SelectOptions{Items: to, Searchable: true}, c.to.String(), func(id string) {
+				c.to, d.problem = domain.AccountID(id), i18n.NoMessage
+			})
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
+		}))
+	}
+	return append(fields, field(func(gtx layout.Context) layout.Dimensions {
+		return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: i18n.CustodyQuantity, Disabled: !selected || d.previewing != nil})
+	}))
+}
+
+func custodyHoldingLabel(view ui.View, item history.CustodyHolding) string {
+	return item.Instrument.SelectionLabel() + " · " + item.Account.Name + " · " + portfolioDecimal(view, item.Holding.Quantity.Canonical())
 }
 
 func (c *custodyTransferDraft) reviewFacts(view ui.View, preview domain.ChangePreview, fact func(i18n.MessageID, string) layout.FlexChild) []layout.FlexChild {

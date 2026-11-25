@@ -64,7 +64,7 @@ func LoadCustodySources(ctx context.Context, ledger InvestmentLedger) (out Custo
 		for _, account := range out.Accounts {
 			for _, h := range holdings[account.ID] {
 				instrument, ordinary := byID[h.InstrumentID]
-				if ordinary && h.ArchivedAt == nil && !h.Quantity.IsZero() {
+				if ordinary && h.ArchivedAt == nil {
 					out.Holdings = append(out.Holdings, CustodyHolding{Holding: h, Account: account, Instrument: instrument})
 				}
 			}
@@ -77,6 +77,7 @@ func LoadCustodySources(ctx context.Context, ledger InvestmentLedger) (out Custo
 type CustodyTransferInput struct {
 	From        domain.HoldingID
 	To          domain.AccountID
+	ToHolding   domain.HoldingID
 	Quantity    string
 	Note        string
 	Date        string
@@ -94,7 +95,7 @@ func ReviewCustodyTransfer(ctx context.Context, ledger InvestmentLedger, input C
 			}
 			request := historyapi.ChangeCommandRequest{
 				Kind: historyapi.ChangePositionTransfer, FromHoldingID: input.From.String(),
-				ToAccountID: input.To.String(), Quantity: strings.TrimSpace(input.Quantity),
+				ToAccountID: input.To.String(), ToHoldingID: input.ToHolding.String(), Quantity: strings.TrimSpace(input.Quantity),
 				EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,
 			}
 			if !input.EffectiveAt.IsZero() {

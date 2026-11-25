@@ -19,6 +19,7 @@ import (
 type accountInvestment struct {
 	service                                      history.InvestmentLedger
 	buy, sell, dividend, importOpen, custodyOpen widget.Clickable
+	custodyHoldings                              map[domain.HoldingID]*widget.Clickable
 	restore                                      *widget.Clickable
 	draft                                        *accountInvestmentDraft
 	onPosted                                     func(domain.Activity, i18n.MessageID, event.Tag)
@@ -108,8 +109,20 @@ func (p *accountsPage) canImportPosition() bool {
 	return p.canTradeAccount() && !p.current.beforeHistory
 }
 
+func (f *accountInvestment) custodyHoldingAction(tag event.Tag) bool {
+	for _, button := range f.custodyHoldings {
+		if tag == button {
+			return true
+		}
+	}
+	return false
+}
+
 func (f *accountInvestment) action(d *accountInvestmentDraft) *widget.Clickable {
 	if d.custody != nil {
+		if d.custody.scope.action != nil {
+			return d.custody.scope.action
+		}
 		return &f.custodyOpen
 	}
 	switch d.kind {

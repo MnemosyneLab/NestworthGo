@@ -132,7 +132,7 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 
 func (d *accountInvestmentDraft) investmentFieldsVisible() bool {
 	if d.custody != nil {
-		return d.custody.sources != nil && len(d.custody.sources.Holdings) != 0
+		return d.custody.available()
 	}
 	return d.sources != nil && len(d.sources.Instruments) != 0
 }

@@ -83,7 +83,7 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		run := p.investmentRuntime()
 		f.poll(run)
 		if f.draft == nil && p.custodyAvailable() && f.custodyOpen.Clicked(gtx) {
-			f.startCustody(run)
+			f.startCustody(run, custodyScope{})
 			view.RestorePageScroll(0)
 			gtx.Execute(op.InvalidateCmd{})
 		}
