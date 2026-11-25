@@ -27,6 +27,8 @@ type previewHarness struct {
 	ops     op.Ops
 	now     time.Time
 	size    image.Point
+	// scale is the pixel density used by frame; zero means one pixel per dp.
+	scale float32
 }
 
 func newShellHarness(t *testing.T) *previewHarness {
@@ -59,9 +61,17 @@ func (h *previewHarness) frame() {
 	h.now = h.now.Add(time.Second / 60)
 	h.shell.layout(layout.Context{
 		Ops: &h.ops, Source: h.router.Source(), Now: h.now,
-		Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Exact(h.size),
+		Metric: h.metric(), Constraints: layout.Exact(h.size),
 	})
 	h.router.Frame(&h.ops)
+}
+
+func (h *previewHarness) metric() unit.Metric {
+	scale := h.scale
+	if scale == 0 {
+		scale = 1
+	}
+	return unit.Metric{PxPerDp: scale, PxPerSp: scale}
 }
 
 func (h *previewHarness) click(label string, field bool) {
