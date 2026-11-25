@@ -395,8 +395,16 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		s.historyPage.reads.backToAccount = func() bool {
 			source := s.trail.adjacent(-1)
-			return source != nil && source.target.route == accountsRoute && s.accounts != nil &&
-				s.accounts.liabilityPosting != nil && source.focus == &s.accounts.liabilityPosting.open
+			if source == nil || source.target.route != accountsRoute || s.accounts == nil {
+				return false
+			}
+			if f := s.accounts.liabilityPosting; f != nil && source.focus == &f.open {
+				return true
+			}
+			if f := s.accounts.investment; f != nil {
+				return source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend
+			}
+			return false
 		}
 		s.historyPage.reads.back = func() {
 			if s.historyPage.reads.backToAccount() {

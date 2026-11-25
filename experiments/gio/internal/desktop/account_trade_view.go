@@ -25,7 +25,8 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 	labels := d.labels()
 	if !p.investmentUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
-		gtx.Execute(key.FocusCmd{Tag: f.action(d.kind)})
+		f.restore = f.action(d.kind)
+		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -39,6 +40,11 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 	}
 	if d.previewing == nil && d.preview.Clicked(gtx) {
 		p.previewInvestment()
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if d.sources != nil && d.previewing == nil && d.useNow.Clicked(gtx) {
+		d.captureTime(p.clock())
+		d.problem = i18n.NoMessage
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	origin := view.Origin
@@ -55,6 +61,13 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, d.layoutInvestmentInstrument(view, origin))
 			}),
+		)
+		if d.kind != domain.ActivityCashDividend && d.currency != "" && d.currency != d.account.DefaultCurrency {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return fieldPosition(gtx, &origin, view.Message(fmt.Sprintf(l.Text(i18n.TradeForeignSettlement), d.currency.String()), view.Colors.SecondaryInk))
+			}))
+		}
+		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view))
 			}),
@@ -63,6 +76,14 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 			}),
 			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), d.sources.Location), view.Colors.SecondaryInk)),
 		)
+		if d.kind != domain.ActivityCashDividend {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.Button(&d.useNow, l.Text(i18n.LiabilityUseNow)))
+			}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return d.note.Layout(gtx, view, ui.FieldOptions{Label: i18n.PreviewNotes, Hint: i18n.PreviewNotesHint, Disabled: d.previewing != nil})
+				}))
+		}
 	}
 	switch {
 	case d.loading != nil || d.previewing != nil:
@@ -103,6 +124,10 @@ func (d *accountInvestmentDraft) layoutInvestmentInstrument(view ui.View, origin
 		items = append(items, ui.Choice{ID: item.ID.String(), Label: label, SearchText: item.Name + " " + label})
 	}
 	return func(gtx layout.Context) layout.Dimensions {
+		if d.focusInput && d.instrument == "" && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: &d.selectInstrument.Trigger})
+			d.focusInput = false
+		}
 		field := ui.PickerField{Label: i18n.BuyInstrument, Origin: origin, Disabled: d.previewing != nil, Next: &d.quantity.Editor}
 		if d.kind == domain.ActivityCashDividend {
 			field.Next = &d.gross.Editor
@@ -116,24 +141,35 @@ func (d *accountInvestmentDraft) layoutInvestmentInstrument(view ui.View, origin
 
 func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		currency := d.account.DefaultCurrency.String()
+		if d.focusInput && d.instrument != "" && gtx.Enabled() {
+			if d.kind == domain.ActivityCashDividend {
+				d.gross.Focus(gtx)
+			} else {
+				d.quantity.Focus(gtx)
+			}
+			d.focusInput = false
+		}
+		currency := d.currency.String()
 		if d.kind == domain.ActivityCashDividend {
 			return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{
 				Label: i18n.DividendAmount, Help: i18n.DividendNetHint, Disabled: d.previewing != nil,
 			}, currency)
 		}
 		labels := d.labels()
-		return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: labels.quantity, Disabled: d.previewing != nil})
-			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{Label: labels.gross, Disabled: d.previewing != nil}, currency)
-			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: d.previewing != nil}, currency)
-			}),
-		)
+		disabled := d.previewing != nil || d.instrument == ""
+		if currency == "" {
+			currency = d.account.DefaultCurrency.String()
+		}
+		return (ui.Grid{MinColumn: 145, MaxColumns: 3, Gap: 8}).Layout(gtx, view, 3, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+			switch i {
+			case 0:
+				return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: labels.quantity, Disabled: disabled})
+			case 1:
+				return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{Label: labels.gross, Disabled: disabled}, currency)
+			default:
+				return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: disabled}, currency)
+			}
+		})
 	}
 }
 
@@ -150,7 +186,12 @@ func (d *accountInvestmentDraft) layoutInvestmentTime(gtx layout.Context, view u
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			timeOrigin = origin.Add(image.Pt(gtx.Constraints.Max.X+gtx.Dp(8), 0))
 			field := ui.PickerField{Label: i18n.PreviewEffectiveDate, Origin: origin, Disabled: d.previewing != nil, Next: &d.timePicker.Trigger}
-			d.datePicker.Layout(gtx, view, field, dates, d.day, func(day string) { d.day, d.problem = day, i18n.NoMessage })
+			d.datePicker.Layout(gtx, view, field, dates, d.day, func(day string) {
+				if day != d.day {
+					d.defaultTime = time.Time{}
+				}
+				d.day, d.problem = day, i18n.NoMessage
+			})
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -164,6 +205,7 @@ func (d *accountInvestmentDraft) layoutInvestmentTime(gtx layout.Context, view u
 			if d.kind == domain.ActivityCashDividend {
 				d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, setTime)
 			} else {
+				field.Next = &d.useNow
 				d.timePicker.LayoutSeconds(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, setTime)
 			}
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
@@ -175,7 +217,8 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 	d, l := p.investment.draft, view.Language
 	labels := d.labels()
 	if !p.investmentUnresolved() && d.edit.Clicked(gtx) {
-		d.review = nil
+		d.review, d.focusInput = nil, true
+		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -186,6 +229,11 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 	if d.posting == nil && confirm.Clicked(gtx) {
 		p.postInvestment()
 		gtx.Execute(op.InvalidateCmd{})
+	}
+	if d.focusReview && gtx.Enabled() {
+		gtx.Execute(key.FocusCmd{Tag: confirm})
+		view.RestorePageScroll(0)
+		d.focusReview = false
 	}
 	review := d.review
 	preview := review.Preview
@@ -215,6 +263,9 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 		}
 	} else {
 		children = append(children, d.investmentTradeFacts(gtx, view, fact)...)
+		if note := preview.Activity.Note; note != nil {
+			children = append(children, layout.Rigid(view.Message(*note, view.Colors.Ink)))
+		}
 	}
 	if d.uncertain {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))
@@ -283,9 +334,13 @@ func (d *accountInvestmentDraft) investmentTradeFacts(gtx layout.Context, view u
 	}
 	for _, endpoint := range preview.Review {
 		if endpoint.Target == domain.EffectTargetAccountCash {
+			delta := endpoint.Delta
+			if delta != "" && delta != "0" && !strings.HasPrefix(delta, "-") {
+				delta = "+" + delta
+			}
 			ledgerFacts = append(ledgerFacts,
 				fact(i18n.ContributionBefore, money(endpoint.Before)),
-				fact(i18n.BuyCashDelta, money(endpoint.Delta)),
+				fact(i18n.BuyCashDelta, money(delta)),
 				fact(i18n.ContributionAfter, money(endpoint.After)))
 		}
 	}

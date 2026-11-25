@@ -125,7 +125,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	label("Remaining quantity · 3")
 	label("Remaining cost basis · 81 USD")
 	label("Realized gain or loss · 15 USD")
-	label("Settlement cash change · 69 USD")
+	label("Settlement cash change · +69 USD")
 	label("Resulting balance · 134 USD")
 	partial := *d.review
 	bounds := semanticBounds(t, &h.router, "Confirm sell", false)
@@ -230,7 +230,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	assertState(service, ids, fault.firstActivity, "2", "70.125", "1.125", "3", "81", "15", "120", "134", "254", 1)
 	assertState(reference, ref, refPartial, "2", "70.125", "1.125", "3", "81", "15", "120", "134", "254", 1)
 	// A second sale in the same minute cannot yet produce a sequential basis.
-	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
+	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding, Currency: "USD",
 		Quantity: "3", Gross: "60", Fee: "2", Date: "2026-11-22", Time: "01:00"}
 	_, err := history.ReviewTrade(ctx, service, input)
 	var issue *domain.Error
@@ -247,7 +247,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	label("Remaining quantity · 0")
 	label("Remaining cost basis · 0 USD")
 	label("Realized gain or loss · -23 USD")
-	label("Settlement cash change · 58 USD")
+	label("Settlement cash change · +58 USD")
 	label("Resulting balance · 192 USD")
 	closing := *d.review
 	click("Confirm sell")
@@ -305,7 +305,7 @@ func TestSellBasisPreviewRejectsInsertionBeforeReversedPositionActivity(t *testi
 		t.Fatalf("test did not restore the original economic facts: %+v / %v", gain, err)
 	}
 
-	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
+	input := history.TradeInput{Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding, Currency: "USD",
 		Quantity: "1", Gross: "30", Date: "2026-11-22", Time: "00:30"}
 	_, err = history.ReviewTrade(ctx, service, input)
 	var issue *domain.Error

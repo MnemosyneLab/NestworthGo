@@ -17,30 +17,33 @@ import (
 type accountInvestment struct {
 	service             history.InvestmentLedger
 	buy, sell, dividend widget.Clickable
+	restore             *widget.Clickable
 	draft               *accountInvestmentDraft
 	onPosted            func(domain.Activity, i18n.MessageID, event.Tag)
 }
 
 type accountInvestmentDraft struct {
-	kind                         domain.ActivityKind
-	existing                     bool
-	account                      domain.Account
-	instrument                   domain.InstrumentID
-	quantity, gross, fee         ui.TextField
-	day, time                    string
-	defaultTime                  time.Time
-	selectInstrument             ui.Select
-	datePicker                   ui.DatePicker
-	timePicker                   ui.TimePicker
-	cancel, retry, preview, edit widget.Clickable
-	confirm, retryConfirm        widget.Clickable
-	sourceProblem, problem       i18n.MessageID
-	sources                      *history.InvestmentSources
-	loading                      <-chan historyResult[history.InvestmentSources]
-	previewing                   <-chan historyResult[history.ReviewedInvestment]
-	review                       *history.ReviewedInvestment
-	posting                      <-chan historyResult[domain.ChangePreview]
-	uncertain                    bool
+	kind                               domain.ActivityKind
+	existing                           bool
+	account                            domain.Account
+	instrument                         domain.InstrumentID
+	currency                           domain.CurrencyCode
+	quantity, gross, fee, note         ui.TextField
+	day, time                          string
+	defaultTime                        time.Time
+	selectInstrument                   ui.Select
+	datePicker                         ui.DatePicker
+	timePicker                         ui.TimePicker
+	cancel, retry, preview, edit       widget.Clickable
+	confirm, retryConfirm              widget.Clickable
+	useNow                             widget.Clickable
+	sourceProblem, problem             i18n.MessageID
+	sources                            *history.InvestmentSources
+	loading                            <-chan historyResult[history.InvestmentSources]
+	previewing                         <-chan historyResult[history.ReviewedInvestment]
+	review                             *history.ReviewedInvestment
+	posting                            <-chan historyResult[domain.ChangePreview]
+	uncertain, focusReview, focusInput bool
 }
 
 func (p *accountsPage) canFirstBuy() bool {
@@ -48,10 +51,18 @@ func (p *accountsPage) canFirstBuy() bool {
 }
 
 func (p *accountsPage) canSell() bool {
-	return p.hasInvestmentHolding(domain.ActivitySell)
+	if !p.canTradeAccount() {
+		return false
+	}
+	for _, holding := range p.current.holdings {
+		if holding.ArchivedAt == nil && !holding.Quantity.IsZero() && !p.current.managed[holding.InstrumentID] {
+			return true
+		}
+	}
+	return false
 }
 
-func (p *accountsPage) hasInvestmentHolding(kind domain.ActivityKind) bool {
+func (p *accountsPage) canRecordDividend() bool {
 	if !p.canTradeAccount() {
 		return false
 	}
@@ -67,7 +78,7 @@ func (p *accountsPage) hasInvestmentHolding(kind domain.ActivityKind) bool {
 			return false
 		}
 		h, ok := p.current.holdings[*component.HoldingID]
-		return ok && h.ArchivedAt == nil && (kind != domain.ActivitySell || !h.Quantity.IsZero())
+		return ok && h.ArchivedAt == nil
 	})
 }
 
@@ -131,17 +142,32 @@ func (d *accountInvestmentDraft) labels() tradeLabels {
 
 func (p *accountsPage) startInvestment(kind domain.ActivityKind) {
 	f := p.investment
-	f.draft = &accountInvestmentDraft{kind: kind, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account,
-		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true)}
+	f.draft = &accountInvestmentDraft{kind: kind, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account, focusInput: true,
+		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true), note: ui.NewTextField(true)}
 	p.loadInvestmentSources()
 }
 
 func (d *accountInvestmentDraft) chooseInstrument(id domain.InstrumentID) {
-	if d.instrument != id {
-		d.instrument, d.problem = id, i18n.NoMessage
+	var currency domain.CurrencyCode
+	for _, instrument := range d.sources.Instruments {
+		if instrument.ID == id {
+			currency = instrument.QuoteCurrency
+			break
+		}
+	}
+	if d.instrument != id || d.currency != currency {
+		d.instrument, d.currency, d.problem = id, currency, i18n.NoMessage
 		d.quantity.Editor.SetText("")
 		d.gross.Editor.SetText("")
 		d.fee.Editor.SetText("")
+	}
+}
+
+func (d *accountInvestmentDraft) captureTime(now time.Time) {
+	now = now.In(d.sources.Location)
+	d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
+	if d.kind != domain.ActivityCashDividend {
+		d.time, d.defaultTime = now.Format(time.TimeOnly), now
 	}
 }
 
@@ -165,8 +191,8 @@ func (p *accountsPage) previewInvestment() {
 		side = domain.TradeSell
 	}
 	input := history.TradeInput{Side: side, Account: d.account.ID, Instrument: d.instrument,
-		Holding: d.sources.Holdings[d.instrument].ID, Quantity: d.quantity.Text(),
-		Gross: d.gross.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time}
+		Holding: d.sources.Holdings[d.instrument].ID, Currency: d.currency, Quantity: d.quantity.Text(),
+		Gross: d.gross.Text(), Fee: d.fee.Text(), Note: d.note.Text(), Date: d.day, Time: d.time}
 	// Keep the actual default instant, including its sub-second position
 	// after History Origin. Edited wall times resolve in the Origin timezone.
 	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
@@ -216,15 +242,18 @@ func (p *accountsPage) pollInvestment() {
 			d.account = result.value.Account
 			d.existing = len(result.value.Holdings) > 0
 			if d.day == "" {
-				now := p.clock().In(result.value.Location)
-				d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
-				if d.kind != domain.ActivityCashDividend {
-					d.time, d.defaultTime = now.Format(time.TimeOnly), now
-				}
+				d.captureTime(p.clock())
 			}
 			if d.instrument != "" && !slices.ContainsFunc(result.value.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }) {
 				d.chooseInstrument("")
 				d.problem = i18n.BuyInstrumentUnavailable
+			}
+			if d.instrument != "" {
+				old := d.currency
+				d.chooseInstrument(d.instrument)
+				if d.currency != old {
+					d.problem = i18n.TradeCurrencyChanged
+				}
 			}
 			if len(result.value.Instruments) == 1 && d.instrument == "" {
 				d.chooseInstrument(result.value.Instruments[0].ID)
@@ -237,11 +266,11 @@ func (p *accountsPage) pollInvestment() {
 		d.previewing = nil
 		if result.err != nil {
 			d.problem = tradeProblem(result.err, labels, labels.previewFailed)
-			if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable {
+			if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable || d.problem == i18n.TradeCurrencyChanged {
 				p.loadInvestmentSources()
 			}
 		} else {
-			d.review = &result.value
+			d.review, d.focusReview = &result.value, true
 		}
 	default:
 	}
@@ -258,9 +287,10 @@ func (p *accountsPage) pollInvestment() {
 			// The shared service checks committed receipts before the
 			// guard, so this mutation can be discarded on a stale token.
 			d.review, d.uncertain, d.problem = nil, false, labels.stale
+			d.focusInput = true
 			p.loadInvestmentSources()
 		} else {
-			d.uncertain = true
+			d.uncertain, d.focusReview = true, true
 		}
 	default:
 	}
@@ -272,8 +302,8 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return fallback
 	}
 	switch issue.Field {
-	case "settlementCash":
-		return i18n.BuyCashRequired
+	case "grossCurrency":
+		return i18n.TradeCurrencyChanged
 	case "settlementAccountId", "holdings", "holdingId":
 		return labels.scope
 	case "saleSequence":
@@ -298,6 +328,8 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return i18n.BuyInvalidGross
 	case "fee":
 		return i18n.BuyInvalidFee
+	case "note":
+		return i18n.HistoryRepeatNoteTooLong
 	case "instrumentId":
 		return i18n.BuyInstrumentUnavailable
 	case "amount":

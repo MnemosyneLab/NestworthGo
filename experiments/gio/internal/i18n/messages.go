@@ -1412,6 +1412,8 @@ const (
 	BuyCostBasis
 	BuyCashDelta
 	BuySourcesFailed
+	TradeForeignSettlement
+	TradeCurrencyChanged
 	BuyScopeUnavailable
 	BuyHistoryRequired
 	BuyCashRequired

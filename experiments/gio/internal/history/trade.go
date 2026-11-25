@@ -15,7 +15,6 @@ type InvestmentLedger interface {
 	CashMovementLedger
 	WithRead(context.Context, func(context.Context) error) error
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
-	AccountValuations(context.Context, domain.AccountFilter) ([]domain.AccountValuation, error)
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
 	InstrumentProductOwnership(context.Context) (map[string]string, error)
 	PreviewExistingTradeCost(context.Context, domain.ChangePreview) (application.ExistingTradeCostPreview, error)
@@ -61,19 +60,6 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 	if err != nil {
 		return InvestmentSources{}, err
 	}
-	if kind == domain.ActivityBuy {
-		values, err := ledger.AccountValuations(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
-		if err != nil {
-			return InvestmentSources{}, err
-		}
-		// The pilot uses the account's default-currency sleeve. Historical
-		// spendable cash at the chosen time is checked by the trade command.
-		if len(values) != 1 || !slices.ContainsFunc(values[0].Components, func(row domain.ValuationComponent) bool {
-			return row.InstrumentID == nil && row.NativeCurrency == account.DefaultCurrency && row.NativeAmount != "" && row.NativeAmount != "0"
-		}) {
-			return InvestmentSources{}, &domain.Error{Code: domain.ErrInsufficientBalance, Field: "settlementCash"}
-		}
-	}
 	instruments, err := ledger.ListInstruments(ctx, false)
 	if err != nil {
 		return InvestmentSources{}, err
@@ -88,11 +74,11 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 			active[holding.InstrumentID] = holding
 		}
 	}
-	existingOnly := kind != domain.ActivityBuy || len(holdings[id]) != 0
 	instruments = slices.DeleteFunc(instruments, func(i domain.Instrument) bool {
 		_, owned := managed[i.ID.String()]
 		_, held := active[i.ID]
-		return owned || i.ArchivedAt != nil || i.QuoteCurrency != account.DefaultCurrency || (existingOnly && !held)
+		return owned || i.ArchivedAt != nil || (kind != domain.ActivityBuy && !held) ||
+			(kind == domain.ActivityCashDividend && i.QuoteCurrency != account.DefaultCurrency)
 	})
 	return InvestmentSources{Origin: origin, Location: location, Account: account, Instruments: instruments, Holdings: active}, nil
 }
@@ -102,9 +88,11 @@ type TradeInput struct {
 	Account     domain.AccountID
 	Instrument  domain.InstrumentID
 	Holding     domain.HoldingID
+	Currency    domain.CurrencyCode
 	Quantity    string
 	Gross       string
 	Fee         string
+	Note        string
 	Date        string
 	Time        string
 	EffectiveAt time.Time
@@ -137,15 +125,20 @@ func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput)
 			if err != nil {
 				return nil, err
 			}
-			if !slices.ContainsFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument }) {
+			at := slices.IndexFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument })
+			if at < 0 {
 				return nil, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId"}
+			}
+			currency := sources.Instruments[at].QuoteCurrency
+			if currency != input.Currency {
+				return nil, &domain.Error{Code: domain.ErrStalePreview, Field: "grossCurrency"}
 			}
 			holding, held := sources.Holdings[input.Instrument]
 			if holding.ID != input.Holding {
 				return nil, &domain.Error{Code: domain.ErrConflict, Field: "holdingId"}
 			}
 			existing = held
-			request, err := tradeRequest(input, sources.Account.DefaultCurrency, holding.ID)
+			request, err := tradeRequest(input, currency, holding.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -215,6 +208,9 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 	request = historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeTrade, Side: string(input.Side), SettlementAccountID: input.Account.String(), HoldingID: holding.String(),
 		InstrumentID: input.Instrument.String(), Quantity: quantity.Canonical(), Gross: gross.CanonicalAmount(), GrossCurrency: currency.String(),
+	}
+	if note := strings.TrimSpace(input.Note); note != "" {
+		request.Note = &note
 	}
 	if input.EffectiveAt.IsZero() {
 		request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time

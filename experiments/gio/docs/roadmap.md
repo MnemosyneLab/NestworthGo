@@ -1318,7 +1318,7 @@ History. The current-position list omits the zero position.
 | Linux X11 | Native Gio at 900×660 on Xvfb rejected an oversell, then confirmed a partial sale with a double click and navigated through the saved activity to the instrument and account. A second preview showed zero remaining quantity and cost and the USD 23 loss. After liquidation and normal reopen, Overview showed USD 192 and History retained four activities. Read-only SQLite confirmed two sales, one receipt per sale, exact cash and quantity projections, and unchanged Holding identity, buys and quote rows. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Existing-position buys](#same-currency-buys-into-an-existing-holding) follow this milestone. Backdated sale insertion, cross-currency settlement, opening positive positions, instrument maintenance and tax reporting remain separate. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Existing-position buys](#same-currency-buys-into-an-existing-holding) follow this milestone. [Foreign settlement](#trades-in-a-foreign-settlement-currency) and [opening positions](#multiple-opening-positions-and-native-costs) have later milestones. Backdated sale insertion, instrument maintenance and tax reporting remain separate. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
 
 #### Same-currency buys into an existing holding
 
@@ -1350,7 +1350,34 @@ confirmation.
 | Linux X11 | In native Gio at 900×660 on Xvfb, rejected a buy above the available cash including the fee. Double-clicked confirmation on the addition, sold part, liquidated, and used **Record buy** from the closed position. A normal quit and reopen showed five trade records, USD 100 position basis, USD 160 market value and USD 252 net worth. Read-only SQLite verified the original Holding ID, original acquisition and quotes, exact cash and quantity projections, and one receipt per new trade. A temporary build overlay seeded the verified synthetic profile with a controlled advancing clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go trade, gain, cost and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Cash dividends](#same-currency-cash-dividends) and [opening positions](#opening-position-and-original-cost) follow this milestone. Buying a new instrument in a populated account after History starts, backdated additions that change later cost replay, foreign-currency settlement and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Open evidence | [Cash dividends](#same-currency-cash-dividends) and [opening positions](#opening-position-and-original-cost) follow this milestone. The [foreign settlement milestone](#trades-in-a-foreign-settlement-currency) covers a new instrument in a populated account. Backdated additions that change later cost replay and instrument maintenance remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+
+#### Trades in a foreign settlement currency
+
+**Accounts → Holdings account → Record buy / Record sell** supports ordinary
+instruments quoted in a different currency than the account's default. The
+buy picker also offers unheld instruments on a populated account. A sale
+requires a positive holding. The instrument fixes the native currency for
+gross proceeds, fee and the signed settlement delta. The form names that
+currency and points to the separate **Record conversion** workflow when
+funding is needed. A buy spends the selected cash balance, including the fee,
+at the effective time. The shared replay also checks later recorded balances.
+The form carries an optional note and the precise effective time in the
+History Origin timezone. [Wails trade form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared trade and FX rules](../../../internal/domain/change.go)
+
+Preview shows native cash before and after, exact execution price and
+applicable position cost. Review freezes one mutation. A competing change
+requires another preview and preserves compatible input. Retrying an
+uncertain confirmation returns the committed activity and existing Holding
+ID. Cancel and Back from the linked Ledger receipt restore the entry action.
+The compact form stacks the amount editors and retains the currency labels.
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio parity | Independent Wails-format synthetic ledgers first rejected an unfunded EUR buy. A distinct USD 120.25 to EUR 100.125 conversion charged USD 0.1234. After a competing EUR deposit invalidated the first preview, three units bought for EUR 60.0001 plus EUR 0.0002 recorded an execution price of EUR 20.00003333 and a EUR −60.0003 cash delta. Selling 1.25 units for EUR 30.1251 less EUR 0.0001 recorded EUR +30.125 and left 1.75 units. Wails Go agreed on the command, linked holding, ledger and wallet balances across restart. The domestic holding and the USD wallet were unchanged by the EUR trades. |
+| Packaged Linux X11 | Posted a separate conversion and a buy at 1160×820, followed by a sale at 640×480. Selected the instrument and confirmed trades by keyboard. Back from each Ledger detail restored the initiating action. After quit and reopen, read-only SQLite showed exactly one conversion, one buy and one sale. The two trades shared a Holding ID, retained both EUR fees and left EUR 70.2497 and USD 79.6266. The unrelated domestic holding and its USD 40 quote remained intact. The untouched synthetic source database and settings matched their original hashes. |
+| Regression checks | The Gio tests covered cancel, stale review, note and civil-time handling, unchanged domestic positions, historical shortfall, duplicate confirmation and a lost response. The full Gio suite and vet, focused application/domain/Wails Go tests and four Wails frontend reference cases passed. |
+| Remaining coverage | Wails' optional market-price calculators in the trade form, more backdated additions or sales that change later cost replay, inline instrument creation, and foreign dividends remain open. Interactive Wails, native macOS, Wayland, VoiceOver and native IME were unrun. |
 
 #### Same-currency cash dividends
 
@@ -1431,7 +1458,7 @@ Origin with its opening components. Retry reads back that Origin.
 | Compact and failure coverage | The Gio suite verified a distinct accessible input for each position, duplicate pair exclusion, a changed quantity invalidating review, and retained cost input. A lost reply plus failed read was resolved by read-only Retry. |
 | Packaged Linux X11 | At 1160×820, Accounts saved 2.5 units of a USD security and 3.125 of a EUR security in the same brokerage. At 640×480, Tab moved between the costs. Cancel left both quantities and zero Origin rows. Confirmation and normal reopen retained one Origin with USD 0 and EUR 12.34567891 per unit, the USD 5.25 opening cash and zero activities. The USD 40 quote and the synthetic source hashes matched. |
 | Checks | Full Gio tests and vet, the standard Linux package, shared application vet, focused application and Wails History and Holding Go suites, and nine Wails frontend reference tests passed. |
-| Open scope | Managed and unavailable opening holdings, importing positions after History starts, cross-currency trade settlement, and in-form instrument creation remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Open scope | Managed and unavailable opening holdings, importing positions after History starts, and in-form instrument creation remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1614,16 +1641,16 @@ link focus, and Forward can reopen the same session. [Wails reconciliation list]
 
 #### Stage 5 review checkpoint
 
-The experimental shell now supports Holdings and instrument detail, same-currency
-buys including additions, partial sales and liquidation, cash dividends, and
-one pre-History opening position with cost. Available Funds has a Today view
+The experimental shell now supports Holdings and instrument detail, domestic
+and foreign-currency settlement for ordinary buys and sales, cash dividends in
+the default account currency, and multiple pre-History positions with native costs. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes cross-currency securities, instrument
-catalog maintenance, and wider investment lifecycle coverage. Product gaps
+Broader investment work still includes position imports after History starts,
+trade quote calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
@@ -2232,8 +2259,8 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with cross-currency trades, position imports after History
-starts and broader Holdings actions. Stage 4 still has additional Starting
+Continue Stage 5 with position imports after History starts and broader
+Holdings actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

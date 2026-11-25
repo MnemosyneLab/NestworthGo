@@ -158,7 +158,8 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	click("Harbor Brokerage")
 	click("Record buy")
 	d := accounts.investment.draft
-	if len(d.sources.Instruments) != 1 || d.sources.Holdings[d.instrument].ID != ids.holding {
+	chooseTradeInstrument(t, h, d, ids.instrument, settle)
+	if len(d.sources.Instruments) != 2 || d.sources.Holdings[d.instrument].ID != ids.holding {
 		t.Fatalf("picker offered an unexpected instrument: %+v", d.sources)
 	}
 	fields(d, "2", "155", "2")
@@ -236,7 +237,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	for _, side := range []domain.TradeSide{domain.TradeBuy, domain.TradeSell} {
 		for _, at := range []time.Time{now.Add(-time.Millisecond), now} {
 			_, err := history.ReviewTrade(ctx, app, history.TradeInput{
-				Side: side, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
+				Side: side, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding, Currency: "USD",
 				Quantity: "1", Gross: "40", Fee: "1", EffectiveAt: at,
 			})
 			var issue *domain.Error
@@ -257,7 +258,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	} {
 		now = accountTestClock.Add(time.Duration(sale.second) * time.Second)
 		plan, err := history.ReviewTrade(ctx, app, history.TradeInput{
-			Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding,
+			Side: domain.TradeSell, Account: ids.account, Instrument: ids.instrument, Holding: ids.holding, Currency: "USD",
 			Quantity: sale.qty, Gross: sale.gross, Fee: sale.fee, Date: "2026-11-22", Time: sale.at,
 		})
 		if err != nil {
@@ -278,6 +279,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 		t.Fatal("a liquidated holding became eligible for sell or a new first holding")
 	}
 	click("Record buy")
+	chooseTradeInstrument(t, h, accounts.investment.draft, ids.instrument, settle)
 	d = accounts.investment.draft
 	if holding := d.sources.Holdings[d.instrument]; holding.ID != ids.holding || !holding.Quantity.IsZero() {
 		t.Fatalf("closed holding was not selectable: %+v", holding)

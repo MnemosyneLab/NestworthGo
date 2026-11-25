@@ -232,6 +232,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 		if investment := s.accounts.investment; investment != nil {
 			investment.draft = nil
+			investment.restore = nil
 		}
 		if statement := s.accounts.statement; statement != nil {
 			statement.screen = nil

@@ -120,9 +120,10 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Harbor Brokerage")
 	click("Record first buy")
 	d := accounts.investment.draft
-	if len(d.sources.Instruments) != 1 || d.instrument != ids.instrument || d.day != "2026-11-22" || d.time != "01:00:00" {
+	if len(d.sources.Instruments) != 2 || d.instrument != "" || d.day != "2026-11-22" || d.time != "01:00:00" {
 		t.Fatalf("wrong eligible choices or History date and time: %+v", d)
 	}
+	chooseTradeInstrument(t, h, d, ids.instrument, settle)
 	setBankField(h, "Bought quantity", &d.quantity, "2.500000001")
 	setBankField(h, "Gross before fees · USD", &d.gross, "199")
 	setBankField(h, "Fee (optional) · USD", &d.fee, "1.2345")
@@ -176,6 +177,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	noBuy()
 
 	click("Record first buy")
+	chooseTradeInstrument(t, h, accounts.investment.draft, ids.instrument, settle)
 	d = accounts.investment.draft
 	setBankField(h, "Bought quantity", &d.quantity, "2.5")
 	setBankField(h, "Gross before fees · USD", &d.gross, "75.1234")
@@ -306,27 +308,37 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	}
 	assertFacts(reopened, ids, fault.firstActivity)
 	sources, err := history.LoadInvestmentSources(ctx, reopened, ids.account, domain.ActivityBuy)
-	if err != nil || len(sources.Instruments) != 1 || sources.Holdings[ids.instrument].Quantity.Canonical() != "2.5" {
+	if err != nil || len(sources.Instruments) != 2 || sources.Holdings[ids.instrument].Quantity.Canonical() != "2.5" {
 		t.Fatalf("recorded first buy did not become an eligible existing position: %+v / %v", sources, err)
 	}
 }
 
-func TestFirstBuyRejectsForeignSettlementAndSpentCash(t *testing.T) {
+func TestBuyChecksCashAndCurrencyAtEffectiveTime(t *testing.T) {
 	ctx := t.Context()
 	service, _, _, ids := openFirstBuyFixture(t)
-	input := history.TradeInput{Side: domain.TradeBuy, Account: ids.account, Instrument: ids.foreign, Quantity: "1", Gross: "5",
-		Date: "2026-11-22", Time: "01:00"}
+	input := history.TradeInput{Side: domain.TradeBuy, Account: ids.account, Instrument: ids.foreign, Currency: "USD", Quantity: "1", Gross: "5",
+		EffectiveAt: accountTestClock}
 	_, err := history.ReviewTrade(ctx, service, input)
 	var issue *domain.Error
-	if !errors.As(err, &issue) || issue.Field != "instrumentId" {
-		t.Fatalf("wrong rejection for foreign-currency instrument: %v", err)
+	if !errors.As(err, &issue) || issue.Code != domain.ErrStalePreview || issue.Field != "grossCurrency" {
+		t.Fatalf("input in the previous currency was reinterpreted: %v", err)
+	}
+	input.Currency = "EUR"
+	if _, err := history.ReviewTrade(ctx, service, input); !errors.As(err, &issue) || issue.Code != domain.ErrInsufficientBalance {
+		t.Fatalf("an unfunded foreign sleeve accepted a buy: %v", err)
 	}
 	if _, err := service.AppendAccountCashValue(ctx, ids.account, "0", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
-	_, err = history.LoadInvestmentSources(ctx, service, ids.account, domain.ActivityBuy)
-	if !errors.As(err, &issue) || issue.Code != domain.ErrInsufficientBalance || issue.Field != "settlementCash" {
-		t.Fatalf("historical cash made an unfunded account eligible: %v", err)
+	current := accountTestClock.Add(time.Minute)
+	service.SetClock(func() time.Time { return current })
+	input.Instrument, input.Currency, input.EffectiveAt = ids.instrument, "USD", current
+	if _, err := history.ReviewTrade(ctx, service, input); !errors.As(err, &issue) || issue.Code != domain.ErrInsufficientBalance {
+		t.Fatalf("spent cash accepted a current buy: %v", err)
+	}
+	input.EffectiveAt = accountTestClock.Add(-time.Hour)
+	if _, err := history.ReviewTrade(ctx, service, input); !errors.As(err, &issue) || issue.Code != domain.ErrInvalidChange {
+		t.Fatalf("a historical buy invalidating the later cash movement passed preview: %v", err)
 	}
 	rows, err := service.ListActivities(ctx, 50)
 	if err != nil || len(rows) != 1 || rows[0].Kind == domain.ActivityBuy {
@@ -353,6 +365,7 @@ func TestFirstBuyDefaultPreservesImmediateHistoryTime(t *testing.T) {
 	page.workers.Wait()
 	page.pollInvestment()
 	draft := page.investment.draft
+	draft.chooseInstrument(ids.instrument)
 	draft.quantity.Editor.SetText("1")
 	draft.gross.Editor.SetText("20")
 	page.previewInvestment()
@@ -365,4 +378,23 @@ func TestFirstBuyDefaultPreservesImmediateHistoryTime(t *testing.T) {
 	if err != nil || !result.Activity.EffectiveAt.Equal(now) {
 		t.Fatalf("post lost the default instant: %+v / %v", result.Activity, err)
 	}
+}
+
+func chooseTradeInstrument(t *testing.T, h *previewHarness, draft *accountInvestmentDraft, id domain.InstrumentID, settle func()) {
+	t.Helper()
+	h.click("Instrument", true)
+	settle()
+	for _, item := range draft.sources.Instruments {
+		if item.ID != id {
+			continue
+		}
+		label := item.SelectionLabel()
+		if holding, found := draft.sources.Holdings[id]; found {
+			label += " · Quantity " + holding.Quantity.Canonical()
+		}
+		h.click(label, false)
+		settle()
+		return
+	}
+	t.Fatalf("instrument was not offered: %s", id)
 }

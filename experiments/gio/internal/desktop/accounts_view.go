@@ -111,13 +111,13 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if f := p.investment; f != nil {
 		if f.draft == nil {
 			switch {
-			case (p.canFirstBuy() || p.hasInvestmentHolding(domain.ActivityBuy)) && f.buy.Clicked(gtx):
+			case p.canTradeAccount() && f.buy.Clicked(gtx):
 				p.startInvestment(domain.ActivityBuy)
 				gtx.Execute(op.InvalidateCmd{})
 			case p.canSell() && f.sell.Clicked(gtx):
 				p.startInvestment(domain.ActivitySell)
 				gtx.Execute(op.InvalidateCmd{})
-			case p.hasInvestmentHolding(domain.ActivityCashDividend) && f.dividend.Clicked(gtx):
+			case p.canRecordDividend() && f.dividend.Clicked(gtx):
 				p.startInvestment(domain.ActivityCashDividend)
 				gtx.Execute(op.InvalidateCmd{})
 			}
@@ -553,8 +553,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
-	firstBuy, existingBuy, sell := p.canFirstBuy(), p.hasInvestmentHolding(domain.ActivityBuy), p.canSell()
-	dividend := p.hasInvestmentHolding(domain.ActivityCashDividend)
+	buy, sell, dividend := p.canTradeAccount(), p.canSell(), p.canRecordDividend()
 	opening := p.canOpenPosition()
 	if p.opening != nil && p.opening.saved == a.ID {
 		rows = append(rows, view.Message(l.Text(i18n.OpeningPositionSaved), view.Colors.Ink))
@@ -564,22 +563,33 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
 		})
 	}
-	if firstBuy || existingBuy || sell || dividend {
+	if buy || sell || dividend {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				var actions []layout.FlexChild
-				if firstBuy || existingBuy {
+				f := p.investment
+				action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
+					return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						view.Focus.Watch(gtx, button)
+						if f.restore == button && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: button})
+							f.restore = nil
+						}
+						return view.Button(button, l.Text(label))(gtx)
+					})
+				}
+				if buy {
 					label := i18n.BuyOpen
-					if existingBuy {
+					if !p.canFirstBuy() {
 						label = i18n.BuyExistingOpen
 					}
-					actions = append(actions, layout.Rigid(view.Button(&p.investment.buy, l.Text(label))))
+					actions = append(actions, action(&f.buy, label))
 				}
 				if sell {
-					actions = append(actions, layout.Rigid(view.Button(&p.investment.sell, l.Text(i18n.SellOpen))))
+					actions = append(actions, action(&f.sell, i18n.SellOpen))
 				}
 				if dividend {
-					actions = append(actions, layout.Rigid(view.Button(&p.investment.dividend, l.Text(i18n.DividendOpen))))
+					actions = append(actions, action(&f.dividend, i18n.DividendOpen))
 				}
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
 			})
