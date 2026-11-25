@@ -1606,6 +1606,7 @@ const (
 	ReserveInvalidAmount
 	ReserveCurrentAvailability
 	ManagedProducts
+	ManagedProductsEmpty
 	ProductTermDeposit
 	ProductOpen
 	ProductPrincipal

@@ -1640,6 +1640,7 @@ var simplifiedChineseCatalog = catalog{
 	ReserveInvalidAmount:       "请输入正数金额，最多四位小数。",
 	ReserveCurrentAvailability: "当前可用 · %s",
 	ManagedProducts:            "受管产品",
+	ManagedProductsEmpty:       "尚无存款或产品。",
 	ProductTermDeposit:         "定期存款",
 	ProductOpen:                "打开产品 · %s",
 	ProductPrincipal:           "本金 · %s",

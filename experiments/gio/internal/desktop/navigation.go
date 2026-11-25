@@ -163,7 +163,17 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved()) {
+	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
+		return
+	}
+	if request.step == -1 && s.accounts != nil && s.activeRoute() == accountsRoute && s.accounts.productSetup != nil {
+		if d := s.accounts.productSetup; d.plan != nil {
+			d.plan, d.focus = nil, true
+		} else {
+			s.accounts.cancelProductSetup()
+		}
+		s.stage.Position = layout.Position{}
+		gtx.Execute(op.InvalidateCmd{})
 		return
 	}
 	if s.tasks != nil && s.tasks.holdingRecon.unresolved() {
@@ -172,7 +182,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.portfolio != nil && s.portfolio.investment.unresolved() {
 		return
 	}
-	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.productSetupUnresolved() || s.funds.productPage.receiptUnresolved()) {
+	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.receiptUnresolved()) {
 		return
 	}
 	entry := s.trail.current()
@@ -231,6 +241,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()
+		s.accounts.productSetup = nil
 		s.accounts.creation.discard()
 		if cash := s.accounts.cashBalance; cash != nil {
 			cash.draft = nil

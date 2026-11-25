@@ -1640,6 +1640,7 @@ var englishCatalog = catalog{
 	ReserveInvalidAmount:       "Enter a positive amount with up to four decimal places.",
 	ReserveCurrentAvailability: "Currently available · %s",
 	ManagedProducts:            "Managed products",
+	ManagedProductsEmpty:       "No products recorded.",
 	ProductTermDeposit:         "Term deposit",
 	ProductOpen:                "Open product · %s",
 	ProductPrincipal:           "Principal · %s",

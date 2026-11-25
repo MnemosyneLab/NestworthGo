@@ -24,6 +24,15 @@ import (
 
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
+	if d := p.productSetup; d != nil {
+		if !d.poll() {
+			return d.layout(gtx, view, p.productSetupCalendar(), p.cancelProductSetup)
+		}
+		p.cancelProductSetup()
+		p.productSaved = true
+		p.refresh()
+		view.RestorePageScroll(0)
+	}
 	if f := p.statement; f != nil {
 		row := p.freshDetail()
 		if f.screen == nil && row != nil && (p.target.statement != "" || f.open.Clicked(gtx)) {
@@ -630,7 +639,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		}
 	}
 	if row.value == nil {
-		return p.appendProducts(rows, view)
+		return p.appendProducts(rows, view, a)
 	}
 	value := row.value
 	issues := make(map[string]bool)
@@ -706,7 +715,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			rows = append(rows, investments...)
 		}
 	}
-	return p.appendProducts(rows, view)
+	return p.appendProducts(rows, view, a)
 }
 
 func (f *accountInvestment) accountPositionAction(gtx layout.Context, view ui.View, button *widget.Clickable, label string) layout.Dimensions {
@@ -751,15 +760,47 @@ func (p *accountsPage) holdingPositionActions(view ui.View, account domain.Accou
 	}
 }
 
-func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View) []layout.Widget {
-	if len(p.current.products) == 0 {
+func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, account domain.Account) []layout.Widget {
+	canAdd := p.productLedger != nil && domain.ProductAccountEligible(account) == nil
+	if len(p.current.products) == 0 && !canAdd {
 		return rows
 	}
-	rows = append(rows, accountLine(view, view.Language.Text(i18n.ManagedProducts)))
+	l := view.Language
+	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+			layout.Flexed(1, accountLine(view, l.Text(i18n.ManagedProducts))),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if !canAdd {
+					return layout.Dimensions{}
+				}
+				if p.request != nil || p.err != nil {
+					gtx = gtx.Disabled()
+				} else {
+					if p.restoreProductFocus {
+						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
+						p.restoreProductFocus = false
+					}
+					if p.addProduct.Clicked(gtx) {
+						p.startProductSetup(account, l.Text(i18n.ProductAddDeposit))
+						view.RestorePageScroll(0)
+						gtx.Execute(op.InvalidateCmd{})
+					}
+				}
+				view.Focus.Watch(gtx, &p.addProduct)
+				return view.Button(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
+			}))
+	})
+	if p.productSaved {
+		rows = append(rows, accountLine(view, l.Text(i18n.ProductSetupSaved)))
+	}
+	if len(p.current.products) == 0 {
+		rows = append(rows, accountLine(view, l.Text(i18n.ManagedProductsEmpty)))
+	}
 	for _, product := range p.current.products {
 		name, id := productName(product), product.Contract.ID
 		fields := []layout.Widget{
 			productState(view, product.Contract.Kind, product.DisplayState),
+			fundsAmount(view, i18n.ProductPrincipal, &product.Contract.Principal),
 			fundsAmount(view, i18n.ProductValue, product.CurrentValue),
 			productMaturity(view, product.Contract.MaturityOn),
 		}

@@ -1639,6 +1639,7 @@ var japaneseCatalog = catalog{
 	ReserveInvalidAmount:       "小数点以下4桁以内の正の金額を入力してください。",
 	ReserveCurrentAvailability: "現在の利用可能額 · %s",
 	ManagedProducts:            "管理対象商品",
+	ManagedProductsEmpty:       "預金や商品はまだありません",
 	ProductTermDeposit:         "定期預金",
 	ProductOpen:                "商品を開く · %s",
 	ProductPrincipal:           "元本 · %s",

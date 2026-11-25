@@ -11,11 +11,11 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
 
-func (p *availableFundsPage) layoutProductSetup(gtx layout.Context, view ui.View) layout.Dimensions {
-	d, l := p.setup, view.Language
+func (d *fundsProductSetup) layout(gtx layout.Context, view ui.View, calendar productFormCalendar, cancel func()) layout.Dimensions {
+	l := view.Language
 	gtx, view = view.Measure(gtx, 720)
-	if !p.productSetupUnresolved() && d.cancel.Clicked(gtx) {
-		p.setup, p.restoreAddFocus = nil, true
+	if !d.unresolved() && d.cancel.Clicked(gtx) {
+		cancel()
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -29,7 +29,7 @@ func (p *availableFundsPage) layoutProductSetup(gtx layout.Context, view ui.View
 				d.accountButtons[account.ID] = button
 			}
 			if button.Clicked(gtx) {
-				p.chooseProductAccount(account, l.Text(i18n.ProductAddDeposit))
+				d.chooseAccount(account, l.Text(i18n.ProductAddDeposit))
 				view.RestorePageScroll(0)
 				gtx.Execute(op.InvalidateCmd{})
 				break
@@ -44,19 +44,14 @@ func (p *availableFundsPage) layoutProductSetup(gtx layout.Context, view ui.View
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 	}
 	if d.plan != nil {
-		return p.layoutProductSetupReview(gtx, view)
+		return d.layoutReview(gtx, view)
 	}
 	if d.review.Clicked(gtx) {
-		p.reviewProductSetup()
+		d.requestReview()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	ready := d.preview == nil
 	origin := view.Origin
-	var calendar productFormCalendar
-	if p.current != nil {
-		overview := p.current.report.Overview
-		calendar = productFormCalendar{today: overview.LocalDate, zone: overview.Timezone}
-	}
 	rows := []layout.Widget{tradeTitle(view, i18n.ProductAddAction)}
 	rows = append(rows, d.form.fields(view, &origin, calendar, d.account.Name, &d.currency, d.cashValue(view), ready,
 		func(gtx layout.Context, field *ui.TextField) {
@@ -90,16 +85,15 @@ func (p *availableFundsPage) layoutProductSetup(gtx layout.Context, view ui.View
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
-func (p *availableFundsPage) layoutProductSetupReview(gtx layout.Context, view ui.View) layout.Dimensions {
-	d := p.setup
-	if !p.productSetupUnresolved() && d.edit.Clicked(gtx) {
+func (d *fundsProductSetup) layoutReview(gtx layout.Context, view ui.View) layout.Dimensions {
+	if !d.unresolved() && d.edit.Clicked(gtx) {
 		d.plan, d.focus = nil, true
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
 	if d.confirm.Clicked(gtx) {
-		p.postProductSetup()
+		d.confirmReview()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if d.focus {

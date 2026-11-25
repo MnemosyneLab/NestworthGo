@@ -34,13 +34,16 @@ func (f *fundsSetupFault) RecordProductOperation(ctx context.Context, command ap
 	return receipt, err
 }
 
-func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
-	for _, existing := range []bool{false, true} {
-		name := "opening"
-		if existing {
-			name = "record existing"
-		}
-		t.Run(name, func(t *testing.T) {
+func TestStandaloneProductSetupMatchesWails(t *testing.T) {
+	for _, entry := range []struct {
+		name              string
+		account, existing bool
+	}{
+		{"funds opening", false, false}, {"funds record existing", false, true},
+		{"account opening", true, false}, {"account record existing", true, true},
+	} {
+		t.Run(entry.name, func(t *testing.T) {
+			existing := entry.existing
 			ctx := t.Context()
 			app, session, paths, ids := openExistingBuyFixture(t)
 			ref, refSession, refPaths, refIDs := openExistingBuyFixture(t)
@@ -74,7 +77,15 @@ func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
 			funds := newAvailableFundsPage(ctx, app, func() {})
 			funds.productLedger, funds.productClock = fault, clock
 			funds.productPage = newProductDetailPage(ctx, app, func() {})
-			h := newShellHarnessWithPages(t, ledgerPages{funds: funds, version: app.MobileDataVersion})
+			accounts := newAccountsPage(ctx, app, clock, func() {})
+			accounts.productLedger = fault
+			h := newShellHarnessWithPages(t, ledgerPages{funds: funds, accounts: accounts, version: app.MobileDataVersion})
+			setup := func() *fundsProductSetup {
+				if entry.account {
+					return accounts.productSetup
+				}
+				return funds.setup
+			}
 			h.size = image.Pt(665, 660)
 			h.shell.prefs.saved.Language = settings.LanguageEnglish
 			settle := func() {
@@ -82,6 +93,7 @@ func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
 					h.frame()
 					funds.workers.Wait()
 					funds.productPage.workers.Wait()
+					accounts.workers.Wait()
 				}
 			}
 			click := func(label string) {
@@ -96,14 +108,33 @@ func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
 			}
 			label := func(s string) { t.Helper(); assertPageLabel(t, &h.router, s) }
 			settle()
-			click("Available funds")
+			if entry.account {
+				click("Accounts")
+				click("Harbor Brokerage")
+			} else {
+				click("Available funds")
+			}
+			entryButton := &funds.addProduct
+			if entry.account {
+				entryButton = &accounts.addProduct
+			}
+			seekAddProduct := func() {
+				t.Helper()
+				if entry.account {
+					for attempts := 0; attempts < 12 && findPageLabel(&h.router, "Add product") == nil; attempts++ {
+						accounts.list.ScrollBy(2)
+						settle()
+					}
+				}
+			}
 			const principal, start, maturity, fee = "50.1234", "2026-11-23", "2026-12-23", "0.0123"
 			const title = "Synthetic available funds product"
 			fill := func() *fundsProductSetup {
 				t.Helper()
+				seekAddProduct()
 				click("Add product")
-				d := funds.setup
-				if existing {
+				d := setup()
+				if existing && !entry.account {
 					label("Choose account")
 					if len(d.choices) != 2 || findPageLabel(&h.router, "Physical wallet") != nil || findPageLabel(&h.router, "Archived Brokerage") != nil {
 						t.Fatalf("incorrect account choices: %+v", d.choices)
@@ -151,14 +182,21 @@ func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
 			}
 			d := fill()
 			click("Review")
-			click("Back to details")
+			if entry.account {
+				click("Back to Accounts")
+				if accounts.target.account != ids.account || setup() != d {
+					t.Fatal("Back left the originating account detail")
+				}
+			} else {
+				click("Back to details")
+			}
 			h.focused(&d.form.principal.Editor)
 			if d.form.principal.Text() != principal {
 				t.Fatal("back discarded product input")
 			}
 			click("Review")
 			click("Cancel")
-			h.focused(&funds.addProduct)
+			h.focused(entryButton)
 			noWrite()
 
 			d = fill()
@@ -168,7 +206,7 @@ func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
 			h.press(key.NameReturn)
 			settle()
 			noWrite()
-			if d.plan != nil || d.form.principal.Text() != principal || funds.productSetupUnresolved() {
+			if d.plan != nil || d.form.principal.Text() != principal || setup().unresolved() {
 				t.Fatal("stale product review lost the draft")
 			}
 			h.focused(&d.form.principal.Editor)
@@ -202,15 +240,15 @@ func TestAvailableFundsProductSetupMatchesWails(t *testing.T) {
 			fault.loseNext = true
 			h.press(key.NameReturn)
 			settle()
-			if !funds.productSetupUnresolved() || d.plan.mutation.String() != plan {
+			if !setup().unresolved() || d.plan.mutation.String() != plan {
 				t.Fatal("lost acknowledgement did not retain the posted plan")
 			}
 			h.press(key.NameReturn)
 			settle()
-			if !fault.replayed || !reflect.DeepEqual(fault.plans, []string{stale, plan, plan}) || funds.setup != nil {
+			if !fault.replayed || !reflect.DeepEqual(fault.plans, []string{stale, plan, plan}) || setup() != nil {
 				t.Fatalf("product did not replay exactly once: %+v", fault.plans)
 			}
-			h.focused(&funds.addProduct)
+			h.focused(entryButton)
 			label("Product recorded.")
 			if err := session.Close(); err != nil {
 				t.Fatal(err)

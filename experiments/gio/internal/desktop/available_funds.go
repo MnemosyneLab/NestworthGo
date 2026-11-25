@@ -144,11 +144,15 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
-	if p.setup != nil {
-		p.pollProductSetup()
-		if p.setup != nil {
-			return p.layoutProductSetup(gtx, view)
+	if d := p.setup; d != nil {
+		if !d.poll() {
+			overview := p.current.report.Overview
+			return d.layout(gtx, view, productFormCalendar{today: overview.LocalDate, zone: overview.Timezone}, func() {
+				p.setup, p.restoreAddFocus = nil, true
+			})
 		}
+		p.setup, p.productSaved, p.restoreAddFocus = nil, true, true
+		p.read()
 		view.RestorePageScroll(0)
 	}
 	if p.reservation != nil {
@@ -162,7 +166,9 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 	l := view.Language
 	accounts := p.productAccounts()
 	if len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
-		p.startProductSetup(accounts, l.Text(i18n.ProductAddDeposit))
+		p.productSaved = false
+		run := productSetupRuntime{ctx: p.ctx, ledger: p.productLedger, clock: p.productClock, workers: &p.workers, invalidate: p.invalidate}
+		p.setup = newProductSetup(run, accounts, l.Text(i18n.ProductAddDeposit))
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}

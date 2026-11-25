@@ -45,6 +45,7 @@ type accountsResult struct {
 	products      []application.ProductDetail
 	unavailable   bool
 	beforeHistory bool
+	historyZone   *time.Location
 	readAt        time.Time
 	err           error
 }
@@ -139,6 +140,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			return
 		}
 		result.beforeHistory = origin == nil
+		if origin != nil {
+			result.historyZone, _ = time.LoadLocation(origin.Timezone)
+		}
 		holdings, err := service.HoldingsByAccounts(ctx, filter.AccountIDs)
 		if err != nil {
 			result.err = err
@@ -154,11 +158,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			return
 		}
 		result.managed = make(map[domain.InstrumentID]bool, len(products))
+		result.products = products
 		for _, product := range products {
 			result.managed[product.Contract.InstrumentID] = true
-			if product.Contract.Kind == domain.ProductTermDeposit {
-				result.products = append(result.products, product)
-			}
 		}
 	}
 	return
@@ -272,6 +274,10 @@ type accountsPage struct {
 	openInstrument                     func(domain.InstrumentID, string, event.Tag)
 	openProduct                        func(domain.ProductContractID, string, event.Tag)
 	productButtons                     map[domain.ProductContractID]*widget.Clickable
+	productLedger                      fundsProductLedger
+	productSetup                       *fundsProductSetup
+	addProduct                         widget.Clickable
+	restoreProductFocus, productSaved  bool
 	backToList                         func()
 	creation                           *balanceAccountCreation
 	createBank, createLiability        widget.Clickable
@@ -298,6 +304,7 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.target, p.archived, p.position = target, archived, position
 	p.list.Position = position
 	p.current, p.err, p.rows = nil, nil, nil
+	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
 	p.invalid = !validAccountTarget(target)
 	p.read()
 }

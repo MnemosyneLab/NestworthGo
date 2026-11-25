@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"sync"
 	"time"
 
 	"gioui.org/widget"
@@ -21,7 +22,16 @@ type fundsProductLedger interface {
 	RecordProductOperation(context.Context, application.ProductCommand, string, string) (application.ProductOperationReceipt, error)
 }
 
+type productSetupRuntime struct {
+	ctx        context.Context
+	ledger     fundsProductLedger
+	clock      func() time.Time
+	workers    *sync.WaitGroup
+	invalidate func()
+}
+
 type fundsProductSetup struct {
+	runtime          productSetupRuntime
 	account          domain.Account
 	choices          []domain.Account
 	accountButtons   map[domain.AccountID]*widget.Clickable
@@ -54,26 +64,24 @@ func (p *availableFundsPage) productAccounts() []domain.Account {
 	return eligible
 }
 
-func (p *availableFundsPage) startProductSetup(accounts []domain.Account, defaultName string) {
-	p.productSaved = false
-	p.setup = &fundsProductSetup{choices: accounts, focus: true, accountButtons: make(map[domain.AccountID]*widget.Clickable)}
+func newProductSetup(runtime productSetupRuntime, accounts []domain.Account, defaultName string) *fundsProductSetup {
+	d := &fundsProductSetup{runtime: runtime, choices: accounts, focus: true, accountButtons: make(map[domain.AccountID]*widget.Clickable)}
 	if len(accounts) == 1 {
-		p.chooseProductAccount(accounts[0], defaultName)
+		d.chooseAccount(accounts[0], defaultName)
 	}
+	return d
 }
 
-func (p *availableFundsPage) chooseProductAccount(account domain.Account, defaultName string) {
-	d := p.setup
+func (d *fundsProductSetup) chooseAccount(account domain.Account, defaultName string) {
 	d.account, d.currency, d.form = account, account.DefaultCurrency.String(), newHoldingProductAdd(defaultName)
 	d.focus = true
-	p.readProductCash()
+	d.readCash()
 }
 
-func (p *availableFundsPage) readProductCash() {
-	d := p.setup
-	accountID := d.account.ID
-	d.cash, d.cashRead = nil, runHistoryRead(&p.workers, p.invalidate, func() ([]domain.AccountValuation, error) {
-		return p.productLedger.AccountValuations(p.ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{accountID}})
+func (d *fundsProductSetup) readCash() {
+	run, accountID := d.runtime, d.account.ID
+	d.cash, d.cashRead = nil, runHistoryRead(run.workers, run.invalidate, func() ([]domain.AccountValuation, error) {
+		return run.ledger.AccountValuations(run.ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{accountID}})
 	})
 }
 
@@ -92,8 +100,8 @@ func (d *fundsProductSetup) cashValue(view ui.View) string {
 	return holdingSnapshotValue(view, "0", d.currency)
 }
 
-func (p *availableFundsPage) reviewProductSetup() {
-	d := p.setup
+func (d *fundsProductSetup) requestReview() {
+	run := d.runtime
 	if d.preview != nil {
 		return
 	}
@@ -103,35 +111,33 @@ func (p *availableFundsPage) reviewProductSetup() {
 		return
 	}
 	d.problem = i18n.NoMessage
-	d.preview = runHistoryRead(&p.workers, p.invalidate, func() (productReceiptPlan, error) {
+	d.preview = runHistoryRead(run.workers, run.invalidate, func() (productReceiptPlan, error) {
 		if open := command.Open; open != nil && open.EffectiveLocalDate == "" && open.EffectiveLocalTime == "" {
 			// Opening supports an exact instant. Keep the reviewed instant on retries.
 			// Record existing instead uses the service's recording time.
-			open.EffectiveAt = p.productClock().UTC().Format(time.RFC3339Nano)
+			open.EffectiveAt = run.clock().UTC().Format(time.RFC3339Nano)
 		}
-		review, err := p.productLedger.PreviewProductOperation(p.ctx, command)
+		review, err := run.ledger.PreviewProductOperation(run.ctx, command)
 		return productReceiptPlan{command: command, review: review, mutation: domain.NewProductOperationID()}, err
 	})
 }
 
-func (p *availableFundsPage) postProductSetup() {
-	d := p.setup
+func (d *fundsProductSetup) confirmReview() {
+	run := d.runtime
 	if d.post != nil || d.plan == nil {
 		return
 	}
 	plan := *d.plan
-	d.post = runHistoryRead(&p.workers, p.invalidate, func() (application.ProductOperationReceipt, error) {
-		return p.productLedger.RecordProductOperation(p.ctx, plan.command, plan.mutation.String(), plan.review.ReviewedStateHash)
+	d.post = runHistoryRead(run.workers, run.invalidate, func() (application.ProductOperationReceipt, error) {
+		return run.ledger.RecordProductOperation(run.ctx, plan.command, plan.mutation.String(), plan.review.ReviewedStateHash)
 	})
 }
 
-func (p *availableFundsPage) productSetupUnresolved() bool {
-	d := p.setup
+func (d *fundsProductSetup) unresolved() bool {
 	return d != nil && (d.post != nil || d.uncertain)
 }
 
-func (p *availableFundsPage) pollProductSetup() {
-	d := p.setup
+func (d *fundsProductSetup) poll() bool {
 	select {
 	case result := <-d.cashRead:
 		d.cashRead = nil
@@ -157,19 +163,18 @@ func (p *availableFundsPage) pollProductSetup() {
 		d.post = nil
 		if result.err == nil && result.value.OperationID == d.plan.mutation && result.value.Kind == d.plan.command.Kind &&
 			len(result.value.ProductIDs) == 1 && len(result.value.ActivityIDs) != 0 {
-			p.setup, p.productSaved, p.restoreAddFocus = nil, true, true
-			p.read()
-			return
+			return true
 		}
 		if problem := productSetupProblem(result.err); problem != i18n.ProductAddFailed {
 			// The shared service checks for an existing receipt before business validation.
 			d.plan, d.uncertain, d.problem, d.focus = nil, false, problem, true
-			p.readProductCash()
+			d.readCash()
 		} else {
 			d.uncertain, d.focus = true, true
 		}
 	default:
 	}
+	return false
 }
 
 func productSetupProblem(err error) i18n.MessageID {
