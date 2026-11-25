@@ -37,6 +37,12 @@ func TestPresentationCopyUsesCatalog(t *testing.T) {
 				if name == "internal/snapshot" {
 					return fs.SkipDir
 				}
+				// The developer-only chart gallery renders synthetic English
+				// sample data to check shared chart components. It is not part
+				// of the household UI and never ships in the application.
+				if name == "tools/chartgallery" {
+					return fs.SkipDir
+				}
 				if _, err := fs.Stat(tree, path.Join(name, "go.mod")); err == nil {
 					return fs.SkipDir
 				} else if !errors.Is(err, fs.ErrNotExist) {
