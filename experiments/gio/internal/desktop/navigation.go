@@ -266,6 +266,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.assets.leave()
 	}
 	if entry.target.route == marketDataRoute {
+		s.marketData.closeMarketOperation()
 		s.marketData.leave()
 	}
 	if entry.target.route == dataHealthRoute {

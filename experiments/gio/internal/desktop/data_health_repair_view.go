@@ -81,8 +81,7 @@ func (p *dataHealthPage) repairProgress(gtx layout.Context, view ui.View) layout
 	if status := syncOutcomeLabel(job.Outcome); status != i18n.NoMessage {
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(status), view.Colors.Ink)))
 	}
-	progress := fmt.Sprintf(l.Text(i18n.HealthRepairProgress), job.CompletedRequests, job.EstimatedRequests,
-		job.CompletedTargets, job.TargetCount, job.SnapshotDaysRebuilt, job.SnapshotDaysPlanned)
+	progress := syncJobCounts(view, job)
 	rows = append(rows, ui.Rigid(view.Message(progress, view.Colors.SecondaryInk)))
 	if job.Outcome == application.SyncOutcomeRunning {
 		if r.cancelRead == nil && r.cancel.Clicked(gtx) {

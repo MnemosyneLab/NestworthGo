@@ -26,12 +26,12 @@ func newAnalysisSheet() analysisSheet {
 	return analysisSheet{focus: true, list: widget.List{List: layout.List{Axis: layout.Vertical}}}
 }
 
-func (s *analysisSheet) dismissed(gtx layout.Context) bool {
+func (s *analysisSheet) dismissed(gtx layout.Context, extra ...event.Tag) bool {
 	if s.focus {
 		s.focus = false
 		gtx.Execute(key.FocusCmd{Tag: &s.close})
 	}
-	for _, tag := range []*widget.Clickable{&s.close, &s.retry, &s.action} {
+	for _, tag := range append([]event.Tag{&s.close, &s.retry, &s.action, &s.list}, extra...) {
 		for _, press := range ui.PressedKeys(gtx, tag, key.NameEscape, key.NamePageUp, key.NamePageDown) {
 			switch press.Name {
 			case key.NameEscape:

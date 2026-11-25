@@ -1863,10 +1863,10 @@ with currency pairs from Overview's missing FX inputs. Each row distinguishes
 the configured source from the selected local observation and shows amount
 or rate, quote direction, as-of information and explicit absence. Back and
 Forward preserve the tab, search and scroll.
-[Manual price and FX entry](#manual-instrument-price-and-fx-entry) follows this
-read milestone. Quote history, source configuration and provider operations
-remain open.
-The current reload action refreshes the local view.
+[Manual price and FX entry](#manual-instrument-price-and-fx-entry) and
+[explicit provider refresh](#explicit-current-refresh-and-historical-sync)
+follow this read milestone. Quote history and inline source configuration
+remain open. Reload saved data refreshes the local view.
 
 | Check | Evidence |
 | --- | --- |
@@ -1969,7 +1969,7 @@ observation separately from the currently selected quote.
 | Shared Go and Wails | Focused application, quote and Market Data adapter tests passed. All 83 Wails Market Data, Instrument Management, Data Health and Snapshot Repair frontend tests passed. A synthetic repository failure after the FX insert verified that the committed observation remains readable by its ID and that the legacy API still returns its original error result. |
 | Gio regression | An unquoted instrument and a focused JPY/USD prerequisite opened with the expected defaults. Escape and invalid attempts appended nothing. A stored USD 12.34567891 price and 1 JPY = 0.006789012345 USD reopened through the Wails quote adapter with their Asia/Singapore dates. Their exact shared known subtotal was USD 31.480370165. The SGD prerequisite and existing snapshot rows remained unchanged. A scripted failure verified keyboard Retry, disabled overlapping submissions and the committed-rate warning. The two Gio manual tests and the Ledger refresh regression passed 15 consecutive runs. The Ledger fixture exercises the live valuation read independently from background trend publication and keeps its five version assertions. |
 | Packaged Linux X11 | At 640×480, Escape cancelled a typed price. The form retained the rejected nine-decimal text, then saved USD 12.34567891 for November 24 selected by keyboard. An injected SQLite insert failure retained 1 JPY = 0.006789012345 USD. A double-click on Retry appended exactly one manual observation. On a normal reopen, both quote values were readable in Market Data. Overview showed USD 31.48 known and the missing SGD rate. Authoritative account, activity and holding rows and snapshot rows matched before and after entry. The untouched source database and settings retained their hashes. |
-| Checks and remaining work | Full Gio tests and vet and the packaged Linux launcher passed. Native Mac, Wayland, VoiceOver, IME and interactive Wails remain open. Instrument and source management, quote history, explicit provider refresh and detailed historical sync remain open. The Overview home action placement is separate. No benchmark was run. |
+| Checks and remaining work | Full Gio tests and vet and the packaged Linux launcher passed. Native Mac, Wayland, VoiceOver, IME and interactive Wails remain open. Instrument and source management and quote history remain open. The Overview home action placement is separate. No benchmark was run. |
 
 The focused Data Health follow-up preserves the finding's own date when it
 is undated or lies outside the current coverage scope. An overlapping focus
@@ -1981,6 +1981,33 @@ Overview, Escape, Back and keyboard reopening on a copy with zero stored
 quotes. Both quote tables remained empty and the source hashes matched.
 All 47 Wails Data Health, Snapshot Repair and Market Data reference tests
 passed for this checkpoint.
+
+#### Explicit current refresh and historical sync
+
+Market data shows **Update latest data** above the Instruments and FX rates
+tabs. **More actions** contains **Sync and repair**, **Force refresh all**
+and the shared Market data settings shortcut. Provider-backed instrument
+and FX rows can update their own quote or preview scoped historical repair.
+The row keeps the saved source, and refresh uses the configured provider.
+Gio presents instrument sync with the same preview as FX and global repair
+so the target, ranges and estimated work are visible before confirmation.
+The Wails instrument editor starts its row sync directly.
+
+The global preview can be recalculated with **Force historical recheck**.
+Preview is local and only **Start sync** starts the shared historical job.
+Current refresh uses the shared per-request cancellation and retries the
+same scope. Historical retry previews the same scope again. Both paths
+show progress, safe per-target results and remaining prerequisites. A
+terminal operation rereads the active saved quote or health evidence.
+Historical snapshot progress shows the number rebuilt and the initial
+estimate separately because newly fetched inputs can dirty additional days.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | A real SQLite application service with deterministic providers covered current cancellation without a quote, overlapping-operation fencing, retry with one success and one failure, a forced refresh, and readback of exact rates and provider provenance. Instrument-only refresh stored USD 17.12345678 without making an FX request. The scoped instrument and JPY/USD previews matched the Wails Go adapter. Escape and keyboard reopening restored the same scoped preview, global forced preview recalculated locally, and cancelling and retrying JPY/USD committed a dated 139.123456 rate while leaving SGD unresolved. Settings Back restored the FX tab and control. |
+| Wails reference | The 47 existing frontend tests across Market Data, the sync bar, Data Health and Snapshot Repair and the focused shared application and Wails adapter refresh, sync and health tests passed. |
+| Packaged Linux X11 | At 1260×1050, cancelling and retrying current refresh displayed one updated and one failed target. JPY/USD showed 140.4321 with Frankfurter provenance and SGD/USD stayed missing. At 640×480, Escape dismissed the JPY/USD historical preview and Return reopened it. After confirming, cancelling and retrying the same historical job, the copy had 11 dated JPY/USD observations at 139.123456 and the original latest observation. The shared job reported unresolved findings and four rebuilt snapshot days versus an initial estimate of zero. Source database and settings hashes matched. This launch substituted a deterministic provider at build time. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. Gio still needs quote history, inline instrument and FX source management, Agent evidence and provider repair launched directly from a Data Health finding. Wails GUI, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
 
 #### Additional analysis filters and effective dates
 

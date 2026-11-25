@@ -8,10 +8,12 @@ import (
 	"strings"
 	"sync"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -58,22 +60,30 @@ type marketDataResult struct {
 }
 
 type marketDataPage struct {
-	ctx        context.Context
-	reader     marketDataReader
-	invalidate func()
-	workers    sync.WaitGroup
-	cancel     context.CancelFunc
-	request    <-chan historyResult[marketDataResult]
-	current    [2]*marketDataResult
-	err        error
-	tab        marketTab
-	tabs       [2]widget.Clickable
-	search     ui.SearchField
-	reload     widget.Clickable
-	health     widget.Clickable
-	openHealth func(*widget.Clickable)
-	list       [2]widget.List
-	manual     marketManualQuotes
+	ctx                                 context.Context
+	reader                              marketDataReader
+	invalidate                          func()
+	workers                             sync.WaitGroup
+	cancel                              context.CancelFunc
+	request                             <-chan historyResult[marketDataResult]
+	current                             [2]*marketDataResult
+	err                                 error
+	tab                                 marketTab
+	tabs                                [2]widget.Clickable
+	search                              ui.SearchField
+	reload                              widget.Clickable
+	health                              widget.Clickable
+	openHealth                          func(*widget.Clickable)
+	list                                [2]widget.List
+	manual                              marketManualQuotes
+	latest                              marketLatest
+	sync                                *dataHealthRepair
+	operation                           *marketOperationSheet
+	previewSync, syncDetails, retrySync widget.Clickable
+	lastSync                            application.SyncRequest
+	quoteActions                        map[string]*widget.Clickable
+	providerSettings                    widget.Clickable
+	openProviderSettings                func(event.Tag)
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {

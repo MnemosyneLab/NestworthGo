@@ -259,6 +259,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			}
 		}
 	}
+	if s.marketData != nil {
+		s.marketData.openProviderSettings = func(from event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: from, providerSettings: true}
+		}
+	}
 	if s.overviewPage != nil && s.wealthHistory != nil && s.historyPage != nil {
 		s.overviewPage.openHistory = func(started bool, focus event.Tag) {
 			route := historyRoute
@@ -504,7 +509,18 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() {
+	if s.marketData != nil && s.marketData.updateLatest() {
+		s.refreshLedgerReads()
+		switch s.activeRoute() {
+		case marketDataRoute:
+			s.marketData.read()
+		case dataHealthRoute:
+			if s.dataHealth != nil {
+				s.dataHealth.read()
+			}
+		}
+	}
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -575,6 +591,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.dataHealth.layoutRepair(windowContext, view)
 	} else if s.snapshotRepairOpen() {
 		s.dataHealth.layoutSnapshotRebuild(windowContext, view)
+	} else if s.marketOperationOpen() {
+		if source := s.marketData.layoutMarketOperation(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+		}
 	} else if s.manualQuoteOpen() {
 		if source, receipt := s.marketData.layoutManualQuote(windowContext, view); source != nil {
 			s.trail.current().focus, s.restoreFocus = source, true
@@ -606,7 +626,8 @@ func (s *shell) returnDetailOpen() bool {
 }
 
 func (s *shell) healthRepairOpen() bool {
-	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.repair != nil && s.dataHealth.repair.plan != nil
+	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.repair != nil &&
+		s.dataHealth.repair.owner == dataHealthRoute && s.dataHealth.repair.plan != nil
 }
 
 func (s *shell) snapshotRepairOpen() bool {
@@ -615,6 +636,10 @@ func (s *shell) snapshotRepairOpen() bool {
 
 func (s *shell) manualQuoteOpen() bool {
 	return s.marketData != nil && s.marketData.manual.draft != nil
+}
+
+func (s *shell) marketOperationOpen() bool {
+	return s.activeRoute() == marketDataRoute && s.marketData != nil && s.marketData.operation != nil
 }
 
 func (s *shell) confirmingAccountCreation() bool {

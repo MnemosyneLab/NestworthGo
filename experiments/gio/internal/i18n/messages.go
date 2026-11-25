@@ -70,6 +70,34 @@ const (
 	MarketManualSaveFailed
 	MarketManualSaved
 	MarketManualDerivedPending
+	MarketUpdateLatest
+	MarketMoreActions
+	MarketCancelLatest
+	MarketRetryLatest
+	MarketLatestDetails
+	MarketSyncDetails
+	MarketRetrySync
+	MarketSyncRepair
+	MarketForceLatest
+	MarketUpdateTarget
+	MarketPreviewTarget
+	MarketStoppingLatest
+	MarketUpdatingLatest
+	MarketLatestCancelled
+	MarketFailedLatest
+	MarketNoTargets
+	MarketLatestSummary
+	MarketStartSync
+	MarketForceHistory
+	MarketSyncPreview
+	MarketWorkPlanned
+	MarketWorkRunning
+	MarketWorkFetched
+	MarketWorkCached
+	MarketWorkSkipped
+	MarketWorkFailed
+	MarketWorkRateLimited
+	MarketWorkCancelled
 	NavDataHealth
 	HealthOpen
 	HealthDescription
