@@ -122,9 +122,10 @@ func TestPointerReachesEveryItemInReadingOrder(t *testing.T) {
 				if i < 0 {
 					t.Fatalf("%s dark=%v: reached unknown item %v", s.name, dark, sel)
 				}
-				// Line points are met in time order, which interleaves series;
-				// the plan test covers that picking.
-				if i < last && s.name != "line" {
+				// Line points are met in time order, which interleaves series, and
+				// a flow diagram is met column by column with its links between;
+				// the plan tests cover that picking.
+				if i < last && s.name != "line" && s.name != "sankey" {
 					t.Fatalf("%s dark=%v: items reached out of caller order: %v", s.name, dark, got)
 				}
 				last = i

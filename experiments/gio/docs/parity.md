@@ -16,8 +16,10 @@ in-scope pages. Earlier Mac runs cover the individual workflows named in the
 roadmap.
 
 Shared chart components landed through #286. Return Trend uses the line
-component. Each additional chart integration needs its accessible table and
-its own rendering, interaction and platform evidence.
+component. The shared Sankey flow diagram, the counterpart of the Wails asset
+composition Sankey, is a component only; no page uses it yet. Each additional
+chart integration needs its accessible table and its own rendering,
+interaction and platform evidence.
 
 | Wails entry and stage | Implemented in Gio and layout | Verified evidence | Open capabilities and layout |
 | --- | --- | --- | --- |

@@ -13,8 +13,8 @@ import (
 // The gallery shows each chart with synthetic data in four states: a standard
 // dataset, edge cases, a dataset with no usable values and an empty one.
 var (
-	chartNames   = [...]string{"line", "bars", "waterfall", "donut"}
-	chartTitles  = [...]string{"Line chart", "Signed bars", "Waterfall", "Donut"}
+	chartNames   = [...]string{"line", "bars", "waterfall", "donut", "sankey"}
+	chartTitles  = [...]string{"Line chart", "Signed bars", "Waterfall", "Donut", "Sankey"}
 	variantNames = [...]string{"Standard", "Edge cases", "No values", "Empty"}
 )
 
@@ -33,6 +33,7 @@ type gallery struct {
 	bars      charts.BarChart
 	waterfall charts.WaterfallChart
 	donut     charts.DonutChart
+	sankey    charts.SankeyChart
 	// selected is the controlled selection of each chart.
 	selected [len(chartNames)]charts.Selection
 }
@@ -71,6 +72,12 @@ func (g *gallery) donutSpec() charts.DonutSpec {
 	return spec
 }
 
+func (g *gallery) sankeySpec() charts.SankeySpec {
+	spec := [...]func() charts.SankeySpec{standardSankey, edgeSankey, missingSankey, emptySankey}[g.variant]()
+	spec.Selected = g.selected[4]
+	return spec
+}
+
 // sampleSelection selects one visible item of the current chart, for launching
 // the gallery with a selection already made.
 func (g *gallery) sampleSelection() charts.Selection {
@@ -91,6 +98,10 @@ func (g *gallery) sampleSelection() charts.Selection {
 	case 3:
 		if slices := g.donutSpec().Slices; len(slices) > 1 {
 			return charts.Selection{Item: slices[1].ID}
+		}
+	case 4:
+		if nodes := g.sankeySpec().Nodes; len(nodes) > 2 {
+			return charts.Selection{Item: nodes[2].ID}
 		}
 	}
 	return charts.Selection{}
@@ -171,10 +182,14 @@ func (g *gallery) card(gtx layout.Context, view ui.View) layout.Dimensions {
 						spec := g.waterfallSpec()
 						rows = spec.Rows()
 						dims, events = g.waterfall.Layout(gtx, view, spec)
-					default:
+					case 3:
 						spec := g.donutSpec()
 						rows = spec.Rows()
 						dims, events = g.donut.Layout(gtx, view, spec)
+					default:
+						spec := g.sankeySpec()
+						rows = spec.Rows()
+						dims, events = g.sankey.Layout(gtx, view, spec)
 					}
 					g.selected[g.chart] = charts.Apply(g.selected[g.chart], events)
 					return dims
