@@ -8,6 +8,7 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -16,13 +17,17 @@ import (
 
 const institutionNameBudget = 48
 
+// previewSplitWidth is the content width at which the form and its results sit
+// side by side.
+const previewSplitWidth unit.Dp = 680
+
 type componentPreview struct {
 	name, notes        ui.TextField
 	readOnly, disabled ui.TextField
 	search             ui.SearchField
 	query              string
 	submit, info       widget.Clickable
-	scroll             layout.List
+	scroll             widget.List
 	pickers            previewPickers
 	checkName          bool
 	submissions        int
@@ -37,7 +42,7 @@ func newComponentPreview() *componentPreview {
 		readOnly: ui.NewTextField(true),
 		disabled: ui.NewTextField(true),
 		search:   ui.SearchField{Field: ui.NewTextField(true)},
-		scroll:   layout.List{Axis: layout.Vertical},
+		scroll:   widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 }
 
@@ -45,27 +50,45 @@ func (p *componentPreview) layout(gtx layout.Context, view ui.View) layout.Dimen
 	setPreviewExample(&p.readOnly, view.Language.Text(i18n.PreviewHarbor))
 	setPreviewExample(&p.disabled, view.Language.Text(i18n.PreviewEvergreen))
 
-	size := gtx.Constraints.Max
-	footerHeight := gtx.Dp(40)
-	footerY := max(0, size.Y-footerHeight)
-	columns := 4
-	if size.X < gtx.Dp(640) {
-		columns = 2
+	dims := view.List(&p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+		return p.page(gtx, view)
+	})
+	// Popups anchor in content coordinates; move them with the scrolled list.
+	viewport := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(gtx.Constraints.Max)}
+	offset := image.Pt(0, -p.scroll.Position.Offset)
+	for _, trigger := range p.pickers.triggers() {
+		view.Overlay.OffsetAnchor(trigger, offset, viewport)
 	}
-	pickerY := max(0, footerY-gtx.Dp(68)*(4/columns))
-	body := gtx
-	body.Constraints = layout.Exact(image.Pt(size.X, max(0, pickerY-gtx.Dp(12))))
-	p.scroll.Layout(body, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+	view.Overlay.OffsetAnchor(&p.info, offset, viewport)
+	return dims
+}
+
+// previewGrid flows the picker row and the action row into two or four columns.
+var previewGrid = ui.Grid{MinColumn: 150, Gap: ui.Space12 - 2, MaxColumns: 4, Balanced: true}
+
+// page lays out the sample form followed by the picker and action rows. All
+// three scroll together, so a short window never squeezes the form.
+func (p *componentPreview) page(gtx layout.Context, view ui.View) layout.Dimensions {
+	width := gtx.Constraints.Max.X
+	gap := gtx.Dp(ui.Space16)
+	y := 0
+	body := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return p.content(gtx, view)
 	})
+	y += body.Size.Y + gap
 
 	// Read the edited fields after the body has delivered this frame's input.
 	if p.submit.Clicked(gtx) {
 		p.saveSample(gtx)
 	}
-	p.pickerFields(gtx, view, size.X, pickerY, columns)
-	p.footer(gtx, view, size.X, footerY)
-	return layout.Dimensions{Size: size}
+	pickers := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return p.pickerFields(gtx, view)
+	})
+	y += pickers.Size.Y + gtx.Dp(ui.Space12)
+	actions := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return p.footer(gtx, view)
+	})
+	return layout.Dimensions{Size: image.Pt(width, y+actions.Size.Y)}
 }
 
 func setPreviewExample(field *ui.TextField, text string) {
@@ -84,7 +107,7 @@ func (p *componentPreview) content(gtx layout.Context, view ui.View) layout.Dime
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			form := func(gtx layout.Context) layout.Dimensions { return p.form(gtx, view) }
 			results := func(gtx layout.Context) layout.Dimensions { return p.results(gtx, view) }
-			if gtx.Constraints.Max.X >= gtx.Dp(680) {
+			if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, previewSplitWidth) {
 				return layout.Flex{Gap: gtx.Dp(18)}.Layout(gtx, layout.Flexed(0.6, form), layout.Flexed(0.4, results))
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(16)}.Layout(gtx, layout.Rigid(form), layout.Rigid(results))
@@ -176,7 +199,7 @@ func (p *componentPreview) results(gtx layout.Context, view ui.View) layout.Dime
 	})
 }
 
-func (p *componentPreview) footer(gtx layout.Context, view ui.View, width, y int) {
+func (p *componentPreview) footer(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.pickers.weekButton.Clicked(gtx) {
 		p.pickers.sundayFirst = !p.pickers.sundayFirst
 		gtx.Execute(op.InvalidateCmd{})
@@ -202,17 +225,16 @@ func (p *componentPreview) footer(gtx layout.Context, view ui.View, width, y int
 		{&p.pickers.clockButton, timeTitle},
 		{&p.info, i18n.PreviewInfo},
 	}
-	for i, action := range buttons {
-		position, size := pickerSlot(gtx, width, y, len(buttons), i)
-		offset := op.Offset(position).Push(gtx.Ops)
+	return previewGrid.Layout(gtx, view, len(buttons), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+		action := buttons[i]
+		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.ControlLarge))
 		gtx.Constraints = layout.Exact(size)
 		if action.button == &p.info {
-			anchor := view.Origin.Add(position)
+			anchor := view.Origin
 			view.Overlay.Register(gtx, action.button, image.Rectangle{Min: anchor, Max: anchor.Add(size)}, ui.Popover{
 				Body: view.Message(view.Language.Text(i18n.PreviewInfoBody), view.Colors.Ink),
 			})
 		}
-		view.Button(action.button, view.Language.Text(action.title))(gtx)
-		offset.Pop()
-	}
+		return view.Button(action.button, view.Language.Text(action.title))(gtx)
+	})
 }

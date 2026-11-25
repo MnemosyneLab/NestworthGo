@@ -15,11 +15,11 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -60,14 +60,14 @@ type ledgerPages struct {
 type navigationItem struct {
 	id     routeID
 	label  i18n.MessageID
-	icon   *widget.Icon
+	icon   ui.Glyph
 	body   pageLayout
 	button widget.Clickable
 	hint   ui.Tooltip
 }
 
-func newItem(id routeID, label i18n.MessageID, iconData []byte, body pageLayout) navigationItem {
-	return navigationItem{id: id, label: label, icon: ui.MustIcon(iconData), body: body}
+func newItem(id routeID, label i18n.MessageID, icon ui.Glyph, body pageLayout) navigationItem {
+	return navigationItem{id: id, label: label, icon: icon, body: body}
 }
 
 func (item *navigationItem) available() bool {
@@ -80,6 +80,9 @@ type navigationGroup struct {
 }
 
 type shell struct {
+	// stage scrolls the active page; stageEntry is the visit it was reset for.
+	stage                                 widget.List
+	stageEntry                            *navigationEntry
 	prefs                                 *preferenceState
 	onboarding                            *onboardingPage
 	settingsPage                          *settingsPage
@@ -113,6 +116,7 @@ type shell struct {
 	languageHint, appearanceHint          ui.Tooltip
 	wideCollapsed, narrowExpanded, narrow bool
 	overlay                               ui.Overlay
+	motion                                ui.Motion
 }
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
@@ -151,33 +155,34 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		portfolio:        pages.portfolio,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
-		theme:            material.NewTheme(),
+		theme:            ui.NewTheme(),
 		wordmark:         widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
 		mark:             widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
 		trail:            newNavigationTrail(overviewRoute),
 		navigation:       layout.List{Axis: layout.Vertical},
+		stage:            widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
-			newItem(overviewRoute, i18n.NavOverview, icons.ActionHome, overviewLayout),
-			newItem(accountsRoute, i18n.NavAccounts, icons.ActionAccountBalanceWallet, accountsLayout),
-			newItem(fundsRoute, i18n.NavAvailableFunds, icons.EditorAttachMoney, fundsLayout),
-			newItem(portfolioRoute, i18n.NavPortfolio, icons.EditorPieChartOutlined, portfolioLayout),
+			newItem(overviewRoute, i18n.NavOverview, lucide.House, overviewLayout),
+			newItem(accountsRoute, i18n.NavAccounts, lucide.Wallet, accountsLayout),
+			newItem(fundsRoute, i18n.NavAvailableFunds, lucide.Banknote, fundsLayout),
+			newItem(portfolioRoute, i18n.NavPortfolio, lucide.ChartPie, portfolioLayout),
 		}},
 		{label: i18n.GroupActivity, items: []navigationItem{
-			newItem(tasksRoute, i18n.NavTasks, icons.ActionAssignmentTurnedIn, tasksLayout),
-			newItem(historyRoute, i18n.NavHistory, icons.ActionReceipt, historyLayout),
+			newItem(tasksRoute, i18n.NavTasks, lucide.ClipboardCheck, tasksLayout),
+			newItem(historyRoute, i18n.NavHistory, lucide.ReceiptText, historyLayout),
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
-			newItem("historical-overview", i18n.NavHistoricalOverview, icons.ActionHistory, nil),
-			newItem("returns", i18n.NavReturns, icons.ActionTrendingUp, nil),
-			newItem("asset-changes", i18n.NavAssetChanges, icons.ActionCompareArrows, nil),
+			newItem("historical-overview", i18n.NavHistoricalOverview, lucide.CalendarClock, nil),
+			newItem("returns", i18n.NavReturns, lucide.ChartLine, nil),
+			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
-			newItem(directoryRoute, i18n.NavDirectory, icons.SocialPeopleOutline, directoryLayout),
-			newItem("data-maintenance", i18n.NavDataMaintenance, icons.NotificationSync, nil),
-			newItem(settingsRoute, i18n.NavSettings, icons.ActionSettings, s.settingsPage.layout),
-			newItem(componentPreviewRoute, i18n.NavComponentPreview, icons.ActionBuild, preview.layout),
+			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
+			newItem("data-maintenance", i18n.NavDataMaintenance, lucide.RefreshCw, nil),
+			newItem(settingsRoute, i18n.NavSettings, lucide.Settings, s.settingsPage.layout),
+			newItem(componentPreviewRoute, i18n.NavComponentPreview, lucide.Wrench, preview.layout),
 		}},
 	}
 	s.routes = make(map[routeID]*navigationItem)
@@ -329,6 +334,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 }
 
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
+	// Drop animation state for controls that were not drawn this frame.
+	defer s.motion.EndFrame()
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
 	if p := s.onboarding; p != nil {
@@ -389,7 +396,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
-	s.narrow = gtx.Constraints.Max.X < gtx.Dp(960)
+	s.narrow = !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium)
 	if s.railButton.Clicked(gtx) {
 		if s.narrow {
 			s.narrowExpanded = !s.narrowExpanded
@@ -406,7 +413,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		ContrastFg: colors.OnAccent,
 	}
 	view := ui.View{
-		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay,
+		Language: s.preferences.language, Colors: colors, Theme: s.theme, Overlay: &s.overlay, Motion: &s.motion,
 		DateFormat: s.prefs.saved.DateFormat, DecimalSeparator: s.prefs.saved.DecimalSeparator, GroupingSeparator: s.prefs.saved.GroupingSeparator,
 		TimeFormat: s.prefs.saved.TimeFormat, WeekStart: s.prefs.saved.WeekStart,
 		TimeLocation: s.prefs.displayLocation(),
@@ -597,19 +604,33 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 		selected := s.activeRoute() == item.id
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
-		radius := gtx.Dp(9)
-		textColor, iconColor := colors.SecondaryInk, colors.SecondaryInk
+		enabled := gtx.Enabled()
+		motion := view.Motion.For(&item.button)
+		motion.Hover.Set(gtx, boolFloat(enabled && item.button.Hovered()), ui.DurationBase, ui.EaseOut)
+		motion.Select.Set(gtx, boolFloat(selected), ui.DurationBase, ui.EaseOut)
+		motion.Focus.Set(gtx, boolFloat(enabled && gtx.Focused(&item.button)), ui.DurationBase, ui.EaseOut)
+		hover, pick, focus := motion.Hover.Value(gtx), motion.Select.Value(gtx), motion.Focus.Value(gtx)
+
+		// Hover and keyboard focus tint the row; the selected row lifts onto a
+		// bordered card with the Wails accent marker.
+		radius := ui.RadiusLG
+		tint := max(hover, focus) * (1 - pick)
+		ui.FillRoundRect(gtx, bounds, radius, ui.WithAlpha(colors.HoverSurface, tint))
+		if pick > 0 {
+			colors.DrawShadow(gtx, bounds, radius, ui.ElevationXS)
+			ui.FillRoundRect(gtx, bounds, radius, ui.WithAlpha(colors.Surface, pick))
+			ui.StrokeRoundRect(gtx, bounds, radius, 1, ui.WithAlpha(colors.Divider, pick))
+			marker := image.Rect(gtx.Dp(1), gtx.Dp(8), gtx.Dp(3), size.Y-gtx.Dp(8))
+			ui.FillRoundRect(gtx, marker, 1, ui.WithAlpha(colors.Accent, pick))
+		}
+		if focus > 0 {
+			colors.FocusRingAt(gtx, bounds, radius, focus)
+		}
+		textColor := ui.Mix(colors.SecondaryInk, colors.Ink, max(pick, hover*0.6))
+		iconColor := ui.Mix(colors.SecondaryInk, colors.Accent, pick)
 		weight := font.Normal
-		focused := gtx.Focused(&item.button)
-		switch {
-		case selected:
-			paint.FillShape(gtx.Ops, colors.Divider, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
-			paint.FillShape(gtx.Ops, colors.Surface, clip.UniformRRect(bounds.Inset(1), radius-1).Op(gtx.Ops))
-			marker := image.Rect(1, gtx.Dp(7), gtx.Dp(3), size.Y-gtx.Dp(7))
-			paint.FillShape(gtx.Ops, colors.Accent, clip.UniformRRect(marker, 1).Op(gtx.Ops))
-			textColor, iconColor, weight = colors.Ink, colors.Accent, font.Medium
-		case focused, item.button.Hovered():
-			paint.FillShape(gtx.Ops, colors.HoverSurface, clip.UniformRRect(bounds, radius).Op(gtx.Ops))
+		if selected {
+			weight = font.Medium
 		}
 		item.hint.Layout(gtx, view, s.collapsed() && item.button.Hovered(), view.Language.Text(item.label))
 		if s.collapsed() {
@@ -621,13 +642,13 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 			return layout.Inset{Left: 11}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						side := gtx.Dp(17)
-						gtx.Constraints = layout.Exact(image.Pt(side, side))
-						return item.icon.Layout(gtx, iconColor)
+						return ui.LayoutGlyph(gtx, item.icon, 16, iconColor)
 					}),
 					layout.Rigid(layout.Spacer{Width: 12}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, view.Language.Text(item.label), 13, weight, textColor)
+						style := ui.TextBody
+						style.Weight = weight
+						return view.Line(gtx, style, view.Language.Text(item.label), textColor)
 					}),
 				)
 			})
@@ -665,7 +686,7 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			view.Focus = &focus
-			return pageBody(gtx, view, body)
+			return s.pageBody(gtx, view, body)
 		}),
 	)
 	s.finishPageFocus(gtx, focus)
@@ -701,22 +722,50 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 					}
 					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 					event.Op(gtx.Ops, &s.headingFocus)
-					return view.Label(gtx, view.Language.Text(title), 19, font.Medium, colors.Ink)
+					return view.Line(gtx, ui.TextPageTitle, view.Language.Text(title), colors.Ink)
 				}),
 			)
 		})
 	})
 }
 
-func pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensions {
+// pageInset is the gutter around page content.
+var pageInset = layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
+
+// pageBody is the stage every page is laid out on. It gives a page the full
+// width of the window (a page that wants a readable column centers itself with
+// View.Measure), lets it be taller than the window and scrolls it, and tells it
+// the viewport height through Constraints.Min.Y so a list can fill what is
+// left. Pages that scroll internally keep doing so: a shared list inside the
+// stage takes the viewport height instead of laying out every row.
+func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensions {
 	if body == nil {
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}
-	return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		inset := layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
-		view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), gtx.Dp(inset.Top)))
+	if entry := s.trail.current(); entry != s.stageEntry {
+		s.stageEntry = entry
+		s.stage.Position = layout.Position{}
+	}
+	inset := pageInset
+	top, bottom := gtx.Dp(inset.Top), gtx.Dp(inset.Bottom)
+	viewport := gtx.Constraints.Max
+	dims := view.List(&s.stage).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = max(0, viewport.Y-top-bottom)
+			view := view
+			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), top))
 			return body(gtx, view)
 		})
 	})
+	// Popups anchor in content coordinates; move them with the scrolled stage.
+	bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(viewport)}
+	view.Overlay.Shift(image.Pt(0, -s.stage.Position.Offset), bounds)
+	return dims
+}
+
+func boolFloat(on bool) float64 {
+	if on {
+		return 1
+	}
+	return 0
 }

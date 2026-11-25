@@ -81,7 +81,7 @@ func (p *TimePicker) layout(gtx layout.Context, view View, field PickerField, va
 		p.active = 0
 		for i, items := range timeChoices(view, format, twelveHour) {
 			p.columns[i].scroll.Position = layout.Position{}
-			p.columns[i].setActive(items, clockPartID(parts[i]))
+			p.columns[i].setActive(items, clockPartID(parts[i]), view.Overlay.ByKeyboard)
 		}
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -29,7 +28,7 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
-	gtx = ui.LimitWidth(gtx, 720)
+	gtx, view = view.Measure(gtx, 720)
 	if d.plan != nil {
 		return p.layoutReceiptReview(gtx, view)
 	}
@@ -128,22 +127,22 @@ func (p *productDetailPage) layoutReceiptReview(gtx layout.Context, view ui.View
 	if confirm.Clicked(gtx) {
 		p.postReceipt()
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(tradeTitle(view, i18n.ProductReceiptReview)),
-		layout.Rigid(view.Message(d.name+" · "+d.currency, view.Colors.Ink)),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 8}.Layout(gtx,
+		ui.Rigid(tradeTitle(view, i18n.ProductReceiptReview)),
+		ui.Rigid(view.Message(d.name+" · "+d.currency, view.Colors.Ink)),
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			rows := d.reviewRows(view)
-			return material.List(view.Theme, &d.reviewList).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
+			return view.List(&d.reviewList).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 6}.Layout(gtx, rows[i])
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.uncertain {
 				return view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)(gtx)
 			}
 			return layout.Dimensions{}
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, i18n.ProductReceiptPost)
 		}))
 }

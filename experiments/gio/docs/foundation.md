@@ -251,6 +251,61 @@ Times are validated `HH:mm` values, including midnight `00:00`. A locale or
 preserve their existing empty-string or null boundary and use the existing
 application logic to combine date, time, and timezone into an instant. [Wails date and form contract](../../../docs/development/frontend-controls.md#dates-and-forms)
 
+### Visual contract
+
+Every shared control reads colors from the semantic palette, sizes from the
+control-height and radius tokens, and text from the type scale in
+`internal/ui/tokens.go`; page code does not pick colors or sizes for these
+controls. A guard test rejects raw `material` buttons, checkboxes, radios and
+switches in `internal/desktop`, with two named exceptions. `TestVisualSnapshots`
+renders the matrix of states for review. Interactive states animate over
+100 to 150 ms and stop requesting frames at rest. Overlays fade in and
+settle a few dp toward their anchor. The sidebar, header navigation and
+picker rows use the same tweens. The directory icon picker keeps Material
+shapes until its mapping moves to Lucide.
+
+### Responsive layout
+
+The window is at least 700 by 460 dp and every page must stay usable from
+there up to a large display. Window-level decisions use the named
+`ui.Breakpoint*` widths, which mirror the Tailwind steps in Wails: the sidebar
+becomes a rail below `BreakpointMedium`. Container-level decisions use
+`ui.Grid`, which flows equal-width cells into as many columns as fit (a minimum
+column width and a gap, an optional column cap, and `Balanced` to avoid an
+orphan cell) and hands each cell its own origin so popups stay anchored.
+`ui.Place` is the same primitive for a single child, and `ui.Wrap` flows
+natural-width children onto new lines for action rows.
+
+Adaptation is the default, not something each page opts into. The shell stage
+owns the page area: it gives every page the full window width with side
+padding, scrolls the page vertically when it is taller than the window, and
+passes the window height down as `Constraints.Min.Y` (the height limit itself is
+unbounded). A page does not cap its own width and does not own an outer scroll.
+
+- A list, table or card page fills the stage. Its rows stretch and its grids add
+  columns on a wide display; it never leaves an empty strip beside the content.
+- A form or reading page declares its readable width once with
+  `gtx, view = view.Measure(gtx, width)`. The stage centers that column and
+  moves popup anchors with it.
+- A page that must fill the remaining height (a list under a header) lays out
+  with `ui.Column`: `ui.Rigid` rows keep their height and one `ui.Fill` row takes
+  the rest, never less than `MinFill`, so a short window scrolls instead of
+  squeezing the list. A vertical `layout.Flex` must not hold a `Flexed` row,
+  because it would take the unbounded height. `ui.FitWindow` is a temporary
+  bridge for a screen that has not moved to `Column` yet.
+- Popups that anchor inside the scrolled stage follow it through
+  `Overlay.Shift`; an anchor that scrolls out of the window closes the popup.
+
+Guard tests reject comparing a width with an inline `gtx.Dp(<number>)` and
+reject a `Flexed` row in a vertical `layout.Flex` (window chrome and onboarding
+are listed exceptions). `TestShellAdaptsToWindowSize` and
+`TestPreviewControlsStayReachableAtEverySize` cover six window sizes up to
+2560 by 1440 dp, and `TestLedgerActivityReportsItsRealHeightAtEverySize` checks
+that a page reports its real height. The `responsive` snapshots
+(`TestVisualSnapshotsLedgerActivity` and the Overview, Settings and Component
+Preview set) render the sizes for review. Snapshots are headless Linux or macOS
+GPU renders, not native display checks.
+
 ### Follow-on controls
 
 General settings reset and directory archive use the same window-level

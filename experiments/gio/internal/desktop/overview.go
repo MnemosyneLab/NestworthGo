@@ -107,8 +107,8 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.reload.Clicked(gtx) {
 		p.read()
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 720),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 12}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -123,8 +123,8 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				}),
 			)
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &p.list).Layout(gtx, p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
+			return view.List(&p.list).Layout(gtx, p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
 				if row == 0 {
 					if p.current.value.AccountCount == 0 {
 						return view.Message(view.Language.Text(i18n.OverviewEmpty), view.Colors.SecondaryInk)(gtx)

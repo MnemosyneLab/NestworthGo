@@ -124,63 +124,47 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 	if filters.From != "" {
 		toMin = filters.From
 	}
-	origin := view.Origin
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			dims := historyFilterRow(gtx, origin,
-				layoutPicker(&c.kind, i18n.HistoryFilterType, i18n.HistoryActivity, kindChoices, filters.Kind.String(), false, func(value string) {
-					next := p.model.Filters()
-					next.Kind = domain.ActivityKind(value)
-					p.applyFilters(gtx, next)
-				}),
-				layoutPicker(&c.account, i18n.HistoryFilterAccount, i18n.AccountReferenceUnavailable, accountChoices, filters.Account.String(), true, func(value string) {
-					next := p.model.Filters()
-					next.Account = domain.AccountID(value)
-					p.applyFilters(gtx, next)
-				}),
-				layoutPicker(&c.instrument, i18n.HistoryFilterInstrument, i18n.HistoryInstrumentUnavailable, instrumentChoices, filters.Instrument.String(), true, func(value string) {
-					next := p.model.Filters()
-					next.Instrument = domain.InstrumentID(value)
-					p.applyFilters(gtx, next)
-				}),
-			)
-			origin.Y += dims.Size.Y + gtx.Dp(8)
-			return dims
+	pickers := []func(layout.Context, image.Point) layout.Dimensions{
+		layoutPicker(&c.kind, i18n.HistoryFilterType, i18n.HistoryActivity, kindChoices, filters.Kind.String(), false, func(value string) {
+			next := p.model.Filters()
+			next.Kind = domain.ActivityKind(value)
+			p.applyFilters(gtx, next)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return historyFilterRow(gtx, origin,
-				layoutDate(&c.from, i18n.HistoryFilterFrom, filters.From, first, fromMax, func(day string) {
-					next := p.model.Filters()
-					next.From = day
-					p.applyFilters(gtx, next)
-				}),
-				layoutDate(&c.to, i18n.HistoryFilterTo, filters.To, toMin, today, func(day string) {
-					next := p.model.Filters()
-					next.To = day
-					p.applyFilters(gtx, next)
-				}),
-				func(gtx layout.Context, _ image.Point) layout.Dimensions {
-					if filters == (history.Filters{}) {
-						return layout.Dimensions{}
-					}
-					return view.Button(&c.clear, l.Text(i18n.HistoryClearFilters))(gtx)
-				},
-			)
+		layoutPicker(&c.account, i18n.HistoryFilterAccount, i18n.AccountReferenceUnavailable, accountChoices, filters.Account.String(), true, func(value string) {
+			next := p.model.Filters()
+			next.Account = domain.AccountID(value)
+			p.applyFilters(gtx, next)
 		}),
-	)
+		layoutPicker(&c.instrument, i18n.HistoryFilterInstrument, i18n.HistoryInstrumentUnavailable, instrumentChoices, filters.Instrument.String(), true, func(value string) {
+			next := p.model.Filters()
+			next.Instrument = domain.InstrumentID(value)
+			p.applyFilters(gtx, next)
+		}),
+		layoutDate(&c.from, i18n.HistoryFilterFrom, filters.From, first, fromMax, func(day string) {
+			next := p.model.Filters()
+			next.From = day
+			p.applyFilters(gtx, next)
+		}),
+		layoutDate(&c.to, i18n.HistoryFilterTo, filters.To, toMin, today, func(day string) {
+			next := p.model.Filters()
+			next.To = day
+			p.applyFilters(gtx, next)
+		}),
+		// The clear button sits level with the controls, below the label line.
+		func(gtx layout.Context, _ image.Point) layout.Dimensions {
+			if filters == (history.Filters{}) {
+				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+			}
+			defer op.Offset(image.Pt(0, gtx.Dp(ui.PickerHeight-ui.ControlDefault))).Push(gtx.Ops).Pop()
+			dims := view.Button(&c.clear, l.Text(i18n.HistoryClearFilters))(gtx)
+			return layout.Dimensions{Size: image.Pt(dims.Size.X, gtx.Dp(ui.PickerHeight))}
+		},
+	}
+	return historyFilterGrid.Layout(gtx, view, len(pickers), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+		return pickers[i](gtx, view.Origin)
+	})
 }
 
-// The shared pickers register overlays in window coordinates.
-func historyFilterRow(gtx layout.Context, origin image.Point, fields ...func(layout.Context, image.Point) layout.Dimensions) layout.Dimensions {
-	gap := gtx.Dp(8)
-	width := (gtx.Constraints.Max.X - gap*(len(fields)-1)) / len(fields)
-	children := make([]layout.FlexChild, 0, len(fields))
-	for i, field := range fields {
-		at := origin.Add(image.Pt(i*(width+gap), 0))
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-			return field(gtx, at)
-		}))
-	}
-	return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx, children...)
-}
+// historyFilterGrid flows the six filter cells into three columns on a wide
+// page, two on a medium one and one on a narrow one.
+var historyFilterGrid = ui.Grid{MinColumn: 180, Gap: ui.Space8, MaxColumns: 3, Balanced: true}

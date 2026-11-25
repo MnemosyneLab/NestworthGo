@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"image"
 	"image/color"
 
 	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
+	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -14,7 +16,6 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -28,15 +29,15 @@ type PickerField struct {
 	Disabled       bool
 }
 
-var ExpandIcon = MustIcon(icons.NavigationArrowDropDown)
+var ExpandIcon Glyph = lucide.ChevronDown
 
 func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *widget.Clickable, value string, invalid bool, pane Popover) bool {
 	title := view.Language.Text(field.Label)
-	view.Label(gtx, title, 13, font.Medium, view.Colors.Ink)
-	y := gtx.Dp(22)
+	view.Line(gtx, TextLabel, title, view.Colors.Ink)
+	y := gtx.Dp(24)
 	offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
 	defer offset.Pop()
-	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(38))
+	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(ControlDefault))
 	gtx.Constraints = layout.Exact(size)
 
 	opened := false
@@ -56,31 +57,31 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 }
 
 func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable, title, value string, invalid bool, glyph Glyph) layout.Dimensions {
-	return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		semantic.Button.Add(gtx.Ops)
-		semantic.DescriptionOp(title).Add(gtx.Ops)
-		colors := view.Colors
-		border := colors.Divider
-		switch {
-		case invalid:
-			border = colors.ErrorInk
-		case gtx.Focused(trigger) || view.Overlay.Trigger == trigger:
-			border = colors.Accent
-		}
-		return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: 10, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	colors := view.Colors
+	open := view.Overlay != nil && view.Overlay.Trigger == trigger
+	chrome := fieldChrome{Tag: trigger, Active: gtx.Focused(trigger) || open, Ring: gtx.Focused(trigger), Invalid: invalid, Disabled: !gtx.Enabled()}
+	return view.fieldFrame(gtx, chrome, func(gtx layout.Context) layout.Dimensions {
+		return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			semantic.Button.Add(gtx.Ops)
+			semantic.DescriptionOp(title).Add(gtx.Ops)
+			if gtx.Enabled() {
+				pointer.CursorPointer.Add(gtx.Ops)
+			}
+			size := image.Pt(gtx.Constraints.Max.X, max(gtx.Constraints.Min.Y, gtx.Dp(ControlDefault)))
+			gtx.Constraints = layout.Exact(size)
+			layout.Inset{Left: 12, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.Y = size.Y
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min.Y = 0
 						return glyphLabel(gtx, view, glyph, value, colors.Ink)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						side := gtx.Dp(16)
-						gtx.Constraints = layout.Exact(image.Pt(side, side))
-						return ExpandIcon.Layout(gtx, colors.SecondaryInk)
+						return LayoutGlyph(gtx, ExpandIcon, 16, colors.SecondaryInk)
 					}),
 				)
 			})
+			return layout.Dimensions{Size: size}
 		})
 	})
 }
@@ -127,7 +128,11 @@ func LayoutGlyph(gtx layout.Context, glyph Glyph, size unit.Dp, ink color.NRGBA)
 }
 
 func glyphLabel(gtx layout.Context, view View, glyph Glyph, label string, ink color.NRGBA) layout.Dimensions {
-	text := func(gtx layout.Context) layout.Dimensions { return view.Label(gtx, label, 13, font.Normal, ink) }
+	return glyphLabelStyled(gtx, view, glyph, label, TextBody, ink)
+}
+
+func glyphLabelStyled(gtx layout.Context, view View, glyph Glyph, label string, style TextStyle, ink color.NRGBA) layout.Dimensions {
+	text := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, style, label, ink) }
 	if glyph == nil {
 		return text(gtx)
 	}
@@ -142,10 +147,13 @@ type optionList struct {
 	buttons   map[string]*widget.Clickable
 	highlight string
 	active    bool
+	// keyboard shows the highlight. It starts on a keyboard open and after
+	// arrow navigation; a mouse open leaves only the check mark and hover.
+	keyboard bool
 }
 
-func (l *optionList) setActive(items []Choice, preferred string) {
-	l.active = false
+func (l *optionList) setActive(items []Choice, preferred string, keyboard bool) {
+	l.active, l.keyboard = false, keyboard
 	for i, item := range items {
 		if !item.Disabled && item.ID == preferred {
 			l.highlightAt(items, i)
@@ -153,9 +161,11 @@ func (l *optionList) setActive(items []Choice, preferred string) {
 		}
 	}
 	l.move(items, 1)
+	l.keyboard = keyboard
 }
 
 func (l *optionList) move(items []Choice, step int) {
+	l.keyboard = true
 	index := -1
 	if step < 0 {
 		index = len(items)
@@ -200,7 +210,7 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 		l.buttons = make(map[string]*widget.Clickable)
 	}
 	l.scroll.Axis = layout.Vertical
-	height := min(gtx.Constraints.Max.Y, gtx.Dp(30)*min(len(items), 6))
+	height := min(gtx.Constraints.Max.Y, gtx.Dp(OptionRowHeight)*min(len(items), 6))
 	gtx.Constraints = layout.Exact(image.Pt(gtx.Constraints.Max.X, height))
 	return l.scroll.Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
 		item := items[i]
@@ -213,9 +223,101 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 			l.highlight, l.active = item.ID, true
 			choose(item)
 		}
-		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(30))
+		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(OptionRowHeight))
 		gtx.Constraints = layout.Exact(size)
-		return choiceButtonWithGlyph(gtx, view, button, item.Label, "", !item.Disabled, item.ID == selected, showHighlight && l.active && item.ID == l.highlight, item.Glyph)
+		return optionRow(gtx, view, button, item, item.ID == selected, showHighlight && l.keyboard && l.active && item.ID == l.highlight)
+	})
+}
+
+// widestOption measures the popup width the options need: label, row padding,
+// check mark and the popup padding and border. Long lists skip measuring and
+// keep the anchor width, which is what Wails does with a fixed-width trigger.
+func widestOption(gtx layout.Context, view View, items []Choice, extra ...string) int {
+	const measureLimit = 64
+	if len(items) > measureLimit {
+		return 0
+	}
+	widest := 0
+	measure := func(label string, glyph Glyph) {
+		probe := gtx
+		probe.Constraints = layout.Constraints{Max: image.Pt(1<<20, gtx.Dp(OptionRowHeight))}
+		macro := op.Record(gtx.Ops)
+		dims := glyphLabelStyled(probe, view, glyph, label, TextBody, color.NRGBA{})
+		macro.Stop()
+		widest = max(widest, dims.Size.X)
+	}
+	for _, item := range items {
+		measure(item.Label, item.Glyph)
+	}
+	for _, label := range extra {
+		measure(label, nil)
+	}
+	if widest == 0 {
+		return 0
+	}
+	// Row inset 8+8, gap and check 8+16, popup inset 8+8 and a 1dp border each side.
+	return widest + gtx.Dp(8+8+8+16+8+8+2)
+}
+
+// OptionRowHeight is one row of a select list.
+const OptionRowHeight unit.Dp = 32
+
+var checkIcon Glyph = lucide.Check
+
+// optionRow is a select list row: left aligned, a quiet hover or keyboard
+// highlight, and a check mark on the chosen row.
+func optionRow(gtx layout.Context, view View, button *widget.Clickable, item Choice, selected, highlighted bool) layout.Dimensions {
+	p := view.Colors
+	enabled := !item.Disabled
+	if !enabled {
+		gtx = gtx.Disabled()
+	}
+	state := view.Motion.For(button)
+	state.Hover.Set(gtx, flag(enabled && (button.Hovered() || highlighted)), DurationFast, EaseOut)
+	hover := state.Hover.Value(gtx)
+	content := func(gtx layout.Context) layout.Dimensions {
+		semantic.Button.Add(gtx.Ops)
+		semantic.SelectedOp(selected).Add(gtx.Ops)
+		if enabled {
+			pointer.CursorPointer.Add(gtx.Ops)
+		}
+		size := gtx.Constraints.Min
+		bounds := image.Rectangle{Max: size}
+		FillRoundRect(gtx, bounds, RadiusMD, lerp(WithAlpha(p.HoverSurface, 0), p.HoverSurface, hover))
+		ink := p.Ink
+		if !enabled {
+			ink = Fade(p.Ink, DisabledOpacity)
+		}
+		style := TextBody
+		if selected {
+			style.Weight = font.Medium
+		}
+		layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = size.Y
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.Y = 0
+					return glyphLabelStyled(gtx, view, item.Glyph, item.Label, style, ink)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					side := gtx.Dp(16)
+					gtx.Constraints = layout.Exact(image.Pt(side, side))
+					if !selected {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}
+					return checkIcon.Layout(gtx, ink)
+				}),
+			)
+		})
+		return layout.Dimensions{Size: size}
+	}
+	return accessibility.Button(gtx, button, item.Label, "", false, func(gtx layout.Context) layout.Dimensions {
+		if enabled {
+			return button.Layout(gtx, content)
+		}
+		defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+		semantic.EnabledOp(false).Add(gtx.Ops)
+		return content(gtx)
 	})
 }
 
@@ -236,10 +338,10 @@ func choiceButtonWithGlyph(gtx layout.Context, view View, button *widget.Clickab
 		case !enabled:
 			fg = view.Colors.SecondaryInk
 		case selected:
-			paint.FillShape(gtx.Ops, view.Colors.Accent, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, view.Colors.Accent, clip.UniformRRect(bounds, gtx.Dp(8)).Op(gtx.Ops))
 			fg = view.Colors.OnAccent
 		case button.Hovered() || highlighted:
-			paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.UniformRRect(bounds, gtx.Dp(8)).Op(gtx.Ops))
 		}
 		label := layout.Inset{Left: 5, Right: 5}
 		if highlighted && enabled {

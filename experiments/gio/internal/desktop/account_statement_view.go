@@ -24,7 +24,7 @@ func (p *accountsPage) layoutStatements(gtx layout.Context, view ui.View) layout
 	f, l := p.statement, view.Language
 	d := f.screen
 	p.pollStatement()
-	gtx = ui.LimitWidth(gtx, 680)
+	gtx, view = view.Measure(gtx, 680)
 	if d.review != nil {
 		return p.layoutStatementReview(gtx, view)
 	}
@@ -81,6 +81,7 @@ func (p *accountsPage) layoutStatements(gtx layout.Context, view ui.View) layout
 			}))
 		}
 	}
+	gtx = ui.FitWindow(gtx)
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
@@ -306,6 +307,7 @@ func (p *accountsPage) layoutStatementReview(gtx layout.Context, view ui.View) l
 	children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return statementLines(gtx, view, &d.list, statementDetails(view, detail, *account))
 	}))
+	gtx = ui.FitWindow(gtx)
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }
 
@@ -325,7 +327,7 @@ func statementTitle(view ui.View, label i18n.MessageID, name string) layout.Widg
 }
 
 func statementLines(gtx layout.Context, view ui.View, list *widget.List, rows []layout.Widget) layout.Dimensions {
-	return material.List(view.Theme, list).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
+	return view.List(list).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
 		return layout.Inset{Bottom: 7}.Layout(gtx, rows[index])
 	})
 }

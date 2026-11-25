@@ -11,7 +11,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -153,8 +152,8 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 	case p.request != nil:
 		status = i18n.FundsLoading
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(ui.LimitWidth(gtx, 820),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if status == i18n.NoMessage && p.current != nil {
@@ -176,13 +175,13 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 					return view.Button(&p.reload, l.Text(action))(gtx)
 				}))
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if p.current == nil || p.request != nil {
 				return layout.Dimensions{}
 			}
 			rows := p.rows(view)
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
-			return material.List(view.Theme, &p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
+			return view.List(&p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, rows[i])
 			})
 		}))

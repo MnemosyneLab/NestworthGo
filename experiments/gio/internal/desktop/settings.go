@@ -5,16 +5,12 @@ import (
 	"image"
 
 	"gioui.org/font"
-	"gioui.org/gesture"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
@@ -26,7 +22,7 @@ type settingsPage struct {
 	prefs                       *preferenceState
 	scroll                      widget.List
 	fields                      [8]ui.Select
-	swatches                    [5]gesture.Click
+	swatches                    [5]widget.Clickable
 	currency                    ui.TextField
 	save, discard, reset, retry widget.Clickable
 	confirmation                ui.Confirmation
@@ -109,8 +105,8 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		gtx.Execute(key.FocusCmd{Tag: &p.reset})
 	}
 	draft := p.draft()
-	gtx = ui.LimitWidth(gtx, 896)
-	dims := material.List(view.Theme, &p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+	gtx, view = view.Measure(gtx, 896)
+	dims := view.List(&p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return p.content(gtx, view, draft)
 	})
 	// The controls register their bounds in content coordinates; the list
@@ -123,32 +119,23 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	return dims
 }
 
-// placeSettings positions a child and keeps its popup anchor in the same
-// coordinate system. The child's measured height includes wrapped translations.
-func placeSettings(gtx layout.Context, view ui.View, offset image.Point, width int, child pageLayout) layout.Dimensions {
-	defer op.Offset(offset).Push(gtx.Ops).Pop()
-	gtx.Constraints.Min, gtx.Constraints.Max.X = image.Pt(width, 0), width
-	view.Origin = view.Origin.Add(offset)
-	return child(gtx, view)
-}
-
 func (p *settingsPage) content(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
 	width := gtx.Constraints.Max.X
 	y := view.Message(view.Language.Text(i18n.SettingsIntro), view.Colors.SecondaryInk)(gtx).Size.Y + gtx.Dp(12)
-	tab := placeSettings(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+	tab := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		gtx.Constraints.Min.X = 0
 		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: 14, Right: 14, Top: 7, Bottom: 7}.Layout(gtx, view.Message(view.Language.Text(i18n.SettingsTab), view.Colors.Ink))
 		})
 	})
 	y += tab.Size.Y + gtx.Dp(14)
-	dims := placeSettings(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+	dims := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
 			return p.generalCard(gtx, view, draft)
 		})
 	})
 	y += dims.Size.Y + gtx.Dp(14)
-	footer := placeSettings(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+	footer := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return p.footer(gtx, view, draft)
 	})
 	return layout.Dimensions{Size: image.Pt(width, y+footer.Size.Y)}
@@ -161,44 +148,44 @@ type settingField struct {
 	help    string
 }
 
+// Settings container thresholds. They are widths of the card or footer, not of
+// the window, so they stay local; the window itself uses ui.Breakpoint*.
+const (
+	settingsGap            unit.Dp = 18
+	settingsMinColumn      unit.Dp = 215 // two columns once the card holds 448dp
+	settingsSwatchRowWidth unit.Dp = 305 // below this the accent swatches wrap under the select
+	settingsFooterRowWidth unit.Dp = 510 // below this the status wraps above the actions
+)
+
 func (p *settingsPage) generalCard(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
 	width := gtx.Constraints.Max.X
-	pad, gap := gtx.Dp(20), gtx.Dp(18)
+	pad, gap := gtx.Dp(20), gtx.Dp(settingsGap)
 	y := pad
-	title := placeSettings(gtx, view, image.Pt(pad, y), width-2*pad, func(gtx layout.Context, view ui.View) layout.Dimensions {
+	title := ui.Place(gtx, view, image.Pt(pad, y), width-2*pad, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return view.Label(gtx, view.Language.Text(i18n.SettingsGeneral), 16, font.SemiBold, view.Colors.Ink)
 	})
 	y += title.Size.Y + gap
-	columns := 1
-	if width-2*pad >= gtx.Dp(448) {
-		columns = 2
-	}
-	cellWidth := (width - 2*pad - (columns-1)*gap) / columns
 	fields := p.formFields(view, draft)
-	for start := 0; start < len(fields)+1; start += columns {
-		h := 0
-		for col := 0; col < columns && start+col <= len(fields); col++ {
-			i := start + col
-			dims := placeSettings(gtx, view, image.Pt(pad+col*(cellWidth+gap), y), cellWidth, func(gtx layout.Context, view ui.View) layout.Dimensions {
-				if i == len(fields) {
-					currency := draft.HouseholdCurrency
-					if currency == "" {
-						currency = "—"
-					}
-					if p.currency.Text() != currency {
-						p.currency.Editor.SetText(currency)
-					}
-					return p.currency.Layout(gtx, view, ui.FieldOptions{Label: i18n.SettingsCurrency, ReadOnly: true, Help: i18n.SettingsCurrencyHelp})
+	grid := ui.Grid{MinColumn: settingsMinColumn, Gap: settingsGap, MaxColumns: 2}
+	body := ui.Place(gtx, view, image.Pt(pad, y), width-2*pad, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return grid.Layout(gtx, view, len(fields)+1, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+			if i == len(fields) {
+				currency := draft.HouseholdCurrency
+				if currency == "" {
+					currency = "—"
 				}
-				field := fields[i]
-				separator := field.label == i18n.SettingsDecimal || field.label == i18n.SettingsGrouping
-				return p.field(gtx, view, i, field, separator && draft.DecimalSeparator == draft.GroupingSeparator)
-			})
-			h = max(h, dims.Size.Y)
-		}
-		y += h + gap
-	}
-	return layout.Dimensions{Size: image.Pt(width, y-gap+pad)}
+				if p.currency.Text() != currency {
+					p.currency.Editor.SetText(currency)
+				}
+				return p.currency.Layout(gtx, view, ui.FieldOptions{Label: i18n.SettingsCurrency, ReadOnly: true, Help: i18n.SettingsCurrencyHelp})
+			}
+			field := fields[i]
+			separator := field.label == i18n.SettingsDecimal || field.label == i18n.SettingsGrouping
+			return p.field(gtx, view, i, field, separator && draft.DecimalSeparator == draft.GroupingSeparator)
+		})
+	})
+	y += body.Size.Y
+	return layout.Dimensions{Size: image.Pt(width, y+pad)}
 }
 
 func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field settingField, invalid bool) layout.Dimensions {
@@ -212,7 +199,7 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 	}
 	picker := ui.PickerField{Label: field.label, Origin: view.Origin, Previous: previous, Next: next, Disabled: p.prefs.busy}
 	hasSwatches := field.label == i18n.SettingsAccent
-	stackSwatches := hasSwatches && width < gtx.Dp(305)
+	stackSwatches := hasSwatches && width < gtx.Dp(settingsSwatchRowWidth)
 	selectWidth := width
 	if hasSwatches && !stackSwatches {
 		selectWidth -= gtx.Dp(145)
@@ -228,10 +215,10 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 			offset = image.Pt(0, y+gtx.Dp(4))
 			y += gtx.Dp(34)
 		}
-		placeSettings(gtx, view, offset, width-offset.X, func(gtx layout.Context, view ui.View) layout.Dimensions { return p.palette(gtx, view, field) })
+		ui.Place(gtx, view, offset, width-offset.X, func(gtx layout.Context, view ui.View) layout.Dimensions { return p.palette(gtx, view, field) })
 	}
 	if field.help != "" {
-		d := placeSettings(gtx, view, image.Pt(0, y+gtx.Dp(4)), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		d := ui.Place(gtx, view, image.Pt(0, y+gtx.Dp(4)), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 			color := view.Colors.SecondaryInk
 			if field.label == i18n.SettingsGrouping {
 				color = view.Colors.ErrorInk
@@ -244,35 +231,21 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 }
 
 func (p *settingsPage) palette(gtx layout.Context, view ui.View, field settingField) layout.Dimensions {
+	if p.prefs.busy {
+		gtx = gtx.Disabled()
+	}
+	step := gtx.Dp(ui.SwatchSize)
 	for i, opt := range field.options {
 		click := &p.swatches[i]
-		for {
-			e, ok := click.Update(gtx.Source)
-			if !ok {
-				break
-			}
-			if e.Kind == gesture.KindClick && !p.prefs.busy {
-				p.edit(field.label, opt.ID)
-				gtx.Execute(op.InvalidateCmd{})
-			}
+		if click.Clicked(gtx) && !p.prefs.busy {
+			p.edit(field.label, opt.ID)
+			gtx.Execute(op.InvalidateCmd{})
 		}
-		diameter := gtx.Dp(25)
-		offset := op.Offset(image.Pt(i*gtx.Dp(28), 0)).Push(gtx.Ops)
-		b := image.Rect(0, 0, diameter, diameter)
-		area := clip.Ellipse(b).Push(gtx.Ops)
-		if !p.prefs.busy {
-			pointer.CursorPointer.Add(gtx.Ops)
-			click.Add(gtx.Ops)
-		}
-		if opt.ID == field.value {
-			paint.Fill(gtx.Ops, view.Colors.Accent)
-		}
-		paint.FillShape(gtx.Ops, view.Colors.Surface, clip.Ellipse(b.Inset(gtx.Dp(1))).Op(gtx.Ops))
-		paint.FillShape(gtx.Ops, accentThemes[i].swatch, clip.Ellipse(b.Inset(gtx.Dp(3))).Op(gtx.Ops))
-		area.Pop()
+		offset := op.Offset(image.Pt(i*step, 0)).Push(gtx.Ops)
+		view.Swatch(gtx, click, ui.SwatchSpec{Fill: accentThemes[i].swatch, Name: opt.Label, Selected: opt.ID == field.value})
 		offset.Pop()
 	}
-	return layout.Dimensions{Size: image.Pt(gtx.Dp(140), gtx.Dp(25))}
+	return layout.Dimensions{Size: image.Pt(step*len(field.options), step)}
 }
 
 type settingOption struct {
@@ -392,7 +365,7 @@ func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preference
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					message := view.Message(view.Language.Text(status), ink)
 					actions := func(gtx layout.Context) layout.Dimensions { return p.actions(gtx, view, canSave, dirty) }
-					if gtx.Constraints.Max.X < gtx.Dp(510) {
+					if gtx.Constraints.Max.X < gtx.Dp(settingsFooterRowWidth) {
 						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, layout.Rigid(message), layout.Rigid(actions))
 					}
 					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx, layout.Flexed(1, message), layout.Rigid(actions))

@@ -53,7 +53,7 @@ var cashMovementLabels = [...]movementLabels{
 func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layout.Dimensions {
 	d, l := p.draft, view.Language
 	labels := cashMovementLabels[d.movement]
-	gtx = ui.LimitWidth(gtx, 640)
+	gtx, view = view.Measure(gtx, 640)
 	if d.review != nil {
 		return p.layoutReview(gtx, view)
 	}

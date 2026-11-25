@@ -26,7 +26,7 @@ func (p *accountsPage) layoutInlineInstitution(gtx layout.Context, view ui.View)
 		edit.name.Focus(gtx)
 		edit.focusName = false
 	}
-	gtx = ui.LimitWidth(gtx, 480)
+	gtx, view = view.Measure(gtx, 480)
 	origin := view.Origin
 	gap := gtx.Dp(8)
 	return layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(gtx,

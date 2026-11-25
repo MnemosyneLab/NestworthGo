@@ -45,8 +45,8 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 		return p.activeList().layout(gtx, view)
 	}
 	gap := gtx.Dp(10)
-	return layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			tabs := make([]layout.FlexChild, 0, len(p.tabs))
 			for i := range p.tabs {
 				button := &p.tabs[i]
@@ -62,7 +62,7 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			view.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return p.activeList().layout(gtx, view)
 		}),
 	)

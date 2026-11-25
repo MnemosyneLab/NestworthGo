@@ -8,7 +8,6 @@ import (
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -56,8 +55,8 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		title = historyKindLabel(r.posted.Kind, r.posted.Reason)
 	}
 
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := []ui.ColumnChild{
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(10)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					view.Focus.Watch(gtx, &d.back)
@@ -71,24 +70,24 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	}
 	if d.id == r.posted.ID {
 		if r.postedNotice != i18n.NoMessage {
-			children = append(children, layout.Rigid(view.Message(l.Text(r.postedNotice), view.Colors.Ink)))
+			children = append(children, ui.Rigid(view.Message(l.Text(r.postedNotice), view.Colors.Ink)))
 		} else if movement, supported := history.CashMovementOf(r.posted.Kind, r.posted.Reason); supported {
-			children = append(children, layout.Rigid(view.Message(l.Text(cashMovementLabels[movement].posted), view.Colors.Ink)))
+			children = append(children, ui.Rigid(view.Message(l.Text(cashMovementLabels[movement].posted), view.Colors.Ink)))
 		}
 	}
 	switch {
 	case d.pending != nil:
-		children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)))
+		children = append(children, ui.Rigid(view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)))
 	case errors.Is(d.err, history.ErrActivityUnavailable):
-		children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryActivityUnavailable), view.Colors.SecondaryInk)))
+		children = append(children, ui.Rigid(view.Message(l.Text(i18n.HistoryActivityUnavailable), view.Colors.SecondaryInk)))
 	case d.err != nil:
 		children = append(children,
-			layout.Rigid(view.Message(l.Text(i18n.ContributionDetailFailed), view.Colors.ErrorInk)),
-			layout.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))),
+			ui.Rigid(view.Message(l.Text(i18n.ContributionDetailFailed), view.Colors.ErrorInk)),
+			ui.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))),
 		)
 	case known != nil:
 		if r.repeatAPI != nil && known.Repeatable {
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.W.Layout(gtx, view.Button(&d.repeat, l.Text(i18n.HistoryRepeatAction)))
 			}))
 		}
@@ -97,25 +96,26 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			if known.Reversible {
 				buttons = append(buttons, layout.Rigid(view.Button(&d.reverse, l.Text(i18n.HistoryReverseAction))))
 			}
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 			}))
 			if !known.Reversible {
-				children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryReversalArchived), view.Colors.SecondaryInk)))
+				children = append(children, ui.Rigid(view.Message(l.Text(i18n.HistoryReversalArchived), view.Colors.SecondaryInk)))
 			}
 		}
 		if known.Links != (history.AmendmentLinks{}) {
-			children = append(children, layout.Rigid(r.amendmentLinks(view)))
+			children = append(children, ui.Rigid(r.amendmentLinks(view)))
 		}
 		facts := append(r.accountLinks(view, *known), r.instrumentLinks(view, *known)...)
 		facts = append(facts, activityFacts(view, *known)...)
-		children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return material.List(view.Theme, &d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
+		children = append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions {
+			return view.List(&d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, facts[i])
 			})
 		}))
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(9)}.Layout(ui.LimitWidth(gtx, 720), children...)
+	gtx, view = view.Measure(gtx, 720)
+	return ui.Column{Gap: 9}.Layout(gtx, children...)
 }
 
 func (r *historyReads) instrumentLinks(view ui.View, detail history.Detail) []layout.Widget {

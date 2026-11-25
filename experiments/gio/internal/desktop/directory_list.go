@@ -205,13 +205,13 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 
 	editorView := view
 	gap := gtx.Dp(12)
-	return layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(ui.LimitWidth(gtx, 780),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 12}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			dims := p.header(gtx, view)
 			editorView.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.editMode != directoryRead {
 				return layout.Dimensions{}
 			}
@@ -219,13 +219,13 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			editorView.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.editMode == directoryRead {
 				return layout.Dimensions{}
 			}
 			return p.editor(gtx, editorView)
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.listContent(gtx, view) }),
+		ui.Fill(func(gtx layout.Context) layout.Dimensions { return p.listContent(gtx, view) }),
 	)
 }
 
@@ -292,8 +292,8 @@ func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dim
 		}
 	}
 
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 8}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			message, isError := p.listStatus()
 			if message == i18n.NoMessage {
 				return layout.Dimensions{}
@@ -304,7 +304,7 @@ func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dim
 			}
 			return view.Message(view.Language.Text(message), ink)(gtx)
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if !p.loaded {
 				return layout.Dimensions{}
 			}

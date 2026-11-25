@@ -8,7 +8,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -26,7 +25,7 @@ func (p *historyPage) layoutRepeat(gtx layout.Context, view ui.View) layout.Dime
 	r, l := p.reads, view.Language
 	visit := r.detail
 	d := visit.repeatDraft
-	gtx = ui.LimitWidth(gtx, 680)
+	gtx, view = view.Measure(gtx, 680)
 	if d.review != nil {
 		return p.layoutRepeatReview(gtx, view)
 	}
@@ -238,7 +237,7 @@ func (p *historyPage) layoutRepeatReview(gtx layout.Context, view ui.View) layou
 		facts = append(facts, view.Message(d.note.Text(), view.Colors.SecondaryInk))
 	}
 	children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-		return material.List(view.Theme, &d.reviewList).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
+		return view.List(&d.reviewList).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
 			return layout.Inset{Bottom: 8}.Layout(gtx, facts[i])
 		})
 	}))
@@ -264,5 +263,6 @@ func (p *historyPage) layoutRepeatReview(gtx layout.Context, view ui.View) layou
 			)
 		}
 	}))
+	gtx = ui.FitWindow(gtx)
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 }

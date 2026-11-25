@@ -171,7 +171,7 @@ func openingPositionProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 func (p *accountsPage) layoutOpeningPosition(gtx layout.Context, view ui.View) layout.Dimensions {
 	f, l := p.opening, view.Language
 	d := f.draft
-	gtx = ui.LimitWidth(gtx, 690)
+	gtx, view = view.Measure(gtx, 690)
 	if d.checking {
 		if d.read != nil {
 			return view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)(gtx)

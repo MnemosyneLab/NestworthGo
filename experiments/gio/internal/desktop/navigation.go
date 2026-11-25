@@ -12,6 +12,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -441,7 +442,11 @@ func (s *shell) navigationButton(gtx layout.Context, view ui.View, step int) lay
 	} else {
 		gtx = gtx.Disabled()
 	}
-	dims := view.NamedButton(button, title, name)(gtx)
+	icon := navigationBackIcon
+	if step > 0 {
+		icon = navigationForwardIcon
+	}
+	dims := view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Name: name, ShortName: title, Icon: icon})(gtx)
 	gtx.Constraints = layout.Exact(dims.Size)
 	hint.Layout(gtx, view, button.Hovered(), name)
 	return dims
@@ -495,3 +500,8 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 	}
 	return title
 }
+
+var (
+	navigationBackIcon    = ui.Glyph(lucide.ArrowLeft)
+	navigationForwardIcon = ui.Glyph(lucide.ArrowRight)
+)

@@ -11,8 +11,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -35,6 +35,11 @@ type historyPage struct {
 func newHistoryPage(model *history.Model) *historyPage {
 	return &historyPage{model: model, list: widget.List{List: layout.List{Axis: layout.Vertical}}}
 }
+
+// historyListMinHeight keeps a few rows visible. When the controls above plus
+// this minimum exceed the window, the stage scrolls instead of squeezing the
+// list.
+const historyListMinHeight unit.Dp = 220
 
 var historyKindLabels = map[domain.ActivityKind]i18n.MessageID{
 	domain.ActivityCashIn:           i18n.HistoryCashIn,
@@ -110,22 +115,25 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		gtx.Execute(key.FocusCmd{Tag: &p.list})
 	}
 
-	filterView := view
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 780),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return p.layoutActivity(gtx, view, view)
+}
+
+// layoutActivity stacks the actions, filters, status and the activity list. The
+// list takes the height left in the window, never less than its minimum.
+func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.View) layout.Dimensions {
+	return ui.Column{Gap: 12, MinFill: historyListMinHeight}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.cashMovements == nil {
 				return layout.Dimensions{}
 			}
-			var actions []layout.FlexChild
-			for i := range p.cashMovements.actions {
-				actions = append(actions, layout.Rigid(view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))))
-			}
-			dims := layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
+			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(p.cashMovements.actions), func(gtx layout.Context, i int) layout.Dimensions {
+				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
+			})
 			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)
 			return dims
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if p.startPoint == nil || !p.startPoint.ready || p.reads.references == nil || p.reads.references.Origin == nil {
@@ -159,13 +167,13 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 				}),
 			)
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if len(p.model.Rows()) == 0 || p.noHistory() {
 				return layout.Dimensions{}
 			}
 			return p.activityList(gtx, view)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !p.model.HasMore() || p.model.Err() != nil || p.noHistory() {
 				return layout.Dimensions{}
 			}
@@ -230,7 +238,7 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 				}
 			}
 			return accessibility.List(gtx, &p.list, view.Language.Text(i18n.NavHistory), func(gtx layout.Context) layout.Dimensions {
-				return material.List(view.Theme, &p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
+				return view.List(&p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
 					row := p.model.Rows()[i]
 					return accessibility.Row(gtx, row.ID, func(gtx layout.Context) layout.Dimensions {
 						return p.layoutActivityRow(gtx, view, row)

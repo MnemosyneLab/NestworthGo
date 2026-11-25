@@ -7,7 +7,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -40,7 +39,7 @@ func (p *availableFundsPage) reservationButton(view ui.View, name string, source
 
 func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reservation, view.Language
-	gtx = ui.LimitWidth(gtx, 690)
+	gtx, view = view.Measure(gtx, 690)
 	if r.close.Clicked(gtx) && !p.reservationUnresolved() {
 		if r.plan != nil {
 			r.plan = nil
@@ -115,6 +114,7 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 	if r.readError && !r.checking {
 		header = append(header, layout.Rigid(view.Button(&r.close, l.Text(i18n.ReserveBack))))
 	}
+	gtx = ui.FitWindow(gtx)
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, header...)
 }
 
@@ -138,7 +138,7 @@ func (r *fundsReservationSession) layoutReservationList(gtx layout.Context, view
 		return view.Message(view.Language.Text(i18n.ReserveEmpty), view.Colors.SecondaryInk)(gtx)
 	}
 	r.list.Position = restoredPosition(r.list.Position, len(r.current.records))
-	return material.List(view.Theme, &r.list).Layout(gtx, len(r.current.records), func(gtx layout.Context, i int) layout.Dimensions {
+	return view.List(&r.list).Layout(gtx, len(r.current.records), func(gtx layout.Context, i int) layout.Dimensions {
 		row := r.current.records[i]
 		l := view.Language
 		title := row.Label

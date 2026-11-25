@@ -3,9 +3,10 @@ package ui
 import (
 	"image/color"
 
-	"gioui.org/font"
+	"gioui.org/f32"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 )
@@ -15,6 +16,7 @@ import (
 type Confirmation struct {
 	Cancel, Confirm widget.Clickable
 	focusOnOpen     bool
+	enter           Tween
 }
 
 type ConfirmationOptions struct {
@@ -22,7 +24,10 @@ type ConfirmationOptions struct {
 	Busy                                  bool
 }
 
-func (c *Confirmation) Open() { c.focusOnOpen = true }
+func (c *Confirmation) Open() {
+	c.focusOnOpen = true
+	c.enter.Snap(0)
+}
 
 func (c *Confirmation) Layout(gtx layout.Context, view View, options ConfirmationOptions, cancel, confirm func()) {
 	if c.focusOnOpen {
@@ -51,19 +56,23 @@ func (c *Confirmation) Layout(gtx layout.Context, view View, options Confirmatio
 	if !options.Busy && c.Confirm.Clicked(gtx) {
 		confirm()
 	}
-	paint.Fill(gtx.Ops, color.NRGBA{A: 0x68})
+	c.enter.Set(gtx, 1, DurationBase, EaseOut)
+	progress := c.enter.Value(gtx)
+	paint.Fill(gtx.Ops, color.NRGBA{A: uint8(0x68 * progress)})
 	layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx = LimitWidth(gtx, 420)
-		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
+		// The dialog scales up from 96% while it fades in.
+		macro := op.Record(gtx.Ops)
+		dims := view.Surface(gtx, SurfaceSpec{Elevation: ElevationLG}, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(22).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				if options.Busy {
 					gtx = gtx.Disabled()
 				}
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, options.Title, 17, font.SemiBold, view.Colors.Ink)
+						return view.Line(gtx, TextHeading, options.Title, view.Colors.Ink)
 					}),
-					layout.Rigid(view.Message(options.Body, view.Colors.SecondaryInk)),
+					layout.Rigid(view.Body(TextBody, options.Body, view.Colors.SecondaryInk)),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if options.Problem == "" {
 							return layout.Dimensions{}
@@ -79,5 +88,15 @@ func (c *Confirmation) Layout(gtx layout.Context, view View, options Confirmatio
 				)
 			})
 		})
+		call := macro.Stop()
+		scale := float32(0.96 + 0.04*progress)
+		if ReducedMotion() {
+			scale = 1
+		}
+		center := f32.Pt(float32(dims.Size.X)/2, float32(dims.Size.Y)/2)
+		defer op.Affine(f32.Affine2D{}.Scale(center, f32.Pt(scale, scale))).Push(gtx.Ops).Pop()
+		defer paint.PushOpacity(gtx.Ops, float32(progress)).Pop()
+		call.Add(gtx.Ops)
+		return dims
 	})
 }
