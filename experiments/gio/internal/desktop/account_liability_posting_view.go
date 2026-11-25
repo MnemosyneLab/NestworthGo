@@ -10,6 +10,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -21,10 +22,20 @@ var liabilityPostingKinds = [...]struct {
 	kind  historyapi.ChangeCommandKind
 	label i18n.MessageID
 }{
-	{historyapi.ChangeMoneyAdded, i18n.LiabilityCardPurchase},
-	{historyapi.ChangeMoneyRemoved, i18n.LiabilityCardRefund},
+	{historyapi.ChangeMoneyAdded, i18n.LiabilityDebtIncrease},
+	{historyapi.ChangeMoneyRemoved, i18n.LiabilityDebtDecrease},
 	{historyapi.ChangeDebtDraw, i18n.HistoryDebtDraw},
 	{historyapi.ChangeDebtPayment, i18n.HistoryDebtPayment},
+	{historyapi.ChangeValueUpdate, i18n.LiabilityBalanceCorrection},
+}
+
+var liabilityReasonLabels = map[domain.ActivityReason]i18n.MessageID{
+	domain.ReasonCardPurchase:   i18n.LiabilityCardPurchase,
+	domain.ReasonCardRefund:     i18n.LiabilityCardRefund,
+	domain.ReasonInterest:       i18n.HistoryCashReasonInterest,
+	domain.ReasonFee:            i18n.HistoryCashReasonFee,
+	domain.ReasonOther:          i18n.HistoryCashReasonOther,
+	domain.ReasonReconciliation: i18n.LiabilityReasonReconciliation,
 }
 
 func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -65,7 +76,7 @@ func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) 
 	gtx, view = view.Measure(gtx, 660)
 	at := view.Origin
 	children := []layout.Widget{
-		tradeTitle(view, i18n.LiabilityRecord),
+		tradeTitle(view, liabilityEntryLabel(d.account)),
 		view.Message(d.account.Name+" · "+d.account.DefaultCurrency.String(), view.Colors.Ink),
 	}
 	if d.startingSaved {
@@ -90,7 +101,7 @@ func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) 
 	}
 	if d.sources != nil && d.sourceProblem == i18n.NoMessage {
 		buttons = append(buttons, func(gtx layout.Context) layout.Dimensions {
-			if d.loading != nil || d.previewing != nil || strings.TrimSpace(d.amount.Text()) == "" || (d.debt() && d.cashAccount().ID == "") {
+			if d.loading != nil || d.previewing != nil || strings.TrimSpace(d.amount.Text()) == "" || (d.debt() && d.sources.Counterparty(d.counterparty).ID == "") {
 				gtx = gtx.Disabled()
 			}
 			return view.PrimaryButton(&d.preview, l.Text(i18n.LiabilityPreview))(gtx)
@@ -98,15 +109,6 @@ func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) 
 	}
 	children = append(children, liabilityButtons(buttons...))
 	return layoutLiabilityColumn(gtx, &at, children)
-}
-
-func (d *liabilityPostingDraft) cashAccount() domain.Account {
-	for _, account := range d.sources.Cash {
-		if d.cash == account.ID {
-			return account
-		}
-	}
-	return domain.Account{}
 }
 
 func (p *accountsPage) layoutLiabilityFields(view ui.View) layout.Widget {
@@ -118,33 +120,69 @@ func (p *accountsPage) layoutLiabilityFields(view ui.View) layout.Widget {
 		at := view.Origin
 		choices := make([]layout.Widget, 0, len(liabilityPostingKinds))
 		for i, option := range liabilityPostingKinds {
-			if i < 2 && d.account.AccountType != domain.TypeCreditCard {
+			if !d.account.IsLiability() && option.kind != historyapi.ChangeDebtDraw && option.kind != historyapi.ChangeDebtPayment {
 				continue
 			}
 			if d.kinds[i].Clicked(gtx) {
-				d.kind, d.problem = option.kind, i18n.NoMessage
+				d.selectKind(option.kind)
 				gtx.Execute(op.InvalidateCmd{})
 			}
-			choices = append(choices, view.TabButton(&d.kinds[i], l.Text(option.label), d.kind == option.kind))
+			label := option.label
+			if d.account.AccountType == domain.TypeCreditCard {
+				if option.kind == historyapi.ChangeMoneyAdded {
+					label = i18n.LiabilityCardPurchase
+				} else if option.kind == historyapi.ChangeMoneyRemoved {
+					label = i18n.LiabilityCardRefund
+				}
+			}
+			choices = append(choices, view.TabButton(&d.kinds[i], l.Text(label), d.kind == option.kind))
 		}
 		children := []layout.Widget{liabilityButtons(choices...)}
 		if d.debt() {
 			children = append(children, func(gtx layout.Context) layout.Dimensions {
-				items := make([]ui.Choice, 0, len(d.sources.Cash))
-				for _, account := range d.sources.Cash {
+				items := make([]ui.Choice, 0, len(d.sources.Counterparties))
+				for _, account := range d.sources.Counterparties {
 					items = append(items, ui.Choice{ID: account.ID.String(), Label: account.Name + " · " + account.DefaultCurrency.String(), SearchText: account.Name})
 				}
-				if len(items) == 0 {
-					return view.Message(l.Text(i18n.LiabilityNoCash), view.Colors.SecondaryInk)(gtx)
+				label, empty := i18n.LiabilityChooseDebt, i18n.LiabilityNoDebt
+				if d.account.IsLiability() {
+					label, empty = i18n.LiabilityChooseCash, i18n.LiabilityNoCash
 				}
-				field := ui.PickerField{Label: i18n.LiabilityChooseCash, Origin: at, Disabled: !gtx.Enabled(), Next: &d.amount.Editor}
-				d.cashPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.cashAccount().ID.String(), func(value string) {
-					d.cash, d.problem = domain.AccountID(value), i18n.NoMessage
+				if len(items) == 0 {
+					return view.Message(l.Text(empty), view.Colors.SecondaryInk)(gtx)
+				}
+				selected := d.sources.Counterparty(d.counterparty)
+				if d.focusAmount && selected.ID == "" && gtx.Enabled() {
+					gtx.Execute(key.FocusCmd{Tag: &d.accountPicker.Trigger})
+					d.focusAmount = false
+				}
+				field := ui.PickerField{Label: label, Origin: at, Disabled: !gtx.Enabled(), Next: &d.amount.Editor}
+				d.accountPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, selected.ID.String(), func(value string) {
+					d.counterparty, d.problem = domain.AccountID(value), i18n.NoMessage
 				})
 				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
 			})
 		}
-		children = append(children, d.layoutLiabilityAmounts(view, &at), func(gtx layout.Context) layout.Dimensions {
+		children = append(children, d.layoutLiabilityAmounts(view, &at))
+		reasons := history.LiabilityReasons(d.kind)
+		if len(reasons) > 0 {
+			children = append(children, func(gtx layout.Context) layout.Dimensions {
+				if len(reasons) == 1 {
+					return view.Message(liabilityReasonFact(l, reasons[0]), view.Colors.Ink)(gtx)
+				}
+				items := make([]ui.Choice, 0, len(reasons))
+				for _, reason := range reasons {
+					items = append(items, ui.Choice{ID: string(reason), Label: l.Text(liabilityReasonLabels[reason])})
+				}
+				field := ui.PickerField{Label: i18n.HistoryRepeatReason, Origin: at, Disabled: !gtx.Enabled(),
+					Previous: &d.currencyPicker.Trigger, Next: &d.datePicker.Trigger}
+				d.reasonPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items}, string(d.reason), func(value string) {
+					d.reason, d.problem = domain.ActivityReason(value), i18n.NoMessage
+				})
+				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+			})
+		}
+		children = append(children, func(gtx layout.Context) layout.Dimensions {
 			return d.layoutLiabilityTime(gtx, view, at, p.clock())
 		})
 		timeHint := fmt.Sprintf(l.Text(i18n.ContributionTimezone), d.sources.Location)
@@ -160,6 +198,10 @@ func (p *accountsPage) layoutLiabilityFields(view ui.View) layout.Widget {
 		)
 		return layoutLiabilityColumn(gtx, &at, children)
 	}
+}
+
+func liabilityReasonFact(l i18n.Language, reason domain.ActivityReason) string {
+	return l.Text(i18n.HistoryRepeatReason) + " · " + l.Text(liabilityReasonLabels[reason])
 }
 
 func layoutLiabilityColumn(gtx layout.Context, at *image.Point, children []layout.Widget) layout.Dimensions {
@@ -182,17 +224,19 @@ func (d *liabilityPostingDraft) layoutLiabilityAmounts(view ui.View, at *image.P
 		currency, amountLabel, count := d.currency, i18n.HistoryRepeatAmount, 2
 		if d.debt() {
 			currency, amountLabel = d.account.DefaultCurrency, i18n.HistoryDebtPrincipal
-			if cash := d.cashAccount(); cash.ID != "" {
+			if cash := d.sources.Counterparty(d.counterparty); d.account.IsLiability() && cash.ID != "" {
 				currency = cash.DefaultCurrency
 			}
 			if d.kind == historyapi.ChangeDebtDraw {
 				count = 1
 			}
+		} else if d.kind == historyapi.ChangeValueUpdate {
+			amountLabel, count = i18n.AccountCardBalanceTarget, 1
 		}
 		return (ui.Grid{MinColumn: 160, MaxColumns: 2, Gap: 8}).Layout(gtx, view, count, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 			if i == 0 {
 				field := ui.FieldOptions{Label: amountLabel}
-				if d.debt() {
+				if d.debt() || d.kind == historyapi.ChangeValueUpdate {
 					return d.amount.LayoutCurrency(gtx, view, field, currency.String())
 				}
 				return d.amount.Layout(gtx, view, field)
@@ -204,7 +248,7 @@ func (d *liabilityPostingDraft) layoutLiabilityAmounts(view ui.View, at *image.P
 			for _, code := range domain.SupportedCurrencies() {
 				items = append(items, ui.Choice{ID: code.String(), Label: code.String()})
 			}
-			field := ui.PickerField{Label: i18n.AnalysisCurrency, Origin: view.Origin, Disabled: !gtx.Enabled(), Next: &d.datePicker.Trigger}
+			field := ui.PickerField{Label: i18n.AnalysisCurrency, Origin: view.Origin, Disabled: !gtx.Enabled(), Next: &d.reasonPicker.Trigger}
 			d.currencyPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, currency.String(), func(value string) {
 				d.currency, d.problem = domain.CurrencyCode(value), i18n.NoMessage
 			})
@@ -226,6 +270,12 @@ func (d *liabilityPostingDraft) layoutLiabilityTime(gtx layout.Context, view ui.
 		field := ui.PickerField{Origin: view.Origin, Disabled: !gtx.Enabled()}
 		if i == 0 {
 			field.Label, field.Next = i18n.PreviewEffectiveDate, &d.timePicker.Trigger
+			if !d.debt() {
+				field.Previous = &d.amount.Editor
+				if d.kind != historyapi.ChangeValueUpdate {
+					field.Previous = &d.reasonPicker.Trigger
+				}
+			}
 			d.datePicker.Layout(gtx, view, field, dates, d.date, func(day string) {
 				d.date, d.exactTime, d.problem = day, time.Time{}, i18n.NoMessage
 			})
@@ -262,12 +312,19 @@ func (p *accountsPage) layoutLiabilityReview(gtx layout.Context, view ui.View) l
 	gtx, view = view.Measure(gtx, 660)
 	review := d.review
 	activity := review.Preview.Activity
+	title := historyKindLabel(activity.Kind, activity.Reason)
+	if !d.debt() {
+		title = liabilityKindLabel(activity.Kind, activity.Reason)
+	}
 	children := []layout.FlexChild{
-		layout.Rigid(tradeTitle(view, historyKindLabel(activity.Kind, activity.Reason))),
+		layout.Rigid(tradeTitle(view, title)),
 		layout.Rigid(view.Message(tradeTimestamp(view, activity.EffectiveAt, review.Timezone), view.Colors.SecondaryInk)),
 	}
+	if !d.debt() {
+		children = append(children, layout.Rigid(view.Message(liabilityReasonFact(l, activity.Reason), view.Colors.Ink)))
+	}
 	for _, effect := range review.Preview.Effects {
-		if effect.Role == domain.EffectRoleDebt || effect.Money == nil {
+		if effect.Role == domain.EffectRoleDebt || effect.Money == nil || d.kind == historyapi.ChangeValueUpdate {
 			continue
 		}
 		label := i18n.LiabilityAmountFact

@@ -212,7 +212,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 							gtx.Execute(key.FocusCmd{Tag: &f.open})
 							f.restore = false
 						}
-						return layout.W.Layout(gtx, view.PrimaryButton(&f.open, l.Text(i18n.LiabilityRecord)))
+						action := liabilityEntryLabel(p.freshDetail().record.Account)
+						return layout.W.Layout(gtx, view.PrimaryButton(&f.open, l.Text(action)))
 					}),
 				)
 			}

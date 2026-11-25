@@ -359,3 +359,17 @@ func historyKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i1
 	}
 	return i18n.HistoryActivity
 }
+
+func liabilityKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i18n.MessageID {
+	switch kind {
+	case domain.ActivityCashIn:
+		if reason != domain.ReasonCardPurchase {
+			return i18n.LiabilityDebtIncrease
+		}
+	case domain.ActivityCashOut:
+		if reason != domain.ReasonCardRefund {
+			return i18n.LiabilityDebtDecrease
+		}
+	}
+	return historyKindLabel(kind, reason)
+}

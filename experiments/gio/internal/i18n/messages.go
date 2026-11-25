@@ -1186,6 +1186,15 @@ const (
 	AccountBankBalanceUnverified
 	AccountCardBalanceAction
 	LiabilityRecord
+	LiabilityRecordDebt
+	LiabilityDebtIncrease
+	LiabilityDebtDecrease
+	LiabilityBalanceCorrection
+	LiabilityChooseDebt
+	LiabilityDebtRequired
+	LiabilityNoDebt
+	LiabilityReasonRequired
+	LiabilityReasonReconciliation
 	LiabilityBackToAccount
 	LiabilityCardPurchase
 	LiabilityCardRefund

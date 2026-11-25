@@ -2,6 +2,7 @@ package history
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -10,6 +11,10 @@ import (
 )
 
 func LiabilityPostingAccount(account domain.Account) bool {
+	return liabilityAccount(account) || liabilityCashAccount(account)
+}
+
+func liabilityAccount(account domain.Account) bool {
 	return account.ArchivedAt == nil && account.IsLiability() && account.TrackingMode == domain.TrackingBalance
 }
 
@@ -19,10 +24,10 @@ func liabilityCashAccount(account domain.Account) bool {
 }
 
 type LiabilitySources struct {
-	Account  domain.Account
-	Origin   domain.HistoryOrigin
-	Location *time.Location
-	Cash     []domain.Account
+	Account        domain.Account
+	Origin         domain.HistoryOrigin
+	Location       *time.Location
+	Counterparties []domain.Account
 }
 
 func LoadLiabilitySources(ctx context.Context, ledger CashMovementLedger, id domain.AccountID) (LiabilitySources, error) {
@@ -38,27 +43,54 @@ func LoadLiabilitySources(ctx context.Context, ledger CashMovementLedger, id dom
 	for _, row := range rows {
 		if row.Account.ID == id && LiabilityPostingAccount(row.Account) {
 			sources.Account = row.Account
-		}
-		if liabilityCashAccount(row.Account) {
-			sources.Cash = append(sources.Cash, row.Account)
+			break
 		}
 	}
 	if sources.Account.ID == "" {
-		return LiabilitySources{}, &domain.Error{Code: domain.ErrNotFound, Field: "debtAccountId"}
+		return LiabilitySources{}, &domain.Error{Code: domain.ErrNotFound, Field: "accountId"}
+	}
+	for _, row := range rows {
+		if sources.Account.IsLiability() && liabilityCashAccount(row.Account) ||
+			!sources.Account.IsLiability() && liabilityAccount(row.Account) {
+			sources.Counterparties = append(sources.Counterparties, row.Account)
+		}
 	}
 	return sources, nil
 }
 
+func (s LiabilitySources) Counterparty(id domain.AccountID) domain.Account {
+	for _, account := range s.Counterparties {
+		if account.ID == id {
+			return account
+		}
+	}
+	return domain.Account{}
+}
+
+func LiabilityReasons(kind historyapi.ChangeCommandKind) []domain.ActivityReason {
+	switch kind {
+	case historyapi.ChangeMoneyAdded:
+		return domain.LiabilityIncreaseReasons()
+	case historyapi.ChangeMoneyRemoved:
+		return domain.LiabilityDecreaseReasons()
+	case historyapi.ChangeValueUpdate:
+		return []domain.ActivityReason{domain.ReasonReconciliation}
+	default:
+		return nil
+	}
+}
+
 type LiabilityInput struct {
-	Kind       historyapi.ChangeCommandKind
-	Account    domain.AccountID
-	Cash       domain.AccountID
-	Currency   domain.CurrencyCode
-	Amount     string
-	Fee        string
-	Note       string
-	Date, Time string
-	ExactTime  time.Time
+	Kind         historyapi.ChangeCommandKind
+	Account      domain.AccountID
+	Counterparty domain.AccountID
+	Reason       domain.ActivityReason
+	Currency     domain.CurrencyCode
+	Amount       string
+	Fee          string
+	Note         string
+	Date, Time   string
+	ExactTime    time.Time
 }
 
 type LiabilityReview struct {
@@ -115,33 +147,40 @@ func liabilityRequest(s LiabilitySources, in LiabilityInput) (historyapi.ChangeC
 		request.Note = &note
 	}
 	switch in.Kind {
-	case historyapi.ChangeMoneyAdded, historyapi.ChangeMoneyRemoved:
-		if s.Account.AccountType != domain.TypeCreditCard {
-			return request, &domain.Error{Code: domain.ErrNotFound, Field: "debtAccountId"}
+	case historyapi.ChangeMoneyAdded, historyapi.ChangeMoneyRemoved, historyapi.ChangeValueUpdate:
+		if !s.Account.IsLiability() {
+			return request, &domain.Error{Code: domain.ErrNotFound, Field: "accountId"}
+		}
+		if !slices.Contains(LiabilityReasons(in.Kind), in.Reason) {
+			return request, &domain.Error{Code: domain.ErrValidation, Field: "reason"}
 		}
 		if in.Currency != s.Account.DefaultCurrency {
 			return request, &domain.Error{Code: domain.ErrTransferMismatch, Field: "currency"}
 		}
-		request.AccountID, request.Currency, request.Amount = s.Account.ID.String(), in.Currency.String(), strings.TrimSpace(in.Amount)
-		request.Reason = string(domain.ReasonCardPurchase)
-		if in.Kind == historyapi.ChangeMoneyRemoved {
-			request.Reason = string(domain.ReasonCardRefund)
+		request.AccountID, request.Reason = s.Account.ID.String(), string(in.Reason)
+		if in.Kind == historyapi.ChangeValueUpdate {
+			request.NewValue, request.NewValueCurrency = strings.TrimSpace(in.Amount), in.Currency.String()
+			if _, err := domain.ParseMoney(request.NewValue, in.Currency); err != nil {
+				return request, &domain.Error{Code: domain.ErrValidation, Field: "newValue"}
+			}
+		} else {
+			request.Currency, request.Amount = in.Currency.String(), strings.TrimSpace(in.Amount)
 		}
 	case historyapi.ChangeDebtDraw, historyapi.ChangeDebtPayment:
-		var cash domain.Account
-		for _, account := range s.Cash {
-			if account.ID == in.Cash {
-				cash = account
-				break
-			}
+		cash, debt := s.Counterparty(in.Counterparty), s.Account
+		if !s.Account.IsLiability() {
+			cash, debt = debt, cash
+		}
+		if debt.ID == "" {
+			return request, &domain.Error{Code: domain.ErrNotFound, Field: "debtAccountId"}
 		}
 		if cash.ID == "" {
 			return request, &domain.Error{Code: domain.ErrNotFound, Field: "cashAccountId"}
 		}
-		if cash.DefaultCurrency != s.Account.DefaultCurrency {
+		if cash.DefaultCurrency != debt.DefaultCurrency {
 			return request, &domain.Error{Code: domain.ErrTransferMismatch, Field: "principal"}
 		}
-		request.DebtAccountID, request.CashAccountID = s.Account.ID.String(), cash.ID.String()
+		request.DebtAccountID, request.CashAccountID = debt.ID.String(), cash.ID.String()
 		request.Principal, request.PrincipalCurrency = strings.TrimSpace(in.Amount), cash.DefaultCurrency.String()
 		if in.Kind == historyapi.ChangeDebtPayment {
 			request.InterestOrFee, request.InterestOrFeeCurrency = strings.TrimSpace(in.Fee), request.PrincipalCurrency

@@ -613,7 +613,7 @@ profiles and the established startup and ownership path.
 
 | Gate from the delivery sequence | What the pilot supports | What remains |
 | --- | --- | --- |
-| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, scoped balance targets, and [card and debt posting](#card-purchases-refunds-and-debt-posting). The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Cash-account entry to debt posting, additional liability reasons, expense categorization, broader reconciliation and account value updates, and additional backdated cases. |
+| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, scoped balance targets, [card and debt posting](#card-purchases-refunds-and-debt-posting), and [cash-side debt entry and liability reasons](#cash-side-debt-entry-and-liability-reasons). | Expense categorization, broader account value updates and statement reconciliation, and additional backdated cases. |
 | History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points, the [liability account Starting Point handoff](#starting-point-from-a-liability-account), repeat for supported cash movements, and linked cash corrections and reversals. | Multi-position opening and cost basis, Starting Point handoffs from more account action types, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions. |
 | Cross-page and external invalidation | Confirmed writes refresh History, Account and Overview. History Activity links open the exact account and return to the existing visit. A write made through the same shared application service refreshes the active ledger pages without a page callback. | Exercise connected Mobile and MCP clients when their Gio lifecycles are wired. Keep production startup, target-platform acceptance and Wails GUI parity open. |
 
@@ -651,7 +651,34 @@ submission for retry with its original mutation identity.
 | Failure, keyboard and scope | The Gio harness checked review Cancel and focus restoration, invalid precision and fee, excess refund, stale preview, a duplicate click while a save was blocked, lost-reply retry, retrying a failed Ledger detail read and replay after reopening SQLite. The unrelated USD 105 account and its prior activity were unchanged. Wide and 620 dp viewports kept the same source actions and exact activity links. |
 | Linux X11 and persistence | The standard package opened a synthetic profile copy at 1160×820 for card posting and 640×480 for loan posting. Cancel and Ledger Back restored Record a change, and Return reopened it. After quit and reopen, Ledger showed four postings. SQLite showed USD 39.2256 owed on the card, USD 59.875 owed on the loan and USD 108.8749 in Checking. The unrelated reserve retained USD 245 and its prior income. Source database and settings hashes matched. |
 | Regression suites | Full Gio tests and vet, the standard Linux package, three focused Gio runs, the application, Wails History adapter and domain Go suites, and 129 Wails Accounts and Activity Detail frontend tests passed. |
-| Open scope | Cash-account entry to a debt operation, additional liability change reasons, and liability-specific amendment editors remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unverified. |
+| Open scope | [Cash-side debt entry and liability reasons](#cash-side-debt-entry-and-liability-reasons) have separate evidence below. Liability-specific amendment editors remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unverified. |
+
+#### Cash-side debt entry and liability reasons
+
+From an active Balance or Holdings cash account, **Record debt activity**
+locks that cash account and offers Debt draw and Debt payment. Choose the
+active liability account and enter principal in the cash account currency.
+Payments allow optional interest or fees. The form uses the same debt
+commands and eligibility as the [Wails Record Change form](../../../frontend/src/features/history/RecordChangeForm.tsx).
+Gio gives this subset its own entry while the remaining cash-account
+actions retain their existing placements. If History has no Origin, the
+shared Starting Point form retains the initiating account action. It resumes
+with the debt selector focused when the Origin has been verified.
+
+On a liability account, the existing **Record a change** entry offers
+the Wails increase and decrease reason sets, with card purchase and refund
+as credit-card defaults and Other as the ordinary loan default. Outstanding
+balance correction uses Reconciliation and accepts an exact zero target.
+Review and Ledger detail show the effective reason and the direction of
+the amount owed.
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio comparison | Independent synthetic profiles matched a cash-side draw, a Holdings payment and the liability Interest, Fee, Reconciliation decrease and zero-target correction. The Holdings payment used USD 10.125 principal and USD 0.0001 fee. It left USD 14.9999 and preserved the EUR 25.125 balance and the separate Balance cash account. |
+| Guard, retry and focus | The compact Gio test cancelled and reentered Starting Point, restored the starting account and keyboard focus, excluded archived debt options and showed a currency mismatch. It kept the selected debt and principal across a stale review. A blocked duplicate click and a lost acknowledgement replayed the same operation, with USD 130.125 in the cash account and USD 70.125 owed after reopen. |
+| Packaged Linux X11 | At 1160×820, cancelling the Starting Point review left zero origin rows and activities. At 640×480, the selected checking account resumed at the debt selector after confirming the Starting Point. Tab reached the principal and Return confirmed the preview. After a cash-side draw and payment, the wide loan form posted USD 1.2345 as Interest. Reopened SQLite held one Origin, three activities, USD 108.8749 in checking and USD 61.1095 owed on the selected loan. The card and reserve amounts and the synthetic source hashes matched. |
+| Checks | Full Gio tests and vet, standard Linux packaging, focused application, domain and Wails History adapter tests, and 129 Wails frontend Accounts and Activity Detail tests passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Open scope | Other account-action Starting Point handoffs, liability-specific amendment editors, broader account value actions and ledger entry shortcuts remain open. |
 
 #### Cash contribution milestone
 
@@ -2182,10 +2209,9 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Finish the remaining Stage 4 account workflows, including the cash-account
-debt entry and additional Starting Point handoffs. Then continue Stage 5
-with multi-position opening, cross-currency trades and broader Holdings
-actions. Put additional Agent audit filters,
+Continue Stage 5 with multi-position opening, cross-currency trades and
+broader Holdings actions. Stage 4 still has additional Starting Point
+handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor
 remains part of investment parity. External enrollment and permissions stay

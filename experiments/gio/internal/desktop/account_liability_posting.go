@@ -28,11 +28,13 @@ type liabilityPostingDraft struct {
 	starting                            *historyStart
 	startingSaved                       bool
 	kind                                historyapi.ChangeCommandKind
-	cash                                domain.AccountID
+	counterparty                        domain.AccountID
+	reason                              domain.ActivityReason
 	currency                            domain.CurrencyCode
 	amount, fee, note                   ui.TextField
-	kinds                               [4]widget.Clickable
-	cashPicker, currencyPicker          ui.Select
+	kinds                               [5]widget.Clickable
+	accountPicker, currencyPicker       ui.Select
+	reasonPicker                        ui.Select
 	datePicker                          ui.DatePicker
 	timePicker                          ui.TimePicker
 	cancel, useNow, retry, preview      widget.Clickable
@@ -58,10 +60,38 @@ func (p *accountsPage) startLiabilityPosting() {
 	d := &liabilityPostingDraft{account: a, kind: historyapi.ChangeDebtDraw, currency: a.DefaultCurrency,
 		amount: ui.NewTextField(true), fee: ui.NewTextField(true), note: ui.NewTextField(false), focusAmount: true}
 	if a.AccountType == domain.TypeCreditCard {
-		d.kind = historyapi.ChangeMoneyAdded
+		d.kind, d.reason = historyapi.ChangeMoneyAdded, domain.ReasonCardPurchase
 	}
 	p.liabilityPosting.draft = d
 	p.loadLiabilityPosting()
+}
+
+func liabilityEntryLabel(account domain.Account) i18n.MessageID {
+	if account.IsLiability() {
+		return i18n.LiabilityRecord
+	}
+	return i18n.LiabilityRecordDebt
+}
+
+func (d *liabilityPostingDraft) selectKind(kind historyapi.ChangeCommandKind) {
+	if d.kind == kind {
+		return
+	}
+	d.kind, d.problem, d.reason, d.currency = kind, i18n.NoMessage, domain.ReasonOther, d.account.DefaultCurrency
+	d.amount.Editor.SetText("")
+	d.fee.Editor.SetText("")
+	switch kind {
+	case historyapi.ChangeMoneyAdded:
+		if d.account.AccountType == domain.TypeCreditCard {
+			d.reason = domain.ReasonCardPurchase
+		}
+	case historyapi.ChangeMoneyRemoved:
+		if d.account.AccountType == domain.TypeCreditCard {
+			d.reason = domain.ReasonCardRefund
+		}
+	case historyapi.ChangeValueUpdate:
+		d.reason = domain.ReasonReconciliation
+	}
 }
 
 func (p *accountsPage) loadLiabilityPosting() {
@@ -85,7 +115,7 @@ func (d *liabilityPostingDraft) captureTime(now time.Time) {
 func (p *accountsPage) previewLiabilityPosting() {
 	f, d := p.liabilityPosting, p.liabilityPosting.draft
 	in := history.LiabilityInput{
-		Kind: d.kind, Account: d.account.ID, Cash: d.cash, Currency: d.currency,
+		Kind: d.kind, Account: d.account.ID, Counterparty: d.counterparty, Reason: d.reason, Currency: d.currency,
 		Amount: d.amount.Text(), Fee: d.fee.Text(), Note: d.note.Text(),
 		Date: d.date, Time: d.time, ExactTime: d.exactTime,
 	}
@@ -152,6 +182,10 @@ func (p *accountsPage) pollLiabilityPosting() {
 		d.previewing = nil
 		if result.err != nil {
 			d.problem = liabilityPostingProblem(result.err, i18n.LiabilityPreviewFailed)
+			if d.problem == i18n.AccountUnavailable || d.problem == i18n.LiabilityDebtRequired || d.problem == i18n.LiabilityCashRequired {
+				d.focusAmount = true
+				p.loadLiabilityPosting()
+			}
 		} else {
 			d.review, d.focusReview = &result.value, true
 		}
@@ -190,18 +224,26 @@ func liabilityPostingProblem(err error, fallback i18n.MessageID) i18n.MessageID 
 		return i18n.CashMovementInsufficient
 	case domain.ErrTransferMismatch:
 		return i18n.LiabilityCurrencyMatch
+	case domain.ErrNoChange:
+		return i18n.AccountCardBalanceNoChange
 	}
 	switch issue.Field {
 	case "amount", "principal":
 		return i18n.ContributionInvalidAmount
+	case "newValue":
+		return i18n.AccountCardBalanceInvalidTarget
 	case "interestOrFee":
 		return i18n.LiabilityInvalidInterest
 	case "note":
 		return i18n.HistoryRepeatNoteTooLong
-	case "accountId", "debtAccountId":
+	case "accountId":
 		return i18n.AccountUnavailable
+	case "debtAccountId":
+		return i18n.LiabilityDebtRequired
 	case "cashAccountId":
 		return i18n.LiabilityCashRequired
+	case "reason":
+		return i18n.LiabilityReasonRequired
 	}
 	return fallback
 }

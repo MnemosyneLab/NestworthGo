@@ -50,6 +50,9 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	known := d.record
 	if known != nil {
 		title = historyKindLabel(known.Activity.Kind, known.Activity.Reason)
+		if known.LiabilityAccount != "" {
+			title = liabilityKindLabel(known.Activity.Kind, known.Activity.Reason)
+		}
 		r.rename(d.id, l.Text(title)+" · "+historyDay(view, known.Activity.EffectiveLocalDate))
 	} else if d.id == r.posted.ID {
 		title = historyKindLabel(r.posted.Kind, r.posted.Reason)
@@ -212,8 +215,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	muted := func(text string) layout.Widget { return view.Message(text, view.Colors.SecondaryInk) }
 	movement, supported := history.CashMovementOf(activity.Kind, activity.Reason)
 	paired := supported && (movement == history.CashTransfer || movement == history.CashConversion)
-	card := activity.Reason == domain.ReasonCardPurchase || activity.Reason == domain.ReasonCardRefund
 	debt := activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment
+	liabilityChange := detail.LiabilityAccount != "" && (activity.Kind == domain.ActivityCashIn ||
+		activity.Kind == domain.ActivityCashOut || activity.Kind == domain.ActivityValueUpdate)
 	var debtAccount domain.AccountID
 	account := func(id *domain.AccountID) string {
 		if id != nil && detail.Accounts[*id] != "" {
@@ -240,6 +244,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	if activity.Note != nil && *activity.Note != "" {
 		facts = append(facts, ink(*activity.Note))
 	}
+	if liabilityChange && liabilityReasonLabels[activity.Reason] != i18n.NoMessage {
+		facts = append(facts, ink(liabilityReasonFact(l, activity.Reason)))
+	}
 	if detail.Links.Reversal != "" {
 		badge := i18n.HistoryOriginalReversed
 		if detail.Links.Replacement != "" {
@@ -259,7 +266,7 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	for _, effect := range activity.Effects {
 		var caption string
 		switch {
-		case (detail.LiabilityValueUpdate || card || effect.Role == domain.EffectRoleDebt) && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil:
+		case (liabilityChange || effect.Role == domain.EffectRoleDebt) && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil:
 			label := i18n.HistoryDebtIncreased
 			if effect.Direction == domain.EffectRemoved {
 				label = i18n.HistoryDebtReduced

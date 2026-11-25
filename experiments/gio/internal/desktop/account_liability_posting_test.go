@@ -190,7 +190,7 @@ func TestLiabilityDebtPostingCompactMatchesWails(t *testing.T) {
 	setBankField(h, "Debt principal · USD", &d.amount, "20.125")
 	click("Preview change")
 	if d.review == nil {
-		t.Fatalf("debt draw was not reviewed (cash %q, amount %q, issue %v)", d.cash, d.amount.Text(), d.problem)
+		t.Fatalf("debt draw was not reviewed (cash %q, amount %q, issue %v)", d.counterparty, d.amount.Text(), d.problem)
 	}
 	label("Synthetic Card · -30 USD → -50.125 USD")
 	label("Harbor Checking · 100 USD → 120.125 USD")
