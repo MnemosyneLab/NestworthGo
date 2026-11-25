@@ -30,10 +30,9 @@ type View struct {
 	Focus                                           *PageFocus
 }
 
+// Message is a wrapping paragraph in the body style.
 func (v View) Message(text string, fg color.NRGBA) layout.Widget {
-	style := material.Label(v.Theme, 13, text)
-	style.Color = fg
-	return style.Layout
+	return v.Body(TextBody, text, fg)
 }
 
 func (v View) Button(button *widget.Clickable, title string) layout.Widget {

@@ -151,7 +151,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		portfolio:        pages.portfolio,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
-		theme:            material.NewTheme(),
+		theme:            ui.NewTheme(),
 		wordmark:         widget.Image{Src: paint.NewImageOp(wordmark), Fit: widget.Contain},
 		mark:             widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
 		trail:            newNavigationTrail(overviewRoute),
@@ -701,7 +701,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 					}
 					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 					event.Op(gtx.Ops, &s.headingFocus)
-					return view.Label(gtx, view.Language.Text(title), 19, font.Medium, colors.Ink)
+					return view.Line(gtx, ui.TextPageTitle, view.Language.Text(title), colors.Ink)
 				}),
 			)
 		})

@@ -66,19 +66,24 @@ type TextStyle struct {
 	Weight font.Weight
 	// LineHeight is a multiple of Size.
 	LineHeight float32
+	// Serif selects the display face. Only page titles and hero figures use it.
+	Serif bool
 }
 
 // The type scale follows Wails: sentence case, 14sp body, tabular figures in
-// tables, and a larger serif only for page titles and hero figures.
+// tables, and a serif only for page titles and the hero figure. Sizes map to
+// the Tailwind steps text-xs, text-sm, text-base, text-lg, text-2xl and
+// text-4xl.
 var (
-	TextCaption  = TextStyle{Size: 12, Weight: font.Normal, LineHeight: 1.4}
-	TextCaption2 = TextStyle{Size: 12, Weight: font.Medium, LineHeight: 1.4}
-	TextBody     = TextStyle{Size: 14, Weight: font.Normal, LineHeight: 1.45}
-	TextLabel    = TextStyle{Size: 14, Weight: font.Medium, LineHeight: 1.4}
-	TextHeading  = TextStyle{Size: 16, Weight: font.SemiBold, LineHeight: 1.3}
-	TextTitle    = TextStyle{Size: 20, Weight: font.SemiBold, LineHeight: 1.25}
-	TextPage     = TextStyle{Size: 24, Weight: font.Medium, LineHeight: 1.2}
-	TextHero     = TextStyle{Size: 32, Weight: font.Medium, LineHeight: 1.1}
+	TextCaption       = TextStyle{Size: 12, Weight: font.Normal, LineHeight: 1.4}
+	TextCaptionStrong = TextStyle{Size: 12, Weight: font.Medium, LineHeight: 1.4}
+	TextBody          = TextStyle{Size: 14, Weight: font.Normal, LineHeight: 1.45}
+	TextLabel         = TextStyle{Size: 14, Weight: font.Medium, LineHeight: 1.4}
+	TextHeading       = TextStyle{Size: 16, Weight: font.SemiBold, LineHeight: 1.3}
+	TextPageTitle     = TextStyle{Size: 18, Weight: font.SemiBold, LineHeight: 1.3, Serif: true}
+	TextMoneyMD       = TextStyle{Size: 18, Weight: font.SemiBold, LineHeight: 1.25}
+	TextMoneyLG       = TextStyle{Size: 24, Weight: font.Bold, LineHeight: 1.2}
+	TextHero          = TextStyle{Size: 36, Weight: font.SemiBold, LineHeight: 1.1, Serif: true}
 )
 
 // ShadowLayer is one CSS box-shadow. Spread and blur follow CSS semantics, in

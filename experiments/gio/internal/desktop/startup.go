@@ -24,7 +24,7 @@ func ShowStartupBlocked(reason i18n.MessageID) error {
 	window.Option(app.Title(pilot.DisplayName), app.Size(520, 250), app.MinSize(430, 230))
 	prefs := sessionPreferences{language: i18n.Language(preferences.SystemLanguage()), dark: preferences.SystemDark()}
 	colors := prefs.colors()
-	theme := material.NewTheme()
+	theme := ui.NewTheme()
 	theme.Palette = material.Palette{Bg: colors.PageBackground, Fg: colors.Ink, ContrastBg: colors.Accent, ContrastFg: colors.OnAccent}
 	view := ui.View{Language: prefs.language, Colors: colors, Theme: theme}
 	var ops op.Ops

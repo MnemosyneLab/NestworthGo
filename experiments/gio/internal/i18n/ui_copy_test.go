@@ -32,6 +32,11 @@ func TestPresentationCopyUsesCatalog(t *testing.T) {
 				if strings.HasPrefix(entry.Name(), ".") || entry.Name() == "vendor" || entry.Name() == "testdata" {
 					return fs.SkipDir
 				}
+				// Test tooling that renders frames to images. Its errors reach
+				// developers running tests, never a household.
+				if name == "internal/snapshot" {
+					return fs.SkipDir
+				}
 				if _, err := fs.Stat(tree, path.Join(name, "go.mod")); err == nil {
 					return fs.SkipDir
 				} else if !errors.Is(err, fs.ErrNotExist) {
@@ -117,6 +122,10 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 	case *ast.ValueSpec:
 		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "domain") && typ.Sel.Name == "CurrencyCode" {
 			return currencyCode.MatchString(value)
+		}
+		// Font family names are data identifiers for the text shaper.
+		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "font") && typ.Sel.Name == "Typeface" {
+			return true
 		}
 		return named(n.Type, "routeID") && machineID.MatchString(value)
 	case *ast.KeyValueExpr:

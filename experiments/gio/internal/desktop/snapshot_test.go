@@ -318,6 +318,51 @@ func (g *controlGallery) layoutTokens(gtx layout.Context, view ui.View) layout.D
 	)
 }
 
+// layoutType shows the type scale, tabular figures and CJK fallback.
+func (g *controlGallery) layoutType(gtx layout.Context, view ui.View) layout.Dimensions {
+	p := view.Colors
+	specimens := []struct {
+		name  string
+		style ui.TextStyle
+		text  string
+	}{
+		{"hero 36 serif", ui.TextHero, "CNY 1,234,567.89"},
+		{"page title 18 serif", ui.TextPageTitle, "Ledger activity \u00b7 \u8d26\u52a1\u8bb0\u5f55 \u8cec\u52d9\u8a18\u9304 \u53d6\u5f15\u5c65\u6b74"},
+		{"money 24 bold", ui.TextMoneyLG, "-USD 48,201.50"},
+		{"money 18 semibold", ui.TextMoneyMD, "JPY 9,876,543"},
+		{"heading 16 semibold", ui.TextHeading, "Account settings"},
+		{"label 14 medium", ui.TextLabel, "Institution name"},
+		{"body 14", ui.TextBody, "A sample form keeps its draft for the current session. \u793a\u4f8b\u8868\u5355\u7684\u8349\u7a3f\u4ec5\u5728\u5f53\u524d\u4f1a\u8bdd\u4fdd\u7559\u3002"},
+		{"caption 12", ui.TextCaption, "0 / 48 bytes \u00b7 Updated 3 minutes ago"},
+		{"caption strong 12", ui.TextCaptionStrong, "Known subtotal"},
+	}
+	amounts := []string{"1,111,111.11", "8,888,888.88", "  -204.50", "     0.07", "12,345.67"}
+	var rows []layout.FlexChild
+	for _, sample := range specimens {
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Label(gtx, sample.name, 11, font.Normal, p.SecondaryInk)
+				}),
+				layout.Rigid(view.Body(sample.style, sample.text, p.Ink)),
+			)
+		}))
+	}
+	rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		gtx = ui.LimitWidth(gtx, 220)
+		children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return view.Label(gtx, "tabular figures, trailing aligned", 11, font.Normal, p.SecondaryInk)
+		})}
+		for _, amount := range amounts {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.LineEnd(gtx, ui.TextMoneyMD, amount, p.Ink)
+			}))
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
+	}))
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx, rows...)
+}
+
 // layoutElevation compares the shadow scale, hairline borders and focus rings
 // on the page background and on a tinted surface.
 func (g *controlGallery) layoutElevation(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -396,6 +441,7 @@ var galleryScenarios = []galleryScenario{
 	{name: "press-primary", press: "Primary", focusField: true},
 	{name: "tokens", page: "tokens"},
 	{name: "elevation", page: "elevation"},
+	{name: "type", page: "type"},
 }
 
 type galleryHarness struct {
@@ -414,7 +460,7 @@ func newGalleryHarness(t *testing.T, accent int, dark bool) *galleryHarness {
 	t.Helper()
 	prefs := sessionPreferences{language: i18n.English, dark: dark, accentIndex: accent}
 	colors := prefs.colors()
-	theme := material.NewTheme()
+	theme := ui.NewTheme()
 	theme.Palette = material.Palette{Bg: colors.PageBackground, Fg: colors.Ink, ContrastBg: colors.Accent, ContrastFg: colors.OnAccent}
 	return &galleryHarness{
 		t: t, gallery: newControlGallery(), now: time.Unix(1, 0),
@@ -446,6 +492,8 @@ func (h *galleryHarness) frame(focus bool) {
 			return h.gallery.layoutTokens(gtx, h.view)
 		case "elevation":
 			return h.gallery.layoutElevation(gtx, h.view)
+		case "type":
+			return h.gallery.layoutType(gtx, h.view)
 		}
 		return h.gallery.layout(gtx, h.view)
 	})
