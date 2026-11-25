@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 
+	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
@@ -129,7 +130,11 @@ func LayoutGlyph(gtx layout.Context, glyph Glyph, size unit.Dp, ink color.NRGBA)
 }
 
 func glyphLabel(gtx layout.Context, view View, glyph Glyph, label string, ink color.NRGBA) layout.Dimensions {
-	text := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, TextBody, label, ink) }
+	return glyphLabelStyled(gtx, view, glyph, label, TextBody, ink)
+}
+
+func glyphLabelStyled(gtx layout.Context, view View, glyph Glyph, label string, style TextStyle, ink color.NRGBA) layout.Dimensions {
+	text := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, style, label, ink) }
 	if glyph == nil {
 		return text(gtx)
 	}
@@ -202,7 +207,7 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 		l.buttons = make(map[string]*widget.Clickable)
 	}
 	l.scroll.Axis = layout.Vertical
-	height := min(gtx.Constraints.Max.Y, gtx.Dp(30)*min(len(items), 6))
+	height := min(gtx.Constraints.Max.Y, gtx.Dp(OptionRowHeight)*min(len(items), 6))
 	gtx.Constraints = layout.Exact(image.Pt(gtx.Constraints.Max.X, height))
 	return l.scroll.Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
 		item := items[i]
@@ -215,9 +220,71 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 			l.highlight, l.active = item.ID, true
 			choose(item)
 		}
-		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(30))
+		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(OptionRowHeight))
 		gtx.Constraints = layout.Exact(size)
-		return choiceButtonWithGlyph(gtx, view, button, item.Label, "", !item.Disabled, item.ID == selected, showHighlight && l.active && item.ID == l.highlight, item.Glyph)
+		return optionRow(gtx, view, button, item, item.ID == selected, showHighlight && l.active && item.ID == l.highlight)
+	})
+}
+
+// OptionRowHeight is one row of a select list.
+const OptionRowHeight unit.Dp = 32
+
+var checkIcon = MustIcon(icons.NavigationCheck)
+
+// optionRow is a select list row: left aligned, a quiet hover or keyboard
+// highlight, and a check mark on the chosen row.
+func optionRow(gtx layout.Context, view View, button *widget.Clickable, item Choice, selected, highlighted bool) layout.Dimensions {
+	p := view.Colors
+	enabled := !item.Disabled
+	if !enabled {
+		gtx = gtx.Disabled()
+	}
+	state := view.Motion.For(button)
+	state.Hover.Set(gtx, flag(enabled && (button.Hovered() || highlighted)), DurationFast, EaseOut)
+	hover := state.Hover.Value(gtx)
+	content := func(gtx layout.Context) layout.Dimensions {
+		semantic.Button.Add(gtx.Ops)
+		semantic.SelectedOp(selected).Add(gtx.Ops)
+		if enabled {
+			pointer.CursorPointer.Add(gtx.Ops)
+		}
+		size := gtx.Constraints.Min
+		bounds := image.Rectangle{Max: size}
+		FillRoundRect(gtx, bounds, RadiusMD, lerp(WithAlpha(p.HoverSurface, 0), p.HoverSurface, hover))
+		ink := p.Ink
+		if !enabled {
+			ink = Fade(p.Ink, DisabledOpacity)
+		}
+		style := TextBody
+		if selected {
+			style.Weight = font.Medium
+		}
+		layout.Inset{Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = size.Y
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.Y = 0
+					return glyphLabelStyled(gtx, view, item.Glyph, item.Label, style, ink)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					side := gtx.Dp(16)
+					gtx.Constraints = layout.Exact(image.Pt(side, side))
+					if !selected {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}
+					return checkIcon.Layout(gtx, ink)
+				}),
+			)
+		})
+		return layout.Dimensions{Size: size}
+	}
+	return accessibility.Button(gtx, button, item.Label, "", false, func(gtx layout.Context) layout.Dimensions {
+		if enabled {
+			return button.Layout(gtx, content)
+		}
+		defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+		semantic.EnabledOp(false).Add(gtx.Ops)
+		return content(gtx)
 	})
 }
 
@@ -238,10 +305,10 @@ func choiceButtonWithGlyph(gtx layout.Context, view View, button *widget.Clickab
 		case !enabled:
 			fg = view.Colors.SecondaryInk
 		case selected:
-			paint.FillShape(gtx.Ops, view.Colors.Accent, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, view.Colors.Accent, clip.UniformRRect(bounds, gtx.Dp(8)).Op(gtx.Ops))
 			fg = view.Colors.OnAccent
 		case button.Hovered() || highlighted:
-			paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.UniformRRect(bounds, gtx.Dp(5)).Op(gtx.Ops))
+			paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.UniformRRect(bounds, gtx.Dp(8)).Op(gtx.Ops))
 		}
 		label := layout.Inset{Left: 5, Right: 5}
 		if highlighted && enabled {

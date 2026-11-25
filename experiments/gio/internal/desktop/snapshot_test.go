@@ -101,6 +101,22 @@ func TestVisualSnapshots(t *testing.T) {
 			h.snapshot(t, dir, "settings-"+mode.name)
 		}
 	})
+	t.Run("pickers", func(t *testing.T) {
+		for _, mode := range modes {
+			for _, picker := range []struct{ name, label string }{
+				{"select", "Account type"}, {"date", "Effective date"}, {"time", "Effective time"},
+			} {
+				h := newPreviewHarness(t)
+				h.shell.prefs.saved.Appearance = mode.appearance
+				h.click(picker.label, true)
+				// Run past the enter tween.
+				for range 12 {
+					h.frame()
+				}
+				h.snapshot(t, dir, fmt.Sprintf("picker-%s-%s", picker.name, mode.name))
+			}
+		}
+	})
 	t.Run("gallery", func(t *testing.T) {
 		for _, accent := range []struct {
 			name  string

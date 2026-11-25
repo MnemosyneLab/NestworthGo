@@ -5,12 +5,12 @@ import (
 	"image"
 	"time"
 
-	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
@@ -199,15 +199,22 @@ func (p *DatePicker) popup(gtx layout.Context, view View, options DateOptions, v
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx, children...)
 }
 
+var (
+	firstPageIcon    = MustIcon(icons.NavigationFirstPage)
+	chevronLeftIcon  = MustIcon(icons.NavigationChevronLeft)
+	chevronRightIcon = MustIcon(icons.NavigationChevronRight)
+	lastPageIcon     = MustIcon(icons.NavigationLastPage)
+)
+
 var monthNavigation = [...]struct {
-	symbol string
-	label  i18n.MessageID
-	step   int
+	icon  *widget.Icon
+	label i18n.MessageID
+	step  int
 }{
-	{"«", i18n.DatePreviousYear, -12},
-	{"‹", i18n.DatePreviousMonth, -1},
-	{"›", i18n.DateNextMonth, 1},
-	{"»", i18n.DateNextYear, 12},
+	{firstPageIcon, i18n.DatePreviousYear, -12},
+	{chevronLeftIcon, i18n.DatePreviousMonth, -1},
+	{chevronRightIcon, i18n.DateNextMonth, 1},
+	{lastPageIcon, i18n.DateNextYear, 12},
 }
 
 func (p *DatePicker) caption(gtx layout.Context, view View, options DateOptions) layout.Dimensions {
@@ -218,8 +225,12 @@ func (p *DatePicker) caption(gtx layout.Context, view View, options DateOptions)
 			if enabled && p.moves[i].Clicked(gtx) {
 				p.moveMonth(options, action.step)
 			}
-			gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(28), gtx.Dp(30)))
-			return choiceButton(gtx, view, &p.moves[i], action.symbol, view.Language.Text(action.label), enabled, false, false)
+			if !enabled {
+				gtx = gtx.Disabled()
+			}
+			return view.ButtonOf(&p.moves[i], ButtonSpec{
+				Variant: ButtonGhost, Size: ButtonCompact, Name: view.Language.Text(action.label), Icon: action.icon,
+			})(gtx)
 		})
 	}
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(2)}.Layout(gtx,
@@ -227,7 +238,7 @@ func (p *DatePicker) caption(gtx layout.Context, view View, options DateOptions)
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			title := p.month.Format(view.Language.Text(i18n.DateMonthLayout))
 			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.Label(gtx, title, 14, font.Medium, view.Colors.Ink)
+				return view.Line(gtx, TextLabel, title, view.Colors.Ink)
 			})
 		}),
 		nav(2), nav(3),
@@ -238,7 +249,7 @@ func weekdayRow(gtx layout.Context, view View, start time.Weekday) layout.Dimens
 	labels := [...]i18n.MessageID{i18n.WeekdaySunday, i18n.WeekdayMonday, i18n.WeekdayTuesday, i18n.WeekdayWednesday, i18n.WeekdayThursday, i18n.WeekdayFriday, i18n.WeekdaySaturday}
 	return calendarRow(gtx, gtx.Dp(20), func(gtx layout.Context, column int) layout.Dimensions {
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, view.Language.Text(labels[(int(start)+column)%7]), 12, font.Normal, view.Colors.SecondaryInk)
+			return view.Line(gtx, TextCaption, view.Language.Text(labels[(int(start)+column)%7]), view.Colors.SecondaryInk)
 		})
 	})
 }
