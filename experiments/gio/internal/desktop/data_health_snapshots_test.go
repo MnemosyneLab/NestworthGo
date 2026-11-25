@@ -6,6 +6,7 @@ import (
 	"image"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	wailshistory "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
 
@@ -48,47 +50,23 @@ func TestDataHealthSnapshotGroupingAndBlockingDependencies(t *testing.T) {
 
 func TestDataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision(t *testing.T) {
 	ctx := t.Context()
-	db, err := sqlite.Open(filepath.Join(t.TempDir(), "snapshots.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
-	provider := &unavailableOverviewProvider{}
-	svc := application.NewService(repo, application.NewMarketDataRegistry(provider))
-	now := time.Date(2026, 11, 21, 9, 0, 0, 0, time.UTC)
+	now := time.Date(2026, 11, 25, 9, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	svc.SetClock(clock)
-	if err := svc.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic snapshots", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
-		t.Fatal(err)
-	}
-	bs, err := svc.Bootstrap(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.CreateAccount(ctx, application.AccountInput{Name: "Synthetic cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD",
-		InitialAmount: "125.25", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bs.Members[0].ID}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatal(err)
-	}
-	now = now.AddDate(0, 0, 4)
-	if n, err := svc.RebuildHistoricalSnapshots(ctx, "2026-11-21", "2026-11-24"); err != nil || n != 4 {
-		t.Fatalf("synthetic seed rebuilt %d days: %v", n, err)
-	}
-	// Model old derived data with otherwise unchanged authoritative facts.
-	if _, err := db.SQL.Exec(`UPDATE daily_valuation_snapshots SET content_hash = 'v2:synthetic-old', resolver_policy_version = 'synthetic-old' WHERE local_date IN ('2026-11-22', '2026-11-23')`); err != nil {
-		t.Fatal(err)
-	}
-	snapshotRows := func() []domain.DailyValuationSnapshot {
+	seed, household := seedStage6Snapshots(t, now.AddDate(0, 0, -4), 4, false)
+	gioPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "gio"), seed)
+	wailsPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "wails"), seed)
+	provider, refProvider := &unavailableOverviewProvider{}, &unavailableOverviewProvider{}
+	db, repo, svc := openStage6Database(t, gioPath, clock, application.NewMarketDataRegistry(provider))
+	refDB, refRepo, refSvc := openStage6Database(t, wailsPath, clock, application.NewMarketDataRegistry(refProvider))
+	list := func(repository *sqlite.Repository) []domain.DailyValuationSnapshot {
 		t.Helper()
-		rows, err := repo.ListDailyValuationSnapshots(ctx, bs.Household.ID, time.Time{}, time.Time{})
+		rows, err := repository.ListDailyValuationSnapshots(ctx, household, time.Time{}, time.Time{})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return rows
 	}
+	snapshotRows := func() []domain.DailyValuationSnapshot { return list(repo) }
 	initial := snapshotRows()
 	fixture := overviewHistoryFixture{overviewReader: svc, trend: domain.NetWorthTrend{Currency: "USD", StartDate: "2026-11-22", EndDate: "2026-11-22",
 		Points: []domain.NetWorthTrendPoint{{LocalDate: "2026-11-22"}}}}
@@ -111,7 +89,7 @@ func TestDataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevi
 	if p.focus.from != "2026-11-22" || p.focus.to != "2026-11-22" {
 		t.Fatalf("Overview selected %+v", p.focus)
 	}
-	ref, err := marketdata.NewService(svc, nil).ScanMarketDataHealth()
+	ref, err := marketdata.NewService(refSvc, nil).ScanMarketDataHealth()
 	if err != nil || !reflect.DeepEqual(marketdata.HealthReportDTO(*p.report), ref) {
 		t.Fatalf("local health scan diverged from Wails: %v", err)
 	}
@@ -165,8 +143,34 @@ func TestDataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevi
 			t.Fatalf("rebuild escaped selected date to %s", row.LocalDate)
 		}
 	}
-	if len(latest) != len(initial) || provider.requests != 0 {
-		t.Fatalf("repair widened snapshot dates or requested network data: %d days, %d requests", len(latest), provider.requests)
+	if len(latest) != len(initial) || !reflect.DeepEqual(list(refRepo), initial) {
+		t.Fatal("Gio repair widened the date range or changed the independent Wails profile")
+	}
+	if count, err := wailshistory.NewService(refSvc).RebuildHistoricalSnapshots(ctx, "2026-11-22", "2026-11-22"); err != nil || count != 1 {
+		t.Fatalf("Wails rebuilt %d revisions: %v", count, err)
+	}
+	refLatest := list(refRepo)
+	if len(latest) != len(refLatest) || provider.requests != 0 || refProvider.requests != 0 {
+		t.Fatal("repair changed the snapshot range or tried a provider")
+	}
+	for i, row := range latest {
+		refRow := refLatest[i]
+		if row.LocalDate == "2026-11-22" {
+			// Both copies mint a revision and its component IDs
+			// independently. All financial and provenance facts must match.
+			refRow.ID = row.ID
+			if len(refRow.Items) != len(row.Items) {
+				t.Fatalf("component count differs on %s", row.LocalDate)
+			}
+			refRow.Items = slices.Clone(refRow.Items)
+			for j := range refRow.Items {
+				refRow.Items[j].ID = row.Items[j].ID
+				refRow.Items[j].SnapshotID = row.Items[j].SnapshotID
+			}
+		}
+		if !reflect.DeepEqual(row, refRow) {
+			t.Fatalf("Wails and Gio persisted different snapshot facts on %s", row.LocalDate)
+		}
 	}
 	h.click("Close", false)
 	h.frame()
@@ -179,6 +183,21 @@ func TestDataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevi
 	h.click("Back", false)
 	h.frame()
 	h.focused(&overview.trend.gaps)
+
+	// Reopen through the normal SQLite path after closing the active services.
+	for _, profile := range []struct {
+		db   *sqlite.DB
+		path string
+		want []domain.DailyValuationSnapshot
+	}{{db, gioPath, latest}, {refDB, wailsPath, refLatest}} {
+		if err := profile.db.Close(); err != nil {
+			t.Fatal(err)
+		}
+		_, reopened, _ := openStage6Database(t, profile.path, clock)
+		if !reflect.DeepEqual(list(reopened), profile.want) {
+			t.Fatal("reopening changed the dated snapshot revisions")
+		}
+	}
 }
 
 type scriptedSnapshotBatches struct {

@@ -2880,6 +2880,18 @@ macOS-specific interactions in the last column.
 | 4. Change Drivers → Contribution → Ledger → Back | Wails Contribution reference and Gio date, filter, unsupported-filter feedback and route-state tests. | Keep the effective range and driver filters, open an exact Ledger record, then restore its originating result and focus. Verify the unsupported-filter message. | Verify search composition with native IME and screen reader focus after Back. |
 | 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
+#### Paired Data Health repair and mixed latest refresh
+
+The [fixture exporter and desktop procedure](stage6-desktop-qa.md) produce
+independent SQLite copies for stock macOS snapshot repair and Market Data
+readback. Recorded Linux results and automated Wails evidence are below.
+
+| Workflow | Paired automated evidence | Packaged Linux X11 evidence |
+| --- | --- | --- |
+| Exact-date Data Health repair | Both copies persisted one complete USD 125.25 revision on November 22 with the same predecessor and component provenance. November 23 and all other days matched their original rows. Gio inspection, preview and dismissal wrote no revisions. Normal reopen retained the repaired rows on both copies. The separate batch regression covered stop and retry after a scripted failed batch. No provider requests. | The stock packaged Gio at 1140×860 opened the October 12 finding. At 665×480, Escape dismissed the one-day preview with no writes and Return restored it. Confirmation appended one complete USD 125.25 revision. October 13, the earlier revision and the authoritative ledger rows matched the source. Reopen showed only October 13 still needing repair. |
+| Mixed current refresh | Independent providers blocked the first FX request until cancellation. Neither copy stored a quote. The next run saved the instrument and JPY/USD and reported SGD/USD unavailable. Retry fetched only SGD/USD and reused both successful quotes. Gio and Wails adapter results agreed on per-target status and exact Quote history evidence. Both copies reopened with all three saved quotes. | A Gio QA build replaced only its provider registry. At 1140×860, Cancel saved zero quotes. The next run showed **Updated 2, Failed 1**. Keyboard retry showed **Updated 1, Reused 2, Failed 0**. The 665×480 Quote history showed USD 17.12345678, Yahoo source and its quote timestamp. Escape restored focus and Return reopened Quote history. The stock app reopened the same ledger and displayed all three quotes, including JPY/USD 140.4321 and SGD/USD 1.3456 from Frankfurter. SQLite matched the source ledger rows and provider preferences. |
+| Check scope | Full Gio suite and vet, 57 Wails Data Health and Market Data frontend tests, and the focused shared application and Wails adapter tests passed. | Stock Wails built against GTK 4.18.6 and WebKitGTK 2.54.0. X11 launch ended before displaying a window because the host path for `WebKitNetworkProcess` was missing. Interactive Wails, native macOS, VoiceOver, IME and Wayland remain open. |
+
 #### Wealth History quote evidence and Linux comparison
 
 The account component detail now labels the applied unit price and FX rate,

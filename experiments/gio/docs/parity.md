@@ -47,6 +47,9 @@ Stage 6 remains subject to its [workflow and platform exit gates](roadmap.md#sta
 The [five highest-priority paired flows](roadmap.md#five-highest-priority-paired-desktop-flows)
 list the automated references, packaged desktop checks and native macOS
 interactions separately.
+The [paired repair and refresh checkpoint](roadmap.md#paired-data-health-repair-and-mixed-latest-refresh)
+records the independent-copy results and the Linux Wails launch limit. The
+[desktop procedure](stage6-desktop-qa.md) covers the stock macOS fixture and run commands.
 
 ## Return Analysis and related navigation
 

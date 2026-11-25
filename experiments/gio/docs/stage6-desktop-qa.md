@@ -1,0 +1,138 @@
+# Stage 6 Data Health and Market Data acceptance
+
+## Reproduce the automated pair
+
+From the repository root, run:
+
+```sh
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(Stage6PairedMixedLatestRefresh|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
+go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
+(cd frontend && TZ=Asia/Shanghai pnpm exec vitest run src/features/data-health src/features/marketdata)
+```
+
+Each paired test checkpoints and closes a seeded SQLite database, then gives
+Gio and the Wails Go adapter independent copies. The Data Health test compares
+the date, superseded revision, exact USD 125.25 and component provenance after
+normal reopen. The adjacent November 23 revision is identical to the source.
+The scripted multi-batch test separately exercises stop, a failed batch and
+retry. The exact-date repair uses stored local facts and makes no provider
+requests.
+
+The mixed latest test has a USD instrument, JPY/USD and SGD/USD. The first
+JPY request waits for cancellation. A second run saves USD 17.12345678 from
+Yahoo and a JPY/USD rate of 140.4321 from Frankfurter, and reports a provider failure
+for SGD/USD. The retry fetches SGD/USD at 1.3456 and reuses the
+successful quotes. The test compares each target status through the Wails
+completion event, verifies Quote history provenance, and reopens both copies.
+Both providers are local test doubles.
+
+## Stock macOS pair on synthetic data
+
+Use the [macOS development prerequisites](../../../docs/development/local-workflow.md#prerequisites).
+From the repository root, export fresh SQLite fixtures and build both apps:
+
+```sh
+qa=$(mktemp -d "${TMPDIR:-/tmp}/nestworth-stage6-qa.XXXXXX")
+(
+  cd experiments/gio
+  NESTWORTH_STAGE6_QA_DIR="$qa" go test ./internal/desktop \
+    -run '^TestExportStage6DesktopFixtures$' -count=1 -v
+) | tee "$qa/export.log"
+fixture=$(sed -n 's/.*fixtures=\([^ ]*\).*/\1/p' "$qa/export.log")
+test -d "$fixture/snapshots/gio" && test -d "$fixture/snapshots/wails"
+git rev-parse HEAD
+wails3 task build
+sh experiments/gio/preview-macos.sh --build-only
+```
+
+The exporter prints the selected and adjacent dates. It puts the selected
+dirty date outside Overview's startup trend, which can materialize recent
+derived snapshots. The expected household names are `Synthetic Stage 6
+snapshots` and `Synthetic Stage 6 market`. Each scenario has a `source`
+directory and separate writable `gio` and `wails` directories. Keep the
+source closed in the apps so it remains a baseline.
+
+Use Wails' established development identity and direct launch to pass the
+synthetic paths to the bundled executable:
+
+```sh
+test -n "$fixture" && test -f "$fixture/snapshots/wails/nestworth.db"
+wails_bundle="$qa/Nestworth.app"
+gio_bundle="$PWD/bin/gio/Nestworth Gio.app"
+mkdir -p "$wails_bundle/Contents/MacOS" "$wails_bundle/Contents/Resources"
+cp build/darwin/Info.dev.plist "$wails_bundle/Contents/Info.plist"
+cp bin/nestworth "$wails_bundle/Contents/MacOS/Nestworth"
+cp assets/icons/icon.icns "$wails_bundle/Contents/Resources/icon.icns"
+codesign --force --deep --sign - "$wails_bundle"
+
+check_pair_identity() {
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$wails_bundle/Contents/Info.plist")" = com.nestworth.dev &&
+  test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$gio_bundle/Contents/Info.plist")" = com.nestworth.gio
+}
+
+run_copy() (
+  set -eu
+  check_pair_identity
+  scenario=$1 app=$2
+  case "$scenario" in
+    snapshots) household='Synthetic Stage 6 snapshots' ;;
+    market-readback) household='Synthetic Stage 6 market' ;;
+    *) exit 1 ;;
+  esac
+  case "$app" in
+    wails) executable="$wails_bundle/Contents/MacOS/Nestworth" ;;
+    gio) executable="$gio_bundle/Contents/MacOS/Nestworth Gio" ;;
+    *) exit 1 ;;
+  esac
+  copy=$(cd "$fixture/$scenario/$app" && pwd -P)
+  export NESTWORTH_DATABASE_PATH="$copy/nestworth.db"
+  export NESTWORTH_SETTINGS_PATH="$copy/settings.json"
+  test -f "$NESTWORTH_SETTINGS_PATH"
+  test "$(/usr/bin/sqlite3 -readonly "$NESTWORTH_DATABASE_PATH" 'select name from households')" = "$household"
+  exec "$executable"
+)
+```
+
+- Run `run_copy snapshots gio` and `run_copy snapshots wails` one at a time.
+  Open Data Health from Overview. Inspect the outdated snapshot and open
+  the one-day rebuild sheet. Check its date against the exporter output.
+  Dismiss before confirmation, then reopen the sheet from the same action.
+  Confirm only that date, recheck, quit and start the same copy again.
+  Gio supports stop after the current batch. Wails disables dismissal
+  while a batch is running and offers Retry after failure. The automated
+  tests cover the induced failure and retry.
+- Compare the snapshots after each normal quit. The inspection query below
+  should return one extra line for the printed repair date, with revision 2
+  and USD 125.25. The adjacent date and all other revisions should be
+  unchanged. Compare the results before confirming to verify that dismissal
+  left the same rows. Persistent revision IDs and recorded times differ
+  across independent apps.
+
+```sh
+for copy in source gio wails; do
+  /usr/bin/sqlite3 -readonly "$fixture/snapshots/$copy/nestworth.db" '
+    SELECT local_date, revision, net_worth_amount, currency, complete, resolver_policy_version
+    FROM daily_valuation_snapshots ORDER BY local_date, revision;
+  ' > "$qa/snapshots-$copy.tsv"
+done
+diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-gio.tsv"
+diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
+```
+
+- Run `run_copy market-readback gio` and `run_copy market-readback wails`.
+  Open Market Data and the synthetic instrument's Quote history. Verify the
+  exact USD 17.12345678, saved Yahoo source and timestamp. Compare the
+  JPY/USD observation and the empty SGD/USD row. Check Back and focus at
+  normal and compact sizes, then reopen each app and compare the same quotes.
+- The stock bundles register their ordinary production providers. The seeded
+  readback profile supports the saved-quote walkthrough without provider
+  calls. For cancellation, partial refresh and failed-target retry, use the
+  automated pair above, or build dedicated QA binaries with only the
+  provider registry replaced by the same deterministic doubles. The
+  `market` fixture is the pre-refresh database for that test build. Keep
+  the stock run to the saved-data screens and snapshot repair.
+
+Record interactive macOS results separately, including VoiceOver announcements,
+escape and native window close, keyboard focus and compact layout. These
+checks remain open until observed in the packaged apps.
