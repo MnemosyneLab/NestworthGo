@@ -301,6 +301,11 @@ const (
 	WealthHistoryScopeChanged
 	WealthHistoryBasisChanged
 	WealthHistoryFundingGap
+	WealthTrendChart
+	WealthTrendSelectedDate
+	WealthTrendSelectA
+	WealthTrendSelectB
+	WealthTrendOpenDay
 	WealthAllocationTab
 	WealthAllocationCompare
 	WealthAllocationCapture

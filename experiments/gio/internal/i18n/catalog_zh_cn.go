@@ -505,6 +505,12 @@ var simplifiedChineseCatalog = catalog{
 	WealthAccountIncomparable:   "无法比较",
 	WealthAccountRate:           "1 %s = %s %s",
 
+	WealthTrendChart:        "财富趋势",
+	WealthTrendSelectedDate: "选定日期 · %s",
+	WealthTrendSelectA:      "用作日期 A",
+	WealthTrendSelectB:      "用作日期 B",
+	WealthTrendOpenDay:      "查看当天账户",
+
 	WealthAllocationTab:               "资产分布",
 	WealthAllocationMissing:           "缺少估值",
 	WealthAllocationCompare:           "分类对比",

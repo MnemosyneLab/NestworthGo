@@ -505,6 +505,12 @@ var englishCatalog = catalog{
 	WealthAccountIncomparable:   "Comparison unavailable",
 	WealthAccountRate:           "1 %s = %s %s",
 
+	WealthTrendChart:        "Wealth trend",
+	WealthTrendSelectedDate: "Selected date · %s",
+	WealthTrendSelectA:      "Use as date A",
+	WealthTrendSelectB:      "Use as date B",
+	WealthTrendOpenDay:      "Open accounts for this day",
+
 	WealthAllocationTab:               "Allocation",
 	WealthAllocationMissing:           "Missing valuation",
 	WealthAllocationCompare:           "Category comparison",

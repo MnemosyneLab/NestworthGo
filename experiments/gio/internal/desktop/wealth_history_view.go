@@ -16,6 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -122,6 +123,7 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 		if len(p.current.rows) == 0 {
 			children = append(children, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryEmpty), view.Colors.SecondaryInk)))
 		} else {
+			children = append(children, p.wealthTrendControls(gtx, view)...)
 			children = append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions { return p.table(gtx, view) }))
 		}
 	}
@@ -186,7 +188,7 @@ func (p *wealthHistoryPage) table(gtx layout.Context, view ui.View) layout.Dimen
 					}
 					return accessibility.Row(gtx, tag, func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Top: 6, Bottom: 6, Left: 8, Right: 8}.Layout(gtx,
-							func(gtx layout.Context) layout.Dimensions { return wealthRow(gtx, view, row) })
+							func(gtx layout.Context) layout.Dimensions { return p.wealthRow(gtx, view, row) })
 					})
 				})
 			})
@@ -194,7 +196,7 @@ func (p *wealthHistoryPage) table(gtx layout.Context, view ui.View) layout.Dimen
 	})
 }
 
-func wealthRow(gtx layout.Context, view ui.View, row wealthHistoryRow) layout.Dimensions {
+func (p *wealthHistoryPage) wealthRow(gtx layout.Context, view ui.View, row wealthHistoryRow) layout.Dimensions {
 	l, point := view.Language, row.point
 	date := wealthDay(view, point.Date)
 	if row.missing != nil {
@@ -208,8 +210,14 @@ func wealthRow(gtx layout.Context, view ui.View, row wealthHistoryRow) layout.Di
 		return view.Message(date+" · "+l.Text(message), view.Colors.SecondaryInk)(gtx)
 	}
 	values := point.DisplayValuation
+	button := portfolioButton(p.trend.days, point.Date)
+	selection := charts.Selection{Series: wealthTrendSeries, Item: charts.ID(point.Date)}
+	if button.Clicked(gtx) {
+		p.trend.selected = selection
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx,
-		layout.Rigid(view.Body(ui.TextLabel, date, view.Colors.Ink)),
+		layout.Rigid(analysisToggle(view, button, date, p.trend.selected == selection)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return (ui.Grid{MinColumn: 150, MaxColumns: 3, Gap: 8, Balanced: true}).Layout(gtx, view, 3,
 				func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
@@ -246,8 +254,12 @@ func wealthAmount(view ui.View, label i18n.MessageID, value domain.ValuationAmou
 }
 
 func wealthCoverage(view ui.View, point *application.HistoricalSeriesPoint) string {
+	return wealthQualityCoverage(view, point, point.DisplayValuation.NetWorth.Quality)
+}
+
+func wealthQualityCoverage(view ui.View, point *application.HistoricalSeriesPoint, q domain.ValuationQuality) string {
 	l := view.Language
-	a, d, q := point.AssetCoverage, point.LiabilityCoverage, point.DisplayValuation.NetWorth.Quality
+	a, d := point.AssetCoverage, point.LiabilityCoverage
 	parts := []string{fmt.Sprintf(l.Text(i18n.WealthHistoryCoverage), a.Known, a.Included, d.Known, d.Included)}
 	if len(point.Missing) > 0 {
 		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryMissing), len(point.Missing)))

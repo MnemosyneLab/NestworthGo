@@ -10,6 +10,7 @@ import (
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -83,6 +84,7 @@ type wealthHistoryPage struct {
 	list                                 widget.List
 	accounts                             wealthAccountCapture
 	allocation                           wealthAllocation
+	trend                                wealthTrend
 	allocationTab, accountsTab, trendTab widget.Clickable
 	lens                                 wealthHistoryLens
 }
@@ -90,7 +92,8 @@ type wealthHistoryPage struct {
 func newWealthHistoryPage(ctx context.Context, reader wealthHistoryReader, clock func() time.Time, invalidate func()) *wealthHistoryPage {
 	return &wealthHistoryPage{
 		ctx: ctx, reader: reader, clock: clock, invalidate: invalidate,
-		list: widget.List{List: layout.List{Axis: layout.Vertical}},
+		list:  widget.List{List: layout.List{Axis: layout.Vertical}},
+		trend: wealthTrend{days: make(map[string]*widget.Clickable)},
 	}
 }
 
@@ -153,6 +156,10 @@ func (p *wealthHistoryPage) update() {
 		}
 		if p.current == nil || p.current.rangeRead != p.requested {
 			p.list.Position = layout.Position{}
+			clear(p.trend.days)
+			if day := string(p.trend.selected.Item); day < p.requested.from || day > p.requested.to {
+				p.trend.selected = charts.Selection{}
+			}
 		}
 		capture := &wealthHistoryCapture{series: result.value, rangeRead: p.requested}
 		for i := range capture.series.Points {

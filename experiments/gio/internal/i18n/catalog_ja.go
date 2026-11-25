@@ -504,6 +504,12 @@ var japaneseCatalog = catalog{
 	WealthAccountIncomparable:   "比較できません",
 	WealthAccountRate:           "1 %s = %s %s",
 
+	WealthTrendChart:        "資産推移",
+	WealthTrendSelectedDate: "選択日 · %s",
+	WealthTrendSelectA:      "日付 A に設定",
+	WealthTrendSelectB:      "日付 B に設定",
+	WealthTrendOpenDay:      "この日の口座を開く",
+
 	WealthAllocationTab:               "配分",
 	WealthAllocationMissing:           "評価額が不明",
 	WealthAllocationCompare:           "カテゴリ比較",

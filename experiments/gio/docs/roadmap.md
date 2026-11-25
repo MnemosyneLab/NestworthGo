@@ -1709,14 +1709,34 @@ comparisons use the shared category amounts, known subtotals, shares and
 supported changes. Liabilities use signed levels and the opposite sign for
 increases in debt. Partial, absent and excluded states remain distinguishable.
 The comparison currently uses paired value cards that wrap as the window
-narrows. Wails' paired comparison chart, the Change lens and the graphical
-Trend remain open.
+narrows. Wails' paired comparison chart and the Change lens remain open.
 
 | Check | Evidence |
 | --- | --- |
 | Wails Go and Gio controls | Independent read-only copies matched the Wails default capture and date comparison in the History timezone. The test verifies that selecting AUD shows Local cash and omits Foreign cash and debt, that the original scroll and keyboard focus recover, and that partial FX and signed liabilities are distinguishable in comparison. The chart projection keeps negative bars and missing geometry separate. |
 | Linux X11 | The packaged app used the standard Gio directory under a fake config root. Allocation showed AUD 214.79, with AUD 123.45 cash at 57.47% and AUD 91.34 stocks at 42.53%. Selecting the stock arc opened Pine Brokerage. Return to allocation and Enter reopened the same selection. The chart and values stayed readable at 700×480 after page scroll. Both synthetic Wails source file hashes matched after quit. |
 | Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared historical Go tests and 92 Wails Historical Overview frontend tests passed. Native macOS, Wayland, VoiceOver and IME remain open. |
+
+#### Wealth History Trend and date actions
+
+The Trend chart uses the bounded shared historical series for net worth,
+assets and signed liabilities. It keeps the requested civil date viewport.
+Missing full values interrupt the line, with any known subtotal and named
+missing inputs available in the readout and daily table. The chart follows
+the service's metric-specific connection flags and shows provisional
+observations with dashed edges.
+
+Select a date from the chart or the table to set range endpoint A or B, or
+open Accounts for that day's capture. Gio groups the actions after the chart
+readout so they stay available to chart and keyboard users while keeping the
+compact daily table focused on values and evidence. The captured range
+and prior retry behavior remain intact.
+
+| Check | Evidence |
+| --- | --- |
+| Projection and workflow | The adapter test verifies the explicit viewport, signed debt, unavailable valuation with a known subtotal, basis change and provisional boundary. A keyboard selection opened the exact Wails Go capture on independent read-only databases. The original bounded-range, keyboard table and retry regressions still pass. |
+| Linux X11 | The packaged app at the default synthetic Gio path opened November 1–24 and selected November 4 by keyboard. The readout showed unavailable net worth, USD 105.25 known net contribution and the named missing AUD exchange rate. Opening Accounts used November 4 and retained the same evidence. Selecting November 4 as B loaded November 1–4, with the selected date, gap and known value readable at 700×480. The synthetic Wails source database and settings hashes matched after quit. |
+| Combined tree | The branch retains the Sankey component, localization and Component Preview from #288. Those components are available for separate business-page wiring. Verified full Gio tests and vet, the packaged Linux launcher and 91 Wails Historical Trend and Overview frontend tests. Native Mac, Wayland, VoiceOver and IME remain open. |
 
 #### Contribution detail and Ledger activity
 

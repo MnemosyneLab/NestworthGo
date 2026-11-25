@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -108,6 +109,39 @@ func TestWealthAllocationDoesNotDrawNegativeOrIncompleteDonut(t *testing.T) {
 	_, bars, useDonut = wealthAllocationCharts(view, state, []application.HistoricalOverviewAllocation{cash}, false)
 	if useDonut || bars.Bars[0].Value.Valid() {
 		t.Fatalf("an absent amount received geometry: %+v", bars)
+	}
+}
+
+func TestWealthTrendKeepsCoverageAndComparisonBoundaries(t *testing.T) {
+	view := ui.View{Language: i18n.English, DateFormat: settings.DateFormatISO, DecimalSeparator: ".", GroupingSeparator: ","}
+	opening, debt := "110.25", "7.50"
+	data := application.HistoricalOverviewSeriesResult{From: "2026-11-04", To: "2026-11-07",
+		Overview: application.HistoricalOverviewResult{Left: application.HistoricalOverviewState{Currency: "USD"}},
+		Points: []application.HistoricalSeriesPoint{
+			{Date: "2026-11-04", Available: true, NetWorth: &opening, Liabilities: &debt},
+			{Date: "2026-11-05", Available: true, NetWorth: &opening, ConnectNetWorth: true,
+				DisplayValuation: domain.HouseholdDisplayValuation{NetWorth: domain.ValuationAmount{
+					KnownSubtotal: &domain.MoneyView{Currency: "USD", Amount: "75.55"},
+					Quality:       domain.ValuationQuality{Availability: domain.ValuationPartial},
+				}}},
+			{Date: "2026-11-06", Available: true, BasisChanged: true,
+				DisplayValuation: domain.HouseholdDisplayValuation{NetWorth: domain.ValuationAmount{
+					Total:   &domain.MoneyView{Currency: "USD", Amount: "113.66"},
+					Quality: domain.ValuationQuality{Availability: domain.ValuationFull, Coverage: domain.CoverageProvisional},
+				}}},
+			{Date: "2026-11-07", Available: true, NetWorth: &opening, ConnectNetWorth: true},
+		}}
+	spec := wealthTrendLine(view, data, i18n.NetWorth)
+	points, rows := spec.Series[0].Points, spec.Rows()
+	if len(spec.Validate()) != 0 || spec.From.Format(time.DateOnly) != data.From || spec.To.Format(time.DateOnly) != data.To ||
+		len(points) != 4 || points[0].Text != "$ 110.25" || points[1].Value.Valid() || !rows[1].Missing ||
+		!slices.Contains(rows[1].Detail, "Net worth · Known net contribution · $ 75.55") ||
+		!points[2].BreakBefore || !points[2].Provisional || points[3].BreakBefore {
+		t.Fatalf("trend lost comparison or coverage semantics: %+v %+v", points, rows)
+	}
+	debtPoints := wealthTrendLine(view, data, i18n.Liabilities).Series[0].Points
+	if debtPoints[0].Value.Number != -7.5 || debtPoints[0].Text != "-$ 7.50" {
+		t.Fatalf("debt level lost the Wails display sign: %+v", debtPoints[0])
 	}
 }
 
@@ -220,6 +254,11 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 	h.router.MoveFocus(key.FocusForward)
 	h.frame()
 	h.focused(&page.trendTab)
+	for index := range page.trend.toggles {
+		h.router.MoveFocus(key.FocusForward)
+		h.frame()
+		h.focused(&page.trend.toggles[index])
+	}
 	h.router.MoveFocus(key.FocusForward)
 	h.frame()
 	h.focused(&page.list)
@@ -382,6 +421,19 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		"Liabilities · -A$ 25.10",
 	} {
 		assertPageLabel(t, &h.router, label)
+	}
+	h.router.Source().Execute(key.FocusCmd{Tag: &page.trend.chart})
+	h.frame()
+	h.focused(&page.trend.chart)
+	h.press(key.NameHome)
+	h.press(key.NameReturn)
+	assertPageLabel(t, &h.router, "Selected date · 2026-08-01")
+	h.click("Open accounts for this day", false)
+	page.workers.Wait()
+	h.frame()
+	if page.lens != wealthAccountsLens || page.accounts.captured.from != "2026-08-01" ||
+		page.accounts.captured.mode != wealthSingleDay || page.accounts.current == nil || !reflect.DeepEqual(allocation, *page.accounts.current) {
+		t.Fatalf("opening the chart day did not use its Wails capture: %+v", page.accounts.captured)
 	}
 
 	// Compare endpoint captures on the same independent read-only copies used
