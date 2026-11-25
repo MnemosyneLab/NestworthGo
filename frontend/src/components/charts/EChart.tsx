@@ -2,13 +2,13 @@ import * as React from "react";
 import * as echarts from "echarts/core";
 import { LineChart, BarChart, PieChart, SankeyChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkAreaComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
+import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
 import type { ComposeOption } from "echarts/core";
 import type { LineSeriesOption, BarSeriesOption, PieSeriesOption, SankeySeriesOption } from "echarts/charts";
 import type { GridComponentOption, TooltipComponentOption, LegendComponentOption, DataZoomComponentOption } from "echarts/components";
 import { cssColor, prefersReducedMotion } from "@/components/charts/chartTheme";
 
-echarts.use([LineChart, BarChart, PieChart, SankeyChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkAreaComponent, CanvasRenderer]);
+echarts.use([LineChart, BarChart, PieChart, SankeyChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkAreaComponent, CanvasRenderer, SVGRenderer]);
 
 export type EChartsOption = ComposeOption<
   LineSeriesOption | BarSeriesOption | PieSeriesOption | SankeySeriesOption | GridComponentOption | TooltipComponentOption | LegendComponentOption | DataZoomComponentOption
@@ -73,6 +73,7 @@ export interface EChartProps {
   className?: string;
   style?: React.CSSProperties;
   height?: number;
+  renderer?: "canvas" | "svg";
   ariaLabel: string;
   summary?: string;
   dataTableLabel?: string;
@@ -100,6 +101,7 @@ export function EChart({
   className,
   style,
   height = 320,
+  renderer = "canvas",
   ariaLabel,
   summary,
   dataTableLabel,
@@ -131,7 +133,7 @@ export function EChart({
     }
     let chart: echarts.ECharts | null = null;
     try {
-      chart = echarts.init(containerRef.current);
+      chart = echarts.init(containerRef.current, undefined, { renderer });
     } catch {
       return;
     }
@@ -172,7 +174,7 @@ export function EChart({
       }
       chartRef.current = null;
     };
-  }, []);
+  }, [renderer]);
 
   React.useEffect(() => {
     const reducedMotion = prefersReducedMotion();
@@ -187,7 +189,7 @@ export function EChart({
     } catch {
       // Drawing is optional; the data table remains the accessible source.
     }
-  }, [option, replaceSeries]);
+  }, [option, renderer, replaceSeries]);
 
   React.useEffect(() => {
     if (selectedName === undefined || !chartRef.current) return;

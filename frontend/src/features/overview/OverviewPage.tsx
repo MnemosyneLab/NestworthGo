@@ -1,5 +1,4 @@
 import { signedAccountAmount, signedAccountValuation } from "@/lib/liabilityDisplay";
-import { ValuationQualitySummary } from "@/components/valuation/ValuationQualitySummary";
 import { valuationTableAmount, type DisplayValuation } from "@/components/valuation/valuationQuality";
 import type * as React from "react";
 import { useObjectNavigation } from "@/app/NavigationContext";
@@ -23,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
-import { formatCivilDate, formatTimestamp } from "@/lib/time";
+import { formatCivilDate, formatCivilDateRange, formatTimestamp } from "@/lib/time";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -47,6 +46,8 @@ type OverviewHoldingLabel = OverviewLabel & { accountId: string; instrumentId: s
 
 type OverviewReadModel = {
  displayValuation?: {assets:DisplayValuation;liabilities:DisplayValuation;netWorth:DisplayValuation};
+  valuationReadDate?: string;
+  oldestCarriedMarketDate?: string | null;
   currency: string;
   accountCount: number;
   complete: boolean;
@@ -218,10 +219,19 @@ export function OverviewPage({
   const updatedLabel =
     overview.dataUpdatedAt > 0 ? t("overview.updatedAt", { time: formatUpdatedAt(overview.dataUpdatedAt, i18n.language, settings.data?.timezone) }) : undefined;
   const healthBadge = data.complete ? (
-    <Badge variant="success">{t("review.currentValuationComplete")}</Badge>
+    <Badge variant="success">{t("overview.valuationCoverageComplete")}</Badge>
   ) : (
-    <Badge variant="warning">{t("overview.currentValuationIncomplete")}</Badge>
+    <Badge variant="warning">{t("overview.valuationCoverageIncomplete")}</Badge>
   );
+  const quality = data.displayValuation?.netWorth.quality;
+  const oldest = quality?.oldestMarketDate;
+  const newest = quality?.newestMarketDate ?? oldest;
+  const marketDates = oldest && newest ? formatCivilDateRange(oldest, newest) : undefined;
+  const freshness = [
+    marketDates && t("overview.marketReferenceDates", { dates: marketDates }),
+    data.oldestCarriedMarketDate && t("overview.oldestCarriedReferenceDate", { date: formatCivilDate(data.oldestCarriedMarketDate) }),
+    quality && quality.staleCount > 0 && t("overview.staleValuationInputs", { count: quality.staleCount }),
+  ].filter(Boolean);
   const headerStatus = (
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">{t("overview.accountCount", { count: data.accountCount })}</Badge>
@@ -361,7 +371,13 @@ export function OverviewPage({
             <MoneyText wrap size="xl" className="block text-3xl @sm:text-4xl @lg:text-5xl" data-testid="overview-net-worth">
               {valuationTableAmount(t,data.displayValuation?.netWorth,{amount:data.netWorth,currency},true,false)}
             </MoneyText>
-            <ValuationQualitySummary value={data.displayValuation?.netWorth} current compact net />
+            {(quality?.availability === "partial" || data.valuationReadDate || freshness.length > 0) && (
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                {quality?.availability === "partial" && <p>{t("valuation.knownNetContribution")}</p>}
+                {data.valuationReadDate && <p>{t("overview.valuationReadDate", { date: formatCivilDate(data.valuationReadDate) })}</p>}
+                {freshness.length > 0 && <p>{freshness.join(" · ")}</p>}
+              </div>
+            )}
  {!data.complete && (
               <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
             )}

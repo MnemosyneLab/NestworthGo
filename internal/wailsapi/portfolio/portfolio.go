@@ -43,6 +43,9 @@ type OverviewDTO struct {
 	AccountLabels     []OverviewNamedDTO                `json:"accountLabels"`
 	InstrumentLabels  []OverviewInstrumentLabelDTO      `json:"instrumentLabels"`
 	HoldingLabels     []OverviewHoldingLabelDTO         `json:"holdingLabels"`
+
+	ValuationReadDate       string  `json:"valuationReadDate,omitempty"`
+	OldestCarriedMarketDate *string `json:"oldestCarriedMarketDate,omitempty"`
 }
 
 type OverviewNamedDTO struct {
@@ -100,6 +103,7 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 		ByAccountType:  wire.FromBreakdowns(value.ByAccountType),
 		HistoryStarted: value.HistoryStarted, RecentActivities: wire.FromActivities(value.RecentActivities),
 		AccountLabels: accountLabels, InstrumentLabels: instrumentLabels, HoldingLabels: holdingLabels,
+		ValuationReadDate: value.ValuationReadDate, OldestCarriedMarketDate: value.DisplayValuation.NetWorth.Quality.OldestCarriedMarketDate,
 	}
 }
 

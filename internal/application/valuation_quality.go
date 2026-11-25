@@ -79,6 +79,9 @@ func (a *displayAccumulator) add(c domain.ValuationComponent, missing []domain.M
 			}
 			if target != "" && date < target && e.Source != domain.QuoteSourceManual && e.Freshness != domain.FreshnessManual && !e.ClosedCarry {
 				carried = true
+				if current {
+					a.quality.OldestCarriedMarketDate = earlierMarketDate(a.quality.OldestCarriedMarketDate, &date)
+				}
 				if n == 0 {
 					a.reason(domain.ReasonCarriedPrice)
 					if c.InstrumentType == domain.InstrumentMutualFund || c.InstrumentType == domain.InstrumentBankInvestmentProduct {
@@ -160,6 +163,13 @@ func (a displayAccumulator) amount(currency domain.CurrencyCode, signed bool) (d
 	}
 	return out, nil
 }
+func earlierMarketDate(a, b *string) *string {
+	if b != nil && (a == nil || *b < *a) {
+		return b
+	}
+	return a
+}
+
 func householdDisplay(assets, liabilities displayAccumulator, currency domain.CurrencyCode) (domain.HouseholdDisplayValuation, error) {
 	a, err := assets.amount(currency, false)
 	if err != nil {
@@ -182,9 +192,8 @@ func householdDisplay(assets, liabilities displayAccumulator, currency domain.Cu
 	for _, r := range liabilities.quality.Reasons {
 		n.reason(r)
 	}
-	if l.Quality.OldestMarketDate != nil && (n.quality.OldestMarketDate == nil || *l.Quality.OldestMarketDate < *n.quality.OldestMarketDate) {
-		n.quality.OldestMarketDate = l.Quality.OldestMarketDate
-	}
+	n.quality.OldestMarketDate = earlierMarketDate(n.quality.OldestMarketDate, l.Quality.OldestMarketDate)
+	n.quality.OldestCarriedMarketDate = earlierMarketDate(n.quality.OldestCarriedMarketDate, l.Quality.OldestCarriedMarketDate)
 	if l.Quality.NewestMarketDate != nil && (n.quality.NewestMarketDate == nil || *l.Quality.NewestMarketDate > *n.quality.NewestMarketDate) {
 		n.quality.NewestMarketDate = l.Quality.NewestMarketDate
 	}
@@ -205,7 +214,7 @@ func coverageOnlySnapshotItem(item domain.DailyValuationSnapshotItem) bool {
 	return !item.Complete && snapshotItemBaseAmountString(item) != "" && item.MissingReason != nil && *item.MissingReason == snapshotHistoryCoverageMissingReason
 }
 
-func currentHouseholdDisplay(accounts []domain.AccountValuation, p domain.PortfolioSnapshot, now time.Time) (domain.HouseholdDisplayValuation, error) {
+func currentHouseholdDisplay(accounts []domain.AccountValuation, p domain.PortfolioSnapshot, date string) (domain.HouseholdDisplayValuation, error) {
 	var assets, liabilities displayAccumulator
 	for _, account := range accounts {
 		if !domain.AccountEligibleForNetWorth(account.Account) {
@@ -216,7 +225,7 @@ func currentHouseholdDisplay(accounts []domain.AccountValuation, p domain.Portfo
 			if account.Account.IsLiability() {
 				target = &liabilities
 			}
-			if err := target.add(c, c.MissingInputs, displayDate(p, now), true); err != nil {
+			if err := target.add(c, c.MissingInputs, date, true); err != nil {
 				return domain.HouseholdDisplayValuation{}, err
 			}
 		}
