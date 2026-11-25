@@ -229,6 +229,37 @@ const (
 	ReturnCoverage
 	ReturnMissingValuation
 	ReturnAmountOnly
+	ReturnTrend
+	ReturnContribution
+	ReturnCumulative
+	ReturnLinked
+	ReturnPeriodAmount
+	ReturnDisplay
+	ReturnTotal
+	ReturnRealized
+	ReturnUnrealized
+	ReturnSortLargest
+	ReturnSortSmallest
+	ReturnSortName
+	ReturnMetric
+	ReturnGroupBy
+	ReturnSort
+	AnalysisPortfolio
+	AnalysisAccount
+	AnalysisInstrument
+	AnalysisBase
+	AnalysisNative
+	AnalysisScope
+	AnalysisValuation
+	AnalysisIncludeCash
+	AnalysisMoreFilters
+	AnalysisReset
+	AnalysisAllCurrencies
+	AnalysisAccountFilter
+	AnalysisCurrency
+	AnalysisScopeRequired
+	AnalysisInvalidRange
+	AnalysisBaseFallback
 	NetWorth
 	Assets
 	Liabilities

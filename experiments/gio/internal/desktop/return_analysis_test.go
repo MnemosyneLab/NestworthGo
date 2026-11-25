@@ -191,6 +191,41 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		t.Fatal("clicking outside the detail sheet did not dismiss it")
 	}
 	h.focused(trigger)
+
+	wantTrend, err := adapter.ReturnTrend(ctx, query, string(application.ReturnTrendCumulativeAmount))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Return trend", false)
+	page.workers.Wait()
+	h.frame()
+	if page.err != nil || page.current == nil || page.current.trend == nil {
+		t.Fatalf("Gio trend did not load: %v", page.err)
+	}
+	trend := page.current.trend
+	if trend.Amount == nil || wantTrend.Amount == nil || trend.Amount.CanonicalAmount() != wantTrend.Amount.Amount ||
+		trend.Rate == nil || wantTrend.Rate == nil || trend.Rate.String() != *wantTrend.Rate ||
+		len(trend.Points) != len(wantTrend.Points) {
+		t.Fatalf("Gio trend differs from Wails: %+v and %+v", trend, wantTrend)
+	}
+	wantRanks, err := adapter.Contribution(ctx, query, string(application.ContributionTotalReturn),
+		string(application.ContributionGroupInstrument), string(application.ContributionSortAmountDesc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Contribution", false)
+	page.workers.Wait()
+	h.frame()
+	if page.err != nil || page.current == nil || page.current.contribution == nil {
+		t.Fatalf("Gio contribution did not load: %v", page.err)
+	}
+	ranking := page.current.contribution
+	if len(ranking.Rows) != len(wantRanks.Rows) || len(ranking.Rows) == 0 ||
+		ranking.Rows[0].Key != wantRanks.Rows[0].Key || ranking.Rows[0].Amount == nil || wantRanks.Rows[0].Amount == nil ||
+		ranking.Rows[0].Amount.CanonicalAmount() != wantRanks.Rows[0].Amount.Amount ||
+		gioProvider.requests != 0 || wailsProvider.requests != 0 {
+		t.Fatalf("Gio and Wails contributions or provider reads differ: %+v and %+v", ranking, wantRanks)
+	}
 }
 
 func TestReturnCalendarGridUsesWholeWeeks(t *testing.T) {
@@ -207,5 +242,113 @@ func TestReturnCalendarGridUsesWholeWeeks(t *testing.T) {
 		if first.Format(time.DateOnly) != tc.first || count != tc.count {
 			t.Errorf("grid with Sunday start %v: got %v with %d days", tc.sunday, first, count)
 		}
+	}
+}
+
+type calendarFilterReader struct {
+	account    domain.AccountID
+	instrument domain.InstrumentID
+	lastTrend  domain.AnalysisQuery
+	lastRanks  domain.AnalysisQuery
+}
+
+func (r *calendarFilterReader) HistoryOrigin(context.Context) (*domain.HistoryOrigin, error) {
+	return &domain.HistoryOrigin{StartedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), Timezone: "UTC"}, nil
+}
+
+func (r *calendarFilterReader) ListInstruments(context.Context, bool) ([]domain.Instrument, error) {
+	return []domain.Instrument{{ID: r.instrument, Name: "Synthetic fund"}}, nil
+}
+
+func (r *calendarFilterReader) ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error) {
+	return []domain.AccountRecord{{Account: domain.Account{ID: r.account, Name: "Synthetic brokerage"}}}, nil
+}
+
+func (r *calendarFilterReader) ReturnCalendar(context.Context, domain.AnalysisQuery, string, string) (application.ReturnCalendarResult, error) {
+	return application.ReturnCalendarResult{}, nil
+}
+
+func (r *calendarFilterReader) ReturnDay(context.Context, domain.AnalysisQuery, domain.LocalDate) (application.ReturnDayResult, error) {
+	return application.ReturnDayResult{}, nil
+}
+
+func (r *calendarFilterReader) ReturnTrend(_ context.Context, q domain.AnalysisQuery, display application.ReturnTrendDisplay) (application.ReturnTrendResult, error) {
+	r.lastTrend = q
+	if display != application.ReturnTrendCumulativeAmount {
+		return application.ReturnTrendResult{}, errors.New("unexpected default trend mode")
+	}
+	return application.ReturnTrendResult{}, nil
+}
+
+func (r *calendarFilterReader) Contribution(_ context.Context, q domain.AnalysisQuery, metric application.ContributionReturnType, group application.ContributionGroupBy, sort application.ContributionSort) (application.ContributionResult, error) {
+	r.lastRanks = q
+	if metric != application.ContributionTotalReturn || group != application.ContributionGroupInstrument || sort != application.ContributionSortAmountDesc {
+		return application.ContributionResult{}, errors.New("unexpected default contribution options")
+	}
+	return application.ContributionResult{}, nil
+}
+
+func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
+	reader := &calendarFilterReader{account: domain.NewAccountID(), instrument: domain.NewInstrumentID()}
+	now := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	p := &returnAnalysisPage{ctx: t.Context(), reader: reader, clock: func() time.Time { return now }, invalidate: func() {}}
+	t.Cleanup(p.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{returns: p})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.frame()
+	h.click("Return analysis", false)
+	settle := func() {
+		for range 3 {
+			p.workers.Wait()
+			h.frame()
+		}
+	}
+	settle()
+	selectOption := func(field, option string) {
+		h.click(field, true)
+		h.click(option, false)
+		settle()
+	}
+	selectOption("Scope", "Instrument")
+	assertPageLabel(t, &h.router, "Choose an account or instrument for this scope.")
+	selectOption("Instrument", "Synthetic fund")
+	selectOption("Valuation", "Native currency")
+	h.click("Include cash", false)
+	settle()
+	h.click("More filters", false)
+	selectOption("Account filter", "Synthetic brokerage")
+	h.click("Currency", true)
+	h.router.Queue(key.EditEvent{Text: "USD"})
+	h.frame()
+	h.click("USD", false)
+	settle()
+	h.click("Previous month", false)
+	settle()
+	assertPageLabel(t, &h.router, "August 2026")
+
+	want := func(got domain.AnalysisQuery) {
+		t.Helper()
+		if got.From != "2026-08-01" || got.To != "2026-08-31" ||
+			got.Scope != (domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: reader.instrument.String()}) ||
+			got.Valuation != domain.ValuationNative || got.IncludeCash ||
+			got.Filters.AccountID == nil || *got.Filters.AccountID != reader.account ||
+			got.Filters.Currency == nil || *got.Filters.Currency != "USD" {
+			t.Fatalf("historical month and typed filters differ from Wails contract: %+v", got)
+		}
+	}
+	h.click("Return trend", false)
+	settle()
+	want(reader.lastTrend)
+	h.click("Calendar", false)
+	settle()
+	assertPageLabel(t, &h.router, "August 2026")
+	h.click("Contribution", false)
+	settle()
+	want(reader.lastRanks)
+	h.click("Calendar", false)
+	settle()
+	assertPageLabel(t, &h.router, "August 2026")
+	if p.filters.selection.from != "2026-08-01" || p.filters.selection.to != "2026-08-31" {
+		t.Fatalf("calendar range not retained on return: %+v", p.filters.selection)
 	}
 }

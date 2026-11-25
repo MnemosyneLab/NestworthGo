@@ -29,7 +29,13 @@ import (
 func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update(view.WeekStart == "sunday")
 	l := view.Language
-	title := ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnCalendar), view.Colors.Ink))
+	for i := range p.tabs {
+		if p.tabs[i].Clicked(gtx) {
+			p.changeTab(returnAnalysisTab(i))
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
+	tabs := func(gtx layout.Context) layout.Dimensions { return p.layoutTabs(gtx, view) }
 	if p.refs.origin == nil {
 		status := i18n.ReturnNoOrigin
 		switch {
@@ -38,7 +44,7 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		case p.err != nil:
 			status = i18n.ReturnFailed
 		}
-		return ui.Column{Gap: 12}.Layout(gtx, title,
+		return ui.Column{Gap: 12}.Layout(gtx, ui.Rigid(tabs),
 			ui.Rigid(view.Message(l.Text(status), view.Colors.SecondaryInk)),
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if p.refsRead != nil {
@@ -58,14 +64,44 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		)
 	}
 	origin := p.refs.origin
+	width := gtx.Constraints.Max.X
+	gtx.Constraints.Min.Y = 0
+	offset := tabs(gtx).Size.Y + gtx.Dp(12)
+	filter := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return p.filters.layout(gtx, view, p.refs.analysisReferences, origin, p.clock(), p.changeFilters)
+	})
+	offset += filter.Size.Y + gtx.Dp(12)
+	layoutBody := p.layoutCalendar
+	if p.tab != returnCalendarTab {
+		layoutBody = p.layoutProjection
+	}
+	body := ui.Place(gtx, view, image.Pt(0, offset), width, layoutBody)
+	return layout.Dimensions{Size: image.Pt(width, offset+body.Size.Y)}
+}
+
+func (p *returnAnalysisPage) layoutTabs(gtx layout.Context, view ui.View) layout.Dimensions {
+	labels := [...]i18n.MessageID{i18n.ReturnCalendar, i18n.ReturnTrend, i18n.ReturnContribution}
+	return (ui.Wrap{Gap: 8}).Layout(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
+		return analysisToggle(view, &p.tabs[index], view.Language.Text(labels[index]), p.tab == returnAnalysisTab(index))(gtx)
+	})
+}
+
+func (p *returnAnalysisPage) layoutCalendar(gtx layout.Context, view ui.View) layout.Dimensions {
+	l, origin := view.Language, p.refs.origin
 	localNow := p.clock().In(origin.location)
 	thisMonth := returnMonth(localNow)
 	earliest, _ := time.Parse("2006-01", origin.first[:7])
 	p.updateMonthButtons(gtx, earliest, thisMonth)
-	rows := []ui.ColumnChild{title, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return p.monthControls(gtx, view, earliest, thisMonth)
 	})}
 	switch {
+	case !p.filters.selection.ready():
+		label := i18n.AnalysisScopeRequired
+		if p.filters.selection.from != "" && p.filters.selection.to != "" && p.filters.selection.from > p.filters.selection.to {
+			label = i18n.AnalysisInvalidRange
+		}
+		rows = append(rows, ui.Rigid(view.Message(l.Text(label), view.Colors.SecondaryInk)))
 	case p.request != nil:
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.ReturnLoading), view.Colors.SecondaryInk)))
 	case p.err != nil:
@@ -159,6 +195,7 @@ func (p *returnAnalysisPage) monthSummary(gtx layout.Context, view ui.View) layo
 		return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Rigid(view.Body(ui.TextLabel, caption, view.Colors.Ink)),
+				layout.Rigid(view.Message(analysisBasis(l, data.Valuation, data.ValuationForced), view.Colors.SecondaryInk)),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					labels := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate, i18n.ReturnBeginning, i18n.ReturnEnding}
 					values := [...]string{returnAmountText(view, summary.ReturnAmount, summary.AmountStatus), returnRate(view, summary.ReturnRate),
@@ -335,7 +372,7 @@ func (p *returnAnalysisPage) dayDetails(gtx layout.Context, view ui.View, sheet 
 	data := sheet.value
 	return view.List(&sheet.list).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		var children []layout.FlexChild
-		for _, value := range []string{fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), data.Currency),
+		for _, value := range []string{analysisBasis(l, data.Valuation, data.ValuationForced) + " · " + string(data.Currency),
 			l.Text(i18n.ReturnAmount) + " · " + returnAmountText(view, data.ReturnAmount, data.AmountStatus),
 			l.Text(i18n.ReturnRate) + " · " + returnRate(view, data.ReturnRate),
 			returnCoverage(l, data.Coverage, application.ReturnDayCoverage{})} {
@@ -362,6 +399,17 @@ func (p *returnAnalysisPage) dayDetails(gtx layout.Context, view ui.View, sheet 
 		}
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 	})
+}
+
+func analysisBasis(l i18n.Language, valuation domain.Valuation, forced *string) string {
+	switch {
+	case forced != nil:
+		return l.Text(i18n.AnalysisBaseFallback)
+	case valuation == domain.ValuationNative:
+		return l.Text(i18n.AnalysisNative)
+	default:
+		return l.Text(i18n.AnalysisBase)
+	}
 }
 
 func (p *returnAnalysisPage) contributors(gtx layout.Context, view ui.View, values []application.ReturnContributor) layout.Dimensions {

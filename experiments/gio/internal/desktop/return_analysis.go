@@ -8,6 +8,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -15,21 +16,35 @@ import (
 type returnAnalysisReader interface {
 	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
+	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
 	ReturnCalendar(context.Context, domain.AnalysisQuery, string, string) (application.ReturnCalendarResult, error)
 	ReturnDay(context.Context, domain.AnalysisQuery, domain.LocalDate) (application.ReturnDayResult, error)
+	ReturnTrend(context.Context, domain.AnalysisQuery, application.ReturnTrendDisplay) (application.ReturnTrendResult, error)
+	Contribution(context.Context, domain.AnalysisQuery, application.ContributionReturnType, application.ContributionGroupBy, application.ContributionSort) (application.ContributionResult, error)
 }
 
+type returnAnalysisTab int
+
+const (
+	returnCalendarTab returnAnalysisTab = iota
+	returnTrendTab
+	returnContributionTab
+)
+
 type returnCalendarFrame struct {
-	summary     application.ReturnCalendarResult
-	days        map[domain.LocalDate]application.ReturnDayResult
-	gridQuery   domain.AnalysisQuery
-	summaryFrom domain.LocalDate
-	summaryTo   domain.LocalDate
+	summary      application.ReturnCalendarResult
+	days         map[domain.LocalDate]application.ReturnDayResult
+	gridQuery    domain.AnalysisQuery
+	summaryFrom  domain.LocalDate
+	summaryTo    domain.LocalDate
+	trend        *application.ReturnTrendResult
+	contribution *application.ContributionResult
 }
 
 type returnCalendarContext struct {
 	origin *wealthHistoryOrigin
 	names  map[string]string
+	analysisReferences
 }
 
 type returnDaySheet struct {
@@ -61,6 +76,10 @@ type returnAnalysisPage struct {
 	sunday  bool
 	err     error
 	current *returnCalendarFrame
+	filters analysisFilterControls
+	tab     returnAnalysisTab
+	tabs    [3]widget.Clickable
+	output  returnProjectionControls
 
 	previous, next, today, reload widget.Clickable
 	cells                         [42]widget.Clickable
@@ -105,6 +124,17 @@ func (p *returnAnalysisPage) readRefs() {
 		out.names = make(map[string]string, len(instruments))
 		for _, instrument := range instruments {
 			out.names[instrument.ID.String()] = instrument.DisplayLabel()
+			if instrument.ArchivedAt == nil {
+				out.instruments = append(out.instruments, ui.Choice{ID: instrument.ID.String(), Label: instrument.SelectionLabel()})
+			}
+		}
+		accounts, err := p.reader.ListAccounts(ctx, domain.AccountFilter{})
+		if err != nil {
+			return returnCalendarContext{}, err
+		}
+		for _, record := range accounts {
+			out.accounts = append(out.accounts, ui.Choice{ID: record.Account.ID.String(), Label: record.Account.Name})
+			out.names[record.Account.ID.String()] = record.Account.Name
 		}
 		return out, nil
 	})
@@ -140,17 +170,44 @@ func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 		p.current = nil
 	}
 	p.month, p.sunday, p.err = month, sunday, nil
+	selected := p.filters.selection
+	if !selected.ready() {
+		p.current = nil
+		return
+	}
 	now := p.clock()
 	origin := p.refs.origin
 	grid, cells := returnGrid(month, sunday)
-	monthQuery := returnCalendarQuery(month, month.AddDate(0, 1, -1), origin, now)
-	gridQuery := returnCalendarQuery(grid, grid.AddDate(0, 0, cells-1), origin, now)
+	monthQuery := selected.query(returnCalendarQuery(month, month.AddDate(0, 1, -1), origin, now))
+	monthCursor := month.Format("2006-01")
+	if selected.from != "" && selected.to != "" {
+		monthQuery.From, monthQuery.To, monthCursor = selected.from, selected.to, ""
+	}
+	gridRange := returnCalendarQuery(grid, grid.AddDate(0, 0, cells-1), origin, now)
+	gridQuery := monthQuery
+	gridQuery.From, gridQuery.To = gridRange.From, gridRange.To
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel = cancel
+	tab, display, metric, group, sort := p.tab, p.output.trendDisplay(), p.output.contributionMetric(), p.output.contributionGroup(), p.output.contributionSort()
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (returnCalendarFrame, error) {
 		out := returnCalendarFrame{summaryFrom: monthQuery.From, summaryTo: monthQuery.To, gridQuery: gridQuery}
+		if tab != returnCalendarTab && monthQuery.From <= monthQuery.To {
+			switch tab {
+			case returnTrendTab:
+				result, err := p.reader.ReturnTrend(ctx, monthQuery, display)
+				out.trend = &result
+				return out, err
+			case returnContributionTab:
+				result, err := p.reader.Contribution(ctx, monthQuery, metric, group, sort)
+				out.contribution = &result
+				return out, err
+			}
+		}
+		if tab != returnCalendarTab {
+			return out, nil
+		}
 		if monthQuery.From <= monthQuery.To {
-			result, err := p.reader.ReturnCalendar(ctx, monthQuery, month.Format("2006-01"), "")
+			result, err := p.reader.ReturnCalendar(ctx, monthQuery, monthCursor, "")
 			if err != nil {
 				return returnCalendarFrame{}, err
 			}
@@ -174,6 +231,30 @@ func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 	})
 }
 
+func (p *returnAnalysisPage) changeTab(tab returnAnalysisTab) {
+	if tab == p.tab {
+		return
+	}
+	if p.tab == returnCalendarTab && p.refs.origin != nil {
+		selection := &p.filters.selection
+		window := returnCalendarQuery(p.month, p.month.AddDate(0, 1, -1), p.refs.origin, p.clock())
+		if selection.from != "" {
+			window.From = selection.from
+		}
+		if selection.to != "" {
+			window.To = selection.to
+		}
+		if window.From <= window.To {
+			selection.from, selection.to = window.From, window.To
+		}
+	}
+	p.tab, p.current = tab, nil
+	p.output.list.Position = layout.Position{}
+	if p.refs.origin != nil {
+		p.readMonth(p.month, p.sunday)
+	}
+}
+
 func (p *returnAnalysisPage) update(sunday bool) {
 	select {
 	case result := <-p.refsRead:
@@ -190,9 +271,21 @@ func (p *returnAnalysisPage) update(sunday bool) {
 		}
 	default:
 	}
-	if p.refs.origin != nil && (p.sunday != sunday || p.request == nil && p.current == nil && p.err == nil) {
+	if p.refs.origin != nil && p.filters.selection.ready() && (p.sunday != sunday || p.request == nil && p.current == nil && p.err == nil) {
 		p.readMonth(p.month, sunday)
 	}
+}
+
+func (p *returnAnalysisPage) changeFilters(previous, selection analysisSelection) {
+	month := p.month
+	if previous.to != selection.to {
+		if date, valid := ui.ParseCivilDay(selection.to); valid {
+			month = returnMonth(date)
+		}
+	}
+	p.current = nil
+	p.output.list.Position = layout.Position{}
+	p.readMonth(month, p.sunday)
 }
 
 func (p *returnAnalysisPage) openDay(date domain.LocalDate, trigger *widget.Clickable) {

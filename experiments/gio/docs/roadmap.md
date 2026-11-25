@@ -1547,6 +1547,32 @@ cross-page actions are tracked separately in the [parity checklist](parity.md#re
 | Build and tests | The full Gio module suite, Gio vet, native Linux launcher build and focused application/domain/Wails analysis projection tests passed. |
 | Open evidence | Wails GUI, Wayland, native macOS, VoiceOver and native IME remain unverified for this slice. |
 
+#### Return Analysis filters, Trend and Contribution
+
+Calendar, Return trend and Contribution tabs sit above the shared filter card
+and active content. Portfolio, account and instrument scope, valuation
+currency, date endpoints, cash inclusion and additional account and currency
+filters form one typed query. Leaving Calendar freezes its effective closed
+range for the other projections. An explicit range overrides the return
+summary. The calendar grid keeps its own visible weeks. Selected filters and
+month survive tab changes. A native request that requires base valuation uses
+the shared application's fallback.
+
+Trend shows the shared period amount, linked period rate, coverage,
+composition and the selected daily values. Contribution shows the shared
+summary and ranking, with return type, grouping and ordering. Both begin with
+keyboard-scrollable lists so the supplied daily values and ranked rows are
+readable at small window sizes. Chart geometry, presets, the year view,
+additional filter types, contribution detail and context links remain
+separate work in the [parity checklist](parity.md#return-analysis-and-related-navigation).
+
+| Check | Evidence |
+| --- | --- |
+| Wails workflow reference | The 30 tests in `ReturnAnalysisPage.test.tsx` passed. The Gio frame counterpart moved from September to August 2026. Both Trend and Contribution received August 1–31, the selected instrument and account filter, USD, native valuation and excluded cash. Returning to Calendar kept August and the effective range. |
+| Shared Go comparison | Independent SQLite fixtures matched the Wails Go Trend amount and ratio, point count, and the first Contribution row's exact identity and amount. Both copies made zero provider requests. |
+| Linux X11 | The packaged preview on the verified synthetic portfolio selected the named instrument and native valuation. Trend and Contribution showed USD 25 and +25% and retained November 1–24. Calendar retained the date range on return. At 700×480 the shared date fields wrapped to a second row, and Escape followed by Tab and Return moved from Scope to the Valuation picker. |
+| Build and tests | The full Gio module suite, Gio vet, independent native Linux preview build and focused shared application/domain/Wails analysis suites passed. |
+
 ## Moving from the preview to a desktop build
 
 1. During the pilot, run the Gio module's tests explicitly. The root
