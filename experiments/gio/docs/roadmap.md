@@ -964,7 +964,7 @@ form with the selected account, its currency and the Origin timezone.
 | --- | --- |
 | Shared behavior | A synthetic ledger and an independent Wails reference both captured the Origin on November 22 in Asia/Singapore. The account origin read failure offered Retry. Cancel produced zero writes. A lost confirmation reply and failed verification blocked navigation until a read-only retry recovered the one Origin. The continued USD 1.2345 purchase matched Wails and survived reopen. |
 | Linux X11 | In the packaged app, cancelling a review at 1160×820 left no Origin or activities. At 640×480, Return reentered the same account action and confirmed the Starting Point. SQLite showed four opening balances in the America/Vancouver Origin and zero activities. The resumed card form separately posted USD 2.3456. Back and Return restored Record a change. Restart showed one Origin and that one card purchase, and the synthetic source hashes matched. |
-| Suites and remaining scope | The full Gio suite and vet, repeated focused Gio regressions, standard Linux package build, focused shared application and Wails History Go tests, and six Wails frontend account reference tests passed. Additional account types and multi-position opening remain open. Interactive Wails, macOS, Wayland, native IME and VoiceOver remain unverified. |
+| Suites and remaining scope | The full Gio suite and vet, repeated focused Gio regressions, standard Linux package build, focused shared application and Wails History Go tests, and six Wails frontend account reference tests passed. Additional account-action handoffs remain open. See the [multiple opening positions checkpoint](#multiple-opening-positions-and-native-costs) for separate cost evidence. Interactive Wails, macOS, Wayland, native IME and VoiceOver remain unverified. |
 
 #### Holdings cash target balance
 
@@ -1382,21 +1382,19 @@ realized trade gain and external flows unchanged by the dividend.
 
 #### Opening position and original cost
 
-Before History starts, **Accounts → Holdings account → Record existing
-position** records a positive quantity in an existing ordinary security. The
-picker offers unused, active securities in the account's default currency.
-This entry is limited to one positive holding across the household, so the
-same ledger can complete the Starting Point form.
+The initial milestone proved **Accounts → Holdings account → Record existing
+position** with one positive, same-currency position. The
+[multiple opening positions checkpoint](#multiple-opening-positions-and-native-costs)
+now extends the entry to several securities.
 The Wails account form calls `CreateHolding`. Its pre-History branch saves
 the quantity observation and leaves the optional cost argument unused. Gio
 reviews the quantity before calling that same branch and checks the persisted
 holding when a reply is uncertain. [Wails account action](../../../frontend/src/features/accounts/AccountActionSheets.tsx) · [Wails Go holding adapter](../../../internal/wailsapi/holding/holding.go) · [Shared holding command](../../../internal/application/portfolio.go)
 
 Next, **Ledger activity → Start recording history** asks for the original cost
-per unit of one active, ordinary same-currency holding. Enter zero when the
-original cost is zero. The shared Starting Point planner requires an existing
-selected market quote. Gio takes the opening basis from the entered cost and
-preserves the quote separately. The review includes the quantity, original
+per unit. Enter zero when the original cost is zero. The shared planner uses
+the entered basis and preserves any market quote separately. An explicit
+cost also allows capture when a market quote is missing. The review includes the quantity, original
 cost, cash and capture date. A populated start captures the current instant in
 the selected History timezone. Confirmation stores opening facts. Later sales
 use the shared cost replay from those facts. [Wails Starting Point form](../../../frontend/src/features/history/StartHistoryForm.tsx) · [Shared Starting Point planner](../../../internal/application/history.go)
@@ -1408,7 +1406,32 @@ use the shared cost replay from those facts. [Wails Starting Point form](../../.
 | Linux X11 | In a 900×660 Xvfb window, rejected a negative quantity, saved 2.5 units, and verified the single-position limit on a second attempt. Reviewed USD 12.3456 per unit and USD 200 opening cash and double-clicked both confirmations. After normal quit and reopen, net worth was USD 300, History remained empty, and the account showed the original position. Read-only SQLite verification found one holding and one origin with two opening components. The quote and cash observation rows were unchanged. A temporary build overlay seeded the verified synthetic profile and controlled the clock. |
 | Tests | The Gio module suite and focused application, Wails Go holding and history, and SQLite history tests passed. |
 | Build and vet | The independent Linux Gio preview build, Gio vet and shared application vet passed. |
-| Open evidence | Multiple positions, cross-currency cost and managed products remain outside the slice. The History-enabled position-import operation in Wails is a separate write path. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | [Multiple positions and native cost currencies](#multiple-opening-positions-and-native-costs) have separate evidence below. Managed products and the History-enabled position-import operation remain distinct write paths. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Multiple opening positions and native costs
+
+Before History starts, add another ordinary security in the same or a different
+Holdings account. The picker labels each instrument with its quote currency and
+omits an already-held pair. Each confirmed quantity remains an opening
+observation. The shared Starting Point draft then shows the account,
+instrument, quantity and a separate cost field for each positive position.
+Costs use the instrument's currency. Gio asks for an explicit cost on each row,
+preserving the original-cost review even when Wails offers a market quote as an
+editable default.
+
+The guarded application review freezes the complete map of exact costs and
+previews the same household Origin and components used by Wails. A stale
+quantity or review reloads the matching fields and keeps independent costs
+where the holding and its currency are unchanged. Confirm creates a single
+Origin with its opening components. Retry reads back that Origin.
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio comparison | Separate synthetic ledgers captured 2.5 USD units with an explicit zero cost and 4.125 EUR units at 12.34567891 per unit. Gio rejected omitted USD cost despite a known market quote. Reopened SQLite matched Wails quantity, cost, Origin date and timezone, with zero activities. |
+| Compact and failure coverage | The Gio suite verified a distinct accessible input for each position, duplicate pair exclusion, a changed quantity invalidating review, and retained cost input. A lost reply plus failed read was resolved by read-only Retry. |
+| Packaged Linux X11 | At 1160×820, Accounts saved 2.5 units of a USD security and 3.125 of a EUR security in the same brokerage. At 640×480, Tab moved between the costs. Cancel left both quantities and zero Origin rows. Confirmation and normal reopen retained one Origin with USD 0 and EUR 12.34567891 per unit, the USD 5.25 opening cash and zero activities. The USD 40 quote and the synthetic source hashes matched. |
+| Checks | Full Gio tests and vet, the standard Linux package, shared application vet, focused application and Wails History and Holding Go suites, and nine Wails frontend reference tests passed. |
+| Open scope | Managed and unavailable opening holdings, importing positions after History starts, cross-currency trade settlement, and in-form instrument creation remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -2209,9 +2232,9 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with multi-position opening, cross-currency trades and
-broader Holdings actions. Stage 4 still has additional Starting Point
-handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
+Continue Stage 5 with cross-currency trades, position imports after History
+starts and broader Holdings actions. Stage 4 still has additional Starting
+Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor
 remains part of investment parity. External enrollment and permissions stay

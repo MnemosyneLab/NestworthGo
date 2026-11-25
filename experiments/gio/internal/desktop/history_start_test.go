@@ -12,12 +12,14 @@ import (
 
 	"gioui.org/io/key"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
+	holdingapi "github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
@@ -242,28 +244,135 @@ func TestHistoryEmptyStartingPointVerifiesLostReplyWithoutRewriting(t *testing.T
 	}
 }
 
-func TestHistoryStartingPointDefersMultiplePositiveHoldings(t *testing.T) {
-	root := createFixtureRoot(t)
-	seedAccountFixture(t, root)
-	service, _ := openBankFixture(t, root)
-	instruments, err := service.ListInstruments(t.Context(), false)
-	if err != nil || len(instruments) != 1 {
-		t.Fatalf("unexpected instrument fixture: %+v, %v", instruments, err)
+func TestHistoryStartingPointCapturesMultipleNativeCostPositions(t *testing.T) {
+	ctx := t.Context()
+	service, session, paths, ids := openStartingPositionFixture(t, true)
+	reference, refSession, _, refIDs := openStartingPositionFixture(t, true)
+	costs := map[string]string{"USD": "0", "EUR": "12.34567891"}
+	refCosts := map[string]string{}
+	wailsHoldings := holdingapi.NewService(reference)
+	for _, item := range []struct {
+		id, refID          domain.InstrumentID
+		quantity, currency string
+	}{
+		{ids.security, refIDs.security, "2.5", "USD"},
+		{ids.eur, refIDs.eur, "3.125", "EUR"},
+	} {
+		plan, err := history.PreviewOpeningPosition(ctx, service, ids.account, item.id, item.quantity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := plan.Confirm(ctx, service); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := history.PreviewOpeningPosition(ctx, service, ids.account, item.id, item.quantity); err == nil {
+			t.Fatal("an existing account-instrument pair was offered a second time")
+		}
+		row, err := wailsHoldings.CreateHolding(ctx, holdingapi.CreateHoldingRequest{
+			AccountID: refIDs.account.String(), InstrumentID: item.refID.String(), Quantity: item.quantity,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		refCosts[row.ID] = costs[item.currency]
 	}
-	if _, err := service.AppendManualInstrumentQuote(t.Context(), instruments[0].ID, "12.5", "", false); err != nil {
+	fault := &startingPointFault{Service: service, loseReply: true}
+	page, h, finish := historyStartHarness(t, fault)
+	h.size = image.Pt(640, 775)
+	h.frame()
+	click := func(text string) { h.click(text, false); finish() }
+	label := func(text string) { assertPageLabel(t, &h.router, text) }
+	click("Start recording history")
+	start := page.startPoint
+	if len(start.holdings) != 2 || start.canPreview() {
+		t.Fatalf("expected two positions requiring explicit costs, got %d rows and canPreview=%t", len(start.holdings), start.canPreview())
+	}
+	var foreign domain.HoldingID
+	for _, row := range start.holdings {
+		if row.Currency == "EUR" {
+			foreign = row.HoldingID
+		}
+		field := "Original cost per unit · " + row.AccountName + " · " + row.InstrumentName + " · " + row.Currency.String()
+		setBankField(h, field, &row.cost, costs[row.Currency.String()])
+		h.focused(&row.cost.Editor)
+	}
+	// The quoted USD position also requires a reviewed cost.
+	if _, err := service.PreviewHistoryStart(ctx, "Asia/Singapore", "2026-11-22", map[domain.HoldingID]string{foreign: costs["EUR"]}); err == nil {
+		t.Fatal("an omitted cost silently fell back to the market quote")
+	}
+	click("Review Starting Point")
+	label("Opening cost per unit · 0 USD")
+	label("Opening cost per unit · 12.34567891 EUR")
+	if _, err := service.UpdateHoldingQuantity(ctx, foreign, "4.125"); err != nil {
 		t.Fatal(err)
 	}
-	draft, err := historyapi.NewService(service).StartingPointDraft(t.Context())
-	if err != nil || len(draft) != 2 || draft[0].UnitCost != "12.5" || draft[1].UnitCost != "12.5" {
-		t.Fatalf("unexpected Wails holding-cost draft: %+v, %v", draft, err)
+	refHoldings, err := reference.HoldingsByAccounts(ctx, []domain.AccountID{refIDs.account})
+	if err != nil {
+		t.Fatal(err)
 	}
-	_, h, finish := historyStartHarness(t, service)
-	h.click("Start recording history", false)
-	finish()
-	assertPageLabel(t, &h.router, "This form can review only one active holding in its account’s default currency.")
-	if origin, err := service.HistoryOrigin(t.Context()); err != nil || origin != nil || findPageLabel(&h.router, "Confirm Starting Point") != nil {
-		t.Fatalf("the positive-holding draft offered a write: %+v, %v", origin, err)
+	for _, holding := range refHoldings[refIDs.account] {
+		if holding.InstrumentID == refIDs.eur {
+			if _, err := reference.UpdateHoldingQuantity(ctx, holding.ID, "4.125"); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
+	click("Confirm Starting Point")
+	label("The ledger changed. Preview this action again.")
+	if origin, err := service.HistoryOrigin(ctx); err != nil || origin != nil {
+		t.Fatalf("stale preview saved an Origin: %+v, %v", origin, err)
+	}
+	for _, row := range start.holdings {
+		if row.cost.Text() != costs[row.Currency.String()] {
+			t.Fatal("stale review lost the matching opening cost")
+		}
+	}
+	click("Review Starting Point")
+	label("Quantity 4.125")
+	click("Confirm Starting Point")
+	label("Could not verify the Starting Point. Retry checks the saved state.")
+	click("Retry")
+	label("No changes have been recorded yet.")
+	if fault.writes.Load() != 2 {
+		t.Fatal("read retry wrote another Origin")
+	}
+	origin, err := historyapi.NewService(reference).StartHistoryOnDate(ctx, "Asia/Singapore", "2026-11-22", refCosts)
+	if err != nil || origin.Timezone != page.reads.references.Origin.Timezone ||
+		origin.StartedAt != wire.FormatTime(page.reads.references.Origin.StartedAt) {
+		t.Fatalf("Starting Point differs from Wails: %+v, %v", origin, err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_, reopened := reopenOnboardingProfile(t, paths)
+	readCosts := func(storage *pilot.Session) map[string][2]string {
+		t.Helper()
+		rows, err := storage.DB.SQL.QueryContext(ctx, `
+			SELECT instruments.quote_currency, components.quantity, components.unit_cost
+			FROM history_origin_components components JOIN instruments ON instruments.id=components.instrument_id
+			WHERE components.component_kind='holding_quantity'`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		found := map[string][2]string{}
+		for rows.Next() {
+			var currency, quantity, cost string
+			if err := rows.Scan(&currency, &quantity, &cost); err != nil {
+				t.Fatal(err)
+			}
+			found[currency] = [2]string{quantity, cost}
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return found
+	}
+	want := map[string][2]string{"USD": {"2.5", "0"}, "EUR": {"4.125", "12.34567891"}}
+	if got := readCosts(reopened); !reflect.DeepEqual(got, want) || !reflect.DeepEqual(got, readCosts(refSession)) {
+		t.Fatalf("reopened quantities and costs differ from Wails: %+v", got)
+	}
+	assertBankObservations(t, reopened, ids.account, 0, 0)
 }
 
 func seedHistoryStartFixture(t *testing.T, populated bool) (*application.Service, *pilot.Session, pilot.Paths, domain.AccountID, domain.AccountID) {

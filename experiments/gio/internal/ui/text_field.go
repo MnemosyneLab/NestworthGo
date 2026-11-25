@@ -47,7 +47,10 @@ func (f *TextField) Layout(gtx layout.Context, view View, options FieldOptions) 
 }
 
 func (f *TextField) LayoutCurrency(gtx layout.Context, view View, options FieldOptions, currency string) layout.Dimensions {
-	options.AccessibleName = view.Language.Text(options.Label) + " · " + currency
+	if options.AccessibleName == "" {
+		options.AccessibleName = view.Language.Text(options.Label)
+	}
+	options.AccessibleName += " · " + currency
 	return f.layoutWithAccessories(gtx, view, options, nil, view.Message(currency, view.Colors.SecondaryInk))
 }
 

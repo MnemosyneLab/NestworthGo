@@ -3,7 +3,6 @@ package desktop
 import (
 	"fmt"
 	"image"
-	"strings"
 	"time"
 
 	"gioui.org/font"
@@ -26,7 +25,7 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View, s *h
 	}
 	if s.cancel.Clicked(gtx) {
 		s.open, s.day, s.problem, s.preview, s.review = false, "", i18n.NoMessage, nil, nil
-		s.loading, s.holding, s.cost = nil, nil, ui.NewTextField(true)
+		s.loading, s.holdings = nil, nil
 		if s.accountName == "" {
 			gtx.Execute(key.FocusCmd{Tag: &s.start})
 		}
@@ -44,14 +43,10 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View, s *h
 		day = today
 	}
 	if s.loading == nil && s.draftProblem != i18n.NoMessage && s.retry.Clicked(gtx) {
-		p.loadStartingPointHolding(s)
+		p.loadStartingPointHoldings(s)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	canReview := func() bool {
-		return s.loading == nil && s.draftProblem == i18n.NoMessage && s.preview == nil &&
-			(s.holding == nil || strings.TrimSpace(s.cost.Text()) != "")
-	}
-	if canReview() && s.prepare.Clicked(gtx) {
+	if s.canPreview() && s.prepare.Clicked(gtx) {
 		p.previewStartHistory(s, zone, day)
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -89,14 +84,21 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View, s *h
 		}),
 		layout.Rigid(view.Message(l.Text(i18n.HistoryStartScope), view.Colors.SecondaryInk)),
 	)
-	if s.holding != nil && s.draftProblem == i18n.NoMessage {
-		holding := s.holding
-		children = append(children,
-			layout.Rigid(view.Message(holding.InstrumentName+" · "+fmt.Sprintf(l.Text(i18n.AccountQuantity), portfolioDecimal(view, holding.Quantity)), view.Colors.Ink)),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return s.cost.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.HistoryStartOriginalCost,
-					Help: i18n.HistoryStartOriginalCostHelp, Disabled: s.preview != nil}, holding.Currency.String())
-			}))
+	if len(s.holdings) != 0 && s.draftProblem == i18n.NoMessage {
+		children = append(children, layout.Rigid(view.Message(l.Text(i18n.HistoryStartOriginalCostHelp), view.Colors.SecondaryInk)))
+		for _, holding := range s.holdings {
+			name := holding.AccountName + " · " + holding.InstrumentName
+			children = append(children,
+				layout.Rigid(view.Message(name+" · "+fmt.Sprintf(l.Text(i18n.AccountQuantity), portfolioDecimal(view, holding.Quantity)), view.Colors.Ink)),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					field := ui.FieldOptions{Label: i18n.HistoryStartOriginalCost, Disabled: s.preview != nil || s.loading != nil}
+					if len(s.holdings) > 1 {
+						field.AccessibleName = l.Text(field.Label) + " · " + name
+					}
+					return holding.cost.LayoutCurrency(gtx, view, field, holding.Currency.String())
+				}),
+			)
+		}
 	}
 	problem := s.problem
 	if s.draftProblem != i18n.NoMessage {
@@ -114,7 +116,7 @@ func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View, s *h
 			buttons = append(buttons, layout.Rigid(view.Button(&s.retry, l.Text(i18n.HistoryRetry))))
 		default:
 			buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if !canReview() {
+				if !s.canPreview() {
 					gtx = gtx.Disabled()
 				}
 				return view.PrimaryButton(&s.prepare, l.Text(i18n.HistoryStartReview))(gtx)
@@ -144,7 +146,7 @@ func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View
 	}
 	start := contributionTimestamp(view, origin.StartedAt, location)
 	editLabel := i18n.HistoryStartEdit
-	if s.review.holding != nil {
+	if len(s.review.holdings) != 0 {
 		editLabel = i18n.AccountCreateBackToDetails
 	}
 	if s.review.plan.CaptureCurrent {
@@ -167,10 +169,12 @@ func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View
 		if part.Amount != nil {
 			rows = append(rows, view.Message(name+" · "+part.Amount.CanonicalAmount()+" "+part.Amount.Currency().String(), view.Colors.Ink))
 		}
-		if holding := s.review.holding; holding != nil && part.UnitCost != nil && part.Quantity != nil && part.HoldingID != nil && *part.HoldingID == holding.HoldingID {
-			rows = append(rows, view.Message(name+" · "+holding.InstrumentName, view.Colors.Ink),
-				view.Message(fmt.Sprintf(l.Text(i18n.AccountQuantity), portfolioDecimal(view, part.Quantity.Canonical())), view.Colors.Ink),
-				view.Message(fmt.Sprintf(l.Text(i18n.HistoryStartReviewedCost), portfolioDecimal(view, part.UnitCost.Canonical())+" "+holding.Currency.String()), view.Colors.Ink))
+		if part.UnitCost != nil && part.Quantity != nil && part.HoldingID != nil {
+			if holding, ok := s.review.holdings[*part.HoldingID]; ok {
+				rows = append(rows, view.Message(name+" · "+holding.InstrumentName, view.Colors.Ink),
+					view.Message(fmt.Sprintf(l.Text(i18n.AccountQuantity), portfolioDecimal(view, part.Quantity.Canonical())), view.Colors.Ink),
+					view.Message(fmt.Sprintf(l.Text(i18n.HistoryStartReviewedCost), portfolioDecimal(view, part.UnitCost.Canonical())+" "+holding.Currency.String()), view.Colors.Ink))
+			}
 		}
 	}
 	if len(rows) == 2 {
