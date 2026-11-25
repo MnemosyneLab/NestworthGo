@@ -177,6 +177,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"locked-renewal", lockedProductSeed},
 		{"add-product", lockedProductSeed},
 		{"funds-product", lockedProductSeed},
+		{"check-account", lockedProductSeed},
 		{"deposit-corrections", termDepositSeed},
 	} {
 		dir := filepath.Join(root, profile.name)

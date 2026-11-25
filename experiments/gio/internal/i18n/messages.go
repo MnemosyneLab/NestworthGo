@@ -1822,6 +1822,11 @@ const (
 	HoldingReconViewDatedActivity
 	HoldingReconCheck
 	HoldingReconCheckTitle
+	HoldingReconCheckAccount
+	HoldingReconCheckAccountHelp
+	HoldingReconScopeReviewed
+	HoldingReconCheckAccountExceptions
+	HoldingReconAccountChecked
 	HoldingReconScopeHelp
 	HoldingReconPause
 	HoldingReconFinish

@@ -1752,6 +1752,12 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconCheckUnavailable:  "当前数值或成本不可用，或此检查点已无法检查。",
 	HoldingReconScopeHelp:         "请检查该账户的币种、持仓及产品中是否有缺失或未结算的记录。",
 
+	HoldingReconCheckAccount:           "核对整个账户",
+	HoldingReconCheckAccountHelp:       "逐项确认下列内容，不会自动填造来源数值；保留已有的有效确认。存在例外时请先单独核对。",
+	HoldingReconScopeReviewed:          "我已检查整个账户，包括是否遗漏持仓、币种及管理型产品。",
+	HoldingReconCheckAccountExceptions: "请先单独核对未解决或已有证据的项目，再确认整个账户。",
+	HoldingReconAccountChecked:         "已记录账户核对结果。",
+
 	HoldingReconRecordCash:     "记录指定日期的现金变动",
 	HoldingReconShowAudit:      "显示关联证据",
 	HoldingReconHideAudit:      "隐藏关联证据",

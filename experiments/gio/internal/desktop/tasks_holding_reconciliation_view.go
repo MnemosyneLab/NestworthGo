@@ -146,12 +146,21 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 			continue
 		}
 		rows = append(rows, view.Message(account.Name, view.Colors.Ink))
+		if c.ledger != nil && s.Status == "in_progress" && slices.ContainsFunc(account.Items, uncheckedHoldingItem) {
+			if at := slices.IndexFunc(account.Items, func(item domain.ReconciliationItem) bool { return item.Kind == "scope" }); at >= 0 {
+				scope := account.Items[at]
+				button := &c.checkpointActions(account.AccountID, scope.ID).checkAccount
+				rows = append(rows, c.link(view, button, l.Text(i18n.HoldingReconCheckAccount), func() {
+					p.openHoldingAccountCheck(account, scope, button)
+				}))
+			}
+		}
 		for _, item := range account.Items {
 			if item.Kind != "holding" || item.HoldingID == "" {
 				continue
 			}
 			found = true
-			fields := c.itemEvidence(view, item)
+			fields := holdingPositionEvidence(view, item)
 			buttons := c.checkpointActions(account.AccountID, item.ID)
 			if s.Status == "in_progress" && item.ProductID == "" && !item.ArchivedNonzero {
 				open := func(button *widget.Clickable) {
@@ -269,7 +278,7 @@ func (p *tasksPage) holdingCheckpointRows(view ui.View, account domain.Reconcili
 	return rows
 }
 
-func (c *holdingReconciliation) itemEvidence(view ui.View, item domain.ReconciliationItem) []layout.Widget {
+func holdingPositionEvidence(view ui.View, item domain.ReconciliationItem) []layout.Widget {
 	l := view.Language
 	basis := l.Text(i18n.OverviewNoValue)
 	if item.Cost != "" {
@@ -305,6 +314,8 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		title = i18n.HoldingReconPause
 	case statement.CheckItem:
 		title = i18n.HoldingReconCheckTitle
+	case statement.Check:
+		title = i18n.HoldingReconCheckAccount
 	case statement.Finish:
 		title = i18n.HoldingReconFinish
 	}
@@ -333,7 +344,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	} else if d.itemID != "" {
 		if a, item, ok := c.item(d); ok {
 			rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
-			rows = append(rows, c.itemEvidence(view, item)...)
+			rows = append(rows, holdingPositionEvidence(view, item)...)
 			totalLabel := i18n.HoldingReconTotal
 			if d.target != nil {
 				totalLabel = i18n.HoldingReconOptionalTotal
@@ -452,7 +463,17 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 		if d.action == statement.Finish {
 			rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk))
 		}
-		if d.check != nil {
+		if d.action == statement.Check {
+			if account, _, ok := c.checkpoint(d.accountID, d.itemID, false); ok {
+				for _, candidate := range account.Items {
+					if uncheckedHoldingItem(candidate) {
+						if _, checked, ok := checkpointInSession(r.session, account.AccountID, candidate.ID, false); ok {
+							rows = append(rows, holdingBatchItem(view, checked))
+						}
+					}
+				}
+			}
+		} else if d.check != nil {
 			if _, item, ok := checkpointInSession(r.session, d.accountID, d.itemID, false); ok {
 				rows = append(rows, view.Message(holdingCheckLabel(view, item), view.Colors.Ink))
 				if item.Kind != "scope" {
@@ -463,7 +484,7 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 		}
 	} else if a, item, ok := c.item(d); ok {
 		rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
-		rows = append(rows, c.itemEvidence(view, item)...)
+		rows = append(rows, holdingPositionEvidence(view, item)...)
 		for _, change := range r.changes {
 			for _, result := range change.Resulting {
 				if result.Target == string(domain.EffectTargetHoldingQuantity) && result.HoldingID != nil && *result.HoldingID == item.HoldingID {

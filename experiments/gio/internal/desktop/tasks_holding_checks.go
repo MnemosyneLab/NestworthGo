@@ -26,6 +26,7 @@ type holdingCheckpointDraft struct {
 	timePicker         ui.TimePicker
 	reference, value   ui.TextField
 	comparable         widget.Bool
+	scopeReviewed      widget.Bool
 }
 
 func (p *tasksPage) openHoldingCheckpoint(a domain.ReconciliationAccount, item domain.ReconciliationItem, button *widget.Clickable) {
@@ -40,6 +41,31 @@ func (p *tasksPage) openHoldingCheckpoint(a domain.ReconciliationAccount, item d
 	d.check.comparable.Value = item.ReferenceComparable
 	d.note.Editor.SetText(item.Note)
 	c.saved, c.draft = i18n.NoMessage, d
+}
+
+func (p *tasksPage) openHoldingAccountCheck(account domain.ReconciliationAccount, scope domain.ReconciliationItem, button *widget.Clickable) {
+	d := newHoldingReconDraft(button)
+	d.action, d.accountID, d.itemID = statement.Check, account.AccountID, scope.ID
+	d.check = &holdingCheckpointDraft{outcome: statement.Confirmed, reference: ui.NewTextField(true)}
+	p.holdingRecon.saved, p.holdingRecon.draft = i18n.NoMessage, d
+}
+
+func uncheckedHoldingItem(item domain.ReconciliationItem) bool {
+	return item.Outcome != statement.Confirmed || item.RecheckRequired
+}
+
+func holdingBatchItem(view ui.View, item domain.ReconciliationItem) layout.Widget {
+	var rows []layout.Widget
+	switch item.Kind {
+	case "scope":
+		rows = append(rows, view.Message(view.Language.Text(i18n.HoldingReconScopeHelp), view.Colors.SecondaryInk))
+	case "holding":
+		rows = holdingPositionEvidence(view, item)
+	default:
+		rows = holdingCheckpointFacts(view, item)
+	}
+	rows = append(rows, holdingCheckEvidence(view, item)...)
+	return fundsCard(view, holdingCheckLabel(view, item), rows...)
 }
 
 func (c *holdingReconciliation) checkDate(f *holdingCheckpointDraft) (day, today string) {
@@ -125,19 +151,37 @@ func (c *holdingReconciliation) holdingCheckFields(view ui.View, d *holdingRecon
 	}
 	l, f := view.Language, d.check
 	day, today := c.checkDate(f)
-	rows := []layout.Widget{view.Message(a.Name+" · "+holdingCheckLabel(view, item), view.Colors.Ink)}
-	if item.Kind != "scope" {
+	batch := d.action == statement.Check
+	var rows []layout.Widget
+	if batch {
+		rows = append(rows, view.Message(a.Name+" · "+a.Currency, view.Colors.Ink),
+			view.Message(l.Text(i18n.HoldingReconCheckAccountHelp), view.Colors.SecondaryInk))
+		for _, candidate := range a.Items {
+			if uncheckedHoldingItem(candidate) {
+				rows = append(rows, holdingBatchItem(view, candidate))
+			}
+		}
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			if d.initialFocus && ready {
+				gtx.Execute(key.FocusCmd{Tag: &f.scopeReviewed})
+				d.initialFocus = false
+			}
+			return checkpointCheckbox(view, &f.scopeReviewed, i18n.HoldingReconScopeReviewed, ready)(gtx)
+		})
+	} else if item.Kind != "scope" {
+		rows = append(rows, view.Message(a.Name+" · "+holdingCheckLabel(view, item), view.Colors.Ink))
 		rows = append(rows, holdingCheckpointFacts(view, item)...)
 	} else {
-		rows = append(rows, view.Message(l.Text(i18n.HoldingReconScopeHelp), view.Colors.SecondaryInk))
+		rows = append(rows, view.Message(a.Name+" · "+holdingCheckLabel(view, item), view.Colors.Ink),
+			view.Message(l.Text(i18n.HoldingReconScopeHelp), view.Colors.SecondaryInk))
 	}
 	if c.zone != nil {
 		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), c.zone), view.Colors.SecondaryInk))
 	} else {
 		rows = append(rows, view.Message(l.Text(i18n.HoldingReconSourceZone), view.Colors.SecondaryInk))
 	}
-	return append(rows,
-		func(gtx layout.Context) layout.Dimensions {
+	if !batch {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			if d.initialFocus {
 				gtx.Execute(key.FocusCmd{Tag: &f.picker.Trigger})
 				d.initialFocus = false
@@ -148,17 +192,17 @@ func (c *holdingReconciliation) holdingCheckFields(view ui.View, d *holdingRecon
 					{ID: "unresolved", Label: l.Text(i18n.StatementUnresolved)}, {ID: "pending", Label: l.Text(i18n.StatementPending)},
 				}}, f.outcome, func(id string) { f.outcome, d.problem = id, i18n.NoMessage })
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
-		},
+		})
+	}
+	rows = append(rows,
 		func(gtx layout.Context) layout.Dimensions {
 			return f.reference.Layout(gtx, view, ui.FieldOptions{Label: i18n.HoldingReconSourceReference, MaxBytes: 512, Disabled: !ready})
 		},
 		func(gtx layout.Context) layout.Dimensions {
 			return c.holdingSourceFields(gtx, view, d, *origin, day, today, ready)
-		},
-		func(gtx layout.Context) layout.Dimensions {
-			if !holdingCheckComparable(item) {
-				return layout.Dimensions{}
-			}
+		})
+	if !batch && holdingCheckComparable(item) {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return f.value.Layout(gtx, view, ui.FieldOptions{Label: i18n.HoldingReconSourceValue, MaxBytes: 256, Disabled: !ready})
@@ -167,6 +211,8 @@ func (c *holdingReconciliation) holdingCheckFields(view ui.View, d *holdingRecon
 				layout.Rigid(view.Message(l.Text(i18n.HoldingReconComparisonHelp), view.Colors.SecondaryInk)),
 			)
 		})
+	}
+	return rows
 }
 
 func (c *holdingReconciliation) holdingSourceFields(gtx layout.Context, view ui.View, d *holdingReconDraft, origin image.Point, day, today string, ready bool) layout.Dimensions {
@@ -205,7 +251,7 @@ func holdingReconCounts(view ui.View, s domain.ReconciliationSession) layout.Wid
 	return view.Message(fmt.Sprintf(view.Language.Text(i18n.TasksStatementCounts), n.Pending, n.Unresolved, n.Confirmed, n.Skipped), view.Colors.Ink)
 }
 
-func holdingCheckProblem(err error) i18n.MessageID {
+func holdingCheckProblem(err error, batch bool) i18n.MessageID {
 	var issue *apierror.WireError
 	if errors.As(err, &issue) {
 		switch issue.Field {
@@ -221,6 +267,12 @@ func holdingCheckProblem(err error) i18n.MessageID {
 			return i18n.HoldingReconCheckNoteRequired
 		case "itemId":
 			return i18n.HoldingReconCheckUnavailable
+		case "accountId":
+			if batch {
+				return i18n.HoldingReconCheckAccountExceptions
+			}
+		case "scopeReviewed":
+			return i18n.HoldingReconScopeReviewed
 		}
 	}
 	return i18n.HoldingReconFailed

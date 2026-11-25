@@ -1995,6 +1995,25 @@ preview and recovery behavior, and retry keeps the reviewed plan ID.
 | Packaged Linux X11 | The wide form reviewed a comparable source of 1.25000001 against 1.25 units. It refused the difference until a note was entered. The compact workflow reviewed partial closure, required a closing explanation and confirmed by keyboard. Reopen showed the completed session with its evidence and one original dated activity link. SQLite verified the exact source, note and counts, and the preexisting Holding, activity, cash and quotes. |
 | Checks and remaining scope | Full Gio tests and vet, Linux packaging, the focused shared Go checks and 89 Wails frontend cases passed. Multi-account creation, archived account inventory and product correction remain open. Product and removed-item checks have their own checkpoint evidence above. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
+#### Confirm a Holdings account
+
+An active Holdings reconciliation with pending work offers **Confirm account**
+beside the account heading. Gio shows the outstanding checkpoints and
+requires acknowledgement of completeness before review. The draft accepts
+the shared source reference, civil date and time, and note. The existing
+`check_account` preview determines eligibility and rejects exceptions that
+require an individual check. Previously confirmed evidence remains intact.
+Gio displays any shared refusal at Review. Wails also shows an upfront
+warning for exceptions. Confirmation records the checks while leaving the
+session in progress for a separate Finish action.
+[Wails account check](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared account confirmation](../../../internal/application/reconciliation_session.go)
+
+| Check | Evidence |
+| --- | --- |
+| Paired Gio and Wails adapter | The independent copies reopened with three confirmed checkpoints and an in-progress session. The earlier holding check retained its source, note and attempt. The pending USD cash and scope rows recorded one attempt each with exact Asia/Singapore source date and time. Cancel preserved focus and state. A stale review retained the source and acknowledgement. Retry after a lost acknowledgement sent the same plan. Shared preview rejected a skipped item with prior evidence. The financial journal and USD 156 cash were unchanged. |
+| Packaged Gio Linux X11 | At 1140×920, the preview listed four checkpoints with the exact USD 156 cash, two units at USD 22 per unit and the USD 125.25 product principal. Cancel preserved 14 checked tables and Return reopened the focused action. At 665×480, Space acknowledged completeness and keyboard pickers set November 25, 2026 at 18:00 Asia/Singapore. Back preserved the source, timestamp, note and acknowledgement. Return posted one receipt. The stock app reopened with four confirmed checks and an in-progress session. SQLite matched one attempt per check, and ten financial tables and both source hashes matched the baseline. |
+| Checks | Full Gio tests and vet, Linux packaging, the fixture exporter, focused shared account-confirmation and Wails adapter tests, and 94 Wails reconciliation frontend tests passed. Interactive Wails and native macOS remain open. |
+
 #### Read-only Available Funds
 
 **Available funds** opens the Today horizon used by the default Wails query.
@@ -2213,17 +2232,18 @@ Ledger and Holdings account detail. Ledger and account or holding actions
 support quantity adjustments with original unit costs on additions. The
 Holdings reconciliation session supports a standalone whole-position cost
 correction, quantity targets and dated buys, sells, dividends, custody transfers and adjustments for ordinary holdings. The session can
-check ordinary holdings, cash and completeness, and finish with complete or
-explicit partial evidence. Available Funds has a Today view
-with bank reservation creation and release. Term deposits support read-only
+check ordinary holdings, cash and completeness, confirm the rest of a reviewed
+account, and finish with complete or explicit partial evidence. Available Funds
+has a Today view with bank reservation creation and release, and standalone
+setup for term deposits and locked products. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
 Broader investment work still includes remaining linked cash, balance and other reconciliation activity, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
-include new and existing product setup, early redemption, renewal, standalone
-interest, and other managed product types. Tasks still has the broader Upcoming
+include setup from account detail, standalone early redemption, renewal and
+interest, and broader policy and reservation actions. Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
 reminders. Production startup and target-platform acceptance also remain open.
 

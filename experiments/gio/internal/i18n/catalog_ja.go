@@ -1751,6 +1751,12 @@ var japaneseCatalog = catalog{
 	HoldingReconCheckUnavailable:  "現在の値や原価が取得できないか、この項目を確認できません。",
 	HoldingReconScopeHelp:         "口座の通貨、保有銘柄、商品について、未記録や未決済の取引を確認してください。",
 
+	HoldingReconCheckAccount:           "口座を確認",
+	HoldingReconCheckAccountHelp:       "参照元の金額を作り出さずに一覧の項目を確認します。既存の有効な確認結果は保持されます。例外は先に個別に確認してください。",
+	HoldingReconScopeReviewed:          "不足している保有資産、通貨、管理対象商品を含め、口座全体を確認しました。",
+	HoldingReconCheckAccountExceptions: "この口座を確認する前に、未解決または記録済みの根拠を個別に確認してください。",
+	HoldingReconAccountChecked:         "口座の確認を記録しました。",
+
 	HoldingReconRecordCash:     "日付付きの現金変動を記録",
 	HoldingReconShowAudit:      "関連する証拠を表示",
 	HoldingReconHideAudit:      "関連する証拠を非表示",

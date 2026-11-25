@@ -100,6 +100,7 @@ type holdingReconItemActions struct {
 	cost, quantity, record, check, cash, importPosition, valuation, interest, settle widget.Clickable
 	terms, renew                                                                     widget.Clickable
 	addProduct                                                                       widget.Clickable
+	checkAccount                                                                     widget.Clickable
 	attempts                                                                         holdingEvidenceDisclosure
 }
 
@@ -235,6 +236,7 @@ func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 	if d.check != nil {
 		_, item, ok := c.checkpoint(d.accountID, d.itemID, false)
 		return ok && c.session.Status == "in_progress" && holdingCheckable(item) &&
+			(d.action != statement.Check || d.check.scopeReviewed.Value) &&
 			(d.check.outcome != statement.Confirmed || d.check.daySet || c.zone != nil) &&
 			len(d.note.Text()) <= 2000 && len(d.check.reference.Text()) <= 512 && len(d.check.value.Text()) <= 256
 	}
@@ -324,7 +326,9 @@ func (p *tasksPage) previewHoldingReconciliation() {
 		action.AccountID, action.ItemID, action.FinancialRevision = a.AccountID, item.ID, a.FinancialRevision
 		action.Outcome = f.outcome
 		action.Source = domain.ReconciliationSource{Reference: f.reference.Text(), AsOfDate: day, AsOfTime: f.time}
-		if holdingCheckComparable(item) {
+		if d.action == statement.Check {
+			action.ItemID, action.ScopeReviewed = "", f.scopeReviewed.Value
+		} else if holdingCheckComparable(item) {
 			action.ReferenceComparable, action.ReferenceValue = f.comparable.Value, f.value.Text()
 		}
 	}
@@ -442,7 +446,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			} else if d.product != nil {
 				d.problem = i18n.HoldingReconValuationFailed
 			} else if d.check != nil || d.action == statement.Finish {
-				d.problem = holdingCheckProblem(result.err)
+				d.problem = holdingCheckProblem(result.err, d.action == statement.Check)
 			} else {
 				d.problem = holdingReconIssue(result.err, d.target != nil)
 			}
@@ -470,6 +474,8 @@ func (p *tasksPage) pollHoldingReconciliation() {
 					c.saved = i18n.HoldingReconProductInterestSaved
 				case d.product != nil:
 					c.saved = i18n.HoldingReconValuationSaved
+				case d.action == statement.Check:
+					c.saved, c.restore, c.editScroll = i18n.HoldingReconAccountChecked, &c.back, 0
 				case d.check != nil:
 					c.saved = i18n.HoldingReconCheckSaved
 				case d.target != nil:

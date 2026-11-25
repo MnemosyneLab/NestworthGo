@@ -1752,6 +1752,12 @@ var traditionalChineseCatalog = catalog{
 	HoldingReconCheckUnavailable:  "目前數值或成本無法取得，或此檢查點已無法檢查。",
 	HoldingReconScopeHelp:         "請檢查此帳戶的幣別、持倉及產品中是否有缺漏或未結算的記錄。",
 
+	HoldingReconCheckAccount:           "核對整個帳戶",
+	HoldingReconCheckAccountHelp:       "逐項確認下列內容，不會自動填造來源數值；保留已有的有效確認。存在例外時請先單獨核對。",
+	HoldingReconScopeReviewed:          "我已檢查整個帳戶，包括是否遺漏持倉、幣別及管理型產品。",
+	HoldingReconCheckAccountExceptions: "請先單獨核對未解決或已有證據的項目，再確認整個帳戶。",
+	HoldingReconAccountChecked:         "已記錄帳戶核對結果。",
+
 	HoldingReconRecordCash:     "記錄指定日期的現金變動",
 	HoldingReconShowAudit:      "顯示關聯證據",
 	HoldingReconHideAudit:      "隱藏關聯證據",

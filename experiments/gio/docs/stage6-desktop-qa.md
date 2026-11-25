@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|check-account|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -255,6 +255,15 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   fresh copy, record an existing EUR locked product with EUR 50.1234 principal,
   value 52.0123 and basis 49.7891. Acknowledge that cash excludes it and verify
   USD 156 cash is unchanged and the locked product opens from funding sources.
+
+- Run `run_copy check-account gio` and `run_copy check-account wails`.
+  Open Harbor Brokerage's active Holdings reconciliation. Choose **Confirm
+  account** and review the cash, ordinary holding, product and completeness
+  evidence. Check that Review requires explicit acknowledgement. Use a
+  synthetic source reference, a civil date in the account's History timezone
+  and a note. Preview and cancel once, then return to the same focused action.
+  Confirm after reviewing again and reopen the app. All four checks should
+  be confirmed, with no financial activity and the session still in progress.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These
