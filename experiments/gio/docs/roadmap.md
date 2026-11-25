@@ -1801,7 +1801,7 @@ journal displays the stored observation and its effective and recorded times.
 | --- | --- |
 | Gio and Wails adapter | `TestReconciliationLockedProductValuationMatchesWails` matched the before and after values, net worth delta and observation time against an independent Wails adapter fixture. A precision error retained the input. Cancel restored the action and left the session revision and links intact. Retrying a simulated lost acknowledgement used the same plan and produced one receipt. Reopen preserved the exact link and observation, cash, contract and activity rows. Three focused Wails `ProductCorrection` frontend cases passed. |
 | Packaged Linux X11 | At 1140×860, review showed USD 123.4567 before, USD 131.2345 after and a USD 7.7778 net worth increase. Cancel left zero links or valuation operations and Return reopened the focused action. At 665×480, Tab and Return opened Review and Return confirmed. After quit and reopen, Linked changes displayed the observed USD 131.2345 and its November 25 effective time in America/Vancouver. SQLite matched one manual quote, one operation and the original product, account, session and checkpoint IDs. Accounts, holdings, cash, activities, contracts and source hashes matched the synthetic source. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and the focused Wails reference passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. See [linked locked-product interest](#linked-locked-product-interest-receipt) for the interest receipt. Terms, renewal, settlement and add-product remain open. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging and the focused Wails reference passed. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. See [linked interest](#linked-locked-product-interest-receipt) and [linked settlement](#linked-locked-product-settlement) for the receipt workflows. Terms, renewal and add-product remain open. |
 
 #### Linked locked-product interest receipt
 
@@ -1821,7 +1821,25 @@ date, which applies to simple-interest term deposits.
 | Gio and Wails adapter | `TestLinkedLockedProductInterestMatchesWails` matched the explicit Singapore civil date and effective instant, cash, product value and net worth preview against an independent fixture. Missing remaining interest kept the amount editable. Cancel preserved the ledger and restored the same action. A later checkpoint revision refused the stale review and kept the dates and amounts. A simulated lost acknowledgement retried the same plan and reopened with one product operation and one companion interest activity linked to the same checkpoint. |
 | Packaged Gio on Linux X11 | At 1140×860, a missing forecast field kept the entered amount. Cancel after Review preserved all financial and reconciliation rows and left the already-staged shared plan untouched. Return reopened the checkpoint action. At 665×480, the keyboard chose November 24 at 01:02 in America/Vancouver and opened Review. Back to details kept both amounts, the date and time, and returned focus to the receipt amount. Return confirmed USD 3.4568 in interest, USD 203.4568 cash and USD 6.4197 remaining interest. After quit and reopen, the journal retained both linked records. The companion link opened the exact Ledger activity at 665×480. Back restored the journal and Return reopened its focused receipt link. SQLite preserved the existing financial rows, quotes and source hashes. The original product stayed open with USD 125.25 principal and the second account kept USD 25. |
 | Automated checks | Full Gio tests and vet, the standard Linux package, focused shared application and Wails Go adapter tests, and 90 Wails Reconciliation and Product Correction frontend cases passed. |
-| Remaining scope | Terms, renewal, settlement, linked term-deposit receipts and add-product are separate parity gaps. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+| Remaining scope | [Linked locked-product settlement](#linked-locked-product-settlement) is covered separately. Terms, renewal, linked term-deposit receipts and add-product remain open. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+
+#### Linked locked-product settlement
+
+An active locked-product checkpoint offers **Confirm actual receipt**.
+Gio fixes the checkpoint, contract and currency. The draft takes gross
+proceeds, an optional fee, and the Wails effective-time fields in the History
+timezone. Review shows exact cash and contract values, the proceeds and fee,
+and net worth impact when available. The shared guarded plan posts the
+redemption and both reconciliation links. After posting, Gio focuses Back
+to reconciliation because the settled product has no receipt action.
+[Wails form](../../../frontend/src/features/reconciliation/ProductCorrection.tsx) · [Shared reconciliation adapter](../../../internal/wailsapi/reconciliation/products.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | `TestLinkedLockedProductSettlementMatchesWails` rejected a fee greater than proceeds. Cancel left the open product, cash and links intact and restored focus. A stale commit retained the entered amounts and date/time. Retry reused the same guarded plan after a lost acknowledgement. Both ledgers reopened with USD 286.9012 cash, one settled contract and one redemption. The Gio copy retained both exact links, the USD 132.1234 proceeds, the USD 1.2222 fee and unrelated activity and holdings. |
+| Packaged Gio Linux X11 | At 1140×920, Review showed USD 156 before, USD 286.9012 after and exact proceeds and fee. Cancel preserved the ledger and links, and Return reopened the focused checkpoint action. At 665×480, the keyboard chose November 23, 2026 at 18:00 Asia/Singapore, opened Review and confirmed. A normal reopen showed the exact cash and both Linked changes records. View linked activity opened the exact redemption in Ledger. SQLite verified one settlement and one redemption to the same checkpoint, the effective instant, exact gross and fee, zero remaining managed quantity and the retained prior rows. Both source hashes matched. |
+| Checks | Full Gio tests and vet, standard Linux packaging, focused shared application and Wails adapter packages, and 90 Wails Reconciliation and Product Correction frontend tests passed. |
+| Remaining scope | Terms, renewal, add-product and linked term-deposit receipts remain separate coding gaps. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
 
 #### Product and removed-item checkpoint evidence
 

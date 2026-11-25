@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gioui.org/layout"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -20,10 +21,14 @@ import (
 
 type holdingProductInterest struct {
 	manualMaturityInterest bool
-	day, minute            string
-	date                   ui.DatePicker
-	clock                  ui.TimePicker
 	remaining              ui.TextField
+	holdingProductTime
+}
+
+type holdingProductTime struct {
+	day, minute string
+	date        ui.DatePicker
+	clock       ui.TimePicker
 }
 
 func (f *holdingProductInterest) request(link domain.ReconciliationLink, id domain.ProductContractID, amount string) liquidity.ProductCommandRequest {
@@ -37,7 +42,20 @@ func (f *holdingProductInterest) request(link domain.ReconciliationLink, id doma
 }
 
 func (c *holdingReconciliation) holdingProductInterestFields(view ui.View, origin *image.Point, d *holdingReconDraft, ready bool) []layout.Widget {
-	f, l := d.product.interest, view.Language
+	f := d.product.interest
+	rows := c.holdingProductTimeFields(view, origin, d, &f.holdingProductTime, &d.total.Editor, ready)
+	// Locked products cannot use simple interest. Only manual maturity
+	// interest has an applicable forecast field on this receipt.
+	if f.manualMaturityInterest {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return f.remaining.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.HoldingReconRemainingInterest, Disabled: !ready}, d.product.currency)
+		})
+	}
+	return rows
+}
+
+func (c *holdingReconciliation) holdingProductTimeFields(view ui.View, origin *image.Point, d *holdingReconDraft, f *holdingProductTime, previous *widget.Editor, ready bool) []layout.Widget {
+	l := view.Language
 	week := time.Monday
 	if view.WeekStart == "sunday" {
 		week = time.Sunday
@@ -47,10 +65,10 @@ func (c *holdingReconciliation) holdingProductInterestFields(view ui.View, origi
 		zone, today = c.zone.String(), c.clock().In(c.zone).Format(time.DateOnly)
 	}
 	options := ui.DateOptions{Today: today, Max: today, Clearable: true, WeekStart: week, Format: view.DateFormat}
-	rows := []layout.Widget{
+	return []layout.Widget{
 		func(gtx layout.Context) layout.Dimensions {
 			field := ui.PickerField{Label: i18n.PreviewEffectiveDate, Origin: *origin, Disabled: !ready || c.zone == nil,
-				Previous: &d.total.Editor, Next: &f.clock.Trigger}
+				Previous: previous, Next: &f.clock.Trigger}
 			f.date.Layout(gtx, view, field, options, f.day, func(day string) { f.day, d.problem = day, i18n.NoMessage })
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
 		},
@@ -63,17 +81,9 @@ func (c *holdingReconciliation) holdingProductInterestFields(view ui.View, origi
 		},
 		view.Message(fmt.Sprintf(l.Text(i18n.ProductReceiptTimeHelp), zone), view.Colors.SecondaryInk),
 	}
-	// Locked products cannot use simple interest. Only manual maturity
-	// interest has an applicable forecast field on this receipt.
-	if f.manualMaturityInterest {
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return f.remaining.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.HoldingReconRemainingInterest, Disabled: !ready}, d.product.currency)
-		})
-	}
-	return rows
 }
 
-func holdingProductInterestReviewRows(view ui.View, f *holdingProductDraft, review *liquidity.ProductOperationPreviewDTO) []layout.Widget {
+func holdingProductOperationReviewRows(view ui.View, f *holdingProductDraft, review *liquidity.ProductOperationPreviewDTO) []layout.Widget {
 	l := view.Language
 	fact := func(label i18n.MessageID, text string) layout.Widget {
 		return view.Message(fmt.Sprintf(l.Text(label), text), view.Colors.Ink)
@@ -85,10 +95,14 @@ func holdingProductInterestReviewRows(view ui.View, f *holdingProductDraft, revi
 		return fact(label, holdingSnapshotValue(view, value.Amount, value.Currency))
 	}
 	rows := []layout.Widget{view.Message(f.name, view.Colors.Ink)}
-	for _, change := range review.Activities {
-		for _, effect := range change.Effects {
-			if effect.Target == string(domain.EffectTargetAccountCash) && effect.Role == string(domain.EffectRoleAmount) {
-				rows = append(rows, money(i18n.ProductInterestFact, effect.Money))
+	if f.settlement != nil {
+		rows = append(rows, holdingSettlementFacts(view, []byte(review.NormalizedJSON), f.currency)...)
+	} else {
+		for _, change := range review.Activities {
+			for _, effect := range change.Effects {
+				if effect.Target == string(domain.EffectTargetAccountCash) && effect.Role == string(domain.EffectRoleAmount) {
+					rows = append(rows, money(i18n.ProductInterestFact, effect.Money))
+				}
 			}
 		}
 	}
@@ -116,10 +130,12 @@ func holdingProductInterestReviewRows(view ui.View, f *holdingProductDraft, revi
 			rows = append(rows, view.Message(tradeTimestamp(view, at, zone), view.Colors.SecondaryInk))
 		}
 	}
-	var command application.ProductCommand
-	if jsoncodec.Unmarshal([]byte(review.NormalizedJSON), &command) == nil && command.ReceiveInterest != nil && command.ReceiveInterest.RemainingInterest != nil {
-		rows = append(rows, fact(i18n.HoldingReconRemainingInterestFact,
-			holdingSnapshotValue(view, *command.ReceiveInterest.RemainingInterest, f.currency)))
+	if f.interest != nil {
+		var command application.ProductCommand
+		if jsoncodec.Unmarshal([]byte(review.NormalizedJSON), &command) == nil && command.ReceiveInterest != nil && command.ReceiveInterest.RemainingInterest != nil {
+			rows = append(rows, fact(i18n.HoldingReconRemainingInterestFact,
+				holdingSnapshotValue(view, *command.ReceiveInterest.RemainingInterest, f.currency)))
+		}
 	}
 	return rows
 }

@@ -207,6 +207,9 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 						}),
 						c.link(view, &buttons.valuation, l.Text(i18n.HoldingReconProductValuation), func() {
 							p.openHoldingProductCorrection(account, item, &buttons.valuation, domain.ProductOpValueObservation)
+						}),
+						c.link(view, &buttons.settle, l.Text(i18n.ProductReceiptAction), func() {
+							p.openHoldingProductCorrection(account, item, &buttons.settle, domain.ProductOpSettle)
 						}))
 				}
 				fields = append(fields, p.holdingCheckpointRows(view, account, item, buttons)...)
@@ -300,8 +303,11 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		rows = append(rows, c.holdingCheckFields(view, d, &origin, ready)...)
 	} else if d.product != nil {
 		rows = append(rows, p.holdingProductFields(view, d, ready)...)
+		productReady := ready && d.product.loading == nil && !d.product.loadFailed
 		if d.product.interest != nil {
-			rows = append(rows, c.holdingProductInterestFields(view, &origin, d, ready && d.product.loading == nil && !d.product.loadFailed)...)
+			rows = append(rows, c.holdingProductInterestFields(view, &origin, d, productReady)...)
+		} else if d.product.settlement != nil {
+			rows = append(rows, c.holdingProductSettlementFields(view, &origin, d, productReady)...)
 		}
 	} else if d.itemID != "" {
 		if a, item, ok := c.item(d); ok {
@@ -411,7 +417,7 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	r := d.review
 	rows := []layout.Widget{tradeTitle(view, i18n.HoldingReconReview)}
 	if r.operation != nil {
-		rows = append(rows, holdingProductInterestReviewRows(view, d.product, r.operation)...)
+		rows = append(rows, holdingProductOperationReviewRows(view, d.product, r.operation)...)
 	} else if r.valuation != nil {
 		rows = append(rows, p.holdingProductValuationReviewRows(view, r.valuation)...)
 	} else if r.session != nil {

@@ -1710,6 +1710,10 @@ const (
 	HoldingReconRemainingInterestFact
 	HoldingReconProductInterestSaved
 	HoldingReconProductInterestFailed
+	HoldingReconProductSettlementFailed
+	HoldingReconProductSettlementSaved
+	HoldingReconGrossProceeds
+	HoldingReconGrossProceedsFact
 	HoldingReconValuationSaved
 	HoldingReconValuationFailed
 	HoldingReconObservedValue

@@ -1795,6 +1795,11 @@ var japaneseCatalog = catalog{
 	HoldingReconObservedValue:         "観測した契約評価額 · %s",
 	HoldingReconValuationImpact:       "既知の純資産の変動 · %s",
 
+	HoldingReconProductSettlementFailed: "実際の受取を確認できませんでした。総受取額、手数料、日付を確認して再試行してください。",
+	HoldingReconProductSettlementSaved:  "実際の受取を記録し、照合に関連付けました。",
+	HoldingReconGrossProceeds:           "総受取額",
+	HoldingReconGrossProceedsFact:       "総受取額 · %s",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",

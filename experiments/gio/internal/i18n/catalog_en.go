@@ -1796,6 +1796,11 @@ var englishCatalog = catalog{
 	HoldingReconObservedValue:         "Observed contract value · %s",
 	HoldingReconValuationImpact:       "Known net worth change · %s",
 
+	HoldingReconProductSettlementFailed: "Could not review this receipt. Check the proceeds, fee and dates and try again.",
+	HoldingReconProductSettlementSaved:  "Actual receipt recorded and linked.",
+	HoldingReconGrossProceeds:           "Gross proceeds",
+	HoldingReconGrossProceedsFact:       "Gross proceeds · %s",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",

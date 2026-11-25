@@ -96,8 +96,8 @@ type holdingReconDraft struct {
 }
 
 type holdingReconItemActions struct {
-	cost, quantity, record, check, cash, importPosition, valuation, interest widget.Clickable
-	attempts                                                                 holdingEvidenceDisclosure
+	cost, quantity, record, check, cash, importPosition, valuation, interest, settle widget.Clickable
+	attempts                                                                         holdingEvidenceDisclosure
 }
 
 type holdingReconQuantity struct {
@@ -402,7 +402,9 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			d.problem = i18n.HoldingReconChanged
 			p.readHoldingReconciliation()
 		default:
-			if d.product != nil && d.product.interest != nil {
+			if d.product != nil && d.product.settlement != nil {
+				d.problem = i18n.HoldingReconProductSettlementFailed
+			} else if d.product != nil && d.product.interest != nil {
 				d.problem = i18n.HoldingReconProductInterestFailed
 			} else if d.product != nil {
 				d.problem = i18n.HoldingReconValuationFailed
@@ -423,6 +425,8 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			} else {
 				c.draft, c.restore, c.saved = nil, d.entry, i18n.NoMessage
 				switch {
+				case d.product != nil && d.product.settlement != nil:
+					c.saved, c.restore, c.editScroll = i18n.HoldingReconProductSettlementSaved, &c.back, 0
 				case d.product != nil && d.product.interest != nil:
 					c.saved = i18n.HoldingReconProductInterestSaved
 				case d.product != nil:

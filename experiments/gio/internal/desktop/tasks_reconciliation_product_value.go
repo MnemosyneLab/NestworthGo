@@ -18,12 +18,13 @@ import (
 )
 
 type holdingProductDraft struct {
-	id       domain.ProductContractID
-	link     func() *domain.ReconciliationLink
-	name     string
-	currency string
-	current  *domain.Money
-	interest *holdingProductInterest
+	id         domain.ProductContractID
+	link       func() *domain.ReconciliationLink
+	name       string
+	currency   string
+	current    *domain.Money
+	interest   *holdingProductInterest
+	settlement *holdingProductSettlement
 
 	loading    <-chan historyResult[application.ProductDetail]
 	loadFailed bool
@@ -47,9 +48,12 @@ func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAc
 	d.accountID, d.itemID = account.AccountID, item.ID
 	d.product = &holdingProductDraft{id: id, link: c.datedCheckpointLink(account.AccountID, item),
 		name: account.Name + " · " + item.Label, currency: item.Currency}
-	if kind == domain.ProductOpReceiveInterest {
+	switch kind {
+	case domain.ProductOpReceiveInterest:
 		d.product.interest = &holdingProductInterest{}
 		d.product.interest.remaining.Editor.SingleLine = true
+	case domain.ProductOpSettle:
+		d.product.settlement = &holdingProductSettlement{fee: ui.NewTextField(true)}
 	}
 	c.draft, c.saved = d, i18n.NoMessage
 	p.loadHoldingProduct(d.product)
@@ -70,8 +74,7 @@ func (p *tasksPage) previewHoldingProduct(d *holdingReconDraft) {
 		return
 	}
 	amount := strings.TrimSpace(d.total.Text())
-	if f.interest != nil {
-		req := f.interest.request(*link, f.id, amount)
+	if req, ok := f.operationRequest(*link, amount); ok {
 		d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
 			review, err := p.holdingRecon.service.PreviewProductOperation(p.ctx, req)
 			return holdingReconReview{planID: review.PlanID, operation: review.Operation}, err
@@ -85,9 +88,23 @@ func (p *tasksPage) previewHoldingProduct(d *holdingReconDraft) {
 	})
 }
 
+func (f *holdingProductDraft) operationRequest(link domain.ReconciliationLink, amount string) (liquidity.ProductCommandRequest, bool) {
+	switch {
+	case f.interest != nil:
+		return f.interest.request(link, f.id, amount), true
+	case f.settlement != nil:
+		return f.settlement.request(link, f.id, amount), true
+	default:
+		return liquidity.ProductCommandRequest{}, false
+	}
+}
+
 func (f *holdingProductDraft) title() i18n.MessageID {
 	if f.interest != nil {
 		return i18n.HoldingReconProductInterest
+	}
+	if f.settlement != nil {
+		return i18n.ProductReceiptAction
 	}
 	return i18n.HoldingReconProductValuation
 }
@@ -108,6 +125,9 @@ func (p *tasksPage) holdingProductFields(view ui.View, d *holdingReconDraft, rea
 	amountLabel := i18n.HoldingReconProductValuation
 	if f.interest != nil {
 		amountLabel = i18n.ProductActualInterest
+	}
+	if f.settlement != nil {
+		amountLabel = i18n.HoldingReconGrossProceeds
 	}
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 		if enabled {

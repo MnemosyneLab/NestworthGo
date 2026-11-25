@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
 func openStage6Database(t *testing.T, path string, clock func() time.Time, providers ...application.MarketDataRegistryPort) (*sqlite.DB, *sqlite.Repository, *application.Service) {
@@ -99,6 +100,20 @@ func seedStage6Snapshots(t *testing.T, start time.Time, closedDays int, dirty bo
 	return stage6SeedBytes(t, db), bs.Household.ID
 }
 
+func seedStage6LockedSettlement(t *testing.T) []byte {
+	t.Helper()
+	clock := func() time.Time { return accountTestClock }
+	db, _, svc := openStage6Database(t, filepath.Join(t.TempDir(), "settlement.db"), clock)
+	ids, err := seedExistingBuy(t.Context(), svc, clock())
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedTestLockedProductWithUnlock(t, svc, ids.account, nil, "2026-11-22")
+	svc.SetClock(func() time.Time { return time.Date(2026, time.November, 23, 17, 0, 0, 0, time.UTC) })
+	startTestHoldingReconciliation(t, reconciliation.NewService(svc), ids.account)
+	return stage6SeedBytes(t, db)
+}
+
 func TestExportStage6DesktopFixtures(t *testing.T) {
 	output := os.Getenv("NESTWORTH_STAGE6_QA_DIR")
 	if output == "" {
@@ -142,6 +157,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"market-readback", marketReadback},
 		{"return-calendar", calendarSeed},
 		{"contribution", contributionSeed},
+		{"locked-settlement", seedStage6LockedSettlement(t)},
 	} {
 		dir := filepath.Join(root, profile.name)
 		if err := os.Mkdir(dir, 0o700); err != nil {

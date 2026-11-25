@@ -1796,6 +1796,11 @@ var traditionalChineseCatalog = catalog{
 	HoldingReconObservedValue:         "觀測到的合約價值 · %s",
 	HoldingReconValuationImpact:       "已知淨資產變動 · %s",
 
+	HoldingReconProductSettlementFailed: "無法預覽實際入帳，請檢查總收入、費用和日期後重試。",
+	HoldingReconProductSettlementSaved:  "已記錄並連結實際入帳。",
+	HoldingReconGrossProceeds:           "入帳總額",
+	HoldingReconGrossProceedsFact:       "入帳總額 · %s",
+
 	TasksUpcomingTab:          "即將發生",
 	TasksInvestmentTab:        "投資核查",
 	TasksReconciliationTab:    "待對帳",

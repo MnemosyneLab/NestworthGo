@@ -35,8 +35,13 @@ func (s *linkedProductCommitFault) CommitProduct(ctx context.Context, id string)
 
 func seedTestLockedProduct(t *testing.T, service *application.Service, account domain.AccountID, maturityInterest *string) domain.ProductContractID {
 	t.Helper()
+	return seedTestLockedProductWithUnlock(t, service, account, maturityInterest, "2026-12-22")
+}
+
+func seedTestLockedProductWithUnlock(t *testing.T, service *application.Service, account domain.AccountID, maturityInterest *string, unlock string) domain.ProductContractID {
+	t.Helper()
 	service.SetClock(func() time.Time { return accountTestClock.Add(-time.Minute) })
-	unlock, days, calendar, fee := "2026-12-22", 0, "calendar", "0"
+	days, calendar, fee := 0, "calendar", "0"
 	request := application.ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &application.RecordExistingProductCommand{
 		AccountID: account.String(), Currency: "USD", Principal: "125.25", TotalCostBasis: "120", CurrentValue: "123.4567", CashExcludesProduct: true,
 		Terms: application.ProductTermsInput{Kind: "locked_product", Name: "Synthetic locked product", StartOn: "2026-11-20", InterestMode: "none"},

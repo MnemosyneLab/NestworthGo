@@ -7,6 +7,8 @@ From the repository root, run:
 ```sh
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run '^TestLinkedLockedProductSettlementMatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
 go test ./internal/wailsapi/analysis -count=1
 (cd frontend && TZ=Asia/Shanghai pnpm exec vitest run src/features/data-health src/features/marketdata)
@@ -70,7 +72,8 @@ sh experiments/gio/preview-macos.sh --build-only
 The exporter prints the selected and adjacent dates. It puts the selected
 dirty date outside Overview's startup trend, which can materialize recent
 derived snapshots. The expected households are `Synthetic Stage 6 snapshots`,
-`Synthetic Stage 6 market` and `Synthetic Stage 6 return calendar`.
+`Synthetic Stage 6 market`, `Synthetic Stage 6 return calendar` and
+`Synthetic first buy`.
 Each scenario has a `source`
 directory and separate writable `gio` and `wails` directories. Keep the
 source closed in the apps so it remains a baseline.
@@ -101,6 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
+    locked-settlement) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -180,6 +184,17 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   then go Back to Contribution and check that the search, ranking filter,
   focused row and effective range are still active. Press Return to reopen
   EURO and repeat at a compact window size.
+
+- Run `run_copy locked-settlement gio` and `run_copy locked-settlement wails`.
+  Open Harbor Brokerage's holdings reconciliation from Tasks. At Synthetic
+  locked product, choose **Confirm actual receipt**. Enter USD 132.1234 as
+  gross proceeds, USD 1.2222 as the fee and November 23, 2026 at 18:00 in
+  Asia/Singapore. Check the cash move from USD 156 to USD 286.9012, then
+  cancel and confirm the product is still open. Reopen the same action by
+  keyboard and post after review. Check **Linked changes** for the settlement
+  and its redemption, then reopen the app to verify the same receipt and
+  settled contract. The automated comparison covers stale review and retry
+  after a lost acknowledgement.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These

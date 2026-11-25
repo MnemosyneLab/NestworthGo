@@ -209,6 +209,9 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 	if after.Kind == string(domain.ProductOpReceiveInterest) {
 		rows = append(rows, holdingProductInterestEvidenceRows(view, evidence)...)
 	}
+	if after.Kind == string(domain.ProductOpSettle) && before != nil {
+		rows = append(rows, holdingSettlementFacts(view, after.Request, before.Currency)...)
+	}
 	if after.Note != nil && *after.Note != "" {
 		rows = append(rows, view.Message(*after.Note, view.Colors.Ink))
 	}

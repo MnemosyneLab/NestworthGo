@@ -1796,6 +1796,11 @@ var simplifiedChineseCatalog = catalog{
 	HoldingReconObservedValue:         "观测到的合约价值 · %s",
 	HoldingReconValuationImpact:       "已知净资产变动 · %s",
 
+	HoldingReconProductSettlementFailed: "无法预览实际到账，请检查总收入、费用和日期后重试。",
+	HoldingReconProductSettlementSaved:  "已记录并关联实际到账。",
+	HoldingReconGrossProceeds:           "到账总额",
+	HoldingReconGrossProceedsFact:       "到账总额 · %s",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",
