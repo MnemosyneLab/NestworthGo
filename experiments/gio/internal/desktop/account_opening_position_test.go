@@ -16,9 +16,12 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	holdingapi "github.com/waltwang/nestworth-go/internal/wailsapi/holding"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
@@ -27,7 +30,7 @@ type openingFixture struct {
 	security, eur domain.InstrumentID
 }
 
-func seedOpeningPosition(ctx context.Context, app *application.Service, at time.Time) (openingFixture, error) {
+func seedOpeningPosition(ctx context.Context, app *application.Service, at time.Time, quoted bool) (openingFixture, error) {
 	var ids openingFixture
 	app.SetClock(func() time.Time { return at.Add(-48 * time.Hour) })
 	defer app.SetClock(func() time.Time { return at })
@@ -61,15 +64,17 @@ func seedOpeningPosition(ctx context.Context, app *application.Service, at time.
 		return ids, err
 	}
 	ids.eur = foreign.ID
-	_, err = app.AppendManualInstrumentQuote(ctx, ids.security, "40", "", false)
+	if quoted {
+		_, err = app.AppendManualInstrumentQuote(ctx, ids.security, "40", "", false)
+	}
 	return ids, err
 }
 
-func openStartingPositionFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, openingFixture) {
+func openStartingPositionFixture(t *testing.T, quoted bool) (*application.Service, *pilot.Session, pilot.Paths, openingFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
 	app, session := reopenOnboardingProfile(t, paths)
-	ids, err := seedOpeningPosition(t.Context(), app, accountTestClock)
+	ids, err := seedOpeningPosition(t.Context(), app, accountTestClock, quoted)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,9 +109,14 @@ func (f *openingPositionFault) HoldingsByAccounts(ctx context.Context, ids []dom
 }
 
 func TestOpeningPositionAndCostMatchWails(t *testing.T) {
+	t.Run("selected quote", func(t *testing.T) { testOpeningPositionAndCostMatchWails(t, true) })
+	t.Run("missing quote", func(t *testing.T) { testOpeningPositionAndCostMatchWails(t, false) })
+}
+
+func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	ctx := t.Context()
-	service, storage, paths, ids := openStartingPositionFixture(t)
-	reference, refStorage, _, ref := openStartingPositionFixture(t)
+	service, storage, paths, ids := openStartingPositionFixture(t, quoted)
+	reference, refStorage, _, ref := openStartingPositionFixture(t, quoted)
 	refHolding, refHistory := holdingapi.NewService(reference), historyapi.NewService(reference)
 	opening := &openingPositionFault{Service: service, started: make(chan struct{}), allow: make(chan struct{})}
 	start := &startingPointFault{Service: service, loseReply: true}
@@ -221,10 +231,21 @@ func TestOpeningPositionAndCostMatchWails(t *testing.T) {
 		}
 	}
 	click("Overview")
-	label("$ 305.00")
+	quoteDefault := ""
+	if quoted {
+		label("$ 305.00")
+		quoteDefault = "40"
+	} else {
+		label("Incomplete valuation")
+		if _, err := refHistory.StartHistory(ctx, "Asia/Singapore"); err == nil {
+			t.Fatal("Wails started History without an explicit cost or a quote")
+		} else if issue, ok := apierror.Parse(err.Error()); !ok || issue.Code != string(domain.ErrCostBasisRequired) {
+			t.Fatalf("missing quote fallback returned %v", err)
+		}
+	}
 	click("Ledger activity")
 	click("Start recording history")
-	if page.startPoint.cost.Text() != "" || page.startPoint.holding == nil || page.startPoint.holding.UnitCost != "40" {
+	if page.startPoint.cost.Text() != "" || page.startPoint.holding == nil || page.startPoint.holding.UnitCost != quoteDefault {
 		t.Fatal("market quote was used to fill original cost, or quote fixture was unavailable")
 	}
 	if plan, err := service.PreviewHistoryStart(ctx, "Asia/Singapore", "2026-11-22", holdingID, ""); err == nil {
@@ -269,8 +290,8 @@ func TestOpeningPositionAndCostMatchWails(t *testing.T) {
 		wire.FormatTime(origin.StartedAt) != wailsOrigin.StartedAt || origin.Timezone != wailsOrigin.Timezone {
 		t.Fatalf("different origins: Gio %+v / Wails %+v / %v", origin, wailsOrigin, err)
 	}
-	assertOpeningState(t, service, storage, ids, origin.ID, holdingID, false)
-	assertOpeningState(t, reference, refStorage, ref, domain.HistoryOriginID(wailsOrigin.ID), domain.HoldingID(refSaved.ID), false)
+	assertOpeningState(t, service, storage, ids, origin.ID, holdingID, false, quoted)
+	assertOpeningState(t, reference, refStorage, ref, domain.HistoryOriginID(wailsOrigin.ID), domain.HoldingID(refSaved.ID), false, quoted)
 	if _, err := oldPlan.Confirm(ctx, service); err == nil {
 		t.Fatal("a pre-History plan was reusable after starting History")
 	}
@@ -298,7 +319,7 @@ func TestOpeningPositionAndCostMatchWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	assertOpeningState(t, reference, refStorage, ref, domain.HistoryOriginID(wailsOrigin.ID), domain.HoldingID(refSaved.ID), true)
+	assertOpeningState(t, reference, refStorage, ref, domain.HistoryOriginID(wailsOrigin.ID), domain.HoldingID(refSaved.ID), true, quoted)
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -307,10 +328,10 @@ func TestOpeningPositionAndCostMatchWails(t *testing.T) {
 	if again, err := reopened.ConfirmHistoryStart(ctx, startReview); err != nil || again.ID != origin.ID {
 		t.Fatalf("reopened singleton returned %+v / %v", again, err)
 	}
-	assertOpeningState(t, reopened, session, ids, origin.ID, holdingID, true)
+	assertOpeningState(t, reopened, session, ids, origin.ID, holdingID, true, quoted)
 }
 
-func assertOpeningState(t *testing.T, app *application.Service, session *pilot.Session, ids openingFixture, origin domain.HistoryOriginID, holding domain.HoldingID, sold bool) {
+func assertOpeningState(t *testing.T, app *application.Service, session *pilot.Session, ids openingFixture, origin domain.HistoryOriginID, holding domain.HoldingID, sold, quoted bool) {
 	t.Helper()
 	ctx := t.Context()
 	data, err := sqlite.NewRepository(session.DB).HistoryOriginData(ctx, origin)
@@ -355,11 +376,37 @@ func assertOpeningState(t *testing.T, app *application.Service, session *pilot.S
 		t.Fatalf("wrong cash projection: %+v / %v", values, err)
 	}
 	quote, err := app.CurrentInstrumentQuote(ctx, ids.security)
-	if err != nil || quote == nil || quote.UnitPrice.Canonical() != "40" {
+	if err != nil || (quoted && (quote == nil || quote.UnitPrice.Canonical() != "40")) || (!quoted && quote != nil) {
 		t.Fatalf("original cost changed market quote: %+v / %v", quote, err)
+	}
+	if !quoted {
+		overview, err := portfolio.NewService(app).Overview(ctx, account.AccountFilterRequest{})
+		if err != nil || overview.Complete || !slices.ContainsFunc(overview.MissingInputs, func(input wire.MissingInputDTO) bool {
+			return input.Kind == string(domain.MissingInstrumentPrice) && input.InstrumentID != nil && *input.InstrumentID == ids.security.String()
+		}) {
+			t.Fatalf("opening cost became a market value: %+v / %v", overview, err)
+		}
 	}
 	a, err := app.ListActivities(ctx, 10)
 	if err != nil || len(a) != count || (sold && a[0].Kind != domain.ActivitySell) {
 		t.Fatalf("opening position entered activity history: %+v / %v", a, err)
+	}
+}
+
+func TestStartingPointWithoutOverrideUsesSelectedQuote(t *testing.T) {
+	ctx := t.Context()
+	app, _, _, ids := openStartingPositionFixture(t, true)
+	row, err := holdingapi.NewService(app).CreateHolding(ctx, holdingapi.CreateHoldingRequest{
+		AccountID: ids.account.String(), InstrumentID: ids.security.String(), Quantity: "2.5",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := historyapi.NewService(app).StartHistory(ctx, "Asia/Singapore"); err != nil {
+		t.Fatal(err)
+	}
+	gain, err := app.HoldingGain(ctx, domain.HoldingID(row.ID))
+	if err != nil || gain.TotalCost == nil || gain.TotalCost.Amount != "100" {
+		t.Fatalf("omitting original cost did not use the selected quote: %+v / %v", gain, err)
 	}
 }

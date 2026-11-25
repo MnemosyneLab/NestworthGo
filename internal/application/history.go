@@ -158,19 +158,19 @@ func (s *Service) prepareHistoryStart(ctx context.Context, timezone, startDate s
 			if !ok {
 				return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrIntegrity, Field: "instrumentId", Message: "Holding Instrument was not found"}
 			}
-			quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
-			if quote == nil {
-				return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost", Message: "a selected Instrument quote is required to start a positive Holding"}
-			}
-			cost := quote.UnitPrice
 			if override, ok := costOverrides[holding.ID]; ok {
-				parsed, parseErr := domain.ParseUnitPrice(override)
-				if parseErr != nil {
-					return domain.HistoryOriginData{}, parseErr
+				cost, err := domain.ParseUnitPrice(override)
+				if err != nil {
+					return domain.HistoryOriginData{}, err
 				}
-				cost = parsed
+				unitCost = &cost
+			} else {
+				quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
+				if quote == nil {
+					return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost", Message: "a selected Instrument quote is required to start a positive Holding"}
+				}
+				unitCost = &quote.UnitPrice
 			}
-			unitCost = &cost
 		}
 		data.Components = append(data.Components, domain.HistoryOriginComponent{ID: domain.NewHistoryOriginComponentID(), OriginID: origin.ID, Kind: domain.HistoryOriginHoldingQuantity, AccountID: &accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity, UnitCost: unitCost, CreatedAt: now})
 	}
