@@ -72,6 +72,8 @@ func TestLedgerHistoryUsesSavedGeneralFormatAndRecordedDay(t *testing.T) {
 	h.router.Queue(key.EditEvent{Text: "UTC"})
 	h.frame()
 	h.click("UTC", false)
+	// Render the committed picker selection and the refreshed action row.
+	h.frame()
 	h.click(lang.Text(i18n.SettingsSave), false)
 	prefs.wait()
 	h.frame()

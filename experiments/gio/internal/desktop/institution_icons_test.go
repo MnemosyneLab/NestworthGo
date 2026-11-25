@@ -109,10 +109,13 @@ func TestInstitutionIconsFollowTypeThenPersistExplicitChoice(t *testing.T) {
 	const bankKey = "bank-logo:standard-chartered"
 	chooseDirectoryIcon(h, "ＳＴＡＮＤＡＲＤ_Chartered", directoryBankLogos[bankKey].Label)
 	h.click("Institution type", true)
-	h.click("Brokerage", false)
+	// The compact popup scrolls to the selected Insurer row. Move to the
+	// option above it through the list instead of clicking its clipped bounds.
+	h.press(key.NameUpArrow)
+	h.press(key.NameReturn)
 	h.frame()
-	if p.icon != bankKey {
-		t.Fatalf("type change overwrote an explicitly selected symbol: %q", p.icon)
+	if p.kind != domain.InstitutionBrokerage || p.icon != bankKey {
+		t.Fatalf("type change did not preserve the explicit icon: %q, %q", p.kind, p.icon)
 	}
 	h.click("Add", false)
 	finish()

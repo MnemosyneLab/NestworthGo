@@ -246,7 +246,9 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	finish()
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Rejected or missing")
-	h.click("Ana Example", false)
+	if len(d.owners) != 1 {
+		t.Fatal("the sole active owner should be selected by default")
+	}
 	before, err := service.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		t.Fatal(err)
