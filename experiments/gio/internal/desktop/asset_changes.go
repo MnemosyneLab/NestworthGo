@@ -22,6 +22,7 @@ type assetChangesReader interface {
 	AssetDriverDetail(context.Context, domain.AnalysisQuery, string) (application.AssetDriverDetailResult, error)
 	AssetTrend(context.Context, domain.AnalysisQuery, application.AssetTrendGranularity, application.AssetTrendMetric) (application.AssetTrendResult, error)
 	Categories(context.Context, domain.AnalysisQuery, application.AnalysisCategoryType) (application.CategoriesResult, error)
+	CategoryDetail(context.Context, domain.AnalysisQuery, application.AnalysisCategoryType, string) (application.CategoryDetailResult, error)
 }
 
 type assetChangesTab int
@@ -78,7 +79,10 @@ type assetChangesPage struct {
 	driver                     *assetDriverSheet
 	driverButtons              map[string]*widget.Clickable
 	driverFocus                event.Tag
-	openHistory                func(history.Filters, event.Tag)
+	categoryDetail             *assetCategorySheet
+	categoryButtons            map[string]*widget.Clickable
+	categoryFocus              event.Tag
+	openHistory                func(history.Filters, domain.ActivityID, event.Tag)
 }
 
 func (p *assetChangesPage) enter(state assetChangesVisit) {
@@ -113,6 +117,10 @@ func (p *assetChangesPage) leave() {
 	if p.driver != nil {
 		p.driver.cancel()
 		p.driver = nil
+	}
+	if p.categoryDetail != nil {
+		p.categoryDetail.cancel()
+		p.categoryDetail = nil
 	}
 }
 
@@ -212,7 +220,7 @@ func (p *assetChangesPage) trendInterval() application.AssetTrendGranularity {
 
 func (p *assetChangesPage) categoryType() application.AnalysisCategoryType {
 	if p.state.category == "" {
-		return application.CategoryIncome
+		return application.CategorySpending
 	}
 	return p.state.category
 }

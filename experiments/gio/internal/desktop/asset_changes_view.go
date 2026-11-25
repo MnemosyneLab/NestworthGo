@@ -216,19 +216,18 @@ func assetLevelMoney(view ui.View, value *domain.SignedMoney, debts bool) string
 func (p *assetChangesPage) categoryRows(view ui.View, data application.CategoriesResult) []ui.ColumnChild {
 	l := view.Language
 	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.AssetCategoryTotal)+" · "+returnMoney(view, data.Total), view.Colors.Ink))}
-	if len(data.Rows) == 0 {
+	if data.ValuationForced != nil {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk)))
+	}
+	if data.Status == domain.CompletenessPartial {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
+	}
+	if !data.Available || len(data.Rows) == 0 {
 		return append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetNoData), view.Colors.SecondaryInk)))
 	}
 	return append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &p.list, l.Text(i18n.AssetCategories), len(data.Rows), func(gtx layout.Context, i int) layout.Dimensions {
-			row := data.Rows[i]
-			name := p.refs.names[row.Key]
-			if row.AssetClass == domain.BucketCash && row.InstrumentID == "" && row.AccountID == "" {
-				name = l.Text(i18n.AccountCash)
-			} else if name == "" {
-				name = l.Text(i18n.OverviewEvidenceUnavailable)
-			}
-			return view.Message(name+" · "+returnMoney(view, row.Amount), view.Colors.Ink)(gtx)
+			return p.categoryButton(gtx, view, data.Rows[i])
 		})
 	}))
 }

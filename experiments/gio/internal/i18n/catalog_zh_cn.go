@@ -948,6 +948,10 @@ var simplifiedChineseCatalog = catalog{
 	AssetResidual:        "未解释差额",
 	AssetOpenDay:         "查看当天资产变动",
 
+	AssetCategoryComponents: "明细",
+	AssetCategoryRecords:    "账本记录",
+	AssetCategoryNoRecords:  "此类别没有账本记录。",
+
 	AssetAttribution:         "变动归因",
 	AssetDriverChart:         "价值变动瀑布图",
 	AssetDriverChartHelp:     "期初价值、变动因素和期末价值。选择因素查看明细。",

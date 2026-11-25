@@ -171,7 +171,7 @@ func (p *assetChangesPage) driverResidual(view ui.View, sheet *assetDriverSheet,
 			button := portfolioButton(sheet.links, value.Date+"/"+value.ComponentKey)
 			if button.Clicked(gtx) {
 				p.closeDriver()
-				p.openHistory(history.Filters{From: value.Date, To: value.Date, Account: domain.AccountID(value.AccountID), Instrument: domain.InstrumentID(value.InstrumentID)}, sheet.trigger)
+				p.openHistory(history.Filters{From: value.Date, To: value.Date, Account: domain.AccountID(value.AccountID), Instrument: domain.InstrumentID(value.InstrumentID)}, "", sheet.trigger)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			items = append(items, ui.Rigid(view.Button(button, l.Text(i18n.ContributionOpenHistory))))

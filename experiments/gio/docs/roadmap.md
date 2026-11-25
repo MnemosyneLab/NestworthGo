@@ -2294,6 +2294,28 @@ remains open.
 | Linux X11 | The packaged app selected November 4 in the net worth chart and displayed an unavailable total and USD 105.25 known net contribution. Weekly retained the chosen dates, then Return rate showed the 3/7 uncovered week and later 0% weeks with 7/7 coverage. The compact table remained readable at 700×480. |
 | Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared Go trend tests and 20 Wails Asset Trend and Asset Changes tests passed. Native Mac and Wayland remain open. |
 
+#### Asset Changes category records
+
+Categories defaults to Spending. The existing range and filter controls
+precede the category type and a list with signed totals. Each row opens a
+right-hand detail with the category total, component breakdown and dated
+records from the shared `CategoryDetail` read. Retry uses the selected row,
+category and original query. Escape restores the category row's focus.
+[Wails Categories](../../../frontend/src/features/insights/CategoriesTab.tsx)
+
+The record action uses the exact activity ID when the shared read supplies
+one. The date, account and instrument travel separately as Ledger filters.
+Gio uses its existing Ledger detail route, which keeps its top-level Back
+action and opens the scoped timeline from **Back to ledger activity**.
+Wails opens its detail inside the filtered timeline. Back from the Gio detail
+restores the category type, interval, filters and source row focus.
+
+| Check | Evidence |
+| --- | --- |
+| Shared Go and Gio | The paired adapter regression used independent copies of one USD ledger and matched a USD −25.1234 expense, its date, account and activity ID. It injected a detail read failure and retried the same query, exercised Escape and keyboard reopen, restored the filtering and row focus on Back, and closed the record to the scoped timeline. The 49 Wails Asset Changes and insight tab frontend tests passed. |
+| Packaged Gio on Linux X11 | At 1180×960, the November 22–24 Spending category opened the account breakdown and the November 23 expense. At 650×480, Tab and Return opened the exact Ledger record, which displayed USD 25.1234 removed and USD 74.8766 remaining. Back retained Spending, November 22–24 and the focused row. Return reopened it. Back to ledger activity then showed the single record in the Harbor expense account on November 23. The source hashes and account, value, activity, effect and quote rows matched after quit. Full Gio tests and vet passed. |
+| Stock Wails on Linux X11 | The production-tagged binary built against GTK 4.18.6 and WebKitGTK 2.54.0, with its dynamic dependencies resolved from the temporary SDK. The ordinary X11 launch stopped before opening a window when WebKit could not spawn `/usr/lib/x86_64-linux-gnu/webkitgtk-6.0/WebKitNetworkProcess` because the host WebKitGTK runtime is absent. Sandbox protections stayed enabled. The GUI comparison still needs a host with the runtime installed or a Mac. |
+
 #### Wealth History Allocation and category drill-down
 
 Wealth History defaults to Allocation at the prior month end within the
@@ -2766,8 +2788,8 @@ choices remain selected.
 
 - Close the remaining capabilities listed in the [page-by-page parity matrix](parity.md).
   Stage 6 still has Wealth History capture shortcuts, contribution detail,
-  dated Data Health and Ledger links from Asset Changes, instrument catalog
-  work, and the remaining provider and coverage recovery cases.
+  the dated Data Health link and residual Ledger verification from Asset
+  Changes, instrument catalog work, and provider and coverage recovery cases.
 - Run paired regressions in the interactive Wails and Gio apps with matching
   disposable inputs. Cover Return Calendar detail → Asset Changes with the
   selected day, account, instrument, currency, native valuation and cash

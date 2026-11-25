@@ -947,6 +947,10 @@ var japaneseCatalog = catalog{
 	AssetResidual:        "説明できない差額",
 	AssetOpenDay:         "この日の資産変動を見る",
 
+	AssetCategoryComponents: "内訳",
+	AssetCategoryRecords:    "台帳の記録",
+	AssetCategoryNoRecords:  "この分類に台帳の記録はありません。",
+
 	AssetAttribution:         "変動要因",
 	AssetDriverChart:         "資産価値の変動",
 	AssetDriverChartHelp:     "開始時の価値、変動要因、終了時の価値。要因を選ぶと内訳が開きます。",

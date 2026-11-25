@@ -304,8 +304,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 	}
 	if s.assets != nil && s.historyPage != nil && s.historyPage.reads != nil {
-		s.assets.openHistory = func(filters history.Filters, focus event.Tag) {
-			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
+		s.assets.openHistory = func(filters history.Filters, activity domain.ActivityID, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: activity},
 				focus: focus, historyFilters: filters}
 		}
 	}
@@ -436,6 +436,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				return
 			}
 			request := navigationRequest{target: navigationTarget{route: historyRoute}}
+			if filters := s.trail.current().historyFilters; !filters.Equal(history.Filters{}) {
+				request.historyFilters = filters
+				s.pendingNavigation = &request
+				return
+			}
 			for i := s.trail.cursor - 1; i >= 0; i-- {
 				if target := s.trail.entries[i].target; target.route == historyRoute && target.activity == "" {
 					request.step = i - s.trail.cursor
@@ -584,7 +589,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -647,8 +652,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		} else {
 			s.returns.layoutContributionSheet(windowContext, view)
 		}
-	} else if s.assetDriverOpen() {
-		s.assets.layoutDriverSheet(windowContext, view)
+	} else if s.assetDetailOpen() {
+		if s.assets.categoryDetail != nil {
+			s.assets.layoutCategorySheet(windowContext, view)
+		} else {
+			s.assets.layoutDriverSheet(windowContext, view)
+		}
 	} else if s.wealthDetailOpen() {
 		s.wealthHistory.layoutWealthDetail(windowContext, view)
 	} else if s.healthRepairOpen() {
@@ -728,8 +737,8 @@ func (s *shell) wealthDetailOpen() bool {
 	return s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil && s.wealthHistory.detail != nil
 }
 
-func (s *shell) assetDriverOpen() bool {
-	return s.activeRoute() == assetChangesRoute && s.assets != nil && s.assets.driver != nil
+func (s *shell) assetDetailOpen() bool {
+	return s.activeRoute() == assetChangesRoute && s.assets != nil && (s.assets.driver != nil || s.assets.categoryDetail != nil)
 }
 
 func (s *shell) returnDetailOpen() bool {

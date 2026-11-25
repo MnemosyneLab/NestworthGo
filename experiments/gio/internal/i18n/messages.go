@@ -749,6 +749,9 @@ const (
 	AssetNetChange
 	AssetChangeRate
 	AssetCategoryTotal
+	AssetCategoryComponents
+	AssetCategoryRecords
+	AssetCategoryNoRecords
 	AssetIncome
 	AssetSpending
 	AssetFees

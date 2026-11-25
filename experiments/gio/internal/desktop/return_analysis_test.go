@@ -572,6 +572,10 @@ func (r *calendarFilterReader) Categories(context.Context, domain.AnalysisQuery,
 	return application.CategoriesResult{}, nil
 }
 
+func (r *calendarFilterReader) CategoryDetail(context.Context, domain.AnalysisQuery, application.AnalysisCategoryType, string) (application.CategoryDetailResult, error) {
+	return application.CategoryDetailResult{}, nil
+}
+
 func (r *calendarFilterReader) ReturnDay(context.Context, domain.AnalysisQuery, domain.LocalDate) (application.ReturnDayResult, error) {
 	return application.ReturnDayResult{}, nil
 }

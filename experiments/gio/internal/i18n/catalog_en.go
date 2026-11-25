@@ -948,6 +948,10 @@ var englishCatalog = catalog{
 	AssetResidual:        "Unexplained difference",
 	AssetOpenDay:         "View asset changes for this day",
 
+	AssetCategoryComponents: "Breakdown",
+	AssetCategoryRecords:    "Ledger records",
+	AssetCategoryNoRecords:  "No Ledger records for this category.",
+
 	AssetAttribution:         "Attribution",
 	AssetDriverChart:         "Value change waterfall",
 	AssetDriverChartHelp:     "Beginning value, drivers and ending value. Select a driver to open its detail.",
