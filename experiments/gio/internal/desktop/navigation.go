@@ -131,6 +131,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.statementUnresolved() || s.accounts.investmentUnresolved() || s.accounts.openingPositionUnresolved()) {
 		return
 	}
+	if s.funds != nil && s.funds.reservationUnresolved() {
+		return
+	}
 	entry := s.trail.current()
 	if request.step != 0 {
 		if s.trail.adjacent(request.step) == nil {
@@ -198,6 +201,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == fundsRoute {
+		s.funds.reservation = nil
 		s.funds.leave()
 	}
 	if entry.target.route == portfolioRoute {

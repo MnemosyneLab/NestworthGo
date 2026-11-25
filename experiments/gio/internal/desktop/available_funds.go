@@ -28,7 +28,7 @@ type availableFundsReader interface {
 type availableFundsRead struct {
 	report   application.LiquidityReadResult
 	today    domain.LiquidityBucket
-	accounts map[domain.AccountID]string
+	accounts map[domain.AccountID]domain.Account
 }
 
 func readAvailableFunds(ctx context.Context, service availableFundsReader) (out availableFundsRead, err error) {
@@ -45,9 +45,9 @@ func readAvailableFunds(ctx context.Context, service availableFundsReader) (out 
 		if err != nil {
 			return err
 		}
-		out = availableFundsRead{report: report, today: report.Overview.Buckets[at], accounts: make(map[domain.AccountID]string, len(accounts))}
+		out = availableFundsRead{report: report, today: report.Overview.Buckets[at], accounts: make(map[domain.AccountID]domain.Account, len(accounts))}
 		for _, row := range accounts {
-			out.accounts[row.Account.ID] = row.Account.Name
+			out.accounts[row.Account.ID] = row.Account
 		}
 		return nil
 	})
@@ -55,18 +55,20 @@ func readAvailableFunds(ctx context.Context, service availableFundsReader) (out 
 }
 
 type fundsLinks struct {
-	account, instrument widget.Clickable
+	account, instrument, reserve widget.Clickable
 }
 
 type availableFundsPage struct {
-	ctx        context.Context
-	service    availableFundsReader
-	invalidate func()
-	workers    sync.WaitGroup
-	cancel     context.CancelFunc
-	request    <-chan historyResult[availableFundsRead]
-	current    *availableFundsRead
-	err        error
+	ctx               context.Context
+	service           availableFundsReader
+	invalidate        func()
+	workers           sync.WaitGroup
+	cancel            context.CancelFunc
+	request           <-chan historyResult[availableFundsRead]
+	current           *availableFundsRead
+	reservationLedger fundsReservationLedger
+	reservation       *fundsReservationSession
+	err               error
 
 	list           widget.List
 	reload         widget.Clickable
@@ -132,6 +134,10 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if p.reservation != nil {
+		p.pollReservations()
+		return p.layoutReservations(gtx, view)
+	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
@@ -284,9 +290,13 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		instrument = domain.InstrumentID(*row.InstrumentID)
 	}
 	fields = append(fields, p.sourceLinks(view, source.SourceKey, source.AccountID, instrument, source.DisplayName))
+	account := p.current.accounts[source.AccountID]
+	if p.reservationLedger != nil && fundsReservationSource(account, source) {
+		fields = append(fields, p.reservationButton(view, account.Name, source.Ref))
+	}
 	title := source.DisplayName
 	if source.Ref.Kind == domain.SourceAccountCash {
-		if name := p.current.accounts[source.AccountID]; name != "" {
+		if name := p.current.accounts[source.AccountID].Name; name != "" {
 			title = fmt.Sprintf(l.Text(i18n.FundsCashSource), name)
 		}
 	}
@@ -299,13 +309,9 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 func (p *availableFundsPage) sourceLinks(view ui.View, key string, account domain.AccountID, instrument domain.InstrumentID, name string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		l := view.Language
-		buttons := p.links[key]
-		if buttons == nil {
-			buttons = new(fundsLinks)
-			p.links[key] = buttons
-		}
+		buttons := p.sourceButtons(key)
 		var actions []layout.FlexChild
-		if accountName := p.current.accounts[account]; p.openAccount != nil && accountName != "" {
+		if accountName := p.current.accounts[account].Name; p.openAccount != nil && accountName != "" {
 			if buttons.account.Clicked(gtx) {
 				p.openAccount(account, accountName, &buttons.account)
 				gtx.Execute(op.InvalidateCmd{})

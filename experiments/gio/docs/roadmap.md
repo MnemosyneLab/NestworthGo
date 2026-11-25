@@ -66,7 +66,7 @@ live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
 partial sales, liquidations, cash dividends, a positive opening position and
-the read-only Today view of Available Funds.
+the Today view of Available Funds with standard bank-account reservations.
 Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
@@ -1300,7 +1300,40 @@ report and restores the list position and source focus. [Shared availability pro
 | Linux X11 | In a 900×660 Xvfb window, viewed the USD and EUR amounts and missing-FX explanation, opened the saved account and instrument sources, returned to the scrolled report, and found the unresolved reservation. Normal reopen repeated the same amounts. A separate profile showed the no-source message and known USD zero. Read-only SQLite comparison found the same rows across 13 financial tables in both profiles. A temporary build overlay seeded the verified profiles and controlled the clock. |
 | Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Additional horizons, early-withdrawal estimates, reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | [Bank-account reservation creation and release](#bank-account-reservations) follow this read-only milestone. Additional horizons, early-withdrawal estimates, broader reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Bank-account reservations
+
+The Today view offers **Manage reservations** on an active, balance-mode bank
+asset. The form binds a purpose and a positive native amount to that single
+account, using its default currency. Wails also supports other source kinds.
+The Gio slice calls the same `SaveLiquidityReservation` with revision zero for
+creation and `ReleaseLiquidityReservation` with the active row's ID and
+revision. A release keeps the row with a release time and bumped revision.
+[Wails reservation form](../../../frontend/src/features/liquidity/ReservationSheet.tsx) · [Wails manager](../../../frontend/src/features/liquidity/ReservationManager.tsx) · [Shared commands](../../../internal/application/liquidity.go)
+
+The review shows the request and the current available amount. The shared
+availability projection sets the applied amount, remainder and any shortfall
+after confirmation. A request can exceed availability. A reservation for a
+zero-balance source can be saved and appears as unresolved until the source is
+positive or the reservation is released. These operations write reservation
+metadata. Balance observations, net worth and the ledger timeline retain their
+prior state. [Shared projection](../../../internal/domain/liquidity_evaluate.go)
+
+Gio confirms against the reviewed ledger version. A lost create response is
+checked by ID when acknowledged, or by finding exactly one new matching row
+relative to the review. Release is checked by ID and revision. Retry during
+verification only reads. A completed read that finds the old state requires a
+new explicit review. Released rows remain visible in the source manager.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent synthetic profiles started with USD 125.4321 cash and a USD 40.125 rent reservation. A new USD 100.5 request raised requested reserves to USD 140.625, with USD 125.4321 applied, zero available and a USD 15.1929 shortfall. Release restored USD 85.3071 available and retained the released row through reopen. Net worth and activity rows matched their initial state. A USD 9 request against a zero-balance account matched Wails as unresolved. |
+| Shell tests | Covered zero input, a stale confirmation, a write failure with an identical pre-existing reservation, double confirmation, save and release replies lost after commit, failed verification reads, and read-only Retry. Release of the zero-balance reservation cleared its unresolved state. |
+| Linux X11 | In a 900×660 Xvfb window, entered USD 100.5, double-clicked both confirmations, and viewed the USD 15.1929 shortfall and restored USD 85.3071 availability. Normal reopen showed the released row and the same available amount. Read-only SQLite comparison found one new reservation at revision two with a release time, both original reservations intact and the same rows in 12 other financial tables. A temporary overlay seeded the verified synthetic profile and controlled the clock. |
+| Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Editing active reservations and managing other source kinds, including archived sources, remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

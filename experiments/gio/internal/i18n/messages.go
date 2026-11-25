@@ -852,6 +852,28 @@ const (
 	FundsReservationCurrency
 	FundsUnresolvedReason
 	FundsUnknownRoute
+	ReserveManage
+	ReserveTitle
+	ReserveAdd
+	ReserveBack
+	ReserveHelp
+	ReserveLabel
+	ReserveAmount
+	ReserveReview
+	ReserveConfirm
+	ReserveRelease
+	ReserveReleaseRow
+	ReserveConfirmRelease
+	ReserveReleasedRow
+	ReserveEmpty
+	ReserveSourceUnavailable
+	ReserveSaved
+	ReserveReleasedNotice
+	ReserveNotSaved
+	ReserveVerifyFailed
+	ReserveInvalidLabel
+	ReserveInvalidAmount
+	ReserveCurrentAvailability
 	messageCount
 )
 
