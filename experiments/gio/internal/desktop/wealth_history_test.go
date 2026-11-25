@@ -12,6 +12,8 @@ import (
 
 	"gioui.org/io/key"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -86,6 +88,29 @@ func TestWealthHistoryRangeUsesClosedCivilDates(t *testing.T) {
 	}
 }
 
+func TestWealthAllocationDoesNotDrawNegativeOrIncompleteDonut(t *testing.T) {
+	view := ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}
+	state := application.HistoricalOverviewState{Currency: "USD", KnownAssets: "5"}
+	cash := application.HistoricalOverviewAllocation{Key: domain.BucketCash, Amount: "7.5", Share: "150"}
+	overdrawn := application.HistoricalOverviewAllocation{Key: string(domain.InstrumentStock), Amount: "-2.5"}
+	donut, bars, useDonut := wealthAllocationCharts(view, state, []application.HistoricalOverviewAllocation{cash, overdrawn}, false)
+	if useDonut || len(donut.Validate()) != 0 || len(bars.Validate()) != 0 ||
+		len(bars.Bars) != 2 || bars.Bars[1].Value.Number != -2.5 || bars.Bars[1].Text != "-$ 2.50" {
+		t.Fatalf("signed fallback lost its values: %+v", bars)
+	}
+	cash.Share = "100"
+	state.KnownAssets = cash.Amount
+	donut, _, useDonut = wealthAllocationCharts(view, state, []application.HistoricalOverviewAllocation{cash}, false)
+	if !useDonut || donut.CenterValue != "$ 7.50" || donut.Slices[0].Share != "100%" {
+		t.Fatalf("positive valued assets did not produce a donut: %+v", donut)
+	}
+	cash.Amount = ""
+	_, bars, useDonut = wealthAllocationCharts(view, state, []application.HistoricalOverviewAllocation{cash}, false)
+	if useDonut || bars.Bars[0].Value.Valid() {
+		t.Fatalf("an absent amount received geometry: %+v", bars)
+	}
+}
+
 func TestWealthHistoryWithoutAClosedDay(t *testing.T) {
 	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	for _, tc := range []struct {
@@ -121,6 +146,9 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 			return application.HistoricalOverviewSeriesResult{}, ctx.Err()
 		}
 	}}, func() time.Time { return now })
+	page.workers.Wait()
+	h.frame()
+	h.click("Trend", false)
 	h.size = image.Pt(900, 480)
 	h.frame()
 	assertPageLabel(t, &h.router, "Loading daily wealth values…")
@@ -183,6 +211,9 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 	finish(series, nil)
 	assertPageLabel(t, &h.router, "2026-11-09 to 2026-11-30 · Base currency JPY · UTC")
 	assertPageLabel(t, &h.router, "Net worth · Unavailable")
+	h.router.MoveFocus(key.FocusForward)
+	h.frame()
+	h.focused(&page.allocationTab)
 	h.router.MoveFocus(key.FocusForward)
 	h.frame()
 	h.focused(&page.accountsTab)
@@ -283,6 +314,47 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	gio, gioProvider := openCopy()
 	h, page := openWealthHistoryTest(t, gio, clock)
 	page.workers.Wait()
+	h.size = image.Pt(1160, 1100)
+	h.frame()
+	wailsAnalytics := analytics.NewService(wails)
+	allocation, err := wailsAnalytics.HistoricalOverview(ctx, "2026-08-01", "")
+	if err != nil || page.lens != wealthAllocationLens || page.accounts.current == nil || !reflect.DeepEqual(allocation, *page.accounts.current) {
+		t.Fatalf("default allocation did not match the Wails endpoint: %v, %v", err, page.accounts.err)
+	}
+	assertPageLabel(t, &h.router, "Valued assets only · Missing components 1")
+	h.click("By currency", false)
+	if !page.allocation.currency {
+		t.Fatal("allocation dimension did not switch")
+	}
+	h.size = image.Pt(900, 700)
+	h.shell.stage.Position.Offset = 325
+	h.frame()
+	before := h.shell.stage.Position.Offset
+	if before <= 0 {
+		t.Fatal("allocation fixture did not scroll")
+	}
+	h.click("AUD · A$ 50.00 · 100%", false)
+	h.frame()
+	assertPageLabel(t, &h.router, "Filtered by · AUD")
+	h.focused(&page.allocation.clear)
+	assertPageLabel(t, &h.router, "Local cash")
+	if page.lens != wealthAccountsLens || findPageLabel(&h.router, "Foreign cash") != nil || findPageLabel(&h.router, "Local debt") != nil {
+		t.Fatal("currency drill-down included another currency or balance sheet role")
+	}
+	h.click("Return to allocation", false)
+	h.frame()
+	h.focused(page.allocation.buttons["AUD"])
+	if h.shell.stage.Position.Offset != before {
+		t.Fatalf("allocation scroll was %d, want %d", h.shell.stage.Position.Offset, before)
+	}
+	h.press(key.NameReturn)
+	h.frame()
+	assertPageLabel(t, &h.router, "Filtered by · AUD")
+	h.click("Return to allocation", false)
+	h.size = image.Pt(1160, 1100)
+	h.frame()
+	h.click("Trend", false)
+	page.workers.Wait()
 	h.frame()
 	if page.err != nil || page.current == nil || page.current.series.To != "2026-08-02" {
 		t.Fatalf("first capture did not use Singapore's latest closed day: %v", page.err)
@@ -314,7 +386,6 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 
 	// Compare endpoint captures on the same independent read-only copies used
 	// for the series. The first capture has no usable USD/AUD rate.
-	wailsAnalytics := analytics.NewService(wails)
 	compare, err := wailsAnalytics.HistoricalOverview(ctx, "2026-08-01", "2026-08-02")
 	if err != nil {
 		t.Fatal(err)
@@ -324,6 +395,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.frame()
 	h.click("Compare dates", false)
 	h.click("Date A", true)
+	h.press(key.NameRightArrow)
 	h.press(key.NameLeftArrow)
 	h.press(key.NameReturn)
 	h.click("Capture accounts", false)
@@ -334,6 +406,13 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "A · 2026-08-01 · AUD")
 	assertPageLabel(t, &h.router, "B · 2026-08-02 · AUD")
+	h.click("Category comparison", false)
+	assertPageLabel(t, &h.router, "A · Missing valuation")
+	assertPageLabel(t, &h.router, "B · A$ 123.51")
+	assertPageLabel(t, &h.router, "Change B − A · Comparison unavailable")
+	h.click("Liabilities", false)
+	assertPageLabel(t, &h.router, "A · -A$ 25.10")
+	h.click("Accounts in Wealth history", false)
 	h.click("Changed accounts only", false)
 	assertPageLabel(t, &h.router, "Foreign cash")
 	h.click("Foreign cash", false)

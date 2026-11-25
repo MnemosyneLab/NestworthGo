@@ -301,6 +301,31 @@ const (
 	WealthHistoryScopeChanged
 	WealthHistoryBasisChanged
 	WealthHistoryFundingGap
+	WealthAllocationTab
+	WealthAllocationCompare
+	WealthAllocationCapture
+	WealthAllocationFilter
+	WealthAllocationBack
+	WealthAllocationClasses
+	WealthAllocationCurrencies
+	WealthAllocationBasis
+	WealthAllocationPartial
+	WealthAllocationMissing
+	WealthAllocationEmpty
+	WealthAllocationChartHelp
+	WealthAllocationNotDrawn
+	WealthAllocationTable
+	WealthAllocationUnclassified
+	WealthAllocationZero
+	WealthAllocationNoCategories
+	WealthAllocationCurrencyChanged
+	WealthAllocationKnownShare
+	WealthAllocationPoints
+	WealthAllocationShareChange
+	WealthAllocationExistenceChanged
+	WealthAllocationScopeChanged
+	WealthAllocationMembershipChanged
+	WealthAllocationShareUnavailable
 	WealthAccountTabName
 	WealthTrendTab
 	WealthAccountSingle

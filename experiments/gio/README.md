@@ -259,10 +259,17 @@ database loads the saved household.
 
 ## Wealth History
 
-Open **Insights → Wealth history** to read daily net worth, assets and
-liabilities in the saved household base currency. The page initially loads the
-last closed day in the History timezone. Select **From date** and **Through
-date**, then choose **Load range** for up to 31 closed dates. The table shows
+Open **Insights → Wealth history** to view Allocation for the previous month
+end, or the first closed History date when History started later. Switch
+between asset classes and currencies. Select a chart category or its text
+row to filter Accounts. **Return to allocation** restores the chart or row
+focus and scroll position. **Compare dates** and **Compare with current**
+offer paired category values for assets and liabilities.
+
+Choose **Trend** to read daily net worth, assets and liabilities in the saved
+household base currency. Trend starts with the last closed day in the History
+timezone. Select **From date** and **Through date**, then choose **Load range**
+for up to 31 closed dates. The table shows
 available totals, known subtotals, missing inputs and quote coverage. Tab past
 **Load range** or **Reload** into the table and use the arrows, Page Up, Page
 Down, Home and End to move through the rows.
