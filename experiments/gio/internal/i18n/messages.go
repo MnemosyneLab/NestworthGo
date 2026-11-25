@@ -306,6 +306,54 @@ const (
 	WealthTrendSelectA
 	WealthTrendSelectB
 	WealthTrendOpenDay
+	WealthChangeTab
+	WealthChangeTitle
+	WealthChangeBasis
+	WealthChangeCount
+	WealthChangeShowAll
+	WealthChangeTopTen
+	WealthChangeEmpty
+	WealthChangeSeparate
+	WealthChangeStatus
+	WealthChangeOffsetting
+	WealthRowDetails
+	WealthRowSourceDate
+	WealthRowComponents
+	WealthRowOtherComponents
+	WealthHistoryClosedLink
+	WealthBridgeTitle
+	WealthBridgeEvidence
+	WealthBridgeSupported
+	WealthBridgeResidual
+	WealthBridgeReconciled
+	WealthBridgePartial
+	WealthBridgeUnavailable
+	WealthBridgeIdentity
+	WealthBridgeBasis
+	WealthBridgeComponentIdentity
+	WealthBridgePrincipal
+	WealthBridgeOpenQty
+	WealthBridgeActivityQty
+	WealthBridgeCloseQty
+	WealthBridgeResidualQty
+	WealthBridgeRecords
+	WealthBridgeNoRecords
+	WealthBridgeSpending
+	WealthBridgeExternalFlow
+	WealthBridgeIncome
+	WealthBridgeDividend
+	WealthBridgeFee
+	WealthBridgeAdjustment
+	WealthBridgeDebt
+	WealthBridgePrice
+	WealthBridgeFX
+	WealthBridgeCurrent
+	WealthBridgeIncomplete
+	WealthBridgeQuantityMismatch
+	WealthBridgeUnpaired
+	WealthBridgeExposure
+	WealthBridgeUnexplained
+	WealthBridgeTransfer
 	WealthAllocationTab
 	WealthAllocationCompare
 	WealthAllocationCapture

@@ -259,6 +259,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				focus: focus, historyFilters: filters}
 		}
 	}
+	if s.wealthHistory != nil && s.historyPage != nil && s.historyPage.reads != nil {
+		s.wealthHistory.openHistory = func(filters history.Filters, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
+				focus: focus, historyFilters: filters}
+		}
+	}
 	if s.directory != nil {
 		for _, list := range s.directory.lists {
 			list.openObject = func(ref directoryRef, name string, from event.Tag) {
@@ -462,7 +468,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.wealthDetailOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -527,10 +533,16 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	} else if s.assetDriverOpen() {
 		s.assets.layoutDriverSheet(windowContext, view)
+	} else if s.wealthDetailOpen() {
+		s.wealthHistory.layoutWealthDetail(windowContext, view)
 	} else if s.healthRepairOpen() {
 		s.dataHealth.layoutRepair(windowContext, view)
 	}
 	return dims
+}
+
+func (s *shell) wealthDetailOpen() bool {
+	return s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil && s.wealthHistory.detail != nil
 }
 
 func (s *shell) assetDriverOpen() bool {

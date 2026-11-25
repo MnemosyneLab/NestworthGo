@@ -37,6 +37,7 @@ type wealthAccountCapture struct {
 	list                       widget.List
 	expanded                   map[string]bool
 	toggles                    map[string]*widget.Clickable
+	details                    map[string]*widget.Clickable
 }
 
 func (p *wealthHistoryPage) validAccountDates(dates wealthAccountDates, now time.Time) bool {
@@ -67,12 +68,20 @@ func (p *wealthHistoryPage) updateAccounts() {
 		p.leave()
 		a.err = result.err
 		if result.err == nil {
+			switch {
+			case p.lens == wealthAllocationLens && result.value.Right != nil && (a.current == nil || a.current.Right == nil):
+				p.lens = wealthChangeLens
+			case p.lens == wealthChangeLens && result.value.Right == nil:
+				p.lens = wealthAllocationLens
+			}
 			if a.captured != a.requested {
 				a.list.Position = layout.Position{}
 				a.category = wealthAllocationFilter{}
 				p.allocation.list.Position = layout.Position{}
 				p.allocation.focus, p.allocation.restore = nil, nil
 				p.allocation.focusAccounts = false
+				p.change.list.Position = layout.Position{}
+				p.change.all = false
 			}
 			a.current, a.captured = &result.value, a.requested
 		}

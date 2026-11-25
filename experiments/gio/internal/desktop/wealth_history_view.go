@@ -62,6 +62,10 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 		p.selectEndpointLens(wealthAccountsLens)
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	if p.changeTab.Clicked(gtx) && p.lens != wealthChangeLens && p.accounts.current != nil && p.accounts.current.Right != nil {
+		p.selectEndpointLens(wealthChangeLens)
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	if p.trendTab.Clicked(gtx) && p.lens != wealthTrendLens {
 		p.selectTrend()
 		gtx.Execute(op.InvalidateCmd{})

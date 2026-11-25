@@ -1708,8 +1708,8 @@ allocation restores the source focus and page position. A/B and current
 comparisons use the shared category amounts, known subtotals, shares and
 supported changes. Liabilities use signed levels and the opposite sign for
 increases in debt. Partial, absent and excluded states remain distinguishable.
-The comparison currently uses paired value cards that wrap as the window
-narrows. Wails' paired comparison chart and the Change lens remain open.
+The comparison uses paired value cards that wrap as the window narrows.
+The paired chart and Change lens are covered in the following milestone.
 
 | Check | Evidence |
 | --- | --- |
@@ -1737,6 +1737,29 @@ and prior retry behavior remain intact.
 | Projection and workflow | The adapter test verifies the explicit viewport, signed debt, unavailable valuation with a known subtotal, basis change and provisional boundary. A keyboard selection opened the exact Wails Go capture on independent read-only databases. The original bounded-range, keyboard table and retry regressions still pass. |
 | Linux X11 | The packaged app at the default synthetic Gio path opened November 1–24 and selected November 4 by keyboard. The readout showed unavailable net worth, USD 105.25 known net contribution and the named missing AUD exchange rate. Opening Accounts used November 4 and retained the same evidence. Selecting November 4 as B loaded November 1–4, with the selected date, gap and known value readable at 700×480. The synthetic Wails source database and settings hashes matched after quit. |
 | Combined tree | The branch retains the Sankey component, localization and Component Preview from #288. Those components are available for separate business-page wiring. Verified full Gio tests and vet, the packaged Linux launcher and 91 Wails Historical Trend and Overview frontend tests. Native Mac, Wayland, VoiceOver and IME remain open. |
+
+#### Paired Wealth Allocation and Change
+
+The pair chart places adjacent A and B rows on a shared signed scale, with
+the dates and currency in the readout. A row links to the same category
+filter as its detail card. Partial or excluded cells have text states and
+absent geometry. This layout lets both amounts and labels remain readable
+when the rows wrap in narrow windows.
+
+Change ranks comparable account balances by absolute change and separates
+missing, excluded or otherwise incomparable accounts for individual review.
+The list includes the full comparable set alongside the initial top-ten chart.
+The account sheet exposes the two endpoint values, source dates, child
+components and the scoped Ledger activity link. Back returns to the same
+sheet and action. Closing the sheet restores its chart or row control.
+The reconciliation summary and evidence use the shared endpoint bridge,
+including exact residuals, component principal, known records and reasons.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | Read-only Wails comparison matched both endpoint results. Tests exercise the paired chart’s keyboard handoff, focus return, missing FX, signed debt, scoped Ledger activity and navigation Back. |
+| Packaged Linux X11 | November 1–24 showed USD 12.75 net-worth change, USD 2.75 supported, and USD 10.00 residual. The broker had USD 100.00 and USD 102.75, and the second account remained separately inspectable. Ledger activity retained the broker and both dates. Back and Escape restored the detail and chart. Paired Allocation showed both stock amounts at 1220×1050 and 700×480, with the absent A cash value explicit. The synthetic Wails source hashes matched after quit. |
+| Tests | Full Gio suite, Gio vet, focused shared historical Go tests and 101 Wails frontend reference tests passed. Native Mac, VoiceOver and Wayland remain open. |
 
 #### Contribution detail and Ledger activity
 

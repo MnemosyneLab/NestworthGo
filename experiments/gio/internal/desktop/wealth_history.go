@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -29,6 +31,7 @@ const (
 	wealthAllocationLens wealthHistoryLens = iota
 	wealthAccountsLens
 	wealthTrendLens
+	wealthChangeLens
 )
 
 type wealthHistoryOrigin struct {
@@ -85,6 +88,12 @@ type wealthHistoryPage struct {
 	accounts                             wealthAccountCapture
 	allocation                           wealthAllocation
 	trend                                wealthTrend
+	change                               wealthChange
+	detail                               *wealthDetail
+	returnDetail                         *wealthDetail
+	detailFocus                          event.Tag
+	openHistory                          func(history.Filters, event.Tag)
+	changeTab                            widget.Clickable
 	allocationTab, accountsTab, trendTab widget.Clickable
 	lens                                 wealthHistoryLens
 }
@@ -98,6 +107,9 @@ func newWealthHistoryPage(ctx context.Context, reader wealthHistoryReader, clock
 }
 
 func (p *wealthHistoryPage) enter() {
+	if p.returnDetail != nil {
+		p.detail, p.returnDetail = p.returnDetail, nil
+	}
 	if p.origin == nil {
 		p.readOrigin()
 	} else if p.lens != wealthTrendLens {

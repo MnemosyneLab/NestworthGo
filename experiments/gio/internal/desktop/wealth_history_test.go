@@ -39,12 +39,18 @@ func (r wealthHistoryTestReader) HistoricalOverview(context.Context, string, str
 	return application.HistoricalOverviewResult{}, nil
 }
 
-func openWealthHistoryTest(t *testing.T, reader wealthHistoryReader, clock func() time.Time) (*previewHarness, *wealthHistoryPage) {
+func openWealthHistoryTest(t *testing.T, reader wealthHistoryReader, clock func() time.Time, historyService ...*application.Service) (*previewHarness, *wealthHistoryPage) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	page := newWealthHistoryPage(ctx, reader, clock, func() {})
 	t.Cleanup(func() { cancel(); page.workers.Wait() })
-	h := newShellHarnessWithPages(t, ledgerPages{wealthHistory: page})
+	pages := ledgerPages{wealthHistory: page}
+	if len(historyService) != 0 {
+		pages.history = newLedgerHistory(ctx, historyService[0], clock, func() {})
+		t.Cleanup(pages.history.model.Wait)
+		t.Cleanup(pages.history.reads.workers.Wait)
+	}
+	h := newShellHarnessWithPages(t, pages)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	h.click("Wealth history", false)
@@ -351,7 +357,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	gio, gioProvider := openCopy()
-	h, page := openWealthHistoryTest(t, gio, clock)
+	h, page := openWealthHistoryTest(t, gio, clock, gio)
 	page.workers.Wait()
 	h.size = image.Pt(1160, 1100)
 	h.frame()
@@ -462,8 +468,41 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	assertPageLabel(t, &h.router, "A · Missing valuation")
 	assertPageLabel(t, &h.router, "B · A$ 123.51")
 	assertPageLabel(t, &h.router, "Change B − A · Comparison unavailable")
+	h.router.Source().Execute(key.FocusCmd{Tag: &page.allocation.paired})
+	h.frame()
+	h.focused(&page.allocation.paired)
+	h.press(key.NameEnd)
+	h.press(key.NameReturn)
+	assertPageLabel(t, &h.router, "Filtered by · AUD")
+	h.click("Return to allocation", false)
+	h.frame()
+	h.focused(&page.allocation.paired)
 	h.click("Liabilities", false)
 	assertPageLabel(t, &h.router, "A · -A$ 25.10")
+	h.click("Change", false)
+	assertPageLabel(t, &h.router, "Accounts to review separately")
+	if compare.Reconciliation == nil {
+		t.Fatal("reference did not include endpoint reconciliation")
+	}
+	assertPageLabel(t, &h.router, i18n.English.Text(wealthBridgeStatus(compare.Reconciliation.Status)))
+	h.click("Foreign cash", false)
+	h.frame()
+	assertPageLabel(t, &h.router, "Missing exchange rate · AUD / USD · Manual quote")
+	h.click("View in Ledger activity", false)
+	h.frame()
+	linked := h.shell.historyPage.model.Filters()
+	if h.shell.activeRoute() != historyRoute || linked.Account == "" || linked.From != "2026-08-01" || linked.To != "2026-08-02" {
+		t.Fatalf("scoped Ledger activity = %+v", linked)
+	}
+	h.click("Back", false)
+	h.frame()
+	if h.shell.activeRoute() != wealthHistoryRoute || page.detail == nil || page.detail.row.AccountID != string(linked.Account) {
+		t.Fatal("Back did not restore the same historical detail")
+	}
+	h.focused(&page.detail.action)
+	h.press(key.NameEscape)
+	h.frame()
+	h.focused(page.accounts.details[string(linked.Account)])
 	h.click("Accounts in Wealth history", false)
 	h.click("Changed accounts only", false)
 	assertPageLabel(t, &h.router, "Foreign cash")

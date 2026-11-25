@@ -30,6 +30,9 @@ func (p *wealthHistoryPage) layoutWealthTabs(gtx layout.Context, view ui.View) l
 			Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.WealthAccountTabName), Toggle: true, Selected: p.lens == wealthAccountsLens}),
 		analysisToggle(view, &p.trendTab, l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens),
 	}
+	if p.accounts.current != nil && p.accounts.current.Right != nil {
+		buttons = append([]layout.Widget{analysisToggle(view, &p.changeTab, l.Text(i18n.WealthChangeTab), p.lens == wealthChangeLens)}, buttons...)
+	}
 	return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
 		return buttons[index](gtx)
 	})
@@ -121,12 +124,18 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		}
 		if result := a.current; result != nil {
 			rows = append(rows, wealthAccountSummary(view, *result)...)
+			if result.Reconciliation != nil {
+				rows = append(rows, ui.Rigid(p.reconciliationSummary(view, result)))
+			}
 		}
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutWealthTabs(gtx, view) }))
 		if result := a.current; result != nil {
-			if p.lens == wealthAllocationLens {
+			switch p.lens {
+			case wealthAllocationLens:
 				rows = append(rows, p.allocationRows(gtx, view, *result)...)
-			} else {
+			case wealthChangeLens:
+				rows = append(rows, p.changeRows(gtx, view, result)...)
+			default:
 				if a.category.active {
 					name := wealthAllocationName(l, a.category.key, a.category.currency)
 					rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.WealthAllocationFilter), name), view.Colors.Ink)),
@@ -144,7 +153,7 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 							})
 						}))
 				}
-				rows = append(rows, a.accountRows(gtx, view, *result)...)
+				rows = append(rows, p.accountRows(gtx, view, result)...)
 			}
 		}
 		return (ui.Column{Gap: 10, MinFill: 310}).Layout(gtx, rows...)
@@ -192,7 +201,8 @@ func wealthEndpointLabel(l i18n.Language, view ui.View, endpoint application.His
 	return l.Text(i18n.WealthAccountSideB) + " · " + date
 }
 
-func (a *wealthAccountCapture) accountRows(gtx layout.Context, view ui.View, result application.HistoricalOverviewResult) []ui.ColumnChild {
+func (p *wealthHistoryPage) accountRows(gtx layout.Context, view ui.View, result *application.HistoricalOverviewResult) []ui.ColumnChild {
+	a := &p.accounts
 	l := view.Language
 	var rows []ui.ColumnChild
 	if result.Right != nil {
@@ -238,13 +248,12 @@ func (a *wealthAccountCapture) accountRows(gtx layout.Context, view ui.View, res
 	}
 	return append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &a.list, l.Text(i18n.WealthAccountTabName), len(visible), func(gtx layout.Context, index int) layout.Dimensions {
-			return a.accountRow(gtx, view, result, visible[index])
+			return p.accountRow(gtx, view, result, visible[index], true)
 		})
 	}))
 }
 
-func (a *wealthAccountCapture) accountRow(gtx layout.Context, view ui.View, result application.HistoricalOverviewResult, row application.HistoricalOverviewRow) layout.Dimensions {
-	l := view.Language
+func wealthRowName(l i18n.Language, row application.HistoricalOverviewRow) string {
 	name := row.Name
 	if row.Kind == "balance" {
 		name = l.Text(i18n.WealthAccountBalance)
@@ -252,11 +261,17 @@ func (a *wealthAccountCapture) accountRow(gtx layout.Context, view ui.View, resu
 	if row.Kind == "cash" {
 		name = l.Text(i18n.AccountCash) + " · " + name
 	}
-	if name == "" || name == row.HoldingID || name == row.AccountID {
+	if name == "" || name == row.HoldingID || name == row.AccountID || name == row.Key && row.Kind != "account" {
 		name = l.Text(i18n.OverviewEvidenceUnavailable)
 	}
+	return name
+}
+
+func (p *wealthHistoryPage) accountRow(gtx layout.Context, view ui.View, result *application.HistoricalOverviewResult, row application.HistoricalOverviewRow, canExpand bool) layout.Dimensions {
+	a, l := &p.accounts, view.Language
+	name := wealthRowName(l, row)
 	controls := []ui.ColumnChild{}
-	if row.Kind == "account" {
+	if canExpand && row.Kind == "account" {
 		button := portfolioButton(a.toggles, row.Key)
 		if button.Clicked(gtx) {
 			a.expanded[row.Key] = !a.expanded[row.Key]
@@ -266,16 +281,21 @@ func (a *wealthAccountCapture) accountRow(gtx layout.Context, view ui.View, resu
 			Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: name,
 			Description: l.Text(i18n.WealthAccountComponents), Toggle: true, Selected: a.expanded[row.Key],
 		})))
-	} else {
-		controls = append(controls, ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink)))
 	}
+	detailLabel := name
+	if canExpand && row.Kind == "account" {
+		detailLabel = l.Text(i18n.WealthRowDetails)
+	}
+	controls = append(controls, ui.Rigid(p.wealthDetailButton(view, result, row, detailLabel)))
 	liability := row.Role == string(domain.RoleLiability)
 	sides := []layout.Widget{wealthEndpointCell(view, l.Text(i18n.WealthAccountSideA), result.Left.Currency, row.Left, liability)}
 	if result.Right != nil {
 		sides = append(sides, wealthEndpointCell(view, l.Text(i18n.WealthAccountSideB), result.Right.Currency, row.Right, liability))
 		delta := l.Text(i18n.WealthAccountIncomparable)
 		if row.Left != nil && row.Right != nil && result.Left.Currency == result.Right.Currency {
-			delta = wealthExactMoney(view, row.BaseChange, result.Left.Currency, liability, true)
+			if amount := wealthRowDelta(row); amount != nil {
+				delta = wealthExactMoney(view, amount, result.Left.Currency, liability, true)
+			}
 		}
 		sides = append(sides, view.Message(l.Text(i18n.WealthAccountDelta)+" · "+delta, view.Colors.Ink))
 	}

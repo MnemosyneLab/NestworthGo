@@ -50,6 +50,7 @@ type wealthAllocation struct {
 	list                  widget.List
 	donut                 charts.DonutChart
 	bars                  charts.BarChart
+	paired                charts.BarChart
 	buttons               map[string]*widget.Clickable
 	focus, restore        event.Tag
 	scroll                int
@@ -293,6 +294,18 @@ func (p *wealthHistoryPage) allocationCompareRows(view ui.View, result applicati
 	var children []ui.ColumnChild
 	if leftCurrency != rightCurrency {
 		children = append(children, ui.Rigid(view.Message(l.Text(i18n.WealthAllocationCurrencyChanged), view.Colors.SecondaryInk)))
+	} else if spec, targets := wealthAllocationPairs(view, result, items, a.currency, a.liabilities); len(spec.Bars) > 0 {
+		children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+				a.watchFocus(gtx, view, &a.paired)
+				dims, events := a.paired.Layout(gtx, view, spec)
+				if key, ok := targets[charts.Apply(charts.Selection{}, events).Item]; ok {
+					p.filterAllocation(view, key, &a.paired, true)
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				return dims
+			})
+		}))
 	}
 	return append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &a.list, l.Text(i18n.WealthAllocationCompare), len(items), func(gtx layout.Context, index int) layout.Dimensions {
@@ -321,18 +334,80 @@ func (p *wealthHistoryPage) allocationCompareRows(view ui.View, result applicati
 	}))
 }
 
+func wealthAllocationPairs(view ui.View, result application.HistoricalOverviewResult, items []application.HistoricalCategoryComparison, currency, liability bool) (charts.BarSpec, map[charts.ID]string) {
+	l := view.Language
+	spec := charts.BarSpec{
+		Label:    l.Text(i18n.WealthAllocationCompare),
+		Summary:  wealthEndpointLabel(l, view, result.Left, 0) + " → " + wealthEndpointLabel(l, view, *result.Right, 1) + " · " + result.Left.Currency,
+		Messages: charts.Messages{Empty: l.Text(i18n.WealthAllocationNoCategories), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
+	}
+	targets := make(map[charts.ID]string, len(items)*2)
+	nonzero := false
+	for _, item := range items {
+		for i, cell := range []application.HistoricalCategoryCell{item.Left, item.Right} {
+			id := wealthCategoryPrefix + charts.ID(fmt.Sprintf("%d-%s", i, item.Key))
+			name := wealthAllocationName(l, item.Key, currency)
+			side := [...]i18n.MessageID{i18n.WealthAccountSideA, i18n.WealthAccountSideB}[i]
+			bar := charts.Bar{ID: id, Label: name + " · " + l.Text(side), Tone: charts.ToneNeutral,
+				Text: wealthCategoryAmount(view, cell, result.Left.Currency, liability)}
+			if cell.Amount != nil {
+				bar.Value = wealthChartValue(*cell.Amount, liability)
+				nonzero = nonzero || bar.Value.Valid() && bar.Value.Number != 0
+			}
+			if cell.Share != nil {
+				bar.Detail = append(bar.Detail, wealthCategoryShare(view, cell))
+			}
+			spec.Bars = append(spec.Bars, bar)
+			targets[id] = item.Key
+		}
+	}
+	if !nonzero {
+		spec.Bars = nil
+	}
+	return spec, targets
+}
+
+func wealthChartValue(raw string, signedLiability bool) charts.Value {
+	value, err := decimal.NewFromString(raw)
+	if err != nil {
+		return charts.NoValue
+	}
+	if signedLiability {
+		value = value.Abs().Neg()
+	}
+	number := value.InexactFloat64()
+	if number == 0 && !value.IsZero() {
+		return charts.NoValue
+	}
+	return charts.Num(number)
+}
+
+func wealthCategoryAmount(view ui.View, cell application.HistoricalCategoryCell, currency string, liability bool) string {
+	l := view.Language
+	switch cell.Status {
+	case "absent":
+		return l.Text(i18n.WealthAccountAbsent)
+	case "excluded":
+		return l.Text(i18n.WealthAccountExcluded)
+	case "partial":
+		return l.Text(i18n.WealthAllocationMissing)
+	default:
+		return wealthExactMoney(view, cell.Amount, currency, liability, false)
+	}
+}
+
+func wealthCategoryShare(view ui.View, cell application.HistoricalCategoryCell) string {
+	share := wealthAllocationShare(view, cell.Share)
+	if cell.ShareBasis == "known_subtotal" {
+		return fmt.Sprintf(view.Language.Text(i18n.WealthAllocationKnownShare), share)
+	}
+	return share
+}
+
 func wealthCategoryCell(view ui.View, side i18n.MessageID, cell application.HistoricalCategoryCell, currency string, liability bool,
 	rows map[string]application.HistoricalOverviewRow) layout.Widget {
 	l := view.Language
-	value := wealthExactMoney(view, cell.Amount, currency, liability, false)
-	switch cell.Status {
-	case "absent":
-		value = l.Text(i18n.WealthAccountAbsent)
-	case "excluded":
-		value = l.Text(i18n.WealthAccountExcluded)
-	case "partial":
-		value = l.Text(i18n.WealthAllocationMissing)
-	}
+	value := wealthCategoryAmount(view, cell, currency, liability)
 	children := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(side)+" · "+value, view.Colors.Ink))}
 	if cell.Status == "partial" {
 		known := l.Text(i18n.OverviewKnownSubtotal) + " · " + wealthExactMoney(view, cell.KnownAmount, currency, liability, false)
@@ -349,11 +424,7 @@ func wealthCategoryCell(view ui.View, side i18n.MessageID, cell application.Hist
 		}
 	}
 	if cell.Share != nil {
-		share := wealthAllocationShare(view, cell.Share)
-		if cell.ShareBasis == "known_subtotal" {
-			share = fmt.Sprintf(l.Text(i18n.WealthAllocationKnownShare), share)
-		}
-		children = append(children, ui.Rigid(view.Message(share, view.Colors.SecondaryInk)))
+		children = append(children, ui.Rigid(view.Message(wealthCategoryShare(view, cell), view.Colors.SecondaryInk)))
 	}
 	return func(gtx layout.Context) layout.Dimensions { return (ui.Column{Gap: 4}).Layout(gtx, children...) }
 }

@@ -282,6 +282,12 @@ between asset classes and currencies. Select a chart category or its text
 row to filter Accounts. **Return to allocation** restores the chart or row
 focus and scroll position. **Compare dates** and **Compare with current**
 offer paired category values for assets and liabilities.
+**Category comparison** charts adjacent A and B amounts on one scale.
+**Change** ranks comparable account balance changes and keeps other accounts
+available for inspection. Open valuation details for both endpoints and their
+components, or follow **View in Ledger activity** with the captured scope.
+**Reconciliation evidence** shows the shared supported contributions, residual
+and component records.
 
 Choose **Trend** to read daily net worth, assets and liabilities in the saved
 household base currency. Trend starts with the last closed day in the History
