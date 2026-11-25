@@ -257,6 +257,8 @@ func (copy balanceTargetCopy) problem(err error, fallback i18n.MessageID) i18n.M
 		return copy.noChange
 	case domain.ErrStalePreview:
 		return i18n.HistoryAmendmentStale
+	case domain.ErrCashBalanceTimeConflict:
+		return i18n.AccountValueTimeConflict
 	case domain.ErrNotFound, domain.ErrConflict:
 		return i18n.AccountUnavailable
 	case domain.ErrValidation:

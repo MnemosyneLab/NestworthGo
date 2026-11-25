@@ -634,6 +634,7 @@ var japaneseCatalog = catalog{
 	AccountCashReconcileHint: "差額を現金残高の照合調整として記録します。",
 	AccountCashNoChange:      "目標残高は現在の現金残高と同じです。",
 	AccountCashTimeConflict:  "後の現金残高がこの調整に優先します。現金履歴とシステム時刻を確認してください。",
+	AccountValueTimeConflict: "後の残高がこの更新に優先します。残高履歴とシステム時刻を確認してください。",
 	AccountCashInvalidTarget: "小数点以下4桁までのゼロ以上の残高を入力してください。",
 	AccountCashPreviewFailed: "現金残高をプレビューできませんでした。口座を確認して再試行してください。",
 	AccountCashUncertain:     "保存を確認できませんでした。同じ内容で再試行してください。",

@@ -1148,7 +1148,8 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		return domain.AccountValue{}, err
 	}
 	when := s.clock()
-	if strings.TrimSpace(effectiveAt) != "" {
+	currentObservation := strings.TrimSpace(effectiveAt) == ""
+	if !currentObservation {
 		parsed, parseErr := time.Parse("2006-01-02", effectiveAt)
 		if parseErr != nil {
 			return domain.AccountValue{}, &domain.Error{Code: domain.ErrValidation, Field: "effectiveAt", Message: "must use YYYY-MM-DD"}
@@ -1173,6 +1174,14 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 	value, err := domain.NewAccountValue(record.Account, money, when, s.clock())
 	if err != nil {
 		return domain.AccountValue{}, err
+	}
+	if latest := record.LatestValue; currentObservation && record.Account.TrackingMode == domain.TrackingBalance && latest != nil {
+		// Match the latest-value query at storage precision. When both
+		// timestamps tie, the newly inserted row wins by insertion order.
+		if value.EffectiveAt.Before(latest.EffectiveAt) ||
+			(value.EffectiveAt.Equal(latest.EffectiveAt) && value.CreatedAt.Before(latest.CreatedAt)) {
+			return domain.AccountValue{}, &domain.Error{Code: domain.ErrCashBalanceTimeConflict, Field: "effectiveAt", Message: "a later balance observation would override this update; check the system clock and balance history"}
+		}
 	}
 	if err := s.repository.AppendAccountValue(ctx, value); err != nil {
 		return domain.AccountValue{}, err

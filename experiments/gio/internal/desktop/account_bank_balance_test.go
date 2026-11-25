@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -391,4 +392,84 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	}
 	setBalanceTargetClock(0, app)
 	return app, session, paths, bank
+}
+
+func TestBalanceTargetRejectsObservationOlderThanLatest(t *testing.T) {
+	for _, test := range []struct {
+		name, action, amount, review, confirm, saved        string
+		newer, proposed, net, debt, updatedNet, updatedDebt string
+	}{
+		{"Harbor Checking", "Update bank balance", "Target balance · USD", "Review bank balance", "Confirm bank balance", "Bank balance saved.", "110", "120", "80", "30", "90", "30"},
+		{"Synthetic Card", "Update card balance", "Target amount owed · USD", "Review card balance", "Confirm card balance", "Card balance saved.", "35", "40", "65", "35", "60", "40"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := t.Context()
+			app, session, paths, id := seedBankBalanceFixture(t, false)
+			ref, refSession, _, refID := seedBankBalanceFixture(t, false)
+			if test.name == "Synthetic Card" {
+				id, refID = syntheticCardID(t, app), syntheticCardID(t, ref)
+			}
+			adapter := account.NewService(ref)
+			fault := &balanceTargetTestService{Service: app}
+
+			now := accountTestClock.Add(time.Minute)
+			clock := func() time.Time { return now }
+			app.SetClock(clock)
+			ref.SetClock(clock)
+			latest, err := app.AppendAccountValue(ctx, id, test.newer, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := adapter.AppendAccountValue(ctx, refID.String(), test.newer, ""); err != nil {
+				t.Fatal(err)
+			}
+			p, h, finish := balanceTargetHarness(t, fault, test.name, clock)
+			click := func(label string) { t.Helper(); h.click(label, false); finish() }
+			click(test.action)
+			setBankField(h, test.amount, &p.balanceTarget.draft.amount, test.proposed)
+			click(test.review)
+
+			// Advance through review, then correct the clock while the
+			// same observation is still the latest and the review is open.
+			now = accountTestClock
+			click(test.confirm)
+			assertPageLabel(t, &h.router, "A later balance would override this update. Check the balance history and system clock.")
+			if fault.appends != 1 || p.balanceTarget.draft == nil || p.balanceTarget.draft.review != nil ||
+				p.balanceTarget.draft.uncertain || p.balanceTarget.saved.known() {
+				t.Fatal("the definite rejection was reported as a save or retryable write")
+			}
+			_, err = adapter.AppendAccountValue(ctx, refID.String(), test.proposed, "")
+			if err == nil {
+				t.Fatal("Wails adapter accepted a superseded observation")
+			}
+			issue, ok := apierror.Parse(err.Error())
+			if !ok || issue.Code != string(domain.ErrCashBalanceTimeConflict) {
+				t.Fatalf("Wails adapter rejected with %v", err)
+			}
+			if got := readBankRecord(t, app, id).LatestValue; got.ID != latest.ID || got.Amount.CanonicalAmount() != test.newer {
+				t.Fatalf("rejected update changed the Accounts projection: %+v", got)
+			}
+			assertBankObservations(t, session, id, 2, 0)
+			assertBankObservations(t, refSession, refID, 2, 0)
+			assertBalanceTargetNetWorth(t, app, ref, test.net, test.debt)
+
+			now = accountTestClock.Add(2 * time.Minute)
+			click(test.review)
+			click(test.confirm)
+			assertPageLabel(t, &h.router, test.saved)
+			if _, err := adapter.AppendAccountValue(ctx, refID.String(), test.proposed, ""); err != nil {
+				t.Fatal(err)
+			}
+			if err := session.Close(); err != nil {
+				t.Fatal(err)
+			}
+			reopened, storage := reopenOnboardingProfile(t, paths)
+			reopened.SetClock(clock)
+			if got := readBankRecord(t, reopened, id).LatestValue.Amount.CanonicalAmount(); got != test.proposed {
+				t.Fatalf("new observation did not survive reopen: %s", got)
+			}
+			assertBankObservations(t, storage, id, 3, 0)
+			assertBalanceTargetNetWorth(t, reopened, ref, test.updatedNet, test.updatedDebt)
+		})
+	}
 }

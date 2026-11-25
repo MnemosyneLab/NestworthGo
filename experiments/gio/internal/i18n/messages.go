@@ -578,6 +578,7 @@ const (
 	AccountCashReconcileHint
 	AccountCashNoChange
 	AccountCashTimeConflict
+	AccountValueTimeConflict
 	AccountCashInvalidTarget
 	AccountCashPreviewFailed
 	AccountCashUncertain

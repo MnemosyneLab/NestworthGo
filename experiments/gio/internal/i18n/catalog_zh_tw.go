@@ -635,6 +635,7 @@ var traditionalChineseCatalog = catalog{
 	AccountCashReconcileHint: "將差額記為此現金餘額的對帳調整。",
 	AccountCashNoChange:      "目標餘額與目前的現金餘額相同。",
 	AccountCashTimeConflict:  "有較晚的現金餘額會覆蓋這次調整。請核對現金紀錄和系統時間。",
+	AccountValueTimeConflict: "有較晚的餘額紀錄會覆蓋本次更新。請核對餘額紀錄和系統時間。",
 	AccountCashInvalidTarget: "請輸入非負餘額，最多四位小數。",
 	AccountCashPreviewFailed: "無法預覽現金餘額。請檢查帳戶後重試。",
 	AccountCashUncertain:     "無法確認是否已儲存。請重試同一次提交。",

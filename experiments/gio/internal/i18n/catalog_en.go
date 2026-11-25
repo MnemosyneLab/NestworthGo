@@ -635,6 +635,7 @@ var englishCatalog = catalog{
 	AccountCashReconcileHint: "Record the difference as a reconciliation of this cash balance.",
 	AccountCashNoChange:      "The target matches the current cash balance.",
 	AccountCashTimeConflict:  "A later cash balance would override this adjustment. Check the cash history and system clock.",
+	AccountValueTimeConflict: "A later balance would override this update. Check the balance history and system clock.",
 	AccountCashInvalidTarget: "Enter a nonnegative balance with up to four decimal places.",
 	AccountCashPreviewFailed: "Could not review the cash balance. Check the account and try again.",
 	AccountCashUncertain:     "Saving could not be confirmed. Retry the same submission.",
