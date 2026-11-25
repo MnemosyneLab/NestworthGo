@@ -301,6 +301,30 @@ const (
 	WealthHistoryScopeChanged
 	WealthHistoryBasisChanged
 	WealthHistoryFundingGap
+	WealthAccountTabName
+	WealthTrendTab
+	WealthAccountSingle
+	WealthAccountCompareDate
+	WealthAccountCompareCurrent
+	WealthAccountCurrent
+	WealthAccountCapture
+	WealthAccountDateA
+	WealthAccountDateB
+	WealthAccountSideA
+	WealthAccountSideB
+	WealthAccountNetChange
+	WealthAccountChanges
+	WealthAccountEmpty
+	WealthAccountBalance
+	WealthAccountComponents
+	WealthAccountDelta
+	WealthAccountAbsent
+	WealthAccountExcluded
+	WealthAccountLoading
+	WealthAccountFailed
+	WealthAccountSwap
+	WealthAccountIncomparable
+	WealthAccountRate
 	ReturnCalendar
 	ReturnToday
 	ReturnMonth

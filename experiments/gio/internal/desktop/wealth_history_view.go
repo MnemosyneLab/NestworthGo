@@ -53,6 +53,17 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	if p.draft == (wealthDateRange{}) {
 		return view.Message(l.Text(i18n.WealthHistoryNoClosedDays), view.Colors.SecondaryInk)(gtx)
 	}
+	if p.accountsTab.Clicked(gtx) && !p.showAccounts {
+		p.selectAccounts()
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if p.trendTab.Clicked(gtx) && p.showAccounts {
+		p.selectTrend()
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if p.showAccounts {
+		return p.layoutWealthAccounts(gtx, view, now)
+	}
 	valid := p.origin.permits(p.draft, now)
 	if p.load.Clicked(gtx) && valid && (p.seriesRead == nil || p.requested != p.draft) {
 		p.readSeries(p.draft)
@@ -102,6 +113,7 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 			children = append(children, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryRetained), view.Colors.SecondaryInk)))
 		}
 	}
+	children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutWealthTabs(gtx, view) }))
 	if p.current != nil {
 		if len(p.current.rows) == 0 {
 			children = append(children, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryEmpty), view.Colors.SecondaryInk)))

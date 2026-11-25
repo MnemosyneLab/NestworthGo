@@ -1516,9 +1516,28 @@ display preferences.
 | Build and tests | The full Gio module suite, Gio vet, the independent Linux preview build, and focused shared application, domain and Wails analytics Go tests passed. The Component Preview popover regression checks placement below the footer at 1120×1000, above it at 1120×840, and after scrolling the compact window. It compares the actual anchor bounds and checks focus throughout. The native Linux preview reproduced those placements and Escape returned focus to the trigger. |
 | Open evidence | Wails GUI, Linux Wayland, native macOS, VoiceOver and native IME remain unverified for this slice. Production-profile startup, release acceptance and cutover remain separate gates. |
 
-The Wealth History endpoint drill-down, detailed source evidence, market data
-refresh and Data Health repair remain open. Chart development and integration
-are paused pending separately coordinated shared components.
+#### Wealth History account captures
+
+The Accounts lens reads the shared historical endpoint. Choose a single
+closed day, compare two closed days, or compare a day with the current stored
+valuation. Two-date comparisons preserve A and B order, including when
+swapped. The capture controls precede the read time and endpoint summaries,
+followed by the lens selector, changed-only filter and account rows. Account
+rows expand to balance, cash and holding components with exact shared values,
+missing currency pairs and available quote evidence. A failed read keeps the
+previous capture and offers Retry. Trend keeps its loaded range when switching
+lenses. Trend remains the initial lens while Allocation and Change are open.
+
+| Check | Evidence |
+| --- | --- |
+| Shared/Wails | Independent read-only SQLite copies matched the complete historical account capture for dated and current comparisons, including the missing AUD/USD pair and the stored manual rate `1 USD = 1.2345 AUD`. Both services made zero provider calls. The Wails Historical Overview interaction suites passed 85 tests. |
+| Gio | Frame checks covered date swap, changed-only filtering, expanding the account, both sides of the comparison, switching lenses with retained state and keyboard traversal into the Trend table. The full Gio module suite, including the independently merged chart component tests, and `go vet ./...` passed. |
+| Linux X11 | The packaged app opened a verified synthetic profile and compared November 24 with current. Both sides showed USD 125.00 known net contribution, named the missing rate for Synthetic Australian cash and expanded Synthetic broker to its fund. At 700×480 the summaries stacked. Logical SQLite fingerprints matched before launch and after quit. |
+| Open | Allocation, Change, full account detail and links to Ledger activity remain open, along with the Wails capture shortcuts and expanded evidence. Native Mac, VoiceOver, native IME and Wayland remain unverified. |
+
+Shared chart components are available through #286. Return Trend is the first
+page integration. Each chart keeps a keyboard-readable table and needs its
+own page and platform evidence.
 
 #### Read-only Return Analysis calendar
 

@@ -32,6 +32,10 @@ func (r wealthHistoryTestReader) HistoricalOverviewSeries(ctx context.Context, f
 	return r.load(ctx, wealthDateRange{from, to})
 }
 
+func (r wealthHistoryTestReader) HistoricalOverview(context.Context, string, string) (application.HistoricalOverviewResult, error) {
+	return application.HistoricalOverviewResult{}, nil
+}
+
 func openWealthHistoryTest(t *testing.T, reader wealthHistoryReader, clock func() time.Time) (*previewHarness, *wealthHistoryPage) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
@@ -181,6 +185,12 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 	assertPageLabel(t, &h.router, "Net worth · Unavailable")
 	h.router.MoveFocus(key.FocusForward)
 	h.frame()
+	h.focused(&page.accountsTab)
+	h.router.MoveFocus(key.FocusForward)
+	h.frame()
+	h.focused(&page.trendTab)
+	h.router.MoveFocus(key.FocusForward)
+	h.frame()
 	h.focused(&page.list)
 	h.press(key.NameEnd)
 	assertPageLabel(t, &h.router, "2026-11-29 · This date did not occur in the History timezone.")
@@ -300,5 +310,57 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		"Liabilities · -A$ 25.10",
 	} {
 		assertPageLabel(t, &h.router, label)
+	}
+
+	// Compare endpoint captures on the same independent read-only copies used
+	// for the series. The first capture has no usable USD/AUD rate.
+	wailsAnalytics := analytics.NewService(wails)
+	compare, err := wailsAnalytics.HistoricalOverview(ctx, "2026-08-01", "2026-08-02")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Accounts in Wealth history", false)
+	page.workers.Wait()
+	h.frame()
+	h.click("Compare dates", false)
+	h.click("Date A", true)
+	h.press(key.NameLeftArrow)
+	h.press(key.NameReturn)
+	h.click("Capture accounts", false)
+	page.workers.Wait()
+	h.frame()
+	if page.accounts.current == nil || !reflect.DeepEqual(compare, *page.accounts.current) {
+		t.Fatalf("Gio and Wails endpoint captures disagree: %v", page.accounts.err)
+	}
+	assertPageLabel(t, &h.router, "A · 2026-08-01 · AUD")
+	assertPageLabel(t, &h.router, "B · 2026-08-02 · AUD")
+	h.click("Changed accounts only", false)
+	assertPageLabel(t, &h.router, "Foreign cash")
+	h.click("Foreign cash", false)
+	h.frame()
+	assertPageLabel(t, &h.router, "Missing exchange rate · AUD / USD · Manual quote")
+	assertPageLabel(t, &h.router, "1 USD = 1.2345 AUD · Manual quote · 2026-08-02 12:00")
+	h.click("Swap dates", false)
+	h.click("Capture accounts", false)
+	page.workers.Wait()
+	h.frame()
+	assertPageLabel(t, &h.router, "A · 2026-08-02 · AUD")
+	assertPageLabel(t, &h.router, "B · 2026-08-01 · AUD")
+	h.click("Swap dates", false)
+	h.click("Compare with current", false)
+	h.click("Capture accounts", false)
+	page.workers.Wait()
+	h.frame()
+	current, err := wailsAnalytics.HistoricalOverview(ctx, "2026-08-01", "current")
+	if err != nil || page.accounts.current == nil || !reflect.DeepEqual(current, *page.accounts.current) {
+		t.Fatalf("Gio and Wails current comparisons disagree: %v, %v", err, page.accounts.err)
+	}
+	assertPageLabel(t, &h.router, "B · Current · AUD")
+	h.click("Trend", false)
+	assertPageLabel(t, &h.router, "2026-08-01 to 2026-08-02 · Base currency AUD · Asia/Singapore")
+	h.click("Accounts in Wealth history", false)
+	assertPageLabel(t, &h.router, "B · Current · AUD")
+	if !page.accounts.changesOnly || gioProvider.requests != 0 || wailsProvider.requests != 0 {
+		t.Fatalf("comparison did not retain its filter or requested quotes: Gio %d, Wails %d", gioProvider.requests, wailsProvider.requests)
 	}
 }

@@ -172,6 +172,9 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 			return false
 		}
 		switch {
+		case callee.Sel.Name == "HistoricalOverview":
+			// The third argument accepts the HistoricalOverview comparison sentinel.
+			return len(n.Args) == 3 && n.Args[2] == lit && value == "current"
 		case named(callee.X, "app") && callee.Sel.Name == "Title":
 			return value == "Nestworth" || value == "Nestworth Gio"
 		case named(callee.X, "format") && callee.Sel.Name == "Money":

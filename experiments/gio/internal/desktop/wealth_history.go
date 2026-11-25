@@ -17,6 +17,7 @@ import (
 type wealthHistoryReader interface {
 	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	HistoricalOverviewSeries(context.Context, string, string) (application.HistoricalOverviewSeriesResult, error)
+	HistoricalOverview(context.Context, string, string) (application.HistoricalOverviewResult, error)
 }
 
 type wealthDateRange struct{ from, to string }
@@ -69,9 +70,12 @@ type wealthHistoryPage struct {
 	draft, requested wealthDateRange
 	current          *wealthHistoryCapture
 
-	from, to ui.DatePicker
-	load     widget.Clickable
-	list     widget.List
+	from, to              ui.DatePicker
+	load                  widget.Clickable
+	list                  widget.List
+	accounts              wealthAccountCapture
+	trendTab, accountsTab widget.Clickable
+	showAccounts          bool
 }
 
 func newWealthHistoryPage(ctx context.Context, reader wealthHistoryReader, clock func() time.Time, invalidate func()) *wealthHistoryPage {
@@ -84,6 +88,10 @@ func newWealthHistoryPage(ctx context.Context, reader wealthHistoryReader, clock
 func (p *wealthHistoryPage) enter() {
 	if p.origin == nil {
 		p.readOrigin()
+	} else if p.showAccounts {
+		if p.accounts.current == nil && p.accounts.err == nil {
+			p.readAccounts(p.accounts.draft)
+		}
 	} else if p.current == nil && p.err == nil && p.origin.permits(p.requested, p.clock()) {
 		p.readSeries(p.requested)
 	}
@@ -94,6 +102,7 @@ func (p *wealthHistoryPage) leave() {
 		p.cancel()
 	}
 	p.cancel, p.originRead, p.seriesRead = nil, nil, nil
+	p.accounts.request = nil
 }
 
 func (p *wealthHistoryPage) readOrigin() {

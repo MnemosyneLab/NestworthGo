@@ -494,7 +494,7 @@ func (s *shell) waitingForPageFocus() bool {
 		return s.tasks.request != nil
 	}
 	if s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil {
-		return s.wealthHistory.originRead != nil || s.wealthHistory.seriesRead != nil
+		return s.wealthHistory.originRead != nil || s.wealthHistory.seriesRead != nil || s.wealthHistory.accounts.request != nil
 	}
 	if s.activeRoute() == returnAnalysisRoute && s.returns != nil {
 		return s.returns.refsRead != nil || s.returns.request != nil
