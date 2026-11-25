@@ -613,7 +613,7 @@ profiles and the established startup and ownership path.
 
 | Gate from the delivery sequence | What the pilot supports | What remains |
 | --- | --- | --- |
-| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, and scoped balance targets. The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Debt draws and payments, card purchases and refunds, expense categorization, broader reconciliation and account value updates, and backdated cases remain outside the migrated forms. |
+| Posting, preview and confirmation | Contributions, withdrawals, same- and cross-currency transfers, Holdings cash and within-account FX, scoped balance targets, and [card and debt posting](#card-purchases-refunds-and-debt-posting). The milestone comparisons cover exact native amounts, posting kinds, civil dates, balances and duplicate handling. | Cash-account entry to debt posting, additional liability reasons, expense categorization, broader reconciliation and account value updates, and additional backdated cases. |
 | History, starting point and amendments | Stable Activity detail, filters and cursor paging, History and onboarding starting points for eligible cash/liability balances, repeat for supported cash movements, and linked cash corrections and reversals. | Positive position opening and cost basis are investment prerequisites when importing existing holdings. The account action-sheet shortcut, repeat list menu, broader amendment editors, within-account FX calculator and remaining statement interactions can follow the first investment read. |
 | Cross-page and external invalidation | Confirmed writes refresh History, Account and Overview. History Activity links open the exact account and return to the existing visit. A write made through the same shared application service refreshes the active ledger pages without a page callback. | Exercise connected Mobile and MCP clients when their Gio lifecycles are wired. Keep production startup, target-platform acceptance and Wails GUI parity open. |
 
@@ -622,6 +622,36 @@ use isolated Holdings fixtures. Importing existing positions will require
 separate evidence for their opening quantity and cost. The first-buy fixture
 starts without holdings and verifies shared settlement, basis, valuation and
 linked History after a duplicate confirmation, read failure and restart.
+
+#### Card purchases, refunds and debt posting
+
+**Accounts → balance liability → Record a change** follows the scope and
+form order of [Wails account actions](../../../frontend/src/features/accounts/AccountActionSheets.tsx)
+and the [Record Change form](../../../frontend/src/features/history/RecordChangeForm.tsx).
+Credit cards default to Card purchase and offer Card refund. Balance
+liabilities also offer Debt draw and Debt payment, with a required cash
+endpoint and optional interest or fee on payments. Eligibility, persisted
+activity and replay use the shared ledger. Card amount defaults to the card's
+currency, and the shared command requires matching currencies for debt
+principal. The form captures the current instant in the Origin timezone and
+shows the editable local date and minute. Editing either field uses that civil
+time. The confirmation shows exact amounts and signed before/after balances.
+
+Gio uses a scrolling account page and wraps its controls at compact widths.
+After confirmation it opens the exact recorded Ledger activity, with a Back
+action that restores the selected account and the Record a change focus.
+This gives Gio immediate readback where Wails closes the account action
+sheet. Cancelling leaves the ledger unchanged. An out-of-date review returns
+the amount and note to the form. An uncertain reply retains the frozen
+submission for retry with its original mutation identity.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails Go parity | Independent synthetic ledgers matched card purchase USD 12.3456 and refund USD 3.12, including the card reasons, signed values, notes, and effective instant and civil date. The debt draw of USD 20.125 and payment of USD 10.25 with USD 1.0001 fee matched Wails review rows and persisted effects. |
+| Failure, keyboard and scope | The Gio harness checked review Cancel and focus restoration, invalid precision and fee, excess refund, stale preview, a duplicate click while a save was blocked, lost-reply retry, retrying a failed Ledger detail read and replay after reopening SQLite. The unrelated USD 105 account and its prior activity were unchanged. Wide and 620 dp viewports kept the same source actions and exact activity links. |
+| Linux X11 and persistence | The standard package opened a synthetic profile copy at 1160×820 for card posting and 640×480 for loan posting. Cancel and Ledger Back restored Record a change, and Return reopened it. After quit and reopen, Ledger showed four postings. SQLite showed USD 39.2256 owed on the card, USD 59.875 owed on the loan and USD 108.8749 in Checking. The unrelated reserve retained USD 245 and its prior income. Source database and settings hashes matched. |
+| Regression suites | Full Gio tests and vet, the standard Linux package, three focused Gio runs, the application, Wails History adapter and domain Go suites, and 129 Wails Accounts and Activity Detail frontend tests passed. |
+| Open scope | Cash-account entry to a debt operation, additional liability change reasons, and liability-specific amendment editors remain open. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver remain unverified. |
 
 #### Cash contribution milestone
 
@@ -2135,9 +2165,9 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Finish Stage 4 debit and credit account workflows next, starting with debt
-draws and payments, card purchases and refunds, and account Starting Point
-handoffs. Then continue Stage 5 with multi-position opening, cross-currency
+Finish account Starting Point handoffs and the remaining Stage 4 account
+workflows after the verified card and debt posting slice. Then continue Stage
+5 with multi-position opening, cross-currency
 trades and broader Holdings actions. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

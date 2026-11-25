@@ -372,6 +372,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.balanceTarget != nil {
 			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
 		}
+		if s.accounts != nil && s.accounts.liabilityPosting != nil {
+			s.accounts.liabilityPosting.onPosted = s.historyPage.showPosted
+		}
 		if s.accounts != nil && s.accounts.investment != nil {
 			s.accounts.investment.onPosted = func(activity domain.Activity, notice i18n.MessageID, from event.Tag) {
 				s.historyPage.showPosted(activity, notice, from)
@@ -389,7 +392,16 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				s.trail.rename(target, name)
 			}
 		}
+		s.historyPage.reads.backToAccount = func() bool {
+			source := s.trail.adjacent(-1)
+			return source != nil && source.target.route == accountsRoute && s.accounts != nil &&
+				s.accounts.liabilityPosting != nil && source.focus == &s.accounts.liabilityPosting.open
+		}
 		s.historyPage.reads.back = func() {
+			if s.historyPage.reads.backToAccount() {
+				s.pendingNavigation = &navigationRequest{step: -1}
+				return
+			}
 			request := navigationRequest{target: navigationTarget{route: historyRoute}}
 			for i := s.trail.cursor - 1; i >= 0; i-- {
 				if target := s.trail.entries[i].target; target.route == historyRoute && target.activity == "" {
@@ -485,6 +497,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		s.accounts.pollLiabilityPosting()
 		s.accounts.pollInvestment()
 		s.accounts.pollOpeningPosition()
 		if s.accounts.pollInlineInstitution() && s.directory != nil {

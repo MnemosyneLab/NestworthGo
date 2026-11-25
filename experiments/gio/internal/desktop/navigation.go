@@ -157,7 +157,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startingPointUnresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.statementUnresolved() || s.accounts.investmentUnresolved() || s.accounts.openingPositionUnresolved()) {
+	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investmentUnresolved() || s.accounts.openingPositionUnresolved()) {
 		return
 	}
 	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.productPage.receiptUnresolved()) {
@@ -222,6 +222,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 		if balance := s.accounts.balanceTarget; balance != nil {
 			balance.draft = nil
+		}
+		if posting := s.accounts.liabilityPosting; posting != nil {
+			posting.draft = nil
+			posting.restore = false
 		}
 		if opening := s.accounts.opening; opening != nil {
 			opening.draft = nil

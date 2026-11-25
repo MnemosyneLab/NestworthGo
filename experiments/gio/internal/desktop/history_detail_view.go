@@ -54,13 +54,17 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	} else if d.id == r.posted.ID {
 		title = historyKindLabel(r.posted.Kind, r.posted.Reason)
 	}
+	backLabel := i18n.ContributionBack
+	if r.backToAccount != nil && r.backToAccount() {
+		backLabel = i18n.LiabilityBackToAccount
+	}
 
 	children := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(10)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					view.Focus.Watch(gtx, &d.back)
-					return view.Button(&d.back, l.Text(i18n.ContributionBack))(gtx)
+					return view.Button(&d.back, l.Text(backLabel))(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return view.Label(gtx, l.Text(title), 19, font.Medium, view.Colors.Ink)
@@ -208,6 +212,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	muted := func(text string) layout.Widget { return view.Message(text, view.Colors.SecondaryInk) }
 	movement, supported := history.CashMovementOf(activity.Kind, activity.Reason)
 	paired := supported && (movement == history.CashTransfer || movement == history.CashConversion)
+	card := activity.Reason == domain.ReasonCardPurchase || activity.Reason == domain.ReasonCardRefund
+	debt := activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment
+	var debtAccount domain.AccountID
 	account := func(id *domain.AccountID) string {
 		if id != nil && detail.Accounts[*id] != "" {
 			return detail.Accounts[*id]
@@ -251,13 +258,19 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	}
 	for _, effect := range activity.Effects {
 		var caption string
-		if detail.LiabilityValueUpdate && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil {
+		switch {
+		case (detail.LiabilityValueUpdate || card || effect.Role == domain.EffectRoleDebt) && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil:
 			label := i18n.HistoryDebtIncreased
 			if effect.Direction == domain.EffectRemoved {
 				label = i18n.HistoryDebtReduced
 			}
 			caption = fmt.Sprintf(l.Text(label), account(effect.AccountID), movementMoney(effect))
-		} else {
+			if effect.AccountID != nil {
+				debtAccount = *effect.AccountID
+			}
+		case debt && effect.Role == domain.EffectRoleFee && effect.Money != nil:
+			caption = fmt.Sprintf(l.Text(i18n.TransferFeePaid), account(effect.AccountID), movementMoney(effect))
+		default:
 			caption = effectCaption(l, effect, paired, supported, movement, account, instrument)
 		}
 		class := l.Text(effectClasses[effect.Classification])
@@ -312,9 +325,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			shown[row] = true
 		}
 		balance := result.Amount + " " + result.Currency.String()
-		if detail.LiabilityValueUpdate && result.Target == domain.EffectTargetAccountValue {
+		if debtAccount != "" && result.AccountID != nil && *result.AccountID == debtAccount && result.Target == domain.EffectTargetAccountValue {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.AccountCardBalanceOwedAfter), balance)))
-		} else if namedBalances {
+		} else if namedBalances || debt {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.TransferAccountBalance), account(result.AccountID), balance)))
 		} else {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.ContributionAfter), balance)))

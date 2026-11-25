@@ -98,6 +98,7 @@ type historyReads struct {
 	openInstrument func(id domain.InstrumentID, name string, focus event.Tag)
 	openProduct    func(id domain.ProductContractID, name string, focus event.Tag)
 	back           func()
+	backToAccount  func() bool
 	rename         func(id domain.ActivityID, name string)
 }
 
@@ -341,6 +342,12 @@ func (p *historyPage) pruneDetailButtons() {
 }
 
 func historyKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i18n.MessageID {
+	if kind == domain.ActivityCashIn && reason == domain.ReasonCardPurchase {
+		return i18n.LiabilityCardPurchase
+	}
+	if kind == domain.ActivityCashOut && reason == domain.ReasonCardRefund {
+		return i18n.LiabilityCardRefund
+	}
 	if (kind == domain.ActivityCashIn || kind == domain.ActivityCashOut) && reason == domain.ReasonReconciliation {
 		return i18n.HistoryCashReconciled
 	}

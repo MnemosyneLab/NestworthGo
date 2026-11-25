@@ -1184,6 +1184,25 @@ const (
 	AccountBankBalanceSaved
 	AccountBankBalanceUnverified
 	AccountCardBalanceAction
+	LiabilityRecord
+	LiabilityBackToAccount
+	LiabilityCardPurchase
+	LiabilityCardRefund
+	LiabilityChooseCash
+	LiabilityCashRequired
+	LiabilityNoCash
+	LiabilityInterest
+	LiabilityInvalidInterest
+	LiabilityUseNow
+	LiabilityPreview
+	LiabilityConfirm
+	LiabilityPosted
+	LiabilityPreviewFailed
+	LiabilityStalePreview
+	LiabilityCurrencyMatch
+	LiabilityAmountFact
+	LiabilityInterestFact
+	LiabilityBalanceReview
 	AccountCardBalanceReview
 	AccountCardBalanceConfirm
 	AccountCardBalanceTarget

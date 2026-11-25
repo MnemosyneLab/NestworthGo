@@ -61,6 +61,16 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.maintenance != nil && p.maintenance.draft != nil {
 		return p.layoutAccountSettings(gtx, view)
 	}
+	if f := p.liabilityPosting; f != nil {
+		if f.draft == nil && p.canPostLiability() && f.open.Clicked(gtx) {
+			p.startLiabilityPosting()
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return p.layoutLiabilityPosting(gtx, view)
+		}
+	}
 	if f := p.cashBalance; f != nil {
 		if f.draft == nil && p.canSetCashBalance() && f.open.Clicked(gtx) {
 			p.startCashBalance()
@@ -191,6 +201,20 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			toolbar := func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, controls...)
+			}
+			if p.canPostLiability() {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+					layout.Rigid(toolbar),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						f := p.liabilityPosting
+						view.Focus.Watch(gtx, &f.open)
+						if f.restore && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: &f.open})
+							f.restore = false
+						}
+						return layout.W.Layout(gtx, view.PrimaryButton(&f.open, l.Text(i18n.LiabilityRecord)))
+					}),
+				)
 			}
 			if !p.canCreateBankAccount() && !p.canCreateUnscoped() {
 				return toolbar(gtx)

@@ -283,6 +283,7 @@ type accountsPage struct {
 	investment                         *accountInvestment
 	opening                            *accountOpeningPosition
 	balanceTarget                      *accountBalanceTarget
+	liabilityPosting                   *accountLiabilityPosting
 	statement                          *accountStatement
 }
 
