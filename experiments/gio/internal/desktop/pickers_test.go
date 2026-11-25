@@ -53,6 +53,7 @@ func TestPreviewSearchResetsAndReturnsToTraversal(t *testing.T) {
 	h := newPreviewHarness(t)
 	p := &h.preview.pickers
 	h.size = image.Pt(700, 460)
+	h.preview.scroll.ScrollToEnd = true // the picker row scrolls with the page
 	h.frame()
 	h.click("Choose institution", true)
 	if got := h.shell.overlay.Panel; got.Empty() || !got.In(image.Rectangle{Max: h.size}) {

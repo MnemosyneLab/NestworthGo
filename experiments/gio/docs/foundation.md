@@ -264,6 +264,24 @@ settle a few dp toward their anchor. The sidebar, header navigation and
 picker rows use the same tweens. The directory icon picker keeps Material
 shapes until its mapping moves to Lucide.
 
+### Responsive layout
+
+The window is at least 700 by 460 dp and every page must stay usable from
+there up to a large display. Window-level decisions use the named
+`ui.Breakpoint*` widths, which mirror the Tailwind steps in Wails: the sidebar
+becomes a rail below `BreakpointMedium`. Container-level decisions use
+`ui.Grid`, which flows equal-width cells into as many columns as fit (a minimum
+column width and a gap, an optional column cap, and `Balanced` to avoid an
+orphan cell) and hands each cell its own origin so popups stay anchored.
+`ui.Place` is the same primitive for a single child. Pages scroll vertically
+through `View.List` instead of pinning content to the bottom edge, and popups
+that anchor inside a scrolled list move with it (see `OffsetAnchor`). A guard
+test rejects comparing a width with an inline `gtx.Dp(<number>)`; name the
+threshold instead. `TestShellAdaptsToWindowSize` and
+`TestPreviewControlsStayReachableAtEverySize` cover four window sizes, and the
+`responsive` snapshots render Overview, Settings and Component Preview at the
+same sizes for review.
+
 ### Follow-on controls
 
 General settings reset and directory archive use the same window-level

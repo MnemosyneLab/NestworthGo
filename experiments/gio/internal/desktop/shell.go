@@ -392,7 +392,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
-	s.narrow = gtx.Constraints.Max.X < gtx.Dp(960)
+	s.narrow = !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium)
 	if s.railButton.Clicked(gtx) {
 		if s.narrow {
 			s.narrowExpanded = !s.narrowExpanded

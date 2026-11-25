@@ -132,7 +132,7 @@ func TestVisualSnapshots(t *testing.T) {
 		}
 	})
 	t.Run("responsive", func(t *testing.T) {
-		for _, size := range []image.Point{{700, 460}, {820, 640}, {1600, 1000}} {
+		for _, size := range responsiveSizes {
 			for _, route := range []struct {
 				name string
 				id   routeID
@@ -141,6 +141,10 @@ func TestVisualSnapshots(t *testing.T) {
 				h.size = size
 				h.shell.trail = newNavigationTrail(route.id)
 				h.snapshot(t, dir, fmt.Sprintf("responsive-%s-%dx%d", route.name, size.X, size.Y))
+				if route.id == componentPreviewRoute {
+					h.preview.scroll.ScrollBy(1)
+					h.snapshot(t, dir, fmt.Sprintf("responsive-%s-end-%dx%d", route.name, size.X, size.Y))
+				}
 			}
 		}
 	})

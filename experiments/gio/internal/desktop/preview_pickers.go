@@ -7,7 +7,6 @@ import (
 
 	"gioui.org/io/event"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -58,7 +57,7 @@ func (p *previewPickers) dateOptions(format string) ui.DateOptions {
 	}
 }
 
-func (p *componentPreview) pickerFields(gtx layout.Context, view ui.View, width, y, columns int) {
+func (p *componentPreview) pickerFields(gtx layout.Context, view ui.View) layout.Dimensions {
 	c := &p.pickers
 	if view.TimeFormat != c.lastTimeFormat {
 		c.twelveHour, c.lastTimeFormat = view.TimeFormat == "12h", view.TimeFormat
@@ -86,23 +85,19 @@ func (p *componentPreview) pickerFields(gtx layout.Context, view ui.View, width,
 			c.clock.Layout(gtx, view, field, c.timeValue, c.twelveHour, true, func(value string) { c.timeValue = value })
 		}},
 	}
-	for i, field := range fields {
-		position, size := pickerSlot(gtx, width, y, columns, i)
-		offset := op.Offset(position).Push(gtx.Ops)
+	return previewGrid.Layout(gtx, view, len(fields), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))
 		gtx.Constraints = layout.Exact(size)
-		field.draw(gtx, ui.PickerField{
-			Label: field.label, Origin: view.Origin.Add(position), Previous: tabs[i], Next: tabs[i+2],
+		fields[i].draw(gtx, ui.PickerField{
+			Label: fields[i].label, Origin: view.Origin, Previous: tabs[i], Next: tabs[i+2],
 		})
-		offset.Pop()
-	}
+		return layout.Dimensions{Size: size}
+	})
 }
 
-func pickerSlot(gtx layout.Context, width, y, columns, index int) (image.Point, image.Point) {
-	gap := gtx.Dp(10)
-	column := index % columns
-	cellWidth := max(0, (width-(columns-1)*gap)/columns)
-	x := column * (cellWidth + gap)
-	return image.Pt(x, y+gtx.Dp(68)*(index/columns)), image.Pt(cellWidth, gtx.Dp(40))
+// triggers lists the picker triggers whose popups follow the scrolled page.
+func (p *previewPickers) triggers() []*widget.Clickable {
+	return []*widget.Clickable{&p.account.Trigger, &p.institution.Trigger, &p.date.Trigger, &p.clock.Trigger}
 }
 
 func (p *previewPickers) resultLines(view ui.View) []string {

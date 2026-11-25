@@ -176,7 +176,9 @@ func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 		t.Fatalf("popover should flip above the footer trigger: panel %v, trigger %v", initial, host.Anchor)
 	}
 
+	// The picker and action rows scroll with the page, so keep them in view.
 	h.size = image.Pt(700, 460)
+	h.preview.scroll.ScrollToEnd = true
 	h.frame()
 	window := image.Rectangle{Max: h.size}
 	if host.Panel.Empty() || !host.Panel.In(window) || host.Panel == initial || host.Panel.Max.Y >= host.Anchor.Min.Y {

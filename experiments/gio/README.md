@@ -120,7 +120,8 @@ The output covers Component Preview and Settings in light and dark with each
 color theme and language, open select, date and time pickers, a gallery of
 buttons, text fields and surfaces with rest, hover, press, focus, error,
 disabled and read-only states, the design tokens, shadow levels, type scale,
-the confirmation dialog and the Lucide icon sheet. Images
+the confirmation dialog, the Lucide icon sheet and the Overview, Settings and
+Component Preview pages at four window sizes. Images
 use 2x density. Keep a copy before changing a control and compare the same
 file names afterwards. Review them separately from native macOS checks:
 headless frames do not exercise the window system, input methods or VoiceOver.
