@@ -548,6 +548,15 @@ var simplifiedChineseCatalog = catalog{
 	ReturnSortSmallest:     "金额从低到高",
 	ReturnSortName:         "名称",
 
+	ReturnTrendTable:        "收益趋势数据",
+	ReturnTrendChartSummary: "所选范围内的每日收益。使用方向键查看各日期。",
+	ReturnTrendBaseline:     "所选范围前一天的起始值",
+	ReturnTrendValuationGap: "缺少估值",
+	ReturnTrendRateGap:      "有收益金额，无收益率",
+	ReturnTrendGap:          "每日收益不可用",
+	ReturnTrendReset:        "恢复累计收益额",
+	ChartSelected:           "已选择",
+
 	RankingTotal:     "总贡献",
 	RankingPositive:  "正贡献",
 	RankingNegative:  "负贡献",

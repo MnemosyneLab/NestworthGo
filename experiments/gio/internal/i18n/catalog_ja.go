@@ -547,6 +547,15 @@ var japaneseCatalog = catalog{
 	ReturnSortSmallest:     "金額の昇順",
 	ReturnSortName:         "名前",
 
+	ReturnTrendTable:        "リターン推移データ",
+	ReturnTrendChartSummary: "選択範囲の日次リターン。矢印キーで各日付を確認できます。",
+	ReturnTrendBaseline:     "選択範囲の直前の開始値",
+	ReturnTrendValuationGap: "評価額がありません",
+	ReturnTrendRateGap:      "リターン額のみ取得可能",
+	ReturnTrendGap:          "日次リターンは取得できません",
+	ReturnTrendReset:        "累積リターン額に戻す",
+	ChartSelected:           "選択中",
+
 	RankingTotal:     "寄与の合計",
 	RankingPositive:  "プラスの寄与",
 	RankingNegative:  "マイナスの寄与",

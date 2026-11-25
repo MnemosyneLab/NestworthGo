@@ -1583,8 +1583,8 @@ composition and the selected daily values. Contribution shows the shared
 summary and ranking, with return type, grouping and ordering. Both begin with
 keyboard-scrollable lists so the supplied daily values and ranked rows are
 readable at small window sizes. The [parity checklist](parity.md#return-analysis-and-related-navigation)
-tracks remaining presets and detail workflows. Chart development and
-integration are paused.
+tracks the cross-page workflows. The Trend chart builds on the same filters
+and projections.
 
 | Check | Evidence |
 | --- | --- |
@@ -1592,6 +1592,32 @@ integration are paused.
 | Shared Go comparison | Independent SQLite fixtures matched the Wails Go Trend amount and ratio, point count, and the first Contribution row's exact identity and amount. Both copies made zero provider requests. |
 | Linux X11 | The packaged preview on the verified synthetic portfolio selected the named instrument and native valuation. Trend and Contribution showed USD 25 and +25% and retained November 1–24. Calendar retained the date range on return. At 700×480 the shared date fields wrapped to a second row, and Escape followed by Tab and Return moved from Scope to the Valuation picker. |
 | Build and tests | The full Gio module suite, Gio vet, independent native Linux preview build and focused shared application/domain/Wails analysis suites passed. |
+
+#### Return Trend chart and daily data
+
+The display choice precedes the period amount, linked period rate and
+coverage. A line chart and keyboard-scrollable daily table follow the
+summary, with return sources below. The display switches among cumulative
+amount, linked return rate and daily amount while retaining the effective
+range and filters. Cumulative mode prepends a real zero on the civil day
+before the range and includes that date in the chart viewport. Linked-rate
+and daily-amount modes start on the first requested day. The chart and table
+format the shared decimal amounts and rates. Geometry uses floats.
+
+An explicit valuation gap is a dated, selectable point with its reason.
+The cumulative service value can carry across that gap. Gio interrupts the
+line and marks the specific missing observation in the table and readout so
+it remains visible between valid points. The chart supports arrow keys, Home,
+End, Return and Escape. Its compact version shortens the chart and keeps
+the data table in the page scroll.
+
+| Check | Evidence |
+| --- | --- |
+| Projection | The focused fixture starts August 1 with USD 5.25, has a missing valuation on August 2, and records −USD 2.50 on August 3. Cumulative mode draws a true zero on July 31 and shows USD 2.75 on August 3. Linked-rate and daily-amount modes have no synthetic baseline. Every mode keeps the dated gap. The shared line test checks that missing values split strokes and real zero stays in the line. |
+| Wails and Gio | 66 Wails Return Analysis and insight tab tests passed. The focused root Go projection and Wails request tests passed. Gio frame tests exercised the normal shell, chart selection and clearing with the keyboard, linked mode, and the keyboard-readable table at 700×480 in dark appearance. |
+| Build and tests | The full Gio module suite, `go vet ./...` and the packaged native Linux launcher passed on the combined tree. |
+| Linux X11 | The packaged preview on a verified synthetic portfolio showed the October 31 zero and November 2 USD 5.25. Keyboard selection of November 4 showed Missing valuation and Unavailable. Daily mode selected November 6 at −USD 2.50. Linked-rate mode started November 1 with no cumulative baseline. At 1180×1000 the gap interrupted the chart; after reopening the synthetic fixture in dark appearance, the plot and daily table remained readable at 700×480. |
+| Open | Contribution ranking, Asset Changes and Wealth History chart adapters remain separate milestones. Native Mac, Wayland and assistive technology acceptance remain open. |
 
 #### Asset Changes and the Return day link
 
@@ -1602,8 +1628,8 @@ among net worth, assets, liabilities or net change and day, week or month.
 Change drivers shows the beginning and ending values, the net change, rate
 and the shared driver groups. Categories shows the chosen shared category
 total and attributed rows. The trend and category tables support keyboard
-scrolling. The layout follows the Wails section order. Charts are paused
-and the driver and category details remain open.
+scrolling. The layout follows the Wails section order. The trend, driver and
+category chart adapters and detail workflows remain open.
 
 The Return Calendar detail action **View asset changes for this day** opens
 Change drivers with that single date and the existing supported filters. Back

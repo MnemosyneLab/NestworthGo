@@ -548,6 +548,15 @@ var englishCatalog = catalog{
 	ReturnSortSmallest:     "Smallest amount first",
 	ReturnSortName:         "Name",
 
+	ReturnTrendTable:        "Return trend data",
+	ReturnTrendChartSummary: "Daily returns across the selected range. Use the arrow keys to inspect each date.",
+	ReturnTrendBaseline:     "Starting value before the selected range",
+	ReturnTrendValuationGap: "Missing valuation",
+	ReturnTrendRateGap:      "Return amount available, rate unavailable",
+	ReturnTrendGap:          "Daily return unavailable",
+	ReturnTrendReset:        "Return to cumulative amount",
+	ChartSelected:           "Selected",
+
 	RankingTotal:     "Total contribution",
 	RankingPositive:  "Positive contributions",
 	RankingNegative:  "Negative contributions",

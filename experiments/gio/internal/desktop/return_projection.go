@@ -13,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -28,7 +29,12 @@ type returnProjectionControls struct {
 	ranking                    contributionRanking
 	rankButtons                map[string]*widget.Clickable
 	selectedKey                string
+	trendChart                 charts.LineChart
+	trendSelection             charts.Selection
+	resetTrend                 widget.Clickable
 }
+
+const returnTrendWideChartMinWidth = 610
 
 func (p *returnProjectionControls) trendDisplay() application.ReturnTrendDisplay {
 	if p.display == "" {
@@ -99,7 +105,7 @@ func (p *returnAnalysisPage) layoutProjection(gtx layout.Context, view ui.View) 
 		}
 		if p.current != nil {
 			if p.current.trend != nil {
-				rows = append(rows, p.trendRows(view, *p.current.trend)...)
+				rows = append(rows, p.trendRows(gtx, view, *p.current.trend, p.current.summaryFrom, p.current.summaryTo)...)
 			}
 			if p.current.contribution != nil {
 				rows = append(rows, p.contributionRows(view, *p.current.contribution)...)
@@ -170,13 +176,47 @@ func (p *returnAnalysisPage) projectionOptions(gtx layout.Context, view ui.View)
 		func(gtx layout.Context, view ui.View, i int) layout.Dimensions { return fields[i](gtx, view) })
 }
 
-func (p *returnAnalysisPage) trendRows(view ui.View, trend application.ReturnTrendResult) []ui.ColumnChild {
+func (p *returnAnalysisPage) trendRows(gtx layout.Context, view ui.View, trend application.ReturnTrendResult, from, to domain.LocalDate) []ui.ColumnChild {
 	l := view.Language
-	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.ReturnAmount)+" · "+returnMoney(view, trend.Amount), view.Colors.Ink)),
+	amount := returnMoney(view, trend.Amount)
+	if trend.Amount != nil && trend.Status == domain.CompletenessPartial {
+		amount += " · " + l.Text(i18n.OverviewKnownSubtotal)
+	}
+	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.ReturnAmount)+" · "+amount, view.Colors.Ink)),
 		ui.Rigid(view.Message(l.Text(i18n.ReturnRate)+" · "+returnRate(view, trend.Rate), view.Colors.Ink)),
 		ui.Rigid(view.Message(returnCoverage(l, trend.Coverage, trend.ReturnDayCoverage), view.Colors.SecondaryInk))}
 	if !trend.Available {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.ReturnInsufficient), view.Colors.SecondaryInk)))
+	}
+	if len(trend.Points) != 0 {
+		spec := returnTrendLine(view, trend, from, to)
+		spec.Selected = p.output.trendSelection
+		if gtx.Constraints.Max.X < gtx.Dp(returnTrendWideChartMinWidth) {
+			spec.Height = 180
+		}
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Column{Gap: 4}).Layout(gtx,
+					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return (layout.Inset{Top: 10, Left: 10, Right: 10}).Layout(gtx, view.Body(ui.TextLabel, spec.Label, view.Colors.Ink))
+					}),
+					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						view.Focus.Watch(gtx, &p.output.trendChart)
+						dims, events := p.output.trendChart.Layout(gtx, view, spec)
+						if len(events) > 0 {
+							p.output.trendSelection = charts.Apply(p.output.trendSelection, events)
+							gtx.Execute(op.InvalidateCmd{})
+						}
+						return dims
+					}))
+			})
+		}))
+		table := spec.Rows()
+		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
+			return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnTrendTable), len(table), func(gtx layout.Context, i int) layout.Dimensions {
+				return view.Message(returnTrendTableText(table[i]), view.Colors.Ink)(gtx)
+			})
+		}))
 	}
 	if len(trend.Sources) != 0 {
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink)))
@@ -185,18 +225,14 @@ func (p *returnAnalysisPage) trendRows(view ui.View, trend application.ReturnTre
 			rows = append(rows, ui.Rigid(view.Message(label+" · "+returnMoney(view, source.Amount), view.Colors.Ink)))
 		}
 	}
-	if len(trend.Points) != 0 {
-		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnTrend), len(trend.Points), func(gtx layout.Context, i int) layout.Dimensions {
-				point := trend.Points[i]
-				value := returnMoney(view, point.Value)
-				if trend.Display == application.ReturnTrendLinkedRate {
-					value = returnRate(view, point.Rate)
-				}
-				text := wealthDay(view, point.Date) + " · " + value + " · " + returnCoverage(l, point.Coverage, application.ReturnDayCoverage{})
-				return view.Message(text, view.Colors.Ink)(gtx)
-			})
-		}))
+	if p.output.trendDisplay() != application.ReturnTrendCumulativeAmount {
+		if p.output.resetTrend.Clicked(gtx) {
+			p.output.display = application.ReturnTrendCumulativeAmount
+			p.changeProjection()
+			gtx.Execute(key.FocusCmd{Tag: &p.output.mode.Trigger})
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.output.resetTrend, i18n.ReturnTrendReset, nil, true)))
 	}
 	return rows
 }

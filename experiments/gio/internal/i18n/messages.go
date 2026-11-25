@@ -361,6 +361,14 @@ const (
 	ReturnCumulative
 	ReturnLinked
 	ReturnPeriodAmount
+	ReturnTrendTable
+	ReturnTrendChartSummary
+	ReturnTrendBaseline
+	ReturnTrendValuationGap
+	ReturnTrendRateGap
+	ReturnTrendGap
+	ReturnTrendReset
+	ChartSelected
 	ReturnDisplay
 	ReturnTotal
 	ReturnRealized
