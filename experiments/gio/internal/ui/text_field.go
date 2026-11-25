@@ -107,7 +107,7 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 	layoutEditor := func(gtx layout.Context) layout.Dimensions {
 		size := image.Pt(gtx.Constraints.Max.X, min(gtx.Constraints.Max.Y, gtx.Dp(height)))
 		gtx.Constraints = layout.Exact(size)
-		chrome := fieldChrome{Tag: &f.Editor, Active: input.Focused(&f.Editor), Invalid: invalid, Disabled: options.Disabled}
+		chrome := fieldChrome{Tag: &f.Editor, Active: input.Focused(&f.Editor), Ring: input.Focused(&f.Editor), Invalid: invalid, Disabled: options.Disabled}
 		return view.fieldFrame(gtx, chrome, func(gtx layout.Context) layout.Dimensions {
 			defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
 			semantic.DescriptionOp(accessibleName).Add(gtx.Ops)

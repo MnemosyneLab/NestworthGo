@@ -59,7 +59,7 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable, title, value string, invalid bool, glyph Glyph) layout.Dimensions {
 	colors := view.Colors
 	open := view.Overlay != nil && view.Overlay.Trigger == trigger
-	chrome := fieldChrome{Tag: trigger, Active: gtx.Focused(trigger) || open, Invalid: invalid, Disabled: !gtx.Enabled()}
+	chrome := fieldChrome{Tag: trigger, Active: gtx.Focused(trigger) || open, Ring: gtx.Focused(trigger), Invalid: invalid, Disabled: !gtx.Enabled()}
 	return view.fieldFrame(gtx, chrome, func(gtx layout.Context) layout.Dimensions {
 		return trigger.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			semantic.Button.Add(gtx.Ops)
@@ -147,10 +147,13 @@ type optionList struct {
 	buttons   map[string]*widget.Clickable
 	highlight string
 	active    bool
+	// keyboard shows the highlight. It starts on a keyboard open and after
+	// arrow navigation; a mouse open leaves only the check mark and hover.
+	keyboard bool
 }
 
-func (l *optionList) setActive(items []Choice, preferred string) {
-	l.active = false
+func (l *optionList) setActive(items []Choice, preferred string, keyboard bool) {
+	l.active, l.keyboard = false, keyboard
 	for i, item := range items {
 		if !item.Disabled && item.ID == preferred {
 			l.highlightAt(items, i)
@@ -158,9 +161,11 @@ func (l *optionList) setActive(items []Choice, preferred string) {
 		}
 	}
 	l.move(items, 1)
+	l.keyboard = keyboard
 }
 
 func (l *optionList) move(items []Choice, step int) {
+	l.keyboard = true
 	index := -1
 	if step < 0 {
 		index = len(items)
@@ -220,8 +225,38 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 		}
 		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(OptionRowHeight))
 		gtx.Constraints = layout.Exact(size)
-		return optionRow(gtx, view, button, item, item.ID == selected, showHighlight && l.active && item.ID == l.highlight)
+		return optionRow(gtx, view, button, item, item.ID == selected, showHighlight && l.keyboard && l.active && item.ID == l.highlight)
 	})
+}
+
+// widestOption measures the popup width the options need: label, row padding,
+// check mark and the popup padding and border. Long lists skip measuring and
+// keep the anchor width, which is what Wails does with a fixed-width trigger.
+func widestOption(gtx layout.Context, view View, items []Choice, extra ...string) int {
+	const measureLimit = 64
+	if len(items) > measureLimit {
+		return 0
+	}
+	widest := 0
+	measure := func(label string, glyph Glyph) {
+		probe := gtx
+		probe.Constraints = layout.Constraints{Max: image.Pt(1<<20, gtx.Dp(OptionRowHeight))}
+		macro := op.Record(gtx.Ops)
+		dims := glyphLabelStyled(probe, view, glyph, label, TextBody, color.NRGBA{})
+		macro.Stop()
+		widest = max(widest, dims.Size.X)
+	}
+	for _, item := range items {
+		measure(item.Label, item.Glyph)
+	}
+	for _, label := range extra {
+		measure(label, nil)
+	}
+	if widest == 0 {
+		return 0
+	}
+	// Row inset 8+8, gap and check 8+16, popup inset 8+8 and a 1dp border each side.
+	return widest + gtx.Dp(8+8+8+16+8+8+2)
 }
 
 // OptionRowHeight is one row of a select list.

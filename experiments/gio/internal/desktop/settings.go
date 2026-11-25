@@ -5,14 +5,10 @@ import (
 	"image"
 
 	"gioui.org/font"
-	"gioui.org/gesture"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -25,7 +21,7 @@ type settingsPage struct {
 	prefs                       *preferenceState
 	scroll                      widget.List
 	fields                      [8]ui.Select
-	swatches                    [5]gesture.Click
+	swatches                    [5]widget.Clickable
 	currency                    ui.TextField
 	save, discard, reset, retry widget.Clickable
 	confirmation                ui.Confirmation
@@ -243,35 +239,21 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 }
 
 func (p *settingsPage) palette(gtx layout.Context, view ui.View, field settingField) layout.Dimensions {
+	if p.prefs.busy {
+		gtx = gtx.Disabled()
+	}
+	step := gtx.Dp(ui.SwatchSize)
 	for i, opt := range field.options {
 		click := &p.swatches[i]
-		for {
-			e, ok := click.Update(gtx.Source)
-			if !ok {
-				break
-			}
-			if e.Kind == gesture.KindClick && !p.prefs.busy {
-				p.edit(field.label, opt.ID)
-				gtx.Execute(op.InvalidateCmd{})
-			}
+		if click.Clicked(gtx) && !p.prefs.busy {
+			p.edit(field.label, opt.ID)
+			gtx.Execute(op.InvalidateCmd{})
 		}
-		diameter := gtx.Dp(25)
-		offset := op.Offset(image.Pt(i*gtx.Dp(28), 0)).Push(gtx.Ops)
-		b := image.Rect(0, 0, diameter, diameter)
-		area := clip.Ellipse(b).Push(gtx.Ops)
-		if !p.prefs.busy {
-			pointer.CursorPointer.Add(gtx.Ops)
-			click.Add(gtx.Ops)
-		}
-		if opt.ID == field.value {
-			paint.Fill(gtx.Ops, view.Colors.Accent)
-		}
-		paint.FillShape(gtx.Ops, view.Colors.Surface, clip.Ellipse(b.Inset(gtx.Dp(1))).Op(gtx.Ops))
-		paint.FillShape(gtx.Ops, accentThemes[i].swatch, clip.Ellipse(b.Inset(gtx.Dp(3))).Op(gtx.Ops))
-		area.Pop()
+		offset := op.Offset(image.Pt(i*step, 0)).Push(gtx.Ops)
+		view.Swatch(gtx, click, ui.SwatchSpec{Fill: accentThemes[i].swatch, Name: opt.Label, Selected: opt.ID == field.value})
 		offset.Pop()
 	}
-	return layout.Dimensions{Size: image.Pt(gtx.Dp(140), gtx.Dp(25))}
+	return layout.Dimensions{Size: image.Pt(step*len(field.options), step)}
 }
 
 type settingOption struct {

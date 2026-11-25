@@ -29,7 +29,9 @@ type SelectOptions struct {
 }
 
 func (s *Select) Layout(gtx layout.Context, view View, field PickerField, options SelectOptions, value string, change func(string)) {
-	pane := Popover{focus: s}
+	pane := Popover{focus: s, fit: true, measure: func(gtx layout.Context, view View) int {
+		return widestOption(gtx, view, options.Items, ChoiceLabel(view, options.Items, value))
+	}}
 	if options.Searchable {
 		pane.focus = &s.search.Field.Editor
 		pane.otherFocus = []event.Tag{s, &s.search.Clear}
@@ -47,7 +49,7 @@ func (s *Select) Layout(gtx layout.Context, view View, field PickerField, option
 			s.resetSearch()
 		}
 		s.list.scroll.Position = layout.Position{}
-		s.list.setActive(s.choices(view, options), value)
+		s.list.setActive(s.choices(view, options), value, view.Overlay.ByKeyboard)
 	}
 }
 
@@ -139,7 +141,7 @@ func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, val
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return s.search.Layout(gtx, view, i18n.PickerFilter, i18n.PickerFilterHint, func(string) {
 				s.list.scroll.Position = layout.Position{}
-				s.list.setActive(s.choices(view, options), value)
+				s.list.setActive(s.choices(view, options), value, true)
 			})
 		}),
 		layout.Rigid(view.Message(view.Language.Text(i18n.PickerResultsKeys), view.Colors.SecondaryInk)),
@@ -158,6 +160,6 @@ func (s *Select) Menu(gtx layout.Context, view View, bounds image.Rectangle, ite
 	}
 	if view.Overlay.Register(gtx, &s.Trigger, bounds, pane) {
 		s.list.scroll.Position = layout.Position{}
-		s.list.setActive(items, value)
+		s.list.setActive(items, value, view.Overlay.ByKeyboard)
 	}
 }

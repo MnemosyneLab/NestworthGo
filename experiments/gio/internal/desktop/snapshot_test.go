@@ -118,6 +118,19 @@ func TestVisualSnapshots(t *testing.T) {
 			}
 		}
 	})
+	t.Run("settings-picker", func(t *testing.T) {
+		for _, mode := range modes {
+			h := newPreviewHarness(t)
+			h.shell.trail = newNavigationTrail(settingsRoute)
+			h.shell.prefs.saved.Appearance = mode.appearance
+			h.frame()
+			h.click("Language", true)
+			for range 12 {
+				h.frame()
+			}
+			h.snapshot(t, dir, "settings-language-open-"+mode.name)
+		}
+	})
 	t.Run("gallery", func(t *testing.T) {
 		for _, accent := range []struct {
 			name  string

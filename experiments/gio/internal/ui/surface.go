@@ -63,8 +63,10 @@ func (v View) Panel(gtx layout.Context, border color.NRGBA, content layout.Widge
 type fieldChrome struct {
 	// Tag identifies the control in the Motion registry.
 	Tag event.Tag
-	// Active is true while the control has keyboard focus or its popup is open.
-	Active, Invalid, Disabled bool
+	// Active tints the border while the control has focus or its popup is
+	// open. Ring adds the focus ring and is limited to real focus, so an open
+	// select shows a quiet accent border instead of a halo.
+	Active, Ring, Invalid, Disabled bool
 }
 
 // fieldFrame draws the input frame around content: an xs shadow, the card
@@ -75,7 +77,8 @@ func (v View) fieldFrame(gtx layout.Context, chrome fieldChrome, content layout.
 	radius := RadiusLG
 	state := v.Motion.For(chrome.Tag)
 	state.Focus.Set(gtx, flag(chrome.Active && !chrome.Disabled), DurationBase, EaseOut)
-	focus := state.Focus.Value(gtx)
+	state.Select.Set(gtx, flag(chrome.Ring && !chrome.Disabled), DurationBase, EaseOut)
+	focus, ringAmount := state.Focus.Value(gtx), state.Select.Value(gtx)
 
 	border := lerp(p.Divider, Mix(p.Surface, p.Accent, 0.5), focus)
 	ring := p.Accent
@@ -98,12 +101,8 @@ func (v View) fieldFrame(gtx layout.Context, chrome fieldChrome, content layout.
 	FillRoundRect(gtx, bounds, radius, Fade(p.Surface, opacity))
 	StrokeRoundRect(gtx, bounds, radius, 1, Fade(border, opacity))
 	call.Add(gtx.Ops)
-	if focus > 0 || (chrome.Invalid && chrome.Active) {
-		amount := focus
-		if chrome.Invalid {
-			amount = max(amount, flag(chrome.Active))
-		}
-		strokeRing(gtx, bounds, radius, ring, amount)
+	if ringAmount > 0 {
+		strokeRing(gtx, bounds, radius, ring, ringAmount)
 	}
 	return dims
 }

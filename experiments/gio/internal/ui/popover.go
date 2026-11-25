@@ -16,10 +16,22 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
+// Select panel bounds, 11rem and 24rem as in the Wails select panel.
+const (
+	MinSelectPanelWidth unit.Dp = 176
+	MaxSelectPanelWidth unit.Dp = 384
+)
+
 type Popover struct {
-	Body           layout.Widget
-	width          unit.Dp
-	menu           bool
+	Body  layout.Widget
+	width unit.Dp
+	menu  bool
+	// fit sizes the popup like a Wails select panel: as wide as its anchor,
+	// growing to the widest option only when that is wider, up to 24rem or
+	// the anchor width, whichever is larger. measure reports the widest option
+	// in pixels, including the popup padding.
+	fit            bool
+	measure        func(layout.Context, View) int
 	focus          event.Tag
 	otherFocus     []event.Tag
 	next, previous event.Tag
@@ -35,8 +47,11 @@ type Overlay struct {
 	focusOnOpen   bool
 	closePending  bool
 	returnFocus   event.Tag
-	enter         Tween
-	entered       bool
+	// ByKeyboard reports that the open popup was started from the keyboard, so
+	// its option highlight is shown at once. A mouse open shows none.
+	ByKeyboard bool
+	enter      Tween
+	entered    bool
 }
 
 func (h *Overlay) BeginFrame(gtx layout.Context) {
@@ -91,6 +106,7 @@ func (h *Overlay) Register(gtx layout.Context, trigger *widget.Clickable, bounds
 		}
 		h.Trigger = trigger
 		h.focusOnOpen = true
+		h.ByKeyboard = gtx.Focused(trigger)
 	}
 	if h.Trigger == trigger {
 		h.Anchor, h.pane = bounds, pane
@@ -139,6 +155,15 @@ func (h *Overlay) Layout(gtx layout.Context, view View) {
 		width = max(300, width)
 	}
 	pixels := min(safe.Dx(), gtx.Dp(width))
+	if h.pane.fit {
+		anchor := h.Anchor.Dx()
+		need := 0
+		if h.pane.measure != nil {
+			need = h.pane.measure(gtx, view)
+		}
+		low, high := max(anchor, gtx.Dp(MinSelectPanelWidth)), max(anchor, gtx.Dp(MaxSelectPanelWidth))
+		pixels = min(safe.Dx(), min(max(need, low), high))
+	}
 	popup := gtx
 	popup.Constraints = layout.Constraints{Min: image.Pt(pixels, 0), Max: image.Pt(pixels, max(above, below))}
 	content := op.Record(gtx.Ops)
