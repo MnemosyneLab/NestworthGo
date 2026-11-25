@@ -562,3 +562,27 @@ func TestSankeyCompactKeyboardRevealsLastRowAndKeepsSelection(t *testing.T) {
 		t.Fatalf("Escape left selection %v", selected)
 	}
 }
+
+func TestSankeyTruncatedPlotLabelTargetsItsNode(t *testing.T) {
+	spec := sankeySpecForTest()
+	r := newRig(600, false)
+	r.frame(func(gtx layout.Context, view ui.View, _ Selection) (layout.Dimensions, []Event) {
+		g := sankeyGeometryFor(r.width, 300)
+		gr := spec.graph()
+		p := spec.plan(gr, g)
+		spec.plotLabels(gtx, view, p, g)
+		node := p.nodes[p.nodeAt["checking"]]
+		box := node.labelHit
+		at := box.Min.Add(box.Size().Div(2))
+		if box.Empty() || at.In(node.hit) {
+			t.Fatalf("label target %v does not extend beyond the mark %v", box, node.hit)
+		}
+		if hit, ok := p.pick(at); !ok || hit != node.sel {
+			t.Errorf("label hit = %v, %v, want %v", hit, ok, node.sel)
+		}
+		if got := spec.readout(gr, node.sel).label; got != "Everyday checking account with a long name" {
+			t.Errorf("full detail is %q", got)
+		}
+		return layout.Dimensions{}, nil
+	}, Selection{})
+}

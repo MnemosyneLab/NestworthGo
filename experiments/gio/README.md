@@ -119,8 +119,7 @@ The synthetic example has 24 account paths across four columns. In the
 diagram, hover or select a node or band to trace its upstream and downstream
 flow. Use Tab to focus the chart, arrow keys to move, Return to select, and
 Escape to clear a selection. The compact list includes each account's asset
-class and institution and scrolls the focused row into view. The legend,
-readout, and labels use the supplied display amounts.
+class and institution and scrolls the focused row into view. Item details use the supplied display amounts.
 
 The same dense fixture is available in the standalone native gallery:
 

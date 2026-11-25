@@ -435,6 +435,7 @@ type sankeyNodePlan struct {
 	// rect is the node mark; hit is the pointer target, which spans the node's
 	// whole slot vertically and a little beyond it horizontally.
 	rect, hit image.Rectangle
+	labelHit  image.Rectangle
 	// flow is the larger of the incoming and outgoing drawn value; zero means
 	// no drawn link touches the node.
 	flow float64
@@ -710,7 +711,7 @@ func (l sankeyLinkPlan) outline() []f32.Point {
 func (p sankeyPlan) pick(at image.Point) (Selection, bool) {
 	for _, members := range p.columns {
 		for _, i := range members {
-			if at.In(p.nodes[i].hit) {
+			if at.In(p.nodes[i].hit) || at.In(p.nodes[i].labelHit) {
 				return p.nodes[i].sel, true
 			}
 		}
@@ -881,6 +882,7 @@ func (c *SankeyChart) layoutPlot(gtx layout.Context, view ui.View, spec SankeySp
 		labelSpace: labelSpace, slotMin: lineH, minNode: gtx.Dp(sankeyMinNode), minLink: max(1, gtx.Dp(1)),
 	}
 	plan := spec.plan(gr, g)
+	labels := spec.plotLabels(gtx, view, plan, g)
 	inks := spec.nodeInks(colors, gr)
 
 	// Titles sit above the columns, left aligned with the node marks.
@@ -900,7 +902,7 @@ func (c *SankeyChart) layoutPlot(gtx layout.Context, view ui.View, spec SankeySp
 			c.drawTitles(gtx, view, spec, plan, g)
 		}
 		defer op.Offset(image.Pt(0, headerH)).Push(gtx.Ops).Pop()
-		c.drawPlot(gtx, view, spec, gr, plan, g, inks, active)
+		c.drawPlot(gtx, view, spec, gr, plan, g, inks, labels, active)
 		return headerH + plan.height
 	})
 }
@@ -928,7 +930,31 @@ func (p sankeyPlan) labelRoom(gtx layout.Context, g sankeyGeometry, col int) int
 	return p.colX[col+1] - p.colX[col] - g.nodeW - 2*gap
 }
 
-func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec, gr sankeyGraph, plan sankeyPlan, g sankeyGeometry, inks []color.NRGBA, active Selection) {
+type sankeyPlotLabel struct {
+	block textBlock
+	at    image.Point
+}
+
+// plotLabels prepares the pills and their pointer targets before input is read.
+func (s SankeySpec) plotLabels(gtx layout.Context, view ui.View, plan sankeyPlan, g sankeyGeometry) []sankeyPlotLabel {
+	labels := make([]sankeyPlotLabel, len(plan.nodes))
+	pill := gtx.Dp(ui.Space2)
+	for i, n := range plan.nodes {
+		node := s.Nodes[i]
+		room := plan.labelRoom(gtx, g, n.col)
+		if node.HideLabel || node.Label == "" || room < gtx.Dp(32) {
+			continue
+		}
+		block := textBlock{style: ui.TextCaption, content: node.Label, ink: view.Colors.Ink, maxWidth: room - 2*pill, maxLines: 1}
+		size := block.measure(gtx, view)
+		at := image.Pt(n.rect.Max.X+gtx.Dp(ui.Space4), (n.rect.Min.Y+n.rect.Max.Y)/2-size.Y/2)
+		plan.nodes[i].labelHit = image.Rectangle{Min: at.Sub(image.Pt(pill, pill)), Max: at.Add(size).Add(image.Pt(pill, pill))}
+		labels[i] = sankeyPlotLabel{block: block, at: at}
+	}
+	return labels
+}
+
+func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec, gr sankeyGraph, plan sankeyPlan, g sankeyGeometry, inks []color.NRGBA, labels []sankeyPlotLabel, active Selection) {
 	colors := view.Colors
 	nodePaths, linkPaths := gr.emphasis(active, spec.Selected)
 	emphasizing := slices.ContainsFunc(nodePaths, func(level sankeyEmphasis) bool { return level != sankeyUnrelated })
@@ -985,25 +1011,14 @@ func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec
 			ui.StrokeRoundRect(gtx, n.hit, ui.RadiusSM, 2, ui.WithAlpha(colors.Accent, 0.8))
 		}
 	}
-	// Labels are a decoration of the plot: one line, shortened to the room
-	// before the next column, on a pill that keeps them legible over flows.
-	// The full name is in the readout, the tooltip and the rows.
-	pill := gtx.Dp(ui.Space2)
 	for i, n := range plan.nodes {
-		node := spec.Nodes[i]
 		if item := spec.readout(gr, n.sel); item != nil {
-			semanticItem(gtx, n.hit, itemLabel(*item, spec.Messages))
+			semanticItem(gtx, n.hit.Union(n.labelHit), itemLabel(*item, spec.Messages))
 		}
-		room := plan.labelRoom(gtx, g, n.col)
-		if node.HideLabel || node.Label == "" || room < gtx.Dp(32) {
-			continue
+		if !n.labelHit.Empty() {
+			ui.FillRoundRect(gtx, n.labelHit, ui.RadiusSM, ui.WithAlpha(colors.Surface, 0.85))
+			labels[i].block.draw(gtx, view, labels[i].at)
 		}
-		block := textBlock{style: ui.TextCaption, content: node.Label, ink: colors.Ink, maxWidth: room - 2*pill, maxLines: 1}
-		size := block.measure(gtx, view)
-		at := image.Pt(n.rect.Max.X+gtx.Dp(ui.Space4), (n.rect.Min.Y+n.rect.Max.Y)/2-size.Y/2)
-		box := image.Rectangle{Min: at.Sub(image.Pt(pill, pill)), Max: at.Add(size).Add(image.Pt(pill, pill))}
-		ui.FillRoundRect(gtx, box, ui.RadiusSM, ui.WithAlpha(colors.Surface, 0.85))
-		block.draw(gtx, view, at)
 	}
 	if active.IsZero() {
 		return
