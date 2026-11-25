@@ -31,6 +31,7 @@ const (
 	fundsRoute            routeID = "available-funds"
 	portfolioRoute        routeID = "portfolio"
 	wealthHistoryRoute    routeID = "historical-overview"
+	returnAnalysisRoute   routeID = "returns"
 	tasksRoute            routeID = "tasks"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
@@ -56,6 +57,7 @@ type ledgerPages struct {
 	accounts      *accountsPage
 	portfolio     *portfolioPage
 	wealthHistory *wealthHistoryPage
+	returns       *returnAnalysisPage
 	version       func() string
 }
 
@@ -96,6 +98,7 @@ type shell struct {
 	accounts                              *accountsPage
 	portfolio                             *portfolioPage
 	wealthHistory                         *wealthHistoryPage
+	returns                               *returnAnalysisPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -125,7 +128,7 @@ type shell struct {
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
 	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
-	var wealthHistoryLayout pageLayout
+	var wealthHistoryLayout, returnAnalysisLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -150,6 +153,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if pages.wealthHistory != nil {
 		wealthHistoryLayout = pages.wealthHistory.layout
 	}
+	if pages.returns != nil {
+		returnAnalysisLayout = pages.returns.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
@@ -161,6 +167,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		accounts:         pages.accounts,
 		portfolio:        pages.portfolio,
 		wealthHistory:    pages.wealthHistory,
+		returns:          pages.returns,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            ui.NewTheme(),
@@ -183,7 +190,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
 			newItem(wealthHistoryRoute, i18n.NavHistoricalOverview, lucide.CalendarClock, wealthHistoryLayout),
-			newItem("returns", i18n.NavReturns, lucide.ChartLine, nil),
+			newItem(returnAnalysisRoute, i18n.NavReturns, lucide.ChartLine, returnAnalysisLayout),
 			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
@@ -400,7 +407,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDayOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -457,8 +464,14 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.accounts.layoutAccountCreationReview(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
+	} else if s.returnDayOpen() {
+		s.returns.layoutDay(windowContext, view)
 	}
 	return dims
+}
+
+func (s *shell) returnDayOpen() bool {
+	return s.activeRoute() == returnAnalysisRoute && s.returns != nil && s.returns.day != nil
 }
 
 func (s *shell) confirmingAccountCreation() bool {
@@ -753,8 +766,11 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 	if entry := s.trail.current(); entry != s.stageEntry {
 		s.stageEntry = entry
 		s.stage.Position = layout.Position{}
-		if entry.visited && (entry.target.route == settingsRoute || entry.target.route == wealthHistoryRoute) {
-			s.stage.Position = entry.scroll
+		if entry.visited {
+			switch entry.target.route {
+			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute:
+				s.stage.Position = entry.scroll
+			}
 		}
 	}
 	inset := pageInset

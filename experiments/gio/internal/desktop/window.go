@@ -39,6 +39,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	recovery.read()
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
 	wealthHistory := newWealthHistoryPage(ctx, service, clock, window.Invalidate)
+	returns := &returnAnalysisPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
 	tasks := newTasksPage(ctx, service, window.Invalidate)
 	tasks.checks = service
@@ -67,6 +68,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		recovery.workers.Wait()
 		overview.workers.Wait()
 		wealthHistory.workers.Wait()
+		returns.workers.Wait()
 		portfolio.workers.Wait()
 		tasks.workers.Wait()
 		funds.workers.Wait()
@@ -74,7 +76,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		accounts.workers.Wait()
 		onboarding.workers.Wait()
 	}()
-	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, wealthHistory: wealthHistory, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
+	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, wealthHistory: wealthHistory, returns: returns, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
 		version: service.MobileDataVersion})
 	shell.onboarding = onboarding
 	return shell.run(window, prefs)

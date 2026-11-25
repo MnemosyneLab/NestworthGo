@@ -204,6 +204,31 @@ const (
 	WealthHistoryScopeChanged
 	WealthHistoryBasisChanged
 	WealthHistoryFundingGap
+	ReturnCalendar
+	ReturnToday
+	ReturnLoading
+	ReturnFailed
+	ReturnNoOrigin
+	ReturnNoClosedDays
+	ReturnNoInvestments
+	ReturnInsufficient
+	ReturnSummaryRange
+	ReturnAmount
+	ReturnRate
+	ReturnBeginning
+	ReturnEnding
+	ReturnDayOpen
+	ReturnNoData
+	ReturnComposition
+	ReturnContributors
+	ReturnPrice
+	ReturnFX
+	ReturnFXSpread
+	ReturnIncome
+	ReturnFee
+	ReturnCoverage
+	ReturnMissingValuation
+	ReturnAmountOnly
 	NetWorth
 	Assets
 	Liabilities

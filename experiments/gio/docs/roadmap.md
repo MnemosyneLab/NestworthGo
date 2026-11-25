@@ -39,6 +39,9 @@ and which still require acceptance. [Foundation design](foundation.md)
 
 ## Delivery sequence
 
+Track page capabilities, layout alignment and verification in the
+[Gio and Wails parity checklist](parity.md).
+
 Each row ends in a user journey exercised against an isolated fixture. Begin
 with read paths, then use the same data to validate writes and reconstruction.
 
@@ -67,8 +70,9 @@ account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
 partial sales, liquidations, cash dividends, a positive opening position and
 the Today view of Available Funds with standard bank-account reservations.
-Stage 6 begins with the [read-only Wealth History table](#read-only-wealth-history).
-The rest of Stages 6–7 remains planned. Use [navigation history](../../../docs/design/navigation-history.md),
+Stage 6 includes the [read-only Wealth History table](#read-only-wealth-history)
+and the [Return Analysis calendar](#read-only-return-analysis-calendar).
+Stage 7 is paused. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -1512,10 +1516,36 @@ display preferences.
 | Build and tests | The full Gio module suite, Gio vet, the independent Linux preview build, and focused shared application, domain and Wails analytics Go tests passed. The Component Preview popover regression checks placement below the footer at 1120×1000, above it at 1120×840, and after scrolling the compact window. It compares the actual anchor bounds and checks focus throughout. The native Linux preview reproduced those placements and Escape returned focus to the trigger. |
 | Open evidence | Wails GUI, Linux Wayland, native macOS, VoiceOver and native IME remain unverified for this slice. Production-profile startup, release acceptance and cutover remain separate gates. |
 
-The next candidate is read-only Return Analysis after tracing its calculated
-metrics, eligibility and missing-data states through the Wails adapter. The
-Wealth History chart, endpoint drill-down and detailed source evidence, Asset
-Changes, market data refresh and Data Health repair remain open.
+The Wealth History chart, endpoint drill-down and detailed source evidence,
+Asset Changes, market data refresh and Data Health repair remain open.
+
+#### Read-only Return Analysis calendar
+
+**Insights → Return analysis** starts in Calendar. Previous month, Next month
+and Today change the visible period in the History timezone. The monthly
+summary precedes the seven-column grid and contributors, matching the Wails
+information order. The summary and the grid use separate periods so an adjacent
+week never changes the visible month's return. The grid respects the saved
+week start. Select a closed day to open the right-hand detail with its return,
+coverage, composition, contributors and available issues. Escape, Close and
+clicking outside dismiss it and restore the selected day button. Reload and
+Retry use the recorded month. Navigating back restores month and scroll.
+[Wails Calendar](../../../frontend/src/features/insights/ReturnCalendarTab.tsx) · [Shared Go return projections](../../../internal/application/analysis_return_projections.go)
+
+The first slice uses the Wails default household investment scope, base
+valuation and cash inclusion. Gio presents shared precise return values and
+rates with the usual display preferences. The shared read can maintain derived
+historical snapshots locally, as it does for Wails. It does not post ledger
+entries or refresh providers. Shared filters, year, Trend, Contribution and
+cross-page actions are tracked separately in the [parity checklist](parity.md#return-analysis-and-related-navigation).
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent synthetic SQLite copies closed February 1–3 in Asia/Singapore. The period and February 2 results matched at USD 25 and a decimal ratio of `0.25`, with the same rate coverage and one price component. Both copies made zero provider requests. |
+| Gio interaction | Frame tests exercised failure and Retry for both the month and day reads, Monday/Sunday week boundaries, an open current day, and day-sheet focus restored after Escape and an outside press. |
+| Linux X11 | The packaged `preview-linux.sh` launched a verified synthetic household on Debian 13 amd64 using Xvfb and Mesa. At 1120×900 it showed November 1–24, USD 25 return, +25%, and 24/24 rated days. November 2 opened Price change and its named contributor. Escape and Return closed and reopened that day. At 700×480 the detail stayed readable and dismissed from the backdrop. The activities, holdings, instrument quotes, account values and History origin tables matched before and after the verified run. |
+| Build and tests | The full Gio module suite, Gio vet, native Linux launcher build and focused application/domain/Wails analysis projection tests passed. |
+| Open evidence | Wails GUI, Wayland, native macOS, VoiceOver and native IME remain unverified for this slice. |
 
 ## Moving from the preview to a desktop build
 
