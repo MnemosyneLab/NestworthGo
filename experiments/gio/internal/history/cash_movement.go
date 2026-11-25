@@ -47,6 +47,14 @@ func acceptsHoldingsCash(account domain.Account) bool {
 }
 
 func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement) (CashMovementSources, error) {
+	return loadCashMovementSources(ctx, ledger, movement, acceptsCashMovement)
+}
+
+func LoadLinkedCashTransferSources(ctx context.Context, ledger cashMovementReader) (CashMovementSources, error) {
+	return loadCashMovementSources(ctx, ledger, CashTransfer, acceptsLinkedCashTransfer)
+}
+
+func loadCashMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement, accepts func(domain.AccountRecord) bool) (CashMovementSources, error) {
 	origin, location, err := cashMovementOrigin(ctx, ledger)
 	if err != nil {
 		return CashMovementSources{}, err
@@ -57,7 +65,7 @@ func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, mov
 	}
 	sources := CashMovementSources{Origin: origin, Location: location}
 	for _, row := range rows {
-		if acceptsCashMovement(row) && (movement != CashConversion || acceptsHoldingsCash(row.Account)) {
+		if accepts(row) && (movement != CashConversion || acceptsHoldingsCash(row.Account)) {
 			sources.Accounts = append(sources.Accounts, row.Account)
 		}
 	}
@@ -78,6 +86,12 @@ func cashMovementOrigin(ctx context.Context, ledger cashMovementReader) (domain.
 
 func acceptsCashMovement(row domain.AccountRecord) bool {
 	return row.Account.ArchivedAt == nil && supportsCashMovement(row)
+}
+
+func acceptsLinkedCashTransfer(row domain.AccountRecord) bool {
+	// The Wails checkpoint form offers active non-liability endpoints,
+	// including manual-value accounts. The shared preview validates their balance.
+	return row.Account.ArchivedAt == nil && !row.Account.IsLiability()
 }
 
 func supportsCashMovement(row domain.AccountRecord) bool {
@@ -131,7 +145,11 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		if err != nil {
 			return nil, err
 		}
-		account, err := cashMovementAccount(ctx, ledger, input.Account, "accountId")
+		accepts := acceptsCashMovement
+		if input.Link != nil && input.Movement == CashTransfer {
+			accepts = acceptsLinkedCashTransfer
+		}
+		account, err := cashMovementAccountMatching(ctx, ledger, input.Account, "accountId", accepts)
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +158,7 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		}
 		var destination domain.Account
 		if input.Movement == CashTransfer {
-			destination, err = cashMovementAccount(ctx, ledger, input.Destination, "toAccountId")
+			destination, err = cashMovementAccountMatching(ctx, ledger, input.Destination, "toAccountId", accepts)
 			if err != nil {
 				return nil, err
 			}
@@ -175,12 +193,16 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 }
 
 func cashMovementAccount(ctx context.Context, ledger CashMovementLedger, id domain.AccountID, field string) (domain.Account, error) {
+	return cashMovementAccountMatching(ctx, ledger, id, field, acceptsCashMovement)
+}
+
+func cashMovementAccountMatching(ctx context.Context, ledger CashMovementLedger, id domain.AccountID, field string, accepts func(domain.AccountRecord) bool) (domain.Account, error) {
 	if id != "" {
 		rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
 		if err != nil {
 			return domain.Account{}, err
 		}
-		if len(rows) == 1 && rows[0].Account.ID == id && acceptsCashMovement(rows[0]) {
+		if len(rows) == 1 && rows[0].Account.ID == id && accepts(rows[0]) {
 			return rows[0].Account, nil
 		}
 	}

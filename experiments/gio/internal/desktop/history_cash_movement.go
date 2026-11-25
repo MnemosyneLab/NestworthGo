@@ -24,6 +24,8 @@ type cashMovementDraft struct {
 	amount, received, fee, note                       ui.TextField
 	reason                                            domain.ActivityReason
 	reasonPicker                                      ui.Select
+	incoming                                          bool
+	send, receive                                     widget.Clickable
 	defaultTime                                       time.Time
 	focusReview                                       bool
 	day, time                                         string
@@ -85,6 +87,9 @@ func (p *historyCashMovements) loadSources() {
 	d := p.draft
 	d.sourceError = i18n.NoMessage
 	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.CashMovementSources, error) {
+		if p.linked != nil && d.movement == history.CashTransfer {
+			return history.LoadLinkedCashTransferSources(p.ctx, p.service)
+		}
 		return history.LoadCashMovementSources(p.ctx, p.service, d.movement)
 	})
 }
@@ -96,6 +101,10 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 	case linked != nil:
 		if d.day == "" {
 			d.captureCurrentTime(now)
+		}
+		if d.movement == history.CashTransfer {
+			d.chooseLinkedTransferPeer(linked, d.linkedTransferPeer())
+			return
 		}
 		if d.account != linked.account {
 			d.chooseSource(linked.account)
@@ -112,6 +121,42 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 	}
 	if d.movement == history.CashTransfer && d.destination != "" && !d.canSelectDestination(d.destination) {
 		d.chooseDestination("")
+	}
+}
+
+func (d *cashMovementDraft) linkedTransferPeer() domain.AccountID {
+	if d.incoming {
+		return d.account
+	}
+	return d.destination
+}
+
+func (d *cashMovementDraft) chooseLinkedTransferDirection(linked *checkpointCashScope, incoming bool) {
+	d.incoming = incoming
+	d.amount.Editor.SetText("")
+	d.received.Editor.SetText("")
+	d.fee.Editor.SetText("")
+	d.chooseLinkedTransferPeer(linked, "")
+}
+
+func (d *cashMovementDraft) chooseLinkedTransferPeer(linked *checkpointCashScope, id domain.AccountID) {
+	scope, _ := d.accountByID(linked.account)
+	peer, _ := d.accountByID(id)
+	if !history.CanTransferTo(scope, peer) {
+		peer = domain.Account{}
+	}
+	scopedCurrency := linked.currency
+	if scopedCurrency == "" {
+		scopedCurrency = scope.DefaultCurrency
+	}
+	if d.incoming {
+		d.account, d.destination = peer.ID, scope.ID
+		d.chooseCurrency(peer.DefaultCurrency)
+		d.chooseToCurrency(scopedCurrency)
+	} else {
+		d.account, d.destination = scope.ID, peer.ID
+		d.chooseCurrency(scopedCurrency)
+		d.chooseToCurrency(peer.DefaultCurrency)
 	}
 }
 

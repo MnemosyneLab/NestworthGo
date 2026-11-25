@@ -58,6 +58,9 @@ func (p *historyCashMovements) formLabels() movementLabels {
 			labels.action = i18n.HistoryCashIn
 		}
 		labels.amount, labels.preview = i18n.HistoryRepeatAmount, i18n.LiabilityPreview
+		if p.draft.movement == history.CashTransfer {
+			labels.amount = i18n.TransferSentAmount
+		}
 		labels.review, labels.confirm, labels.delta = labels.action, i18n.LiabilityConfirm, i18n.CashMovementDelta
 		labels.previewFailed, labels.stale = i18n.CashMovementPreviewFailed, i18n.CashMovementStale
 	}
@@ -145,54 +148,61 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 	account, found := d.accountByID(d.account)
 	destination, hasDestination := d.accountByID(d.destination)
 	transfer, conversion := d.movement == history.CashTransfer, d.movement == history.CashConversion
+	linkedTransfer := transfer && p.linked != nil
 	crossCurrency := transfer && found && hasDestination && d.currency != d.toCurrency
-	sourceEditable := found && account.TrackingMode == domain.TrackingHoldings && (p.linked == nil || p.linked.currency == "" || conversion)
-	targetEditable := conversion || (transfer && hasDestination && destination.TrackingMode == domain.TrackingHoldings)
+	sourceEditable := !linkedTransfer && found && account.TrackingMode == domain.TrackingHoldings && (p.linked == nil || p.linked.currency == "" || conversion)
+	targetEditable := conversion || (transfer && !linkedTransfer && hasDestination && destination.TrackingMode == domain.TrackingHoldings)
 	labels := p.formLabels()
 	return layout.Flex{Gap: gap}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 			at := origin
-			var items, destinations []ui.Choice
-			for _, item := range d.sources.Accounts {
-				name := item.Name
-				if item.TrackingMode != domain.TrackingHoldings {
-					name += " · " + item.DefaultCurrency.String()
+			var children []layout.FlexChild
+			var destinations []ui.Choice
+			if linkedTransfer {
+				children = p.layoutCheckpointTransferFields(view, &at)
+			} else {
+				var items []ui.Choice
+				for _, item := range d.sources.Accounts {
+					name := item.Name
+					if item.TrackingMode != domain.TrackingHoldings {
+						name += " · " + item.DefaultCurrency.String()
+					}
+					choice := ui.Choice{ID: item.ID.String(), Label: name, SearchText: item.Name}
+					items = append(items, choice)
+					if transfer && history.CanTransferTo(account, item) {
+						destinations = append(destinations, choice)
+					}
 				}
-				choice := ui.Choice{ID: item.ID.String(), Label: name, SearchText: item.Name}
-				items = append(items, choice)
-				if transfer && history.CanTransferTo(account, item) {
-					destinations = append(destinations, choice)
+				next := any(&d.amount.Editor)
+				if transfer && len(destinations) > 0 {
+					next = &d.destinationPicker.Trigger
 				}
-			}
-			next := any(&d.amount.Editor)
-			if transfer && len(destinations) > 0 {
-				next = &d.destinationPicker.Trigger
-			}
-			children := []layout.FlexChild{
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
-						if p.linked != nil {
-							return view.Message(account.Name, view.Colors.Ink)(gtx)
-						}
-						field := ui.PickerField{Label: labels.account, Origin: at, Disabled: !gtx.Enabled(), Next: next}
-						d.accountPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.account.String(), func(value string) {
-							d.chooseSource(domain.AccountID(value))
+				children = []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
+							if p.linked != nil {
+								return view.Message(account.Name, view.Colors.Ink)(gtx)
+							}
+							field := ui.PickerField{Label: labels.account, Origin: at, Disabled: !gtx.Enabled(), Next: next}
+							d.accountPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.account.String(), func(value string) {
+								d.chooseSource(domain.AccountID(value))
+							})
+							return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
 						})
-						return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
-					})
-				}),
-			}
-			if transfer {
-				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
-						field := ui.PickerField{Label: i18n.TransferTo, Origin: at, Disabled: !gtx.Enabled() || len(destinations) == 0, Next: &d.amount.Editor, Previous: &d.accountPicker.Trigger}
-						d.destinationPicker.Layout(gtx, view, field, ui.SelectOptions{Items: destinations, Searchable: true}, d.destination.String(), func(value string) {
-							d.chooseDestination(domain.AccountID(value))
+					}),
+				}
+				if transfer {
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
+							field := ui.PickerField{Label: i18n.TransferTo, Origin: at, Disabled: !gtx.Enabled() || len(destinations) == 0, Next: &d.amount.Editor, Previous: &d.accountPicker.Trigger}
+							d.destinationPicker.Layout(gtx, view, field, ui.SelectOptions{Items: destinations, Searchable: true}, d.destination.String(), func(value string) {
+								d.chooseDestination(domain.AccountID(value))
+							})
+							return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
 						})
-						return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
-					})
-				}))
+					}))
+				}
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
@@ -220,12 +230,22 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 					return d.amount.Layout(gtx, view, options)
 				})
 			}))
-			if p.linked != nil && !conversion {
+			if p.linked != nil && !conversion && !transfer {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return p.layoutCheckpointReason(gtx, view, at)
 				}))
 			}
 			switch {
+			case linkedTransfer && found && hasDestination && !crossCurrency:
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					value := d.amount.Text()
+					if value == "" {
+						value = l.Text(i18n.OverviewNoValue)
+					} else {
+						value += " " + d.toCurrency.String()
+					}
+					return view.Message(l.Text(i18n.TransferReceivedAmount)+" · "+value, view.Colors.SecondaryInk)(gtx)
+				}))
 			case found && (conversion || crossCurrency || targetEditable):
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					label, currencyLabel := i18n.TransferReceivedAmount, i18n.TransferReceivedCurrency
@@ -242,7 +262,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 					}
 					return d.received.LayoutCurrency(gtx, view, ui.FieldOptions{Label: label}, d.toCurrency.String())
 				}))
-			case transfer && found && len(destinations) == 0:
+			case transfer && found && !linkedTransfer && len(destinations) == 0:
 				children = append(children, layout.Rigid(view.Message(l.Text(i18n.TransferNoDestination), view.Colors.SecondaryInk)))
 			case found && !sourceEditable && p.linked == nil:
 				children = append(children, layout.Rigid(view.Message(d.currency.String(), view.Colors.SecondaryInk)))
@@ -262,7 +282,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 			if transfer || conversion {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					options := ui.FieldOptions{Label: i18n.TransferFeeInput}
-					if found && (crossCurrency || sourceEditable) {
+					if found && (crossCurrency || sourceEditable || linkedTransfer) {
 						return d.fee.LayoutCurrency(gtx, view, options, d.currency.String())
 					}
 					return d.fee.Layout(gtx, view, options)

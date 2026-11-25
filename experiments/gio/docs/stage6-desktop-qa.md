@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|check-account|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|linked-cash-transfer|check-account|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -255,6 +255,28 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   fresh copy, record an existing EUR locked product with EUR 50.1234 principal,
   value 52.0123 and basis 49.7891. Acknowledge that cash excludes it and verify
   USD 156 cash is unchanged and the locked product opens from funding sources.
+
+- Run `run_copy account-product gio` and `run_copy account-product wails`.
+  Open Accounts, Harbor Brokerage and its Managed products section. Add the
+  same term deposit as in the Available Funds scenario. The account should
+  stay fixed. Return to the draft from review, cancel and use the focused Add
+  product action for a fresh entry. Confirm, restart and open the new
+  contract from the account. On an independent copy, use the existing-product
+  mode with the EUR values above and verify the account cash remains USD 156.
+
+- Run `run_copy linked-cash-transfer gio` and
+  `run_copy linked-cash-transfer wails`. Open Tasks, Reconciliation and
+  Harbor Brokerage's active Holdings session. From the USD cash checkpoint,
+  start Cash transfer. Send USD 10.1234 to Dollar Savings with a USD 0.0123
+  fee. Review USD 145.8643 remaining and USD 110.6234 at the destination.
+  Return to the draft, then cancel and confirm the checkpoint action is
+  focused. Post the transfer, then record an incoming EUR 20.125 transfer
+  from Euro Manual Value, with EUR 0.125 fee and USD 22.2345 explicitly
+  received. Use November 23, 2026 at 12:00 and 13:00 in Asia/Singapore for
+  the outgoing and incoming entries. After restart, both receipts should
+  belong to the same USD cash checkpoint. Verify USD 168.0988 in Harbor
+  Brokerage, USD 110.6234 in Dollar Savings, EUR 390 in Euro Manual Value
+  and the unrelated USD 12.34 unchanged.
 
 - Run `run_copy check-account gio` and `run_copy check-account wails`.
   Open Harbor Brokerage's active Holdings reconciliation. Choose **Confirm

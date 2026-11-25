@@ -114,6 +114,20 @@ func seedStage6LockedSettlement(t *testing.T) []byte {
 	return stage6SeedBytes(t, db)
 }
 
+func seedStage6LinkedCashTransfer(t *testing.T) []byte {
+	t.Helper()
+	clock := func() time.Time { return accountTestClock }
+	db, _, svc := openStage6Database(t, filepath.Join(t.TempDir(), "transfer.db"), clock)
+	ids, err := seedExistingBuy(t.Context(), svc, clock())
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedLinkedTransferPeers(t, svc)
+	svc.SetClock(linkedContractClock)
+	startTestHoldingReconciliation(t, reconciliation.NewService(svc), ids.account)
+	return stage6SeedBytes(t, db)
+}
+
 func seedStage6TermDeposit(t *testing.T) []byte {
 	t.Helper()
 	clock := func() time.Time { return accountTestClock }
@@ -163,6 +177,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	marketReadback := stage6SeedBytes(t, db)
 	lockedProductSeed := seedStage6LockedSettlement(t)
 	termDepositSeed := seedStage6TermDeposit(t)
+	linkedCashTransferSeed := seedStage6LinkedCashTransfer(t)
 	for _, profile := range []struct {
 		name string
 		seed []byte
@@ -177,6 +192,8 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"locked-renewal", lockedProductSeed},
 		{"add-product", lockedProductSeed},
 		{"funds-product", lockedProductSeed},
+		{"account-product", lockedProductSeed},
+		{"linked-cash-transfer", linkedCashTransferSeed},
 		{"check-account", lockedProductSeed},
 		{"deposit-corrections", termDepositSeed},
 	} {

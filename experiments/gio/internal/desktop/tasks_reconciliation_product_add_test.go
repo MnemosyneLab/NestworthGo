@@ -41,6 +41,9 @@ func (h *linkedProductHarness) settle() {
 	for range 5 {
 		h.frame()
 		h.tasks.workers.Wait()
+		if f := h.c.cashDated; f != nil {
+			f.workers.Wait()
+		}
 	}
 }
 

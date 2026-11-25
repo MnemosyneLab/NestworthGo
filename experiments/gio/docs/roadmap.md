@@ -1723,7 +1723,7 @@ the initiating control and its scroll position.
 | --- | --- |
 | Gio and Wails adapter | Imported 2.12345678 units at EUR 11.12345678 on the completeness item with zero cash effect. The USD cash item added 1.2345 as income and removed 0.2345 as a fee. Cancel wrote no activity or link. A simulated lost cash acknowledgement retried the same mutation once. A stale session preview preserved the withdrawal draft and required re-review. Reopen matched exact session, account, item, civil day, note, activity and new Holding IDs and USD 157 cash. Compact Back restored the exact receipt and offset. |
 | Packaged Linux X11 | At 1160×820, Cancel wrote zero activities and links and Return reopened the completeness action. The Vancouver November 24 import saved 2.12345678 units at EUR 11.12345678 with no cash movement. At 640×480, Cancel returned to the USD checkpoint and preserved only the earlier import. Confirm posted USD 1.2345 as income on November 24. Compact receipt Back restored the visible focused link and open evidence, and Return reopened it. After restart the import and cash links remained on their original checkpoints. SQLite matched both notes, IDs, quantities and amounts. Harbor Brokerage had USD 201.2345, the second account kept USD 25, and the original account rows, quotes and synthetic source hashes matched. |
-| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Linked cash transfers, debt, balance and manual-value changes and broader account-scope holdings activity remain open. The linked currency conversion checkpoint below covers both directions. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
+| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Debt, balance and manual-value changes and broader account-scope holdings activity remain open. The transfer and currency conversion checkpoints below cover both directions. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
 
 #### Linked currency conversion
 
@@ -1741,6 +1741,31 @@ uses the shared executed rate and resulting balances.
 | Gio and Wails adapter | USD 10.1234 sold for EUR 8.7654 with a USD 0.1 fee. A second entry sold EUR 2.5 for USD 2.8125 with a EUR 0.125 fee. Both matched the same USD cash item, including the bought-side match, the shared effective times with seconds and the executed rate. Cancel wrote no activity or link. Reopen matched both links and USD 148.5891 and EUR 6.1404. |
 | Packaged Linux X11 | The 1160×820 preview showed the exact legs and fee, and Cancel left zero activities and zero links. Return reopened the cash action. At 640×480, the keyboard chose EUR, November 24 in Vancouver, and confirmed USD 10.1234 sold and EUR 8.7654 bought with a USD 0.1 fee. The executed rate was 0.865855345042. The packaged app and SQLite retained the dated note, the USD checkpoint link and exact USD 189.7766 and EUR 8.7654 balances after restart. The second account stayed at USD 25. Holdings, quotes, accounts, contracts and the original hashes matched. Full Gio, vet, Linux packaging, shared Go checks and the focused Wails cross-currency reference passed. |
 | Linked product valuation | The [shared reopen regression](#linked-product-valuation-reopen-regression) verifies existing linked observations. The [locked-product workflow](#linked-locked-product-valuation-in-holdings-reconciliation) records new ones from Gio. |
+
+#### Linked cash transfer in Holdings reconciliation
+
+The dated cash route also offers **Cash transfer**. Transfer out fixes the
+checkpoint account as the source, and Transfer in fixes it as the destination.
+Both preserve the checkpoint currency. The account completeness action uses
+the account's default currency. The peer uses its own default currency and
+comes from Wails' set of other active non-liability accounts. The shared
+service validates both endpoints and saves the transfer and reconciliation
+link together. The same-currency received amount mirrors the sent amount.
+Foreign-currency receipts require their own amount, and any fee stays in
+the source currency.
+
+Switching direction retains the checkpoint currency in Gio. Wails resets it
+to the account default when direction changes. Gio keeps the selected cash
+sleeve in the transfer to satisfy shared checkpoint matching. Gio's optional
+FX calculator uses the stored current rate. Wails also offers provider and
+refresh controls in the calculator.
+[Wails form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Wails reconciliation](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared posting and checkpoint matching](../../../internal/application/reconciliation_session.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Independent SQLite ledgers matched USD 10.1234 sent to Dollar Savings with a USD 0.0123 fee and EUR 20.125 sent by Euro Manual Value with a EUR 0.125 fee for USD 22.2345 received. Cancel left the original rows intact. A stale review kept the draft, and a lost acknowledgement retried the same mutation. Reopen matched both links, the November 23 Asia/Singapore effective times and exact USD 168.0988, USD 110.6234 and EUR 390 balances. The unrelated account and earlier activities were unchanged. |
+| Packaged Gio Linux X11 | At 1140×920 the keyboard selected Dollar Savings. Back to details retained the amount and note, Cancel preserved ten financial and linkage tables, and Return reopened the USD cash action. At 665×480 Return confirmed the outgoing transfer after review. The wide incoming review used a separate EUR amount and fee plus the explicit USD receipt. SQLite retained both native effective times, both exact transfer legs and fees, and the two original-scope links. The independent source hashes matched. |
+| Checks and remaining scope | Full Gio tests and vet, Linux packaging, focused Wails Go adapters and shared Go tests, and 287 Wails frontend tests passed. One initial run timed out in an unchanged Ledger Repeat case; both the isolated case and the full reference command passed on rerun. Linked debt, balance and manual-value changes and broader account-mode views remain open. Interactive Wails and target-platform accessibility remain open. |
 
 #### Linked product valuation reopen regression
 
@@ -2100,7 +2125,24 @@ including read-only locked-product detail.
 | Packaged Gio Linux X11 | Wide review at 1140×920 and Cancel preserved nine financial and linkage tables. Return reopened Add product. At 665×480, Back retained the draft and Return confirmed a new review. Reopen showed USD 105.8643 cash and the exact term deposit from its source button. SQLite matched the review instant, USD 50.1234 principal and quote, and the December 23 unlock date and USD 0.0021 exit fee. The source hashes matched. |
 | Packaged Gio existing product | An independent copy at 665×480 confirmed the EUR 50.1234 locked product. Reopen opened the correct source detail with EUR 52.0123 value and the November 23 and December 23 contract dates. SQLite matched EUR 49.7891 basis, the service recording time and one new position activity with no cash legs. The source hashes matched. |
 | Checks | Full Gio tests, vet, Linux packaging, the fixture exporter, focused shared Go and adapter tests, and 94 Wails Available Funds, account products and form tests passed. |
-| Remaining | Account-detail setup navigation and standalone lifecycle actions remain open. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+| Remaining | See [account-detail setup](#product-setup-from-account-detail) for the corresponding Accounts entry. Standalone lifecycle actions remain open. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+
+#### Product setup from account detail
+
+The **Managed products** section of a Holdings account includes **Add product**
+where Wails allows it. The account stays fixed, and the draft initially uses
+its default currency. Both setup modes use the same Gio form and shared
+standalone operation as Available Funds. Managed term deposits and locked
+products open by contract ID. Archived accounts retain read-only product
+rows. Shell Back from the review retains the unsent draft. Cancel returns
+to the account and focuses Add product.
+[Wails account section](../../../frontend/src/features/liquidity/AccountProductsSection.tsx) · [Shared standalone adapter](../../../internal/wailsapi/liquidity/liquidity.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Four paired cases cover both setup modes from Accounts and Available Funds. Both entries match the USD 50.1234 opening with USD 0.0123 fee and USD 105.8643 cash, and the EUR recorded holding with EUR 49.7891 cost and EUR 52.0123 value and USD 156 cash. The tests exercise retained review Back, Cancel, retry after a lost acknowledgement, stale review and exact SQLite reopen. |
+| Packaged Gio Linux X11 | At 1140×920 shell Back returned to the scoped draft and Cancel preserved nine financial and linkage tables. Return reopened Add product. At 665×480 Return confirmed the preview of USD 105.8643 remaining cash. Restarting at the ordinary entry point and opening the exact new contract from Accounts showed USD 50.1234 and the December 23 maturity. SQLite matched the opening fee, exact review time, unlock date and original rows. Both source hashes matched. The existing-product case is verified by the adapter test. |
+| Remaining | Standalone lifecycle and funding source actions, interactive Wails and target-platform accessibility remain open. |
 
 #### Read-only term deposits
 
