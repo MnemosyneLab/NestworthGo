@@ -5,6 +5,7 @@ import type * as React from "react";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { HealthFocus } from "@/app/navigation";
 import { NetWorthTrendCard } from "./NetWorthTrendCard";
+import { AssetCompositionSankey } from "./AssetCompositionSankey";
 import { useMarketDataHealth } from "@/queries/marketdata";
 import { useTranslation } from "react-i18next";
 import { useOverview } from "@/queries/portfolio";
@@ -37,6 +38,7 @@ import { ManualQuoteEntry } from "@/features/marketdata/ManualQuoteEntry";
 import { usePublishAssistantPage } from "@/features/assistant/PageContext";
 import { overviewPublication } from "@/features/assistant/publications";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { AssetCompositionDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio/models";
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
 type OverviewLabel = { id: string; name: string; balanceSheetRole?: string };
@@ -53,6 +55,7 @@ type OverviewReadModel = {
   liabilities: string;
   netWorth: string;
   assetsByType?: BreakdownDTO[];
+  assetComposition?: AssetCompositionDTO;
   liabilitiesByType?: BreakdownDTO[];
   byMember?: BreakdownDTO[];
   byInstitution?: BreakdownDTO[];
@@ -491,6 +494,13 @@ export function OverviewPage({
             )}
           </div>
         )}
+        {data.assetComposition && <AssetCompositionSankey
+          composition={data.assetComposition}
+          assets={data.assets}
+          currency={currency}
+          isActive={isActive}
+          onOpenAccount={navigation ? accountId => navigation.open({ page: "accounts", accountId }) : undefined}
+        />}
         <p className="text-sm text-muted-foreground">{t("overview.dimensionHint")}</p>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <BreakdownList

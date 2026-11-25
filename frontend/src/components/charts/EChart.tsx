@@ -1,24 +1,24 @@
 import * as React from "react";
 import * as echarts from "echarts/core";
-import { LineChart, BarChart, PieChart } from "echarts/charts";
+import { LineChart, BarChart, PieChart, SankeyChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkAreaComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { ComposeOption } from "echarts/core";
-import type { LineSeriesOption, BarSeriesOption, PieSeriesOption } from "echarts/charts";
+import type { LineSeriesOption, BarSeriesOption, PieSeriesOption, SankeySeriesOption } from "echarts/charts";
 import type { GridComponentOption, TooltipComponentOption, LegendComponentOption, DataZoomComponentOption } from "echarts/components";
 import { cssColor, prefersReducedMotion } from "@/components/charts/chartTheme";
 
-echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkAreaComponent, CanvasRenderer]);
+echarts.use([LineChart, BarChart, PieChart, SankeyChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkAreaComponent, CanvasRenderer]);
 
 export type EChartsOption = ComposeOption<
-  LineSeriesOption | BarSeriesOption | PieSeriesOption | GridComponentOption | TooltipComponentOption | LegendComponentOption | DataZoomComponentOption
+  LineSeriesOption | BarSeriesOption | PieSeriesOption | SankeySeriesOption | GridComponentOption | TooltipComponentOption | LegendComponentOption | DataZoomComponentOption
 >;
 
 export function applyChartPolicy(option: EChartsOption, reducedMotion = prefersReducedMotion()): EChartsOption {
   // CSS OKLCH colors render normally, but zrender 6 cannot parse them for
   // its automatic emphasis color lift. ECharts' inherit path preserves the
   // exact normal/selected fill, including opacity and per-point theme colors.
-  const keepEmphasisFill = <T extends LineSeriesOption | BarSeriesOption | PieSeriesOption>(series: T): T => ({
+  const keepEmphasisFill = <T extends LineSeriesOption | BarSeriesOption | PieSeriesOption | SankeySeriesOption>(series: T): T => ({
     ...series,
     emphasis: {
       ...series.emphasis,

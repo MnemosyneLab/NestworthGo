@@ -74,6 +74,17 @@ use the existing `assetsByType` and `liabilitiesByType` backend results:
 - Institution, member, group, and Account-type breakdowns remain compact
   lists unless a dedicated design reuses the same backend aggregate.
 
+The Asset composition Sankey follows positive values from the same current
+Overview snapshot through asset class, institution, and account. Each
+holdings account contributes its valued components by class. Balance and
+manual accounts contribute their single valued component. Negative components
+reconcile the charted amount to the known asset subtotal, while zero and
+unvalued components are counted separately. The chart names the largest account
+allocation in each class and fills up to eight named paths with the largest
+remaining allocations. Smaller allocations are grouped within their classes.
+The keyboard-accessible details show every positive path at exact precision
+and open the ordinary account detail. Compact layouts show the details directly.
+
 ### 3.2 Portfolio
 
 Portfolio is holdings-only. Its chart and trend include active

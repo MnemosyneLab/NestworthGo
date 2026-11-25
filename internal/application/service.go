@@ -1318,6 +1318,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 		}
 	}
 	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: accountCount, Complete: true}
+	composition := overviewAssetComposition{paths: make(map[overviewAssetPathKey]domain.OverviewAssetPath)}
 	assetsByType := map[string]decimal.Decimal{}
 	liabilitiesByType := map[string]decimal.Decimal{}
 	member := map[string]decimal.Decimal{}
@@ -1352,8 +1353,15 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 			result.Complete = false
 			result.MissingInputs = append(result.MissingInputs, valuation.MissingInputs...)
 		}
+		isAsset := !valuation.Account.IsLiability()
+		if isAsset && valuation.Account.InstitutionID != nil && valuation.InstitutionName != "" {
+			institutionLabels[valuation.Account.InstitutionID.String()] = valuation.InstitutionName
+		}
 		for _, component := range valuation.Components {
 			if !component.Available || component.BaseAmountExact == "" {
+				if isAsset {
+					composition.result.MissingCount++
+				}
 				continue
 			}
 			amount, parseErr := decimal.NewFromString(component.BaseAmountExact)
@@ -1371,6 +1379,9 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 			class, classErr := domain.ClassifyAccountComponent(valuation.Account, instrument, cash)
 			if classErr != nil {
 				return domain.OverviewResult{}, classErr
+			}
+			if isAsset {
+				composition.add(amount, class.Bucket, valuation.Account, institutionLabels)
 			}
 			if class.MissingInstrument {
 				result.Complete = false
@@ -1393,9 +1404,6 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 		institutionKey := "unassigned"
 		if valuation.Account.InstitutionID != nil {
 			institutionKey = valuation.Account.InstitutionID.String()
-			if valuation.InstitutionName != "" {
-				institutionLabels[institutionKey] = valuation.InstitutionName
-			}
 		}
 		institution[institutionKey] = institution[institutionKey].Add(value)
 		groupKey := "unassigned"
@@ -1417,6 +1425,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 		return domain.OverviewResult{}, err
 	}
 	result.NetWorth = result.Assets.Sub(result.Liabilities)
+	result.AssetComposition = composition.finish()
 	result.AssetsByType = makeBreakdown(assetsByType, result.Assets)
 	result.LiabilitiesByType = makeBreakdown(liabilitiesByType, result.Liabilities)
 	result.ByMember = makeBreakdownWithLabels(member, result.Assets, memberLabels)
