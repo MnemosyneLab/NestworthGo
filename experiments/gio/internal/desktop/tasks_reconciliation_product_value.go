@@ -25,20 +25,30 @@ type holdingProductDraft struct {
 	current    *domain.Money
 	interest   *holdingProductInterest
 	settlement *holdingProductSettlement
+	terms      *holdingProductTerms
 
 	loading    <-chan historyResult[application.ProductDetail]
 	loadFailed bool
 	retry      widget.Clickable
 }
 
-func canCorrectLockedProduct(item domain.ReconciliationItem) bool {
+type holdingProductAction uint8
+
+const (
+	holdingEditProductTerms holdingProductAction = iota
+	holdingObserveProductValue
+	holdingReceiveProductInterest
+	holdingSettleProduct
+)
+
+func lockedProductCheckpoint(item domain.ReconciliationItem) (domain.ProductContract, bool) {
 	var contract domain.ProductContract
-	return item.Kind == "product" && item.ProductID != "" && !item.ArchivedNonzero &&
-		jsoncodec.Unmarshal(item.Detail, &contract) == nil &&
-		contract.Kind == domain.ProductLockedProduct && contract.State == domain.ProductStateOpen
+	ok := item.Kind == "product" && item.ProductID != "" && !item.ArchivedNonzero &&
+		jsoncodec.Unmarshal(item.Detail, &contract) == nil && contract.Kind == domain.ProductLockedProduct
+	return contract, ok
 }
 
-func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable, kind domain.ProductOperationKind) {
+func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable, action holdingProductAction) {
 	id, err := domain.ParseProductContractID(item.ProductID)
 	if err != nil {
 		return
@@ -48,11 +58,13 @@ func (p *tasksPage) openHoldingProductCorrection(account domain.ReconciliationAc
 	d.accountID, d.itemID = account.AccountID, item.ID
 	d.product = &holdingProductDraft{id: id, link: c.datedCheckpointLink(account.AccountID, item),
 		name: account.Name + " · " + item.Label, currency: item.Currency}
-	switch kind {
-	case domain.ProductOpReceiveInterest:
+	switch action {
+	case holdingEditProductTerms:
+		d.product.terms = newHoldingProductTerms()
+	case holdingReceiveProductInterest:
 		d.product.interest = &holdingProductInterest{}
 		d.product.interest.remaining.Editor.SingleLine = true
-	case domain.ProductOpSettle:
+	case holdingSettleProduct:
 		d.product.settlement = &holdingProductSettlement{fee: ui.NewTextField(true)}
 	}
 	c.draft, c.saved = d, i18n.NoMessage
@@ -71,6 +83,20 @@ func (p *tasksPage) previewHoldingProduct(d *holdingReconDraft) {
 	link := f.link()
 	if link == nil {
 		d.problem = i18n.HoldingReconChanged
+		return
+	}
+	if f.terms != nil {
+		terms, policy, ok := f.terms.inputs()
+		if !ok {
+			d.problem = i18n.ProductEditValidDays
+			return
+		}
+		req := liquidity.UpdateProductTermsRequest{ProductID: f.id.String(), ExpectedRevision: f.terms.current.Revision,
+			ReconciliationLink: link, Terms: terms, Policy: policy}
+		d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
+			review, err := p.holdingRecon.service.PreviewProductTerms(p.ctx, req)
+			return holdingReconReview{planID: review.PlanID, terms: &review}, err
+		})
 		return
 	}
 	amount := strings.TrimSpace(d.total.Text())
@@ -100,6 +126,9 @@ func (f *holdingProductDraft) operationRequest(link domain.ReconciliationLink, a
 }
 
 func (f *holdingProductDraft) title() i18n.MessageID {
+	if f.terms != nil {
+		return i18n.ProductEditTerms
+	}
 	if f.interest != nil {
 		return i18n.HoldingReconProductInterest
 	}
@@ -120,6 +149,9 @@ func (p *tasksPage) holdingProductFields(view ui.View, d *holdingReconDraft, rea
 		rows = append(rows, view.Message(l.Text(i18n.ProductLoading), view.Colors.SecondaryInk))
 	default:
 		rows = append(rows, fundsAmount(view, i18n.ProductValue, f.current))
+	}
+	if f.terms != nil {
+		return rows
 	}
 	enabled := ready && f.loading == nil && !f.loadFailed
 	amountLabel := i18n.HoldingReconProductValuation

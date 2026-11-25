@@ -1718,6 +1718,43 @@ const (
 	HoldingReconValuationFailed
 	HoldingReconObservedValue
 	HoldingReconValuationImpact
+	ProductEditTerms
+	ProductEditTermsHeading
+	ProductEditName
+	ProductEditStart
+	ProductEditMaturity
+	ProductEditNote
+	ProductEditPolicy
+	ProductEditAccess
+	ProductEditOnRequest
+	ProductEditOnDate
+	ProductEditUnknownAccess
+	ProductEditExcluded
+	ProductEditUnlock
+	ProductEditDays
+	ProductEditDayBasis
+	ProductEditCalendar
+	ProductEditWeekdays
+	ProductEditReceipt
+	ProductEditExitFee
+	ProductEditMissingPolicy
+	ProductEditEarly
+	ProductEditEarlyNo
+	ProductEditEarlyYes
+	ProductEditEarlyUnknown
+	ProductEditEarlyDays
+	ProductEditEarlyBasis
+	ProductEditEarlyFee
+	ProductEditEarlyMode
+	ProductEditEarlyCurrent
+	ProductEditEarlyGross
+	ProductEditWeekdayHelp
+	ProductEditClosed
+	ProductEditReviewFailed
+	ProductEditSaved
+	ProductEditValidDays
+	ProductEditAfter
+
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab

@@ -148,6 +148,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		t.Fatalf("seed market partial readback = %+v: %v", result, err)
 	}
 	marketReadback := stage6SeedBytes(t, db)
+	lockedProductSeed := seedStage6LockedSettlement(t)
 	for _, profile := range []struct {
 		name string
 		seed []byte
@@ -157,7 +158,8 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"market-readback", marketReadback},
 		{"return-calendar", calendarSeed},
 		{"contribution", contributionSeed},
-		{"locked-settlement", seedStage6LockedSettlement(t)},
+		{"locked-settlement", lockedProductSeed},
+		{"locked-terms", lockedProductSeed},
 	} {
 		dir := filepath.Join(root, profile.name)
 		if err := os.Mkdir(dir, 0o700); err != nil {

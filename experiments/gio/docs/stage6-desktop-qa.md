@@ -8,7 +8,7 @@ From the repository root, run:
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
-  -run '^TestLinkedLockedProductSettlementMatchesWails$')
+  -run '^TestLinkedLockedProduct(Settlement|Terms)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
 go test ./internal/wailsapi/analysis -count=1
 (cd frontend && TZ=Asia/Shanghai pnpm exec vitest run src/features/data-health src/features/marketdata)
@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -195,6 +195,15 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   and its redemption, then reopen the app to verify the same receipt and
   settled contract. The automated comparison covers stale review and retry
   after a lost acknowledgement.
+
+- Run `run_copy locked-terms gio` and `run_copy locked-terms wails`.
+  In the same Harbor Brokerage Holdings session, open **Edit terms and rules**
+  for Synthetic locked product. Enter a name and note, change settlement days
+  to 2 and the normal exit fee to USD 0.0123. Verify the existing start date
+  and fee currency in Review. Cancel once and return to the same action.
+  Review and confirm on a fresh draft. Reopen the app and check the saved name,
+  note, policy and linked terms receipt. Principal and cash should stay at
+  USD 125.25 and USD 156 respectively.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These

@@ -1839,7 +1839,26 @@ to reconciliation because the settled product has no receipt action.
 | Gio and Wails adapter | `TestLinkedLockedProductSettlementMatchesWails` rejected a fee greater than proceeds. Cancel left the open product, cash and links intact and restored focus. A stale commit retained the entered amounts and date/time. Retry reused the same guarded plan after a lost acknowledgement. Both ledgers reopened with USD 286.9012 cash, one settled contract and one redemption. The Gio copy retained both exact links, the USD 132.1234 proceeds, the USD 1.2222 fee and unrelated activity and holdings. |
 | Packaged Gio Linux X11 | At 1140×920, Review showed USD 156 before, USD 286.9012 after and exact proceeds and fee. Cancel preserved the ledger and links, and Return reopened the focused checkpoint action. At 665×480, the keyboard chose November 23, 2026 at 18:00 Asia/Singapore, opened Review and confirmed. A normal reopen showed the exact cash and both Linked changes records. View linked activity opened the exact redemption in Ledger. SQLite verified one settlement and one redemption to the same checkpoint, the effective instant, exact gross and fee, zero remaining managed quantity and the retained prior rows. Both source hashes matched. |
 | Checks | Full Gio tests and vet, standard Linux packaging, focused shared application and Wails adapter packages, and 90 Wails Reconciliation and Product Correction frontend tests passed. |
-| Remaining scope | Terms, renewal, add-product and linked term-deposit receipts remain separate coding gaps. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+| Remaining scope | [Locked-product terms](#linked-locked-product-terms) are covered separately. Renewal, add-product and linked term-deposit receipts remain separate coding gaps. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+
+#### Linked locked-product terms
+
+An in-progress Holdings checkpoint offers **Edit terms and rules** for a
+locked product. The form uses the current contract revision and carries the
+account, product, currency, start date and original principal through the
+Wails terms preview. Open products expose maturity, name, note and the
+existing availability and withdrawal policy fields. Closed products show
+name and note with their existing financial terms. Review shows the before
+and after values and commits the shared guarded plan. Changing days requires
+an integer input. The shared service validates the policy and contract.
+[Wails form](../../../frontend/src/features/reconciliation/ProductCorrection.tsx) · [Shared reconciliation adapter](../../../internal/wailsapi/reconciliation/products.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | The independent fixtures matched USD 0.0123 exit fee, two weekday settlement days, the exact contract name and note, immutable start date and USD 125.25 principal. Cancel restored the initiating action. A stale checkpoint rejected the first plan and retained input. Retrieving the same plan after a lost confirmation acknowledgement produced one terms receipt and one increment to each revision. Both ledgers reopened with USD 156 cash. The Gio copy matched the prior holdings and activities. |
+| Packaged Gio Linux X11 | At 1140×920, Cancel after Review preserved the synthetic contract, policy, activities, holdings, cash and empty linked journal. Return reopened the focused action. At 665×480, the draft and review showed the updated name and note, two weekday settlement days and USD 0.0123 normal fee. Keyboard confirmation saved the terms. The normal app reopen showed USD 125.25 principal and USD 156 cash. SQLite matched both revision increments, the exact decimals and one linked terms receipt. The source hashes and prior financial rows matched. |
+| Checks | Full Gio, vet, the native Linux package, focused shared application and adapter tests, and 90 Wails Reconciliation and Product Correction frontend tests passed. |
+| Remaining | Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. Linked term-deposit terms and receipts and add-product remain separate coding gaps. |
 
 #### Product and removed-item checkpoint evidence
 

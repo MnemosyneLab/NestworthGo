@@ -200,17 +200,22 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 						}))
 					}
 				}
-				if s.Status == "in_progress" && canCorrectLockedProduct(item) {
-					fields = append(fields,
-						c.link(view, &buttons.interest, l.Text(i18n.HoldingReconProductInterest), func() {
-							p.openHoldingProductCorrection(account, item, &buttons.interest, domain.ProductOpReceiveInterest)
-						}),
-						c.link(view, &buttons.valuation, l.Text(i18n.HoldingReconProductValuation), func() {
-							p.openHoldingProductCorrection(account, item, &buttons.valuation, domain.ProductOpValueObservation)
-						}),
-						c.link(view, &buttons.settle, l.Text(i18n.ProductReceiptAction), func() {
-							p.openHoldingProductCorrection(account, item, &buttons.settle, domain.ProductOpSettle)
-						}))
+				if contract, ok := lockedProductCheckpoint(item); s.Status == "in_progress" && ok {
+					fields = append(fields, c.link(view, &buttons.terms, l.Text(i18n.ProductEditTerms), func() {
+						p.openHoldingProductCorrection(account, item, &buttons.terms, holdingEditProductTerms)
+					}))
+					if contract.State == domain.ProductStateOpen {
+						fields = append(fields,
+							c.link(view, &buttons.interest, l.Text(i18n.HoldingReconProductInterest), func() {
+								p.openHoldingProductCorrection(account, item, &buttons.interest, holdingReceiveProductInterest)
+							}),
+							c.link(view, &buttons.valuation, l.Text(i18n.HoldingReconProductValuation), func() {
+								p.openHoldingProductCorrection(account, item, &buttons.valuation, holdingObserveProductValue)
+							}),
+							c.link(view, &buttons.settle, l.Text(i18n.ProductReceiptAction), func() {
+								p.openHoldingProductCorrection(account, item, &buttons.settle, holdingSettleProduct)
+							}))
+					}
 				}
 				fields = append(fields, p.holdingCheckpointRows(view, account, item, buttons)...)
 				fields = append(fields, p.holdingReceiptLinks(view, account.AccountID, item.ID)...)
@@ -304,7 +309,9 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	} else if d.product != nil {
 		rows = append(rows, p.holdingProductFields(view, d, ready)...)
 		productReady := ready && d.product.loading == nil && !d.product.loadFailed
-		if d.product.interest != nil {
+		if d.product.terms != nil {
+			rows = append(rows, c.productTermsFields(view, &origin, d, d.product.terms, productReady, true)...)
+		} else if d.product.interest != nil {
 			rows = append(rows, c.holdingProductInterestFields(view, &origin, d, productReady)...)
 		} else if d.product.settlement != nil {
 			rows = append(rows, c.holdingProductSettlementFields(view, &origin, d, productReady)...)
@@ -416,7 +423,9 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	d := c.draft
 	r := d.review
 	rows := []layout.Widget{tradeTitle(view, i18n.HoldingReconReview)}
-	if r.operation != nil {
+	if r.terms != nil && r.terms.Before != nil && r.terms.After != nil {
+		rows = append(rows, holdingProductTermsReviewRows(view, r.terms.Before.Product, r.terms.After.Product)...)
+	} else if r.operation != nil {
 		rows = append(rows, holdingProductOperationReviewRows(view, d.product, r.operation)...)
 	} else if r.valuation != nil {
 		rows = append(rows, p.holdingProductValuationReviewRows(view, r.valuation)...)

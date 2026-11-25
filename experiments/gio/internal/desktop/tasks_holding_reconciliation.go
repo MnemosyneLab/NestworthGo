@@ -24,6 +24,7 @@ type holdingReconcileAPI interface {
 	Get(context.Context, string) (domain.ReconciliationSession, error)
 	Links(context.Context, string) ([]domain.ReconciliationLinkedChange, error)
 	Changes(context.Context, string, string) ([]domain.ReconciliationFinancialChange, error)
+	PreviewProductTerms(context.Context, liquidity.UpdateProductTermsRequest) (reconciliation.ProductPreview, error)
 	PreviewProductValuation(context.Context, domain.ReconciliationLink, string, string, string) (reconciliation.ProductPreview, error)
 	PreviewProductOperation(context.Context, liquidity.ProductCommandRequest) (reconciliation.ProductPreview, error)
 	CommitProduct(context.Context, string) error
@@ -97,6 +98,7 @@ type holdingReconDraft struct {
 
 type holdingReconItemActions struct {
 	cost, quantity, record, check, cash, importPosition, valuation, interest, settle widget.Clickable
+	terms                                                                            widget.Clickable
 	attempts                                                                         holdingEvidenceDisclosure
 }
 
@@ -115,6 +117,7 @@ type holdingReconRead struct {
 
 type holdingReconReview struct {
 	planID    string
+	terms     *reconciliation.ProductPreview
 	valuation *liquidity.ProductValuationPreviewDTO
 	operation *liquidity.ProductOperationPreviewDTO
 	session   *domain.ReconciliationSession
@@ -217,6 +220,9 @@ func checkpointInSession(session *domain.ReconciliationSession, accountID, itemI
 
 func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 	if f := d.product; f != nil {
+		if f.terms != nil {
+			return f.loading == nil && !f.loadFailed && f.link() != nil && f.terms.current != nil
+		}
 		return f.loading == nil && !f.loadFailed && f.link() != nil && strings.TrimSpace(d.total.Text()) != ""
 	}
 	if d.check != nil {
@@ -386,6 +392,9 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		case result := <-f.loading:
 			f.loading = nil
 			f.current, f.loadFailed = result.value.CurrentValue, result.err != nil
+			if f.terms != nil && result.err == nil {
+				f.terms.receive(result.value)
+			}
 			if f.interest != nil {
 				f.interest.manualMaturityInterest = result.value.Contract.InterestMode == domain.InterestManualMaturityAmount
 			}
@@ -400,9 +409,14 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			d.review, d.reviewFocus = &result.value, true
 		case holdingReconStale(result.err) && c.id != "":
 			d.problem = i18n.HoldingReconChanged
+			if d.product != nil && d.product.terms != nil {
+				p.loadHoldingProduct(d.product)
+			}
 			p.readHoldingReconciliation()
 		default:
-			if d.product != nil && d.product.settlement != nil {
+			if d.product != nil && d.product.terms != nil {
+				d.problem = i18n.ProductEditReviewFailed
+			} else if d.product != nil && d.product.settlement != nil {
 				d.problem = i18n.HoldingReconProductSettlementFailed
 			} else if d.product != nil && d.product.interest != nil {
 				d.problem = i18n.HoldingReconProductInterestFailed
@@ -425,6 +439,8 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			} else {
 				c.draft, c.restore, c.saved = nil, d.entry, i18n.NoMessage
 				switch {
+				case d.product != nil && d.product.terms != nil:
+					c.saved = i18n.ProductEditSaved
 				case d.product != nil && d.product.settlement != nil:
 					c.saved, c.restore, c.editScroll = i18n.HoldingReconProductSettlementSaved, &c.back, 0
 				case d.product != nil && d.product.interest != nil:
@@ -469,7 +485,7 @@ func holdingReconStale(err error) bool {
 	if !errors.As(err, &issue) {
 		return false
 	}
-	if issue.Code == string(domain.ErrStalePreview) {
+	if issue.Code == string(domain.ErrStalePreview) || issue.Code == string(domain.ErrRevisionConflict) {
 		return true
 	}
 	if issue.Code == string(domain.ErrConflict) {
