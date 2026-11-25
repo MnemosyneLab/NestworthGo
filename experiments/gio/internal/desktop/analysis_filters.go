@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -74,6 +76,8 @@ type analysisFilterControls struct {
 	instrument               ui.Select
 	from, to                 ui.DatePicker
 	cash, more, reset, clear widget.Clickable
+	chips                    [5]widget.Clickable
+	shortcuts                analysisDateShortcuts
 	expanded                 bool
 }
 
@@ -165,6 +169,16 @@ func (c *analysisFilterControls) layout(gtx layout.Context, view ui.View, refs a
 		selection.excludeCash = !selection.excludeCash
 		set(selection)
 	}
+	if c.expanded {
+		for index := range c.chips {
+			if c.chips[index].Clicked(gtx) {
+				fields := [...]*string{&selection.account, &selection.currency, &selection.assetClass, &selection.member, &selection.instrument}
+				*fields[index] = ""
+				set(selection)
+				gtx.Execute(key.FocusCmd{Tag: &c.more})
+			}
+		}
+	}
 	scope := selection.scope.Kind
 	if scope == "" {
 		scope = domain.ScopeHousehold
@@ -201,17 +215,19 @@ func (c *analysisFilterControls) layout(gtx layout.Context, view ui.View, refs a
 		}))
 	}
 	last := origin.lastClosed(now).Format(time.DateOnly)
+	from, to := selection.from, selection.to
+	if effective.From <= effective.To {
+		if from == "" {
+			from = effective.From
+		}
+		if to == "" {
+			to = effective.To
+		}
+	}
 	if last >= origin.first {
 		dates := ui.DateOptions{Today: last, Min: origin.first, Max: last, Format: view.DateFormat, WeekStart: time.Monday}
 		if view.WeekStart == "sunday" {
 			dates.WeekStart = time.Sunday
-		}
-		from, to := selection.from, selection.to
-		if from == "" && effective.From <= effective.To {
-			from = effective.From
-		}
-		if to == "" && effective.From <= effective.To {
-			to = effective.To
 		}
 		fromOptions, toOptions := dates, dates
 		if selection.to != "" {
@@ -283,6 +299,16 @@ func (c *analysisFilterControls) layout(gtx layout.Context, view ui.View, refs a
 			gap := gtx.Dp(10)
 			primary := drawFields(fields, 0)
 			offset := primary.Size.Y + gap
+			if origin.first <= last {
+				shortcuts := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+					return c.shortcuts.layout(gtx, view, analysisDateWindow{from, to}, origin.first, last, func(window analysisDateWindow) {
+						next := c.selection
+						next.from, next.to = window.from, window.to
+						set(next)
+					})
+				})
+				offset += shortcuts.Size.Y + gap
+			}
 			widgets := []layout.Widget{
 				view.ButtonOf(&c.reset, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.AnalysisReset)}),
 				analysisToggle(view, &c.more, l.Text(i18n.AnalysisMoreFilters), c.expanded),
@@ -304,6 +330,15 @@ func (c *analysisFilterControls) layout(gtx layout.Context, view ui.View, refs a
 			})
 			offset += summary.Size.Y
 			if len(additional) > 0 {
+				chips := c.chipWidgets(view, refs, selection)
+				if len(chips) > 0 {
+					dims := ui.Place(gtx, view, image.Pt(0, offset+gap), width, func(gtx layout.Context, _ ui.View) layout.Dimensions {
+						return (ui.Wrap{Gap: 8}).Layout(gtx, len(chips), func(gtx layout.Context, index int) layout.Dimensions {
+							return chips[index](gtx)
+						})
+					})
+					offset += dims.Size.Y + gap
+				}
 				offset += gap + drawFields(additional, offset+gap).Size.Y
 			}
 			return layout.Dimensions{Size: image.Pt(width, offset)}
@@ -329,24 +364,47 @@ func analysisFilterSummary(l i18n.Language, refs analysisReferences, s analysisS
 		cash = i18n.AnalysisCashExcluded
 	}
 	labels := []string{l.Text(valuation), l.Text(cash)}
-	if s.currency != "" {
-		labels = append(labels, s.currency)
+	for _, label := range analysisChipLabels(l, refs, s) {
+		if label != "" {
+			labels = append(labels, label)
+		}
 	}
-	for _, filter := range []struct {
+	return strings.Join(labels, " · ")
+}
+
+func analysisChipLabels(l i18n.Language, refs analysisReferences, s analysisSelection) [5]string {
+	var labels [5]string
+	labels[1] = s.currency
+	for _, filter := range [...]struct {
+		index   int
 		id      string
 		options []ui.Choice
-	}{{s.account, refs.accounts}, {s.member, refs.members}, {s.instrument, refs.instruments}, {s.assetClass, analysisAssetClasses(l)}} {
+	}{{0, s.account, refs.accounts}, {2, s.assetClass, analysisAssetClasses(l)}, {3, s.member, refs.members}, {4, s.instrument, refs.instruments}} {
 		if filter.id == "" {
 			continue
 		}
+		labels[filter.index] = l.Text(i18n.OverviewEvidenceUnavailable)
 		for _, option := range filter.options {
 			if option.ID == filter.id {
-				labels = append(labels, option.Label)
+				labels[filter.index] = option.Label
 				break
 			}
 		}
 	}
-	return strings.Join(labels, " · ")
+	return labels
+}
+
+func (c *analysisFilterControls) chipWidgets(view ui.View, refs analysisReferences, s analysisSelection) []layout.Widget {
+	var chips []layout.Widget
+	for index, label := range analysisChipLabels(view.Language, refs, s) {
+		if label != "" {
+			name := fmt.Sprintf(view.Language.Text(i18n.AnalysisRemoveFilter), label)
+			chips = append(chips, view.ButtonOf(&c.chips[index], ui.ButtonSpec{
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: label, Name: name, Icon: lucide.X,
+			}))
+		}
+	}
+	return chips
 }
 
 type analysisFilterField func(layout.Context, ui.View) layout.Dimensions

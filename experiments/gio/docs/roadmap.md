@@ -1682,9 +1682,8 @@ snapshot-specific review remain open.
 Return Analysis and Asset Changes show scope and the effective dates in
 the primary row. More filters shows the valuation and cash options with
 account, currency, asset class, member and instrument. A summary shows the
-active choices while the controls are collapsed. Gio uses that summary and
-the pickers for individual clearing, which keeps the compact header to one
-summary row when it fits. The bulk clear action preserves the date range,
+active choices while the controls are collapsed. The compact header uses
+one summary row when it fits. The bulk clear action preserves the date range,
 scope, valuation and cash setting. Editing one date keeps the other date and
 respects the recorded History period. The Return day link carries the exact
 filters into Asset Changes. Contribution detail explains that Ledger activity
@@ -1695,7 +1694,7 @@ cannot apply an additional member filter.
 | Wails comparison | All 90 tests across Analysis Filter Bar, Return Analysis, Asset Changes and Insight Tabs passed. Focused shared Go query and analysis tests passed. On independent synthetic ledgers, Gio and the Wails Go adapter matched the contribution with USD, Stocks, the member and the named instrument selected. |
 | Gio interaction | August 1–31 stayed effective across Return tabs. Calendar day → Asset Changes retained the additional instrument, member, asset class and earlier account, currency, native valuation and cash choices. Back restored focus and the originating filters. Clearing the additional set retained other choices and focused More filters. |
 | Linux X11 | The packaged preview selected Stocks, Sample owner and Synthetic fund for November 1–24 and retained them in Contribution and at 700×480. The contribution remained USD 25 and +25%. Its detail showed separate member and currency or asset-class notices before Ledger activity. |
-| Build and tests | The full Gio suite, Gio vet and native Linux package build passed. Presets, individual filter chips, interactive Wails, macOS, VoiceOver and IME remain open. |
+| Build and tests | The full Gio suite, Gio vet and native Linux package build passed. Interactive Wails, macOS, VoiceOver and IME remain open. |
 
 #### Return Calendar year and month detail
 
@@ -1731,6 +1730,23 @@ round trip.
 | Wails comparison | All 36 Insight Tabs frontend tests and focused shared Go Contribution tests passed. Gio preserves the shared amount and rate, and the Wails direction, limit and absolute-value order. The ranking test distinguishes magnitude 1.00000001 from 1, breaks ties by key, and excludes missing amounts without changing the details order. |
 | Gio interaction | With one positive USD 25 item, Negative reduced the ranking to zero. Searching independently hid and recovered the item in Details. Show 20 and the search survived Contribution → Ledger activity → Back. |
 | Linux X11 | The packaged preview showed zero of one in the negative ranking, found Synthetic fund in Details, and opened the same November 1–24 Ledger activity context. Back and Return reopened that detail. At 700×480 the search and result remained reachable after scrolling. |
+| Build and tests | The full Gio module suite, Gio vet and native Linux package build passed. Interactive Wails, macOS, VoiceOver and IME remain open. |
+
+#### Analysis date shortcuts and individual filter clearing
+
+Return Analysis and Asset Changes share the day, week, month, quarter,
+six-month, year and all-history shortcuts above More filters. Presets end
+on the last closed date in the History timezone. The previous and next
+controls step to adjacent inclusive ranges and respect the History start
+and last closed date. Additional filter chips remove one choice at a time
+and return focus to More filters. Dates, scope, valuation and other
+choices remain selected.
+
+| Check | Evidence |
+| --- | --- |
+| Wails reference | The 41 Analysis Filter Bar and Return Analysis tests and two date-range tests passed. Gio frames exercised a historical week and its adjacent periods. The date regression also covers leap-day month ends, custom adjacent windows and clipping at History start. |
+| Gio interaction | In the filtered August Calendar and Asset Changes round trip, removing Stocks preserved the other four additional filters and dated selection. Clearing the remainder preserved scope, valuation and cash. |
+| Linux X11 | Last week selected November 18–24. Previous selected November 11–17. Removing the Sample owner chip preserved those dates. Asset Changes showed November 18–24 at 700×480 after choosing the same shortcut. |
 | Build and tests | The full Gio module suite, Gio vet and native Linux package build passed. Interactive Wails, macOS, VoiceOver and IME remain open. |
 
 ### Follow-up Linux acceptance

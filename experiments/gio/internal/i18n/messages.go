@@ -385,6 +385,23 @@ const (
 	AnalysisCashIncluded
 	AnalysisCashExcluded
 	AnalysisClearAdditional
+	AnalysisDayShort
+	AnalysisWeekShort
+	AnalysisMonthShort
+	AnalysisQuarterShort
+	AnalysisHalfYearShort
+	AnalysisYearShort
+	AnalysisAllDates
+	AnalysisLastDay
+	AnalysisLastWeek
+	AnalysisLastMonth
+	AnalysisLastQuarter
+	AnalysisLastHalfYear
+	AnalysisLastYear
+	AnalysisWholeHistory
+	AnalysisPreviousRange
+	AnalysisNextRange
+	AnalysisRemoveFilter
 	ContributionHistoryMember
 	AnalysisBaseFallback
 	AssetTrend

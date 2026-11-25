@@ -36,6 +36,8 @@ type assetChangesVisit struct {
 	category  application.AnalysisCategoryType
 	list      layout.Position
 	expanded  bool
+	preset    int
+	presetAt  analysisDateWindow
 }
 
 type assetChangesResult struct {
@@ -70,6 +72,7 @@ func (p *assetChangesPage) enter(state assetChangesVisit) {
 	p.state = state
 	p.filters.selection = state.selection
 	p.filters.expanded = state.expanded
+	p.filters.shortcuts.chosen, p.filters.shortcuts.at = state.preset, state.presetAt
 	p.list.Position = state.list
 	p.current = nil
 	if p.refs.origin == nil {
@@ -83,6 +86,7 @@ func (p *assetChangesPage) visit() assetChangesVisit {
 	state := p.state
 	state.selection, state.list = p.filters.selection, p.list.Position
 	state.expanded = p.filters.expanded
+	state.preset, state.presetAt = p.filters.shortcuts.chosen, p.filters.shortcuts.at
 	return state
 }
 

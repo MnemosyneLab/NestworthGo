@@ -529,6 +529,23 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 		}
 	}
 	settle()
+	h.click("Last week", false)
+	settle()
+	if page := p.filters.selection; page.from != "2026-08-31" || page.to != "2026-09-06" {
+		t.Fatalf("last week bounds = %+v", page)
+	}
+	h.click("Previous date range", false)
+	settle()
+	if page := p.filters.selection; page.from != "2026-08-24" || page.to != "2026-08-30" {
+		t.Fatalf("previous week bounds = %+v", page)
+	}
+	h.click("Next date range", false)
+	settle()
+	if page := p.filters.selection; page.from != "2026-08-31" || page.to != "2026-09-06" {
+		t.Fatalf("next week bounds = %+v", page)
+	}
+	h.click("Reset filters", false)
+	settle()
 	selectOption := func(field, option string) {
 		h.click(field, true)
 		h.click(option, false)
@@ -601,6 +618,13 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 		t.Fatal("returning from Asset Changes did not restore the originating filters")
 	}
 	h.click("More filters", false)
+	h.click("Remove filter · Stocks", false)
+	settle()
+	withoutClass := selection
+	withoutClass.assetClass = ""
+	if p.filters.selection != withoutClass {
+		t.Fatalf("single chip changed more than the selected asset class: %+v", p.filters.selection)
+	}
 	h.click("Clear additional filters", false)
 	settle()
 	if p.filters.selection != selection.clearAdditional() {
