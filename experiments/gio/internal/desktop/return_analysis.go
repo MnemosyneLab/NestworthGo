@@ -40,6 +40,7 @@ type returnCalendarFrame struct {
 	summaryTo    domain.LocalDate
 	trend        *application.ReturnTrendResult
 	contribution *application.ContributionResult
+	yearMonths   []application.ReturnCalendarMonthResult
 }
 
 type returnDaySheet struct {
@@ -65,6 +66,7 @@ type returnAnalysisPage struct {
 
 	refs    analysisContext
 	month   time.Time
+	year    bool
 	sunday  bool
 	err     error
 	current *returnCalendarFrame
@@ -74,7 +76,9 @@ type returnAnalysisPage struct {
 	output  returnProjectionControls
 
 	previous, next, today, reload widget.Clickable
+	monthMode, yearMode           widget.Clickable
 	cells                         [42]widget.Clickable
+	yearCells                     [12]widget.Clickable
 	day                           *returnDaySheet
 	item                          *contributionSheet
 	returnFocus                   *widget.Clickable
@@ -130,6 +134,15 @@ func returnCalendarQuery(from, to time.Time, origin *wealthHistoryOrigin, now ti
 	}
 }
 
+func (p *returnAnalysisPage) periodQuery(month, now time.Time) domain.AnalysisQuery {
+	start, end := month, month.AddDate(0, 1, -1)
+	if p.year && p.tab == returnCalendarTab {
+		start = time.Date(month.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+		end = start.AddDate(1, 0, -1)
+	}
+	return returnCalendarQuery(start, end, p.refs.origin, now)
+}
+
 func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 	p.leave()
 	if p.month != month || p.sunday != sunday {
@@ -144,8 +157,13 @@ func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 	now := p.clock()
 	origin := p.refs.origin
 	grid, cells := returnGrid(month, sunday)
-	monthQuery := selected.query(returnCalendarQuery(month, month.AddDate(0, 1, -1), origin, now))
+	periodQuery := selected.query(p.periodQuery(month, now))
+	monthQuery := periodQuery
+	year := p.year && p.tab == returnCalendarTab
 	monthCursor := month.Format("2006-01")
+	if year {
+		monthCursor = ""
+	}
 	if selected.from != "" && selected.to != "" {
 		monthQuery.From, monthQuery.To, monthCursor = selected.from, selected.to, ""
 	}
@@ -179,6 +197,20 @@ func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 			}
 			out.summary = result
 		}
+		if year {
+			if periodQuery.From <= periodQuery.To {
+				months := out.summary.Months
+				if periodQuery != monthQuery {
+					result, err := p.reader.ReturnCalendar(ctx, periodQuery, "", "")
+					if err != nil {
+						return returnCalendarFrame{}, err
+					}
+					months = result.Months
+				}
+				out.yearMonths = months
+			}
+			return out, nil
+		}
 		if gridQuery.From <= gridQuery.To {
 			cells := out.summary.Days
 			if gridQuery != monthQuery {
@@ -203,7 +235,7 @@ func (p *returnAnalysisPage) changeTab(tab returnAnalysisTab) {
 	}
 	if p.tab == returnCalendarTab && p.refs.origin != nil {
 		selection := &p.filters.selection
-		window := returnCalendarQuery(p.month, p.month.AddDate(0, 1, -1), p.refs.origin, p.clock())
+		window := p.periodQuery(p.month, p.clock())
 		if selection.from != "" {
 			window.From = selection.from
 		}

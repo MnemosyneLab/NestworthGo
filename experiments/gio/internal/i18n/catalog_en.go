@@ -477,8 +477,16 @@ var englishCatalog = catalog{
 	WealthHistoryBasisChanged: "Valuation basis changed",
 	WealthHistoryFundingGap:   "Funding cash was recorded after the product started",
 
-	ReturnCalendar:         "Calendar",
-	ReturnToday:            "Today",
+	ReturnCalendar: "Calendar",
+	ReturnToday:    "Today",
+
+	ReturnMonth:        "Month",
+	ReturnYear:         "Year",
+	ReturnPreviousYear: "Previous year",
+	ReturnNextYear:     "Next year",
+	ReturnYearLayout:   "2006",
+	ReturnMonthLayout:  "January",
+
 	ReturnLoading:          "Loading investment returns…",
 	ReturnFailed:           "Could not load investment returns.",
 	ReturnNoOrigin:         "Start History to view investment returns.",

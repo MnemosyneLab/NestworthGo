@@ -64,7 +64,7 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 	offset := tabs(gtx).Size.Y + gtx.Dp(12)
 	filter := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		now := p.clock()
-		effective := returnCalendarQuery(p.month, p.month.AddDate(0, 1, -1), origin, now)
+		effective := p.periodQuery(p.month, now)
 		return p.filters.layout(gtx, view, p.refs.analysisReferences, origin, now, effective, p.changeFilters)
 	})
 	offset += filter.Size.Y + gtx.Dp(12)
@@ -89,6 +89,7 @@ func (p *returnAnalysisPage) layoutCalendar(gtx layout.Context, view ui.View) la
 	thisMonth := returnMonth(localNow)
 	earliest, _ := time.Parse("2006-01", origin.first[:7])
 	p.updateMonthButtons(gtx, earliest, thisMonth)
+	p.updateYearSelection(gtx, earliest, thisMonth)
 	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return p.monthControls(gtx, view, earliest, thisMonth)
 	})}
@@ -108,11 +109,15 @@ func (p *returnAnalysisPage) layoutCalendar(gtx layout.Context, view ui.View) la
 		}
 	}
 	if p.current != nil {
+		grid := func(gtx layout.Context) layout.Dimensions {
+			if p.year {
+				return p.layoutYear(gtx, view, earliest, thisMonth)
+			}
+			return p.monthGrid(gtx, view, localNow.Format(time.DateOnly))
+		}
 		rows = append(rows,
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.monthSummary(gtx, view) }),
-			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return p.monthGrid(gtx, view, localNow.Format(time.DateOnly))
-			}))
+			ui.Rigid(grid))
 		if len(p.current.summary.TopContributors) > 0 {
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return p.contributors(gtx, view, p.current.summary.TopContributors)
@@ -124,16 +129,36 @@ func (p *returnAnalysisPage) layoutCalendar(gtx layout.Context, view ui.View) la
 
 func (p *returnAnalysisPage) updateMonthButtons(gtx layout.Context, earliest, latest time.Time) {
 	month := p.month
+	before, after := p.periodDirections(earliest, latest)
+	modeChanged, step := false, 1
+	if p.year {
+		step = 12
+	}
 	switch {
-	case p.previous.Clicked(gtx) && month.After(earliest):
-		month = month.AddDate(0, -1, 0)
-	case p.next.Clicked(gtx) && month.Before(latest):
-		month = month.AddDate(0, 1, 0)
+	case p.monthMode.Clicked(gtx) && p.year:
+		p.year, modeChanged = false, true
+	case p.yearMode.Clicked(gtx) && !p.year:
+		p.year, modeChanged = true, true
+	case p.previous.Clicked(gtx) && before:
+		month = month.AddDate(0, -step, 0)
+	case p.next.Clicked(gtx) && after:
+		month = month.AddDate(0, step, 0)
 	case p.today.Clicked(gtx):
 		month = latest
 	}
+	if p.year {
+		if month.Before(earliest) {
+			month = earliest
+		}
+		if month.After(latest) {
+			month = latest
+		}
+	}
+	if modeChanged {
+		p.current = nil
+	}
 	reload := p.reload.Clicked(gtx)
-	if month != p.month || reload && p.request == nil {
+	if modeChanged || month != p.month || reload && p.request == nil {
 		p.readMonth(month, p.sunday)
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -145,16 +170,27 @@ func (p *returnAnalysisPage) monthControls(gtx layout.Context, view ui.View, ear
 	if p.err != nil {
 		reload = i18n.HistoryRetry
 	}
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(returnMonthButton(view, &p.previous, i18n.DatePreviousMonth, ui.Glyph(lucide.ChevronLeft), p.month.After(earliest))),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Line(gtx, ui.TextHeading, p.month.Format(l.Text(i18n.DateMonthLayout)), view.Colors.Ink)
-		}),
-		layout.Rigid(returnMonthButton(view, &p.next, i18n.DateNextMonth, ui.Glyph(lucide.ChevronRight), p.month.Before(latest))),
-		layout.Rigid(returnMonthButton(view, &p.today, i18n.ReturnToday, nil, p.month != latest)),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{Size: gtx.Constraints.Min} }),
-		layout.Rigid(returnMonthButton(view, &p.reload, reload, nil, true)),
-	)
+	name, previous, next := l.Text(i18n.DateMonthLayout), i18n.DatePreviousMonth, i18n.DateNextMonth
+	if p.year {
+		name, previous, next = l.Text(i18n.ReturnYearLayout), i18n.ReturnPreviousYear, i18n.ReturnNextYear
+	}
+	before, after := p.periodDirections(earliest, latest)
+	controls := []layout.Widget{
+		returnMonthButton(view, &p.previous, previous, ui.Glyph(lucide.ChevronLeft), before),
+		func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 6}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Line(gtx, ui.TextHeading, p.month.Format(name), view.Colors.Ink)
+			})
+		},
+		returnMonthButton(view, &p.next, next, ui.Glyph(lucide.ChevronRight), after),
+		returnMonthButton(view, &p.today, i18n.ReturnToday, nil, p.month != latest),
+		analysisToggle(view, &p.monthMode, l.Text(i18n.ReturnMonth), !p.year),
+		analysisToggle(view, &p.yearMode, l.Text(i18n.ReturnYear), p.year),
+		returnMonthButton(view, &p.reload, reload, nil, true),
+	}
+	return (ui.Wrap{Gap: 8}).Layout(gtx, len(controls), func(gtx layout.Context, index int) layout.Dimensions {
+		return controls[index](gtx)
+	})
 }
 
 func returnMonthButton(view ui.View, button *widget.Clickable, label i18n.MessageID, icon ui.Glyph, enabled bool) layout.Widget {

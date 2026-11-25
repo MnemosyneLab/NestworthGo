@@ -476,8 +476,16 @@ var japaneseCatalog = catalog{
 	WealthHistoryBasisChanged: "評価基準が変わりました",
 	WealthHistoryFundingGap:   "商品の開始日より後に資金が記録されました",
 
-	ReturnCalendar:         "カレンダー",
-	ReturnToday:            "今日",
+	ReturnCalendar: "カレンダー",
+	ReturnToday:    "今日",
+
+	ReturnMonth:        "月",
+	ReturnYear:         "年",
+	ReturnPreviousYear: "前の年",
+	ReturnNextYear:     "次の年",
+	ReturnYearLayout:   "2006年",
+	ReturnMonthLayout:  "1月",
+
 	ReturnLoading:          "投資収益を読み込み中…",
 	ReturnFailed:           "投資収益を読み込めませんでした。",
 	ReturnNoOrigin:         "投資収益を表示するには履歴を開始してください。",

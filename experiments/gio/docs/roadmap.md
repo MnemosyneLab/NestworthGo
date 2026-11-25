@@ -1563,9 +1563,9 @@ Trend shows the shared period amount, linked period rate, coverage,
 composition and the selected daily values. Contribution shows the shared
 summary and ranking, with return type, grouping and ordering. Both begin with
 keyboard-scrollable lists so the supplied daily values and ranked rows are
-readable at small window sizes. Presets, the year view and additional filter
-types remain open in the [parity checklist](parity.md#return-analysis-and-related-navigation).
-Chart development and integration are paused.
+readable at small window sizes. The [parity checklist](parity.md#return-analysis-and-related-navigation)
+tracks remaining presets and detail workflows. Chart development and
+integration are paused.
 
 | Check | Evidence |
 | --- | --- |
@@ -1696,6 +1696,22 @@ cannot apply an additional member filter.
 | Gio interaction | August 1–31 stayed effective across Return tabs. Calendar day → Asset Changes retained the additional instrument, member, asset class and earlier account, currency, native valuation and cash choices. Back restored focus and the originating filters. Clearing the additional set retained other choices and focused More filters. |
 | Linux X11 | The packaged preview selected Stocks, Sample owner and Synthetic fund for November 1–24 and retained them in Contribution and at 700×480. The contribution remained USD 25 and +25%. Its detail showed separate member and currency or asset-class notices before Ledger activity. |
 | Build and tests | The full Gio suite, Gio vet and native Linux package build passed. Presets, individual filter chips, interactive Wails, macOS, VoiceOver and IME remain open. |
+
+#### Return Calendar year and month detail
+
+Calendar offers Month and Year after the period controls. Year displays the
+shared year summary and a responsive grid of monthly return amounts, linked
+rates and rated-day coverage. A selection can override the summary range
+while month cards retain the visible year's scope. A month card opens the
+selected month and moves keyboard focus to the Month control. Months outside
+the recorded History period show their missing state and are disabled.
+
+| Check | Evidence |
+| --- | --- |
+| Wails comparison | The year frame used the same shared February month fold as the Wails Go adapter. Amount USD 25, rate +25% and rated-day coverage matched. All 30 Wails Return Analysis frontend tests and the focused shared Go calendar tests passed. |
+| Gio interaction | A failed Year read exposed Retry. The recovered result opened February and focused the Month control, after which the existing day-detail and Asset Changes interaction regressions passed. |
+| Linux X11 | The packaged preview showed the November Year card at USD 25, +25%, 24/24. At 700×480 the cards wrapped and the November result was reachable by scrolling. Selecting it showed November 2026 and November 1–24 in Month. The synthetic fixture verified after quit. |
+| Build and tests | The entire Gio module suite, Gio vet and native Linux package build passed. Native macOS, VoiceOver and IME remain open. |
 
 ### Follow-up Linux acceptance
 

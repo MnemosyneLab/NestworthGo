@@ -303,6 +303,12 @@ const (
 	WealthHistoryFundingGap
 	ReturnCalendar
 	ReturnToday
+	ReturnMonth
+	ReturnYear
+	ReturnPreviousYear
+	ReturnNextYear
+	ReturnYearLayout
+	ReturnMonthLayout
 	ReturnLoading
 	ReturnFailed
 	ReturnNoOrigin

@@ -477,8 +477,16 @@ var simplifiedChineseCatalog = catalog{
 	WealthHistoryBasisChanged: "估值口径已变化",
 	WealthHistoryFundingGap:   "资金入账晚于产品的开始日期",
 
-	ReturnCalendar:         "日历",
-	ReturnToday:            "今天",
+	ReturnCalendar: "日历",
+	ReturnToday:    "今天",
+
+	ReturnMonth:        "月",
+	ReturnYear:         "年",
+	ReturnPreviousYear: "上一年",
+	ReturnNextYear:     "下一年",
+	ReturnYearLayout:   "2006年",
+	ReturnMonthLayout:  "1月",
+
 	ReturnLoading:          "正在加载投资收益…",
 	ReturnFailed:           "无法加载投资收益。",
 	ReturnNoOrigin:         "开始记录历史后即可查看投资收益。",

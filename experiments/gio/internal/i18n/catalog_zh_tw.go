@@ -477,8 +477,16 @@ var traditionalChineseCatalog = catalog{
 	WealthHistoryBasisChanged: "估值基準已變更",
 	WealthHistoryFundingGap:   "資金入帳晚於產品的開始日期",
 
-	ReturnCalendar:         "日曆",
-	ReturnToday:            "今天",
+	ReturnCalendar: "日曆",
+	ReturnToday:    "今天",
+
+	ReturnMonth:        "月",
+	ReturnYear:         "年",
+	ReturnPreviousYear: "上一年",
+	ReturnNextYear:     "下一年",
+	ReturnYearLayout:   "2006年",
+	ReturnMonthLayout:  "1月",
+
 	ReturnLoading:          "正在載入投資收益…",
 	ReturnFailed:           "無法載入投資收益。",
 	ReturnNoOrigin:         "開始記錄歷史後即可查看投資收益。",

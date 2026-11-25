@@ -166,6 +166,34 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	for _, label := range []string{"Summary · 2026-02-01 to 2026-02-03 · USD", "Return amount", "Return rate", "+25%", "$ 25.00", "Day still open"} {
 		assertPageLabel(t, &h.router, label)
 	}
+	wailsYear, err := adapter.ReturnCalendar(ctx, query, "", "day")
+	if err != nil || len(wailsYear.Months) != 1 || wailsYear.Months[0].ReturnAmount == nil {
+		t.Fatalf("Wails yearly grouping = %+v, %v", wailsYear.Months, err)
+	}
+	reader.failCalendar = true
+	h.click("Year", false)
+	page.workers.Wait()
+	h.frame()
+	assertPageLabel(t, &h.router, "Could not load investment returns.")
+	h.click("Retry", false)
+	page.workers.Wait()
+	h.frame()
+	if !page.year || page.current == nil || len(page.current.yearMonths) != 1 {
+		t.Fatalf("yearly read = %+v, %v", page.current, page.err)
+	}
+	month, refMonth := page.current.yearMonths[0], wailsYear.Months[0]
+	if month.Month != refMonth.Month || month.ReturnAmount == nil || month.ReturnAmount.CanonicalAmount() != refMonth.ReturnAmount.Amount ||
+		month.ReturnRate == nil || refMonth.ReturnRate == nil || month.ReturnRate.String() != *refMonth.ReturnRate ||
+		month.Coverage.RatedDays != refMonth.RatedDays || month.Coverage.TotalDays != refMonth.TotalDays {
+		t.Fatalf("yearly month differs: Gio %+v, Wails %+v", month, refMonth)
+	}
+	h.click("February", false)
+	page.workers.Wait()
+	h.frame()
+	if page.year || page.month.Format("2006-01") != "2026-02" {
+		t.Fatal("the year card did not open the selected month")
+	}
+	h.focused(&page.monthMode)
 	h.click("2026-02-02 · +25% · $ 25.00", true)
 	page.workers.Wait()
 	h.frame()
