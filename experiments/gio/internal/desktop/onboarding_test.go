@@ -249,6 +249,18 @@ func TestOnboardingWindowMatchesWailsAndRetriesReadsAfterCommit(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(afterOrigin, gotOrigin) {
 		t.Fatalf("history origin changed on reopen: %+v, %v", afterOrigin, err)
 	}
+	directory := newDirectoryPage(newMembersList(ctx, reopened, func() {}))
+	reopenedShell := newShellHarnessWithPages(t, ledgerPages{directory: directory})
+	reopenedShell.shell.prefs.saved.Language = settings.LanguageEnglish
+	reopenedShell.shell.onboarding = newOnboardingPage(ctx, reopened, clock, func() {})
+	reopenedShell.shell.onboarding.read()
+	reopenedShell.shell.onboarding.workers.Wait()
+	reopenedShell.frame()
+	reopenedShell.click("Directory", false)
+	directory.wait()
+	reopenedShell.frame()
+	assertPageLabel(t, &reopenedShell.router, want.Household.Name)
+	assertPageLabel(t, &reopenedShell.router, "Mei Sample")
 }
 
 func assertEquivalentHousehold(t *testing.T, got application.Bootstrap, want household.BootstrapResult) {

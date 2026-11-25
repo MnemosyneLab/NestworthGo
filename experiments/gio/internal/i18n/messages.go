@@ -493,7 +493,6 @@ const (
 	DirectoryObjectLoading
 	DirectoryObjectLoadError
 	DirectoryObjectActive
-	InstitutionsSynthetic
 	InstitutionsSearchHint
 	InstitutionsRefresh
 	InstitutionsRetry

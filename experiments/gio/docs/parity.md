@@ -5,6 +5,9 @@ describe runnable Gio behavior. Evidence cells link to the fixture and platform
 records in the [roadmap](roadmap.md). Those records distinguish shared Go
 comparison, Gio interaction tests, Linux X11, and native Mac interaction.
 Each gap remains open until its workflow has implementation and verification.
+The [follow-up Linux acceptance](roadmap.md#follow-up-linux-acceptance)
+records the reopened household name, Tasks tab navigation, missing quote
+evidence and which analysis paths materialize SQLite snapshots.
 
 Compare the Wails page title, navigation, section order, primary actions,
 compact layout and feedback. A deliberate layout departure needs a reason and

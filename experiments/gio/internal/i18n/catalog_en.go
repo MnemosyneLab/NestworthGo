@@ -221,7 +221,6 @@ var englishCatalog = catalog{
 	DirectoryObjectLoading:           "Loading directory item…",
 	DirectoryObjectLoadError:         "Could not load the directory item.",
 	DirectoryObjectActive:            "Active",
-	InstitutionsSynthetic:            "Synthetic test household",
 	InstitutionsSearchHint:           "Filter by institution name",
 	InstitutionsRefresh:              "Reload",
 	InstitutionsRetry:                "Retry reload",

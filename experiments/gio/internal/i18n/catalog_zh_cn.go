@@ -221,7 +221,6 @@ var simplifiedChineseCatalog = catalog{
 	DirectoryObjectLoading:           "正在加载名录项目…",
 	DirectoryObjectLoadError:         "无法加载此名录项目。",
 	DirectoryObjectActive:            "启用",
-	InstitutionsSynthetic:            "合成测试家庭",
 	InstitutionsSearchHint:           "按机构名称筛选",
 	InstitutionsRefresh:              "重新加载",
 	InstitutionsRetry:                "重试加载",

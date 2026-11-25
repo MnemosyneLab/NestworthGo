@@ -220,7 +220,6 @@ var japaneseCatalog = catalog{
 	DirectoryObjectLoading:           "マスタ項目を読み込み中…",
 	DirectoryObjectLoadError:         "マスタ項目を読み込めませんでした。",
 	DirectoryObjectActive:            "有効",
-	InstitutionsSynthetic:            "テスト用の家計",
 	InstitutionsSearchHint:           "金融機関名で絞り込む",
 	InstitutionsRefresh:              "再読み込み",
 	InstitutionsRetry:                "再試行",

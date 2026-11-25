@@ -185,7 +185,7 @@ func (p *directoryList) applyWriteNotice() {
 	p.awaitingRead = directoryChange{}
 }
 
-func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
 	p.receive()
 	p.applyVisit()
 	controlsEnabled := !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && gtx.Enabled()
@@ -207,7 +207,7 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	gap := gtx.Dp(12)
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			dims := p.header(gtx, view)
+			dims := p.header(gtx, view, householdName)
 			editorView.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),
@@ -229,9 +229,9 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	)
 }
 
-func (p *directoryList) header(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) header(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Flexed(1, view.Message(view.Language.Text(i18n.InstitutionsSynthetic), view.Colors.SecondaryInk)),
+		layout.Flexed(1, view.Message(householdName, view.Colors.SecondaryInk)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.busy || p.editMode != directoryRead || p.awaitingRead.operation != directoryRead {
 				gtx = gtx.Disabled()

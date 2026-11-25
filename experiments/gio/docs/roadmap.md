@@ -1697,6 +1697,20 @@ cannot apply an additional member filter.
 | Linux X11 | The packaged preview selected Stocks, Sample owner and Synthetic fund for November 1–24 and retained them in Contribution and at 700×480. The contribution remained USD 25 and +25%. Its detail showed separate member and currency or asset-class notices before Ledger activity. |
 | Build and tests | The full Gio suite, Gio vet and native Linux package build passed. Presets, individual filter chips, interactive Wails, macOS, VoiceOver and IME remain open. |
 
+### Follow-up Linux acceptance
+
+Independent Linux QA on an earlier preview found a Directory caption,
+Tasks navigation behavior and database changes across a combined analysis
+tour. The packaged preview repeated those workflows on isolated profiles.
+
+| Workflow | Disposition and evidence |
+| --- | --- |
+| Onboarding → Directory | A new synthetic household saved **Atlas Willow household** and **Willow Sample**. Directory showed the fixed synthetic caption even though the entered name was saved. Directory now uses the household name from the authoritative startup read. After quit and reopen the packaged preview displayed both entered names. A Gio regression compares onboarding against the Wails Go adapter, then reopens the stored profile and checks the Directory labels. |
+| Account → Investments → Tasks | Opened Synthetic broker, which showed Synthetic fund under Investments. In Tasks, Investment review showed no published review and Reconciliation showed no open statements. Back returned to the same brokerage detail and Forward restored Reconciliation. Wails updates the Tasks tab within one navigation entry, so both surfaces return to the previous page. The nine Wails Tasks tests and seven matching App navigation tests passed. |
+| Wealth History evidence | On a fresh priced fixture, November 24 showed USD 125 known net contribution, assets coverage 1/2, quote date November 1 and the named missing AUD exchange rate for Synthetic Australian cash. A read-only query through the Wails Go adapter matched the subtotal, quote date, missing account and coverage. |
+| First launch and analysis writes | Fingerprinted SQLite rows before launch, after the initial Overview, after Wealth History and after Return Calendar. First launch attached the shared Settings store and added the durable settings row and its financial-source revision record. Wealth History changed no SQLite table. Return Calendar materialized 24 daily snapshots and 48 items and advanced the snapshot state through the shared analysis service. Accounts, activities, holdings, source quotes and settings matched across both analysis reads. |
+| Platform verification | Packaged Linux X11 and the full Gio module suite with vet passed. Native macOS, VoiceOver and IME acceptance remain open. |
+
 ## Moving from the preview to a desktop build
 
 1. During the pilot, run the Gio module's tests explicitly. The root

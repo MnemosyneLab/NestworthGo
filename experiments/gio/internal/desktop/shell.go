@@ -403,6 +403,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		p.update()
 		if p.opened {
 			s.onboarding = nil
+			if s.directory != nil {
+				s.directory.householdName = p.householdName
+			}
 			if p.attempted && s.accounts != nil {
 				s.trail = newNavigationTrail(accountsRoute)
 				s.accounts.enter(s.trail.current().target, false, layout.Position{})

@@ -221,7 +221,6 @@ var traditionalChineseCatalog = catalog{
 	DirectoryObjectLoading:           "正在載入名錄項目…",
 	DirectoryObjectLoadError:         "無法載入此名錄項目。",
 	DirectoryObjectActive:            "啟用",
-	InstitutionsSynthetic:            "測試用家庭帳本",
 	InstitutionsSearchHint:           "依機構名稱篩選",
 	InstitutionsRefresh:              "重新載入",
 	InstitutionsRetry:                "重試載入",
