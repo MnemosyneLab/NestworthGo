@@ -67,7 +67,8 @@ account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
 partial sales, liquidations, cash dividends, a positive opening position and
 the Today view of Available Funds with standard bank-account reservations.
-Stages 6–7 are planned. Use [navigation history](../../../docs/design/navigation-history.md),
+Stage 6 begins with the [read-only Wealth History table](#read-only-wealth-history).
+The rest of Stages 6–7 remains planned. Use [navigation history](../../../docs/design/navigation-history.md),
 [history and form defaults](../../../docs/design/history-and-form-defaults-ux.md),
 [account interactions](../../../docs/design/account-container-interaction.md) and the
 [design index](../../../docs/design/README.md) for the detailed behavior behind each row.
@@ -1472,12 +1473,49 @@ interest, and other managed product types. Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
 reminders. Production startup and target-platform acceptance also remain open.
 
-The first independent read-only Stage 6 candidate is Wealth History for a fixed
+The first independent read-only Stage 6 slice is Wealth History for a fixed
 date range and base currency, with a keyboard-readable table. The existing
 historical Overview series supplies daily values, missing inputs and coverage.
 Return Analysis, Asset Changes, provider operations and repairs can be evaluated
-separately. Stage 6 remains paused at this review checkpoint.
+separately.
 [Wails historical series adapter](../../../internal/wailsapi/analytics/historical_series.go)
+
+### Stage 6 progress
+
+#### Read-only Wealth History
+
+**Insights → Wealth history** opens on the most recent closed day in the
+History timezone. Use the shared date pickers to read 1 through 31 consecutive
+civil date labels, inclusive, starting at or after the recorded History
+starting point. The range uses the saved household base currency. The loaded
+range, currency, History timezone and read time remain visible. A failed
+reload retains the previous capture. A replacement read or navigation away
+cancels the outstanding query. Reload reads the ledger and stored quotes
+through the same bounded replay as the Wails Trend view.
+[Wails Trend](../../../frontend/src/features/historical-overview/HistoricalTrend.tsx) · [Shared historical series](../../../internal/application/historical_series.go)
+
+Tab into the daily table and use the arrows, Page Up, Page Down, Home and End.
+Each date shows net worth, assets and signed liabilities. Partial values are
+labeled as known contributions or subtotals, and provisional totals are
+identified. Each date shows its coverage counts, missing named inputs,
+available observation dates and carried or stale quote counts. Changes in
+valuation basis or inclusion scope and civil dates that did not occur in the
+History timezone are called out separately. The shared service owns the
+decimal values and coverage decisions. The table uses the usual currency and
+display preferences.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent read-only SQLite copies used AUD and Asia/Singapore. August 1 had missing USD FX, one of two asset components valued, an unavailable net total and a known AUD 24.90 net contribution. August 2 had exact net worth AUD 148.411725 and displayed AUD 148.41. The complete returned series matched the Wails adapter, including exact amounts, coverage, missing inputs and endpoint evidence. Both reads made zero provider calls. |
+| Gio interaction | Frame tests covered History not started, the starting day before any day has closed, 31-day and timezone bounds, a skipped civil date, retained results after budget failure, Retry, cancellation after a replacement request or leaving the page, and keyboard movement through the table. Focused regression checks covered the existing sidebar popovers after page scroll, page-picker anchors, compact layout, Settings tabs and window-size persistence. |
+| Linux X11 | The packaged preview launched from `preview-linux.sh` on Debian 13 amd64 with Go 1.27.4, Xvfb and Mesa software rendering. The verified synthetic profile showed USD 1,700.25 on November 3 and USD 1,734.13 on November 24. The keyboard selected and loaded the range, reached the table and moved between its first and last rows. Back and Forward kept the loaded range at 700×480. Normal reopen restored that size and loaded the same values when the range was selected again. The synthetic SQLite file had the same SHA-256 before and after the reopen and read. |
+| Build and tests | Gio vet, the independent Linux preview build, and focused shared application, domain and Wails analytics Go tests passed. The Gio module suite had one existing failure, `TestPreviewPopoverFollowsAnchorAndRestoresFocus`. It reproduced at the same coordinates on untouched `origin/main` at `5d42cd74`. |
+| Open evidence | Wails GUI, Linux Wayland, native macOS, VoiceOver and native IME remain unverified for this slice. Production-profile startup, release acceptance and cutover remain separate gates. |
+
+The next candidate is read-only Return Analysis after tracing its calculated
+metrics, eligibility and missing-data states through the Wails adapter. The
+Wealth History chart, endpoint drill-down and detailed source evidence, Asset
+Changes, market data refresh and Data Health repair remain open.
 
 ## Moving from the preview to a desktop build
 

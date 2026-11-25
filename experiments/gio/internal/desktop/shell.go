@@ -30,6 +30,7 @@ const (
 	accountsRoute         routeID = "accounts"
 	fundsRoute            routeID = "available-funds"
 	portfolioRoute        routeID = "portfolio"
+	wealthHistoryRoute    routeID = "historical-overview"
 	tasksRoute            routeID = "tasks"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
@@ -46,15 +47,16 @@ const (
 type pageLayout func(layout.Context, ui.View) layout.Dimensions
 
 type ledgerPages struct {
-	prefs     *preferenceState
-	directory *directoryPage
-	history   *historyPage
-	overview  *overviewPage
-	funds     *availableFundsPage
-	tasks     *tasksPage
-	accounts  *accountsPage
-	portfolio *portfolioPage
-	version   func() string
+	prefs         *preferenceState
+	directory     *directoryPage
+	history       *historyPage
+	overview      *overviewPage
+	funds         *availableFundsPage
+	tasks         *tasksPage
+	accounts      *accountsPage
+	portfolio     *portfolioPage
+	wealthHistory *wealthHistoryPage
+	version       func() string
 }
 
 type navigationItem struct {
@@ -93,6 +95,7 @@ type shell struct {
 	tasks                                 *tasksPage
 	accounts                              *accountsPage
 	portfolio                             *portfolioPage
+	wealthHistory                         *wealthHistoryPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -122,6 +125,7 @@ type shell struct {
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
 	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
+	var wealthHistoryLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -143,6 +147,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if pages.portfolio != nil {
 		portfolioLayout = pages.portfolio.layout
 	}
+	if pages.wealthHistory != nil {
+		wealthHistoryLayout = pages.wealthHistory.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
@@ -153,6 +160,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		tasks:            pages.tasks,
 		accounts:         pages.accounts,
 		portfolio:        pages.portfolio,
+		wealthHistory:    pages.wealthHistory,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            ui.NewTheme(),
@@ -174,7 +182,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			newItem(historyRoute, i18n.NavHistory, lucide.ReceiptText, historyLayout),
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
-			newItem("historical-overview", i18n.NavHistoricalOverview, lucide.CalendarClock, nil),
+			newItem(wealthHistoryRoute, i18n.NavHistoricalOverview, lucide.CalendarClock, wealthHistoryLayout),
 			newItem("returns", i18n.NavReturns, lucide.ChartLine, nil),
 			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
 		}},
@@ -745,7 +753,7 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 	if entry := s.trail.current(); entry != s.stageEntry {
 		s.stageEntry = entry
 		s.stage.Position = layout.Position{}
-		if entry.visited && entry.target.route == settingsRoute {
+		if entry.visited && (entry.target.route == settingsRoute || entry.target.route == wealthHistoryRoute) {
 			s.stage.Position = entry.scroll
 		}
 	}

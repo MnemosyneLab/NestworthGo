@@ -269,6 +269,21 @@ launch. The fixture is bound to its original canonical root. Prepare another
 directory to repeat the scenario. Arbitrary restore journals, backups and
 crash layouts remain blocked in the preview.
 
+## Wealth History
+
+Open **Insights → Wealth history** to read daily net worth, assets and
+liabilities in the saved household base currency. The page initially loads the
+last closed day in the History timezone. Select **From date** and **Through
+date**, then choose **Load range** for up to 31 closed dates. The table shows
+available totals, known subtotals, missing inputs and quote coverage. Tab past
+**Load range** or **Reload** into the table and use the arrows, Page Up, Page
+Down, Home and End to move through the rows.
+
+**Reload** uses the existing ledger and stored quotes. After a read failure,
+**Retry** repeats the selected range and the previous capture remains visible
+until a new read succeeds.
+[Wealth History scope and verification](docs/roadmap.md#read-only-wealth-history)
+
 ## Overview
 
 Overview reads net worth, assets and liabilities from the shared Go service.

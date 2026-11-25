@@ -185,6 +185,25 @@ const (
 	OverviewMissingInstrument
 	OverviewMissingFX
 	OverviewMissingAccount
+	WealthHistoryNoOrigin
+	WealthHistoryNoClosedDays
+	WealthHistoryLoading
+	WealthHistoryFailed
+	WealthHistoryBudget
+	WealthHistoryRetained
+	WealthHistoryRangeHint
+	WealthHistoryLoad
+	WealthHistoryCapture
+	WealthHistoryTable
+	WealthHistoryEmpty
+	WealthHistorySkippedDate
+	WealthHistoryProvisional
+	WealthHistoryCoverage
+	WealthHistoryMissing
+	WealthHistoryQuoteAge
+	WealthHistoryScopeChanged
+	WealthHistoryBasisChanged
+	WealthHistoryFundingGap
 	NetWorth
 	Assets
 	Liabilities

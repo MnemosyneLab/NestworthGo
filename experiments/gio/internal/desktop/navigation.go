@@ -230,6 +230,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == portfolioRoute {
 		s.portfolio.leave()
 	}
+	if entry.target.route == wealthHistoryRoute {
+		s.wealthHistory.leave()
+	}
 	if entry.target.route == settingsRoute {
 		s.settingsPage.credential.clearInput()
 	}
@@ -266,6 +269,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
+	}
+	if entry.target.route == wealthHistoryRoute {
+		s.wealthHistory.enter()
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
@@ -342,6 +348,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case settingsRoute:
 		entry.scroll = s.stage.Position
 		entry.settingsSection = s.settingsPage.active
+	case wealthHistoryRoute:
+		entry.scroll = s.stage.Position
 	case historyRoute:
 		if s.historyPage != nil {
 			if entry.target.activity == "" {
@@ -423,6 +431,9 @@ func (s *shell) waitingForPageFocus() bool {
 	}
 	if s.activeRoute() == tasksRoute && s.tasks != nil {
 		return s.tasks.request != nil
+	}
+	if s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil {
+		return s.wealthHistory.originRead != nil || s.wealthHistory.seriesRead != nil
 	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false
