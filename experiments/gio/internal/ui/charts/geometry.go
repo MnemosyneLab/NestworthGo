@@ -35,7 +35,7 @@ func paddedDomain(lo, hi float64) (float64, float64) {
 		return lo, hi
 	}
 	delta := math.Max(math.Abs(lo)*0.05, 1)
-	return lo - delta, hi + delta
+	return max(-math.MaxFloat64, lo-delta), min(math.MaxFloat64, hi+delta)
 }
 
 // maxTickSearch bounds the step search of niceTicks. The step grows by about 1%
@@ -62,42 +62,48 @@ func niceTicks(lo, hi float64, maxTicks int) []float64 {
 		lo, hi = hi, lo
 	}
 	lo, hi = paddedDomain(lo, hi)
-	endpoints := []float64{lo, hi}
-	if !finite(lo) || !finite(hi) || !(lo < hi) {
-		return []float64{0, 1}
-	}
 	maxTicks = max(2, maxTicks)
 	if maxTicks == 2 && lo < 0 && hi > 0 {
-		return endpoints
+		return []float64{lo, hi}
 	}
 	raw := (hi - lo) / float64(maxTicks-1)
 	if !finite(raw) || raw <= 0 {
-		return endpoints
+		return []float64{lo, hi}
 	}
 	step := niceStep(raw)
 	for range maxTickSearch {
 		if !finite(step) || step <= 0 {
-			return endpoints
+			break
 		}
 		first, last := math.Floor(lo/step), math.Ceil(hi/step)
-		count := last - first + 1
-		if finite(count) && (count <= float64(maxTicks) || count <= 2) {
-			ticks := make([]float64, 0, int(count))
-			for k := first; k <= last; k++ {
-				ticks = append(ticks, cleanTick(k*step, step))
+		// Beyond 2^53 a float64 cannot represent every consecutive tick index.
+		const maxExactTickIndex = 1 << 53
+		if first < -maxExactTickIndex || last > maxExactTickIndex {
+			break
+		}
+		firstIndex := int64(first)
+		count := int64(last) - firstIndex + 1
+		if count <= int64(maxTicks) {
+			ticks := make([]float64, int(count))
+			for i := range ticks {
+				ticks[i] = cleanTick(float64(firstIndex+int64(i))*step, step)
 			}
 			if validTicks(ticks, lo, hi) {
+				// Rounding noise can put an end tick just inside the input.
+				// Expanding the ends preserves the order and covers the full range.
+				ticks[0] = min(ticks[0], lo)
+				ticks[len(ticks)-1] = max(ticks[len(ticks)-1], hi)
 				return ticks
 			}
-			return endpoints
+			break
 		}
 		next := niceStep(step * 1.01)
 		if !(next > step) {
-			return endpoints
+			break
 		}
 		step = next
 	}
-	return endpoints
+	return []float64{lo, hi}
 }
 
 // validTicks reports whether ticks are finite, strictly increasing and cover
@@ -162,52 +168,48 @@ func timeTicks(from, to time.Time, maxTicks int) []time.Time {
 	maxTicks = max(1, maxTicks)
 	var last []time.Time
 	for _, step := range timeSteps {
-		ticks := ticksFor(from, to, step)
+		ticks, complete := ticksFor(from, to, step, maxTicks)
 		if len(ticks) == 0 {
 			continue
 		}
 		last = ticks
-		if len(ticks) <= maxTicks {
+		if complete {
 			return ticks
 		}
-	}
-	if len(last) > maxTicks {
-		last = last[:maxTicks]
 	}
 	return last
 }
 
-func ticksFor(from, to time.Time, step timeStep) []time.Time {
-	var ticks []time.Time
+// ticksFor collects at most limit aligned ticks and reports whether they fit.
+func ticksFor(from, to time.Time, step timeStep, limit int) ([]time.Time, bool) {
+	var tick time.Time
 	if step.days > 0 {
-		day := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
-		if day.Before(from) {
-			day = day.AddDate(0, 0, 1)
+		tick = time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
+		if tick.Before(from) {
+			tick = tick.AddDate(0, 0, 1)
 		}
 		if step.days == 7 || step.days == 14 {
 			// Align weekly ticks to Monday so the labels share a weekday.
-			for day.Weekday() != time.Monday {
-				day = day.AddDate(0, 0, 1)
+			for tick.Weekday() != time.Monday {
+				tick = tick.AddDate(0, 0, 1)
 			}
 		}
-		for ; !day.After(to); day = day.AddDate(0, 0, step.days) {
-			ticks = append(ticks, day)
-		}
-		return ticks
-	}
-	// Month steps align to multiples of the step counted from year zero, so a
-	// three-month axis lands on January, April, July and October.
-	month := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC)
-	for (month.Year()*12+int(month.Month())-1)%step.months != 0 || month.Before(from) {
-		month = month.AddDate(0, 1, 0)
-		if month.After(to) {
-			return nil
+	} else {
+		// Month steps align to multiples of the step counted from year zero, so a
+		// three-month axis lands on January, April, July and October.
+		tick = time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC)
+		for !tick.After(to) && ((tick.Year()*12+int(tick.Month())-1)%step.months != 0 || tick.Before(from)) {
+			tick = tick.AddDate(0, 1, 0)
 		}
 	}
-	for ; !month.After(to); month = month.AddDate(0, step.months, 0) {
-		ticks = append(ticks, month)
+	var ticks []time.Time
+	for ; !tick.After(to); tick = tick.AddDate(0, step.months, step.days) {
+		if len(ticks) == limit {
+			return ticks, false
+		}
+		ticks = append(ticks, tick)
 	}
-	return ticks
+	return ticks, true
 }
 
 // dashPolyline splits a polyline into drawn dashes of length on separated by

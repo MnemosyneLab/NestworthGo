@@ -2,6 +2,7 @@ package charts
 
 import (
 	"math"
+	"slices"
 	"testing"
 	"time"
 
@@ -87,6 +88,22 @@ func TestTimeTicksAreCalendarAlignedUTC(t *testing.T) {
 	}
 	if got := timeTicks(from, from.Add(6*time.Hour), 5); len(got) != 2 {
 		t.Fatalf("a sub-day span yields %v, want its two ends", got)
+	}
+}
+
+func TestTimeTicksLimitCalendarCandidates(t *testing.T) {
+	from, to := day(1750, time.January, 1), day(2250, time.January, 1)
+	ticks, complete := ticksFor(from, to, timeStep{days: 1}, 2)
+	if want := []time.Time{from, from.AddDate(0, 0, 1)}; complete || !slices.Equal(ticks, want) {
+		t.Fatalf("daily candidate = %v, complete = %t, want the capped prefix %v", ticks, complete, want)
+	}
+	// If no interval fits, preserve the prefix from the coarsest interval.
+	want := []time.Time{from, day(1800, time.January, 1)}
+	if got := timeTicks(from, to, 2); !slices.Equal(got, want) {
+		t.Fatalf("timeTicks = %v, want %v", got, want)
+	}
+	if got, complete := ticksFor(from, want[1], timeStep{months: 600}, 2); !complete || !slices.Equal(got, want) {
+		t.Fatalf("50-year candidate = %v, complete = %t, want the complete %v", got, complete, want)
 	}
 }
 
@@ -176,8 +193,7 @@ func checkTicks(t *testing.T, name string, ticks []float64, lo, hi float64, budg
 		}
 	}
 	lo, hi = paddedDomain(lo, hi)
-	slack := 1e-9 * (hi - lo)
-	if ticks[0] > lo+slack || ticks[len(ticks)-1] < hi-slack {
+	if ticks[0] > lo || ticks[len(ticks)-1] < hi {
 		t.Fatalf("%s: %v does not cover [%v, %v]", name, ticks, lo, hi)
 	}
 }
@@ -234,6 +250,8 @@ func TestNiceTicksOtherRangesKeepRoundTicks(t *testing.T) {
 		{-1, 1, 3, []float64{-1, 0, 1}},
 		{0, 100, 5, []float64{0, 25, 50, 75, 100}},
 		{4, 10, 2, []float64{0, 10}},
+		{-0.3, 0.3, 7, []float64{-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3}},
+		{0, math.Nextafter(0.7, math.Inf(1)), 8, []float64{0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, math.Nextafter(0.7, math.Inf(1))}},
 	} {
 		got := niceTicks(c.lo, c.hi, c.budget)
 		if len(got) != len(c.want) {
@@ -244,6 +262,33 @@ func TestNiceTicksOtherRangesKeepRoundTicks(t *testing.T) {
 				t.Fatalf("niceTicks(%v, %v, %d) = %v, want %v", c.lo, c.hi, c.budget, got, c.want)
 			}
 		}
+	}
+}
+
+func TestNiceTicksUseEndpointsWhenTickIndicesLosePrecision(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		lo, hi float64
+	}{
+		{"large positive", 1e16, 1e16 + 2},
+		{"large negative", -(1e16 + 2), -1e16},
+		{"decimal positive", 0.1, math.Nextafter(0.1, math.Inf(1))},
+		{"decimal negative", -math.Nextafter(0.1, math.Inf(1)), -0.1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			ticks := niceTicks(c.lo, c.hi, 6)
+			checkTicks(t, c.name, ticks, c.lo, c.hi, 6)
+			if want := []float64{c.lo, c.hi}; !slices.Equal(ticks, want) {
+				t.Fatalf("niceTicks(%v, %v, 6) = %v, want %v", c.lo, c.hi, ticks, want)
+			}
+		})
+	}
+}
+
+func TestNiceTicksCoverConstantExtremeValues(t *testing.T) {
+	for _, v := range []float64{-math.MaxFloat64, math.MaxFloat64} {
+		ticks := niceTicks(v, v, 6)
+		checkTicks(t, "constant extreme", ticks, v, v, 6)
 	}
 }
 

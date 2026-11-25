@@ -315,3 +315,24 @@ func TestLineChartShortPlotCrossingZeroKeepsFiniteEndLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestLineChartRendersCloseLargeValues(t *testing.T) {
+	const lo, hi = 1e16, 1e16 + 2
+	spec := lineSpecForPlan(point("a", 1, Num(lo)), point("b", 2, Num(hi)))
+	spec.Height = 300
+	labels := map[float64]bool{}
+	spec.FormatValue = func(v float64) string {
+		if v != lo && v != hi {
+			t.Fatalf("unexpected value label %v", v)
+		}
+		labels[v] = true
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	var chart LineChart
+	size, _ := newRig(500, false).frame(func(gtx layout.Context, v ui.View, _ Selection) (layout.Dimensions, []Event) {
+		return chart.Layout(gtx, v, spec)
+	}, Selection{})
+	if size.X != 500 || size.Y < 300 || !labels[lo] || !labels[hi] {
+		t.Fatalf("layout size = %v, value labels = %v, want both endpoints", size, labels)
+	}
+}
