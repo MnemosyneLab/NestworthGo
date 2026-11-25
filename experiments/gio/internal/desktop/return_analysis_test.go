@@ -133,8 +133,10 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	gio, gioProvider := openCopy()
 	reader := &retryReturnReads{Service: gio, failCalendar: true, failDay: true}
 	page := &returnAnalysisPage{ctx: ctx, reader: reader, clock: clock, invalidate: func() {}}
+	assets := &assetChangesPage{ctx: ctx, reader: gio, clock: clock, invalidate: func() {}}
 	t.Cleanup(page.workers.Wait)
-	h := newShellHarnessWithPages(t, ledgerPages{returns: page})
+	t.Cleanup(assets.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{returns: page, assets: assets})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	h.click("Return analysis", false)
@@ -190,6 +192,64 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if page.day != nil {
 		t.Fatal("clicking outside the detail sheet did not dismiss it")
 	}
+	h.focused(trigger)
+	dayQuery := query
+	dayQuery.From, dayQuery.To = "2026-02-02", "2026-02-02"
+	wailsAssets, err := adapter.AssetChange(ctx, dayQuery)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.press(key.NameReturn)
+	page.workers.Wait()
+	h.frame()
+	h.click("View asset changes for this day", false)
+	for range 3 {
+		assets.workers.Wait()
+		h.frame()
+	}
+	if h.shell.activeRoute() != assetChangesRoute || assets.state.tab != assetDriversTab ||
+		assets.current == nil || assets.current.drivers == nil {
+		t.Fatalf("asset driver destination unavailable: %v", assets.err)
+	}
+	report := assets.current.drivers
+	if report.Summary.Change == nil || wailsAssets.Summary.Change == nil ||
+		report.Summary.Change.CanonicalAmount() != wailsAssets.Summary.Change.Amount ||
+		len(report.Waterfall) != len(wailsAssets.Waterfall) || assets.current.query.From != dayQuery.From ||
+		assets.current.query.To != dayQuery.To {
+		t.Fatalf("Asset Changes differs from Wails for the linked day: %+v and %+v", report, wailsAssets)
+	}
+	wailsAssetTrend, err := adapter.AssetTrend(ctx, dayQuery, string(application.TrendDay), string(application.TrendNetWorth))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Asset trend", false)
+	assets.workers.Wait()
+	h.frame()
+	if assets.current == nil || assets.current.trend == nil || len(assets.current.trend.Points) != 1 || len(wailsAssetTrend.Points) != 1 {
+		t.Fatalf("the linked day's trend did not load: %v", assets.err)
+	}
+	point, wailsPoint := assets.current.trend.Points[0], wailsAssetTrend.Points[0]
+	if point.Period != wailsPoint.Period || point.Value == nil || wailsPoint.Value == nil || point.Value.CanonicalAmount() != wailsPoint.Value.Amount {
+		t.Fatalf("trend point %+v differs from Wails %+v", point, wailsPoint)
+	}
+	wailsCategories, err := adapter.Categories(ctx, dayQuery, string(application.CategoryInvestmentReturn))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.click("Categories", false)
+	assets.workers.Wait()
+	h.frame()
+	h.click("Category type", true)
+	h.click("Total return", false)
+	assets.workers.Wait()
+	h.frame()
+	if assets.current == nil || assets.current.categories == nil || wailsCategories.Total == nil ||
+		assets.current.categories.Total == nil || assets.current.categories.Total.CanonicalAmount() != wailsCategories.Total.Amount {
+		t.Fatalf("linked day's categories differ from Wails: %v", assets.err)
+	}
+	h.click("Back", false)
+	page.workers.Wait()
+	h.frame()
 	h.focused(trigger)
 
 	wantTrend, err := adapter.ReturnTrend(ctx, query, string(application.ReturnTrendCumulativeAmount))
@@ -250,6 +310,7 @@ type calendarFilterReader struct {
 	instrument domain.InstrumentID
 	lastTrend  domain.AnalysisQuery
 	lastRanks  domain.AnalysisQuery
+	lastAssets domain.AnalysisQuery
 }
 
 func (r *calendarFilterReader) HistoryOrigin(context.Context) (*domain.HistoryOrigin, error) {
@@ -264,8 +325,21 @@ func (r *calendarFilterReader) ListAccounts(context.Context, domain.AccountFilte
 	return []domain.AccountRecord{{Account: domain.Account{ID: r.account, Name: "Synthetic brokerage"}}}, nil
 }
 
-func (r *calendarFilterReader) ReturnCalendar(context.Context, domain.AnalysisQuery, string, string) (application.ReturnCalendarResult, error) {
-	return application.ReturnCalendarResult{}, nil
+func (r *calendarFilterReader) ReturnCalendar(_ context.Context, q domain.AnalysisQuery, _, _ string) (application.ReturnCalendarResult, error) {
+	return application.ReturnCalendarResult{Days: []application.ReturnDayResult{{Date: q.From}}}, nil
+}
+
+func (r *calendarFilterReader) AssetChange(_ context.Context, q domain.AnalysisQuery) (application.AssetChangeResult, error) {
+	r.lastAssets = q
+	return application.AssetChangeResult{}, nil
+}
+
+func (r *calendarFilterReader) AssetTrend(context.Context, domain.AnalysisQuery, application.AssetTrendGranularity, application.AssetTrendMetric) (application.AssetTrendResult, error) {
+	return application.AssetTrendResult{}, nil
+}
+
+func (r *calendarFilterReader) Categories(context.Context, domain.AnalysisQuery, application.AnalysisCategoryType) (application.CategoriesResult, error) {
+	return application.CategoriesResult{}, nil
 }
 
 func (r *calendarFilterReader) ReturnDay(context.Context, domain.AnalysisQuery, domain.LocalDate) (application.ReturnDayResult, error) {
@@ -292,14 +366,17 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 	reader := &calendarFilterReader{account: domain.NewAccountID(), instrument: domain.NewInstrumentID()}
 	now := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 	p := &returnAnalysisPage{ctx: t.Context(), reader: reader, clock: func() time.Time { return now }, invalidate: func() {}}
+	assets := &assetChangesPage{ctx: t.Context(), reader: reader, clock: func() time.Time { return now }, invalidate: func() {}}
 	t.Cleanup(p.workers.Wait)
-	h := newShellHarnessWithPages(t, ledgerPages{returns: p})
+	t.Cleanup(assets.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{returns: p, assets: assets})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	h.click("Return analysis", false)
 	settle := func() {
 		for range 3 {
 			p.workers.Wait()
+			assets.workers.Wait()
 			h.frame()
 		}
 	}
@@ -326,9 +403,9 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 	settle()
 	assertPageLabel(t, &h.router, "August 2026")
 
-	want := func(got domain.AnalysisQuery) {
+	want := func(got domain.AnalysisQuery, to domain.LocalDate) {
 		t.Helper()
-		if got.From != "2026-08-01" || got.To != "2026-08-31" ||
+		if got.From != "2026-08-01" || got.To != to ||
 			got.Scope != (domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: reader.instrument.String()}) ||
 			got.Valuation != domain.ValuationNative || got.IncludeCash ||
 			got.Filters.AccountID == nil || *got.Filters.AccountID != reader.account ||
@@ -338,17 +415,34 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 	}
 	h.click("Return trend", false)
 	settle()
-	want(reader.lastTrend)
+	want(reader.lastTrend, "2026-08-31")
 	h.click("Calendar", false)
 	settle()
 	assertPageLabel(t, &h.router, "August 2026")
 	h.click("Contribution", false)
 	settle()
-	want(reader.lastRanks)
+	want(reader.lastRanks, "2026-08-31")
 	h.click("Calendar", false)
 	settle()
 	assertPageLabel(t, &h.router, "August 2026")
 	if p.filters.selection.from != "2026-08-01" || p.filters.selection.to != "2026-08-31" {
 		t.Fatalf("calendar range not retained on return: %+v", p.filters.selection)
+	}
+	selection := p.filters.selection
+	h.click("2026-08-01 · No return data", true)
+	settle()
+	trigger := p.day.button
+	h.click("View asset changes for this day", false)
+	settle()
+	if h.shell.activeRoute() != assetChangesRoute || assets.state.tab != assetDriversTab {
+		t.Fatal("calendar day did not open Change drivers")
+	}
+	want(reader.lastAssets, "2026-08-01")
+	h.click("Back", false)
+	settle()
+	h.focused(trigger)
+	assertPageLabel(t, &h.router, "August 2026")
+	if p.filters.selection != selection {
+		t.Fatal("returning from Asset Changes did not restore the originating filters")
 	}
 }

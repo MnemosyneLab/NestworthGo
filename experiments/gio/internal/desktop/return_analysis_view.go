@@ -298,7 +298,7 @@ func (p *returnAnalysisPage) layoutDay(gtx layout.Context, view ui.View) {
 		sheet.focus = false
 		gtx.Execute(key.FocusCmd{Tag: &sheet.close})
 	}
-	for _, tag := range []*widget.Clickable{&sheet.close, &sheet.retry} {
+	for _, tag := range []*widget.Clickable{&sheet.close, &sheet.retry, &sheet.assets} {
 		for _, press := range ui.PressedKeys(gtx, tag, key.NameEscape, key.NamePageUp, key.NamePageDown) {
 			switch press.Name {
 			case key.NameEscape:
@@ -332,6 +332,14 @@ func (p *returnAnalysisPage) layoutDay(gtx layout.Context, view ui.View) {
 		gtx.Execute(key.FocusCmd{Tag: &sheet.close})
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	if p.openAssets != nil && sheet.hasValue && sheet.assets.Clicked(gtx) {
+		selection := p.filters.selection
+		selection.from, selection.to = sheet.date, sheet.date
+		p.closeDay()
+		p.openAssets(selection, sheet.button)
+		gtx.Execute(op.InvalidateCmd{})
+		return
+	}
 	paint.Fill(gtx.Ops, color.NRGBA{A: 0x65})
 	mask := clip.Rect(backdrop).Push(gtx.Ops)
 	event.Op(gtx.Ops, sheet)
@@ -341,7 +349,7 @@ func (p *returnAnalysisPage) layoutDay(gtx layout.Context, view ui.View) {
 		gtx.Constraints = layout.Exact(size)
 		return view.Floating(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: 12}).Layout(gtx,
+				rows := []ui.ColumnChild{
 					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 							layout.Flexed(1, view.Body(ui.TextHeading, wealthDay(view, string(sheet.date)), view.Colors.Ink)),
@@ -350,7 +358,11 @@ func (p *returnAnalysisPage) layoutDay(gtx layout.Context, view ui.View) {
 					ui.Fill(func(gtx layout.Context) layout.Dimensions {
 						return p.dayDetails(gtx, view, sheet)
 					}),
-				)
+				}
+				if p.openAssets != nil && sheet.hasValue {
+					rows = append(rows, ui.Rigid(view.Button(&sheet.assets, view.Language.Text(i18n.AssetOpenDay))))
+				}
+				return (ui.Column{Gap: 12}).Layout(gtx, rows...)
 			})
 		})
 	})

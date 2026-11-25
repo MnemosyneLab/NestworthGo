@@ -45,6 +45,7 @@ type navigationEntry struct {
 	accountsArchived bool
 	portfolioSearch  string
 	tasks            tasksVisit
+	asset            assetChangesVisit
 	settingsSection  settingsSection
 	visited          bool
 }
@@ -100,6 +101,9 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	if a.target.route == tasksRoute {
 		return a.tasks.tab == b.tasks.tab
 	}
+	if a.target.route == assetChangesRoute {
+		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
+	}
 	if a.target.route != directoryRoute || a.target.hasObject() {
 		return true
 	}
@@ -126,6 +130,7 @@ type navigationRequest struct {
 	recent               *navigationEntry
 	accountsArchived     bool
 	verifyProductReceipt bool
+	asset                assetChangesVisit
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -236,6 +241,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == returnAnalysisRoute {
 		s.returns.leave()
 	}
+	if entry.target.route == assetChangesRoute {
+		s.assets.leave()
+	}
 	if entry.target.route == settingsRoute {
 		s.settingsPage.credential.clearInput()
 	}
@@ -246,7 +254,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.trail.push(*request.recent)
 		s.restoreVisit(s.trail.current())
 	} else {
-		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived})
+		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived, asset: request.asset})
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -278,6 +286,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == returnAnalysisRoute {
 		s.returns.enter()
+	}
+	if entry.target.route == assetChangesRoute {
+		s.assets.enter(entry.asset)
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
@@ -356,6 +367,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 		entry.settingsSection = s.settingsPage.active
 	case wealthHistoryRoute, returnAnalysisRoute:
 		entry.scroll = s.stage.Position
+	case assetChangesRoute:
+		entry.scroll = s.stage.Position
+		entry.asset = s.assets.visit()
 	case historyRoute:
 		if s.historyPage != nil {
 			if entry.target.activity == "" {
@@ -443,6 +457,9 @@ func (s *shell) waitingForPageFocus() bool {
 	}
 	if s.activeRoute() == returnAnalysisRoute && s.returns != nil {
 		return s.returns.refsRead != nil || s.returns.request != nil
+	}
+	if s.activeRoute() == assetChangesRoute && s.assets != nil {
+		return s.assets.refsRead != nil || s.assets.request != nil
 	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false

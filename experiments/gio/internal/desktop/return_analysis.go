@@ -14,9 +14,7 @@ import (
 )
 
 type returnAnalysisReader interface {
-	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
-	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
-	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
+	analysisContextReader
 	ReturnCalendar(context.Context, domain.AnalysisQuery, string, string) (application.ReturnCalendarResult, error)
 	ReturnDay(context.Context, domain.AnalysisQuery, domain.LocalDate) (application.ReturnDayResult, error)
 	ReturnTrend(context.Context, domain.AnalysisQuery, application.ReturnTrendDisplay) (application.ReturnTrendResult, error)
@@ -41,17 +39,12 @@ type returnCalendarFrame struct {
 	contribution *application.ContributionResult
 }
 
-type returnCalendarContext struct {
-	origin *wealthHistoryOrigin
-	names  map[string]string
-	analysisReferences
-}
-
 type returnDaySheet struct {
 	date     domain.LocalDate
 	button   *widget.Clickable
 	close    widget.Clickable
 	retry    widget.Clickable
+	assets   widget.Clickable
 	list     widget.List
 	request  <-chan historyResult[application.ReturnDayResult]
 	cancel   context.CancelFunc
@@ -68,10 +61,10 @@ type returnAnalysisPage struct {
 	invalidate func()
 	workers    sync.WaitGroup
 	cancel     context.CancelFunc
-	refsRead   <-chan historyResult[returnCalendarContext]
+	refsRead   <-chan historyResult[analysisContext]
 	request    <-chan historyResult[returnCalendarFrame]
 
-	refs    returnCalendarContext
+	refs    analysisContext
 	month   time.Time
 	sunday  bool
 	err     error
@@ -85,6 +78,7 @@ type returnAnalysisPage struct {
 	cells                         [42]widget.Clickable
 	day                           *returnDaySheet
 	returnFocus                   *widget.Clickable
+	openAssets                    func(analysisSelection, *widget.Clickable)
 }
 
 func (p *returnAnalysisPage) enter() {
@@ -106,37 +100,8 @@ func (p *returnAnalysisPage) readRefs() {
 	p.leave()
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel, p.err = cancel, nil
-	p.refsRead = runHistoryRead(&p.workers, p.invalidate, func() (returnCalendarContext, error) {
-		var out returnCalendarContext
-		origin, err := p.reader.HistoryOrigin(ctx)
-		if err != nil || origin == nil {
-			return out, err
-		}
-		location, err := time.LoadLocation(origin.Timezone)
-		if err != nil {
-			return out, err
-		}
-		out.origin = &wealthHistoryOrigin{first: origin.StartedAt.In(location).Format(time.DateOnly), location: location}
-		instruments, err := p.reader.ListInstruments(ctx, true)
-		if err != nil {
-			return returnCalendarContext{}, err
-		}
-		out.names = make(map[string]string, len(instruments))
-		for _, instrument := range instruments {
-			out.names[instrument.ID.String()] = instrument.DisplayLabel()
-			if instrument.ArchivedAt == nil {
-				out.instruments = append(out.instruments, ui.Choice{ID: instrument.ID.String(), Label: instrument.SelectionLabel()})
-			}
-		}
-		accounts, err := p.reader.ListAccounts(ctx, domain.AccountFilter{})
-		if err != nil {
-			return returnCalendarContext{}, err
-		}
-		for _, record := range accounts {
-			out.accounts = append(out.accounts, ui.Choice{ID: record.Account.ID.String(), Label: record.Account.Name})
-			out.names[record.Account.ID.String()] = record.Account.Name
-		}
-		return out, nil
+	p.refsRead = runHistoryRead(&p.workers, p.invalidate, func() (analysisContext, error) {
+		return readAnalysisContext(ctx, p.reader)
 	})
 }
 

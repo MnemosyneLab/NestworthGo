@@ -12,6 +12,10 @@ its own evidence. Native Mac, VoiceOver and IME acceptance apply across the
 in-scope pages. Earlier Mac runs cover the individual workflows named in the
 roadmap.
 
+Chart development and integration are paused pending separately coordinated
+shared components. The accessible tables cover the available data paths.
+Chart rendering and interactions remain open.
+
 | Wails entry and stage | Implemented in Gio and layout | Verified evidence | Open capabilities and layout |
 | --- | --- | --- | --- |
 | [Shell and navigation](../../../frontend/src/app/navigation.ts) (2) | Sidebar groups, Back, Forward and Recent above page content. Wide sidebar, narrow rail and expanded narrow sidebar. Localized control names and shared window size restore. Visits retain supported filters, drafts, position and focus. | [Navigation and directory](roadmap.md#navigation-and-directory-object-milestone) · [Recent and icon navigation](roadmap.md#institution-icons-and-recent-milestone) | Compare placement of attention counts, breadcrumbs, actions and detail contexts. Verify retained keyboard focus and scroll for every new route. |
@@ -26,7 +30,7 @@ roadmap.
 | [Tasks and checks](../../../frontend/src/features/tasks/TasksPage.tsx) (5) | Upcoming, Investment review and Reconciliation tabs. Term deposit schedules, published pending review, and eligible open card sessions link to the selected records. Back restores tab, list and links. | [Term deposit Tasks](roadmap.md#term-deposit-tasks) · [Investment and reconciliation Tasks](roadmap.md#investment-review-and-card-reconciliation-tasks) | Other upcoming actions and reminders, coverage/data checks, review rules and lifecycle, multi-account reconciliation and exceptions. Compare badges, tab summary, and navigation across the complete workflows. |
 | [Wealth history](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.tsx) (6) | Date controls precede the bounded daily table, using the household base currency and History timezone. Partial and provisional results, coverage, retry, and retained capture. The initial table is a deliberate keyboard-first presentation of the Wails Trend data. | [Read-only Wealth History](roadmap.md#read-only-wealth-history) | Match Wails capture controls and Allocation, Change, Accounts and Trend layout. Add charts and endpoint evidence/drilldown. The current table alone leaves these Wails entry points open. |
 | [Return analysis](../../../frontend/src/features/insights/ReturnAnalysisPage.tsx) (6) | Title, Calendar/Trend/Contribution tabs, then a shared filter card with scope, valuation, dates, cash toggle and additional account/currency filters. Calendar has month controls, summary, week grid, contributors and a right-hand day detail. Trend and Contribution use keyboard-scrollable lists for their first read-only views. Month controls stop at the start month and the current month so the synthetic preview browses its recorded period. | [Return Calendar](roadmap.md#read-only-return-analysis-calendar) · [Shared filters and projections](roadmap.md#return-analysis-filters-trend-and-contribution) | Year view, date shortcuts, additional instrument/member/asset-class filters, linked-rate/chart parity, Contribution ranking/search/details and context links. See the concrete cross-page checklist below. |
-| [Asset changes](../../../frontend/src/features/insights/AssetChangesPage.tsx) (6) | Route pending. | Pending | Match title, tabs and shared filter order, net worth and asset trend, waterfall, categories and linked evidence. Preserve incoming filter context from Return Analysis. |
+| [Asset changes](../../../frontend/src/features/insights/AssetChangesPage.tsx) (6) | Title, Asset trend/Change drivers/Categories tabs and the shared filter card. Change drivers shows the value summary and grouped amounts. Asset trend and Categories expose selected shared reads in keyboard-scrollable lists. The Calendar day link opens Change drivers with the selected day and supported Return filters. Back restores the calendar and day focus. | [Asset Changes and Return handoff](roadmap.md#asset-changes-and-the-return-day-link) | Additional metrics, driver and category drill-down, detailed missing evidence, and links from those details to History and Return Analysis. Charts are intentionally paused. |
 | [Market data](../../../frontend/src/features/marketdata/MarketDataPage.tsx) and [Data health](../../../frontend/src/features/data-health/DataHealthPage.tsx) (6) | Provider preferences exist in Settings. Operational pages are pending. | Pending | Implement sources, coverage, explicit provider refresh, progress/failure and recoverability, manual/Agent evidence, and Data Health repair/verification. Match Wails filters and navigation, action placement and compact layout. |
 
 ## Return Analysis and related navigation
@@ -46,7 +50,7 @@ August Calendar with the same selection.
   currency filters, native valuation and cash inclusion. Switch Calendar,
   Trend and Contribution. Verify the effective closed range and the same
   filter values through the owning Go request and Wails reference.
-- [ ] From a calendar day, open Asset Changes for that day with the
+- [x] From a calendar day, open Asset Changes for that day with the
   supported scope, valuation, cash and additional filters. Back restores
   the originating month, active filters, scroll and day focus.
 - [ ] From a contribution detail, open Ledger activity with the supported

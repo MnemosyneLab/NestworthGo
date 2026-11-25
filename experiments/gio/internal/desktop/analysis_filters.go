@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"context"
 	"image"
 	"time"
 
@@ -57,6 +58,54 @@ type analysisFilterControls struct {
 
 type analysisReferences struct {
 	accounts, instruments []ui.Choice
+}
+
+type analysisContextReader interface {
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
+	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
+	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
+}
+
+type analysisContext struct {
+	origin *wealthHistoryOrigin
+	names  map[string]string
+	analysisReferences
+}
+
+func readAnalysisContext(ctx context.Context, reader analysisContextReader) (analysisContext, error) {
+	origin, err := reader.HistoryOrigin(ctx)
+	if err != nil || origin == nil {
+		return analysisContext{}, err
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return analysisContext{}, err
+	}
+	instruments, err := reader.ListInstruments(ctx, true)
+	if err != nil {
+		return analysisContext{}, err
+	}
+	accounts, err := reader.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return analysisContext{}, err
+	}
+	out := analysisContext{
+		origin: &wealthHistoryOrigin{first: origin.StartedAt.In(location).Format(time.DateOnly), location: location},
+		names:  make(map[string]string, len(instruments)+len(accounts)),
+	}
+	for _, instrument := range instruments {
+		out.names[instrument.ID.String()] = instrument.DisplayLabel()
+		if instrument.ArchivedAt == nil {
+			out.instruments = append(out.instruments, ui.Choice{ID: instrument.ID.String(), Label: instrument.SelectionLabel()})
+		}
+	}
+	for _, record := range accounts {
+		if record.Account.ArchivedAt == nil {
+			out.accounts = append(out.accounts, ui.Choice{ID: record.Account.ID.String(), Label: record.Account.Name})
+		}
+		out.names[record.Account.ID.String()] = record.Account.Name
+	}
+	return out, nil
 }
 
 func (c *analysisFilterControls) layout(gtx layout.Context, view ui.View, refs analysisReferences, origin *wealthHistoryOrigin, now time.Time, change func(analysisSelection, analysisSelection)) layout.Dimensions {

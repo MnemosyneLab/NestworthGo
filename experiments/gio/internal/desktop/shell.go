@@ -32,6 +32,7 @@ const (
 	portfolioRoute        routeID = "portfolio"
 	wealthHistoryRoute    routeID = "historical-overview"
 	returnAnalysisRoute   routeID = "returns"
+	assetChangesRoute     routeID = "asset-changes"
 	tasksRoute            routeID = "tasks"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
@@ -58,6 +59,7 @@ type ledgerPages struct {
 	portfolio     *portfolioPage
 	wealthHistory *wealthHistoryPage
 	returns       *returnAnalysisPage
+	assets        *assetChangesPage
 	version       func() string
 }
 
@@ -99,6 +101,7 @@ type shell struct {
 	portfolio                             *portfolioPage
 	wealthHistory                         *wealthHistoryPage
 	returns                               *returnAnalysisPage
+	assets                                *assetChangesPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -128,7 +131,7 @@ type shell struct {
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
 	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
-	var wealthHistoryLayout, returnAnalysisLayout pageLayout
+	var wealthHistoryLayout, returnAnalysisLayout, assetChangesLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -156,6 +159,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if pages.returns != nil {
 		returnAnalysisLayout = pages.returns.layout
 	}
+	if pages.assets != nil {
+		assetChangesLayout = pages.assets.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
@@ -168,6 +174,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		portfolio:        pages.portfolio,
 		wealthHistory:    pages.wealthHistory,
 		returns:          pages.returns,
+		assets:           pages.assets,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            ui.NewTheme(),
@@ -191,7 +198,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		{label: i18n.GroupInsights, items: []navigationItem{
 			newItem(wealthHistoryRoute, i18n.NavHistoricalOverview, lucide.CalendarClock, wealthHistoryLayout),
 			newItem(returnAnalysisRoute, i18n.NavReturns, lucide.ChartLine, returnAnalysisLayout),
-			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
+			newItem(assetChangesRoute, i18n.NavAssetChanges, lucide.GitCompareArrows, assetChangesLayout),
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
 			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
@@ -205,6 +212,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		for i := range group.items {
 			item := &group.items[i]
 			s.routes[item.id] = item
+		}
+	}
+	if s.returns != nil && s.assets != nil {
+		s.returns.openAssets = func(selection analysisSelection, focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: assetChangesRoute},
+				focus: focus, asset: assetChangesVisit{selection: selection, tab: assetDriversTab}}
 		}
 	}
 	if s.directory != nil {
@@ -768,7 +781,7 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		s.stage.Position = layout.Position{}
 		if entry.visited {
 			switch entry.target.route {
-			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute:
+			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute:
 				s.stage.Position = entry.scroll
 			}
 		}

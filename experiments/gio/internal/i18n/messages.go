@@ -260,6 +260,34 @@ const (
 	AnalysisScopeRequired
 	AnalysisInvalidRange
 	AnalysisBaseFallback
+	AssetTrend
+	AssetDrivers
+	AssetCategories
+	AssetCategoryType
+	AssetDaily
+	AssetWeekly
+	AssetMonthly
+	AssetInterval
+	AssetLoading
+	AssetFailed
+	AssetNoOrigin
+	AssetNoData
+	AssetBeginning
+	AssetEnding
+	AssetNetChange
+	AssetChangeRate
+	AssetCategoryTotal
+	AssetIncome
+	AssetSpending
+	AssetFees
+	AssetCashFlows
+	AssetMarketMoves
+	AssetOther
+	AssetExternalFlow
+	AssetLiabilityImpact
+	AssetAdjustment
+	AssetResidual
+	AssetOpenDay
 	NetWorth
 	Assets
 	Liabilities

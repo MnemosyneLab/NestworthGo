@@ -1516,8 +1516,9 @@ display preferences.
 | Build and tests | The full Gio module suite, Gio vet, the independent Linux preview build, and focused shared application, domain and Wails analytics Go tests passed. The Component Preview popover regression checks placement below the footer at 1120×1000, above it at 1120×840, and after scrolling the compact window. It compares the actual anchor bounds and checks focus throughout. The native Linux preview reproduced those placements and Escape returned focus to the trigger. |
 | Open evidence | Wails GUI, Linux Wayland, native macOS, VoiceOver and native IME remain unverified for this slice. Production-profile startup, release acceptance and cutover remain separate gates. |
 
-The Wealth History chart, endpoint drill-down and detailed source evidence,
-Asset Changes, market data refresh and Data Health repair remain open.
+The Wealth History endpoint drill-down, detailed source evidence, market data
+refresh and Data Health repair remain open. Chart development and integration
+are paused pending separately coordinated shared components.
 
 #### Read-only Return Analysis calendar
 
@@ -1572,6 +1573,31 @@ separate work in the [parity checklist](parity.md#return-analysis-and-related-na
 | Shared Go comparison | Independent SQLite fixtures matched the Wails Go Trend amount and ratio, point count, and the first Contribution row's exact identity and amount. Both copies made zero provider requests. |
 | Linux X11 | The packaged preview on the verified synthetic portfolio selected the named instrument and native valuation. Trend and Contribution showed USD 25 and +25% and retained November 1–24. Calendar retained the date range on return. At 700×480 the shared date fields wrapped to a second row, and Escape followed by Tab and Return moved from Scope to the Valuation picker. |
 | Build and tests | The full Gio module suite, Gio vet, independent native Linux preview build and focused shared application/domain/Wails analysis suites passed. |
+
+#### Asset Changes and the Return day link
+
+**Insights → Asset changes** opens with Asset trend, Change drivers and
+Categories tabs followed by the same filter card as Return Analysis. The
+first trend view uses the daily net worth projection. The user can switch
+among net worth, assets, liabilities or net change and day, week or month.
+Change drivers shows the beginning and ending values, the net change, rate
+and the shared driver groups. Categories shows the chosen shared category
+total and attributed rows. The trend and category tables support keyboard
+scrolling. The layout follows the Wails section order. Charts are paused
+and the driver and category details remain open.
+
+The Return Calendar detail action **View asset changes for this day** opens
+Change drivers with that single date and the existing supported filters. Back
+returns to the originating Calendar, leaves its month and filters intact,
+and restores focus to the day button.
+[Wails destination and filters](../../../frontend/src/features/insights/AssetChangesPage.tsx) · [Shared projections](../../../internal/application/analysis_projections.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails reference | The 43 frontend tests across `ReturnAnalysisPage.test.tsx` and `AssetChangesPage.test.tsx` passed. The Go fixtures compare the linked day's amount, trend point and category total to the Wails adapter. |
+| Gio interaction | A closed August day carried the selected instrument, additional account and USD, native valuation and excluded cash into Asset Changes. Back retained the August range and focused the originating day. |
+| Linux X11 | The packaged Linux preview followed November 2 into Change drivers with the selected date in both fields. The synthetic value went from USD 100 to USD 125 and Price change showed USD 25. Back and Return reopened the same day. |
+| Build and tests | The full Gio suite, Gio vet, native Linux preview build, and focused application, domain and Wails analysis Go tests passed. |
 
 ## Moving from the preview to a desktop build
 

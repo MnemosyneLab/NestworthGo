@@ -171,7 +171,7 @@ func (p *returnAnalysisPage) trendRows(view ui.View, trend application.ReturnTre
 	}
 	if len(trend.Points) != 0 {
 		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return p.projectionList(gtx, view, l.Text(i18n.ReturnTrend), len(trend.Points), func(gtx layout.Context, i int) layout.Dimensions {
+			return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnTrend), len(trend.Points), func(gtx layout.Context, i int) layout.Dimensions {
 				point := trend.Points[i]
 				value := returnMoney(view, point.Value)
 				if trend.Display == application.ReturnTrendLinkedRate {
@@ -193,7 +193,7 @@ func (p *returnAnalysisPage) contributionRows(view ui.View, data application.Con
 		return append(rows, ui.Rigid(view.Message(l.Text(i18n.ReturnInsufficient), view.Colors.SecondaryInk)))
 	}
 	return append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return p.projectionList(gtx, view, l.Text(i18n.ReturnContribution), len(data.Rows), func(gtx layout.Context, i int) layout.Dimensions {
+		return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnContribution), len(data.Rows), func(gtx layout.Context, i int) layout.Dimensions {
 			row := data.Rows[i]
 			name := p.refs.names[row.Key]
 			kind, currency, _ := strings.Cut(row.Key, ":")
@@ -217,8 +217,7 @@ func (p *returnAnalysisPage) contributionRows(view ui.View, data application.Con
 	}))
 }
 
-func (p *returnAnalysisPage) projectionList(gtx layout.Context, view ui.View, title string, count int, row layout.ListElement) layout.Dimensions {
-	list := &p.output.list
+func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {
 	list.Axis = layout.Vertical
 	border := view.Colors.Divider
 	if gtx.Focused(list) {
