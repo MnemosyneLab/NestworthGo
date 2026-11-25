@@ -38,6 +38,7 @@ to choose an Indigo, Lavender, Mint, Sky or Peach accent.
 | [main.go](main.go) and the two preview launchers | Build and launch the desktop executable, load bundle assets, and manage the isolated database lifetime. |
 | [internal/desktop](internal/desktop) | Gio window, shell, page layouts, asynchronous preference updates and frame-level interaction tests. |
 | [internal/ui](internal/ui) | Shared editors, selects, date and time pickers, buttons, overlays, tooltips and visual tokens. |
+| [internal/ui/lucide](internal/ui/lucide) | Lucide icons, the set the Wails frontend uses, drawn as round-capped strokes from generated path tables. |
 | [internal/snapshot](internal/snapshot) | Renders recorded Gio operations to PNG through the headless GPU backend. Tests and tooling only. |
 | [internal/preferences](internal/preferences) | Reads and writes General preferences through the shared settings store and resolves system appearance, language and timezone. |
 | [internal/history](internal/history) | Activity list reads, pagination and retry state. This model can be tested without a Gio window. |
@@ -116,11 +117,36 @@ NESTWORTH_GIO_SNAPSHOT_DIR=/tmp/gio-shots go -C experiments/gio test \
 ```
 
 The output covers Component Preview and Settings in light and dark with each
-color theme and language, plus a gallery of buttons, text fields and surfaces
-with rest, hover, press, focus, error, disabled and read-only states. Images
+color theme and language, open select, date and time pickers, a gallery of
+buttons, text fields and surfaces with rest, hover, press, focus, error,
+disabled and read-only states, the design tokens, shadow levels, type scale,
+the confirmation dialog and the Lucide icon sheet. Images
 use 2x density. Keep a copy before changing a control and compare the same
 file names afterwards. Review them separately from native macOS checks:
 headless frames do not exercise the window system, input methods or VoiceOver.
+
+## Visual design system
+
+`internal/ui` carries the Wails design tokens: OKLCH colors converted to sRGB
+(`oklch.go`, `theme.go`), radii, control heights, type scale and shadow levels
+(`tokens.go`), and the animation primitives (`motion.go`). Shared controls
+draw their own states: buttons come in six variants and four sizes with
+animated hover, a press scale and a focus ring; text fields, selects and
+pickers share one field frame; cards and floating layers share one surface
+with shadows. Motion runs only while a tween is moving, so an idle window
+requests no frames. `ui.SetReducedMotion` turns every tween into a jump.
+
+Fonts are system fonts only (Avenir Next, with Helvetica Neue and CJK
+fallbacks, and Iowan Old Style for display titles). Plus Jakarta Sans is not
+bundled. Icons are Lucide. After changing the icon list in
+`tools/lucidegen`, regenerate the tables from `experiments/gio`:
+
+```sh
+go run ./tools/lucidegen -out internal/ui/lucide/icons_gen.go
+```
+
+The generator reads `frontend/node_modules/lucide-react`, so run `npm ci` in
+`frontend` first. The directory icon picker still uses Material icons.
 
 ## Directory
 

@@ -9,10 +9,10 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -502,6 +502,6 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 }
 
 var (
-	navigationBackIcon    = ui.MustIcon(icons.NavigationChevronLeft)
-	navigationForwardIcon = ui.MustIcon(icons.NavigationChevronRight)
+	navigationBackIcon    = ui.Glyph(lucide.ArrowLeft)
+	navigationForwardIcon = ui.Glyph(lucide.ArrowRight)
 )

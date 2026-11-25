@@ -251,6 +251,19 @@ Times are validated `HH:mm` values, including midnight `00:00`. A locale or
 preserve their existing empty-string or null boundary and use the existing
 application logic to combine date, time, and timezone into an instant. [Wails date and form contract](../../../docs/development/frontend-controls.md#dates-and-forms)
 
+### Visual contract
+
+Every shared control reads colors from the semantic palette, sizes from the
+control-height and radius tokens, and text from the type scale in
+`internal/ui/tokens.go`; page code does not pick colors or sizes for these
+controls. A guard test rejects raw `material` buttons, checkboxes, radios and
+switches in `internal/desktop`, with two named exceptions. `TestVisualSnapshots`
+renders the matrix of states for review. Interactive states animate over
+100 to 150 ms and stop requesting frames at rest. Overlays fade in and
+settle a few dp toward their anchor. The sidebar, header navigation and
+picker rows use the same tweens. The directory icon picker keeps Material
+shapes until its mapping moves to Lucide.
+
 ### Follow-on controls
 
 General settings reset and directory archive use the same window-level

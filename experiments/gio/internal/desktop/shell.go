@@ -15,11 +15,11 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -60,14 +60,14 @@ type ledgerPages struct {
 type navigationItem struct {
 	id     routeID
 	label  i18n.MessageID
-	icon   *widget.Icon
+	icon   ui.Glyph
 	body   pageLayout
 	button widget.Clickable
 	hint   ui.Tooltip
 }
 
-func newItem(id routeID, label i18n.MessageID, iconData []byte, body pageLayout) navigationItem {
-	return navigationItem{id: id, label: label, icon: ui.MustIcon(iconData), body: body}
+func newItem(id routeID, label i18n.MessageID, icon ui.Glyph, body pageLayout) navigationItem {
+	return navigationItem{id: id, label: label, icon: icon, body: body}
 }
 
 func (item *navigationItem) available() bool {
@@ -160,25 +160,25 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
-			newItem(overviewRoute, i18n.NavOverview, icons.ActionHome, overviewLayout),
-			newItem(accountsRoute, i18n.NavAccounts, icons.ActionAccountBalanceWallet, accountsLayout),
-			newItem(fundsRoute, i18n.NavAvailableFunds, icons.EditorAttachMoney, fundsLayout),
-			newItem(portfolioRoute, i18n.NavPortfolio, icons.EditorPieChartOutlined, portfolioLayout),
+			newItem(overviewRoute, i18n.NavOverview, lucide.House, overviewLayout),
+			newItem(accountsRoute, i18n.NavAccounts, lucide.Wallet, accountsLayout),
+			newItem(fundsRoute, i18n.NavAvailableFunds, lucide.Banknote, fundsLayout),
+			newItem(portfolioRoute, i18n.NavPortfolio, lucide.ChartPie, portfolioLayout),
 		}},
 		{label: i18n.GroupActivity, items: []navigationItem{
-			newItem(tasksRoute, i18n.NavTasks, icons.ActionAssignmentTurnedIn, tasksLayout),
-			newItem(historyRoute, i18n.NavHistory, icons.ActionReceipt, historyLayout),
+			newItem(tasksRoute, i18n.NavTasks, lucide.ClipboardCheck, tasksLayout),
+			newItem(historyRoute, i18n.NavHistory, lucide.ReceiptText, historyLayout),
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
-			newItem("historical-overview", i18n.NavHistoricalOverview, icons.ActionHistory, nil),
-			newItem("returns", i18n.NavReturns, icons.ActionTrendingUp, nil),
-			newItem("asset-changes", i18n.NavAssetChanges, icons.ActionCompareArrows, nil),
+			newItem("historical-overview", i18n.NavHistoricalOverview, lucide.CalendarClock, nil),
+			newItem("returns", i18n.NavReturns, lucide.ChartLine, nil),
+			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
-			newItem(directoryRoute, i18n.NavDirectory, icons.SocialPeopleOutline, directoryLayout),
-			newItem("data-maintenance", i18n.NavDataMaintenance, icons.NotificationSync, nil),
-			newItem(settingsRoute, i18n.NavSettings, icons.ActionSettings, s.settingsPage.layout),
-			newItem(componentPreviewRoute, i18n.NavComponentPreview, icons.ActionBuild, preview.layout),
+			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
+			newItem("data-maintenance", i18n.NavDataMaintenance, lucide.RefreshCw, nil),
+			newItem(settingsRoute, i18n.NavSettings, lucide.Settings, s.settingsPage.layout),
+			newItem(componentPreviewRoute, i18n.NavComponentPreview, lucide.Wrench, preview.layout),
 		}},
 	}
 	s.routes = make(map[routeID]*navigationItem)
@@ -638,9 +638,7 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 			return layout.Inset{Left: 11}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						side := gtx.Dp(17)
-						gtx.Constraints = layout.Exact(image.Pt(side, side))
-						return item.icon.Layout(gtx, iconColor)
+						return ui.LayoutGlyph(gtx, item.icon, 16, iconColor)
 					}),
 					layout.Rigid(layout.Spacer{Width: 12}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {

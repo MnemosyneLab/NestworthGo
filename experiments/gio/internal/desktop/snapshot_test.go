@@ -27,6 +27,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/snapshot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -357,6 +358,26 @@ func (g *controlGallery) layoutTokens(gtx layout.Context, view ui.View) layout.D
 	)
 }
 
+// layoutIcons draws every Lucide icon at the sizes the UI uses.
+func (g *controlGallery) layoutIcons(gtx layout.Context, view ui.View) layout.Dimensions {
+	all := lucide.All()
+	cell := func(size unit.Dp) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Gap: gtx.Dp(14)}.Layout(gtx, func() []layout.FlexChild {
+				children := make([]layout.FlexChild, len(all))
+				for i, icon := range all {
+					children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return ui.LayoutGlyph(gtx, icon, size, view.Colors.Ink)
+					})
+				}
+				return children
+			}()...)
+		}
+	}
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(18)}.Layout(gtx,
+		layout.Rigid(cell(16)), layout.Rigid(cell(24)), layout.Rigid(cell(40)))
+}
+
 // layoutType shows the type scale, tabular figures and CJK fallback.
 func (g *controlGallery) layoutType(gtx layout.Context, view ui.View) layout.Dimensions {
 	p := view.Colors
@@ -486,6 +507,7 @@ var galleryScenarios = []galleryScenario{
 	{name: "tokens", page: "tokens"},
 	{name: "elevation", page: "elevation"},
 	{name: "type", page: "type"},
+	{name: "icons", page: "icons"},
 	{name: "confirmation", page: "confirmation"},
 }
 
@@ -545,6 +567,8 @@ func (h *galleryHarness) frame(focus bool) {
 			return h.gallery.layoutElevation(gtx, h.view)
 		case "type":
 			return h.gallery.layoutType(gtx, h.view)
+		case "icons":
+			return h.gallery.layoutIcons(gtx, h.view)
 		}
 		return h.gallery.layout(gtx, h.view)
 	})

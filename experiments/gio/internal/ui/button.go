@@ -59,7 +59,7 @@ type ButtonSpec struct {
 	Description string
 	// Toggle marks a button that reports Selected as its state, as a tab does.
 	Toggle, Selected bool
-	Icon             *widget.Icon
+	Icon             Glyph
 	// Fill stretches the button across the available width.
 	Fill bool
 }

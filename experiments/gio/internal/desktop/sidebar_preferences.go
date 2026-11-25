@@ -12,21 +12,21 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 var (
-	languageIcon   = ui.MustIcon(icons.ActionTranslate)
-	monitorIcon    = ui.MustIcon(icons.HardwareDesktopMac)
-	sunIcon        = ui.MustIcon(icons.ImageWBSunny)
-	moonIcon       = ui.MustIcon(icons.ImageBrightness3)
-	collapseIcon   = ui.MustIcon(icons.NavigationChevronLeft)
-	expandRailIcon = ui.MustIcon(icons.NavigationChevronRight)
+	languageIcon   = ui.Glyph(lucide.Languages)
+	monitorIcon    = ui.Glyph(lucide.Monitor)
+	sunIcon        = ui.Glyph(lucide.Sun)
+	moonIcon       = ui.Glyph(lucide.Moon)
+	collapseIcon   = ui.Glyph(lucide.PanelLeftClose)
+	expandRailIcon = ui.Glyph(lucide.PanelLeftOpen)
 )
 
 func (s *shell) collapsed() bool {
@@ -43,7 +43,7 @@ func (s *shell) sidebarWidth() unit.Dp {
 	return sidebarWidth
 }
 
-func sidebarIcon(icon *widget.Icon, ink color.NRGBA, size unit.Dp) layout.Widget {
+func sidebarIcon(icon ui.Glyph, ink color.NRGBA, size unit.Dp) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		side := gtx.Dp(size)
 		gtx.Constraints = layout.Exact(image.Pt(side, side))

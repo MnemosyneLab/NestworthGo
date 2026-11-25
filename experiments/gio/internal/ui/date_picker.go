@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"image"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
@@ -200,14 +200,14 @@ func (p *DatePicker) popup(gtx layout.Context, view View, options DateOptions, v
 }
 
 var (
-	firstPageIcon    = MustIcon(icons.NavigationFirstPage)
-	chevronLeftIcon  = MustIcon(icons.NavigationChevronLeft)
-	chevronRightIcon = MustIcon(icons.NavigationChevronRight)
-	lastPageIcon     = MustIcon(icons.NavigationLastPage)
+	firstPageIcon    = Glyph(lucide.ChevronsLeft)
+	chevronLeftIcon  = Glyph(lucide.ChevronLeft)
+	chevronRightIcon = Glyph(lucide.ChevronRight)
+	lastPageIcon     = Glyph(lucide.ChevronsRight)
 )
 
 var monthNavigation = [...]struct {
-	icon  *widget.Icon
+	icon  Glyph
 	label i18n.MessageID
 	step  int
 }{

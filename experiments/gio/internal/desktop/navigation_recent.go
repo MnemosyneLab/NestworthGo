@@ -6,10 +6,10 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 )
 
 func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layout.Dimensions {
@@ -43,4 +43,4 @@ func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layo
 	return view.ButtonOf(&s.recentPicker.Trigger, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: title, Name: title, Icon: recentIcon, Fill: true})(gtx)
 }
 
-var recentIcon = ui.MustIcon(icons.ActionHistory)
+var recentIcon = ui.Glyph(lucide.History)

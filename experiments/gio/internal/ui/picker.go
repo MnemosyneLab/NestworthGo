@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"image"
 	"image/color"
 
@@ -15,7 +16,6 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -29,7 +29,7 @@ type PickerField struct {
 	Disabled       bool
 }
 
-var ExpandIcon = MustIcon(icons.NavigationArrowDropDown)
+var ExpandIcon Glyph = lucide.ChevronDown
 
 func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *widget.Clickable, value string, invalid bool, pane Popover) bool {
 	title := view.Language.Text(field.Label)
@@ -77,9 +77,7 @@ func layoutPickerButton(gtx layout.Context, view View, trigger *widget.Clickable
 						return glyphLabel(gtx, view, glyph, value, colors.Ink)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						side := gtx.Dp(16)
-						gtx.Constraints = layout.Exact(image.Pt(side, side))
-						return ExpandIcon.Layout(gtx, colors.SecondaryInk)
+						return LayoutGlyph(gtx, ExpandIcon, 16, colors.SecondaryInk)
 					}),
 				)
 			})
@@ -229,7 +227,7 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 // OptionRowHeight is one row of a select list.
 const OptionRowHeight unit.Dp = 32
 
-var checkIcon = MustIcon(icons.NavigationCheck)
+var checkIcon Glyph = lucide.Check
 
 // optionRow is a select list row: left aligned, a quiet hover or keyboard
 // highlight, and a check mark on the chosen row.

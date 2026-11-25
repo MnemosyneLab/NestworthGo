@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"image"
 
 	"gioui.org/io/key"
@@ -11,7 +12,6 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -181,8 +181,8 @@ type SearchField struct {
 	Clear widget.Clickable
 }
 
-var searchIcon = MustIcon(icons.ActionSearch)
-var clearIcon = MustIcon(icons.NavigationClose)
+var searchIcon Glyph = lucide.Search
+var clearIcon Glyph = lucide.X
 
 func (s *SearchField) Layout(gtx layout.Context, view View, label, hint i18n.MessageID, onChange func(string)) layout.Dimensions {
 	previous := s.Field.Text()
