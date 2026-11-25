@@ -10,12 +10,20 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 )
 
-// The gallery shows each chart with synthetic data in four states: a standard
-// dataset, edge cases, a dataset with no usable values and an empty one.
+// Every chart has standard, edge, missing and empty examples.
+const sankeyTab, denseVariant = 4, 4
+
+func variantCount(chart int) int {
+	if chart == sankeyTab {
+		return len(variantNames)
+	}
+	return denseVariant
+}
+
 var (
 	chartNames   = [...]string{"line", "bars", "waterfall", "donut", "sankey"}
 	chartTitles  = [...]string{"Line chart", "Signed bars", "Waterfall", "Donut", "Sankey"}
-	variantNames = [...]string{"Standard", "Edge cases", "No values", "Empty"}
+	variantNames = [...]string{"Standard", "Edge cases", "No values", "Empty", "Dense allocation"}
 )
 
 type gallery struct {
@@ -73,7 +81,7 @@ func (g *gallery) donutSpec() charts.DonutSpec {
 }
 
 func (g *gallery) sankeySpec() charts.SankeySpec {
-	spec := [...]func() charts.SankeySpec{standardSankey, edgeSankey, missingSankey, emptySankey}[g.variant]()
+	spec := [...]func() charts.SankeySpec{standardSankey, edgeSankey, missingSankey, emptySankey, denseSankey}[g.variant]()
 	spec.Selected = g.selected[4]
 	return spec
 }
@@ -99,7 +107,7 @@ func (g *gallery) sampleSelection() charts.Selection {
 		if slices := g.donutSpec().Slices; len(slices) > 1 {
 			return charts.Selection{Item: slices[1].ID}
 		}
-	case 4:
+	case sankeyTab:
 		if nodes := g.sankeySpec().Nodes; len(nodes) > 2 {
 			return charts.Selection{Item: nodes[2].ID}
 		}
@@ -111,9 +119,12 @@ func (g *gallery) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	for i := range g.tabs {
 		if g.tabs[i].Clicked(gtx) {
 			g.chart = i
+			if g.variant >= variantCount(i) {
+				g.variant = 0
+			}
 		}
 	}
-	for i := range g.variants {
+	for i := range variantCount(g.chart) {
 		if g.variants[i].Clicked(gtx) {
 			g.variant = i
 			g.selected[g.chart] = charts.Selection{}
@@ -141,14 +152,15 @@ func (g *gallery) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 
 func (g *gallery) controls(view ui.View) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(g.tabs)+len(g.variants)+2, func(gtx layout.Context, i int) layout.Dimensions {
+		variants := variantCount(g.chart)
+		return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(g.tabs)+variants+2, func(gtx layout.Context, i int) layout.Dimensions {
 			switch {
 			case i < len(g.tabs):
 				return view.TabButton(&g.tabs[i], chartTitles[i], g.chart == i)(gtx)
-			case i < len(g.tabs)+len(g.variants):
+			case i < len(g.tabs)+variants:
 				v := i - len(g.tabs)
 				return view.TabButton(&g.variants[v], variantNames[v], g.variant == v)(gtx)
-			case i == len(g.tabs)+len(g.variants):
+			case i == len(g.tabs)+variants:
 				title := "Dark"
 				if g.dark {
 					title = "Light"
@@ -208,7 +220,10 @@ func (g *gallery) card(gtx layout.Context, view ui.View) layout.Dimensions {
 
 // rowsText renders the text rows the way a page would build a data table.
 func (g *gallery) rowsText(gtx layout.Context, view ui.View, rows []charts.TextRow) layout.Dimensions {
-	const limit = 12
+	limit := len(rows)
+	if g.chart != sankeyTab {
+		limit = min(limit, 12)
+	}
 	lines := make([]string, 0, limit+1)
 	for i, r := range rows {
 		if i == limit {

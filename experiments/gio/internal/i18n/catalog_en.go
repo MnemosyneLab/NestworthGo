@@ -1343,6 +1343,7 @@ var englishCatalog = catalog{
 	ChartTitleSankey:          "Sankey flow",
 	ChartExampleStandard:      "Typical data",
 	ChartExampleEdge:          "Edge cases",
+	ChartExampleDense:         "Dense allocation · 24 account paths",
 	ChartSampleChecking:       "Everyday checking",
 	ChartSampleSavings:        "Emergency savings",
 	ChartSampleRetirement:     "Retirement account",

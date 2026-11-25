@@ -1315,6 +1315,7 @@ const (
 	ChartTitleSankey
 	ChartExampleStandard
 	ChartExampleEdge
+	ChartExampleDense
 	ChartSampleChecking
 	ChartSampleSavings
 	ChartSampleRetirement

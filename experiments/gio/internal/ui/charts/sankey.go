@@ -5,13 +5,17 @@ import (
 	"image/color"
 	"math"
 	"slices"
+	"strings"
 
 	"gioui.org/f32"
 	"gioui.org/io/key"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -56,9 +60,9 @@ type SankeyLink struct {
 
 // SankeySpec describes a left-to-right flow diagram. Nodes and links appear in
 // the order given; the chart sorts neither. Columns follow the longest path
-// from a node that has no incoming flow. A link that would close a cycle, join
-// a node to itself, or name an unknown node is not drawn and is reported by
-// Validate.
+// from a node that has no incoming flow. Validate reports self-links, links
+// with unknown endpoints, and every positive link that belongs to a cycle.
+// Those links are omitted; the remaining links determine the columns.
 //
 // The chart never derives an amount. Node heights and link widths come from
 // the drawn link values, a node being as tall as the larger of its incoming
@@ -103,7 +107,7 @@ func (s SankeySpec) Rows() []TextRow {
 }
 
 // Validate lists empty and repeated node and link IDs, links that name an
-// unknown node, and links that are not drawn because of a cycle.
+// unknown node, self-links, and positive links that belong to a cycle.
 func (s SankeySpec) Validate() []Problem {
 	var check idCheck
 	for _, n := range s.Nodes {
@@ -133,6 +137,9 @@ type sankeyGraph struct {
 	src, dst []int
 	// ok marks the links that are drawn.
 	ok []bool
+	// into and from contain only drawn links.
+	into, from     [][]int
+	nodeAt, linkAt map[ID]int
 	// depth is the column of each node.
 	depth    []int
 	columns  int
@@ -150,25 +157,27 @@ func (g sankeyGraph) drawn() int {
 }
 
 func (s SankeySpec) graph() sankeyGraph {
+	n := len(s.Nodes)
 	g := sankeyGraph{
 		src: make([]int, len(s.Links)), dst: make([]int, len(s.Links)), ok: make([]bool, len(s.Links)),
-		depth: make([]int, len(s.Nodes)),
+		depth: make([]int, n), into: make([][]int, n), from: make([][]int, n),
+		nodeAt: make(map[ID]int, n), linkAt: make(map[ID]int, len(s.Links)),
 	}
-	index := make(map[ID]int, len(s.Nodes))
-	for i, n := range s.Nodes {
-		if _, seen := index[n.ID]; !seen {
-			index[n.ID] = i
+	for i, node := range s.Nodes {
+		if _, seen := g.nodeAt[node.ID]; !seen {
+			g.nodeAt[node.ID] = i
 		}
 	}
 	lookup := func(id ID) int {
-		if i, ok := index[id]; ok {
+		if i, ok := g.nodeAt[id]; ok {
 			return i
 		}
 		return -1
 	}
-	indegree := make([]int, len(s.Nodes))
-	outgoing := make([][]int, len(s.Nodes))
 	for l, link := range s.Links {
+		if _, seen := g.linkAt[link.ID]; !seen {
+			g.linkAt[link.ID] = l
+		}
 		g.src[l], g.dst[l] = lookup(link.Source), lookup(link.Target)
 		switch {
 		case g.src[l] < 0 || g.dst[l] < 0:
@@ -177,45 +186,163 @@ func (s SankeySpec) graph() sankeyGraph {
 			g.problems = append(g.problems, Problem{Kind: ProblemCycle, ID: link.ID})
 		case link.Value.Valid() && link.Value.Number > 0:
 			g.ok[l] = true
-			indegree[g.dst[l]]++
-			outgoing[g.src[l]] = append(outgoing[g.src[l]], l)
+			g.from[g.src[l]] = append(g.from[g.src[l]], l)
 		}
 	}
-	// Kahn's algorithm assigns each node the length of its longest path.
+
+	// A positive link lies on a cycle exactly when its endpoints are in the
+	// same strongly connected component. Keep links entering or leaving it.
+	component := g.strongComponents()
+	indegree := make([]int, n)
+	for l, link := range s.Links {
+		if !g.ok[l] {
+			continue
+		}
+		if component[g.src[l]] == component[g.dst[l]] {
+			g.ok[l] = false
+			g.problems = append(g.problems, Problem{Kind: ProblemCycle, ID: link.ID})
+			continue
+		}
+		indegree[g.dst[l]]++
+		g.into[g.dst[l]] = append(g.into[g.dst[l]], l)
+	}
+	for i := range g.from {
+		g.from[i] = slices.DeleteFunc(g.from[i], func(l int) bool { return !g.ok[l] })
+	}
+
+	// Kahn's algorithm assigns each node the length of its longest drawn path.
 	var queue []int
 	for i, d := range indegree {
 		if d == 0 {
 			queue = append(queue, i)
 		}
 	}
-	done := make([]bool, len(s.Nodes))
 	for len(queue) > 0 {
 		i := queue[0]
 		queue = queue[1:]
-		done[i] = true
-		for _, l := range outgoing[i] {
+		for _, l := range g.from[i] {
 			to := g.dst[l]
 			g.depth[to] = max(g.depth[to], g.depth[i]+1)
 			if indegree[to]--; indegree[to] == 0 {
 				queue = append(queue, to)
 			}
 		}
-	}
-	for l := range s.Links {
-		if g.ok[l] && !(done[g.src[l]] && done[g.dst[l]]) {
-			g.ok[l] = false
-			g.problems = append(g.problems, Problem{Kind: ProblemCycle, ID: s.Links[l].ID})
-		}
-	}
-	// A node that never left the queue is on or after a cycle: it has no
-	// drawn link, so it stays in the first column.
-	for i := range g.depth {
-		if !done[i] {
-			g.depth[i] = 0
-		}
 		g.columns = max(g.columns, g.depth[i]+1)
 	}
 	return g
+}
+
+// strongComponents uses Tarjan's algorithm on the positive candidate links.
+func (g sankeyGraph) strongComponents() []int {
+	n := len(g.from)
+	index, low, component := make([]int, n), make([]int, n), make([]int, n)
+	onStack := make([]bool, n)
+	var stack []int
+	next := 1
+	var visit func(int)
+	visit = func(i int) {
+		index[i], low[i] = next, next
+		next++
+		stack = append(stack, i)
+		onStack[i] = true
+		for _, l := range g.from[i] {
+			to := g.dst[l]
+			if index[to] == 0 {
+				visit(to)
+				low[i] = min(low[i], low[to])
+			} else if onStack[to] {
+				low[i] = min(low[i], index[to])
+			}
+		}
+		if low[i] == index[i] {
+			for {
+				j := stack[len(stack)-1]
+				stack = stack[:len(stack)-1]
+				onStack[j], component[j] = false, i
+				if j == i {
+					break
+				}
+			}
+		}
+	}
+	for i := range n {
+		if index[i] == 0 {
+			visit(i)
+		}
+	}
+	return component
+}
+
+type sankeyEmphasis uint8
+
+const (
+	sankeyUnrelated sankeyEmphasis = iota
+	sankeyActivePath
+	sankeySelectedPath
+)
+
+// emphasis follows incoming and outgoing paths independently. Traversing out
+// of an ancestor (or into a descendant) would include unrelated branches.
+func (g sankeyGraph) emphasis(active, selected Selection) (nodes, links []sankeyEmphasis) {
+	nodes = make([]sankeyEmphasis, len(g.depth))
+	links = make([]sankeyEmphasis, len(g.ok))
+	add := func(sel Selection, level sankeyEmphasis) {
+		if sel.IsZero() || sel.Series != "" {
+			return
+		}
+		walk := func(start int, edges [][]int, next []int) {
+			seen := make([]bool, len(nodes))
+			queue := []int{start}
+			seen[start] = true
+			for len(queue) > 0 {
+				i := queue[0]
+				queue = queue[1:]
+				nodes[i] = level
+				for _, l := range edges[i] {
+					links[l] = level
+					if to := next[l]; !seen[to] {
+						seen[to] = true
+						queue = append(queue, to)
+					}
+				}
+			}
+		}
+		if i, ok := g.nodeAt[sel.Item]; ok {
+			walk(i, g.into, g.src)
+			walk(i, g.from, g.dst)
+		} else if l, ok := g.linkAt[sel.Item]; ok && g.ok[l] {
+			links[l] = level
+			walk(g.src[l], g.into, g.src)
+			walk(g.dst[l], g.from, g.dst)
+		}
+	}
+	add(active, sankeyActivePath)
+	add(selected, sankeySelectedPath)
+	return nodes, links
+}
+
+// nodeContext gives a tree node's parent path and omits the common root.
+// For a join, give its distinct incoming node names without inventing one path.
+func (s SankeySpec) nodeContext(g sankeyGraph, i int) string {
+	var labels []string
+	for len(g.into[i]) == 1 {
+		i = g.src[g.into[i][0]]
+		if len(g.into[i]) > 0 && s.Nodes[i].Label != "" {
+			labels = append(labels, s.Nodes[i].Label)
+		}
+	}
+	slices.Reverse(labels)
+	if len(g.into[i]) > 1 {
+		var parents []string
+		for _, l := range g.into[i] {
+			name := s.Nodes[g.src[l]].Label
+			if name != "" && !slices.Contains(parents, name) {
+				parents = append(parents, name)
+			}
+		}
+		labels = append([]string{strings.Join(parents, ", ")}, labels...)
+	}
+	return strings.Join(labels, linkSeparator)
 }
 
 // nodeInks resolves the color of every node. See SankeyNode.Color.
@@ -262,20 +389,28 @@ func (s SankeySpec) nodeInks(colors *ui.Palette, g sankeyGraph) []color.NRGBA {
 	return inks
 }
 
-func (s SankeySpec) readout(sel Selection) *readout {
+func (s SankeySpec) readout(g sankeyGraph, sel Selection) *readout {
 	if sel.IsZero() || sel.Series != "" {
 		return nil
 	}
-	for _, n := range s.Nodes {
-		if n.ID == sel.Item {
-			return &readout{label: n.Label, value: n.Text, detail: n.Detail, selected: sel == s.Selected}
+	if i, ok := g.nodeAt[sel.Item]; ok {
+		n := s.Nodes[i]
+		details := n.Detail
+		if context := s.nodeContext(g, i); context != "" {
+			details = append([]string{context}, details...)
 		}
+		return &readout{label: n.Label, value: n.Text, detail: details, selected: sel == s.Selected}
 	}
-	for _, l := range s.Links {
-		if l.ID == sel.Item {
-			value, missing := valueText(l.Value, l.Text, s.Messages)
-			return &readout{label: s.linkLabel(l), value: value, detail: l.Detail, selected: sel == s.Selected, missing: missing}
+	if i, ok := g.linkAt[sel.Item]; ok {
+		l := s.Links[i]
+		value, missing := valueText(l.Value, l.Text, s.Messages)
+		details := l.Detail
+		if from := g.src[i]; from >= 0 {
+			if context := s.nodeContext(g, from); context != "" {
+				details = append([]string{context}, details...)
+			}
 		}
+		return &readout{label: s.linkLabel(l), value: value, detail: details, selected: sel == s.Selected, missing: missing}
 	}
 	return nil
 }
@@ -333,8 +468,7 @@ type sankeyPlan struct {
 	into, from [][]int
 }
 
-func (s SankeySpec) plan(g sankeyGeometry) sankeyPlan {
-	gr := s.graph()
+func (s SankeySpec) plan(gr sankeyGraph, g sankeyGeometry) sankeyPlan {
 	n := len(s.Nodes)
 	p := sankeyPlan{
 		nodes: make([]sankeyNodePlan, n), links: make([]sankeyLinkPlan, len(s.Links)),
@@ -654,6 +788,8 @@ func (p sankeyPlan) move(from Selection, name key.Name) (Selection, bool) {
 // SankeyChart is the widget state of one flow diagram.
 type SankeyChart struct {
 	interaction
+	rows        widget.List
+	rowsVisible bool
 }
 
 const (
@@ -665,6 +801,7 @@ const (
 	sankeyMinHeight      unit.Dp = 268
 	sankeyMinNode        unit.Dp = 3
 	sankeyBarHeight      unit.Dp = 8
+	sankeyRowsMaxHeight  unit.Dp = 500
 )
 
 // Layout draws the chart at the width of gtx.Constraints.Max and returns the
@@ -683,6 +820,7 @@ func (c *SankeyChart) Layout(gtx layout.Context, view ui.View, spec SankeySpec) 
 	pad := gtx.Dp(ringPad)
 	inner := max(1, width-2*pad)
 	if ui.WidthAtLeast(gtx, inner, sankeyWideBreakpoint) {
+		c.rowsVisible = false
 		return c.layoutPlot(gtx, view, spec, gr, width, pad, inner)
 	}
 	return c.layoutRows(gtx, view, spec, gr, width, pad, inner)
@@ -691,7 +829,7 @@ func (c *SankeyChart) Layout(gtx layout.Context, view ui.View, spec SankeySpec) 
 // frame wraps either layout: input, accessibility, readout and focus ring.
 // body paints the plan and returns its height; items.pick receives pointer
 // positions in chart coordinates, so it removes the plan's origin itself.
-func (c *SankeyChart) frame(gtx layout.Context, view ui.View, spec SankeySpec, width, pad, inner int, items frameItems, body func(gtx layout.Context, active Selection) int) (layout.Dimensions, []Event) {
+func (c *SankeyChart) frame(gtx layout.Context, view ui.View, spec SankeySpec, gr sankeyGraph, width, pad, inner int, items frameItems, body func(gtx layout.Context, active Selection) int) (layout.Dimensions, []Event) {
 	colors := view.Colors
 	events := c.update(gtx, c, items)
 	active := c.active(gtx, c, items.order)
@@ -706,14 +844,18 @@ func (c *SankeyChart) frame(gtx layout.Context, view ui.View, spec SankeySpec, w
 			shown = spec.Selected
 		}
 		offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
-		read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(shown))
+		read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(gr, shown))
 		offset.Pop()
 		y += read.Size.Y
 
 		size := image.Pt(width, y+2*pad)
 		func() {
 			defer op.Offset(image.Pt(-pad, -pad)).Push(gtx.Ops).Pop()
+			// The compact list handles wheel and drag scrolling beneath the
+			// chart's single focus and hit target.
+			pass := pointer.PassOp{}.Push(gtx.Ops)
 			register(gtx, c, size, hovering)
+			pass.Pop()
 			if gtx.Focused(c) {
 				colors.FocusRing(gtx, image.Rectangle{Min: image.Pt(pad, pad), Max: size.Sub(image.Pt(pad, pad))}, ui.RadiusMD)
 			}
@@ -738,7 +880,7 @@ func (c *SankeyChart) layoutPlot(gtx layout.Context, view ui.View, spec SankeySp
 		width: inner, height: height, nodeW: gtx.Dp(sankeyNodeWidth), gap: gap,
 		labelSpace: labelSpace, slotMin: lineH, minNode: gtx.Dp(sankeyMinNode), minLink: max(1, gtx.Dp(1)),
 	}
-	plan := spec.plan(g)
+	plan := spec.plan(gr, g)
 	inks := spec.nodeInks(colors, gr)
 
 	// Titles sit above the columns, left aligned with the node marks.
@@ -753,12 +895,12 @@ func (c *SankeyChart) layoutPlot(gtx layout.Context, view ui.View, spec SankeySp
 		order: plan.order, selected: spec.Selected, move: plan.move,
 		pick: func(at image.Point) (Selection, bool) { return plan.pick(at.Sub(origin)) },
 	}
-	return c.frame(gtx, view, spec, width, pad, inner, items, func(gtx layout.Context, active Selection) int {
+	return c.frame(gtx, view, spec, gr, width, pad, inner, items, func(gtx layout.Context, active Selection) int {
 		if headerH > 0 {
 			c.drawTitles(gtx, view, spec, plan, g)
 		}
 		defer op.Offset(image.Pt(0, headerH)).Push(gtx.Ops).Pop()
-		c.drawPlot(gtx, view, spec, plan, g, inks, active)
+		c.drawPlot(gtx, view, spec, gr, plan, g, inks, active)
 		return headerH + plan.height
 	})
 }
@@ -786,49 +928,47 @@ func (p sankeyPlan) labelRoom(gtx layout.Context, g sankeyGeometry, col int) int
 	return p.colX[col+1] - p.colX[col] - g.nodeW - 2*gap
 }
 
-func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec, plan sankeyPlan, g sankeyGeometry, inks []color.NRGBA, active Selection) {
+func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec, gr sankeyGraph, plan sankeyPlan, g sankeyGeometry, inks []color.NRGBA, active Selection) {
 	colors := view.Colors
-	// Everything the active or selected item touches stays prominent while the
-	// rest recedes, so a path can be followed to its end.
-	touches := func(sel Selection, l sankeyLinkPlan) bool {
-		if sel.IsZero() || sel.Series != "" {
-			return false
-		}
-		if sel == l.sel {
-			return true
-		}
-		return sel == plan.nodes[l.src].sel || sel == plan.nodes[l.dst].sel
-	}
-	focused := !active.IsZero() || !spec.Selected.IsZero()
-	for _, l := range plan.links {
-		if !l.drawn {
+	nodePaths, linkPaths := gr.emphasis(active, spec.Selected)
+	emphasizing := slices.ContainsFunc(nodePaths, func(level sankeyEmphasis) bool { return level != sankeyUnrelated })
+	for i, l := range plan.links {
+		if !l.drawn || linkPaths[i] != sankeyUnrelated {
 			continue
 		}
 		alpha := 0.28
-		switch {
-		case touches(active, l) || touches(spec.Selected, l):
-			alpha = 0.55
-		case focused:
-			alpha = 0.14
+		if emphasizing {
+			alpha = 0.12
 		}
 		fillPolygon(gtx, l.outline(), ui.WithAlpha(inks[l.dst], alpha))
 	}
-	// A selected or active link carries an outline, so emphasis never relies
-	// on color alone.
-	for _, l := range plan.links {
-		if !l.drawn || (l.sel != active && l.sel != spec.Selected) {
-			continue
+	// Paint path bands over the other flows. Their thin outlines keep them
+	// distinguishable without hue, including one-pixel flows.
+	for level := sankeyActivePath; level <= sankeySelectedPath; level++ {
+		for i, l := range plan.links {
+			if linkPaths[i] != level {
+				continue
+			}
+			outline := l.outline()
+			fillPolygon(gtx, outline, ui.WithAlpha(inks[l.dst], 0.55))
+			ink := ui.WithAlpha(colors.Ink, 0.55)
+			if level == sankeySelectedPath {
+				ink = ui.WithAlpha(colors.Ink, 0.8)
+			}
+			stroke := max(1, gtx.Dp(1))
+			if l.sel == active || l.sel == spec.Selected {
+				stroke = gtx.Dp(2)
+			}
+			strokePolyline(gtx, append(outline, outline[0]), float32(stroke), ink)
 		}
-		ink := colors.Ink
-		if l.sel != spec.Selected {
-			ink = ui.WithAlpha(colors.Ink, 0.55)
-		}
-		outline := l.outline()
-		strokePolyline(gtx, append(outline, outline[0]), float32(gtx.Dp(2)), ink)
 	}
 	for i, n := range plan.nodes {
 		if n.flow > 0 {
-			ui.FillRoundRect(gtx, n.rect, ui.Space2, inks[i])
+			ink := inks[i]
+			if emphasizing && nodePaths[i] == sankeyUnrelated {
+				ink = ui.WithAlpha(ink, 0.38)
+			}
+			ui.FillRoundRect(gtx, n.rect, ui.Space2, ink)
 		} else {
 			// A hollow mark is a node that no drawn flow reaches.
 			ui.StrokeRoundRect(gtx, n.rect, ui.Space2, 1, colors.SecondaryInk)
@@ -838,6 +978,8 @@ func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec
 			ui.StrokeRoundRect(gtx, n.rect.Inset(-gtx.Dp(2)), ui.Space4, 2, colors.Ink)
 		case n.sel == active:
 			ui.StrokeRoundRect(gtx, n.rect.Inset(-gtx.Dp(2)), ui.Space4, 2, ui.WithAlpha(colors.Ink, 0.55))
+		case nodePaths[i] != sankeyUnrelated:
+			ui.StrokeRoundRect(gtx, n.rect.Inset(-gtx.Dp(1)), ui.Space4, 1, colors.Ink)
 		}
 		if n.sel == active && gtx.Focused(c) {
 			ui.StrokeRoundRect(gtx, n.hit, ui.RadiusSM, 2, ui.WithAlpha(colors.Accent, 0.8))
@@ -849,7 +991,7 @@ func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec
 	pill := gtx.Dp(ui.Space2)
 	for i, n := range plan.nodes {
 		node := spec.Nodes[i]
-		if item := spec.readout(n.sel); item != nil {
+		if item := spec.readout(gr, n.sel); item != nil {
 			semanticItem(gtx, n.hit, itemLabel(*item, spec.Messages))
 		}
 		room := plan.labelRoom(gtx, g, n.col)
@@ -866,7 +1008,7 @@ func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec
 	if active.IsZero() {
 		return
 	}
-	item := spec.readout(active)
+	item := spec.readout(gr, active)
 	if item == nil {
 		return
 	}
@@ -884,19 +1026,19 @@ func (c *SankeyChart) drawPlot(gtx layout.Context, view ui.View, spec SankeySpec
 type sankeyRowsGeometry struct {
 	width, inset, valueW, gap int
 	barHeight, rowGap         int
-	// rowHeights are indexed like the nodes.
-	rowHeights []int
+	// Row measurements are indexed like the nodes.
+	rowHeights, headHeights []int
 	// titleHeights are indexed like the columns; zero means no title.
 	titleHeights []int
 }
 
 type sankeyRowPlan struct {
-	sel           Selection
-	node          int
-	row, track    image.Rectangle
-	bar           image.Rectangle
-	label, amount image.Point
-	labelWidth    int
+	sel                    Selection
+	node                   int
+	row, track             image.Rectangle
+	bar                    image.Rectangle
+	label, amount, context image.Point
+	labelWidth             int
 }
 
 type sankeyRowsPlan struct {
@@ -940,6 +1082,9 @@ func (s SankeySpec) planRows(gr sankeyGraph, g sankeyRowsGeometry) sankeyRowsPla
 			row.label = image.Pt(g.inset, y+g.rowGap)
 			row.labelWidth = max(1, g.width-2*g.inset-g.valueW-g.gap)
 			row.amount = image.Pt(g.width-g.inset-g.valueW, y+g.rowGap)
+			if i < len(g.headHeights) {
+				row.context = row.label.Add(image.Pt(0, g.headHeights[i]))
+			}
 			barY := y + h - g.rowGap - g.barHeight
 			row.track = image.Rect(track.Min.X, barY, track.Max.X, barY+g.barHeight)
 			if flow[i] > 0 && biggest > 0 {
@@ -978,11 +1123,19 @@ func (c *SankeyChart) layoutRows(gtx layout.Context, view ui.View, spec SankeySp
 		barHeight: gtx.Dp(sankeyBarHeight), rowGap: gtx.Dp(ui.Space8),
 	}
 	labelW := max(1, inner-2*inset-valueW-gap)
-	for _, n := range spec.Nodes {
+	contextW := max(1, inner-2*inset)
+	contexts := make([]string, len(spec.Nodes))
+	for i, n := range spec.Nodes {
+		item := spec.readout(gr, Selection{Item: n.ID})
+		if item != nil {
+			contexts[i] = strings.Join(item.detail, " · ")
+		}
 		labelH := textBlock{style: ui.TextBody, content: n.Label, maxWidth: labelW}.measure(gtx, view).Y
 		valueH := textBlock{style: ui.TextLabel, content: n.Text, maxWidth: max(1, valueW)}.measure(gtx, view).Y
+		contextH := textBlock{style: ui.TextCaption, content: contexts[i], maxWidth: contextW}.measure(gtx, view).Y
 		head := max(labelH, valueH)
-		g.rowHeights = append(g.rowHeights, head+g.barHeight+gtx.Dp(ui.Space8)+2*g.rowGap)
+		g.headHeights = append(g.headHeights, head)
+		g.rowHeights = append(g.rowHeights, head+contextH+g.barHeight+gtx.Dp(ui.Space8)+2*g.rowGap)
 	}
 	for col := range gr.columns {
 		h := 0
@@ -994,36 +1147,85 @@ func (c *SankeyChart) layoutRows(gtx layout.Context, view ui.View, spec SankeySp
 	plan := spec.planRows(gr, g)
 	inks := spec.nodeInks(colors, gr)
 	origin := image.Pt(pad, pad)
+	viewport := min(plan.height, gtx.Dp(sankeyRowsMaxHeight))
+	scrolling := viewport < plan.height
+	if !c.rowsVisible || !scrolling {
+		c.rows.List = layout.List{Axis: layout.Vertical}
+	}
+	c.rowsVisible = scrolling
+	// Pointer coordinates refer to the previous frame's scroll position.
+	hitBounds := image.Rectangle{Max: image.Pt(inner, viewport)}
+	offset := c.rows.Position.Offset
+	reveal := func(next Selection) {
+		i := indexOf(plan.order, next)
+		if scrolling && i >= 0 {
+			bounds := plan.rows[i].row
+			switch {
+			case i == 0:
+				c.rows.Position.Offset = 0
+			case bounds.Dy() >= viewport || bounds.Min.Y < c.rows.Position.Offset:
+				c.rows.Position.Offset = bounds.Min.Y
+			case bounds.Max.Y > c.rows.Position.Offset+viewport:
+				c.rows.Position.Offset = bounds.Max.Y - viewport
+			}
+		}
+	}
 	items := frameItems{
 		order: plan.order, selected: spec.Selected,
-		pick: func(at image.Point) (Selection, bool) { return plan.pick(at.Sub(origin)) },
+		pick: func(at image.Point) (Selection, bool) {
+			at = at.Sub(origin)
+			if !at.In(hitBounds) {
+				return Selection{}, false
+			}
+			return plan.pick(at.Add(image.Pt(0, offset)))
+		},
+		move: func(from Selection, name key.Name) (Selection, bool) {
+			next, ok := linearMove(plan.order, from, name)
+			if ok && next != from {
+				reveal(next)
+			}
+			return next, ok
+		},
 	}
-	return c.frame(gtx, view, spec, width, pad, inner, items, func(gtx layout.Context, active Selection) int {
-		for k, at := range plan.titles {
-			textBlock{style: ui.TextCaptionStrong, content: spec.ColumnTitles[plan.titleAt[k]], ink: colors.SecondaryInk, maxWidth: max(1, inner-2*inset)}.draw(gtx, view, at)
+	return c.frame(gtx, view, spec, gr, width, pad, inner, items, func(gtx layout.Context, active Selection) int {
+		paths, _ := gr.emphasis(active, spec.Selected)
+		content := func(gtx layout.Context, _ int) layout.Dimensions {
+			for k, at := range plan.titles {
+				textBlock{style: ui.TextCaptionStrong, content: spec.ColumnTitles[plan.titleAt[k]], ink: colors.SecondaryInk, maxWidth: contextW}.draw(gtx, view, at)
+			}
+			for _, row := range plan.rows {
+				node := spec.Nodes[row.node]
+				switch {
+				case row.sel == spec.Selected:
+					ui.FillRoundRect(gtx, row.row, ui.RadiusSM, colors.Tint(colors.Accent, 0.10))
+					ui.FillRoundRect(gtx, image.Rect(row.row.Min.X, row.row.Min.Y+gtx.Dp(4), row.row.Min.X+gtx.Dp(3), row.row.Max.Y-gtx.Dp(4)), ui.RadiusFull, colors.Accent)
+				case row.sel == active:
+					ui.FillRoundRect(gtx, row.row, ui.RadiusSM, colors.HoverSurface)
+				case paths[row.node] != sankeyUnrelated:
+					ui.StrokeRoundRect(gtx, row.row.Inset(gtx.Dp(1)), ui.RadiusSM, 1, ui.WithAlpha(colors.Ink, 0.38))
+				}
+				textBlock{style: ui.TextBody, content: node.Label, ink: colors.Ink, maxWidth: row.labelWidth}.draw(gtx, view, row.label)
+				textBlock{style: ui.TextLabel, content: node.Text, ink: colors.Ink, maxWidth: max(1, valueW), align: text.End}.draw(gtx, view, row.amount)
+				textBlock{style: ui.TextCaption, content: contexts[row.node], ink: colors.SecondaryInk, maxWidth: contextW}.draw(gtx, view, row.context)
+				ui.FillRoundRect(gtx, row.track, ui.RadiusFull, colors.Tint(colors.Ink, 0.06))
+				if !row.bar.Empty() {
+					ui.FillRoundRect(gtx, row.bar, ui.RadiusFull, inks[row.node])
+				}
+				if row.sel == active && gtx.Focused(c) {
+					ui.StrokeRoundRect(gtx, row.row, ui.RadiusSM, 2, ui.WithAlpha(colors.Accent, 0.8))
+				}
+				if item := spec.readout(gr, row.sel); item != nil {
+					semanticItem(gtx, row.row, itemLabel(*item, spec.Messages))
+				}
+			}
+			return layout.Dimensions{Size: image.Pt(inner, plan.height)}
 		}
-		for _, row := range plan.rows {
-			node := spec.Nodes[row.node]
-			selected := row.sel == spec.Selected
-			if selected {
-				ui.FillRoundRect(gtx, row.row, ui.RadiusSM, colors.Tint(colors.Accent, 0.10))
-				ui.FillRoundRect(gtx, image.Rect(row.row.Min.X, row.row.Min.Y+gtx.Dp(4), row.row.Min.X+gtx.Dp(3), row.row.Max.Y-gtx.Dp(4)), ui.RadiusFull, colors.Accent)
-			} else if row.sel == active {
-				ui.FillRoundRect(gtx, row.row, ui.RadiusSM, colors.HoverSurface)
-			}
-			textBlock{style: ui.TextBody, content: node.Label, ink: colors.Ink, maxWidth: row.labelWidth}.draw(gtx, view, row.label)
-			textBlock{style: ui.TextLabel, content: node.Text, ink: colors.Ink, maxWidth: max(1, valueW), align: text.End}.draw(gtx, view, row.amount)
-			ui.FillRoundRect(gtx, row.track, ui.RadiusFull, colors.Tint(colors.Ink, 0.06))
-			if !row.bar.Empty() {
-				ui.FillRoundRect(gtx, row.bar, ui.RadiusFull, inks[row.node])
-			}
-			if row.sel == active && gtx.Focused(c) {
-				ui.StrokeRoundRect(gtx, row.row, ui.RadiusSM, 2, ui.WithAlpha(colors.Accent, 0.8))
-			}
-			if item := spec.readout(row.sel); item != nil {
-				semanticItem(gtx, row.row, itemLabel(*item, spec.Messages))
-			}
+		if !scrolling {
+			return content(gtx, 0).Size.Y
 		}
-		return plan.height
+		gtx.Constraints = layout.Exact(image.Pt(inner, viewport))
+		list := view.List(&c.rows)
+		list.AnchorStrategy = material.Overlay
+		return list.Layout(gtx, 1, content).Size.Y
 	})
 }

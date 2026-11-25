@@ -39,7 +39,7 @@ func TestGallerySnapshots(t *testing.T) {
 		size image.Point
 	}{{"wide", image.Pt(1100, 900)}, {"narrow", image.Pt(390, 900)}}
 	for chart := range chartNames {
-		for variant := range variantNames {
+		for variant := range variantCount(chart) {
 			for _, dark := range []bool{false, true} {
 				for _, size := range sizes {
 					o := options{chart: chart, variant: variant, dark: dark, selectSample: variant < 2, size: size.size}

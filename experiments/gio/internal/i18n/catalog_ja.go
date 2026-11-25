@@ -1342,6 +1342,7 @@ var japaneseCatalog = catalog{
 	ChartTitleSankey:          "サンキー図",
 	ChartExampleStandard:      "一般的なデータ",
 	ChartExampleEdge:          "境界ケース",
+	ChartExampleDense:         "多数の配分（24 件の口座経路）",
 	ChartSampleChecking:       "普通預金口座",
 	ChartSampleSavings:        "緊急用貯蓄",
 	ChartSampleRetirement:     "退職金口座",

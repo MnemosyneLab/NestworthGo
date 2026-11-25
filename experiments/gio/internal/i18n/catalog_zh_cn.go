@@ -1343,6 +1343,7 @@ var simplifiedChineseCatalog = catalog{
 	ChartTitleSankey:          "桑基图",
 	ChartExampleStandard:      "常规数据",
 	ChartExampleEdge:          "边界情况",
+	ChartExampleDense:         "密集分布（24 条账户路径）",
 	ChartSampleChecking:       "日常活期账户",
 	ChartSampleSavings:        "备用金储蓄",
 	ChartSampleRetirement:     "退休账户",

@@ -3,12 +3,12 @@ package desktop
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/chartpreview"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
@@ -316,117 +316,45 @@ func previewEdgeDonut(view ui.View, selected charts.Selection) charts.DonutSpec 
 	})
 }
 
-// previewName is a language-independent identifier with its localized label.
-type previewName struct {
-	ID    string
-	label string
-}
-
-// previewHolding is one account's allocation. An empty amount is a value the
-// ledger could not determine.
-type previewHolding struct {
-	class, institution, account previewName
-	amount                      string
-}
-
-// Node and link IDs are built from the path of identifiers, never from labels,
-// so a selection survives a language change.
-const (
-	previewNodeClass = iota
-	previewNodeInstitution
-	previewNodeAccount
-	previewLinkTo
-	previewNodeTotal
-)
-
-func previewPath(kind int, parts ...string) string {
-	return strings.Join(append([]string{strconv.Itoa(kind)}, parts...), "/")
-}
-
-// previewSankey builds the node and link tree the way an owning page does from
-// its read model: it sums exact decimals for the node texts, and the chart only
-// receives float positions for the geometry. Accounts without a positive amount
-// hang from the total with a link that is listed but never drawn.
-func previewSankey(view ui.View, selected charts.Selection, rows []previewHolding) charts.SankeySpec {
+func previewSankey(view ui.View, selected charts.Selection, rows []chartpreview.Holding) charts.SankeySpec {
 	l := view.Language
 	spec := charts.SankeySpec{
 		Label: l.Text(i18n.Assets), Summary: l.Text(i18n.ChartPreviewHint),
 		ColumnTitles: []string{l.Text(i18n.Assets), l.Text(i18n.AnalysisAssetClass), l.Text(i18n.AccountMaintenanceInstitution), l.Text(i18n.AnalysisAccount)},
 		Messages:     previewMessages(view), Selected: selected,
 	}
-	positive := func(row previewHolding) bool {
-		return row.amount != "" && previewDecimal(row.amount).IsPositive()
-	}
-	classID := func(row previewHolding) string { return previewPath(previewNodeClass, row.class.ID) }
-	institutionID := func(row previewHolding) string {
-		return previewPath(previewNodeInstitution, row.class.ID, row.institution.ID)
-	}
-	sums := map[string]decimal.Decimal{}
-	total := decimal.Zero
-	for _, row := range rows {
-		if positive(row) {
-			amount := previewDecimal(row.amount)
-			total = total.Add(amount)
-			sums[classID(row)] = sums[classID(row)].Add(amount)
-			sums[institutionID(row)] = sums[institutionID(row)].Add(amount)
-		}
-	}
-	root := previewPath(previewNodeTotal)
-	spec.Nodes = append(spec.Nodes, charts.SankeyNode{ID: charts.ID(root), Label: l.Text(i18n.Assets), Text: previewMoney(view, total), HideLabel: true})
-	seen := map[string]bool{}
-	add := func(id, label, parent string) {
-		if seen[id] {
-			return
-		}
-		seen[id] = true
-		amount := sums[id]
-		spec.Nodes = append(spec.Nodes, charts.SankeyNode{ID: charts.ID(id), Label: label, Text: previewMoney(view, amount)})
-		spec.Links = append(spec.Links, charts.SankeyLink{ID: charts.ID(previewPath(previewLinkTo, id)), Source: charts.ID(parent), Target: charts.ID(id),
-			Value: previewPlot(amount), Text: previewMoney(view, amount)})
-	}
-	for _, row := range rows {
-		parent := institutionID(row)
-		if positive(row) {
-			add(classID(row), row.class.label, root)
-			add(parent, row.institution.label, classID(row))
-		} else {
-			parent = root
-		}
-		id := previewPath(previewNodeAccount, row.class.ID, row.institution.ID, row.account.ID)
-		text := l.Text(i18n.OverviewNoValue)
-		link := charts.SankeyLink{ID: charts.ID(previewPath(previewLinkTo, id)), Source: charts.ID(parent), Target: charts.ID(id)}
-		if row.amount != "" {
-			amount := previewDecimal(row.amount)
-			text = previewMoney(view, amount)
-			link.Value = previewPlot(amount)
-		}
-		link.Text = text
-		spec.Nodes = append(spec.Nodes, charts.SankeyNode{ID: charts.ID(id), Label: row.account.label, Text: text})
-		spec.Links = append(spec.Links, link)
-	}
-	return spec
+	return chartpreview.Sankey(spec, l.Text(i18n.Assets), rows, func(d decimal.Decimal) string {
+		return previewMoney(view, d)
+	})
+}
+
+func previewDenseSankey(view ui.View, selected charts.Selection) charts.SankeySpec {
+	l := view.Language
+	return previewSankey(view, selected, chartpreview.DenseHoldings([4]string{
+		l.Text(i18n.AnalysisCash), l.Text(i18n.MarketStocks), l.Text(i18n.MarketETFs), l.Text(i18n.MarketBonds),
+	}))
 }
 
 func previewStandardSankey(view ui.View, selected charts.Selection) charts.SankeySpec {
 	l := view.Language
-	cash := previewName{ID: "cash", label: l.Text(i18n.AnalysisCash)}
-	stocks := previewName{ID: "stocks", label: l.Text(i18n.MarketStocks)}
-	etfs := previewName{ID: "etfs", label: l.Text(i18n.MarketETFs)}
-	bonds := previewName{ID: "bonds", label: l.Text(i18n.MarketBonds)}
-	harbor := previewName{ID: "harbor", label: l.Text(i18n.PreviewHarbor)}
-	evergreen := previewName{ID: "evergreen", label: l.Text(i18n.PreviewEvergreen)}
-	westlake := previewName{ID: "westlake", label: l.Text(i18n.PreviewWestlake)}
-	checking := previewName{ID: "checking", label: l.Text(i18n.ChartSampleChecking)}
-	savings := previewName{ID: "savings", label: l.Text(i18n.ChartSampleSavings)}
-	retirement := previewName{ID: "retirement", label: l.Text(i18n.ChartSampleRetirement)}
-	growth := previewName{ID: "growth", label: l.Text(i18n.ChartSampleGrowth)}
-	return previewSankey(view, selected, []previewHolding{
-		{cash, harbor, checking, "52400.55"},
-		{cash, evergreen, savings, "98000.00"},
-		{stocks, westlake, growth, "312980.10"},
-		{stocks, westlake, retirement, "100000.00"},
-		{etfs, evergreen, growth, "201220.00"},
-		{bonds, harbor, retirement, "96300.75"},
+	cash := chartpreview.Name{ID: "cash", Label: l.Text(i18n.AnalysisCash)}
+	stocks := chartpreview.Name{ID: "stocks", Label: l.Text(i18n.MarketStocks)}
+	etfs := chartpreview.Name{ID: "etfs", Label: l.Text(i18n.MarketETFs)}
+	bonds := chartpreview.Name{ID: "bonds", Label: l.Text(i18n.MarketBonds)}
+	harbor := chartpreview.Name{ID: "harbor", Label: l.Text(i18n.PreviewHarbor)}
+	evergreen := chartpreview.Name{ID: "evergreen", Label: l.Text(i18n.PreviewEvergreen)}
+	westlake := chartpreview.Name{ID: "westlake", Label: l.Text(i18n.PreviewWestlake)}
+	checking := chartpreview.Name{ID: "checking", Label: l.Text(i18n.ChartSampleChecking)}
+	savings := chartpreview.Name{ID: "savings", Label: l.Text(i18n.ChartSampleSavings)}
+	retirement := chartpreview.Name{ID: "retirement", Label: l.Text(i18n.ChartSampleRetirement)}
+	growth := chartpreview.Name{ID: "growth", Label: l.Text(i18n.ChartSampleGrowth)}
+	return previewSankey(view, selected, []chartpreview.Holding{
+		{Class: cash, Institution: harbor, Account: checking, Amount: "52400.55"},
+		{Class: cash, Institution: evergreen, Account: savings, Amount: "98000.00"},
+		{Class: stocks, Institution: westlake, Account: growth, Amount: "312980.10"},
+		{Class: stocks, Institution: westlake, Account: retirement, Amount: "100000.00"},
+		{Class: etfs, Institution: evergreen, Account: growth, Amount: "201220.00"},
+		{Class: bonds, Institution: harbor, Account: retirement, Amount: "96300.75"},
 	})
 }
 
@@ -434,17 +362,17 @@ func previewStandardSankey(view ui.View, selected charts.Selection) charts.Sanke
 // accounts with a zero or an unknown amount that cannot be drawn.
 func previewEdgeSankey(view ui.View, selected charts.Selection) charts.SankeySpec {
 	l := view.Language
-	cash := previewName{ID: "cash", label: l.Text(i18n.AnalysisCash)}
-	stocks := previewName{ID: "stocks", label: l.Text(i18n.MarketStocks)}
-	crypto := previewName{ID: "crypto", label: l.Text(i18n.MarketCrypto)}
-	harbor := previewName{ID: "harbor", label: l.Text(i18n.PreviewHarbor)}
-	westlake := previewName{ID: "westlake", label: l.Text(i18n.PreviewWestlake)}
-	return previewSankey(view, selected, []previewHolding{
-		{cash, harbor, previewName{ID: "savings", label: l.Text(i18n.ChartSampleSavings)}, "845200.00"},
-		{cash, harbor, previewName{ID: "checking", label: l.Text(i18n.ChartSampleChecking)}, "12.40"},
-		{cash, harbor, previewName{ID: "wallet", label: l.Text(i18n.PreviewCash)}, "0.00"},
-		{stocks, westlake, previewName{ID: "share-plan", label: l.Text(i18n.ChartSampleLongName)}, "1250400.75"},
-		{stocks, westlake, previewName{ID: "growth", label: l.Text(i18n.ChartSampleGrowth)}, ""},
-		{crypto, harbor, previewName{ID: "exchange", label: l.Text(i18n.AccountTypeCrypto)}, "1.05"},
+	cash := chartpreview.Name{ID: "cash", Label: l.Text(i18n.AnalysisCash)}
+	stocks := chartpreview.Name{ID: "stocks", Label: l.Text(i18n.MarketStocks)}
+	crypto := chartpreview.Name{ID: "crypto", Label: l.Text(i18n.MarketCrypto)}
+	harbor := chartpreview.Name{ID: "harbor", Label: l.Text(i18n.PreviewHarbor)}
+	westlake := chartpreview.Name{ID: "westlake", Label: l.Text(i18n.PreviewWestlake)}
+	return previewSankey(view, selected, []chartpreview.Holding{
+		{Class: cash, Institution: harbor, Account: chartpreview.Name{ID: "savings", Label: l.Text(i18n.ChartSampleSavings)}, Amount: "845200.00"},
+		{Class: cash, Institution: harbor, Account: chartpreview.Name{ID: "checking", Label: l.Text(i18n.ChartSampleChecking)}, Amount: "12.40"},
+		{Class: cash, Institution: harbor, Account: chartpreview.Name{ID: "wallet", Label: l.Text(i18n.PreviewCash)}, Amount: "0.00"},
+		{Class: stocks, Institution: westlake, Account: chartpreview.Name{ID: "share-plan", Label: l.Text(i18n.ChartSampleLongName)}, Amount: "1250400.75"},
+		{Class: stocks, Institution: westlake, Account: chartpreview.Name{ID: "growth", Label: l.Text(i18n.ChartSampleGrowth)}, Amount: ""},
+		{Class: crypto, Institution: harbor, Account: chartpreview.Name{ID: "exchange", Label: l.Text(i18n.AccountTypeCrypto)}, Amount: "1.05"},
 	})
 }

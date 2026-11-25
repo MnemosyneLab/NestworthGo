@@ -26,6 +26,7 @@ func TestPreviewChartExamplesAreValidInEveryLanguage(t *testing.T) {
 		"donut standard":     func(v ui.View, s charts.Selection) previewChartSpec { return previewStandardDonut(v, s) },
 		"donut edge":         func(v ui.View, s charts.Selection) previewChartSpec { return previewEdgeDonut(v, s) },
 		"sankey standard":    func(v ui.View, s charts.Selection) previewChartSpec { return previewStandardSankey(v, s) },
+		"sankey dense":       func(v ui.View, s charts.Selection) previewChartSpec { return previewDenseSankey(v, s) },
 		"sankey edge":        func(v ui.View, s charts.Selection) previewChartSpec { return previewEdgeSankey(v, s) },
 	}
 	for _, supported := range slices.DeleteFunc(settings.AllLanguages(), func(l settings.Language) bool { return l == settings.LanguageSystem }) {
@@ -49,18 +50,25 @@ func TestPreviewChartExamplesAreValidInEveryLanguage(t *testing.T) {
 	}
 }
 
-func TestPreviewChartExamplesCoverEveryChartTypeTwice(t *testing.T) {
+func TestPreviewChartExamplesCoverEveryChartType(t *testing.T) {
 	groups := newPreviewChartGroups()
 	want := []i18n.MessageID{i18n.ChartTitleLine, i18n.ChartTitleBars, i18n.ChartTitleWaterfall, i18n.ChartTitleDonut, i18n.ChartTitleSankey}
 	if len(groups) != len(want) {
 		t.Fatalf("%d chart groups, want %d", len(groups), len(want))
 	}
 	for i, group := range groups {
-		if group.title != want[i] || len(group.examples) != 2 {
+		count := 2
+		if group.title == i18n.ChartTitleSankey {
+			count = 3
+		}
+		if group.title != want[i] || len(group.examples) != count {
 			t.Fatalf("group %d = %v with %d examples", i, group.title, len(group.examples))
 		}
 		if group.examples[0].caption != i18n.ChartExampleStandard || group.examples[1].caption != i18n.ChartExampleEdge {
 			t.Fatalf("group %d captions %v %v", i, group.examples[0].caption, group.examples[1].caption)
+		}
+		if count == 3 && group.examples[2].caption != i18n.ChartExampleDense {
+			t.Fatalf("Sankey third caption = %v, want dense", group.examples[2].caption)
 		}
 	}
 }

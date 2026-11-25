@@ -3,9 +3,13 @@ package charts
 import (
 	"image"
 	"math"
+	"slices"
+	"strings"
 	"testing"
 
+	"gioui.org/f32"
 	"gioui.org/io/key"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -88,7 +92,7 @@ func TestSankeyGraphAssignsColumnsAndRejectsUndrawableLinks(t *testing.T) {
 			t.Fatalf("a link with no flow was reported as a problem: %+v", p)
 		}
 	}
-	p := bad.plan(sankeyGeometryFor(600, 300))
+	p := bad.plan(bad.graph(), sankeyGeometryFor(600, 300))
 	for _, id := range []ID{"xy", "yx", "self", "ghost", "zero", "negative", "unknown"} {
 		if p.links[p.linkAt[id]].drawn {
 			t.Fatalf("link %s must not be drawn", id)
@@ -101,7 +105,7 @@ func TestSankeyGraphAssignsColumnsAndRejectsUndrawableLinks(t *testing.T) {
 
 func TestSankeyPlanKeepsOrderWithinColumnsAndInsideThePlot(t *testing.T) {
 	spec := sankeySpecForTest()
-	p := spec.plan(sankeyGeometryFor(600, 300))
+	p := spec.plan(spec.graph(), sankeyGeometryFor(600, 300))
 	for col, members := range p.columns {
 		last := -1
 		for _, i := range members {
@@ -136,7 +140,7 @@ func TestSankeyPlanKeepsOrderWithinColumnsAndInsideThePlot(t *testing.T) {
 
 func TestSankeyLinkThicknessIsProportionalAndFitsItsNodes(t *testing.T) {
 	spec := sankeySpecForTest()
-	p := spec.plan(sankeyGeometryFor(600, 300))
+	p := spec.plan(spec.graph(), sankeyGeometryFor(600, 300))
 	th := func(id ID) float64 { return p.links[p.linkAt[id]].th }
 	if got := th("l-cash") / th("l-stock"); math.Abs(got-1.5) > 1e-9 {
 		t.Fatalf("60:40 flows have thickness ratio %v, want 1.5", got)
@@ -173,7 +177,7 @@ func TestSankeyTinyFlowsStayVisible(t *testing.T) {
 			{ID: "tiny", Source: "a", Target: "c", Value: Num(1)},
 		},
 	}
-	p := spec.plan(sankeyGeometryFor(600, 300))
+	p := spec.plan(spec.graph(), sankeyGeometryFor(600, 300))
 	if th := p.links[p.linkAt["tiny"]].th; th < 1 {
 		t.Fatalf("a tiny flow is %vpx thick, want at least the minimum", th)
 	}
@@ -184,7 +188,7 @@ func TestSankeyTinyFlowsStayVisible(t *testing.T) {
 
 func TestSankeyPickPrefersNodesThenLinks(t *testing.T) {
 	spec := sankeySpecForTest()
-	p := spec.plan(sankeyGeometryFor(600, 300))
+	p := spec.plan(spec.graph(), sankeyGeometryFor(600, 300))
 	for _, n := range p.nodes {
 		centre := n.rect.Min.Add(n.rect.Size().Div(2))
 		if sel, ok := p.pick(centre); !ok || sel != n.sel {
@@ -207,7 +211,8 @@ func TestSankeyPickPrefersNodesThenLinks(t *testing.T) {
 }
 
 func TestSankeyKeyboardMovesAlongColumnsAndFlows(t *testing.T) {
-	p := sankeySpecForTest().plan(sankeyGeometryFor(600, 300))
+	spec := sankeySpecForTest()
+	p := spec.plan(spec.graph(), sankeyGeometryFor(600, 300))
 	step := func(from ID, name key.Name) ID {
 		sel, ok := p.move(Selection{Item: from}, name)
 		if !ok {
@@ -407,5 +412,153 @@ func TestSankeyChartNoticesForEmptyAndUndrawable(t *testing.T) {
 		if size.X <= 0 || size.Y <= 0 || len(events) != 0 {
 			t.Fatalf("%s: size %v events %v", name, size, events)
 		}
+	}
+}
+
+func TestSankeyCycleKeepsEnteringLeavingAndIndependentLinks(t *testing.T) {
+	spec := SankeySpec{
+		Nodes: []SankeyNode{{ID: "root"}, {ID: "a"}, {ID: "b"}, {ID: "tail"}, {ID: "class"}, {ID: "account"}},
+		Links: []SankeyLink{
+			{ID: "root-a", Source: "root", Target: "a", Value: Num(5)},
+			{ID: "a-b", Source: "a", Target: "b", Value: Num(5)},
+			{ID: "b-a", Source: "b", Target: "a", Value: Num(5)},
+			{ID: "b-tail", Source: "b", Target: "tail", Value: Num(5)},
+			{ID: "root-class", Source: "root", Target: "class", Value: Num(10)},
+			{ID: "class-account", Source: "class", Target: "account", Value: Num(10)},
+		},
+	}
+	want := []Problem{{Kind: ProblemCycle, ID: "a-b"}, {Kind: ProblemCycle, ID: "b-a"}}
+	if problems := spec.Validate(); !slices.Equal(problems, want) {
+		t.Fatalf("Validate = %v, want %v", problems, want)
+	}
+	gr := spec.graph()
+	plan := spec.plan(gr, sankeyGeometryFor(700, 350))
+	for _, link := range plan.links {
+		wantDrawn := link.sel.Item != "a-b" && link.sel.Item != "b-a"
+		if link.drawn != wantDrawn {
+			t.Errorf("%s drawn = %t, want %t", link.sel.Item, link.drawn, wantDrawn)
+		}
+	}
+	if got := gr.depth[gr.nodeAt["account"]]; got != 2 {
+		t.Errorf("valid account depth = %d, want 2", got)
+	}
+	if len(spec.Rows()) != len(spec.Nodes)+len(spec.Links) {
+		t.Error("cycle dropped source rows")
+	}
+}
+
+func sankeyPathsSpec() SankeySpec {
+	spec := SankeySpec{
+		ColumnTitles: []string{"Total", "Class", "Institution", "Account"},
+		Nodes: []SankeyNode{
+			{ID: "root", Label: "Total"},
+			{ID: "cash", Label: "Cash"}, {ID: "funds", Label: "Funds"},
+			{ID: "cash/north", Label: "Harbor Bank", Detail: []string{"North Branch"}},
+			{ID: "cash/south", Label: "Harbor Bank", Detail: []string{"South Branch"}},
+			{ID: "funds/north", Label: "Harbor Bank", Detail: []string{"North Branch"}},
+			{ID: "cash/north/reserve", Label: "Household Reserve", Text: "$0.01"},
+			{ID: "cash/north/savings", Label: "Savings", Text: "$25.00"},
+			{ID: "cash/south/savings", Label: "Savings", Text: "$4.00"},
+			{ID: "funds/north/reserve", Label: "Household Reserve", Text: "$9.00"},
+		},
+	}
+	link := func(id, from, to ID, flow float64) SankeyLink {
+		return SankeyLink{ID: id, Source: from, Target: to, Value: Num(flow)}
+	}
+	spec.Links = []SankeyLink{
+		link("root-cash", "root", "cash", 29.01), link("root-funds", "root", "funds", 9),
+		link("cash-north", "cash", "cash/north", 25.01), link("cash-south", "cash", "cash/south", 4),
+		link("funds-north", "funds", "funds/north", 9),
+		link("cash-reserve", "cash/north", "cash/north/reserve", 0.01), link("north-savings", "cash/north", "cash/north/savings", 25),
+		link("south-savings", "cash/south", "cash/south/savings", 4), link("funds-reserve", "funds/north", "funds/north/reserve", 9),
+	}
+	return spec
+}
+
+func TestSankeyEmphasisFollowsPathsByID(t *testing.T) {
+	spec := sankeyPathsSpec()
+	gr := spec.graph()
+	for _, test := range []struct {
+		name     string
+		active   ID
+		selected ID
+		links    []sankeyEmphasis
+		nodes    []sankeyEmphasis
+	}{
+		{
+			name: "tiny leaf only follows its three ancestors", active: "cash/north/reserve",
+			links: []sankeyEmphasis{1, 0, 1, 0, 0, 1, 0, 0, 0},
+			nodes: []sankeyEmphasis{1, 1, 0, 1, 0, 0, 1, 0, 0, 0},
+		},
+		{
+			name: "institution follows its own children", active: "cash/north",
+			links: []sankeyEmphasis{1, 0, 1, 0, 0, 1, 1, 0, 0},
+			nodes: []sankeyEmphasis{1, 1, 0, 1, 0, 0, 1, 1, 0, 0},
+		},
+		{
+			name: "link follows ancestors at its source and descendants at its target", active: "cash-south",
+			links: []sankeyEmphasis{1, 0, 0, 1, 0, 0, 0, 1, 0},
+			nodes: []sankeyEmphasis{1, 1, 0, 0, 1, 0, 0, 0, 1, 0},
+		},
+		{
+			name: "selected account survives hover in another class", active: "cash/north/reserve", selected: "funds/north/reserve",
+			links: []sankeyEmphasis{1, 2, 1, 0, 2, 1, 0, 0, 2},
+			nodes: []sankeyEmphasis{2, 1, 2, 1, 0, 2, 1, 0, 0, 2},
+		},
+		{
+			name: "class includes both of its institutions", selected: "cash",
+			links: []sankeyEmphasis{2, 0, 2, 2, 0, 2, 2, 2, 0},
+			nodes: []sankeyEmphasis{2, 2, 0, 2, 2, 0, 2, 2, 2, 0},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			nodes, links := gr.emphasis(Selection{Item: test.active}, Selection{Item: test.selected})
+			if !slices.Equal(nodes, test.nodes) || !slices.Equal(links, test.links) {
+				t.Fatalf("nodes %v, links %v, want nodes %v, links %v", nodes, links, test.nodes, test.links)
+			}
+		})
+	}
+	item := spec.readout(gr, Selection{Item: "cash/north/reserve"})
+	if item.value != "$0.01" || !strings.Contains(itemLabel(*item, spec.Messages), "Cash › Harbor Bank") {
+		t.Fatalf("compact/accessible readout lost its lineage or exact amount: %+v", item)
+	}
+}
+
+func TestSankeyCompactKeyboardRevealsLastRowAndKeepsSelection(t *testing.T) {
+	spec := sankeyPathsSpec()
+	for i := range spec.Nodes {
+		spec.Nodes[i].Detail = append(spec.Nodes[i].Detail, "Complete detail for the narrow window, including enough words to wrap.")
+	}
+	r := newRig(320, false)
+	var chart SankeyChart
+	draw := func(gtx layout.Context, view ui.View, selected Selection) (layout.Dimensions, []Event) {
+		spec.Selected = selected
+		return chart.Layout(gtx, view, spec)
+	}
+	r.frame(draw, Selection{})
+	r.press(image.Pt(60, 80))
+	r.frame(draw, Selection{})
+	r.frame(draw, Selection{})
+	r.key(key.NameEnd)
+	r.frame(draw, Selection{})
+	want := Selection{Item: "funds/north/reserve"}
+	if chart.cursor != want || chart.rows.Position.Offset <= 0 {
+		t.Fatalf("End focused %v at offset %d, want %v in view", chart.cursor, chart.rows.Position.Offset, want)
+	}
+	r.key(key.NameReturn)
+	_, events := r.frame(draw, Selection{})
+	if selected := Apply(Selection{}, events); selected != want {
+		t.Fatalf("selection = %v, want %v", selected, want)
+	}
+	r.router.Queue(pointer.Event{Kind: pointer.Move, Source: pointer.Mouse, Position: f32.Pt(5, 5)})
+	r.key(key.NameHome)
+	r.frame(draw, want)
+	if chart.cursor.Item != "root" || chart.rows.Position.Offset != 0 {
+		t.Fatalf("Home focused %v at offset %d", chart.cursor, chart.rows.Position.Offset)
+	}
+	r.key(key.NameEscape)
+	_, events = r.frame(draw, want)
+	if selected := Apply(want, events); !selected.IsZero() {
+		t.Fatalf("Escape left selection %v", selected)
 	}
 }

@@ -39,13 +39,13 @@ func newPreviewExample[S any](caption i18n.MessageID, chart any,
 }
 
 // newPreviewChartGroups lists one group per chart type, each with a typical and
-// an edge-case example.
+// an edge-case example. Sankey also has a dense allocation example.
 func newPreviewChartGroups() []previewChartGroup {
 	lineStandard, lineEdge := new(charts.LineChart), new(charts.LineChart)
 	barsStandard, barsEdge := new(charts.BarChart), new(charts.BarChart)
 	waterfallStandard, waterfallEdge := new(charts.WaterfallChart), new(charts.WaterfallChart)
 	donutStandard, donutEdge := new(charts.DonutChart), new(charts.DonutChart)
-	sankeyStandard, sankeyEdge := new(charts.SankeyChart), new(charts.SankeyChart)
+	sankeyStandard, sankeyEdge, sankeyDense := new(charts.SankeyChart), new(charts.SankeyChart), new(charts.SankeyChart)
 	return []previewChartGroup{
 		{i18n.ChartTitleLine, []*previewExample{
 			newPreviewExample(i18n.ChartExampleStandard, lineStandard, lineStandard.Layout, previewWealthLine),
@@ -66,6 +66,7 @@ func newPreviewChartGroups() []previewChartGroup {
 		{i18n.ChartTitleSankey, []*previewExample{
 			newPreviewExample(i18n.ChartExampleStandard, sankeyStandard, sankeyStandard.Layout, previewStandardSankey),
 			newPreviewExample(i18n.ChartExampleEdge, sankeyEdge, sankeyEdge.Layout, previewEdgeSankey),
+			newPreviewExample(i18n.ChartExampleDense, sankeyDense, sankeyDense.Layout, previewDenseSankey),
 		}},
 	}
 }

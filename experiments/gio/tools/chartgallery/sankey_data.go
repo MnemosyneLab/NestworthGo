@@ -1,114 +1,64 @@
 package main
 
 import (
-	"github.com/shopspring/decimal"
-
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/chartpreview"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 )
 
-// holding is one account's allocation in one asset class. An empty amount is a
-// value the ledger could not determine.
-type holding struct {
-	class, institution, account, amount string
-}
-
-// sankeyFlows builds an asset composition the way an owning page would from its
-// read model: the page sums exact decimals for the node texts, and the chart
-// only receives float positions for the geometry. Unknown and non-positive
-// amounts keep their links so the text rows still list them.
-func sankeyFlows(rows []holding, total string) charts.SankeySpec {
+func sankeyFlows(rows []chartpreview.Holding) charts.SankeySpec {
 	spec := charts.SankeySpec{
 		Label:        "Asset composition",
 		Summary:      "Where the assets are held, from asset class to institution and account.",
 		ColumnTitles: []string{"Total", "Asset class", "Institution", "Account"},
 		Messages:     messages,
 	}
-	amountOf := func(r holding) (decimal.Decimal, bool) {
-		if r.amount == "" {
-			return decimal.Zero, false
-		}
-		return dec(r.amount), true
-	}
-	sums := map[string]decimal.Decimal{}
-	for _, r := range rows {
-		if d, ok := amountOf(r); ok && d.IsPositive() {
-			sums["class/"+r.class] = sums["class/"+r.class].Add(d)
-			sums["inst/"+r.class+"/"+r.institution] = sums["inst/"+r.class+"/"+r.institution].Add(d)
-		}
-	}
-	spec.Nodes = append(spec.Nodes, charts.SankeyNode{ID: "total", Label: "Total assets", Text: total, HideLabel: true})
-	seen := map[string]bool{}
-	node := func(id, label string, amount decimal.Decimal, link string, parent string) {
-		if !seen[id] {
-			seen[id] = true
-			spec.Nodes = append(spec.Nodes, charts.SankeyNode{ID: charts.ID(id), Label: label, Text: money(amount)})
-			spec.Links = append(spec.Links, charts.SankeyLink{
-				ID: charts.ID(link), Source: charts.ID(parent), Target: charts.ID(id), Value: plot(amount), Text: money(amount),
-			})
-		}
-	}
-	for _, r := range rows {
-		d, known := amountOf(r)
-		if known && d.IsPositive() {
-			node("class/"+r.class, r.class, sums["class/"+r.class], "flow/class/"+r.class, "total")
-			node("inst/"+r.class+"/"+r.institution, r.institution, sums["inst/"+r.class+"/"+r.institution],
-				"flow/inst/"+r.class+"/"+r.institution, "class/"+r.class)
-		}
-		account := "acct/" + r.class + "/" + r.institution + "/" + r.account
-		parent := "inst/" + r.class + "/" + r.institution
-		if !known || !d.IsPositive() {
-			// Without a positive amount the account has no parent flow worth
-			// drawing; it hangs from the total with a text-only link.
-			parent = "total"
-		}
-		text := "No value"
-		if known {
-			text = money(d)
-		}
-		spec.Nodes = append(spec.Nodes, charts.SankeyNode{ID: charts.ID(account), Label: r.account, Text: text})
-		link := charts.SankeyLink{ID: charts.ID("flow/" + account), Source: charts.ID(parent), Target: charts.ID(account), Text: text}
-		if known {
-			link.Value = plot(d)
-		}
-		spec.Links = append(spec.Links, link)
-	}
-	return spec
+	return chartpreview.Sankey(spec, "Total assets", rows, money)
 }
+
+func name(id, label string) chartpreview.Name { return chartpreview.Name{ID: id, Label: label} }
 
 func standardSankey() charts.SankeySpec {
-	return sankeyFlows([]holding{
-		{"Cash and deposits", "Harbor Bank", "Everyday checking", "52400.55"},
-		{"Cash and deposits", "Harbor Bank", "Emergency savings", "98000.00"},
-		{"Cash and deposits", "Northern Credit Union", "Savings", "32000.00"},
-		{"Listed stocks", "Summit Brokerage", "Growth portfolio", "312980.10"},
-		{"Listed stocks", "Summit Brokerage", "Retirement account", "100000.00"},
-		{"Funds and ETFs", "Summit Brokerage", "Index funds", "201220.00"},
-		{"Funds and ETFs", "Pacific Asset Management", "Global bond fund", "100000.00"},
-		{"Real estate", "Self-held", "Apartment", "250000.00"},
-		{"Digital assets", "Coinline", "Wallet", "31404.20"},
-	}, "$1,178,004.85")
+	cash, stocks := name("cash", "Cash and deposits"), name("stocks", "Listed stocks")
+	funds := name("funds", "Funds and ETFs")
+	harbor, summit := name("harbor", "Harbor Bank"), name("summit", "Summit Brokerage")
+	return sankeyFlows([]chartpreview.Holding{
+		{Class: cash, Institution: harbor, Account: name("checking", "Everyday checking"), Amount: "52400.55"},
+		{Class: cash, Institution: harbor, Account: name("emergency", "Emergency savings"), Amount: "98000.00"},
+		{Class: cash, Institution: name("northern", "Northern Credit Union"), Account: name("savings", "Savings"), Amount: "32000.00"},
+		{Class: stocks, Institution: summit, Account: name("growth", "Growth portfolio"), Amount: "312980.10"},
+		{Class: stocks, Institution: summit, Account: name("retirement", "Retirement account"), Amount: "100000.00"},
+		{Class: funds, Institution: summit, Account: name("index", "Index funds"), Amount: "201220.00"},
+		{Class: funds, Institution: name("pacific", "Pacific Asset Management"), Account: name("global-bond", "Global bond fund"), Amount: "100000.00"},
+		{Class: name("real-estate", "Real estate"), Institution: name("self-held", "Self-held"), Account: name("apartment", "Apartment"), Amount: "250000.00"},
+		{Class: name("digital", "Digital assets"), Institution: name("coinline", "Coinline"), Account: name("wallet-1", "Wallet"), Amount: "31404.20"},
+	})
 }
 
-// edgeSankey adds long names, a tiny flow beside very large ones, and accounts
-// with a zero or an unknown amount that cannot be drawn.
 func edgeSankey() charts.SankeySpec {
-	return sankeyFlows([]holding{
-		{"Cash and deposits", "First National Bank of a Very Long Institution Name", "Premium money market account with tiered interest and a long product name", "845200.00"},
-		{"Cash and deposits", "First National Bank of a Very Long Institution Name", "Petty cash", "12.40"},
-		{"Cash and deposits", "Cash on hand", "Wallet", "0.00"},
-		{"Listed stocks", "Summit Brokerage", "Growth portfolio", "1250400.75"},
-		{"Listed stocks", "Summit Brokerage", "Employer plan", ""},
-		{"Digital assets", "Coinline", "Wallet", "1.05"},
-	}, "$2,095,614.20")
+	cash, stocks := name("cash", "Cash and deposits"), name("stocks", "Listed stocks")
+	national := name("first-national", "First National Bank of a Very Long Institution Name")
+	summit := name("summit", "Summit Brokerage")
+	return sankeyFlows([]chartpreview.Holding{
+		{Class: cash, Institution: national, Account: name("market", "Premium money market account with tiered interest and a long product name"), Amount: "845200.00"},
+		{Class: cash, Institution: national, Account: name("petty", "Petty cash"), Amount: "12.40"},
+		{Class: cash, Institution: name("on-hand", "Cash on hand"), Account: name("wallet-cash", "Wallet"), Amount: "0.00"},
+		{Class: stocks, Institution: summit, Account: name("growth", "Growth portfolio"), Amount: "1250400.75"},
+		{Class: stocks, Institution: summit, Account: name("employer", "Employer plan")},
+		{Class: name("digital", "Digital assets"), Institution: name("coinline", "Coinline"), Account: name("wallet-digital", "Wallet"), Amount: "1.05"},
+	})
 }
 
 func missingSankey() charts.SankeySpec {
-	return sankeyFlows([]holding{
-		{"Cash and deposits", "Harbor Bank", "Everyday checking", ""},
-		{"Listed stocks", "Summit Brokerage", "Growth portfolio", "0.00"},
-	}, "$0.00")
+	return sankeyFlows([]chartpreview.Holding{
+		{Class: name("cash", "Cash and deposits"), Institution: name("harbor", "Harbor Bank"), Account: name("checking", "Everyday checking")},
+		{Class: name("stocks", "Listed stocks"), Institution: name("summit", "Summit Brokerage"), Account: name("growth", "Growth portfolio"), Amount: "0.00"},
+	})
 }
 
 func emptySankey() charts.SankeySpec {
 	return charts.SankeySpec{Label: "Asset composition", Summary: "No assets.", Messages: messages}
+}
+
+func denseSankey() charts.SankeySpec {
+	return sankeyFlows(chartpreview.DenseHoldings([4]string{"Cash and deposits", "Listed stocks", "Funds and ETFs", "Bonds"}))
 }
