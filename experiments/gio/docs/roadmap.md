@@ -1300,7 +1300,7 @@ report and restores the list position and source focus. [Shared availability pro
 | Linux X11 | In a 900×660 Xvfb window, viewed the USD and EUR amounts and missing-FX explanation, opened the saved account and instrument sources, returned to the scrolled report, and found the unresolved reservation. Normal reopen repeated the same amounts. A separate profile showed the no-source message and known USD zero. Read-only SQLite comparison found the same rows across 13 financial tables in both profiles. A temporary build overlay seeded the verified profiles and controlled the clock. |
 | Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Bank-account reservation creation and release](#bank-account-reservations) follow this read-only milestone. Additional horizons, early-withdrawal estimates, broader reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | [Bank-account reservations](#bank-account-reservations) and [read-only term deposits](#read-only-term-deposits) follow this milestone. Additional horizons, early-withdrawal estimates, broader reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 #### Bank-account reservations
 
@@ -1334,6 +1334,35 @@ new explicit review. Released rows remain visible in the source manager.
 | Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
 | Open evidence | Editing active reservations and managing other source kinds, including archived sources, remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Read-only term deposits
+
+**Available funds** links term-deposit sources to details by contract ID.
+Holdings account detail lists them under **Managed products**, including
+closed contracts. Details link back to the owning account by account ID.
+Back and Forward restore the prior visit, including its list position and the
+focused link. Managed holdings are separate from ordinary positions and their
+trade actions. An existing managed instrument target points to the supported
+product while shared account and portfolio totals continue to include the
+managed value where eligible. [Wails source menu](../../../frontend/src/features/liquidity/SourceTable.tsx) · [Wails account cards](../../../frontend/src/features/liquidity/AccountProductsSection.tsx) · [Shared ownership lookup](../../../internal/application/portfolio.go)
+
+The details use the shared product read for principal, current native
+contract value, start, maturity and product state. Expected receipt date
+and net proceeds come from the normal liquidity route and carry estimate
+labels. Even after the modeled receipt date, an open contract can still
+have an unconfirmed receipt and make no cash available. Missing timing
+keeps the estimate unavailable. The receipt and interest action statuses
+report the shared permissions. A closed contract explains why receipt
+confirmation is unavailable. The statuses are read-only. [Wails product sheet](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx) · [Wails Go adapter](../../../internal/wailsapi/liquidity/liquidity.go) · [Shared liquidity projection](../../../internal/domain/liquidity_evaluate.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent marked SQLite profiles used `2026-11-21T17:00:00Z` and the Asia/Singapore civil date November 22. Shared account lists and product details matched for locked, due-unconfirmed, missing receipt timing and settled contracts. USD 1,000 contract value had USD 1,011.1111 estimated net proceeds after the modeled fee. A due USD 600 contract showed USD 606.25 estimated proceeds and no selected Today route. The incomplete product retained its USD 300 value and an unavailable estimate. Actual cash stayed USD 1,100. |
+| Shell tests | Covered failed product read and Retry, navigation from funds and account cards, Back and Forward with restored focus, an unavailable contract ID, and separation from ordinary positions. Reopen returned the same product states and cash. Ledger version and activities were unchanged. |
+| Linux X11 | In a 900×660 Xvfb window, opened the locked term deposit from Available Funds, followed its account link, opened the settled deposit, and navigated back to the original scroll position. Checked the due and incomplete contracts, then quit and reopened normally. After the existing first-launch preference initialization, a read-only SQLite comparison found identical rows in all 77 tables across both browsing sessions. A temporary build overlay seeded the verified synthetic profile and fixed the clock. |
+| Tests | The Gio module suite and focused application, domain and Wails Go liquidity and product tests passed. |
+| Build and vet | The independent Linux Gio preview build and Gio vet passed. |
+| Open evidence | Other managed product types, product commands, policy and broader reservation editing, and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
 
 ## Moving from the preview to a desktop build
 

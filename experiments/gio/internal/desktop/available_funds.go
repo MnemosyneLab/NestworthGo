@@ -55,7 +55,7 @@ func readAvailableFunds(ctx context.Context, service availableFundsReader) (out 
 }
 
 type fundsLinks struct {
-	account, instrument, reserve widget.Clickable
+	account, instrument, reserve, product widget.Clickable
 }
 
 type availableFundsPage struct {
@@ -75,6 +75,8 @@ type availableFundsPage struct {
 	links          map[string]*fundsLinks
 	openAccount    func(domain.AccountID, string, event.Tag)
 	openInstrument func(domain.InstrumentID, string, event.Tag)
+	productPage    *productDetailPage
+	openProduct    func(domain.ProductContractID, string, event.Tag)
 }
 
 func newAvailableFundsPage(ctx context.Context, service availableFundsReader, invalidate func()) *availableFundsPage {
@@ -242,6 +244,7 @@ func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, 
 
 func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadSource, day string) layout.Widget {
 	source := row.Result
+	termDeposit := source.ProductID != nil && row.ProductKind != nil && domain.ProductKind(*row.ProductKind) == domain.ProductTermDeposit
 	l := view.Language
 	fields := []layout.Widget{fundsAmount(view, i18n.FundsCurrent, source.CurrentNativeValue)}
 	at := slices.IndexFunc(source.BucketResults, func(r domain.LiquidityBucketResult) bool { return r.HorizonOn == day })
@@ -283,11 +286,20 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		}
 	}
 	for _, reason := range reasons {
+		if termDeposit && reason == i18n.FundsDue && source.DisplayState == domain.ProductDisplayDueUnconfirmed {
+			continue // The product state below already explains the unconfirmed receipt.
+		}
 		fields = append(fields, view.Message(l.Text(reason), view.Colors.SecondaryInk))
 	}
 	var instrument domain.InstrumentID
 	if source.ProductID == nil && row.InstrumentID != nil {
 		instrument = domain.InstrumentID(*row.InstrumentID)
+	}
+	if termDeposit {
+		fields = append(fields, productState(view, source.DisplayState))
+		if p.openProduct != nil {
+			fields = append(fields, productLink(view, *source.ProductID, source.DisplayName, &p.sourceButtons(source.SourceKey).product, p.openProduct))
+		}
 	}
 	fields = append(fields, p.sourceLinks(view, source.SourceKey, source.AccountID, instrument, source.DisplayName))
 	account := p.current.accounts[source.AccountID]

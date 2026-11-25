@@ -27,6 +27,8 @@ type portfolioReader interface {
 	WithRead(context.Context, func(context.Context) error) error
 	Portfolio(context.Context, domain.AccountFilter) (domain.PortfolioValuation, error)
 	InstrumentHoldings(context.Context) ([]domain.InstrumentHoldingsView, error)
+	InstrumentProductOwnership(context.Context) (map[string]string, error)
+	Product(context.Context, domain.ProductContractID) (application.ProductDetail, error)
 	Bootstrap(context.Context) (application.Bootstrap, error)
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
 	CurrentInstrumentQuote(context.Context, domain.InstrumentID) (*domain.InstrumentQuote, error)
@@ -40,11 +42,24 @@ type portfolioRead struct {
 	price      *domain.InstrumentQuote
 	fx         *domain.FXQuote
 	base       domain.CurrencyCode
+	managed    bool
+	product    *application.ProductDetail
 }
 
 func readPortfolio(ctx context.Context, service portfolioReader, id domain.InstrumentID) (out portfolioRead, err error) {
 	err = service.WithRead(ctx, func(ctx context.Context) error {
-		var err error
+		ownership, err := service.InstrumentProductOwnership(ctx)
+		if err != nil {
+			return err
+		}
+		if contractID := ownership[id.String()]; id != "" && contractID != "" {
+			out.managed = true
+			detail, err := service.Product(ctx, domain.ProductContractID(contractID))
+			if err == nil && detail.Contract.Kind == domain.ProductTermDeposit {
+				out.product = &detail
+			}
+			return err
+		}
 		if id == "" {
 			out.summary, err = service.Portfolio(ctx, domain.AccountFilter{})
 			if err != nil {
@@ -77,8 +92,14 @@ func readPortfolio(ctx context.Context, service portfolioReader, id domain.Instr
 			}
 		}
 		out.positions, err = service.InstrumentHoldings(ctx)
-		if err == nil && id != "" {
-			out.positions = slices.DeleteFunc(out.positions, func(row domain.InstrumentHoldingsView) bool { return row.InstrumentID != id })
+		if err == nil {
+			out.positions = slices.DeleteFunc(out.positions, func(row domain.InstrumentHoldingsView) bool {
+				if ownership[row.InstrumentID.String()] != "" {
+					out.managed = out.managed || row.Amounts.Quantity != "0"
+					return true
+				}
+				return id != "" && row.InstrumentID != id
+			})
 		}
 		return err
 	})
@@ -105,12 +126,14 @@ type portfolioPage struct {
 	openInstrument func(domain.InstrumentID, string, event.Tag)
 	openAccount    func(domain.AccountID, string, event.Tag)
 	openHistory    func(domain.InstrumentID, string, event.Tag)
+	openProduct    func(domain.ProductContractID, string, event.Tag)
+	productButtons map[domain.ProductContractID]*widget.Clickable
 }
 
 func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate func()) *portfolioPage {
 	return &portfolioPage{ctx: ctx, service: service, invalidate: invalidate,
 		search: ui.SearchField{Field: ui.NewTextField(true)}, list: widget.List{List: layout.List{Axis: layout.Vertical}},
-		instruments: make(map[domain.InstrumentID]*widget.Clickable), accounts: make(map[domain.AccountID]*widget.Clickable)}
+		instruments: make(map[domain.InstrumentID]*widget.Clickable), accounts: make(map[domain.AccountID]*widget.Clickable), productButtons: make(map[domain.ProductContractID]*widget.Clickable)}
 }
 
 func (p *portfolioPage) enter(id domain.InstrumentID, query string, position layout.Position) {
@@ -234,7 +257,11 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 	}
 	active := func(row domain.InstrumentHoldingsView) bool { return row.Amounts.Quantity != "0" }
 	if !slices.ContainsFunc(p.current.positions, active) {
-		return append(rows, view.Message(l.Text(i18n.PortfolioEmpty), view.Colors.SecondaryInk))
+		label := i18n.PortfolioEmpty
+		if p.current.managed {
+			label = i18n.PortfolioManagedOnly
+		}
+		return append(rows, view.Message(l.Text(label), view.Colors.SecondaryInk))
 	}
 
 	query := normalizeDirectoryQuery(p.search.Field.Text())
@@ -289,6 +316,18 @@ func (p *portfolioPage) positionCard(gtx layout.Context, view ui.View, row domai
 
 func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 	r, l := p.current, view.Language
+	if r.managed {
+		if r.product == nil {
+			return []layout.Widget{view.Message(l.Text(i18n.ProductUnavailable), view.Colors.SecondaryInk)}
+		}
+		product := r.product
+		name := productName(*product)
+		fields := []layout.Widget{productState(view, product.DisplayState), fundsAmount(view, i18n.ProductValue, product.CurrentValue)}
+		if p.openProduct != nil {
+			fields = append(fields, productLink(view, product.Contract.ID, name, portfolioButton(p.productButtons, product.Contract.ID), p.openProduct))
+		}
+		return []layout.Widget{fundsCard(view, name, fields...)}
+	}
 	i := r.instrument
 	if i == nil {
 		return []layout.Widget{view.Message(l.Text(i18n.PortfolioInstrumentUnavailable), view.Colors.SecondaryInk)}

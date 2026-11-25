@@ -274,10 +274,24 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 	}
 	if p := s.funds; p != nil {
+		if p.productPage != nil {
+			p.openProduct = func(id domain.ProductContractID, name string, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from}
+			}
+			if s.portfolio != nil {
+				s.portfolio.openProduct = p.openProduct
+			}
+			if s.accounts != nil {
+				s.accounts.openProduct = p.openProduct
+			}
+		}
 		if s.accounts != nil {
 			p.openAccount = func(id domain.AccountID, name string, from event.Tag) {
 				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
 			}
+		}
+		if p.productPage != nil {
+			p.productPage.openAccount = p.openAccount
 		}
 		if s.portfolio != nil {
 			p.openInstrument = s.portfolio.openInstrument
@@ -441,7 +455,11 @@ func (s *shell) invalidateLedgerReads() {
 		s.accounts.refresh()
 	}
 	if s.funds != nil && s.activeRoute() == fundsRoute {
-		s.funds.read()
+		if s.trail.current().target.product == "" {
+			s.funds.read()
+		} else {
+			s.funds.productPage.read()
+		}
 	}
 	if s.portfolio != nil && s.activeRoute() == portfolioRoute {
 		s.portfolio.read()
@@ -598,6 +616,9 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	body := route.body
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		body = s.directory.object.layout
+	}
+	if entry.target.product != "" {
+		body = s.funds.productPage.layout
 	}
 	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
 	focus := ui.PageFocus{Target: entry.focus}

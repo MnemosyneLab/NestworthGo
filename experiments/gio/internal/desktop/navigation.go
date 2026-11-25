@@ -24,10 +24,11 @@ type navigationTarget struct {
 	institution domain.InstitutionID
 	activity    domain.ActivityID
 	instrument  domain.InstrumentID
+	product     domain.ProductContractID
 }
 
 func (t navigationTarget) hasObject() bool {
-	return t.object != (directoryRef{}) || t.account != "" || t.activity != "" || t.instrument != ""
+	return t.object != (directoryRef{}) || t.account != "" || t.activity != "" || t.instrument != "" || t.product != ""
 }
 
 type navigationEntry struct {
@@ -153,6 +154,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if request.target.activity != "" && (request.target.route != historyRoute || s.historyPage == nil || s.historyPage.reads == nil) {
 			return
 		}
+		if request.target.product != "" && (request.target.route != fundsRoute || s.funds == nil || s.funds.productPage == nil) {
+			return
+		}
 		if request.target.instrument != "" && request.target.route != portfolioRoute &&
 			(request.target.route != historyRoute || request.target.activity != "" || s.historyPage == nil || s.historyPage.reads == nil) {
 			return
@@ -202,7 +206,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == fundsRoute {
 		s.funds.reservation = nil
-		s.funds.leave()
+		if entry.target.product == "" {
+			s.funds.leave()
+		} else {
+			s.funds.productPage.leave()
+		}
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.leave()
@@ -229,7 +237,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 	}
 	if entry.target.route == fundsRoute {
-		s.funds.enter(entry.scroll)
+		if entry.target.product == "" {
+			s.funds.enter(entry.scroll)
+		} else {
+			s.funds.productPage.enter(entry.target.product, entry.scroll)
+		}
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
@@ -285,7 +297,11 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 		entry.accountsArchived = s.accounts.archived
 		entry.scroll = s.accounts.list.Position
 	case fundsRoute:
-		entry.scroll = s.funds.list.Position
+		if entry.target.product == "" {
+			entry.scroll = s.funds.list.Position
+		} else {
+			entry.scroll = s.funds.productPage.list.Position
+		}
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
@@ -367,6 +383,9 @@ func (s *shell) waitingForPageFocus() bool {
 		return s.accounts.request != nil
 	}
 	if s.activeRoute() == fundsRoute && s.funds != nil {
+		if s.trail.current().target.product != "" {
+			return s.funds.productPage.request != nil
+		}
 		return s.funds.request != nil
 	}
 	if s.activeRoute() == portfolioRoute && s.portfolio != nil {
@@ -411,6 +430,9 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		}
 		if entry.target.route == accountsRoute {
 			return language.Text(i18n.AccountUnavailable)
+		}
+		if entry.target.product != "" {
+			return language.Text(i18n.ProductUnavailable)
 		}
 		if entry.target.route == portfolioRoute {
 			return language.Text(i18n.PortfolioInstrumentUnavailable)

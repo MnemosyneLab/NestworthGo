@@ -874,6 +874,31 @@ const (
 	ReserveInvalidLabel
 	ReserveInvalidAmount
 	ReserveCurrentAvailability
+	ManagedProducts
+	ProductTermDeposit
+	ProductOpen
+	ProductPrincipal
+	ProductValue
+	ProductStart
+	ProductMaturity
+	ProductForecast
+	ProductForecastNet
+	ProductReceiptDate
+	ProductLocked
+	ProductRedeemable
+	ProductNeedsInfo
+	ProductSettled
+	ProductCancelled
+	ProductUnavailable
+	ProductReadFailed
+	ProductLoading
+	ProductActions
+	ProductCanReview
+	ProductNotPermitted
+	ProductContractClosed
+	ProductConfirmReceipt
+	ProductReceiveInterest
+	PortfolioManagedOnly
 	messageCount
 )
 

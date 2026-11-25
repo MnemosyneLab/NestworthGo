@@ -559,7 +559,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		}
 	}
 	if row.value == nil {
-		return rows
+		return p.appendProducts(rows, view)
 	}
 	value := row.value
 	issues := make(map[string]bool)
@@ -581,6 +581,9 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		for _, component := range value.Components {
 			if component.InstrumentID == nil {
 				cash = append(cash, accountLine(view, component.NativeCurrency.String()+" · "+accountComponentAmount(view, component)))
+				continue
+			}
+			if p.current.managed[*component.InstrumentID] {
 				continue
 			}
 			name := domain.InstrumentDisplayLabel(component.InstrumentName, component.InstrumentSymbol, component.InstrumentShortName)
@@ -622,6 +625,26 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			}
 			rows = append(rows, investments...)
 		}
+	}
+	return p.appendProducts(rows, view)
+}
+
+func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View) []layout.Widget {
+	if len(p.current.products) == 0 {
+		return rows
+	}
+	rows = append(rows, accountLine(view, view.Language.Text(i18n.ManagedProducts)))
+	for _, product := range p.current.products {
+		name, id := productName(product), product.Contract.ID
+		fields := []layout.Widget{
+			productState(view, product.DisplayState),
+			fundsAmount(view, i18n.ProductValue, product.CurrentValue),
+			productMaturity(view, product.Contract.MaturityOn),
+		}
+		if p.openProduct != nil {
+			fields = append(fields, productLink(view, id, name, portfolioButton(p.productButtons, id), p.openProduct))
+		}
+		rows = append(rows, fundsCard(view, name, fields...))
 	}
 	return rows
 }

@@ -35,6 +35,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)
 	funds.reservationLedger = service
+	funds.productPage = newProductDetailPage(ctx, service, window.Invalidate)
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
 	accounts.creation = &balanceAccountCreation{service: service}
 	accounts.maintenance = &accountMaintenance{service: service}
@@ -56,6 +57,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		overview.workers.Wait()
 		portfolio.workers.Wait()
 		funds.workers.Wait()
+		funds.productPage.workers.Wait()
 		accounts.workers.Wait()
 		onboarding.workers.Wait()
 	}()

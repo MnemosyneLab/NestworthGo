@@ -62,6 +62,9 @@ func (p *accountsPage) hasInvestmentHolding(kind domain.ActivityKind) bool {
 		if component.InstrumentID == nil || component.HoldingID == nil || component.NativeCurrency != row.record.Account.DefaultCurrency {
 			return false
 		}
+		if p.current.managed[*component.InstrumentID] {
+			return false
+		}
 		h, ok := p.current.holdings[*component.HoldingID]
 		return ok && h.ArchivedAt == nil && (kind != domain.ActivitySell || !h.Quantity.IsZero())
 	})

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -26,6 +27,7 @@ type accountsReader interface {
 	ListMembers(context.Context, bool) ([]domain.Member, error)
 	ListGroups(context.Context, bool) ([]domain.Group, error)
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
+	ListProducts(context.Context, *domain.AccountID, bool) ([]application.ProductDetail, error)
 }
 
 type accountRow struct {
@@ -39,6 +41,8 @@ type accountsResult struct {
 	members       map[domain.MemberID]domain.Member
 	groups        map[domain.GroupID]domain.Group
 	holdings      map[domain.HoldingID]domain.Holding
+	managed       map[domain.InstrumentID]bool
+	products      []application.ProductDetail
 	unavailable   bool
 	beforeHistory bool
 	readAt        time.Time
@@ -134,6 +138,18 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		result.holdings = make(map[domain.HoldingID]domain.Holding, len(holdings[target.account]))
 		for _, holding := range holdings[target.account] {
 			result.holdings[holding.ID] = holding
+		}
+		products, err := service.ListProducts(ctx, &target.account, true)
+		if err != nil {
+			result.err = err
+			return
+		}
+		result.managed = make(map[domain.InstrumentID]bool, len(products))
+		for _, product := range products {
+			result.managed[product.Contract.InstrumentID] = true
+			if product.Contract.Kind == domain.ProductTermDeposit {
+				result.products = append(result.products, product)
+			}
 		}
 	}
 	return
@@ -244,6 +260,8 @@ type accountsPage struct {
 	reload, archiveFilter, clear, back widget.Clickable
 	open                               func(navigationTarget, string, event.Tag)
 	openInstrument                     func(domain.InstrumentID, string, event.Tag)
+	openProduct                        func(domain.ProductContractID, string, event.Tag)
+	productButtons                     map[domain.ProductContractID]*widget.Clickable
 	backToList                         func()
 	creation                           *balanceAccountCreation
 	createBank, createLiability        widget.Clickable
@@ -261,7 +279,7 @@ type accountsPage struct {
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {
 	return &accountsPage{ctx: ctx, service: service, clock: clock, invalidate: invalidate,
 		list: widget.List{List: layout.List{Axis: layout.Vertical}}, buttons: make(map[domain.AccountID]*widget.Clickable),
-		instruments: make(map[domain.InstrumentID]*widget.Clickable)}
+		instruments: make(map[domain.InstrumentID]*widget.Clickable), productButtons: make(map[domain.ProductContractID]*widget.Clickable)}
 }
 
 func (p *accountsPage) enter(target navigationTarget, archived bool, position layout.Position) {
