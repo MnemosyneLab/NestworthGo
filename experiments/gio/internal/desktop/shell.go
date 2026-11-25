@@ -453,7 +453,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.healthRepairOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -516,12 +516,18 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		} else {
 			s.returns.layoutContributionSheet(windowContext, view)
 		}
+	} else if s.healthRepairOpen() {
+		s.dataHealth.layoutRepair(windowContext, view)
 	}
 	return dims
 }
 
 func (s *shell) returnDetailOpen() bool {
 	return s.activeRoute() == returnAnalysisRoute && s.returns != nil && (s.returns.day != nil || s.returns.item != nil)
+}
+
+func (s *shell) healthRepairOpen() bool {
+	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.repair != nil && s.dataHealth.repair.plan != nil
 }
 
 func (s *shell) confirmingAccountCreation() bool {

@@ -261,6 +261,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == dataHealthRoute {
 		s.dataHealth.leave()
+		if repair := s.dataHealth.repair; repair != nil {
+			repair.retirePreview()
+		}
 	}
 	if entry.target.route == settingsRoute {
 		s.settingsPage.credential.clearInput()

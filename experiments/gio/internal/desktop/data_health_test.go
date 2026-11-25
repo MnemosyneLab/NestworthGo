@@ -56,7 +56,8 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 		t.Fatal(err)
 	}
 	market := &marketDataPage{ctx: ctx, reader: service, invalidate: func() {}}
-	health := &dataHealthPage{ctx: ctx, reader: &retryHealthRead{Service: service, fail: true}, invalidate: func() {}}
+	health := &dataHealthPage{ctx: ctx, reader: &retryHealthRead{Service: service, fail: true}, invalidate: func() {},
+		repair: &dataHealthRepair{service: service}}
 	t.Cleanup(market.workers.Wait)
 	t.Cleanup(health.workers.Wait)
 	h := newShellHarnessWithPages(t, ledgerPages{marketData: market, dataHealth: health})
@@ -86,6 +87,7 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Prerequisites")
 	assertPageLabel(t, &h.router, "Missing initial manual FX rate · 1")
+	assertPageLabel(t, &h.router, "Start History to plan a repair.")
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "JPY", "140.1234", now.Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}

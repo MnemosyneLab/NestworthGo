@@ -30,6 +30,7 @@ type dataHealthPage struct {
 	issueActions map[string]*widget.Clickable
 	openSettings func(*widget.Clickable)
 	openAccount  func(domain.AccountID, string, *widget.Clickable)
+	repair       *dataHealthRepair
 }
 
 func (p *dataHealthPage) enter(position layout.Position) {

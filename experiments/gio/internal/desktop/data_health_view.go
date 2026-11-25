@@ -47,6 +47,7 @@ var healthSeverities = map[string]i18n.MessageID{
 
 func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	p.updateRepair()
 	l := view.Language
 	if p.request == nil && p.recheck.Clicked(gtx) {
 		p.read()
@@ -55,6 +56,16 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.HealthDescription), view.Colors.SecondaryInk))}
 	if report := p.report; report != nil {
 		rows = append(rows, ui.Rigid(healthSummary(view, *report)))
+		if p.repair != nil && !report.Healthy {
+			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return p.repairAction(gtx, view)
+			}))
+		}
+	}
+	if repair := p.repair; repair != nil && (repair.job.JobID != "" || repair.problem != i18n.NoMessage || repair.startRead != nil) {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.repairProgress(gtx, view)
+		}))
 	}
 	recheck := i18n.HealthRecheck
 	switch {

@@ -1647,8 +1647,8 @@ their severity, date range and available evidence. Related findings collapsed
 by the shared report stay under their causes. Recheck repeats the local read
 and a failed scan offers Retry. Provider prerequisites link to the Market data
 tab in Settings. Account-value findings can open Accounts. Back restores the
-originating button. Repair preview, execution, focused issue navigation,
-compaction of adjacent snapshot days and manual-quote actions remain open.
+originating button. Focused issue navigation, compaction of adjacent snapshot
+days and manual-quote actions remain open.
 
 | Check | Evidence |
 | --- | --- |
@@ -1656,6 +1656,26 @@ compaction of adjacent snapshot days and manual-quote actions remain open.
 | Gio interaction | Injected failure exposed Retry. Recheck switched to the healthy summary after the stored quote. Another frame verified the provider-settings tab and returned keyboard focus to the issue action. |
 | Linux X11 | The packaged preview on a marked synthetic profile opened Data health from Market data, displayed one blocking JPY/USD gap, rechecked, and retained the finding at 700×480. Back then Return reopened Data health. Logical row fingerprints matched for every SQLite table. |
 | Build and tests | The full Gio suite, vet, packaged Linux build, focused application and Wails Go market data tests and the 16 Wails Data Health frontend tests passed. Interactive Wails, macOS, VoiceOver and IME verification remain open. |
+
+#### Review, cancel and verify a Data Health repair
+
+**Repair all** opens a right-hand plan with estimated requests, historical
+targets, latest checks, snapshot work and prerequisites. Gio explains that
+History must be started when the report identifies this prerequisite. The
+plan is local and Escape returns focus to its button. **Start repair** begins
+the shared application job. The report shows live progress and supports
+cancellation. A fresh scan follows terminal outcomes so job success and
+outstanding coverage stay visible independently. Work that survives page
+navigation stays attached to the running preview process and is cancelled
+and joined on quit. Focused repair actions, detailed per-target results and
+snapshot-specific review remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Wails comparison | The Gio plan matched the Wails Go plan. All 24 frontend checks across Data Health, Snapshot Repair and Market Data Sync Bar passed. Focused shared Go tests covered repair preview, attach/conflict, cancellation and historical gap clearance. |
+| Gio interaction | Ran the repair test three times. The first confirmed request blocked at a deterministic provider and was cancelled. The retry saved one exact provider rate of 140.1234. The fresh Gio report matched the Wails report and kept the historical gap visible after the latest quote was saved. The pre-History test verified the repair prerequisite. |
+| Linux X11 | The packaged launcher opened the plan on a marked household and displayed one estimated provider request at 1100×900 and 700×480. Escape and Return restored the plan without storing a new FX quote. A separate native build with only a deterministic provider substituted at build time confirmed the plan, cancelled the first request, then saved the exact 140.1234 rate on a second confirmation. It showed Repair completed and the remaining gaps, and the isolated fixture was verified after shutdown. |
+| Build and tests | The full Gio suite, Gio vet and vanilla Linux package build passed. Live providers, Wails GUI, native macOS, VoiceOver and IME remain unverified for this workflow. |
 
 ## Moving from the preview to a desktop build
 

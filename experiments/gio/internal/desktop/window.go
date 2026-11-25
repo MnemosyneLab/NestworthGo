@@ -42,7 +42,12 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	returns := &returnAnalysisPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
 	assets := &assetChangesPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
 	marketData := &marketDataPage{ctx: ctx, reader: service, invalidate: window.Invalidate}
-	dataHealth := &dataHealthPage{ctx: ctx, reader: service, invalidate: window.Invalidate}
+	healthRepair := &dataHealthRepair{service: service}
+	service.SetMarketDataSyncListener(func(string, application.SyncJobSnapshot) {
+		healthRepair.revision.Add(1)
+		window.Invalidate()
+	})
+	dataHealth := &dataHealthPage{ctx: ctx, reader: service, invalidate: window.Invalidate, repair: healthRepair}
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
 	tasks := newTasksPage(ctx, service, window.Invalidate)
 	tasks.checks = service
@@ -75,6 +80,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		assets.workers.Wait()
 		marketData.workers.Wait()
 		dataHealth.workers.Wait()
+		service.CancelMarketDataSyncAndWait()
+		service.SetMarketDataSyncListener(nil)
 		portfolio.workers.Wait()
 		tasks.workers.Wait()
 		funds.workers.Wait()

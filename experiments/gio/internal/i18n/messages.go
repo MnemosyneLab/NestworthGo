@@ -100,6 +100,31 @@ const (
 	HealthCheckInstrument
 	HealthEnterManual
 	HealthOpenSettings
+	HealthRepairAll
+	HealthRepairPlanning
+	HealthRepairPlanFailed
+	HealthRepairStartFailed
+	HealthRepairConflict
+	HealthRepairCancelFailed
+	HealthRepairTitle
+	HealthRepairDescription
+	HealthRepairConfirm
+	HealthRepairRequestCount
+	HealthRepairTargetCount
+	HealthRepairSnapshotCount
+	HealthRepairBlockedCount
+	HealthRepairNoWork
+	HealthRepairBlocked
+	HealthRepairStarting
+	HealthRepairRunning
+	HealthRepairSucceeded
+	HealthRepairPartial
+	HealthRepairFailed
+	HealthRepairCancelled
+	HealthRepairProgress
+	HealthRepairCancel
+	HealthRepairHistoryRequired
+	HealthRepairLatestCount
 	NavSettings
 	NavComponentPreview
 	GroupActivity
