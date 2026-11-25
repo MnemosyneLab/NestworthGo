@@ -60,6 +60,24 @@ type healthFindingFocus struct {
 
 func (f healthFindingFocus) active() bool { return f != (healthFindingFocus{}) }
 
+func healthManualTarget(issue application.HealthIssue, focus healthFindingFocus) (marketManualTarget, bool) {
+	target := marketManualTarget{date: issue.RangeStart}
+	// A scoped date may narrow this finding, but an undated or related
+	// prerequisite keeps its own date default.
+	if target.date != "" && focus.from > target.date && focus.from <= snapshotRangeEnd(issue) {
+		target.date = focus.from
+	}
+	if issue.InstrumentID != "" {
+		id, err := domain.ParseInstrumentID(issue.InstrumentID)
+		target.instrumentID = id
+		return target, err == nil
+	}
+	base, baseErr := domain.ParseSupportedCurrency(issue.CurrencyA)
+	quote, quoteErr := domain.ParseSupportedCurrency(issue.CurrencyB)
+	target.base, target.quote = base, quote
+	return target, baseErr == nil && quoteErr == nil && base != quote
+}
+
 func focusedHealthFindings(issues []application.HealthIssue, focus healthFindingFocus) []application.HealthIssue {
 	var matches []application.HealthIssue
 	for _, issue := range issues {

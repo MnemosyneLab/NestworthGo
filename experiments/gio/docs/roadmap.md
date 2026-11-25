@@ -1971,6 +1971,17 @@ observation separately from the currently selected quote.
 | Packaged Linux X11 | At 640×480, Escape cancelled a typed price. The form retained the rejected nine-decimal text, then saved USD 12.34567891 for November 24 selected by keyboard. An injected SQLite insert failure retained 1 JPY = 0.006789012345 USD. A double-click on Retry appended exactly one manual observation. On a normal reopen, both quote values were readable in Market Data. Overview showed USD 31.48 known and the missing SGD rate. Authoritative account, activity and holding rows and snapshot rows matched before and after entry. The untouched source database and settings retained their hashes. |
 | Checks and remaining work | Full Gio tests and vet and the packaged Linux launcher passed. Native Mac, Wayland, VoiceOver, IME and interactive Wails remain open. Instrument and source management, quote history, explicit provider refresh and detailed historical sync remain open. The Overview home action placement is separate. No benchmark was run. |
 
+The focused Data Health follow-up preserves the finding's own date when it
+is undated or lies outside the current coverage scope. An overlapping focus
+can narrow a dated finding. Escape and the toolbar Back area dismiss the
+form and restore the same finding and control. A counted Gio test verified
+both closures performed zero scans, and a successful save performed one.
+Packaged Linux at 640×480 verified the focused price and USD/JPY forms from
+Overview, Escape, Back and keyboard reopening on a copy with zero stored
+quotes. Both quote tables remained empty and the source hashes matched.
+All 47 Wails Data Health, Snapshot Repair and Market Data reference tests
+passed for this checkpoint.
+
 #### Additional analysis filters and effective dates
 
 Return Analysis and Asset Changes show scope and the effective dates in

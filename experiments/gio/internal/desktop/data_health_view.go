@@ -284,20 +284,9 @@ func (p *dataHealthPage) issueAction(gtx layout.Context, view ui.View, issue app
 	l := view.Language
 	switch {
 	case issue.Action == application.HealthActionManualEntry && p.openManual != nil:
-		target := marketManualTarget{date: max(issue.RangeStart, p.focus.from)}
-		if issue.InstrumentID != "" {
-			id, err := domain.ParseInstrumentID(issue.InstrumentID)
-			if err != nil {
-				return nil
-			}
-			target.instrumentID = id
-		} else {
-			base, baseErr := domain.ParseSupportedCurrency(issue.CurrencyA)
-			quote, quoteErr := domain.ParseSupportedCurrency(issue.CurrencyB)
-			if baseErr != nil || quoteErr != nil || base == quote {
-				return nil
-			}
-			target.base, target.quote = base, quote
+		target, valid := healthManualTarget(issue, p.focus)
+		if !valid {
+			return nil
 		}
 		button := p.issueButton(issue.ID)
 		ready := p.request == nil && p.err == nil && (p.repair == nil || !p.repair.inProgress())
