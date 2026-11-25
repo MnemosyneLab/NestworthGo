@@ -53,7 +53,7 @@ func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, lab
 			offset := view.PageScrollOffset()
 			view.RestorePageScroll(0)
 			open()
-			if c.draft != nil || c.dated != nil {
+			if c.draft != nil || c.dated != nil || c.cashDated != nil {
 				c.editScroll = offset
 			}
 		})(gtx)
@@ -68,6 +68,9 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 	}
 	if c.dated != nil {
 		return p.layoutHoldingDatedChange(gtx, view)
+	}
+	if c.cashDated != nil {
+		return p.layoutDatedCheckpointCash(gtx, view)
 	}
 	if c.restoreEditScroll && c.loading == nil {
 		view.RestorePageScroll(c.editScroll)
@@ -181,7 +184,23 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 				if item.Kind == "cash" {
 					fields = append(fields, holdingCheckValue(view, item))
 				}
-				fields = append(fields, p.holdingCheckpointRows(view, account, item, c.checkpointActions(account.AccountID, item.ID))...)
+				buttons := c.checkpointActions(account.AccountID, item.ID)
+				if s.Status == "in_progress" {
+					label := l.Text(i18n.HoldingReconRecordCash)
+					if item.Currency != "" {
+						label += " · " + item.Currency
+					}
+					fields = append(fields, c.link(view, &buttons.cash, label, func() {
+						p.startDatedCheckpointCash(account, item, &buttons.cash)
+					}))
+					if item.Kind == "scope" {
+						fields = append(fields, c.link(view, &buttons.importPosition, l.Text(i18n.OpeningPositionOpen), func() {
+							p.startHoldingDatedChange(account, item, &buttons.importPosition)
+						}))
+					}
+				}
+				fields = append(fields, p.holdingCheckpointRows(view, account, item, buttons)...)
+				fields = append(fields, p.holdingReceiptLinks(view, account.AccountID, item.ID)...)
 				rows = append(rows, fundsCard(view, holdingCheckLabel(view, item), fields...))
 			}
 		}

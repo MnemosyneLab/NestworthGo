@@ -15,21 +15,25 @@ import (
 )
 
 type cashMovementDraft struct {
-	movement                                  history.CashMovement
-	sources                                   *history.CashMovementSources
-	loading                                   <-chan historyResult[history.CashMovementSources]
-	sourceError                               i18n.MessageID
-	account, destination                      domain.AccountID
-	currency, toCurrency                      domain.CurrencyCode
-	amount, received, fee                     ui.TextField
-	day, time                                 string
-	focusAmount                               bool
-	accountPicker, destinationPicker          ui.Select
-	currencyPicker, toCurrencyPicker          ui.Select
-	datePicker                                ui.DatePicker
-	timePicker                                ui.TimePicker
-	cancel, retrySources, preview, edit, post widget.Clickable
-	fx                                        transferQuote
+	movement                                          history.CashMovement
+	sources                                           *history.CashMovementSources
+	loading                                           <-chan historyResult[history.CashMovementSources]
+	sourceError                                       i18n.MessageID
+	account, destination                              domain.AccountID
+	currency, toCurrency                              domain.CurrencyCode
+	amount, received, fee, note                       ui.TextField
+	reason                                            domain.ActivityReason
+	reasonPicker                                      ui.Select
+	defaultTime                                       time.Time
+	focusReview                                       bool
+	day, time                                         string
+	focusAmount                                       bool
+	accountPicker, destinationPicker                  ui.Select
+	currencyPicker, toCurrencyPicker                  ui.Select
+	datePicker                                        ui.DatePicker
+	timePicker                                        ui.TimePicker
+	cancel, retrySources, preview, edit, post, useNow widget.Clickable
+	fx                                                transferQuote
 
 	previewing <-chan historyResult[history.ReviewedCashMovement]
 	review     *history.ReviewedCashMovement
@@ -52,6 +56,7 @@ type historyCashMovements struct {
 	actions    [len(cashMovementLabels)]widget.Clickable
 	draft      *cashMovementDraft
 	recovery   *cashReceiptRecovery
+	linked     *checkpointCashScope
 }
 
 func newHistoryCashMovements(ctx context.Context, service cashMovementService, clock func() time.Time, invalidate func()) *historyCashMovements {
@@ -62,6 +67,10 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 	p.draft = &cashMovementDraft{
 		movement: movement, amount: ui.NewTextField(true), received: ui.NewTextField(true), fee: ui.NewTextField(true),
 		focusAmount: movement != history.CashTransfer && movement != history.CashConversion,
+	}
+	if p.linked != nil {
+		p.draft.note = ui.NewTextField(true)
+		p.draft.reason = domain.ReasonOther
 	}
 	p.loadSources()
 }
@@ -79,10 +88,21 @@ func (p *historyCashMovements) loadSources() {
 	})
 }
 
-func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, now time.Time) {
+func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, now time.Time, linked *checkpointCashScope) {
 	first := d.sources == nil
 	d.sources = &sources
-	if first {
+	switch {
+	case linked != nil:
+		if d.day == "" {
+			d.captureCurrentTime(now)
+		}
+		if d.account != linked.account {
+			d.chooseSource(linked.account)
+		}
+		if linked.currency != "" && d.currency != linked.currency {
+			d.chooseCurrency(linked.currency)
+		}
+	case first:
 		local := now.In(sources.Location)
 		d.day, d.time = local.Format(time.DateOnly), local.Format("15:04")
 		if len(sources.Accounts) == 1 {
@@ -92,6 +112,11 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 	if d.movement == history.CashTransfer && d.destination != "" && !d.canSelectDestination(d.destination) {
 		d.chooseDestination("")
 	}
+}
+
+func (d *cashMovementDraft) captureCurrentTime(now time.Time) {
+	d.defaultTime = now.In(d.sources.Location)
+	d.day, d.time, d.problem = d.defaultTime.Format(time.DateOnly), d.defaultTime.Format(time.TimeOnly), i18n.NoMessage
 }
 
 func (d *cashMovementDraft) accountByID(id domain.AccountID) (domain.Account, bool) {
@@ -173,6 +198,16 @@ func (p *historyCashMovements) preview() {
 		Currency: d.currency, ToCurrency: d.toCurrency,
 		Amount: d.amount.Text(), Received: d.received.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time,
 	}
+	if p.linked != nil {
+		input.Link = p.linked.link()
+		if input.Link == nil {
+			return
+		}
+		input.Reason, input.Note = d.reason, d.note.Text()
+		if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
+			input.EffectiveAt = d.defaultTime
+		}
+	}
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedCashMovement, error) {
 		return history.ReviewCashMovement(p.ctx, p.service, input)
@@ -218,7 +253,7 @@ func (p *historyCashMovements) update() *domain.Activity {
 		if result.err != nil {
 			d.sourceError = cashMovementProblem(d.movement, result.err, i18n.ContributionSourcesFailed)
 		} else {
-			d.receiveSources(result.value, p.clock())
+			d.receiveSources(result.value, p.clock(), p.linked)
 		}
 	default:
 	}
@@ -226,12 +261,15 @@ func (p *historyCashMovements) update() *domain.Activity {
 	case result := <-d.previewing:
 		d.previewing = nil
 		if result.err != nil {
-			d.problem = cashMovementProblem(d.movement, result.err, cashMovementLabels[d.movement].previewFailed)
-			if d.problem == i18n.ContributionInvalidAccount || d.problem == i18n.TransferInvalidDestination {
+			d.problem = cashMovementProblem(d.movement, result.err, p.formLabels().previewFailed)
+			if p.linked != nil && staleReconciliationLink(result.err) {
+				d.problem = i18n.HoldingReconChanged
+				p.linked.refresh()
+			} else if d.problem == i18n.ContributionInvalidAccount || d.problem == i18n.TransferInvalidDestination {
 				p.loadSources()
 			}
 		} else {
-			d.review = &result.value
+			d.review, d.focusReview = &result.value, p.linked != nil
 		}
 	default:
 	}
@@ -254,15 +292,20 @@ func (p *historyCashMovements) update() *domain.Activity {
 			break
 		}
 		var issue *domain.Error
-		if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {
+		if (errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview) ||
+			p.linked != nil && staleReconciliationLink(result.err) {
 			// Replay runs before the guard. A stale token here means this
 			// mutation has no durable outcome and needs a new preview.
-			d.review, d.uncertain, d.problem = nil, false, cashMovementLabels[d.movement].stale
+			d.review, d.uncertain, d.problem = nil, false, p.formLabels().stale
 			p.loadSources()
+			if p.linked != nil {
+				d.focusAmount = true
+				p.linked.refresh()
+			}
 		} else {
 			// A transport or storage failure may follow the commit. Keep the
 			// exact request frozen until the idempotent retry resolves it.
-			d.uncertain = true
+			d.uncertain, d.focusReview = true, p.linked != nil
 		}
 	default:
 	}

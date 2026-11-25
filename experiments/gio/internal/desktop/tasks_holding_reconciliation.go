@@ -33,15 +33,21 @@ type holdingReconDirectory struct {
 	accounts []domain.Account
 }
 
+type reconciliationActivityLedger interface {
+	history.InvestmentLedger
+	cashMovementService
+}
+
 type holdingReconciliation struct {
 	service                                    holdingReconcileAPI
-	ledger                                     history.InvestmentLedger
+	ledger                                     reconciliationActivityLedger
 	clock                                      func() time.Time
 	zone                                       *time.Location
 	links                                      []domain.ReconciliationLinkedChange
 	receiptButtons                             map[domain.ActivityID]*widget.Clickable
 	audit                                      map[domain.ActivityID]*holdingEvidenceDisclosure
 	dated                                      *accountInvestment
+	cashDated                                  *historyCashMovements
 	directory                                  holdingReconDirectory
 	start, back, reload, resume, pause, finish widget.Clickable
 	sessionButtons                             map[string]*widget.Clickable
@@ -76,8 +82,8 @@ type holdingReconDraft struct {
 }
 
 type holdingReconItemActions struct {
-	cost, quantity, record, check widget.Clickable
-	attempts                      holdingEvidenceDisclosure
+	cost, quantity, record, check, cash, importPosition widget.Clickable
+	attempts                                            holdingEvidenceDisclosure
 }
 
 type holdingReconQuantity struct {
@@ -101,7 +107,7 @@ func (c *holdingReconciliation) active() bool {
 }
 
 func (c *holdingReconciliation) unresolved() bool {
-	return c != nil && (c.draft != nil && (c.draft.writing != nil || c.draft.uncertain) || c.dated.unresolved())
+	return c != nil && (c.draft != nil && (c.draft.writing != nil || c.draft.uncertain) || c.dated.unresolved() || c.cashDated != nil && c.cashDated.draft != nil && (c.cashDated.writing() || c.cashDated.draft.uncertain))
 }
 
 func (c *holdingReconciliation) discard() {
@@ -109,7 +115,7 @@ func (c *holdingReconciliation) discard() {
 		c.id, c.session, c.loading, c.draft = "", nil, nil, nil
 		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
 		c.itemButtons, c.receiptButtons, c.dated, c.links, c.zone = nil, nil, nil, nil, nil
-		c.audit = nil
+		c.audit, c.cashDated = nil, nil
 		c.editScroll, c.restoreEditScroll = 0, false
 	}
 }
@@ -309,6 +315,14 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			c.session, c.links, c.zone = &result.value.session, result.value.links, result.value.zone
 		}
 	default:
+	}
+	if c.cashDated != nil {
+		f := c.cashDated
+		posted := f.update()
+		if f.draft == nil {
+			c.cashDated = nil
+			p.finishDatedCheckpoint(f.linked.entry, posted != nil)
+		}
 	}
 	if c.dated != nil {
 		c.dated.poll(p.holdingChangeRuntime())

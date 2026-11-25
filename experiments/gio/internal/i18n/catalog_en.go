@@ -1738,6 +1738,7 @@ var englishCatalog = catalog{
 	HoldingReconCheckUnavailable:  "The current value or cost is unavailable, or this checkpoint can no longer be checked.",
 	HoldingReconScopeHelp:         "Check for missing or unsettled records across the account’s currencies, holdings and products.",
 
+	HoldingReconRecordCash:     "Record dated cash change",
 	HoldingReconShowAudit:      "Show linked evidence",
 	HoldingReconHideAudit:      "Hide linked evidence",
 	HoldingReconReviewedBefore: "Reviewed before · %s",

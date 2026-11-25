@@ -43,6 +43,7 @@ type PositionImportInput struct {
 	Date        string
 	Time        string
 	EffectiveAt time.Time
+	Link        *domain.ReconciliationLink
 }
 
 func ReviewPositionImport(ctx context.Context, ledger InvestmentLedger, input PositionImportInput) (ReviewedInvestment, error) {
@@ -72,6 +73,9 @@ func ReviewPositionImport(ctx context.Context, ledger InvestmentLedger, input Po
 	if err != nil {
 		return ReviewedInvestment{}, err
 	}
+	if err := review.validateLink(ctx, ledger); err != nil {
+		return ReviewedInvestment{}, err
+	}
 	return review, nil
 }
 
@@ -89,7 +93,7 @@ func positionImportRequest(input PositionImportInput) (historyapi.ChangeCommandR
 		return request, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 	}
 	request = historyapi.ChangeCommandRequest{
-		Kind: historyapi.ChangePositionImport, AccountID: input.Account.String(), InstrumentID: input.Instrument.String(),
+		Kind: historyapi.ChangePositionImport, ReconciliationLink: input.Link, AccountID: input.Account.String(), InstrumentID: input.Instrument.String(),
 		Quantity: quantity.Canonical(), UnitCost: cost.Canonical(), Currency: input.Currency.String(),
 	}
 	if note := strings.TrimSpace(input.Note); note != "" {

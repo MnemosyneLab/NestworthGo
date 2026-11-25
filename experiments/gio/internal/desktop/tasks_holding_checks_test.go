@@ -146,7 +146,12 @@ func TestHoldingCheckAndClosureMatchWails(t *testing.T) {
 	rec("in_progress", 1)
 
 	for _, target := range []struct{ label, id string }{{"Record completeness", "scope"}, {"USD cash", "cash:USD"}} {
-		click("Check · " + target.label)
+		check := "Check · " + target.label
+		if bottom := semanticBounds(t, &h.router, check, false).Max.Y; bottom >= h.size.Y {
+			h.shell.stage.Position.Offset += bottom - h.size.Y + 55
+			settle()
+		}
+		click(check)
 		click("Review")
 		confirm()
 		otherAccount, _ = testHoldingCheckpoint(t, wails, refIDs.holding)

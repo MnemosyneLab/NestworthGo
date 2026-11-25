@@ -1737,6 +1737,7 @@ var japaneseCatalog = catalog{
 	HoldingReconCheckUnavailable:  "現在の値や原価が取得できないか、この項目を確認できません。",
 	HoldingReconScopeHelp:         "口座の通貨、保有銘柄、商品について、未記録や未決済の取引を確認してください。",
 
+	HoldingReconRecordCash:     "日付付きの現金変動を記録",
 	HoldingReconShowAudit:      "関連する証拠を表示",
 	HoldingReconHideAudit:      "関連する証拠を非表示",
 	HoldingReconReviewedBefore: "確認時点の値 · %s",

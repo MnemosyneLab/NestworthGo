@@ -13,6 +13,7 @@ import (
 // the cash movement form and its authoritative activity detail.
 type CashMovementLedger interface {
 	cashMovementReader
+	ValidateReconciliationCommandLink(context.Context, *domain.ReconciliationLink, any, domain.ChangePreview) error
 	PreviewChangeGuardedWith(context.Context, func(context.Context) (any, error)) (domain.ChangePreview, string, error)
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
 }
@@ -99,6 +100,10 @@ type CashMovementInput struct {
 	Fee         string
 	Date        string
 	Time        string
+	EffectiveAt time.Time
+	Reason      domain.ActivityReason
+	Note        string
+	Link        *domain.ReconciliationLink
 }
 
 type ReviewedCashMovement struct {
@@ -108,6 +113,7 @@ type ReviewedCashMovement struct {
 	mutation string
 	hash     string
 	token    string
+	link     *domain.ReconciliationLink
 }
 
 // ReceiptIdentity returns the original mutation identity of the frozen command.
@@ -129,7 +135,7 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		if err != nil {
 			return nil, err
 		}
-		if input.Date == "" || input.Time == "" {
+		if input.EffectiveAt.IsZero() && (input.Date == "" || input.Time == "") {
 			return nil, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 		}
 		var destination domain.Account
@@ -150,12 +156,21 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		}
 		review.mutation, review.hash, err = request.MutationEnvelope()
 		review.Timezone = location
+		if request.ReconciliationLink != nil {
+			link := *request.ReconciliationLink
+			review.link = &link
+		}
 		return review.command, err
 	})
 	if err != nil {
 		return ReviewedCashMovement{}, err
 	}
 	review.Preview, review.token = preview, token
+	if review.link != nil {
+		if err := ledger.ValidateReconciliationCommandLink(ctx, review.link, review.command, preview); err != nil {
+			return ReviewedCashMovement{}, err
+		}
+	}
 	return review, nil
 }
 
@@ -184,8 +199,14 @@ func cashMovementRequest(input CashMovementInput, account, destination domain.Ac
 	if err != nil || amount.IsZero() {
 		return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "amount"}
 	}
-	request := historyapi.ChangeCommandRequest{
-		EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,
+	request := historyapi.ChangeCommandRequest{ReconciliationLink: input.Link}
+	if input.EffectiveAt.IsZero() {
+		request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time
+	} else {
+		request.EffectiveAt = input.EffectiveAt.UTC().Format(time.RFC3339Nano)
+	}
+	if note := strings.TrimSpace(input.Note); note != "" {
+		request.Note = &note
 	}
 	switch input.Movement {
 	case CashContribution, CashWithdrawal:
@@ -194,6 +215,9 @@ func cashMovementRequest(input CashMovementInput, account, destination domain.Ac
 			// Wails has no dedicated withdrawal reason. Other records a
 			// general external outflow without labeling it as an expense.
 			request.Kind, request.Reason = historyapi.ChangeMoneyRemoved, string(domain.ReasonOther)
+		}
+		if input.Reason != "" {
+			request.Reason = string(input.Reason)
 		}
 		request.AccountID, request.Amount, request.Currency = account.ID.String(), amount.CanonicalAmount(), currency.String()
 	case CashTransfer, CashConversion:
@@ -254,7 +278,7 @@ func movementCurrency(account domain.Account, selected domain.CurrencyCode, fiel
 // Commit and its retries use the frozen envelope. The guarded application
 // path consults the durable mutation record before checking a stale token.
 func (r ReviewedCashMovement) Commit(ctx context.Context, ledger CashMovementLedger) (domain.ChangePreview, error) {
-	return ledger.RecordChangeGuarded(ctx, r.command, r.mutation, r.hash, r.token)
+	return ledger.RecordChangeGuarded(domain.WithReconciliationLink(ctx, r.link), r.command, r.mutation, r.hash, r.token)
 }
 
 func CashMovementOf(kind domain.ActivityKind, reason domain.ActivityReason) (CashMovement, bool) {

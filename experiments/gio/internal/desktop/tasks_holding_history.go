@@ -10,6 +10,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -36,39 +37,69 @@ var linkedHoldingLabels = [...]i18n.MessageID{
 }
 
 type holdingLinkedActivity struct {
-	scope   positionScope
-	link    func() *domain.ReconciliationLink
-	mode    linkedHoldingMode
-	buttons [len(linkedHoldingLabels)]widget.Clickable
+	scope      positionScope
+	link       func() *domain.ReconciliationLink
+	mode       linkedHoldingMode
+	buttons    [len(linkedHoldingLabels)]widget.Clickable
+	importOnly bool
+}
+
+func (c *holdingReconciliation) datedCheckpointLink(accountID string, item domain.ReconciliationItem) func() *domain.ReconciliationLink {
+	sessionID := c.id
+	return func() *domain.ReconciliationLink {
+		a, current, found := c.checkpoint(accountID, item.ID, false)
+		if !found || c.id != sessionID || c.session.Status != "in_progress" ||
+			current.Kind != item.Kind || current.Currency != item.Currency ||
+			current.HoldingID != item.HoldingID || current.InstrumentID != item.InstrumentID ||
+			current.ArchivedNonzero || current.ProductID != "" {
+			return nil
+		}
+		return &domain.ReconciliationLink{SessionID: sessionID, AccountID: a.AccountID, ItemID: current.ID,
+			ExpectedRevision: c.session.Revision, FinancialRevision: a.FinancialRevision}
+	}
 }
 
 func (p *tasksPage) startHoldingDatedChange(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable) {
 	c := p.holdingRecon
 	at := slices.IndexFunc(c.directory.accounts, func(a domain.Account) bool { return a.ID.String() == account.AccountID })
-	id, err := domain.ParseHoldingID(item.HoldingID)
-	instrument, instrumentErr := domain.ParseInstrumentID(item.InstrumentID)
-	if at < 0 || err != nil || instrumentErr != nil {
+	if at < 0 {
 		return
 	}
 	linked := &holdingLinkedActivity{
-		scope: positionScope{account: c.directory.accounts[at], holding: domain.Holding{ID: id, InstrumentID: instrument}, action: entry},
-		link: func() *domain.ReconciliationLink {
-			a, current, found := c.checkpoint(account.AccountID, item.ID, true)
-			if !found || c.session.Status != "in_progress" || current.HoldingID != id.String() ||
-				current.InstrumentID != instrument.String() || current.ArchivedNonzero || current.ProductID != "" {
-				return nil
-			}
-			return &domain.ReconciliationLink{SessionID: c.id, AccountID: a.AccountID, ItemID: current.ID,
-				ExpectedRevision: c.session.Revision, FinancialRevision: a.FinancialRevision}
-		},
+		scope:      positionScope{account: c.directory.accounts[at], action: entry},
+		link:       c.datedCheckpointLink(account.AccountID, item),
+		importOnly: item.Kind == "scope",
+	}
+	if !linked.importOnly {
+		id, err := domain.ParseHoldingID(item.HoldingID)
+		instrument, instrumentErr := domain.ParseInstrumentID(item.InstrumentID)
+		if err != nil || instrumentErr != nil {
+			return
+		}
+		linked.scope.holding = domain.Holding{ID: id, InstrumentID: instrument}
 	}
 	c.saved = i18n.NoMessage
 	c.dated = &accountInvestment{service: c.ledger, linked: linked, onPosted: func(domain.Activity, i18n.MessageID, event.Tag) {
-		c.saved, c.restore = i18n.HoldingReconDatedSaved, entry
+		p.finishDatedCheckpoint(entry, true)
+	}}
+	run := p.holdingChangeRuntime()
+	if linked.importOnly {
+		c.dated.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, linked.scope.account)
+		c.dated.draft.link = linked.link
+		c.dated.loadSources(run)
+	} else {
+		c.dated.selectLinkedHoldingMode(run, linkedHoldingBuy)
+	}
+}
+
+func (p *tasksPage) finishDatedCheckpoint(entry *widget.Clickable, posted bool) {
+	c := p.holdingRecon
+	c.restore, c.restoreEditScroll = entry, true
+	if posted {
+		c.saved = i18n.HoldingReconDatedSaved
 		p.readHoldingReconciliation()
 		p.read()
-	}}
-	c.dated.selectLinkedHoldingMode(p.holdingChangeRuntime(), linkedHoldingBuy)
+	}
 }
 
 func (f *accountInvestment) selectLinkedHoldingMode(run investmentRuntime, mode linkedHoldingMode) {
@@ -95,36 +126,88 @@ func (f *accountInvestment) selectLinkedHoldingMode(run investmentRuntime, mode 
 func (p *tasksPage) layoutHoldingDatedChange(gtx layout.Context, view ui.View) layout.Dimensions {
 	f := p.holdingRecon.dated
 	run := p.holdingChangeRuntime()
-	if f.draft.review != nil {
+	draft := f.draft
+	if draft.review != nil || f.linked.importOnly {
 		return f.layoutForm(gtx, view, run)
 	}
-	origin := view.Origin
-	draft, nextMode := f.draft, f.linked.mode
-	dimensions := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
+	dims, next := layoutDatedCheckpointForm(gtx, view, linkedHoldingLabels[:], f.linked.buttons[:],
+		int(f.linked.mode), draft.previewing != nil, func(gtx layout.Context, view ui.View) layout.Dimensions {
+			return f.layoutForm(gtx, view, run)
+		})
+	if f.draft == draft && draft.previewing == nil && linkedHoldingMode(next) != f.linked.mode {
+		f.selectLinkedHoldingMode(run, linkedHoldingMode(next))
+		view.RestorePageScroll(0)
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	return dims
+}
+
+func layoutDatedCheckpointForm(gtx layout.Context, view ui.View, labels []i18n.MessageID, buttons []widget.Clickable,
+	selected int, busy bool, form func(layout.Context, ui.View) layout.Dimensions) (layout.Dimensions, int) {
+	origin, next := view.Origin, selected
+	dims := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Wrap{Gap: 6}).Layout(gtx, len(linkedHoldingLabels), func(gtx layout.Context, i int) layout.Dimensions {
-					mode, button := linkedHoldingMode(i), &f.linked.buttons[i]
-					if f.draft.previewing != nil {
+				return (ui.Wrap{Gap: 6}).Layout(gtx, len(labels), func(gtx layout.Context, i int) layout.Dimensions {
+					button := &buttons[i]
+					if busy {
 						gtx = gtx.Disabled()
+					} else if button.Clicked(gtx) {
+						next = i
 					}
-					if button.Clicked(gtx) && f.linked.mode != mode {
-						nextMode = mode
-					}
-					return view.TabButton(button, view.Language.Text(linkedHoldingLabels[i]), f.linked.mode == mode)(gtx)
+					return view.TabButton(button, view.Language.Text(labels[i]), selected == i)(gtx)
 				})
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			view.Origin = origin
-			return f.layoutForm(gtx, view, run)
+			return form(gtx, view)
 		}))
-	if f.draft == draft && draft.previewing == nil && nextMode != f.linked.mode {
-		f.selectLinkedHoldingMode(run, nextMode)
+	return dims, next
+}
+
+type checkpointCashScope struct {
+	account  domain.AccountID
+	currency domain.CurrencyCode
+	entry    *widget.Clickable
+	link     func() *domain.ReconciliationLink
+	refresh  func()
+	buttons  [2]widget.Clickable
+}
+
+var checkpointCashModes = [...]history.CashMovement{history.CashContribution, history.CashWithdrawal}
+var checkpointCashLabels = [...]i18n.MessageID{i18n.HistoryCashIn, i18n.HistoryCashOut}
+
+func (p *tasksPage) startDatedCheckpointCash(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable) {
+	c := p.holdingRecon
+	id, err := domain.ParseAccountID(account.AccountID)
+	if err != nil {
+		return
+	}
+	f := newHistoryCashMovements(p.ctx, c.ledger, c.clock, p.invalidate)
+	f.linked = &checkpointCashScope{account: id, currency: domain.CurrencyCode(item.Currency), entry: entry,
+		link: c.datedCheckpointLink(account.AccountID, item), refresh: p.readHoldingReconciliation}
+	c.saved, c.cashDated = i18n.NoMessage, f
+	f.start(history.CashContribution)
+}
+
+func (p *tasksPage) layoutDatedCheckpointCash(gtx layout.Context, view ui.View) layout.Dimensions {
+	f := p.holdingRecon.cashDated
+	draft := f.draft
+	if draft.review != nil {
+		return f.layoutForm(gtx, view)
+	}
+	selected := slices.Index(checkpointCashModes[:], draft.movement)
+	dims, next := layoutDatedCheckpointForm(gtx, view, checkpointCashLabels[:], f.linked.buttons[:], selected,
+		draft.previewing != nil, f.layoutForm)
+	if f.draft == draft && draft.previewing == nil && next != selected {
+		f.start(checkpointCashModes[next])
+		f.draft.day, f.draft.time, f.draft.defaultTime = draft.day, draft.time, draft.defaultTime
+		f.draft.note.Editor.SetText(draft.note.Text())
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return dimensions
+	return dims
 }
 
 func (p *tasksPage) holdingReceiptLinks(view ui.View, accountID, itemID string) []layout.Widget {

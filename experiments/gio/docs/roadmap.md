@@ -1700,7 +1700,31 @@ session. Back to the Gio session restores the receipt focus and open evidence.
 | --- | --- |
 | Gio and Wails adapter | The dated adjustment regression adds 0.125 units at USD 13.12345678 on November 21, 2026 at 20:45 Singapore time (12:45 UTC). It exercises a stale session revision, draft retention, cancel and a lost acknowledgement retry. A second regression compares Buy, Sell, an exact EUR 1.2345 dividend and both custody directions with separate Wails adapter fixtures. Reopen keeps the original holding at 2 units, the second account at 0.25 units, and the exact USD 149.625 and EUR 1.2345 cash sleeves. The dividend retry keeps one link and one cash credit. Prior check evidence and the buy's reviewed quantity of 2 remain readable after later postings. The regression checks read-only inspection and restores the exact receipt focus and evidence disclosures after Back. |
 | Packaged Linux X11 | The earlier adjustment run used the compact date picker to post 0.25 units at USD 12.12345678 and confirmed the receipt and cash/quote preservation after reopen. At 1160×820, Cancel returned keyboard focus to the dated action, and a second review posted 0.25 units with USD 7.50 gross and USD 0.25 fee. At 640×480, the keyboard selected EUR and November 24, then confirmed the exact EUR 1.2345 dividend. Both explicit notes persisted. Normal restart showed 1.25 units and both links. Compact Back restored the visible receipt and expanded evidence, and Return reopened that receipt. SQLite confirmed the two writes on the same checkpoint, USD 192.25 and EUR 1.2345 at Harbor Brokerage, USD 25 at the second account, and matching account rows, quotes and source-file hashes. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go application and Wails adapter tests, 89 Wails Reconciliation and record-flow frontend tests, and four focused Wails History frontend tests passed. Open Wails gaps include account-scope import, dated cash and other nonholding changes, product and removed-item checkpoints, archived account inventory, links added after closure, and paging for long evidence journals. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go application and Wails adapter tests, 89 Wails Reconciliation and record-flow frontend tests, and four focused Wails History frontend tests passed. The following account-scope checkpoint extends the route to imported positions and dated cash entries. Product and removed-item checkpoints, archived inventory and the session-wide journals are tracked separately. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+
+#### Account completeness import and linked cash entries
+
+**Record existing position** on a Holdings account’s completeness checkpoint
+opens the existing dated Ledger import with the account fixed. The user
+chooses an eligible unheld instrument and enters the original native cost,
+quantity, civil date/time and any note. It records no cash effect and links the
+new Holding’s activity to the completeness item. The original Holding cards,
+current cash and check history remain available after save.
+
+**Record dated cash change** opens Money added and Money removed from either
+completeness or a specific cash checkpoint. Both use the shared reason options.
+Completeness allows a currency selection. Gio fixes the currency of a specific
+cash checkpoint because the shared reconciliation service requires the cash
+effect to match that sleeve. Wails shows its general currency selector and
+enforces the same rule in the preview. Cancel and saved receipt Back restore
+the initiating control and its scroll position.
+[Wails reconciliation entry](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Wails record form](../../../frontend/src/features/history/RecordChangeForm.tsx)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | Imported 2.12345678 units at EUR 11.12345678 on the completeness item with zero cash effect. The USD cash item added 1.2345 as income and removed 0.2345 as a fee. Cancel wrote no activity or link. A simulated lost cash acknowledgement retried the same mutation once. A stale session preview preserved the withdrawal draft and required re-review. Reopen matched exact session, account, item, civil day, note, activity and new Holding IDs and USD 157 cash. Compact Back restored the exact receipt and offset. |
+| Packaged Linux X11 | At 1160×820, Cancel wrote zero activities and links and Return reopened the completeness action. The Vancouver November 24 import saved 2.12345678 units at EUR 11.12345678 with no cash movement. At 640×480, Cancel returned to the USD checkpoint and preserved only the earlier import. Confirm posted USD 1.2345 as income on November 24. Compact receipt Back restored the visible focused link and open evidence, and Return reopened it. After restart the import and cash links remained on their original checkpoints. SQLite matched both notes, IDs, quantities and amounts. Harbor Brokerage had USD 201.2345, the second account kept USD 25, and the original account rows, quotes and synthetic source hashes matched. |
+| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Linked cash transfers, FX conversions, debt, balance and manual-value changes and broader account-scope holdings activity remain open. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
 
 #### Check and finish a holdings reconciliation
 
@@ -1923,7 +1947,7 @@ terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes account-scope import, dated cash and other nonholding reconciliation changes, inline instrument creation, market quote calculators,
+Broader investment work still includes remaining linked cash, balance and other reconciliation activity, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
@@ -2543,12 +2567,12 @@ for cost correction passed, as did the [`78443715` custody run](https://github.c
 and [`b06ddc08` quantity target run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45657472080).
 The [dated posting run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45660311623)
 and the [`afba649c` check and closure run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45661054447)
-also completed successfully.
+also completed successfully. The [`689cfd86` linked activity and evidence run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45665235206) passed.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with account-scope import, dated cash changes, product and
-removed-item evidence and account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with remaining linked cash and account-value changes,
+product and removed-item evidence, session-wide journals and account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

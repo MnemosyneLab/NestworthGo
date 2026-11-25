@@ -78,7 +78,11 @@ func holdingLinkedEvidenceRows(view ui.View, evidence holdingLinkedEvidence, zon
 		if before.Kind == "holding" {
 			currency = ""
 		}
-		rows = append(rows, fact(i18n.HoldingReconReviewedBefore, holdingSnapshotValue(view, before.Value, currency)))
+		value := holdingSnapshotValue(view, before.Value, currency)
+		if before.Kind == "scope" {
+			value = l.Text(i18n.StatementScope)
+		}
+		rows = append(rows, fact(i18n.HoldingReconReviewedBefore, value))
 		if before.Cost != "" {
 			rows = append(rows, fact(i18n.HoldingReconBasis, holdingSnapshotValue(view, before.Cost, before.Currency)))
 		}

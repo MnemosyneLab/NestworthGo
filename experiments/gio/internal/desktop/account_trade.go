@@ -324,7 +324,7 @@ func (f *accountInvestment) preview(run investmentRuntime) {
 		case domain.ActivityPositionTransfer:
 			return history.ReviewPositionImport(run.ctx, f.service, history.PositionImportInput{
 				Account: input.Account, Instrument: input.Instrument, Currency: input.Currency, Quantity: input.Quantity,
-				UnitCost: unitCost, Note: input.Note, Date: input.Date, Time: input.Time, EffectiveAt: input.EffectiveAt,
+				UnitCost: unitCost, Note: input.Note, Date: input.Date, Time: input.Time, EffectiveAt: input.EffectiveAt, Link: input.Link,
 			})
 		}
 		return history.ReviewTrade(run.ctx, f.service, input)

@@ -1661,6 +1661,7 @@ const (
 	TasksAwaiting
 	TasksPartialEstimate
 	TasksWeekdays
+	HoldingReconRecordCash
 	HoldingReconShowAudit
 	HoldingReconHideAudit
 	HoldingReconReviewedBefore
