@@ -6,13 +6,15 @@ From the repository root, run:
 
 ```sh
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
-  -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
+  -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
 go test ./internal/wailsapi/analysis -count=1
 (cd frontend && TZ=Asia/Shanghai pnpm exec vitest run src/features/data-health src/features/marketdata)
 (cd frontend && TZ=Asia/Shanghai pnpm exec vitest run \
   src/features/insights/ReturnAnalysisPage.test.tsx src/features/insights/AssetChangesPage.test.tsx \
   src/features/insights/AnalysisFilterBar.test.tsx)
+(cd frontend && TZ=Asia/Shanghai pnpm exec vitest run \
+  src/features/insights/insightTabs.test.tsx src/features/history/HistoryPage.test.tsx)
 ```
 
 Each paired test checkpoints and closes a seeded SQLite database, then gives
@@ -39,6 +41,12 @@ EUR 25 for Harbor alone. The Gio regression verifies the typed month and
 day requests, focus after Escape and Back, and reopening the same day with
 Return. The Wails frontend test verifies keyboard activation and the
 navigation payload through a mocked desktop binding.
+
+The Contribution pair adds dividend receipts for both accounts and a
+cash-only record for Harbor. The exact Harbor dividend is EUR 12.3456.
+Contribution and Ledger agree on the date, account, instrument and exact
+receipt ID. The live hint has no activity-kind restriction for this metric.
+The Wails frontend references also exercise carrying kinds when supplied.
 
 ## Stock macOS pair on synthetic data
 
@@ -92,7 +100,7 @@ run_copy() (
   case "$scenario" in
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
-    return-calendar) household='Synthetic Stage 6 return calendar' ;;
+    return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -158,6 +166,20 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   date fields, the same filters, and a price change from EUR 100 to EUR 125.
   Go Back and check the original month, filters and day focus. Press Return
   again to verify the same day opens. Repeat at a compact window size.
+
+- Run `run_copy contribution gio` and `run_copy contribution wails`. Set
+  the same scope, previous month and filters as in the Calendar check.
+  Open Contribution and choose **Dividend and interest**, grouped by
+  Instrument. Select **Negative contributions** and search for `EURO` in
+  the separate Details list. The positive EURO result remains in that
+  list. Use the keyboard to open it, check the currency-filter warning,
+  and activate **View in Ledger activity**. The previous month, Harbor
+  Brokerage and EURO should select one cash dividend. Open that record
+  and compare the date and EUR 12.3456 receipt. The exporter prints its
+  `contribution_activity` ID for SQLite comparison. Return to the timeline,
+  then go Back to Contribution and check that the search, ranking filter,
+  focused row and effective range are still active. Press Return to reopen
+  EURO and repeat at a compact window size.
 
 Record interactive macOS results separately, including VoiceOver announcements,
 escape and native window close, keyboard focus and compact layout. These

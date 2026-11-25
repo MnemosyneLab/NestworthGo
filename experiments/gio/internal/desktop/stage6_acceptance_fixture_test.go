@@ -116,6 +116,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	snapshotSeed, _ := seedStage6Snapshots(t, snapshotStart, 45, true)
 	calendarStart := time.Date(today.Year(), today.Month(), 1, 8, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
 	calendarSeed, _, _ := seedStage6ReturnCalendar(t, calendarStart)
+	contributionSeed, _, _, dividend := seedStage6Contribution(t, calendarStart)
 	marketSeed, _ := seedStage6Market(t, start)
 	marketPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "market-readback"), marketSeed)
 	now := time.Now().UTC().Truncate(time.Millisecond)
@@ -140,6 +141,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"market", marketSeed},
 		{"market-readback", marketReadback},
 		{"return-calendar", calendarSeed},
+		{"contribution", contributionSeed},
 	} {
 		dir := filepath.Join(root, profile.name)
 		if err := os.Mkdir(dir, 0o700); err != nil {
@@ -149,7 +151,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 			writeStage6Fixture(t, filepath.Join(dir, label), profile.seed)
 		}
 	}
-	t.Logf("fixtures=%s snapshot_repair_date=%s adjacent_stale_date=%s return_calendar_day=%s", root,
+	t.Logf("fixtures=%s snapshot_repair_date=%s adjacent_stale_date=%s return_calendar_day=%s contribution_activity=%s", root,
 		snapshotStart.AddDate(0, 0, 1).Format(time.DateOnly), snapshotStart.AddDate(0, 0, 2).Format(time.DateOnly),
-		calendarStart.AddDate(0, 0, 1).Format(time.DateOnly))
+		calendarStart.AddDate(0, 0, 1).Format(time.DateOnly), dividend.ID)
 }

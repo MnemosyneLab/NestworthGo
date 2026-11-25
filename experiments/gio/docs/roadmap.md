@@ -2877,7 +2877,7 @@ macOS-specific interactions in the last column.
 | 1. Data Health finding → preview → cancel or repair → recheck | Shared snapshot and repair tests plus Gio cancellation and batch retry cases. | Compare the selected dates and provider target, cancel before posting, stop mid-run, recover after a stale plan, and verify the repaired dates after quit and reopen. | Verify native window close during confirmation, focus after dismissal, and reopen from the bundled app. |
 | 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | Force one target to fail, confirm that the successful quote is visible, retry the failed target only, and compare the stored source and date in Quote history. | Verify progress and failure sheets, compact scrolling, and VoiceOver announcements. |
 | 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes, with the same day, filters and visible focus after Back. The interactive Wails comparison remains open. | Verify native Back keyboard commands and focus in the Calendar side sheet. |
-| 4. Change Drivers → Contribution → Ledger → Back | Wails Contribution reference and Gio date, filter, unsupported-filter feedback and route-state tests. | Keep the effective range and driver filters, open an exact Ledger record, then restore its originating result and focus. Verify the unsupported-filter message. | Verify search composition with native IME and screen reader focus after Back. |
+| 4. Change Drivers → Contribution → Ledger → Back | [Change Drivers to Contribution](#change-drivers-to-contribution) and [independent-copy Contribution to Ledger](#paired-contribution-to-exact-ledger-record) cover the two handoffs. | Verify the combined workflow across paired interactive apps. | Verify search composition with native IME and screen reader focus after Back. |
 | 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
 #### Paired Data Health repair and mixed latest refresh
@@ -2913,6 +2913,24 @@ Calendar read, the new regression restored offset 3 instead of the saved
 | Automated Gio | The independent copy matched the typed month and day requests and exact native valuation. Escape and Back restored day focus. The test delayed the returning grid and verified the saved compact scroll after it loaded. Neither application reference requested quotes. Full Gio tests and vet and the focused Wails analysis and shared Go tests passed. |
 | Packaged Gio Linux X11 | At 1140×860 and 665×480, the keyboard opened October 2, showed EUR 25 and +25%, and opened Change drivers for that day. Both date fields and the scope and filters matched. Asset Changes displayed EUR 100 → EUR 125 and a EUR 25 price change. Back restored October, the filters and visible focus on October 2. Return reopened the same day. Source database and settings hashes matched, and accounts, holdings, cash, activities and quotes were identical. The writable copy saved app settings and materialized the ordinary derived snapshots. |
 | Remaining | Interactive Wails comparison and native macOS keyboard and assistive technology acceptance remain open. |
+
+#### Paired Contribution to exact Ledger record
+
+The [desktop fixture and steps](stage6-desktop-qa.md) add two cash dividends
+for the same EUR fund at different brokerages and one cash-only record.
+Dividend and interest uses the instrument scope, Harbor Brokerage, EUR,
+native valuation and cash exclusion. The October 1–31 Contribution detail
+returns EUR 12.3456. Its Ledger hint carries the period, account and fund,
+and leaves the activity kind unrestricted for this metric. The Ledger
+contains one matching activity with that exact amount and the October 2
+effective date in Asia/Singapore.
+
+| Check | Evidence |
+| --- | --- |
+| Independent copies | Gio and the Wails analysis and History adapters agreed on the amount, dates, filters and exact activity ID. The Gio frame regression opened that receipt, verified the warning about currency and asset-class filters, then restored the Ledger row and Contribution row focus on consecutive Back actions. Contribution retained the original query, metric, search and ranking filter. Both copies used stored quotes. |
+| Automated references | Full Gio tests and vet, focused shared application and Wails Go adapter tests, and all 181 Wails Contribution and History frontend tests passed. Those frontend cases also cover destination filters and supplied activity kinds independently of the live fixture. |
+| Packaged Gio Linux X11 | At 1140×900 and 665×480, Return opened EURO and the keyboard activated View in Ledger activity. The warning was visible. Ledger retained October 1–31, Harbor Brokerage and EURO, with exactly one row. The record showed October 2 at 21:00 Asia/Singapore and an exact EUR 12.3456 cash effect. Back restored the selected row and viewport in Contribution. Return reopened EURO with the prior search and ranking choice still applied. Source hashes and the authoritative records matched. The writable copy recorded settings and 56 derived snapshots. |
+| Remaining | Interactive Wails and native macOS keyboard and screen-reader acceptance remain open. |
 
 #### Wealth History quote evidence and Linux comparison
 

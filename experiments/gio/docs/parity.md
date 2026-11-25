@@ -53,6 +53,9 @@ records the independent-copy results and the Linux Wails launch limit. The
 The [filtered Calendar handoff checkpoint](roadmap.md#paired-filtered-return-calendar-keyboard-handoff)
 records back-navigation scroll and day focus separately from the Wails
 automated reference.
+The [Contribution to Ledger checkpoint](roadmap.md#paired-contribution-to-exact-ledger-record)
+records the scoped dividend receipt, the return to the searched result and
+the separate evidence from the Wails adapters, frontend and packaged Gio.
 
 ## Return Analysis and related navigation
 
