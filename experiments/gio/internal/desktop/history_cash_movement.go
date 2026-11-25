@@ -69,6 +69,7 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 		focusAmount: movement != history.CashTransfer && movement != history.CashConversion,
 	}
 	if p.linked != nil {
+		p.draft.focusAmount = true
 		p.draft.note = ui.NewTextField(true)
 		p.draft.reason = domain.ReasonOther
 	}
@@ -99,7 +100,7 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 		if d.account != linked.account {
 			d.chooseSource(linked.account)
 		}
-		if linked.currency != "" && d.currency != linked.currency {
+		if linked.currency != "" && d.currency != linked.currency && (first || d.movement != history.CashConversion) {
 			d.chooseCurrency(linked.currency)
 		}
 	case first:

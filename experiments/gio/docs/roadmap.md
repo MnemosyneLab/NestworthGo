@@ -1723,7 +1723,24 @@ the initiating control and its scroll position.
 | --- | --- |
 | Gio and Wails adapter | Imported 2.12345678 units at EUR 11.12345678 on the completeness item with zero cash effect. The USD cash item added 1.2345 as income and removed 0.2345 as a fee. Cancel wrote no activity or link. A simulated lost cash acknowledgement retried the same mutation once. A stale session preview preserved the withdrawal draft and required re-review. Reopen matched exact session, account, item, civil day, note, activity and new Holding IDs and USD 157 cash. Compact Back restored the exact receipt and offset. |
 | Packaged Linux X11 | At 1160×820, Cancel wrote zero activities and links and Return reopened the completeness action. The Vancouver November 24 import saved 2.12345678 units at EUR 11.12345678 with no cash movement. At 640×480, Cancel returned to the USD checkpoint and preserved only the earlier import. Confirm posted USD 1.2345 as income on November 24. Compact receipt Back restored the visible focused link and open evidence, and Return reopened it. After restart the import and cash links remained on their original checkpoints. SQLite matched both notes, IDs, quantities and amounts. Harbor Brokerage had USD 201.2345, the second account kept USD 25, and the original account rows, quotes and synthetic source hashes matched. |
-| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Linked cash transfers, FX conversions, debt, balance and manual-value changes and broader account-scope holdings activity remain open. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
+| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Linked cash transfers, debt, balance and manual-value changes and broader account-scope holdings activity remain open. The linked currency conversion checkpoint below covers both directions. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
+
+#### Linked currency conversion
+
+The dated cash route includes **Currency conversion** for the selected
+Holdings account. It opens with the checkpoint currency as the sold currency.
+The user can choose both currencies, so either the sold or bought leg can
+match the checkpoint. Shared reconciliation validation requires the selected
+cash sleeve to be affected. The same Ledger fields collect the exact sold and
+bought amounts, optional source-currency fee, civil date and note. The review
+uses the shared executed rate and resulting balances.
+[Wails conversion form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared checkpoint matching](../../../internal/application/reconciliation_session.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | USD 10.1234 sold for EUR 8.7654 with a USD 0.1 fee. A second entry sold EUR 2.5 for USD 2.8125 with a EUR 0.125 fee. Both matched the same USD cash item, including the bought-side match, the shared effective times with seconds and the executed rate. Cancel wrote no activity or link. Reopen matched both links and USD 148.5891 and EUR 6.1404. |
+| Packaged Linux X11 | The 1160×820 preview showed the exact legs and fee, and Cancel left zero activities and zero links. Return reopened the cash action. At 640×480, the keyboard chose EUR, November 24 in Vancouver, and confirmed USD 10.1234 sold and EUR 8.7654 bought with a USD 0.1 fee. The executed rate was 0.865855345042. The packaged app and SQLite retained the dated note, the USD checkpoint link and exact USD 189.7766 and EUR 8.7654 balances after restart. The second account stayed at USD 25. Holdings, quotes, accounts, contracts and the original hashes matched. Full Gio, vet, Linux packaging, shared Go checks and the focused Wails cross-currency reference passed. |
+| Linked product valuation gate | The Wails adapter accepted preview and commit on a disposable locked product, then the shared SQLite verifier refused reopen with `valuation receipt disagrees with recorded facts`. The saved digest includes `reconciliationLink` while the verifier reconstructs the command without it. This correction remains open pending compatible shared verification. |
 
 #### Product and removed-item checkpoint evidence
 
@@ -2615,7 +2632,8 @@ The [dated posting run](https://github.com/MnemosyneLab/NestworthGo/actions/runs
 and the [`afba649c` check and closure run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45661054447)
 also completed successfully. The [`689cfd86` linked activity and evidence run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45665235206)
 the [`8d052fb1` scope import and cash run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45669293030),
-and the [`dcc9e774` product evidence run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45670260642) passed.
+the [`dcc9e774` product evidence run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45670260642),
+and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/NestworthGo/actions/runs/45673386051) passed.
 
 #### Follow-up order across Stages 4 to 6
 

@@ -172,11 +172,11 @@ type checkpointCashScope struct {
 	entry    *widget.Clickable
 	link     func() *domain.ReconciliationLink
 	refresh  func()
-	buttons  [2]widget.Clickable
+	buttons  [len(checkpointCashModes)]widget.Clickable
 }
 
-var checkpointCashModes = [...]history.CashMovement{history.CashContribution, history.CashWithdrawal}
-var checkpointCashLabels = [...]i18n.MessageID{i18n.HistoryCashIn, i18n.HistoryCashOut}
+var checkpointCashModes = [...]history.CashMovement{history.CashContribution, history.CashWithdrawal, history.CashConversion}
+var checkpointCashLabels = [...]i18n.MessageID{i18n.HistoryCashIn, i18n.HistoryCashOut, i18n.HistoryFXConversion}
 
 func (p *tasksPage) startDatedCheckpointCash(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable) {
 	c := p.holdingRecon

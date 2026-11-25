@@ -52,7 +52,7 @@ var cashMovementLabels = [...]movementLabels{
 
 func (p *historyCashMovements) formLabels() movementLabels {
 	labels := cashMovementLabels[p.draft.movement]
-	if p.linked != nil {
+	if p.linked != nil && p.draft.movement != history.CashConversion {
 		labels.action = labels.title
 		if p.draft.movement == history.CashContribution {
 			labels.action = i18n.HistoryCashIn
@@ -146,7 +146,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 	destination, hasDestination := d.accountByID(d.destination)
 	transfer, conversion := d.movement == history.CashTransfer, d.movement == history.CashConversion
 	crossCurrency := transfer && found && hasDestination && d.currency != d.toCurrency
-	sourceEditable := found && account.TrackingMode == domain.TrackingHoldings && (p.linked == nil || p.linked.currency == "")
+	sourceEditable := found && account.TrackingMode == domain.TrackingHoldings && (p.linked == nil || p.linked.currency == "" || conversion)
 	targetEditable := conversion || (transfer && hasDestination && destination.TrackingMode == domain.TrackingHoldings)
 	labels := p.formLabels()
 	return layout.Flex{Gap: gap}.Layout(gtx,
@@ -220,7 +220,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 					return d.amount.Layout(gtx, view, options)
 				})
 			}))
-			if p.linked != nil {
+			if p.linked != nil && !conversion {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return p.layoutCheckpointReason(gtx, view, at)
 				}))
@@ -433,7 +433,9 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 		layout.Rigid(view.Message(stamp, view.Colors.SecondaryInk)),
 	}
 	if p.linked != nil {
-		children = append(children, layout.Rigid(view.Message(l.Text(checkpointCashReasonLabel(review.Preview.Activity.Reason)), view.Colors.Ink)))
+		if d.movement == history.CashContribution || d.movement == history.CashWithdrawal {
+			children = append(children, layout.Rigid(view.Message(l.Text(checkpointCashReasonLabel(review.Preview.Activity.Reason)), view.Colors.Ink)))
+		}
 		if note := review.Preview.Activity.Note; note != nil && *note != "" {
 			children = append(children, layout.Rigid(view.Message(*note, view.Colors.Ink)))
 		}
