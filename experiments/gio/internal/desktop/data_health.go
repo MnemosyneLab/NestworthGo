@@ -9,6 +9,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -27,29 +29,31 @@ type healthRead struct {
 }
 
 type dataHealthPage struct {
-	ctx          context.Context
-	reader       dataHealthReader
-	invalidate   func()
-	workers      sync.WaitGroup
-	cancel       context.CancelFunc
-	request      <-chan historyResult[healthRead]
-	report       *application.MarketDataHealthReport
-	accountNames map[string]string
-	findings     []healthIssueRow
-	err          error
-	recheck      widget.Clickable
-	list         widget.List
-	issueActions map[string]*widget.Clickable
-	openSettings func(*widget.Clickable)
-	openAccount  func(domain.AccountID, string, *widget.Clickable)
-	openManual   func(marketManualTarget, event.Tag)
-	manualSaved  marketManualReceipt
-	clearFocus   func(event.Tag)
-	inspect      func(healthFindingFocus, event.Tag)
-	clear        widget.Clickable
-	focus        healthFindingFocus
-	repair       *dataHealthRepair
-	snapshots    dataHealthSnapshots
+	ctx            context.Context
+	reader         dataHealthReader
+	invalidate     func()
+	workers        sync.WaitGroup
+	cancel         context.CancelFunc
+	request        <-chan historyResult[healthRead]
+	report         *application.MarketDataHealthReport
+	accountNames   map[string]string
+	findings       []healthIssueRow
+	err            error
+	recheck        widget.Clickable
+	list           widget.List
+	issueActions   map[string]*widget.Clickable
+	historyActions map[string]*widget.Clickable
+	openSettings   func(*widget.Clickable)
+	openAccount    func(domain.AccountID, string, *widget.Clickable)
+	openManual     func(marketManualTarget, event.Tag)
+	quoteHistory   func(layout.Context, ui.View, marketQuoteHistoryTarget, *widget.Clickable, bool) layout.Widget
+	manualSaved    marketManualReceipt
+	clearFocus     func(event.Tag)
+	inspect        func(healthFindingFocus, event.Tag)
+	clear          widget.Clickable
+	focus          healthFindingFocus
+	repair         *dataHealthRepair
+	snapshots      dataHealthSnapshots
 }
 
 type healthFindingFocus struct {

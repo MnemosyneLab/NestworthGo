@@ -237,6 +237,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			if s.marketData.manual.service != nil {
 				s.dataHealth.openManual = s.marketData.openManualQuote
 			}
+			if s.marketData.quoteHistoryReader != nil {
+				s.dataHealth.quoteHistory = s.marketData.quoteHistoryAction
+			}
 		}
 		if s.overviewPage != nil {
 			s.overviewPage.openHealth = openHealth
@@ -520,7 +523,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDriverOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -591,6 +594,17 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.dataHealth.layoutRepair(windowContext, view)
 	} else if s.snapshotRepairOpen() {
 		s.dataHealth.layoutSnapshotRebuild(windowContext, view)
+	} else if s.quoteHistoryOpen() {
+		if source, health := s.marketData.layoutQuoteHistory(windowContext, view, s.dataHealth != nil && s.activeRoute() == marketDataRoute); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+		} else if health != nil {
+			d := s.marketData.quoteHistory
+			visit := d.visit
+			visit.scroll = d.sheet.list.Position
+			s.trail.current().quoteHistory = &visit
+			s.marketData.closeQuoteHistory()
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute, health: *health}, focus: visit.source}
+		}
 	} else if s.marketOperationOpen() {
 		if source := s.marketData.layoutMarketOperation(windowContext, view); source != nil {
 			s.trail.current().focus, s.restoreFocus = source, true
@@ -636,6 +650,10 @@ func (s *shell) snapshotRepairOpen() bool {
 
 func (s *shell) manualQuoteOpen() bool {
 	return s.marketData != nil && s.marketData.manual.draft != nil
+}
+
+func (s *shell) quoteHistoryOpen() bool {
+	return s.marketData != nil && s.marketData.quoteHistory != nil
 }
 
 func (s *shell) marketOperationOpen() bool {

@@ -168,7 +168,7 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(group), view.Colors.Ink)))
 	}
 	source := i.QuoteCurrency.String() + " · " + marketSourceLabel(l, i.QuoteSource)
-	var actions []layout.Widget
+	actions := p.marketHistoryAction(gtx, view, i.ID.String(), marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel()})
 	if p.manual.service != nil && manualPriceAvailable(i) {
 		if p.manual.prices == nil {
 			p.manual.prices = make(map[string]*widget.Clickable)
@@ -195,11 +195,11 @@ func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row mark
 		rate = fmt.Sprintf(l.Text(i18n.TransferQuoteRate), q.BaseCurrency, portfolioDecimal(view, q.Rate.Canonical()), q.QuoteCurrency)
 		evidence = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	}
-	var actions []layout.Widget
+	actions := p.marketHistoryAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), marketQuoteHistoryTarget{pair: row.pair})
 	if row.source == domain.QuoteSourceProvider {
-		actions = p.marketTargetActions(gtx, view, marketLatestTarget{pair: row.pair}, application.SyncRequest{
+		actions = append(actions, p.marketTargetActions(gtx, view, marketLatestTarget{pair: row.pair}, application.SyncRequest{
 			Scope: application.SyncScopeFX, CurrencyA: row.pair.first.String(), CurrencyB: row.pair.second.String(),
-		})
+		})...)
 	}
 	return marketQuoteCard(view, row.pair.first.String()+"/"+row.pair.second.String(), marketSourceLabel(l, row.source), rate, evidence, actions)(gtx)
 }

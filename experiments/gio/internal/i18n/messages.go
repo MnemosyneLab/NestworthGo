@@ -98,6 +98,42 @@ const (
 	MarketWorkFailed
 	MarketWorkRateLimited
 	MarketWorkCancelled
+
+	QuoteHistoryOpen
+	QuoteHistoryTitle
+	QuoteHistoryTitleList
+	QuoteHistoryAllSources
+	QuoteHistoryFinding
+	QuoteHistoryConfigured
+	QuoteHistoryCurrent
+	QuoteHistoryDirection
+	QuoteHistorySwap
+	QuoteHistoryRate
+	QuoteHistoryEmpty
+	QuoteHistoryRangeEmpty
+	QuoteHistoryShowAll
+	QuoteHistoryCoverage
+	QuoteHistoryOffCurrency
+	QuoteHistoryObservations
+	QuoteHistoryEffective
+	QuoteHistoryQuoted
+	QuoteHistoryPolicyTime
+	QuoteHistoryNAV
+	QuoteHistoryManual
+	QuoteHistoryLatest
+	QuoteHistoryRealtime
+	QuoteHistoryDaily
+	QuoteHistoryClose
+	QuoteHistoryOther
+	QuoteHistoryChart
+	QuoteHistoryChartHelp
+	QuoteHistoryMetalReference
+	QuoteHistoryCoinGecko
+	QuoteHistoryViewTable
+	QuoteHistoryCoinGeckoURL
+	QuoteHistoryCoinGeckoCopied
+	QuoteHistoryPerGram
+	QuoteHistoryPerOunce
 	NavDataHealth
 	HealthOpen
 	HealthDescription

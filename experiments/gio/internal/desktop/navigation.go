@@ -51,6 +51,7 @@ type navigationEntry struct {
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	marketData       marketDataVisit
+	quoteHistory     *marketQuoteHistoryVisit
 	healthScroll     layout.Position
 	settingsSection  settingsSection
 	visited          bool
@@ -326,6 +327,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == marketDataRoute {
 		s.marketData.enter(entry.marketData)
+		if entry.quoteHistory != nil {
+			s.marketData.openQuoteHistory(*entry.quoteHistory)
+			entry.quoteHistory = nil
+		}
 	}
 	if entry.target.route == dataHealthRoute {
 		s.dataHealth.enter(entry.healthScroll, entry.target.health)

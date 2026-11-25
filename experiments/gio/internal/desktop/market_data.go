@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"gioui.org/io/event"
 	"gioui.org/layout"
@@ -84,6 +85,10 @@ type marketDataPage struct {
 	quoteActions                        map[string]*widget.Clickable
 	providerSettings                    widget.Clickable
 	openProviderSettings                func(event.Tag)
+	quoteHistory                        *marketQuoteHistory
+	quoteHistoryReader                  marketQuoteHistoryReader
+	quoteHistoryClock                   func() time.Time
+	historyActions                      map[string]*widget.Clickable
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {

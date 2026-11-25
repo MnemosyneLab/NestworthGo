@@ -201,6 +201,14 @@ func (p *dataHealthPage) issueRow(gtx layout.Context, view ui.View, row healthIs
 				if action := p.issueAction(gtx, view, issue, name); action != nil {
 					items = append(items, ui.Rigid(action))
 				}
+				if p.quoteHistory != nil {
+					if target, ok := quoteHistoryFinding(issue, name); ok {
+						if p.historyActions == nil {
+							p.historyActions = make(map[string]*widget.Clickable)
+						}
+						items = append(items, ui.Rigid(p.quoteHistory(gtx, view, target, portfolioButton(p.historyActions, issue.ID), p.request == nil && p.err == nil)))
+					}
+				}
 				if actions := p.snapshotActions(gtx, view, row, name); len(actions) > 0 {
 					items = append(items, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return (ui.Wrap{Gap: 6}).Layout(gtx, len(actions), func(gtx layout.Context, index int) layout.Dimensions {
@@ -325,4 +333,11 @@ func (p *dataHealthPage) issueButton(id string) *widget.Clickable {
 		p.issueActions = make(map[string]*widget.Clickable)
 	}
 	return portfolioButton(p.issueActions, id)
+}
+
+func quoteHistoryFinding(issue application.HealthIssue, label string) (marketQuoteHistoryTarget, bool) {
+	found, valid := healthManualTarget(issue, healthFindingFocus{})
+	focus := healthFindingFocus{from: issue.RangeStart, to: issue.RangeEnd, id: issue.ID, label: label}
+	return marketQuoteHistoryTarget{instrument: found.instrumentID, name: label,
+		pair: marketFXPair{found.base, found.quote}, finding: focus}, valid
 }

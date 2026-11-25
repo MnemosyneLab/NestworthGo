@@ -2007,7 +2007,44 @@ estimate separately because newly fetched inputs can dirty additional days.
 | Gio and shared Go | A real SQLite application service with deterministic providers covered current cancellation without a quote, overlapping-operation fencing, retry with one success and one failure, a forced refresh, and readback of exact rates and provider provenance. Instrument-only refresh stored USD 17.12345678 without making an FX request. The scoped instrument and JPY/USD previews matched the Wails Go adapter. Escape and keyboard reopening restored the same scoped preview, global forced preview recalculated locally, and cancelling and retrying JPY/USD committed a dated 139.123456 rate while leaving SGD unresolved. Settings Back restored the FX tab and control. |
 | Wails reference | The 47 existing frontend tests across Market Data, the sync bar, Data Health and Snapshot Repair and the focused shared application and Wails adapter refresh, sync and health tests passed. |
 | Packaged Linux X11 | At 1260×1050, cancelling and retrying current refresh displayed one updated and one failed target. JPY/USD showed 140.4321 with Frankfurter provenance and SGD/USD stayed missing. At 640×480, Escape dismissed the JPY/USD historical preview and Return reopened it. After confirming, cancelling and retrying the same historical job, the copy had 11 dated JPY/USD observations at 139.123456 and the original latest observation. The shared job reported unresolved findings and four rebuilt snapshot days versus an initial estimate of zero. Source database and settings hashes matched. This launch substituted a deterministic provider at build time. |
-| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. Gio still needs quote history, inline instrument and FX source management, Agent evidence and provider repair launched directly from a Data Health finding. Wails GUI, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. [Quote history](#selected-instrument-and-fx-quote-history) follows this checkpoint. Inline instrument and FX source management, Agent evidence and provider repair launched directly from a Data Health finding remain tracked in the parity checklist. Wails GUI, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
+
+#### Selected instrument and FX quote history
+
+**View quote history** opens a right-hand sheet for the selected instrument or
+currency pair, including objects without saved observations. The Wails quote
+series APIs supply the canonical values, filtered observations and chart
+points. The date shortcuts and adjacent windows use the recorded History
+timezone, with UTC before History to match the shared query's civil-date
+boundaries. Quote history may predate the household's Starting Point.
+**Show all dates** is available when the selected source has older or newer
+local observations outside an empty window.
+
+The sheet shows the configured source, the selected current quote as stored,
+and the historical evidence for All, Manual, Provider or Agent. Swapping an
+FX pair changes only the historical query direction. Current quote text
+keeps the direction of its stored evidence. Historical closes, NAV, manual
+observations and daily references have separate legend entries. Latest and
+intraday observations are dots. The saved-observations count describes the
+dates represented in the selected range. Data Health is the source for
+coverage findings. The keyboard-readable table retains all matching
+observations, including other currencies and same-time facts omitted from
+the chart. It shows source, effective date or timestamp basis, and delay
+when present. Gio places the table jump near the filters for compact
+windows and offers a copyable CoinGecko attribution link.
+
+From a quote history sheet, **View data health** carries the selected
+instrument or pair and date window. Back restores the quote sheet, source,
+direction, dates and its list position. A finding's **View quote history**
+opens its object and dated range directly. Close or Escape returns to that
+finding and its control without a new scan.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and shared Go | A SQLite fixture matched the Wails instrument and reversed FX series, including USD 12.34567891, a delayed flag, and the exact reciprocal 0.142857142857. It exercised empty versus outside-range states, local failure and retry, Home and Escape, focused Data Health and Back. A projection test kept date-only NAV apart from timed provider observations, isolated intraday marks, and kept a nonmatching currency off the plot. Reads left the ledger version unchanged. |
+| Wails reference | All 40 tests across Quote History, Market Data and Data Health passed. Focused shared application and Wails quote-adapter tests passed. |
+| Packaged Linux X11 | At 1260×1050 the default instrument window was empty and the selected quote showed USD 13.98765432. Show all dates revealed two observations. At 640×480 View data table reached the exact delayed USD 12.34567891 entry. Escape and Return reopened the instrument. FX history kept the stored USD/JPY reference while the historical direction switched. The empty SGD/USD sheet carried scope to Data Health, opened the November 21–24 missing-rate finding, and restored the selected sheet on Back. Both source hashes matched. The copy's instrument quotes, FX quotes and FX preferences matched the synthetic source rows. The packaged test launch substituted a deterministic provider. |
+| Checks and remaining work | Full Gio tests, vet and the standard Linux package build passed. Source editing, provider prerequisites, Agent coverage/closure workflows and direct scoped repair remain in the parity checklist. Interactive Wails, macOS, Wayland, VoiceOver and IME remain open. No benchmark was run. |
 
 #### Additional analysis filters and effective dates
 

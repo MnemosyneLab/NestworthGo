@@ -42,7 +42,8 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 	returns := &returnAnalysisPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
 	assets := &assetChangesPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
 	marketData := &marketDataPage{ctx: ctx, reader: service, invalidate: window.Invalidate,
-		manual: marketManualQuotes{service: service, clock: clock}, latest: marketLatest{service: service}}
+		manual: marketManualQuotes{service: service, clock: clock}, latest: marketLatest{service: service},
+		quoteHistoryReader: service, quoteHistoryClock: clock}
 	healthRepair := &dataHealthRepair{service: service, latestBusy: func() bool { return marketData.latest.request != nil }}
 	marketData.sync = healthRepair
 	service.SetMarketDataSyncListener(func(string, application.SyncJobSnapshot) {
