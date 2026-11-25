@@ -197,7 +197,7 @@ func (p *wealthHistoryPage) wealthRowEvidence(view ui.View, sheet *wealthDetail)
 
 func wealthDetailSide(view ui.View, endpoint application.HistoricalOverviewState, cell *application.HistoricalOverviewCell, side int, liability bool) []layout.Widget {
 	l := view.Language
-	rows := []layout.Widget{wealthEndpointCell(view, wealthEndpointLabel(l, view, endpoint, side), endpoint.Currency, cell, liability)}
+	rows := []layout.Widget{wealthEndpointCell(view, wealthEndpointLabel(l, view, endpoint, side), endpoint.Currency, cell, liability, true)}
 	if cell != nil {
 		if at, err := time.Parse(time.RFC3339Nano, cell.ValueSourceAt); err == nil {
 			stamp := portfolioQuoteStamp(view, "", "", at)
@@ -205,6 +205,54 @@ func wealthDetailSide(view ui.View, endpoint application.HistoricalOverviewState
 		}
 	}
 	return rows
+}
+
+func wealthEndpointQuoteDetails(view ui.View, quote application.HistoricalOverviewEvidence) []string {
+	l := view.Language
+	point := domain.QuoteSeriesPoint{
+		SourceKind:      domain.QuoteSourceKind(quote.Source),
+		SourceKey:       quote.SourceKey,
+		ObservationKind: quote.ObservationKind,
+		PriceBasis:      quote.PriceBasis,
+		Delayed:         quote.Freshness == string(domain.FreshnessDelayed),
+	}
+	var lines []string
+	if value := wealthEndpointQuoteValue(view, quote); value != "" {
+		label := i18n.WealthQuoteAppliedPrice
+		if quote.BaseCurrency != "" && quote.QuoteCurrency != "" {
+			label = i18n.WealthQuoteAppliedFX
+		}
+		lines = append(lines, l.Text(label)+" · "+value)
+	}
+	if point.SourceKind == domain.QuoteSourceManual {
+		lines = append(lines, marketSourceLabel(l, point.SourceKind))
+	} else {
+		lines = append(lines, quoteHistoryEvidence(view, point)...)
+	}
+	switch {
+	case quote.ClosedCarry:
+		lines = append(lines, l.Text(i18n.WealthQuoteCarried))
+	case quote.Freshness == string(domain.FreshnessStale):
+		lines = append(lines, l.Text(i18n.WealthQuoteStale))
+	}
+	if day, ok := ui.ParseCivilDay(quote.MarketDate); ok {
+		lines = append(lines, l.Text(i18n.WealthQuoteMarketDate)+" · "+ui.FormatDay(day, l, view.DateFormat))
+	}
+	if at, err := time.Parse(time.RFC3339Nano, quote.EffectiveAt); err == nil && quote.TimestampBasis != "date_label" {
+		lines = append(lines, l.Text(i18n.WealthQuoteEffectiveAt)+" · "+holdingEvidenceTime(view, at, view.TimeLocation))
+	}
+	if quote.FetchedAt != nil {
+		if at, err := time.Parse(time.RFC3339Nano, *quote.FetchedAt); err == nil {
+			lines = append(lines, l.Text(i18n.WealthQuoteRetrievedAt)+" · "+holdingEvidenceTime(view, at, view.TimeLocation))
+		}
+	}
+	switch quote.Operation {
+	case "multiply":
+		lines = append(lines, l.Text(i18n.WealthQuoteMultiply))
+	case "divide":
+		lines = append(lines, l.Text(i18n.WealthQuoteDivide))
+	}
+	return lines
 }
 
 func wealthRowChanges(view ui.View, row application.HistoricalOverviewRow) []layout.Widget {

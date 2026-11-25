@@ -604,6 +604,15 @@ const (
 	WealthAccountSwap
 	WealthAccountIncomparable
 	WealthAccountRate
+	WealthQuoteAppliedPrice
+	WealthQuoteAppliedFX
+	WealthQuoteCarried
+	WealthQuoteStale
+	WealthQuoteMarketDate
+	WealthQuoteEffectiveAt
+	WealthQuoteRetrievedAt
+	WealthQuoteMultiply
+	WealthQuoteDivide
 	ReturnCalendar
 	ReturnToday
 	ReturnMonth

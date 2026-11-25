@@ -2783,6 +2783,25 @@ choices remain selected.
   entries label the existing packaged Linux X11, adapter and hosted CI evidence.
   Stage 7 remains paused.
 
+#### Wealth History quote evidence and Linux comparison
+
+The account component detail now labels the applied unit price and FX rate,
+source, effective time or market date, retrieval time and the recorded FX
+operation. It uses the shared capture and source facts. Closing the detail
+returns to the account action. The summary keeps its existing compact form.
+The [Wails component detail](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.tsx)
+groups provenance in separate price and FX cards. Gio groups the same added
+fields as a scrollable sequence beneath each endpoint so the labels also fit
+the narrow side sheet.
+
+| Check | Evidence |
+| --- | --- |
+| Fixture | One USD household started History on November 21, 2026 in UTC. A two-unit EUR holding at 10.125 used the November 20 manual price and November 19 USD/EUR 0.8 rate. Both observations were retrieved November 21 at 12:00 UTC. The priced holding had EUR 20.25 native and USD 25.3125 base value. An AUD holding of three units had a 7.125 price and missing USD/AUD FX. The shared read returned a partial USD 25.3125 subtotal on November 21 and 24. Both binaries received independent database and settings copies after the source checkpoint and close. |
+| Wails Linux attempt | The production-tagged Linux binary built with GTK 4.18.6 and WebKitGTK 2.54.0. Its launch stopped at the missing absolute `WebKitNetworkProcess` path. A temporary process-local path mapping reached `webkit_settings_new` and crashed before the window opened. This run supplied build and startup evidence only. |
+| Packaged Gio on Linux X11 | At 1180×980, Allocation reached both component details. The priced holding showed USD 25.31, EUR 10.125 and USD/EUR 0.8 with dates and the recorded division. The missing-FX holding showed its exact AUD 7.125 quote and an unavailable base amount. Escape and Return reopened the originating account. At 660×480, Page Down revealed the remaining evidence. Tab and Return opened Ledger activity for Priced Brokerage and PACIFIC on November 21, and Back restored the same filtered detail and the focused Ledger action. The source database and settings hashes matched. Accounts, instruments, holdings, prices, FX, activity and product operation rows matched the source. |
+| Gio and Wails references | The existing paired read-only adapter regression also exercises the priced and missing endpoints, exact source direction, separate effective and retrieval time and Back focus. The dated NAV case retains the market day without presenting its normalization as a quote instant. The focused Wails Historical Overview frontend suite passed all 78 tests. |
+| Open paired cases | The interactive Wails comparison for this fixture still needs a Linux host with the installed WebKit runtime or a Mac. Return Calendar → Asset Changes, Contribution → Ledger, provider partial refresh and Data Health cancel, retry and stale repair still need paired desktop runs. Native macOS, VoiceOver, IME, Wayland and performance acceptance remain open. |
+
 ### Follow-up Linux acceptance
 
 Independent Linux QA on an earlier preview found a Directory caption,

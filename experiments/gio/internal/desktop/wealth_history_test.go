@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -324,7 +325,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
-	if _, err := seed.AppendManualFXQuote(ctx, "USD", "AUD", "1.2345", now.Format(time.RFC3339)); err != nil {
+	if _, err := seed.AppendManualFXQuote(ctx, "USD", "AUD", "1.2345", now.Add(-time.Hour).Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(5 * time.Hour) // August 3 in Singapore, still August 2 in UTC.
@@ -503,13 +504,30 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.press(key.NameEscape)
 	h.frame()
 	h.focused(page.accounts.details[string(linked.Account)])
+	h.press(key.NameReturn)
+	h.size = image.Pt(1120, 1040)
+	h.frame()
+	if page.detail == nil || len(page.detail.links) != 1 {
+		t.Fatal("foreign cash account detail lost its balance component")
+	}
+	for _, link := range page.detail.links {
+		h.router.Source().Execute(key.FocusCmd{Tag: link})
+	}
+	h.frame()
+	h.press(key.NameReturn)
+	h.frame()
+	assertPageLabel(t, &h.router, "Applied FX rate · 1 USD = 1.2345 AUD")
+	assertPageLabel(t, &h.router, "Effective at · 2026-08-02 19:00:00 (Asia/Singapore)")
+	assertPageLabel(t, &h.router, "Retrieved at · 2026-08-02 20:00:00 (Asia/Singapore)")
+	assertPageLabel(t, &h.router, "Native amount multiplied by this rate.")
+	h.press(key.NameEscape)
 	h.click("Accounts in Wealth history", false)
 	h.click("Changed accounts only", false)
 	assertPageLabel(t, &h.router, "Foreign cash")
 	h.click("Foreign cash", false)
 	h.frame()
 	assertPageLabel(t, &h.router, "Missing exchange rate · AUD / USD · Manual quote")
-	assertPageLabel(t, &h.router, "1 USD = 1.2345 AUD · Manual quote · 2026-08-02 12:00")
+	assertPageLabel(t, &h.router, "1 USD = 1.2345 AUD · Manual quote · 2026-08-02 11:00")
 	h.click("Swap dates", false)
 	h.click("Capture accounts", false)
 	page.workers.Wait()
@@ -532,5 +550,24 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	assertPageLabel(t, &h.router, "B · Current · AUD")
 	if !page.accounts.changesOnly || gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatalf("comparison did not retain its filter or requested quotes: Gio %d, Wails %d", gioProvider.requests, wailsProvider.requests)
+	}
+}
+
+func TestWealthQuoteDetailKeepsMarketDateAndRetrievalDistinct(t *testing.T) {
+	retrieved, value := "2026-11-21T13:30:15Z", "10.12345678"
+	view := ui.View{Language: i18n.English, TimeLocation: time.UTC, DateFormat: settings.DateFormatISO, DecimalSeparator: settings.DecimalComma}
+	lines := wealthEndpointQuoteDetails(view, application.HistoricalOverviewEvidence{
+		Source: "agent", ObservationKind: "close", PriceBasis: "agent_unit_nav_v1", TimestampBasis: "date_label",
+		MarketDate: "2026-11-20", EffectiveAt: "2026-11-20T00:00:00Z", FetchedAt: &retrieved,
+		Value: &value, Currency: "EUR", ClosedCarry: true, ObservationFreshness: "stale",
+	})
+	for _, want := range []string{"Applied unit price · EUR 10,12345678", "Unit NAV · Agent quote", "Carried quote",
+		"Market date · 2026-11-20", "Retrieved at · 2026-11-21 13:30:15 (UTC)"} {
+		if !slices.Contains(lines, want) {
+			t.Errorf("missing %q in %q", want, lines)
+		}
+	}
+	if evidence := strings.Join(lines, "\n"); strings.Contains(evidence, "Effective at") || strings.Contains(evidence, "Stale quote") {
+		t.Fatalf("market date turned into an observed instant or diagnostic age overrode carry: %q", evidence)
 	}
 }

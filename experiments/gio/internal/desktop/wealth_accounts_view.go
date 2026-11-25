@@ -288,9 +288,9 @@ func (p *wealthHistoryPage) accountRow(gtx layout.Context, view ui.View, result 
 	}
 	controls = append(controls, ui.Rigid(p.wealthDetailButton(view, result, row, detailLabel)))
 	liability := row.Role == string(domain.RoleLiability)
-	sides := []layout.Widget{wealthEndpointCell(view, l.Text(i18n.WealthAccountSideA), result.Left.Currency, row.Left, liability)}
+	sides := []layout.Widget{wealthEndpointCell(view, l.Text(i18n.WealthAccountSideA), result.Left.Currency, row.Left, liability, false)}
 	if result.Right != nil {
-		sides = append(sides, wealthEndpointCell(view, l.Text(i18n.WealthAccountSideB), result.Right.Currency, row.Right, liability))
+		sides = append(sides, wealthEndpointCell(view, l.Text(i18n.WealthAccountSideB), result.Right.Currency, row.Right, liability, false))
 		delta := l.Text(i18n.WealthAccountIncomparable)
 		if row.Left != nil && row.Right != nil && result.Left.Currency == result.Right.Currency {
 			if amount := wealthRowDelta(row); amount != nil {
@@ -314,7 +314,7 @@ func (p *wealthHistoryPage) accountRow(gtx layout.Context, view ui.View, result 
 	})
 }
 
-func wealthEndpointCell(view ui.View, side, currency string, cell *application.HistoricalOverviewCell, liability bool) layout.Widget {
+func wealthEndpointCell(view ui.View, side, currency string, cell *application.HistoricalOverviewCell, liability, detailedEvidence bool) layout.Widget {
 	l := view.Language
 	if cell == nil {
 		return view.Message(side+" · "+l.Text(i18n.WealthAccountAbsent), view.Colors.SecondaryInk)
@@ -360,7 +360,14 @@ func wealthEndpointCell(view ui.View, side, currency string, cell *application.H
 		}
 	}
 	for _, evidence := range []*application.HistoricalOverviewEvidence{cell.Price, cell.FX} {
-		if evidence != nil {
+		if evidence == nil {
+			continue
+		}
+		if detailedEvidence {
+			for _, line := range wealthEndpointQuoteDetails(view, *evidence) {
+				rows = append(rows, ui.Rigid(view.Message(line, view.Colors.SecondaryInk)))
+			}
+		} else {
 			rows = append(rows, ui.Rigid(view.Message(wealthEndpointQuote(view, *evidence), view.Colors.SecondaryInk)))
 		}
 	}
@@ -375,16 +382,24 @@ func wealthEndpointQuote(view ui.View, quote application.HistoricalOverviewEvide
 		key = ""
 	}
 	label := marketSourceLabel(view.Language, source) + portfolioQuoteStamp(view, key, quote.MarketDate, at)
-	if quote.Value != nil {
-		value := portfolioDecimal(view, *quote.Value)
-		if quote.BaseCurrency != "" && quote.QuoteCurrency != "" {
-			value = fmt.Sprintf(view.Language.Text(i18n.WealthAccountRate), quote.BaseCurrency, value, quote.QuoteCurrency)
-		} else if quote.Currency != "" {
-			value = quote.Currency + " " + value
-		}
+	if value := wealthEndpointQuoteValue(view, quote); value != "" {
 		label = value + " · " + label
 	}
 	return label
+}
+
+func wealthEndpointQuoteValue(view ui.View, quote application.HistoricalOverviewEvidence) string {
+	if quote.Value == nil {
+		return ""
+	}
+	value := portfolioDecimal(view, *quote.Value)
+	if quote.BaseCurrency != "" && quote.QuoteCurrency != "" {
+		return fmt.Sprintf(view.Language.Text(i18n.WealthAccountRate), quote.BaseCurrency, value, quote.QuoteCurrency)
+	}
+	if quote.Currency != "" {
+		return quote.Currency + " " + value
+	}
+	return value
 }
 
 func wealthExactMoney(view ui.View, value *string, currency string, liability, delta bool) string {
