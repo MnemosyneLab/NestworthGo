@@ -1069,6 +1069,7 @@ const (
 	HistoryCashTransfer
 	HistoryFXConversion
 	HistoryPositionTransfer
+	HistoryPositionAdjustment
 	HistoryCostAdjustment
 	HistoryBuy
 	HistorySell
@@ -1474,6 +1475,14 @@ const (
 	OpeningPositionLoadFailed
 	OpeningPositionNoSave
 	OpeningPositionReadFailed
+	PositionImportHistoryRequired
+	PositionImportHelp
+	PositionImportCostFact
+	PositionImportNoCash
+	PositionImportInvalidCost
+	PositionImportReviewFailed
+	PositionImportStale
+	PositionImportPosted
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost

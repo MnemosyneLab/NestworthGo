@@ -53,6 +53,9 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 		if known.LiabilityAccount != "" {
 			title = liabilityKindLabel(known.Activity.Kind, known.Activity.Reason)
 		}
+		if known.Activity.Kind == domain.ActivityPositionTransfer && known.Activity.Reason == domain.ReasonReconciliation && known.Activity.ProductContext == nil {
+			title = i18n.HistoryPositionAdjustment
+		}
 		r.rename(d.id, l.Text(title)+" · "+historyDay(view, known.Activity.EffectiveLocalDate))
 	} else if d.id == r.posted.ID {
 		title = historyKindLabel(r.posted.Kind, r.posted.Reason)
@@ -235,6 +238,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell {
 		timestamp = tradeTimestamp
 	}
+	if activity.Kind == domain.ActivityPositionTransfer && activity.Reason == domain.ReasonReconciliation && activity.ProductContext == nil {
+		timestamp = tradeTimestamp
+	}
 	var facts []layout.Widget
 	if detail.Location != nil {
 		facts = append(facts, muted(timestamp(view, activity.EffectiveAt, detail.Location)))
@@ -298,6 +304,13 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(14)}.Layout(gtx,
 				layout.Flexed(1, ink(caption)), layout.Rigid(muted(class)))
 		})
+		if effect.Target == domain.EffectTargetHoldingQuantity && effect.CostUnitPrice != nil && effect.InstrumentID != nil {
+			cost := portfolioDecimal(view, effect.CostUnitPrice.Canonical())
+			if code := detail.InstrumentCurrencies[*effect.InstrumentID]; code != "" {
+				cost += " " + code.String()
+			}
+			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.HistoryUnitCost), cost)))
+		}
 	}
 	from, to := transferCurrencies(activity.Effects)
 	if paired {

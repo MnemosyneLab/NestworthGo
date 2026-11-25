@@ -402,7 +402,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				return true
 			}
 			if f := s.accounts.investment; f != nil {
-				return source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend
+				return source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend || source.focus == &f.importOpen
 			}
 			return false
 		}

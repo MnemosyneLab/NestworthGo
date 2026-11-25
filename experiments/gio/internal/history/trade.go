@@ -42,7 +42,7 @@ func LoadInvestmentSources(ctx context.Context, ledger InvestmentLedger, account
 }
 
 func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.AccountID, kind domain.ActivityKind) (InvestmentSources, error) {
-	if kind != domain.ActivityBuy && kind != domain.ActivitySell && kind != domain.ActivityCashDividend {
+	if kind != domain.ActivityBuy && kind != domain.ActivitySell && kind != domain.ActivityCashDividend && kind != domain.ActivityPositionTransfer {
 		return InvestmentSources{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "side"}
 	}
 	origin, location, err := cashMovementOrigin(ctx, ledger)
@@ -77,8 +77,18 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 	instruments = slices.DeleteFunc(instruments, func(i domain.Instrument) bool {
 		_, owned := managed[i.ID.String()]
 		_, held := active[i.ID]
-		return owned || i.ArchivedAt != nil || (kind != domain.ActivityBuy && !held) ||
-			(kind == domain.ActivityCashDividend && i.QuoteCurrency != account.DefaultCurrency)
+		if owned || i.ArchivedAt != nil {
+			return true
+		}
+		switch kind {
+		case domain.ActivityPositionTransfer:
+			return held
+		case domain.ActivitySell:
+			return !held
+		case domain.ActivityCashDividend:
+			return !held || i.QuoteCurrency != account.DefaultCurrency
+		}
+		return false
 	})
 	return InvestmentSources{Origin: origin, Location: location, Account: account, Instruments: instruments, Holdings: active}, nil
 }

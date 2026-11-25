@@ -54,15 +54,16 @@ func historyClock(ctx context.Context, service ReferenceReader) (*domain.History
 }
 
 type Detail struct {
-	Activity         domain.Activity
-	Accounts         map[domain.AccountID]string
-	Instruments      map[domain.InstrumentID]string
-	Location         *time.Location
-	Links            AmendmentLinks
-	Amendable        bool
-	Reversible       bool
-	Repeatable       bool
-	LiabilityAccount domain.AccountID
+	Activity             domain.Activity
+	Accounts             map[domain.AccountID]string
+	Instruments          map[domain.InstrumentID]string
+	InstrumentCurrencies map[domain.InstrumentID]domain.CurrencyCode
+	Location             *time.Location
+	Links                AmendmentLinks
+	Amendable            bool
+	Reversible           bool
+	Repeatable           bool
+	LiabilityAccount     domain.AccountID
 }
 
 var ErrActivityUnavailable = errors.New("activity unavailable")
@@ -133,8 +134,10 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			return Detail{}, err
 		}
 		detail.Instruments = make(map[domain.InstrumentID]string, len(instruments))
+		detail.InstrumentCurrencies = make(map[domain.InstrumentID]domain.CurrencyCode, len(instruments))
 		for _, instrument := range instruments {
 			detail.Instruments[instrument.ID] = instrument.DisplayLabel()
+			detail.InstrumentCurrencies[instrument.ID] = instrument.QuoteCurrency
 		}
 	}
 	return detail, nil

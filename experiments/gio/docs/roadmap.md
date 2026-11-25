@@ -1458,7 +1458,35 @@ Origin with its opening components. Retry reads back that Origin.
 | Compact and failure coverage | The Gio suite verified a distinct accessible input for each position, duplicate pair exclusion, a changed quantity invalidating review, and retained cost input. A lost reply plus failed read was resolved by read-only Retry. |
 | Packaged Linux X11 | At 1160×820, Accounts saved 2.5 units of a USD security and 3.125 of a EUR security in the same brokerage. At 640×480, Tab moved between the costs. Cancel left both quantities and zero Origin rows. Confirmation and normal reopen retained one Origin with USD 0 and EUR 12.34567891 per unit, the USD 5.25 opening cash and zero activities. The USD 40 quote and the synthetic source hashes matched. |
 | Checks | Full Gio tests and vet, the standard Linux package, shared application vet, focused application and Wails History and Holding Go suites, and nine Wails frontend reference tests passed. |
-| Open scope | Managed and unavailable opening holdings, importing positions after History starts, and in-form instrument creation remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+| Open scope | Managed and unavailable opening holdings and in-form instrument creation remain open. [Dated account position import](#account-position-import-after-history-starts) has a separate milestone. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
+
+#### Account position import after History starts
+
+**Accounts → Holdings account → Record existing position** opens a dated
+import once History has started. The account stays fixed. The chooser lists
+active ordinary instruments with no active Holding for that pair. Enter a
+positive quantity and the actual original cost per unit in the instrument
+currency. Cost can be explicitly zero. The form takes the effective civil
+date and time in the History Origin timezone and an optional note.
+[Wails account entry](../../../frontend/src/features/accounts/AccountActionSheets.tsx) · [Wails position import form](../../../frontend/src/features/investments/PositionImportForm.tsx)
+
+The form follows the Wails account, instrument, quantity, acquisition cost
+and date order. Gio puts the account action next to the trading actions and
+uses an in-page review with a direct Ledger receipt. Preview shows the
+quantity and exact native cost. The shared Position Import command writes
+one linked quantity-and-cost activity and Holding, with no trade or cash
+effect. Stale review preserves compatible inputs. After an uncertain
+submission, Retry keeps the same mutation ID. Cancel and Ledger Back focus
+the original account action. Ledger identifies the saved position adjustment
+and shows its exact unit cost in the instrument currency. [Shared position import](../../../internal/application/position_import.go)
+
+| Check | Evidence |
+| --- | --- |
+| Wails and Gio comparison | Independent synthetic ledgers with a domestic Holding imported 2.12345678 foreign units at explicit EUR 0. The civil effective time fell between Origin and a later cash event. The shared Wails and Gio activity facts agreed. The new Holding and cost were linked to one dated record. Cash was unchanged by the import. |
+| Gio workflow | The shell test preserved invalid input, left the ledger unchanged on cancel, and showed an empty picker once every eligible security was held. A competing contribution invalidated review. A simulated lost response reused the same receipt after a retry and normal reopen. A failed receipt read recovered without resubmitting the import. The exact quantity, instrument and account focus were preserved. |
+| Packaged Linux X11 | At 1160×820, validation rejected a nine-decimal cost and Cancel restored the account action. The synthetic database still contained no activity. At 640×480, Tab moved from quantity to cost and Return confirmed 2.5 units at EUR 7.12345678 per unit. Ledger Back restored the import action, which reopened to the empty eligible picker. On normal reopen the Ledger showed the original timestamp and exact cost. Read-only SQLite found one linked quantity effect and one mutation receipt, with USD 200 cash, opening Origin, domestic holding, quotes and source-file hashes unchanged. The compact sale form also showed the full gross and fee labels. |
+| Checks | Full Gio tests and vet, the standard Linux package, focused shared application/domain/Wails Go suites and four Wails account and Holdings frontend cases passed. |
+| Remaining scope | The Investment Assets entry with account selection, inline instrument creation, import entry from general Ledger, position transfers between accounts, cost corrections, adjustments and reversals remain open. Interactive Wails, macOS, Wayland, VoiceOver and IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1643,14 +1671,16 @@ link focus, and Forward can reopen the same session. [Wails reconciliation list]
 
 The experimental shell now supports Holdings and instrument detail, domestic
 and foreign-currency settlement for ordinary buys and sales, cash dividends in
-the default account currency, and multiple pre-History positions with native costs. Available Funds has a Today view
+the default account currency, multiple pre-History positions with native costs,
+and dated position import from Accounts. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
 statement sessions.
 
-Broader investment work still includes position imports after History starts,
-trade quote calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
+Broader investment work still includes the Investment Assets position-import
+entry, custody transfers, position adjustments and cost corrections, market quote
+calculators, instrument catalog maintenance and wider lifecycle coverage. Product gaps
 include new and existing product setup, early redemption, renewal, standalone
 interest, and other managed product types. Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
@@ -2259,8 +2289,9 @@ Agent evidence.
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with position imports after History starts and broader
-Holdings actions. Stage 4 still has additional Starting
+Continue Stage 5 with the remaining Holdings workflows, including custody
+transfers, position adjustments and cost corrections, the Investment Assets
+position-import entry and broader account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

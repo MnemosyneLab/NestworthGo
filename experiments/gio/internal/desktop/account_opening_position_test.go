@@ -310,8 +310,17 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	}
 	click("Accounts")
 	click("Harbor Brokerage")
-	if findPageLabel(&h.router, "Record existing position") != nil {
+	if accounts.canOpenPosition() {
 		t.Fatal("the opening observation remained available after History started")
+	}
+	writes := opening.writes.Load()
+	click("Record existing position")
+	if accounts.opening.draft != nil || accounts.investment.draft == nil || accounts.investment.draft.kind != domain.ActivityPositionTransfer {
+		t.Fatal("the action did not switch to dated import after History started")
+	}
+	click("Cancel")
+	if opening.writes.Load() != writes {
+		t.Fatal("opening or canceling dated import attempted to write an opening position")
 	}
 
 	now = now.Add(2 * time.Minute)

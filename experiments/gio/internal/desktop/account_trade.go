@@ -15,35 +15,35 @@ import (
 )
 
 type accountInvestment struct {
-	service             history.InvestmentLedger
-	buy, sell, dividend widget.Clickable
-	restore             *widget.Clickable
-	draft               *accountInvestmentDraft
-	onPosted            func(domain.Activity, i18n.MessageID, event.Tag)
+	service                         history.InvestmentLedger
+	buy, sell, dividend, importOpen widget.Clickable
+	restore                         *widget.Clickable
+	draft                           *accountInvestmentDraft
+	onPosted                        func(domain.Activity, i18n.MessageID, event.Tag)
 }
 
 type accountInvestmentDraft struct {
-	kind                               domain.ActivityKind
-	existing                           bool
-	account                            domain.Account
-	instrument                         domain.InstrumentID
-	currency                           domain.CurrencyCode
-	quantity, gross, fee, note         ui.TextField
-	day, time                          string
-	defaultTime                        time.Time
-	selectInstrument                   ui.Select
-	datePicker                         ui.DatePicker
-	timePicker                         ui.TimePicker
-	cancel, retry, preview, edit       widget.Clickable
-	confirm, retryConfirm              widget.Clickable
-	useNow                             widget.Clickable
-	sourceProblem, problem             i18n.MessageID
-	sources                            *history.InvestmentSources
-	loading                            <-chan historyResult[history.InvestmentSources]
-	previewing                         <-chan historyResult[history.ReviewedInvestment]
-	review                             *history.ReviewedInvestment
-	posting                            <-chan historyResult[domain.ChangePreview]
-	uncertain, focusReview, focusInput bool
+	kind                                 domain.ActivityKind
+	existing                             bool
+	account                              domain.Account
+	instrument                           domain.InstrumentID
+	currency                             domain.CurrencyCode
+	quantity, gross, fee, unitCost, note ui.TextField
+	day, time                            string
+	defaultTime                          time.Time
+	selectInstrument                     ui.Select
+	datePicker                           ui.DatePicker
+	timePicker                           ui.TimePicker
+	cancel, retry, preview, edit         widget.Clickable
+	confirm, retryConfirm                widget.Clickable
+	useNow                               widget.Clickable
+	sourceProblem, problem               i18n.MessageID
+	sources                              *history.InvestmentSources
+	loading                              <-chan historyResult[history.InvestmentSources]
+	previewing                           <-chan historyResult[history.ReviewedInvestment]
+	review                               *history.ReviewedInvestment
+	posting                              <-chan historyResult[domain.ChangePreview]
+	uncertain, focusReview, focusInput   bool
 }
 
 func (p *accountsPage) canFirstBuy() bool {
@@ -87,12 +87,18 @@ func (p *accountsPage) canTradeAccount() bool {
 	return p.investment != nil && p.investment.onPosted != nil && row != nil && history.TradeAccount(row.record.Account)
 }
 
+func (p *accountsPage) canImportPosition() bool {
+	return p.canTradeAccount() && !p.current.beforeHistory
+}
+
 func (f *accountInvestment) action(kind domain.ActivityKind) *widget.Clickable {
 	switch kind {
 	case domain.ActivitySell:
 		return &f.sell
 	case domain.ActivityCashDividend:
 		return &f.dividend
+	case domain.ActivityPositionTransfer:
+		return &f.importOpen
 	default:
 		return &f.buy
 	}
@@ -125,12 +131,20 @@ var dividendLabels = tradeLabels{
 	previewFailed: i18n.DividendPreviewFailed, stale: i18n.DividendStale,
 }
 
+var positionImportLabels = tradeLabels{
+	action: i18n.OpeningPositionOpen, review: i18n.OpeningPositionReview, confirm: i18n.OpeningPositionConfirm, posted: i18n.PositionImportPosted,
+	quantity: i18n.OpeningPositionQuantity, scope: i18n.OpeningPositionUnavailable, history: i18n.PositionImportHistoryRequired, empty: i18n.OpeningPositionEmpty,
+	previewFailed: i18n.PositionImportReviewFailed, stale: i18n.PositionImportStale,
+}
+
 func (d *accountInvestmentDraft) labels() tradeLabels {
 	switch d.kind {
 	case domain.ActivitySell:
 		return sellLabels
 	case domain.ActivityCashDividend:
 		return dividendLabels
+	case domain.ActivityPositionTransfer:
+		return positionImportLabels
 	}
 	labels := buyLabels
 	if d.existing {
@@ -143,7 +157,7 @@ func (d *accountInvestmentDraft) labels() tradeLabels {
 func (p *accountsPage) startInvestment(kind domain.ActivityKind) {
 	f := p.investment
 	f.draft = &accountInvestmentDraft{kind: kind, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account, focusInput: true,
-		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true), note: ui.NewTextField(true)}
+		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true), unitCost: ui.NewTextField(true), note: ui.NewTextField(true)}
 	p.loadInvestmentSources()
 }
 
@@ -160,6 +174,7 @@ func (d *accountInvestmentDraft) chooseInstrument(id domain.InstrumentID) {
 		d.quantity.Editor.SetText("")
 		d.gross.Editor.SetText("")
 		d.fee.Editor.SetText("")
+		d.unitCost.Editor.SetText("")
 	}
 }
 
@@ -198,12 +213,19 @@ func (p *accountsPage) previewInvestment() {
 	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
 		input.EffectiveAt = d.defaultTime
 	}
+	unitCost := d.unitCost.Text()
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedInvestment, error) {
-		if kind == domain.ActivityCashDividend {
+		switch kind {
+		case domain.ActivityCashDividend:
 			return history.ReviewDividend(p.ctx, f.service, history.DividendInput{
 				Account: input.Account, Instrument: input.Instrument, Holding: input.Holding,
 				Amount: input.Gross, Date: input.Date, Time: input.Time,
+			})
+		case domain.ActivityPositionTransfer:
+			return history.ReviewPositionImport(p.ctx, f.service, history.PositionImportInput{
+				Account: input.Account, Instrument: input.Instrument, Currency: input.Currency, Quantity: input.Quantity,
+				UnitCost: unitCost, Note: input.Note, Date: input.Date, Time: input.Time, EffectiveAt: input.EffectiveAt,
 			})
 		}
 		return history.ReviewTrade(p.ctx, f.service, input)
@@ -302,7 +324,7 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return fallback
 	}
 	switch issue.Field {
-	case "grossCurrency":
+	case "grossCurrency", "currency":
 		return i18n.TradeCurrencyChanged
 	case "settlementAccountId", "holdings", "holdingId":
 		return labels.scope
@@ -328,6 +350,8 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return i18n.BuyInvalidGross
 	case "fee":
 		return i18n.BuyInvalidFee
+	case "unitCost":
+		return i18n.PositionImportInvalidCost
 	case "note":
 		return i18n.HistoryRepeatNoteTooLong
 	case "instrumentId":

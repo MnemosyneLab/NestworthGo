@@ -57,12 +57,17 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 		}),
 	}
 	if d.sources != nil && len(d.sources.Instruments) != 0 {
+		if d.kind == domain.ActivityPositionTransfer {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.PositionImportHelp), view.Colors.SecondaryInk))
+			}))
+		}
 		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, d.layoutInvestmentInstrument(view, origin))
 			}),
 		)
-		if d.kind != domain.ActivityCashDividend && d.currency != "" && d.currency != d.account.DefaultCurrency {
+		if (d.kind == domain.ActivityBuy || d.kind == domain.ActivitySell) && d.currency != "" && d.currency != d.account.DefaultCurrency {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, view.Message(fmt.Sprintf(l.Text(i18n.TradeForeignSettlement), d.currency.String()), view.Colors.SecondaryInk))
 			}))
@@ -103,7 +108,11 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 		} else if d.sources != nil && len(d.sources.Instruments) != 0 {
 			buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				needsQuantity := d.kind != domain.ActivityCashDividend && strings.TrimSpace(d.quantity.Text()) == ""
-				if d.previewing != nil || d.instrument == "" || needsQuantity || strings.TrimSpace(d.gross.Text()) == "" {
+				amount := d.gross.Text()
+				if d.kind == domain.ActivityPositionTransfer {
+					amount = d.unitCost.Text()
+				}
+				if d.previewing != nil || d.instrument == "" || needsQuantity || strings.TrimSpace(amount) == "" {
 					gtx = gtx.Disabled()
 				}
 				return view.PrimaryButton(&d.preview, l.Text(labels.review))(gtx)
@@ -160,11 +169,18 @@ func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View) layout.Wi
 		if currency == "" {
 			currency = d.account.DefaultCurrency.String()
 		}
-		return (ui.Grid{MinColumn: 145, MaxColumns: 3, Gap: 8}).Layout(gtx, view, 3, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+		count := 3
+		if d.kind == domain.ActivityPositionTransfer {
+			count = 2
+		}
+		return (ui.Grid{MinColumn: 190, MaxColumns: count, Gap: 8}).Layout(gtx, view, count, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 			switch i {
 			case 0:
 				return d.quantity.Layout(gtx, view, ui.FieldOptions{Label: labels.quantity, Disabled: disabled})
 			case 1:
+				if d.kind == domain.ActivityPositionTransfer {
+					return d.unitCost.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.HistoryStartOriginalCost, Disabled: disabled}, currency)
+				}
 				return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{Label: labels.gross, Disabled: disabled}, currency)
 			default:
 				return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: disabled}, currency)
@@ -253,7 +269,8 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 	fact := func(id i18n.MessageID, value string) layout.FlexChild {
 		return layout.Rigid(view.Message(fmt.Sprintf(l.Text(id), value), view.Colors.Ink))
 	}
-	if d.kind == domain.ActivityCashDividend {
+	switch d.kind {
+	case domain.ActivityCashDividend:
 		for _, endpoint := range preview.Review {
 			money := func(amount string) string { return portfolioDecimal(view, amount) + " " + endpoint.Currency.String() }
 			children = append(children,
@@ -261,11 +278,22 @@ func (p *accountsPage) layoutInvestmentReview(gtx layout.Context, view ui.View) 
 				fact(i18n.DividendNetCredit, money(endpoint.Delta)),
 				fact(i18n.ContributionAfter, money(endpoint.After)))
 		}
-	} else {
-		children = append(children, d.investmentTradeFacts(gtx, view, fact)...)
-		if note := preview.Activity.Note; note != nil {
-			children = append(children, layout.Rigid(view.Message(*note, view.Colors.Ink)))
+	case domain.ActivityPositionTransfer:
+		for _, endpoint := range preview.Resulting {
+			if endpoint.Target == domain.EffectTargetHoldingQuantity {
+				children = append(children, fact(i18n.AccountQuantity, portfolioDecimal(view, endpoint.Quantity)))
+			}
 		}
+		if preview.DerivedUnitPrice != nil {
+			cost := portfolioDecimal(view, preview.DerivedUnitPrice.Canonical()) + " " + d.currency.String()
+			children = append(children, fact(i18n.PositionImportCostFact, cost))
+		}
+		children = append(children, layout.Rigid(view.Message(l.Text(i18n.PositionImportNoCash), view.Colors.SecondaryInk)))
+	default:
+		children = append(children, d.investmentTradeFacts(gtx, view, fact)...)
+	}
+	if note := preview.Activity.Note; note != nil {
+		children = append(children, layout.Rigid(view.Message(*note, view.Colors.Ink)))
 	}
 	if d.uncertain {
 		children = append(children, layout.Rigid(view.Message(l.Text(i18n.ContributionUncertain), view.Colors.ErrorInk)))

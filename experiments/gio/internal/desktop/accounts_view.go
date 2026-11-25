@@ -120,6 +120,10 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			case p.canRecordDividend() && f.dividend.Clicked(gtx):
 				p.startInvestment(domain.ActivityCashDividend)
 				gtx.Execute(op.InvalidateCmd{})
+			case p.canImportPosition() && f.importOpen.Clicked(gtx):
+				p.startInvestment(domain.ActivityPositionTransfer)
+				view.RestorePageScroll(0)
+				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
 		if f.draft != nil {
@@ -593,6 +597,17 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 				}
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
 			})
+		})
+	}
+	if p.canImportPosition() {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			f := p.investment
+			view.Focus.Watch(gtx, &f.importOpen)
+			if f.restore == &f.importOpen && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &f.importOpen})
+				f.restore = nil
+			}
+			return layout.W.Layout(gtx, view.Button(&f.importOpen, l.Text(i18n.OpeningPositionOpen)))
 		})
 	}
 	if p.statement != nil && statementCard(a) && p.freshDetail() != nil {
