@@ -32,6 +32,7 @@ type wealthAccountCapture struct {
 	modes                      [3]widget.Clickable
 	changes, reload, swap      widget.Clickable
 	changesOnly                bool
+	category                   wealthAllocationFilter
 	earlier, later             ui.DatePicker
 	list                       widget.List
 	expanded                   map[string]bool
@@ -68,6 +69,10 @@ func (p *wealthHistoryPage) updateAccounts() {
 		if result.err == nil {
 			if a.captured != a.requested {
 				a.list.Position = layout.Position{}
+				a.category = wealthAllocationFilter{}
+				p.allocation.list.Position = layout.Position{}
+				p.allocation.focus, p.allocation.restore = nil, nil
+				p.allocation.focusAccounts = false
 			}
 			a.current, a.captured = &result.value, a.requested
 		}
@@ -75,21 +80,28 @@ func (p *wealthHistoryPage) updateAccounts() {
 	}
 }
 
-func (p *wealthHistoryPage) selectAccounts() {
-	p.showAccounts = true
-	if p.accounts.draft.from == "" {
-		day := p.origin.lastClosed(p.clock()).Format(time.DateOnly)
-		p.accounts.draft = wealthAccountDates{from: day, to: day}
-	}
-	if p.accounts.current == nil {
-		p.readAccounts(p.accounts.draft)
-	} else {
+func (p *wealthHistoryPage) selectEndpointLens(lens wealthHistoryLens) {
+	if p.lens == wealthTrendLens {
 		p.leave()
+	}
+	p.lens = lens
+	if p.accounts.draft.from == "" {
+		now := p.clock()
+		local := now.In(p.origin.location)
+		monthEnd := time.Date(local.Year(), local.Month(), 0, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
+		chosen := max(monthEnd, p.origin.first)
+		if !p.validAccountDates(wealthAccountDates{from: chosen}, now) {
+			chosen = p.draft.to
+		}
+		p.accounts.draft = wealthAccountDates{from: chosen, to: p.draft.to}
+	}
+	if p.accounts.current == nil && p.accounts.request == nil && p.accounts.err == nil {
+		p.readAccounts(p.accounts.draft)
 	}
 }
 
 func (p *wealthHistoryPage) selectTrend() {
-	p.showAccounts = false
+	p.lens = wealthTrendLens
 	p.leave()
 	if p.current == nil {
 		p.readSeries(p.draft)

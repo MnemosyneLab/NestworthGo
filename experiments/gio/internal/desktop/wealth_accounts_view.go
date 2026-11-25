@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -19,10 +20,15 @@ import (
 
 func (p *wealthHistoryPage) layoutWealthTabs(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
+	allocationLabel := i18n.WealthAllocationTab
+	if p.accounts.current != nil && p.accounts.current.Right != nil {
+		allocationLabel = i18n.WealthAllocationCompare
+	}
 	buttons := []layout.Widget{
+		analysisToggle(view, &p.allocationTab, l.Text(allocationLabel), p.lens == wealthAllocationLens),
 		view.ButtonOf(&p.accountsTab, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
-			Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.WealthAccountTabName), Toggle: true, Selected: p.showAccounts}),
-		analysisToggle(view, &p.trendTab, l.Text(i18n.WealthTrendTab), !p.showAccounts),
+			Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.WealthAccountTabName), Toggle: true, Selected: p.lens == wealthAccountsLens}),
+		analysisToggle(view, &p.trendTab, l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens),
 	}
 	return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
 		return buttons[index](gtx)
@@ -32,6 +38,18 @@ func (p *wealthHistoryPage) layoutWealthTabs(gtx layout.Context, view ui.View) l
 func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.View, now time.Time) layout.Dimensions {
 	p.updateAccounts()
 	a, l := &p.accounts, view.Language
+	if a.category.active {
+		if p.allocation.back.Clicked(gtx) {
+			p.returnToAllocation(view)
+			gtx.Execute(op.InvalidateCmd{})
+		} else if p.allocation.clear.Clicked(gtx) {
+			a.category = wealthAllocationFilter{}
+			a.list.Position = layout.Position{}
+			p.allocation.focus, p.allocation.restore = nil, nil
+			gtx.Execute(key.FocusCmd{Tag: &p.accountsTab})
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
 	labels := [...]i18n.MessageID{i18n.WealthAccountSingle, i18n.WealthAccountCompareDate, i18n.WealthAccountCompareCurrent}
 	for index := range a.modes {
 		if a.modes[index].Clicked(gtx) {
@@ -75,6 +93,9 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 	offset += dates.Size.Y + gap
 	body := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		label := i18n.WealthAccountCapture
+		if p.lens == wealthAllocationLens {
+			label = i18n.WealthAllocationCapture
+		}
 		switch {
 		case a.request != nil:
 			label = i18n.WealthAccountLoading
@@ -103,7 +124,28 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		}
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutWealthTabs(gtx, view) }))
 		if result := a.current; result != nil {
-			rows = append(rows, a.accountRows(gtx, view, *result)...)
+			if p.lens == wealthAllocationLens {
+				rows = append(rows, p.allocationRows(gtx, view, *result)...)
+			} else {
+				if a.category.active {
+					name := wealthAllocationName(l, a.category.key, a.category.currency)
+					rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.WealthAllocationFilter), name), view.Colors.Ink)),
+						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if p.allocation.focusAccounts && gtx.Enabled() {
+								p.allocation.focusAccounts = false
+								gtx.Execute(key.FocusCmd{Tag: &p.allocation.clear})
+							}
+							buttons := []layout.Widget{
+								returnMonthButton(view, &p.allocation.clear, i18n.HistoryClearFilters, nil, true),
+								returnMonthButton(view, &p.allocation.back, i18n.WealthAllocationBack, nil, true),
+							}
+							return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
+								return buttons[index](gtx)
+							})
+						}))
+				}
+				rows = append(rows, a.accountRows(gtx, view, *result)...)
+			}
 		}
 		return (ui.Column{Gap: 10, MinFill: 310}).Layout(gtx, rows...)
 	})
@@ -172,13 +214,22 @@ func (a *wealthAccountCapture) accountRows(gtx layout.Context, view ui.View, res
 	}
 	var visible []application.HistoricalOverviewRow
 	accounts := make(map[string]bool)
+	matched := make(map[string]bool)
+	if a.category.active {
+		for _, row := range result.Rows {
+			if row.ParentKey != "" && a.category.matches(row) {
+				matched[row.ParentKey] = true
+			}
+		}
+	}
 	for _, row := range result.Rows {
-		if row.Kind == "account" && (result.Right == nil || !a.changesOnly || row.Changed) {
+		if row.Kind == "account" && (result.Right == nil || !a.changesOnly || row.Changed) &&
+			(!a.category.active || matched[row.Key]) {
 			accounts[row.Key] = true
 		}
 	}
 	for _, row := range result.Rows {
-		if accounts[row.Key] || accounts[row.ParentKey] && a.expanded[row.ParentKey] {
+		if accounts[row.Key] || accounts[row.ParentKey] && a.expanded[row.ParentKey] && a.category.matches(row) {
 			visible = append(visible, row)
 		}
 	}

@@ -1470,8 +1470,8 @@ separately.
 
 #### Read-only Wealth History
 
-**Insights → Wealth history** opens on the most recent closed day in the
-History timezone. Use the shared date pickers to read 1 through 31 consecutive
+**Insights → Wealth history → Trend** starts on the most recent closed day in
+the History timezone. Use the shared date pickers to read 1 through 31 consecutive
 civil date labels, inclusive, starting at or after the recorded History
 starting point. The range uses the saved household base currency. The loaded
 range, currency, History timezone and read time remain visible. A failed
@@ -1690,6 +1690,33 @@ remains open.
 | Projection and interaction | Tests cover clamped week and month boundaries, an absent week, an unplotted known subtotal, provisional quote evidence, negative debt levels, and a missing or exact rate. The Calendar-linked day moved to the Return rate metric with the keyboard and matched the Wails Go value at +25% and 1/1 rated days. Return Trend's existing viewport, gap and focus tests pass through the shared chart frame. |
 | Linux X11 | The packaged app selected November 4 in the net worth chart and displayed an unavailable total and USD 105.25 known net contribution. Weekly retained the chosen dates, then Return rate showed the 3/7 uncovered week and later 0% weeks with 7/7 coverage. The compact table remained readable at 700×480. |
 | Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared Go trend tests and 20 Wails Asset Trend and Asset Changes tests passed. Native Mac and Wayland remain open. |
+
+#### Wealth History Allocation and category drill-down
+
+Wealth History defaults to Allocation at the prior month end within the
+recorded History range. As in Wails, if History started later, the first
+closed History date is used. Capture controls and endpoint totals precede
+the lens tabs and the class or currency breakdown. The plot uses a donut
+for positive allocations with nonnegative shares, signed bars for mixed
+amounts and text for all-zero or unavailable values. The plot and list
+display the original formatted amounts and shares, with a valued-only
+notice when some included amounts are missing.
+
+Selecting a category opens the matching Accounts component rows while
+retaining the capture. The filter can be cleared in Accounts, or Return to
+allocation restores the source focus and page position. A/B and current
+comparisons use the shared category amounts, known subtotals, shares and
+supported changes. Liabilities use signed levels and the opposite sign for
+increases in debt. Partial, absent and excluded states remain distinguishable.
+The comparison currently uses paired value cards that wrap as the window
+narrows. Wails' paired comparison chart, the Change lens and the graphical
+Trend remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go and Gio controls | Independent read-only copies matched the Wails default capture and date comparison in the History timezone. The test verifies that selecting AUD shows Local cash and omits Foreign cash and debt, that the original scroll and keyboard focus recover, and that partial FX and signed liabilities are distinguishable in comparison. The chart projection keeps negative bars and missing geometry separate. |
+| Linux X11 | The packaged app used the standard Gio directory under a fake config root. Allocation showed AUD 214.79, with AUD 123.45 cash at 57.47% and AUD 91.34 stocks at 42.53%. Selecting the stock arc opened Pine Brokerage. Return to allocation and Enter reopened the same selection. The chart and values stayed readable at 700×480 after page scroll. Both synthetic Wails source file hashes matched after quit. |
+| Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared historical Go tests and 92 Wails Historical Overview frontend tests passed. Native macOS, Wayland, VoiceOver and IME remain open. |
 
 #### Contribution detail and Ledger activity
 

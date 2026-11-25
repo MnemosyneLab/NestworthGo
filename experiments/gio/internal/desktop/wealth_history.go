@@ -22,6 +22,14 @@ type wealthHistoryReader interface {
 
 type wealthDateRange struct{ from, to string }
 
+type wealthHistoryLens uint8
+
+const (
+	wealthAllocationLens wealthHistoryLens = iota
+	wealthAccountsLens
+	wealthTrendLens
+)
+
 type wealthHistoryOrigin struct {
 	first    string
 	location *time.Location
@@ -70,12 +78,13 @@ type wealthHistoryPage struct {
 	draft, requested wealthDateRange
 	current          *wealthHistoryCapture
 
-	from, to              ui.DatePicker
-	load                  widget.Clickable
-	list                  widget.List
-	accounts              wealthAccountCapture
-	trendTab, accountsTab widget.Clickable
-	showAccounts          bool
+	from, to                             ui.DatePicker
+	load                                 widget.Clickable
+	list                                 widget.List
+	accounts                             wealthAccountCapture
+	allocation                           wealthAllocation
+	allocationTab, accountsTab, trendTab widget.Clickable
+	lens                                 wealthHistoryLens
 }
 
 func newWealthHistoryPage(ctx context.Context, reader wealthHistoryReader, clock func() time.Time, invalidate func()) *wealthHistoryPage {
@@ -88,8 +97,8 @@ func newWealthHistoryPage(ctx context.Context, reader wealthHistoryReader, clock
 func (p *wealthHistoryPage) enter() {
 	if p.origin == nil {
 		p.readOrigin()
-	} else if p.showAccounts {
-		if p.accounts.current == nil && p.accounts.err == nil {
+	} else if p.lens != wealthTrendLens {
+		if p.accounts.current == nil && p.accounts.err == nil && p.validAccountDates(p.accounts.draft, p.clock()) {
 			p.readAccounts(p.accounts.draft)
 		}
 	} else if p.current == nil && p.err == nil && p.origin.permits(p.requested, p.clock()) {
@@ -166,7 +175,12 @@ func (p *wealthHistoryPage) update() {
 		initial := wealthDateRange{date, date}
 		if p.origin.permits(initial, now) {
 			p.draft = initial
-			p.readSeries(initial)
+			p.requested = initial
+			if p.lens == wealthTrendLens {
+				p.readSeries(initial)
+			} else {
+				p.selectEndpointLens(p.lens)
+			}
 			return
 		}
 	}

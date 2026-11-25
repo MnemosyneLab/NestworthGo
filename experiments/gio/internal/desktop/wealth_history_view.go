@@ -53,15 +53,19 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	if p.draft == (wealthDateRange{}) {
 		return view.Message(l.Text(i18n.WealthHistoryNoClosedDays), view.Colors.SecondaryInk)(gtx)
 	}
-	if p.accountsTab.Clicked(gtx) && !p.showAccounts {
-		p.selectAccounts()
+	if p.allocationTab.Clicked(gtx) && p.lens != wealthAllocationLens {
+		p.returnToAllocation(view)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.trendTab.Clicked(gtx) && p.showAccounts {
+	if p.accountsTab.Clicked(gtx) && p.lens != wealthAccountsLens {
+		p.selectEndpointLens(wealthAccountsLens)
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if p.trendTab.Clicked(gtx) && p.lens != wealthTrendLens {
 		p.selectTrend()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.showAccounts {
+	if p.lens != wealthTrendLens {
 		return p.layoutWealthAccounts(gtx, view, now)
 	}
 	valid := p.origin.permits(p.draft, now)
