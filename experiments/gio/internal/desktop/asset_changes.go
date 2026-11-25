@@ -42,6 +42,7 @@ type assetChangesVisit struct {
 	expanded  bool
 	preset    int
 	presetAt  analysisDateWindow
+	trendMark charts.Selection
 }
 
 type assetChangesResult struct {
@@ -72,6 +73,8 @@ type assetChangesPage struct {
 	list                       widget.List
 	waterfall                  charts.WaterfallChart
 	waterfallSelected          charts.Selection
+	trendChart                 charts.LineChart
+	trendSelected              charts.Selection
 	driver                     *assetDriverSheet
 	driverButtons              map[string]*widget.Clickable
 	driverFocus                event.Tag
@@ -84,6 +87,7 @@ func (p *assetChangesPage) enter(state assetChangesVisit) {
 	p.filters.expanded = state.expanded
 	p.filters.shortcuts.chosen, p.filters.shortcuts.at = state.preset, state.presetAt
 	p.list.Position = state.list
+	p.trendSelected = state.trendMark
 	p.current = nil
 	if p.refs.origin == nil {
 		p.readRefs()
@@ -97,6 +101,7 @@ func (p *assetChangesPage) visit() assetChangesVisit {
 	state.selection, state.list = p.filters.selection, p.list.Position
 	state.expanded = p.filters.expanded
 	state.preset, state.presetAt = p.filters.shortcuts.chosen, p.filters.shortcuts.at
+	state.trendMark = p.trendSelected
 	return state
 }
 
@@ -184,6 +189,7 @@ func (p *assetChangesPage) update() {
 func (p *assetChangesPage) change() {
 	p.current = nil
 	p.waterfallSelected = charts.Selection{}
+	p.trendSelected = charts.Selection{}
 	p.list.Position = layout.Position{}
 	if p.refs.origin != nil {
 		p.read()

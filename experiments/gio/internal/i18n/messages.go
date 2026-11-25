@@ -438,6 +438,13 @@ const (
 	ContributionHistoryMember
 	AnalysisBaseFallback
 	AssetTrend
+	AssetTrendMetric
+	AssetTrendInvestmentReturn
+	AssetTrendChartHelp
+	AssetTrendMissingValue
+	AssetTrendMissingPeriods
+	AssetTrendTable
+	AssetTrendPeriodValue
 	AssetDrivers
 	AssetCategories
 	AssetCategoryType

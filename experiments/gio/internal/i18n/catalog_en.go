@@ -666,6 +666,14 @@ var englishCatalog = catalog{
 	AssetDriverByAccount:     "By account",
 	AssetNoDriverDetail:      "No driver details are available.",
 
+	AssetTrendMetric:           "Metric",
+	AssetTrendInvestmentReturn: "Investment return",
+	AssetTrendChartHelp:        "Values over the selected period. Use the arrow keys to inspect each point.",
+	AssetTrendMissingValue:     "No value plotted for this period",
+	AssetTrendMissingPeriods:   "Periods with missing values · %d",
+	AssetTrendTable:            "Asset trend data",
+	AssetTrendPeriodValue:      "Period value",
+
 	ContributionOpenHistory:        "View in Ledger activity",
 	ContributionHistoryWider:       "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.",
 	ContributionHistoryUnavailable: "The source did not provide a supported Ledger activity filter.",

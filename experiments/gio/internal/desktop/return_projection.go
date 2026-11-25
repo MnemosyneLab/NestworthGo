@@ -34,8 +34,6 @@ type returnProjectionControls struct {
 	resetTrend                 widget.Clickable
 }
 
-const returnTrendWideChartMinWidth = 610
-
 func (p *returnProjectionControls) trendDisplay() application.ReturnTrendDisplay {
 	if p.display == "" {
 		return application.ReturnTrendCumulativeAmount
@@ -190,31 +188,11 @@ func (p *returnAnalysisPage) trendRows(gtx layout.Context, view ui.View, trend a
 	}
 	if len(trend.Points) != 0 {
 		spec := returnTrendLine(view, trend, from, to)
-		spec.Selected = p.output.trendSelection
-		if gtx.Constraints.Max.X < gtx.Dp(returnTrendWideChartMinWidth) {
-			spec.Height = 180
-		}
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: 4}).Layout(gtx,
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return (layout.Inset{Top: 10, Left: 10, Right: 10}).Layout(gtx, view.Body(ui.TextLabel, spec.Label, view.Colors.Ink))
-					}),
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						view.Focus.Watch(gtx, &p.output.trendChart)
-						dims, events := p.output.trendChart.Layout(gtx, view, spec)
-						if len(events) > 0 {
-							p.output.trendSelection = charts.Apply(p.output.trendSelection, events)
-							gtx.Execute(op.InvalidateCmd{})
-						}
-						return dims
-					}))
-			})
-		}))
+		rows = append(rows, ui.Rigid(analysisLineCard(view, &p.output.trendChart, spec, &p.output.trendSelection)))
 		table := spec.Rows()
 		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnTrendTable), len(table), func(gtx layout.Context, i int) layout.Dimensions {
-				return view.Message(returnTrendTableText(table[i]), view.Colors.Ink)(gtx)
+				return view.Message(analysisLineTableText(table[i]), view.Colors.Ink)(gtx)
 			})
 		}))
 	}

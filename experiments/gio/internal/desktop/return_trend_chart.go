@@ -1,7 +1,6 @@
 package desktop
 
 import (
-	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -86,9 +85,4 @@ func returnTrendObservation(view ui.View, display application.ReturnTrendDisplay
 		observation.Detail = append(observation.Detail, l.Text(i18n.ReturnTrendGap))
 	}
 	return observation
-}
-
-func returnTrendTableText(row charts.TextRow) string {
-	parts := []string{row.Detail[0], row.Value}
-	return strings.Join(append(parts, row.Detail[1:]...), " · ")
 }
