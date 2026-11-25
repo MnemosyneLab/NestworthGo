@@ -1740,7 +1740,52 @@ uses the shared executed rate and resulting balances.
 | --- | --- |
 | Gio and Wails adapter | USD 10.1234 sold for EUR 8.7654 with a USD 0.1 fee. A second entry sold EUR 2.5 for USD 2.8125 with a EUR 0.125 fee. Both matched the same USD cash item, including the bought-side match, the shared effective times with seconds and the executed rate. Cancel wrote no activity or link. Reopen matched both links and USD 148.5891 and EUR 6.1404. |
 | Packaged Linux X11 | The 1160×820 preview showed the exact legs and fee, and Cancel left zero activities and zero links. Return reopened the cash action. At 640×480, the keyboard chose EUR, November 24 in Vancouver, and confirmed USD 10.1234 sold and EUR 8.7654 bought with a USD 0.1 fee. The executed rate was 0.865855345042. The packaged app and SQLite retained the dated note, the USD checkpoint link and exact USD 189.7766 and EUR 8.7654 balances after restart. The second account stayed at USD 25. Holdings, quotes, accounts, contracts and the original hashes matched. Full Gio, vet, Linux packaging, shared Go checks and the focused Wails cross-currency reference passed. |
-| Linked product valuation gate | The Wails adapter accepted preview and commit on a disposable locked product, then the shared SQLite verifier refused reopen with `valuation receipt disagrees with recorded facts`. The saved digest includes `reconciliationLink` while the verifier reconstructs the command without it. This correction remains open pending compatible shared verification. |
+| Linked product valuation gate | The [opt-in reopen regression](#linked-product-valuation-reopen-regression) reproduces the shared SQLite failure on main and this PR. This action requires a verified compatibility repair. |
+
+#### Linked product valuation reopen regression
+
+On PR checkpoint `89a9aade23dc9bc1d4bbd711de2a7055c8da49ef` and main
+`e981ba00303e0ee6f4fc925bf462110152c7add6`, the same
+[synthetic regression](../../../internal/wailsapi/reconciliation/linked_valuation_reopen_test.go)
+created three independent schema 23 ledgers and committed a USD 131.2345
+observation for an active locked product. The legacy and standalone guarded
+controls reopened and returned the exact value. In the linked control, the
+Wails reconciliation adapter committed successfully, and a second commit
+of the same plan produced one quote and one linked receipt in total. After
+checkpointing the WAL and closing, the normal SQLite open returned
+`integrity_failed` with `product: valuation receipt disagrees with recorded facts`.
+The test calls the production open on every case and the linked subtest is
+expected to fail until the shared verifier is corrected.
+
+```sh
+go test -tags linked_valuation_reopen_repro ./internal/wailsapi/reconciliation -run '^TestValuationReceiptReopen$' -count=1 -v
+```
+
+[Guarded preview and commit](../../../internal/application/product_data_guarded.go)
+hash the typed reviewed `ProductValuationCommand`, including its optional
+`reconciliationLink`. The application stores this hash in
+`product_operations.payload_sha256` alongside the normalized command. The
+same hash validates idempotent retries. The
+[product repository](../../../internal/infrastructure/sqlite/product_repository.go)
+saves the quote and the [session link](../../../internal/infrastructure/sqlite/reconciliation_link.go)
+in the same transaction. At open,
+[`verifyProductValuationReceipts`](../../../internal/infrastructure/sqlite/product_valuation_receipt.go)
+decodes a three-field command containing `productId`, `amount` and `observedAt`.
+The saved digest matches the full command. Omitting only the link reproduces
+the verifier hash and only the standalone guarded control matches it. The
+[legacy writer](../../../internal/application/liquidity.go) stores a quote-only
+result using its original digest convention. This guarded receipt query selects
+rows with a command or immutable receipt.
+
+Both refs have the same product writers, valuation verifier, link persistence
+and SQLite schema. The failure applies to saved guarded linked observations
+with this shape, including records already written through Wails. Both controls
+pass on the same schema version, and posting does not change `user_version`.
+A read-side compatibility repair could reconstruct the original typed,
+link-inclusive digest and retain every existing fact and link check. This
+approach can preserve stored hashes and retry identities. Schema 21 and 22,
+tamper regressions and backup verification remain to be tested in any repair.
+Gio will need the shared repair before it can offer the linked valuation action.
 
 #### Product and removed-item checkpoint evidence
 
