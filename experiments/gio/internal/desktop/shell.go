@@ -745,6 +745,9 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 	if entry := s.trail.current(); entry != s.stageEntry {
 		s.stageEntry = entry
 		s.stage.Position = layout.Position{}
+		if entry.visited && entry.target.route == settingsRoute {
+			s.stage.Position = entry.scroll
+		}
 	}
 	inset := pageInset
 	top, bottom := gtx.Dp(inset.Top), gtx.Dp(inset.Bottom)

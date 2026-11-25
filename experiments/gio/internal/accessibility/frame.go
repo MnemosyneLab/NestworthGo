@@ -245,6 +245,9 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 			if b.editor != nil {
 				e.Editable = b.enabled && !b.editor.ReadOnly
 				e.Value = b.editor.Text()
+				if b.editor.Mask != 0 {
+					e.Value = strings.Repeat(string(b.editor.Mask), b.editor.Len())
+				}
 				e.SelectionStart, e.SelectionLength = utf16Range(e.Value, b.editor.Selection)
 			}
 			out = append(out, e)

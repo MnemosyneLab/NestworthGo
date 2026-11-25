@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"image"
 
-	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 
@@ -20,8 +21,13 @@ import (
 
 type settingsPage struct {
 	prefs                       *preferenceState
-	scroll                      widget.List
+	active                      settingsSection
+	tabs                        [len(settingsTabs)]widget.Clickable
 	fields                      [8]ui.Select
+	fxProvider, quoteTTL, log   ui.Select
+	credential                  settingsCredential
+	copyLogPath                 widget.Clickable
+	logPathCopied               bool
 	swatches                    [5]widget.Clickable
 	currency                    ui.TextField
 	save, discard, reset, retry widget.Clickable
@@ -34,10 +40,22 @@ type settingsPage struct {
 	choices                     map[i18n.MessageID][]ui.Choice
 }
 
+type settingsSection int
+
+const (
+	settingsAppearance settingsSection = iota
+	settingsMarket
+	settingsDiagnostics
+	settingsAbout
+)
+
+var settingsTabs = [...]i18n.MessageID{i18n.SettingsTab, i18n.SettingsMarketTab, i18n.SettingsDiagnosticsTab, i18n.SettingsAboutTab}
+
 func newSettingsPage(prefs *preferenceState) *settingsPage {
 	p := &settingsPage{
-		prefs: prefs, scroll: widget.List{List: layout.List{Axis: layout.Vertical}},
+		prefs:    prefs,
 		currency: ui.NewTextField(true), edits: make(map[i18n.MessageID]string),
+		credential: settingsCredential{input: ui.NewTextField(true)},
 	}
 	p.zones = []ui.Choice{{ID: settings.TimezoneSystem}}
 	for _, zone := range preferences.Timezones() {
@@ -51,12 +69,12 @@ func newSettingsPage(prefs *preferenceState) *settingsPage {
 func (p *settingsPage) draft() preferences.Values {
 	v := p.prefs.saved
 	for field, value := range p.edits {
-		setGeneralValue(&v, field, value)
+		setPreferenceValue(&v, field, value)
 	}
 	return v
 }
 
-func setGeneralValue(v *preferences.Values, field i18n.MessageID, value string) {
+func setPreferenceValue(v *preferences.Values, field i18n.MessageID, value string) {
 	switch field {
 	case i18n.SettingsAppearance:
 		v.Appearance = settings.Appearance(value)
@@ -74,12 +92,18 @@ func setGeneralValue(v *preferences.Values, field i18n.MessageID, value string) 
 		v.DecimalSeparator = value
 	case i18n.SettingsGrouping:
 		v.GroupingSeparator = value
+	case i18n.SettingsFXProvider:
+		v.FXProvider = value
+	case i18n.SettingsQuoteCacheTTL:
+		v.QuoteCacheTTL = value
+	case i18n.SettingsLogLevel:
+		v.LogLevel = value
 	}
 }
 
 func (p *settingsPage) edit(field i18n.MessageID, value string) {
 	v := p.prefs.saved
-	setGeneralValue(&v, field, value)
+	setPreferenceValue(&v, field, value)
 	if p.prefs.saved == v {
 		delete(p.edits, field)
 	} else {
@@ -104,41 +128,89 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.returnFocus = false
 		gtx.Execute(key.FocusCmd{Tag: &p.reset})
 	}
-	draft := p.draft()
-	gtx, view = view.Measure(gtx, 896)
-	dims := view.List(&p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
-		return p.content(gtx, view, draft)
-	})
-	// The controls register their bounds in content coordinates; the list
-	// finalizes its viewport offset only after laying out the content.
-	viewport := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(gtx.Constraints.Max)}
-	offset := image.Pt(0, -p.scroll.Position.Offset)
-	for i := range p.fields {
-		view.Overlay.OffsetAnchor(&p.fields[i].Trigger, offset, viewport)
-	}
-	return dims
+	p.updateTabs(gtx)
+	return p.content(gtx, view, p.draft())
 }
 
 func (p *settingsPage) content(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
-	width := gtx.Constraints.Max.X
-	y := view.Message(view.Language.Text(i18n.SettingsIntro), view.Colors.SecondaryInk)(gtx).Size.Y + gtx.Dp(12)
+	gtx.Constraints.Min.Y = 0
+	width := min(gtx.Constraints.Max.X, gtx.Dp(896))
+	intro := view.Message(view.Language.Text(i18n.SettingsIntro), view.Colors.SecondaryInk)(gtx)
+	y := intro.Size.Y + gtx.Dp(18)
+	paint.FillShape(gtx.Ops, view.Colors.Divider, clip.Rect(image.Rect(0, y, gtx.Constraints.Max.X, y+1)).Op())
+	y += 1 + gtx.Dp(20)
 	tab := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		gtx.Constraints.Min.X = 0
-		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Left: 14, Right: 14, Top: 7, Bottom: 7}.Layout(gtx, view.Message(view.Language.Text(i18n.SettingsTab), view.Colors.Ink))
-		})
+		return p.tabStrip(gtx, view)
 	})
-	y += tab.Size.Y + gtx.Dp(14)
+	y += tab.Size.Y + gtx.Dp(12)
 	dims := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
+		switch p.active {
+		case settingsMarket:
+			return p.marketCard(gtx, view, draft)
+		case settingsDiagnostics:
+			return p.diagnosticsCard(gtx, view, draft)
+		case settingsAbout:
+			return settingsAboutCard(gtx, view)
+		default:
 			return p.generalCard(gtx, view, draft)
-		})
+		}
 	})
-	y += dims.Size.Y + gtx.Dp(14)
+	y += dims.Size.Y + gtx.Dp(20)
 	footer := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return p.footer(gtx, view, draft)
 	})
-	return layout.Dimensions{Size: image.Pt(width, y+footer.Size.Y)}
+	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, y+footer.Size.Y)}
+}
+
+func (p *settingsPage) updateTabs(gtx layout.Context) {
+	active := p.active
+	for i := range p.tabs {
+		button := &p.tabs[i]
+		if button.Clicked(gtx) {
+			active = settingsSection(i)
+		}
+		for _, press := range ui.PressedKeys(gtx, button, key.NameLeftArrow, key.NameRightArrow, key.NameHome, key.NameEnd) {
+			switch press.Name {
+			case key.NameLeftArrow:
+				active = settingsSection((i + len(p.tabs) - 1) % len(p.tabs))
+			case key.NameRightArrow:
+				active = settingsSection((i + 1) % len(p.tabs))
+			case key.NameHome:
+				active = settingsAppearance
+			case key.NameEnd:
+				active = settingsAbout
+			}
+			gtx.Execute(key.FocusCmd{Tag: &p.tabs[active]})
+		}
+	}
+	if active != p.active {
+		p.credential.clearInput()
+		p.logPathCopied = false
+		p.active = active
+		gtx.Execute(op.InvalidateCmd{})
+	}
+}
+
+func (p *settingsPage) tabStrip(gtx layout.Context, view ui.View) layout.Dimensions {
+	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		bounds := image.Rectangle{Max: gtx.Constraints.Min}
+		ui.FillRoundRect(gtx, bounds, ui.RadiusLG, view.Colors.HoverSurface)
+		return layout.Dimensions{Size: bounds.Size()}
+	}, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(4).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return (ui.Wrap{Gap: 4}).Layout(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
+				selected := p.active == settingsSection(i)
+				variant := ui.ButtonGhost
+				if selected {
+					variant = ui.ButtonOutline
+				}
+				return view.ButtonOf(&p.tabs[i], ui.ButtonSpec{
+					Variant: variant, Size: ui.ButtonSmall, Title: view.Language.Text(settingsTabs[i]), Toggle: true, Selected: selected,
+				})(gtx)
+			})
+		})
+	})
 }
 
 type settingField struct {
@@ -158,16 +230,9 @@ const (
 )
 
 func (p *settingsPage) generalCard(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
-	width := gtx.Constraints.Max.X
-	pad, gap := gtx.Dp(20), gtx.Dp(settingsGap)
-	y := pad
-	title := ui.Place(gtx, view, image.Pt(pad, y), width-2*pad, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		return view.Label(gtx, view.Language.Text(i18n.SettingsGeneral), 16, font.SemiBold, view.Colors.Ink)
-	})
-	y += title.Size.Y + gap
 	fields := p.formFields(view, draft)
 	grid := ui.Grid{MinColumn: settingsMinColumn, Gap: settingsGap, MaxColumns: 2}
-	body := ui.Place(gtx, view, image.Pt(pad, y), width-2*pad, func(gtx layout.Context, view ui.View) layout.Dimensions {
+	return settingsCard(gtx, view, view.Language.Text(i18n.SettingsGeneral), func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return grid.Layout(gtx, view, len(fields)+1, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 			if i == len(fields) {
 				currency := draft.HouseholdCurrency
@@ -184,8 +249,6 @@ func (p *settingsPage) generalCard(gtx layout.Context, view ui.View, draft prefe
 			return p.field(gtx, view, i, field, separator && draft.DecimalSeparator == draft.GroupingSeparator)
 		})
 	})
-	y += body.Size.Y
-	return layout.Dimensions{Size: image.Pt(width, y+pad)}
 }
 
 func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field settingField, invalid bool) layout.Dimensions {
@@ -223,7 +286,7 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 			if field.label == i18n.SettingsGrouping {
 				color = view.Colors.ErrorInk
 			}
-			return view.Message(field.help, color)(gtx)
+			return view.Body(ui.TextCaption, field.help, color)(gtx)
 		})
 		y += gtx.Dp(4) + d.Size.Y
 	}
@@ -249,7 +312,7 @@ func (p *settingsPage) palette(gtx layout.Context, view ui.View, field settingFi
 }
 
 type settingOption struct {
-	id    string
+	ID    string
 	label i18n.MessageID
 }
 
@@ -271,7 +334,7 @@ func (p *settingsPage) localizeChoices(lang i18n.Language) {
 	for field, options := range generalOptions {
 		items := make([]ui.Choice, 0, len(options))
 		for _, opt := range options {
-			items = append(items, ui.Choice{ID: opt.id, Label: lang.Text(opt.label)})
+			items = append(items, ui.Choice{ID: opt.ID, Label: lang.Text(opt.label)})
 		}
 		p.choices[field] = items
 	}
@@ -350,6 +413,9 @@ func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preference
 				status = p.notice
 			}
 			ink := view.Colors.SecondaryInk
+			if draft.DecimalSeparator == draft.GroupingSeparator {
+				status, ink = i18n.SettingsSeparatorConflict, view.Colors.ErrorInk
+			}
 			if p.prefs.err != nil {
 				status = i18n.SettingsSaveError
 				ink = view.Colors.ErrorInk
@@ -360,10 +426,10 @@ func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preference
 					if p.prefs.busy {
 						gtx = gtx.Disabled()
 					}
-					return view.Button(&p.reset, view.Language.Text(i18n.SettingsReset))(gtx)
+					return view.ButtonOf(&p.reset, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: view.Language.Text(i18n.SettingsReset)})(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					message := view.Message(view.Language.Text(status), ink)
+					message := view.Body(ui.TextCaption, view.Language.Text(status), ink)
 					actions := func(gtx layout.Context) layout.Dimensions { return p.actions(gtx, view, canSave, dirty) }
 					if gtx.Constraints.Max.X < gtx.Dp(settingsFooterRowWidth) {
 						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, layout.Rigid(message), layout.Rigid(actions))

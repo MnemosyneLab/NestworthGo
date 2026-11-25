@@ -683,6 +683,45 @@ const (
 	HistoryResultQuantity
 	SettingsIntro
 	SettingsTab
+	SettingsMarketTab
+	SettingsDiagnosticsTab
+	SettingsAboutTab
+	SettingsMarket
+	SettingsFXProvider
+	SettingsFXProviderHelp
+	SettingsFrankfurter
+	SettingsCredentialsHelp
+	SettingsCoinGecko
+	SettingsQuoteCacheTTL
+	SettingsQuoteCacheHelp
+	SettingsCoinGeckoKey
+	SettingsCoinGeckoHint
+	SettingsCoinGeckoConfigured
+	SettingsCoinGeckoMissing
+	SettingsCoinGeckoSave
+	SettingsCoinGeckoRemove
+	SettingsCoinGeckoSaved
+	SettingsCoinGeckoError
+	SettingsQuoteCache1h
+	SettingsQuoteCache3h
+	SettingsQuoteCache12h
+	SettingsQuoteCache24h
+	SettingsLogLevel
+	SettingsLogHelp
+	SettingsLogPath
+	SettingsLogOff
+	SettingsLogError
+	SettingsLogWarn
+	SettingsLogInfo
+	SettingsLogDebug
+	SettingsLogCopyPath
+	SettingsLogPathCopied
+	SettingsSecretReplace
+	SettingsSecretShow
+	SettingsSecretHide
+	SettingsAboutDescription
+	SettingsAboutVersion
+	SettingsAboutLicense
 	SettingsGeneral
 	SettingsAppearance
 	SettingsAccent

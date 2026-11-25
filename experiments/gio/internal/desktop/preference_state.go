@@ -15,6 +15,7 @@ type preferenceStore interface {
 	Load(context.Context) (preferences.Values, error)
 	Save(context.Context, preferences.Values, preferences.Values) (preferences.Values, error)
 	Reset(context.Context) (preferences.Values, error)
+	SetCoinGeckoKey(context.Context, string) (preferences.Values, error)
 }
 
 type preferenceResult struct {
@@ -22,6 +23,7 @@ type preferenceResult struct {
 	location  *time.Location
 	err       error
 	onSuccess func()
+	onFailure func()
 }
 
 // The window owns the saved snapshot. The settings form owns its unsubmitted
@@ -73,6 +75,9 @@ func (p *preferenceState) update() {
 			if result.onSuccess != nil {
 				result.onSuccess()
 			}
+		} else if result.onFailure != nil {
+			p.err = nil
+			result.onFailure()
 		}
 	default:
 	}
@@ -84,22 +89,28 @@ func (p *preferenceState) update() {
 }
 
 func (p *preferenceState) reload() {
-	p.start(func() (preferences.Values, error) { return p.store.Load(p.ctx) }, nil)
+	p.start(func() (preferences.Values, error) { return p.store.Load(p.ctx) }, nil, nil)
 }
 
 func (p *preferenceState) save(before, after preferences.Values, onSuccess func()) {
 	if p.ready {
-		p.start(func() (preferences.Values, error) { return p.store.Save(p.ctx, before, after) }, onSuccess)
+		p.start(func() (preferences.Values, error) { return p.store.Save(p.ctx, before, after) }, onSuccess, nil)
 	}
 }
 
 func (p *preferenceState) reset(onSuccess func()) {
 	if p.ready {
-		p.start(func() (preferences.Values, error) { return p.store.Reset(p.ctx) }, onSuccess)
+		p.start(func() (preferences.Values, error) { return p.store.Reset(p.ctx) }, onSuccess, nil)
 	}
 }
 
-func (p *preferenceState) start(work func() (preferences.Values, error), onSuccess func()) {
+func (p *preferenceState) setCoinGeckoKey(value string, onSuccess, onFailure func()) {
+	if p.ready {
+		p.start(func() (preferences.Values, error) { return p.store.SetCoinGeckoKey(p.ctx, value) }, onSuccess, onFailure)
+	}
+}
+
+func (p *preferenceState) start(work func() (preferences.Values, error), onSuccess, onFailure func()) {
 	if p.busy || p.ctx.Err() != nil {
 		return
 	}
@@ -110,7 +121,7 @@ func (p *preferenceState) start(work func() (preferences.Values, error), onSucce
 		if err == nil && values.Timezone != settings.TimezoneSystem {
 			location, _ = time.LoadLocation(values.Timezone)
 		}
-		p.results <- preferenceResult{values: values, location: location, err: err, onSuccess: onSuccess}
+		p.results <- preferenceResult{values: values, location: location, err: err, onSuccess: onSuccess, onFailure: onFailure}
 		p.invalidate()
 	})
 }

@@ -97,7 +97,7 @@ func TestGeneralSettingsTimezoneAndConfirmedReset(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Display timezone: Asia/Tokyo\nHistory was started in Asia/Singapore. Past ledger dates stay there. Ordinary times are now shown in Asia/Tokyo.")
 	overview := semanticBounds(t, &h.router, "Overview", false)
-	h.click("Restore display defaults", false)
+	h.click("Restore all preference defaults", false)
 	h.frame()
 	h.focused(&p.confirmation.Cancel)
 	h.clickAt(overview.Min.Add(overview.Max).Div(2))
@@ -110,7 +110,7 @@ func TestGeneralSettingsTimezoneAndConfirmedReset(t *testing.T) {
 		t.Fatal("cancelling reset changed the pending draft")
 	}
 	h.focused(&p.reset)
-	h.click("Restore display defaults", false)
+	h.click("Restore all preference defaults", false)
 	h.frame()
 	h.press(key.NameTab)
 	h.focused(&p.confirmation.Confirm)
@@ -151,7 +151,7 @@ func TestGeneralSettingsNarrowScrolledPicker(t *testing.T) {
 	h, p := generalSettingsHarness(t)
 	h.size = image.Pt(515, 490)
 	h.frame()
-	p.scroll.Position.Offset = 320
+	h.shell.stage.Position.Offset = 355
 	h.frame()
 	b := semanticBounds(t, &h.router, "Timezone", true)
 	h.clickAt(b.Min.Add(b.Max).Div(2))
@@ -168,7 +168,7 @@ func TestGeneralSettingsNarrowScrolledPicker(t *testing.T) {
 	// The action card must remain reachable at the end of the compact form.
 	h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: f32.Pt(350, 300), Scroll: f32.Pt(0, 3000)})
 	h.frame()
-	b = semanticBounds(t, &h.router, "Restore display defaults", false)
+	b = semanticBounds(t, &h.router, "Restore all preference defaults", false)
 	if b.Min.Y < 0 || b.Max.Y > h.size.Y {
 		t.Fatalf("footer bounds %v outside compact viewport %v", b, h.size)
 	}

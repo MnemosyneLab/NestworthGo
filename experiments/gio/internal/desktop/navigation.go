@@ -45,6 +45,7 @@ type navigationEntry struct {
 	accountsArchived bool
 	portfolioSearch  string
 	tasks            tasksVisit
+	settingsSection  settingsSection
 	visited          bool
 }
 
@@ -229,6 +230,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == portfolioRoute {
 		s.portfolio.leave()
 	}
+	if entry.target.route == settingsRoute {
+		s.settingsPage.credential.clearInput()
+	}
 	if request.step != 0 {
 		s.trail.cursor += request.step
 		s.restoreVisit(s.trail.current())
@@ -336,7 +340,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 			entry.directory = s.directory.visit()
 		}
 	case settingsRoute:
-		entry.scroll = s.settingsPage.scroll.Position
+		entry.scroll = s.stage.Position
+		entry.settingsSection = s.settingsPage.active
 	case historyRoute:
 		if s.historyPage != nil {
 			if entry.target.activity == "" {
@@ -364,7 +369,7 @@ func (s *shell) restoreVisit(entry *navigationEntry) {
 			s.directory.restore(entry.directory)
 		}
 	case settingsRoute:
-		s.settingsPage.scroll.Position = entry.scroll
+		s.settingsPage.active = entry.settingsSection
 	case componentPreviewRoute:
 		s.componentPreview.scroll.Position = entry.scroll
 	}

@@ -11,7 +11,7 @@ before recording again. **Dismiss receipt** closes the notice. The preview
 only queries the ledger during this restart check.
 [Profile and receipt behavior](docs/foundation.md#transfer-and-conversion-receipts-after-restart)
 
-## General settings and sidebar
+## Settings and sidebar
 
 Open **Settings → Appearance** to edit appearance, color theme, language,
 timezone, date and time formats, and decimal and grouping separators. The
@@ -19,11 +19,18 @@ form shows the household base currency and the resolved display timezone.
 If the timezone differs from the one used to start ledger history, the form
 shows both. Ledger activity keeps its recorded civil dates.
 
-**Save changes** applies the draft. **Discard changes** returns to saved
-values. **Restore display defaults** asks for confirmation and resets the
-eight editable fields. Reopen the same verified run directory to see saved
-preferences. A new fixture uses the shared defaults, including system
-appearance, system language and the Indigo color theme.
+**Market data** sets the FX refresh provider and quote cache duration. Save,
+replace, or remove a CoinGecko key in its own card. The stored key stays in the
+local database. **Diagnostics** sets the application file log level and shows
+the log path in the active Gio profile. **About** shows the version, build,
+license, and preview app identity.
+
+**Save changes** applies the shared draft across tabs. **Discard changes**
+returns to saved preferences. **Restore all preference defaults** asks for
+confirmation and preserves the ledger and provider key. Reopen the same
+verified run directory to see saved preferences. A new fixture uses system
+appearance, system language, the Indigo color theme, a 12-hour quote cache,
+and file logging off.
 
 The sidebar footer applies its choices immediately. Its language menu offers
 English, Simplified Chinese, Traditional Chinese and Japanese. Its appearance

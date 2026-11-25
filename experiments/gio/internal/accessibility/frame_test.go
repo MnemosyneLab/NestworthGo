@@ -105,6 +105,11 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 	if nodes[1].SelectionStart != 0 || nodes[1].SelectionLength != 1 {
 		t.Fatalf("read-only editor lost text selection: %+v", nodes[1])
 	}
+	editor.Mask = '•'
+	nodes = render(request{})
+	if nodes[1].Value != "••" || editor.Text() != "中😀" {
+		t.Fatal("the masked editor exposed or changed its value")
+	}
 
 	label = "Another day"
 	nodes = render(request{})

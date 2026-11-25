@@ -63,6 +63,18 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 		input = gtx.Disabled()
 	}
 	accessibility.ApplyEditor(input, &f.Editor)
+	if f.Editor.Mask != 0 {
+		// Gio's mask only affects drawing. Consume copy and cut while hidden.
+		for {
+			_, ok := input.Event(
+				key.Filter{Focus: &f.Editor, Name: "C", Required: key.ModShortcut},
+				key.Filter{Focus: &f.Editor, Name: "X", Required: key.ModShortcut},
+			)
+			if !ok {
+				break
+			}
+		}
+	}
 	if f.Editor.SingleLine {
 		// Gio turns an unhandled Return in a single-line editor into a space.
 		// Consume those key events after the platform IME has had its turn.

@@ -24,7 +24,15 @@ func (m *testPreferenceStore) Save(_ context.Context, _, after preferences.Value
 	return m.value, m.err
 }
 func (m *testPreferenceStore) Reset(ctx context.Context) (preferences.Values, error) {
-	return m.Save(ctx, m.value, preferences.Default())
+	defaults := preferences.Default()
+	defaults.CoinGeckoConfigured = m.value.CoinGeckoConfigured
+	defaults.HouseholdCurrency, defaults.HistoryTimezone, defaults.LogPath = m.value.HouseholdCurrency, m.value.HistoryTimezone, m.value.LogPath
+	return m.Save(ctx, m.value, defaults)
+}
+func (m *testPreferenceStore) SetCoinGeckoKey(ctx context.Context, value string) (preferences.Values, error) {
+	next := m.value
+	next.CoinGeckoConfigured = value != ""
+	return m.Save(ctx, m.value, next)
 }
 
 func newTestPreferenceState(t *testing.T) *preferenceState {

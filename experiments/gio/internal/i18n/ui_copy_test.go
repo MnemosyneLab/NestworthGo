@@ -132,6 +132,16 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 		if named(n.Key, "ID") && machineID.MatchString(value) {
 			return true
 		}
+		if literal, ok := parents[len(parents)-2].(*ast.CompositeLit); ok {
+			if typ, ok := literal.Type.(*ast.SelectorExpr); ok {
+				if named(typ.X, "key") && typ.Sel.Name == "Filter" && named(n.Key, "Name") {
+					return len(value) == 1 && value[0] >= 'A' && value[0] <= 'Z'
+				}
+				if named(typ.X, "clipboard") && typ.Sel.Name == "WriteCmd" && named(n.Key, "Type") {
+					return value == "application/text"
+				}
+			}
+		}
 		// A published review filter is a query value, not visible status copy.
 		if named(n.Key, "Status") && machineID.MatchString(value) {
 			if literal, ok := parents[len(parents)-2].(*ast.CompositeLit); ok {
@@ -204,6 +214,8 @@ func launcherLiteral(value string, parents []ast.Node) bool {
 				return sel.Sel.Name == "Errorf" || sel.Sel.Name == "Println" || sel.Sel.Name == "Fprintln"
 			case named(sel.X, "filepath"):
 				return sel.Sel.Name == "Join" && value == "Resources"
+			case named(sel.X, "slog"):
+				return (sel.Sel.Name == "Info" || sel.Sel.Name == "Warn") && len(n.Args) == 1
 			}
 		}
 		return false
@@ -239,6 +251,9 @@ func layout() {
 	view.Label(gtx, language.Text(SettingsGeneral), size, weight, ink)
 	newItem("device-settings", SettingsGeneral, icon, nil)
 	_ = Widget{ID: fmt.Sprintf("test-%02d", index)}
+	_ = key.Filter{Name: "C"}
+	_ = clipboard.WriteCmd{Type: "application/text"}
+	slog.Info("application starting")
 }`
 	file, err := parser.ParseFile(token.NewFileSet(), "preview.go", source, parser.SkipObjectResolution)
 	if err != nil {

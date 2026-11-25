@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -110,9 +112,25 @@ func run(clock func() time.Time) (started bool, result error) {
 	if err != nil {
 		return false, err
 	}
+	previousLogger := slog.Default()
+	profileLog, logErr := prefs.OpenLog()
+	if logErr != nil {
+		slog.Warn("could not configure Gio application file logging")
+	}
+	if profileLog != nil {
+		defer func() {
+			slog.SetDefault(previousLogger)
+			result = errors.Join(result, profileLog.Close())
+		}()
+		slog.SetDefault(profileLog.Logger())
+	}
+	service.SetMarketDataRegistry(application.NewMarketDataRegistryWithDefault(application.FrankfurterProviderKey,
+		marketdata.NewFrankfurterProvider(nil), marketdata.NewYahooChartProvider(), marketdata.NewCoinGeckoProvider(prefs.CoinGeckoKey, nil),
+	))
 	if err := prefs.ConfigureValuation(); err != nil {
 		return false, err
 	}
+	slog.Info("Gio application starting")
 	return true, desktop.Run(ctx, service, prefs, session.CashReceipts, clock, wordmark, mark)
 }
 
