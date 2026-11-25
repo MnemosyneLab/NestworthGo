@@ -273,18 +273,38 @@ becomes a rail below `BreakpointMedium`. Container-level decisions use
 `ui.Grid`, which flows equal-width cells into as many columns as fit (a minimum
 column width and a gap, an optional column cap, and `Balanced` to avoid an
 orphan cell) and hands each cell its own origin so popups stay anchored.
-`ui.Place` is the same primitive for a single child, and `ui.Wrap` flows natural-width children onto new lines for action rows. Pages scroll vertically
-through `View.List` instead of pinning content to the bottom edge, and popups
-that anchor inside a scrolled list move with it (see `OffsetAnchor`). A guard
-test rejects comparing a width with an inline `gtx.Dp(<number>)`; name the
-threshold instead. `TestShellAdaptsToWindowSize` and
-`TestPreviewControlsStayReachableAtEverySize` cover four window sizes, and the
-`responsive` snapshots render Overview, Settings and Component Preview at the
-same sizes for review. Ledger activity is the first list page on this
-foundation: it fills the window up to a readable maximum, its actions wrap, its
-six filters reflow through `ui.Grid`, and the whole page scrolls when the window
-is too short to give the list its minimum height (`TestVisualSnapshotsLedgerActivity`
-renders it at each size).
+`ui.Place` is the same primitive for a single child, and `ui.Wrap` flows
+natural-width children onto new lines for action rows.
+
+Adaptation is the default, not something each page opts into. The shell stage
+owns the page area: it gives every page the full window width with side
+padding, scrolls the page vertically when it is taller than the window, and
+passes the window height down as `Constraints.Min.Y` (the height limit itself is
+unbounded). A page does not cap its own width and does not own an outer scroll.
+
+- A list, table or card page fills the stage. Its rows stretch and its grids add
+  columns on a wide display; it never leaves an empty strip beside the content.
+- A form or reading page declares its readable width once with
+  `gtx, view = view.Measure(gtx, width)`. The stage centers that column and
+  moves popup anchors with it.
+- A page that must fill the remaining height (a list under a header) lays out
+  with `ui.Column`: `ui.Rigid` rows keep their height and one `ui.Fill` row takes
+  the rest, never less than `MinFill`, so a short window scrolls instead of
+  squeezing the list. A vertical `layout.Flex` must not hold a `Flexed` row,
+  because it would take the unbounded height. `ui.FitWindow` is a temporary
+  bridge for a screen that has not moved to `Column` yet.
+- Popups that anchor inside the scrolled stage follow it through
+  `Overlay.Shift`; an anchor that scrolls out of the window closes the popup.
+
+Guard tests reject comparing a width with an inline `gtx.Dp(<number>)` and
+reject a `Flexed` row in a vertical `layout.Flex` (window chrome and onboarding
+are listed exceptions). `TestShellAdaptsToWindowSize` and
+`TestPreviewControlsStayReachableAtEverySize` cover six window sizes up to
+2560 by 1440 dp, and `TestLedgerActivityReportsItsRealHeightAtEverySize` checks
+that a page reports its real height. The `responsive` snapshots
+(`TestVisualSnapshotsLedgerActivity` and the Overview, Settings and Component
+Preview set) render the sizes for review. Snapshots are headless Linux or macOS
+GPU renders, not native display checks.
 
 ### Follow-on controls
 

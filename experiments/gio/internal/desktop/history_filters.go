@@ -21,11 +21,6 @@ type historyFilterControls struct {
 	clear, retry              widget.Clickable
 }
 
-// triggers lists the filter triggers whose popups follow the scrolled page.
-func (c *historyFilterControls) triggers() []*widget.Clickable {
-	return []*widget.Clickable{&c.kind.Trigger, &c.account.Trigger, &c.instrument.Trigger, &c.from.Trigger, &c.to.Trigger}
-}
-
 var filterActivityKinds = []domain.ActivityKind{
 	domain.ActivityCashIn, domain.ActivityCashOut, domain.ActivityCashTransfer, domain.ActivityFXConversion,
 	domain.ActivityValueUpdate, domain.ActivityBuy, domain.ActivitySell, domain.ActivityCashDividend,

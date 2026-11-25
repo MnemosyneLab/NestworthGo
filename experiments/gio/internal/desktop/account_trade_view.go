@@ -29,7 +29,7 @@ func (p *accountsPage) layoutInvestment(gtx layout.Context, view ui.View) layout
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
-	gtx = ui.LimitWidth(gtx, 690)
+	gtx, view = view.Measure(gtx, 690)
 	if d.review != nil {
 		return p.layoutInvestmentReview(gtx, view)
 	}

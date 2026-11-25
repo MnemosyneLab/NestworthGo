@@ -131,8 +131,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.archiveFilter.Clicked(gtx) && !detail && p.request == nil && !p.invalid {
 		p.enter(p.target, !p.archived, layout.Position{})
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 830),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 12}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			var controls []layout.FlexChild
 			if detail {
 				controls = append(controls, layout.Rigid(view.Button(&p.back, l.Text(i18n.AccountBack))))
@@ -198,8 +198,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				layout.Rigid(view.PrimaryButton(&p.createShell, l.Text(i18n.AccountCreateShellAdd))),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if p.current == nil || p.current.unavailable || len(p.current.rows) == 0 {
 				return layout.Dimensions{}
 			}

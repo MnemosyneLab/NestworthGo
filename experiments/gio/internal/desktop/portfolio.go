@@ -196,8 +196,8 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	case p.request != nil:
 		status = i18n.OverviewRefreshing
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 760),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 12}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if status == i18n.NoMessage {
@@ -217,7 +217,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				}),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.id != "" {
 				return layout.Dimensions{}
 			}
@@ -226,7 +226,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				gtx.Execute(op.InvalidateCmd{})
 			})
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if p.current == nil {
 				return layout.Dimensions{}
 			}

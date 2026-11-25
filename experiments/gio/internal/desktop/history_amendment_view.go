@@ -165,15 +165,16 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 		}
 		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 	}
+	gtx, view = view.Measure(gtx, 640)
 	if !movement.Paired() {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(ui.LimitWidth(gtx, 640), append(children, layout.Rigid(actions))...)
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, append(children, layout.Rigid(actions))...)
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(ui.LimitWidth(gtx, 640),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 8}.Layout(gtx,
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return view.List(&form.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 			})
-		}), layout.Rigid(actions),
+		}), ui.Rigid(actions),
 	)
 }
 

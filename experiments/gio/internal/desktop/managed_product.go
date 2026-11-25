@@ -195,8 +195,8 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	case p.current == nil || p.current.detail == nil:
 		status = i18n.ProductUnavailable
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(ui.LimitWidth(gtx, 820),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, view.Message(l.Text(status), view.Colors.SecondaryInk)),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -207,7 +207,7 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 					return view.Button(&p.reload, l.Text(reload))(gtx)
 				}))
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.receiptSaved {
 				return view.Message(l.Text(i18n.ProductReceiptSaved), view.Colors.Ink)(gtx)
 			}
@@ -216,7 +216,7 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 			}
 			return layout.Dimensions{}
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if status != i18n.NoMessage {
 				return layout.Dimensions{}
 			}

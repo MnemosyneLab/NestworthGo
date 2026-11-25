@@ -124,3 +124,19 @@ func (w Wrap) Layout(gtx layout.Context, count int, child func(gtx layout.Contex
 	}
 	return layout.Dimensions{Size: image.Pt(widest, y+line)}
 }
+
+// Measure narrows a page to a readable column and centers it in the width it
+// was given. Forms and detail screens declare a measure; list and card pages
+// do not, so they fill the window. It returns the constraints and a view whose
+// origin sits inside the column, so popups anchor correctly.
+//
+// Call it once at the top of a page; the offset applies to everything the page
+// draws after it.
+func (v View) Measure(gtx layout.Context, width unit.Dp) (layout.Context, View) {
+	size := min(gtx.Dp(width), gtx.Constraints.Max.X)
+	shift := (gtx.Constraints.Max.X - size) / 2
+	op.Offset(image.Pt(shift, 0)).Add(gtx.Ops)
+	gtx.Constraints.Min.X, gtx.Constraints.Max.X = size, size
+	v.Origin.X += shift
+	return gtx, v
+}

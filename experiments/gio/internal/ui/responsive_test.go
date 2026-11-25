@@ -73,3 +73,66 @@ func TestWrapStartsANewLineWhenAChildOverflows(t *testing.T) {
 		t.Fatalf("single-line size = %v, want (320, 30)", got)
 	}
 }
+
+// rowOfHeight is a row of a fixed height. With height zero it takes the
+// minimum height it is given, like a list that fills its row.
+func rowOfHeight(height int, got *image.Point) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if got != nil {
+			*got = image.Pt(gtx.Constraints.Max.X, gtx.Constraints.Max.Y)
+		}
+		if height == 0 {
+			height = gtx.Constraints.Min.Y
+		}
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, height)}
+	}
+}
+
+func TestColumnFillTakesTheRestOfTheWindowOrItsMinimum(t *testing.T) {
+	for _, test := range []struct{ window, fill, total int }{
+		{1000, 1000 - 100 - 8, 1000}, // the Fill row takes what is left
+		{200, 220, 100 + 8 + 220},    // a short window keeps the minimum and scrolls
+	} {
+		var ops op.Ops
+		gtx := testContext(&ops, nil, time.Unix(0, 0), 400)
+		gtx.Constraints.Min.Y, gtx.Constraints.Max.Y = test.window, 1_000_000 // the stage
+		var fill image.Point
+		dims := Column{Gap: 8}.Layout(gtx, Rigid(rowOfHeight(100, nil)), Fill(rowOfHeight(0, &fill)))
+		if fill.Y != test.fill {
+			t.Errorf("window %d: Fill row height = %d, want %d", test.window, fill.Y, test.fill)
+		}
+		if dims.Size.Y != test.total {
+			t.Errorf("window %d: column height = %d, want %d", test.window, dims.Size.Y, test.total)
+		}
+	}
+}
+
+func TestColumnInsideABoundedParentFillsThatParent(t *testing.T) {
+	var ops op.Ops
+	gtx := testContext(&ops, nil, time.Unix(0, 0), 400)
+	gtx.Constraints.Max.Y = 500
+	var fill image.Point
+	Column{}.Layout(gtx, Rigid(rowOfHeight(100, nil)), Fill(rowOfHeight(0, &fill)))
+	if fill.Y != 400 {
+		t.Errorf("Fill row height = %d, want 400", fill.Y)
+	}
+}
+
+func TestMeasureCentersAReadableColumnAndMovesTheOrigin(t *testing.T) {
+	view := testView()
+	view.Origin = image.Pt(10, 20)
+	var ops op.Ops
+	gtx := testContext(&ops, nil, time.Unix(0, 0), 1000)
+	gtx, view = view.Measure(gtx, 600)
+	if gtx.Constraints.Max.X != 600 || gtx.Constraints.Min.X != 600 {
+		t.Errorf("measured width = %d..%d, want 600", gtx.Constraints.Min.X, gtx.Constraints.Max.X)
+	}
+	if view.Origin != image.Pt(10+200, 20) {
+		t.Errorf("origin = %v, want the centering shift added", view.Origin)
+	}
+	gtx = testContext(&ops, nil, time.Unix(0, 0), 400)
+	_, view = testView().Measure(gtx, 600)
+	if view.Origin.X != 0 {
+		t.Errorf("a window narrower than the measure must not shift, got %v", view.Origin)
+	}
+}

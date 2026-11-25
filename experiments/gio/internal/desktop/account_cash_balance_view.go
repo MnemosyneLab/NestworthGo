@@ -18,7 +18,7 @@ import (
 func (p *accountsPage) layoutCashBalance(gtx layout.Context, view ui.View) layout.Dimensions {
 	f, l := p.cashBalance, view.Language
 	d := f.draft
-	gtx = ui.LimitWidth(gtx, 620)
+	gtx, view = view.Measure(gtx, 620)
 	if !p.cashBalanceUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
 		gtx.Execute(key.FocusCmd{Tag: &f.open})

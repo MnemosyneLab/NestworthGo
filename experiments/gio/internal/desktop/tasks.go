@@ -186,8 +186,8 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.err != nil {
 		reload = i18n.HistoryRetry
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(ui.LimitWidth(gtx, 820),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if p.checks == nil {
@@ -204,7 +204,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 				}),
 				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			loading, failed := i18n.TasksLoading, i18n.TasksReadFailed
 			if p.tab != tasksUpcoming {
 				loading, failed = i18n.TasksChecksLoading, i18n.TasksChecksReadFailed
@@ -233,7 +233,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, rows[i])
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewPager(gtx, view) }))
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewPager(gtx, view) }))
 }
 
 func (p *tasksPage) rows(view ui.View) []layout.Widget {

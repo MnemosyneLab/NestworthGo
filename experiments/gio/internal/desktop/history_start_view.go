@@ -17,7 +17,7 @@ import (
 
 func (p *historyPage) layoutStartingPoint(gtx layout.Context, view ui.View) layout.Dimensions {
 	s, l := p.startPoint, view.Language
-	gtx = ui.LimitWidth(gtx, 660)
+	gtx, view = view.Measure(gtx, 660)
 	if s.verifying {
 		return p.layoutStartingPointRead(gtx, view)
 	}
@@ -163,16 +163,16 @@ func (p *historyPage) layoutStartingPointReview(gtx layout.Context, view ui.View
 	if len(rows) == 2 {
 		rows = append(rows, view.Message(l.Text(i18n.HistoryStartEmpty), view.Colors.SecondaryInk))
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 8}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Label(gtx, l.Text(i18n.HistoryStartReview), 19, font.Medium, view.Colors.Ink)
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return view.List(&s.balances).Layout(gtx, len(rows), func(gtx layout.Context, index int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, rows[index])
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Rigid(view.Button(&s.cancel, l.Text(i18n.InstitutionsCancel))),
 				layout.Rigid(view.Button(&s.edit, l.Text(editLabel))),

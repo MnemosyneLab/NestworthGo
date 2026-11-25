@@ -130,6 +130,20 @@ func (h *Overlay) OffsetAnchor(trigger *widget.Clickable, delta image.Point, vie
 	}
 }
 
+// Shift moves the open popup's anchor by a container's scroll offset. Call it
+// after laying out a scrolling container, once per container, so anchors
+// registered inside it follow the content. A popup whose trigger scrolled out of
+// the viewport closes. It does nothing unless the trigger registered this frame.
+func (h *Overlay) Shift(delta image.Point, viewport image.Rectangle) {
+	if h.Trigger == nil || h.pane.Body == nil || delta == (image.Point{}) {
+		return
+	}
+	h.Anchor = h.Anchor.Add(delta)
+	if !h.Anchor.Overlaps(viewport) {
+		h.Close()
+	}
+}
+
 func (h *Overlay) Close() { h.closePending = true }
 
 func (h *Overlay) Layout(gtx layout.Context, view View) {

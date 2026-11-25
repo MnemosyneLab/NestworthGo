@@ -41,7 +41,7 @@ func (p *accountsPage) layoutBalanceTarget(gtx layout.Context, view ui.View) lay
 	f, l := p.balanceTarget, view.Language
 	d := f.draft
 	copy := balanceTargetCopyFor(d.account)
-	gtx = ui.LimitWidth(gtx, 620)
+	gtx, view = view.Measure(gtx, 620)
 	if !p.balanceTargetUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
 		gtx.Execute(key.FocusCmd{Tag: &f.open})

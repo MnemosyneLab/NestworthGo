@@ -146,7 +146,7 @@ func (p *directoryObjectPage) layout(gtx layout.Context, view ui.View) layout.Di
 	if p.result == nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(ui.LimitWidth(gtx, 780),
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, p.status(view)),

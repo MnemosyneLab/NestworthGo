@@ -39,7 +39,7 @@ func (p *availableFundsPage) reservationButton(view ui.View, name string, source
 
 func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reservation, view.Language
-	gtx = ui.LimitWidth(gtx, 690)
+	gtx, view = view.Measure(gtx, 690)
 	if r.close.Clicked(gtx) && !p.reservationUnresolved() {
 		if r.plan != nil {
 			r.plan = nil
@@ -114,6 +114,7 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 	if r.readError && !r.checking {
 		header = append(header, layout.Rigid(view.Button(&r.close, l.Text(i18n.ReserveBack))))
 	}
+	gtx = ui.FitWindow(gtx)
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, header...)
 }
 

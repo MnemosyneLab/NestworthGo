@@ -80,6 +80,9 @@ type navigationGroup struct {
 }
 
 type shell struct {
+	// stage scrolls the active page; stageEntry is the visit it was reset for.
+	stage                                 widget.List
+	stageEntry                            *navigationEntry
 	prefs                                 *preferenceState
 	onboarding                            *onboardingPage
 	settingsPage                          *settingsPage
@@ -157,6 +160,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		mark:             widget.Image{Src: paint.NewImageOp(mark), Fit: widget.Contain},
 		trail:            newNavigationTrail(overviewRoute),
 		navigation:       layout.List{Axis: layout.Vertical},
+		stage:            widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
@@ -682,7 +686,7 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			view.Focus = &focus
-			return pageBody(gtx, view, body)
+			return s.pageBody(gtx, view, body)
 		}),
 	)
 	s.finishPageFocus(gtx, focus)
@@ -725,17 +729,38 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	})
 }
 
-func pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensions {
+// pageInset is the gutter around page content.
+var pageInset = layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
+
+// pageBody is the stage every page is laid out on. It gives a page the full
+// width of the window (a page that wants a readable column centers itself with
+// View.Measure), lets it be taller than the window and scrolls it, and tells it
+// the viewport height through Constraints.Min.Y so a list can fill what is
+// left. Pages that scroll internally keep doing so: a shared list inside the
+// stage takes the viewport height instead of laying out every row.
+func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layout.Dimensions {
 	if body == nil {
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}
-	return layout.NW.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		inset := layout.Inset{Top: 26, Left: 28, Right: 28, Bottom: 16}
-		view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), gtx.Dp(inset.Top)))
+	if entry := s.trail.current(); entry != s.stageEntry {
+		s.stageEntry = entry
+		s.stage.Position = layout.Position{}
+	}
+	inset := pageInset
+	top, bottom := gtx.Dp(inset.Top), gtx.Dp(inset.Bottom)
+	viewport := gtx.Constraints.Max
+	dims := view.List(&s.stage).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = max(0, viewport.Y-top-bottom)
+			view := view
+			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(inset.Left), top))
 			return body(gtx, view)
 		})
 	})
+	// Popups anchor in content coordinates; move them with the scrolled stage.
+	bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(viewport)}
+	view.Overlay.Shift(image.Pt(0, -s.stage.Position.Offset), bounds)
+	return dims
 }
 
 func boolFloat(on bool) float64 {

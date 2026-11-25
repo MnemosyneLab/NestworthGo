@@ -55,8 +55,10 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 		title, contextLabel = i18n.AccountCreateAssetTitle, l.Text(i18n.AccountCreateAssetHelp)
 	}
 	review := false
-	dims := layout.Flex{Axis: layout.Vertical, Gap: gap}.Layout(ui.LimitWidth(gtx, 680),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	gtx, view = view.Measure(gtx, 680)
+	origin = view.Origin
+	dims := ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			dims := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return view.Label(gtx, l.Text(title), 19, font.Medium, view.Colors.Ink)
@@ -66,7 +68,7 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 			origin.Y += dims.Size.Y + gap
 			return dims
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if !ready {
 				id, ink := i18n.AccountCreateInstitutionUnavailable, view.Colors.ErrorInk
 				if d.refs != nil {
@@ -81,7 +83,7 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 			}
 			return d.layoutFields(gtx, view, origin)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			var lines []layout.FlexChild
 			if d.savedInstitution != "" {
 				label := fmt.Sprintf(l.Text(i18n.AccountCreateInstitutionSaved), d.savedInstitution)
@@ -92,7 +94,7 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx, append(lines, layout.Rigid(view.Message(l.Text(d.problem), view.Colors.ErrorInk)))...)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel)))}
 			if d.loadFailed {
 				if d.retry.Clicked(gtx) {
@@ -340,10 +342,10 @@ func (d *balanceAccountDraft) layoutOpeningOptions(gtx layout.Context, view ui.V
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, fields...)
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
-				layout.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutShareMode(gtx, view) }),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return ui.Column{Gap: 6}.Layout(gtx,
+				ui.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
+				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutShareMode(gtx, view) }),
+				ui.Fill(func(gtx layout.Context) layout.Dimensions {
 					return d.layoutOwnerList(gtx, view, d.members, true)
 				}),
 			)

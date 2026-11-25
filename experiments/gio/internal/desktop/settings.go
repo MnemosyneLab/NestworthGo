@@ -105,7 +105,7 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		gtx.Execute(key.FocusCmd{Tag: &p.reset})
 	}
 	draft := p.draft()
-	gtx = ui.LimitWidth(gtx, 896)
+	gtx, view = view.Measure(gtx, 896)
 	dims := view.List(&p.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
 		return p.content(gtx, view, draft)
 	})

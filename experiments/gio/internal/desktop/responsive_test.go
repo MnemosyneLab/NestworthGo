@@ -10,7 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-var responsiveSizes = []image.Point{{700, 460}, {820, 640}, {1120, 840}, {1600, 1000}}
+var responsiveSizes = []image.Point{{700, 460}, {820, 640}, {1120, 840}, {1600, 1000}, {1920, 1080}, {2560, 1440}}
 
 func TestShellAdaptsToWindowSize(t *testing.T) {
 	for _, size := range responsiveSizes {
@@ -73,13 +73,25 @@ func openLedgerActivity(t *testing.T, size image.Point) (*previewHarness, *histo
 // A short window scrolls the page instead of squeezing the activity list; a
 // tall one leaves the list to fill the space.
 func TestLedgerActivityScrollsOnlyWhenTheWindowIsShort(t *testing.T) {
-	_, short := openLedgerActivity(t, image.Pt(700, 460))
-	if short.pageScroll.Position.BeforeEnd == false {
+	shortHarness, _ := openLedgerActivity(t, image.Pt(700, 460))
+	if !shortHarness.shell.stage.Position.BeforeEnd {
 		t.Error("700x460: the page should be taller than the window and scroll")
 	}
-	_, tall := openLedgerActivity(t, image.Pt(1600, 1000))
-	if tall.pageScroll.Position.BeforeEnd {
+	tallHarness, _ := openLedgerActivity(t, image.Pt(1600, 1000))
+	if tallHarness.shell.stage.Position.BeforeEnd {
 		t.Error("1600x1000: the page should fit without scrolling")
+	}
+}
+
+// A page reports its real content height, never the unbounded height the stage
+// offers. A leftover Flexed row in a vertical layout.Flex would show up here as
+// a page about a million pixels tall.
+func TestLedgerActivityReportsItsRealHeightAtEverySize(t *testing.T) {
+	for _, size := range responsiveSizes {
+		h, _ := openLedgerActivity(t, size)
+		if length := h.shell.stage.Position.Length; length >= 100_000 {
+			t.Errorf("%v: page height is %d, want its real content height", size, length)
+		}
 	}
 }
 

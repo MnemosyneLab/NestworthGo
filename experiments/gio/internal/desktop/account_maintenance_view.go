@@ -69,16 +69,16 @@ func (p *accountsPage) layoutAccountArchive(gtx layout.Context, view ui.View) {
 func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) layout.Dimensions {
 	m, l := p.maintenance, view.Language
 	d := m.draft
-	gtx = ui.LimitWidth(gtx, 760)
+	gtx, view = view.Measure(gtx, 760)
 	origin := view.Origin
 	submit := false
-	dims := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	dims := ui.Column{Gap: 8}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
 				return view.Label(gtx, l.Text(i18n.AccountMaintenanceEdit), 19, font.Medium, view.Colors.Ink)
 			})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			role := i18n.AccountRoleAsset
 			if d.record.Account.IsLiability() {
 				role = i18n.AccountRoleLiability
@@ -87,7 +87,7 @@ func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) l
 			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(role), l.Text(accountTrackingLabel(a.TrackingMode, a.AccountType)), a.DefaultCurrency.String())
 			return fieldPosition(gtx, &origin, view.Message(label, view.Colors.SecondaryInk))
 		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if m.pending != nil || p.request != nil || p.err != nil {
 				gtx = gtx.Disabled()
 			}
@@ -103,7 +103,7 @@ func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) l
 				}),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			var lines []layout.FlexChild
 			if m.issue != i18n.NoMessage {
 				lines = append(lines, layout.Rigid(view.Message(l.Text(m.issue), view.Colors.ErrorInk)))
@@ -116,7 +116,7 @@ func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) l
 			}
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if m.pending != nil {
 				gtx = gtx.Disabled()
 			}
@@ -206,8 +206,8 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 	slices.SortFunc(members, func(a, b domain.Member) int {
 		return cmp.Or(cmp.Compare(a.SortOrder, b.SortOrder), cmp.Compare(a.Name, b.Name), cmp.Compare(a.ID, b.ID))
 	})
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return ui.Column{Gap: 6}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gap := gtx.Dp(8)
 			width := (gtx.Constraints.Max.X - gap) / 2
 			return layout.Flex{Gap: gap}.Layout(gtx,
@@ -225,7 +225,7 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 				}),
 			)
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.include.Clicked(gtx) {
 				d.included = !d.included
 			}
@@ -235,9 +235,9 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 			}
 			return view.TabButton(&d.include, l.Text(label), d.included)(gtx)
 		}),
-		layout.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutShareMode(gtx, view) }),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutShareMode(gtx, view) }),
+		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return d.layoutOwnerList(gtx, view, members, true)
 		}),
 	)
