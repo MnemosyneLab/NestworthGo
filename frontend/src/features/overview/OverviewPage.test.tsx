@@ -1,3 +1,4 @@
+import { formatCivilDate, formatCivilDateRange } from "@/lib/time";
 import { moduleNodes } from "@/test/assistantCapture";
 import type { ObjectNavigation } from "@/app/NavigationContext";
 import { upcomingData } from "@/test/upcomingActions";
@@ -120,8 +121,9 @@ describe("OverviewPage", () => {
     expect(card.getByText("2 asset components have no household-currency value and are excluded.")).toBeInTheDocument();
     expect(card.getByText("1 zero-value component has no band.")).toBeInTheDocument();
     const table = within(card.getByRole("table", { name: "View allocation details" }));
-    const stock = table.getByRole("row", { name: /Savings \(1\).*Bank \(1\).*60\.004 USD/ });
-    expect(stock).toHaveTextContent("US$60.00 (60.004 USD)");
+    const stock = table.getByRole("row", { name: /Savings \(1\).*Bank \(1\).*60\.00/ });
+    expect(stock).toHaveTextContent("US$60.00");
+    expect(stock).not.toHaveTextContent("60.004");
     expect(table.getAllByRole("button", { name: "Savings (1)" })).toHaveLength(2);
     const bankAccount = table.getByRole("button", { name: "Savings (2)" });
     expect(bankAccount.closest("tr")).toHaveTextContent("Cash · Bank (2)");
@@ -129,6 +131,33 @@ describe("OverviewPage", () => {
     await userEvent.setup().keyboard("{Enter}");
     expect(navigation.open).toHaveBeenCalledExactlyOnceWith({ page: "accounts", accountId: "account-b" });
   }, 15000);
+
+  it.each(["full", "partial"])("separates %s coverage from the read and reference dates", async availability => {
+    const netWorth = {
+      total: availability === "full" ? { amount: "120", currency: "USD" } : null,
+      knownSubtotal: { amount: "120", currency: "USD" },
+      quality: {
+        availability, coverage: "provisional", includedCount: 3, valuedCount: 2,
+        unpricedCount: availability === "full" ? 0 : 1, provisionalCount: 1, carriedCount: 1,
+        staleCount: 1, oldestMarketDate: "2026-08-01", newestMarketDate: "2026-08-04",
+      },
+    };
+    await renderWithMockedOverview({
+      ...defaultHeadlines,
+      currency: "USD", accountCount: 1, complete: availability === "full", assets: "120", liabilities: "0", netWorth: "120",
+      displayValuation: { assets: netWorth, liabilities: undefined, netWorth },
+      valuationReadDate: "2026-08-05", oldestCarriedMarketDate: "2026-08-03",
+    });
+
+    const coverage = availability === "full" ? "complete" : "incomplete";
+    expect(await screen.findByText(`Valuation coverage ${coverage}`)).toBeInTheDocument();
+    expect(screen.getByText(`Current valuation read on ${formatCivilDate("2026-08-05")}`)).toBeInTheDocument();
+    const freshness = screen.getByText(/Quote and FX reference dates/);
+    expect(freshness).toHaveTextContent(formatCivilDateRange("2026-08-01", "2026-08-04"));
+    expect(freshness).toHaveTextContent(`Oldest carried reference date ${formatCivilDate("2026-08-03")}`);
+    expect(freshness).toHaveTextContent("1 component uses stale market data");
+    expect(screen.queryByText(/Current estimate/)).not.toBeInTheDocument();
+  });
 
   // This fixture-driven check ensures Overview's displayed net worth, assets,
   // and liabilities exactly match the same fixture's Go-computed result. The mocked
@@ -164,7 +193,7 @@ describe("OverviewPage", () => {
     expect(screen.getByText("60.0%")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("40.0%")).toBeInTheDocument();
-    expect(screen.getByText("Current valuation complete")).toBeInTheDocument();
+    expect(screen.getByText("Valuation coverage complete")).toBeInTheDocument();
     expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Credit card").length).toBeGreaterThan(0);
     expect(screen.getByText("By account type")).toBeInTheDocument();
@@ -337,7 +366,7 @@ it("keeps historical issues actionable when current valuation is complete", asyn
   scanHealth.mockResolvedValue({ healthy: false, issueCount: 1, issues: [{ kind: "snapshot_outdated" }] });
   const onOpenDataHealth = vi.fn();
   await renderWithMockedOverview(completeOverview, { onOpenDataHealth });
-  expect(await screen.findByText("Current valuation complete")).toBeInTheDocument();
+  expect(await screen.findByText("Valuation coverage complete")).toBeInTheDocument();
   const action = await screen.findByRole("button", { name: "Fix in Data Health" });
   expect(screen.queryByText("Nothing needs attention right now.")).not.toBeInTheDocument();
   await userEvent.click(action);
@@ -348,7 +377,7 @@ it.each(["loading", "failed"])("does not claim all clear while health is %s", as
   if (state === "loading") scanHealth.mockImplementation(() => new Promise(() => {}));
   else scanHealth.mockRejectedValue(new Error("health unavailable"));
   await renderWithMockedOverview(completeOverview, {}, undefined, state === "failed" ? { retry: false } : undefined);
-  await screen.findByText("Current valuation complete");
+  await screen.findByText("Valuation coverage complete");
   const message = state === "loading" ? "Checking historical data health…" : "Historical data health could not be checked.";
   expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
   expect(screen.queryByText("Nothing needs attention right now.")).not.toBeInTheDocument();

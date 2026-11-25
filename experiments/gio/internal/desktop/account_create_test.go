@@ -15,6 +15,7 @@ import (
 
 	"gioui.org/io/key"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -74,9 +75,17 @@ func createFixtureRoot(t *testing.T) string {
 
 func openBankFixture(t *testing.T, root string) (*application.Service, *pilot.Session) {
 	t.Helper()
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", root)
-	t.Setenv("NESTWORTH_DATABASE_PATH", "")
-	t.Setenv("NESTWORTH_SETTINGS_PATH", "")
+	database := filepath.Join(root, "data", "nestworth.db")
+	settingsPath := filepath.Join(root, "data", "settings.json")
+	if _, err := os.Stat(database); errors.Is(err, os.ErrNotExist) {
+		if err := testledger.Seed(t.Context(), database, settingsPath); err != nil {
+			t.Fatal(err)
+		}
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NESTWORTH_DATABASE_PATH", database)
+	t.Setenv("NESTWORTH_SETTINGS_PATH", settingsPath)
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
 		t.Fatal(err)

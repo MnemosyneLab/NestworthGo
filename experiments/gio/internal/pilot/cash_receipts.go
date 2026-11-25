@@ -46,15 +46,9 @@ func (s *CashReceiptStore) directory() (string, error) {
 	if s.closed {
 		return "", errors.New("cash receipts require an open pilot session")
 	}
-	if err := checkRoot(s.paths.RootPath()); err != nil {
-		return "", err
-	}
-	if err := requirePrivateDirectory(s.paths.data); err != nil {
-		return "", err
-	}
-	info, err := verifyFile(s.paths.database)
-	if err != nil || !os.SameFile(s.verified, info) {
-		return "", errors.New("the verified pilot database changed")
+	info, err := os.Stat(s.paths.database)
+	if err != nil || s.verified == nil || !os.SameFile(s.verified, info) {
+		return "", errors.New("the open ledger changed")
 	}
 	return filepath.Join(s.paths.RootPath(), cashReceiptDirectory), nil
 }
@@ -104,7 +98,7 @@ func (s *CashReceiptStore) Remember(ctx context.Context, mutationID, digest stri
 	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
-	if err := requirePrivateDirectory(dir); err != nil {
+	if err := requirePrivateReceiptDirectory(dir); err != nil {
 		return err
 	}
 	if err := syncReceiptDirectory(s.paths.RootPath()); err != nil {
@@ -131,7 +125,7 @@ func (s *CashReceiptStore) Remember(ctx context.Context, mutationID, digest stri
 
 func readCashReceipt(path string) (cashReceiptFile, error) {
 	var record cashReceiptFile
-	info, err := verifyFile(path)
+	info, err := verifyReceiptFile(path)
 	if err != nil {
 		return record, err
 	}
@@ -165,7 +159,7 @@ func (s *CashReceiptStore) Pending(ctx context.Context) ([]PendingCashReceipt, e
 	if _, err := os.Lstat(dir); errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
-	if err := requirePrivateDirectory(dir); err != nil {
+	if err := requirePrivateReceiptDirectory(dir); err != nil {
 		return nil, err
 	}
 	files, err := os.ReadDir(dir)
@@ -206,11 +200,11 @@ func (s *CashReceiptStore) Forget(id string) error {
 	if err != nil {
 		return err
 	}
-	if err := requirePrivateDirectory(dir); err != nil {
+	if err := requirePrivateReceiptDirectory(dir); err != nil {
 		return err
 	}
 	path := filepath.Join(dir, id+".json")
-	if _, err := verifyFile(path); err == nil {
+	if _, err := verifyReceiptFile(path); err == nil {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -226,4 +220,28 @@ func syncReceiptDirectory(path string) error {
 		return err
 	}
 	return errors.Join(dir.Sync(), dir.Close())
+}
+
+func requirePrivateReceiptDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() || !isPrivateOwned(info) {
+		return fmt.Errorf("the cash receipt store requires a private directory owned by the current user: %s", path)
+	}
+	return nil
+}
+
+func isPrivateOwned(info os.FileInfo) bool {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && int(stat.Uid) == os.Geteuid() && info.Mode().Perm()&0o077 == 0
+}
+
+func verifyReceiptFile(path string) (os.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || !isPrivateOwned(info) || info.Sys().(*syscall.Stat_t).Nlink != 1 {
+		return nil, errors.New("expected a private regular file without symbolic or hard links")
+	}
+	return info, nil
 }

@@ -21,7 +21,7 @@ import (
 
 type retryReturnReads struct {
 	*application.Service
-	failCalendar, failDay bool
+	failCalendar, failDay, failDriver bool
 }
 
 func (r *retryReturnReads) ReturnCalendar(ctx context.Context, query domain.AnalysisQuery, cursor, granularity string) (application.ReturnCalendarResult, error) {
@@ -38,6 +38,14 @@ func (r *retryReturnReads) ReturnDay(ctx context.Context, query domain.AnalysisQ
 		return application.ReturnDayResult{}, errors.New("synthetic day error")
 	}
 	return r.Service.ReturnDay(ctx, query, date)
+}
+
+func (r *retryReturnReads) AssetDriverDetail(ctx context.Context, query domain.AnalysisQuery, bucket string) (application.AssetDriverDetailResult, error) {
+	if r.failDriver {
+		r.failDriver = false
+		return application.AssetDriverDetailResult{}, errors.New("synthetic driver error")
+	}
+	return r.Service.AssetDriverDetail(ctx, query, bucket)
 }
 
 func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
@@ -132,9 +140,9 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	}
 
 	gio, gioProvider := openCopy()
-	reader := &retryReturnReads{Service: gio, failCalendar: true, failDay: true}
+	reader := &retryReturnReads{Service: gio, failCalendar: true, failDay: true, failDriver: true}
 	page := &returnAnalysisPage{ctx: ctx, reader: reader, clock: clock, invalidate: func() {}}
-	assets := &assetChangesPage{ctx: ctx, reader: gio, clock: clock, invalidate: func() {}}
+	assets := &assetChangesPage{ctx: ctx, reader: reader, clock: clock, invalidate: func() {}}
 	ledger := newLedgerHistory(ctx, gio, clock, func() {})
 	t.Cleanup(page.workers.Wait)
 	t.Cleanup(assets.workers.Wait)
@@ -250,6 +258,32 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		assets.current.query.To != dayQuery.To {
 		t.Fatalf("Asset Changes differs from Wails for the linked day: %+v and %+v", report, wailsAssets)
 	}
+	wailsDriver, err := adapter.AssetDriverDetail(ctx, dayQuery, string(domain.BucketPriceChange))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.router.Source().Execute(key.FocusCmd{Tag: &assets.waterfall})
+	h.frame()
+	h.focused(&assets.waterfall)
+	h.press(key.NameHome)
+	h.press(key.NameRightArrow)
+	h.press(key.NameReturn)
+	assets.workers.Wait()
+	h.frame()
+	assertPageLabel(t, &h.router, "Could not load asset changes.")
+	h.click("Retry", false)
+	assets.workers.Wait()
+	h.frame()
+	if assets.driver == nil || assets.driver.row.Bucket != domain.BucketPriceChange || assets.driver.value == nil ||
+		len(assets.driver.value.ByInstrument) != 1 || len(wailsDriver.ByInstrument) != 1 ||
+		assets.driver.value.ByInstrument[0].Amount.CanonicalAmount() != wailsDriver.ByInstrument[0].Amount.Amount {
+		t.Fatal("the waterfall did not open the Wails-backed Price change detail")
+	}
+	assertPageLabel(t, &h.router, "Total · $ 25.00")
+	assertPageLabel(t, &h.router, "By account")
+	h.press(key.NameEscape)
+	h.frame()
+	h.focused(&assets.waterfall)
 	wailsAssetTrend, err := adapter.AssetTrend(ctx, dayQuery, string(application.TrendDay), string(application.TrendNetWorth))
 	if err != nil {
 		t.Fatal(err)
@@ -380,7 +414,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.")
 	assertPageLabel(t, &h.router, "The member filter does not carry over to Ledger activity.")
-	rank := page.item.button
+	rank := page.item.trigger
 	h.click("View in Ledger activity", false)
 	for range 3 {
 		ledger.model.Wait()
@@ -402,6 +436,39 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if page.output.ranking.search.Field.Text() != "synthetic" || page.output.ranking.limit != 20 {
 		t.Fatal("Back lost the Contribution result controls")
 	}
+	chart := &page.output.ranking.chart
+	h.router.Source().Execute(key.FocusCmd{Tag: chart})
+	h.frame()
+	h.focused(chart)
+	h.press(key.NameHome)
+	h.press(key.NameReturn)
+	page.workers.Wait()
+	h.frame()
+	if page.item == nil || page.item.trigger != chart || page.item.key != instrument.ID.String() || page.item.value == nil {
+		t.Fatal("the chart selection did not open the matching Contribution detail")
+	}
+	h.click("View in Ledger activity", false)
+	for range 3 {
+		ledger.model.Wait()
+		ledger.reads.workers.Wait()
+		h.frame()
+	}
+	if h.shell.activeRoute() != historyRoute || !ledger.model.Filters().Equal(wantHistory) {
+		t.Fatal("the chart selection changed the supported ledger filters")
+	}
+	h.click("Back", false)
+	page.workers.Wait()
+	h.frame()
+	h.focused(chart)
+	h.press(key.NameReturn)
+	page.workers.Wait()
+	h.frame()
+	if page.item == nil || page.item.key != instrument.ID.String() {
+		t.Fatal("Back did not restore the originating chart selection")
+	}
+	h.press(key.NameEscape)
+	h.frame()
+	h.focused(chart)
 }
 
 func TestReturnCalendarGridUsesWholeWeeks(t *testing.T) {
@@ -475,6 +542,10 @@ func (r *calendarFilterReader) ReturnCalendar(_ context.Context, q domain.Analys
 func (r *calendarFilterReader) AssetChange(_ context.Context, q domain.AnalysisQuery) (application.AssetChangeResult, error) {
 	r.lastAssets = q
 	return application.AssetChangeResult{}, nil
+}
+
+func (r *calendarFilterReader) AssetDriverDetail(context.Context, domain.AnalysisQuery, string) (application.AssetDriverDetailResult, error) {
+	return application.AssetDriverDetailResult{}, nil
 }
 
 func (r *calendarFilterReader) AssetTrend(context.Context, domain.AnalysisQuery, application.AssetTrendGranularity, application.AssetTrendMetric) (application.AssetTrendResult, error) {

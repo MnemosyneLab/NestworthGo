@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartTheme, cssColor, joinTooltipLines, useThemeVersion } from "@/components/charts/chartTheme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/layout/PageState";
-import { formatAuditMoney } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import type { TFunction } from "i18next";
 import type { AssetCompositionDTO, AssetNodeDTO, AssetPathDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio/models";
 
-const MIN_CHART_WIDTH = 620;
+const MIN_CHART_WIDTH = 960;
+const COMPACT_DETAILS_WIDTH = 620;
+const NODE_WIDTH = 14;
+const LABEL_SPACE = 230;
 
 export function AssetCompositionSankey({ composition, assets, currency, isActive = true, onOpenAccount }: {
   composition: AssetCompositionDTO;
@@ -20,6 +23,7 @@ export function AssetCompositionSankey({ composition, assets, currency, isActive
   onOpenAccount?: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  const chartHelpId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -34,8 +38,9 @@ export function AssetCompositionSankey({ composition, assets, currency, isActive
   }, []);
 
   const { positive, negative, missingCount, zeroCount } = composition;
-  const wide = width >= MIN_CHART_WIDTH;
+  const compact = width < COMPACT_DETAILS_WIDTH;
   const paths = composition.paths ?? [];
+  const nodes = composition.nodes ?? [];
   const labels = assetCompositionLabels(paths, t);
   const hasPositive = paths.length > 0;
   const hasNegative = negative !== "0";
@@ -65,8 +70,14 @@ export function AssetCompositionSankey({ composition, assets, currency, isActive
             {zeroCount > 0 && <p className="text-sm text-muted-foreground">{t("assetSankey.zero", { count: zeroCount })}</p>}
           </div>
           {hasPositive ? <>
-            {wide && isActive && <AssetSankeyChart nodes={composition.nodes ?? []} labels={labels} rootLabel={rootLabel} width={width} currency={currency} onOpenAccount={onOpenAccount} />}
-            <details open={!wide}>
+            {isActive && nodes.length > 0 && (
+              <div className="space-y-2">
+                <p id={chartHelpId} className="text-xs text-muted-foreground">{t("assetSankey.chartHelp")}</p>
+                <AssetSankeyChart nodes={nodes} labels={labels} rootLabel={rootLabel} currency={currency}
+                  helpId={chartHelpId} onOpenAccount={onOpenAccount} />
+              </div>
+            )}
+            <details open={compact}>
               <summary className="w-fit cursor-pointer rounded-lg text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                 {t("assetSankey.details")}
               </summary>
@@ -78,17 +89,19 @@ export function AssetCompositionSankey({ composition, assets, currency, isActive
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {paths.map(path => {
+                  {paths.map((path, index) => {
                     const account = labels.account(path.accountId);
+                    const pathDescriptionId = `${chartHelpId}-path-${index}`;
                     return (
-                      <tr key={`${path.assetClass}/${path.accountId}`}>
+                      <tr key={`${path.assetClass}/${path.institutionId}/${path.accountId}`}>
                         <th scope="row" className="py-2 align-top font-normal [overflow-wrap:anywhere]">
                           {onOpenAccount ? (
-                            <Button type="button" variant="link" className="h-auto max-w-full justify-start whitespace-normal p-0 text-left" onClick={() => onOpenAccount(path.accountId)}>{account}</Button>
+                            <Button type="button" variant="link" className="h-auto max-w-full justify-start whitespace-normal p-0 text-left"
+                              aria-describedby={pathDescriptionId} onClick={() => onOpenAccount(path.accountId)}>{account}</Button>
                           ) : <span className="font-medium">{account}</span>}
-                          <div className="text-xs text-muted-foreground">{labels.assetClass(path.assetClass)} · {labels.institution(path.institutionId)}</div>
+                          <div id={pathDescriptionId} className="text-xs text-muted-foreground">{labels.assetClass(path.assetClass)} · {labels.institution(path.institutionId)}</div>
                         </th>
-                        <td className="num py-2 pl-3 text-right align-top [overflow-wrap:anywhere]">{formatAuditMoney(path.amount, currency)}</td>
+                        <td className="num py-2 pl-3 text-right align-top [overflow-wrap:anywhere]">{formatAmount(path.amount, currency)}</td>
                       </tr>
                     );
                   })}
@@ -106,15 +119,17 @@ function AmountSummary({ label, value, currency }: { label: string; value: strin
   return (
     <div className="min-w-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="num font-semibold [overflow-wrap:anywhere]">{formatAuditMoney(value, currency)}</dd>
+      <dd className="num font-semibold [overflow-wrap:anywhere]">{formatAmount(value, currency)}</dd>
     </div>
   );
 }
 
-function distinctLabels(entries: Map<string, string>, t: TFunction): Map<string, string> {
+type AssetLabel = { full: string; chart: string };
+
+function distinctLabels(entries: Map<string, string>, t: TFunction): Map<string, AssetLabel> {
   const groups = new Map<string, string[]>();
   const used = new Set(entries.values());
-  const result = new Map(entries);
+  const result = new Map([...entries].map(([id, name]) => [id, { full: name, chart: name }]));
   for (const [id, name] of entries) {
     const group = groups.get(name) ?? [];
     group.push(id);
@@ -124,12 +139,14 @@ function distinctLabels(entries: Map<string, string>, t: TFunction): Map<string,
     if (ids.length === 1) continue;
     let ordinal = 0;
     for (const id of ids.sort()) {
+      // Preserve the explicit unassigned label when a real institution has that name.
+      if (id === "") continue;
       let label: string;
       do {
         label = t("assetSankey.duplicateName", { name, ordinal: ++ordinal });
       } while (used.has(label));
       used.add(label);
-      result.set(id, label);
+      result.set(id, { full: label, chart: t("assetSankey.chartDuplicateName", { name, ordinal }) });
     }
   }
   return result;
@@ -140,35 +157,31 @@ function assetCompositionLabels(paths: AssetPathDTO[], t: TFunction) {
   const institutions = distinctLabels(new Map(paths.map(path => [path.institutionId, path.institutionId
     ? path.institutionName || t("common.unknownValue") : t("overview.unassignedInstitution")])), t);
   return {
-    account: (id: string) => accounts.get(id) ?? t("overview.unknownAccount"),
-    institution: (id: string) => institutions.get(id) ?? t("common.unknownValue"),
+    account: (id: string, style: keyof AssetLabel = "full") => accounts.get(id)?.[style] ?? t("overview.unknownAccount"),
+    institution: (id: string, style: keyof AssetLabel = "full") => institutions.get(id)?.[style] ?? t("common.unknownValue"),
     assetClass: (key: string) => key ? displayEnum(t, "enum", key) : t("common.unknownValue"),
   };
 }
 
-function AssetSankeyChart({ nodes, labels, rootLabel, width, currency, onOpenAccount }: {
+function AssetSankeyChart({ nodes, labels, rootLabel, currency, helpId, onOpenAccount }: {
   nodes: AssetNodeDTO[];
   labels: ReturnType<typeof assetCompositionLabels>;
   rootLabel: string;
-  width: number;
   currency: string;
+  helpId: string;
   onOpenAccount?: (id: string) => void;
 }) {
   const { t } = useTranslation();
   useThemeVersion();
   const theme = chartTheme();
-  const labelSpace = Math.min(218, Math.max(148, Math.floor(width * 0.2)));
-  const nodeLabel = (node: AssetNodeDTO) => {
+  const nodeLabel = (node: AssetNodeDTO, style: keyof AssetLabel = "full") => {
     switch (node.kind) {
       case "assetClass": return labels.assetClass(node.key);
-      case "institution": return labels.institution(node.key);
-      case "account": return labels.account(node.key);
-      case "otherInstitutions": return t("assetSankey.otherInstitutions");
-      case "otherAccounts": return t("assetSankey.otherAccounts");
+      case "institution": return labels.institution(node.key, style);
+      case "account": return labels.account(node.key, style);
       default: return rootLabel;
     }
   };
-  const labelsByID = new Map(nodes.map(node => [node.id, nodeLabel(node)]));
   const nodesByID = new Map(nodes.map(node => [node.id, node]));
   const nodeColors = new Map<string, string>();
   let classIndex = 0;
@@ -185,30 +198,38 @@ function AssetSankeyChart({ nodes, labels, rootLabel, width, currency, onOpenAcc
         const data = params.data as { assetNodeId?: string } | undefined;
         const node = data?.assetNodeId ? nodesByID.get(data.assetNodeId) : undefined;
         if (!node) return "";
-        const label = labelsByID.get(node.id);
-        return joinTooltipLines([
-          params.dataType === "edge" ? [labelsByID.get(node.parentId), label].join(" › ") : label,
-          formatAuditMoney(node.amount, currency),
-        ]);
+        const path = [nodeLabel(node)];
+        let ancestor = nodesByID.get(node.parentId);
+        while (ancestor?.parentId) {
+          path.unshift(nodeLabel(ancestor));
+          ancestor = nodesByID.get(ancestor.parentId);
+        }
+        return joinTooltipLines([path.join(" › "), formatAmount(node.amount, currency)]);
       },
     },
     series: {
       type: "sankey",
-      left: 0, right: labelSpace, top: 8, bottom: 8,
-      nodeWidth: 14, nodeGap: 18, draggable: false,
-      emphasis: { focus: "trajectory" },
+      left: 0, right: LABEL_SPACE, top: 14, bottom: 14,
+      nodeWidth: NODE_WIDTH, nodeGap: 30, draggable: false,
+      // The backend orders each depth by ancestry to avoid branch crossings.
+      layoutIterations: 0,
+      emphasis: { focus: "trajectory", lineStyle: { opacity: 0.8 } },
+      blur: { itemStyle: { opacity: 0.25 }, lineStyle: { opacity: 0.07 } },
       label: {
         color: theme.foreground,
-        width: labelSpace - 22,
+        width: LABEL_SPACE - 20,
         overflow: "truncate",
         textBorderColor: cssColor("--color-card", "#ffffff"),
         textBorderWidth: 3,
-        formatter: ({ name }) => labelsByID.get(name) ?? "",
+        formatter: ({ name }) => {
+          const node = nodesByID.get(name);
+          return node ? nodeLabel(node, "chart") : "";
+        },
       },
       data: nodes.map(node => ({
         name: node.id,
         assetNodeId: node.id,
-        itemStyle: { color: nodeColors.get(node.id), borderWidth: 0, borderRadius: 2 },
+        itemStyle: { color: nodeColors.get(node.id), borderColor: nodeColors.get(node.id), borderWidth: 1 },
         label: { show: Boolean(node.parentId) },
       })),
       links: nodes.filter(node => node.parentId).map(node => ({
@@ -218,29 +239,42 @@ function AssetSankeyChart({ nodes, labels, rootLabel, width, currency, onOpenAcc
         assetNodeId: node.id,
         lineStyle: { color: nodeColors.get(node.id) },
       })),
-      lineStyle: { opacity: 0.28, curveness: 0.44 },
+      lineStyle: { opacity: 0.3, curveness: 0.44 },
     },
   };
-  const terminalCount = nodes.filter(node => node.kind === "account" || node.kind === "otherAccounts").length;
+  const terminalCount = nodes.filter(node => node.kind === "account").length;
   return (
-    <div className="flex flex-col gap-1">
-      <div aria-hidden="true" className="grid gap-y-1 text-xs font-medium text-muted-foreground" style={{ gridTemplateColumns: `repeat(3, minmax(0, 1fr)) ${labelSpace + 14}px` }}>
-        <span>{rootLabel}</span>
-        <span>{t("assetSankey.assetClass")}</span>
-        <span>{t("assetSankey.institution")}</span>
-        <span>{t("assetSankey.account")}</span>
+    <div
+      role="region"
+      aria-label={t("assetSankey.chartViewport")}
+      aria-describedby={helpId}
+      tabIndex={0}
+      className="max-h-[30rem] min-w-0 overflow-auto rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+    >
+      <div className="px-3" style={{ minWidth: MIN_CHART_WIDTH }}>
+        <div
+          aria-hidden="true"
+          className="sticky top-0 z-10 grid border-b border-border bg-card py-2 text-xs font-medium text-muted-foreground"
+          style={{ gridTemplateColumns: `repeat(3, minmax(0, 1fr)) ${LABEL_SPACE + NODE_WIDTH}px` }}
+        >
+          <span>{rootLabel}</span>
+          <span>{t("assetSankey.assetClass")}</span>
+          <span>{t("assetSankey.institution")}</span>
+          <span>{t("assetSankey.account")}</span>
+        </div>
+        {/* SVG keeps the full scrollable plot independent of canvas size limits. */}
+        <EChart
+          renderer="svg"
+          option={option}
+          height={Math.max(268, terminalCount * 30 + 100)}
+          ariaLabel={t("assetSankey.title")}
+          summary={t("assetSankey.description")}
+          onSelectName={onOpenAccount ? name => {
+            const node = name ? nodesByID.get(name) : undefined;
+            if (node?.kind === "account") onOpenAccount(node.key);
+          } : undefined}
+        />
       </div>
-      <EChart
-        option={option}
-        height={Math.max(268, terminalCount * 26 + 100)}
-        ariaLabel={t("assetSankey.title")}
-        summary={t("assetSankey.description")}
-        onSelectName={onOpenAccount ? name => {
-          const node = name ? nodesByID.get(name) : undefined;
-          if (node?.kind === "account") onOpenAccount(node.key);
-        } : undefined}
-      />
-      {nodes.some(node => node.kind === "otherAccounts") && <p className="text-xs text-muted-foreground">{t("assetSankey.grouped")}</p>}
     </div>
   );
 }

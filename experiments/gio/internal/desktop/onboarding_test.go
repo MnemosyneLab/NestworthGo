@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -52,14 +53,11 @@ var onboardingTestTime = time.Date(2026, time.November, 21, 17, 0, 0, 0, time.UT
 
 func prepareOnboardingProfile(t *testing.T) pilot.Paths {
 	t.Helper()
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", createFixtureRoot(t))
-	t.Setenv("NESTWORTH_DATABASE_PATH", "")
-	t.Setenv("NESTWORTH_SETTINGS_PATH", "")
+	root := createFixtureRoot(t)
+	t.Setenv("NESTWORTH_DATABASE_PATH", filepath.Join(root, "data", "nestworth.db"))
+	t.Setenv("NESTWORTH_SETTINGS_PATH", filepath.Join(root, "data", "settings.json"))
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := pilot.PrepareOnboarding(t.Context(), paths); err != nil {
 		t.Fatal(err)
 	}
 	return paths

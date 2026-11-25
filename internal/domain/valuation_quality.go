@@ -23,6 +23,9 @@ const (
 )
 
 type ValuationQuality struct {
+	// Projected by current Overview without changing the shared quality wire format.
+	OldestCarriedMarketDate *string `json:"-"`
+
 	Availability     ValuationAvailability `json:"availability"`
 	Coverage         ValuationCoverage     `json:"coverage"`
 	IncludedCount    int                   `json:"includedCount"`

@@ -2,11 +2,10 @@ package pilot
 
 import (
 	"context"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -14,95 +13,18 @@ import (
 
 func testPaths(t *testing.T) (string, Paths) {
 	t.Helper()
-	root, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(root, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	database := filepath.Join(root, "data", "nestworth.db")
-	settings := filepath.Join(root, "data", "settings.json")
-	paths, err := resolvePaths(root, database, settings)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return root, paths
+	root := t.TempDir()
+	return root, dataPaths(filepath.Join(root, "data"))
 }
 
-func TestPilotRejectsMismatchedPathsAndLinkedFiles(t *testing.T) {
-	root, paths := testPaths(t)
-	for _, input := range [][3]string{
-		{},
-		{root, "", paths.settings},
-		{root, paths.database, filepath.Join(root, "settings.json")},
-		{root, filepath.Join(root, "nestworth.db"), paths.settings},
-	} {
-		if _, err := resolvePaths(input[0], input[1], input[2]); err == nil {
-			t.Fatalf("accepted unsafe path configuration %v", input)
-		}
-	}
-
-	ctx := context.Background()
-	if err := Prepare(ctx, paths); err != nil {
-		t.Fatal(err)
-	}
-	if err := Prepare(ctx, paths); err == nil {
-		t.Fatal("the seeder accepted an existing data directory")
-	}
-	outside := filepath.Join(root, "saved-settings.json")
-	if err := os.Rename(paths.settings, outside); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(outside, paths.settings); err != nil {
-		t.Fatal(err)
-	}
-	if session, err := OpenSession(ctx, paths); err == nil {
-		_ = session.Close()
-		t.Fatal("accepted a linked settings file")
-	}
-	if err := os.Remove(paths.settings); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Rename(outside, paths.settings); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Link(paths.database, filepath.Join(root, "second-database-link")); err != nil {
-		t.Fatal(err)
-	}
-	if session, err := OpenSession(ctx, paths); err == nil {
-		_ = session.Close()
-		t.Fatal("accepted a hard-linked database")
-	}
+func seedTestLedger(ctx context.Context, paths Paths) error {
+	return testledger.Seed(ctx, paths.database, paths.settings)
 }
 
-func TestPilotRequiresTheHouseholdMarker(t *testing.T) {
+func TestProfileInstitutionsPersistOnReopen(t *testing.T) {
 	_, paths := testPaths(t)
 	ctx := context.Background()
-	if err := Prepare(ctx, paths); err != nil {
-		t.Fatal(err)
-	}
-	db, err := sqlite.Open(paths.database)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = sqlite.NewConfigurationRepository(db).SaveConfiguration(markerKey, []byte("a different household"))
-	closeErr := db.Close()
-	if err != nil || closeErr != nil {
-		t.Fatalf("could not corrupt the test marker: %v, %v", err, closeErr)
-	}
-	if session, err := OpenSession(ctx, paths); err == nil {
-		_ = session.Close()
-		t.Fatal("accepted a database with a mismatched marker")
-	} else if !strings.Contains(err.Error(), "fixture marker does not match") {
-		t.Fatalf("unexpected startup failure: %v", err)
-	}
-}
-
-func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
-	_, paths := testPaths(t)
-	ctx := context.Background()
-	if err := Prepare(ctx, paths); err != nil {
+	if err := seedTestLedger(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
 	session, err := OpenSession(ctx, paths)
@@ -129,9 +51,6 @@ func TestPilotInstitutionsPersistOnReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := session.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := Ensure(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
 	reopened, err := OpenSession(ctx, paths)

@@ -381,6 +381,7 @@ const (
 	RankingNegative
 	RankingLargest
 	RankingMain
+	RankingChartSummary
 	RankingDetails
 	RankingSearch
 	RankingNoMatches
@@ -463,6 +464,15 @@ const (
 	AssetLiabilityImpact
 	AssetAdjustment
 	AssetResidual
+	AssetAttribution
+	AssetDriverChart
+	AssetDriverChartHelp
+	AssetDriverMismatch
+	AssetDriverTotal
+	AssetDriverComponentDays
+	AssetDriverByInstrument
+	AssetDriverByAccount
+	AssetNoDriverDetail
 	AssetOpenDay
 	ContributionOpenHistory
 	ContributionHistoryWider
@@ -554,6 +564,9 @@ const (
 	StartupInUse
 	StartupRecoveryPending
 	StartupUnavailable
+	StartupUpgradeRequired
+	StartupNewerDatabase
+	StartupIntegrityFailed
 	StartupQuit
 	DirectoryView
 	DirectoryViewName

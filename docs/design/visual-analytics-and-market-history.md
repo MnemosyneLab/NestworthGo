@@ -79,11 +79,16 @@ Overview snapshot through asset class, institution, and account. Each
 holdings account contributes its valued components by class. Balance and
 manual accounts contribute their single valued component. Negative components
 reconcile the charted amount to the known asset subtotal, while zero and
-unvalued components are counted separately. The chart names the largest account
-allocation in each class and fills up to eight named paths with the largest
-remaining allocations. Smaller allocations are grouped within their classes.
-The keyboard-accessible details show every positive path at exact precision
-and open the ordinary account detail. Compact layouts show the details directly.
+unvalued components are counted separately. Every positive path appears in
+the scrollable chart, including unassigned institutions and accounts repeated
+across classes. The keyboard-accessible details show each path with standard
+currency formatting and open the ordinary account detail. Compact layouts
+show the details directly alongside the scrollable chart.
+
+The Overview valuation read date refers to current holdings and balances.
+The coverage badge reports whether the required inputs were available. Quote
+and FX reference dates, the oldest carried date and stale components are
+shown separately. Historical valuations use their own civil-day cutoffs.
 
 ### 3.2 Portfolio
 

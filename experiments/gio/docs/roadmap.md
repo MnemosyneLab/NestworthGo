@@ -28,10 +28,10 @@ and which still require acceptance. [Foundation design](foundation.md)
   invalidate the window when work completes, and distinguish first load,
   empty, failure, retry and existing results. Cancel and join outstanding work
   before closing the database. Financial mutations reread authoritative data.
-- Keep the experimental launcher on its verified synthetic household. Introduce
-  production startup, paths, locking, migrations and recovery together through
-  the existing desktop owners before allowing a real ledger to be selected.
-  The two shells must never concurrently own writable access to the same ledger.
+- Use Wails' startup, locking, migrations and recovery contracts for Gio's
+  own local data directory. Keep development and acceptance on separate
+  synthetic copies. Production rollout and release acceptance remain gated.
+  The shared instance lock coordinates writable ownership for both shells.
 - Share services, storage format, calculation rules and settings across shells.
   Keep React assets needed for the separately served mobile experience. See
   the [desktop entry point](../../../cmd/nestworth/main.go) and
@@ -174,29 +174,31 @@ Object visits reread the exact ID and update the label when it is unavailable.
 
 ### Stage 3 progress
 
-#### Synthetic startup and ledger ownership milestone
+#### Startup and ledger ownership
 
-Gio uses the [shared instance lock](../../../internal/infrastructure/backup/instance_lock.go)
-on the canonical database path before opening SQLite for writes. It validates
-the synthetic marker on a private copy to keep SQLite WAL-index writes away
-from rejected profiles. After open, it attaches shared settings and runs the
-shared application bootstrap. Shutdown joins UI work before checkpointing,
-closing SQLite and releasing the lock. The blocked window covers an occupied
-ledger, an invalid profile and a pending restore.
+Gio's ordinary launch opens its own `data/nestworth.db` and
+`data/settings.json`. The default macOS directory remains
+`~/Library/Application Support/com.nestworth.gio/data`. An empty database
+opens household setup. A local Wails-format copy opens through the same
+ordinary launch and accepts writes in the Gio copy. Stale files from
+earlier preview builds have no role in the decision to open a database.
+[Mac copy instructions](../README.md#use-a-local-wails-copy-on-macos)
 
-The [Wails entry point](../../../cmd/nestworth/main.go) reconciles interrupted
-restores under the instance lock and offers recovery on database failure.
-This ownership milestone blocked every pending restore journal. The later
-[disposable recovery milestone](#disposable-startup-recovery-milestone)
-introduces a verified fixture. Gio still requires the pilot marker and has
-no ledger chooser.
+Gio takes the [shared instance lock](../../../internal/infrastructure/backup/instance_lock.go)
+and uses the [same restore reconciler](../../../internal/infrastructure/backup/journal.go),
+SQLite schema and migrations, shared settings attachment and household
+bootstrap as the [Wails entry point](../../../cmd/nestworth/main.go).
+A failed startup releases the lock. The blocked window distinguishes lock,
+recovery, unavailable and schema problems. The local backup chooser in
+Wails' blocked window remains open in Gio.
 
 | Check | Evidence |
 | --- | --- |
-| Automated | On Debian 13 amd64 with Go 1.27.4, the Gio module tests and vet, preview packaging tests, and the shared backup cross-process and directory-alias lock tests passed. Gio tests checked simultaneous fixture publication, an occupied profile, lock release after a pending restore, a journal with the live file moved, and byte-for-byte preservation of rejected profiles with a mismatched marker or a committed marker change in WAL. |
-| Linux X11 | The Linux preview build ran on Xvfb with Mesa software rendering using a fresh isolated fixture. One process opened Overview. A second process using the same path displayed the occupied-ledger notice and exited with a failure status when dismissed. After the first process quit normally, another process opened the same ledger while the blocked notice was still open. The shared backup probe could not acquire the lock through a directory symlink, and Gio refused the symlink as a profile root. Invalid presentation settings and a pending restore journal produced separate blocked states. Moving the live file aside with the journal present kept the pending-restore state. File lists and SHA-256 hashes stayed unchanged during the rejected launches. |
-| Linux X11 failure paths | In a separate synthetic profile, a durable settings attachment failure released the lock before the blocked notice closed. The CLI could verify the same fixture while the notice was open, and Return activated Quit. A marker change committed only to the WAL was detected, and the rejected launch left the files and their hashes unchanged. |
-| Open evidence | This slice did not run native macOS or Wayland, a Wails/Gio paired launch or production restore recovery. Real ledger selection, onboarding and account workflows remain later Stage 3 work. |
+| Ordinary copied ledger | A synthetic Wails-format database and settings were copied into the default Gio location under a fake config root. The automation retained the household ID, account ID, History timezone and full settings, exercised the shared lock, wrote an institution and found its same ID after reopening. It compared the Wails source files byte for byte and left old fixture metadata untouched. |
+| Startup failures | Automated checks covered a fresh directory reaching onboarding with no household, a canonical lock through a symlink alias, and refusal of an empty, corrupt or unsupported existing database. Failures preserved the SQLite bytes and released the lock. |
+| Linux X11 default launch | The packaged app launched with both path overrides unset. It read the synthetic AUD 214.79 valuation and ordinary household and member names. A Group added through Directory persisted after normal quit and reopen. Source database and settings SHA-256 hashes matched. A separate fresh launch showed household setup with zero stored households. A schema-99 file showed the newer-version notice and retained its exact bytes. |
+| Build and tests | The full Gio module suite, Gio vet, Linux packaging, packaging tests and focused shared Backup, SQLite and Settings tests passed. |
+| Release evidence | Native Mac, Wayland, VoiceOver and a real local copy remain unverified. Production rollout and cutover remain gated. |
 
 #### Live Overview milestone
 
@@ -505,40 +507,20 @@ institution write. The directory list refreshes on its next visit.
 | Linux X11 | In a 900×660 Xvfb window, the liability draft suggested Harbor Sample Bank. The institution editor rejected empty and overlong names, and canceling it retained the account name and amount. Saved a synthetic exchange with the Vault icon and canceled the liability. A later crypto exchange draft recommended that saved exchange. The searchable picker found it, and review showed the default group. A normal quit and reopen retained the account and institution link. Read-only SQLite comparison found exactly one new exchange, one empty Holdings account and the same existing value, cash, holding and activity rows. A temporary overlay fixed the clock. |
 | Open evidence | Wails GUI, native macOS, Wayland, native IME and VoiceOver remained unrun for this milestone. |
 
-#### Disposable startup recovery milestone
+#### Interrupted startup recovery
 
-The [fixture command](../README.md#disposable-startup-recovery-fixture)
-creates a fresh synthetic run and uses the shared application backup service
-and `InstallRestore`. It leaves an installed replacement and a complete
-safety copy at the `replacement-installed` phase, before startup finalization.
-The outgoing synthetic reserve is USD 99.50, and the backup recorded USD
-42.25. The backup also carries a distinct presentation configuration.
+Gio calls `backup.ReconcileOnStartup` under the instance lock, matching
+Wails. The shared reconciler owns validation of journal paths, phase,
+checksums, safety copies and restored settings. The fixture-specific
+sealed recovery route has been retired.
 
-Gio takes the canonical instance lock, then validates the exact journal it
-will pass to the shared reconciler. It requires the dedicated receipt bound
-to the canonical run root, fixed live and staging names, a generated safety
-name, private owned files without links, an absent staging group and absent
-SQLite sidecars. It verifies the journal and outgoing settings bytes, and
-checks the sealed SHA-256 hashes and synthetic markers for both databases on
-private read-only copies. This guard relies on the private profile directory
-and cooperating writers honoring the instance lock. The ordinary launcher
-and `--verify-pilot-fixture` continue to reject a pending journal.
-
-After finalization, startup reloads presentation settings and verifies the
-profile again before opening the business database. The same lock remains
-held through the session and is released after checkpoint and close. The
-[Wails entry point](../../../cmd/nestworth/main.go) continues to use the
-shared startup recovery path. Gio accepts the bounded disposable fixture
-phase. Installing a staged replacement at startup, recovering from a second
-interruption during finalization and opening production profiles remain open.
-
-| Check | Evidence |
-| --- | --- |
-| Shared startup comparison | Independent copies of the same pending synthetic layout agreed on USD 42.25 and recovered Dark, Mint and day-first settings. The reference executed the Wails entry point's shared lock, reconciler, settings reload and database open order. The ordinary verifier left the pending files unchanged. After Gio finalization, the journal was gone and the original backup and USD 99.50 safety copy were byte-for-byte intact. A normal close and reopen retained the recovered value. |
-| Rejection and ownership | Go tests refused external journal paths, unsupported phases, link substitutions, unexpected SQLite sidecars, changed settings, a different synthetic database with a matching checksum and a copied receipt at another root. Rejections conserved the file inventory and bytes and released the lock. A separate process took the shared lock through a directory alias and fenced Gio before recovery. |
-| Linux X11 | The native blocked window appeared while the alias process held the lock. SHA-256 and file lists stayed identical. Releasing the lock allowed a fresh launch to show USD 1,776.38 net worth and `21/11/2026` in History. Normal quit, read-only verification and reopen preserved the recovered profile. A separate pending journal with an external staging path displayed the recovery-blocked window and preserved both the fixture and its outside sentinel. |
-| Automated checks | Gio module tests, Gio `go vet`, shared backup package tests and vet, and the Linux preview build passed. |
-| Open evidence | Wails GUI, native macOS, Wayland and VoiceOver were not run. Production path selection, migration and restore phases, package acceptance and the target-platform lifecycle remain release gates. |
+A test seeds ordinary synthetic data through the shared service, installs a
+backup with the USD 42.25 reserve over an outgoing USD 99.50 value, then leaves
+the valid `replacement-installed` journal. The Gio session finishes the
+journal, restores the saved Mint, Dark and day-first settings and reopens
+with the same reserve value. A separate malformed-journal regression checks
+that the existing database and journal stay byte-identical and the lock is
+released. The shared Wails backup startup and lock tests passed.
 
 #### Remaining account capabilities by dependency
 
@@ -1617,7 +1599,28 @@ the data table in the page scroll.
 | Wails and Gio | 66 Wails Return Analysis and insight tab tests passed. The focused root Go projection and Wails request tests passed. Gio frame tests exercised the normal shell, chart selection and clearing with the keyboard, linked mode, and the keyboard-readable table at 700×480 in dark appearance. |
 | Build and tests | The full Gio module suite, `go vet ./...` and the packaged native Linux launcher passed on the combined tree. |
 | Linux X11 | The packaged preview on a verified synthetic portfolio showed the October 31 zero and November 2 USD 5.25. Keyboard selection of November 4 showed Missing valuation and Unavailable. Daily mode selected November 6 at −USD 2.50. Linked-rate mode started November 1 with no cumulative baseline. At 1180×1000 the gap interrupted the chart; after reopening the synthetic fixture in dark appearance, the plot and daily table remained readable at 700×480. |
-| Open | Contribution ranking, Asset Changes and Wealth History chart adapters remain separate milestones. Native Mac, Wayland and assistive technology acceptance remain open. |
+| Open | Asset Changes and Wealth History chart adapters remain separate milestones. Native Mac, Wayland and assistive technology acceptance remain open. |
+
+#### Contribution ranking chart and detail
+
+Contribution follows the Wails order of summary, direction and count, main
+ranking, then searchable details. The signed bars share a centered zero axis
+and reuse the same exact magnitude ordering and limit as the ranking table.
+The chart has one tab stop and supports arrows and Enter. Gio keeps a separate
+keyboard-readable list of the ranked rows alongside the independent Details
+search. It also keeps the established detail and Ledger activity actions.
+
+Selecting a bar opens the same Wails-backed Contribution detail as selecting
+the corresponding text row. Closing the detail restores its trigger. Opening
+Ledger activity carries the supported account, instrument, civil dates and
+activity kinds. Back restores the chart focus and selected contribution, and
+Enter can reopen the same detail.
+
+| Check | Evidence |
+| --- | --- |
+| Projection and interaction | The signed fixture preserves USD 5.25, −USD 2.50 and an actual zero in magnitude order. A row without an amount stays out of the ranking. The Wails-backed Gio interaction checks the chart and text-row detail, the effective Ledger activity filters, and Back and Escape focus. |
+| Linux X11 | The packaged app displayed both signed funds. Selecting Loss fund opened −USD 2.50. Escape and Enter restored the detail. Ledger activity retained Sample broker, Loss fund and November 1–24. Back plus Enter reopened Loss fund. The chart and amounts remained visible at 700×480 after scrolling. |
+| Build and tests | Full Gio tests and vet, the packaged Linux launcher, focused shared Contribution Go tests and 39 Wails Contribution and Insight Tabs tests passed. Native Mac, Wayland and VoiceOver remain open. |
 
 #### Asset Changes and the Return day link
 
@@ -1628,8 +1631,8 @@ among net worth, assets, liabilities or net change and day, week or month.
 Change drivers shows the beginning and ending values, the net change, rate
 and the shared driver groups. Categories shows the chosen shared category
 total and attributed rows. The trend and category tables support keyboard
-scrolling. The layout follows the Wails section order. The trend, driver and
-category chart adapters and detail workflows remain open.
+scrolling. The layout follows the Wails section order. Trend and Categories
+still need their chart and detail work.
 
 The Return Calendar detail action **View asset changes for this day** opens
 Change drivers with that single date and the existing supported filters. Back
@@ -1643,6 +1646,28 @@ and restores focus to the day button.
 | Gio interaction | A closed August day carried the selected instrument, additional account and USD, native valuation and excluded cash into Asset Changes. Back retained the August range and focused the originating day. |
 | Linux X11 | The packaged Linux preview followed November 2 into Change drivers with the selected date in both fields. The synthetic value went from USD 100 to USD 125 and Price change showed USD 25. Back and Return reopened the same day. |
 | Build and tests | The full Gio suite, Gio vet, native Linux preview build, and focused application, domain and Wails analysis Go tests passed. |
+
+#### Change Drivers waterfall and breakdown
+
+Change drivers shows the value summary, native waterfall, and grouped
+attribution in Wails order. The adapter uses the shared beginning, signed
+drivers and ending. It accumulates levels with decimal arithmetic and warns
+when exact inputs disagree at Wails' comparison precision. The reported
+ending remains visible. Missing beginnings and unavailable driver values
+remain missing.
+
+A chart driver or grouped row opens its breakdown with the effective civil
+dates, exact total and the shared account and instrument projections. Failed
+reads can be retried. Escape restores focus to the chart or row. Residual
+details can open Ledger activity at the affected day and dimensions. The
+Return Analysis link and the residual link's end-to-end acceptance remain
+open.
+
+| Check | Evidence |
+| --- | --- |
+| Projection and interaction | Gio checks signed steps, the missing opening, the reported ending and the ties-to-even discrepancy threshold. A Calendar day link used the Wails-backed Price change driver read for the selected day. A failed first read retried in place, matched the breakdown, and restored chart focus on Escape. |
+| Linux X11 | The packaged app displayed USD 300.00 beginning, USD 2.75 Price change, and USD 302.75 ending. The chart opened a sheet showing Gain fund USD 5.25, Loss fund −USD 2.50 and Sample broker USD 2.75. Escape and Enter reopened that sheet. All three steps and their labels remained readable at 700×480. |
+| Build and tests | Full Gio tests and vet, the Linux launcher, focused shared Go Asset Changes and driver tests, and all 43 Wails Asset Changes and Return Analysis reference tests passed. Native Mac, Wayland and VoiceOver remain open. |
 
 #### Contribution detail and Ledger activity
 

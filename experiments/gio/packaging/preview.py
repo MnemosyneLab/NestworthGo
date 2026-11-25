@@ -108,11 +108,11 @@ def launch(package):
     if not MAC:
         os.execl(executable, NAME)
     overrides = []
-    for name in ("NESTWORTH_GIO_RUN_DIR", "NESTWORTH_DATABASE_PATH", "NESTWORTH_SETTINGS_PATH"):
+    for name in ("NESTWORTH_DATABASE_PATH", "NESTWORTH_SETTINGS_PATH"):
         if value := os.environ.get(name):
             overrides.extend(["--env", f"{name}={value}"])
     if overrides:
-        # An explicit fixture may differ from an already open window.
+        # An explicitly selected database may differ from an already open window.
         subprocess.run(["open", "-n", "-a", package, *overrides], check=True)
     else:
         subprocess.run(["open", package], check=True)
