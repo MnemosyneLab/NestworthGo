@@ -99,6 +99,37 @@ beforeEach(() => {
 });
 
 describe("OverviewPage", () => {
+  it("opens the correct account from the exact allocation table when names repeat", async () => {
+    const navigation = { open: vi.fn(), openHealth: vi.fn() };
+    await renderWithMockedOverview({
+      ...defaultHeadlines,
+      currency: "USD", accountCount: 2, complete: false, assets: "120.004", liabilities: "0", netWorth: "120.004",
+      assetComposition: {
+        positive: "120.004", negative: "0", zeroCount: 1, missingCount: 2, nodes: [],
+        paths: [
+          { assetClass: "stock", institutionId: "branch-a", institutionName: "Bank", accountId: "account-a", accountName: "Savings", amount: "60.004" },
+          { assetClass: "cash", institutionId: "branch-a", institutionName: "Bank", accountId: "account-a", accountName: "Savings", amount: "40" },
+          { assetClass: "cash", institutionId: "branch-b", institutionName: "Bank", accountId: "account-b", accountName: "Savings", amount: "20" },
+        ],
+      },
+    }, {}, navigation);
+
+    const heading = await screen.findByRole("heading", { name: "Asset composition Sankey" });
+    const card = within(heading.closest<HTMLElement>("[data-slot=card]")!);
+    expect(card.getByText("Known asset subtotal")).toBeInTheDocument();
+    expect(card.getByText("2 asset components have no household-currency value and are excluded.")).toBeInTheDocument();
+    expect(card.getByText("1 zero-value component has no band.")).toBeInTheDocument();
+    const table = within(card.getByRole("table", { name: "View allocation details" }));
+    const stock = table.getByRole("row", { name: /Savings \(1\).*Bank \(1\).*60\.004 USD/ });
+    expect(stock).toHaveTextContent("US$60.00 (60.004 USD)");
+    expect(table.getAllByRole("button", { name: "Savings (1)" })).toHaveLength(2);
+    const bankAccount = table.getByRole("button", { name: "Savings (2)" });
+    expect(bankAccount.closest("tr")).toHaveTextContent("Cash · Bank (2)");
+    bankAccount.focus();
+    await userEvent.setup().keyboard("{Enter}");
+    expect(navigation.open).toHaveBeenCalledExactlyOnceWith({ page: "accounts", accountId: "account-b" });
+  }, 15000);
+
   // This fixture-driven check ensures Overview's displayed net worth, assets,
   // and liabilities exactly match the same fixture's Go-computed result. The mocked
   // response below is the exact JSON

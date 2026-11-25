@@ -783,6 +783,7 @@ type OverviewResult struct {
 	Liabilities       decimal.Decimal
 	NetWorth          decimal.Decimal
 	AssetsByType      []BreakdownItem
+	AssetComposition  OverviewAssetComposition
 	LiabilitiesByType []BreakdownItem
 	ByMember          []BreakdownItem
 	ByInstitution     []BreakdownItem

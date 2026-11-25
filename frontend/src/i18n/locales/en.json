@@ -746,6 +746,30 @@
       "sunday": "Sunday"
     }
   },
+  "assetSankey": {
+    "account": "Account",
+    "allocation": "Allocation",
+    "amount": "Amount",
+    "assetClass": "Asset class",
+    "description": "Current allocation by asset class, institution, and account for assets included in net worth.",
+    "details": "View allocation details",
+    "duplicateName": "{{name}} ({{ordinal}})",
+    "empty": "No positive asset values to chart",
+    "grouped": "Smaller branches are grouped in the chart. The details list every positive allocation.",
+    "institution": "Institution",
+    "known": "Known asset subtotal",
+    "missing_one": "{{count}} asset component has no household-currency value and is excluded.",
+    "missing_other": "{{count}} asset components have no household-currency value and are excluded.",
+    "negative": "Negative components",
+    "otherAccounts": "Other accounts",
+    "otherInstitutions": "Other institutions",
+    "positive": "Positive assets",
+    "title": "Asset composition Sankey",
+    "total": "Total assets",
+    "unavailable": "Asset values are unavailable",
+    "zero_one": "{{count}} zero-value component has no band.",
+    "zero_other": "{{count}} zero-value components have no band."
+  },
   "overview": {
     "currentValuationIncomplete": "Current valuation incomplete",
     "accountCountDetail": "active accounts",

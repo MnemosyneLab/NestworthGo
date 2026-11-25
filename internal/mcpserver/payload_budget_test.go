@@ -459,6 +459,8 @@ func runPayloadBudgets(t *testing.T, large bool) {
 	for _, key := range []string{"assets", "liabilities", "netWorth"} {
 		delete(wantOverview, key)
 	}
+	// The Wails Sankey has its own desktop projection outside the compact MCP summary.
+	delete(wantOverview, "assetComposition")
 	wantOverview["totalsScope"] = "request_account_filters"
 	featureJSONEqual(t, boundedOverview["summary"], wantOverview)
 	rec.journey("current overview all breakdowns/evidence/labels", start, 20, 1<<20)

@@ -3155,6 +3155,28 @@
       "sunday": "日曜日"
     }
   },
+  "assetSankey": {
+    "account": "口座",
+    "allocation": "配分",
+    "amount": "金額",
+    "assetClass": "資産クラス",
+    "description": "純資産に含まれる現在の資産を、資産クラス、金融機関、口座ごとに表示します。",
+    "details": "配分の明細を表示",
+    "duplicateName": "{{name}}（{{ordinal}}）",
+    "empty": "表示できるプラスの資産がありません",
+    "grouped": "小さい項目は図で集約しています。明細にはプラスの配分がすべて表示されます。",
+    "institution": "金融機関",
+    "known": "評価済み資産の小計",
+    "missing_other": "世帯の基準通貨で評価額を取得できない資産項目 {{count}} 件を除外しています。",
+    "negative": "マイナスの資産項目",
+    "otherAccounts": "その他の口座",
+    "otherInstitutions": "その他の金融機関",
+    "positive": "プラスの資産",
+    "title": "資産構成のサンキー図",
+    "total": "総資産",
+    "unavailable": "資産の評価額を取得できません",
+    "zero_other": "評価額がゼロの項目 {{count}} 件には帯を表示しません。"
+  },
   "overview": {
     "accountCountDetail": "有効な口座",
     "accountCount_other": "有効な口座 {{count}} 件",

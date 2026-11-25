@@ -61,6 +61,11 @@ func TestOverviewComputesNetWorth(t *testing.T) {
 	if len(result.AssetsByType) == 0 {
 		t.Fatalf("AssetsByType is empty, want at least one breakdown entry")
 	}
+	composition := result.AssetComposition
+	if composition.Positive != "1000" || composition.Negative != "0" || len(composition.Nodes) != 4 || len(composition.Paths) != 1 ||
+		composition.Paths[0].AccountName != "Bank" || composition.Paths[0].Amount != "1000" || composition.Paths[0].InstitutionID != "" {
+		t.Fatalf("AssetComposition = %+v, want Bank cash allocation of 1000 with an unassigned institution", composition)
+	}
 }
 
 func TestOverviewBeforeOnboarding(t *testing.T) {
