@@ -131,6 +131,19 @@ func TestVisualSnapshots(t *testing.T) {
 			h.snapshot(t, dir, "settings-language-open-"+mode.name)
 		}
 	})
+	t.Run("responsive", func(t *testing.T) {
+		for _, size := range []image.Point{{700, 460}, {820, 640}, {1600, 1000}} {
+			for _, route := range []struct {
+				name string
+				id   routeID
+			}{{"settings", settingsRoute}, {"preview", componentPreviewRoute}, {"overview", overviewRoute}} {
+				h := newPreviewHarness(t)
+				h.size = size
+				h.shell.trail = newNavigationTrail(route.id)
+				h.snapshot(t, dir, fmt.Sprintf("responsive-%s-%dx%d", route.name, size.X, size.Y))
+			}
+		}
+	})
 	t.Run("gallery", func(t *testing.T) {
 		for _, accent := range []struct {
 			name  string
