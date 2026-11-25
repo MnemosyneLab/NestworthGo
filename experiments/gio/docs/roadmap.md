@@ -1646,7 +1646,7 @@ dated posting evidence are recorded separately.
 | --- | --- |
 | Gio and Wails adapter | The same holding, account and session item were retained through review and reopen. Against the independent Wails adapter request, total USD 31.2468 yielded USD 15.6234 unit cost on 2 units. Validation retained invalid input. Cancel left no financial link, a real pause and resume invalidated the old preview, and a synthetic lost acknowledgement retried the same plan with one correction. Cancel, Back and successful readback restored the initiating focus. USD 156 cash was unchanged. |
 | Packaged Linux X11 | At 1160×820, a session review showed the selected account, and canceling a second start did not create another session. At 640×480, keyboard review of USD 13.5802 on 1.375 units showed USD 9.87650909 per unit. Cancel and Return reopened the same holding. Keyboard confirmation and normal reopen showed the corrected unit cost on the original Holding. Read-only SQLite verified a single linked correction, unchanged quantity, source hashes, cash and quote rows. |
-| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go application and Wails adapter tests, and eight focused Wails Reconciliation frontend cases passed. Multi-account creation and general item verification and closure remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+| Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused shared Go application and Wails adapter tests, and eight focused Wails Reconciliation frontend cases passed. See [check and finish a holdings reconciliation](#check-and-finish-a-holdings-reconciliation) for the verified checkpoint types and remaining scope. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Session-linked holding quantity targets
 
@@ -1690,6 +1690,31 @@ beside the supported cost and quantity target forms.
 | Gio and Wails adapter | A Singapore civil time of November 21, 2026 at 20:45 resolved to 12:45 UTC and added 0.125 units at USD 13.12345678. A session revision change retired the review while keeping its draft. Cancel wrote no activity or link. A lost acknowledgement retried the same mutation and reopened with one linked receipt on the exact item and Holding. |
 | Packaged Linux X11 | The wide form reviewed a Vancouver November 24 entry and canceled with zero activity or link writes. At 640×480 the date picker selected November 24 using the keyboard, then confirmed 0.25 added units at USD 12.12345678. Ledger Back restored the exact link. Reopen retained it and the original Holding with 1.25 units. Cash, quote rows and source-file hashes matched. |
 | Checks and remaining scope | Full Gio tests and vet, standard Linux packaging, focused Go checks and 89 Wails Reconciliation and record-flow frontend tests passed. General linked entry for trades, dividends, transfers and other History families remains open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
+
+#### Check and finish a holdings reconciliation
+
+The Holdings reconciliation detail shows session counts and the ordinary
+holding, cash and completeness checkpoints. Each check shows its current
+ledger value where applicable, then collects an outcome, source reference,
+civil evidence date, optional time and note. For comparable quantities and
+cash balances, the shared service checks the numeric value and source day.
+A refused mismatch or historical comparison leaves the draft and checkpoint
+intact. A successful check shows the saved outcome, evidence date, source
+and note. The service preserves the original attempt and any earlier
+financial link.
+[Wails check and finish forms](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Shared session service](../../../internal/application/reconciliation_session.go)
+
+Pause and resume use the existing session transition. Finish reviews the
+outstanding counts. A partial finish requires explicit selection and a
+closing note. Completed holdings sessions remain in the Tasks list and open
+as read-only evidence. Cancel and stale re-review use the same session
+preview and recovery behavior, and retry keeps the reviewed plan ID.
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails adapter | The fixture rejected a current source value of 2.00000001 against 2 units without an explanation and rejected a historical value as comparable. A reviewed explanation saved the exact source value, date, time and timezone. Scope and cash checks brought the total to three confirmed. Partial closure required explicit intent and a note. Cancel left the session open, then a full finish matched Wails and recovered a lost acknowledgement with the original plan. Reopen preserved the three outcomes and closing note. |
+| Packaged Linux X11 | The wide form reviewed a comparable source of 1.25000001 against 1.25 units. It refused the difference until a note was entered. The compact workflow reviewed partial closure, required a closing explanation and confirmed by keyboard. Reopen showed the completed session with its evidence and one original dated activity link. SQLite verified the exact source, note and counts, and the preexisting Holding, activity, cash and quotes. |
+| Checks and remaining scope | Full Gio tests and vet, Linux packaging, the focused shared Go checks and 89 Wails frontend cases passed. Multi-account creation, product and removed-item checks, broader attempt history and archived inventory evidence remain open. Interactive Wails, macOS, Wayland, VoiceOver and native IME remain unverified. |
 
 #### Read-only Available Funds
 
@@ -1879,7 +1904,9 @@ dated position import from Accounts and Investment Assets, and custody transfers
 Ledger and Holdings account detail. Ledger and account or holding actions
 support quantity adjustments with original unit costs on additions. The
 Holdings reconciliation session supports a standalone whole-position cost
-correction and quantity targets. Available Funds has a Today view
+correction, quantity targets and ordinary dated adjustments. The session can
+check ordinary holdings, cash and completeness, and finish with complete or
+explicit partial evidence. Available Funds has a Today view
 with bank reservation creation and release. Term deposits support read-only
 terms and actual maturity receipt with linked History. Tasks covers term deposit
 schedules, published pending investment checks, and supported open card
@@ -2506,8 +2533,8 @@ and [`b06ddc08` quantity target run](https://github.com/MnemosyneLab/NestworthGo
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with reconciliation checking and closure, additional
-session-linked History activity families and broader account context actions. Stage 4 still has additional Starting
+Continue Stage 5 with additional session-linked History activity families,
+broader reconciliation evidence and account context actions. Stage 4 still has additional Starting
 Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
 large-history paging, and possible local correction and withdrawal authoring
 after these account and investment workflows. The broader catalog editor

@@ -50,8 +50,12 @@ func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, lab
 			c.restore = nil
 		}
 		return taskLink(view, button, label, func() {
+			offset := view.PageScrollOffset()
 			view.RestorePageScroll(0)
 			open()
+			if c.draft != nil || c.dated != nil {
+				c.editScroll = offset
+			}
 		})(gtx)
 	}
 }
@@ -64,6 +68,11 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 	}
 	if c.dated != nil {
 		return c.dated.layoutForm(gtx, view, p.holdingChangeRuntime())
+	}
+	if c.restoreEditScroll && c.loading == nil {
+		view.RestorePageScroll(c.editScroll)
+		c.restoreEditScroll = false
+		gtx.Execute(op.InvalidateCmd{})
 	}
 	rows := []layout.Widget{
 		c.link(view, &c.back, l.Text(i18n.HoldingReconBack), func() {
@@ -92,11 +101,37 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	if c.saved != i18n.NoMessage {
 		rows = append(rows, view.Message(l.Text(c.saved), view.Colors.Ink))
 	}
+	open := func(button *widget.Clickable, action statement.Action) func() {
+		return func() {
+			c.draft = newHoldingReconDraft(button)
+			c.draft.action = action
+			c.saved = i18n.NoMessage
+		}
+	}
+	var controls []layout.Widget
 	if s.Status == "paused" {
-		rows = append(rows, c.link(view, &c.resume, l.Text(i18n.HoldingReconResume), func() {
-			c.draft = newHoldingReconDraft(&c.resume)
-			c.draft.action = statement.Resume
-		}))
+		controls = append(controls, c.link(view, &c.resume, l.Text(i18n.HoldingReconResume), open(&c.resume, statement.Resume)))
+	} else if c.ledger != nil && s.Status == "in_progress" {
+		controls = append(controls, c.link(view, &c.pause, l.Text(i18n.HoldingReconPause), open(&c.pause, statement.Pause)))
+	}
+	if c.ledger != nil && s.Status != "completed" {
+		controls = append(controls, c.link(view, &c.finish, l.Text(i18n.HoldingReconFinish), open(&c.finish, statement.Finish)))
+	}
+	if len(controls) != 0 {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return (ui.Wrap{Gap: 8}).Layout(gtx, len(controls), func(gtx layout.Context, i int) layout.Dimensions {
+				return controls[i](gtx)
+			})
+		})
+	}
+	if c.ledger != nil {
+		rows = append(rows, holdingReconCounts(view, *s))
+	}
+	if s.CompletedAt != "" {
+		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.StatementCompletedAt), statementRecordedTime(view, s.CompletedAt)), view.Colors.SecondaryInk))
+		if s.ClosingNote != "" {
+			rows = append(rows, view.Message(s.ClosingNote, view.Colors.Ink))
+		}
 	}
 	found := false
 	for _, account := range s.Accounts {
@@ -110,13 +145,8 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 			}
 			found = true
 			fields := c.itemEvidence(view, item)
+			buttons := c.checkpointActions(account.AccountID, item.ID)
 			if s.Status == "in_progress" && item.ProductID == "" && !item.ArchivedNonzero {
-				at := account.AccountID + "/" + item.ID
-				buttons := c.itemButtons[at]
-				if buttons == nil {
-					buttons = new(holdingReconItemActions)
-					c.itemButtons[at] = buttons
-				}
 				open := func(button *widget.Clickable) {
 					c.saved = i18n.NoMessage
 					c.draft = newHoldingReconDraft(button)
@@ -136,12 +166,47 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 					}))
 				}
 			}
+			if c.ledger != nil {
+				fields = append(fields, p.holdingCheckpointRows(view, account, item, buttons)...)
+			}
 			fields = append(fields, p.holdingReceiptLinks(view, account.AccountID, item.ID)...)
 			rows = append(rows, fundsCard(view, item.Label, fields...))
+		}
+		if c.ledger != nil {
+			for _, item := range account.Items {
+				if item.Kind == "holding" || !holdingCheckable(item) {
+					continue
+				}
+				var fields []layout.Widget
+				if item.Kind == "cash" {
+					fields = append(fields, holdingCheckValue(view, item))
+				}
+				fields = append(fields, p.holdingCheckpointRows(view, account, item, c.checkpointActions(account.AccountID, item.ID))...)
+				rows = append(rows, fundsCard(view, holdingCheckLabel(view, item), fields...))
+			}
 		}
 	}
 	if !found {
 		rows = append(rows, view.Message(l.Text(i18n.HoldingReconEmpty), view.Colors.SecondaryInk))
+	}
+	return rows
+}
+
+func (c *holdingReconciliation) checkpointActions(accountID, itemID string) *holdingReconItemActions {
+	at := accountID + "/" + itemID
+	if c.itemButtons[at] == nil {
+		c.itemButtons[at] = new(holdingReconItemActions)
+	}
+	return c.itemButtons[at]
+}
+
+func (p *tasksPage) holdingCheckpointRows(view ui.View, account domain.ReconciliationAccount, item domain.ReconciliationItem, buttons *holdingReconItemActions) []layout.Widget {
+	c := p.holdingRecon
+	rows := holdingCheckEvidence(view, item)
+	if c.session.Status == "in_progress" {
+		rows = append(rows, c.link(view, &buttons.check, fmt.Sprintf(view.Language.Text(i18n.HoldingReconCheck), holdingCheckLabel(view, item)), func() {
+			p.openHoldingCheckpoint(account, item, &buttons.check)
+		}))
 	}
 	return rows
 }
@@ -162,7 +227,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	c, l := p.holdingRecon, view.Language
 	d := c.draft
 	if !c.unresolved() && d.cancel.Clicked(gtx) {
-		c.draft, c.restore = nil, d.entry
+		c.draft, c.restore, c.restoreEditScroll = nil, d.entry, c.id != ""
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -178,11 +243,19 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		title = i18n.HoldingReconStart
 	case statement.Resume:
 		title = i18n.HoldingReconResume
+	case statement.Pause:
+		title = i18n.HoldingReconPause
+	case statement.CheckItem:
+		title = i18n.HoldingReconCheckTitle
+	case statement.Finish:
+		title = i18n.HoldingReconFinish
 	}
 	origin := view.Origin
 	rows := []layout.Widget{tradeTitle(view, title)}
 	ready := c.loading == nil && !c.readFailed && d.reading == nil
-	if d.itemID != "" {
+	if d.check != nil {
+		rows = append(rows, c.holdingCheckFields(view, d, &origin, ready)...)
+	} else if d.itemID != "" {
 		if a, item, ok := c.item(d); ok {
 			rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
 			rows = append(rows, c.itemEvidence(view, item)...)
@@ -226,9 +299,20 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	} else if c.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(c.session), view.Colors.Ink))
 	}
-	if d.action != statement.Resume {
+	if d.action == statement.Finish {
+		if c.session != nil {
+			rows = append(rows, holdingReconCounts(view, *c.session))
+		}
+		rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk),
+			checkpointCheckbox(view, &d.partial, i18n.HoldingReconPartial, ready))
+	}
+	if d.action != statement.Resume && d.action != statement.Pause {
+		label := i18n.PreviewNotes
+		if d.action == statement.Finish {
+			label = i18n.HoldingReconClosingNote
+		}
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return d.note.Layout(gtx, view, ui.FieldOptions{Label: i18n.PreviewNotes, Disabled: !ready})
+			return d.note.Layout(gtx, view, ui.FieldOptions{Label: label, MaxBytes: 2000, Disabled: !ready})
 		})
 	}
 	if d.problem != i18n.NoMessage {
@@ -281,6 +365,21 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	if r.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(r.session), view.Colors.Ink),
 			view.Message(l.Text(statementStatus(*r.session)), view.Colors.Ink))
+		if d.action == statement.Finish || d.check != nil {
+			rows = append(rows, holdingReconCounts(view, *r.session))
+		}
+		if d.action == statement.Finish {
+			rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk))
+		}
+		if d.check != nil {
+			if _, item, ok := checkpointInSession(r.session, d.accountID, d.itemID, false); ok {
+				rows = append(rows, view.Message(holdingCheckLabel(view, item), view.Colors.Ink))
+				if item.Kind != "scope" {
+					rows = append(rows, holdingCheckValue(view, item))
+				}
+				rows = append(rows, holdingCheckEvidence(view, item)...)
+			}
+		}
 	} else if a, item, ok := c.item(d); ok {
 		rows = append(rows, view.Message(a.Name+" · "+item.Label, view.Colors.Ink))
 		rows = append(rows, c.itemEvidence(view, item)...)
@@ -318,7 +417,7 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 				portfolioDecimal(view, total)+" "+item.Currency), view.Colors.Ink))
 		}
 	}
-	if note := strings.TrimSpace(d.note.Text()); note != "" {
+	if note := strings.TrimSpace(d.note.Text()); d.check == nil && note != "" {
 		rows = append(rows, view.Message(note, view.Colors.SecondaryInk))
 	}
 	if !c.unresolved() && d.edit.Clicked(gtx) {

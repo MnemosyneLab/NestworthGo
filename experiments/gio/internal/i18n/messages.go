@@ -1687,6 +1687,31 @@ const (
 	HoldingReconDatedSaved
 	HoldingReconViewActivity
 	HoldingReconViewDatedActivity
+	HoldingReconCheck
+	HoldingReconCheckTitle
+	HoldingReconScopeHelp
+	HoldingReconPause
+	HoldingReconFinish
+	HoldingReconFinishHelp
+	HoldingReconPartial
+	HoldingReconClosingNote
+	HoldingReconOutcome
+	HoldingReconSourceReference
+	HoldingReconSourceDate
+	HoldingReconSourceTime
+	HoldingReconSourceZone
+	HoldingReconSourceValue
+	HoldingReconComparable
+	HoldingReconComparisonHelp
+	HoldingReconEvidenceDate
+	HoldingReconEvidenceValue
+	HoldingReconCheckSaved
+	HoldingReconPartialRequired
+	HoldingReconMismatch
+	HoldingReconHistoricalSource
+	HoldingReconSourceInvalid
+	HoldingReconCheckNoteRequired
+	HoldingReconCheckUnavailable
 	HoldingReconAdjustQuantity
 	HoldingReconTargetQuantity
 	HoldingReconAcquisitionCost

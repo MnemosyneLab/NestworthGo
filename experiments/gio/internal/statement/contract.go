@@ -8,6 +8,8 @@ type Action string
 const (
 	Start     Action = "start"
 	Resume    Action = "resume"
+	Pause     Action = "pause"
+	CheckItem Action = "check"
 	Check     Action = "check_account"
 	Finish    Action = "finish"
 	Confirmed        = "confirmed"

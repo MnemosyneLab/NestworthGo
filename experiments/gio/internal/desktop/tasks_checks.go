@@ -78,7 +78,7 @@ func readTaskReconciliation(ctx context.Context, service taskChecksReader, inclu
 			if account, ok := cards[candidates[session.ID]]; ok {
 				out = append(out, taskStatement{session, account})
 			}
-			if session.Status == "in_progress" || session.Status == "paused" {
+			if session.Status == "in_progress" || session.Status == "paused" || session.Status == "completed" {
 				for _, id := range session.AccountIDs {
 					if holdingIDs[id] {
 						holdings.sessions = append(holdings.sessions, session)

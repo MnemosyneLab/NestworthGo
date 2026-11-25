@@ -34,24 +34,26 @@ type holdingReconDirectory struct {
 }
 
 type holdingReconciliation struct {
-	service                     holdingReconcileAPI
-	ledger                      history.InvestmentLedger
-	clock                       func() time.Time
-	zone                        *time.Location
-	links                       []domain.ReconciliationLinkedChange
-	receiptButtons              map[domain.ActivityID]*widget.Clickable
-	dated                       *accountInvestment
-	directory                   holdingReconDirectory
-	start, back, reload, resume widget.Clickable
-	sessionButtons              map[string]*widget.Clickable
-	itemButtons                 map[string]*holdingReconItemActions
-	restore, sessionEntry       *widget.Clickable
-	id                          string
-	session                     *domain.ReconciliationSession
-	loading                     <-chan historyResult[holdingReconRead]
-	readFailed                  bool
-	saved                       i18n.MessageID
-	draft                       *holdingReconDraft
+	service                                    holdingReconcileAPI
+	ledger                                     history.InvestmentLedger
+	clock                                      func() time.Time
+	zone                                       *time.Location
+	links                                      []domain.ReconciliationLinkedChange
+	receiptButtons                             map[domain.ActivityID]*widget.Clickable
+	dated                                      *accountInvestment
+	directory                                  holdingReconDirectory
+	start, back, reload, resume, pause, finish widget.Clickable
+	sessionButtons                             map[string]*widget.Clickable
+	itemButtons                                map[string]*holdingReconItemActions
+	restore, sessionEntry                      *widget.Clickable
+	editScroll                                 int
+	restoreEditScroll                          bool
+	id                                         string
+	session                                    *domain.ReconciliationSession
+	loading                                    <-chan historyResult[holdingReconRead]
+	readFailed                                 bool
+	saved                                      i18n.MessageID
+	draft                                      *holdingReconDraft
 }
 
 type holdingReconDraft struct {
@@ -62,6 +64,8 @@ type holdingReconDraft struct {
 	accountPick                          ui.Select
 	total, note                          ui.TextField
 	target                               *holdingReconQuantity
+	check                                *holdingCheckpointDraft
+	partial                              widget.Bool
 	cancel, preview, edit, confirm       widget.Clickable
 	reading                              <-chan historyResult[holdingReconReview]
 	writing                              <-chan historyResult[string]
@@ -103,6 +107,7 @@ func (c *holdingReconciliation) discard() {
 		c.id, c.session, c.loading, c.draft = "", nil, nil, nil
 		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
 		c.itemButtons, c.receiptButtons, c.dated, c.links, c.zone = nil, nil, nil, nil, nil
+		c.editScroll, c.restoreEditScroll = 0, false
 	}
 }
 
@@ -153,8 +158,12 @@ func (c *holdingReconciliation) item(d *holdingReconDraft) (domain.Reconciliatio
 }
 
 func (c *holdingReconciliation) checkpoint(accountID, itemID string, holdingOnly bool) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
-	if c.session != nil {
-		for _, a := range c.session.Accounts {
+	return checkpointInSession(c.session, accountID, itemID, holdingOnly)
+}
+
+func checkpointInSession(session *domain.ReconciliationSession, accountID, itemID string, holdingOnly bool) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
+	if session != nil {
+		for _, a := range session.Accounts {
 			if a.AccountID != accountID {
 				continue
 			}
@@ -169,6 +178,12 @@ func (c *holdingReconciliation) checkpoint(accountID, itemID string, holdingOnly
 }
 
 func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
+	if d.check != nil {
+		_, item, ok := c.checkpoint(d.accountID, d.itemID, false)
+		return ok && c.session.Status == "in_progress" && holdingCheckable(item) &&
+			(d.check.outcome != statement.Confirmed || d.check.daySet || c.zone != nil) &&
+			len(d.note.Text()) <= 2000 && len(d.check.reference.Text()) <= 512 && len(d.check.value.Text()) <= 256
+	}
 	if d.itemID != "" {
 		_, item, ok := c.item(d)
 		return ok && c.session.Status == "in_progress" && item.ProductID == "" &&
@@ -177,7 +192,18 @@ func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
 	if d.action == statement.Start {
 		return d.accountID != ""
 	}
-	return c.session != nil && c.session.Status == "paused"
+	if c.session == nil {
+		return false
+	}
+	switch d.action {
+	case statement.Resume:
+		return c.session.Status == "paused"
+	case statement.Pause:
+		return c.session.Status == "in_progress"
+	case statement.Finish:
+		return c.session.Status != "completed" && len(d.note.Text()) <= 2000
+	}
+	return false
 }
 
 func (d *holdingReconDraft) targetReady() bool {
@@ -193,7 +219,7 @@ func (p *tasksPage) previewHoldingReconciliation() {
 		return
 	}
 	d.problem = i18n.NoMessage
-	if d.itemID != "" {
+	if d.itemID != "" && d.check == nil {
 		a, item, found := c.item(d)
 		if !found {
 			d.problem = i18n.HoldingReconChanged
@@ -227,6 +253,23 @@ func (p *tasksPage) previewHoldingReconciliation() {
 	} else {
 		return
 	}
+	if d.action == statement.Finish {
+		action.AllowPartial = d.partial.Value
+	}
+	if f := d.check; f != nil {
+		a, item, found := c.checkpoint(d.accountID, d.itemID, false)
+		if !found {
+			d.problem = i18n.HoldingReconChanged
+			return
+		}
+		day, _ := c.checkDate(f)
+		action.AccountID, action.ItemID, action.FinancialRevision = a.AccountID, item.ID, a.FinancialRevision
+		action.Outcome = f.outcome
+		action.Source = domain.ReconciliationSource{Reference: f.reference.Text(), AsOfDate: day, AsOfTime: f.time}
+		if holdingCheckComparable(item) {
+			action.ReferenceComparable, action.ReferenceValue = f.comparable.Value, f.value.Text()
+		}
+	}
 	d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
 		preview, err := c.service.Preview(p.ctx, action)
 		return holdingReconReview{planID: preview.PlanID, session: &preview.Result}, err
@@ -238,9 +281,9 @@ func (p *tasksPage) confirmHoldingReconciliation() {
 	if d.writing != nil || d.review == nil {
 		return
 	}
-	id, cost, sessionID := d.review.planID, d.itemID != "", c.id
+	id, adjustment, sessionID := d.review.planID, d.itemID != "" && d.check == nil, c.id
 	d.writing = runHistoryRead(&p.workers, p.invalidate, func() (string, error) {
-		if cost {
+		if adjustment {
 			results, err := c.service.CommitAdjustment(p.ctx, id)
 			if err != nil || len(results) == 0 {
 				return "", err
@@ -269,6 +312,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			if c.dated.restore != nil {
 				c.restore = c.dated.restore
 			}
+			c.restoreEditScroll = true
 			c.dated = nil
 		}
 	}
@@ -286,7 +330,11 @@ func (p *tasksPage) pollHoldingReconciliation() {
 			d.problem = i18n.HoldingReconChanged
 			p.readHoldingReconciliation()
 		default:
-			d.problem = holdingReconIssue(result.err, d.target != nil)
+			if d.check != nil || d.action == statement.Finish {
+				d.problem = holdingCheckProblem(result.err)
+			} else {
+				d.problem = holdingReconIssue(result.err, d.target != nil)
+			}
 		}
 	default:
 	}
@@ -298,13 +346,19 @@ func (p *tasksPage) pollHoldingReconciliation() {
 				p.openHoldingReconciliation(result.value, d.entry)
 			} else {
 				c.draft, c.restore, c.saved = nil, d.entry, i18n.NoMessage
-				if d.target != nil {
+				switch {
+				case d.check != nil:
+					c.saved = i18n.HoldingReconCheckSaved
+				case d.target != nil:
 					c.saved = i18n.HoldingReconQuantitySaved
-				} else if d.itemID != "" {
+				case d.itemID != "":
 					c.saved = i18n.HoldingReconSaved
 				}
-				if d.action == statement.Resume {
+				switch d.action {
+				case statement.Resume, statement.Pause, statement.Finish:
 					c.restore = &c.back
+				default:
+					c.restoreEditScroll = true
 				}
 				p.readHoldingReconciliation()
 			}
