@@ -74,6 +74,21 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 		p.draft.focusAmount = true
 		p.draft.note = ui.NewTextField(true)
 		p.draft.reason = domain.ReasonOther
+		switch movement {
+		case history.CashValueUpdate:
+			p.draft.amount.Editor.SetText(p.linked.value())
+			if p.linked.liability {
+				p.draft.reason = domain.ReasonReconciliation
+			}
+		case history.CashContribution:
+			if p.linked.card {
+				p.draft.reason = domain.ReasonCardPurchase
+			}
+		case history.CashWithdrawal:
+			if p.linked.card {
+				p.draft.reason = domain.ReasonCardRefund
+			}
+		}
 	}
 	p.loadSources()
 }
@@ -87,8 +102,8 @@ func (p *historyCashMovements) loadSources() {
 	d := p.draft
 	d.sourceError = i18n.NoMessage
 	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.CashMovementSources, error) {
-		if p.linked != nil && d.movement == history.CashTransfer {
-			return history.LoadLinkedCashTransferSources(p.ctx, p.service)
+		if p.linked != nil {
+			return history.LoadCheckpointMovementSources(p.ctx, p.service, d.movement)
 		}
 		return history.LoadCashMovementSources(p.ctx, p.service, d.movement)
 	})
@@ -108,6 +123,14 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 		}
 		if d.account != linked.account {
 			d.chooseSource(linked.account)
+		}
+		if d.movement.Debt() {
+			account, _ := d.accountByID(d.account)
+			peer, _ := d.accountByID(d.destination)
+			if !history.IsDebtCounterparty(account, peer) {
+				d.destination = ""
+			}
+			return
 		}
 		if linked.currency != "" && d.currency != linked.currency && (first || d.movement != history.CashConversion) {
 			d.chooseCurrency(linked.currency)
@@ -239,6 +262,13 @@ func (p *historyCashMovements) preview() {
 		d.problem = i18n.TransferInvalidDestination
 		return
 	}
+	if d.movement.Debt() && d.destination == "" {
+		d.problem = i18n.LiabilityDebtRequired
+		if p.linked.liability {
+			d.problem = i18n.LiabilityCashRequired
+		}
+		return
+	}
 	input := history.CashMovementInput{
 		Movement: d.movement, Account: d.account, Destination: d.destination,
 		Currency: d.currency, ToCurrency: d.toCurrency,
@@ -258,6 +288,19 @@ func (p *historyCashMovements) preview() {
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedCashMovement, error) {
 		return history.ReviewCashMovement(p.ctx, p.service, input)
 	})
+}
+
+func (p *historyCashMovements) valueUnchanged() bool {
+	d := p.draft
+	if d.movement != history.CashValueUpdate {
+		return false
+	}
+	current, err := domain.ParseMoney(p.linked.value(), d.currency)
+	if err != nil {
+		return false
+	}
+	target, err := domain.ParseMoney(d.amount.Text(), d.currency)
+	return err == nil && current.Amount().Equal(target.Amount())
 }
 
 func (p *historyCashMovements) post() {
@@ -311,7 +354,8 @@ func (p *historyCashMovements) update() *domain.Activity {
 			if p.linked != nil && staleReconciliationLink(result.err) {
 				d.problem = i18n.HoldingReconChanged
 				p.linked.refresh()
-			} else if d.problem == i18n.ContributionInvalidAccount || d.problem == i18n.TransferInvalidDestination {
+			} else if d.problem == i18n.ContributionInvalidAccount || d.problem == i18n.TransferInvalidDestination ||
+				d.movement.Debt() && (d.problem == i18n.LiabilityCashRequired || d.problem == i18n.LiabilityDebtRequired) {
 				p.loadSources()
 			}
 		} else {
@@ -365,11 +409,22 @@ func cashMovementProblem(movement history.CashMovement, err error, fallback i18n
 	}
 	switch issue.Code {
 	case domain.ErrHistoryNotStarted:
+		if movement.Debt() || movement == history.CashValueUpdate {
+			return i18n.CashMovementHistoryRequired
+		}
 		return cashMovementLabels[movement].historyRequired
 	case domain.ErrInvalidChangeTime:
 		return i18n.ContributionInvalidTime
 	case domain.ErrInsufficientBalance:
 		return i18n.CashMovementInsufficient
+	case domain.ErrTransferMismatch:
+		if movement.Debt() {
+			return i18n.LiabilityCurrencyMatch
+		}
+	case domain.ErrNoChange:
+		if movement == history.CashValueUpdate {
+			return i18n.ReconciliationValueUnchanged
+		}
 	}
 	switch issue.Field {
 	case "accountId", "account":
@@ -387,8 +442,18 @@ func cashMovementProblem(movement history.CashMovement, err error, fallback i18n
 			return i18n.ConversionCurrencyRequired
 		}
 		return i18n.CashCurrencyRequired
-	case "amount":
+	case "amount", "principal":
 		return i18n.ContributionInvalidAmount
+	case "newValue":
+		return i18n.AccountCreateAmountInvalid
+	case "interestOrFee":
+		return i18n.LiabilityInvalidInterest
+	case "debtAccountId":
+		return i18n.LiabilityDebtRequired
+	case "cashAccountId":
+		return i18n.LiabilityCashRequired
+	case "counterparty":
+		return i18n.ContributionInvalidAccount
 	}
 	return fallback
 }

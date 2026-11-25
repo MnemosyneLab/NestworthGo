@@ -1799,7 +1799,12 @@ const (
 	TasksInvestmentTab
 	TasksReconciliationTab
 	HoldingReconTitle
-	HoldingReconStart
+	ReconciliationStart
+	ReconciliationSessions
+	ReconciliationOpen
+	ReconciliationNewValue
+	ReconciliationCurrentValue
+	ReconciliationValueUnchanged
 	HoldingReconOpen
 	HoldingReconBack
 	HoldingReconCorrect

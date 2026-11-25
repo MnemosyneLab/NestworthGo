@@ -64,3 +64,37 @@ func (p *historyCashMovements) layoutCheckpointTransferFields(view ui.View, orig
 		}),
 	}
 }
+
+func (p *historyCashMovements) checkpointDebtPeer(view ui.View, origin image.Point, account domain.Account) layout.Widget {
+	d, l := p.draft, view.Language
+	var peers []ui.Choice
+	for _, candidate := range d.sources.Accounts {
+		if history.IsDebtCounterparty(account, candidate) {
+			peers = append(peers, ui.Choice{ID: candidate.ID.String(), Label: candidate.Name + " · " + candidate.DefaultCurrency.String(), SearchText: candidate.Name})
+		}
+	}
+	label, empty := i18n.LiabilityChooseDebt, i18n.LiabilityNoDebt
+	if account.IsLiability() {
+		label, empty = i18n.LiabilityChooseCash, i18n.LiabilityNoCash
+	}
+	if len(peers) == 0 {
+		return view.Message(l.Text(empty), view.Colors.SecondaryInk)
+	}
+	picker := &d.destinationPicker
+	return func(gtx layout.Context) layout.Dimensions {
+		if d.focusAmount && d.destination == "" && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: &picker.Trigger})
+			d.focusAmount = false
+		}
+		field := ui.PickerField{Label: label, Origin: origin, Disabled: !gtx.Enabled(), Next: &d.amount.Editor}
+		picker.Layout(gtx, view, field, ui.SelectOptions{Items: peers, Searchable: true}, d.destination.String(), func(value string) {
+			if d.destination != domain.AccountID(value) {
+				d.destination, d.problem = domain.AccountID(value), i18n.NoMessage
+				d.amount.Editor.SetText("")
+				d.fee.Editor.SetText("")
+				gtx.Execute(op.InvalidateCmd{})
+			}
+		})
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+	}
+}

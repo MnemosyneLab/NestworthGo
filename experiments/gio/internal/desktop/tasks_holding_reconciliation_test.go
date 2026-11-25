@@ -102,7 +102,7 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	click("Tasks & checks")
 	click("Reconciliation")
 	sessions(app, 0)
-	click("Start holdings reconciliation")
+	click("Start reconciliation")
 	h.focused(&c.draft.accountPick.Trigger)
 	h.press(key.NameReturn)
 	settle()
@@ -112,7 +112,7 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	h.focused(&c.start)
 	sessions(app, 0)
 
-	click("Start holdings reconciliation")
+	click("Start reconciliation")
 	h.press(key.NameReturn)
 	settle()
 	click("Harbor Brokerage")

@@ -10,7 +10,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
-	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -61,7 +60,6 @@ func readTaskReconciliation(ctx context.Context, service taskChecksReader, inclu
 			return err
 		}
 		cards := make(map[domain.AccountID]domain.Account)
-		holdingIDs := make(map[string]bool)
 		for _, row := range accounts {
 			if row.Account.ArchivedAt != nil {
 				continue
@@ -69,22 +67,16 @@ func readTaskReconciliation(ctx context.Context, service taskChecksReader, inclu
 			if statementCard(row.Account) {
 				cards[row.Account.ID] = row.Account
 			}
-			if includeHoldings && history.TradeAccount(row.Account) {
+			if includeHoldings {
 				holdings.accounts = append(holdings.accounts, row.Account)
-				holdingIDs[row.Account.ID.String()] = true
 			}
 		}
 		for _, session := range sessions {
 			if account, ok := cards[candidates[session.ID]]; ok {
 				out = append(out, taskStatement{session, account})
 			}
-			if session.Status == "in_progress" || session.Status == "paused" || session.Status == "completed" {
-				for _, id := range session.AccountIDs {
-					if holdingIDs[id] {
-						holdings.sessions = append(holdings.sessions, session)
-						break
-					}
-				}
+			if includeHoldings && (session.Status == "in_progress" || session.Status == "paused" || session.Status == "completed") {
+				holdings.sessions = append(holdings.sessions, session)
 			}
 		}
 		return nil

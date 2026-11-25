@@ -1884,11 +1884,17 @@ var simplifiedChineseCatalog = catalog{
 	ProductAddCostFact:             "已记录成本 · %s",
 	ProductAddValueFact:            "已记录当前价值 · %s",
 
+	ReconciliationStart:          "开始对账",
+	ReconciliationSessions:       "对账会话",
+	ReconciliationOpen:           "打开对账 · %s",
+	ReconciliationNewValue:       "新估值",
+	ReconciliationCurrentValue:   "当前估值 · %s",
+	ReconciliationValueUnchanged: "新估值与当前估值相同。",
+
 	TasksUpcomingTab:          "即将发生",
 	TasksInvestmentTab:        "投资核查",
 	TasksReconciliationTab:    "待对账",
 	HoldingReconTitle:         "持仓对账",
-	HoldingReconStart:         "开始持仓对账",
 	HoldingReconOpen:          "打开持仓对账 · %s",
 	HoldingReconBack:          "返回对账",
 	HoldingReconCorrect:       "更正总成本",

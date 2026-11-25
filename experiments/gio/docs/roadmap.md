@@ -1723,7 +1723,7 @@ the initiating control and its scroll position.
 | --- | --- |
 | Gio and Wails adapter | Imported 2.12345678 units at EUR 11.12345678 on the completeness item with zero cash effect. The USD cash item added 1.2345 as income and removed 0.2345 as a fee. Cancel wrote no activity or link. A simulated lost cash acknowledgement retried the same mutation once. A stale session preview preserved the withdrawal draft and required re-review. Reopen matched exact session, account, item, civil day, note, activity and new Holding IDs and USD 157 cash. Compact Back restored the exact receipt and offset. |
 | Packaged Linux X11 | At 1160×820, Cancel wrote zero activities and links and Return reopened the completeness action. The Vancouver November 24 import saved 2.12345678 units at EUR 11.12345678 with no cash movement. At 640×480, Cancel returned to the USD checkpoint and preserved only the earlier import. Confirm posted USD 1.2345 as income on November 24. Compact receipt Back restored the visible focused link and open evidence, and Return reopened it. After restart the import and cash links remained on their original checkpoints. SQLite matched both notes, IDs, quantities and amounts. Harbor Brokerage had USD 201.2345, the second account kept USD 25, and the original account rows, quotes and synthetic source hashes matched. |
-| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Debt, balance and manual-value changes and broader account-scope holdings activity remain open. The transfer and currency conversion checkpoints below cover both directions. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
+| Checks and remaining scope | Full Gio suite and vet, standard Linux packaging, focused shared Go and 89 Wails Reconciliation and record-flow frontend tests passed. Broader account-scope Holdings activity remains open. The checkpoints below cover transfer, currency conversion, linked debt and account values. The import uses existing instruments. Inline creation remains an investment gap. Product workflows and the session-wide journals have separate acceptance needs. |
 
 #### Linked currency conversion
 
@@ -1765,7 +1765,39 @@ refresh controls in the calculator.
 | --- | --- |
 | Gio and Wails adapter | Independent SQLite ledgers matched USD 10.1234 sent to Dollar Savings with a USD 0.0123 fee and EUR 20.125 sent by Euro Manual Value with a EUR 0.125 fee for USD 22.2345 received. Cancel left the original rows intact. A stale review kept the draft, and a lost acknowledgement retried the same mutation. Reopen matched both links, the November 23 Asia/Singapore effective times and exact USD 168.0988, USD 110.6234 and EUR 390 balances. The unrelated account and earlier activities were unchanged. |
 | Packaged Gio Linux X11 | At 1140×920 the keyboard selected Dollar Savings. Back to details retained the amount and note, Cancel preserved ten financial and linkage tables, and Return reopened the USD cash action. At 665×480 Return confirmed the outgoing transfer after review. The wide incoming review used a separate EUR amount and fee plus the explicit USD receipt. SQLite retained both native effective times, both exact transfer legs and fees, and the two original-scope links. The independent source hashes matched. |
-| Checks and remaining scope | Full Gio tests and vet, Linux packaging, focused Wails Go adapters and shared Go tests, and 287 Wails frontend tests passed. One initial run timed out in an unchanged Ledger Repeat case; both the isolated case and the full reference command passed on rerun. Linked debt, balance and manual-value changes and broader account-mode views remain open. Interactive Wails and target-platform accessibility remain open. |
+| Checks and remaining scope | Full Gio tests and vet, Linux packaging, focused Wails Go adapters and shared Go tests, and 287 Wails frontend tests passed. One initial run timed out in an unchanged Ledger Repeat case; both the isolated case and the full reference command passed on rerun. Linked debt and account values have a separate checkpoint below. Interactive Wails and target-platform accessibility remain open. |
+
+#### Linked debt and account value changes
+
+From **Tasks & checks → Reconciliation**, the shared session view can start
+one active account and open existing Holdings, Balance and Manual value
+sessions. Within an active session, **Record a change** at a balance or
+completeness checkpoint and the dated cash action at an eligible Holdings cash
+checkpoint keep the selected account and item fixed. The separate credit-card
+statement shortcut keeps its existing scope.
+
+Debt draw and payment keep the scoped account on the debt or cash side as
+appropriate and use Wails' eligible peer accounts. Payment accepts optional
+interest or fee in the cash account's currency. A Holdings cash sleeve in
+another currency omits debt actions because the shared debt command uses the
+cash account's default currency and cannot match that sleeve. A Manual value
+account cannot originate a debt action. A Balance or Manual value checkpoint
+can post a new absolute value, initialized from the recorded amount. Holdings
+uses its separate cash and product actions. The form keeps the Wails reason
+choices, including Reconciliation for a liability value correction.
+
+Back to details retains the selected account, amount, date and note. Cancel
+returns focus to the checkpoint. The shared guarded preview, immutable
+mutation retry, and reconciliation rules control the write and link in one
+transaction. The exact receipt and effective date can be opened in Ledger.
+[Wails linked entry](../../../frontend/src/features/reconciliation/ReconciliationPage.tsx) · [Wails form](../../../frontend/src/features/history/RecordChangeForm.tsx) · [Shared checkpoint validation](../../../internal/application/reconciliation_session.go)
+
+| Check | Evidence |
+| --- | --- |
+| Gio and Wails Go adapter | Independent synthetic SQLite ledgers matched a USD 30.125 draw from the Holdings cash checkpoint, a USD 10.1234 principal payment with USD 0.0567 fee from the loan balance checkpoint, and a USD 424.5678 manual value. The amounts reopened as USD 175.9449 cash, USD 100.0016 loan and USD 424.5678 property. The three November 23 Asia/Singapore dates, notes and activity IDs reopened under their original item IDs. Cancel left the journal unchanged, a stale session retained the draft, and a lost response retried the same mutation. Earlier activity and unrelated USD 12.34 savings were unchanged. |
+| Packaged Gio Linux X11 | At 1140×920, Back retained the selected loan, principal and dated note, and Cancel left nine financial and link tables unchanged. Return reopened the focused USD cash action. The final package posted the 12:00 draw and the 14:00 property value with Return at 665×480, and the 13:00 payment at wide width. Restart showed the three exact checkpoint links and balances. Ledger Back restored the property receipt's focus. SQLite matched the amounts, local date, UTC instants, activity and checkpoint IDs, prior rows and source hashes. Full Gio tests, vet and the stock Linux package build passed. |
+| Wails reference | All 89 Reconciliation and record-flow frontend tests, the Ledger unchanged-value test, and the targeted shared Go and Wails adapter tests passed. |
+| Remaining | Multi-account **creation**, broader account-scope investment activity, standalone product lifecycle, interactive Wails and native-platform acceptance remain open. Existing multi-account sessions open through the shared account-group view. |
 
 #### Linked product valuation reopen regression
 
@@ -2953,13 +2985,25 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 
 #### Follow-up order across Stages 4 to 6
 
-Continue Stage 5 with remaining linked cash and account-value changes,
-product corrections, archived inventory and account context actions. Stage 4 still has additional Starting
-Point handoffs, value updates and liability-specific amendments. Put additional Agent audit filters,
-large-history paging, and possible local correction and withdrawal authoring
-after these account and investment workflows. The broader catalog editor
-remains part of investment parity. External enrollment and permissions stay
-paused with Stage 7.
+1. Add multi-account reconciliation creation from the [Wails account
+   picker](../../../frontend/src/features/reconciliation/AccountSelection.tsx)
+   using the existing shared start preview. Compare mixed account groups, search,
+   selection and focus, and receipt ownership on Back. Existing mixed sessions
+   can already be opened in Gio.
+2. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
+   Prioritize locked product value and receipt, applicable interest, terms and
+   grouped undo. Verify actual Wails entry points for renewal before expanding
+   the standalone view. Keep funding source and reservation effects explicit.
+3. Continue broader account-scope investment entries, archived inventory,
+   account Starting Point handoffs, and liability-specific amendments. Then
+   address additional Agent audit filters and large-history paging. The
+   instrument catalog editor remains part of investment parity.
+4. Run the [native platform acceptance](#stage-6-exit-gates) in parallel when
+   the paired desktop apps are available. Use the [synthetic desktop
+   runbook](stage6-desktop-qa.md) for compact focus and exact readback. Keep
+   interactive Wails, native macOS, VoiceOver, Wayland and IME separate from CI.
+
+External enrollment and permissions stay paused with Stage 7.
 
 #### Additional analysis filters and effective dates
 

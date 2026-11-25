@@ -1883,11 +1883,17 @@ var japaneseCatalog = catalog{
 	ProductAddCostFact:             "記録した取得原価 · %s",
 	ProductAddValueFact:            "記録した現在価値 · %s",
 
+	ReconciliationStart:          "照合を開始",
+	ReconciliationSessions:       "照合セッション",
+	ReconciliationOpen:           "照合を開く · %s",
+	ReconciliationNewValue:       "新しい評価額",
+	ReconciliationCurrentValue:   "現在の評価額 · %s",
+	ReconciliationValueUnchanged: "新しい評価額は現在の評価額と同じです。",
+
 	TasksUpcomingTab:          "今後の予定",
 	TasksInvestmentTab:        "投資の確認",
 	TasksReconciliationTab:    "照合",
 	HoldingReconTitle:         "保有銘柄の照合",
-	HoldingReconStart:         "保有銘柄の照合を開始",
 	HoldingReconOpen:          "保有銘柄の照合を開く · %s",
 	HoldingReconBack:          "照合に戻る",
 	HoldingReconCorrect:       "取得原価の合計を訂正",

@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -37,6 +38,14 @@ type holdingReconcileAPI interface {
 type holdingReconDirectory struct {
 	sessions []domain.ReconciliationSession
 	accounts []domain.Account
+}
+
+func (d holdingReconDirectory) account(id string) (domain.Account, bool) {
+	i := slices.IndexFunc(d.accounts, func(a domain.Account) bool { return a.ID.String() == id })
+	if i < 0 {
+		return domain.Account{}, false
+	}
+	return d.accounts[i], true
 }
 
 type reconciliationActivityLedger interface {

@@ -167,26 +167,74 @@ func layoutDatedCheckpointForm(gtx layout.Context, view ui.View, labels []i18n.M
 }
 
 type checkpointCashScope struct {
-	account  domain.AccountID
-	currency domain.CurrencyCode
-	entry    *widget.Clickable
-	link     func() *domain.ReconciliationLink
-	refresh  func()
-	buttons  [len(checkpointCashModes)]widget.Clickable
+	account         domain.AccountID
+	currency        domain.CurrencyCode
+	value           func() string
+	liability, card bool
+	entry           *widget.Clickable
+	link            func() *domain.ReconciliationLink
+	refresh         func()
+	modes           []checkpointMovement
+	buttons         []widget.Clickable
 }
 
-var checkpointCashModes = [...]history.CashMovement{history.CashContribution, history.CashWithdrawal, history.CashTransfer, history.CashConversion}
-var checkpointCashLabels = [...]i18n.MessageID{i18n.HistoryCashIn, i18n.HistoryCashOut, i18n.HistoryCashTransfer, i18n.HistoryFXConversion}
+type checkpointMovement struct {
+	kind  history.CashMovement
+	label i18n.MessageID
+}
 
-func (p *tasksPage) startDatedCheckpointCash(account domain.ReconciliationAccount, item domain.ReconciliationItem, entry *widget.Clickable) {
-	c := p.holdingRecon
-	id, err := domain.ParseAccountID(account.AccountID)
-	if err != nil {
-		return
+func datedCheckpointMovements(a domain.Account, item domain.ReconciliationItem) []checkpointMovement {
+	add, remove := i18n.HistoryCashIn, i18n.HistoryCashOut
+	if a.IsLiability() {
+		add, remove = i18n.LiabilityDebtIncrease, i18n.LiabilityDebtDecrease
+		if a.AccountType == domain.TypeCreditCard {
+			add, remove = i18n.LiabilityCardPurchase, i18n.LiabilityCardRefund
+		}
 	}
+	modes := []checkpointMovement{{history.CashContribution, add}, {history.CashWithdrawal, remove}}
+	if !a.IsLiability() {
+		modes = append(modes, checkpointMovement{history.CashTransfer, i18n.HistoryCashTransfer})
+	}
+	switch a.TrackingMode {
+	case domain.TrackingHoldings:
+		modes = append(modes, checkpointMovement{history.CashConversion, i18n.HistoryFXConversion})
+	case domain.TrackingBalance, domain.TrackingManualValue:
+		label := i18n.HistoryValueUpdate
+		if a.IsLiability() {
+			label = i18n.LiabilityBalanceCorrection
+		}
+		modes = append(modes, checkpointMovement{history.CashValueUpdate, label})
+	}
+	// Wails uses the cash account's default currency as principal. On a
+	// different cash sleeve the shared command cannot satisfy this checkpoint.
+	if history.LiabilityPostingAccount(a) && (item.Kind != "cash" || item.Currency == a.DefaultCurrency.String()) {
+		modes = append(modes, checkpointMovement{history.CashDebtDraw, i18n.HistoryDebtDraw}, checkpointMovement{history.CashDebtPayment, i18n.HistoryDebtPayment})
+	}
+	return modes
+}
+
+func (p *tasksPage) startDatedCheckpointCash(account domain.Account, item domain.ReconciliationItem, entry *widget.Clickable) {
+	c := p.holdingRecon
+	modes := datedCheckpointMovements(account, item)
 	f := newHistoryCashMovements(p.ctx, c.ledger, c.clock, p.invalidate)
-	f.linked = &checkpointCashScope{account: id, currency: domain.CurrencyCode(item.Currency), entry: entry,
-		link: c.datedCheckpointLink(account.AccountID, item), refresh: p.readHoldingReconciliation}
+	value := func() string {
+		if c.session != nil {
+			for _, scoped := range c.session.Accounts {
+				if scoped.AccountID == account.ID.String() {
+					for _, checkpoint := range scoped.Items {
+						if checkpoint.Kind == "balance" {
+							return checkpoint.Value
+						}
+					}
+				}
+			}
+		}
+		return ""
+	}
+	f.linked = &checkpointCashScope{account: account.ID, currency: domain.CurrencyCode(item.Currency), value: value,
+		liability: account.IsLiability(), card: account.AccountType == domain.TypeCreditCard, entry: entry,
+		link: c.datedCheckpointLink(account.ID.String(), item), refresh: p.readHoldingReconciliation,
+		modes: modes, buttons: make([]widget.Clickable, len(modes))}
 	c.saved, c.cashDated = i18n.NoMessage, f
 	f.start(history.CashContribution)
 }
@@ -197,11 +245,16 @@ func (p *tasksPage) layoutDatedCheckpointCash(gtx layout.Context, view ui.View) 
 	if draft.review != nil {
 		return f.layoutForm(gtx, view)
 	}
-	selected := slices.Index(checkpointCashModes[:], draft.movement)
-	dims, next := layoutDatedCheckpointForm(gtx, view, checkpointCashLabels[:], f.linked.buttons[:], selected,
+	modes := f.linked.modes
+	selected := slices.IndexFunc(modes, func(choice checkpointMovement) bool { return choice.kind == draft.movement })
+	labels := make([]i18n.MessageID, len(modes))
+	for i, mode := range modes {
+		labels[i] = mode.label
+	}
+	dims, next := layoutDatedCheckpointForm(gtx, view, labels, f.linked.buttons, selected,
 		draft.previewing != nil, f.layoutForm)
 	if f.draft == draft && draft.previewing == nil && next != selected {
-		f.start(checkpointCashModes[next])
+		f.start(modes[next].kind)
 		f.draft.day, f.draft.time, f.draft.defaultTime = draft.day, draft.time, draft.defaultTime
 		f.draft.note.Editor.SetText(draft.note.Text())
 		view.RestorePageScroll(0)

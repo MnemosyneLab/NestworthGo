@@ -80,14 +80,14 @@ func (c *holdingReconciliation) checkDate(f *holdingCheckpointDraft) (day, today
 
 func holdingCheckable(item domain.ReconciliationItem) bool {
 	switch item.Kind {
-	case "scope", "cash", "holding", "product", "removed":
+	case "scope", "cash", "balance", "holding", "product", "removed":
 		return true
 	}
 	return false
 }
 
 func holdingCheckComparable(item domain.ReconciliationItem) bool {
-	return item.Kind == "cash" || item.Kind == "holding"
+	return item.Kind == "cash" || item.Kind == "balance" || item.Kind == "holding"
 }
 
 func holdingCheckLabel(view ui.View, item domain.ReconciliationItem) string {

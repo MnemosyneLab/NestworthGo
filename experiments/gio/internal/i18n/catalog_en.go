@@ -1884,11 +1884,17 @@ var englishCatalog = catalog{
 	ProductAddCostFact:             "Recorded cost basis · %s",
 	ProductAddValueFact:            "Recorded current value · %s",
 
+	ReconciliationStart:          "Start reconciliation",
+	ReconciliationSessions:       "Reconciliation sessions",
+	ReconciliationOpen:           "Open reconciliation · %s",
+	ReconciliationNewValue:       "New value",
+	ReconciliationCurrentValue:   "Current value · %s",
+	ReconciliationValueUnchanged: "The new value matches the current value.",
+
 	TasksUpcomingTab:          "Upcoming",
 	TasksInvestmentTab:        "Investment review",
 	TasksReconciliationTab:    "Reconciliation",
 	HoldingReconTitle:         "Holdings reconciliation",
-	HoldingReconStart:         "Start holdings reconciliation",
 	HoldingReconOpen:          "Open holdings reconciliation · %s",
 	HoldingReconBack:          "Back to reconciliation",
 	HoldingReconCorrect:       "Correct total cost",

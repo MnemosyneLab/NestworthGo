@@ -23,6 +23,13 @@ func liabilityCashAccount(account domain.Account) bool {
 		(account.TrackingMode == domain.TrackingBalance || account.TrackingMode == domain.TrackingHoldings)
 }
 
+func IsDebtCounterparty(account, peer domain.Account) bool {
+	if account.IsLiability() {
+		return liabilityCashAccount(peer)
+	}
+	return liabilityAccount(peer)
+}
+
 type LiabilitySources struct {
 	Account        domain.Account
 	Origin         domain.HistoryOrigin
@@ -50,8 +57,7 @@ func LoadLiabilitySources(ctx context.Context, ledger CashMovementLedger, id dom
 		return LiabilitySources{}, &domain.Error{Code: domain.ErrNotFound, Field: "accountId"}
 	}
 	for _, row := range rows {
-		if sources.Account.IsLiability() && liabilityCashAccount(row.Account) ||
-			!sources.Account.IsLiability() && liabilityAccount(row.Account) {
+		if IsDebtCounterparty(sources.Account, row.Account) {
 			sources.Counterparties = append(sources.Counterparties, row.Account)
 		}
 	}

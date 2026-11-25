@@ -11,6 +11,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/statement"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -19,25 +20,34 @@ import (
 
 func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
 	c, l := p.holdingRecon, view.Language
-	if c == nil || len(c.directory.accounts) == 0 {
+	if c == nil || len(c.directory.accounts) == 0 && len(c.directory.sessions) == 0 {
 		return nil
 	}
 	if c.sessionButtons == nil {
 		c.sessionButtons = make(map[string]*widget.Clickable)
 	}
-	rows := []layout.Widget{tradeTitle(view, i18n.HoldingReconTitle)}
+	rows := []layout.Widget{tradeTitle(view, i18n.ReconciliationSessions)}
 	for _, session := range c.directory.sessions {
 		button := portfolioButton(c.sessionButtons, session.ID)
 		name := strings.Join(session.AccountNames, " · ")
 		status := l.Text(statementStatus(session))
 		when := statementRecordedTime(view, session.StartedAt)
+		openLabel := i18n.ReconciliationOpen
+		if len(session.AccountIDs) == 1 {
+			if a, ok := c.directory.account(session.AccountIDs[0]); ok && a.TrackingMode == domain.TrackingHoldings {
+				openLabel = i18n.HoldingReconOpen
+			}
+		}
 		rows = append(rows, fundsCard(view, name,
 			view.Message(status+" · "+when, view.Colors.SecondaryInk),
-			c.link(view, button, fmt.Sprintf(l.Text(i18n.HoldingReconOpen), name), func() {
+			c.link(view, button, fmt.Sprintf(l.Text(openLabel), name), func() {
 				p.openHoldingReconciliation(session.ID, button)
 			})))
 	}
-	return append(rows, c.link(view, &c.start, l.Text(i18n.HoldingReconStart), func() {
+	if len(c.directory.accounts) == 0 {
+		return rows
+	}
+	return append(rows, c.link(view, &c.start, l.Text(i18n.ReconciliationStart), func() {
 		c.draft = newHoldingReconDraft(&c.start)
 		c.draft.action = statement.Start
 	}))
@@ -81,13 +91,17 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 		c.restoreEditScroll = false
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	title := i18n.TasksReconciliationTab
+	if c.session != nil && len(c.session.Accounts) == 1 && c.session.Accounts[0].Mode == string(domain.TrackingHoldings) {
+		title = i18n.HoldingReconTitle
+	}
 	rows := []layout.Widget{
 		c.link(view, &c.back, l.Text(i18n.HoldingReconBack), func() {
 			entry := c.sessionEntry
 			c.discard()
 			c.restore = entry
 		}),
-		tradeTitle(view, i18n.HoldingReconTitle),
+		tradeTitle(view, title),
 	}
 	switch {
 	case c.loading != nil:
@@ -142,6 +156,7 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	}
 	found := false
 	for _, account := range s.Accounts {
+		activeAccount, active := c.directory.account(account.AccountID)
 		if !slices.ContainsFunc(c.directory.accounts, func(a domain.Account) bool { return a.ID.String() == account.AccountID }) {
 			continue
 		}
@@ -195,19 +210,24 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 				}
 				fields := holdingCheckpointFacts(view, item)
 				buttons := c.checkpointActions(account.AccountID, item.ID)
-				if s.Status == "in_progress" && (item.Kind == "cash" || item.Kind == "scope") {
+				if s.Status == "in_progress" && active && (item.Kind == "cash" || item.Kind == "scope" || item.Kind == "balance") {
 					label := l.Text(i18n.HoldingReconRecordCash)
-					if item.Currency != "" {
+					if activeAccount.TrackingMode != domain.TrackingHoldings {
+						label = l.Text(i18n.LiabilityRecord)
+						if item.Kind == "scope" {
+							label += " · " + l.Text(i18n.StatementScope)
+						}
+					} else if item.Currency != "" {
 						label += " · " + item.Currency
 					}
 					fields = append(fields, c.link(view, &buttons.cash, label, func() {
-						p.startDatedCheckpointCash(account, item, &buttons.cash)
+						p.startDatedCheckpointCash(activeAccount, item, &buttons.cash)
 					}))
-					if item.Kind == "scope" {
+					if item.Kind == "scope" && history.TradeAccount(activeAccount) {
 						fields = append(fields, c.link(view, &buttons.importPosition, l.Text(i18n.OpeningPositionOpen), func() {
 							p.startHoldingDatedChange(account, item, &buttons.importPosition)
 						}))
-						if account.Mode == "holdings" {
+						if domain.ProductAccountEligible(activeAccount) == nil {
 							fields = append(fields, c.link(view, &buttons.addProduct, l.Text(i18n.ProductAddAction), func() {
 								p.openHoldingProductAdd(account, item, &buttons.addProduct, l.Text(i18n.ProductAddDeposit))
 							}))
@@ -242,7 +262,7 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 			}
 		}
 	}
-	if !found {
+	if !found && slices.ContainsFunc(s.Accounts, func(a domain.ReconciliationAccount) bool { return a.Mode == string(domain.TrackingHoldings) }) {
 		rows = append(rows, view.Message(l.Text(i18n.HoldingReconEmpty), view.Colors.SecondaryInk))
 	}
 	if c.ledger != nil {
@@ -307,7 +327,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 	}
 	switch d.action {
 	case statement.Start:
-		title = i18n.HoldingReconStart
+		title = i18n.ReconciliationStart
 	case statement.Resume:
 		title = i18n.HoldingReconResume
 	case statement.Pause:

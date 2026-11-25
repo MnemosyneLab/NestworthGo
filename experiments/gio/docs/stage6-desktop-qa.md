@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|linked-cash-transfer|check-account|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|linked-cash-transfer|linked-debt-value|check-account|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -277,6 +277,21 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   belong to the same USD cash checkpoint. Verify USD 168.0988 in Harbor
   Brokerage, USD 110.6234 in Dollar Savings, EUR 390 in Euro Manual Value
   and the unrelated USD 12.34 unchanged.
+
+- Run `run_copy linked-debt-value gio` and
+  `run_copy linked-debt-value wails`. In Tasks, Reconciliation, open the
+  existing session for Harbor Brokerage, Synthetic Fixed Loan and Synthetic
+  Manual Property. From USD cash, select **Debt draw** and choose Synthetic
+  Fixed Loan. Preview USD 30.125 at noon on November 23, 2026 in
+  Asia/Singapore. Go Back and check the retained draft, then Cancel and
+  reopen the focused entry. Confirm a new review. Open **Record a change**
+  on the loan balance and post a USD 10.1234 principal payment with a
+  USD 0.0567 fee from Harbor Brokerage at 13:00. On the property balance,
+  record a USD 424.5678 value with reason Reconciliation at 14:00. After
+  restarting, open each exact activity from its checkpoint. Compare the
+  three civil times and resulting USD 175.9449 cash, USD 100.0016 loan,
+  USD 424.5678 property and unchanged USD 12.34 savings. The Manual value
+  form offers no debt action.
 
 - Run `run_copy check-account gio` and `run_copy check-account wails`.
   Open Harbor Brokerage's active Holdings reconciliation. Choose **Confirm
