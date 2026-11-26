@@ -1473,7 +1473,7 @@ var simplifiedChineseCatalog = catalog{
 	PortfolioGroupOther:             "其他",
 	PortfolioGroupOne:               "%d 只持仓",
 	PortfolioGroupCount:             "%d 只持仓",
-	PortfolioCurrencySubtotal:       "%s 分组小计",
+	PortfolioCurrencySubtotal:       "%s · 整组小计",
 	PortfolioAccountOne:             "%d 个账户",
 	PortfolioAccountCount:           "%d 个账户",
 	PortfolioUnrealized:             "未实现盈亏 · %s",

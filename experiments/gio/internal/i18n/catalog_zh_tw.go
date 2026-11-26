@@ -1473,7 +1473,7 @@ var traditionalChineseCatalog = catalog{
 	PortfolioGroupOther:             "其他",
 	PortfolioGroupOne:               "%d 檔持倉",
 	PortfolioGroupCount:             "%d 檔持倉",
-	PortfolioCurrencySubtotal:       "%s 群組小計",
+	PortfolioCurrencySubtotal:       "%s · 整組小計",
 	PortfolioAccountOne:             "%d 個帳戶",
 	PortfolioAccountCount:           "%d 個帳戶",
 	PortfolioUnrealized:             "未實現損益 · %s",

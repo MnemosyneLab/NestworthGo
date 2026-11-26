@@ -1473,7 +1473,7 @@ var englishCatalog = catalog{
 	PortfolioGroupOther:             "Other",
 	PortfolioGroupOne:               "%d holding",
 	PortfolioGroupCount:             "%d holdings",
-	PortfolioCurrencySubtotal:       "%s group subtotal",
+	PortfolioCurrencySubtotal:       "%s · Full group subtotal",
 	PortfolioAccountOne:             "%d account",
 	PortfolioAccountCount:           "%d accounts",
 	PortfolioUnrealized:             "Unrealized gain or loss · %s",

@@ -148,6 +148,24 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("wrong instrument or account-level gain: Gio %+v, Wails %+v", row, ref)
 	}
 
+	compactSize := h.size
+	h.size = image.Pt(1120, 1080)
+	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
+	settle()
+	filtered := portfolio.visibleHoldingGroups()
+	if len(filtered) != 1 || len(filtered[0].Instruments) != 1 || filtered[0].Instruments[0].Symbol != "QA-FULL" {
+		t.Fatalf("search did not isolate the intended holding: %+v", filtered)
+	}
+	visibleCost := filtered[0].Instruments[0].Amounts.TotalCost
+	if visibleCost == nil || visibleCost.Amount != "60.36" || !slices.ContainsFunc(filtered[0].Subtotals, func(subtotal domain.HoldingCurrencySubtotal) bool {
+		return subtotal.Currency == "EUR" && subtotal.Amounts.TotalCost != nil && subtotal.Amounts.TotalCost.Amount == "68.36"
+	}) {
+		t.Fatalf("expected visible EUR 60.36 and full-group EUR 68.36: %+v", filtered)
+	}
+	assertPageLabel(t, &h.router, "EUR · Full group subtotal")
+	assertPageLabel(t, &h.router, "Cost basis · €68.36")
+	h.size = compactSize
+
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-loss")
 	settle()
 	reveal("Stocks · 1 holding")

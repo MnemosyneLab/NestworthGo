@@ -1472,7 +1472,7 @@ var japaneseCatalog = catalog{
 	PortfolioGroupOther:             "その他",
 	PortfolioGroupOne:               "保有銘柄 %d 件",
 	PortfolioGroupCount:             "保有銘柄 %d 件",
-	PortfolioCurrencySubtotal:       "%s グループ小計",
+	PortfolioCurrencySubtotal:       "%s · グループ全体の小計",
 	PortfolioAccountOne:             "%d 口座",
 	PortfolioAccountCount:           "%d 口座",
 	PortfolioUnrealized:             "未実現損益 · %s",
