@@ -1318,6 +1318,7 @@ const (
 	StatementOpen
 	StatementBackAccount
 	StatementBackList
+	StatementOpenFullSession
 	StatementStart
 	StatementResume
 	StatementCheck

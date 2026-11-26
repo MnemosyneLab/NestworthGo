@@ -34,9 +34,15 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	}
 	if f := p.statement; f != nil {
 		row := p.freshDetail()
-		if f.screen == nil && row != nil && (p.target.statement != "" || f.open.Clicked(gtx)) {
+		if f.screen == nil && row != nil && (p.target.statement != "" || f.restore.open || f.open.Clicked(gtx)) {
 			if statementCard(row.record.Account) {
-				p.startStatements(row.record.Account, p.target.statement)
+				selected := p.target.statement
+				if f.restore.open {
+					selected = f.restore.selected
+				}
+				p.startStatements(row.record.Account, selected)
+				f.screen.list.Position = f.restore.position
+				f.restore = statementVisit{}
 			} else if p.target.statement != "" {
 				return view.Message(l.Text(i18n.StatementLoadFailed), view.Colors.ErrorInk)(gtx)
 			}

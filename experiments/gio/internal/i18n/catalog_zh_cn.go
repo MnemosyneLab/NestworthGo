@@ -1441,6 +1441,7 @@ var simplifiedChineseCatalog = catalog{
 	StatementOpen:                   "账单对账",
 	StatementBackAccount:            "返回账户",
 	StatementBackList:               "返回账单对账记录",
+	StatementOpenFullSession:        "查看检查项和账务日志",
 	StatementStart:                  "开始核对账单",
 	StatementResume:                 "继续核对账单",
 	StatementCheck:                  "核对欠款与记录完整性",

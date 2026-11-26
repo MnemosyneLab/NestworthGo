@@ -163,10 +163,18 @@ linked undo receipt. The paired Gio regression also rejects a stale reservation
 revision, loads a fresh preview, and replays the confirmed request after a
 lost response. Renewal retains its Reconciliation workflow.
 
+### Credit-card statement journal handoff
+
+An active card statement opens its exact session in Tasks for individual
+checkpoints, ordinary ledger entries and the linked and recent journals.
+Back restores the selected statement and initiating link. Independent copies
+confirm the same USD 44.6912 owed and exact linked receipt in Gio and the Wails
+Go adapter. Cancelling a reviewed purchase leaves the original record intact.
+
 ## Remaining Stage 1–6 work
 
-1. Close the remaining account-scope investment and specialized card statement
-   gaps, including Market performance in instrument detail.
+1. Close the remaining account-scope investment gaps, including Market
+   performance in instrument detail.
 2. Verify the remaining provider and coverage recovery flows and the Asset Changes handoffs.
 
 The [Stage 6 exit gates](roadmap.md#stage-6-exit-gates) track acceptance work

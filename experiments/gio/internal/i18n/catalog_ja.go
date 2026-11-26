@@ -1440,6 +1440,7 @@ var japaneseCatalog = catalog{
 	StatementOpen:                   "明細照合",
 	StatementBackAccount:            "口座に戻る",
 	StatementBackList:               "照合記録に戻る",
+	StatementOpenFullSession:        "照合項目と取引記録を確認",
 	StatementStart:                  "明細の照合を開始",
 	StatementResume:                 "明細照合を再開",
 	StatementCheck:                  "残高と記録の完全性を確認",

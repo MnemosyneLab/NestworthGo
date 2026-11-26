@@ -243,6 +243,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	lockedProductSeed := seedStage6LockedSettlement(t)
 	termDepositSeed := seedStage6TermDeposit(t)
 	linkedCashTransferSeed := seedStage6LinkedCashTransfer(t)
+	cardStatementSeed, card := seedStage6CardStatement(t, start)
 	fundsDB, _, fundsService := openStage6Database(t, filepath.Join(t.TempDir(), "funds.db"), func() time.Time { return start })
 	if _, err := seedAvailableFunds(t.Context(), fundsService, start, true); err != nil {
 		t.Fatal(err)
@@ -270,6 +271,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"linked-debt-value", seedStage6LinkedDebtValue(t)},
 		{"multi-account-reconciliation", seedStage6ReconciliationSelection(t)},
 		{"check-account", lockedProductSeed},
+		{"card-statement", cardStatementSeed},
 		{"deposit-corrections", termDepositSeed},
 		{"early-deposit-receipt", seedStage6EarlyTermDeposit(t)},
 		{"product-operation-history", seedStage6ProductHistory(t)},
@@ -282,7 +284,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 			writeStage6Fixture(t, filepath.Join(dir, label), profile.seed)
 		}
 	}
-	t.Logf("fixtures=%s snapshot_repair_date=%s adjacent_stale_date=%s return_calendar_day=%s contribution_activity=%s", root,
+	t.Logf("fixtures=%s snapshot_repair_date=%s adjacent_stale_date=%s return_calendar_day=%s contribution_activity=%s card_session=%s card_receipt=%s", root,
 		snapshotStart.AddDate(0, 0, 1).Format(time.DateOnly), snapshotStart.AddDate(0, 0, 2).Format(time.DateOnly),
-		calendarStart.AddDate(0, 0, 1).Format(time.DateOnly), dividend.ID)
+		calendarStart.AddDate(0, 0, 1).Format(time.DateOnly), dividend.ID, card.session, card.receipt)
 }

@@ -1113,6 +1113,24 @@ available here to view.
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
 | Open evidence | Multi-account editing, individual source comparisons and exceptions, partial finish and linked financial adjustments remain open in Gio. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
 
+#### From a card statement to its checkpoints and journal
+
+From an active credit card's statement record, **Review checkpoints and
+journal** opens the exact session in Tasks → Reconciliation. The shared
+session view provides individual balance and completeness checks, ordinary
+card postings and the linked and recent change journals. The statement view
+continues to show the exact amount owed and signed balance. Back reloads the
+same selected statement, restores its scroll and returns focus to the link.
+
+The paired fixture starts with a USD 30 card and a linked USD 12.3456
+purchase. On independent copies, the next linked USD 2.3456 purchase leaves
+USD 44.6912 owed and creates one new receipt on the balance checkpoint.
+Cancelling a reviewed purchase keeps the original journal and ledger.
+Opening a journal receipt resolves its exact activity ID, and Back restores the
+journal and receipt focus. This exercises the same Wails Go commands and
+session reads. The [native QA procedure](stage6-desktop-qa.md) names the
+`card-statement` profile for interactive checks.
+
 #### Repeat an ordinary cash activity
 
 **Ledger activity → Details → Repeat as new draft** opens a one-time draft.

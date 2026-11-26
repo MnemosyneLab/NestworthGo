@@ -527,6 +527,14 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		s.tasks.openStatement = func(account domain.AccountID, session, name string, from event.Tag) {
 			s.accounts.open(navigationTarget{route: accountsRoute, account: account, statement: session}, name, from)
 		}
+		if c := s.tasks.holdingRecon; c != nil && c.ledger != nil {
+			s.accounts.statement.openReconciliation = func(session, name string, focus event.Tag) {
+				s.pendingNavigation = &navigationRequest{
+					target: navigationTarget{route: tasksRoute}, name: name, focus: focus,
+					tasksTab: tasksReconciliation, tasksSession: session,
+				}
+			}
+		}
 	}
 	if p := s.funds; p != nil {
 		openAction := func(target fundsActionFocus, from event.Tag) {

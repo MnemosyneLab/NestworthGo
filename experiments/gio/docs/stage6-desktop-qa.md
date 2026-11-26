@@ -132,6 +132,7 @@ run_copy() (
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
     early-deposit-receipt) household='Synthetic term deposits' ;;
     funds-reservations) household='Synthetic funds' ;;
+    card-statement) household='Synthetic Stage 6 card statement' ;;
     locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|standalone-interest-terms|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections|product-operation-history) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
@@ -365,6 +366,17 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   first 25 rows and verify all 29 rows, including the original recorded
   product. Refresh returns to the first page. No ledger write is needed.
 
+- Run `run_copy card-statement gio` and `run_copy card-statement wails`.
+  Open Synthetic Statement Card from Accounts. In Gio, open Statement
+  reconciliation, select the in-progress record and choose Review checkpoints
+  and journal. In Wails, choose Open account reconciliation and Continue
+  session. Inspect the balance checkpoint and the linked journal. The existing
+  receipt has note Synthetic statement purchase and owes USD 42.3456 after
+  posting. Preview a USD 2.3456 card purchase on the balance checkpoint, cancel,
+  and verify the previous balance and receipt remain. Reopen and confirm that
+  purchase with a distinct note. Both copies should owe USD 44.6912. The
+  journal should open the new exact receipt. Verify Back restores the
+  initiating record and focus in Gio.
 - Run `run_copy linked-debt-value gio` and
   `run_copy linked-debt-value wails`. In Tasks, Reconciliation, open the
   existing session for Harbor Brokerage, Synthetic Fixed Loan and Synthetic

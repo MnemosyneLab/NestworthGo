@@ -52,6 +52,7 @@ type navigationEntry struct {
 	historyDetail    historyDetailState
 	accountsArchived bool
 	accountPositions accountPositionsVisit
+	accountStatement statementVisit
 	funds            fundsViewState
 	portfolioSearch  string
 	holdings         portfolioHoldingsVisit
@@ -161,6 +162,7 @@ type navigationRequest struct {
 	settingsProvider     string
 	verifyProductReceipt bool
 	tasksTab             tasksTab
+	tasksSession         string
 	asset                assetChangesVisit
 	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
@@ -351,7 +353,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.restoreVisit(s.trail.current())
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
-			tasks: tasksVisit{tab: request.tasksTab}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
+			tasks: tasksVisit{tab: request.tasksTab, holdingSession: request.tasksSession}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -366,6 +368,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 		s.accounts.positions.visit = entry.accountPositions.copy()
+		if statement := s.accounts.statement; statement != nil {
+			statement.restore = entry.accountStatement
+		}
 	}
 	if entry.target.route == fundsRoute {
 		if entry.target.product == "" {
@@ -486,8 +491,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 		entry.accountsArchived = s.accounts.archived
 		entry.accountPositions = s.accounts.positions.visit.copy()
 		entry.scroll = s.accounts.list.Position
-		if entry.target.statement != "" && s.accounts.statement.screen != nil {
-			entry.scroll = s.accounts.statement.screen.list.Position
+		if statement := s.accounts.statement; statement != nil {
+			entry.accountStatement = statement.visit()
 		}
 	case fundsRoute:
 		if entry.target.product == "" {

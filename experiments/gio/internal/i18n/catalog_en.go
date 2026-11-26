@@ -1441,6 +1441,7 @@ var englishCatalog = catalog{
 	StatementOpen:                   "Statement reconciliation",
 	StatementBackAccount:            "Back to account",
 	StatementBackList:               "Back to statement records",
+	StatementOpenFullSession:        "Review checkpoints and journal",
 	StatementStart:                  "Start statement check",
 	StatementResume:                 "Continue statement check",
 	StatementCheck:                  "Check balance and completeness",
