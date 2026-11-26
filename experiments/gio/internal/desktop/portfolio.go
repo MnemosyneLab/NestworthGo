@@ -226,6 +226,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	p.update()
 	p.updateAllocationTrend(gtx, view)
 	p.pollCatalogDraft()
+	p.beginRequestedCatalogEditor(gtx, view)
 	if p.catalog.draft != nil {
 		return p.layoutCatalogDraft(gtx, view)
 	}

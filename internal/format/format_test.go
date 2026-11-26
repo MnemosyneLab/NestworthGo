@@ -7,6 +7,26 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
+func TestQuotePriceAndRateRetainPrecision(t *testing.T) {
+	pref := settings.Default()
+	pref.DecimalSeparator, pref.GroupingSeparator = settings.DecimalComma, settings.GroupingDot
+	for _, item := range []struct{ amount, currency, want string }{
+		{"1234.56789123", "USD", "US$1.234,56789123"},
+		{"750", "JPY", "JP¥750,00"},
+		{"0.00000001", "CNY", "CN¥0,00000001"},
+		{"0", "USD", "US$0,00"},
+		{"-1234.5678", "JPY", "-JP¥1.234,5678"},
+		{"—", "USD", "—"},
+	} {
+		if got := QuotePrice(item.amount, item.currency, pref); got != item.want {
+			t.Errorf("QuotePrice(%q, %q) = %q, want %q", item.amount, item.currency, got, item.want)
+		}
+	}
+	if got := ExactDecimal("1321.005600", pref); got != "1.321,005600" {
+		t.Errorf("exact rate = %q, want 1.321,005600", got)
+	}
+}
+
 func TestMoneyUsesExactDecimalRoundingAndSeparators(t *testing.T) {
 	pref := settings.Default()
 	if got := Money("1234567.895", "CNY", pref); got != "CN¥1,234,567.90" {

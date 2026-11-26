@@ -47,6 +47,13 @@ var traditionalChineseCatalog = catalog{
 	MarketMetals:            "貴金屬",
 	MarketOther:             "其他標的",
 
+	MarketLatestPrice:           "最新價格：%s",
+	MarketNoCurrentPrice:        "缺少目前價格",
+	MarketOpenInstrumentDetails: "開啟%s詳情",
+	MarketEditInstrument:        "編輯%s",
+	MarketFindingWindow:         "問題日期範圍 · %s",
+	MarketRefreshScope:          "重新整理缺失或過時的提供者價格與匯率",
+
 	InstrumentBindingOpen:           "編輯報價來源",
 	InstrumentBindingTitle:          "報價來源 · %s",
 	InstrumentBindingCurrency:       "標的幣別 · %s",
@@ -111,7 +118,7 @@ var traditionalChineseCatalog = catalog{
 	MarketManualSaved:          "手動報價已儲存",
 	MarketManualDerivedPending: "匯率已儲存。無法重新整理相關貴金屬價格。",
 
-	MarketUpdateLatest:    "更新最新資料",
+	MarketUpdateLatest:    "更新最新行情",
 	MarketMoreActions:     "更多操作",
 	MarketCancelLatest:    "取消重新整理",
 	MarketRetryLatest:     "重試重新整理",

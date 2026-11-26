@@ -59,7 +59,7 @@ func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View, relo
 		return returnMonthButton(view, control, label, nil, active)
 	}
 	var actions []layout.Widget
-	if r.service != nil {
+	if r.service != nil && !p.focus.active() {
 		if !busy && r.update.Clicked(gtx) {
 			p.startLatest(marketLatestTarget{})
 			gtx.Execute(op.InvalidateCmd{})
@@ -70,10 +70,15 @@ func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View, relo
 			}
 			view.Focus.Watch(gtx, &r.update)
 			title := view.Language.Text(i18n.MarketUpdateLatest)
-			return view.ButtonOf(&r.update, ui.ButtonSpec{Title: title, Name: title, Size: ui.ButtonSmall, Variant: ui.ButtonPrimary})(gtx)
+			return view.ButtonOf(&r.update, ui.ButtonSpec{
+				Title: title, Name: title, Size: ui.ButtonSmall, Variant: ui.ButtonPrimary,
+				Description: view.Language.Text(i18n.MarketRefreshScope),
+			})(gtx)
 		})
 	}
-	actions = append(actions, button(&r.more, i18n.MarketMoreActions, !busy, func() { r.moreOpen = !r.moreOpen }))
+	if !p.focus.active() {
+		actions = append(actions, button(&r.more, i18n.MarketMoreActions, !busy, func() { r.moreOpen = !r.moreOpen }))
+	}
 	if r.request != nil {
 		actions = append(actions, button(&r.cancel, i18n.MarketCancelLatest, !r.stopping, func() { r.stopping = true; r.stop() }))
 	}
@@ -106,7 +111,7 @@ func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View, relo
 	}
 	actions = append(actions, returnMonthButton(view, &p.reload, reload, nil, p.request == nil))
 	rows := []ui.ColumnChild{ui.Rigid(marketActionRow(view, actions))}
-	if r.moreOpen {
+	if r.moreOpen && !p.focus.active() {
 		var extra []layout.Widget
 		if job != nil {
 			extra = append(extra, button(&p.previewSync, i18n.MarketSyncRepair, !busy, func() {

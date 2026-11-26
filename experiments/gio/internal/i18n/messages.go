@@ -93,6 +93,11 @@ const (
 	MarketNoInstruments
 	MarketNoMatches
 	MarketNoQuote
+	MarketLatestPrice
+	MarketNoCurrentPrice
+	MarketOpenInstrumentDetails
+	MarketEditInstrument
+	MarketFindingWindow
 	MarketNoSource
 	MarketDelayed
 	MarketStocks
@@ -123,6 +128,7 @@ const (
 	MarketManualSaved
 	MarketManualDerivedPending
 	MarketUpdateLatest
+	MarketRefreshScope
 	MarketMoreActions
 	MarketCancelLatest
 	MarketRetryLatest

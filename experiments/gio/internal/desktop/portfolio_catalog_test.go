@@ -7,10 +7,71 @@ import (
 	"testing"
 	"time"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
+
+func TestPortfolioCatalogRequestedEditorUsesCurrentInstrument(t *testing.T) {
+	ctx := t.Context()
+	service, _, _, _ := openPortfolioFixture(t, "partial")
+	added, err := service.CreateInstrument(ctx, application.InstrumentInput{
+		Name: "Synthetic maintenance bond", Symbol: "QA-EDIT", Type: "bond", QuoteCurrency: "EUR", QuoteSource: "manual",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	portfolio := newPortfolioPage(ctx, service, func() {})
+	t.Cleanup(portfolio.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{portfolio: portfolio})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1120, 950)
+	frame := func() {
+		for range 4 {
+			h.frame()
+			portfolio.workers.Wait()
+		}
+		h.frame()
+	}
+	var completions []i18n.MessageID
+	portfolio.catalog.finishExternal = func(message i18n.MessageID) { completions = append(completions, message) }
+	frame()
+	h.click("Investment assets", false)
+	frame()
+	h.click("Instruments", false)
+	frame()
+
+	older := added
+	older.Name = "Earlier stale name"
+	portfolio.read()
+	portfolio.requestCatalogEditor(older)
+	frame()
+	draft := portfolio.catalog.draft
+	if draft == nil || !draft.external || draft.instrument.ID != added.ID || draft.fields[portfolioInstrumentName].Text() != added.Name {
+		t.Fatal("opening through maintenance did not start from the current identity")
+	}
+	setBankField(h, "Instrument name", &draft.fields[portfolioInstrumentName], "Updated maintenance bond")
+	h.click("Save", false)
+	frame()
+	items, err := service.ListInstruments(ctx, true)
+	if err != nil || !slices.ContainsFunc(items, func(item domain.Instrument) bool {
+		return item.ID == added.ID && item.Name == "Updated maintenance bond" && item.QuoteCurrency == "EUR"
+	}) || !slices.Equal(completions, []i18n.MessageID{i18n.PortfolioCatalogSaved}) {
+		t.Fatalf("the shared editor did not save the same instrument and report completion: %v / %v", err, completions)
+	}
+	portfolio.requestCatalogEditor(domain.Instrument{})
+	frame()
+	draft = portfolio.catalog.draft
+	if draft == nil || !draft.external || draft.instrument.ID != "" || draft.config.currency != portfolio.current.summary.Currency {
+		t.Fatal("opening Add instrument through maintenance lost the shared household default")
+	}
+	h.click("Cancel", false)
+	frame()
+	if portfolio.catalog.draft != nil || !slices.Equal(completions, []i18n.MessageID{i18n.PortfolioCatalogSaved, i18n.NoMessage}) {
+		t.Fatal("cancel did not return to the requesting page without a save")
+	}
+}
 
 type catalogLookupFixture struct {
 	*application.Service

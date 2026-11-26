@@ -13,6 +13,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -38,6 +39,7 @@ type marketDataVisit struct {
 	tab    marketTab
 	search string
 	scroll [2]layout.Position
+	focus  healthFindingFocus
 }
 
 type marketInstrumentRow struct {
@@ -60,6 +62,11 @@ type marketDataResult struct {
 	fx          []marketFXRow
 }
 
+type marketInstrumentActions struct {
+	details, edit, more widget.Clickable
+	expanded            bool
+}
+
 type marketDataPage struct {
 	ctx                                 context.Context
 	reader                              marketDataReader
@@ -72,6 +79,7 @@ type marketDataPage struct {
 	tab                                 marketTab
 	tabs                                [2]widget.Clickable
 	search                              ui.SearchField
+	focus                               healthFindingFocus
 	reload                              widget.Clickable
 	health                              widget.Clickable
 	openHealth                          func(*widget.Clickable)
@@ -95,6 +103,11 @@ type marketDataPage struct {
 	instrumentSources                   marketInstrumentSourceService
 	instrumentSource                    *marketInstrumentSourceDraft
 	instrumentSourceActions             map[string]*widget.Clickable
+	instrumentActions                   map[domain.InstrumentID]*marketInstrumentActions
+	addInstrument                       widget.Clickable
+	openInstrumentDetails               func(domain.InstrumentID, string, event.Tag)
+	openCatalogEditor                   func(domain.Instrument, event.Tag)
+	catalogNotice                       i18n.MessageID
 	agentReader                         marketAgentReader
 	closedDateWriter                    marketClosedDateWriter
 	agentEvidence                       *marketAgentEvidence
@@ -102,7 +115,7 @@ type marketDataPage struct {
 }
 
 func (p *marketDataPage) enter(visit marketDataVisit) {
-	p.tab = visit.tab
+	p.tab, p.focus = visit.tab, visit.focus
 	p.search.Field.Editor.SingleLine = true
 	if p.search.Field.Text() != visit.search {
 		p.search.Field.Editor.SetText(visit.search)
@@ -114,7 +127,7 @@ func (p *marketDataPage) enter(visit marketDataVisit) {
 }
 
 func (p *marketDataPage) visit() marketDataVisit {
-	state := marketDataVisit{tab: p.tab, search: p.search.Field.Text()}
+	state := marketDataVisit{tab: p.tab, search: p.search.Field.Text(), focus: p.focus}
 	for index := range p.list {
 		state.scroll[index] = p.list[index].Position
 	}
@@ -132,15 +145,32 @@ func (p *marketDataPage) read() {
 	p.leave()
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel, p.err = cancel, nil
-	tab := p.tab
+	tab, focus := p.tab, p.focus
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (marketDataResult, error) {
 		if tab == marketFX {
 			rows, err := readMarketFX(ctx, p.reader)
+			if pair := marketFindingFXPair(focus); err == nil && pair != (marketFXPair{}) &&
+				!slices.ContainsFunc(rows, func(row marketFXRow) bool { return row.pair == pair }) {
+				rows = append(rows, marketFXRow{pair: pair})
+			}
 			return marketDataResult{fx: rows}, err
 		}
 		rows, err := readMarketInstruments(ctx, p.reader)
 		return marketDataResult{instruments: rows}, err
 	})
+}
+
+func marketFindingFXPair(focus healthFindingFocus) marketFXPair {
+	a, errA := domain.ParseCurrency(focus.currencyA)
+	b, errB := domain.ParseCurrency(focus.currencyB)
+	if errA != nil || errB != nil {
+		return marketFXPair{}
+	}
+	first, second, err := domain.NormalizeFXPair(a, b)
+	if err != nil {
+		return marketFXPair{}
+	}
+	return marketFXPair{first, second}
 }
 
 func (p *marketDataPage) update() {

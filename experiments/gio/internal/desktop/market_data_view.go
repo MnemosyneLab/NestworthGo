@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/format"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 var marketTabs = [...]i18n.MessageID{i18n.MarketInstruments, i18n.MarketFX}
@@ -90,13 +93,19 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	if receipt := p.manual.latest; receipt.saved() && (receipt.fx.ID != "") == (p.tab == marketFX) {
 		rows = append(rows, ui.Rigid(manualQuoteNotice(view, receipt)))
 	}
+	if p.focus.from != "" {
+		window := historyDay(view, p.focus.from)
+		if p.focus.to != "" && p.focus.to != p.focus.from {
+			window += " – " + historyDay(view, p.focus.to)
+		}
+		label := fmt.Sprintf(l.Text(i18n.MarketFindingWindow), window)
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, label, view.Colors.SecondaryInk)))
+	}
 	if p.tab == marketInstruments {
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.search.Layout(gtx, view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
-				p.list[marketInstruments].Position = layout.Position{}
-				gtx.Execute(op.InvalidateCmd{})
-			})
-		}))
+		rows = append(rows, ui.Rigid(p.marketInstrumentControls(view)))
+		if p.catalogNotice != i18n.NoMessage {
+			rows = append(rows, ui.Rigid(view.Message(l.Text(p.catalogNotice), view.Colors.Ink)))
+		}
 	} else {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.MarketFXDescription), view.Colors.SecondaryInk)))
 	}
@@ -112,29 +121,70 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	return (ui.Column{Gap: 12, MinFill: 250}).Layout(gtx, rows...)
 }
 
+func (p *marketDataPage) marketInstrumentControls(view ui.View) layout.Widget {
+	search := func(gtx layout.Context) layout.Dimensions {
+		return p.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
+			p.list[marketInstruments].Position = layout.Position{}
+			gtx.Execute(op.InvalidateCmd{})
+		})
+	}
+	if p.openCatalogEditor == nil || p.focus.active() {
+		return search
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		ready := p.request == nil && p.err == nil && p.current[marketInstruments] != nil
+		if ready && p.addInstrument.Clicked(gtx) {
+			p.catalogNotice = i18n.NoMessage
+			p.openCatalogEditor(domain.Instrument{}, &p.addInstrument)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return (ui.Grid{MinColumn: 214, Gap: ui.Space8, MaxColumns: 2}).Layout(gtx, view, 2,
+			func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
+				if index == 0 {
+					return search(gtx)
+				}
+				if !ready {
+					gtx = gtx.Disabled()
+				}
+				return layout.E.Layout(gtx, view.PrimaryButton(&p.addInstrument, view.Language.Text(i18n.PortfolioCatalogAdd)))
+			})
+	}
+}
+
 func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.ColumnChild {
 	l := view.Language
 	if p.tab == marketFX {
-		if len(result.fx) == 0 {
+		rows := result.fx
+		if pair := marketFindingFXPair(p.focus); pair != (marketFXPair{}) {
+			i := slices.IndexFunc(rows, func(row marketFXRow) bool { return row.pair == pair })
+			if i < 0 {
+				rows = nil
+			} else {
+				rows = rows[i : i+1]
+			}
+		}
+		if len(rows) == 0 {
 			return []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.MarketNoFX), view.Colors.SecondaryInk))}
 		}
 		return []ui.ColumnChild{ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return pageListGap(gtx, view, &p.list[marketFX], l.Text(i18n.MarketFX), len(result.fx), 0, func(gtx layout.Context, index int) layout.Dimensions {
-				return p.marketFXCard(gtx, view, result.fx[index], index == 0, index == len(result.fx)-1)
+			return pageListGap(gtx, view, &p.list[marketFX], l.Text(i18n.MarketFX), len(rows), 0, func(gtx layout.Context, index int) layout.Dimensions {
+				return p.marketFXCard(gtx, view, rows[index], index == 0, index == len(rows)-1)
 			})
 		})}
 	}
 	query := strings.ToLower(strings.TrimSpace(p.search.Field.Text()))
 	matches := make([]marketInstrumentRow, 0, len(result.instruments))
 	for _, row := range result.instruments {
-		if marketInstrumentMatches(row.instrument, query) {
+		if (p.focus.instrument == "" || row.instrument.ID.String() == p.focus.instrument) && marketInstrumentMatches(row.instrument, query) {
 			matches = append(matches, row)
 		}
 	}
 	if len(matches) == 0 {
 		message := i18n.MarketNoInstruments
-		if len(result.instruments) > 0 {
+		if query != "" && len(result.instruments) > 0 {
 			message = i18n.MarketNoMatches
+		} else if p.focus.instrument != "" {
+			message = i18n.PortfolioInstrumentUnavailable
 		}
 		return []ui.ColumnChild{ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk))}
 	}
@@ -158,12 +208,20 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 	l := view.Language
 	i := row.instrument
 	name := i.DisplayLabel()
+	subtitle := strings.TrimSpace(i.Name)
+	if strings.EqualFold(name, subtitle) {
+		subtitle = ""
+	}
 	if i.ArchivedAt != nil {
 		name += " · " + l.Text(i18n.DirectoryArchived)
 	}
-	price, evidence := l.Text(i18n.MarketNoQuote), ""
+	price, evidence := l.Text(i18n.MarketNoCurrentPrice), ""
 	if q := row.quote; q != nil {
-		price = fmt.Sprintf(l.Text(i18n.PortfolioCurrentPrice), q.Currency, portfolioDecimal(view, q.UnitPrice.Canonical()))
+		value := format.QuotePrice(q.UnitPrice.Canonical(), q.Currency.String(), marketNumberPreferences(view))
+		if i.UsesMetalConversion() {
+			value = fmt.Sprintf(l.Text(catalogMetalPriceUnit(i.QuantityUnit)), value)
+		}
+		price = fmt.Sprintf(l.Text(i18n.MarketLatestPrice), value)
 		evidence = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	}
 	var rows []ui.ColumnChild
@@ -178,11 +236,12 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 	if i.QuoteSource == domain.QuoteSourceProvider && i.ProviderKey != nil && i.ProviderSymbol != nil {
 		caption = instrumentProviderLabel(l, *i.ProviderKey) + " · " + *i.ProviderSymbol
 	}
-	actions := p.marketHistoryAction(gtx, view, i.ID.String(), marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel()})
+	target := marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel(), finding: p.focus}
+	actions := p.marketHistoryAction(gtx, view, i.ID.String(), target)
 	if p.instrumentSources != nil {
 		actions = append(actions, p.instrumentSourceAction(gtx, view, i))
 	}
-	actions = append(actions, p.marketAgentAction(gtx, view, i.ID.String(), marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel()})...)
+	actions = append(actions, p.marketAgentAction(gtx, view, i.ID.String(), target)...)
 	if p.manual.service != nil && manualPriceAvailable(i) {
 		if p.manual.prices == nil {
 			p.manual.prices = make(map[string]*widget.Clickable)
@@ -198,25 +257,90 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 		actions = append(actions, p.marketTargetActions(gtx, view, marketLatestTarget{instrument: i.ID},
 			application.SyncRequest{Scope: application.SyncScopeInstrument, InstrumentID: i.ID.String()})...)
 	}
+	actions = p.marketInstrumentRowActions(gtx, view, i, actions)
+	icon := directoryGlyph(productString(i.IconKey), domain.DefaultInstrumentIcon(i.Type))
+	if icon == nil {
+		icon = lucide.TrendingUp
+	}
 	rows = append(rows, ui.Rigid(marketQuoteRow(view, group != i18n.NoMessage, last, marketRowSpec{
-		icon: lucide.TrendingUp, name: name, caption: caption, badges: marketBadges(view, i.QuoteCurrency.String(), i.QuoteSource),
+		icon: icon, name: name, subtitle: subtitle, caption: caption, badges: marketBadges(view, i.QuoteCurrency.String(), i.QuoteSource),
 		value: price, evidence: evidence,
 	}, actions)))
 	return (ui.Column{}).Layout(gtx, rows...)
+}
+
+func (p *marketDataPage) marketInstrumentRowActions(gtx layout.Context, view ui.View, i domain.Instrument, secondary []layout.Widget) []layout.Widget {
+	if p.openInstrumentDetails == nil && p.openCatalogEditor == nil {
+		return secondary
+	}
+	if p.instrumentActions == nil {
+		p.instrumentActions = make(map[domain.InstrumentID]*marketInstrumentActions)
+	}
+	a := p.instrumentActions[i.ID]
+	if a == nil {
+		a = &marketInstrumentActions{}
+		p.instrumentActions[i.ID] = a
+	}
+	l := view.Language
+	ready := p.request == nil && p.err == nil
+	button := func(control *widget.Clickable, label, name string, variant ui.ButtonVariant, open func()) layout.Widget {
+		if ready && control.Clicked(gtx) {
+			open()
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return func(gtx layout.Context) layout.Dimensions {
+			if !ready {
+				gtx = gtx.Disabled()
+			}
+			return view.ButtonOf(control, ui.ButtonSpec{Variant: variant, Size: ui.ButtonSmall, Title: label, Name: name})(gtx)
+		}
+	}
+	var actions []layout.Widget
+	if p.openInstrumentDetails != nil {
+		actions = append(actions, button(&a.details, l.Text(i18n.PortfolioCatalogDetails), fmt.Sprintf(l.Text(i18n.MarketOpenInstrumentDetails), i.Name),
+			ui.ButtonGhost, func() { p.openInstrumentDetails(i.ID, i.DisplayLabel(), &a.details) }))
+	}
+	if p.openCatalogEditor != nil {
+		actions = append(actions, button(&a.edit, l.Text(i18n.InstitutionsEdit), fmt.Sprintf(l.Text(i18n.MarketEditInstrument), i.SelectionLabel()),
+			ui.ButtonOutline, func() {
+				p.catalogNotice = i18n.NoMessage
+				p.openCatalogEditor(i, &a.edit)
+			}))
+	}
+	if len(secondary) == 0 {
+		return actions
+	}
+	if a.more.Clicked(gtx) {
+		a.expanded = !a.expanded
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	name := l.Text(i18n.MarketMoreActions) + " · " + i.DisplayLabel()
+	actions = append(actions, view.ButtonOf(&a.more, ui.ButtonSpec{
+		Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Name: name, Icon: lucide.Ellipsis, Toggle: true, Selected: a.expanded,
+	}))
+	if a.expanded {
+		actions = append(actions, secondary...)
+	}
+	return actions
+}
+
+func marketNumberPreferences(view ui.View) settings.Settings {
+	return settings.Settings{DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator}
 }
 
 func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row marketFXRow, first, last bool) layout.Dimensions {
 	l := view.Language
 	rate, evidence := l.Text(i18n.MarketNoQuote), ""
 	if q := row.quote; q != nil {
-		rate = fmt.Sprintf(l.Text(i18n.TransferQuoteRate), q.BaseCurrency, portfolioDecimal(view, q.Rate.Canonical()), q.QuoteCurrency)
+		rate = fmt.Sprintf(l.Text(i18n.TransferQuoteRate), q.BaseCurrency, format.ExactDecimal(q.Rate.Canonical(), marketNumberPreferences(view)), q.QuoteCurrency)
 		evidence = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
 	}
-	actions := p.marketHistoryAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), marketQuoteHistoryTarget{pair: row.pair})
+	target := marketQuoteHistoryTarget{pair: row.pair, finding: p.focus}
+	actions := p.marketHistoryAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), target)
 	if p.fxSourceWriter != nil {
 		actions = append(actions, p.fxSourceAction(gtx, view, row))
 	}
-	actions = append(actions, p.marketAgentAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), marketQuoteHistoryTarget{pair: row.pair})...)
+	actions = append(actions, p.marketAgentAction(gtx, view, row.pair.first.String()+"/"+row.pair.second.String(), target)...)
 	if row.source == domain.QuoteSourceProvider {
 		actions = append(actions, p.marketTargetActions(gtx, view, marketLatestTarget{pair: row.pair}, application.SyncRequest{
 			Scope: application.SyncScopeFX, CurrencyA: row.pair.first.String(), CurrencyB: row.pair.second.String(),
@@ -231,10 +355,10 @@ func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row mark
 // marketRowSpec is what a quote row shows: a glyph, the name with chips and an
 // optional caption on the left, the latest value and its evidence on the right.
 type marketRowSpec struct {
-	icon            ui.Glyph
-	name, caption   string
-	badges          []marketBadge
-	value, evidence string
+	icon                    ui.Glyph
+	name, subtitle, caption string
+	badges                  []marketBadge
+	value, evidence         string
 }
 
 type marketBadge struct {
@@ -278,8 +402,11 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 							return view.Line(gtx, ui.TextCaption, spec.caption, colors.SecondaryInk)
 						})
 					}
-					return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-						ui.Rigid(view.Body(ui.TextLabel, spec.name, colors.Ink)), ui.Rigid(chips))
+					rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, spec.name, colors.Ink))}
+					if spec.subtitle != "" {
+						rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, spec.subtitle, colors.SecondaryInk)))
+					}
+					return (ui.Column{Gap: ui.Space4}).Layout(gtx, append(rows, ui.Rigid(chips))...)
 				}
 				figures := func() layout.Widget {
 					return func(gtx layout.Context) layout.Dimensions {

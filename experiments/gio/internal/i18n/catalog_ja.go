@@ -47,6 +47,13 @@ var japaneseCatalog = catalog{
 	MarketMetals:            "貴金属",
 	MarketOther:             "その他の銘柄",
 
+	MarketLatestPrice:           "最新：%s",
+	MarketNoCurrentPrice:        "現在の価格がありません",
+	MarketOpenInstrumentDetails: "%sの詳細を開く",
+	MarketEditInstrument:        "%sを編集",
+	MarketFindingWindow:         "問題の対象期間 · %s",
+	MarketRefreshScope:          "未取得または古いプロバイダーの価格と為替レートを更新",
+
 	InstrumentBindingOpen:           "相場の取得元を編集",
 	InstrumentBindingTitle:          "相場の取得元 · %s",
 	InstrumentBindingCurrency:       "銘柄の通貨 · %s",
@@ -111,7 +118,7 @@ var japaneseCatalog = catalog{
 	MarketManualSaved:          "手動相場を保存しました",
 	MarketManualDerivedPending: "レートは保存されました。関連する貴金属価格を更新できませんでした。",
 
-	MarketUpdateLatest:    "最新データを更新",
+	MarketUpdateLatest:    "最新価格を更新",
 	MarketMoreActions:     "その他の操作",
 	MarketCancelLatest:    "更新をキャンセル",
 	MarketRetryLatest:     "更新を再試行",

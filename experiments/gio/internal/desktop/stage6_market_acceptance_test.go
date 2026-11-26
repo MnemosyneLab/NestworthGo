@@ -170,7 +170,7 @@ func TestStage6PairedMixedLatestRefresh(t *testing.T) {
 			t.Fatal("cancelled refresh stored an observation")
 		}
 	}
-	h.click("Update latest data", false)
+	h.click("Update latest prices", false)
 	adapter.StartRefreshMissingOrStale("cancel")
 	waitMarketOperations(t, h, func() bool { return gioFX.latestCalls.Load() == 1 && wailsFX.latestCalls.Load() == 1 })
 	h.click("Cancel refresh", false)

@@ -47,6 +47,13 @@ var simplifiedChineseCatalog = catalog{
 	MarketMetals:            "贵金属",
 	MarketOther:             "其他标的",
 
+	MarketLatestPrice:           "最新价格：%s",
+	MarketNoCurrentPrice:        "缺少当前价格",
+	MarketOpenInstrumentDetails: "打开%s详情",
+	MarketEditInstrument:        "编辑%s",
+	MarketFindingWindow:         "问题日期范围 · %s",
+	MarketRefreshScope:          "刷新缺失或过时的提供方价格与汇率",
+
 	InstrumentBindingOpen:           "编辑报价来源",
 	InstrumentBindingTitle:          "报价来源 · %s",
 	InstrumentBindingCurrency:       "标的币种 · %s",
@@ -111,7 +118,7 @@ var simplifiedChineseCatalog = catalog{
 	MarketManualSaved:          "手动报价已保存",
 	MarketManualDerivedPending: "汇率已保存。无法刷新相关贵金属价格。",
 
-	MarketUpdateLatest:    "更新最新数据",
+	MarketUpdateLatest:    "更新最新行情",
 	MarketMoreActions:     "更多操作",
 	MarketCancelLatest:    "取消刷新",
 	MarketRetryLatest:     "重试刷新",

@@ -81,6 +81,50 @@ func Money(value, currency string, preference settings.Settings) string {
 	return result
 }
 
+// ExactDecimal localizes a decimal string while retaining every fractional digit.
+func ExactDecimal(value string, preference settings.Settings) string {
+	return exactDecimal(value, "", 0, preference)
+}
+
+// QuotePrice uses the currency affix and at least two decimal places without
+// rounding unit prices to the currency's ordinary minor-unit precision.
+func QuotePrice(value, currency string, preference settings.Settings) string {
+	if currency == "" {
+		return ExactDecimal(value, preference)
+	}
+	return exactDecimal(value, currency, 2, preference)
+}
+
+func exactDecimal(value, currency string, minimumPlaces int, preference settings.Settings) string {
+	unsigned := strings.TrimLeft(value, "+-")
+	if !decimalString(unsigned) || len(value)-len(unsigned) > 1 {
+		return value
+	}
+	integer, fraction := splitDecimal(unsigned)
+	prefix := ""
+	if currency != "" {
+		prefix = CurrencySymbol(currency)
+		if _, known := currencySymbols[currency]; !known {
+			prefix += " "
+		}
+	}
+	if strings.HasPrefix(value, "-") && strings.Trim(integer+fraction, "0") != "" {
+		prefix = "-" + prefix
+	}
+	number := groupInteger(integer, preference.GroupingSeparator)
+	if padding := minimumPlaces - len(fraction); padding > 0 {
+		fraction += strings.Repeat("0", padding)
+	}
+	if fraction != "" {
+		separator := preference.DecimalSeparator
+		if separator == "" {
+			separator = settings.DecimalDot
+		}
+		number += separator + fraction
+	}
+	return prefix + number
+}
+
 // AuditMoney preserves a recorded decimal where normal currency rounding
 // hides nonzero digits. The suffix uses the canonical amount and currency.
 func AuditMoney(value, currency string, preference settings.Settings) string {

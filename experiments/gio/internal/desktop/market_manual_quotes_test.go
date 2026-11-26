@@ -101,7 +101,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 	if current := p.current[marketInstruments]; current == nil || len(current.instruments) != 1 || current.instruments[0].quote != nil {
 		t.Fatalf("synthetic empty quote route=%v loaded=%+v error=%v", h.shell.activeRoute(), current, p.err)
 	}
-	assertPageLabel(t, &h.router, "No saved quote")
+	assertPageLabel(t, &h.router, "No current price")
 	h.click("Set price", false)
 	marketFrame()
 	h.size = image.Pt(700, 480)

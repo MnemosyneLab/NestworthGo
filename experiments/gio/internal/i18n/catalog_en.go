@@ -47,6 +47,13 @@ var englishCatalog = catalog{
 	MarketMetals:            "Precious metals",
 	MarketOther:             "Other instruments",
 
+	MarketLatestPrice:           "Latest: %s",
+	MarketNoCurrentPrice:        "No current price",
+	MarketOpenInstrumentDetails: "Open %s details",
+	MarketEditInstrument:        "Edit %s",
+	MarketFindingWindow:         "Finding window · %s",
+	MarketRefreshScope:          "Refresh missing or stale provider prices and FX rates",
+
 	InstrumentBindingOpen:           "Edit quote source",
 	InstrumentBindingTitle:          "Quote source · %s",
 	InstrumentBindingCurrency:       "Instrument currency · %s",
@@ -111,7 +118,7 @@ var englishCatalog = catalog{
 	MarketManualSaved:          "Manual quote saved",
 	MarketManualDerivedPending: "The rate was saved. Related metal prices could not be refreshed.",
 
-	MarketUpdateLatest:    "Update latest data",
+	MarketUpdateLatest:    "Update latest prices",
 	MarketMoreActions:     "More actions",
 	MarketCancelLatest:    "Cancel refresh",
 	MarketRetryLatest:     "Retry refresh",

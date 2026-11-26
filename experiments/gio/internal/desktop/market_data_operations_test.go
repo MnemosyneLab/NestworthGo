@@ -170,7 +170,7 @@ func TestMarketDataLatestCancelRetryAndPartialReadback(t *testing.T) {
 	provider := &refreshTestProvider{cancelFirstLatest: true}
 	h, p, service, _ := newMarketOperationsHarness(t, provider, false)
 	ctx := t.Context()
-	h.click("Update latest data", false)
+	h.click("Update latest prices", false)
 	waitMarketOperations(t, h, func() bool { return provider.latestCalls.Load() == 1 })
 	h.click("Latest refresh details", false)
 	h.frame()

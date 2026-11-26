@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"gioui.org/io/key"
@@ -41,13 +42,15 @@ type portfolioCatalogVisit struct {
 }
 
 type portfolioCatalog struct {
-	ledger portfolioCatalogLedger
-	search ui.SearchField
-	add    widget.Clickable
-	links  map[domain.InstrumentID]*portfolioCatalogActions
-	draft  *portfolioCatalogDraft
-	notice i18n.MessageID
-	focus  *widget.Clickable
+	ledger          portfolioCatalogLedger
+	search          ui.SearchField
+	add             widget.Clickable
+	links           map[domain.InstrumentID]*portfolioCatalogActions
+	draft           *portfolioCatalogDraft
+	notice          i18n.MessageID
+	focus           *widget.Clickable
+	requestedEditor *domain.InstrumentID
+	finishExternal  func(i18n.MessageID)
 }
 
 type portfolioCatalogActions struct {
@@ -63,6 +66,7 @@ type portfolioCatalogDraft struct {
 	fields                [portfolioIdentityFieldCount]ui.TextField
 	config                portfolioInstrumentConfig
 	confirming            bool
+	external              bool
 	issue                 i18n.MessageID
 	pending               <-chan historyResult[i18n.MessageID]
 }
@@ -107,8 +111,54 @@ func (c *portfolioCatalog) visit() portfolioCatalogVisit {
 }
 
 func (c *portfolioCatalog) restore(visit portfolioCatalogVisit) {
-	c.draft, c.notice, c.focus = nil, i18n.NoMessage, nil
+	c.draft, c.notice, c.focus, c.requestedEditor = nil, i18n.NoMessage, nil, nil
 	c.search.Field.Editor.SetText(visit.query)
+}
+
+func (p *portfolioPage) requestCatalogEditor(item domain.Instrument) {
+	id := item.ID
+	p.catalog.requestedEditor = &id
+}
+
+func (p *portfolioPage) beginRequestedCatalogEditor(gtx layout.Context, view ui.View) {
+	c := &p.catalog
+	if c.requestedEditor == nil || p.id != "" || p.tabs.active != portfolioInstruments ||
+		p.request != nil || p.err != nil || p.current == nil || p.current.catalog == nil {
+		return
+	}
+	id := *c.requestedEditor
+	c.requestedEditor = nil
+	if c.ledger == nil {
+		return
+	}
+	item, trigger := domain.Instrument{QuoteCurrency: p.current.summary.Currency}, &c.add
+	if id != "" {
+		catalog := p.current.catalog
+		index := slices.IndexFunc(catalog.instruments, func(item domain.Instrument) bool { return item.ID == id })
+		if index < 0 || catalog.managed[id.String()] != "" {
+			c.notice = i18n.PortfolioInstrumentUnavailable
+			return
+		}
+		item, trigger = catalog.instruments[index], &c.rowActions(id).manage
+	}
+	p.beginCatalogEditor(gtx, view, item, trigger)
+	c.draft.external = true
+}
+
+func (p *portfolioPage) beginCatalogEditor(gtx layout.Context, view ui.View, item domain.Instrument, trigger *widget.Clickable) {
+	p.catalog.draft, p.catalog.notice = newPortfolioCatalogDraft(item, trigger), i18n.NoMessage
+	p.catalog.draft.fields[portfolioInstrumentName].Focus(gtx)
+	view.RestorePageScroll(0)
+	gtx.Execute(op.InvalidateCmd{})
+}
+
+func (c *portfolioCatalog) rowActions(id domain.InstrumentID) *portfolioCatalogActions {
+	actions := c.links[id]
+	if actions == nil {
+		actions = new(portfolioCatalogActions)
+		c.links[id] = actions
+	}
+	return actions
 }
 
 func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -126,10 +176,7 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 			}
 			ready := p.request == nil && p.err == nil
 			if ready && c.add.Clicked(gtx) {
-				c.draft = newPortfolioCatalogDraft(domain.Instrument{QuoteCurrency: p.current.summary.Currency}, &c.add)
-				c.draft.fields[portfolioInstrumentName].Focus(gtx)
-				view.RestorePageScroll(0)
-				gtx.Execute(op.InvalidateCmd{})
+				p.beginCatalogEditor(gtx, view, domain.Instrument{QuoteCurrency: p.current.summary.Currency}, &c.add)
 			}
 			return (ui.Grid{MinColumn: 215, MaxColumns: 2, Gap: ui.Space8}).Layout(gtx, view, 2,
 				func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
@@ -192,11 +239,7 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 
 func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog *portfolioCatalogRead, first, last bool) layout.Widget {
 	c, l := &p.catalog, view.Language
-	actions := c.links[item.ID]
-	if actions == nil {
-		actions = new(portfolioCatalogActions)
-		c.links[item.ID] = actions
-	}
+	actions := c.rowActions(item.ID)
 	title := item.DisplayLabel()
 	caption := ""
 	if item.Name != title {
@@ -245,10 +288,7 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 				c.focus = nil
 			}
 			if actions.manage.Clicked(gtx) {
-				c.draft = newPortfolioCatalogDraft(item, &actions.manage)
-				c.draft.fields[portfolioInstrumentName].Focus(gtx)
-				view.RestorePageScroll(0)
-				gtx.Execute(op.InvalidateCmd{})
+				p.beginCatalogEditor(gtx, view, item, &actions.manage)
 			}
 			label := fmt.Sprintf(l.Text(i18n.PortfolioCatalogManageNamed), title)
 			buttons = append(buttons, view.ButtonOf(&actions.manage, ui.ButtonSpec{
@@ -314,6 +354,10 @@ func (p *portfolioPage) pollCatalogDraft() {
 		if result.err == nil {
 			c.notice = result.value
 			c.draft, c.focus = nil, d.returnTo
+			if d.external && c.finishExternal != nil {
+				c.finishExternal(result.value)
+				return
+			}
 			p.read()
 			return
 		}
@@ -347,6 +391,9 @@ func (p *portfolioPage) layoutCatalogDraft(gtx layout.Context, view ui.View) lay
 		case d.back.Clicked(gtx):
 			d.config.retireReads()
 			c.draft, c.focus = nil, d.returnTo
+			if d.external && c.finishExternal != nil {
+				c.finishExternal(i18n.NoMessage)
+			}
 			gtx.Execute(op.InvalidateCmd{})
 			return layout.Dimensions{}
 		case d.archive.Clicked(gtx):
@@ -391,7 +438,7 @@ func (p *portfolioPage) layoutCatalogDraft(gtx layout.Context, view ui.View) lay
 	if d.pending != nil {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)))
 	} else {
-		buttons := []layout.Widget{view.Button(&d.back, l.Text(i18n.ReserveBack))}
+		buttons := []layout.Widget{view.Button(&d.back, l.Text(i18n.InstitutionsCancel))}
 		switch {
 		case d.issue == i18n.PortfolioCatalogChanged:
 		case d.confirming:
