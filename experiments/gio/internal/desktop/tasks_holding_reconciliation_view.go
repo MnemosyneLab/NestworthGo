@@ -17,65 +17,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
-	c, l := p.holdingRecon, view.Language
-	if c == nil || len(c.directory.accounts) == 0 && len(c.directory.sessions) == 0 {
-		return nil
-	}
-	if c.sessionButtons == nil {
-		c.sessionButtons = make(map[string]*widget.Clickable)
-	}
-	rows := []layout.Widget{tradeTitle(view, i18n.ReconciliationSessions)}
-	accountID := p.reconciliationAccount.String()
-	if accountID != "" {
-		if account, ok := c.directory.account(accountID); ok {
-			rows = append(rows, view.Message(account.Name, view.Colors.SecondaryInk))
-		}
-	}
-	inScope := func(session domain.ReconciliationSession) bool {
-		return accountID == "" || slices.Contains(session.AccountIDs, accountID)
-	}
-	sessionCard := func(session domain.ReconciliationSession) layout.Widget {
-		button := portfolioButton(c.sessionButtons, session.ID)
-		name := strings.Join(session.AccountNames, " · ")
-		status := l.Text(statementStatus(session))
-		when := statementRecordedTime(view, session.StartedAt)
-		openLabel := i18n.ReconciliationOpen
-		if len(session.AccountIDs) == 1 {
-			if a, ok := c.directory.account(session.AccountIDs[0]); ok && a.TrackingMode == domain.TrackingHoldings {
-				openLabel = i18n.HoldingReconOpen
-			}
-		}
-		return fundsCard(view, name,
-			view.Message(status+" · "+when, view.Colors.SecondaryInk),
-			c.link(view, button, fmt.Sprintf(l.Text(openLabel), name), func() {
-				p.openHoldingReconciliation(session.ID, button)
-			}))
-	}
-	for _, session := range c.directory.sessions {
-		if session.Status != "completed" && inScope(session) {
-			rows = append(rows, sessionCard(session))
-		}
-	}
-	_, selectedAccountActive := c.directory.account(accountID)
-	if len(c.directory.accounts) != 0 && (accountID == "" || selectedAccountActive) {
-		rows = append(rows, c.link(view, &c.start, l.Text(i18n.ReconciliationStart), func() {
-			c.draft = newHoldingReconDraft(&c.start)
-			c.draft.action = statement.Start
-			c.draft.selection = &reconciliationSelection{checks: make(map[domain.AccountID]*widget.Bool)}
-			if accountID != "" {
-				c.draft.selection.freeze([]string{accountID})
-			}
-		}))
-	}
-	for _, session := range c.directory.sessions {
-		if session.Status == "completed" && inScope(session) {
-			rows = append(rows, sessionCard(session))
-		}
-	}
-	return rows
-}
-
 func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, label string, open func()) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		c.restoreFocus(gtx, button)
@@ -119,10 +60,8 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 		title = i18n.HoldingReconTitle
 	}
 	rows := []layout.Widget{
-		c.link(view, &c.back, l.Text(i18n.HoldingReconBack), func() {
-			entry := c.sessionEntry
-			c.discard()
-			c.restore = entry
+		c.link(view, &c.back, l.Text(i18n.ReconciliationHistoryBack), func() {
+			p.backToReconciliationList(view)
 		}),
 		tradeTitle(view, title),
 	}

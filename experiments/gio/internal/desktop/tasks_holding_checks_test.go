@@ -187,7 +187,7 @@ func TestHoldingCheckAndClosureMatchWails(t *testing.T) {
 	if findPageLabel(&h.router, "Finish reconciliation") != nil || findPageLabel(&h.router, "Check · Synthetic Index Fund") != nil {
 		t.Fatal("completed session still offers mutable checkpoint actions")
 	}
-	click("Back to reconciliation")
+	click("Back to session list")
 	click("Open holdings reconciliation · Harbor Brokerage")
 	label("Completed")
 	if err := storage.Close(); err != nil {

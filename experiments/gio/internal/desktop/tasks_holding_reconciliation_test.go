@@ -194,11 +194,11 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	if corrected.Value != "2" || corrected.Cost != "15.6234" {
 		t.Fatalf("refreshed holding evidence: %+v", corrected)
 	}
-	click("Back to reconciliation")
+	click("Back to session list")
 	h.focused(&c.start)
 	click("Open holdings reconciliation · Harbor Brokerage")
-	click("Back to reconciliation")
-	h.focused(c.sessionButtons[id])
+	click("Back to session list")
+	h.focused(tasks.reconciliationList.working[id])
 
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)

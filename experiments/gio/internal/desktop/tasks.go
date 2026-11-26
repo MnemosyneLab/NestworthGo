@@ -42,6 +42,7 @@ type tasksVisit struct {
 	reviewCursors                []string
 	reviewGeneration             uint64
 	reconciliationAccount        domain.AccountID
+	reconciliationList           reconciliationListVisit
 	holdingSession               string
 	holdingReceipt               domain.ActivityID
 	holdingAudit                 []domain.ActivityID
@@ -100,6 +101,7 @@ type tasksPage struct {
 	holdingRecon   *holdingReconciliation
 
 	reconciliationAccount domain.AccountID
+	reconciliationList    reconciliationSessionList
 }
 
 func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate func()) *tasksPage {
@@ -111,6 +113,9 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 	p.tab, p.list.Position, p.showEligible = visit.tab, visit.position, visit.showEligible
 	p.reconciliationAccount = visit.reconciliationAccount
+	p.reconciliationList.reconciliationListVisit = visit.reconciliationList
+	p.reconciliationList.returned = ""
+	p.reconciliationList.scrollHistory, p.reconciliationList.focusTab = false, false
 	p.upcomingFilter, p.upcomingLimit = visit.upcomingFilter, visit.upcomingLimit
 	p.reviewCursors = nil
 	if visit.reviewGeneration == p.reviewAck.generation {
@@ -123,7 +128,14 @@ func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 		if c.sessionButtons == nil {
 			c.sessionButtons = make(map[string]*widget.Clickable)
 		}
-		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(c.sessionButtons, visit.holdingSession))
+		buttons := c.sessionButtons
+		if visit.reconciliationList.entry.working {
+			if p.reconciliationList.working == nil {
+				p.reconciliationList.working = make(map[string]*widget.Clickable)
+			}
+			buttons = p.reconciliationList.working
+		}
+		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(buttons, visit.holdingSession))
 		// The loading placeholder cannot keep the session's previous offset.
 		// Restore it when the receipt and its preceding evidence are drawn.
 		c.editScroll, c.restoreEditScroll = scroll, scroll != 0
@@ -151,6 +163,7 @@ func (p *tasksPage) visit(focus event.Tag) tasksVisit {
 	visit := tasksVisit{
 		tab: p.tab, position: p.list.Position, showEligible: p.showEligible, reviewCursors: slices.Clone(p.reviewCursors),
 		reconciliationAccount: p.reconciliationAccount,
+		reconciliationList:    p.reconciliationList.reconciliationListVisit,
 		reviewGeneration:      p.reviewAck.generation,
 		upcomingFilter:        p.upcomingFilter, upcomingLimit: p.upcomingLimit,
 	}
@@ -259,8 +272,17 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.checks != nil {
 		for i := range p.tabs {
 			if p.tabs[i].Clicked(gtx) && p.tab != tasksTab(i) {
-				p.enter(tasksVisit{tab: tasksTab(i), showEligible: p.showEligible,
-					upcomingFilter: p.upcomingFilter, upcomingLimit: p.upcomingLimit}, 0)
+				if p.tab == tasksReconciliation {
+					p.reconciliationList.position = p.list.Position
+				}
+				visit := tasksVisit{tab: tasksTab(i), showEligible: p.showEligible,
+					upcomingFilter: p.upcomingFilter, upcomingLimit: p.upcomingLimit,
+					reconciliationAccount: p.reconciliationAccount,
+					reconciliationList:    p.reconciliationList.reconciliationListVisit}
+				if visit.tab == tasksReconciliation {
+					visit.position = visit.reconciliationList.position
+				}
+				p.enter(visit, 0)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
@@ -315,7 +337,11 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 					rows = p.reviewRows(view)
 				}
 			case tasksReconciliation:
-				rows = append(p.holdingReconciliationRows(view), p.statementRows(view)...)
+				if p.holdingRecon == nil {
+					rows = p.statementRows(view)
+				} else {
+					rows = p.holdingReconciliationRows(view)
+				}
 			default:
 				if p.current != nil {
 					rows = p.rows(view)

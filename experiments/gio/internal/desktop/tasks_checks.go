@@ -162,9 +162,7 @@ func (p *tasksPage) statementRows(view ui.View) []layout.Widget {
 			name = s.AccountNames[0]
 		}
 		if p.openStatement != nil {
-			button := portfolioButton(p.statementLinks, s.ID)
-			label := fmt.Sprintf(l.Text(i18n.TasksOpenStatement), name, status, when)
-			fields = append(fields, taskLink(view, button, label, func() { p.openStatement(row.account.ID, s.ID, name, button) }))
+			fields = append(fields, p.taskStatementAction(view, row, name))
 		}
 		rows = append(rows, fundsCard(view, name, fields...))
 	}
@@ -172,6 +170,13 @@ func (p *tasksPage) statementRows(view ui.View) []layout.Widget {
 		rows = append(rows, view.Message(l.Text(i18n.TasksStatementsEmpty), view.Colors.Ink))
 	}
 	return rows
+}
+
+func (p *tasksPage) taskStatementAction(view ui.View, row taskStatement, name string) layout.Widget {
+	s := row.session
+	button := portfolioButton(p.statementLinks, s.ID)
+	label := fmt.Sprintf(view.Language.Text(i18n.TasksOpenStatement), name, view.Language.Text(statementStatus(s)), statementRecordedTime(view, s.StartedAt))
+	return taskLink(view, button, label, func() { p.openStatement(row.account.ID, s.ID, name, button) })
 }
 
 func taskLink(view ui.View, button *widget.Clickable, label string, open func()) layout.Widget {

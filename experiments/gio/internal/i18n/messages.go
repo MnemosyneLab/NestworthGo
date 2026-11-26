@@ -2284,6 +2284,14 @@ const (
 	ReconciliationStartCounts
 	ReconciliationRetryStart
 	ReconciliationSessions
+	ReconciliationHistoryTitle
+	ReconciliationAllSessions
+	ReconciliationHistoryEmpty
+	ReconciliationHistoryNoMatches
+	ReconciliationHistoryPrevious
+	ReconciliationHistoryNext
+	ReconciliationHistoryBack
+	ReconciliationHistoryPage
 	ReconciliationOpen
 	ReconciliationNewValue
 	ReconciliationCurrentValue
