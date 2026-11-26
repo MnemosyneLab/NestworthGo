@@ -1016,9 +1016,13 @@ var japaneseCatalog = catalog{
 	AssetTrendMissingPeriods:   "値のない期間 · %d",
 	AssetTrendPeriodValue:      "期間の値",
 
-	ContributionOpenHistory:        "取引履歴で見る",
-	ContributionHistoryWider:       "取引履歴には日付、口座、銘柄、取引種別のフィルターが引き継がれます。通貨と資産区分のフィルターは引き継がれません。",
-	ContributionHistoryUnavailable: "取引履歴で使用できるフィルターがありません。",
+	ContributionOpenHistory:           "取引履歴で見る",
+	ContributionHistoryWider:          "取引履歴には日付、口座、銘柄、取引種別のフィルターが引き継がれます。通貨と資産区分のフィルターは引き継がれません。",
+	ContributionHistoryUnavailable:    "取引履歴で使用できるフィルターがありません。",
+	ContributionHistoryFullRange:      "取引履歴には、選択した期間のすべての口座と銘柄が表示されます。",
+	ContributionDaysIncomplete:        "収益データが不完全な日があります。",
+	ContributionDaysUnavailable:       "日次収益を利用できません。",
+	ContributionRealizedFXUnavailable: "実現損益に必要な為替レートを利用できません。",
 
 	AccountBack:                 "口座一覧に戻る",
 	AccountClearInstitution:     "すべての金融機関",

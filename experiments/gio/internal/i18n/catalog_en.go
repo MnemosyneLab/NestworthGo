@@ -1017,9 +1017,13 @@ var englishCatalog = catalog{
 	AssetTrendMissingPeriods:   "Periods with missing values · %d",
 	AssetTrendPeriodValue:      "Period value",
 
-	ContributionOpenHistory:        "View in Ledger activity",
-	ContributionHistoryWider:       "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.",
-	ContributionHistoryUnavailable: "The source did not provide a supported Ledger activity filter.",
+	ContributionOpenHistory:           "View in Ledger activity",
+	ContributionHistoryWider:          "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.",
+	ContributionHistoryUnavailable:    "The source did not provide a supported Ledger activity filter.",
+	ContributionHistoryFullRange:      "Ledger activity will open for all accounts and instruments in the selected period.",
+	ContributionDaysIncomplete:        "One or more return days are incomplete.",
+	ContributionDaysUnavailable:       "Return days are unavailable.",
+	ContributionRealizedFXUnavailable: "The exchange rate for realized gains is unavailable.",
 
 	AccountBack:                 "Back to accounts",
 	AccountClearInstitution:     "All institutions",

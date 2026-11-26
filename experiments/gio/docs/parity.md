@@ -84,6 +84,10 @@ August Calendar with the same selection.
   dates, account, instrument and kinds. Explain any unsupported filter
   such as currency, asset class or member. Back restores Contribution, its selection
   and focus.
+- [x] Show rate and rated-day coverage for total return and explain a valuation
+  fallback or missing inputs in Contribution detail. When the shared Ledger
+  hint covers the whole period across accounts and instruments, show that
+  scope next to the action.
 
 ### Instrument catalog
 

@@ -829,6 +829,10 @@ const (
 	ContributionOpenHistory
 	ContributionHistoryWider
 	ContributionHistoryUnavailable
+	ContributionHistoryFullRange
+	ContributionDaysIncomplete
+	ContributionDaysUnavailable
+	ContributionRealizedFXUnavailable
 	NetWorth
 	Assets
 	Liabilities

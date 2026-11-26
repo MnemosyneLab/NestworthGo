@@ -1017,9 +1017,13 @@ var simplifiedChineseCatalog = catalog{
 	AssetTrendMissingPeriods:   "缺少数值的期间 · %d",
 	AssetTrendPeriodValue:      "期间数值",
 
-	ContributionOpenHistory:        "在账本活动中查看",
-	ContributionHistoryWider:       "账本活动会保留日期、账户、投资标的和活动类型筛选。货币和资产类别筛选不会带入。",
-	ContributionHistoryUnavailable: "来源未提供账本活动支持的筛选条件。",
+	ContributionOpenHistory:           "在账本活动中查看",
+	ContributionHistoryWider:          "账本活动会保留日期、账户、投资标的和活动类型筛选。货币和资产类别筛选不会带入。",
+	ContributionHistoryUnavailable:    "来源未提供账本活动支持的筛选条件。",
+	ContributionHistoryFullRange:      "账本活动将显示所选期间内所有账户和投资标的的记录。",
+	ContributionDaysIncomplete:        "一个或多个收益日期的数据不完整。",
+	ContributionDaysUnavailable:       "无法查看所选期间的每日收益。",
+	ContributionRealizedFXUnavailable: "计算已实现收益所需的汇率不可用。",
 
 	AccountBack:                 "返回账户列表",
 	AccountClearInstitution:     "全部机构",

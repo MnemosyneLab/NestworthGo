@@ -77,21 +77,38 @@ func (p *returnAnalysisPage) layoutContributionSheet(gtx layout.Context, view ui
 		gtx.Execute(key.FocusCmd{Tag: &sheet.close})
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	action := i18n.NoMessage
-	if p.openHistory != nil && sheet.value != nil {
+	var footer layout.Widget
+	if p.openHistory != nil && sheet.value != nil && sheet.request == nil && sheet.err == nil {
 		if filters, ok := contributionHistoryFilters(sheet.value.HistoryHint); ok {
-			action = i18n.ContributionOpenHistory
 			if sheet.action.Clicked(gtx) {
 				p.closeContribution()
 				p.openHistory(filters, sheet.trigger)
 				gtx.Execute(op.InvalidateCmd{})
 				return
 			}
+			footer = contributionLedgerFooter(view, sheet, filters)
 		}
 	}
-	sheet.layout(gtx, view, sheet.name, func(gtx layout.Context) layout.Dimensions {
+	sheet.layoutPanel(gtx, view, sheet.name, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return p.contributionDetails(gtx, view, sheet)
-	}, action)
+	}, footer, true)
+}
+
+func contributionLedgerFooter(view ui.View, sheet *contributionSheet, filters history.Filters) layout.Widget {
+	l := view.Language
+	var rows []ui.ColumnChild
+	if sheet.query.Filters.Currency != nil || sheet.query.Filters.AssetClass != "" ||
+		sheet.group == application.ContributionGroupCurrency || sheet.group == application.ContributionGroupAssetClass {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.ContributionHistoryWider), view.Colors.SecondaryInk)))
+	}
+	if sheet.query.Filters.MemberID != nil {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.ContributionHistoryMember), view.Colors.SecondaryInk)))
+	}
+	if filters.Account == "" && filters.Instrument == "" && len(sheet.value.ByAccount) > 1 {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.ContributionHistoryFullRange), view.Colors.SecondaryInk)))
+	}
+	rows = append(rows, ui.Rigid(view.Button(&sheet.action, l.Text(i18n.ContributionOpenHistory))))
+	return func(gtx layout.Context) layout.Dimensions { return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...) }
 }
 
 func contributionHistoryFilters(hint application.ContributionHistoryHint) (history.Filters, bool) {
@@ -142,45 +159,62 @@ func (p *returnAnalysisPage) contributionDetails(gtx layout.Context, view ui.Vie
 		return view.Message(l.Text(i18n.ReturnNoData), view.Colors.SecondaryInk)(gtx)
 	}
 	value := sheet.value
-	return view.List(&sheet.list).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
-		rows := []layout.FlexChild{
-			layout.Rigid(view.Message(l.Text(i18n.ReturnAmount)+" · "+returnMoney(view, value.Amount), view.Colors.Ink)),
-			layout.Rigid(view.Message(l.Text(i18n.ReturnRate)+" · "+returnRate(view, value.Rate), view.Colors.Ink)),
-			layout.Rigid(view.Message(returnCoverage(l, value.Coverage, application.ReturnDayCoverage{}), view.Colors.SecondaryInk)),
+	rows := []layout.Widget{view.Message(l.Text(i18n.ReturnAmount)+" · "+returnMoney(view, value.Amount), view.Colors.Ink)}
+	if sheet.metric == application.ContributionTotalReturn || (sheet.metric == application.ContributionUnrealized && value.Rate != nil) {
+		rows = append(rows, view.Message(l.Text(i18n.ReturnRate)+" · "+returnRate(view, value.Rate), view.Colors.Ink))
+		if value.Coverage.TotalDays > 0 {
+			rows = append(rows, view.Message(returnCoverage(l, value.Coverage, application.ReturnDayCoverage{}), view.Colors.SecondaryInk))
 		}
-		if value.Status == domain.CompletenessPartial {
-			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
-		}
-		if len(value.Components) > 0 {
-			rows = append(rows, layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink)))
-			for _, part := range value.Components {
-				name := p.refs.names[part.InstrumentID]
-				if name == "" {
-					name = returnComponentLabel(l, domain.ReturnComponent(part.Key))
-				}
-				rows = append(rows, layout.Rigid(view.Message(name+" · "+returnMoney(view, part.Amount), view.Colors.Ink)))
+	}
+	if value.ValuationForced != nil {
+		rows = append(rows, view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.WarningInk))
+	}
+	if value.Status == domain.CompletenessPartial || value.Status == domain.CompletenessUnavailable {
+		rows = append(rows, view.Message(l.Text(contributionAvailabilityCopy(value.AnalysisAvailability)), view.Colors.WarningInk))
+	}
+	if len(value.Components) > 0 {
+		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink))
+		for _, part := range value.Components {
+			name := p.refs.names[part.InstrumentID]
+			if name == "" {
+				name = returnComponentLabel(l, domain.ReturnComponent(part.Key))
 			}
+			amount := returnMoney(view, part.Amount)
+			rows = append(rows, labeledRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
 		}
-		if len(value.ByAccount) > 0 {
-			rows = append(rows, layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.AnalysisAccount), view.Colors.Ink)))
-			for _, part := range value.ByAccount {
-				name := p.refs.names[part.AccountID]
-				if name == "" {
-					name = l.Text(i18n.AccountReferenceUnavailable)
-				}
-				rows = append(rows, layout.Rigid(view.Message(name+" · "+returnMoney(view, part.Amount), view.Colors.Ink)))
+	}
+	if len(value.ByAccount) > 0 {
+		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AnalysisAccount), view.Colors.Ink))
+		for _, part := range value.ByAccount {
+			name := p.refs.names[part.AccountID]
+			if name == "" {
+				name = l.Text(i18n.AccountReferenceUnavailable)
 			}
+			amount := returnMoney(view, part.Amount)
+			rows = append(rows, labeledRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
 		}
-		if sheet.query.Filters.Currency != nil || sheet.query.Filters.AssetClass != "" ||
-			sheet.group == application.ContributionGroupCurrency || sheet.group == application.ContributionGroupAssetClass {
-			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.ContributionHistoryWider), view.Colors.SecondaryInk)))
-		}
-		if sheet.query.Filters.MemberID != nil {
-			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.ContributionHistoryMember), view.Colors.SecondaryInk)))
-		}
-		if _, valid := contributionHistoryFilters(value.HistoryHint); !valid {
-			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.ContributionHistoryUnavailable), view.Colors.SecondaryInk)))
-		}
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, rows...)
+	}
+	if _, valid := contributionHistoryFilters(value.HistoryHint); !valid {
+		rows = append(rows, view.Message(l.Text(i18n.ContributionHistoryUnavailable), view.Colors.SecondaryInk))
+	}
+	return analysisResultList(gtx, view, &sheet.list, l.Text(i18n.ReturnContribution), len(rows), func(gtx layout.Context, index int) layout.Dimensions {
+		return rows[index](gtx)
 	})
+}
+
+func contributionAvailabilityCopy(value application.AnalysisAvailability) i18n.MessageID {
+	switch value.MissingReason {
+	case "one or more return days are incomplete":
+		return i18n.ContributionDaysIncomplete
+	case "return days are unavailable":
+		return i18n.ContributionDaysUnavailable
+	case "funding cash is recorded after the product start":
+		return i18n.WealthHistoryFundingGap
+	case "realized gain foreign-exchange rate is unavailable":
+		return i18n.ContributionRealizedFXUnavailable
+	}
+	if value.Status == domain.CompletenessUnavailable {
+		return i18n.ReturnNoData
+	}
+	return i18n.OverviewIncomplete
 }
