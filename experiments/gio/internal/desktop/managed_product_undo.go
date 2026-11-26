@@ -53,18 +53,22 @@ func reviewProductUndo(ctx context.Context, service productReceiptLedger, id dom
 	return plan, err
 }
 
-func undoRejected(err error) bool {
+func productUndoProblem(err error) i18n.MessageID {
 	var issue *domain.Error
 	if !errors.As(err, &issue) {
-		return false
+		return i18n.NoMessage
 	}
 	switch issue.Code {
+	case domain.ErrStalePreview, domain.ErrRevisionConflict, domain.ErrUnresolvedReservationRelease:
+		return i18n.ProductUndoStale
 	case domain.ErrUnsafeUndo, domain.ErrAlreadyUndone, domain.ErrInsufficientBalance, domain.ErrInsufficientQuantity:
-		return true
+		return i18n.ProductUndoUnavailable
 	case domain.ErrConflict, domain.ErrNotFound:
-		return issue.Field == "accountId" || issue.Field == "holdingId" || issue.Field == "operationId"
+		if issue.Field == "accountId" || issue.Field == "holdingId" || issue.Field == "operationId" {
+			return i18n.ProductUndoUnavailable
+		}
 	}
-	return false
+	return i18n.NoMessage
 }
 
 func productUndoReason(reason application.ProductUndoDisabledReason) i18n.MessageID {

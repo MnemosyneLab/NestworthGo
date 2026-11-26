@@ -301,16 +301,18 @@ func (p *productDetailPage) pollReceipt() {
 			return
 		}
 		problem := productReceiptProblem(result.err)
+		if d.undo != nil {
+			if undo := productUndoProblem(result.err); undo != i18n.NoMessage {
+				problem = undo
+			}
+		}
 		switch {
 		case problem == i18n.ProductReceiptChanged || problem == i18n.ProductReceiptTimeInvalid || problem == i18n.ProductReceiptStale,
-			d.undo != nil && undoRejected(result.err),
+			problem == i18n.ProductUndoStale || problem == i18n.ProductUndoUnavailable,
 			d.received != nil && problem == i18n.ProductReceiptAmountsInvalid:
 			// Receipt lookup precedes validation in the shared service.
 			// These rejections establish that this plan did not post.
-			d.problem = productReceiptProblem(result.err)
-			if d.undo != nil && undoRejected(result.err) {
-				d.problem = i18n.ProductUndoUnavailable
-			}
+			d.problem = problem
 			d.plan, d.uncertain, d.focusEditor = nil, false, true
 			p.read()
 		default:

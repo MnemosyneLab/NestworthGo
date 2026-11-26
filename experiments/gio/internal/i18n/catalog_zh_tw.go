@@ -2067,6 +2067,7 @@ var traditionalChineseCatalog = catalog{
 	ProductUndoBalance:            "現金餘額不足，無法還原此操作。",
 	ProductUndoQuantity:           "持倉數量不足，無法還原此操作。",
 	ProductUndoUnavailable:        "目前無法還原此操作。",
+	ProductUndoStale:              "還原預覽已過期，請重新預覽。",
 	ProductHistoryChanged:         "歷史已變更。請重新整理後載入更早的操作。",
 	ProductHistoryEmpty:           "沒有已記錄的操作。",
 	ProductHistoryComplete:        "已載入全部 %d 項操作。",

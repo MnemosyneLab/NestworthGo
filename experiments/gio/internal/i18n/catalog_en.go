@@ -2067,6 +2067,7 @@ var englishCatalog = catalog{
 	ProductUndoBalance:            "There is not enough cash to undo this operation.",
 	ProductUndoQuantity:           "There is not enough quantity to undo this operation.",
 	ProductUndoUnavailable:        "This operation cannot currently be undone.",
+	ProductUndoStale:              "The undo preview is stale. Preview the reversal again.",
 	ProductHistoryChanged:         "History changed. Refresh it before loading older operations.",
 	ProductHistoryEmpty:           "No operations recorded.",
 	ProductHistoryComplete:        "All %d operations loaded.",

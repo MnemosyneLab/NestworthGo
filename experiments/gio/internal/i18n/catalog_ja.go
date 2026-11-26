@@ -2066,6 +2066,7 @@ var japaneseCatalog = catalog{
 	ProductUndoBalance:            "現金残高が不足しているため、取り消せません。",
 	ProductUndoQuantity:           "保有数量が不足しているため、取り消せません。",
 	ProductUndoUnavailable:        "現在この操作を取り消せません。",
+	ProductUndoStale:              "取り消しのプレビューが古くなりました。もう一度プレビューしてください。",
 	ProductHistoryChanged:         "履歴が変わりました。過去の操作を表示する前に更新してください。",
 	ProductHistoryEmpty:           "記録された操作はありません。",
 	ProductHistoryComplete:        "全%d件の操作を読み込みました。",

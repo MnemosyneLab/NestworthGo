@@ -2067,6 +2067,7 @@ var simplifiedChineseCatalog = catalog{
 	ProductUndoBalance:            "现金余额不足，无法撤销此操作。",
 	ProductUndoQuantity:           "持仓数量不足，无法撤销此操作。",
 	ProductUndoUnavailable:        "当前无法撤销此操作。",
+	ProductUndoStale:              "撤销预览已过期，请重新预览。",
 	ProductHistoryChanged:         "历史已更改。请刷新后加载更早的操作。",
 	ProductHistoryEmpty:           "没有已记录的操作。",
 	ProductHistoryComplete:        "已加载全部 %d 项操作。",

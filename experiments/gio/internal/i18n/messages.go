@@ -1974,6 +1974,7 @@ const (
 	ProductUndoBalance
 	ProductUndoQuantity
 	ProductUndoUnavailable
+	ProductUndoStale
 	ProductHistoryChanged
 	ProductHistoryEmpty
 	ProductHistoryComplete

@@ -23,6 +23,7 @@ type standaloneLifecycleFault struct {
 	valuations                 []application.AppendProductValuationInput
 	receipts                   []productReceiptAttempt
 	loseValuation, loseReceipt bool
+	revisionConflict           bool
 	terms                      []application.UpdateProductTermsInput
 	loseTerms                  bool
 }
@@ -39,6 +40,10 @@ func (f *standaloneLifecycleFault) AppendProductValuation(ctx context.Context, i
 
 func (f *standaloneLifecycleFault) RecordProductOperation(ctx context.Context, command application.ProductCommand, mutation, hash string) (application.ProductOperationReceipt, error) {
 	f.receipts = append(f.receipts, productReceiptAttempt{command, mutation, hash})
+	if f.revisionConflict {
+		f.revisionConflict = false
+		return application.ProductOperationReceipt{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "reservationId"}
+	}
 	receipt, err := f.Service.RecordProductOperation(ctx, command, mutation, hash)
 	if err == nil && f.loseReceipt {
 		f.loseReceipt = false

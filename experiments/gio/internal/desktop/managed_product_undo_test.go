@@ -2,7 +2,10 @@ package desktop
 
 import (
 	"image"
+	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"gioui.org/io/key"
@@ -16,13 +19,9 @@ import (
 func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	ctx := t.Context()
 	app, storage, paths, ids := openExistingBuyFixture(t)
-	reference, refStorage, refPaths, ref := openExistingBuyFixture(t)
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, nil, "2026-11-22")
-	refID := seedTestLockedProductWithUnlock(t, reference, ref.account, nil, "2026-11-22")
 	app.SetClock(linkedContractClock)
-	reference.SetClock(linkedContractClock)
 	reservation := reserveTermDeposit(t, app, id, "Synthetic reserve")
-	refReservation := reserveTermDeposit(t, reference, refID, "Synthetic reserve")
 
 	fault := &standaloneLifecycleFault{Service: app}
 	h := newStandaloneLifecycleHarness(t, app, fault, linkedContractClock)
@@ -53,13 +52,39 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 		return receipt.OperationID
 	}
 	settlement := settle(app, id, reservation.ID)
-	refSettlement := settle(reference, refID, refReservation.ID)
+	if err := storage.DB.CheckpointWAL(ctx); err != nil {
+		t.Fatal(err)
+	}
+	seed, err := os.ReadFile(storage.DB.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "wails"), seed)
+	refDB, _, reference := openStage6Database(t, refPath, linkedContractClock)
+	before := managedOperations(t, app, id)
+	assertReadOnly := func(service *application.Service) {
+		t.Helper()
+		if operations := managedOperations(t, service, id); !reflect.DeepEqual(operations, before) {
+			t.Fatalf("review changed product operations: %+v", operations)
+		}
+		product, err := service.Product(ctx, id)
+		if err != nil || product.Contract.State != domain.ProductStateSettled || len(product.Reservations) != 0 {
+			t.Fatalf("review changed the settled product or showed an active reservation: %+v / %v", product, err)
+		}
+		rows, err := service.ListLiquidityReservations(ctx)
+		i := slices.IndexFunc(rows, func(row domain.LiquidityReservation) bool { return row.ID == reservation.ID })
+		if err != nil || i < 0 || rows[i].Active() || rows[i].Revision != reservation.Revision+1 {
+			t.Fatalf("review changed the released reservation: %+v / %v", rows, err)
+		}
+		assertNativeTradeCash(t, service, ids.account, map[domain.CurrencyCode]string{"USD": "286.9012"})
+	}
 	h.settle()
 	h.scrollClick("Grouped undo")
 	if p.receipt == nil || p.receipt.undo.ID.String() != settlement {
 		t.Fatal("opening undo did not use the latest eligible settlement")
 	}
 	h.clickButton("Preview undo")
+	assertReadOnly(app)
 	h.clickButton("Cancel")
 	h.focused(&p.startGroupedUndo)
 	if len(fault.receipts) != 0 {
@@ -76,7 +101,7 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Account cash after · 156 USD")
 	api := liquidityapi.NewService(reference)
-	cmd := liquidityapi.ProductCommandRequest{Kind: string(domain.ProductOpUndo), Undo: &application.UndoProductCommand{OperationID: refSettlement}}
+	cmd := liquidityapi.ProductCommandRequest{Kind: string(domain.ProductOpUndo), Undo: &application.UndoProductCommand{OperationID: settlement}}
 	want, err := api.PreviewProductOperation(ctx, cmd)
 	if err != nil {
 		t.Fatal(err)
@@ -86,6 +111,21 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 		!reflect.DeepEqual(got.ProductAfter, want.ProductAfter) || len(got.Activities) != len(want.Activities) {
 		t.Fatalf("undo preview differs from Wails: %+v / %+v", got, want)
 	}
+	assertReadOnly(app)
+	assertReadOnly(reference)
+	staleMutation := d.plan.mutation
+	fault.revisionConflict = true
+	h.clickButton("Confirm undo")
+	if p.receipt != d || d.plan != nil || p.unresolved() || d.problem != i18n.ProductUndoStale {
+		t.Fatal("a definite revision rejection did not discard the stale preview")
+	}
+	assertPageLabel(t, &h.router, "The undo preview is stale. Preview the reversal again.")
+	assertReadOnly(app)
+	h.clickButton("Preview undo")
+	if d.plan == nil || d.plan.mutation == staleMutation {
+		t.Fatal("retry reused the rejected undo preview")
+	}
+
 	refUndo, err := api.RecordProductOperation(ctx, liquidityapi.RecordProductOperationRequest{
 		Command: cmd, ReviewedStateHash: want.ReviewedStateHash, MutationID: domain.NewProductOperationID().String(),
 	})
@@ -101,17 +141,17 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	h.focused(&d.replay)
 	h.press(key.NameReturn)
 	h.settle()
-	if p.receipt != nil || p.saved != i18n.ProductUndoSaved || len(fault.receipts) != 2 || !reflect.DeepEqual(fault.receipts[0], fault.receipts[1]) {
+	if p.receipt != nil || p.saved != i18n.ProductUndoSaved || len(fault.receipts) != 3 || !reflect.DeepEqual(fault.receipts[1], fault.receipts[2]) {
 		t.Fatal("undo retry failed to replay the same request once")
 	}
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := refStorage.Close(); err != nil {
+	if err := refDB.Close(); err != nil {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenOnboardingProfile(t, paths)
-	refReopened, _ := reopenOnboardingProfile(t, refPaths)
+	_, _, refReopened := openStage6Database(t, refPath, linkedContractClock)
 	rows := managedOperations(t, reopened, id)
 	if len(rows) != 3 || rows[0].Kind != domain.ProductOpUndo || rows[1].ID.String() != settlement ||
 		rows[1].ReversedByOperationID == nil || *rows[1].ReversedByOperationID != rows[0].ID {
@@ -119,8 +159,15 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	}
 	detail, err := reopened.Product(ctx, id)
 	if err != nil || detail.Contract.State != domain.ProductStateOpen || len(detail.Reservations) != 1 ||
-		!detail.Reservations[0].Active() || detail.Reservations[0].Revision != reservation.Revision+2 {
+		!detail.Reservations[0].Active() || detail.Reservations[0].Revision != reservation.Revision+2 || detail.CurrentValue == nil ||
+		detail.CurrentValue.CanonicalAmount() != "123.4567" {
 		t.Fatalf("undo did not restore the contract and reservation: %+v / %v", detail, err)
+	}
+	refDetail, err := refReopened.Product(ctx, id)
+	if err != nil || refDetail.Contract.State != detail.Contract.State || refDetail.CurrentValue == nil ||
+		refDetail.CurrentValue.CanonicalAmount() != detail.CurrentValue.CanonicalAmount() || len(refDetail.Reservations) != 1 ||
+		!refDetail.Reservations[0].Active() || refDetail.Reservations[0].Revision != detail.Reservations[0].Revision {
+		t.Fatalf("Wails did not restore the same contract value and reservation: %+v / %v", refDetail, err)
 	}
 	undo, err := reopened.ReadProductOperationReceipt(ctx, rows[0].ID)
 	if err != nil || len(undo.ActivityIDs) != len(refUndo.ActivityIDs) {
@@ -129,5 +176,5 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	// Legacy operation receipts do not persist decimal cash values. Check the
 	// exact resulting cash in each reopened ledger.
 	assertNativeTradeCash(t, reopened, ids.account, map[domain.CurrencyCode]string{"USD": "156"})
-	assertNativeTradeCash(t, refReopened, ref.account, map[domain.CurrencyCode]string{"USD": "156"})
+	assertNativeTradeCash(t, refReopened, ids.account, map[domain.CurrencyCode]string{"USD": "156"})
 }
