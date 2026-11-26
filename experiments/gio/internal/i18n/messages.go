@@ -1699,6 +1699,16 @@ const (
 	PortfolioCatalogISIN
 	PortfolioCatalogCountry
 	PortfolioCatalogAdd
+	PortfolioCatalogEdit
+	PortfolioCatalogEditNamed
+	PortfolioFormName
+	PortfolioFormShortName
+	PortfolioFormShortNameHelp
+	PortfolioFormFixedCurrency
+	PortfolioFormDetails
+	PortfolioFormLabel
+	PortfolioFormProvider
+	PortfolioFormLookupSymbol
 	PortfolioCatalogCreated
 	PortfolioCatalogConfiguration
 	PortfolioCatalogType

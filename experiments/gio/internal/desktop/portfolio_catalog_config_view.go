@@ -21,13 +21,6 @@ const catalogCryptoDefaultCurrency domain.CurrencyCode = "USD"
 func (p *portfolioPage) layoutCatalogEditor(gtx layout.Context, view ui.View, d *portfolioCatalogDraft) layout.Dimensions {
 	c, l := &d.config, view.Language
 	create := d.instrument.ID == ""
-	if c.more.Clicked(gtx) {
-		c.advanced = !c.advanced
-		if !c.advanced {
-			c.retireReads()
-		}
-		gtx.Execute(op.InvalidateCmd{})
-	}
 	var rows []ui.ColumnChild
 	height := 0
 	appendRow := func(field analysisFilterField) {
@@ -47,10 +40,22 @@ func (p *portfolioPage) layoutCatalogEditor(gtx layout.Context, view ui.View, d 
 	}
 	identity := func(i int) analysisFilterField {
 		return func(gtx layout.Context, view ui.View) layout.Dimensions {
-			return d.fields[i].Layout(gtx, view, ui.FieldOptions{
+			options := ui.FieldOptions{
 				Label:    catalogIdentityLabels[i],
 				Disabled: c.template != "" && (i == portfolioInstrumentMarket || i == portfolioInstrumentCountry),
-			})
+			}
+			switch i {
+			case portfolioInstrumentName:
+				options.Problem = func(value string) string {
+					if d.issue == i18n.PortfolioCatalogNameRequired && strings.TrimSpace(value) == "" {
+						return l.Text(d.issue)
+					}
+					return ""
+				}
+			case portfolioInstrumentShortName:
+				options.Help = i18n.PortfolioFormShortNameHelp
+			}
+			return d.fields[i].Layout(gtx, view, options)
 		}
 	}
 	text := func(label i18n.MessageID, text string) analysisFilterField {
@@ -59,116 +64,109 @@ func (p *portfolioPage) layoutCatalogEditor(gtx layout.Context, view ui.View, d 
 		}
 	}
 	appendRow(grid(identity(portfolioInstrumentName), identity(portfolioInstrumentShortName)))
-	if !create {
+	if !create && c.template != "" {
+		appendRow(text(i18n.PortfolioInstrumentType, l.Text(marketInstrumentTypes[c.kind])))
+	} else {
+		var types []ui.Choice
+		for _, kind := range domain.AllInstrumentTypes() {
+			types = append(types, ui.Choice{ID: string(kind), Label: l.Text(marketInstrumentTypes[kind])})
+		}
+		appendRow(analysisSelect(&c.typePicker, i18n.PortfolioInstrumentType, types, string(c.kind), false, func(value string) {
+			next := domain.InstrumentType(value)
+			if c.kind == next {
+				return
+			}
+			if !create {
+				c.kind = next
+				c.retireReads()
+				return
+			}
+			if c.kind == domain.InstrumentCrypto || next == domain.InstrumentCrypto || c.template != "" {
+				for _, i := range []int{portfolioInstrumentMarket, portfolioInstrumentCountry, portfolioInstrumentSymbol, portfolioInstrumentISIN} {
+					d.fields[i].Editor.SetText("")
+				}
+			}
+			c.setCreateType(next)
+			c.currency = p.current.summary.Currency
+			if next == domain.InstrumentCrypto {
+				c.currency = catalogCryptoDefaultCurrency
+				d.fields[portfolioInstrumentMarket].Editor.SetText(domain.CryptoMarket)
+			}
+		}))
+	}
+	if c.kind == domain.InstrumentPreciousMetal {
 		appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
-			return analysisDisclosure(view, &c.more, l.Text(i18n.PortfolioCatalogConfiguration), c.advanced)(gtx)
+			return p.layoutCatalogTemplate(gtx, view, d)
 		})
 	}
-	if create || c.advanced {
-		if !create && c.template != "" {
-			appendRow(text(i18n.PortfolioCatalogReadType, l.Text(marketInstrumentTypes[c.kind])))
-		} else {
-			var types []ui.Choice
-			for _, kind := range domain.AllInstrumentTypes() {
-				types = append(types, ui.Choice{ID: string(kind), Label: l.Text(marketInstrumentTypes[kind])})
-			}
-			appendRow(analysisSelect(&c.typePicker, i18n.PortfolioCatalogType, types, string(c.kind), false, func(value string) {
-				next := domain.InstrumentType(value)
-				if c.kind == next {
-					return
-				}
-				if !create {
-					c.kind = next
-					c.retireReads()
-					return
-				}
-				if c.kind == domain.InstrumentCrypto || next == domain.InstrumentCrypto || c.template != "" {
-					for _, i := range []int{portfolioInstrumentMarket, portfolioInstrumentCountry, portfolioInstrumentSymbol, portfolioInstrumentISIN} {
-						d.fields[i].Editor.SetText("")
-					}
-				}
-				c.setCreateType(next)
-				c.currency = p.current.summary.Currency
-				if next == domain.InstrumentCrypto {
-					c.currency = catalogCryptoDefaultCurrency
-					d.fields[portfolioInstrumentMarket].Editor.SetText(domain.CryptoMarket)
-				}
-			}))
-		}
-		if c.kind == domain.InstrumentPreciousMetal {
-			appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
-				return p.layoutCatalogTemplate(gtx, view, d)
-			})
-		}
-		if instrumentLookupProvider(c.kind) != "" {
-			appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
-				return p.layoutCatalogLookup(gtx, view, d)
-			})
-		}
+	if instrumentLookupProvider(c.kind) != "" {
 		appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
-			choices := directoryIconChoices[l]
-			icon := c.icon
-			if icon == "" {
-				icon = domain.DefaultInstrumentIcon(c.kind)
-			}
-			label := ""
-			if !slices.ContainsFunc(choices, func(choice ui.Choice) bool { return choice.ID == icon }) {
-				label = l.Text(i18n.PortfolioCatalogCurrentIcon)
-			}
-			c.iconPicker.Layout(gtx, view, ui.PickerField{Label: i18n.DirectoryIcon, Origin: view.Origin}, ui.SelectOptions{
-				Items: choices, Searchable: true, Clearable: true, ValueLabel: label,
-			}, icon, func(value string) { c.icon = value })
-			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+			return p.layoutCatalogLookup(gtx, view, d)
 		})
 	}
+	appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
+		choices := directoryIconChoices[l]
+		icon := c.icon
+		if icon == "" {
+			icon = domain.DefaultInstrumentIcon(c.kind)
+		}
+		label := ""
+		if !slices.ContainsFunc(choices, func(choice ui.Choice) bool { return choice.ID == icon }) {
+			label = l.Text(i18n.PortfolioCatalogCurrentIcon)
+		}
+		c.iconPicker.Layout(gtx, view, ui.PickerField{Label: i18n.DirectoryIcon, Name: i18n.DirectoryChooseIcon, Origin: view.Origin, Disabled: !gtx.Enabled()}, ui.SelectOptions{
+			Items: choices, Searchable: true, Clearable: true, ValueLabel: label, SearchLabel: i18n.DirectorySearchIcons,
+		}, icon, func(value string) { c.icon = value })
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+	})
 	appendRow(grid(identity(portfolioInstrumentCountry), identity(portfolioInstrumentMarket), identity(portfolioInstrumentSymbol), identity(portfolioInstrumentISIN)))
-	if create || c.advanced {
-		currency := text(i18n.PortfolioCatalogReadCurrency, c.currency.String())
-		if create {
-			currency = analysisSelect(&c.currencyPicker, i18n.PortfolioCatalogCurrency, supportedCurrencyChoices, c.currency.String(), true, func(value string) {
-				c.currency = domain.CurrencyCode(value)
-				c.metal.reset()
-			})
-		}
-		var sources []ui.Choice
-		for _, source := range domain.AllQuoteSourceKinds() {
-			sources = append(sources, ui.Choice{ID: string(source), Label: marketSourceLabel(l, source)})
-		}
-		source := analysisSelect(&c.sourcePicker, i18n.PortfolioCatalogQuoteSource, sources, string(c.source), false, func(value string) {
-			c.source = domain.QuoteSourceKind(value)
-			if c.source == domain.QuoteSourceProvider && c.provider == "" {
-				c.provider = application.YahooFinanceProviderKey
-				if c.kind == domain.InstrumentCrypto {
-					c.provider = application.CoinGeckoProviderKey
-				}
-			}
+	currency := func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return c.currencyField.Layout(gtx, view, ui.FieldOptions{
+			Label: i18n.PortfolioInstrumentCurrency, ReadOnly: true, Help: i18n.PortfolioFormFixedCurrency,
+		})
+	}
+	if create {
+		currency = analysisSelect(&c.currencyPicker, i18n.PortfolioInstrumentCurrency, supportedCurrencyChoices, c.currency.String(), true, func(value string) {
+			c.currency = domain.CurrencyCode(value)
 			c.metal.reset()
 		})
-		appendRow(grid(currency, source))
-		if c.source == domain.QuoteSourceProvider {
-			if c.template != "" {
-				appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
-					return p.layoutCatalogMetalPreview(gtx, view, d)
-				})
-			} else {
-				var providers []ui.Choice
-				for _, id := range application.InstrumentProviderKeys() {
-					if id != application.CoinGeckoProviderKey || c.kind == domain.InstrumentCrypto {
-						providers = append(providers, ui.Choice{ID: id, Label: instrumentProviderLabel(l, id)})
-					}
-				}
-				appendRow(grid(analysisSelect(&c.providerPicker, i18n.InstrumentBindingProvider, providers, c.provider, false, func(value string) {
-					if c.provider != value {
-						c.provider = value
-						c.providerSymbol.Editor.SetText("")
-					}
-				}), func(gtx layout.Context, view ui.View) layout.Dimensions {
-					return c.providerSymbol.Layout(gtx, view, ui.FieldOptions{Label: i18n.InstrumentBindingSymbol})
-				}))
+	}
+	var sources []ui.Choice
+	for _, source := range domain.AllQuoteSourceKinds() {
+		sources = append(sources, ui.Choice{ID: string(source), Label: marketSourceLabel(l, source)})
+	}
+	source := analysisSelect(&c.sourcePicker, i18n.PortfolioCatalogQuoteSource, sources, string(c.source), false, func(value string) {
+		c.source = domain.QuoteSourceKind(value)
+		if c.source == domain.QuoteSourceProvider && c.provider == "" {
+			c.provider = application.YahooFinanceProviderKey
+			if c.kind == domain.InstrumentCrypto {
+				c.provider = application.CoinGeckoProviderKey
 			}
 		}
-	} else {
-		appendRow(grid(text(i18n.PortfolioCatalogReadCurrency, c.currency.String()), text(i18n.PortfolioCatalogReadQuoteSource, marketSourceLabel(l, c.source))))
+		c.metal.reset()
+	})
+	appendRow(grid(currency, source))
+	if c.source == domain.QuoteSourceProvider {
+		if c.template != "" {
+			appendRow(func(gtx layout.Context, view ui.View) layout.Dimensions {
+				return p.layoutCatalogMetalPreview(gtx, view, d)
+			})
+		} else {
+			var providers []ui.Choice
+			for _, id := range application.InstrumentProviderKeys() {
+				if id != application.CoinGeckoProviderKey || c.kind == domain.InstrumentCrypto {
+					providers = append(providers, ui.Choice{ID: id, Label: instrumentProviderLabel(l, id)})
+				}
+			}
+			appendRow(grid(analysisSelect(&c.providerPicker, i18n.PortfolioFormProvider, providers, c.provider, false, func(value string) {
+				if c.provider != value {
+					c.provider = value
+					c.providerSymbol.Editor.SetText("")
+				}
+			}), func(gtx layout.Context, view ui.View) layout.Dimensions {
+				return c.providerSymbol.Layout(gtx, view, ui.FieldOptions{Label: i18n.PortfolioFormLookupSymbol})
+			}))
+		}
 	}
 	appendRow(identity(portfolioInstrumentNote))
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)

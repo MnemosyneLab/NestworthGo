@@ -223,11 +223,6 @@ func (p *portfolioPage) update() {
 func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
 	p.updateAllocationTrend(gtx, view)
-	p.pollCatalogDraft()
-	p.beginRequestedCatalogEditor(gtx, view)
-	if p.catalog.draft != nil {
-		return p.layoutCatalogDraft(gtx, view)
-	}
 	if f := p.investment; f != nil {
 		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
 		f.poll(run)

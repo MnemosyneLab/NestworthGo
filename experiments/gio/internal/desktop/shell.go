@@ -744,8 +744,14 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if s.directoryListActive() {
 		s.directory.activeList().updateCreateTrigger(gtx)
 	}
+	if s.activeRoute() == portfolioRoute && s.portfolio != nil {
+		s.portfolio.update()
+		s.portfolio.pollCatalogDraft()
+		s.portfolio.beginRequestedCatalogEditor(gtx)
+	}
 	directoryArchiveOpen := s.confirmingArchive()
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	catalogEditorOpen := s.instrumentCatalogEditorOpen()
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -813,6 +819,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.accounts.layoutAccountCreateSheet(windowContext, view)
+		return dims
+	}
+	if catalogEditorOpen && s.instrumentCatalogEditorOpen() {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.portfolio.layoutCatalogSheet(windowContext, view)
 		return dims
 	}
 	if s.directoryCreationOpen() {
@@ -1044,6 +1056,10 @@ func (s *shell) directoryListActive() bool {
 
 func (s *shell) directoryCreationOpen() bool {
 	return s.directoryListActive() && s.directory.activeList().createSheet != nil
+}
+
+func (s *shell) instrumentCatalogEditorOpen() bool {
+	return s.activeRoute() == portfolioRoute && s.portfolio != nil && s.portfolio.catalog.draft != nil
 }
 
 func (s *shell) confirmingArchive() bool {

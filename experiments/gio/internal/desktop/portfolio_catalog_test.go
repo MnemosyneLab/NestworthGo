@@ -51,7 +51,7 @@ func TestPortfolioCatalogRequestedEditorUsesCurrentInstrument(t *testing.T) {
 	if draft == nil || !draft.external || draft.instrument.ID != added.ID || draft.fields[portfolioInstrumentName].Text() != added.Name {
 		t.Fatal("opening through maintenance did not start from the current identity")
 	}
-	setBankField(h, "Instrument name", &draft.fields[portfolioInstrumentName], "Updated maintenance bond")
+	setBankField(h, "Name", &draft.fields[portfolioInstrumentName], "Updated maintenance bond")
 	h.click("Save", false)
 	frame()
 	items, err := service.ListInstruments(ctx, true)
@@ -66,11 +66,11 @@ func TestPortfolioCatalogRequestedEditorUsesCurrentInstrument(t *testing.T) {
 	if draft == nil || !draft.external || draft.instrument.ID != "" || draft.config.currency != portfolio.current.summary.Currency {
 		t.Fatal("opening Add instrument through maintenance lost the shared household default")
 	}
-	h.click("Save", false)
+	draft.save.Click()
 	frame()
-	assertPageLabel(t, &h.router, "Enter an instrument name.")
+	assertPageLabel(t, &h.router, "Must not be empty")
 	h.focused(&draft.fields[portfolioInstrumentName].Editor)
-	h.click("Cancel", false)
+	h.click("Close", false)
 	frame()
 	if portfolio.catalog.draft != nil || !slices.Equal(completions, []i18n.MessageID{i18n.PortfolioCatalogSaved, i18n.NoMessage}) {
 		t.Fatal("cancel did not return to the requesting page without a save")
@@ -118,8 +118,9 @@ func TestPortfolioCatalogCreateFromProviderPopulatesAndPreservesIdentity(t *test
 	if d == nil || d.config.currency != port.current.summary.Currency || d.config.source != domain.QuoteSourceProvider {
 		t.Fatal("add instrument did not use the household currency and stock provider default")
 	}
-	setBankField(h, "Instrument name", &d.fields[portfolioInstrumentName], "Temporary")
-	click("Save")
+	setBankField(h, "Name", &d.fields[portfolioInstrumentName], "Temporary")
+	d.save.Click()
+	settle()
 	assertPageLabel(t, &h.router, "Choose a provider and enter its symbol.")
 	if d.fields[portfolioInstrumentName].Text() != "Temporary" {
 		t.Fatal("an invalid submission discarded the draft")
@@ -133,8 +134,9 @@ func TestPortfolioCatalogCreateFromProviderPopulatesAndPreservesIdentity(t *test
 		d.fields[portfolioInstrumentName].Text() != "Synthetic lookup stock" {
 		t.Fatal("provider selection did not fill the identity and currency")
 	}
-	click("Save")
-	assertPageLabel(t, &h.router, "Instrument added.")
+	d.save.Click()
+	settle()
+	assertPageLabel(t, &h.router, "Instrument added")
 	h.focused(&port.catalog.add)
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
@@ -206,7 +208,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	setBankField(h, "Search instruments", &port.catalog.search.Field, "qa-bond")
 	settle()
 	assertPageLabel(t, &h.router, instrument.DisplayLabel())
-	assertPageLabel(t, &h.router, "Current price · USD 5.6789123")
+	assertPageLabel(t, &h.router, "Latest quote · US$5.6789123")
 	if quote := port.current.catalog.quotes[instrument.ID]; quote == nil || !quote.QuotedAt.Equal(quotedAt) || quote.SourceKind != domain.QuoteSourceManual {
 		t.Fatalf("catalog changed the saved quote provenance: %+v", quote)
 	}
@@ -219,7 +221,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 		t.Fatal("Back did not restore the instrument list and query")
 	}
 	h.focused(&port.catalog.links[instrument.ID].open)
-	click("Manage instrument")
+	click("Edit")
 	click("Archive")
 	click("Cancel")
 	if current(service).ArchivedAt != nil {
@@ -232,15 +234,15 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	}
 	assertPageLabel(t, &h.router, "Entry archived.")
 	h.focused(&port.catalog.links[instrument.ID].manage)
-	click("Manage instrument")
+	click("Edit")
 	click("Restore")
 	click("Restore")
 	assertPageLabel(t, &h.router, "Entry restored.")
-	click("Manage instrument")
+	click("Edit")
 	draft := port.catalog.draft
-	setBankField(h, "Instrument name", &draft.fields[portfolioInstrumentName], "Renamed unheld bond")
+	setBankField(h, "Name", &draft.fields[portfolioInstrumentName], "Renamed unheld bond")
 	click("Save")
-	assertPageLabel(t, &h.router, "Instrument saved.")
+	assertPageLabel(t, &h.router, "Saved locally")
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}

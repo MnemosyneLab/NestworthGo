@@ -170,7 +170,7 @@ func TestMaintenanceTabsAndInstrumentRecordsRetainNavigationContext(t *testing.T
 		portfolio.tabs.active != portfolioInstruments {
 		t.Fatalf("quote Edit did not open the selected instrument in the shared catalog editor: %+v", draft)
 	}
-	click("Cancel")
+	click("Close")
 	route(marketDataRoute)
 	h.focused(&market.instrumentActions[instrument.ID].edit)
 	if market.search.Field.Text() != "QA-FULL" {
@@ -181,7 +181,7 @@ func TestMaintenanceTabsAndInstrumentRecordsRetainNavigationContext(t *testing.T
 	if draft := portfolio.catalog.draft; draft == nil || !draft.external || draft.instrument.ID != "" {
 		t.Fatalf("quote Add did not open the shared create form: %+v", draft)
 	}
-	click("Cancel")
+	click("Close")
 	route(marketDataRoute)
 	h.focused(&market.addInstrument)
 	if version != service.MobileDataVersion() {

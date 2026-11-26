@@ -20,8 +20,7 @@ type portfolioInstrumentConfig struct {
 	template, unit string
 	icon           string
 	providerSymbol ui.TextField
-	advanced       bool
-	more           widget.Clickable
+	currencyField  ui.TextField
 	typePicker     ui.Select
 	currencyPicker ui.Select
 	sourcePicker   ui.Select
@@ -38,9 +37,11 @@ func newPortfolioInstrumentConfig(item domain.Instrument) portfolioInstrumentCon
 		kind: item.Type, currency: item.QuoteCurrency, source: item.QuoteSource,
 		provider: productString(item.ProviderKey), template: item.MetalTemplate, unit: item.QuantityUnit, icon: productString(item.IconKey),
 		providerSymbol: ui.NewTextField(true),
+		currencyField:  ui.NewTextField(true),
 		lookup:         portfolioCatalogLookup{query: ui.NewTextField(true)},
 	}
 	config.providerSymbol.Editor.SetText(productString(item.ProviderSymbol))
+	config.currencyField.Editor.SetText(item.QuoteCurrency.String())
 	if item.ID == "" {
 		if config.currency == "" {
 			config.currency = domain.SupportedCurrencies()[0]

@@ -58,18 +58,22 @@ type portfolioCatalogActions struct {
 }
 
 type portfolioCatalogDraft struct {
-	instrument            domain.Instrument
-	returnTo              *widget.Clickable
-	archive, back, cancel widget.Clickable
-	confirm               widget.Clickable
-	save                  widget.Clickable
-	fields                [portfolioIdentityFieldCount]ui.TextField
-	config                portfolioInstrumentConfig
-	confirming            bool
-	external              bool
-	focusName             bool
-	issue                 i18n.MessageID
-	pending               <-chan historyResult[i18n.MessageID]
+	instrument domain.Instrument
+	returnTo   *widget.Clickable
+	sheet      analysisSheet
+	overlay    ui.Overlay
+	archive    widget.Clickable
+	cancel     widget.Clickable
+	confirm    widget.Clickable
+	save       widget.Clickable
+	fields     [portfolioIdentityFieldCount]ui.TextField
+	config     portfolioInstrumentConfig
+	confirming bool
+	external   bool
+	focusName  bool
+	opening    bool
+	issue      i18n.MessageID
+	pending    <-chan historyResult[i18n.MessageID]
 }
 
 func readPortfolioCatalog(ctx context.Context, service portfolioReader) (out portfolioRead, err error) {
@@ -121,7 +125,7 @@ func (p *portfolioPage) requestCatalogEditor(item domain.Instrument) {
 	p.catalog.requestedEditor = &id
 }
 
-func (p *portfolioPage) beginRequestedCatalogEditor(gtx layout.Context, view ui.View) {
+func (p *portfolioPage) beginRequestedCatalogEditor(gtx layout.Context) {
 	c := &p.catalog
 	if c.requestedEditor == nil || p.id != "" || p.tabs.active != portfolioInstruments ||
 		p.request != nil || p.err != nil || p.current == nil || p.current.catalog == nil {
@@ -142,14 +146,12 @@ func (p *portfolioPage) beginRequestedCatalogEditor(gtx layout.Context, view ui.
 		}
 		item, trigger = catalog.instruments[index], &c.rowActions(id).manage
 	}
-	p.beginCatalogEditor(gtx, view, item, trigger)
+	p.beginCatalogEditor(gtx, item, trigger)
 	c.draft.external = true
 }
 
-func (p *portfolioPage) beginCatalogEditor(gtx layout.Context, view ui.View, item domain.Instrument, trigger *widget.Clickable) {
+func (p *portfolioPage) beginCatalogEditor(gtx layout.Context, item domain.Instrument, trigger *widget.Clickable) {
 	p.catalog.draft, p.catalog.notice = newPortfolioCatalogDraft(item, trigger), i18n.NoMessage
-	p.catalog.draft.fields[portfolioInstrumentName].Focus(gtx)
-	view.RestorePageScroll(0)
 	gtx.Execute(op.InvalidateCmd{})
 }
 
@@ -164,6 +166,17 @@ func (c *portfolioCatalog) rowActions(id domain.InstrumentID) *portfolioCatalogA
 
 func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout.Dimensions {
 	c := &p.catalog
+	if gtx.Enabled() && p.current.catalog != nil && p.request == nil && p.err == nil && c.focus != nil && c.focus != &c.add {
+		query := normalizeDirectoryQuery(c.search.Field.Text())
+		found := slices.ContainsFunc(p.current.catalog.instruments, func(item domain.Instrument) bool {
+			actions := c.links[item.ID]
+			return actions != nil && c.focus == &actions.manage && catalogMatches(item, query)
+		})
+		if !found {
+			c.search.Field.Focus(gtx)
+			c.focus = nil
+		}
+	}
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			search := func(gtx layout.Context) layout.Dimensions {
@@ -177,7 +190,7 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 			}
 			ready := p.request == nil && p.err == nil
 			if ready && c.add.Clicked(gtx) {
-				p.beginCatalogEditor(gtx, view, domain.Instrument{QuoteCurrency: p.current.summary.Currency}, &c.add)
+				p.beginCatalogEditor(gtx, domain.Instrument{QuoteCurrency: p.current.summary.Currency}, &c.add)
 			}
 			return (ui.Grid{MinColumn: 215, MaxColumns: 2, Gap: ui.Space8}).Layout(gtx, view, 2,
 				func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
@@ -191,7 +204,10 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 					if !ready {
 						gtx = gtx.Disabled()
 					}
-					return layout.E.Layout(gtx, view.PrimaryButton(&c.add, view.Language.Text(i18n.PortfolioCatalogAdd)))
+					title := view.Language.Text(i18n.PortfolioCatalogAdd)
+					return layout.E.Layout(gtx, view.ButtonOf(&c.add, ui.ButtonSpec{
+						Variant: ui.ButtonPrimary, Title: title, Name: title, Icon: lucide.Plus,
+					}))
 				})
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -211,9 +227,7 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 	query := normalizeDirectoryQuery(c.search.Field.Text())
 	grouped := make(map[domain.InstrumentType][]domain.Instrument)
 	for _, item := range catalog.instruments {
-		facts := strings.Join([]string{item.Name, item.ShortName, productString(item.Symbol), productString(item.ISIN),
-			productString(item.MarketCode), productString(item.ProviderSymbol), item.QuoteCurrency.String()}, " ")
-		if strings.Contains(normalizeDirectoryQuery(facts), query) {
+		if catalogMatches(item, query) {
 			grouped[item.Type] = append(grouped[item.Type], item)
 		}
 	}
@@ -238,6 +252,12 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 	return rows
 }
 
+func catalogMatches(item domain.Instrument, query string) bool {
+	facts := strings.Join([]string{item.Name, item.ShortName, productString(item.Symbol), productString(item.ISIN),
+		productString(item.MarketCode), productString(item.ProviderSymbol), item.QuoteCurrency.String()}, " ")
+	return strings.Contains(normalizeDirectoryQuery(facts), query)
+}
+
 func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog *portfolioCatalogRead, first, last bool) layout.Widget {
 	c, l := &p.catalog, view.Language
 	actions := c.rowActions(item.ID)
@@ -260,11 +280,8 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 	}
 	value, evidence := l.Text(i18n.MarketNoQuote), ""
 	if q := catalog.quotes[item.ID]; q != nil {
-		value = fmt.Sprintf(l.Text(i18n.PortfolioCurrentPrice), q.Currency, portfolioDecimal(view, q.UnitPrice.Canonical()))
-		if item.UsesMetalConversion() {
-			value = fmt.Sprintf(l.Text(catalogMetalPriceUnit(item.QuantityUnit)), value)
-		}
-		evidence = marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
+		value = l.Text(i18n.PortfolioInstrumentLatestQuote) + " · " + instrumentCurrentQuotePrice(view, item, *q)
+		evidence = instrumentCurrentQuoteEvidence(view, *q)
 	} else if catalog.quoteErrors[item.ID] {
 		value = l.Text(i18n.PortfolioCatalogQuoteUnavailable)
 	}
@@ -289,11 +306,11 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 				c.focus = nil
 			}
 			if actions.manage.Clicked(gtx) {
-				p.beginCatalogEditor(gtx, view, item, &actions.manage)
+				p.beginCatalogEditor(gtx, item, &actions.manage)
 			}
-			label := fmt.Sprintf(l.Text(i18n.PortfolioCatalogManageNamed), title)
+			label := fmt.Sprintf(l.Text(i18n.PortfolioCatalogEditNamed), title)
 			buttons = append(buttons, view.ButtonOf(&actions.manage, ui.ButtonSpec{
-				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(i18n.PortfolioCatalogManage), Name: label,
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(i18n.InstitutionsEdit), Name: label,
 			}))
 		}
 		return marketQuoteRow(view, first, last, marketRowSpec{
@@ -363,6 +380,7 @@ func (p *portfolioPage) pollCatalogDraft() {
 			return
 		}
 		d.issue = i18n.PortfolioCatalogWriteFailed
+		d.sheet.list.Position = layout.Position{}
 		var issue *domain.Error
 		if errors.As(result.err, &issue) {
 			switch {
@@ -378,95 +396,4 @@ func (p *portfolioPage) pollCatalogDraft() {
 		}
 	default:
 	}
-}
-
-func (p *portfolioPage) layoutCatalogDraft(gtx layout.Context, view ui.View) layout.Dimensions {
-	c, d, l := &p.catalog, p.catalog.draft, view.Language
-	d.config.poll()
-	create := d.instrument.ID == ""
-	if d.pending == nil {
-		switch {
-		case d.cancel.Clicked(gtx):
-			d.confirming, d.issue = false, i18n.NoMessage
-			gtx.Execute(key.FocusCmd{Tag: &d.archive})
-			gtx.Execute(op.InvalidateCmd{})
-		case d.back.Clicked(gtx):
-			d.config.retireReads()
-			c.draft, c.focus = nil, d.returnTo
-			if d.external && c.finishExternal != nil {
-				c.finishExternal(i18n.NoMessage)
-			}
-			gtx.Execute(op.InvalidateCmd{})
-			return layout.Dimensions{}
-		case d.archive.Clicked(gtx):
-			d.confirming = true
-			gtx.Execute(key.FocusCmd{Tag: &d.cancel})
-			gtx.Execute(op.InvalidateCmd{})
-		case d.confirm.Clicked(gtx) && d.issue != i18n.PortfolioCatalogChanged:
-			p.saveCatalogInstrument(true)
-			gtx.Execute(op.InvalidateCmd{})
-		case d.save.Clicked(gtx) && d.issue != i18n.PortfolioCatalogChanged:
-			p.saveCatalogInstrument(false)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-	}
-	if d.focusName && gtx.Enabled() {
-		d.focusName = false
-		view.RestorePageScroll(0)
-		d.fields[portfolioInstrumentName].Focus(gtx)
-	}
-	gtx, view = view.Measure(gtx, 620)
-	title, action, prompt := i18n.PortfolioCatalogManage, i18n.InstitutionsArchive, i18n.PortfolioCatalogArchive
-	if create {
-		title = i18n.PortfolioCatalogAdd
-	}
-	if d.instrument.ArchivedAt != nil {
-		action, prompt = i18n.InstitutionsRestore, i18n.PortfolioCatalogRestore
-	}
-	if d.confirming {
-		title = prompt
-	}
-	var rows []ui.ColumnChild
-	height := 0
-	appendHeader := func(row layout.Widget) {
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			dims := row(gtx)
-			height += dims.Size.Y + gtx.Dp(ui.Space8)
-			return dims
-		}))
-	}
-	appendHeader(tradeTitle(view, title))
-	if !create {
-		appendHeader(view.Message(d.instrument.DisplayLabel(), view.Colors.Ink))
-	}
-	if d.issue != i18n.NoMessage {
-		appendHeader(view.Message(l.Text(d.issue), view.Colors.ErrorInk))
-	}
-	if d.pending != nil {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)))
-	} else {
-		buttons := []layout.Widget{view.Button(&d.back, l.Text(i18n.InstitutionsCancel))}
-		switch {
-		case d.issue == i18n.PortfolioCatalogChanged:
-		case d.confirming:
-			buttons = []layout.Widget{view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel))}
-			buttons = append(buttons, view.PrimaryButton(&d.confirm, l.Text(action)))
-		default:
-			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-				editorView := view
-				editorView.Origin.Y += height
-				return p.layoutCatalogEditor(gtx, editorView, d)
-			}))
-			if !create {
-				buttons = append(buttons, view.Button(&d.archive, l.Text(action)))
-			}
-			buttons = append(buttons, view.PrimaryButton(&d.save, l.Text(i18n.InstitutionsSave)))
-		}
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
-				return buttons[i](gtx)
-			})
-		}))
-	}
-	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 }

@@ -23,8 +23,8 @@ const (
 )
 
 var catalogIdentityLabels = [portfolioIdentityFieldCount]i18n.MessageID{
-	i18n.PortfolioCatalogName, i18n.PortfolioCatalogShortName, i18n.PortfolioCatalogSymbol,
-	i18n.PortfolioCatalogMarket, i18n.PortfolioCatalogISIN, i18n.PortfolioCatalogCountry, i18n.PreviewNotes,
+	i18n.PortfolioFormName, i18n.PortfolioFormShortName, i18n.PortfolioInstrumentSymbol,
+	i18n.PortfolioInstrumentMarket, i18n.PortfolioInstrumentISIN, i18n.PortfolioInstrumentCountry, i18n.PortfolioInstrumentNote,
 }
 
 func catalogIdentityValues(item domain.Instrument) [portfolioIdentityFieldCount]string {
@@ -35,7 +35,12 @@ func catalogIdentityValues(item domain.Instrument) [portfolioIdentityFieldCount]
 }
 
 func newPortfolioCatalogDraft(item domain.Instrument, button *widget.Clickable) *portfolioCatalogDraft {
-	d := &portfolioCatalogDraft{instrument: item, returnTo: button}
+	sheet := newAnalysisSheet()
+	sheet.width, sheet.modal, sheet.focus = 448, true, false
+	if item.ID != "" {
+		sheet.width = 576
+	}
+	d := &portfolioCatalogDraft{instrument: item, returnTo: button, sheet: sheet, opening: true}
 	for i, value := range catalogIdentityValues(item) {
 		d.fields[i] = ui.NewTextField(i != portfolioInstrumentNote)
 		d.fields[i].Editor.SetText(value)
