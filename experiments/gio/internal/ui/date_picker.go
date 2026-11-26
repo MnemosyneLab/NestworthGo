@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"gioui.org/io/key"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
@@ -178,7 +180,7 @@ func (p *DatePicker) popup(gtx layout.Context, view View, options DateOptions, v
 		}
 	}
 
-	rowHeight := min(gtx.Dp(28), max(0, (gtx.Constraints.Max.Y-gtx.Dp(86))/6))
+	rowHeight := min(gtx.Dp(34), max(0, (gtx.Constraints.Max.Y-gtx.Dp(86))/6))
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.caption(gtx, view, options) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return weekdayRow(gtx, view, options.WeekStart) }),
@@ -270,16 +272,69 @@ func (p *DatePicker) dayRow(gtx layout.Context, view View, options DateOptions, 
 		if id == options.Today {
 			title = fmt.Sprintf(view.Language.Text(i18n.DateToday), title)
 		}
-		dims := choiceButton(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title,
-			enabled, id == value, day.Equal(p.day) && gtx.Focused(p))
-		if enabled && id == options.Today {
-			x := dims.Size.X / 2
-			y := dims.Size.Y - gtx.Dp(3)
-			if y > 0 {
-				paint.FillShape(gtx.Ops, view.Colors.Accent, clip.Rect(image.Rect(x-2, y, x+2, y+1)).Op())
+		return dayCell(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title, dayState{
+			enabled: enabled, selected: id == value, today: id == options.Today,
+			highlighted: day.Equal(p.day) && gtx.Focused(p),
+		})
+	})
+}
+
+type dayState struct{ enabled, selected, today, highlighted bool }
+
+// dayCell draws one calendar day as a disc centered in its cell, like the
+// Wails calendar: accent for the chosen day, a soft accent disc for today, a
+// wash on hover and a ring for the keyboard cursor.
+func dayCell(gtx layout.Context, view View, button *widget.Clickable, label, description string, state dayState) layout.Dimensions {
+	colors := view.Colors
+	content := func(gtx layout.Context) layout.Dimensions {
+		semantic.Button.Add(gtx.Ops)
+		semantic.SelectedOp(state.selected).Add(gtx.Ops)
+		semantic.DescriptionOp(description).Add(gtx.Ops)
+		size := gtx.Constraints.Min
+		// The disc leaves room for the keyboard ring inside the cell.
+		side := max(0, min(size.X, size.Y)-2*gtx.Dp(2))
+		disc := image.Rectangle{Min: image.Pt((size.X-side)/2, (size.Y-side)/2)}
+		disc.Max = disc.Min.Add(image.Pt(side, side))
+		ink, style := colors.Ink, TextBody
+		switch {
+		case !state.enabled:
+			ink = WithAlpha(colors.SecondaryInk, 0.6)
+		case state.selected:
+			paint.FillShape(gtx.Ops, colors.Accent, clip.Ellipse(disc).Op(gtx.Ops))
+			ink, style = colors.OnAccent, TextLabel
+		case state.today:
+			fill := Mix(colors.Surface, colors.Accent, 0.14)
+			if button.Hovered() {
+				fill = Mix(colors.Surface, colors.Accent, 0.22)
 			}
+			paint.FillShape(gtx.Ops, fill, clip.Ellipse(disc).Op(gtx.Ops))
+			ink, style = colors.Accent, TextLabel
+		case button.Hovered() || state.highlighted:
+			paint.FillShape(gtx.Ops, colors.HoverSurface, clip.Ellipse(disc).Op(gtx.Ops))
 		}
-		return dims
+		if state.highlighted && state.enabled {
+			ring := colors.Accent
+			if state.selected {
+				ring = colors.Ink
+			}
+			outer := disc.Inset(-gtx.Dp(1))
+			paint.FillShape(gtx.Ops, ring, clip.Stroke{Path: clip.Ellipse(outer).Path(gtx.Ops), Width: float32(gtx.Dp(2))}.Op())
+		}
+		layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return view.Line(gtx, style, label, ink)
+		})
+		return layout.Dimensions{Size: size}
+	}
+	if !state.enabled {
+		gtx = gtx.Disabled()
+	}
+	return accessibility.Button(gtx, button, description, "", false, func(gtx layout.Context) layout.Dimensions {
+		if state.enabled {
+			return button.Layout(gtx, content)
+		}
+		defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+		semantic.EnabledOp(false).Add(gtx.Ops)
+		return content(gtx)
 	})
 }
 
