@@ -847,6 +847,33 @@ const (
 	AssetNoDriverDetail
 	AssetOpenDay
 	AssetOpenReturn
+	AssetNetWorthChange
+	AssetAccountValueChange
+	AssetInvestmentValueChange
+	AssetSummaryChange
+	AssetSummaryRate
+	AssetSummaryRateNonpositive
+	AssetSummaryRateIncomplete
+	AssetPartialCoverage
+	AssetDriverNoData
+	AssetDriverNoDataHint
+	AssetDriverNoUsableDays
+	AssetDriverPrice
+	AssetDriverFX
+	AssetDriverFXSpread
+	AssetCategoryInvestment
+	AssetCategoryDividend
+	AssetCategoryEmpty
+	AssetCategoryEmptyHint
+	AssetCategoryNoPositions
+	AssetCategoryNoPositionsHint
+	AssetCategoryLowHistory
+	AssetCategoryLowHistoryHint
+	AssetSummaryRateHint
+	AssetValuationForced
+	AssetDriverNoChanges
+	AssetDriverIncomplete
+	AssetCategoryHint
 	ContributionOpenHistory
 	ContributionHistoryWider
 	ContributionHistoryUnavailable

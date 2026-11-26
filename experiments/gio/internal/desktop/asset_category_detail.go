@@ -46,7 +46,7 @@ func (p *assetChangesPage) categoryButton(gtx layout.Context, view ui.View, row 
 		p.readCategoryDetail(p.categoryDetail)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	money := returnMoney(view, row.Amount)
+	money := assetSignedMoney(view, row.Amount)
 	return ui.Bleed(gtx, ui.Space12, view.ButtonOf(button, ui.ButtonSpec{Name: name + " · " + money, Variant: ui.ButtonGhost, Fill: true,
 		Content: valueRow(view, name, money, "")}))
 }
@@ -119,7 +119,7 @@ func (p *assetChangesPage) categoryDetails(view ui.View, sheet *assetCategoryShe
 	}
 
 	data := sheet.value
-	rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AssetCategoryTotal)+" · "+returnMoney(view, sheet.row.Amount), view.Colors.Ink))
+	rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AssetCategoryTotal)+" · "+assetSignedMoney(view, sheet.row.Amount), view.Colors.Ink))
 	if data.ValuationForced != nil {
 		rows = append(rows, view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk))
 	}
@@ -130,7 +130,7 @@ func (p *assetChangesPage) categoryDetails(view ui.View, sheet *assetCategoryShe
 		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AssetCategoryComponents), view.Colors.Ink))
 		for _, item := range data.Children {
 			label := p.categoryName(l, item.Key, item.AccountID, item.InstrumentID)
-			rows = append(rows, view.Message(label+" · "+returnMoney(view, item.Amount), view.Colors.Ink))
+			rows = append(rows, view.Message(label+" · "+assetSignedMoney(view, item.Amount), view.Colors.Ink))
 		}
 	}
 	rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AssetCategoryRecords), view.Colors.Ink))
@@ -138,7 +138,7 @@ func (p *assetChangesPage) categoryDetails(view ui.View, sheet *assetCategoryShe
 		return append(rows, view.Message(l.Text(i18n.AssetCategoryNoRecords), view.Colors.SecondaryInk))
 	}
 	for i, ref := range data.ActivityRefs {
-		rows = append(rows, view.Message(wealthDay(view, ref.Date)+" · "+returnMoney(view, ref.Amount), view.Colors.Ink))
+		rows = append(rows, view.Message(wealthDay(view, ref.Date)+" · "+assetSignedMoney(view, ref.Amount), view.Colors.Ink))
 		if p.openHistory == nil {
 			continue
 		}

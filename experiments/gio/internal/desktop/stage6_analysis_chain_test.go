@@ -125,7 +125,7 @@ func TestStage6PairedAccountFilteredAnalysisRoundTrip(t *testing.T) {
 		!reflect.DeepEqual(assets.current.query, wantQuery) {
 		t.Fatalf("Calendar did not carry exact analysis filters and dates: %+v", assets.current)
 	}
-	const priceRow = "Price change · €25.00"
+	const priceRow = "Price Change · +€25.00"
 	click(priceRow)
 	if assets.driver == nil || assets.driver.value == nil || len(assets.driver.value.ByAccount) != 1 ||
 		assets.driver.value.ByAccount[0].Amount == nil || assets.driver.value.ByAccount[0].Amount.CanonicalAmount() != wantDriver.ByAccount[0].Amount.Amount {

@@ -262,11 +262,10 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.router.Source().Execute(key.FocusCmd{Tag: &assets.waterfall})
+	h.router.Source().Execute(key.FocusCmd{Tag: &assets.driverChart})
 	h.frame()
-	h.focused(&assets.waterfall)
+	h.focused(&assets.driverChart)
 	h.press(key.NameHome)
-	h.press(key.NameRightArrow)
 	h.press(key.NameReturn)
 	assets.workers.Wait()
 	h.frame()
@@ -277,9 +276,9 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if assets.driver == nil || assets.driver.row.Bucket != domain.BucketPriceChange || assets.driver.value == nil ||
 		len(assets.driver.value.ByInstrument) != 1 || len(wailsDriver.ByInstrument) != 1 ||
 		assets.driver.value.ByInstrument[0].Amount.CanonicalAmount() != wailsDriver.ByInstrument[0].Amount.Amount {
-		t.Fatal("the waterfall did not open the Wails-backed Price change detail")
+		t.Fatal("the contributions chart did not open the Wails-backed Price change detail")
 	}
-	assertPageLabel(t, &h.router, "Total · US$25.00")
+	assertPageLabel(t, &h.router, "Total · +US$25.00")
 	assertPageLabel(t, &h.router, "By account")
 	wantDriverRanks, err := adapter.Contribution(ctx, dayQuery, string(application.ContributionTotalReturn),
 		string(application.ContributionGroupInstrument), string(application.ContributionSortAmountDesc))
@@ -310,7 +309,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if h.shell.activeRoute() != assetChangesRoute || assets.state.tab != assetDriversTab {
 		t.Fatal("Back lost Change drivers")
 	}
-	h.focused(&assets.waterfall)
+	h.focused(&assets.driverChart)
 	h.click("Forward", false)
 	settleHandoff()
 	if h.shell.activeRoute() != returnAnalysisRoute || page.tab != returnContributionTab ||
@@ -319,7 +318,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	}
 	h.click("Back", false)
 	settleHandoff()
-	h.focused(&assets.waterfall)
+	h.focused(&assets.driverChart)
 	wailsAssetTrend, err := adapter.AssetTrend(ctx, dayQuery, string(application.TrendDay), string(application.TrendNetWorth))
 	if err != nil {
 		t.Fatal(err)
@@ -360,7 +359,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	assets.workers.Wait()
 	h.frame()
 	h.click("Category type", true)
-	h.click("Total return", false)
+	h.click("Investment Return", false)
 	assets.workers.Wait()
 	h.frame()
 	if assets.current == nil || assets.current.categories == nil || wailsCategories.Total == nil ||
@@ -754,7 +753,7 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 		t.Fatal("a cash-flow driver offered a Contribution handoff")
 	}
 	h.press(key.NameEscape)
-	h.click("Price change · Unavailable", false)
+	h.click("Price Change · Unavailable", false)
 	settle()
 	h.click("Open return analysis", false)
 	settle()

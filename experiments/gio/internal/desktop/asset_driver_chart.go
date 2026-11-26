@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
@@ -11,83 +12,95 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-const (
-	assetBeginningStep charts.ID = "beginning"
-	assetEndingStep    charts.ID = "ending"
-)
-
-func assetWaterfall(view ui.View, data application.AssetChangeResult) (charts.WaterfallSpec, bool) {
+func assetDriverBars(view ui.View, data application.AssetChangeResult) charts.BarSpec {
 	l := view.Language
-	spec := charts.WaterfallSpec{Label: l.Text(i18n.AssetDriverChart), Summary: l.Text(i18n.AssetDriverChartHelp),
-		Messages: charts.Messages{Empty: l.Text(i18n.AssetNoData), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)}}
-	beginning := data.Summary.BeginningValue
-	if beginning == nil {
-		return spec, false
-	}
-	currency, running := beginning.Currency(), beginning.Amount()
-	spec.FormatValue = func(value float64) string { return chartAxisNumber(view, value) }
-	total := func(id charts.ID, label i18n.MessageID, amount *domain.SignedMoney) charts.WaterfallStep {
-		step := charts.WaterfallStep{ID: id, Label: l.Text(label), Kind: charts.StepTotal,
-			Text: returnMoney(view, amount), Tone: charts.ToneNeutral}
-		if amount.Currency() == currency {
-			step.To = charts.Num(amount.Amount().InexactFloat64())
-		}
-		return step
-	}
-	spec.Steps = append(spec.Steps, total(assetBeginningStep, i18n.AssetBeginning, beginning))
-	comparable := true
+	spec := charts.BarSpec{Label: l.Text(i18n.AssetDriverChart), Summary: l.Text(i18n.AssetDriverChartHelp), Symmetric: true,
+		Messages: charts.Messages{Empty: l.Text(i18n.AssetDriverNoChanges), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)}}
+	var currency domain.CurrencyCode
+	mixedCurrencies := false
 	for _, row := range data.Waterfall {
 		if row.Amount == nil || row.Amount.IsZero() {
 			continue
 		}
-		step := charts.WaterfallStep{ID: charts.ID(row.Key), Label: assetBucketLabel(l, row.Bucket), Kind: charts.StepDelta,
-			Text: returnMoney(view, row.Amount)}
+		if currency == "" {
+			currency = row.Amount.Currency()
+		}
+		mixedCurrencies = mixedCurrencies || currency != row.Amount.Currency()
+		bar := charts.Bar{ID: charts.ID(row.Key), Label: assetBucketLabel(l, row.Bucket),
+			Value: charts.Num(row.Amount.Amount().InexactFloat64()), Text: assetSignedMoney(view, row.Amount)}
 		if row.Bucket == domain.BucketResidual {
-			step.Tone = charts.ToneWarning
+			bar.Tone = charts.ToneWarning
 		}
-		comparable = comparable && row.Amount.Currency() == currency
-		if comparable {
-			step.From = charts.Num(running.InexactFloat64())
-			running = running.Add(row.Amount.Amount())
-			step.To = charts.Num(running.InexactFloat64())
+		spec.Bars = append(spec.Bars, bar)
+	}
+	if mixedCurrencies {
+		// Keep the authoritative figures and row actions available when a
+		// common scale would compare incompatible currencies.
+		for i := range spec.Bars {
+			spec.Bars[i].Value = charts.Value{}
 		}
-		spec.Steps = append(spec.Steps, step)
 	}
-	if ending := data.Summary.EndingValue; ending != nil {
-		spec.Steps = append(spec.Steps, total(assetEndingStep, i18n.AssetEnding, ending))
-		return spec, !comparable || ending.Currency() != currency || !running.Sub(ending.Amount()).RoundBank(2).IsZero()
-	}
-	return spec, false
+	return spec
 }
 
-func (p *assetChangesPage) driverWaterfall(view ui.View, data application.AssetChangeResult) layout.Widget {
-	spec, mismatch := assetWaterfall(view, data)
-	spec.Selected = p.waterfallSelected
-	return func(gtx layout.Context) layout.Dimensions {
-		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			chart := func(gtx layout.Context) layout.Dimensions {
-				p.restoreDriverFocus(gtx, view, &p.waterfall)
-				dims, events := p.waterfall.Layout(gtx, view, spec)
-				if len(events) > 0 {
-					p.waterfallSelected = charts.Apply(p.waterfallSelected, events)
-					for _, row := range data.Waterfall {
-						if charts.ID(row.Key) == p.waterfallSelected.Item {
-							p.waterfallSelected = charts.Selection{}
-							p.openDriver(row, &p.waterfall)
-							break
-						}
-					}
-					gtx.Execute(op.InvalidateCmd{})
-				}
-				return dims
-			}
-			rows := []ui.ColumnChild{ui.Rigid(chart)}
-			if mismatch {
-				rows = append(rows, ui.Rigid(view.Message(view.Language.Text(i18n.AssetDriverMismatch), view.Colors.ErrorInk)))
-			}
-			return (ui.Column{Gap: 6}).Layout(gtx, rows...)
-		})
+// This diagnostic only validates the shared report. Boundary values never
+// feed the chart's geometry or replace any amount in the report.
+func assetDriverNotice(data application.AssetChangeResult) i18n.MessageID {
+	beginning, ending := data.Summary.BeginningValue, data.Summary.EndingValue
+	if beginning == nil || ending == nil {
+		return i18n.AssetDriverIncomplete
 	}
+	currency, running := beginning.Currency(), beginning.Amount()
+	if ending.Currency() != currency {
+		return i18n.AssetDriverMismatch
+	}
+	for _, row := range data.Waterfall {
+		if row.Amount == nil || row.Amount.IsZero() {
+			continue
+		}
+		if row.Amount.Currency() != currency {
+			return i18n.AssetDriverMismatch
+		}
+		running = running.Add(row.Amount.Amount())
+	}
+	if !running.Sub(ending.Amount()).RoundBank(2).IsZero() {
+		return i18n.AssetDriverMismatch
+	}
+	return i18n.NoMessage
+}
+
+func (p *assetChangesPage) driverContributions(view ui.View, data application.AssetChangeResult) layout.Widget {
+	spec, notice := assetDriverBars(view, data), assetDriverNotice(data)
+	return func(gtx layout.Context) layout.Dimensions {
+		chart := func(gtx layout.Context) layout.Dimensions {
+			p.restoreDriverFocus(gtx, view, &p.driverChart)
+			dims, events := p.driverChart.Layout(gtx, view, spec)
+			if selection := charts.Apply(charts.Selection{}, events); !selection.IsZero() {
+				for _, row := range data.Waterfall {
+					if charts.ID(row.Key) == selection.Item {
+						p.openDriver(row, &p.driverChart)
+						gtx.Execute(op.InvalidateCmd{})
+						break
+					}
+				}
+			}
+			return dims
+		}
+		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, spec.Label, view.Colors.Ink))}
+		if notice != i18n.NoMessage {
+			rows = append(rows, ui.Rigid(view.Message(view.Language.Text(notice), view.Colors.WarningInk)))
+		}
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Card(gtx, chart) }))
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
+	}
+}
+
+func assetSignedMoney(view ui.View, value *domain.SignedMoney) string {
+	text := returnMoney(view, value)
+	if value != nil && value.Amount().RoundBank(int32(domain.CurrencyFractionDigits(value.Currency()))).IsPositive() {
+		return "+" + text
+	}
+	return text
 }
 
 func (p *assetChangesPage) driverButton(view ui.View, row application.AssetChangeRow) layout.Widget {
@@ -95,7 +108,7 @@ func (p *assetChangesPage) driverButton(view ui.View, row application.AssetChang
 		p.driverButtons = make(map[string]*widget.Clickable)
 	}
 	button := portfolioButton(p.driverButtons, row.Key)
-	name, money := assetBucketLabel(view.Language, row.Bucket), returnMoney(view, row.Amount)
+	name, money := assetBucketLabel(view.Language, row.Bucket), assetSignedMoney(view, row.Amount)
 	label := name + " · " + money
 	return func(gtx layout.Context) layout.Dimensions {
 		p.restoreDriverFocus(gtx, view, button)

@@ -73,8 +73,7 @@ type assetChangesPage struct {
 	coverage                   widget.Clickable
 	metric, interval, category ui.Select
 	list                       widget.List
-	waterfall                  charts.WaterfallChart
-	waterfallSelected          charts.Selection
+	driverChart                charts.BarChart
 	trendChart                 charts.LineChart
 	trendTable                 chartDataTable
 	trendSelected              charts.Selection
@@ -200,7 +199,6 @@ func (p *assetChangesPage) update() {
 
 func (p *assetChangesPage) change() {
 	p.current = nil
-	p.waterfallSelected = charts.Selection{}
 	p.trendSelected = charts.Selection{}
 	p.list.Position = layout.Position{}
 	if p.refs.origin != nil {
