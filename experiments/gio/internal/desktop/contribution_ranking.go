@@ -27,7 +27,7 @@ const (
 )
 
 var contributionDirections = [...]i18n.MessageID{
-	i18n.RankingLargest, i18n.RankingPositive, i18n.RankingNegative,
+	i18n.RankingLargest, i18n.RankingPositiveOnly, i18n.RankingNegativeOnly,
 }
 
 type contributionRanking struct {
@@ -35,9 +35,7 @@ type contributionRanking struct {
 	limit     int
 	tabs      [3]widget.Clickable
 	limits    [3]widget.Clickable
-	list      widget.List
 	search    ui.SearchField
-	buttons   map[string]*widget.Clickable
 	chart     charts.BarChart
 }
 
@@ -67,20 +65,37 @@ func rankedContributionRows(rows []application.ContributionRow, direction contri
 
 func (p *returnAnalysisPage) contributionRows(view ui.View, data application.ContributionResult) []ui.ColumnChild {
 	l := view.Language
-	rows := []ui.ColumnChild{ui.Rigid(contributionSummary(view, data.Summary))}
-	if !data.Available || len(data.Rows) == 0 {
-		return append(rows, ui.Rigid(view.Message(l.Text(i18n.ReturnInsufficient), view.Colors.SecondaryInk)))
+	if !data.Available {
+		return []ui.ColumnChild{ui.Rigid(emptyState(view, l.Text(i18n.RankingUnavailable)))}
 	}
+	basis := returnValuationContext{valuation: p.current.query.Valuation, forced: data.ValuationForced}
+	if data.Summary.Total != nil {
+		basis.currency = data.Summary.Total.Currency()
+	} else {
+		for _, row := range data.Rows {
+			if row.Amount != nil {
+				basis.currency = row.Amount.Currency()
+				break
+			}
+		}
+	}
+	rows := []ui.ColumnChild{ui.Rigid(returnValuationLabel(view, i18n.RankingValuation, basis)), ui.Rigid(contributionSummary(view, data.Summary))}
 	rows = append(rows,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutRankedContributions(gtx, view, data) }),
-		ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.RankingDetails), view.Colors.Ink)),
+		ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.RankingDetails), view.Colors.Ink)),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			ranking := &p.output.ranking
-			return ranking.search.Layout(gtx, view, i18n.RankingSearch, i18n.RankingSearch, func(string) {
-				p.output.list.Position = layout.Position{}
-				gtx.Execute(op.InvalidateCmd{})
+			sortControl := p.contributionSortControl(l)
+			return (ui.Grid{MinColumn: 170, MaxColumns: 2, Gap: ui.Space8}).Layout(gtx, view, 2, func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
+				if index == 1 {
+					return sortControl(gtx, view)
+				}
+				return p.output.ranking.search.Layout(gtx, view, i18n.RankingSearch, i18n.RankingSearch, func(string) {
+					p.output.list.Position = layout.Position{}
+					gtx.Execute(op.InvalidateCmd{})
+				})
 			})
 		}),
+		ui.Rigid(contributionHeadings(view, data)),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			search := strings.ToLower(strings.TrimSpace(p.output.ranking.search.Field.Text()))
 			details := make([]application.ContributionRow, 0, len(data.Rows))
@@ -101,6 +116,24 @@ func (p *returnAnalysisPage) contributionRows(view ui.View, data application.Con
 			})
 		}))
 	return rows
+}
+
+func contributionHeadings(view ui.View, data application.ContributionResult) layout.Widget {
+	l := view.Language
+	group := i18n.AnalysisInstrument
+	switch data.GroupBy {
+	case application.ContributionGroupAccount:
+		group = i18n.AnalysisAccount
+	case application.ContributionGroupCurrency:
+		group = i18n.AnalysisCurrency
+	case application.ContributionGroupAssetClass:
+		group = i18n.AnalysisAssetClass
+	}
+	magnitude := l.Text(i18n.ReturnContribution)
+	if data.ReturnType == application.ContributionTotalReturn {
+		magnitude += " / " + l.Text(i18n.ReturnRate)
+	}
+	return labeledRow(view, l.Text(group)+" · "+magnitude, l.Text(group), magnitude, view.Colors.SecondaryInk)
 }
 
 func contributionSummary(view ui.View, data application.ContributionSummary) layout.Widget {
@@ -126,7 +159,6 @@ func (p *returnAnalysisPage) layoutRankedContributions(gtx layout.Context, view 
 	for index := range ranking.tabs {
 		if ranking.tabs[index].Clicked(gtx) {
 			ranking.direction = contributionDirection(index)
-			ranking.list.Position = layout.Position{}
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
@@ -134,7 +166,6 @@ func (p *returnAnalysisPage) layoutRankedContributions(gtx layout.Context, view 
 	for index := range ranking.limits {
 		if ranking.limits[index].Clicked(gtx) {
 			ranking.limit = options[index]
-			ranking.list.Position = layout.Position{}
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
@@ -143,7 +174,8 @@ func (p *returnAnalysisPage) layoutRankedContributions(gtx layout.Context, view 
 		limit = 10
 	}
 	controls := func(gtx layout.Context) layout.Dimensions {
-		heading := view.Body(ui.TextLabel, l.Text(i18n.RankingMain), view.Colors.Ink)
+		heading := view.Body(ui.TextHeading, l.Text(i18n.RankingMain), view.Colors.Ink)
+		order := view.Body(ui.TextCaption, l.Text(i18n.RankingOrderHint), view.Colors.SecondaryInk)
 		directions := func(gtx layout.Context) layout.Dimensions {
 			return (ui.Wrap{Gap: 8}).Layout(gtx, len(contributionDirections), func(gtx layout.Context, index int) layout.Dimensions {
 				return analysisToggle(view, &ranking.tabs[index], l.Text(contributionDirections[index]), ranking.direction == contributionDirection(index))(gtx)
@@ -159,29 +191,19 @@ func (p *returnAnalysisPage) layoutRankedContributions(gtx layout.Context, view 
 				return analysisToggle(view, &ranking.limits[index], text, count == limit)(gtx)
 			})
 		}
-		return (ui.Column{Gap: 7}).Layout(gtx, ui.Rigid(heading), ui.Rigid(directions), ui.Rigid(more))
+		return (ui.Column{Gap: 7}).Layout(gtx, ui.Rigid(heading), ui.Rigid(order), ui.Rigid(directions), ui.Rigid(more))
 	}
 	ranked := rankedContributionRows(data.Rows, ranking.direction, limit)
-	if ranking.buttons == nil {
-		ranking.buttons = make(map[string]*widget.Clickable)
-	}
-	body := func(gtx layout.Context) layout.Dimensions {
-		if len(ranked) == 0 {
-			return view.Message(l.Text(i18n.RankingNoMatches), view.Colors.SecondaryInk)(gtx)
-		}
-		gtx.Constraints.Max.Y = min(gtx.Constraints.Max.Y, gtx.Dp(260))
-		return analysisResultList(gtx, view, &ranking.list, l.Text(i18n.RankingMain), len(ranked), func(gtx layout.Context, index int) layout.Dimensions {
-			row := ranked[index]
-			return p.contributionButton(gtx, view, data, row, portfolioButton(ranking.buttons, row.Key))
-		})
-	}
-	count := fmt.Sprintf(l.Text(i18n.RankingVisible), len(ranked), len(data.Rows))
+	count := fmt.Sprintf(l.Text(i18n.RankingVisible), len(ranked), len(data.Rows), len(data.Rows)-len(ranked))
 	rows := []ui.ColumnChild{ui.Rigid(controls)}
 	if len(ranked) > 0 {
 		rows = append(rows, ui.Rigid(p.contributionRankingChart(view, data, ranked)))
+	} else {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.RankingNoMatches), view.Colors.SecondaryInk)))
 	}
 	return (ui.Column{Gap: 8}).Layout(gtx, append(rows,
-		ui.Rigid(body), ui.Rigid(view.Message(count, view.Colors.SecondaryInk)))...)
+		ui.Rigid(view.Body(ui.TextCaption, count, view.Colors.SecondaryInk)),
+		ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.RankingDisplayScope), view.Colors.SecondaryInk)))...)
 }
 
 func (p *returnAnalysisPage) contributionName(l i18n.Language, group application.ContributionGroupBy, row application.ContributionRow) string {
@@ -212,12 +234,16 @@ func (p *returnAnalysisPage) contributionName(l i18n.Language, group application
 
 func (p *returnAnalysisPage) contributionButton(gtx layout.Context, view ui.View, data application.ContributionResult, row application.ContributionRow, button *widget.Clickable) layout.Dimensions {
 	name := p.contributionName(view.Language, data.GroupBy, row)
-	value := name + " · " + returnMoney(view, row.Amount)
+	amount := returnSignedMoney(view, row.Amount)
+	label, rate := name+" · "+amount, ""
 	if data.ReturnType == application.ContributionTotalReturn {
-		value += " · " + returnRate(view, row.Rate)
+		rate = returnRate(view, row.Rate)
+		label += " · " + rate
 	}
-	if row.Status == domain.CompletenessPartial {
-		value += " · " + view.Language.Text(i18n.ReturnInsufficient)
+	note := ""
+	if row.Status == domain.CompletenessPartial || row.Status == domain.CompletenessUnavailable {
+		note = view.Language.Text(contributionAvailabilityCopy(row.AnalysisAvailability))
+		label += " · " + note
 	}
 	view.Focus.Watch(gtx, button)
 	if gtx.Enabled() && p.returnFocus == button {
@@ -228,6 +254,19 @@ func (p *returnAnalysisPage) contributionButton(gtx layout.Context, view ui.View
 		p.openContribution(row.Key, name, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return view.ButtonOf(button, ui.ButtonSpec{Title: value, Variant: ui.ButtonGhost, Toggle: true,
-		Selected: p.output.selectedKey == row.Key, Fill: true})(gtx)
+	return view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonGhost, Toggle: true,
+		Selected: p.output.selectedKey == row.Key, Fill: true, Content: func(gtx layout.Context) layout.Dimensions {
+			identity := func(gtx layout.Context) layout.Dimensions {
+				rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink))}
+				if note != "" {
+					rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, note, view.Colors.WarningInk)))
+				}
+				return (ui.Column{Gap: ui.Space2}).Layout(gtx, rows...)
+			}
+			columns := []layout.FlexChild{layout.Flexed(1, identity), layout.Rigid(view.Body(ui.TextLabel, amount, view.Colors.Ink))}
+			if rate != "" {
+				columns = append(columns, layout.Rigid(view.Body(ui.TextCaption, rate, view.Colors.SecondaryInk)))
+			}
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, columns...)
+		}})(gtx)
 }

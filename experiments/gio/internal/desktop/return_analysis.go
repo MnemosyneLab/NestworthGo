@@ -45,7 +45,7 @@ type returnAnalysisVisit struct {
 	metric                     application.ContributionReturnType
 	group                      application.ContributionGroupBy
 	sort                       application.ContributionSort
-	list, rankingList          layout.Position
+	list                       layout.Position
 	rankingDirection           contributionDirection
 	rankingLimit               int
 	rankingSearch, selectedKey string
@@ -62,6 +62,17 @@ type returnCalendarFrame struct {
 	trend        *application.ReturnTrendResult
 	contribution *application.ContributionResult
 	yearMonths   []application.ReturnCalendarMonthResult
+	gridBasis    returnValuationContext
+}
+
+type returnValuationContext struct {
+	valuation domain.Valuation
+	currency  domain.CurrencyCode
+	forced    *string
+}
+
+func calendarValuation(data application.ReturnCalendarResult) returnValuationContext {
+	return returnValuationContext{data.Valuation, data.Currency, data.ValuationForced}
 }
 
 type returnDaySheet struct {
@@ -122,7 +133,7 @@ func (p *returnAnalysisPage) visit() returnAnalysisVisit {
 		preset: p.filters.shortcuts.chosen, presetAt: p.filters.shortcuts.at,
 		month: p.month, year: p.year, tab: p.tab,
 		display: o.display, metric: o.metric, group: o.group, sort: o.sort,
-		list: o.list.Position, rankingList: o.ranking.list.Position,
+		list:             o.list.Position,
 		rankingDirection: o.ranking.direction, rankingLimit: o.ranking.limit, rankingSearch: o.ranking.search.Field.Text(),
 		selectedKey: o.selectedKey, trendSelection: o.trendSelection,
 	}
@@ -134,7 +145,7 @@ func (p *returnAnalysisPage) restore(visit returnAnalysisVisit) {
 	p.month, p.year, p.tab = visit.month, visit.year, visit.tab
 	o := &p.output
 	o.display, o.metric, o.group, o.sort = visit.display, visit.metric, visit.group, visit.sort
-	o.list.Position, o.ranking.list.Position = visit.list, visit.rankingList
+	o.list.Position = visit.list
 	o.ranking.direction, o.ranking.limit = visit.rankingDirection, visit.rankingLimit
 	if o.ranking.search.Field.Text() != visit.rankingSearch {
 		o.ranking.search.Field.Editor.SetText(visit.rankingSearch)
@@ -248,29 +259,30 @@ func (p *returnAnalysisPage) readMonth(month time.Time, sunday bool) {
 		}
 		if year {
 			if periodQuery.From <= periodQuery.To {
-				months := out.summary.Months
+				gridData := out.summary
 				if periodQuery != monthQuery {
 					result, err := p.reader.ReturnCalendar(ctx, periodQuery, "", "")
 					if err != nil {
 						return returnCalendarFrame{}, err
 					}
-					months = result.Months
+					gridData = result
 				}
-				out.yearMonths = months
+				out.yearMonths, out.gridBasis = gridData.Months, calendarValuation(gridData)
 			}
 			return out, nil
 		}
 		if gridQuery.From <= gridQuery.To {
-			cells := out.summary.Days
+			gridData := out.summary
 			if gridQuery != monthQuery {
 				result, err := p.reader.ReturnCalendar(ctx, gridQuery, "", "")
 				if err != nil {
 					return returnCalendarFrame{}, err
 				}
-				cells = result.Days
+				gridData = result
 			}
-			out.days = make(map[domain.LocalDate]application.ReturnDayResult, len(cells))
-			for _, day := range cells {
+			out.gridBasis = calendarValuation(gridData)
+			out.days = make(map[domain.LocalDate]application.ReturnDayResult, len(gridData.Days))
+			for _, day := range gridData.Days {
 				out.days[day.Date] = day
 			}
 		}
@@ -297,7 +309,6 @@ func (p *returnAnalysisPage) changeTab(tab returnAnalysisTab) {
 	}
 	p.tab, p.current = tab, nil
 	p.output.list.Position = layout.Position{}
-	p.output.ranking.list.Position = layout.Position{}
 	if p.refs.origin != nil {
 		p.readMonth(p.month, p.sunday)
 	}
@@ -321,11 +332,9 @@ func (p *returnAnalysisPage) update(sunday bool) {
 				for _, row := range ranks.Rows {
 					present[row.Key] = true
 				}
-				for _, buttons := range []map[string]*widget.Clickable{p.output.rankButtons, p.output.ranking.buttons} {
-					for key := range buttons {
-						if !present[key] {
-							delete(buttons, key)
-						}
+				for key := range p.output.rankButtons {
+					if !present[key] {
+						delete(p.output.rankButtons, key)
 					}
 				}
 				if !present[p.output.selectedKey] {
@@ -349,7 +358,6 @@ func (p *returnAnalysisPage) changeFilters(previous, selection analysisSelection
 	}
 	p.current = nil
 	p.output.list.Position = layout.Position{}
-	p.output.ranking.list.Position = layout.Position{}
 	p.readMonth(month, p.sunday)
 }
 

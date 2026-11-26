@@ -336,7 +336,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			visit := s.returns.visit()
 			visit.selection, visit.expanded, visit.tab, visit.metric = selection, expanded, returnContributionTab, metric
 			visit.preset, visit.presetAt = 0, analysisDateWindow{}
-			visit.list, visit.rankingList, visit.selectedKey = layout.Position{}, layout.Position{}, ""
+			visit.list, visit.selectedKey = layout.Position{}, ""
 			visit.rankingDirection, visit.rankingLimit, visit.rankingSearch = contributionLargest, 0, ""
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: returnAnalysisRoute}, focus: focus, returns: &visit}
 		}

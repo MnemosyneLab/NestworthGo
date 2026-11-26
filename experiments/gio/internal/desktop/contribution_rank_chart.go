@@ -52,7 +52,7 @@ func (p *returnAnalysisPage) contributionBars(view ui.View, data application.Con
 		}
 		sameCurrency = sameCurrency && currency == row.Amount.Currency()
 		bar := charts.Bar{ID: charts.ID(row.Key), Label: p.contributionName(l, data.GroupBy, row),
-			Value: charts.Num(row.Amount.Amount().InexactFloat64()), Text: returnMoney(view, row.Amount)}
+			Value: charts.Num(row.Amount.Amount().InexactFloat64()), Text: returnSignedMoney(view, row.Amount)}
 		if data.ReturnType == application.ContributionTotalReturn {
 			bar.Detail = append(bar.Detail, l.Text(i18n.ReturnRate)+" · "+returnRate(view, row.Rate))
 		}

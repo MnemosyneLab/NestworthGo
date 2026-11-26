@@ -692,6 +692,19 @@ const (
 	ReturnNoInvestments
 	ReturnInsufficient
 	ReturnSummaryRange
+	ReturnSummary
+	ReturnSummaryValuation
+	ReturnCalendarValuation
+	ReturnDayValuation
+	ReturnBaseAmount
+	ReturnNativeAmount
+	ReturnTrendModeHint
+	ReturnDailyRateHint
+	ReturnCumulativeBaselineHint
+	ReturnSources
+	ReturnComponentPrice
+	ReturnComponentHoldingFX
+	ReturnComponentSpread
 	ReturnAmount
 	ReturnRate
 	ReturnBeginning
@@ -744,6 +757,19 @@ const (
 	RankingLargest
 	RankingMain
 	RankingChartSummary
+	RankingByInstrument
+	RankingByAccount
+	RankingByCurrency
+	RankingByAssetClass
+	RankingValuation
+	RankingDividendInterest
+	RankingTotalReturn
+	RankingPositiveOnly
+	RankingNegativeOnly
+	RankingIndependent
+	RankingOrderHint
+	RankingDisplayScope
+	RankingUnavailable
 	RankingDetails
 	RankingSearch
 	RankingNoMatches

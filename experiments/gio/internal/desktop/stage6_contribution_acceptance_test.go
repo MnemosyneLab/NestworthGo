@@ -136,12 +136,12 @@ func TestStage6PairedContributionFindsExactLedgerRecord(t *testing.T) {
 	click("More filters")
 	click("Previous month")
 	click("Contribution")
-	choose("Return type", "Dividend and interest")
-	click("Negative contributions")
+	choose("Return type", "Dividend & Interest")
+	click("Negative")
 	h.click("Search contributions", true)
 	h.router.Queue(key.EditEvent{Text: "EURO"})
 	settle()
-	assertPageLabel(t, &h.router, "EURO · €12.35")
+	assertPageLabel(t, &h.router, "EURO · +€12.35")
 	trigger := page.output.rankButtons[fund.String()]
 	h.router.Source().Execute(key.FocusCmd{Tag: trigger})
 	h.frame()
@@ -242,7 +242,7 @@ func TestStage6PairedContributionShowsFullLedgerScope(t *testing.T) {
 	choose("Valuation", "Native currency")
 	click("More filters")
 	click("Contribution")
-	choose("Group by", "Currency")
+	choose("Group by", "By currency")
 	if page.current == nil || !reflect.DeepEqual(page.current.query, wantQuery) {
 		t.Fatalf("Gio selected a different Contribution query: got %+v, want %+v", page.current, wantQuery)
 	}

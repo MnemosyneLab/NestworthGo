@@ -113,7 +113,7 @@ func TestStage6PairedAccountFilteredAnalysisRoundTrip(t *testing.T) {
 	calendarQuery := returns.current.query
 	h.size = image.Pt(665, 480)
 	settle()
-	const dayControl = day + " · +37.35% · €37.35"
+	const dayControl = day + " · +37.35% · +€37.35"
 	h.click(dayControl, true)
 	settle()
 	if returns.day == nil || !returns.day.hasValue || returns.day.value.ReturnAmount == nil || returns.day.value.ReturnAmount.CanonicalAmount() != "37.3456" {
@@ -141,7 +141,7 @@ func TestStage6PairedAccountFilteredAnalysisRoundTrip(t *testing.T) {
 		!reflect.DeepEqual(returns.current.query, wantQuery) || returns.output.contributionMetric() != application.ContributionTotalReturn {
 		t.Fatalf("the price driver did not carry its effective Contribution request: %+v", returns.current)
 	}
-	click("EURO · €37.35 · +37.35%")
+	click("EURO · +€37.35 · +37.35%")
 	if returns.item == nil || returns.item.value == nil || returns.item.value.Amount == nil || returns.item.value.Amount.CanonicalAmount() != wantItem.Amount.Amount {
 		t.Fatalf("the Contribution sheet differs from Wails: %+v", returns.item)
 	}

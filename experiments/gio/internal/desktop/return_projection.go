@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"image"
+	"strings"
 
 	"gioui.org/io/event"
 	"gioui.org/io/key"
@@ -69,7 +70,6 @@ func (p *returnProjectionControls) contributionSort() application.ContributionSo
 func (p *returnAnalysisPage) changeProjection() {
 	p.current = nil
 	p.output.list.Position = layout.Position{}
-	p.output.ranking.list.Position = layout.Position{}
 	p.readMonth(p.month, p.sunday)
 }
 
@@ -92,6 +92,9 @@ func (p *returnAnalysisPage) layoutProjection(gtx layout.Context, view ui.View) 
 		switch {
 		case !p.filters.selection.ready():
 			status = i18n.AnalysisScopeRequired
+			if scope := p.filters.selection; scope.from != "" && scope.to != "" && scope.from > scope.to {
+				status = i18n.AnalysisInvalidRange
+			}
 		case p.request != nil:
 			status = i18n.ReturnLoading
 		case p.err != nil:
@@ -100,8 +103,24 @@ func (p *returnAnalysisPage) layoutProjection(gtx layout.Context, view ui.View) 
 			status = i18n.ReturnNoClosedDays
 		}
 		rows := []ui.ColumnChild{ui.Rigid(returnMonthButton(view, &p.reload, label, nil, true))}
+		if p.tab == returnTrendTab {
+			hint := i18n.ReturnTrendModeHint
+			if p.output.trendDisplay() == application.ReturnTrendLinkedRate {
+				hint = i18n.ReturnDailyRateHint
+			}
+			rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(hint), view.Colors.SecondaryInk)))
+		} else {
+			rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.RankingIndependent), view.Colors.SecondaryInk)))
+		}
 		if status != i18n.NoMessage {
-			rows = append(rows, ui.Rigid(view.Message(l.Text(status), view.Colors.SecondaryInk)))
+			ink := view.Colors.SecondaryInk
+			if status == i18n.ReturnFailed {
+				ink = view.Colors.ErrorInk
+			}
+			rows = append(rows, ui.Rigid(view.Message(l.Text(status), ink)))
+			if status == i18n.ReturnFailed && p.current != nil {
+				rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.WealthHistoryRetained), view.Colors.SecondaryInk)))
+			}
 		}
 		if p.current != nil {
 			if p.current.trend != nil {
@@ -131,29 +150,18 @@ func (p *returnAnalysisPage) projectionOptions(gtx layout.Context, view ui.View)
 		}))
 	} else {
 		metrics := []ui.Choice{
-			{ID: string(application.ContributionTotalReturn), Label: l.Text(i18n.ReturnTotal)},
+			{ID: string(application.ContributionTotalReturn), Label: l.Text(i18n.RankingTotalReturn)},
 			{ID: string(application.ContributionRealized), Label: l.Text(i18n.ReturnRealized)},
-			{ID: string(application.ContributionUnrealized), Label: l.Text(i18n.ReturnUnrealized)},
-			{ID: string(application.ContributionDividendInterest), Label: l.Text(i18n.ReturnIncome)},
+			{ID: string(application.ContributionDividendInterest), Label: l.Text(i18n.RankingDividendInterest)},
 		}
 		groups := []ui.Choice{
-			{ID: string(application.ContributionGroupInstrument), Label: l.Text(i18n.AnalysisInstrument)},
-			{ID: string(application.ContributionGroupAccount), Label: l.Text(i18n.AnalysisAccount)},
+			{ID: string(application.ContributionGroupInstrument), Label: l.Text(i18n.RankingByInstrument)},
+			{ID: string(application.ContributionGroupAccount), Label: l.Text(i18n.RankingByAccount)},
 		}
 		if out.contributionMetric() != application.ContributionRealized {
 			groups = append(groups,
-				ui.Choice{ID: string(application.ContributionGroupCurrency), Label: l.Text(i18n.AnalysisCurrency)},
-				ui.Choice{ID: string(application.ContributionGroupAssetClass), Label: l.Text(i18n.AnalysisAssetClass)})
-		}
-		sorts := []ui.Choice{
-			{ID: string(application.ContributionSortAmountDesc), Label: l.Text(i18n.ReturnSortLargest)},
-			{ID: string(application.ContributionSortAmountAsc), Label: l.Text(i18n.ReturnSortSmallest)},
-			{ID: string(application.ContributionSortNameAsc), Label: l.Text(i18n.ReturnSortName)},
-		}
-		if out.contributionMetric() == application.ContributionTotalReturn {
-			sorts = append(sorts,
-				ui.Choice{ID: string(application.ContributionSortRateDesc), Label: l.Text(i18n.RankingRateDesc)},
-				ui.Choice{ID: string(application.ContributionSortRateAsc), Label: l.Text(i18n.RankingRateAsc)})
+				ui.Choice{ID: string(application.ContributionGroupCurrency), Label: l.Text(i18n.RankingByCurrency)},
+				ui.Choice{ID: string(application.ContributionGroupAssetClass), Label: l.Text(i18n.RankingByAssetClass)})
 		}
 		fields = append(fields,
 			analysisSelect(&out.kind, i18n.ReturnMetric, metrics, string(out.contributionMetric()), false, func(value string) {
@@ -166,38 +174,63 @@ func (p *returnAnalysisPage) projectionOptions(gtx layout.Context, view ui.View)
 				out.group = application.ContributionGroupBy(value)
 				out.selectedKey = ""
 				p.changeProjection()
-			}),
-			analysisSelect(&out.order, i18n.ReturnSort, sorts, string(out.contributionSort()), false, func(value string) {
-				out.sort = application.ContributionSort(value)
-				p.changeProjection()
 			}))
+		if p.current == nil || p.current.contribution == nil || !p.current.contribution.Available {
+			fields = append(fields, p.contributionSortControl(l))
+		}
 	}
 	return (ui.Grid{MinColumn: 165, MaxColumns: len(fields), Gap: 10, Balanced: true}).Layout(gtx, view, len(fields),
 		func(gtx layout.Context, view ui.View, i int) layout.Dimensions { return fields[i](gtx, view) })
 }
 
+func (p *returnAnalysisPage) contributionSortControl(l i18n.Language) analysisFilterField {
+	out := &p.output
+	sorts := []ui.Choice{
+		{ID: string(application.ContributionSortAmountDesc), Label: l.Text(i18n.ReturnSortLargest)},
+		{ID: string(application.ContributionSortAmountAsc), Label: l.Text(i18n.ReturnSortSmallest)},
+	}
+	if out.contributionMetric() == application.ContributionTotalReturn {
+		sorts = append(sorts,
+			ui.Choice{ID: string(application.ContributionSortRateDesc), Label: l.Text(i18n.RankingRateDesc)},
+			ui.Choice{ID: string(application.ContributionSortRateAsc), Label: l.Text(i18n.RankingRateAsc)})
+	}
+	sorts = append(sorts, ui.Choice{ID: string(application.ContributionSortNameAsc), Label: l.Text(i18n.ReturnSortName)})
+	return analysisSelect(&out.order, i18n.ReturnSort, sorts, string(out.contributionSort()), false, func(value string) {
+		out.sort = application.ContributionSort(value)
+		p.changeProjection()
+	})
+}
+
 func (p *returnAnalysisPage) trendRows(gtx layout.Context, view ui.View, trend application.ReturnTrendResult, from, to domain.LocalDate) []ui.ColumnChild {
 	l := view.Language
-	amount := returnMoney(view, trend.Amount)
-	if trend.Amount != nil && trend.Status == domain.CompletenessPartial {
-		amount += " · " + l.Text(i18n.OverviewKnownSubtotal)
+	if !trend.Available && trend.MissingValuationDays == 0 {
+		label := i18n.ReturnNoInvestments
+		if len(trend.Points) != 0 {
+			label = i18n.ReturnInsufficient
+		}
+		return []ui.ColumnChild{ui.Rigid(emptyState(view, l.Text(label)))}
 	}
-	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.ReturnAmount)+" · "+amount, view.Colors.Ink)),
-		ui.Rigid(view.Message(l.Text(i18n.ReturnRate)+" · "+returnRate(view, trend.Rate), view.Colors.Ink)),
-		ui.Rigid(view.Message(returnCoverage(l, trend.Coverage, trend.ReturnDayCoverage), view.Colors.SecondaryInk))}
-	if !trend.Available {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.ReturnInsufficient), view.Colors.SecondaryInk)))
-	}
+	basis := returnValuationContext{p.current.query.Valuation, returnTrendCurrency(trend), trend.ValuationForced}
+	rows := []ui.ColumnChild{ui.Rigid(returnTrendSummary(view, trend, basis))}
 	if len(trend.Points) != 0 {
 		spec := returnTrendLine(view, trend, from, to)
+		start, _ := ui.ParseCivilDay(from)
+		if trend.Display == application.ReturnTrendCumulativeAmount && len(spec.Series[0].Points) != 0 && spec.Series[0].Points[0].Time.Before(start) {
+			rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.ReturnCumulativeBaselineHint), view.Colors.SecondaryInk)))
+		}
 		rows = append(rows, ui.Rigid(analysisLineCard(view, &p.output.trendChart, spec, &p.output.trendSelection, &p.output.trendTable, chartTableLabels(l, i18n.ChartCoverage))))
 	}
 	if len(trend.Sources) != 0 {
-		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink)))
+		sources := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.ReturnSources), view.Colors.Ink))}
 		for _, source := range trend.Sources {
 			label := returnComponentLabel(l, domain.ReturnComponent(source.Key))
-			rows = append(rows, ui.Rigid(view.Message(label+" · "+returnMoney(view, source.Amount), view.Colors.Ink)))
+			value := returnSignedMoney(view, source.Amount)
+			if source.Share != nil {
+				value += " · " + strings.TrimPrefix(returnRatePlaces(view, source.Share, 1), "+")
+			}
+			sources = append(sources, ui.Rigid(labeledRow(view, label+" · "+value, label, value, view.Colors.Ink)))
 		}
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return overviewBreakdownCard(gtx, view, sources) }))
 	}
 	if p.output.trendDisplay() != application.ReturnTrendCumulativeAmount {
 		if p.output.resetTrend.Clicked(gtx) {
@@ -209,6 +242,36 @@ func (p *returnAnalysisPage) trendRows(gtx layout.Context, view ui.View, trend a
 		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.output.resetTrend, i18n.ReturnTrendReset, nil, true)))
 	}
 	return rows
+}
+
+func returnTrendSummary(view ui.View, trend application.ReturnTrendResult, basis returnValuationContext) layout.Widget {
+	l := view.Language
+	amount := returnSignedMoney(view, trend.Amount)
+	if trend.Amount != nil && trend.Status == domain.CompletenessPartial {
+		amount += " · " + l.Text(i18n.OverviewKnownSubtotal)
+	}
+	values := [...]string{amount, returnRate(view, trend.Rate)}
+	fields := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate}
+	figures := func(gtx layout.Context) layout.Dimensions {
+		return (ui.Grid{MinColumn: 140, Gap: ui.Space12, MaxColumns: 2}).Layout(gtx, view, len(fields),
+			func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+				name := l.Text(fields[i])
+				return semanticRow(gtx, name+" · "+values[i], func(gtx layout.Context) layout.Dimensions {
+					return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+						ui.Rigid(view.Body(ui.TextCaption, name, view.Colors.SecondaryInk)),
+						ui.Rigid(summaryFigure(view, values[i], view.Colors.Ink)),
+					)
+				})
+			})
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return overviewBreakdownCard(gtx, view, []ui.ColumnChild{
+			ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.ReturnSummary), view.Colors.Ink)),
+			ui.Rigid(returnValuationLabel(view, i18n.ReturnSummaryValuation, basis)),
+			ui.Rigid(figures),
+			ui.Rigid(view.Body(ui.TextCaption, returnCoverage(l, trend.Coverage, trend.ReturnDayCoverage), view.Colors.SecondaryInk)),
+		})
+	}
 }
 
 func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {

@@ -159,7 +159,7 @@ func (p *returnAnalysisPage) contributionDetails(gtx layout.Context, view ui.Vie
 		return view.Message(l.Text(i18n.ReturnNoData), view.Colors.SecondaryInk)(gtx)
 	}
 	value := sheet.value
-	rows := []layout.Widget{view.Message(l.Text(i18n.ReturnAmount)+" · "+returnMoney(view, value.Amount), view.Colors.Ink)}
+	rows := []layout.Widget{view.Message(l.Text(i18n.ReturnContribution)+" · "+returnSignedMoney(view, value.Amount), view.Colors.Ink)}
 	if sheet.metric == application.ContributionTotalReturn || (sheet.metric == application.ContributionUnrealized && value.Rate != nil) {
 		rows = append(rows, view.Message(l.Text(i18n.ReturnRate)+" · "+returnRate(view, value.Rate), view.Colors.Ink))
 		if value.Coverage.TotalDays > 0 {
@@ -172,6 +172,7 @@ func (p *returnAnalysisPage) contributionDetails(gtx layout.Context, view ui.Vie
 	if value.Status == domain.CompletenessPartial || value.Status == domain.CompletenessUnavailable {
 		rows = append(rows, view.Message(l.Text(contributionAvailabilityCopy(value.AnalysisAvailability)), view.Colors.WarningInk))
 	}
+	rows = append(rows, view.Body(ui.TextCaption, l.Text(i18n.RankingIndependent), view.Colors.SecondaryInk))
 	if len(value.Components) > 0 {
 		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink))
 		for _, part := range value.Components {
@@ -179,18 +180,18 @@ func (p *returnAnalysisPage) contributionDetails(gtx layout.Context, view ui.Vie
 			if name == "" {
 				name = returnComponentLabel(l, domain.ReturnComponent(part.Key))
 			}
-			amount := returnMoney(view, part.Amount)
+			amount := returnSignedMoney(view, part.Amount)
 			rows = append(rows, labeledRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
 		}
 	}
 	if len(value.ByAccount) > 0 {
-		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AnalysisAccount), view.Colors.Ink))
+		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.RankingByAccount), view.Colors.Ink))
 		for _, part := range value.ByAccount {
 			name := p.refs.names[part.AccountID]
 			if name == "" {
 				name = l.Text(i18n.AccountReferenceUnavailable)
 			}
-			amount := returnMoney(view, part.Amount)
+			amount := returnSignedMoney(view, part.Amount)
 			rows = append(rows, labeledRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
 		}
 	}
