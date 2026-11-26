@@ -119,6 +119,32 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 		}
 		t.Fatalf("could not scroll to reconciliation control %q", label)
 	}
+	// The counter can enter the virtual viewport before the pager button.
+	// Wait for the actual hit target to settle before sending its pointer click.
+	clickPager := func(label, counter string) {
+		t.Helper()
+		viewport := image.Rect(0, headerHeight+8, h.size.X, h.size.Y)
+		var previous image.Rectangle
+		for range 50 {
+			if findPageLabel(&h.router, label) != nil {
+				bounds := semanticBounds(t, &h.router, label, false)
+				if bounds.In(viewport) {
+					if bounds == previous {
+						assertPageLabel(t, &h.router, counter)
+						h.clickAt(bounds.Min.Add(bounds.Max).Div(2))
+						settle()
+						return
+					}
+					previous = bounds
+					h.frame()
+					continue
+				}
+			}
+			previous = image.Rectangle{}
+			scroll(140)
+		}
+		t.Fatalf("reconciliation pager %q did not settle inside the viewport: %+v", label, tasks.list.Position)
+	}
 	open := func(target navigationTarget) {
 		h.shell.pendingNavigation = &navigationRequest{target: target}
 		settle()
@@ -155,10 +181,10 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 	if c.sessionButtons[outside.ID] != nil || c.sessionButtons[completed[0].ID] != nil || c.sessionButtons[completed[2].ID] == nil {
 		t.Fatal("the first page did not contain exactly the 25 scoped completed sessions")
 	}
-	reveal("Page 1 of 2")
-	click("Next")
+	clickPager("Next", "Page 1 of 2")
 	if list.page != 1 || list.filter != reconciliationCompleted || c.sessionButtons[completed[0].ID] == nil {
-		t.Fatal("Next did not open the older completed page")
+		t.Fatalf("Next did not open the older completed page: page %d, filter %d, older row present %t",
+			list.page+1, list.filter, c.sessionButtons[completed[0].ID] != nil)
 	}
 
 	older := completed[0]
@@ -186,8 +212,7 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 		tasks.list.Position.Offset != oldPosition.Offset {
 		t.Fatalf("Back lost the selected page, status or list position: %+v vs %+v", tasks.list.Position, oldPosition)
 	}
-	reveal("Previous")
-	click("Previous")
+	clickPager("Previous", "Page 2 of 2")
 	if list.page != 0 {
 		t.Fatal("Previous did not restore the first completed page")
 	}
