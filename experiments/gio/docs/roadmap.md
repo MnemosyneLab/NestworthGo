@@ -2643,8 +2643,9 @@ while the UTC date was a day behind. The captured account opened Ledger
 activity with its closed date range. Opening and cancelling its existing
 contribution draft left all three seeded records intact. Back restored the
 same capture, selected account detail and focus. The Wails Wealth History page
-offers read-only captures and a scoped Ledger link. Native interaction for
-these shortcuts remains open.
+offers read-only captures and a scoped Ledger link. The
+[paired macOS run](stage6-desktop-qa.md#macos-acceptance-on-november-26-2026)
+verified both comparison presets and the scoped Ledger round trip.
 
 Shared chart components are available through #286. Return Trend is the first
 page integration. Each chart keeps a keyboard-readable table and needs its
@@ -3347,18 +3348,21 @@ choices remain selected.
 ### Stage 6 exit gates
 
 - Close the remaining capabilities listed in the [page-by-page parity matrix](parity.md).
-  Stage 6 still has contribution detail,
-  the dated Data Health link and residual Ledger verification from Asset
-  Changes, instrument catalog work, and provider and coverage recovery cases.
+  Stage 6 still has detailed missing evidence and residual Ledger verification
+  from Asset Changes, instrument catalog work, and additional provider and
+  coverage recovery cases.
 - Run paired regressions in the interactive Wails and Gio apps with matching
   disposable inputs. Cover Return Calendar detail → Asset Changes with the
   selected day, account, instrument, currency, native valuation and cash
-  filters; Contribution → Ledger with supported dates and kinds plus feedback
-  for unsupported filters; Change drivers → Contribution with the same
-  filters and effective range; and Back to the originating selection and focus.
+  filters; Change drivers → Contribution with the same filters and effective
+  range; and Back to the originating selection and focus. The
+  [paired macOS run](stage6-desktop-qa.md#macos-acceptance-on-november-26-2026)
+  covered Contribution → Ledger with native valuation, the Harbor dividend and
+  the broader currency breakdown.
   Compare Wealth History with priced and missing inputs, preserving date and
   quote/FX provenance. Verify Market Data partial refresh and Data Health
-  canceled, retried and stale repair plans with a deterministic local provider.
+  retried and stale provider repair plans with a deterministic local provider.
+  The macOS run covered cancellation and confirmation of a local dated snapshot.
   Check the exact values, scopes, failures, coverage and readback after reopen.
 - Exercise wide and compact layouts and keyboard traversal on the target
   platforms. Native macOS with VoiceOver and IME, Linux Wayland and paired

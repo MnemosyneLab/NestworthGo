@@ -1,5 +1,29 @@
 # Stage 6 paired desktop acceptance
 
+## macOS acceptance on November 26, 2026
+
+Stock arm64 macOS Gio and Wails bundles used separate writable copies of each
+synthetic fixture. Snapshot repair ran at `e250e551580409d62c1b4c3aad9fee87b044b10b`.
+The Gio Wealth History and scoped Contribution runs, both portfolio Contribution
+runs, and both provider settings runs used
+`9c80ee9b3d4ee21ff8f2a49ce3cd664a98fded74`. The Wails Wealth History and
+scoped Contribution references used `e250e55`; their application code is
+identical at both revisions.
+
+| Workflow | Packaged macOS result |
+| --- | --- |
+| Wealth History → Ledger | Both apps captured October 31 → November 25 and October 1 → captured current. The October 31 and November 25 Harbor Brokerage detail showed USD 225.43 at each endpoint. Ledger opened for Harbor Brokerage and those dates. Back restored the account evidence in both apps and focused the Ledger action in Gio. |
+| Scoped Contribution → Ledger | October Dividend and interest for EURO, Harbor Brokerage, native EUR and excluded cash showed EUR 12.35. The detail omitted rate fields. Ledger showed the exact EUR 12.3456 receipt on October 2. Back retained the filters in both apps and focused the EURO row in Gio. |
+| Currency Contribution → Ledger | October Total return grouped by currency showed EUR 94.47 and +27.76% for EUR. Both details disclosed that Ledger opens for the whole selected period. Ledger showed both brokerages' dividend records. Back restored the breakdown in both apps and focused the EUR row in Gio. |
+| Dated snapshot repair | Escape left the snapshot, component, history state and financial revision readbacks byte-for-byte identical to the pre-preview readback. Confirmation appended only October 13 revision 2, complete at USD 125.25. All 45 prior revisions remained identical. Both apps reopened with only the adjacent October 14 finding. |
+| Provider prerequisite | Both apps opened Settings → Market data from the CoinGecko finding. Gio focused the API key field, restored focus to Open provider settings when returning, and reopened the field with Return. The key stayed unset in both settings files. |
+
+All three fixture pairs matched their source across 23 authoritative ledger,
+quote and history-origin tables after the run. Automated independent-copy
+tests exercise CoinGecko key save and removal with a synthetic token and zero
+provider HTTP requests. Integrated provider authentication, native mixed
+provider repair/retry, VoiceOver, IME and Wayland remain open.
+
 ## Reproduce the automated pair
 
 From the repository root, run:
@@ -7,6 +31,8 @@ From the repository root, run:
 ```sh
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(WealthCapture|Stage6PairedContributionShowsFullLedgerScope|DataHealthCredentialHandoffRechecksSameProviderOnBothDesktops)')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
@@ -71,9 +97,8 @@ sh experiments/gio/preview-macos.sh --build-only
 
 The exporter prints the selected and adjacent dates. It puts the selected
 dirty date outside Overview's startup trend, which can materialize recent
-derived snapshots. The expected households are `Synthetic Stage 6 snapshots`,
-`Synthetic Stage 6 market`, `Synthetic Stage 6 return calendar` and
-`Synthetic first buy`.
+derived snapshots. The named profiles below specify the expected synthetic
+household.
 Each scenario has a `source`
 directory and separate writable `gio` and `wails` directories. Keep the
 source closed in the apps so it remains a baseline.
@@ -103,6 +128,7 @@ run_copy() (
   case "$scenario" in
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
+    provider-settings) household='Synthetic provider readiness' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
     early-deposit-receipt) household='Synthetic term deposits' ;;
     funds-reservations) household='Synthetic funds' ;;
