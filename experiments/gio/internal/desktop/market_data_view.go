@@ -64,7 +64,8 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 					if index == 0 {
 						return description(gtx)
 					}
-					return layout.W.Layout(gtx, returnMonthButton(view, &p.health, i18n.HealthOpen, nil, true))
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					return layout.E.Layout(gtx, returnMonthButton(view, &p.health, i18n.HealthOpen, nil, true))
 				})
 		}),
 	}
@@ -117,7 +118,7 @@ func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.
 			return []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.MarketNoFX), view.Colors.SecondaryInk))}
 		}
 		return []ui.ColumnChild{ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return analysisResultList(gtx, view, &p.list[marketFX], l.Text(i18n.MarketFX), len(result.fx), func(gtx layout.Context, index int) layout.Dimensions {
+			return pageListGap(gtx, view, &p.list[marketFX], l.Text(i18n.MarketFX), len(result.fx), ui.Space8, func(gtx layout.Context, index int) layout.Dimensions {
 				return p.marketFXCard(gtx, view, result.fx[index])
 			})
 		})}
@@ -137,7 +138,7 @@ func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.
 		return []ui.ColumnChild{ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk))}
 	}
 	return []ui.ColumnChild{ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return analysisResultList(gtx, view, &p.list[marketInstruments], l.Text(i18n.MarketInstruments), len(matches), func(gtx layout.Context, index int) layout.Dimensions {
+		return pageListGap(gtx, view, &p.list[marketInstruments], l.Text(i18n.MarketInstruments), len(matches), ui.Space8, func(gtx layout.Context, index int) layout.Dimensions {
 			row := matches[index]
 			group := i18n.NoMessage
 			if index == 0 || matches[index-1].instrument.Type != row.instrument.Type {
@@ -165,7 +166,11 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 	}
 	var rows []ui.ColumnChild
 	if group != i18n.NoMessage {
-		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(group), view.Colors.Ink)))
+		heading := view.Body(ui.TextHeading, l.Text(group), view.Colors.Ink)
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			// A group starts with air above it, except at the top of the list.
+			return layout.Inset{Top: ui.Space8}.Layout(gtx, heading)
+		}))
 	}
 	source := i.QuoteCurrency.String() + " · " + marketSourceLabel(l, i.QuoteSource)
 	if i.QuoteSource == domain.QuoteSourceProvider && i.ProviderKey != nil && i.ProviderSymbol != nil {
@@ -218,18 +223,18 @@ func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row mark
 func marketQuoteCard(view ui.View, name, source, value, evidence string, actions []layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(14).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				data := func(gtx layout.Context) layout.Dimensions {
 					return (ui.Grid{MinColumn: 244, Gap: 8, MaxColumns: 2, Balanced: true}).Layout(gtx, view, 2,
 						func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 							if index == 0 {
 								return (ui.Column{Gap: 3}).Layout(gtx,
 									ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink)),
-									ui.Rigid(view.Message(source, view.Colors.SecondaryInk)))
+									ui.Rigid(view.Body(ui.TextCaption, source, view.Colors.SecondaryInk)))
 							}
-							rows := []ui.ColumnChild{ui.Rigid(view.Message(value, view.Colors.Ink))}
+							rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, value, view.Colors.Ink))}
 							if evidence != "" {
-								rows = append(rows, ui.Rigid(view.Message(evidence, view.Colors.SecondaryInk)))
+								rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, evidence, view.Colors.SecondaryInk)))
 							}
 							return (ui.Column{Gap: 3}).Layout(gtx, rows...)
 						})
@@ -237,7 +242,7 @@ func marketQuoteCard(view ui.View, name, source, value, evidence string, actions
 				if len(actions) == 0 {
 					return data(gtx)
 				}
-				return (ui.Column{Gap: 6}).Layout(gtx, ui.Rigid(data), ui.Rigid(marketActionRow(view, actions)))
+				return (ui.Column{Gap: 10}).Layout(gtx, ui.Rigid(data), ui.Rigid(marketActionRow(view, actions)))
 			})
 		})
 	}
