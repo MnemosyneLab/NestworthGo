@@ -48,7 +48,6 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	gap := gtx.Dp(10)
 	return ui.Column{Gap: 10}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			tabs := make([]layout.FlexChild, 0, len(p.tabs))
 			for i := range p.tabs {
 				button := &p.tabs[i]
 				if gtx.Enabled() && button.Clicked(gtx) {
@@ -56,10 +55,9 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 					gtx.Execute(op.InvalidateCmd{})
 				}
 			}
-			for i := range p.tabs {
-				tabs = append(tabs, layout.Rigid(view.TabButton(&p.tabs[i], view.Language.Text(p.lists[i].copy.title), i == p.active)))
-			}
-			dims := layout.Flex{Gap: gtx.Dp(6)}.Layout(gtx, tabs...)
+			dims := view.TabTrack(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
+				return view.TabSegment(&p.tabs[i], view.Language.Text(p.lists[i].copy.title), i == p.active)(gtx)
+			})
 			view.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),

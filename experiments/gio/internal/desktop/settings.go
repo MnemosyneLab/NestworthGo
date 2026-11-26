@@ -193,23 +193,8 @@ func (p *settingsPage) updateTabs(gtx layout.Context) {
 }
 
 func (p *settingsPage) tabStrip(gtx layout.Context, view ui.View) layout.Dimensions {
-	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		bounds := image.Rectangle{Max: gtx.Constraints.Min}
-		ui.FillRoundRect(gtx, bounds, ui.RadiusLG, view.Colors.HoverSurface)
-		return layout.Dimensions{Size: bounds.Size()}
-	}, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(4).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return (ui.Wrap{Gap: 4}).Layout(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
-				selected := p.active == settingsSection(i)
-				variant := ui.ButtonGhost
-				if selected {
-					variant = ui.ButtonOutline
-				}
-				return view.ButtonOf(&p.tabs[i], ui.ButtonSpec{
-					Variant: variant, Size: ui.ButtonSmall, Title: view.Language.Text(settingsTabs[i]), Toggle: true, Selected: selected,
-				})(gtx)
-			})
-		})
+	return view.TabTrack(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
+		return view.TabSegment(&p.tabs[i], view.Language.Text(settingsTabs[i]), p.active == settingsSection(i))(gtx)
 	})
 }
 

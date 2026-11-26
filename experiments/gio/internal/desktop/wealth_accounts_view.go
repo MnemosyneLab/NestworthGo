@@ -24,17 +24,22 @@ func (p *wealthHistoryPage) layoutWealthTabs(gtx layout.Context, view ui.View) l
 	if p.accounts.current != nil && p.accounts.current.Right != nil {
 		allocationLabel = i18n.WealthAllocationCompare
 	}
-	buttons := []layout.Widget{
-		analysisToggle(view, &p.allocationTab, l.Text(allocationLabel), p.lens == wealthAllocationLens),
-		view.ButtonOf(&p.accountsTab, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
-			Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.WealthAccountTabName), Toggle: true, Selected: p.lens == wealthAccountsLens}),
-		analysisToggle(view, &p.trendTab, l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens),
+	type tab struct {
+		button      *widget.Clickable
+		title, name string
+		selected    bool
+	}
+	tabs := []tab{
+		{&p.allocationTab, l.Text(allocationLabel), l.Text(allocationLabel), p.lens == wealthAllocationLens},
+		{&p.accountsTab, l.Text(i18n.NavAccounts), l.Text(i18n.WealthAccountTabName), p.lens == wealthAccountsLens},
+		{&p.trendTab, l.Text(i18n.WealthTrendTab), l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens},
 	}
 	if p.accounts.current != nil && p.accounts.current.Right != nil {
-		buttons = append([]layout.Widget{analysisToggle(view, &p.changeTab, l.Text(i18n.WealthChangeTab), p.lens == wealthChangeLens)}, buttons...)
+		tabs = append([]tab{{&p.changeTab, l.Text(i18n.WealthChangeTab), l.Text(i18n.WealthChangeTab), p.lens == wealthChangeLens}}, tabs...)
 	}
-	return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
-		return buttons[index](gtx)
+	return view.TabTrack(gtx, len(tabs), func(gtx layout.Context, index int) layout.Dimensions {
+		t := tabs[index]
+		return view.TabSegmentNamed(t.button, t.title, t.name, t.selected)(gtx)
 	})
 }
 

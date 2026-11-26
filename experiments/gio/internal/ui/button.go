@@ -32,6 +32,9 @@ const (
 	ButtonGhost
 	// ButtonLink reads as text with an underline on hover.
 	ButtonLink
+	// ButtonSegment is one option of a TabTrack: quiet until selected, then a
+	// raised card, as the Wails pill tabs.
+	ButtonSegment
 )
 
 // ButtonSize selects one of the shared control heights.
@@ -91,12 +94,22 @@ type buttonPalette struct {
 	shadow            Elevation
 }
 
-func (p *Palette) buttonPalette(variant ButtonVariant, hover float64) buttonPalette {
+func (p *Palette) buttonPalette(variant ButtonVariant, hover, selected float64) buttonPalette {
 	switch variant {
+	case ButtonSegment:
+		colors := buttonPalette{
+			fill: lerp(WithAlpha(p.Surface, 0), p.Surface, selected),
+			ink:  lerp(p.SecondaryInk, p.Ink, max(selected, hover)),
+		}
+		if selected > 0.5 {
+			colors.shadow = ElevationXS
+		}
+		return colors
 	case ButtonSoft:
 		return buttonPalette{
-			fill: lerp(p.Tint(p.Accent, 0.10), p.Tint(p.Accent, 0.16), hover),
-			ink:  p.Accent,
+			fill:   lerp(p.Tint(p.Accent, 0.10), p.Tint(p.Accent, 0.16), hover),
+			border: Mix(p.Surface, p.Accent, 0.28),
+			ink:    p.Accent,
 		}
 	case ButtonDestructive:
 		return buttonPalette{
@@ -170,15 +183,19 @@ func (v View) ButtonOf(button *widget.Clickable, spec ButtonSpec) layout.Widget 
 func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec ButtonSpec, name string) layout.Dimensions {
 	p := v.Colors
 	metrics := spec.Size.metrics()
+	if spec.Variant == ButtonSegment {
+		metrics = buttonMetrics{height: ControlSmall, padding: Space12, radius: RadiusMD, text: TextLabel}
+	}
 	enabled := gtx.Enabled()
 
 	state := v.Motion.For(button)
 	state.Hover.Set(gtx, flag(enabled && button.Hovered()), DurationBase, EaseOut)
 	state.Press.Set(gtx, flag(enabled && button.Pressed()), DurationFast, EaseOut)
 	state.Focus.Set(gtx, flag(enabled && gtx.Focused(button)), DurationBase, EaseOut)
+	state.Select.Set(gtx, flag(spec.Selected), DurationBase, EaseOut)
 	hover, press, focus := state.Hover.Value(gtx), state.Press.Value(gtx), state.Focus.Value(gtx)
 
-	colors := p.buttonPalette(spec.Variant, max(hover, press))
+	colors := p.buttonPalette(spec.Variant, max(hover, press), state.Select.Value(gtx))
 	opacity := 1.0
 	if !enabled {
 		opacity = DisabledOpacity

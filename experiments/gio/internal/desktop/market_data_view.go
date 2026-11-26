@@ -74,8 +74,8 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, action, nil, p.request == nil)))
 	}
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return (ui.Wrap{Gap: 8}).Layout(gtx, len(marketTabs), func(gtx layout.Context, index int) layout.Dimensions {
-			return analysisToggle(view, &p.tabs[index], l.Text(marketTabs[index]), p.tab == marketTab(index))(gtx)
+		return view.TabTrack(gtx, len(marketTabs), func(gtx layout.Context, index int) layout.Dimensions {
+			return view.TabSegment(&p.tabs[index], l.Text(marketTabs[index]), p.tab == marketTab(index))(gtx)
 		})
 	}))
 	if p.tab == marketFX && p.manual.service != nil {

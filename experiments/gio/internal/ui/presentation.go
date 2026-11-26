@@ -55,12 +55,13 @@ func (v View) Message(text string, fg color.NRGBA) layout.Widget {
 	return v.Body(TextBody, text, fg)
 }
 
-// TabButton is a selectable option such as a tab or a filter chip. The
-// selected option is filled; the others are quiet outline buttons.
+// TabButton is a selectable option such as a filter chip or a toggle. The
+// selected option is tinted with the accent; the others are quiet outline
+// buttons. Page tabs use TabTrack instead.
 func (v View) TabButton(button *widget.Clickable, title string, selected bool) layout.Widget {
 	variant := ButtonOutline
 	if selected {
-		variant = ButtonPrimary
+		variant = ButtonSoft
 	}
 	return v.ButtonOf(button, ButtonSpec{Variant: variant, Size: ButtonSmall, Title: title, Name: title, Toggle: true, Selected: selected})
 }
@@ -77,4 +78,36 @@ func (v View) Label(gtx layout.Context, text string, size unit.Sp, weight font.W
 	label.Font.Weight = weight
 	label.MaxLines = 1
 	return label.Layout(gtx)
+}
+
+// TabTrack lays count segment buttons on the muted track of a pill tab
+// switcher. Each child should be a ButtonSegment button. The track wraps its
+// options onto further lines when the window is too narrow for one.
+func (v View) TabTrack(gtx layout.Context, count int, child func(gtx layout.Context, index int) layout.Dimensions) layout.Dimensions {
+	const pad = Space2
+	gtx.Constraints.Min = image.Point{}
+	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		bounds := image.Rectangle{Max: gtx.Constraints.Min}
+		FillRoundRect(gtx, bounds, RadiusLG, v.Colors.HoverSurface)
+		return layout.Dimensions{Size: bounds.Size()}
+	}, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min = image.Point{}
+		return layout.UniformInset(pad).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return (Wrap{Gap: Space2}).Layout(gtx, count, child)
+		})
+	})
+}
+
+// TabSegment is one option of a TabTrack.
+func (v View) TabSegment(button *widget.Clickable, title string, selected bool) layout.Widget {
+	return v.TabSegmentNamed(button, title, title, selected)
+}
+
+// TabSegmentNamed is TabSegment with an accessible name that differs from its
+// text, for a tab whose short label needs page context.
+func (v View) TabSegmentNamed(button *widget.Clickable, title, name string, selected bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		v.Focus.Watch(gtx, button)
+		return v.ButtonOf(button, ButtonSpec{Variant: ButtonSegment, Title: title, Name: name, Toggle: true, Selected: selected})(gtx)
+	}
 }

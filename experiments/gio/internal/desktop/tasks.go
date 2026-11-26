@@ -263,14 +263,9 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 					if p.checks == nil {
 						return tradeTitle(view, i18n.TasksTermDeposits)(gtx)
 					}
-					tabs := make([]layout.FlexChild, 0, len(p.tabs))
-					for i, label := range taskTabLabels {
-						tabs = append(tabs, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							view.Focus.Watch(gtx, &p.tabs[i])
-							return view.TabButton(&p.tabs[i], l.Text(label), p.tab == tasksTab(i))(gtx)
-						}))
-					}
-					return layout.Flex{Gap: gtx.Dp(6)}.Layout(gtx, tabs...)
+					return view.TabTrack(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
+						return view.TabSegment(&p.tabs[i], l.Text(taskTabLabels[i]), p.tab == tasksTab(i))(gtx)
+					})
 				}),
 				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
 		}),

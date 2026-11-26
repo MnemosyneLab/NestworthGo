@@ -34,8 +34,8 @@ func (p *assetChangesPage) layout(gtx layout.Context, view ui.View) layout.Dimen
 	}
 	gtx.Constraints.Min.Y = 0
 	width, gap := gtx.Constraints.Max.X, gtx.Dp(12)
-	tabs := (ui.Wrap{Gap: 8}).Layout(gtx, len(assetTabs), func(gtx layout.Context, i int) layout.Dimensions {
-		return analysisToggle(view, &p.tabs[i], l.Text(assetTabs[i]), p.state.tab == assetChangesTab(i))(gtx)
+	tabs := view.TabTrack(gtx, len(assetTabs), func(gtx layout.Context, i int) layout.Dimensions {
+		return view.TabSegment(&p.tabs[i], l.Text(assetTabs[i]), p.state.tab == assetChangesTab(i))(gtx)
 	})
 	offset := tabs.Size.Y + gap
 	if p.refs.origin != nil {
