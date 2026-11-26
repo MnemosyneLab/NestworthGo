@@ -177,18 +177,21 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 }
 
 type accountListRow struct {
-	heading string
-	icon    ui.Glyph
-	account *accountRow
+	heading  string
+	icon     ui.Glyph
+	subtotal *domain.MoneyView
+	account  *accountRow
 }
 
 func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	type institutionGroup struct {
-		id    domain.InstitutionID
-		label string
-		icon  ui.Glyph
-		rank  decimal.Decimal
-		rows  []*accountRow
+		id         domain.InstitutionID
+		label      string
+		icon       ui.Glyph
+		rank       decimal.Decimal
+		rows       []*accountRow
+		currency   domain.CurrencyCode
+		incomplete bool
 	}
 	groups := make(map[domain.InstitutionID]*institutionGroup)
 	var ordered []*institutionGroup
@@ -217,7 +220,15 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 			ordered = append(ordered, group)
 		}
 		group.rows = append(group.rows, row)
-		group.rank = group.rank.Add(accountRank(*row))
+		amount, valid := accountSignedBase(*row)
+		group.rank = group.rank.Add(amount)
+		if !valid || !row.value.Complete {
+			group.incomplete = true
+		} else if group.currency == "" {
+			group.currency = row.value.BaseValue.Currency
+		} else if group.currency != row.value.BaseValue.Currency {
+			group.incomplete = true
+		}
 	}
 	collation := collate.New(language.Make(string(lang)))
 	slices.SortStableFunc(ordered, func(a, b *institutionGroup) int {
@@ -237,7 +248,11 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	})
 	var rows []accountListRow
 	for _, group := range ordered {
-		rows = append(rows, accountListRow{heading: group.label, icon: group.icon})
+		heading := accountListRow{heading: group.label, icon: group.icon}
+		if len(group.rows) > 1 && !group.incomplete && group.currency != "" {
+			heading.subtotal = &domain.MoneyView{Amount: group.rank.String(), Currency: group.currency}
+		}
+		rows = append(rows, heading)
 		slices.SortStableFunc(group.rows, func(a, b *accountRow) int {
 			if order := accountRank(*b).Cmp(accountRank(*a)); order != 0 {
 				return order
@@ -251,20 +266,25 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	return rows
 }
 
-// As in the Wails browser, sorting uses signed household-base values.
-// The sort key is never published as an account amount or a group total.
 func accountRank(row accountRow) decimal.Decimal {
+	amount, _ := accountSignedBase(row)
+	return amount
+}
+
+// The same signed household-base value orders account rows and contributes to
+// a subtotal only if the whole institution has a complete valuation.
+func accountSignedBase(row accountRow) (decimal.Decimal, bool) {
 	if row.value == nil || row.value.BaseValue == nil {
-		return decimal.Zero
+		return decimal.Zero, false
 	}
 	amount, err := decimal.NewFromString(row.value.BaseValue.Amount)
 	if err != nil {
-		return decimal.Zero
+		return decimal.Zero, false
 	}
 	if row.record.Account.IsLiability() {
-		return amount.Abs().Neg()
+		amount = amount.Abs().Neg()
 	}
-	return amount
+	return amount, true
 }
 
 type accountsPage struct {

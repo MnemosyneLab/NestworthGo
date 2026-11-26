@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -234,14 +235,19 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 		t.Fatal("the institution link didn't open its account scope")
 	}
 	label("Pacific Sample Brokerage")
+	label("Complete valuation")
+	if len(p.rows) == 0 || p.rows[0].subtotal != nil {
+		t.Fatal("an institution with missing valuations has a complete-looking subtotal")
+	}
 	missing("Zero balance")
 	h.click("USD savings", false)
 	finish()
 	if p.target.account != ids.usd {
 		t.Fatal("the account row didn't open its exact ID")
 	}
-	label("USD · US$125.50")
-	label("AUD · A$188.25")
+	label("US$125.50")
+	label("A$188.25")
+	missing("USD · US$125.50")
 	label("Cached quotes are out of date.")
 	label("Group · Long-term sample · Archived")
 	label("Owners · Ana Example · 50.00%  /  Bea Example · Archived · 50.00%")
@@ -251,14 +257,14 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	h.focused(p.buttons[ids.usd])
 	h.click("SGD savings", false)
 	finish()
-	label("SGD · S$75.00")
+	label("S$75.00")
 	label("AUD value unavailable")
 	label("Missing exchange rate · AUD/SGD")
 	h.click("Back", false)
 	finish()
 	h.click("Mixed brokerage", false)
 	finish()
-	label("USD · US$15.00 · Known subtotal")
+	label("US$15.00 · Known subtotal")
 	label("Missing price · DEMO")
 	label("Missing exchange rate · AUD/SGD")
 	label("DEMO · Quantity 2 · Unavailable")
@@ -273,15 +279,15 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	label("No institution")
 	h.click("Zero balance", false)
 	finish()
-	label("USD · US$0.00")
-	label("AUD · A$0.00")
+	label("US$0.00")
+	label("A$0.00")
 	h.click("Back", false)
 	finish()
 	h.click("Unpriced portfolio", false)
 	finish()
 	label("USD value unavailable")
 	label("AUD value unavailable")
-	missing("USD · US$0.00")
+	missing("US$0.00")
 	h.click("Back", false)
 	finish()
 	h.click("Show archived", false)
@@ -293,7 +299,7 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	missing("Restore")
 	h.click("Reload", false)
 	finish()
-	label("AUD · A$123.00")
+	label("A$123.00")
 	h.click("Back", false)
 	finish()
 	label("Hide archived")
@@ -321,7 +327,39 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	if p.target.account != ids.usd {
 		t.Fatal("Recent did not reopen the account's exact ID")
 	}
-	label("AUD · A$188.25")
+	label("A$188.25")
+}
+
+func TestAccountInstitutionSubtotalRequiresCompleteBaseValues(t *testing.T) {
+	institution := domain.InstitutionID("sample")
+	account := func(name, amount string, role domain.BalanceSheetRole) accountRow {
+		return accountRow{
+			record: domain.AccountRecord{Account: domain.Account{Name: name, InstitutionID: &institution, BalanceSheetRole: role},
+				InstitutionName: "Sample institution"},
+			value: &domain.AccountValuation{Complete: true, BaseValue: &domain.MoneyView{Currency: "USD", Amount: amount}},
+		}
+	}
+	asset := account("Checking", "100.12345", domain.RoleAsset)
+	debt := account("Card", "30.01234", domain.RoleLiability)
+	result := accountsResult{rows: []accountRow{asset, debt}}
+	subtotal := func() *domain.MoneyView { return result.listRows(i18n.English)[0].subtotal }
+	if got := subtotal(); got == nil || *got != (domain.MoneyView{Currency: "USD", Amount: "70.11111"}) {
+		t.Fatalf("wrong complete institution net: %+v", got)
+	}
+	for _, value := range []*domain.AccountValuation{
+		nil,
+		{BaseValue: &domain.MoneyView{Currency: "USD", Amount: "30.01234"}},
+		{Complete: true, BaseValue: &domain.MoneyView{Currency: "EUR", Amount: "30.01234"}},
+	} {
+		result.rows[1].value = value
+		if got := subtotal(); got != nil {
+			t.Fatalf("incomplete or mixed currency institution published %+v", got)
+		}
+	}
+	result.rows = result.rows[:1]
+	if got := subtotal(); got != nil {
+		t.Fatalf("single account repeated its balance in the institution heading: %+v", got)
+	}
 }
 
 type accountReadFaults struct {
@@ -394,7 +432,7 @@ func TestAccountsDiscardLateReadsAndRetryWithoutLosingTheSelectedObject(t *testi
 	h.click("Reload", false)
 	finish()
 	label("Update failed. Showing the previous result.")
-	label("SGD · S$75.00")
+	label("S$75.00")
 	faults.fail.Store(false)
 	h.click("Retry", false)
 	finish()

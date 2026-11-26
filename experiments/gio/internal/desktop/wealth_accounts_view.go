@@ -74,19 +74,23 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		p.readAccounts(a.draft)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	width, gap := gtx.Constraints.Max.X, gtx.Dp(10)
+	width, gap := gtx.Constraints.Max.X, gtx.Dp(ui.Space8)
+	last := p.origin.lastClosed(now).Format(time.DateOnly)
 	modes := view.TabTrack(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
 		view.Focus.Watch(gtx, &a.modes[index])
 		return view.TabSegment(&a.modes[index], l.Text(labels[index]), a.draft.mode == wealthAccountMode(index))(gtx)
 	})
 	offset := modes.Size.Y + gap
 	dates := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		last := p.origin.lastClosed(now).Format(time.DateOnly)
 		options := ui.DateOptions{Today: last, Min: p.origin.first, Max: last, Format: view.DateFormat, WeekStart: time.Monday}
 		if view.WeekStart == "sunday" {
 			options.WeekStart = time.Sunday
 		}
-		fields := []analysisFilterField{analysisDate(&a.earlier, i18n.WealthAccountDateA, options, a.draft.from, func(value string) {
+		label := i18n.WealthAccountDateA
+		if a.draft.mode == wealthSingleDay {
+			label = i18n.ChartDate
+		}
+		fields := []analysisFilterField{analysisDate(&a.earlier, label, options, a.draft.from, func(value string) {
 			a.draft.from = value
 			gtx.Execute(op.InvalidateCmd{})
 		})}
@@ -95,17 +99,21 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 				a.draft.to = value
 				gtx.Execute(op.InvalidateCmd{})
 			}))
+		} else if a.draft.mode == wealthCompareCurrent {
+			fields = append(fields, func(gtx layout.Context, view ui.View) layout.Dimensions {
+				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+					ui.Rigid(view.Body(ui.TextCaptionStrong, l.Text(i18n.WealthAccountDateB), view.Colors.SecondaryInk)),
+					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.WealthAccountCurrent))
+					}))
+			})
 		}
 		return (ui.Grid{MinColumn: 200, MaxColumns: 2, Gap: 10}).Layout(gtx, view, len(fields),
 			func(gtx layout.Context, view ui.View, index int) layout.Dimensions { return fields[index](gtx, view) })
 	})
 	offset += dates.Size.Y + gap
-	shortcuts := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		return p.layoutWealthCaptureShortcuts(gtx, view, now)
-	})
-	offset += shortcuts.Size.Y + gap
 	valid = p.validAccountDates(a.draft, now)
-	body := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+	shortcuts := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		label := i18n.WealthAccountCapture
 		if p.lens == wealthAllocationLens {
 			label = i18n.WealthAllocationCapture
@@ -118,15 +126,17 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		case a.current != nil && a.draft == a.captured:
 			label = i18n.HistoryRefresh
 		}
-		buttons := []layout.Widget{returnMonthButton(view, &a.reload, label, nil, valid && (a.request == nil || a.draft != a.requested))}
+		var actions []layout.Widget
 		if a.draft.mode == wealthCompareDate {
-			buttons = append(buttons, returnMonthButton(view, &a.swap, i18n.WealthAccountSwap, nil, a.draft.from != a.draft.to))
+			actions = append(actions, returnMonthButton(view, &a.swap, i18n.WealthAccountSwap, nil, a.draft.from != a.draft.to))
 		}
-		rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
-				return buttons[index](gtx)
-			})
-		})}
+		actions = append(actions, returnMonthButton(view, &a.reload, label, nil, valid && (a.request == nil || a.draft != a.requested)))
+		return p.layoutWealthCaptureShortcuts(gtx, view, now, actions...)
+	})
+	offset += shortcuts.Size.Y + gap
+	body := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		dates := fmt.Sprintf(l.Text(i18n.WealthAccountAvailableDates), wealthDay(view, p.origin.first), wealthDay(view, last), p.origin.location)
+		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextCaption, dates, view.Colors.SecondaryInk))}
 		if a.err != nil {
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthAccountFailed), view.Colors.ErrorInk)))
 			if a.current != nil {
@@ -170,38 +180,6 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		return (ui.Column{Gap: 10, MinFill: 310}).Layout(gtx, rows...)
 	})
 	return layout.Dimensions{Size: image.Pt(width, offset+body.Size.Y)}
-}
-
-func wealthAccountSummary(view ui.View, result application.HistoricalOverviewResult) []ui.ColumnChild {
-	l := view.Language
-	rows := []ui.ColumnChild{}
-	if captured, err := time.Parse(time.RFC3339Nano, result.CapturedAt); err == nil {
-		rows = append(rows, ui.Rigid(view.Message(valuationReadTime(view, captured), view.Colors.SecondaryInk)))
-	}
-	return append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		endpoints := []application.HistoricalOverviewState{result.Left}
-		if result.Right != nil {
-			endpoints = append(endpoints, *result.Right)
-		}
-		return (ui.Grid{MinColumn: 205, MaxColumns: 2, Gap: 10}).Layout(gtx, view, len(endpoints),
-			func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
-				endpoint := endpoints[index]
-				label := wealthEndpointLabel(l, view, endpoint, index)
-				return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-					v := endpoint.DisplayValuation
-					row := func(id i18n.MessageID, amount domain.ValuationAmount) ui.ColumnChild {
-						name, display := wealthAmountParts(view, id, amount)
-						return ui.Rigid(labeledRow(view, name+" · "+display, name, display, view.Colors.Ink))
-					}
-					return (ui.Column{Gap: ui.Space8}).Layout(gtx,
-						ui.Rigid(view.Body(ui.TextHeading, label+" · "+endpoint.Currency, view.Colors.Ink)),
-						ui.Rigid(view.Hairline),
-						row(i18n.NetWorth, v.NetWorth),
-						row(i18n.Assets, v.Assets),
-						row(i18n.Liabilities, v.Liabilities))
-				})
-			})
-	}))
 }
 
 func wealthEndpointLabel(l i18n.Language, view ui.View, endpoint application.HistoricalOverviewState, index int) string {

@@ -116,6 +116,12 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	}
 	settle()
 	assertCapture("2026-10-31", "")
+	date := assertPageLabel(t, &h.router, "Closed dates · 2026-10-20 – 2026-11-05 · Asia/Singapore")
+	total := assertPageLabel(t, &h.router, "US$103.33")
+	coverage := assertPageLabel(t, &h.router, "2026-10-31 · Complete coverage")
+	if date.Min.Y >= total.Min.Y || total.Min.Y >= coverage.Min.Y {
+		t.Fatalf("expected capture dates, headline totals and coverage in that order: %v, %v, %v", date, total, coverage)
+	}
 	click("Previous day")
 	assertCapture("2026-10-30", "")
 	click("Next day")
@@ -136,6 +142,11 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 		*captured.Left.NetWorth != "103.3334" || *captured.Right.NetWorth != "109.7084" {
 		t.Fatalf("fixture did not separate month-end and current exact totals: %+v / %+v", captured.Left, captured.Right)
 	}
+	assertPageLabel(t, &h.router, "B · Current")
+	assertPageLabel(t, &h.router, "US$109.71")
+	assertPageLabel(t, &h.router, "Change B − A · +US$6.38")
+	assertPageLabel(t, &h.router, "A · 2026-10-31")
+	assertPageLabel(t, &h.router, "US$103.33")
 
 	click("Accounts in Wealth history")
 	click("Synthetic checking")

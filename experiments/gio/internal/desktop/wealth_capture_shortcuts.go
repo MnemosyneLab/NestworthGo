@@ -13,7 +13,7 @@ import (
 
 const wealthCaptureShortcutCount = 7
 
-func (p *wealthHistoryPage) layoutWealthCaptureShortcuts(gtx layout.Context, view ui.View, now time.Time) layout.Dimensions {
+func (p *wealthHistoryPage) layoutWealthCaptureShortcuts(gtx layout.Context, view ui.View, now time.Time, actions ...layout.Widget) layout.Dimensions {
 	a := &p.accounts
 	draft := a.draft
 	monthEnd := p.origin.previousMonthEnd(now)
@@ -43,7 +43,10 @@ func (p *wealthHistoryPage) layoutWealthCaptureShortcuts(gtx layout.Context, vie
 	if draft.mode == wealthSingleDay {
 		count -= 2
 	}
-	return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, count, func(gtx layout.Context, i int) layout.Dimensions {
+	return (ui.Wrap{Gap: ui.Space6, Middle: true}).Layout(gtx, count+len(actions), func(gtx layout.Context, i int) layout.Dimensions {
+		if i >= count {
+			return actions[i-count](gtx)
+		}
 		shortcut, button := shortcuts[i], &a.shortcuts[i]
 		dates := shortcut.dates
 		enabled := p.validAccountDates(dates, now) &&

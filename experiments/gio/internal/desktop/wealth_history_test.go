@@ -463,8 +463,8 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	if page.accounts.current == nil || !reflect.DeepEqual(compare, *page.accounts.current) {
 		t.Fatalf("Gio and Wails endpoint captures disagree: %v", page.accounts.err)
 	}
-	assertPageLabel(t, &h.router, "A · 2026-08-01 · AUD")
-	assertPageLabel(t, &h.router, "B · 2026-08-02 · AUD")
+	assertPageLabel(t, &h.router, "A · 2026-08-01 · Partial coverage")
+	assertPageLabel(t, &h.router, "B · 2026-08-02 · Complete coverage")
 	h.click("Category comparison", false)
 	assertPageLabel(t, &h.router, "A · Missing valuation")
 	assertPageLabel(t, &h.router, "B · A$123.51")
@@ -532,8 +532,8 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.click("Capture accounts", false)
 	page.workers.Wait()
 	h.frame()
-	assertPageLabel(t, &h.router, "A · 2026-08-02 · AUD")
-	assertPageLabel(t, &h.router, "B · 2026-08-01 · AUD")
+	assertPageLabel(t, &h.router, "A · 2026-08-02 · Complete coverage")
+	assertPageLabel(t, &h.router, "B · 2026-08-01 · Partial coverage")
 	h.click("Swap dates", false)
 	h.click("Compare with current", false)
 	h.click("Capture accounts", false)
@@ -543,11 +543,11 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	if err != nil || page.accounts.current == nil || !reflect.DeepEqual(current, *page.accounts.current) {
 		t.Fatalf("Gio and Wails current comparisons disagree: %v, %v", err, page.accounts.err)
 	}
-	assertPageLabel(t, &h.router, "B · Current · AUD")
+	assertPageLabel(t, &h.router, "B · Current")
 	h.click("Trend", false)
 	assertPageLabel(t, &h.router, "2026-08-01 to 2026-08-02 · Base currency AUD · Asia/Singapore")
 	h.click("Accounts in Wealth history", false)
-	assertPageLabel(t, &h.router, "B · Current · AUD")
+	assertPageLabel(t, &h.router, "B · Current")
 	if !page.accounts.changesOnly || gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatalf("comparison did not retain its filter or requested quotes: Gio %d, Wails %d", gioProvider.requests, wailsProvider.requests)
 	}

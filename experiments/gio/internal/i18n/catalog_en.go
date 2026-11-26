@@ -716,6 +716,11 @@ var englishCatalog = catalog{
 	WealthHistoryBasisChanged: "Valuation basis changed",
 	WealthHistoryFundingGap:   "Funding cash was recorded after the product started",
 
+	WealthCoverageComplete:      "Complete coverage",
+	WealthCoverageEstimated:     "Estimated coverage",
+	WealthCoveragePartial:       "Partial coverage",
+	WealthAccountAvailableDates: "Closed dates · %s – %s · %s",
+
 	WealthAccountTabName:        "Accounts in Wealth history",
 	WealthTrendTab:              "Trend",
 	WealthAccountSingle:         "Single date",
@@ -1040,6 +1045,8 @@ var englishCatalog = catalog{
 	AccountUnavailable:          "Account destination unavailable.",
 	AccountReadList:             "Account results",
 	AccountValueUnavailable:     "%s value unavailable",
+	AccountInstitutionNet:       "Net · %s",
+	AccountValuationComplete:    "Complete valuation",
 	AccountStaleQuotes:          "Cached quotes are out of date.",
 	AccountReferenceUnavailable: "Reference unavailable",
 	AccountOwners:               "Owners · %s",

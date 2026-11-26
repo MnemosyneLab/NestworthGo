@@ -386,6 +386,8 @@ const (
 	AccountUnavailable
 	AccountReadList
 	AccountValueUnavailable
+	AccountInstitutionNet
+	AccountValuationComplete
 	AccountStaleQuotes
 	AccountReferenceUnavailable
 	AccountOwners
@@ -534,6 +536,10 @@ const (
 	WealthHistorySkippedDate
 	WealthHistoryProvisional
 	WealthHistoryCoverage
+	WealthCoverageComplete
+	WealthCoverageEstimated
+	WealthCoveragePartial
+	WealthAccountAvailableDates
 	WealthHistoryMissing
 	WealthHistoryQuoteAge
 	WealthHistoryScopeChanged

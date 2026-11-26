@@ -715,6 +715,11 @@ var japaneseCatalog = catalog{
 	WealthHistoryBasisChanged: "評価基準が変わりました",
 	WealthHistoryFundingGap:   "商品の開始日より後に資金が記録されました",
 
+	WealthCoverageComplete:      "評価済み",
+	WealthCoverageEstimated:     "推定評価",
+	WealthCoveragePartial:       "一部未評価",
+	WealthAccountAvailableDates: "確定日 · %s – %s · %s",
+
 	WealthAccountTabName:        "資産履歴の口座",
 	WealthTrendTab:              "推移",
 	WealthAccountSingle:         "単一の日付",
@@ -1039,6 +1044,8 @@ var japaneseCatalog = catalog{
 	AccountUnavailable:          "指定の口座情報を表示できません。",
 	AccountReadList:             "口座の表示結果",
 	AccountValueUnavailable:     "%s の評価額なし",
+	AccountInstitutionNet:       "差引 · %s",
+	AccountValuationComplete:    "評価額あり",
 	AccountStaleQuotes:          "キャッシュ済みの相場データが古くなっています。",
 	AccountReferenceUnavailable: "関連情報なし",
 	AccountOwners:               "所有者 · %s",

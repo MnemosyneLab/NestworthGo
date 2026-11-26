@@ -44,8 +44,8 @@ func TestValuedAndHoldingsCreationThroughInstitution(t *testing.T) {
 		mode                                        domain.TrackingMode
 		portfolio, liquid, openingOptions           bool
 	}{
-		{"Sample estimate", "Property", "1234.56", "1234.56", "USD · US$1,234.56", domain.TypeProperty, domain.TrackingManualValue, false, false, true},
-		{"Sample zero", "Property", "", "0", "USD · US$0.00", domain.TypeProperty, domain.TrackingManualValue, false, false, false},
+		{"Sample estimate", "Property", "1234.56", "1234.56", "US$1,234.56", domain.TypeProperty, domain.TrackingManualValue, false, false, true},
+		{"Sample zero", "Property", "", "0", "US$0.00", domain.TypeProperty, domain.TrackingManualValue, false, false, false},
 		{"Sample brokerage", "Brokerage", "", "", "No investment holdings.", domain.TypeBrokerage, domain.TrackingHoldings, true, false, false},
 		{"Sample foreign cash", "Cash on hand", "", "", "No cash balances.", domain.TypeCashOnHand, domain.TrackingHoldings, false, true, false},
 	} {
@@ -282,7 +282,7 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	h.click("Create asset account", false)
 	finish()
 	id := p.target.account
-	assertPageLabel(t, &h.router, "AUD · A$3.25")
+	assertPageLabel(t, &h.router, "A$3.25")
 	// A legacy synthetic account with absent valuation evidence must stay
 	// distinct from the explicit zero case accepted by the normal writer.
 	if _, err := session.DB.SQL.ExecContext(ctx, "DELETE FROM account_values WHERE account_id = ?", id.String()); err != nil {
@@ -294,7 +294,7 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	value := p.current.rows[0].value
 	if p.current.rows[0].record.LatestValue != nil || value == nil || value.Complete ||
 		len(value.MissingInputs) != 1 || value.MissingInputs[0].Kind != domain.MissingAccountValue ||
-		liabilityTextAppears(h.router.AppendSemantics(nil), "AUD · A$0.00") {
+		liabilityTextAppears(h.router.AppendSemantics(nil), "A$0.00") {
 		t.Fatalf("missing valuation appears as recorded zero: %+v", value)
 	}
 }

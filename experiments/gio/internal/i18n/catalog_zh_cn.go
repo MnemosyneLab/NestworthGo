@@ -716,6 +716,11 @@ var simplifiedChineseCatalog = catalog{
 	WealthHistoryBasisChanged: "估值口径已变化",
 	WealthHistoryFundingGap:   "资金入账晚于产品的开始日期",
 
+	WealthCoverageComplete:      "估值覆盖完整",
+	WealthCoverageEstimated:     "含估算估值",
+	WealthCoveragePartial:       "估值覆盖不完整",
+	WealthAccountAvailableDates: "已结束日期 · %s – %s · %s",
+
 	WealthAccountTabName:        "财富历史中的账户",
 	WealthTrendTab:              "趋势",
 	WealthAccountSingle:         "单日",
@@ -1040,6 +1045,8 @@ var simplifiedChineseCatalog = catalog{
 	AccountUnavailable:          "账户页面目标不可用。",
 	AccountReadList:             "账户结果",
 	AccountValueUnavailable:     "暂无 %s 估值",
+	AccountInstitutionNet:       "净额 · %s",
+	AccountValuationComplete:    "估值完整",
 	AccountStaleQuotes:          "缓存行情已过期。",
 	AccountReferenceUnavailable: "关联记录不可用",
 	AccountOwners:               "拥有者 · %s",
