@@ -67,7 +67,7 @@ func newOverviewPage(ctx context.Context, reader overviewReader, clock func() ti
 	page := &overviewPage{
 		ctx: ctx, reader: reader, clock: clock, invalidate: invalidate,
 		list:         widget.List{List: layout.List{Axis: layout.Vertical}},
-		trend:        overviewTrend{period: domain.Trend30Days},
+		trend:        overviewTrend{},
 		missingLinks: make(map[string]*widget.Clickable),
 	}
 	page.trend.reader, _ = reader.(overviewTrendReader)
@@ -124,7 +124,7 @@ func (p *overviewPage) update() {
 
 func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
-	p.updateTrend(gtx)
+	p.updateTrend(gtx, view)
 	if p.reload.Clicked(gtx) {
 		p.read()
 		p.trend.invalidate()

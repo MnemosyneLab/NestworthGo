@@ -429,3 +429,26 @@ func analysisToggle(view ui.View, button *widget.Clickable, text string, selecte
 		return view.TabButton(button, text, selected)(gtx)
 	}
 }
+
+// analysisDisclosure is a quiet expander for supporting data, such as the
+// table behind a chart. It reads as a chevron and a label, not a full button.
+func analysisDisclosure(view ui.View, button *widget.Clickable, text string, open bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		icon := lucide.ChevronRight
+		if open {
+			icon = lucide.ChevronDown
+		}
+		colors := view.Colors
+		gtx.Constraints.Min = image.Point{}
+		return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Name: text, Toggle: true, Selected: open,
+			Content: func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return ui.LayoutGlyph(gtx, icon, 16, colors.SecondaryInk)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Line(gtx, ui.TextLabel, text, colors.SecondaryInk)
+					}))
+			}}))
+	}
+}

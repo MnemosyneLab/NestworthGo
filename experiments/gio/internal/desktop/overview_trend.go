@@ -20,15 +20,17 @@ type overviewTrendReader interface {
 	NetWorthTrend(context.Context, domain.TrendRange) (domain.NetWorthTrend, error)
 }
 
-var overviewTrendPeriods = [...]struct {
-	rangeID domain.TrendRange
-	label   i18n.MessageID
-}{
-	{domain.Trend30Days, i18n.OverviewTrendMonth},
-	{domain.TrendYearToDate, i18n.OverviewTrendYTD},
-	{domain.TrendOneYear, i18n.OverviewTrendYear},
-	{domain.TrendAllTime, i18n.OverviewTrendAll},
+// overviewTrendOriginReader is the optional history-origin read. Without it
+// the window is bounded by an unbounded past, as the Wails card does while the
+// origin is unknown.
+type overviewTrendOriginReader interface {
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 }
+
+// overviewTrendDefaultPreset is the one-month shortcut, the card's first view.
+const overviewTrendDefaultPreset = 2
+
+const overviewTrendNoOrigin = "1970-01-01"
 
 type overviewTrend struct {
 	reader                          overviewTrendReader
@@ -36,9 +38,14 @@ type overviewTrend struct {
 	cancel                          context.CancelFunc
 	current                         *domain.NetWorthTrend
 	err                             error
-	period                          domain.TrendRange
+	requested                       domain.TrendRange
 	stale                           bool
-	presets                         [len(overviewTrendPeriods)]widget.Clickable
+	origin                          *wealthHistoryOrigin
+	originRead                      <-chan historyResult[*wealthHistoryOrigin]
+	originLoaded                    bool
+	dates                           analysisDateShortcuts
+	window                          analysisDateWindow
+	chosen                          bool
 	history, gaps, gap, retry, data widget.Clickable
 	showData                        bool
 	dayGaps                         map[string]*widget.Clickable
@@ -46,9 +53,50 @@ type overviewTrend struct {
 	selected                        charts.Selection
 }
 
+// invalidate drops the loaded series and the history origin; the ledger may
+// have changed under both.
 func (t *overviewTrend) invalidate() {
+	t.refetch()
+	t.originLoaded = false
+}
+
+// refetch reads the series again for the selected window.
+func (t *overviewTrend) refetch() {
 	t.retire()
 	t.stale = true
+}
+
+// bounds are the first day with history and today. Both are civil days in the
+// household's history time zone.
+func (t *overviewTrend) bounds(view ui.View, now time.Time) (earliest, latest string) {
+	earliest, location := overviewTrendNoOrigin, view.TimeLocation
+	if t.origin != nil {
+		earliest, location = t.origin.first, t.origin.location
+	}
+	if location == nil {
+		location = time.UTC
+	}
+	return earliest, now.In(location).Format(time.DateOnly)
+}
+
+// selection is the visible window: the user's choice, or the default month,
+// kept inside [earliest, latest].
+func (t *overviewTrend) selection(earliest, latest string) analysisDateWindow {
+	window := t.window
+	if !t.chosen {
+		window = analysisPresetRange(overviewTrendDefaultPreset, latest, earliest)
+	}
+	window.from, window.to = max(window.from, earliest), min(window.to, latest)
+	return window
+}
+
+// query is the trend range read for a window. The whole history reads as
+// "all", so the series follows later history instead of freezing its dates.
+func overviewTrendQuery(window analysisDateWindow, earliest, latest string) domain.TrendRange {
+	if window.from == earliest && window.to == latest {
+		return domain.TrendAllTime
+	}
+	return domain.TrendRange(window.from + ":" + window.to)
 }
 
 func (t *overviewTrend) retire() {
@@ -67,11 +115,32 @@ func (p *overviewPage) leave() {
 	}
 }
 
-func (p *overviewPage) updateTrend(gtx layout.Context) {
+func (p *overviewPage) updateTrend(gtx layout.Context, view ui.View) {
 	t := &p.trend
 	if p.current == nil || p.current.value.AccountCount == 0 || !p.current.value.HistoryStarted || t.reader == nil {
 		t.retire()
 		return
+	}
+	if origin, ok := p.reader.(overviewTrendOriginReader); ok && !t.originLoaded && t.originRead == nil {
+		t.originRead = runHistoryRead(&p.workers, p.invalidate, func() (*wealthHistoryOrigin, error) {
+			origin, err := origin.HistoryOrigin(p.ctx)
+			if err != nil || origin == nil {
+				return nil, err
+			}
+			location, err := time.LoadLocation(origin.Timezone)
+			if err != nil {
+				return nil, err
+			}
+			return &wealthHistoryOrigin{first: origin.StartedAt.In(location).Format(time.DateOnly), location: location}, nil
+		})
+	}
+	select {
+	case result := <-t.originRead:
+		t.originRead, t.originLoaded = nil, true
+		if result.err == nil {
+			t.origin = result.value
+		}
+	default:
 	}
 	select {
 	case result := <-t.request:
@@ -84,21 +153,17 @@ func (p *overviewPage) updateTrend(gtx layout.Context) {
 		}
 	default:
 	}
-	for i, option := range overviewTrendPeriods {
-		if t.presets[i].Clicked(gtx) && t.period != option.rangeID {
-			t.period = option.rangeID
-			t.invalidate()
-		}
-	}
-	if t.err != nil && t.retry.Clicked(gtx) {
-		t.invalidate()
+	earliest, latest := t.bounds(view, p.clock())
+	want := overviewTrendQuery(t.selection(earliest, latest), earliest, latest)
+	if t.requested != want || (t.err != nil && t.retry.Clicked(gtx)) {
+		t.refetch()
 	}
 	if t.request != nil || (!t.stale && (t.current != nil || t.err != nil)) {
 		return
 	}
 	ctx, cancel := context.WithCancel(p.ctx)
-	period := t.period
-	t.cancel, t.err, t.stale = cancel, nil, false
+	period := want
+	t.cancel, t.err, t.stale, t.requested = cancel, nil, false, want
 	t.request = runHistoryRead(&p.workers, p.invalidate, func() (domain.NetWorthTrend, error) {
 		return t.reader.NetWorthTrend(ctx, period)
 	})
@@ -137,7 +202,7 @@ func overviewTrendSpec(view ui.View, trend *domain.NetWorthTrend) charts.LineSpe
 	to, _ := ui.ParseCivilDay(trend.EndDate)
 	spec := charts.LineSpec{
 		Label: l.Text(i18n.OverviewNetWorthTrend), Summary: l.Text(i18n.OverviewTrendBasis),
-		From: from, To: to, Height: 245, IncludeZero: true,
+		From: from, To: to, Height: 245, Area: true,
 		FormatTime: func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
 		FormatValue: func(value float64) string {
 			return overviewAllocationMoney(view, trend.Currency, decimal.NewFromFloat(value))
@@ -201,10 +266,12 @@ func (p *overviewPage) overviewTrendCard(gtx layout.Context, view ui.View, histo
 
 func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.ColumnChild {
 	l, t := view.Language, &p.trend
+	earliest, latest := t.bounds(view, p.clock())
+	t.dates.showRange = true
 	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return view.TabTrack(gtx, len(overviewTrendPeriods), func(gtx layout.Context, i int) layout.Dimensions {
-			option := overviewTrendPeriods[i]
-			return view.TabSegment(&t.presets[i], l.Text(option.label), t.period == option.rangeID)(gtx)
+		return t.dates.layout(gtx, view, t.selection(earliest, latest), earliest, latest, func(window analysisDateWindow) {
+			t.window, t.chosen = window, true
+			gtx.Execute(op.InvalidateCmd{})
 		})
 	})}
 	switch {
@@ -235,7 +302,7 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	}
 	rows = append(rows,
 		ui.Rigid(view.Message(wealthDay(view, trend.StartDate)+" – "+wealthDay(view, trend.EndDate)+" · "+string(trend.Currency), view.Colors.SecondaryInk)),
-		ui.Rigid(view.Body(ui.TextLabel, l.Text(change)+" · "+returnMoney(view, amount), view.Colors.Ink)),
+		ui.Rigid(view.Body(ui.TextMoneyMD, l.Text(change)+": "+returnMoney(view, amount), view.Colors.Ink)),
 		ui.Rigid(view.Message(caption, view.Colors.SecondaryInk)))
 	if gaps != 0 && p.openHealth != nil {
 		if t.gaps.Clicked(gtx) {
@@ -259,7 +326,7 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 		t.showData = !t.showData
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	rows = append(rows, ui.Rigid(analysisToggle(view, &t.data, l.Text(i18n.OverviewTrendData), t.showData)))
+	rows = append(rows, ui.Rigid(analysisDisclosure(view, &t.data, l.Text(i18n.OverviewTrendData), t.showData)))
 	return rows
 }
 

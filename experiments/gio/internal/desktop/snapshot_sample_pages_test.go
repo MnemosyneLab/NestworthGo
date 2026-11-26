@@ -54,6 +54,15 @@ func TestVisualSnapshotsSampleLedgerPages(t *testing.T) {
 	}
 	h.snapshot(t, dir, "overview-default")
 
+	// The history card with its data table expanded, scrolled into view.
+	overview.trend.showData = true
+	overview.list.ScrollTo(overview.trendIndex())
+	h.frame()
+	h.snapshot(t, dir, "overview-trend-data")
+	overview.trend.showData = false
+	overview.list.ScrollTo(0)
+	h.frame()
+
 	// Snapshot frames at 2x. Lay out once more at the window size before clicking.
 	h.frame()
 	h.click("账户", false)

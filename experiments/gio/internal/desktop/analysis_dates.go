@@ -1,9 +1,11 @@
 package desktop
 
 import (
+	"image"
 	"time"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -35,6 +37,9 @@ type analysisDateShortcuts struct {
 	previous, next widget.Clickable
 	chosen         int
 	at             analysisDateWindow
+	// showRange writes the selected dates between the arrows. Leave it off
+	// where date fields beside the control already show them.
+	showRange bool
 }
 
 func analysisPresetRange(index int, to, earliest string) analysisDateWindow {
@@ -122,17 +127,79 @@ func (p *analysisDateShortcuts) layout(gtx layout.Context, view ui.View, current
 		selectRange(forward, active)
 	}
 	l := view.Language
-	widgets := make([]layout.Widget, 0, len(p.presets)+2)
-	for index, preset := range analysisDatePresets {
-		widgets = append(widgets, view.ButtonOf(&p.presets[index], ui.ButtonSpec{
-			Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(preset.short), Name: l.Text(preset.label),
-			Toggle: true, Selected: index == active,
-		}))
+	track := func(gtx layout.Context) layout.Dimensions {
+		return view.TabTrack(gtx, len(analysisDatePresets), func(gtx layout.Context, index int) layout.Dimensions {
+			preset := analysisDatePresets[index]
+			return view.TabSegmentNamed(&p.presets[index], l.Text(preset.short), l.Text(preset.label), index == active)(gtx)
+		})
 	}
-	widgets = append(widgets,
-		returnMonthButton(view, &p.previous, i18n.AnalysisPreviousRange, ui.Glyph(lucide.ChevronLeft), canBack),
-		returnMonthButton(view, &p.next, i18n.AnalysisNextRange, ui.Glyph(lucide.ChevronRight), canForward))
-	return (ui.Wrap{Gap: 7}).Layout(gtx, len(widgets), func(gtx layout.Context, index int) layout.Dimensions {
-		return widgets[index](gtx)
-	})
+	nav := func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min = image.Point{}
+		return view.Surface(gtx, ui.SurfaceSpec{Radius: ui.RadiusLG}, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{}
+			return layout.UniformInset(ui.Space2).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				children := []layout.FlexChild{layout.Rigid(analysisDateArrow(view, &p.previous, i18n.AnalysisPreviousRange, lucide.ChevronLeft, canBack))}
+				if p.showRange {
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: ui.Space4, Right: ui.Space4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return view.Line(gtx, ui.TextCaption, analysisDateRangeText(view, current, active), view.Colors.SecondaryInk)
+						})
+					}))
+				}
+				children = append(children, layout.Rigid(analysisDateArrow(view, &p.next, i18n.AnalysisNextRange, lucide.ChevronRight, canForward)))
+				return layout.Flex{Alignment: layout.Middle}.Layout(gtx, children...)
+			})
+		})
+	}
+	return analysisDateRow(gtx, track, nav)
+}
+
+// analysisDateRow places the shortcut track and the range navigator on one
+// line, the navigator at the far end, as the Wails control does. When they do
+// not fit the navigator wraps under the track.
+func analysisDateRow(gtx layout.Context, track, nav layout.Widget) layout.Dimensions {
+	width := gtx.Constraints.Max.X
+	gap := gtx.Dp(ui.Space12)
+	gtx.Constraints.Min = image.Point{}
+	place := func(widget layout.Widget) (layout.Dimensions, op.CallOp) {
+		macro := op.Record(gtx.Ops)
+		dims := widget(gtx)
+		return dims, macro.Stop()
+	}
+	trackDims, trackCall := place(track)
+	navDims, navCall := place(nav)
+	trackAt, navAt := image.Point{}, image.Pt(0, trackDims.Size.Y+gap)
+	size := image.Pt(max(trackDims.Size.X, navDims.Size.X), navAt.Y+navDims.Size.Y)
+	if trackDims.Size.X+gap+navDims.Size.X <= width {
+		height := max(trackDims.Size.Y, navDims.Size.Y)
+		size = image.Pt(width, height)
+		trackAt = image.Pt(0, (height-trackDims.Size.Y)/2)
+		navAt = image.Pt(width-navDims.Size.X, (height-navDims.Size.Y)/2)
+	}
+	stack := op.Offset(trackAt).Push(gtx.Ops)
+	trackCall.Add(gtx.Ops)
+	stack.Pop()
+	stack = op.Offset(navAt).Push(gtx.Ops)
+	navCall.Add(gtx.Ops)
+	stack.Pop()
+	return layout.Dimensions{Size: size}
+}
+
+// analysisDateArrow is one icon button of the range navigator.
+func analysisDateArrow(view ui.View, button *widget.Clickable, label i18n.MessageID, icon *lucide.Icon, enabled bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if !enabled {
+			gtx = gtx.Disabled()
+		}
+		text := view.Language.Text(label)
+		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonCompact, Name: text, ShortName: text, Icon: ui.Glyph(icon)})(gtx)
+	}
+}
+
+// analysisDateRangeText writes the selected dates for the navigator.
+func analysisDateRangeText(view ui.View, window analysisDateWindow, active int) string {
+	if active == analysisAllDates {
+		return view.Language.Text(i18n.AnalysisWholeHistory)
+	}
+	return wealthDay(view, window.from) + " – " + wealthDay(view, window.to)
 }
