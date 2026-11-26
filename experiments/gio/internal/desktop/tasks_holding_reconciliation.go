@@ -434,7 +434,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		d.reading = nil
 		switch {
 		case result.err == nil && result.value.planID != "":
-			d.review, d.reviewFocus = &result.value, true
+			d.review, d.reviewFocus = &result.value, d.action != statement.Start
 			if d.action == statement.Start {
 				d.startSheet = newReconciliationStartSheet()
 			}

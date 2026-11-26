@@ -173,7 +173,7 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 	assertPageLabel(t, &h.router, "Preview")
 	assertPageLabel(t, &h.router, "Confirm only what you have reviewed. Saving a correction does not confirm a check.")
 	assertPageLabel(t, &h.router, "Start reconciliation")
-	h.focused(&d.confirm)
+	h.focused(&d.startSheet.close)
 	h.router.Source().Execute(key.FocusCmd{Tag: &d.startSheet.cancel})
 	h.press(key.NameReturn)
 	h.settle()
@@ -217,9 +217,7 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h.focused(&d.confirm)
-	h.press(key.NameReturn)
-	h.settle()
+	h.activate(t, "Start reconciliation")
 	if d.review != nil || d.uncertain || d.problem != i18n.HoldingReconChanged || len(s.chosen(c.directory.accounts)) != 3 {
 		t.Fatal("stale start did not retain a reviewable selection")
 	}
@@ -257,8 +255,7 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 
 	now = now.Add(17 * time.Minute)
 	fault.loseNext = true
-	h.press(key.NameReturn)
-	h.settle()
+	h.activate(t, "Start reconciliation")
 	if !d.uncertain || d.review.planID != planID {
 		t.Fatal("lost acknowledgement released or replaced the frozen plan")
 	}
