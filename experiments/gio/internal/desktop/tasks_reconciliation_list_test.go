@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"gioui.org/f32"
+	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/semantic"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -119,19 +121,28 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 		}
 		t.Fatalf("could not scroll to reconciliation control %q", label)
 	}
-	// The counter can enter the virtual viewport before the pager button.
-	// Wait for the actual hit target to settle before sending its pointer click.
+	// A semantic hit may identify the label inside the button.
+	var ownsHit func(input.SemanticNode, input.SemanticID) bool
+	ownsHit = func(node input.SemanticNode, id input.SemanticID) bool {
+		return node.ID == id || slices.ContainsFunc(node.Children, func(child input.SemanticNode) bool {
+			return ownsHit(child, id)
+		})
+	}
+	// Semantic bounds can include children clipped by the virtual list.
+	// Hit-test both vertical edges of the button before clicking its center.
 	clickPager := func(label, counter string) {
 		t.Helper()
-		viewport := image.Rect(0, headerHeight+8, h.size.X, h.size.Y)
 		var previous image.Rectangle
 		for range 50 {
-			if findPageLabel(&h.router, label) != nil {
-				bounds := semanticBounds(t, &h.router, label, false)
-				if bounds.In(viewport) {
+			if node := findPageLabel(&h.router, label); node != nil && node.Desc.Class == semantic.Button && !node.Desc.Disabled {
+				bounds := node.Desc.Bounds
+				center := bounds.Min.Add(bounds.Max).Div(2)
+				upper, upperHit := h.router.SemanticAt(f32.Pt(float32(center.X), float32(bounds.Min.Y)))
+				lower, lowerHit := h.router.SemanticAt(f32.Pt(float32(center.X), float32(bounds.Max.Y-1)))
+				if upperHit && lowerHit && ownsHit(*node, upper) && ownsHit(*node, lower) {
 					if bounds == previous {
 						assertPageLabel(t, &h.router, counter)
-						h.clickAt(bounds.Min.Add(bounds.Max).Div(2))
+						h.clickAt(center)
 						settle()
 						return
 					}
@@ -143,7 +154,7 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 			previous = image.Rectangle{}
 			scroll(140)
 		}
-		t.Fatalf("reconciliation pager %q did not settle inside the viewport: %+v", label, tasks.list.Position)
+		t.Fatalf("reconciliation pager %q did not settle inside the list: %+v", label, tasks.list.Position)
 	}
 	open := func(target navigationTarget) {
 		h.shell.pendingNavigation = &navigationRequest{target: target}
