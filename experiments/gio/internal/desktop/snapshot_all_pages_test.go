@@ -3,6 +3,7 @@ package desktop
 import (
 	"image"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +47,9 @@ func TestVisualSnapshotsEveryPage(t *testing.T) {
 	h := newShellHarnessWithPages(t, ledgerPages{directory: directory, history: timeline, overview: overview, funds: funds, tasks: tasks,
 		accounts: accounts, portfolio: portfolio, wealthHistory: wealth, returns: returns, assets: assets, marketData: market, dataHealth: health})
 	h.size = image.Pt(1375, 943)
+	if height, err := strconv.Atoi(os.Getenv("NESTWORTH_GIO_SNAPSHOT_HEIGHT")); err == nil && height > 0 {
+		h.size.Y = height
+	}
 	h.shell.prefs.saved = values
 	h.shell.prefs.systemLocation = time.Local
 	h.shell.prefs.systemDark = os.Getenv("NESTWORTH_GIO_SNAPSHOT_DARK") != ""

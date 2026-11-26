@@ -27,6 +27,7 @@ type overviewSummaryChart struct {
 type overviewBreakdowns struct {
 	summaries  [2]overviewSummaryChart
 	jump       widget.Clickable
+	stretch    [3]ui.RowHeights // composition, then each pair of dimensions
 	focusFirst bool
 	links      map[accountListScope]*widget.Clickable
 	open       func(navigationTarget, string, event.Tag)
@@ -85,7 +86,7 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 
 func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, result domain.OverviewResult) layout.Dimensions {
 	summaries := overviewSummaries(result)
-	return (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true}).Layout(gtx, view, len(summaries),
+	return (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true, Rows: &b.stretch[0]}).Layout(gtx, view, len(summaries),
 		func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			summary, chart := summaries[index], &b.summaries[0]
 			if summary.liability {
@@ -137,7 +138,7 @@ func overviewDimensions(result domain.OverviewResult) [4]overviewDimension {
 
 func (b *overviewBreakdowns) dimensions(gtx layout.Context, view ui.View, result domain.OverviewResult, pair int) layout.Dimensions {
 	dimensions := overviewDimensions(result)
-	return (ui.Grid{MinColumn: 305, MaxColumns: 2, Gap: 16}).Layout(gtx, view, 2,
+	return (ui.Grid{MinColumn: 305, MaxColumns: 2, Gap: 16, Rows: &b.stretch[1+pair]}).Layout(gtx, view, 2,
 		func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			dimension := dimensions[pair*2+index]
 			l := view.Language

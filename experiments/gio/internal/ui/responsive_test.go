@@ -136,3 +136,27 @@ func TestMeasureCentersAReadableColumnAndMovesTheOrigin(t *testing.T) {
 		t.Errorf("a window narrower than the measure must not shift, got %v", view.Origin)
 	}
 }
+
+func TestGridRowsStretchCellsToTheTallestOnTheNextFrame(t *testing.T) {
+	view := testView()
+	var rows RowHeights
+	grid := Grid{MinColumn: 150, Gap: 10, Rows: &rows}
+	var minimums []int
+	frame := func() {
+		var ops op.Ops
+		gtx := testContext(&ops, nil, time.Unix(0, 0), 330)
+		minimums = minimums[:0]
+		grid.Layout(gtx, view, 2, func(gtx layout.Context, view View, index int) layout.Dimensions {
+			minimums = append(minimums, gtx.Constraints.Min.Y)
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, max(20+30*index, gtx.Constraints.Min.Y))}
+		})
+	}
+	frame()
+	if minimums[0] != 0 || minimums[1] != 0 {
+		t.Fatalf("first frame minimums = %v, want none", minimums)
+	}
+	frame()
+	if minimums[0] != 50 || minimums[1] != 50 {
+		t.Fatalf("second frame minimums = %v, want the tallest cell (50)", minimums)
+	}
+}
