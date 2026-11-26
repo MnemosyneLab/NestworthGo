@@ -22,6 +22,7 @@ type DetailReader interface {
 	Reader
 	ReferenceReader
 	holdingReferenceReader
+	reconciliationActivityReader
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
 	RepeatEligibleActivities(context.Context, []domain.Activity) (map[domain.ActivityID]bool, error)
 }
@@ -129,7 +130,10 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			}
 		}
 		if movement, eligible := CashAmendment(record); eligible && zone != nil && detail.Links.Reversal == "" {
-			endpoints, ok := movement.accounts(accounts)
+			endpoints, ok, err := movement.accounts(ctx, service, id, accounts)
+			if err != nil {
+				return Detail{}, err
+			}
 			detail.Amendable = ok
 			detail.Reversible = ok && endpoints.active()
 		}

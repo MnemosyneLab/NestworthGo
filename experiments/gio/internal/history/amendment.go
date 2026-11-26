@@ -138,7 +138,11 @@ func cashAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.
 		if err != nil {
 			return AmendableCash{}, amendmentAccounts{}, err
 		}
-		if accounts, ok := movement.accounts(rows); ok {
+		accounts, ok, err := movement.accounts(ctx, ledger, id, rows)
+		if err != nil {
+			return AmendableCash{}, amendmentAccounts{}, err
+		}
+		if ok {
 			return movement, accounts, nil
 		}
 	}

@@ -231,6 +231,17 @@ func (r *Repository) ReconciliationLinks(ctx context.Context, household, session
 	return result, rows.Err()
 }
 
+func (r *Repository) HasReconciliationActivityLink(ctx context.Context, household string, account domain.AccountID, activity domain.ActivityID) (bool, error) {
+	var linked bool
+	err := r.database.SQL.QueryRowContext(ctx, `
+SELECT EXISTS (
+ SELECT 1 FROM reconciliation_sessions s
+ JOIN reconciliation_links l ON l.session_id=s.id
+ WHERE s.household_id=? AND l.account_id=? AND l.operation_id=? AND l.family='activity'
+)`, household, account.String(), activity.String()).Scan(&linked)
+	return linked, err
+}
+
 func (r *Repository) ReconciliationFinancialChanges(ctx context.Context, account string, after int64) ([]domain.ReconciliationFinancialChange, error) {
 	rows, err := r.database.SQL.QueryContext(ctx, "SELECT revision,family,fact_id,recorded_at,effective_at,evidence FROM reconciliation_financial_changes WHERE account_id=? AND revision>? ORDER BY revision", account, after)
 	if err != nil {

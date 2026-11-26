@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -14,4 +15,5 @@ type ReconciliationRepository interface {
 	SaveReconciliation(context.Context, domain.ReconciliationSession, int64, map[string]int64, string, string) error
 	ReconciliationFinancialChanges(context.Context, string, int64) ([]domain.ReconciliationFinancialChange, error)
 	ReconciliationLinks(context.Context, string, string) ([]domain.ReconciliationLinkedChange, error)
+	HasReconciliationActivityLink(context.Context, string, domain.AccountID, domain.ActivityID) (bool, error)
 }
