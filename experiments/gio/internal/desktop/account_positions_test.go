@@ -94,11 +94,12 @@ func TestAccountPositionsFilterAndScopedInstrumentHistory(t *testing.T) {
 	if investments.accountScope != fixture.account || investments.id != closed.ID || len(investments.current.positions) != 1 || investments.current.positions[0].Amounts.Quantity != "0" {
 		t.Fatalf("closed holding opened outside its account: %q / %+v", investments.accountScope, investments.current.positions)
 	}
-	click("View instrument history")
+	click("Related transactions")
 	if filters := ledger.model.Filters(); !filters.Equal(historyui.Filters{Account: fixture.account, Instrument: closed.ID}) {
 		t.Fatalf("scoped instrument ledger lost account: %+v", filters)
 	}
 	click("Back")
+	h.focused(&investments.detail.transactions)
 	click("Back")
 	h.focused(portfolioButton(accounts.instruments, closed.ID))
 	if accounts.positions.visit.filter != accountPositionsClosed {
