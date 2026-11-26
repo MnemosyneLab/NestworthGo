@@ -223,6 +223,13 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 			t.Fatalf("unexpected %q", s)
 		}
 	}
+	description := func(name, want string) {
+		t.Helper()
+		node := findPageLabel(&h.router, name)
+		if node == nil || node.Desc.Description != want {
+			t.Fatalf("account %q is missing its balance or valuation description: %+v", name, node)
+		}
+	}
 	h.frame()
 	h.click("Directory", false)
 	finish()
@@ -236,6 +243,8 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	}
 	label("Pacific Sample Brokerage")
 	label("Complete valuation")
+	description("USD savings", "US$125.50 · A$188.25 · Complete valuation · Cached quotes are out of date.")
+	description("SGD savings", "S$75.00 · AUD value unavailable · Incomplete valuation · Missing exchange rate")
 	if len(p.rows) == 0 || p.rows[0].subtotal != nil {
 		t.Fatal("an institution with missing valuations has a complete-looking subtotal")
 	}
@@ -292,6 +301,7 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	finish()
 	h.click("Show archived", false)
 	finish()
+	description("Legacy savings", "A$123.00")
 	h.click("Legacy savings", false)
 	finish()
 	label("Bank account · Archived")

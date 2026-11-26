@@ -24,6 +24,7 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 	editor.SetCaret(2, 1)
 
 	label := "History"
+	value := "US$125.50 · Complete valuation"
 	var disabled, hidden, clicked bool
 	render := func(req request) []element {
 		ops.Reset()
@@ -37,7 +38,7 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 			if disabled {
 				local = local.Disabled()
 			}
-			SelectableButton(local, &click, label, true, func(gtx layout.Context) layout.Dimensions {
+			ButtonWithSelection(local, &click, label, value, true, func(gtx layout.Context) layout.Dimensions {
 				return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					semantic.SelectedOp(true).Add(gtx.Ops)
 					return testLabel(gtx, label)
@@ -68,7 +69,7 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 		t.Fatalf("want one button, one editor and a list with a row and label, got %+v", nodes)
 	}
 	history, search, historyList, activity, note := nodes[0], nodes[1], nodes[2], nodes[3], nodes[4]
-	if history.Role != button || history.Name != "History" || !history.Selected || !history.Pressable {
+	if history.Role != button || history.Name != "History" || history.Value != value || !history.Selected || !history.Pressable {
 		t.Fatalf("unexpected history button %+v", history)
 	}
 	if search.Role != textField || search.Name != "Search" || search.Value != "A😀汉" ||
@@ -84,6 +85,11 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 	render(request{id: history.ID, action: press})
 	if !clicked {
 		t.Fatal("native press did not reach the existing Gio button")
+	}
+	value = "US$140.00 · Complete valuation"
+	nodes = render(request{})
+	if nodes[0].ID != history.ID || nodes[0].Value != value {
+		t.Fatalf("button reread did not update the value of the same accessibility element: %+v", nodes[0])
 	}
 	nodes = render(request{id: search.ID, action: setValue, value: "中😀"})
 	if nodes[1].ID != search.ID || nodes[1].Value != "中😀" || nodes[1].SelectionStart != 3 {

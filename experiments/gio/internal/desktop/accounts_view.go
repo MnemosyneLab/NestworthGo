@@ -2,7 +2,6 @@ package desktop
 
 import (
 	"fmt"
-	"image/color"
 	"strings"
 
 	"gioui.org/io/key"
@@ -425,6 +424,12 @@ func (p *accountsPage) groupHeading(gtx layout.Context, view ui.View, row accoun
 
 func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row accountRow, first, last bool) layout.Dimensions {
 	account := row.record.Account
+	amounts := accountAmountLines(view, row, true)
+	labels := make([]string, len(amounts))
+	for i, amount := range amounts {
+		labels[i] = amount.label
+	}
+	value := strings.Join(labels, " · ")
 	button := p.buttons[account.ID]
 	if button == nil {
 		button = new(widget.Clickable)
@@ -441,10 +446,11 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		view.Focus.Watch(gtx, button)
 		return view.RowCard(gtx, first, last, func(gtx layout.Context) layout.Dimensions {
-			return accessibility.Button(gtx, button, account.Name, "", false, func(gtx layout.Context) layout.Dimensions {
+			return accessibility.Button(gtx, button, account.Name, value, false, func(gtx layout.Context) layout.Dimensions {
 				return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					semantic.Button.Add(gtx.Ops)
-					semantic.DescriptionOp(account.Name).Add(gtx.Ops)
+					semantic.LabelOp(account.Name).Add(gtx.Ops)
+					semantic.DescriptionOp(value).Add(gtx.Ops)
 					hover := func(gtx layout.Context) layout.Dimensions {
 						if button.Hovered() || gtx.Focused(button) {
 							paint.FillShape(gtx.Ops, ui.Mix(view.Colors.Surface, view.Colors.HoverSurface, 0.55), clip.Rect{Max: gtx.Constraints.Min}.Op())
@@ -460,7 +466,7 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 									return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										return accountAmountLines(gtx, view, row, true, layout.End)
+										return layoutAccountAmounts(gtx, view, amounts, layout.End)
 									})
 								}),
 							)
@@ -497,7 +503,12 @@ func accountTitle(gtx layout.Context, view ui.View, account domain.Account) layo
 	)
 }
 
-func accountAmountLines(gtx layout.Context, view ui.View, row accountRow, brief bool, alignment layout.Alignment) layout.Dimensions {
+type accountAmountLine struct {
+	style ui.TextStyle
+	label string
+}
+
+func accountAmountLines(view ui.View, row accountRow, brief bool) []accountAmountLine {
 	l := view.Language
 	a, v := row.record.Account, row.value
 	var native, base *domain.MoneyView
@@ -533,12 +544,6 @@ func accountAmountLines(gtx layout.Context, view ui.View, row accountRow, brief 
 		}
 		return label
 	}
-	line := func(style ui.TextStyle, content string, ink color.NRGBA) layout.FlexChild {
-		if alignment == layout.End {
-			return layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.LineEnd(gtx, style, content, ink) })
-		}
-		return layout.Rigid(view.Body(style, content, ink))
-	}
 	primaryStyle := ui.TextMoneyMD
 	if !brief {
 		primaryStyle = ui.TextMoneyLG
@@ -549,9 +554,9 @@ func accountAmountLines(gtx layout.Context, view ui.View, row accountRow, brief 
 	} else {
 		primaryStyle = ui.TextLabel
 	}
-	lines := []layout.FlexChild{line(primaryStyle, amount(native, a.DefaultCurrency, nativePartial), view.Colors.Ink)}
+	lines := []accountAmountLine{{primaryStyle, amount(native, a.DefaultCurrency, nativePartial)}}
 	if baseCurrency != "" && baseCurrency != primaryCurrency {
-		lines = append(lines, line(ui.TextCaption, amount(base, baseCurrency, !v.Complete), view.Colors.SecondaryInk))
+		lines = append(lines, accountAmountLine{ui.TextCaption, amount(base, baseCurrency, !v.Complete)})
 	}
 	if v != nil {
 		status := l.Text(i18n.AccountValuationComplete)
@@ -561,9 +566,27 @@ func accountAmountLines(gtx layout.Context, view ui.View, row accountRow, brief 
 				status = accountIssueStatus(l, *v, status)
 			}
 		}
-		lines = append(lines, line(ui.TextCaption, status, view.Colors.SecondaryInk))
+		lines = append(lines, accountAmountLine{ui.TextCaption, status})
 		if accountStale(*v) {
-			lines = append(lines, line(ui.TextCaption, l.Text(i18n.AccountStaleQuotes), view.Colors.SecondaryInk))
+			lines = append(lines, accountAmountLine{ui.TextCaption, l.Text(i18n.AccountStaleQuotes)})
+		}
+	}
+	return lines
+}
+
+func layoutAccountAmounts(gtx layout.Context, view ui.View, amounts []accountAmountLine, alignment layout.Alignment) layout.Dimensions {
+	lines := make([]layout.FlexChild, 0, len(amounts))
+	for i, amount := range amounts {
+		ink := view.Colors.SecondaryInk
+		if i == 0 {
+			ink = view.Colors.Ink
+		}
+		if alignment == layout.End {
+			lines = append(lines, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.LineEnd(gtx, amount.style, amount.label, ink)
+			}))
+		} else {
+			lines = append(lines, layout.Rigid(view.Body(amount.style, amount.label, ink)))
 		}
 	}
 	return layout.Flex{Axis: layout.Vertical, Alignment: alignment, Gap: gtx.Dp(2)}.Layout(gtx, lines...)
@@ -652,7 +675,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 										ui.Rigid(view.Body(ui.TextHeading, a.Name, view.Colors.Ink)),
 										ui.Rigid(view.Body(ui.TextCaption, accountTypeDescription(l, a), view.Colors.SecondaryInk)),
 										ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-											return accountAmountLines(gtx, view, row, false, layout.Start)
+											return layoutAccountAmounts(gtx, view, accountAmountLines(view, row, false), layout.Start)
 										}))
 								}),
 							)
