@@ -41,6 +41,7 @@ type tasksVisit struct {
 	position                     layout.Position
 	reviewCursors                []string
 	reviewGeneration             uint64
+	reconciliationAccount        domain.AccountID
 	holdingSession               string
 	holdingReceipt               domain.ActivityID
 	holdingAudit                 []domain.ActivityID
@@ -97,6 +98,8 @@ type tasksPage struct {
 	openStatement  openTaskStatement
 	openActivity   func(domain.ActivityID, event.Tag)
 	holdingRecon   *holdingReconciliation
+
+	reconciliationAccount domain.AccountID
 }
 
 func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate func()) *tasksPage {
@@ -107,6 +110,7 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 
 func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 	p.tab, p.list.Position, p.showEligible = visit.tab, visit.position, visit.showEligible
+	p.reconciliationAccount = visit.reconciliationAccount
 	p.upcomingFilter, p.upcomingLimit = visit.upcomingFilter, visit.upcomingLimit
 	p.reviewCursors = nil
 	if visit.reviewGeneration == p.reviewAck.generation {
@@ -146,8 +150,9 @@ func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 func (p *tasksPage) visit(focus event.Tag) tasksVisit {
 	visit := tasksVisit{
 		tab: p.tab, position: p.list.Position, showEligible: p.showEligible, reviewCursors: slices.Clone(p.reviewCursors),
-		reviewGeneration: p.reviewAck.generation,
-		upcomingFilter:   p.upcomingFilter, upcomingLimit: p.upcomingLimit,
+		reconciliationAccount: p.reconciliationAccount,
+		reviewGeneration:      p.reviewAck.generation,
+		upcomingFilter:        p.upcomingFilter, upcomingLimit: p.upcomingLimit,
 	}
 	if c := p.holdingRecon; c != nil && c.id != "" {
 		visit.holdingSession = c.id

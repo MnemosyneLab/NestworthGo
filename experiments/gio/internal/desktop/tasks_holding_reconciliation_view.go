@@ -26,6 +26,15 @@ func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
 		c.sessionButtons = make(map[string]*widget.Clickable)
 	}
 	rows := []layout.Widget{tradeTitle(view, i18n.ReconciliationSessions)}
+	accountID := p.reconciliationAccount.String()
+	if accountID != "" {
+		if account, ok := c.directory.account(accountID); ok {
+			rows = append(rows, view.Message(account.Name, view.Colors.SecondaryInk))
+		}
+	}
+	inScope := func(session domain.ReconciliationSession) bool {
+		return accountID == "" || slices.Contains(session.AccountIDs, accountID)
+	}
 	sessionCard := func(session domain.ReconciliationSession) layout.Widget {
 		button := portfolioButton(c.sessionButtons, session.ID)
 		name := strings.Join(session.AccountNames, " · ")
@@ -44,19 +53,23 @@ func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
 			}))
 	}
 	for _, session := range c.directory.sessions {
-		if session.Status != "completed" {
+		if session.Status != "completed" && inScope(session) {
 			rows = append(rows, sessionCard(session))
 		}
 	}
-	if len(c.directory.accounts) != 0 {
+	_, selectedAccountActive := c.directory.account(accountID)
+	if len(c.directory.accounts) != 0 && (accountID == "" || selectedAccountActive) {
 		rows = append(rows, c.link(view, &c.start, l.Text(i18n.ReconciliationStart), func() {
 			c.draft = newHoldingReconDraft(&c.start)
 			c.draft.action = statement.Start
 			c.draft.selection = &reconciliationSelection{checks: make(map[domain.AccountID]*widget.Bool)}
+			if accountID != "" {
+				c.draft.selection.freeze([]string{accountID})
+			}
 		}))
 	}
 	for _, session := range c.directory.sessions {
-		if session.Status == "completed" {
+		if session.Status == "completed" && inScope(session) {
 			rows = append(rows, sessionCard(session))
 		}
 	}
@@ -167,7 +180,7 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	found := false
 	for _, account := range s.Accounts {
 		activeAccount, active := c.directory.account(account.AccountID)
-		if !active {
+		if !active && s.Status != "completed" {
 			continue
 		}
 		rows = append(rows, view.Message(account.Name, view.Colors.Ink))

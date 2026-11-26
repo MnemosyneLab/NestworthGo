@@ -62,12 +62,19 @@ type accountBalanceTarget struct {
 	savedMessage i18n.MessageID
 	unverified   domain.AccountID
 	open, view   widget.Clickable
+	entry        *widget.Clickable
 	openActivity func(domain.ActivityID, event.Tag)
 }
 
 func supportsBalanceTarget(row domain.AccountRecord) bool {
 	a := row.Account
-	if a.ArchivedAt != nil || a.TrackingMode != domain.TrackingBalance || row.LatestValue == nil {
+	if a.ArchivedAt != nil || row.LatestValue == nil {
+		return false
+	}
+	if a.TrackingMode == domain.TrackingManualValue {
+		return true
+	}
+	if a.TrackingMode != domain.TrackingBalance {
 		return false
 	}
 	return (a.AccountType == domain.TypeBankAccount && a.BalanceSheetRole == domain.RoleAsset) ||
@@ -83,7 +90,7 @@ func (p *accountsPage) startBalanceTarget() {
 	row := p.freshDetail().record
 	d := &balanceTargetDraft{account: row.Account, amount: ui.NewTextField(true), focus: true}
 	d.amount.Editor.SetText(row.LatestValue.Amount.CanonicalAmount())
-	p.balanceTarget.draft = d
+	p.balanceTarget.draft, p.balanceTarget.entry = d, &p.balanceTarget.open
 }
 
 func readBalanceTarget(ctx context.Context, service balanceTargetLedger, id domain.AccountID) (domain.AccountRecord, error) {

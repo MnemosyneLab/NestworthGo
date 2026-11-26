@@ -393,6 +393,63 @@ const (
 	AccountLoadError
 	AccountUnavailable
 	AccountReadList
+	AccountCompositionTitle
+	AccountCompositionType
+	AccountCompositionDetail
+	AccountCompositionCurrency
+	AccountCompositionProducts
+	AccountCompositionUnknown
+	AccountCompositionRemainder
+	AccountCompositionExpand
+	AccountCompositionCollapse
+	AccountCompositionHint
+	AccountCompositionUnavailable
+	AccountCompositionEmpty
+	AccountCompositionInvalid
+	AccountCompositionNative
+	AccountCompositionBase
+	AccountCheckLastSuccess
+	AccountCheckNever
+	AccountCheckOpen
+	AccountCheckLastRecord
+	AccountCheckLaterBookkeeping
+	AccountCheckHistoricalCoverageGap
+	AccountCheckNewCoverage
+	AccountCheckLoadFailed
+	AccountIncludedInNetWorth
+	AccountExcludedFromNetWorth
+	AccountArchivedExclusion
+	AccountCashDepositOrWithdraw
+	AccountCashConvertAction
+	AccountCashTransferAction
+	AccountCashHistoryTitle
+	AccountCashHistoryLoadFailed
+	AccountCashHistoryActivity
+	AccountCashHistoryOpening
+	AccountCashHistoryChange
+	AccountCashHistoryBalance
+	AccountCashHistoryEffective
+	AccountCashHistoryRecorded
+	AccountUpdateValue
+	AccountValueReview
+	AccountValueConfirm
+	AccountValueTarget
+	AccountValueNoChange
+	AccountValuePreviewFailed
+	AccountValueSaved
+	AccountValueOpening
+	AccountValueReconcile
+	AccountLastValuation
+	AccountCurrentBalance
+	AccountDetailReturns
+	AccountDetailChanges
+	AccountRecordBuy
+	AccountRecordSell
+	AccountRecordAddMoney
+	AccountRecordRemoveMoney
+	AccountRecordDebtValue
+	AccountRecordValue
+	AccountDetailTransactions
 	AccountValueUnavailable
 	AccountInstitutionNet
 	AccountValuationComplete

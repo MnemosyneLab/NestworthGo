@@ -112,6 +112,8 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 	ready := d.sources != nil && d.sourceError == i18n.NoMessage && len(d.sources.Accounts) > 0
 	if ready && p.linked != nil {
 		_, ready = d.accountByID(p.linked.account)
+	} else if ready && p.account != "" {
+		_, ready = d.accountByID(p.account)
 	} else if ready && d.movement.Debt() {
 		ready = d.hasDebtEndpoints()
 	}
@@ -122,7 +124,7 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 			}
 			return p.layoutMovementFields(gtx, view, origin, p.clock())
 		}))
-		if p.linked != nil {
+		if p.linked != nil || p.account != "" {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return d.note.Layout(gtx, view, ui.FieldOptions{Label: i18n.PreviewNotes, Hint: i18n.PreviewNotesHint, Disabled: busy})
 			}))
@@ -225,7 +227,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 				children = []layout.FlexChild{
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
-							if p.linked != nil {
+							if p.linked != nil || p.account != "" {
 								return view.Message(account.Name, view.Colors.Ink)(gtx)
 							}
 							field := ui.PickerField{Label: labels.account, Origin: at, Disabled: !gtx.Enabled(), Next: next}
@@ -303,9 +305,9 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 					return view.Message(l.Text(i18n.ReconciliationValueUnchanged), view.Colors.SecondaryInk)(gtx)
 				}))
 			}
-			if p.linked != nil && !conversion && !transfer && !debt {
+			if (p.linked != nil || p.account != "") && !conversion && !transfer && !debt {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return p.layoutCheckpointReason(gtx, view, at)
+					return p.layoutCashReason(gtx, view, at)
 				}))
 			}
 			switch {
@@ -388,17 +390,18 @@ func checkpointCashReasonLabel(reason domain.ActivityReason) i18n.MessageID {
 	return repeatReasonLabels[reason]
 }
 
-func (p *historyCashMovements) layoutCheckpointReason(gtx layout.Context, view ui.View, at image.Point) layout.Dimensions {
+func (p *historyCashMovements) layoutCashReason(gtx layout.Context, view ui.View, at image.Point) layout.Dimensions {
 	d := p.draft
 	reasons := domain.MoneyOutReasons()
+	liability := p.linked != nil && p.linked.liability
 	switch {
-	case d.movement == history.CashValueUpdate && p.linked.liability:
+	case d.movement == history.CashValueUpdate && liability:
 		return view.Message(liabilityReasonFact(view.Language, domain.ReasonReconciliation), view.Colors.Ink)(gtx)
 	case d.movement == history.CashValueUpdate:
 		reasons = domain.ValueUpdateReasons()
-	case p.linked.liability && d.movement == history.CashContribution:
+	case liability && d.movement == history.CashContribution:
 		reasons = domain.LiabilityIncreaseReasons()
-	case p.linked.liability:
+	case liability:
 		reasons = domain.LiabilityDecreaseReasons()
 	case d.movement == history.CashContribution:
 		reasons = domain.MoneyInReasons()

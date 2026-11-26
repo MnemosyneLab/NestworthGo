@@ -76,6 +76,7 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	}
 
 	rowLabel := "Adjust · " + item.Instrument.DisplayLabel()
+	scrollToAccountDetailLabel(h, rowLabel)
 	click(rowLabel)
 	d = f.draft
 	h.focused(&d.quantity.Editor)

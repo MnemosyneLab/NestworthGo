@@ -276,6 +276,7 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	label("US$15.00 · Known subtotal")
 	label("Missing price · DEMO")
 	label("Missing exchange rate · AUD/SGD")
+	scrollToAccountDetailLabel(h, "DEMO · Quantity 2 · Unavailable")
 	label("DEMO · Quantity 2 · Unavailable")
 	h.click("Back", false)
 	finish()

@@ -53,6 +53,9 @@ type navigationEntry struct {
 	historyDetail    historyDetailState
 	accountsArchived bool
 	accountPositions accountPositionsVisit
+
+	accountComposition accountCompositionVisit
+
 	accountStatement statementVisit
 	funds            fundsViewState
 	portfolioSearch  string
@@ -119,7 +122,7 @@ func sameRecentDestination(a, b navigationEntry) bool {
 		return a.accountsArchived == b.accountsArchived
 	}
 	if a.target.route == tasksRoute {
-		return a.tasks.tab == b.tasks.tab
+		return a.tasks.tab == b.tasks.tab && a.tasks.reconciliationAccount == b.tasks.reconciliationAccount
 	}
 	if a.target.route == assetChangesRoute {
 		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
@@ -164,6 +167,7 @@ type navigationRequest struct {
 	verifyProductReceipt bool
 	tasksTab             tasksTab
 	tasksSession         string
+	tasksAccount         domain.AccountID
 	asset                assetChangesVisit
 	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
@@ -181,7 +185,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
+	if s.accounts != nil && (s.accounts.detail.cashActions.unresolved() || s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
 		return
 	}
 	if request.step == -1 && s.accounts != nil && s.activeRoute() == accountsRoute && s.accounts.productSetup != nil {
@@ -273,6 +277,8 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()
+		s.accounts.detail.cashActions.leave()
+		s.accounts.detail.record.open, s.accounts.detail.record.restore = false, false
 		s.accounts.productSetup = nil
 		s.accounts.creation.discard()
 		if cash := s.accounts.cashBalance; cash != nil {
@@ -357,7 +363,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.restoreVisit(s.trail.current())
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
-			tasks: tasksVisit{tab: request.tasksTab, holdingSession: request.tasksSession}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
+			tasks: tasksVisit{tab: request.tasksTab, holdingSession: request.tasksSession, reconciliationAccount: request.tasksAccount}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
 		entry = s.trail.current()
 		if request.maintenanceTab {
 			entry.focus = request.focus
@@ -397,6 +403,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 		s.accounts.positions.visit = entry.accountPositions.copy()
+		s.accounts.detail.restore(entry.accountComposition)
 		if statement := s.accounts.statement; statement != nil {
 			statement.restore = entry.accountStatement
 		}
@@ -533,6 +540,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
 		entry.accountPositions = s.accounts.positions.visit.copy()
+		entry.accountComposition = s.accounts.detail.visit()
 		entry.scroll = s.accounts.list.Position
 		if statement := s.accounts.statement; statement != nil {
 			entry.accountStatement = statement.visit()

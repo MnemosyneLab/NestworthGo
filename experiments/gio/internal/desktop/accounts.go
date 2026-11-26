@@ -30,6 +30,8 @@ type accountsReader interface {
 	AccountHoldingGroups(context.Context, domain.AccountID) ([]domain.InstrumentHoldingGroupView, error)
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
 	ListProducts(context.Context, *domain.AccountID, bool) ([]application.ProductDetail, error)
+	ReconciliationLastSuccess(context.Context, string) (*domain.ReconciliationSession, error)
+	ListAccountCashValues(context.Context, domain.AccountID) ([]domain.AccountCashValue, error)
 }
 
 type accountRow struct {
@@ -45,6 +47,10 @@ type accountsResult struct {
 	holdings      map[domain.HoldingID]domain.Holding
 	holdingGroups []domain.InstrumentHoldingGroupView
 	holdingsErr   error
+	lastCheck     *domain.ReconciliationSession
+	checkErr      error
+	cashValues    []domain.AccountCashValue
+	cashValuesErr error
 	managed       map[domain.InstrumentID]bool
 	products      []application.ProductDetail
 	unavailable   bool
@@ -137,7 +143,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			result.groups[group.ID] = group
 		}
 	}
+	result.lastCheck, result.checkErr = service.ReconciliationLastSuccess(ctx, target.account.String())
 	if records[0].Account.TrackingMode == domain.TrackingHoldings {
+		result.cashValues, result.cashValuesErr = service.ListAccountCashValues(ctx, target.account)
 		origin, err := service.HistoryOrigin(ctx)
 		if err != nil {
 			result.err = err
@@ -314,6 +322,7 @@ type accountsPage struct {
 	openHoldingHistory                 func(domain.InstrumentID, domain.AccountID, string, event.Tag)
 	openHoldingAnalysis                func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
 	positions                          accountPositions
+	detail                             accountDetailControls
 	openProduct                        func(domain.ProductContractID, string, event.Tag)
 	productButtons                     map[domain.ProductContractID]*widget.Clickable
 	productLedger                      fundsProductLedger
@@ -349,6 +358,7 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.current, p.err, p.rows = nil, nil, nil
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
 	p.positions.visit = accountPositionsVisit{}
+	p.detail.restore(accountCompositionVisit{})
 	p.invalid = !validAccountTarget(target)
 	p.read()
 }

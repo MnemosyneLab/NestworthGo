@@ -30,6 +30,9 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.refresh()
 		view.RestorePageScroll(0)
 	}
+	if p.detail.record.open {
+		return p.layoutAccountRecord(gtx, view)
+	}
 	if f := p.statement; f != nil {
 		row := p.freshDetail()
 		if f.screen == nil && row != nil && (p.target.statement != "" || f.restore.open || f.open.Clicked(gtx)) {
@@ -61,6 +64,9 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		if f.draft != nil {
 			return p.layoutLiabilityPosting(gtx, view)
 		}
+	}
+	if p.detail.cashActions.active() {
+		return p.layoutAccountCashMovement(gtx, view)
 	}
 	if f := p.cashBalance; f != nil {
 		if f.draft == nil && p.canSetCashBalance() && f.open.Clicked(gtx) {
@@ -161,36 +167,19 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			var left, right []layout.Widget
 			if detail {
-				left = append(left, view.ButtonOf(&p.back, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.AccountBack)}))
-				liability := p.canPostLiability()
-				if liability {
-					left = append(left, func(gtx layout.Context) layout.Dimensions {
-						f := p.liabilityPosting
-						view.Focus.Watch(gtx, &f.open)
-						if f.restore && gtx.Enabled() {
-							gtx.Execute(key.FocusCmd{Tag: &f.open})
-							f.restore = false
-						}
-						action := liabilityEntryLabel(p.freshDetail().record.Account)
-						return view.ButtonOf(&f.open, ui.ButtonSpec{Variant: ui.ButtonPrimary, Size: ui.ButtonSmall, Title: l.Text(action)})(gtx)
-					})
+				left = append(left, func(gtx layout.Context) layout.Dimensions {
+					view.Focus.Watch(gtx, &p.back)
+					return view.ButtonOf(&p.back, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall,
+						Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.AccountBack)})(gtx)
+				})
+				if name := p.name(); name != "" {
+					left = append(left, view.Body(ui.TextCaption, "/", view.Colors.SecondaryInk), view.Body(ui.TextHeading, name, view.Colors.Ink))
 				}
-				if p.canSetCashBalance() {
-					left = append(left, func(gtx layout.Context) layout.Dimensions {
-						view.Focus.Watch(gtx, &p.cashBalance.open)
-						return view.ButtonOf(&p.cashBalance.open, ui.ButtonSpec{Variant: ui.ButtonPrimary, Size: ui.ButtonSmall, Title: l.Text(i18n.AccountCashSet)})(gtx)
-					})
-				}
-				if p.canUpdateBalanceTarget() {
-					action := balanceTargetCopyFor(p.freshDetail().record.Account).action
-					variant := ui.ButtonPrimary
-					if liability {
-						variant = ui.ButtonOutline
+				if row := p.freshDetail(); row != nil {
+					if record := p.detailRecordButton(view, row.record.Account); record != nil {
+						right = append(right, record)
 					}
-					left = append(left, func(gtx layout.Context) layout.Dimensions {
-						view.Focus.Watch(gtx, &p.balanceTarget.open)
-						return view.ButtonOf(&p.balanceTarget.open, ui.ButtonSpec{Variant: variant, Size: ui.ButtonSmall, Title: l.Text(action)})(gtx)
-					})
+					right = append(right, p.detailAnalysisActions(view, row.record.Account)...)
 				}
 				right = append(right, p.accountMaintenanceActions(gtx, view)...)
 				if p.target.institution != "" {
@@ -649,7 +638,6 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 								}),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 									return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-										ui.Rigid(view.Body(ui.TextHeading, a.Name, view.Colors.Ink)),
 										ui.Rigid(view.Body(ui.TextCaption, accountTypeDescription(l, a), view.Colors.SecondaryInk)),
 										ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 											return layoutAccountAmounts(gtx, view, accountAmountLines(view, row, false), layout.Start)
@@ -666,6 +654,26 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
+	inclusion := i18n.AccountIncludedInNetWorth
+	switch {
+	case a.ArchivedAt != nil:
+		inclusion = i18n.AccountArchivedExclusion
+	case !a.IncludeInNetWorth:
+		inclusion = i18n.AccountExcludedFromNetWorth
+	}
+	rows = append(rows, accountLine(view, l.Text(inclusion)))
+	if p.canPostLiability() {
+		f := p.liabilityPosting
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			view.Focus.Watch(gtx, &f.open)
+			if f.restore && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &f.open})
+				f.restore = false
+			}
+			return view.ButtonOf(&f.open, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
+				Title: l.Text(i18n.LiabilityRecordDebt)})(gtx)
+		})
+	}
 	buy, sell, dividend := p.canTradeAccount(), p.canSell(), p.canRecordDividend()
 	opening := p.canOpenPosition()
 	if p.opening != nil && p.opening.saved == a.ID {
@@ -731,6 +739,27 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	}
+	rows = append(rows, p.accountReconciliationRow(view, a))
+	if row.value != nil && a.TrackingMode == domain.TrackingHoldings && !a.IsLiability() {
+		if composition := p.accountComposition(view, row.value.Composition); composition != nil {
+			rows = append(rows, composition)
+		}
+	}
+	if a.TrackingMode != domain.TrackingHoldings {
+		var update layout.Widget
+		if p.canUpdateBalanceTarget() {
+			copy := balanceTargetCopyFor(a)
+			button := &p.balanceTarget.open
+			update = func(gtx layout.Context) layout.Dimensions {
+				view.Focus.Watch(gtx, button)
+				return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(copy.action)})(gtx)
+			}
+		}
+		rows = append(rows, accountSimpleValue(view, row, update))
+		if actions := p.cashMovementActions(view); len(actions) != 0 {
+			rows = append(rows, accountDetailActions(view, actions))
+		}
+	}
 	if a.OpenedOn != nil {
 		if day, valid := ui.ParseCivilDay(*a.OpenedOn); valid {
 			rows = append(rows, accountLine(view, fmt.Sprintf(l.Text(i18n.AccountCreateReviewDate), ui.FormatDay(day, l, view.DateFormat))))
@@ -761,16 +790,31 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			}
 			rows = append(rows, accountSection(view, l.Text(i18n.AccountCash)))
 			if len(cash) == 0 {
-				rows = append(rows, accountLine(view, l.Text(i18n.AccountNoCash)))
-			} else {
-				rows = append(rows, sectionCard(view, cash))
+				cash = append(cash, accountLine(view, l.Text(i18n.AccountNoCash)))
 			}
+			actions := p.cashMovementActions(view)
+			if p.canSetCashBalance() {
+				button := &p.cashBalance.open
+				actions = append([]layout.Widget{func(gtx layout.Context) layout.Dimensions {
+					view.Focus.Watch(gtx, button)
+					return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
+						Title: l.Text(i18n.AccountCashSet)})(gtx)
+				}}, actions...)
+			}
+			if len(actions) != 0 {
+				cash = append(cash, accountDetailActions(view, actions))
+			}
+			rows = append(rows, sectionCard(view, cash))
 		}
 	}
 	if a.TrackingMode == domain.TrackingHoldings && a.AccountType != domain.TypeCashOnHand {
 		rows = append(rows, p.accountPositionRows(view, a)...)
 	}
-	return p.appendProducts(rows, view, a)
+	rows = p.appendProducts(rows, view, a)
+	if history := p.accountCashHistory(view); history != nil {
+		rows = append(rows, history)
+	}
+	return rows
 }
 
 func (f *accountInvestment) accountPositionAction(gtx layout.Context, view ui.View, button *widget.Clickable, label string) layout.Dimensions {

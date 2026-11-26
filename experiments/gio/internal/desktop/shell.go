@@ -374,6 +374,24 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			keepArchiveFilter := s.activeRoute() == accountsRoute && target.account == "" && s.accounts.archived
 			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
 		}
+		if s.tasks != nil && s.tasks.holdingRecon != nil && s.tasks.holdingRecon.ledger != nil {
+			s.accounts.detail.openReconciliation = func(account domain.AccountID, session, name string, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: tasksRoute}, name: name,
+					focus: from, tasksTab: tasksReconciliation, tasksSession: session, tasksAccount: account}
+			}
+		}
+		if s.historyPage != nil && s.historyPage.reads != nil {
+			s.accounts.detail.openActivityList = func(account domain.AccountID, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
+					focus: from, historyFilters: history.Filters{Account: account}}
+			}
+		}
+		if s.returns != nil && s.assets != nil {
+			s.accounts.detail.openAnalysis = func(route routeID, account domain.AccountID, name string, from event.Tag) {
+				selection := analysisSelection{scope: domain.AnalysisScope{Kind: domain.ScopeAccount, ID: account.String()}, valuation: domain.ValuationBase}
+				s.openScopedAnalysis(route, selection, name, from)
+			}
+		}
 		if s.overviewPage != nil {
 			s.overviewPage.breakdowns.open = s.accounts.open
 			s.overviewPage.openAccounts = func(focus event.Tag) {
@@ -407,6 +425,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		s.historyPage.onPosted = s.refreshLedgerReads
 	}
 	if s.historyPage != nil && s.historyPage.reads != nil {
+		if s.accounts != nil && s.historyPage.cashMovements != nil {
+			money := s.historyPage.cashMovements
+			scoped := newHistoryCashMovements(s.accounts.ctx, money.service, s.accounts.clock, s.accounts.invalidate)
+			scoped.recovery = money.recovery
+			s.accounts.detail.cashActions.form = scoped
+		}
 		if s.historyPage.investment != nil {
 			s.historyPage.investment.onPosted = s.historyPage.recordPosted
 		}
@@ -467,6 +491,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			}
 			if source.target.route != accountsRoute || s.accounts == nil {
 				return i18n.NoMessage
+			}
+			detail := &s.accounts.detail
+			cash := &detail.cashActions
+			if source.focus == &detail.record.trigger || source.focus == &cash.open || source.focus == &cash.fx || source.focus == &cash.transfer {
+				return i18n.LiabilityBackToAccount
 			}
 			if f := s.accounts.liabilityPosting; f != nil && source.focus == &f.open {
 				return i18n.LiabilityBackToAccount
@@ -643,6 +672,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
+		if cash := &s.accounts.detail.cashActions; cash.active() {
+			notice := cash.form.formLabels().posted
+			if activity := cash.form.update(); activity != nil {
+				s.historyPage.showPosted(*activity, notice, cash.source)
+			}
+		}
 		s.accounts.pollLiabilityPosting()
 		s.accounts.investment.poll(s.accounts.investmentRuntime())
 		s.accounts.pollOpeningPosition()

@@ -19,8 +19,11 @@ func (s *shell) openHoldingAnalysis(route routeID, instrument domain.InstrumentI
 		scope:     domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: instrument.String()},
 		valuation: domain.ValuationBase, excludeCash: true, account: account.String(),
 	}
-	// As in the Wails object action, carry the selected dates and replace the
-	// rest of the analysis scope with this holding.
+	s.openScopedAnalysis(route, selection, name, focus)
+}
+
+func (s *shell) openScopedAnalysis(route routeID, selection analysisSelection, name string, focus event.Tag) {
+	// Carry the selected dates while replacing the rest with this object's scope.
 	for i := s.trail.cursor - 1; i >= 0; i-- {
 		entry := s.trail.entries[i]
 		var previous analysisSelection

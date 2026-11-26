@@ -58,6 +58,7 @@ type historyCashMovements struct {
 	draft      *cashMovementDraft
 	recovery   *cashReceiptRecovery
 	linked     *checkpointCashScope
+	account    domain.AccountID
 }
 
 func newHistoryCashMovements(ctx context.Context, service cashMovementService, clock func() time.Time, invalidate func()) *historyCashMovements {
@@ -89,6 +90,11 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 			}
 		}
 	}
+	if p.account != "" {
+		p.draft.note = ui.NewTextField(true)
+		p.draft.reason = domain.ReasonOther
+	}
+
 	p.loadSources()
 }
 
@@ -284,7 +290,7 @@ func (p *historyCashMovements) preview() {
 	if d.previewing != nil {
 		return
 	}
-	if _, ok := d.accountByID(d.account); !ok {
+	if _, ok := d.accountByID(d.account); !ok || p.account != "" && d.account != p.account {
 		d.problem = i18n.ContributionInvalidAccount
 		return
 	}
@@ -303,6 +309,9 @@ func (p *historyCashMovements) preview() {
 		Movement: d.movement, Account: d.account, Destination: d.destination,
 		Currency: d.currency, ToCurrency: d.toCurrency,
 		Amount: d.amount.Text(), Received: d.received.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time,
+	}
+	if p.account != "" {
+		input.Reason, input.Note = d.reason, d.note.Text()
 	}
 	if p.linked != nil {
 		input.Link = p.linked.link()
@@ -373,6 +382,9 @@ func (p *historyCashMovements) update() *domain.Activity {
 			d.sourceError = cashMovementProblem(d.movement, result.err, i18n.ContributionSourcesFailed)
 		} else {
 			d.receiveSources(result.value, p.clock(), p.linked)
+			if p.account != "" {
+				d.chooseSource(p.account)
+			}
 		}
 	default:
 	}

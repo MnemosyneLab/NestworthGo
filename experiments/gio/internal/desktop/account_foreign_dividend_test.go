@@ -75,6 +75,7 @@ func TestAccountForeignDividendCreditsOneExactCurrencyAndMatchesWails(t *testing
 	click("Cancel")
 	h.focused(&accounts.investment.dividend)
 
+	scrollToAccountDetailLabel(h, "Actions for QA-EUR")
 	click("Actions for QA-EUR")
 	button := accounts.investment.dividendHoldings[holding]
 	if button == nil {

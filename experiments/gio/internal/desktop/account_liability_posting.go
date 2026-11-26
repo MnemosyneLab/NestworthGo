@@ -19,6 +19,7 @@ type accountLiabilityPosting struct {
 	history  *historyPage
 	onPosted func(domain.Activity, i18n.MessageID, event.Tag)
 	open     widget.Clickable
+	entry    *widget.Clickable
 	restore  bool
 	draft    *liabilityPostingDraft
 }
@@ -62,7 +63,7 @@ func (p *accountsPage) startLiabilityPosting() {
 	if a.AccountType == domain.TypeCreditCard {
 		d.kind, d.reason = historyapi.ChangeMoneyAdded, domain.ReasonCardPurchase
 	}
-	p.liabilityPosting.draft = d
+	p.liabilityPosting.draft, p.liabilityPosting.entry = d, &p.liabilityPosting.open
 	p.loadLiabilityPosting()
 }
 
@@ -197,7 +198,7 @@ func (p *accountsPage) pollLiabilityPosting() {
 		var issue *domain.Error
 		if result.err == nil && result.value.Activity.ID != "" {
 			f.draft = nil
-			f.onPosted(result.value.Activity, i18n.LiabilityPosted, &f.open)
+			f.onPosted(result.value.Activity, i18n.LiabilityPosted, f.entry)
 		} else if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {
 			// A committed mutation is replayed before checking the token.
 			d.review, d.uncertain, d.focusAmount = nil, false, true

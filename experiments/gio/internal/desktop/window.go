@@ -101,6 +101,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		funds.workers.Wait()
 		funds.productPage.workers.Wait()
 		accounts.workers.Wait()
+		accounts.detail.cashActions.form.workers.Wait()
 		onboarding.workers.Wait()
 	}()
 	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, wealthHistory: wealthHistory, returns: returns, assets: assets, marketData: marketData, dataHealth: dataHealth, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,

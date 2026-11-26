@@ -237,7 +237,7 @@ func TestLiabilityReasonsAndCorrectionMatchWails(t *testing.T) {
 	} {
 		now = accountTestClock.Add(time.Duration(i) * time.Minute)
 		setBalanceTargetClock(time.Duration(i)*time.Minute, app, ref)
-		click("Record a change")
+		click("Record debt activity")
 		click(step.label)
 		d := p.liabilityPosting.draft
 		field := "Amount"

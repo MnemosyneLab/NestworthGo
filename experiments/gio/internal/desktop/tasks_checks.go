@@ -143,11 +143,11 @@ func (p *tasksPage) reviewRows(view ui.View) []layout.Widget {
 
 func (p *tasksPage) statementRows(view ui.View) []layout.Widget {
 	l := view.Language
-	if len(p.statements) == 0 {
-		return []layout.Widget{view.Message(l.Text(i18n.TasksStatementsEmpty), view.Colors.Ink)}
-	}
 	var rows []layout.Widget
 	for _, row := range p.statements {
+		if p.reconciliationAccount != "" && row.account.ID != p.reconciliationAccount {
+			continue
+		}
 		s := row.session
 		status := l.Text(statementStatus(s))
 		when := statementRecordedTime(view, s.StartedAt)
@@ -167,6 +167,9 @@ func (p *tasksPage) statementRows(view ui.View) []layout.Widget {
 			fields = append(fields, taskLink(view, button, label, func() { p.openStatement(row.account.ID, s.ID, name, button) }))
 		}
 		rows = append(rows, fundsCard(view, name, fields...))
+	}
+	if len(rows) == 0 {
+		rows = append(rows, view.Message(l.Text(i18n.TasksStatementsEmpty), view.Colors.Ink))
 	}
 	return rows
 }

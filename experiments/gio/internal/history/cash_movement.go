@@ -57,7 +57,7 @@ func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, mov
 	if movement.Debt() {
 		return loadCashMovementSources(ctx, ledger, movement, checkpointMovementAccounts(movement))
 	}
-	return loadCashMovementSources(ctx, ledger, movement, acceptsCashMovement)
+	return loadCashMovementSources(ctx, ledger, movement, CanUseCashMovement)
 }
 
 func LoadCheckpointMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement) (CashMovementSources, error) {
@@ -113,7 +113,8 @@ func cashMovementOrigin(ctx context.Context, ledger cashMovementReader) (domain.
 	return *origin, location, err
 }
 
-func acceptsCashMovement(row domain.AccountRecord) bool {
+// CanUseCashMovement reports whether a record can participate in ordinary cash movements.
+func CanUseCashMovement(row domain.AccountRecord) bool {
 	return row.Account.ArchivedAt == nil && supportsCashMovement(row)
 }
 
@@ -174,7 +175,7 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		if err != nil {
 			return nil, err
 		}
-		accepts := acceptsCashMovement
+		accepts := CanUseCashMovement
 		if input.Link != nil || input.Movement.Debt() {
 			accepts = checkpointMovementAccounts(input.Movement)
 		} else if input.Movement == CashValueUpdate {
@@ -232,7 +233,7 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 }
 
 func cashMovementAccount(ctx context.Context, ledger CashMovementLedger, id domain.AccountID, field string) (domain.Account, error) {
-	return cashMovementAccountMatching(ctx, ledger, id, field, acceptsCashMovement)
+	return cashMovementAccountMatching(ctx, ledger, id, field, CanUseCashMovement)
 }
 
 func cashMovementAccountMatching(ctx context.Context, ledger CashMovementLedger, id domain.AccountID, field string, accepts func(domain.AccountRecord) bool) (domain.Account, error) {

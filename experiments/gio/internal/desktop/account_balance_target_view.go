@@ -29,6 +29,13 @@ func balanceTargetCopyFor(account domain.Account) balanceTargetCopy {
 			previewFailed: i18n.AccountCardBalancePreviewFailed, saved: i18n.AccountCardBalanceSaved,
 		}
 	}
+	if account.TrackingMode == domain.TrackingManualValue {
+		return balanceTargetCopy{
+			action: i18n.AccountUpdateValue, review: i18n.AccountValueReview, confirm: i18n.AccountValueConfirm,
+			target: i18n.AccountValueTarget, noChange: i18n.AccountValueNoChange,
+			invalidTarget: i18n.AccountCashInvalidTarget, previewFailed: i18n.AccountValuePreviewFailed, saved: i18n.AccountValueSaved,
+		}
+	}
 	return balanceTargetCopy{
 		action: i18n.AccountBankBalanceAction, review: i18n.AccountBankBalanceReview,
 		confirm: i18n.AccountBankBalanceConfirm, target: i18n.AccountCashTarget,
@@ -44,7 +51,8 @@ func (p *accountsPage) layoutBalanceTarget(gtx layout.Context, view ui.View) lay
 	gtx, view = view.Measure(gtx, 620)
 	if !p.balanceTargetUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
-		gtx.Execute(key.FocusCmd{Tag: &f.open})
+		p.restoreAccountRecord(f.entry)
+		gtx.Execute(key.FocusCmd{Tag: f.entry})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -107,8 +115,14 @@ func (p *accountsPage) layoutBalanceTargetReview(gtx layout.Context, view ui.Vie
 	plan := d.review
 	help := i18n.AccountBankBalanceOpening
 	effective := l.Text(i18n.AccountBankBalanceOnConfirm)
+	if d.account.TrackingMode == domain.TrackingManualValue {
+		help = i18n.AccountValueOpening
+	}
 	if plan.command != nil {
 		help = i18n.AccountBankBalanceReconcile
+		if d.account.TrackingMode == domain.TrackingManualValue {
+			help = i18n.AccountValueReconcile
+		}
 		var err error
 		effective, err = targetBalanceTimestamp(view, plan.at, plan.zone)
 		if err != nil {
