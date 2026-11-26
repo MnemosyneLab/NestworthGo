@@ -207,15 +207,7 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName s
 	gap := gtx.Dp(12)
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			dims := p.header(gtx, view, householdName)
-			editorView.Origin.Y += dims.Size.Y + gap
-			return dims
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.editMode != directoryRead {
-				return layout.Dimensions{}
-			}
-			dims := p.filters(gtx, view)
+			dims := p.toolbar(gtx, view, householdName)
 			editorView.Origin.Y += dims.Size.Y + gap
 			return dims
 		}),
@@ -229,47 +221,61 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName s
 	)
 }
 
-func (p *directoryList) header(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Flexed(1, view.Message(householdName, view.Colors.SecondaryInk)),
+// toolbar is the one row above the list: the search field at the start, and
+// the archive filter, refresh and add actions at the end. While a row is being
+// edited the search and archive filter step aside.
+func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
+	reading := p.editMode == directoryRead
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.busy || p.editMode != directoryRead || p.awaitingRead.operation != directoryRead {
-				gtx = gtx.Disabled()
+			if strings.TrimSpace(householdName) == "" {
+				return layout.Dimensions{}
 			}
-			return view.PrimaryButton(&p.add, view.Language.Text(p.copy.add))(gtx)
+			return view.Message(householdName, view.Colors.SecondaryInk)(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.busy || p.editMode != directoryRead {
-				gtx = gtx.Disabled()
-			}
-			label := i18n.InstitutionsRefresh
-			if p.readErr != nil {
-				label = i18n.InstitutionsRetry
-			}
-			return view.Button(&p.refresh, view.Language.Text(label))(gtx)
-		}),
-	)
-}
-
-func (p *directoryList) filters(gtx layout.Context, view ui.View) layout.Dimensions {
-	return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(12)}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return p.search.Layout(ui.LimitWidth(gtx, 470), view, p.copy.search, p.copy.searchHint, func(query string) {
-					p.query = query
-					p.list.Position = layout.Position{}
-				})
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			label := i18n.InstitutionsShowArchived
-			if p.includeArchived {
-				label = i18n.InstitutionsHideArchived
-			}
-			if p.busy || p.editMode != directoryRead {
-				gtx = gtx.Disabled()
-			}
-			return view.Button(&p.archiveFilter, view.Language.Text(label))(gtx)
+			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					if !reading {
+						return layout.Dimensions{}
+					}
+					return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return p.search.Layout(ui.LimitWidth(gtx, 470), view, p.copy.search, p.copy.searchHint, func(query string) {
+							p.query = query
+							p.list.Position = layout.Position{}
+						})
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !reading {
+						return layout.Dimensions{}
+					}
+					label := i18n.InstitutionsShowArchived
+					if p.includeArchived {
+						label = i18n.InstitutionsHideArchived
+					}
+					if p.busy {
+						gtx = gtx.Disabled()
+					}
+					return view.Button(&p.archiveFilter, view.Language.Text(label))(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.busy || !reading {
+						gtx = gtx.Disabled()
+					}
+					label := i18n.InstitutionsRefresh
+					if p.readErr != nil {
+						label = i18n.InstitutionsRetry
+					}
+					return view.Button(&p.refresh, view.Language.Text(label))(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.busy || !reading || p.awaitingRead.operation != directoryRead {
+						gtx = gtx.Disabled()
+					}
+					return view.PrimaryButton(&p.add, view.Language.Text(p.copy.add))(gtx)
+				}),
+			)
 		}),
 	)
 }

@@ -303,13 +303,17 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-							layout.Rigid(view.Body(ui.TextBody, caption, view.Colors.SecondaryInk)),
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+									layout.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return view.Line(gtx, ui.TextMoneyLG, display, view.Colors.Ink)
+									}),
+								)
+							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
 						)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Line(gtx, ui.TextMoneyLG, display, view.Colors.Ink)
 					}),
 					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk)),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
