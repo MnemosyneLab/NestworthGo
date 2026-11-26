@@ -144,6 +144,7 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 		t.Fatalf("unresolved item did not focus the exact reservation in the global manager: %+v", r)
 	}
 	h.focused(&r.actions[id].edit)
+	click("Close")
 	click("Back")
 	h.focused(p.upcoming.links.buttons[reserveKey])
 
@@ -164,6 +165,7 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 	if r == nil || r.source.Key() != bank.Key() || r.current == nil || len(r.current.records) != 2 {
 		t.Fatalf("shortfall did not open the two reservations for the exact account: %+v", r)
 	}
+	click("Close")
 	click("Back")
 	if tasks.upcomingFilter != taskUpcomingReservations {
 		t.Fatal("back discarded the Upcoming reservations filter")

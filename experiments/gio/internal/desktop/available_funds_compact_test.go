@@ -65,13 +65,13 @@ func TestAvailableFundsGlobalReservationEmptyAndReturnFocus(t *testing.T) {
 	if funds.reservation == nil || funds.reservation.entry != &funds.manageReservations {
 		t.Fatal("the initial global action did not open the reservation manager")
 	}
-	assertPageLabel(t, &h.router, "All reservations")
-	assertPageLabel(t, &h.router, "No reservations yet.")
-	assertPageLabel(t, &h.router, "No funding sources are eligible for reservations.")
+	assertPageLabel(t, &h.router, "Reservations")
+	assertPageLabel(t, &h.router, "No money set aside yet. Add a reservation when you need to keep money for a specific purpose.")
+	assertPageLabel(t, &h.router, "No available sources. Add an account or asset before creating a reservation.")
 	if findPageLabel(&h.router, "Add reservation") != nil {
 		t.Fatal("an empty household offered an ineligible reservation")
 	}
-	h.click("Back to available funds", false)
+	h.click("Close", false)
 	settle()
 	if h.shell.activeRoute() != fundsRoute || funds.reservation != nil {
 		t.Fatal("the global return did not close the reservation manager")
@@ -160,7 +160,7 @@ func TestAvailableFundsSourceColumnsFollowContainerWidth(t *testing.T) {
 	if funds.reservation == nil || funds.reservation.source.Key() != ref.Key() {
 		t.Fatal("the compact action did not retain its source scope")
 	}
-	h.click("Back to available funds", false)
+	h.click("Close", false)
 	settle()
 	h.focused(&funds.links[ref.Key()].reserve)
 

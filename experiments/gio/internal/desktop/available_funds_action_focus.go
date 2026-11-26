@@ -35,11 +35,10 @@ func (p *availableFundsPage) openActionFocus(view ui.View) {
 			return
 		}
 		var ref domain.LiquiditySourceRef
-		var name string
 		if at >= 0 {
-			ref, name = sources[at].Result.Ref, sources[at].Result.DisplayName
+			ref = sources[at].Result.Ref
 		}
-		p.openReservations(ref, name, &p.reload)
+		p.openReservations(ref, &p.reload)
 		p.reservation.focusTarget = focus.reservation
 		if at < 0 && focus.sourceKey != "" {
 			p.reservation.notice = i18n.TasksReserveSourceChanged

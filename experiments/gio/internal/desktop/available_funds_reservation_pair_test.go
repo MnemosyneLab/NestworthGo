@@ -95,9 +95,9 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 			t.Fatal("reservation draft has no source")
 		}
 		setBankField(h, "Purpose", &r.label, purpose)
-		setBankField(h, "Reservation amount · "+source.NativeCurrency.String(), &r.amount, amount)
+		setBankField(h, "Amount · "+source.NativeCurrency.String(), &r.amount, amount)
 		click("Review reservation")
-		click("Confirm reservation")
+		click("Confirm")
 		assertPageLabel(t, &h.router, "Reservation saved.")
 	}
 	saveWails := func(ref domain.LiquiditySourceRef, row *liquidityapi.ReservationDTO, amount string) liquidityapi.ReservationDTO {
@@ -119,14 +119,14 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	click("Manage reservations")
 	checkScope(domain.LiquiditySourceRef{})
 	click("Add reservation")
-	h.click("Funding source", true)
+	h.click("Reservation source", true)
 	h.frame()
 	assertPageLabel(t, &h.router, "Travel Wallet cash · USD")
 	click("Travel Wallet cash · EUR")
 	fill("4.1234")
 	wailsEUR := saveWails(eur, nil, "4.1234")
 	checkCash(eur, "21.1266")
-	click("Back to available funds")
+	click("Close")
 
 	click("Funding sources")
 	click("Manage reservations · Travel Wallet cash · USD")
@@ -135,13 +135,16 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 		t.Fatal("the USD source manager showed a reservation for the EUR leg")
 	}
 	click("Add reservation")
-	if findPageLabel(&h.router, "Travel Wallet cash · EUR") != nil {
+	draft := funds.reservation
+	h.focused(&draft.label.Editor)
+	assertPageLabel(t, &h.router, "Reservation source")
+	if source := draft.draftSource(); source == nil || source.Ref.Key() != usd.Key() {
 		t.Fatal("the scoped form offered the sibling cash leg")
 	}
 	fill("7.2345")
 	wailsUSD := saveWails(usd, nil, "7.2345")
 	checkCash(usd, "43.4444")
-	click("Back to available funds")
+	click("Close")
 
 	// Exclusion prevents adding, while an existing reservation can still be
 	// managed at that exact source as in the Wails source row.
@@ -152,14 +155,14 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	if findPageLabel(&h.router, "Add reservation") != nil {
 		t.Fatal("the excluded source allowed a new reservation")
 	}
-	click("Back to available funds")
+	click("Close")
 	funds.list.ScrollTo(0)
 	settle()
 	click("Manage reservations")
 	click("Edit · Travel · Travel Wallet cash · EUR")
 	r := funds.reservation
 	first := *r.editRow
-	setBankField(h, "Reservation amount · EUR", &r.amount, "999.4321")
+	setBankField(h, "Amount · EUR", &r.amount, "999.4321")
 	click("Review reservation")
 	if _, err := app.SaveLiquidityReservation(ctx, application.SaveReservationInput{
 		ID: &first.ID, ExpectedRevision: first.Revision, Source: eur, Label: purpose, Amount: "4.1111",
@@ -175,7 +178,7 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 		t.Fatalf("expected Wails to reject the stale revision, got %v", err)
 	}
 
-	click("Confirm reservation")
+	click("Confirm")
 	checkScope(domain.LiquiditySourceRef{})
 	if r.amount.Text() != "999.4321" || r.editRow.Revision != first.Revision || findPageLabel(&h.router, "Review reservation") != nil {
 		t.Fatal("a conflicting draft was overwritten or could proceed without loading")
@@ -197,10 +200,11 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
+	click("Released reservation (1)")
 	assertPageLabel(t, &h.router, "Released · Travel")
 	checkCash(usd, "50.6789")
 	checkCash(eur, "19.8179")
-	click("Back to available funds")
+	click("Close")
 
 	if err := session.Close(); err != nil {
 		t.Fatal(err)

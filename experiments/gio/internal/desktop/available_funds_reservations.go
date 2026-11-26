@@ -175,7 +175,6 @@ func (p fundsReservationPlan) verify(after []domain.LiquidityReservation, acknow
 
 type fundsReservationSession struct {
 	source      domain.LiquiditySourceRef
-	name        string
 	entry       *widget.Clickable
 	current     *fundsReservationRead
 	read        <-chan historyResult[fundsReservationRead]
@@ -188,6 +187,12 @@ type fundsReservationSession struct {
 	notice      i18n.MessageID
 	failure     i18n.MessageID
 
+	sheet                     analysisSheet
+	overlay                   ui.Overlay
+	focusDraft, focusRetry    bool
+	showingReview             bool
+	showReleased              bool
+	releasedHistory           widget.Clickable
 	editing                   bool
 	editRow                   *domain.LiquidityReservation
 	selected                  string
@@ -206,12 +211,14 @@ type fundsReservationActions struct {
 	edit, release widget.Clickable
 }
 
-func (p *availableFundsPage) openReservations(source domain.LiquiditySourceRef, name string, entry *widget.Clickable) {
+func (p *availableFundsPage) openReservations(source domain.LiquiditySourceRef, entry *widget.Clickable) {
 	p.reservation = &fundsReservationSession{
-		source: source, name: name, entry: entry, label: ui.NewTextField(true), amount: ui.NewTextField(true),
+		source: source, entry: entry, label: ui.NewTextField(true), amount: ui.NewTextField(true),
 		actions: make(map[domain.LiquidityReservationID]*fundsReservationActions),
 		list:    widget.List{List: layout.List{Axis: layout.Vertical}},
+		sheet:   newAnalysisSheet(), restoreFocus: true,
 	}
+	p.reservation.sheet.modal = true
 	p.readReservations()
 }
 
@@ -269,7 +276,7 @@ func (p *availableFundsPage) pollReservations() {
 		if !r.checking {
 			if r.notice == i18n.HistoryAmendmentStale && r.editRow != nil {
 				if latest, _ := r.latestEdit(); latest == nil || !latest.Active() {
-					r.editing, r.editRow, r.actionFocus, r.restoreFocus = false, nil, &r.close, true
+					r.editing, r.editRow, r.actionFocus, r.restoreFocus = false, nil, &r.sheet.close, true
 					r.notice = i18n.TasksTargetMissing
 				}
 			}
@@ -313,7 +320,7 @@ func (r *fundsReservationSession) draftSource() *domain.LiquiditySourceResult {
 	return nil
 }
 
-func (r *fundsReservationSession) startDraft(gtx layout.Context, row *domain.LiquidityReservation, trigger *widget.Clickable) {
+func (r *fundsReservationSession) startDraft(row *domain.LiquidityReservation, trigger *widget.Clickable) {
 	r.editing, r.editRow, r.notice, r.actionFocus = true, row, i18n.NoMessage, trigger
 	r.label.Editor.SetText("")
 	r.amount.Editor.SetText("")
@@ -332,9 +339,8 @@ func (r *fundsReservationSession) startDraft(gtx layout.Context, row *domain.Liq
 			}
 		}
 	}
-	if row != nil || r.source.Kind != "" {
-		r.label.Focus(gtx)
-	}
+	r.focusDraft = true
+	r.sheet.list.Position = layout.Position{}
 }
 
 // Keep the draft tied to the revision it originally reviewed. Loading another

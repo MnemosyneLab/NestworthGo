@@ -2019,7 +2019,6 @@ const (
 	ReserveChooseSource
 	ReserveTitle
 	ReserveAdd
-	ReserveBack
 	ReserveHelp
 	ReserveLabel
 	ReserveAmount
@@ -2029,8 +2028,9 @@ const (
 	ReserveReleaseRow
 	ReserveConfirmRelease
 	ReserveReleasedRow
+	ReserveReleasedHistoryOne
+	ReserveReleasedHistoryMany
 	ReserveEmpty
-	ReserveGlobalTitle
 	ReserveGlobalEmpty
 	ReserveNoEligibleSources
 	ReserveSourceUnavailable

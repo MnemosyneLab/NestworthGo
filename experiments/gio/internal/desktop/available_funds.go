@@ -169,10 +169,19 @@ func (p *availableFundsPage) update() {
 		for _, row := range p.current.report.Overview.UnresolvedReservations {
 			active[row.Reservation.ID.String()] = true
 		}
-		for key := range p.links {
-			if !active[key] {
-				delete(p.links, key)
+		for key, buttons := range p.links {
+			if active[key] {
+				continue
 			}
+			// A released unresolved reservation can remove its entry row.
+			// Restore focus to the persistent page control in that case.
+			if p.reservation != nil && p.reservation.entry == &buttons.reserve {
+				p.reservation.entry = &p.reload
+			}
+			if p.reservationFocus == &buttons.reserve {
+				p.reservationFocus = &p.reload
+			}
+			delete(p.links, key)
 		}
 	default:
 	}
@@ -197,10 +206,6 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		p.read()
 		view.RestorePageScroll(0)
 	}
-	if p.reservation != nil {
-		p.pollReservations()
-		return p.layoutReservations(gtx, view)
-	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
@@ -218,7 +223,7 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
-	if p.current != nil && p.request == nil {
+	if p.current != nil && p.request == nil && p.reservation == nil {
 		switch {
 		case p.nextRefresh.IsZero():
 			p.nextRefresh = gtx.Now.Add(time.Minute)

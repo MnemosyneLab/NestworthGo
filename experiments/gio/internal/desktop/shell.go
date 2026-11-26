@@ -751,7 +751,11 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	directoryArchiveOpen := s.confirmingArchive()
 	catalogEditorOpen := s.instrumentCatalogEditorOpen()
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	fundsReservationOpen := s.fundsReservationOpen()
+	if fundsReservationOpen {
+		s.funds.pollReservations()
+	}
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -847,6 +851,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.tasks.layoutStartReconciliationReview(windowContext, view)
+		return dims
+	}
+	if fundsReservationOpen {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.funds.layoutReservationSheet(windowContext, view)
 		return dims
 	}
 	dims := background(gtx)

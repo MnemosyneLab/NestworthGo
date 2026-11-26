@@ -163,6 +163,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 		assertFundsParity(t, read, want)
 	}
 
+	accounts := semanticBounds(t, &h.router, "Accounts", false)
 	entry := "Manage reservations · Harbor Savings"
 	scrollReservationSource(t, h, entry)
 	click(entry)
@@ -173,24 +174,24 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	click("Add reservation")
 	r := funds.reservation
 	setBankField(h, "Purpose", &r.label, "Rent")
-	setBankField(h, "Reservation amount · USD", &r.amount, "0")
+	setBankField(h, "Amount · USD", &r.amount, "0")
 	click("Review reservation")
 	label("Enter a positive amount with up to four decimal places.")
 	if fault.saves.Load() != 0 {
 		t.Fatal("invalid draft reached the writer")
 	}
-	setBankField(h, "Reservation amount · USD", &r.amount, "40.125")
+	setBankField(h, "Amount · USD", &r.amount, "40.125")
 	click("Review reservation")
 	if err := app.WithWrite(ctx, func(context.Context) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	click("Confirm reservation")
+	click("Confirm")
 	label("The ledger changed. Preview this action again.")
 	if fault.saves.Load() != 0 {
 		t.Fatal("a stale review reached the writer")
 	}
 	click("Review reservation")
-	click("Confirm reservation")
+	click("Confirm")
 	label("The saved reservation state did not change. Review the action again.")
 	// An identical pre-existing reservation is insufficient to recover a reply.
 	if len(r.current.records) != 1 || r.current.records[0].Label != "Rent" || fault.saves.Load() != 1 {
@@ -198,7 +199,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	}
 
 	setBankField(h, "Purpose", &r.label, "Emergency fund")
-	setBankField(h, "Reservation amount · USD", &r.amount, "100.5")
+	setBankField(h, "Amount · USD", &r.amount, "100.5")
 	click("Review reservation")
 	label("Requested reservation · 100.5 USD")
 	clickTwiceWhileBlocked := func(text string, started <-chan struct{}, unblock func()) {
@@ -215,13 +216,13 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 		unblock()
 		finish()
 		label("Could not verify the reservation. Retry checks the saved state.")
-		h.click("Accounts", false)
+		h.clickAt(accounts.Min.Add(accounts.Max).Div(2))
 		if h.shell.activeRoute() != fundsRoute || !funds.reservationUnresolved() {
 			t.Fatal("navigation discarded an unresolved reservation")
 		}
 		click("Retry")
 	}
-	clickTwiceWhileBlocked("Confirm reservation", fault.saving, unblockSave)
+	clickTwiceWhileBlocked("Confirm", fault.saving, unblockSave)
 	label("Reservation saved.")
 	label("Available after reservations · 0 USD")
 	if fault.saves.Load() != 2 || len(r.current.records) != 2 {
@@ -238,13 +239,14 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	checkState(app, ids.bank, before, "140.625", "125.4321", "0", "15.1929")
 	checkState(reference, ref.bank, refBefore, "140.625", "125.4321", "0", "15.1929")
 
-	click("Back to available funds")
+	click("Close")
 	label("Reservation shortfall · 15.1929 USD")
 	scrollReservationSource(t, h, entry)
 	click(entry)
 	click("Release · Emergency fund")
 	clickTwiceWhileBlocked("Confirm release", fault.releasing, unblockRelease)
-	label("Reservation released.")
+	label("Reservation released. Available funds will be recalculated.")
+	click("Released reservation (1)")
 	label("Released · Emergency fund")
 	label("Available after reservations · 85.3071 USD")
 	if fault.releases.Load() != 1 || findPageLabel(&h.router, "Release · Emergency fund") != nil {
@@ -287,9 +289,9 @@ func TestAvailableFundsReservationOnZeroCashMatchesWails(t *testing.T) {
 	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
 	click("Add reservation")
 	setBankField(h, "Purpose", &funds.reservation.label, "Future expenses")
-	setBankField(h, "Reservation amount · USD", &funds.reservation.amount, "9")
+	setBankField(h, "Amount · USD", &funds.reservation.amount, "9")
 	click("Review reservation")
-	click("Confirm reservation")
+	click("Confirm")
 	assertPageLabel(t, &h.router, "Reservation saved.")
 	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
 	other, err := reference.ListAccounts(ctx, domain.AccountFilter{})
@@ -331,6 +333,7 @@ func TestAvailableFundsReservationOnZeroCashMatchesWails(t *testing.T) {
 	if funds.reservation.editing {
 		t.Fatal("a second release click opened the add form after the first release completed")
 	}
+	click("Released reservation (1)")
 	assertPageLabel(t, &h.router, "Released · Future expenses")
 	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
 	if slices.ContainsFunc(funds.current.report.Overview.UnresolvedReservations, func(row domain.UnresolvedReservation) bool {
@@ -363,9 +366,9 @@ func TestAvailableFundsGlobalReservationEditKeepsSelectedHorizon(t *testing.T) {
 	click("Cancel")
 	click("Edit · Rent")
 	setBankField(h, "Purpose", &r.label, "Fall rent")
-	setBankField(h, "Reservation amount · USD", &r.amount, "50.1234")
+	setBankField(h, "Amount · USD", &r.amount, "50.1234")
 	click("Review reservation")
-	click("Confirm reservation")
+	click("Confirm")
 	assertPageLabel(t, &h.router, "Reservation saved.")
 	if funds.state.horizonOn != horizon || r.current.horizon != horizon || !funds.state.includeEarly {
 		t.Fatal("saving reset the date or early withdrawal setting")
@@ -400,14 +403,14 @@ func TestAvailableFundsGlobalReservationEditKeepsSelectedHorizon(t *testing.T) {
 	assertFundsParity(t, *funds.current, want)
 
 	click("Add reservation")
-	h.click("Funding source", true)
+	h.click("Reservation source", true)
 	h.frame()
 	h.click("Travel Wallet cash · EUR", false)
 	finish()
 	setBankField(h, "Purpose", &r.label, "Travel")
-	setBankField(h, "Reservation amount · EUR", &r.amount, "4.9234")
+	setBankField(h, "Amount · EUR", &r.amount, "4.9234")
 	click("Review reservation")
-	click("Confirm reservation")
+	click("Confirm")
 	eur := domain.CurrencyCode("EUR")
 	travel := domain.AccountCashSourceRef(ids.foreign, eur)
 	cash = r.current.available(travel)
