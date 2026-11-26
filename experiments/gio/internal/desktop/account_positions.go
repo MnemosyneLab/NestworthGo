@@ -131,7 +131,7 @@ func (p *accountsPage) accountPositionRows(view ui.View, account domain.Account)
 	for _, group := range groups {
 		open := !positions.visit.collapsed[group.key]
 		button := portfolioButton(positions.groups, group.key)
-		rows = append(rows, sharedHoldingGroupHeader(view, group.key, len(group.rows), group.subtotals, button, open, func() {
+		rows = append(rows, sharedHoldingGroupHeader(view, group.key, len(group.rows), group.subtotals, button, open, false, func() {
 			if positions.visit.collapsed == nil {
 				positions.visit.collapsed = make(map[domain.HoldingGroupKey]bool)
 			}

@@ -293,7 +293,7 @@ func (p *portfolioPage) holdingGroupHeader(view ui.View, group domain.Instrument
 	h := &p.holdings
 	open := !h.visit.collapsed[group.Key]
 	button := portfolioButton(h.groups, group.Key)
-	card := sharedHoldingGroupHeader(view, group.Key, len(group.Instruments), group.Subtotals, button, open, func() {
+	card := sharedHoldingGroupHeader(view, group.Key, len(group.Instruments), group.Subtotals, button, open, true, func() {
 		if h.visit.collapsed == nil {
 			h.visit.collapsed = make(map[domain.HoldingGroupKey]bool)
 		}
@@ -309,7 +309,7 @@ func (p *portfolioPage) holdingGroupHeader(view ui.View, group domain.Instrument
 	}
 }
 
-func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count int, subtotals []domain.HoldingCurrencySubtotal, button *widget.Clickable, open bool, toggle func()) layout.Widget {
+func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count int, subtotals []domain.HoldingCurrencySubtotal, button *widget.Clickable, open, compact bool, toggle func()) layout.Widget {
 	l := view.Language
 	countLabel := i18n.PortfolioGroupCount
 	if count == 1 {
@@ -323,18 +323,63 @@ func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count 
 		}
 		return analysisDisclosure(view, button, label, open)(gtx)
 	}
-	fields := []ui.ColumnChild{ui.Rigid(disclosure)}
-	for _, subtotal := range subtotals {
-		currency := subtotal.Currency.String()
-		fields = append(fields,
-			ui.Rigid(view.Body(ui.TextLabel, fmt.Sprintf(l.Text(i18n.PortfolioCurrencySubtotal), currency), view.Colors.SecondaryInk)),
-			ui.Rigid(holdingMetrics(view, subtotal.Amounts, "", false)))
-	}
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		wide := compact && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth)
 		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			if wide && len(subtotals) > 0 {
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+					layout.Flexed(1, disclosure), layout.Flexed(2.2, holdingSubtotalTable(view, subtotals)))
+			}
+			fields := []ui.ColumnChild{ui.Rigid(disclosure)}
+			for _, subtotal := range subtotals {
+				currency := subtotal.Currency.String()
+				fields = append(fields,
+					ui.Rigid(view.Body(ui.TextLabel, fmt.Sprintf(l.Text(i18n.PortfolioCurrencySubtotal), currency), view.Colors.SecondaryInk)),
+					ui.Rigid(holdingMetrics(view, subtotal.Amounts, "", false)))
+			}
 			return (ui.Column{Gap: ui.Space8}).Layout(gtx, fields...)
 		})
+	}
+}
+
+func holdingSubtotalTable(view ui.View, subtotals []domain.HoldingCurrencySubtotal) layout.Widget {
+	l, colors := view.Language, view.Colors
+	columns := func(first layout.Widget, amounts [3]layout.Widget) ui.ColumnChild {
+		return ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Flexed(0.45, first), layout.Flexed(1, amounts[0]), layout.Flexed(1.2, amounts[1]), layout.Flexed(1.4, amounts[2]))
+		})
+	}
+	var captions [3]layout.Widget
+	for i, label := range [...]i18n.MessageID{i18n.PortfolioCost, i18n.PortfolioNativeValue, i18n.PortfolioUnrealized} {
+		captions[i] = func(gtx layout.Context) layout.Dimensions {
+			return layout.E.Layout(gtx, view.Body(ui.TextCaption, holdingMetricLabel(l, label), colors.SecondaryInk))
+		}
+	}
+	rows := []ui.ColumnChild{columns(view.Body(ui.TextCaption, l.Text(i18n.AnalysisCurrency), colors.SecondaryInk), captions)}
+	for _, subtotal := range subtotals {
+		currency := subtotal.Currency.String()
+		name := fmt.Sprintf(l.Text(i18n.PortfolioCurrencySubtotal), currency)
+		label := func(gtx layout.Context) layout.Dimensions {
+			return semanticRow(gtx, name, view.Body(ui.TextCaptionStrong, currency, colors.SecondaryInk))
+		}
+		var amounts [3]layout.Widget
+		for i, metric := range holdingMetricValues(view, subtotal.Amounts, "", false) {
+			amounts[i] = func(gtx layout.Context) layout.Dimensions {
+				name := fmt.Sprintf(l.Text(metric.label), metric.value)
+				if metric.reason != "" {
+					name += " · " + l.Text(holdingMissingReason(metric.reason))
+				}
+				return semanticRow(gtx, name, func(gtx layout.Context) layout.Dimensions {
+					return view.LineEnd(gtx, ui.TextLabel, metric.value, metric.ink)
+				})
+			}
+		}
+		rows = append(rows, columns(label, amounts))
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
 	}
 }
 

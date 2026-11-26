@@ -150,7 +150,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	}
 
 	narrowSize := h.size
-	h.size = image.Pt(1280, 1080)
+	h.size = image.Pt(1280, 800)
 	settle()
 	stockHeader := portfolio.holdings.sortButtons[domain.HoldingGroupStock]
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")

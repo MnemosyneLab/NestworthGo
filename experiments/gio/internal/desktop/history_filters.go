@@ -203,6 +203,7 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 						current.to = today
 					}
 					c.dates.oneDayLabel = i18n.AnalysisDayShort
+					c.dates.pinned, c.dates.pinnedPreset = filters.From == "" && filters.To == "", analysisAllDates
 					return c.dates.layout(gtx, view, current, first, today, func(window analysisDateWindow) {
 						next := p.model.Filters()
 						next.From, next.To = window.from, window.to

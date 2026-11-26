@@ -90,6 +90,9 @@ func TestHistoryActivitySummariesAndLocalDateShortcuts(t *testing.T) {
 
 	h.frame()
 	click("Ledger activity")
+	if all := findPageLabel(&h.router, "All history"); all == nil || !all.Desc.Selected {
+		t.Fatal("the unfiltered Ledger should select All history")
+	}
 	label("Money removed · A$15.00 · AUD Cash · Fee")
 	label("Cash dividend · US$12.50 · AAPL · Sample Brokerage")
 	label("Cash dividend · US$12.35 (12.3456 USD) · AAPL · Sample Brokerage")
