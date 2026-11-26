@@ -1728,6 +1728,18 @@ const (
 	HoldingReconValuationFailed
 	HoldingReconObservedValue
 	HoldingReconValuationImpact
+	ProductStandaloneInterestSaved
+	ProductStandaloneInterestHelp
+	ProductStandaloneInterestInvalid
+	ProductStandaloneInterestUnavailable
+	ProductStandaloneInterestHistory
+	ProductStandaloneTermsSaved
+	ProductStandaloneTermsStale
+	ProductStandaloneTermsRetry
+	ProductStandaloneTermsInvalid
+	ProductTermsLoadLatest
+	ProductTermsShortName
+	ProductTermsShortNameHelp
 	ProductEditTerms
 	ProductEditTermsHeading
 	ProductEditName

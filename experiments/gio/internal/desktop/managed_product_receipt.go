@@ -40,9 +40,44 @@ func (r productRead) canRecordReceipt() bool {
 	return r.canConfirmReceipt()
 }
 
+func (r productRead) canRecordInterest() bool {
+	return r.detail != nil && slices.Contains(r.detail.PermittedActions, string(domain.ProductOpReceiveInterest))
+}
+
 type productReceiptInput struct {
 	principal, interest, fee string
 	day, minute              string
+}
+
+type productInterestInput struct {
+	amount, remaining, paidThrough string
+	day, minute                    string
+}
+
+func reviewProductInterest(ctx context.Context, service productReceiptLedger, id domain.ProductContractID, input productInterestInput, clock func() time.Time) (plan productReceiptPlan, err error) {
+	err = service.WithRead(ctx, func(ctx context.Context) error {
+		detail, err := service.Product(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !slices.Contains(detail.PermittedActions, string(domain.ProductOpReceiveInterest)) {
+			return errProductReceiptUnavailable
+		}
+		interest := &application.ReceiveInterestCommand{ProductID: id.String(), Amount: input.amount,
+			EffectiveLocalDate: input.day, EffectiveLocalTime: input.minute,
+			InterestPaidThroughOn: productOptional(input.paidThrough), RemainingInterest: productOptional(input.remaining)}
+		if input.day == "" && input.minute == "" {
+			interest.EffectiveAt = clock().UTC().Format(time.RFC3339Nano)
+		}
+		plan.command = application.ProductCommand{Kind: domain.ProductOpReceiveInterest, ReceiveInterest: interest}
+		plan.review, err = service.PreviewProductOperation(ctx, plan.command)
+		if err != nil {
+			return err
+		}
+		plan.mutation = domain.NewProductOperationID()
+		return nil
+	})
+	return plan, err
 }
 
 type productReceiptPlan struct {
@@ -120,6 +155,40 @@ type productReceiptDraft struct {
 	plan                                 *productReceiptPlan
 	problem                              i18n.MessageID
 	uncertain, focusEditor, focusConfirm bool
+	received                             *productInterestFields
+}
+
+type productInterestFields struct {
+	mode                      domain.InterestMode
+	minimum, maturity, paidOn string
+	paidThrough               ui.DatePicker
+	remaining                 ui.TextField
+}
+
+func (f *productInterestFields) receive(contract domain.ProductContract) {
+	f.mode, f.minimum, f.maturity = contract.InterestMode, contract.StartOn, productString(contract.MaturityOn)
+	if contract.InterestPaidThroughOn != nil {
+		f.minimum = *contract.InterestPaidThroughOn
+	}
+}
+
+func (p *productDetailPage) startInterest() {
+	detail := p.current.detail
+	contract := detail.Contract
+	fields := &productInterestFields{remaining: ui.NewTextField(true)}
+	fields.receive(contract)
+	p.saved = i18n.NoMessage
+	p.receipt = &productReceiptDraft{name: productName(*detail), kind: contract.Kind, focusEditor: true,
+		currency: contract.Currency.String(), timezone: p.current.timezone, principal: ui.NewTextField(true),
+		reviewList: widget.List{List: layout.List{Axis: layout.Vertical}},
+		received:   fields}
+}
+
+func (p *productDetailPage) receiptAction() *widget.Clickable {
+	if p.receipt.received != nil {
+		return &p.startInterestReceipt
+	}
+	return &p.startConfirmation
 }
 
 func (p *productDetailPage) startReceipt() {
@@ -145,9 +214,22 @@ func (p *productDetailPage) reviewReceipt() {
 	if d.reviewing != nil || strings.TrimSpace(d.principal.Text()) == "" {
 		return
 	}
-	input := productReceiptInput{strings.TrimSpace(d.principal.Text()), strings.TrimSpace(d.interest.Text()), strings.TrimSpace(d.fee.Text()), d.day, d.minute}
 	d.problem = i18n.NoMessage
 	id := p.id
+	if d.received != nil {
+		input := productInterestInput{amount: strings.TrimSpace(d.principal.Text()), day: d.day, minute: d.minute}
+		switch d.received.mode {
+		case domain.InterestManualMaturityAmount:
+			input.remaining = strings.TrimSpace(d.received.remaining.Text())
+		case domain.InterestSimpleAct365, domain.InterestSimpleAct360:
+			input.paidThrough = d.received.paidOn
+		}
+		d.reviewing = runHistoryRead(&p.workers, p.invalidate, func() (productReceiptPlan, error) {
+			return reviewProductInterest(p.ctx, p.receipts, id, input, p.clock)
+		})
+		return
+	}
+	input := productReceiptInput{strings.TrimSpace(d.principal.Text()), strings.TrimSpace(d.interest.Text()), strings.TrimSpace(d.fee.Text()), d.day, d.minute}
 	d.reviewing = runHistoryRead(&p.workers, p.invalidate, func() (productReceiptPlan, error) {
 		return reviewProductReceipt(p.ctx, p.receipts, id, input, p.clock)
 	})
@@ -191,12 +273,18 @@ func (p *productDetailPage) pollReceipt() {
 	case result := <-d.posting:
 		d.posting = nil
 		if result.err == nil && result.value.OperationID == d.plan.mutation && len(result.value.ActivityIDs) != 0 {
+			message := i18n.ProductReceiptSaved
+			if d.received != nil {
+				message = i18n.ProductStandaloneInterestSaved
+			}
 			p.receipt = nil
-			p.refreshAfterProductWrite(i18n.ProductReceiptSaved)
+			p.refreshAfterProductWrite(message)
 			return
 		}
-		switch productReceiptProblem(result.err) {
-		case i18n.ProductReceiptChanged, i18n.ProductReceiptTimeInvalid, i18n.ProductReceiptStale:
+		problem := productReceiptProblem(result.err)
+		switch {
+		case problem == i18n.ProductReceiptChanged || problem == i18n.ProductReceiptTimeInvalid || problem == i18n.ProductReceiptStale,
+			d.received != nil && problem == i18n.ProductReceiptAmountsInvalid:
 			// Receipt lookup precedes validation in the shared service.
 			// These rejections establish that this plan did not post.
 			d.problem = productReceiptProblem(result.err)

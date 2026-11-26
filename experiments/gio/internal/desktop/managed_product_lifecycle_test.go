@@ -23,6 +23,8 @@ type standaloneLifecycleFault struct {
 	valuations                 []application.AppendProductValuationInput
 	receipts                   []productReceiptAttempt
 	loseValuation, loseReceipt bool
+	terms                      []application.UpdateProductTermsInput
+	loseTerms                  bool
 }
 
 func (f *standaloneLifecycleFault) AppendProductValuation(ctx context.Context, input application.AppendProductValuationInput) (application.ProductDetail, error) {
@@ -45,6 +47,16 @@ func (f *standaloneLifecycleFault) RecordProductOperation(ctx context.Context, c
 	return receipt, err
 }
 
+func (f *standaloneLifecycleFault) UpdateProductTerms(ctx context.Context, input application.UpdateProductTermsInput) (application.ProductDetail, error) {
+	f.terms = append(f.terms, input)
+	detail, err := f.Service.UpdateProductTerms(ctx, input)
+	if err == nil && f.loseTerms {
+		f.loseTerms = false
+		return application.ProductDetail{}, errors.New("synthetic lost terms response")
+	}
+	return detail, err
+}
+
 type standaloneLifecycleHarness struct {
 	*previewHarness
 	funds    *availableFundsPage
@@ -59,6 +71,7 @@ func newStandaloneLifecycleHarness(t *testing.T, app *application.Service, fault
 	funds.productPage = newProductDetailPage(ctx, app, func() {})
 	p := funds.productPage
 	p.receipts, p.valuations, p.clock = fault, fault, clock
+	p.termsLedger = fault
 	accounts := newAccountsPage(ctx, app, clock, func() {})
 	h := newShellHarnessWithPages(t, ledgerPages{funds: funds, accounts: accounts, version: app.MobileDataVersion})
 	h.size = image.Pt(900, 660)

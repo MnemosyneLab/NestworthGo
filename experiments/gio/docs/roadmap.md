@@ -2200,7 +2200,7 @@ to the account and focuses Add product.
 | --- | --- |
 | Gio and Wails adapter | Four paired cases cover both setup modes from Accounts and Available Funds. Both entries match the USD 50.1234 opening with USD 0.0123 fee and USD 105.8643 cash, and the EUR recorded holding with EUR 49.7891 cost and EUR 52.0123 value and USD 156 cash. The tests exercise retained review Back, Cancel, retry after a lost acknowledgement, stale review and exact SQLite reopen. |
 | Packaged Gio Linux X11 | At 1140×920 shell Back returned to the scoped draft and Cancel preserved nine financial and linkage tables. Return reopened Add product. At 665×480 Return confirmed the preview of USD 105.8643 remaining cash. Restarting at the ordinary entry point and opening the exact new contract from Accounts showed USD 50.1234 and the December 23 maturity. SQLite matched the opening fee, exact review time, unlock date and original rows. Both source hashes matched. The existing-product case is verified by the adapter test. |
-| Remaining | Standalone interest, terms, eligible grouped undo and funding source actions remain open. Interactive Wails and target-platform accessibility remain open. |
+| Remaining | Eligible grouped undo and broader funding source actions remain open. See [standalone interest and terms](#standalone-product-interest-and-terms). Interactive Wails and target-platform accessibility remain open. |
 
 #### Standalone locked-product valuation and redemption
 
@@ -2226,7 +2226,37 @@ checkpoint.
 | Gio and Wails adapter | Independent SQLite copies matched USD 131.2345 at the same valuation instant, with USD 156 cash and existing activity intact. The redemption copied the same effective date, gross USD 132.1234, fee USD 1.2222, and final cash USD 286.9012. Both reservations in the automated case were released. Both tests exercise Cancel, lost-acknowledgement retry and normal SQLite reopen. Valuation tests invalid input, and redemption tests a preview made stale by a newly added reservation. |
 | Packaged Gio Linux X11 | At 1140×920 both forms canceled without a write and Return reopened the original action. At 665×480 keyboard confirmation posted the valuation and then, after a restart, the redemption. Reopen showed USD 131.2345 and USD 156 cash after valuation. After redemption a second restart showed Settled and its exact Ledger sell with USD 132.1234 gross, USD 1.2222 fee and USD 286.9012 cash. The shell Back buttons restored the receipt and account product links, and Return reopened each. SQLite matched the observation timestamp and closed operation, one released USD 25 reservation, and intact earlier rows. Both source hashes matched. |
 | Checks | Full Gio tests, vet, stock Linux packaging, the fixture exporter, focused shared Go and Wails adapter tests, and 64 Wails product sheet, account products and Available Funds navigation tests passed. |
-| Remaining | Standalone interest, terms, eligible grouped undo and pre-maturity term-deposit receipts remain. Renewal is available via linked Reconciliation. Interactive Wails and native macOS and accessibility acceptance remain open. |
+| Remaining | Eligible grouped undo and pre-maturity term-deposit receipts remain. See [standalone interest and terms](#standalone-product-interest-and-terms). Renewal is available via linked Reconciliation. Interactive Wails and native macOS and accessibility acceptance remain open. |
+
+#### Standalone product interest and terms
+
+The product detail reached from Accounts or Available Funds offers **Record
+interest received** when the shared product read permits it. Enter the actual
+interest and, when applicable, the paid-through date or the remaining maturity
+forecast. The shared preview shows the effective time, exact cash and product
+values. Back to details keeps the draft, Cancel returns focus to the action,
+and a lost acknowledgement retries the original reviewed command. The first
+page of the product operation history supplies the latest unreversed interest
+receipt link after reopen.
+
+**Edit terms and rules** opens a scrollable form with the existing terms and
+contract revision. Gio pins Cancel and Save below the form so both stay
+reachable while scrolling in a compact window. Principal, product kind and
+start date are fixed. Open products have the applicable maturity, interest
+and access rules. Closed
+products allow name, note and short name changes. Save uses Wails' standalone
+revision-checked update. After an uncertain response an identical retry
+retains the earlier revision. If that revision has advanced, load the latest
+saved terms before making any further edit. Both actions use the standalone
+Go contracts and produce no reconciliation links.
+[Wails interest](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx) · [Wails terms](../../../frontend/src/features/liquidity/ProductEditSheet.tsx) · [Wails adapter](../../../internal/wailsapi/liquidity/liquidity.go)
+
+| Evidence | Observed result |
+| --- | --- |
+| Gio and Wails adapter | Independent copies matched manual interest of USD 3.4568, remaining interest USD 6.4197, principal USD 125.25, value USD 123.4567, and cash USD 159.4568. A simple-interest deposit matched USD 1.0123, exact paid-through date, USD 50.1234 principal and USD 106.8766 cash after reopen. The terms case matched USD 0.0123 fee, two-day settlement, name and short name, one new revision and unchanged principal, value, cash and activities. Tests exercise Cancel, invalid draft, stale preview, exact retry, revision conflict and reload. |
+| Packaged Gio Linux X11 | At 1140×920, Cancel left interest and terms unchanged and Return reopened the originating action. At 665×480, keyboard confirmation posted interest and saved terms. The terms picker remained usable after scrolling. SQLite reopen showed one USD 3.4568 interest activity, USD 159.4568 cash, principal USD 125.25, value USD 123.4567 and USD 6.4197 forecast. The terms edit saved a two-day settlement and USD 0.0123 exit fee without another financial entry. The resumed app opened the exact interest entry from Accounts. Shell Back restored the receipt link and Return reopened it at compact width. The reservation, earlier immutable rows and independent source checksums stayed intact. |
+| Checks | Full Gio tests and vet, the Linux package build, fixture exporter, focused application and Wails adapter suites, and 64 Wails product sheet, account and Available Funds navigation tests passed. |
+| Remaining | Grouped undo, fuller operation history and pre-maturity term-deposit receipts remain. The existing due-only Tasks verification keeps its eligibility and time guards. Native macOS and interactive Wails remain open. |
 
 #### Read-only term deposits
 
@@ -2368,8 +2398,8 @@ statement sessions.
 
 Broader investment work still includes remaining linked cash, balance and other reconciliation activity, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
-include standalone interest, terms, eligible grouped undo, pre-maturity term
-deposit receipts, and broader policy and reservation actions. Renewal is covered
+include eligible grouped undo, pre-maturity term deposit receipts, and broader
+policy and reservation actions. Renewal is covered
 through linked Reconciliation.
 Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
@@ -3040,8 +3070,9 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 #### Follow-up order across Stages 4 to 6
 
 1. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
-   Standalone locked-product valuation and redemption are covered. Prioritize
-   applicable interest, terms and eligible grouped undo. Renewal is covered
+   Standalone locked-product valuation and redemption, interest and terms are
+   covered. Prioritize eligible grouped undo and the pre-maturity term-deposit
+   receipt. Renewal is covered
    through Reconciliation in Gio, and the traced Wails product detail has no
    standalone renewal action. Keep funding source and reservation effects
    explicit.

@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|standalone-interest-terms|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -288,6 +288,16 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   once, return to the focused action, and review and post again. Restart
   and open the exact redemption in Ledger. The product is settled, the
   account shows the same cash, and the saved reservation is released.
+
+- Run `run_copy standalone-interest-terms gio` and
+  `run_copy standalone-interest-terms wails`. Open Synthetic locked
+  product from Harbor Brokerage. Review interest of USD 3.4568 with USD
+  6.4197 remaining, cancel once, and confirm a fresh review. Check the
+  latest interest link and identical principal and contract value after
+  restart. Open Edit terms and rules, cancel one draft, then save a new
+  name, two settlement days and a USD 0.0123 exit fee. Restart and verify
+  the exact policy, USD 125.25 principal, USD 123.4567 value, USD
+  159.4568 cash and absence of any further activity.
 
 - Run `run_copy linked-debt-value gio` and
   `run_copy linked-debt-value wails`. In Tasks, Reconciliation, open the

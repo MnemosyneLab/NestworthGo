@@ -24,6 +24,7 @@ type productReader interface {
 	availableFundsReader
 	Product(context.Context, domain.ProductContractID) (application.ProductDetail, error)
 	ReadProductOperationReceipt(context.Context, domain.ProductOperationID) (application.ProductOperationReceipt, error)
+	ListProductOperations(context.Context, domain.ProductContractID, string, int) (application.ProductOperationPage, error)
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
 }
 
@@ -35,6 +36,7 @@ type productRead struct {
 	localDate, timezone string
 	unpaidInterest      *domain.Money
 	settlement          []domain.Activity
+	interestActivity    domain.ActivityID
 }
 
 func readProduct(ctx context.Context, service productReader, id domain.ProductContractID) (out productRead, err error) {
@@ -106,33 +108,37 @@ func readProduct(ctx context.Context, service productReader, id domain.ProductCo
 }
 
 type productDetailPage struct {
-	ctx               context.Context
-	service           productReader
-	invalidate        func()
-	workers           sync.WaitGroup
-	id                domain.ProductContractID
-	cancel            context.CancelFunc
-	request           <-chan historyResult[productRead]
-	current           *productRead
-	err               error
-	list              widget.List
-	reload            widget.Clickable
-	accounts          map[domain.AccountID]*widget.Clickable
-	openAccount       func(domain.AccountID, string, event.Tag)
-	openActivity      func(domain.ActivityID, event.Tag)
-	activities        map[domain.ActivityID]*widget.Clickable
-	receipts          productReceiptLedger
-	receipt           *productReceiptDraft
-	valuations        productValuationLedger
-	valuation         *productValuationDraft
-	saved             i18n.MessageID
-	focusAction       *widget.Clickable
-	receiptRequested  bool
-	receiptChanged    bool
-	startConfirmation widget.Clickable
-	startValuation    widget.Clickable
-	clock             func() time.Time
-	onProductSaved    func()
+	ctx                  context.Context
+	service              productReader
+	invalidate           func()
+	workers              sync.WaitGroup
+	id                   domain.ProductContractID
+	cancel               context.CancelFunc
+	request              <-chan historyResult[productRead]
+	current              *productRead
+	err                  error
+	list                 widget.List
+	reload               widget.Clickable
+	accounts             map[domain.AccountID]*widget.Clickable
+	openAccount          func(domain.AccountID, string, event.Tag)
+	openActivity         func(domain.ActivityID, event.Tag)
+	activities           map[domain.ActivityID]*widget.Clickable
+	receipts             productReceiptLedger
+	receipt              *productReceiptDraft
+	valuations           productValuationLedger
+	valuation            *productValuationDraft
+	termsLedger          productTermsLedger
+	terms                *productTermsDraft
+	saved                i18n.MessageID
+	focusAction          *widget.Clickable
+	receiptRequested     bool
+	receiptChanged       bool
+	startConfirmation    widget.Clickable
+	startInterestReceipt widget.Clickable
+	startTermsEdit       widget.Clickable
+	startValuation       widget.Clickable
+	clock                func() time.Time
+	onProductSaved       func()
 }
 
 func newProductDetailPage(ctx context.Context, service productReader, invalidate func()) *productDetailPage {
@@ -142,13 +148,13 @@ func newProductDetailPage(ctx context.Context, service productReader, invalidate
 
 func (p *productDetailPage) enter(id domain.ProductContractID, position layout.Position, verifyReceipt bool) {
 	p.id, p.current, p.list.Position = id, nil, position
-	p.receipt, p.valuation, p.saved, p.focusAction = nil, nil, i18n.NoMessage, nil
+	p.receipt, p.valuation, p.terms, p.saved, p.focusAction = nil, nil, nil, i18n.NoMessage, nil
 	p.receiptRequested, p.receiptChanged = verifyReceipt, false
 	p.read()
 }
 
 func (p *productDetailPage) unresolved() bool {
-	return p != nil && (p.receiptUnresolved() || p.valuationUnresolved())
+	return p != nil && (p.receiptUnresolved() || p.valuationUnresolved() || p.terms != nil && p.terms.posting != nil)
 }
 
 func (p *productDetailPage) refreshAfterProductWrite(message i18n.MessageID) {
@@ -175,8 +181,38 @@ func (p *productDetailPage) read() {
 	p.cancel = cancel
 	id := p.id
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (productRead, error) {
-		return readProduct(ctx, p.service, id)
+		var result productRead
+		err := p.service.WithRead(ctx, func(ctx context.Context) error {
+			var err error
+			result, err = readProduct(ctx, p.service, id)
+			if err != nil || result.detail == nil {
+				return err
+			}
+			result.interestActivity, err = readRecentProductInterest(ctx, p.service, id)
+			return err
+		})
+		return result, err
 	})
+}
+
+func readRecentProductInterest(ctx context.Context, service productReader, id domain.ProductContractID) (domain.ActivityID, error) {
+	history, err := service.ListProductOperations(ctx, id, "", 25)
+	if err != nil {
+		return "", err
+	}
+	for _, row := range history.Operations {
+		if row.Kind != domain.ProductOpReceiveInterest || row.ReversedByOperationID != nil {
+			continue
+		}
+		receipt, err := service.ReadProductOperationReceipt(ctx, row.ID)
+		if err != nil {
+			return "", err
+		}
+		if len(receipt.ActivityIDs) == 1 {
+			return receipt.ActivityIDs[0], nil
+		}
+	}
+	return "", nil
 }
 
 func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -184,6 +220,9 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	case result := <-p.request:
 		p.leave()
 		p.current, p.err = &result.value, result.err
+		if p.receipt != nil && p.receipt.received != nil && p.current.detail != nil {
+			p.receipt.received.receive(p.current.detail.Contract)
+		}
 		if p.receiptRequested && p.err == nil {
 			// This is a one-shot navigation intent. Only a freshly read,
 			// eligible contract can open the draft, and opening it never posts.
@@ -198,11 +237,15 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	}
 	p.pollReceipt()
 	p.pollValuation()
+	p.pollTerms()
 	if p.receipt != nil {
 		return p.layoutReceipt(gtx, view)
 	}
 	if p.valuation != nil {
 		return p.layoutValuation(gtx, view)
+	}
+	if p.terms != nil {
+		return p.layoutTerms(gtx, view)
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
@@ -225,8 +268,7 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.request != nil {
 						gtx = gtx.Disabled()
-					} else if p.focusAction == &p.startValuation &&
-						(status != i18n.NoMessage || !canUpdateProductValuation(*p.current.detail)) {
+					} else if p.focusAction != nil && (status != i18n.NoMessage || !p.actionAvailable(p.focusAction)) {
 						gtx.Execute(key.FocusCmd{Tag: &p.reload})
 						p.focusAction = nil
 					}
@@ -340,15 +382,45 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 			rows = append(rows, fundsCard(view, l.Text(i18n.ProductReceiptRecorded), links...))
 		}
 	}
+	if id := p.current.interestActivity; id != "" && p.openActivity != nil {
+		button := portfolioButton(p.activities, id)
+		rows = append(rows, fundsCard(view, l.Text(i18n.ProductStandaloneInterestHistory), func(gtx layout.Context) layout.Dimensions {
+			if button.Clicked(gtx) {
+				p.openActivity(id, button)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			view.Focus.Watch(gtx, button)
+			return layout.W.Layout(gtx, view.Button(button, l.Text(i18n.ProductInterestHistory)))
+		}))
+	}
 	canRecord := p.receipts != nil && p.current.canRecordReceipt()
 	actions := productActions(view, *product, p.receipts == nil || canRecord)
 	if canRecord {
 		actions[0] = p.lifecycleAction(view, &p.startConfirmation, i18n.ProductReceiptAction, true, p.startReceipt)
 	}
+	if p.receipts != nil && p.current.canRecordInterest() {
+		actions[1] = p.lifecycleAction(view, &p.startInterestReceipt, i18n.HoldingReconProductInterest, false, p.startInterest)
+	}
 	if p.valuations != nil && canUpdateProductValuation(*product) {
 		actions = append(actions, p.lifecycleAction(view, &p.startValuation, i18n.HoldingReconProductValuation, false, p.beginValuation))
 	}
+	if p.termsLedger != nil {
+		actions = append([]layout.Widget{p.lifecycleAction(view, &p.startTermsEdit, i18n.ProductEditTerms, false, p.startTerms)}, actions...)
+	}
 	return append(rows, fundsCard(view, l.Text(i18n.ProductActions), actions...))
+}
+
+func (p *productDetailPage) actionAvailable(button *widget.Clickable) bool {
+	switch button {
+	case &p.startConfirmation:
+		return p.current.canRecordReceipt()
+	case &p.startInterestReceipt:
+		return p.current.canRecordInterest()
+	case &p.startValuation:
+		return canUpdateProductValuation(*p.current.detail)
+	default:
+		return true
+	}
 }
 
 func (p *productDetailPage) lifecycleAction(view ui.View, button *widget.Clickable, label i18n.MessageID, primary bool, begin func()) layout.Widget {
