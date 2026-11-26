@@ -43,13 +43,17 @@ func valueRow(view ui.View, name, amount, caption string) layout.Widget {
 // amount mid-sentence falls back to plain text.
 func labeledAmount(view ui.View, pattern i18n.MessageID, value string, ink color.NRGBA) layout.Widget {
 	text := view.Language.Text(pattern)
-	full := fmt.Sprintf(text, value)
 	const marker = "\x00"
 	name, ok := strings.CutSuffix(fmt.Sprintf(text, marker), marker)
 	if !ok {
-		return view.Message(full, ink)
+		return view.Message(fmt.Sprintf(text, value), ink)
 	}
-	name = strings.TrimRight(name, " ·:：")
+	return labeledRow(view, fmt.Sprintf(text, value), strings.TrimRight(name, " ·:："), value, ink)
+}
+
+// labeledRow draws a muted name on the left and a figure on the right. full is
+// the accessible label of the whole row.
+func labeledRow(view ui.View, full, name, value string, ink color.NRGBA) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		macro := op.Record(gtx.Ops)
 		dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,

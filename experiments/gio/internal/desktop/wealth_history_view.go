@@ -235,6 +235,12 @@ func (p *wealthHistoryPage) wealthRow(gtx layout.Context, view ui.View, row weal
 }
 
 func wealthAmount(view ui.View, label i18n.MessageID, value domain.ValuationAmount) string {
+	name, display := wealthAmountParts(view, label, value)
+	return name + " · " + display
+}
+
+// wealthAmountParts splits wealthAmount into its caption and the figure.
+func wealthAmountParts(view ui.View, label i18n.MessageID, value domain.ValuationAmount) (name, display string) {
 	l := view.Language
 	parts := []string{l.Text(label)}
 	money := value.Total
@@ -249,12 +255,11 @@ func wealthAmount(view ui.View, label i18n.MessageID, value domain.ValuationAmou
 	case money != nil && value.Quality.Coverage == domain.CoverageProvisional:
 		parts = append(parts, l.Text(i18n.WealthHistoryProvisional))
 	}
-	if money == nil {
-		parts = append(parts, l.Text(i18n.OverviewNoValue))
-	} else {
-		parts = append(parts, valuationMoney(view, *money, label == i18n.Liabilities))
+	display = l.Text(i18n.OverviewNoValue)
+	if money != nil {
+		display = valuationMoney(view, *money, label == i18n.Liabilities)
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, " · "), display
 }
 
 func wealthCoverage(view ui.View, point *application.HistoricalSeriesPoint) string {

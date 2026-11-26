@@ -75,8 +75,9 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	width, gap := gtx.Constraints.Max.X, gtx.Dp(10)
-	modes := (ui.Wrap{Gap: 8}).Layout(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
-		return analysisToggle(view, &a.modes[index], l.Text(labels[index]), a.draft.mode == wealthAccountMode(index))(gtx)
+	modes := view.TabTrack(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
+		view.Focus.Watch(gtx, &a.modes[index])
+		return view.TabSegment(&a.modes[index], l.Text(labels[index]), a.draft.mode == wealthAccountMode(index))(gtx)
 	})
 	offset := modes.Size.Y + gap
 	dates := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -181,15 +182,18 @@ func wealthAccountSummary(view ui.View, result application.HistoricalOverviewRes
 			func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 				endpoint := endpoints[index]
 				label := wealthEndpointLabel(l, view, endpoint, index)
-				return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						v := endpoint.DisplayValuation
-						return (ui.Column{Gap: 5}).Layout(gtx,
-							ui.Rigid(view.Body(ui.TextLabel, label+" · "+endpoint.Currency, view.Colors.Ink)),
-							ui.Rigid(view.Message(wealthAmount(view, i18n.NetWorth, v.NetWorth), view.Colors.Ink)),
-							ui.Rigid(view.Message(wealthAmount(view, i18n.Assets, v.Assets), view.Colors.Ink)),
-							ui.Rigid(view.Message(wealthAmount(view, i18n.Liabilities, v.Liabilities), view.Colors.Ink)))
-					})
+				return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+					v := endpoint.DisplayValuation
+					row := func(id i18n.MessageID, amount domain.ValuationAmount) ui.ColumnChild {
+						name, display := wealthAmountParts(view, id, amount)
+						return ui.Rigid(labeledRow(view, name+" · "+display, name, display, view.Colors.Ink))
+					}
+					return (ui.Column{Gap: ui.Space8}).Layout(gtx,
+						ui.Rigid(view.Body(ui.TextHeading, label+" · "+endpoint.Currency, view.Colors.Ink)),
+						ui.Rigid(view.Hairline),
+						row(i18n.NetWorth, v.NetWorth),
+						row(i18n.Assets, v.Assets),
+						row(i18n.Liabilities, v.Liabilities))
 				})
 			})
 	}))
