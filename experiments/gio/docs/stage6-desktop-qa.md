@@ -73,6 +73,22 @@ arrives, and Return reopens the same driver. This timing regression uses
 the paired shared Go results. Its artificial delay runs only in the frame
 test.
 
+## macOS standalone bank expense amendments
+
+The stock Gio bundle at `dfadb661648e31305123b2265105f769f1d6d670` and
+the Wails reference at `8d98844` used byte-identical copies of one
+synthetic bank ledger. Wails opened Fix and Undo from the activity menu.
+Gio opened Correct amount and Reverse activity from the exact receipt.
+Cancelling a reviewed correction preserved the activity, effects,
+correction groups, bank values and reconciliation links.
+
+Replacing USD 12.3456 with USD 10.2345 retained the expense reason, note and
+original effective instant. Reversing a separate USD 4.5678 expense appended
+its exact inverse. SQLite readback after normal quit found three additional
+activities, retained both original records and the unrelated linked
+expense, and agreed on a final bank balance of USD 88.531. The independent
+Go regression also verifies the intermediate USD 83.9632 balance.
+
 ## Reproduce the automated pair
 
 From the repository root, run:
