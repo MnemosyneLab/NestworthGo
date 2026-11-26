@@ -2384,6 +2384,11 @@ var englishCatalog = catalog{
 	ReconciliationCurrentValue:   "Current value · %s",
 	ReconciliationValueUnchanged: "The new value matches the current value.",
 
+	ReconciliationStartPreview:   "Preview",
+	ReconciliationExplicitReview: "Confirm only what you have reviewed. Saving a correction does not confirm a check.",
+	ReconciliationStartCounts:    "Pending %d · Unresolved %d · Confirmed %d · Skipped %d",
+	ReconciliationRetryStart:     "Retry same submission",
+
 	TasksReviewAcknowledge:          "Acknowledge",
 	TasksReviewAcknowledging:        "Saving acknowledgement…",
 	TasksReviewAcknowledged:         "Acknowledgement saved.",

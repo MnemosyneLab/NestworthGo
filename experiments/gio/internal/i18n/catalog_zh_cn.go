@@ -2377,12 +2377,17 @@ var simplifiedChineseCatalog = catalog{
 	ReconciliationShowScope:        "显示核对项 · %s",
 	ReconciliationHideScope:        "隐藏核对项 · %s",
 
-	ReconciliationStart:          "开始对账",
+	ReconciliationStart:          "开始核对",
 	ReconciliationSessions:       "对账会话",
 	ReconciliationOpen:           "打开对账 · %s",
 	ReconciliationNewValue:       "新估值",
 	ReconciliationCurrentValue:   "当前估值 · %s",
 	ReconciliationValueUnchanged: "新估值与当前估值相同。",
+
+	ReconciliationStartPreview:   "预览",
+	ReconciliationExplicitReview: "仅确认您已审阅的内容。保存更正不会自动确认核对项。",
+	ReconciliationStartCounts:    "待核对 %d · 差异未解决 %d · 已确认 %d · 已跳过 %d",
+	ReconciliationRetryStart:     "重试同一提交",
 
 	TasksReviewAcknowledge:          "确认已阅",
 	TasksReviewAcknowledging:        "正在保存确认…",

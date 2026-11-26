@@ -2279,6 +2279,10 @@ const (
 	ReconciliationShowScope
 	ReconciliationHideScope
 	ReconciliationStart
+	ReconciliationStartPreview
+	ReconciliationExplicitReview
+	ReconciliationStartCounts
+	ReconciliationRetryStart
 	ReconciliationSessions
 	ReconciliationOpen
 	ReconciliationNewValue

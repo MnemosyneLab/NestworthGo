@@ -341,7 +341,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
-	if d.review != nil {
+	if d.review != nil && d.action != statement.Start {
 		return p.layoutHoldingReconReview(gtx, view)
 	}
 	title := i18n.HoldingReconCorrect
@@ -458,6 +458,10 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 					gtx = gtx.Disabled()
 				}
 				view.Focus.Watch(gtx, &d.preview)
+				if d.startSheet != nil && d.startSheet.restorePreview && gtx.Enabled() {
+					gtx.Execute(key.FocusCmd{Tag: &d.preview})
+					d.startSheet = nil
+				}
 				return view.PrimaryButton(&d.preview, l.Text(i18n.HoldingReconReview))(gtx)
 			}))
 	})
@@ -492,13 +496,8 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	} else if r.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(r.session), view.Colors.Ink),
 			view.Message(l.Text(statementStatus(*r.session)), view.Colors.Ink))
-		if d.action == statement.Start || d.action == statement.Finish || d.check != nil {
+		if d.action == statement.Finish || d.check != nil {
 			rows = append(rows, holdingReconCounts(view, *r.session))
-		}
-		if d.action == statement.Start {
-			started := statementRecordedTime(view, r.session.StartedAt)
-			rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.TasksStatementStarted), started), view.Colors.SecondaryInk))
-			rows = append(rows, reconciliationStartEvidence(view, d.selection, r.session.Accounts)...)
 		}
 		if d.action == statement.Finish {
 			rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk))

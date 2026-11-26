@@ -251,7 +251,9 @@ func (p *tasksPage) update() {
 func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
 	if p.holdingRecon.active() {
-		p.pollHoldingReconciliation()
+		if p.startReconciliationDraft() == nil {
+			p.pollHoldingReconciliation()
+		}
 		return p.layoutHoldingReconciliation(gtx, view)
 	}
 	if p.checks != nil {

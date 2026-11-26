@@ -2383,6 +2383,11 @@ var japaneseCatalog = catalog{
 	ReconciliationCurrentValue:   "現在の評価額 · %s",
 	ReconciliationValueUnchanged: "新しい評価額は現在の評価額と同じです。",
 
+	ReconciliationStartPreview:   "プレビュー",
+	ReconciliationExplicitReview: "確認した項目だけを確定してください。訂正の保存だけでは照合は確定しません。",
+	ReconciliationStartCounts:    "確認待ち %d · 未解決 %d · 確認済み %d · スキップ済み %d",
+	ReconciliationRetryStart:     "同じ送信を再試行",
+
 	TasksReviewAcknowledge:          "確認済みにする",
 	TasksReviewAcknowledging:        "確認を保存しています…",
 	TasksReviewAcknowledged:         "確認を保存しました。",

@@ -739,7 +739,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() {
+	if s.activeRoute() == tasksRoute && s.tasks.startReconciliationDraft() != nil {
+		s.tasks.pollHoldingReconciliation()
+	}
+	if s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -801,6 +804,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.accounts.layoutAccountCreateSheet(windowContext, view)
+		return dims
+	}
+	if s.startReconciliationReviewOpen() {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.tasks.layoutStartReconciliationReview(windowContext, view)
 		return dims
 	}
 	dims := background(gtx)

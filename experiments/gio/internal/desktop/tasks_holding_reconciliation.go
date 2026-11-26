@@ -103,6 +103,7 @@ type holdingReconDraft struct {
 	reading                              <-chan historyResult[holdingReconReview]
 	writing                              <-chan historyResult[string]
 	review                               *holdingReconReview
+	startSheet                           *reconciliationStartSheet
 	problem                              i18n.MessageID
 	initialFocus, reviewFocus, uncertain bool
 }
@@ -434,6 +435,9 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		switch {
 		case result.err == nil && result.value.planID != "":
 			d.review, d.reviewFocus = &result.value, true
+			if d.action == statement.Start {
+				d.startSheet = newReconciliationStartSheet()
+			}
 		case d.action == statement.Start && reconciliationStartAccountsChanged(result.err):
 			d.problem = i18n.ReconciliationScopeRefresh
 			p.read()
@@ -511,6 +515,7 @@ func (p *tasksPage) pollHoldingReconciliation() {
 		}
 		if holdingReconStale(result.err) || d.action == statement.Start && reconciliationStartAccountsChanged(result.err) {
 			d.review, d.uncertain, d.problem, d.initialFocus = nil, false, i18n.HoldingReconChanged, true
+			d.startSheet = nil
 			if d.product != nil && d.product.add == nil {
 				p.loadHoldingProduct(d.product)
 			}
