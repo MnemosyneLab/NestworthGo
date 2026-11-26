@@ -16,6 +16,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+const directoryInlineActionsWidth = 540
+
 func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item directoryRow, buttons *directoryRowButtons) layout.Dimensions {
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -170,7 +172,7 @@ func (p *directoryList) inlineEditor(gtx layout.Context, view ui.View, row direc
 				)
 			}
 			axis := layout.Horizontal
-			if gtx.Constraints.Max.X < gtx.Dp(540) {
+			if gtx.Constraints.Max.X < gtx.Dp(directoryInlineActionsWidth) {
 				axis = layout.Vertical
 			}
 			var dims layout.Dimensions
