@@ -105,6 +105,7 @@ run_copy() (
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
     early-deposit-receipt) household='Synthetic term deposits' ;;
+    funds-reservations) household='Synthetic funds' ;;
     locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|standalone-interest-terms|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections|product-operation-history) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
@@ -117,11 +118,26 @@ run_copy() (
   export NESTWORTH_DATABASE_PATH="$copy/nestworth.db"
   export NESTWORTH_SETTINGS_PATH="$copy/settings.json"
   test -f "$NESTWORTH_SETTINGS_PATH"
-  test "$(/usr/bin/sqlite3 -readonly "$NESTWORTH_DATABASE_PATH" 'select name from households')" = "$household"
+  # The exporter checkpoints and closes the fixture. A first launch may
+  # have a WAL-mode header before SQLite has created either sidecar.
+  marker_db=$NESTWORTH_DATABASE_PATH
+  if test ! -e "$NESTWORTH_DATABASE_PATH-wal"; then
+    marker_db="file:$NESTWORTH_DATABASE_PATH?immutable=1"
+  fi
+  test "$(/usr/bin/sqlite3 -readonly "$marker_db" 'select name from households')" = "$household"
   exec "$executable"
 )
 ```
 
+- Run `run_copy funds-reservations gio` and `run_copy funds-reservations wails`.
+  Open Available Funds, select a custom future date, and open Manage
+  reservations from the asset list. Cancel an edit to Rent, then reopen it
+  and save 50.1234 USD. Confirm Harbor Savings shows 75.3087 USD available
+  after reservations on the same selected date. Add a 4.9234 EUR reservation
+  on Travel Wallet cash and confirm 20.3266 EUR remains. Release Old reserve
+  from the global manager and check that the unresolved item disappears.
+  Compare the values after quitting and reopening each app. Keep the original
+  screenshots of the manager, edit form, and source balances for each app.
 - Run `run_copy snapshots gio` and `run_copy snapshots wails` one at a time.
   Open Data Health from Overview. Inspect the outdated snapshot and open
   the one-day rebuild sheet. Check its date against the exporter output.

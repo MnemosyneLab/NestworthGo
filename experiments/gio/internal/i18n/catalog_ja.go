@@ -1737,6 +1737,11 @@ var japaneseCatalog = catalog{
 	FundsPolicyEarlyRequired: "早期利用時の受取日数、手数料、金額の基準を入力してください。",
 
 	ReserveManage:              "確保を管理 · %s",
+	ReserveManageAll:           "確保を管理",
+	ReserveEdit:                "確保を編集",
+	ReserveEditRow:             "編集 · %s",
+	ReserveSource:              "資金源",
+	ReserveChooseSource:        "確保できる資金源を選んでください。",
 	ReserveTitle:               "資金の確保",
 	ReserveAdd:                 "資金を確保",
 	ReserveBack:                "利用可能資金に戻る",

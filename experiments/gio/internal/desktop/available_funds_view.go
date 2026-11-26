@@ -323,6 +323,9 @@ func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.Liq
 			}
 		}
 		children := []layout.FlexChild{layout.Rigid(view.Body(ui.TextHeading, fmt.Sprintf(l.Text(i18n.FundsSourcesByDate), historyDay(view, bucket.HorizonOn)), view.Colors.Ink))}
+		if p.reservationLedger != nil {
+			children = append(children, layout.Rigid(p.globalReservationButton(view, &p.manageReservations)))
+		}
 		switch {
 		case counts[fundsExcluded] == counts[fundsAll]:
 			children = append(children, layout.Rigid(view.Message(l.Text(i18n.FundsAllExcluded), view.Colors.SecondaryInk)))

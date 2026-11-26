@@ -2,6 +2,9 @@ package desktop
 
 import (
 	"fmt"
+	"image"
+	"slices"
+	"strings"
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -37,14 +40,35 @@ func (p *availableFundsPage) reservationButton(view ui.View, name string, source
 	}
 }
 
+func (p *availableFundsPage) globalReservationButton(view ui.View, button *widget.Clickable) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if p.reservationLedger == nil {
+			return layout.Dimensions{}
+		}
+		if button.Clicked(gtx) {
+			p.openReservations(domain.LiquiditySourceRef{}, "", button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		view.Focus.Watch(gtx, button)
+		return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{
+			Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.ReserveManageAll),
+		}))
+	}
+}
+
 func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reservation, view.Language
 	gtx, view = view.Measure(gtx, 690)
 	if r.close.Clicked(gtx) && !p.reservationUnresolved() {
 		if r.plan != nil {
 			r.plan = nil
+			if r.editing {
+				r.label.Focus(gtx)
+			} else {
+				r.restoreFocus = true
+			}
 		} else if r.editing {
-			r.editing, r.notice = false, i18n.NoMessage
+			r.editing, r.editRow, r.notice, r.restoreFocus = false, nil, i18n.NoMessage, true
 		} else {
 			p.reservation = nil
 			gtx.Execute(key.FocusCmd{Tag: r.entry})
@@ -60,6 +84,9 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 	title := i18n.ReserveTitle
 	if r.editing {
 		title = i18n.ReserveAdd
+		if r.editRow != nil {
+			title = i18n.ReserveEdit
+		}
 	}
 	if r.plan != nil {
 		title = i18n.ReserveReview
@@ -67,133 +94,237 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 			title = i18n.ReserveRelease
 		}
 	}
-	source := r.name
-	if r.current != nil && r.current.currency != "" {
-		source += " · " + r.current.currency.String()
+	var header []ui.ColumnChild
+	height := 0
+	appendRow := func(w layout.Widget) {
+		header = append(header, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			dims := w(gtx)
+			height += dims.Size.Y + gtx.Dp(ui.Space8)
+			return dims
+		}))
 	}
-	header := []layout.FlexChild{
-		layout.Rigid(tradeTitle(view, title)),
-		layout.Rigid(view.Message(source, view.Colors.Ink)),
+	appendRow(tradeTitle(view, title))
+	if r.source.Kind != "" && !r.editing {
+		name := r.name
+		if r.current != nil {
+			name = reservationSourceName(view, r.current.source(r.source), r.current.accounts[r.source.AccountID].Name)
+		}
+		appendRow(view.Message(name, view.Colors.Ink))
 	}
 	if r.notice != i18n.NoMessage {
 		color := view.Colors.ErrorInk
 		if r.notice == i18n.ReserveSaved || r.notice == i18n.ReserveReleasedNotice {
 			color = view.Colors.Ink
 		}
-		header = append(header, layout.Rigid(view.Message(l.Text(r.notice), color)))
+		appendRow(view.Message(l.Text(r.notice), color))
 	}
 	switch {
 	case r.write != nil:
-		header = append(header, layout.Rigid(view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)))
+		appendRow(view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk))
 	case r.read != nil:
-		header = append(header, layout.Rigid(view.Message(l.Text(i18n.FundsLoading), view.Colors.SecondaryInk)))
+		appendRow(view.Message(l.Text(i18n.FundsLoading), view.Colors.SecondaryInk))
 	case r.readError:
 		message := i18n.FundsReadFailed
 		if r.checking {
 			message = i18n.ReserveVerifyFailed
 		}
-		header = append(header, layout.Rigid(view.Message(l.Text(message), view.Colors.ErrorInk)),
-			layout.Rigid(view.Button(&r.retry, l.Text(i18n.HistoryRetry))))
+		appendRow(view.Message(l.Text(message), view.Colors.ErrorInk))
+		appendRow(view.Button(&r.retry, l.Text(i18n.HistoryRetry)))
 	case r.plan != nil:
-		header = append(header, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.layoutReservationReview(gtx, view)
-		}))
+		appendRow(func(gtx layout.Context) layout.Dimensions { return p.layoutReservationReview(gtx, view) })
 	case r.editing:
-		header = append(header, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		appendRow(func(gtx layout.Context) layout.Dimensions {
+			view.Origin.Y += height
 			return r.layoutReservationDraft(gtx, view)
-		}))
+		})
 	default:
-		header = append(header,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, view.Button(&r.close, l.Text(i18n.ReserveBack)))
-			}),
-			layout.Rigid(fundsAmount(view, i18n.FundsAvailableAfter, r.current.day.UnreservedNative)),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.reservationListActions(gtx, view) }),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return r.layoutReservationList(gtx, view) }))
+		appendRow(func(gtx layout.Context) layout.Dimensions {
+			if r.restoreFocus {
+				focus := r.actionFocus
+				if focus == nil || focus == &r.add && !r.canAdd() {
+					focus = &r.close
+				}
+				gtx.Execute(key.FocusCmd{Tag: focus})
+				r.restoreFocus = false
+			}
+			return layout.W.Layout(gtx, view.Button(&r.close, l.Text(i18n.ReserveBack)))
+		})
+		if r.source.Kind != "" {
+			appendRow(fundsAmount(view, i18n.FundsAvailableAfter, r.current.available(r.source)))
+		}
+		appendRow(func(gtx layout.Context) layout.Dimensions { return p.reservationListActions(gtx, view) })
+		header = append(header, ui.Fill(func(gtx layout.Context) layout.Dimensions { return r.layoutReservationList(gtx, view) }))
 	}
 	if r.readError && !r.checking {
-		header = append(header, layout.Rigid(view.Button(&r.close, l.Text(i18n.ReserveBack))))
+		appendRow(view.Button(&r.close, l.Text(i18n.ReserveBack)))
 	}
-	gtx = ui.FitWindow(gtx)
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, header...)
+	return (ui.Column{Gap: ui.Space8}).Layout(gtx, header...)
+}
+
+func (r *fundsReservationSession) canAdd() bool {
+	if r.source.Kind != "" {
+		return reservableFundsSource(r.current.source(r.source))
+	}
+	return slices.ContainsFunc(r.current.sources, func(source domain.LiquiditySourceResult) bool {
+		return reservableFundsSource(&source)
+	})
 }
 
 func (p *availableFundsPage) reservationListActions(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reservation, view.Language
-	if !r.current.eligible {
+	if !r.canAdd() {
 		return view.Message(l.Text(i18n.ReserveSourceUnavailable), view.Colors.SecondaryInk)(gtx)
 	}
 	if r.add.Clicked(gtx) {
-		r.editing, r.notice = true, i18n.NoMessage
-		r.label.Editor.SetText("")
-		r.amount.Editor.SetText("")
-		r.label.Focus(gtx)
+		r.startDraft(gtx, nil, &r.add)
+		if r.source.Kind == "" {
+			gtx.Execute(key.FocusCmd{Tag: &r.picker.Trigger})
+		}
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	return layout.W.Layout(gtx, view.PrimaryButton(&r.add, l.Text(i18n.ReserveAdd)))
+}
+
+func reservationSourceName(view ui.View, source *domain.LiquiditySourceResult, account string) string {
+	if source == nil {
+		return strings.TrimSpace(strings.Join([]string{account, view.Language.Text(i18n.ReserveSourceUnavailable)}, " "))
+	}
+	name := source.DisplayName
+	switch source.Ref.Kind {
+	case domain.SourceAccountCash:
+		if account != "" {
+			name = fmt.Sprintf(view.Language.Text(i18n.FundsCashSource), account)
+		}
+	case domain.SourceHolding:
+		if account != "" {
+			name = account + " · " + name
+		}
+	}
+	return name + " · " + source.NativeCurrency.String()
 }
 
 func (r *fundsReservationSession) layoutReservationList(gtx layout.Context, view ui.View) layout.Dimensions {
 	if len(r.current.records) == 0 {
 		return view.Message(view.Language.Text(i18n.ReserveEmpty), view.Colors.SecondaryInk)(gtx)
 	}
-	r.list.Position = restoredPosition(r.list.Position, len(r.current.records))
-	return view.List(&r.list).Layout(gtx, len(r.current.records), func(gtx layout.Context, i int) layout.Dimensions {
-		row := r.current.records[i]
+	records := slices.Clone(r.current.records)
+	slices.SortStableFunc(records, func(a, b domain.LiquidityReservation) int {
+		switch {
+		case a.Active() == b.Active():
+			return 0
+		case a.Active():
+			return -1
+		default:
+			return 1
+		}
+	})
+	r.list.Position = restoredPosition(r.list.Position, len(records))
+	return view.List(&r.list).Layout(gtx, len(records), func(gtx layout.Context, i int) layout.Dimensions {
+		row := records[i]
 		l := view.Language
 		title := row.Label
-		fields := []layout.Widget{fundsAmount(view, i18n.FundsRequested, &row.Amount)}
+		source := reservationSourceName(view, r.current.source(row.Source), r.current.accounts[row.Source.AccountID].Name)
+		fields := []layout.Widget{
+			fundsAmount(view, i18n.FundsRequested, &row.Amount),
+			view.Message(source, view.Colors.SecondaryInk),
+		}
 		if !row.Active() {
 			title = fmt.Sprintf(l.Text(i18n.ReserveReleasedRow), row.Label)
-		} else if r.current.eligible {
-			fields = append(fields, r.releaseReservationAction(view, row))
+		} else {
+			fields = append(fields, r.reservationRowActions(view, row))
 		}
 		return layout.Inset{Bottom: 8}.Layout(gtx, fundsCard(view, title, fields...))
 	})
 }
 
-func (r *fundsReservationSession) releaseReservationAction(view ui.View, row domain.LiquidityReservation) layout.Widget {
+func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain.LiquidityReservation) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		button := r.release[row.ID]
-		if button == nil {
-			button = new(widget.Clickable)
-			r.release[row.ID] = button
+		buttons := r.actions[row.ID]
+		if buttons == nil {
+			buttons = new(fundsReservationActions)
+			r.actions[row.ID] = buttons
 		}
-		if button.Clicked(gtx) {
-			r.plan = &fundsReservationPlan{source: r.source, version: r.current.version, release: row.ID,
-				revision: row.Revision, label: row.Label, amount: row.Amount}
-			r.notice = i18n.NoMessage
+		if buttons.edit.Clicked(gtx) {
+			r.startDraft(gtx, &row, &buttons.edit)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		text := fmt.Sprintf(view.Language.Text(i18n.ReserveReleaseRow), row.Label)
-		return layout.W.Layout(gtx, view.Button(button, text))
+		if buttons.release.Clicked(gtx) {
+			r.plan = &fundsReservationPlan{source: row.Source, version: r.current.version, release: row.ID,
+				revision: row.Revision, label: row.Label, amount: row.Amount}
+			r.actionFocus, r.notice = &buttons.release, i18n.NoMessage
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		edit := fmt.Sprintf(view.Language.Text(i18n.ReserveEditRow), row.Label)
+		release := fmt.Sprintf(view.Language.Text(i18n.ReserveReleaseRow), row.Label)
+		actions := []layout.Widget{view.Button(&buttons.edit, edit), view.Button(&buttons.release, release)}
+		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(actions), func(gtx layout.Context, i int) layout.Dimensions {
+			return actions[i](gtx)
+		})
 	}
 }
 
 func (r *fundsReservationSession) layoutReservationDraft(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
-	if !r.current.eligible {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-			layout.Rigid(view.Message(l.Text(i18n.ReserveSourceUnavailable), view.Colors.ErrorInk)),
-			layout.Rigid(view.Button(&r.close, l.Text(i18n.InstitutionsCancel))))
+	source := r.draftSource()
+	var currency domain.CurrencyCode
+	switch {
+	case r.editRow != nil:
+		currency = r.editRow.Currency
+	case source != nil:
+		currency = source.NativeCurrency
 	}
 	if r.review.Clicked(gtx) {
 		r.reviewNew()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(fundsAmount(view, i18n.ReserveCurrentAvailability, r.current.day.UnreservedNative)),
-		layout.Rigid(view.Message(l.Text(i18n.ReserveHelp), view.Colors.SecondaryInk)),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	sourceField := func(gtx layout.Context) layout.Dimensions {
+		if r.source.Kind != "" || r.editRow != nil {
+			ref := r.source
+			if r.editRow != nil {
+				ref = r.editRow.Source
+			}
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReserveSource), view.Colors.Ink)),
+				layout.Rigid(view.Message(reservationSourceName(view, source, r.current.accounts[ref.AccountID].Name), view.Colors.SecondaryInk)))
+		}
+		choices := make([]ui.Choice, 0, len(r.current.sources))
+		counts := map[string]int{}
+		for _, item := range r.current.sources {
+			if reservableFundsSource(&item) {
+				title := reservationSourceName(view, &item, r.current.accounts[item.AccountID].Name)
+				choices = append(choices, ui.Choice{ID: item.Ref.Key(), Label: title})
+				counts[title]++
+			}
+		}
+		seen := map[string]int{}
+		for i, choice := range choices {
+			if counts[choice.Label] > 1 {
+				seen[choice.Label]++
+				choices[i].Label = fmt.Sprintf("%s · %d", choice.Label, seen[choice.Label])
+			}
+		}
+		r.picker.Layout(gtx, view, ui.PickerField{Label: i18n.ReserveSource, Origin: view.Origin},
+			ui.SelectOptions{Items: choices, Searchable: true}, r.selected, func(id string) { r.selected = id })
+		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+	}
+	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
+		ui.Rigid(sourceField),
+		ui.Rigid(view.Message(l.Text(i18n.ReserveHelp), view.Colors.SecondaryInk)),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return r.label.Layout(gtx, view, ui.FieldOptions{Label: i18n.ReserveLabel})
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return r.amount.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.ReserveAmount}, r.current.currency.String())
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if currency == "" {
+				return r.amount.Layout(gtx, view, ui.FieldOptions{Label: i18n.ReserveAmount})
+			}
+			return r.amount.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.ReserveAmount}, currency.String())
 		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-				layout.Rigid(view.Button(&r.close, l.Text(i18n.InstitutionsCancel))),
-				layout.Rigid(view.PrimaryButton(&r.review, l.Text(i18n.ReserveReview))))
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			actions := []layout.Widget{view.Button(&r.close, l.Text(i18n.InstitutionsCancel)),
+				view.PrimaryButton(&r.review, l.Text(i18n.ReserveReview))}
+			return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(actions), func(gtx layout.Context, i int) layout.Dimensions {
+				return actions[i](gtx)
+			})
 		}))
 }
 
@@ -211,7 +342,7 @@ func (p *availableFundsPage) layoutReservationReview(gtx layout.Context, view ui
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Rigid(fundsCard(view, r.plan.label,
 			fundsAmount(view, i18n.FundsRequested, &r.plan.amount),
-			fundsAmount(view, i18n.ReserveCurrentAvailability, r.current.day.UnreservedNative))),
+			fundsAmount(view, i18n.ReserveCurrentAvailability, r.current.available(r.plan.source)))),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			cancel := i18n.InstitutionsCancel
 			if r.editing {

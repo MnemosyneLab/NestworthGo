@@ -95,13 +95,14 @@ type availableFundsPage struct {
 	localDate, timezone string
 	nextRefresh         time.Time
 
-	list           widget.List
-	reload         widget.Clickable
-	links          map[string]*fundsLinks
-	openAccount    func(domain.AccountID, string, event.Tag)
-	openInstrument func(domain.InstrumentID, string, event.Tag)
-	productPage    *productDetailPage
-	openProduct    func(domain.ProductContractID, string, event.Tag)
+	list               widget.List
+	reload             widget.Clickable
+	manageReservations widget.Clickable
+	links              map[string]*fundsLinks
+	openAccount        func(domain.AccountID, string, event.Tag)
+	openInstrument     func(domain.InstrumentID, string, event.Tag)
+	productPage        *productDetailPage
+	openProduct        func(domain.ProductContractID, string, event.Tag)
 }
 
 func newAvailableFundsPage(ctx context.Context, service availableFundsReader, invalidate func()) *availableFundsPage {
@@ -351,7 +352,8 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 		rows = append(rows, fundsCard(view, fmt.Sprintf(view.Language.Text(i18n.FundsUnresolved), reservation.Label),
 			fundsAmount(view, i18n.FundsRequested, &reservation.Amount),
 			view.Message(view.Language.Text(fundsReason(unresolved.Reason)), view.Colors.SecondaryInk),
-			p.sourceLinks(view, reservation.ID.String(), reservation.Source.AccountID, "", "")))
+			p.sourceLinks(view, reservation.ID.String(), reservation.Source.AccountID, "", ""),
+			p.globalReservationButton(view, &p.sourceButtons(reservation.ID.String()).reserve)))
 	}
 	return rows, sourcesIndex
 }
@@ -458,9 +460,8 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		}
 	}
 	fields = append(fields, p.sourceLinks(view, source.SourceKey, source.AccountID, instrument, source.DisplayName))
-	account := p.current.accounts[source.AccountID]
-	if p.reservationLedger != nil && fundsReservationSource(account, source) {
-		fields = append(fields, p.reservationButton(view, account.Name, source.Ref))
+	if p.reservationLedger != nil && reservableFundsSource(&source) {
+		fields = append(fields, p.reservationButton(view, source.DisplayName, source.Ref))
 	}
 	title := source.DisplayName
 	if source.Ref.Kind == domain.SourceAccountCash {

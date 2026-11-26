@@ -1738,6 +1738,11 @@ var simplifiedChineseCatalog = catalog{
 	FundsPolicyEarlyRequired: "请输入提前支取的时间、费用及金额口径。",
 
 	ReserveManage:              "管理预留 · %s",
+	ReserveManageAll:           "管理预留",
+	ReserveEdit:                "编辑预留",
+	ReserveEditRow:             "编辑 · %s",
+	ReserveSource:              "资金来源",
+	ReserveChooseSource:        "请选择可预留的资金来源。",
 	ReserveTitle:               "资金预留",
 	ReserveAdd:                 "新增预留",
 	ReserveBack:                "返回可用资金",

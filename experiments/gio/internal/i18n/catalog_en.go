@@ -1738,6 +1738,11 @@ var englishCatalog = catalog{
 	FundsPolicyEarlyRequired: "Enter the early withdrawal timing, fee and amount basis.",
 
 	ReserveManage:              "Manage reservations · %s",
+	ReserveManageAll:           "Manage reservations",
+	ReserveEdit:                "Edit reservation",
+	ReserveEditRow:             "Edit · %s",
+	ReserveSource:              "Funding source",
+	ReserveChooseSource:        "Choose an eligible funding source.",
 	ReserveTitle:               "Reservations",
 	ReserveAdd:                 "Add reservation",
 	ReserveBack:                "Back to available funds",

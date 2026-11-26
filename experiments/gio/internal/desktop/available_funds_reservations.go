@@ -25,26 +25,40 @@ type fundsReservationLedger interface {
 }
 
 type fundsReservationRead struct {
-	currency domain.CurrencyCode
-	eligible bool
-	day      domain.LiquidityBucketResult
+	sources  []domain.LiquiditySourceResult
+	accounts map[domain.AccountID]domain.Account
+	horizon  string
 	records  []domain.LiquidityReservation
 	version  string
 }
 
-// The Gio slice uses the standard balance-mode bank account source. Its
-// default currency is the only denomination accepted by the shared command.
-func fundsReservationSource(account domain.Account, source domain.LiquiditySourceResult) bool {
-	return account.ID != "" && account.ID == source.Ref.AccountID && account.ArchivedAt == nil &&
-		account.AccountType == domain.TypeBankAccount && account.TrackingMode == domain.TrackingBalance && !account.IsLiability() &&
-		!source.Excluded && source.Ref.Kind == domain.SourceAccountValue && source.NativeCurrency == account.DefaultCurrency
+func (r fundsReservationRead) source(ref domain.LiquiditySourceRef) *domain.LiquiditySourceResult {
+	at := slices.IndexFunc(r.sources, func(row domain.LiquiditySourceResult) bool { return row.Ref.Key() == ref.Key() })
+	if at < 0 {
+		return nil
+	}
+	return &r.sources[at]
 }
 
-func readFundsReservation(ctx context.Context, service fundsReservationLedger, ref domain.LiquiditySourceRef) (out fundsReservationRead, err error) {
+func (r fundsReservationRead) available(ref domain.LiquiditySourceRef) *domain.Money {
+	source := r.source(ref)
+	if source != nil {
+		if result := fundsResultForHorizon(*source, r.horizon); result != nil {
+			return result.UnreservedNative
+		}
+	}
+	return nil
+}
+
+func reservableFundsSource(source *domain.LiquiditySourceResult) bool {
+	return source != nil && !source.Excluded && source.NativeCurrency != ""
+}
+
+func readFundsReservation(ctx context.Context, service fundsReservationLedger, ref domain.LiquiditySourceRef, state fundsViewState) (out fundsReservationRead, err error) {
 	err = service.WithRead(ctx, func(ctx context.Context) error {
-		// Read the funding projection and reservation identities in the same
-		// operation gate, including released rows needed for verification.
-		report, err := readAvailableFunds(ctx, service)
+		// Keep the funding projection, revisions and recovery readback in one
+		// operation gate and on the same horizon as the source list.
+		report, err := readAvailableFundsQuery(ctx, service, state.query())
 		if err != nil {
 			return err
 		}
@@ -52,21 +66,15 @@ func readFundsReservation(ctx context.Context, service fundsReservationLedger, r
 		if err != nil {
 			return err
 		}
-		out.records = slices.DeleteFunc(records, func(row domain.LiquidityReservation) bool { return row.Source.Key() != ref.Key() })
-		out.version = service.MobileDataVersion()
-		account := report.accounts[ref.AccountID]
-		out.currency = account.DefaultCurrency
+		if ref.Kind != "" {
+			records = slices.DeleteFunc(records, func(row domain.LiquidityReservation) bool { return row.Source.Key() != ref.Key() })
+		}
+		out = fundsReservationRead{accounts: report.accounts, horizon: report.today.HorizonOn, records: records, version: service.MobileDataVersion()}
+		if fundsBucketForHorizon(report.report.Overview.Buckets, state.horizonOn) != nil {
+			out.horizon = state.horizonOn
+		}
 		for _, row := range report.report.Sources {
-			if row.Result.Ref.Key() != ref.Key() {
-				continue
-			}
-			out.eligible = fundsReservationSource(account, row.Result)
-			if at := slices.IndexFunc(row.Result.BucketResults, func(b domain.LiquidityBucketResult) bool {
-				return b.HorizonOn == report.today.HorizonOn
-			}); at >= 0 {
-				out.day = row.Result.BucketResults[at]
-			}
-			break
+			out.sources = append(out.sources, row.Result)
 		}
 		return nil
 	})
@@ -79,6 +87,7 @@ type fundsReservationPlan struct {
 	before   []domain.LiquidityReservation
 	label    string
 	amount   domain.Money
+	edit     *domain.LiquidityReservationID
 	release  domain.LiquidityReservationID
 	revision int
 }
@@ -92,7 +101,7 @@ func (p fundsReservationPlan) commit(ctx context.Context, service fundsReservati
 			row, err = service.ReleaseLiquidityReservation(ctx, p.release, p.revision)
 		} else {
 			row, err = service.SaveLiquidityReservation(ctx, application.SaveReservationInput{
-				Source: p.source, Label: p.label, Amount: p.amount.CanonicalAmount(),
+				ID: p.edit, ExpectedRevision: p.revision, Source: p.source, Label: p.label, Amount: p.amount.CanonicalAmount(),
 			})
 		}
 		return err
@@ -114,6 +123,13 @@ func (p fundsReservationPlan) verify(after []domain.LiquidityReservation, acknow
 	if p.release != "" {
 		for _, row := range after {
 			if row.ID == p.release && row.ReleasedAt != nil && row.Revision > p.revision {
+				return reservationVerified
+			}
+		}
+	} else if p.edit != nil {
+		for _, row := range after {
+			if row.ID == *p.edit && row.Source.Key() == p.source.Key() && row.Active() &&
+				row.Revision == p.revision+1 && row.Label == p.label && row.Amount.Currency() == p.amount.Currency() && row.Amount.CanonicalAmount() == p.amount.CanonicalAmount() {
 				return reservationVerified
 			}
 		}
@@ -165,17 +181,26 @@ type fundsReservationSession struct {
 	failure   i18n.MessageID
 
 	editing                   bool
+	editRow                   *domain.LiquidityReservation
+	selected                  string
+	picker                    ui.Select
+	actionFocus               *widget.Clickable
+	restoreFocus              bool
 	label, amount             ui.TextField
 	list                      widget.List
 	close, add, review, retry widget.Clickable
 	confirm                   widget.Clickable
-	release                   map[domain.LiquidityReservationID]*widget.Clickable
+	actions                   map[domain.LiquidityReservationID]*fundsReservationActions
+}
+
+type fundsReservationActions struct {
+	edit, release widget.Clickable
 }
 
 func (p *availableFundsPage) openReservations(source domain.LiquiditySourceRef, name string, entry *widget.Clickable) {
 	p.reservation = &fundsReservationSession{
 		source: source, name: name, entry: entry, label: ui.NewTextField(true), amount: ui.NewTextField(true),
-		release: make(map[domain.LiquidityReservationID]*widget.Clickable),
+		actions: make(map[domain.LiquidityReservationID]*fundsReservationActions),
 		list:    widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 	p.readReservations()
@@ -188,10 +213,10 @@ func (p *availableFundsPage) reservationUnresolved() bool {
 
 func (p *availableFundsPage) readReservations() {
 	r := p.reservation
-	ref := r.source
+	ref, state := r.source, p.state
 	r.readError = false
 	r.read = runHistoryRead(&p.workers, p.invalidate, func() (fundsReservationRead, error) {
-		return readFundsReservation(p.ctx, p.reservationLedger, ref)
+		return readFundsReservation(p.ctx, p.reservationLedger, ref, state)
 	})
 }
 
@@ -238,7 +263,10 @@ func (p *availableFundsPage) pollReservations() {
 			if r.plan.release != "" {
 				r.notice = i18n.ReserveReleasedNotice
 			}
-			r.editing, r.list.Position = false, layout.Position{}
+			r.editing, r.editRow, r.restoreFocus = false, nil, true
+			if r.plan.release != "" {
+				r.actionFocus = &r.add
+			}
 			p.read()
 		case reservationAbsent:
 			r.notice = r.failure
@@ -251,18 +279,79 @@ func (p *availableFundsPage) pollReservations() {
 	}
 }
 
+func (r *fundsReservationSession) draftSource() *domain.LiquiditySourceResult {
+	ref := r.source
+	if r.editRow != nil {
+		ref = r.editRow.Source
+	}
+	if ref.Kind != "" {
+		return r.current.source(ref)
+	}
+	for i, row := range r.current.sources {
+		if row.Ref.Key() == r.selected {
+			return &r.current.sources[i]
+		}
+	}
+	return nil
+}
+
+func (r *fundsReservationSession) startDraft(gtx layout.Context, row *domain.LiquidityReservation, trigger *widget.Clickable) {
+	r.editing, r.editRow, r.notice, r.actionFocus = true, row, i18n.NoMessage, trigger
+	r.label.Editor.SetText("")
+	r.amount.Editor.SetText("")
+	r.selected = ""
+	if row != nil {
+		r.label.Editor.SetText(row.Label)
+		r.amount.Editor.SetText(row.Amount.CanonicalAmount())
+	} else if r.source.Kind == "" {
+		for _, source := range r.current.sources {
+			if reservableFundsSource(&source) {
+				if r.selected != "" {
+					r.selected = ""
+					break
+				}
+				r.selected = source.Ref.Key()
+			}
+		}
+	}
+	if row != nil || r.source.Kind != "" {
+		r.label.Focus(gtx)
+	}
+}
+
 func (r *fundsReservationSession) reviewNew() {
 	r.notice = i18n.NoMessage
+	source := r.draftSource()
+	var ref domain.LiquiditySourceRef
+	var currency domain.CurrencyCode
+	if r.editRow != nil {
+		ref, currency = r.editRow.Source, r.editRow.Currency
+	} else if reservableFundsSource(source) {
+		ref, currency = source.Ref, source.NativeCurrency
+	} else {
+		r.notice = i18n.ReserveChooseSource
+		return
+	}
 	label := strings.TrimSpace(r.label.Text())
-	amount, err := domain.ParseMoney(strings.TrimSpace(r.amount.Text()), r.current.currency)
+	amount, err := domain.ParseMoney(strings.TrimSpace(r.amount.Text()), currency)
 	switch {
 	case label == "":
 		r.notice = i18n.ReserveInvalidLabel
 	case err != nil || amount.IsZero():
 		r.notice = i18n.ReserveInvalidAmount
 	default:
-		r.plan = &fundsReservationPlan{
-			source: r.source, version: r.current.version, before: r.current.records, label: label, amount: amount,
+		plan := &fundsReservationPlan{
+			source: ref, version: r.current.version, before: r.current.records, label: label, amount: amount,
 		}
+		if row := r.editRow; row != nil {
+			if source != nil && row.Currency != source.NativeCurrency || !slices.ContainsFunc(r.current.records, func(current domain.LiquidityReservation) bool {
+				return current.ID == row.ID && current.Active() && current.Revision == row.Revision
+			}) {
+				r.notice = i18n.HistoryAmendmentStale
+				return
+			}
+			plan.edit, plan.revision = &row.ID, row.Revision
+		}
+		r.plan = plan
 	}
 }

@@ -242,6 +242,10 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	lockedProductSeed := seedStage6LockedSettlement(t)
 	termDepositSeed := seedStage6TermDeposit(t)
 	linkedCashTransferSeed := seedStage6LinkedCashTransfer(t)
+	fundsDB, _, fundsService := openStage6Database(t, filepath.Join(t.TempDir(), "funds.db"), func() time.Time { return start })
+	if _, err := seedAvailableFunds(t.Context(), fundsService, start, true); err != nil {
+		t.Fatal(err)
+	}
 	for _, profile := range []struct {
 		name string
 		seed []byte
@@ -256,6 +260,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"locked-renewal", lockedProductSeed},
 		{"add-product", lockedProductSeed},
 		{"funds-product", lockedProductSeed},
+		{"funds-reservations", stage6SeedBytes(t, fundsDB)},
 		{"account-product", lockedProductSeed},
 		{"standalone-locked-lifecycle", seedStage6StandaloneLockedLifecycle(t, nil)},
 		{"standalone-interest-terms", seedStage6StandaloneLockedLifecycle(t, productOptional("9.8765"))},

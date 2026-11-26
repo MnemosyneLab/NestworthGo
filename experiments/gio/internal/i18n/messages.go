@@ -1702,6 +1702,11 @@ const (
 	FundsPolicyDateRequired
 	FundsPolicyEarlyRequired
 	ReserveManage
+	ReserveManageAll
+	ReserveEdit
+	ReserveEditRow
+	ReserveSource
+	ReserveChooseSource
 	ReserveTitle
 	ReserveAdd
 	ReserveBack
