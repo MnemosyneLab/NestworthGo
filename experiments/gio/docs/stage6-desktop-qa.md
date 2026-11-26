@@ -47,6 +47,32 @@ A separate Gio regression fixes the clock at December 1, 2026 16:30 UTC
 select November 30, December 1 and November 20. A December 1 Origin clamps
 the initial capture to December 1 and disables the month-end shortcut.
 
+## macOS account-filtered Return and Ledger chain
+
+Both stock arm64 macOS windows were built at
+`8d9884410caab2b95928afe9cb66e200e6d38f3a`. Independent copies of the
+`contribution` seed used Instrument scope, EURO, Harbor Brokerage, EUR,
+native valuation and excluded cash. On October 2, the Return Calendar
+showed EUR 37.35 with EUR 25.00 of price change and EUR 12.35 of dividends.
+Asset Changes retained the day and all filters, and showed EUR 100.00 →
+EUR 125.00. The price driver opened one-day Total return Contribution,
+which retained the EUR 37.3456 exact shared result.
+
+Both Ledger timelines retained October 2, Harbor and EURO, and displayed
+only the EUR 12.3456 dividend. The receipt showed 21:00 Asia/Singapore and
+the same note. Fourteen checked authoritative SQLite tables matched the
+source. Back preserved each page and its scope in both apps. Gio restored
+focus in turn to the receipt row, EURO contribution row, Price change driver,
+and Calendar day. Wails restored the main content container on leaving a
+closed analysis sheet.
+
+The separate 665 × 480 Gio frame regression deliberately delays the Asset
+Changes reload. The base lost its saved 647 px scroll position while loading.
+At `7ee8f37` the viewport and visible driver focus recover when the data
+arrives, and Return reopens the same driver. This timing regression uses
+the paired shared Go results. Its artificial delay runs only in the frame
+test.
+
 ## Reproduce the automated pair
 
 From the repository root, run:
@@ -58,6 +84,8 @@ From the repository root, run:
   -run 'Test(WealthCapture|Stage6PairedContributionShowsFullLedgerScope|DataHealthCredentialHandoffRechecksSameProviderOnBothDesktops)')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(CreditCardStatementHandoffReusesLedgerAndJournal|PortfolioInstrumentPerformanceMatchesWails|InstrumentPerformanceChartRespectsPriceBasisAndDenomination)')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run '^TestStage6PairedAccountFilteredAnalysisRoundTrip$')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
