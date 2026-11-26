@@ -67,7 +67,8 @@ type binding struct {
 	name, value, help string
 	button            *widget.Clickable
 	editor            *widget.Editor
-	enabled, focused  bool
+	enabled, selected bool
+	option            OptionFocus
 }
 
 type controlKey struct {
@@ -96,7 +97,14 @@ func (f *frame) start(gtx layout.Context, req request) layout.Context {
 				target.button.Click()
 			}
 		case focus:
-			gtx.Execute(key.FocusCmd{Tag: target.tag})
+			tag := target.tag
+			if target.option.Owner != nil {
+				if target.option.Move != nil {
+					target.option.Move()
+				}
+				tag = target.option.Owner
+			}
+			gtx.Execute(key.FocusCmd{Tag: tag})
 		case setValue, setSelection:
 			if target.editor != nil && (req.action == setSelection || !target.editor.ReadOnly) {
 				f.pending = req
@@ -147,7 +155,6 @@ func track(gtx layout.Context, b binding, widget layout.Widget) layout.Dimension
 	}
 	if b.button != nil || b.editor != nil || b.role == list {
 		b.enabled = gtx.Enabled()
-		b.focused = gtx.Focused(b.tag)
 	}
 	recording := op.Record(gtx.Ops)
 	dims := widget(gtx)
@@ -166,6 +173,23 @@ func Button(gtx layout.Context, click *widget.Clickable, name, value string, pic
 		role = popupButton
 	}
 	return track(gtx, binding{tag: click, role: role, name: name, value: value, button: click}, widget)
+}
+
+// SelectableButton exposes the committed selection of a navigation control.
+func SelectableButton(gtx layout.Context, click *widget.Clickable, name string, selected bool, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: button, name: name, button: click, selected: selected}, widget)
+}
+
+// OptionFocus describes a picker option whose container owns keyboard events.
+// Move moves the container's cursor to this option without choosing its value.
+type OptionFocus struct {
+	Owner  any
+	Active bool
+	Move   func()
+}
+
+func Option(gtx layout.Context, click *widget.Clickable, name string, selected bool, option OptionFocus, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: button, name: name, button: click, selected: selected, option: option}, widget)
 }
 
 func Editor(gtx layout.Context, editor *widget.Editor, name, help string, widget layout.Widget) layout.Dimensions {
@@ -233,6 +257,7 @@ func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 	}
 	clear(f.targets)
 	elements := f.collect(nil, f.semantic[0].Children, 0, image.Rectangle{Max: gtx.Constraints.Max}, false)
+	f.applyFocus(gtx, elements)
 	for tag, id := range f.ids {
 		if _, exists := f.targets[id]; !exists {
 			delete(f.ids, tag)
@@ -244,6 +269,31 @@ func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 	}
 	f.last = elements
 	return elements, true
+}
+
+// Publish focus after Gio applies the frame. Popup open and close request
+// focus while rendering, after some of the affected controls were drawn.
+func (f *frame) applyFocus(gtx layout.Context, elements []element) {
+	focused, activeOption := -1, -1
+	for i, element := range elements {
+		if !element.Focusable {
+			continue
+		}
+		b := f.targets[element.ID]
+		if b.option.Owner != nil {
+			if b.option.Active && gtx.Focused(b.option.Owner) {
+				activeOption = i
+			}
+		} else if gtx.Focused(b.tag) {
+			focused = i
+		}
+	}
+	if activeOption >= 0 {
+		focused = activeOption
+	}
+	if focused >= 0 {
+		elements[focused].Focused = true
+	}
 }
 
 func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64, viewport image.Rectangle, hideLabels bool) []element {
@@ -261,11 +311,13 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 			}
 			f.targets[id] = b
 			e := makeElement(id, parent, b.role, b.name, bounds)
-			e.Enabled, e.Focused, e.Value, e.Help = b.enabled, b.focused, b.value, b.help
+			e.Enabled, e.Value, e.Help = b.enabled, b.value, b.help
 			e.Pressable = b.button != nil && b.enabled
 			e.Focusable = (b.button != nil || b.editor != nil || b.role == list) && b.enabled
 			if b.button != nil {
-				e.Selected = desc.Selected || hasSelection(node.Children)
+				// The bridge's semantic router has no live pointer filters, so
+				// it may prune the Clickable area that carried SelectedOp.
+				e.Selected = b.selected || desc.Selected || hasSelection(node.Children)
 			}
 			if b.editor != nil {
 				e.Editable = b.enabled && !b.editor.ReadOnly

@@ -1016,18 +1016,18 @@ func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) lay
 	if !item.available() {
 		gtx = gtx.Disabled()
 	}
-	return accessibility.Button(gtx, &item.button, view.Language.Text(item.label), "", false, func(gtx layout.Context) layout.Dimensions {
-		return item.layoutButton(gtx, s, view, size)
+	active := s.activeRoute()
+	selected := active == item.id || active == dataHealthRoute && item.id == marketDataRoute
+	return accessibility.SelectableButton(gtx, &item.button, view.Language.Text(item.label), selected, func(gtx layout.Context) layout.Dimensions {
+		return item.layoutButton(gtx, s, view, size, selected)
 	})
 }
 
-func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.View, size image.Point) layout.Dimensions {
+func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.View, size image.Point, selected bool) layout.Dimensions {
 	colors := view.Colors
 	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		pointer.CursorPointer.Add(gtx.Ops)
-		active := s.activeRoute()
-		selected := active == item.id || active == dataHealthRoute && item.id == marketDataRoute
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
 		enabled := gtx.Enabled()

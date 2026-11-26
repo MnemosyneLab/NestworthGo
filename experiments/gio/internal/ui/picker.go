@@ -152,6 +152,12 @@ type optionList struct {
 	keyboard bool
 }
 
+type optionNavigation struct {
+	tag    event.Tag
+	active bool
+	enter  func()
+}
+
 func (l *optionList) setActive(items []Choice, preferred string, keyboard bool) {
 	l.active, l.keyboard = false, keyboard
 	for i, item := range items {
@@ -205,7 +211,7 @@ func (l *optionList) accept(items []Choice, choose func(Choice)) {
 	}
 }
 
-func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selected string, showHighlight bool, choose func(Choice)) layout.Dimensions {
+func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selected string, nav optionNavigation, choose func(Choice)) layout.Dimensions {
 	if l.buttons == nil {
 		l.buttons = make(map[string]*widget.Clickable)
 	}
@@ -225,7 +231,15 @@ func (l *optionList) layout(gtx layout.Context, view View, items []Choice, selec
 		}
 		size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(OptionRowHeight))
 		gtx.Constraints = layout.Exact(size)
-		return optionRow(gtx, view, button, item, item.ID == selected, showHighlight && l.keyboard && l.active && item.ID == l.highlight)
+		active := nav.active && l.active && item.ID == l.highlight
+		focus := accessibility.OptionFocus{Owner: nav.tag, Active: active, Move: func() {
+			if nav.enter != nil {
+				nav.enter()
+			}
+			l.keyboard = true
+			l.highlightAt(items, i)
+		}}
+		return optionRow(gtx, view, button, item, item.ID == selected, active && l.keyboard && gtx.Focused(nav.tag), focus)
 	})
 }
 
@@ -266,7 +280,7 @@ var checkIcon Glyph = lucide.Check
 
 // optionRow is a select list row: left aligned, a quiet hover or keyboard
 // highlight, and a check mark on the chosen row.
-func optionRow(gtx layout.Context, view View, button *widget.Clickable, item Choice, selected, highlighted bool) layout.Dimensions {
+func optionRow(gtx layout.Context, view View, button *widget.Clickable, item Choice, selected, highlighted bool, focus accessibility.OptionFocus) layout.Dimensions {
 	p := view.Colors
 	enabled := !item.Disabled
 	if !enabled {
@@ -311,7 +325,7 @@ func optionRow(gtx layout.Context, view View, button *widget.Clickable, item Cho
 		})
 		return layout.Dimensions{Size: size}
 	}
-	return accessibility.Button(gtx, button, item.Label, "", false, func(gtx layout.Context) layout.Dimensions {
+	return accessibility.Option(gtx, button, item.Label, selected, focus, func(gtx layout.Context) layout.Dimensions {
 		if enabled {
 			return button.Layout(gtx, content)
 		}

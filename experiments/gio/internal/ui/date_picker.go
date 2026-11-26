@@ -115,7 +115,9 @@ func (p *DatePicker) Layout(gtx layout.Context, view View, field PickerField, op
 	}
 
 	pane := Popover{width: 340, focus: p, Body: func(gtx layout.Context) layout.Dimensions {
-		return p.popup(gtx, view, options, value, change)
+		return accessibility.List(gtx, p, view.Language.Text(field.Label), func(gtx layout.Context) layout.Dimensions {
+			return p.popup(gtx, view, options, value, change)
+		})
 	}}
 	if pickerTrigger(gtx, view, field, &p.Trigger, title, invalid, pane) {
 		p.day = options.start(value)
@@ -272,10 +274,13 @@ func (p *DatePicker) dayRow(gtx layout.Context, view View, options DateOptions, 
 		if id == options.Today {
 			title = fmt.Sprintf(view.Language.Text(i18n.DateToday), title)
 		}
-		return dayCell(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title, dayState{
+		active := day.Equal(p.day)
+		state := dayState{
 			enabled: enabled, selected: id == value, today: id == options.Today,
-			highlighted: day.Equal(p.day) && gtx.Focused(p),
-		})
+			highlighted: active && gtx.Focused(p),
+		}
+		focus := accessibility.OptionFocus{Owner: p, Active: active, Move: func() { p.day = day }}
+		return dayCell(gtx, view, &p.cells[index], fmt.Sprint(day.Day()), title, state, focus)
 	})
 }
 
@@ -284,7 +289,7 @@ type dayState struct{ enabled, selected, today, highlighted bool }
 // dayCell draws one calendar day as a disc centered in its cell, like the
 // Wails calendar: accent for the chosen day, a soft accent disc for today, a
 // wash on hover and a ring for the keyboard cursor.
-func dayCell(gtx layout.Context, view View, button *widget.Clickable, label, description string, state dayState) layout.Dimensions {
+func dayCell(gtx layout.Context, view View, button *widget.Clickable, label, description string, state dayState, focus accessibility.OptionFocus) layout.Dimensions {
 	colors := view.Colors
 	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
@@ -328,7 +333,7 @@ func dayCell(gtx layout.Context, view View, button *widget.Clickable, label, des
 	if !state.enabled {
 		gtx = gtx.Disabled()
 	}
-	return accessibility.Button(gtx, button, description, "", false, func(gtx layout.Context) layout.Dimensions {
+	return accessibility.Option(gtx, button, description, state.selected, focus, func(gtx layout.Context) layout.Dimensions {
 		if state.enabled {
 			return button.Layout(gtx, content)
 		}

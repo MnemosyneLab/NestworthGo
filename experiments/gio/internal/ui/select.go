@@ -10,6 +10,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
@@ -38,7 +39,7 @@ func (s *Select) Layout(gtx layout.Context, view View, field PickerField, option
 		pane.onClose = s.resetSearch
 	}
 	pane.Body = func(gtx layout.Context) layout.Dimensions {
-		return s.popup(gtx, view, options, value, change)
+		return s.popup(gtx, view, options, view.Language.Text(field.Label), value, change)
 	}
 	label := options.ValueLabel
 	if label == "" {
@@ -90,7 +91,7 @@ func (s *Select) choices(view View, options SelectOptions) []Choice {
 	return items
 }
 
-func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, value string, change func(string)) layout.Dimensions {
+func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, label, value string, change func(string)) layout.Dimensions {
 	registerPickerFocus(gtx, s)
 	choose := func(item Choice) {
 		change(item.ID)
@@ -108,10 +109,12 @@ func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, val
 				s.list.accept(items, choose)
 			}
 		}
-		if len(items) == 0 {
-			return view.Message(view.Language.Text(i18n.PickerNoMatches), view.Colors.SecondaryInk)(gtx)
-		}
-		return s.list.layout(gtx, view, items, value, gtx.Focused(s), choose)
+		return accessibility.List(gtx, s, label, func(gtx layout.Context) layout.Dimensions {
+			if len(items) == 0 {
+				return view.Message(view.Language.Text(i18n.PickerNoMatches), view.Colors.SecondaryInk)(gtx)
+			}
+			return s.list.layout(gtx, view, items, value, optionNavigation{tag: s, active: true}, choose)
+		})
 	}
 
 	if !options.Searchable {
@@ -150,13 +153,13 @@ func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, val
 }
 
 // menu anchors the same single-select popup to a caller-drawn compact trigger.
-func (s *Select) Menu(gtx layout.Context, view View, bounds image.Rectangle, items []Choice, value string, previous, next event.Tag, width unit.Dp, change func(string)) {
+func (s *Select) Menu(gtx layout.Context, view View, bounds image.Rectangle, items []Choice, label, value string, previous, next event.Tag, width unit.Dp, change func(string)) {
 	if !gtx.Enabled() {
 		return
 	}
 	pane := Popover{width: max(150, width, gtx.Metric.PxToDp(bounds.Dx())), menu: true, focus: s, previous: previous, next: next}
 	pane.Body = func(gtx layout.Context) layout.Dimensions {
-		return s.popup(gtx, view, SelectOptions{Items: items}, value, change)
+		return s.popup(gtx, view, SelectOptions{Items: items}, label, value, change)
 	}
 	if view.RegisterPopover(gtx, &s.Trigger, bounds, pane) {
 		s.list.scroll.Position = layout.Position{}

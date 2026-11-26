@@ -37,9 +37,11 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 			if disabled {
 				local = local.Disabled()
 			}
-			Button(local, &click, label, "", false, func(gtx layout.Context) layout.Dimensions {
-				semantic.SelectedOp(true).Add(gtx.Ops)
-				return testLabel(gtx, label)
+			SelectableButton(local, &click, label, true, func(gtx layout.Context) layout.Dimensions {
+				return click.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					semantic.SelectedOp(true).Add(gtx.Ops)
+					return testLabel(gtx, label)
+				})
 			})
 		}
 		{
