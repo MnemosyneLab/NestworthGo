@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"image"
 	"image/color"
 	"slices"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -55,6 +58,7 @@ type overviewPage struct {
 	breakdowns   overviewBreakdowns
 	trend        overviewTrend
 	health       widget.Clickable
+	fixHealth    widget.Clickable
 	accounts     widget.Clickable
 	missingLinks map[string]*widget.Clickable
 	openHealth   func(healthFindingFocus, event.Tag)
@@ -151,7 +155,6 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			p.openHealth(healthFindingFocus{}, &p.health)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		p.actions = append(p.actions, returnMonthButton(view, &p.health, i18n.NavDataHealth, nil, true))
 	}
 	if p.hasDimensions() {
 		if p.breakdowns.jump.Clicked(gtx) {
@@ -171,25 +174,78 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	})
 }
 
-// intro is the first row of the page: what the figures are read in and when,
-// with the page actions beside it.
+// intro is the first row of the page, as in Wails: what the page shows on the
+// left; the account count, data health and update time on the right, with the
+// page actions beside them, over a hairline.
 func (p *overviewPage) intro(gtx layout.Context, view ui.View) layout.Dimensions {
-	actions := func(gtx layout.Context) layout.Dimensions {
-		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(p.actions), func(gtx layout.Context, i int) layout.Dimensions {
-			return p.actions[i](gtx)
+	l := view.Language
+	description := view.Body(ui.TextBody, l.Text(i18n.OverviewDescription), view.Colors.SecondaryInk)
+	cluster := p.statusCluster(view)
+	var head layout.Widget
+	if !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 720) {
+		head = func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space12}).Layout(gtx, ui.Rigid(description), ui.Rigid(cluster))
+		}
+	} else {
+		head = func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+				layout.Flexed(1, description),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(620))
+					return layout.E.Layout(gtx, cluster)
+				}),
+			)
+		}
+	}
+	rows := []ui.ColumnChild{ui.Rigid(head)}
+	if progress := p.progress(gtx, view); progress != nil {
+		rows = append(rows, ui.Rigid(progress))
+	}
+	rows = append(rows, ui.Rigid(view.Hairline))
+	return (ui.Column{Gap: ui.Space12}).Layout(gtx, rows...)
+}
+
+// statusCluster is the right side of the intro.
+func (p *overviewPage) statusCluster(view ui.View) layout.Widget {
+	l := view.Language
+	var items []layout.Widget
+	if p.current != nil {
+		if count := p.current.value.AccountCount; count > 0 {
+			label := fmt.Sprintf(l.Text(i18n.OverviewActiveAccounts), count)
+			items = append(items, func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, ui.BadgeNeutral, label) })
+		}
+		if p.openHealth != nil {
+			items = append(items, p.healthButton(view))
+		}
+		stamp := format.LocalDateTime(p.current.readAt.In(view.TimeLocation), settings.Settings{
+			DateFormat: view.DateFormat, TimeFormat: view.TimeFormat,
+		}, settings.Language(l))
+		updated := fmt.Sprintf(l.Text(i18n.OverviewUpdatedAt), stamp)
+		items = append(items, func(gtx layout.Context) layout.Dimensions {
+			return view.Line(gtx, ui.TextCaption, updated, view.Colors.SecondaryInk)
 		})
 	}
-	status := func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }
-	if !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 720) {
-		return (ui.Column{Gap: ui.Space12}).Layout(gtx, ui.Rigid(status), ui.Rigid(actions))
+	for _, action := range p.actions {
+		items = append(items, action)
 	}
-	return layout.Flex{Alignment: layout.Start, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
-		layout.Flexed(1, status),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(520))
-			return layout.NE.Layout(gtx, actions)
-		}),
-	)
+	return func(gtx layout.Context) layout.Dimensions {
+		return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
+			return items[i](gtx)
+		})
+	}
+}
+
+// healthButton opens Data health and carries the number of open input gaps.
+func (p *overviewPage) healthButton(view ui.View) layout.Widget {
+	label := view.Language.Text(i18n.NavDataHealth)
+	title := label
+	if issues := len(p.current.value.MissingInputs); issues > 0 {
+		title = fmt.Sprintf(view.Language.Text(i18n.OverviewHealthIssues), issues)
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		view.Focus.Watch(gtx, &p.health)
+		return view.ButtonOf(&p.health, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: title, Name: title})(gtx)
+	}
 }
 
 func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) layout.Dimensions {
@@ -211,8 +267,8 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		return (ui.Column{Gap: 8}).Layout(gtx, rows...)
 	case row == 1:
 		return p.totals(gtx, view)
-	case row <= len(result.MissingInputs)+1:
-		return p.overviewMissingRow(gtx, view, result.MissingInputs[row-2])
+	case row == 2 && len(result.MissingInputs) > 0:
+		return p.attention(gtx, view, result.MissingInputs)
 	case row == composition-1 && p.hasCompositionSummary():
 		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
@@ -229,11 +285,8 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.breakdowns.dimensions(gtx, view, result, pair) }))
 		}
 		return p.breakdowns.dimensions(gtx, view, result, pair)
-	case row == composition+1:
-		return returnMonthButton(view, &p.allocation.back, i18n.OverviewAllocationBack, nil, true)(gtx)
 	default:
-		details := p.allocation.model.rows
-		return p.allocation.row(gtx, view, details[row-composition-2])
+		return p.allocation.detailsCard(gtx, view)
 	}
 }
 
@@ -253,8 +306,8 @@ func (p *overviewPage) rowCount() int {
 
 func (p *overviewPage) dimensionsIndex() int {
 	n := p.compositionIndex() + 1
-	if paths := len(p.current.value.AssetComposition.Paths); paths > 0 {
-		n += paths + 1
+	if len(p.current.value.AssetComposition.Paths) > 0 {
+		n++ // the allocation details card
 	}
 	return n
 }
@@ -273,7 +326,12 @@ func (p *overviewPage) compositionIndex() int {
 	return index
 }
 
-func (p *overviewPage) trendIndex() int { return len(p.current.value.MissingInputs) + 2 }
+func (p *overviewPage) trendIndex() int {
+	if len(p.current.value.MissingInputs) > 0 {
+		return 3
+	}
+	return 2
+}
 
 func (p *overviewPage) hasCompositionSummary() bool {
 	return len(overviewSummaries(p.current.value)) > 0
@@ -289,6 +347,53 @@ func (p *overviewPage) hasDimensions() bool {
 		}
 	}
 	return false
+}
+
+// overviewAttentionLimit is how many open input gaps the card lists; the rest
+// are one click away in Data health, which the card links to.
+const overviewAttentionLimit = 3
+
+// attention is the "Needs attention" card: the first open input gaps, each a
+// link to its place in Data health, and a link to the full list.
+func (p *overviewPage) attention(gtx layout.Context, view ui.View, missing []domain.MissingInputView) layout.Dimensions {
+	l := view.Language
+	shown := missing[:min(len(missing), overviewAttentionLimit)]
+	rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.OverviewAttentionTitle), view.Colors.Ink))}
+	for i, item := range shown {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if i == 0 {
+						return layout.Dimensions{}
+					}
+					return view.Hairline(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.overviewMissingRow(gtx, view, item) }),
+			)
+		}))
+	}
+	if p.openHealth != nil {
+		rows = append(rows, ui.Rigid(p.fixInHealth(view, len(missing))))
+	}
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
+	})
+}
+
+// fixInHealth is the link at the foot of the attention card.
+func (p *overviewPage) fixInHealth(view ui.View, count int) layout.Widget {
+	title := view.Language.Text(i18n.OverviewFixInHealth)
+	if count > overviewAttentionLimit {
+		title = fmt.Sprintf("%s (%d)", title, count)
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		view.Focus.Watch(gtx, &p.fixHealth)
+		if p.fixHealth.Clicked(gtx) {
+			p.openHealth(healthFindingFocus{}, &p.fixHealth)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return layout.W.Layout(gtx, view.ButtonOf(&p.fixHealth, ui.ButtonSpec{Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: title, Name: title}))
+	}
 }
 
 func (p *overviewPage) overviewMissingRow(gtx layout.Context, view ui.View, item domain.MissingInputView) layout.Dimensions {
@@ -318,45 +423,39 @@ func (p *overviewPage) overviewMissingRow(gtx layout.Context, view ui.View, item
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	colors := view.Colors
-	return view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonOutline, Fill: true, Content: func(gtx layout.Context) layout.Dimensions {
+	return ui.Bleed(gtx, ui.Space8, view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonGhost, Fill: true, Content: func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return view.IconTile(gtx, lucide.CircleAlert, 32, ui.Mix(colors.Surface, colors.Warning, 0.18), colors.WarningInk)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return view.Line(gtx, ui.TextBody, label, colors.Ink)
+				return view.Body(ui.TextBody, label, colors.Ink)(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return ui.LayoutGlyph(gtx, lucide.ChevronRight, 16, colors.SecondaryInk)
 			}),
 		)
-	}})(gtx)
+	}}))
 }
 
-func (p *overviewPage) status(gtx layout.Context, view ui.View) layout.Dimensions {
+// progress is the loading or failure line under the intro, if there is one.
+func (p *overviewPage) progress(gtx layout.Context, view ui.View) layout.Widget {
 	l := view.Language
-	var rows []layout.FlexChild
-	if p.current != nil {
-		if p.current.value.Currency != "" {
-			rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), p.current.value.Currency), view.Colors.Ink)))
-		}
-		rows = append(rows, layout.Rigid(view.Message(valuationReadTime(view, p.current.readAt), view.Colors.SecondaryInk)))
-	}
 	switch {
 	case p.loading:
 		id := i18n.OverviewLoading
 		if p.current != nil {
 			id = i18n.OverviewRefreshing
 		}
-		rows = append(rows, layout.Rigid(view.Message(l.Text(id), view.Colors.SecondaryInk)))
+		return view.Message(l.Text(id), view.Colors.SecondaryInk)
 	case p.err != nil:
 		id := i18n.OverviewError
 		if p.current != nil {
 			id = i18n.OverviewStale
 		}
-		rows = append(rows, layout.Rigid(view.Message(l.Text(id), view.Colors.ErrorInk)))
+		return view.Message(l.Text(id), view.Colors.ErrorInk)
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx, rows...)
+	return nil
 }
 
 func (p *overviewPage) totals(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -383,13 +482,26 @@ func (p *overviewPage) totals(gtx layout.Context, view ui.View) layout.Dimension
 				return view.Line(gtx, ui.TextHero, hero, colors.Ink)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
+				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+					ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), p.current.value.Currency), colors.SecondaryInk)),
+					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
+					}))
 			}),
 			layout.Rigid(view.Hairline),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+				return layout.Flex{Gap: gtx.Dp(ui.Space24)}.Layout(gtx,
 					layout.Flexed(1, overviewFigure(view, i18n.Assets, values.Assets, lucide.TrendingUp, colors.Success)),
-					layout.Flexed(1, overviewFigure(view, i18n.Liabilities, values.Liabilities, lucide.TrendingDown, colors.Destructive)),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						// A rule in the gutter separates the two figures, as in Wails.
+						macro := op.Record(gtx.Ops)
+						dims := overviewFigure(view, i18n.Liabilities, values.Liabilities, lucide.TrendingDown, colors.Destructive)(gtx)
+						call := macro.Stop()
+						rule := image.Rect(-gtx.Dp(ui.Space12), 0, -gtx.Dp(ui.Space12)+max(1, gtx.Dp(1)), dims.Size.Y)
+						paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(rule).Op())
+						call.Add(gtx.Ops)
+						return dims
+					}),
 				)
 			}),
 		)

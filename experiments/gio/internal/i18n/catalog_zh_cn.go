@@ -593,6 +593,12 @@ var simplifiedChineseCatalog = catalog{
 
 	OverviewBaseCurrency:             "本位币 %s",
 	OverviewReadAt:                   "读取时间 %s（%s）",
+	OverviewDescription:              "查看家庭资产负债表、需要关注的事项以及数据完整度。",
+	OverviewActiveAccounts:           "%d 个活跃账户",
+	OverviewHealthIssues:             "数据健康 · %d 项问题",
+	OverviewUpdatedAt:                "更新于 %s",
+	OverviewAttentionTitle:           "待处理",
+	OverviewFixInHealth:              "在数据健康中处理",
 	OverviewEmpty:                    "暂无账户。",
 	OverviewLoading:                  "正在加载估值…",
 	OverviewRefreshing:               "正在更新估值…",

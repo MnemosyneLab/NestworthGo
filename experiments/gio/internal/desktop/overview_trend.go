@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"gioui.org/layout"
@@ -220,11 +221,9 @@ func overviewTrendSpec(view ui.View, trend *domain.NetWorthTrend) charts.LineSpe
 	spec := charts.LineSpec{
 		Label: l.Text(i18n.OverviewNetWorthTrend), Summary: l.Text(i18n.OverviewTrendBasis),
 		From: from, To: to, Height: 245, Area: true,
-		FormatTime: func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
-		FormatValue: func(value float64) string {
-			return overviewAllocationMoney(view, trend.Currency, decimal.NewFromFloat(value))
-		},
-		Messages: charts.Messages{Empty: l.Text(i18n.OverviewTrendEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
+		FormatTime:  func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
+		FormatValue: func(value float64) string { return chartAxisNumber(view, value) },
+		Messages:    charts.Messages{Empty: l.Text(i18n.OverviewTrendEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}
 	series := charts.LineSeries{ID: overviewTrendSeries, Name: l.Text(i18n.NetWorth)}
 	for _, raw := range trend.Points {
@@ -378,4 +377,23 @@ func (p *overviewPage) overviewTrendDataRow(gtx layout.Context, view ui.View, po
 		rows = append(rows, ui.Rigid(returnMonthButton(view, button, i18n.OverviewTrendSelectedGap, nil, true)))
 	}
 	return (ui.Column{Gap: 3}).Layout(gtx, rows...)
+}
+
+// chartAxisNumber labels a value tick as a grouped whole number, as the Wails
+// axes do. The amounts, tooltips and tables keep their exact currency text;
+// this is display rounding of an axis position only.
+func chartAxisNumber(view ui.View, value float64) string {
+	digits := decimal.NewFromFloat(value).Round(0).String()
+	digits, negative := strings.CutPrefix(digits, "-")
+	var grouped strings.Builder
+	for i, r := range digits {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			grouped.WriteString(view.GroupingSeparator)
+		}
+		grouped.WriteRune(r)
+	}
+	if negative {
+		return "-" + grouped.String()
+	}
+	return grouped.String()
 }

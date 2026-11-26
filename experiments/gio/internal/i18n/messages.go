@@ -417,6 +417,12 @@ const (
 	AccountTypeOther
 	OverviewBaseCurrency
 	OverviewReadAt
+	OverviewDescription
+	OverviewActiveAccounts
+	OverviewHealthIssues
+	OverviewUpdatedAt
+	OverviewAttentionTitle
+	OverviewFixInHealth
 	OverviewEmpty
 	OverviewLoading
 	OverviewRefreshing

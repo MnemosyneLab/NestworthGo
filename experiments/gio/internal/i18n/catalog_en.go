@@ -593,6 +593,12 @@ var englishCatalog = catalog{
 
 	OverviewBaseCurrency:             "Base currency %s",
 	OverviewReadAt:                   "Read %s (%s)",
+	OverviewDescription:              "See your household balance sheet, what needs attention, and how complete the data is.",
+	OverviewActiveAccounts:           "%d active accounts",
+	OverviewHealthIssues:             "Data health · %d issues",
+	OverviewUpdatedAt:                "Updated %s",
+	OverviewAttentionTitle:           "Needs attention",
+	OverviewFixInHealth:              "Fix in Data health",
 	OverviewEmpty:                    "No accounts to show.",
 	OverviewLoading:                  "Loading valuation…",
 	OverviewRefreshing:               "Updating valuation…",

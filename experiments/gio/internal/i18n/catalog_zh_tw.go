@@ -593,6 +593,12 @@ var traditionalChineseCatalog = catalog{
 
 	OverviewBaseCurrency:             "本位幣 %s",
 	OverviewReadAt:                   "讀取時間 %s（%s）",
+	OverviewDescription:              "查看家庭資產負債表、需要注意的事項和資料完整度。",
+	OverviewActiveAccounts:           "%d 個啟用中的帳戶",
+	OverviewHealthIssues:             "資料健康 · %d 項問題",
+	OverviewUpdatedAt:                "更新於 %s",
+	OverviewAttentionTitle:           "待處理",
+	OverviewFixInHealth:              "在資料健康中處理",
 	OverviewEmpty:                    "暫無帳戶。",
 	OverviewLoading:                  "正在載入估值…",
 	OverviewRefreshing:               "正在更新估值…",

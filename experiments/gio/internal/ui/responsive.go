@@ -131,6 +131,9 @@ func (g Grid) Layout(gtx layout.Context, view View, count int, cell func(gtx lay
 type Wrap struct {
 	// Gap separates children horizontally and lines vertically.
 	Gap unit.Dp
+	// Middle centers the children of a line on its tallest child; otherwise
+	// they share the top edge.
+	Middle bool
 }
 
 // Layout places count children. A child that is wider than the row still gets
@@ -138,22 +141,40 @@ type Wrap struct {
 func (w Wrap) Layout(gtx layout.Context, count int, child func(gtx layout.Context, index int) layout.Dimensions) layout.Dimensions {
 	width, gap := gtx.Constraints.Max.X, gtx.Dp(w.Gap)
 	gtx.Constraints.Min = image.Point{}
-	var x, y, line, widest int
+	type placed struct {
+		call op.CallOp
+		at   image.Point
+		size image.Point
+	}
+	var line []placed
+	var x, y, height, widest int
+	flush := func() {
+		for _, item := range line {
+			dy := 0
+			if w.Middle {
+				dy = (height - item.size.Y) / 2
+			}
+			stack := op.Offset(image.Pt(item.at.X, y+dy)).Push(gtx.Ops)
+			item.call.Add(gtx.Ops)
+			stack.Pop()
+		}
+		line = line[:0]
+	}
 	for i := 0; i < count; i++ {
 		macro := op.Record(gtx.Ops)
 		dims := child(gtx, i)
 		call := macro.Stop()
 		if x > 0 && x+dims.Size.X > width {
-			x, y, line = 0, y+line+gap, 0
+			flush()
+			x, y, height = 0, y+height+gap, 0
 		}
-		stack := op.Offset(image.Pt(x, y)).Push(gtx.Ops)
-		call.Add(gtx.Ops)
-		stack.Pop()
+		line = append(line, placed{call: call, at: image.Pt(x, 0), size: dims.Size})
 		x += dims.Size.X + gap
-		line = max(line, dims.Size.Y)
+		height = max(height, dims.Size.Y)
 		widest = max(widest, x-gap)
 	}
-	return layout.Dimensions{Size: image.Pt(widest, y+line)}
+	flush()
+	return layout.Dimensions{Size: image.Pt(widest, y+height)}
 }
 
 // Measure narrows a page to a readable column and centers it in the width it

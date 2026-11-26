@@ -85,6 +85,19 @@ func styledRow(view ui.View, full, name string, style ui.TextStyle, nameInk colo
 	}
 }
 
+// semanticRow draws content under one accessible label, for a row whose parts
+// read as a single sentence.
+func semanticRow(gtx layout.Context, label string, content layout.Widget) layout.Dimensions {
+	macro := op.Record(gtx.Ops)
+	dims := content(gtx)
+	call := macro.Stop()
+	area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
+	semantic.LabelOp(label).Add(gtx.Ops)
+	call.Add(gtx.Ops)
+	area.Pop()
+	return dims
+}
+
 // emptyState is a centered note in a card, for lists that have nothing to show.
 func emptyState(view ui.View, text string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {

@@ -2,6 +2,8 @@ package desktop
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"strings"
 
 	"gioui.org/io/event"
@@ -66,7 +68,7 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
 		CenterCaption: l.Text(i18n.OverviewKnownSubtotal), CenterValue: overviewBreakdownMoney(view, currency, summary.total, summary.liability),
-		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn)}
+		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), Compact: true}
 	bars := charts.BarSpec{Label: label, Messages: messages}
 	useDonut := summary.total.IsPositive()
 	for _, item := range summary.items {
@@ -98,9 +100,7 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 			if summary.quality.UnpricedCount > 0 {
 				rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewCompositionMissing), summary.quality.UnpricedCount), view.Colors.WarningInk)))
 			}
-			if !useDonut {
-				rows = append(rows, ui.Rigid(view.Message(donut.CenterCaption+" · "+donut.CenterValue, view.Colors.SecondaryInk)))
-			}
+			rows = append(rows, ui.Rigid(view.Message(donut.CenterCaption+" · "+donut.CenterValue, view.Colors.SecondaryInk)))
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				var dims layout.Dimensions
 				var events []charts.Event
@@ -149,16 +149,16 @@ func (b *overviewBreakdowns) dimensions(gtx layout.Context, view ui.View, result
 			if dimension.dimension == accountByType {
 				rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewAccountTypeHint), view.Colors.SecondaryInk)))
 			}
-			for _, item := range dimension.items {
+			for i, item := range dimension.items {
 				rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return b.dimensionRow(gtx, view, dimension.dimension, item, result.Currency)
+					return b.dimensionRow(gtx, view, dimension.dimension, item, result.Currency, view.Colors.Category[(i+1)%len(view.Colors.Category)])
 				}))
 			}
 			return overviewBreakdownCard(gtx, view, rows)
 		})
 }
 
-func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim accountDimension, item domain.BreakdownItem, currency domain.CurrencyCode) layout.Dimensions {
+func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim accountDimension, item domain.BreakdownItem, currency domain.CurrencyCode, ink color.NRGBA) layout.Dimensions {
 	scope := breakdownAccountScope(dim, item.Key)
 	name := scope.name(view.Language, item.Label)
 	money, share := overviewBreakdownMoney(view, currency, item.Amount, false), overviewBreakdownShare(view, item)
@@ -168,8 +168,9 @@ func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim 
 		target.accountList = accountListScope{}
 		target.institution = domain.InstitutionID(scope.key)
 	}
+	content := breakdownRow(view, name, money, share, item.ShareBPS, ink)
 	if b.open == nil || !validAccountTarget(target) {
-		return view.Message(label, view.Colors.Ink)(gtx)
+		return semanticRow(gtx, label, content)
 	}
 	if b.links == nil {
 		b.links = make(map[accountListScope]*widget.Clickable)
@@ -188,11 +189,49 @@ func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim 
 		b.open(target, name, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return ui.Bleed(gtx, ui.Space12, view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonGhost, Fill: true, Content: valueRow(view, name, money, share)}))
+	return ui.Bleed(gtx, ui.Space12, view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonGhost, Fill: true, Content: content}))
 }
 
 func overviewBreakdownCard(gtx layout.Context, view ui.View, rows []ui.ColumnChild) layout.Dimensions {
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 	})
+}
+
+// breakdownRow is one entry of a dimension card as in Wails: a colored dot, the
+// name, the share and the amount on one line, and a thin bar under it sized by
+// the share. The bar repeats the printed share and carries no extra meaning.
+func breakdownRow(view ui.View, name, amount, share string, shareBPS int, ink color.NRGBA) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		colors := view.Colors
+		line := func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					side := gtx.Dp(8)
+					ui.FillRoundRect(gtx, image.Rect(0, 0, side, side), ui.RadiusFull, ink)
+					return layout.Dimensions{Size: image.Pt(side, side)}
+				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return view.Line(gtx, ui.TextLabel, name, colors.Ink)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Line(gtx, ui.TextCaption, share, colors.SecondaryInk)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Line(gtx, ui.TextLabel, amount, colors.Ink)
+				}),
+			)
+		}
+		bar := func(gtx layout.Context) layout.Dimensions {
+			height := gtx.Dp(6)
+			width := gtx.Constraints.Max.X
+			ui.FillRoundRect(gtx, image.Rect(0, 0, width, height), ui.RadiusFull, colors.HoverSurface)
+			fill := width * min(max(shareBPS, 0), domain.TotalOwnershipBPS) / domain.TotalOwnershipBPS
+			if fill > 0 {
+				ui.FillRoundRect(gtx, image.Rect(0, 0, max(fill, height), height), ui.RadiusFull, ink)
+			}
+			return layout.Dimensions{Size: image.Pt(width, height)}
+		}
+		return (ui.Column{Gap: ui.Space6}).Layout(gtx, ui.Rigid(line), ui.Rigid(bar))
+	}
 }

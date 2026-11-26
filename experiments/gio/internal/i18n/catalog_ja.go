@@ -592,6 +592,12 @@ var japaneseCatalog = catalog{
 
 	OverviewBaseCurrency:             "基準通貨 %s",
 	OverviewReadAt:                   "読込時刻 %s（%s）",
+	OverviewDescription:              "世帯の資産と負債、確認が必要な項目、データの状態を確認できます。",
+	OverviewActiveAccounts:           "有効な口座 %d 件",
+	OverviewHealthIssues:             "データの状態 · %d 件の問題",
+	OverviewUpdatedAt:                "更新 %s",
+	OverviewAttentionTitle:           "要確認",
+	OverviewFixInHealth:              "データの状態で対応",
 	OverviewEmpty:                    "表示する口座がありません。",
 	OverviewLoading:                  "評価額を読み込み中…",
 	OverviewRefreshing:               "評価額を更新中…",

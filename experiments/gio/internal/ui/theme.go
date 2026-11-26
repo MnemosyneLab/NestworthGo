@@ -97,6 +97,14 @@ func (p *Palette) Tint(c color.NRGBA, strength float64) color.NRGBA {
 	return Mix(p.Surface, c, strength)
 }
 
+// ChartInk is the ink of the index-th chart series or slice. It follows the
+// Wails chart palette (chartTheme.ts): the brand ink first, then blue, orange,
+// purple, pink, yellow, teal and red; green is kept for gains.
+func (p *Palette) ChartInk(index int) color.NRGBA {
+	order := [...]color.NRGBA{p.Accent, p.Category[0], p.Category[5], p.Category[4], p.Category[6], p.Category[3], p.Category[7], p.Category[2]}
+	return order[index%len(order)]
+}
+
 // CategorySoft is the quiet background that pairs with a Category color.
 func (p *Palette) CategorySoft(index int) color.NRGBA {
 	strength := 0.16

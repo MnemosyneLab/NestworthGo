@@ -254,7 +254,7 @@ func (s LineSpec) plan(d lineDomain, plot image.Rectangle, maxXTicks, missingMar
 	for i, series := range s.Series {
 		sp := lineSeriesPlan{id: series.ID, ink: series.Color, marker: markerShape(i) % markerShapes, last: -1}
 		if sp.ink == (color.NRGBA{}) {
-			sp.ink = colors.Category[i%len(colors.Category)]
+			sp.ink = colors.ChartInk(i)
 		}
 		var chain []int
 		flush := func() {
@@ -568,7 +568,7 @@ func (c *LineChart) layoutLegend(gtx layout.Context, view ui.View, spec LineSpec
 		series := spec.Series[i]
 		ink := series.Color
 		if ink == (color.NRGBA{}) {
-			ink = colors.Category[i%len(colors.Category)]
+			ink = colors.ChartInk(i)
 		}
 		block := textBlock{style: ui.TextCaption, content: series.Name, ink: colors.Ink, maxWidth: max(1, width-2*radius-gtx.Dp(ui.Space6))}
 		size := block.measure(gtx, view)

@@ -93,7 +93,7 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Unavailable")
 	absent("A$0.00")
 	label("Missing exchange rate · AUD/USD · Foreign debt")
-	stamp := "Read 2026-08-18 01:34 (Asia/Singapore)"
+	stamp := "Updated 2026-08-18 01:34"
 	label(stamp)
 	h.click("Settings", false)
 	h.click("Back", false)
@@ -107,7 +107,7 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Incomplete valuation")
 	h.click("Retry", false)
 	finish(overviewRead{value: domain.OverviewResult{Currency: "AUD", Complete: true}})
-	label("Read 2026-08-19 01:34 (Asia/Singapore)")
+	label("Updated 2026-08-19 01:34")
 	label("No accounts to show.")
 	absent("Net worth · Known net contribution")
 	absent("A$0.00")
