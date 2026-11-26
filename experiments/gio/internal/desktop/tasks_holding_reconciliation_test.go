@@ -107,6 +107,9 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	h.focused(&c.draft.selection.ownerPick.Trigger)
 	start.activate(t, "Review")
 	start.activate(t, "Cancel")
+	h.focused(&c.draft.preview)
+	sessions(app, 0)
+	start.activate(t, "Cancel")
 	h.focused(&c.start)
 	sessions(app, 0)
 
