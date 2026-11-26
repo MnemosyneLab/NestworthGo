@@ -2017,5 +2017,8 @@ var simplifiedChineseCatalog = catalog{
 	AccountTypeMore:            "更多账户类型",
 	AccountTypeFewer:           "收起更多类型",
 	AccountTypeContinue:        "继续",
+	AccountTrackingStepTitle:   "如何跟踪这个账户？",
+	AccountTrackingStepHelp:    "为%s选择跟踪方式。",
+	AccountTrackingBack:        "更换账户类型",
 	AccountCreateSectionBasics: "账户信息",
 }

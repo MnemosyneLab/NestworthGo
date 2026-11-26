@@ -41,14 +41,15 @@ func TestAccountRecommendationsAndExplicitChoices(t *testing.T) {
 	startNewAccount(h, finish, "Property")
 	d := p.creation.draft
 	group := fixtureDefaultAccountGroup(t, service)
-	if d.institution.ID != "" || d.group != group {
-		t.Fatal("property should start without an institution and with the active default group")
+	if d == nil || d.kind != domain.TypeProperty || d.mode != domain.TrackingManualValue || d.institution.ID != "" || d.group != group {
+		t.Fatal("property should open directly, without an institution, and with the active default group")
 	}
-	h.click("Tracking method", true)
-	h.click("Cash and holdings", false)
-	h.frame()
-	if d.kind != domain.TypeBrokerage || d.institution.Name != "Harbor Sample Bank" {
-		t.Fatal("brokerage must choose the earliest matching directory institution across bank and brokerage types")
+	h.click("Cancel", false)
+	finish()
+	startNewAccount(h, finish, "Brokerage")
+	d = p.creation.draft
+	if d == nil || d.kind != domain.TypeBrokerage || d.mode != domain.TrackingHoldings || d.institution.Name != "Harbor Sample Bank" {
+		t.Fatalf("brokerage should keep holdings and the earliest matching institution, got %#v", d)
 	}
 	chooseAccountType(h, "Asset type", 2)
 	if d.kind != domain.TypeCryptoExchange || d.institution.ID != first.ID {

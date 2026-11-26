@@ -92,9 +92,17 @@ func (d *balanceAccountDraft) selectMode(mode domain.TrackingMode) {
 	if mode == d.mode {
 		return
 	}
-	d.mode = mode
 	if !domain.IsValidAccountCombination(d.kind, d.role, mode) {
+		// Institution entry still offers the valued/holdings pair and moves to
+		// brokerage when the current type cannot use the chosen method. An
+		// unscoped account keeps its type; its choices are already legal.
+		if !d.scoped {
+			return
+		}
+		d.mode = mode
 		d.selectType(domain.TypeBrokerage)
+	} else {
+		d.mode = mode
 	}
 	d.opening.Editor.SetText("")
 	d.included = domain.SuggestedInclusion(d.kind, mode).IncludeInNetWorth

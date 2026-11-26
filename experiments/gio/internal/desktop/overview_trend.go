@@ -33,19 +33,23 @@ const overviewTrendDefaultPreset = 2
 const overviewTrendNoOrigin = "1970-01-01"
 
 type overviewTrend struct {
-	reader                          overviewTrendReader
-	request                         <-chan historyResult[domain.NetWorthTrend]
-	cancel                          context.CancelFunc
-	current                         *domain.NetWorthTrend
-	err                             error
-	requested                       domain.TrendRange
-	stale                           bool
-	origin                          *wealthHistoryOrigin
-	originRead                      <-chan historyResult[*wealthHistoryOrigin]
-	originLoaded                    bool
-	dates                           analysisDateShortcuts
-	window                          analysisDateWindow
-	chosen                          bool
+	reader       overviewTrendReader
+	request      <-chan historyResult[domain.NetWorthTrend]
+	cancel       context.CancelFunc
+	current      *domain.NetWorthTrend
+	err          error
+	requested    domain.TrendRange
+	stale        bool
+	origin       *wealthHistoryOrigin
+	originRead   <-chan historyResult[*wealthHistoryOrigin]
+	originLoaded bool
+	dates        analysisDateShortcuts
+	window       analysisDateWindow
+	chosen       bool
+	// allTime is the explicit All history choice. It is not inferred from
+	// whether the visible dates currently cover the whole ledger.
+	allTime                         bool
+	allQueriedOn                    string
 	history, gaps, gap, retry, data widget.Clickable
 	showData                        bool
 	dayGaps                         map[string]*widget.Clickable
@@ -79,9 +83,13 @@ func (t *overviewTrend) bounds(view ui.View, now time.Time) (earliest, latest st
 	return earliest, now.In(location).Format(time.DateOnly)
 }
 
-// selection is the visible window: the user's choice, or the default month,
-// kept inside [earliest, latest].
+// selection is the visible window. All history follows the history start and
+// today. A range the user chose or paged to stays on those dates. Before any
+// choice, the card shows the default month.
 func (t *overviewTrend) selection(earliest, latest string) analysisDateWindow {
+	if t.allTime {
+		return analysisDateWindow{from: earliest, to: latest}
+	}
 	window := t.window
 	if !t.chosen {
 		window = analysisPresetRange(overviewTrendDefaultPreset, latest, earliest)
@@ -90,10 +98,10 @@ func (t *overviewTrend) selection(earliest, latest string) analysisDateWindow {
 	return window
 }
 
-// query is the trend range read for a window. The whole history reads as
-// "all", so the series follows later history instead of freezing its dates.
-func overviewTrendQuery(window analysisDateWindow, earliest, latest string) domain.TrendRange {
-	if window.from == earliest && window.to == latest {
+// overviewTrendQuery is the trend range read for the current choice. All
+// history is the named range, not a date pair that happened to span the ledger.
+func overviewTrendQuery(allTime bool, window analysisDateWindow) domain.TrendRange {
+	if allTime {
 		return domain.TrendAllTime
 	}
 	return domain.TrendRange(window.from + ":" + window.to)
@@ -154,8 +162,12 @@ func (p *overviewPage) updateTrend(gtx layout.Context, view ui.View) {
 	default:
 	}
 	earliest, latest := t.bounds(view, p.clock())
-	want := overviewTrendQuery(t.selection(earliest, latest), earliest, latest)
-	if t.requested != want || (t.err != nil && t.retry.Clicked(gtx)) {
+	window := t.selection(earliest, latest)
+	want := overviewTrendQuery(t.allTime, window)
+	// A later ledger day still uses "all", so compare the civil day as well
+	// as the query text.
+	dayMoved := t.allTime && t.allQueriedOn != "" && t.allQueriedOn != latest
+	if t.requested != want || dayMoved || (t.err != nil && t.retry.Clicked(gtx)) {
 		t.refetch()
 	}
 	if t.request != nil || (!t.stale && (t.current != nil || t.err != nil)) {
@@ -164,6 +176,11 @@ func (p *overviewPage) updateTrend(gtx layout.Context, view ui.View) {
 	ctx, cancel := context.WithCancel(p.ctx)
 	period := want
 	t.cancel, t.err, t.stale, t.requested = cancel, nil, false, want
+	if t.allTime {
+		t.allQueriedOn = latest
+	} else {
+		t.allQueriedOn = ""
+	}
 	t.request = runHistoryRead(&p.workers, p.invalidate, func() (domain.NetWorthTrend, error) {
 		return t.reader.NetWorthTrend(ctx, period)
 	})
@@ -270,6 +287,7 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	t.dates.showRange = true
 	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return t.dates.layout(gtx, view, t.selection(earliest, latest), earliest, latest, func(window analysisDateWindow) {
+			t.allTime = t.dates.chosen == analysisAllDates
 			t.window, t.chosen = window, true
 			gtx.Execute(op.InvalidateCmd{})
 		})

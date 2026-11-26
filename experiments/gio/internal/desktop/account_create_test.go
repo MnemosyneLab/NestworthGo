@@ -35,8 +35,10 @@ type accountCreationTestService struct {
 }
 
 // startNewAccount opens the type chooser, picks a type and continues to the
-// details form, as a person does with the Add account button. The chooser can
-// be taller than the test window; click scrolls each control into view.
+// details form, as a person does with the Add account button. A type with
+// several tracking methods stops for an explicit choice; this accepts the
+// preselected method. The chooser can be taller than the test window; click
+// scrolls each control into view.
 func startNewAccount(h *previewHarness, finish func(), kind string) {
 	h.t.Helper()
 	h.click("Add account", false)
@@ -48,6 +50,10 @@ func startNewAccount(h *previewHarness, finish func(), kind string) {
 	h.click(kind, false)
 	h.click("Continue", false)
 	finish()
+	if findPageLabel(&h.router, "How should this account be tracked?") != nil {
+		h.click("Continue", false)
+		finish()
+	}
 }
 
 func (s *accountCreationTestService) CreateAccount(ctx context.Context, input application.AccountInput) (domain.AccountRecord, error) {

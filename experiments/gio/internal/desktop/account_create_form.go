@@ -286,11 +286,7 @@ func (d *balanceAccountDraft) directoryCells(view ui.View) []func(gtx layout.Con
 		d.typeSelect.Layout(gtx, view, ui.PickerField{Label: typeLabel, Origin: view.Origin, Disabled: !gtx.Enabled()},
 			ui.SelectOptions{Items: accountTypeChoices(l, d.role, d.mode)}, d.kind.String(), func(value string) { d.selectType(domain.AccountType(value)) })
 	}))
-	if d.shell() {
-		modes := []ui.Choice{
-			{ID: string(domain.TrackingManualValue), Label: l.Text(i18n.AccountTrackingManual)},
-			{ID: string(domain.TrackingHoldings), Label: l.Text(i18n.AccountTrackingHoldings)},
-		}
+	if modes := d.trackingChoices(l); len(modes) > 1 {
 		cells = append(cells, picker(func(gtx layout.Context, view ui.View) {
 			d.modeSelect.Layout(gtx, view, ui.PickerField{Label: i18n.AccountTrackingMethod, Origin: view.Origin, Disabled: !gtx.Enabled()},
 				ui.SelectOptions{Items: modes}, string(d.mode), func(value string) { d.selectMode(domain.TrackingMode(value)) })
@@ -319,6 +315,26 @@ func (d *balanceAccountDraft) directoryCells(view ui.View) []func(gtx layout.Con
 		field := ui.PickerField{Label: i18n.AccountMaintenanceInstitution, Origin: view.Origin, Disabled: !gtx.Enabled()}
 		d.institutionSelect.Layout(gtx, view, field, institutionOptions, d.institution.ID.String(), d.chooseInstitution)
 	}))
+}
+
+// trackingChoices are the methods the open form may switch to. Institution
+// entry keeps its valued-or-holdings pair. An unscoped form lists only the
+// modes that are legal for the account's type and role, including balance.
+func (d *balanceAccountDraft) trackingChoices(l i18n.Language) []ui.Choice {
+	if d.scoped {
+		if !d.shell() {
+			return nil
+		}
+		return []ui.Choice{
+			{ID: string(domain.TrackingManualValue), Label: l.Text(i18n.AccountTrackingManual)},
+			{ID: string(domain.TrackingHoldings), Label: l.Text(i18n.AccountTrackingHoldings)},
+		}
+	}
+	var choices []ui.Choice
+	for _, mode := range accountModes(d.kind, d.role) {
+		choices = append(choices, ui.Choice{ID: string(mode), Label: l.Text(accountTrackingLabel(mode, d.kind))})
+	}
+	return choices
 }
 
 // layoutOpeningOptions is the optional second page of details: grouping, the

@@ -37,8 +37,13 @@ var (
 type accountTypeChooser struct {
 	selected             domain.AccountType
 	more                 bool
+	pickingMode          bool
+	mode                 domain.TrackingMode
+	modes                []domain.TrackingMode
+	modeButtons          map[domain.TrackingMode]*widget.Clickable
 	cards                map[domain.AccountType]*widget.Clickable
 	toggle, next, cancel widget.Clickable
+	back                 widget.Clickable
 }
 
 func newAccountTypeChooser() *accountTypeChooser {
@@ -49,9 +54,11 @@ func newAccountTypeChooser() *accountTypeChooser {
 	return c
 }
 
-// accountTypeSetup returns the role and tracking mode a type starts with, as
-// the Wails wizard defaults them: the first legal role, the balance mode when
-// the type offers it and otherwise the first legal mode.
+// accountTypeSetup returns the role and the default tracking mode for a type,
+// as the Wails wizard defaults them: the first legal role, balance when the
+// type offers it, and otherwise the first legal mode. Brokerage-style types
+// still start on holdings. The default is only the preselected choice; every
+// legal mode for that role stays selectable.
 func accountTypeSetup(kind domain.AccountType) (domain.BalanceSheetRole, domain.TrackingMode) {
 	role, mode := domain.RoleAsset, domain.TrackingBalance
 	found := false
@@ -73,20 +80,31 @@ func accountTypeSetup(kind domain.AccountType) (domain.BalanceSheetRole, domain.
 	return role, mode
 }
 
-// accountTypeModes lists the tracking modes the creation form can start or
-// switch to for a type, so a card promises nothing the form cannot do.
-func accountTypeModes(kind domain.AccountType) []domain.TrackingMode {
-	role, mode := accountTypeSetup(kind)
-	if mode == domain.TrackingBalance {
-		return []domain.TrackingMode{domain.TrackingBalance}
-	}
+// accountModes lists the tracking modes LegalAccountCombinations allows for one
+// type and role, in catalog order. A type card and the creation form offer
+// exactly this list.
+func accountModes(kind domain.AccountType, role domain.BalanceSheetRole) []domain.TrackingMode {
 	var modes []domain.TrackingMode
-	for _, candidate := range []domain.TrackingMode{domain.TrackingHoldings, domain.TrackingManualValue} {
-		if domain.IsValidAccountCombination(kind, role, candidate) {
-			modes = append(modes, candidate)
+	seen := map[domain.TrackingMode]struct{}{}
+	for _, option := range domain.LegalAccountCombinations() {
+		if option.AccountType != kind || option.BalanceSheetRole != role {
+			continue
 		}
+		if _, ok := seen[option.TrackingMode]; ok {
+			continue
+		}
+		seen[option.TrackingMode] = struct{}{}
+		modes = append(modes, option.TrackingMode)
 	}
 	return modes
+}
+
+// accountTypeModes lists the tracking modes the creation form can start or
+// switch to for a type's default role, so a card promises nothing the form
+// cannot do.
+func accountTypeModes(kind domain.AccountType) []domain.TrackingMode {
+	role, _ := accountTypeSetup(kind)
+	return accountModes(kind, role)
 }
 
 func (p *accountsPage) startAccountChooser() {
@@ -106,6 +124,9 @@ func (p *accountsPage) layoutAccountTypeChooser(gtx layout.Context, view ui.View
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
+	if c.pickingMode {
+		return p.layoutAccountTrackingChooser(gtx, view)
+	}
 	for kind, card := range c.cards {
 		if card.Clicked(gtx) {
 			c.selected = kind
@@ -117,6 +138,27 @@ func (p *accountsPage) layoutAccountTypeChooser(gtx layout.Context, view ui.View
 	if c.next.Clicked(gtx) {
 		kind := c.selected
 		role, mode := accountTypeSetup(kind)
+		modes := accountModes(kind, role)
+		if len(modes) == 1 {
+			mode = modes[0]
+		}
+		if len(modes) > 1 {
+			if !slices.Contains(modes, mode) {
+				mode = modes[0]
+			}
+			c.pickingMode, c.mode, c.modes = true, mode, modes
+			if c.modeButtons == nil {
+				c.modeButtons = map[domain.TrackingMode]*widget.Clickable{}
+			}
+			for _, item := range modes {
+				if c.modeButtons[item] == nil {
+					c.modeButtons[item] = new(widget.Clickable)
+				}
+			}
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+			return layout.Dimensions{}
+		}
 		f.chooser = nil
 		view.RestorePageScroll(0)
 		p.startAccount(kind, role, mode, domain.Institution{})
@@ -167,6 +209,84 @@ func (p *accountsPage) layoutAccountTypeChooser(gtx layout.Context, view ui.View
 		children[i] = ui.Rigid(func(gtx layout.Context) layout.Dimensions { return row(gtx, view) })
 	}
 	return ui.Column{Gap: ui.Space16}.Layout(gtx, children...)
+}
+
+// layoutAccountTrackingChooser asks which legal tracking method to use when the
+// chosen type has more than one. The account type stays the one already chosen.
+func (p *accountsPage) layoutAccountTrackingChooser(gtx layout.Context, view ui.View) layout.Dimensions {
+	f, l := p.creation, view.Language
+	c := f.chooser
+	if c.back.Clicked(gtx) {
+		c.pickingMode = false
+		view.RestorePageScroll(0)
+		gtx.Execute(op.InvalidateCmd{})
+		return layout.Dimensions{}
+	}
+	for mode, button := range c.modeButtons {
+		if slices.Contains(c.modes, mode) && button.Clicked(gtx) {
+			c.mode = mode
+		}
+	}
+	if c.next.Clicked(gtx) {
+		kind, mode := c.selected, c.mode
+		role, _ := accountTypeSetup(kind)
+		if !domain.IsValidAccountCombination(kind, role, mode) && len(c.modes) > 0 {
+			mode = c.modes[0]
+		}
+		f.chooser = nil
+		view.RestorePageScroll(0)
+		p.startAccount(kind, role, mode, domain.Institution{})
+		gtx.Execute(op.InvalidateCmd{})
+		return layout.Dimensions{}
+	}
+	typeName := l.Text(accountTypes[c.selected])
+	rows := []func(gtx layout.Context, view ui.View) layout.Dimensions{
+		func(gtx layout.Context, view ui.View) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return accountStepper(gtx, view, 0) }),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return view.Line(gtx, ui.TextHeading, l.Text(i18n.AccountTrackingStepTitle), view.Colors.Ink)
+						}),
+						layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountTrackingStepHelp), typeName), view.Colors.SecondaryInk)),
+					)
+				}),
+			)
+		},
+		func(gtx layout.Context, view ui.View) layout.Dimensions {
+			children := make([]layout.FlexChild, len(c.modes))
+			for i, mode := range c.modes {
+				children[i] = layout.Rigid(accountTrackingChoice(view, c.modeButtons[mode], mode, c.selected, c.mode == mode))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, children...)
+		},
+		func(gtx layout.Context, view ui.View) layout.Dimensions {
+			back := l.Text(i18n.AccountTrackingBack)
+			return layout.Flex{Spacing: layout.SpaceStart, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Rigid(view.Button(&c.cancel, l.Text(i18n.InstitutionsCancel))),
+				layout.Rigid(view.ButtonOf(&c.back, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: back, Name: back})),
+				layout.Rigid(view.PrimaryButton(&c.next, l.Text(i18n.AccountTypeContinue))),
+			)
+		},
+	}
+	gtx, view = view.Measure(gtx, 720)
+	children := make([]ui.ColumnChild, len(rows))
+	for i, row := range rows {
+		children[i] = ui.Rigid(func(gtx layout.Context) layout.Dimensions { return row(gtx, view) })
+	}
+	return ui.Column{Gap: ui.Space16}.Layout(gtx, children...)
+}
+
+func accountTrackingChoice(view ui.View, button *widget.Clickable, mode domain.TrackingMode, kind domain.AccountType, selected bool) layout.Widget {
+	label := view.Language.Text(accountTrackingLabel(mode, kind))
+	variant := ui.ButtonOutline
+	if selected {
+		variant = ui.ButtonSoft
+	}
+	return view.ButtonOf(button, ui.ButtonSpec{
+		Variant: variant, Title: label, Name: label, Toggle: true, Selected: selected, Fill: true,
+	})
 }
 
 // accountTypeCard is one selectable type: its icon tile, its name and the

@@ -2017,5 +2017,8 @@ var englishCatalog = catalog{
 	AccountTypeMore:            "More account types",
 	AccountTypeFewer:           "Fewer account types",
 	AccountTypeContinue:        "Continue",
+	AccountTrackingStepTitle:   "How should this account be tracked?",
+	AccountTrackingStepHelp:    "Choose a tracking method for %s.",
+	AccountTrackingBack:        "Change account type",
 	AccountCreateSectionBasics: "Account details",
 }

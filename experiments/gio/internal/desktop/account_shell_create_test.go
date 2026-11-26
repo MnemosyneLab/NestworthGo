@@ -255,7 +255,11 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	d.kind = domain.TypeLoan
 	reviewBankAccount(h)
 	assertPageLabel(t, &h.router, "Choose an account type compatible with this role and tracking method.")
+	d.kind = domain.TypeBrokerage
 	d.selectMode(domain.TrackingHoldings)
+	if d.kind != domain.TypeBrokerage || d.mode != domain.TrackingHoldings {
+		t.Fatal("choosing holdings changed the account type")
+	}
 	d.opening.Editor.SetText("0")
 	reviewBankAccount(h)
 	assertPageLabel(t, &h.router, "Clear the opening valuation for a holdings account.")

@@ -2016,5 +2016,8 @@ var japaneseCatalog = catalog{
 	AccountTypeMore:            "その他の口座の種類",
 	AccountTypeFewer:           "一部の種類のみ表示",
 	AccountTypeContinue:        "続ける",
+	AccountTrackingStepTitle:   "この口座をどう記録しますか？",
+	AccountTrackingStepHelp:    "%sの記録方法を選んでください。",
+	AccountTrackingBack:        "口座の種類を変更",
 	AccountCreateSectionBasics: "口座の情報",
 }

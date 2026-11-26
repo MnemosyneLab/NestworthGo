@@ -1966,6 +1966,9 @@ const (
 	AccountTypeMore
 	AccountTypeFewer
 	AccountTypeContinue
+	AccountTrackingStepTitle
+	AccountTrackingStepHelp
+	AccountTrackingBack
 	AccountCreateSectionBasics
 	messageCount
 )

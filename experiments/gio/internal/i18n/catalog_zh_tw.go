@@ -2017,5 +2017,8 @@ var traditionalChineseCatalog = catalog{
 	AccountTypeMore:            "更多帳戶類型",
 	AccountTypeFewer:           "收合更多類型",
 	AccountTypeContinue:        "繼續",
+	AccountTrackingStepTitle:   "如何追蹤這個帳戶？",
+	AccountTrackingStepHelp:    "為%s選擇追蹤方式。",
+	AccountTrackingBack:        "更換帳戶類型",
 	AccountCreateSectionBasics: "帳戶資訊",
 }
