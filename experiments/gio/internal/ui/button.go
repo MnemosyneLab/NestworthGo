@@ -177,7 +177,7 @@ func (v View) ButtonOf(button *widget.Clickable, spec ButtonSpec) layout.Widget 
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		v.Focus.Watch(gtx, button)
-		return accessibility.Button(gtx, button, name, spec.Description, false, func(gtx layout.Context) layout.Dimensions {
+		return accessibility.ButtonWithSelection(gtx, button, name, spec.Description, spec.Selected, func(gtx layout.Context) layout.Dimensions {
 			return v.layoutButton(gtx, button, spec, name)
 		})
 	}

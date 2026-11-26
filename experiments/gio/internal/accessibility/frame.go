@@ -18,7 +18,7 @@ import (
 
 const frameKey = "nestworth.accessibility"
 const bindingPrefix = "\x00"
-const hiddenDescription = bindingPrefix + "hidden"
+const hiddenDescription = "\x01"
 
 // Roles are shared with bridge_darwin.m.
 type role uint8
@@ -177,7 +177,11 @@ func Button(gtx layout.Context, click *widget.Clickable, name, value string, pic
 
 // SelectableButton exposes the committed selection of a navigation control.
 func SelectableButton(gtx layout.Context, click *widget.Clickable, name string, selected bool, widget layout.Widget) layout.Dimensions {
-	return track(gtx, binding{tag: click, role: button, name: name, button: click, selected: selected}, widget)
+	return ButtonWithSelection(gtx, click, name, "", selected, widget)
+}
+
+func ButtonWithSelection(gtx layout.Context, click *widget.Clickable, name, value string, selected bool, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: button, name: name, value: value, button: click, selected: selected}, widget)
 }
 
 // OptionFocus describes a picker option whose container owns keyboard events.

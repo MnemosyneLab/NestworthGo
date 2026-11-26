@@ -30,7 +30,7 @@ type SwatchSpec struct {
 // selected button to assistive technology.
 func (v View) Swatch(gtx layout.Context, click *widget.Clickable, spec SwatchSpec) layout.Dimensions {
 	v.Focus.Watch(gtx, click)
-	return accessibility.Button(gtx, click, spec.Name, "", false, func(gtx layout.Context) layout.Dimensions {
+	return accessibility.SelectableButton(gtx, click, spec.Name, spec.Selected, func(gtx layout.Context) layout.Dimensions {
 		return v.layoutSwatch(gtx, click, spec)
 	})
 }
