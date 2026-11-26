@@ -33,6 +33,7 @@ func TestVisualSnapshotsSampleLedgerPages(t *testing.T) {
 	clock := time.Now
 	overview := newOverviewPage(ctx, service, clock, func() {})
 	accounts := newAccountsPage(ctx, service, clock, func() {})
+	accounts.creation = &balanceAccountCreation{service: service}
 	h := newShellHarnessWithPages(t, ledgerPages{overview: overview, accounts: accounts})
 	h.size = image.Pt(1375, 943)
 	h.shell.prefs.saved = values
@@ -67,7 +68,6 @@ func TestVisualSnapshotsSampleLedgerPages(t *testing.T) {
 	h.snapshot(t, dir, "accounts-default")
 
 	// The add-account flow: the type chooser, then the details form.
-	accounts.creation = &balanceAccountCreation{service: service}
 	accounts.startAccountChooser()
 	h.frame()
 	h.snapshot(t, dir, "accounts-add-type")
