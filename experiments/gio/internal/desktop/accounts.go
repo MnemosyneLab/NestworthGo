@@ -290,8 +290,9 @@ type accountsPage struct {
 	restoreProductFocus, productSaved  bool
 	backToList                         func()
 	creation                           *balanceAccountCreation
-	createBank, createLiability        widget.Clickable
-	createAsset, createShell           widget.Clickable
+	createBank, createAccount          widget.Clickable
+	createShell                        widget.Clickable
+	focusCreate                        bool
 	createdID                          domain.AccountID
 	createdMessage                     i18n.MessageID
 	maintenance                        *accountMaintenance

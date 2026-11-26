@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
@@ -64,6 +65,29 @@ func TestVisualSnapshotsSampleLedgerPages(t *testing.T) {
 		t.Fatalf("accounts did not load: %v", accounts.err)
 	}
 	h.snapshot(t, dir, "accounts-default")
+
+	// The add-account flow: the type chooser, then the details form.
+	accounts.creation = &balanceAccountCreation{service: service}
+	accounts.startAccountChooser()
+	h.frame()
+	h.snapshot(t, dir, "accounts-add-type")
+	accounts.creation.chooser.more = true
+	accounts.creation.chooser.selected = domain.TypeBrokerage
+	h.frame()
+	h.snapshot(t, dir, "accounts-add-type-more")
+	accounts.creation.chooser = nil
+	role, mode := accountTypeSetup(domain.TypeBrokerage)
+	accounts.startAccount(domain.TypeBrokerage, role, mode, domain.Institution{})
+	h.frame()
+	accounts.workers.Wait()
+	h.frame()
+	h.frame()
+	h.snapshot(t, dir, "accounts-add-details")
+
+	// More details: group, opening date, icon and ownership shares.
+	accounts.creation.draft.showOpeningOptions = true
+	h.frame()
+	h.snapshot(t, dir, "accounts-add-more-details")
 }
 
 func openDefaultProfileCopy(t *testing.T) (*application.Service, *preferences.Service) {

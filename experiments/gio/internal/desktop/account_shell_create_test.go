@@ -242,8 +242,7 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	service, session := openBankFixture(t, root)
 	counted := &accountCreationTestService{Service: service}
 	p, h, finish := accountShellHarness(t, counted, counted, "")
-	h.click("Add valued or holdings account", false)
-	finish()
+	startNewAccount(h, finish, "Property")
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Rejected or missing")
 	if len(d.owners) != 1 {

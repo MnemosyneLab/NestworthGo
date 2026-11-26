@@ -34,6 +34,22 @@ type accountCreationTestService struct {
 	pendingReadFailure atomic.Bool
 }
 
+// startNewAccount opens the type chooser, picks a type and continues to the
+// details form, as a person does with the Add account button. The chooser can
+// be taller than the test window; click scrolls each control into view.
+func startNewAccount(h *previewHarness, finish func(), kind string) {
+	h.t.Helper()
+	h.click("Add account", false)
+	finish()
+	if findPageLabel(&h.router, kind) == nil {
+		h.click("More account types", false)
+		finish()
+	}
+	h.click(kind, false)
+	h.click("Continue", false)
+	finish()
+}
+
 func (s *accountCreationTestService) CreateAccount(ctx context.Context, input application.AccountInput) (domain.AccountRecord, error) {
 	first := s.writes.Add(1) == 1
 	if first && s.failWrite {

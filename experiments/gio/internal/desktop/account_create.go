@@ -113,6 +113,7 @@ func (d *balanceAccountDraft) selectType(kind domain.AccountType) {
 // created object, never the form or a submit intent.
 type balanceAccountCreation struct {
 	service      accountCreator
+	chooser      *accountTypeChooser
 	draft        *balanceAccountDraft
 	review       *balanceAccountReview
 	submission   <-chan accountCreateResult
@@ -238,7 +239,11 @@ func (d *balanceAccountDraft) institutionIndex() int {
 }
 
 func (f *balanceAccountCreation) discard() {
-	if f == nil || f.draft == nil {
+	if f == nil {
+		return
+	}
+	f.chooser = nil
+	if f.draft == nil {
 		return
 	}
 	if f.draft.cancelRefs != nil {

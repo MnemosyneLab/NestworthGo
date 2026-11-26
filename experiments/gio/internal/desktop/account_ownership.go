@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"image"
 	"slices"
 
 	"gioui.org/layout"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -86,7 +88,7 @@ func (d *accountOwnershipDraft) layoutShareMode(gtx layout.Context, view ui.View
 }
 
 func (d *accountOwnershipDraft) layoutOwnerList(gtx layout.Context, view ui.View, members []domain.Member, editShares bool) layout.Dimensions {
-	return view.List(&d.ownerList).Layout(gtx, len(members), func(gtx layout.Context, i int) layout.Dimensions {
+	row := func(gtx layout.Context, i int) layout.Dimensions {
 		member := members[i]
 		choice := d.owner(member.ID)
 		index := slices.Index(d.owners, member.ID)
@@ -102,10 +104,10 @@ func (d *accountOwnershipDraft) layoutOwnerList(gtx layout.Context, view ui.View
 		selected := slices.Contains(d.owners, member.ID)
 		return layout.Inset{Bottom: 4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			if !editShares || !d.custom || !selected {
-				return view.TabButton(&choice.selected, name, selected)(gtx)
+				return ownerToggle(view, &choice.selected, name, selected)(gtx)
 			}
 			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(6)}.Layout(gtx,
-				layout.Flexed(1, view.TabButton(&choice.selected, name, true)),
+				layout.Flexed(1, ownerToggle(view, &choice.selected, name, true)),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return choice.percent.Layout(ui.LimitWidth(gtx, 88), view, ui.FieldOptions{
 						Label: i18n.AccountMaintenanceShare, AccessibleName: fmt.Sprintf(view.Language.Text(i18n.AccountMaintenanceShareFor), member.Name),
@@ -113,5 +115,50 @@ func (d *accountOwnershipDraft) layoutOwnerList(gtx layout.Context, view ui.View
 				}),
 			)
 		})
+	}
+	// A page that scrolls as a whole needs no inner scroller, which would also
+	// reserve a scroll track beside the rows.
+	if ui.HeightUnbounded(gtx) && len(members) <= 12 {
+		children := make([]layout.FlexChild, len(members))
+		for i := range members {
+			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions { return row(gtx, i) })
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	}
+	return view.List(&d.ownerList).Layout(gtx, len(members), row)
+}
+
+// ownerToggle is one owner as a full-width choice with a check box, so the
+// state shows without relying on the tint alone.
+func ownerToggle(view ui.View, button *widget.Clickable, name string, selected bool) layout.Widget {
+	variant := ui.ButtonOutline
+	if selected {
+		variant = ui.ButtonSoft
+	}
+	return view.ButtonOf(button, ui.ButtonSpec{
+		Variant: variant, Name: name, Toggle: true, Selected: selected, Fill: true,
+		Content: func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return checkBox(gtx, view, selected) }),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return view.Line(gtx, ui.TextLabel, name, view.Colors.Ink)
+				}),
+			)
+		},
 	})
+}
+
+func checkBox(gtx layout.Context, view ui.View, checked bool) layout.Dimensions {
+	side := gtx.Dp(16)
+	bounds := image.Rectangle{Max: image.Pt(side, side)}
+	colors := view.Colors
+	if checked {
+		ui.FillRoundRect(gtx, bounds, ui.RadiusSM-2, colors.Accent)
+		defer op.Offset(image.Pt(gtx.Dp(2), gtx.Dp(2))).Push(gtx.Ops).Pop()
+		ui.LayoutGlyph(gtx, lucide.Check, 12, colors.OnAccent)
+	} else {
+		ui.FillRoundRect(gtx, bounds, ui.RadiusSM-2, colors.Surface)
+		ui.StrokeRoundRect(gtx, bounds, ui.RadiusSM-2, 1, ui.Mix(colors.Surface, colors.Ink, 0.35))
+	}
+	return layout.Dimensions{Size: bounds.Size()}
 }

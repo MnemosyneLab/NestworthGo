@@ -38,8 +38,7 @@ func TestAccountRecommendationsAndExplicitChoices(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, h, finish := accountShellHarness(t, service, service, "")
-	h.click("Add valued or holdings account", false)
-	finish()
+	startNewAccount(h, finish, "Property")
 	d := p.creation.draft
 	group := fixtureDefaultAccountGroup(t, service)
 	if d.institution.ID != "" || d.group != group {
@@ -163,8 +162,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	searchDirectory(h, "Search institutions", "Paper")
 	h.click("Accounts", false)
 	finish()
-	h.click("Add liability account", false)
-	finish()
+	startNewAccount(h, finish, "Credit card")
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Abandoned sample debt")
 	setBankField(h, "Opening amount owed", &d.opening, "84.25")
@@ -236,8 +234,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	label("Paper Synthetic Employer")
 	h.click("Accounts", false)
 	finish()
-	h.click("Add liability account", false)
-	finish()
+	startNewAccount(h, finish, "Credit card")
 	d = p.creation.draft
 	pickAccountReference(h, "Institution", "paPER", "Paper Synthetic Employer")
 	setBankField(h, "Account name", &d.name, "Linked sample debt")

@@ -566,17 +566,19 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			s.accounts.createdID = record.Account.ID
 			s.accounts.createdMessage = i18n.AccountCreateSucceeded
 			focus := &s.accounts.createBank
-			if s.accounts.target.institution == "" {
+			unscoped := s.accounts.target.institution == ""
+			if unscoped {
 				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
-				focus = &s.accounts.createAsset
+				focus = &s.accounts.createAccount
 			}
 			if record.Account.IsLiability() {
 				s.accounts.createdMessage = i18n.AccountCreateLiabilitySucceeded
-				focus = &s.accounts.createLiability
 			}
 			if record.Account.TrackingMode != domain.TrackingBalance {
 				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
-				focus = &s.accounts.createShell
+				if !unscoped {
+					focus = &s.accounts.createShell
+				}
 			}
 			s.refreshLedgerReads()
 			s.pendingNavigation = &navigationRequest{

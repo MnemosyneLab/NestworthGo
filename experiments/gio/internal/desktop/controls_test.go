@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"image"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -76,8 +78,76 @@ func (h *previewHarness) metric() unit.Metric {
 
 func (h *previewHarness) click(label string, field bool) {
 	h.t.Helper()
-	bounds := semanticBounds(h.t, &h.router, label, field)
+	bounds := h.revealed(label, field)
 	h.clickAt(bounds.Min.Add(bounds.Max).Div(2))
+}
+
+// revealed returns a control's bounds after scrolling the page when the control
+// is page content that lies below the window or under the page header, so a
+// click lands where a person could reach it. Header, sidebar and dialog
+// controls are never scrolled, and a page that fits the window stays put.
+func (h *previewHarness) revealed(label string, field bool) image.Rectangle {
+	h.t.Helper()
+	top := headerHeight + 8
+	hidden := func(bounds image.Rectangle) bool {
+		return bounds.Max.Y > h.size.Y || bounds.Min.Y < top
+	}
+	bounds := semanticBounds(h.t, &h.router, label, field)
+	if !hidden(bounds) || !h.inPage(label, field) {
+		return bounds
+	}
+	for range 40 {
+		delta := float32(100)
+		if bounds.Min.Y < top {
+			delta = -100
+		}
+		centre := f32.Pt(float32(h.size.X/2), float32(h.size.Y/2))
+		h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: centre, Scroll: f32.Pt(0, delta)})
+		h.frame()
+		moved := semanticBounds(h.t, &h.router, label, field)
+		if !hidden(moved) || moved == bounds {
+			// Either the control is reachable now or the page cannot scroll
+			// further, as for a dialog; the click then goes where it is.
+			return moved
+		}
+		bounds = moved
+	}
+	return bounds
+}
+
+// inPage reports whether the control belongs to the page content, which is the
+// semantic subtree with the most nodes.
+func (h *previewHarness) inPage(label string, field bool) bool {
+	var count func(node input.SemanticNode) int
+	count = func(node input.SemanticNode) int {
+		total := 1
+		for _, child := range node.Children {
+			total += count(child)
+		}
+		return total
+	}
+	var hasLabel func(node input.SemanticNode) bool
+	hasLabel = func(node input.SemanticNode) bool {
+		if node.Desc.Label == label {
+			return true
+		}
+		return slices.ContainsFunc(node.Children, hasLabel)
+	}
+	var matches func(node input.SemanticNode) bool
+	matches = func(node input.SemanticNode) bool {
+		if (field && node.Desc.Description == label) || (!field && node.Desc.Class == semantic.Button && hasLabel(node)) {
+			return true
+		}
+		return slices.ContainsFunc(node.Children, matches)
+	}
+	var page input.SemanticNode
+	best := 0
+	for _, node := range h.router.AppendSemantics(nil) {
+		if n := count(node); n > best {
+			page, best = node, n
+		}
+	}
+	return best > 0 && matches(page)
 }
 
 func (h *previewHarness) clickAt(point image.Point) {

@@ -50,22 +50,20 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.startBankAccount()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.canCreateUnscoped() {
-		if p.createAsset.Clicked(gtx) {
-			p.startBalanceAccount(domain.TypeCashOnHand, domain.RoleAsset, domain.Institution{})
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		if p.createLiability.Clicked(gtx) {
-			p.startBalanceAccount(domain.TypeCreditCard, domain.RoleLiability, domain.Institution{})
-			gtx.Execute(op.InvalidateCmd{})
-		}
+	if p.canCreateUnscoped() && p.createAccount.Clicked(gtx) {
+		p.startAccountChooser()
+		view.RestorePageScroll(0)
+		gtx.Execute(op.InvalidateCmd{})
 	}
-	if (p.canCreateBankAccount() || p.canCreateUnscoped()) && p.createShell.Clicked(gtx) {
+	if p.canCreateBankAccount() && p.createShell.Clicked(gtx) {
 		p.startAccount(domain.TypeProperty, domain.RoleAsset, domain.TrackingManualValue, p.current.institutions[p.target.institution])
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if p.creation != nil && p.creation.draft != nil {
 		return p.layoutAccountCreation(gtx, view)
+	}
+	if p.creation != nil && p.creation.chooser != nil {
+		return p.layoutAccountTypeChooser(gtx, view)
 	}
 	if p.maintenance != nil && p.maintenance.draft != nil {
 		return p.layoutAccountSettings(gtx, view)
@@ -202,22 +200,28 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			} else {
 				primary := true
 				add := func(button *widget.Clickable, id i18n.MessageID) {
+					draw := view.Button(button, l.Text(id))
 					if primary {
-						left = append(left, view.PrimaryButton(button, l.Text(id)))
+						draw = view.PrimaryButton(button, l.Text(id))
 						primary = false
+					}
+					if button != &p.createAccount {
+						left = append(left, draw)
 						return
 					}
-					left = append(left, view.Button(button, l.Text(id)))
+					left = append(left, func(gtx layout.Context) layout.Dimensions {
+						if p.focusCreate && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: &p.createAccount})
+							p.focusCreate = false
+						}
+						return draw(gtx)
+					})
 				}
 				if p.canCreateBankAccount() {
 					add(&p.createBank, i18n.AccountCreateAdd)
-				}
-				if p.canCreateUnscoped() {
-					add(&p.createAsset, i18n.AccountCreateAssetAdd)
-					add(&p.createLiability, i18n.AccountCreateLiabilityAdd)
-				}
-				if p.canCreateBankAccount() || p.canCreateUnscoped() {
 					add(&p.createShell, i18n.AccountCreateShellAdd)
+				} else if p.canCreateUnscoped() {
+					add(&p.createAccount, i18n.AccountAddEntry)
 				}
 				if p.target.institution != "" {
 					right = append(right, view.Button(&p.clear, l.Text(i18n.AccountClearInstitution)))
