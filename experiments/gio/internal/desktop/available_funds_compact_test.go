@@ -32,7 +32,9 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 	}
 
 	const unreserved = "Available after reservations · €25.25"
-	const cash = "Accessible cash before reservations · €25.25"
+	// The fixture lacks EUR-to-USD FX. The shared comparison marks that
+	// cash category unavailable while retaining known native spendable euros.
+	const cash = "Accessible cash before reservations · Unavailable"
 	const currency = "Native amounts · EUR"
 	wide := draw(900)
 	header := assertPageLabel(t, wide, "Currency")
