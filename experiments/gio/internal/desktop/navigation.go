@@ -158,6 +158,7 @@ type navigationRequest struct {
 	recent               *navigationEntry
 	accountsArchived     bool
 	providerSettings     bool
+	settingsProvider     string
 	verifyProductReceipt bool
 	tasksTab             tasksTab
 	asset                assetChangesVisit
@@ -424,6 +425,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == settingsRoute && request.providerSettings {
 		s.settingsPage.active = settingsMarket
+		s.settingsPage.credential.reveal = request.settingsProvider == domain.CoinGeckoProviderKey
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
@@ -594,7 +596,11 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 				return
 			}
 		}
-		target = &s.headingFocus
+		if s.activeRoute() == dataHealthRoute && s.dataHealth != nil && focus.Target != nil {
+			target = &s.dataHealth.recheck
+		} else {
+			target = &s.headingFocus
+		}
 	}
 	gtx.Execute(key.FocusCmd{Tag: target})
 	s.restoreFocus = false
@@ -603,7 +609,8 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 func (s *shell) waitingForPageFocus() bool {
 	if s.activeRoute() == overviewRoute && s.overviewPage != nil {
 		return s.overviewPage.loading || s.overviewPage.funds.request != nil ||
-			s.overviewPage.upcoming.request != nil || s.overviewPage.upcoming.summary.request != nil
+			s.overviewPage.upcoming.request != nil || s.overviewPage.upcoming.summary.request != nil ||
+			s.overviewPage.healthScan.request != nil
 	}
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
 		if r := s.historyPage.reads; r != nil && r.detail != nil {

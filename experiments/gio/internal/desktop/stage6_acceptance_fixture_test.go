@@ -239,6 +239,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		t.Fatalf("seed market partial readback = %+v: %v", result, err)
 	}
 	marketReadback := stage6SeedBytes(t, db)
+	providerSettings, _ := seedStage6ProviderSettings(t, start)
 	lockedProductSeed := seedStage6LockedSettlement(t)
 	termDepositSeed := seedStage6TermDeposit(t)
 	linkedCashTransferSeed := seedStage6LinkedCashTransfer(t)
@@ -253,6 +254,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"snapshots", snapshotSeed},
 		{"market", marketSeed},
 		{"market-readback", marketReadback},
+		{"provider-settings", providerSettings},
 		{"return-calendar", calendarSeed},
 		{"contribution", contributionSeed},
 		{"locked-settlement", lockedProductSeed},

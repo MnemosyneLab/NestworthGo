@@ -133,6 +133,7 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 }
 
 func (p *settingsPage) content(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
+	viewport := image.Rect(0, view.Origin.Y, gtx.Constraints.Max.X, view.Origin.Y+gtx.Constraints.Min.Y)
 	gtx.Constraints.Min.Y = 0
 	width := min(gtx.Constraints.Max.X, gtx.Dp(896))
 	intro := view.Message(view.Language.Text(i18n.SettingsIntro), view.Colors.SecondaryInk)(gtx)
@@ -147,7 +148,7 @@ func (p *settingsPage) content(gtx layout.Context, view ui.View, draft preferenc
 	dims := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		switch p.active {
 		case settingsMarket:
-			return p.marketCard(gtx, view, draft)
+			return p.marketCard(gtx, view, draft, viewport)
 		case settingsDiagnostics:
 			return p.diagnosticsCard(gtx, view, draft)
 		case settingsAbout:

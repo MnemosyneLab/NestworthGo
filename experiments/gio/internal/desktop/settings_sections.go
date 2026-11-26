@@ -10,6 +10,7 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -32,7 +33,7 @@ var diagnosticsLevels = []settingOption{
 	{ID: "info", label: i18n.SettingsLogInfo}, {ID: "debug", label: i18n.SettingsLogDebug},
 }
 
-func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
+func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft preferences.Values, viewport image.Rectangle) layout.Dimensions {
 	l := view.Language
 	grid := ui.Grid{MinColumn: settingsMinColumn, Gap: settingsGap, MaxColumns: 2}
 	return settingsCard(gtx, view, l.Text(i18n.SettingsMarket), func(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -51,7 +52,18 @@ func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft prefer
 		})
 		y += help.Size.Y + gtx.Dp(10)
 		credential := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-			return p.credential.layout(gtx, view, p.prefs)
+			dims := p.credential.layout(gtx, view, p.prefs)
+			if p.credential.reveal && !p.prefs.busy && gtx.Enabled() {
+				p.credential.reveal = false
+				top := view.Origin.Y - viewport.Min.Y
+				offset := view.PageScrollOffset()
+				if top < offset || top+dims.Size.Y > offset+viewport.Dy() {
+					view.RestorePageScroll(max(0, top-gtx.Dp(ui.Space8)))
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				gtx.Execute(key.FocusCmd{Tag: p.credential.nextFocus(p.prefs.saved.CoinGeckoConfigured)})
+			}
+			return dims
 		})
 		return layout.Dimensions{Size: image.Pt(width, y+credential.Size.Y)}
 	})
@@ -138,12 +150,14 @@ type settingsCredential struct {
 	replace, remove, show, cancel widget.Clickable
 	save                          widget.Clickable
 	editing, visible, focusInput  bool
+	reveal                        bool
+	changed                       func()
 	notice                        i18n.MessageID
 }
 
 func (c *settingsCredential) clearInput() {
 	c.input.Editor.SetText("")
-	c.editing, c.visible, c.focusInput = false, false, false
+	c.editing, c.visible, c.focusInput, c.reveal = false, false, false, false
 }
 
 func (c *settingsCredential) nextFocus(configured bool) event.Tag {
@@ -161,6 +175,9 @@ func (c *settingsCredential) write(prefs *preferenceState, value string) {
 		c.notice = i18n.SettingsCoinGeckoSaved
 		if removing {
 			c.notice = i18n.NoMessage
+		}
+		if c.changed != nil {
+			c.changed()
 		}
 	}, func() { c.notice = i18n.SettingsCoinGeckoError })
 }

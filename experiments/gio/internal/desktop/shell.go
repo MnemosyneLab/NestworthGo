@@ -197,6 +197,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		navigation:       layout.List{Axis: layout.Vertical},
 		stage:            widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
+	if s.overviewPage != nil {
+		s.settingsPage.credential.changed = s.overviewPage.healthScan.invalidate
+	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
 			newItem(overviewRoute, i18n.NavOverview, lucide.House, overviewLayout),
@@ -275,8 +278,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				s.overviewPage.trend.invalidate()
 			}
 		}
-		s.dataHealth.openSettings = func(focus *widget.Clickable) {
-			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: focus, providerSettings: true}
+		s.dataHealth.openSettings = func(provider string, focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: focus,
+				providerSettings: true, settingsProvider: provider}
 		}
 		if s.accounts != nil {
 			s.dataHealth.openAccount = func(id domain.AccountID, name string, focus *widget.Clickable) {

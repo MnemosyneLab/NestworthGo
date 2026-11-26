@@ -411,11 +411,12 @@ func (p *dataHealthPage) issueAction(gtx layout.Context, view ui.View, issue app
 		return returnMonthButton(view, button, i18n.MarketManualAdd, nil, ready)
 	case issue.Action == application.HealthActionProviderSettings && p.openSettings != nil:
 		button := p.issueButton(issue.ID)
-		if button.Clicked(gtx) {
-			p.openSettings(button)
+		ready := p.request == nil && p.err == nil
+		if ready && button.Clicked(gtx) {
+			p.openSettings(issue.Provider, button)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		return returnMonthButton(view, button, i18n.HealthOpenSettings, nil, true)
+		return returnMonthButton(view, button, i18n.HealthOpenSettings, nil, ready)
 	case issue.Action == "account_value" && p.openAccount != nil:
 		id, err := domain.ParseAccountID(issue.AccountID)
 		if err != nil {
