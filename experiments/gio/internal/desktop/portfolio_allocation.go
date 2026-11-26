@@ -104,7 +104,7 @@ func (p *portfolioPage) allocationRows(view ui.View, data domain.PortfolioValuat
 
 func portfolioAllocationSpecs(view ui.View, data domain.PortfolioValuation) (charts.DonutSpec, charts.BarSpec, bool) {
 	l := view.Language
-	label := l.Text(i18n.WealthAllocationTab)
+	label := l.Text(i18n.PortfolioAllocationChart)
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
 		CenterCaption: l.Text(i18n.PortfolioValuedHoldings), CenterValue: l.Text(i18n.OverviewNoValue),

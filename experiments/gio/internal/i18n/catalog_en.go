@@ -674,6 +674,8 @@ var englishCatalog = catalog{
 	OverviewTrendYTD:           "Year to date",
 	OverviewTrendYear:          "Last year",
 	OverviewTrendAll:           "All history",
+	OverviewTrendLoading:       "Loading daily wealth values…",
+	OverviewTrendLoadFailed:    "Could not load daily wealth values.",
 	OverviewTrendEmpty:         "No closed-day valuations in this period.",
 	OverviewTrendBasis:         "Closed-day valuations and the current estimate",
 	OverviewTrendCoverage:      "Closed days with a valuation · %d of %d",
@@ -1581,6 +1583,7 @@ var englishCatalog = catalog{
 
 	PortfolioLoading:               "Loading portfolio…",
 	PortfolioAllocationTab:         "Allocation & trend",
+	PortfolioAllocationChart:       "Allocation",
 	PortfolioAllocationEmpty:       "No investment holdings to show.",
 	PortfolioAllocationAccounts:    "Included accounts",
 	PortfolioValuedHoldings:        "Valued holdings",

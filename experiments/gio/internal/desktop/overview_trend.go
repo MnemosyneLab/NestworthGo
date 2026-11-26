@@ -305,9 +305,9 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	})}
 	switch {
 	case t.request != nil:
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryLoading), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewTrendLoading), view.Colors.SecondaryInk)))
 	case t.err != nil:
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryFailed), view.Colors.ErrorInk)),
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewTrendLoadFailed), view.Colors.ErrorInk)),
 			ui.Rigid(returnMonthButton(view, &t.retry, i18n.HistoryRetry, nil, true)))
 		if t.current != nil {
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryRetained), view.Colors.SecondaryInk)))

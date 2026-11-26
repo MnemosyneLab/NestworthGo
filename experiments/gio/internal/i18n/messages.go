@@ -489,6 +489,8 @@ const (
 	OverviewTrendYTD
 	OverviewTrendYear
 	OverviewTrendAll
+	OverviewTrendLoading
+	OverviewTrendLoadFailed
 	OverviewTrendEmpty
 	OverviewTrendBasis
 	OverviewTrendCoverage
@@ -1549,6 +1551,7 @@ const (
 	PickerNoMatches
 	PortfolioLoading
 	PortfolioAllocationTab
+	PortfolioAllocationChart
 	PortfolioAllocationEmpty
 	PortfolioAllocationAccounts
 	PortfolioValuedHoldings

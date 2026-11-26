@@ -673,6 +673,8 @@ var japaneseCatalog = catalog{
 	OverviewTrendYTD:           "年初来",
 	OverviewTrendYear:          "過去 1 年間",
 	OverviewTrendAll:           "全期間",
+	OverviewTrendLoading:       "日次の資産推移を読み込み中…",
+	OverviewTrendLoadFailed:    "日次の資産推移を読み込めませんでした。",
 	OverviewTrendEmpty:         "この期間に確定済みの評価はありません。",
 	OverviewTrendBasis:         "確定日の評価額と現在の見積額",
 	OverviewTrendCoverage:      "評価済みの確定日 · %d / %d",
@@ -1580,6 +1582,7 @@ var japaneseCatalog = catalog{
 
 	PortfolioLoading:               "ポートフォリオを読み込み中…",
 	PortfolioAllocationTab:         "資産配分と推移",
+	PortfolioAllocationChart:       "配分",
 	PortfolioAllocationEmpty:       "表示できる投資保有銘柄はありません。",
 	PortfolioAllocationAccounts:    "対象口座",
 	PortfolioValuedHoldings:        "評価済み保有銘柄",

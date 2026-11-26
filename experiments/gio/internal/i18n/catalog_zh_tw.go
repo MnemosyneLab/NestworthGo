@@ -674,6 +674,8 @@ var traditionalChineseCatalog = catalog{
 	OverviewTrendYTD:           "年初至今",
 	OverviewTrendYear:          "最近一年",
 	OverviewTrendAll:           "全部歷史",
+	OverviewTrendLoading:       "正在載入每日資產資料…",
+	OverviewTrendLoadFailed:    "無法載入每日資產資料。",
 	OverviewTrendEmpty:         "此期間沒有已結束日期的估值。",
 	OverviewTrendBasis:         "已結束日期的估值和目前估算",
 	OverviewTrendCoverage:      "有估值的已結束日期 · %d / %d",
@@ -1581,6 +1583,7 @@ var traditionalChineseCatalog = catalog{
 
 	PortfolioLoading:               "正在載入投資組合…",
 	PortfolioAllocationTab:         "配置與趨勢",
+	PortfolioAllocationChart:       "資產分布",
 	PortfolioAllocationEmpty:       "暫無可顯示的投資持倉。",
 	PortfolioAllocationAccounts:    "納入的帳戶",
 	PortfolioValuedHoldings:        "已估值持倉",
