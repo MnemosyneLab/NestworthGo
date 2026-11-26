@@ -19,6 +19,9 @@ func (v View) List(state *widget.List) ScrollList {
 	style.Indicator.CornerRadius = unit.Dp(3)
 	style.Indicator.Color = WithAlpha(p.Ink, 0.22)
 	style.Indicator.HoverColor = WithAlpha(p.Ink, 0.42)
+	// The thin bar floats over the content edge instead of taking width, so a
+	// fixed toolbar above a list lines up with the rows below it.
+	style.AnchorStrategy = material.Overlay
 	return ScrollList{style}
 }
 
