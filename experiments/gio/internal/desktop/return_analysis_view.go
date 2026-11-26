@@ -3,6 +3,7 @@ package desktop
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 	"time"
 
@@ -78,8 +79,8 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 
 func (p *returnAnalysisPage) layoutTabs(gtx layout.Context, view ui.View) layout.Dimensions {
 	labels := [...]i18n.MessageID{i18n.ReturnCalendar, i18n.ReturnTrend, i18n.ReturnContribution}
-	return (ui.Wrap{Gap: 8}).Layout(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
-		return analysisToggle(view, &p.tabs[index], view.Language.Text(labels[index]), p.tab == returnAnalysisTab(index))(gtx)
+	return view.TabTrack(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
+		return view.TabSegment(&p.tabs[index], view.Language.Text(labels[index]), p.tab == returnAnalysisTab(index))(gtx)
 	})
 }
 
@@ -224,26 +225,37 @@ func (p *returnAnalysisPage) monthSummary(gtx layout.Context, view ui.View) layo
 	summary := data.Summary
 	caption := fmt.Sprintf(l.Text(i18n.ReturnSummaryRange), wealthDay(view, string(p.current.summaryFrom)),
 		wealthDay(view, string(p.current.summaryTo)), string(data.Currency))
-	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-				layout.Rigid(view.Body(ui.TextLabel, caption, view.Colors.Ink)),
-				layout.Rigid(view.Message(analysisBasis(l, data.Valuation, data.ValuationForced), view.Colors.SecondaryInk)),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					labels := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate, i18n.ReturnBeginning, i18n.ReturnEnding}
-					values := [...]string{returnAmountText(view, summary.ReturnAmount, summary.AmountStatus), returnRate(view, summary.ReturnRate),
-						returnMoney(view, summary.BeginningInvestedValue), returnMoney(view, summary.EndingInvestedValue)}
-					return (ui.Grid{MinColumn: 140, Gap: 8, MaxColumns: 4, Balanced: true}).Layout(gtx, view, len(labels),
-						func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-							return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-								layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
-								layout.Rigid(view.Body(ui.TextLabel, values[i], view.Colors.Ink)),
-							)
-						})
-				}),
-				layout.Rigid(view.Message(returnCoverage(l, summary.Coverage, summary.ReturnDayCoverage), view.Colors.SecondaryInk)),
-			)
-		})
+	tone := returnTone(summary.ReturnRate, summary.ReturnAmount)
+	toneInk := func(figure int) color.NRGBA {
+		// Only the amount and the rate carry the gain or loss color.
+		if figure > 1 || tone == 0 {
+			return view.Colors.Ink
+		}
+		if tone > 0 {
+			return view.Colors.Success
+		}
+		return view.Colors.Destructive
+	}
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+			layout.Rigid(view.Body(ui.TextHeading, caption, view.Colors.Ink)),
+			layout.Rigid(view.Message(analysisBasis(l, data.Valuation, data.ValuationForced), view.Colors.SecondaryInk)),
+			layout.Rigid(view.Hairline),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				labels := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate, i18n.ReturnBeginning, i18n.ReturnEnding}
+				values := [...]string{returnAmountText(view, summary.ReturnAmount, summary.AmountStatus), returnRate(view, summary.ReturnRate),
+					returnMoney(view, summary.BeginningInvestedValue), returnMoney(view, summary.EndingInvestedValue)}
+				return (ui.Grid{MinColumn: 140, Gap: 12, MaxColumns: 4, Balanced: true}).Layout(gtx, view, len(labels),
+					func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
+							layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
+							layout.Rigid(summaryFigure(view, values[i], toneInk(i))),
+						)
+					})
+			}),
+			layout.Rigid(view.Message(returnCoverage(l, summary.Coverage, summary.ReturnDayCoverage), view.Colors.SecondaryInk)),
+		)
 	})
 }
 
@@ -272,7 +284,8 @@ func (p *returnAnalysisPage) dayCell(gtx layout.Context, view ui.View, date time
 	l := view.Language
 	day := date.Format(time.DateOnly)
 	data, exists := p.current.days[domain.LocalDate(day)]
-	title, caption := fmt.Sprint(date.Day()), ""
+	title, caption, figure := fmt.Sprint(date.Day()), "", ""
+	tone := 0
 	if date.Month() != p.month.Month() || date.Day() == 1 {
 		title = date.Format(l.Text(i18n.DateDayLayout))
 	}
@@ -280,7 +293,9 @@ func (p *returnAnalysisPage) dayCell(gtx layout.Context, view ui.View, date time
 	case day == today:
 		caption = l.Text(i18n.ReturnDayOpen)
 	case day < today && exists && data.Available:
-		caption = returnRate(view, data.ReturnRate) + " · " + returnAmountText(view, data.ReturnAmount, data.AmountStatus)
+		caption = returnRate(view, data.ReturnRate)
+		figure = returnAmountText(view, data.ReturnAmount, data.AmountStatus)
+		tone = returnTone(data.ReturnRate, data.ReturnAmount)
 	case day < today:
 		caption = l.Text(i18n.ReturnNoData)
 	}
@@ -288,10 +303,23 @@ func (p *returnAnalysisPage) dayCell(gtx layout.Context, view ui.View, date time
 	if caption != "" {
 		name += " · " + caption
 	}
+	if figure != "" {
+		name += " · " + figure
+	}
 	enabled := day < today && exists && gtx.Enabled()
-	border := view.Colors.Divider
+	p0 := view.Colors
+	border, fill, ink := p0.Divider, p0.Surface, p0.SecondaryInk
+	switch {
+	case tone > 0:
+		fill, ink = ui.Mix(p0.Surface, p0.Success, 0.12), p0.Success
+	case tone < 0:
+		fill, ink = ui.Mix(p0.Surface, p0.Destructive, 0.12), p0.Destructive
+	}
+	if day == today {
+		border = ui.Mix(p0.Surface, p0.Accent, 0.6)
+	}
 	if gtx.Focused(button) {
-		border = view.Colors.Accent
+		border = p0.Accent
 	}
 	if !enabled {
 		gtx = gtx.Disabled()
@@ -311,11 +339,17 @@ func (p *returnAnalysisPage) dayCell(gtx layout.Context, view ui.View, date time
 		return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			semantic.Button.Add(gtx.Ops)
 			semantic.DescriptionOp(name).Add(gtx.Ops)
-			return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(6).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-						layout.Rigid(view.Body(ui.TextLabel, title, view.Colors.Ink)),
-						layout.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
+			return view.Surface(gtx, ui.SurfaceSpec{Fill: fill, Border: border, Radius: ui.RadiusLG}, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					rate := ink
+					if tone == 0 {
+						rate = p0.Ink
+					}
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
+						layout.Rigid(view.Body(ui.TextCaption, title, p0.SecondaryInk)),
+						layout.Rigid(view.Body(ui.TextLabel, caption, rate)),
+						layout.Rigid(view.Body(ui.TextCaption, figure, p0.SecondaryInk)),
 					)
 				})
 			})
@@ -473,6 +507,18 @@ func returnAmountText(view ui.View, value *domain.SignedMoney, status string) st
 		return text + " · " + view.Language.Text(i18n.OverviewKnownSubtotal)
 	}
 	return text
+}
+
+// returnTone is the sign that colors a day or summary: the rate when known,
+// otherwise the amount.
+func returnTone(rate *decimal.Decimal, amount *domain.SignedMoney) int {
+	switch {
+	case rate != nil:
+		return rate.Shift(2).RoundBank(2).Sign()
+	case amount != nil:
+		return amount.Amount().Sign()
+	}
+	return 0
 }
 
 func returnRate(view ui.View, value *decimal.Decimal) string {

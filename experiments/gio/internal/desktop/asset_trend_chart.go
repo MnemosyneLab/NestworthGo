@@ -201,7 +201,7 @@ func (p *assetChangesPage) assetTrendRows(view ui.View, data application.AssetTr
 	table := spec.Rows()
 	rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &p.list, l.Text(i18n.AssetTrendTable), len(table), func(gtx layout.Context, index int) layout.Dimensions {
-			return view.Message(analysisLineTableText(table[index]), view.Colors.Ink)(gtx)
+			return analysisTableRow(view, table[index])(gtx)
 		})
 	}))
 	if data.ValueChange == nil {

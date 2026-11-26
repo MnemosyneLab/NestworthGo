@@ -218,7 +218,7 @@ func accountShellHarness(t *testing.T, reader accountsReader, creator accountCre
 	p.creation = &balanceAccountCreation{service: creator}
 	t.Cleanup(p.workers.Wait)
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p})
-	h.size = image.Pt(700, 460)
+	h.size = image.Pt(700, 560)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	finish := func() { h.frame(); p.workers.Wait(); h.frame(); p.workers.Wait(); h.frame() }
 	h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute, institution: institution}}
@@ -242,8 +242,7 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	service, session := openBankFixture(t, root)
 	counted := &accountCreationTestService{Service: service}
 	p, h, finish := accountShellHarness(t, counted, counted, "")
-	h.click("Add valued or holdings account", false)
-	finish()
+	startNewAccount(h, finish, "Property")
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Rejected or missing")
 	if len(d.owners) != 1 {
@@ -256,7 +255,11 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	d.kind = domain.TypeLoan
 	reviewBankAccount(h)
 	assertPageLabel(t, &h.router, "Choose an account type compatible with this role and tracking method.")
+	d.kind = domain.TypeBrokerage
 	d.selectMode(domain.TrackingHoldings)
+	if d.kind != domain.TypeBrokerage || d.mode != domain.TrackingHoldings {
+		t.Fatal("choosing holdings changed the account type")
+	}
 	d.opening.Editor.SetText("0")
 	reviewBankAccount(h)
 	assertPageLabel(t, &h.router, "Clear the opening valuation for a holdings account.")

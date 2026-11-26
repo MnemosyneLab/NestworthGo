@@ -52,12 +52,11 @@ func TestRemainingBalanceTypesMatchWails(t *testing.T) {
 			finish := func() { h.frame(); p.workers.Wait(); h.frame(); p.workers.Wait(); h.frame() }
 			h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute}}
 			finish()
-			mode, picker, done := "asset", "Asset type", "Asset account created."
+			mode, picker, done, start := "asset", "Asset type", "Asset account created.", "Cash on hand"
 			if tc.role == domain.RoleLiability {
-				mode, picker, done = "liability", "Liability type", "Liability account created."
+				mode, picker, done, start = "liability", "Liability type", "Liability account created.", "Credit card"
 			}
-			h.click("Add "+mode+" account", false)
-			finish()
+			startNewAccount(h, finish, start)
 			d := p.creation.draft
 			if d == nil || d.role != tc.role || len(d.owners) != 1 {
 				t.Fatal("expected role and one owner in the new draft")
@@ -138,11 +137,7 @@ func TestRemainingBalanceTypesMatchWails(t *testing.T) {
 			accepted = append(accepted, actual)
 			h.click("Back to accounts", false)
 			finish()
-			if tc.role == domain.RoleAsset {
-				h.focused(&p.createAsset)
-			} else {
-				h.focused(&p.createLiability)
-			}
+			h.focused(&p.createAccount)
 		})
 	}
 	if err := session.Close(); err != nil {

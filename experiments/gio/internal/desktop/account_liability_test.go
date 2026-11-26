@@ -60,8 +60,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 			starting := overview.current.value
 			h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute}}
 			finish()
-			h.click("Add liability account", false)
-			finish()
+			startNewAccount(h, finish, "Credit card")
 			d := p.creation.draft
 			if d == nil || !d.available || d.kind != domain.TypeCreditCard || len(d.owners) != 1 || d.institution.InstitutionType != domain.InstitutionBank {
 				t.Fatal("the liability form did not start with the card, sole owner and suggested bank")
@@ -200,7 +199,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 
 			h.click("Back to accounts", false)
 			finish()
-			h.focused(&p.createLiability)
+			h.focused(&p.createAccount)
 			h.click("Forward", false)
 			finish()
 			if p.target.account != id {
@@ -304,8 +303,7 @@ func TestLiabilityCreationDoesNotSilentlyDropAnArchivedInstitution(t *testing.T)
 	finish := func() { h.frame(); p.workers.Wait(); h.frame(); p.workers.Wait(); h.frame() }
 	h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute}}
 	finish()
-	h.click("Add liability account", false)
-	finish()
+	startNewAccount(h, finish, "Credit card")
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Synthetic revalidated liability")
 	pickAccountReference(h, "Institution", "No institution", "No institution")

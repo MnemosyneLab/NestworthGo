@@ -14,6 +14,10 @@ import (
 // real window.
 const unbounded = 100_000
 
+// HeightUnbounded reports whether the constraints leave the height free, as
+// they do inside a page that scrolls as a whole.
+func HeightUnbounded(gtx layout.Context) bool { return gtx.Constraints.Max.Y >= unbounded }
+
 // ColumnChild is one row of a Column: either natural height or the row that
 // takes the remaining height.
 type ColumnChild struct {

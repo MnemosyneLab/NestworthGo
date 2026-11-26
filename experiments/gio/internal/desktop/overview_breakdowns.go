@@ -85,7 +85,7 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 
 func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, result domain.OverviewResult) layout.Dimensions {
 	summaries := overviewSummaries(result)
-	return (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 10, Balanced: true}).Layout(gtx, view, len(summaries),
+	return (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true}).Layout(gtx, view, len(summaries),
 		func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			summary, chart := summaries[index], &b.summaries[0]
 			if summary.liability {
@@ -137,7 +137,7 @@ func overviewDimensions(result domain.OverviewResult) [4]overviewDimension {
 
 func (b *overviewBreakdowns) dimensions(gtx layout.Context, view ui.View, result domain.OverviewResult, pair int) layout.Dimensions {
 	dimensions := overviewDimensions(result)
-	return (ui.Grid{MinColumn: 305, MaxColumns: 2, Gap: 10}).Layout(gtx, view, 2,
+	return (ui.Grid{MinColumn: 305, MaxColumns: 2, Gap: 16}).Layout(gtx, view, 2,
 		func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			dimension := dimensions[pair*2+index]
 			l := view.Language
@@ -160,7 +160,8 @@ func (b *overviewBreakdowns) dimensions(gtx layout.Context, view ui.View, result
 func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim accountDimension, item domain.BreakdownItem, currency domain.CurrencyCode) layout.Dimensions {
 	scope := breakdownAccountScope(dim, item.Key)
 	name := scope.name(view.Language, item.Label)
-	label := strings.Join([]string{name, overviewBreakdownMoney(view, currency, item.Amount, false), overviewBreakdownShare(view, item)}, " · ")
+	money, share := overviewBreakdownMoney(view, currency, item.Amount, false), overviewBreakdownShare(view, item)
+	label := strings.Join([]string{name, money, share}, " · ")
 	target := navigationTarget{route: accountsRoute, accountList: scope}
 	if dim == accountByInstitution && !scope.unassigned() {
 		target.accountList = accountListScope{}
@@ -186,13 +187,11 @@ func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim 
 		b.open(target, name, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return view.ButtonOf(button, ui.ButtonSpec{Title: label, Variant: ui.ButtonGhost, Fill: true})(gtx)
+	return ui.Bleed(gtx, ui.Space12, view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonGhost, Fill: true, Content: valueRow(view, name, money, share)}))
 }
 
 func overviewBreakdownCard(gtx layout.Context, view ui.View, rows []ui.ColumnChild) layout.Dimensions {
-	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return (ui.Column{Gap: 6}).Layout(gtx, rows...)
-		})
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 	})
 }

@@ -222,28 +222,29 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	}
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if !p.canImportPosition() {
-				return layout.Dimensions{}
-			}
-			f := p.investment
-			view.Focus.Watch(gtx, &f.importOpen)
-			if f.restore == &f.importOpen && gtx.Enabled() {
-				gtx.Execute(key.FocusCmd{Tag: &f.importOpen})
-				f.restore = nil
-			}
-			return layout.W.Layout(gtx, view.Button(&f.importOpen, l.Text(i18n.PositionImportPortfolioAction)))
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					if status == i18n.NoMessage {
-						return layout.Dimensions{}
+						return layout.Dimensions{Size: gtx.Constraints.Min}
 					}
 					color := view.Colors.SecondaryInk
 					if p.err != nil {
 						color = view.Colors.ErrorInk
 					}
 					return view.Message(l.Text(status), color)(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !p.canImportPosition() {
+						return layout.Dimensions{}
+					}
+					f := p.investment
+					view.Focus.Watch(gtx, &f.importOpen)
+					if f.restore == &f.importOpen && gtx.Enabled() {
+						gtx.Execute(key.FocusCmd{Tag: &f.importOpen})
+						f.restore = nil
+					}
+					return view.PrimaryButton(&f.importOpen, l.Text(i18n.PositionImportPortfolioAction))(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.request != nil {
@@ -267,8 +268,8 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				return layout.Dimensions{}
 			}
 			rows := p.rows(view)
-			return view.List(&p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
-				return layout.Inset{Bottom: 10}.Layout(gtx, rows[i])
+			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), ui.Space12, func(gtx layout.Context, i int) layout.Dimensions {
+				return rows[i](gtx)
 			})
 		}),
 	)
@@ -290,12 +291,30 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 		if !summary.Complete || summary.DisplayValuation.Quality.Availability != domain.ValuationFull {
 			status = i18n.OverviewIncomplete
 		}
-		rows = append(rows, view.Message(l.Text(status), view.Colors.SecondaryInk),
-			overviewAmount(view, i18n.PortfolioValue, summary.DisplayValuation, 25),
-			view.Message(fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk),
-			func(gtx layout.Context) layout.Dimensions {
-				return overviewEvidence(gtx, view, summary.DisplayValuation.Quality, i18n.OverviewQuoteDates)
+		tone := ui.BadgeSuccess
+		if status == i18n.OverviewIncomplete {
+			tone = ui.BadgeWarning
+		}
+		caption, display := overviewMoneyText(view, i18n.PortfolioValue, summary.DisplayValuation)
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+							layout.Rigid(view.Body(ui.TextBody, caption, view.Colors.SecondaryInk)),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Line(gtx, ui.TextMoneyLG, display, view.Colors.Ink)
+					}),
+					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return overviewEvidence(gtx, view, summary.DisplayValuation.Quality, i18n.OverviewQuoteDates)
+					}),
+				)
 			})
+		})
 	}
 	active := func(row domain.InstrumentHoldingsView) bool { return row.Amounts.Quantity != "0" }
 	if !slices.ContainsFunc(p.current.positions, active) {
@@ -342,17 +361,22 @@ func (p *portfolioPage) positionCard(gtx layout.Context, view ui.View, row domai
 	if row.Archived {
 		name += " · " + view.Language.Text(i18n.DirectoryArchived)
 	}
-	return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			children := []layout.FlexChild{
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return layout.W.Layout(gtx, view.Button(button, name)) }),
-			}
-			if showFullName {
-				children = append(children, layout.Rigid(view.Message(fullName, view.Colors.SecondaryInk)))
-			}
-			children = append(children, layout.Rigid(holdingAmounts(view, row.Amounts, row.QuantityUnit)))
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx, children...)
-		})
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		title := []layout.FlexChild{
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonSoft, Title: name, Name: name}))
+			}),
+		}
+		if showFullName {
+			title = append(title, layout.Rigid(view.Body(ui.TextCaption, fullName, view.Colors.SecondaryInk)))
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, title...)
+			}),
+			layout.Rigid(view.Hairline),
+			layout.Rigid(holdingAmounts(view, row.Amounts, row.QuantityUnit)),
+		)
 	})
 }
 
@@ -453,10 +477,10 @@ func holdingAmounts(view ui.View, amounts domain.HoldingAmounts, unit string) la
 		quantity += " " + unit
 	}
 	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx,
-			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountQuantity), quantity), view.Colors.Ink)),
-			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.PortfolioCost), display(amounts.TotalCost)), view.Colors.Ink)),
-			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.PortfolioNativeValue), display(amounts.CurrentValue)), view.Colors.Ink)),
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+			layout.Rigid(labeledAmount(view, i18n.AccountQuantity, quantity, view.Colors.Ink)),
+			layout.Rigid(labeledAmount(view, i18n.PortfolioCost, display(amounts.TotalCost), view.Colors.Ink)),
+			layout.Rigid(labeledAmount(view, i18n.PortfolioNativeValue, display(amounts.CurrentValue), view.Colors.Ink)),
 		)
 	}
 }

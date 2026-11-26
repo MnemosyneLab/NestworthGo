@@ -124,7 +124,7 @@ type shell struct {
 	restoreFocus                          bool
 	headingFocus                          byte
 	back, forward                         widget.Clickable
-	backHint, forwardHint                 ui.Tooltip
+	backHint, forwardHint, recentHint     ui.Tooltip
 	recentPicker                          ui.Select
 	navigation                            layout.List
 	languagePicker                        ui.Select
@@ -566,17 +566,19 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			s.accounts.createdID = record.Account.ID
 			s.accounts.createdMessage = i18n.AccountCreateSucceeded
 			focus := &s.accounts.createBank
-			if s.accounts.target.institution == "" {
+			unscoped := s.accounts.target.institution == ""
+			if unscoped {
 				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
-				focus = &s.accounts.createAsset
+				focus = &s.accounts.createAccount
 			}
 			if record.Account.IsLiability() {
 				s.accounts.createdMessage = i18n.AccountCreateLiabilitySucceeded
-				focus = &s.accounts.createLiability
 			}
 			if record.Account.TrackingMode != domain.TrackingBalance {
 				s.accounts.createdMessage = i18n.AccountCreateAssetSucceeded
-				focus = &s.accounts.createShell
+				if !unscoped {
+					focus = &s.accounts.createShell
+				}
 			}
 			s.refreshLedgerReads()
 			s.pendingNavigation = &navigationRequest{
@@ -1035,7 +1037,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.Y = 0
 		return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			gap := gtx.Dp(8)
+			gap := gtx.Dp(2)
 			x := view.Origin.X + gtx.Dp(20)
 			direction := func(step int) layout.Widget {
 				return func(gtx layout.Context) layout.Dimensions {
@@ -1048,6 +1050,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 				layout.Rigid(direction(-1)),
 				layout.Rigid(direction(1)),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
+				layout.Rigid(layout.Spacer{Width: 10}.Layout),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					for {
 						if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {

@@ -49,7 +49,7 @@ func wealthTrendLine(view ui.View, data application.HistoricalOverviewSeriesResu
 	}
 	return charts.LineSpec{Label: l.Text(i18n.WealthTrendChart),
 		Summary: label + " · " + wealthDay(view, data.From) + " – " + wealthDay(view, data.To) + " · " + string(unit),
-		Series:  []charts.LineSeries{series}, From: from, To: to, Height: 260, IncludeZero: true,
+		Series:  []charts.LineSeries{series}, From: from, To: to, Height: 260, Area: true,
 		FormatTime: func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },
 		FormatTick: func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },
 		FormatValue: func(number float64) string {

@@ -36,6 +36,12 @@ var icons = map[string]string{
 	"receipt-text": "ReceiptText", "refresh-cw": "RefreshCw", "search": "Search",
 	"settings": "Settings", "sun": "Sun", "triangle-alert": "TriangleAlert", "users": "Users",
 	"wallet": "Wallet", "wrench": "Wrench", "x": "X",
+	"trending-up": "TrendingUp", "trending-down": "TrendingDown", "landmark": "Landmark",
+	"ellipsis": "Ellipsis", "lock": "Lock", "calendar": "Calendar", "heart-pulse": "HeartPulse",
+	"circle-check": "CircleCheck", "chevron-up": "ChevronUp", "pencil": "Pencil", "eye": "Eye",
+	"archive": "Archive", "piggy-bank": "PiggyBank", "arrow-up-right": "ArrowUpRight",
+	"arrow-down-right": "ArrowDownRight", "clock": "Clock", "building-2": "Building2",
+	"coins": "Coins", "file-text": "FileText",
 }
 
 const (

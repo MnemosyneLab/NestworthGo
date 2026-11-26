@@ -7,6 +7,8 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 )
 
@@ -111,4 +113,46 @@ func (v View) fieldFrame(gtx layout.Context, chrome fieldChrome, content layout.
 func strokeRing(gtx layout.Context, bounds image.Rectangle, radius unit.Dp, ink color.NRGBA, amount float64) {
 	width := gtx.Dp(2)
 	StrokeRoundRect(gtx, bounds.Inset(-width), radius+2, 2, WithAlpha(ink, 0.5*amount))
+}
+
+// RowCard lays out one row of a vertical card whose rows are separate list
+// items. The first row rounds the top corners and the last rounds the bottom
+// ones; adjacent rows share their border line, which reads as a divider. The
+// content is clipped to the row, so a hover overlay respects the corners.
+func (v View) RowCard(gtx layout.Context, first, last bool, content layout.Widget) layout.Dimensions {
+	p := v.Colors
+	r := gtx.Dp(RadiusXL)
+	round := func(on bool) int {
+		if on {
+			return r
+		}
+		return 0
+	}
+	macro := op.Record(gtx.Ops)
+	dims := content(gtx)
+	call := macro.Stop()
+	rr := clip.RRect{
+		Rect: image.Rectangle{Max: dims.Size},
+		NW:   round(first), NE: round(first), SW: round(last), SE: round(last),
+	}
+	paint.FillShape(gtx.Ops, p.Surface, rr.Op(gtx.Ops))
+	func() {
+		defer rr.Push(gtx.Ops).Pop()
+		call.Add(gtx.Ops)
+	}()
+	w := max(1, gtx.Dp(1))
+	inset := w / 2
+	// A row that continues a card draws its top edge over the previous row's
+	// bottom edge, so the shared divider is one line wide.
+	frame := image.Rectangle{Max: dims.Size}.Inset(inset)
+	if !first {
+		frame.Min.Y = -inset
+	}
+	edge := clip.RRect{
+		Rect: frame,
+		NW:   max(0, round(first)-inset), NE: max(0, round(first)-inset),
+		SW: max(0, round(last)-inset), SE: max(0, round(last)-inset),
+	}
+	paint.FillShape(gtx.Ops, p.Divider, clip.Stroke{Path: edge.Path(gtx.Ops), Width: float32(w)}.Op())
+	return dims
 }

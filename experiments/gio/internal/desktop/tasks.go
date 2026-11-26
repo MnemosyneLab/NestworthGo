@@ -263,14 +263,9 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 					if p.checks == nil {
 						return tradeTitle(view, i18n.TasksTermDeposits)(gtx)
 					}
-					tabs := make([]layout.FlexChild, 0, len(p.tabs))
-					for i, label := range taskTabLabels {
-						tabs = append(tabs, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							view.Focus.Watch(gtx, &p.tabs[i])
-							return view.TabButton(&p.tabs[i], l.Text(label), p.tab == tasksTab(i))(gtx)
-						}))
-					}
-					return layout.Flex{Gap: gtx.Dp(6)}.Layout(gtx, tabs...)
+					return view.TabTrack(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
+						return view.TabSegment(&p.tabs[i], l.Text(taskTabLabels[i]), p.tab == tasksTab(i))(gtx)
+					})
 				}),
 				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
 		}),
@@ -299,8 +294,8 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 				}
 			}
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
-			return view.List(&p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
-				return layout.Inset{Bottom: 8}.Layout(gtx, rows[i])
+			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavTasks), len(rows), ui.Space12, func(gtx layout.Context, i int) layout.Dimensions {
+				return rows[i](gtx)
 			})
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewPager(gtx, view) }))
@@ -314,13 +309,13 @@ func (p *tasksPage) rows(view ui.View) []layout.Widget {
 	if p.checks != nil {
 		rows = append(rows, tradeTitle(view, i18n.TasksTermDeposits))
 	}
-	rows = append(rows, view.Message(window, view.Colors.SecondaryInk))
+	rows = append(rows, view.Body(ui.TextCaption, window, view.Colors.SecondaryInk))
 	if zone, err := time.LoadLocation(data.Timezone); err == nil && !data.AsOf.IsZero() {
 		readAt := format.LocalDateTime(data.AsOf.In(zone), settings.Settings{DateFormat: view.DateFormat, TimeFormat: view.TimeFormat}, settings.Language(l))
-		rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.TasksReadAt), readAt), view.Colors.SecondaryInk))
+		rows = append(rows, view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.TasksReadAt), readAt), view.Colors.SecondaryInk))
 	}
 	if len(data.Items) == 0 {
-		return append(rows, view.Message(l.Text(i18n.TasksEmpty), view.Colors.Ink))
+		return append(rows, emptyState(view, l.Text(i18n.TasksEmpty)))
 	}
 	lastGroup := ""
 	for _, row := range data.Items {
@@ -339,7 +334,15 @@ func (p *tasksPage) rows(view ui.View) []layout.Widget {
 
 func (p *tasksPage) card(view ui.View, row domain.UpcomingAction) layout.Widget {
 	l := view.Language
-	fields := []layout.Widget{view.Message(l.Text(taskPhase(row)), view.Colors.Ink)}
+	phase := taskPhase(row)
+	tone := ui.BadgeAccent
+	switch phase {
+	case i18n.TasksOverdue, i18n.FundsDue, i18n.TasksBlocked:
+		tone = ui.BadgeWarning
+	}
+	fields := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(phase)) })
+	}}
 	if row.AccountName != nil && *row.AccountName != "" {
 		fields = append(fields, view.Message(*row.AccountName, view.Colors.SecondaryInk))
 	}

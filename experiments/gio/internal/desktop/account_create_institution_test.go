@@ -38,18 +38,18 @@ func TestAccountRecommendationsAndExplicitChoices(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, h, finish := accountShellHarness(t, service, service, "")
-	h.click("Add valued or holdings account", false)
-	finish()
+	startNewAccount(h, finish, "Property")
 	d := p.creation.draft
 	group := fixtureDefaultAccountGroup(t, service)
-	if d.institution.ID != "" || d.group != group {
-		t.Fatal("property should start without an institution and with the active default group")
+	if d == nil || d.kind != domain.TypeProperty || d.mode != domain.TrackingManualValue || d.institution.ID != "" || d.group != group {
+		t.Fatal("property should open directly, without an institution, and with the active default group")
 	}
-	h.click("Tracking method", true)
-	h.click("Cash and holdings", false)
-	h.frame()
-	if d.kind != domain.TypeBrokerage || d.institution.Name != "Harbor Sample Bank" {
-		t.Fatal("brokerage must choose the earliest matching directory institution across bank and brokerage types")
+	h.click("Cancel", false)
+	finish()
+	startNewAccount(h, finish, "Brokerage")
+	d = p.creation.draft
+	if d == nil || d.kind != domain.TypeBrokerage || d.mode != domain.TrackingHoldings || d.institution.Name != "Harbor Sample Bank" {
+		t.Fatalf("brokerage should keep holdings and the earliest matching institution, got %#v", d)
 	}
 	chooseAccountType(h, "Asset type", 2)
 	if d.kind != domain.TypeCryptoExchange || d.institution.ID != first.ID {
@@ -163,8 +163,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	searchDirectory(h, "Search institutions", "Paper")
 	h.click("Accounts", false)
 	finish()
-	h.click("Add liability account", false)
-	finish()
+	startNewAccount(h, finish, "Credit card")
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Abandoned sample debt")
 	setBankField(h, "Opening amount owed", &d.opening, "84.25")
@@ -236,8 +235,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	label("Paper Synthetic Employer")
 	h.click("Accounts", false)
 	finish()
-	h.click("Add liability account", false)
-	finish()
+	startNewAccount(h, finish, "Credit card")
 	d = p.creation.draft
 	pickAccountReference(h, "Institution", "paPER", "Paper Synthetic Employer")
 	setBankField(h, "Account name", &d.name, "Linked sample debt")

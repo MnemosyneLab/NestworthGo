@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -230,8 +229,8 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 			}
 			rows := p.rows(view)
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
-			return view.List(&p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
-				return layout.Inset{Bottom: 8}.Layout(gtx, rows[i])
+			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavAvailableFunds), len(rows), ui.Space12, func(gtx layout.Context, i int) layout.Dimensions {
+				return rows[i](gtx)
 			})
 		}))
 }
@@ -284,7 +283,15 @@ func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, 
 		fullAfter, afterLabel = knownAfter, i18n.FundsAfterSubtotal
 	}
 	return fundsCard(view, title,
-		view.Message(view.Language.Text(fundsStatus(status)), view.Colors.SecondaryInk),
+		func(gtx layout.Context) layout.Dimensions {
+			tone := ui.BadgeWarning
+			if status == domain.StatusComplete {
+				tone = ui.BadgeSuccess
+			}
+			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.Badge(gtx, tone, view.Language.Text(fundsStatus(status)))
+			})
+		},
 		fundsAmount(view, beforeLabel, full),
 		fundsAmount(view, reserveLabel, applied),
 		fundsAmount(view, afterLabel, fullAfter))
@@ -405,27 +412,30 @@ func (p *availableFundsPage) sourceLinks(view ui.View, key string, account domai
 func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-			children := make([]layout.FlexChild, 0, len(fields)+1)
-			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Label(gtx, title, 16, font.Medium, view.Colors.Ink)
-			}))
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			children := make([]layout.FlexChild, 0, len(fields)+2)
+			children = append(children,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Body(ui.TextHeading, title, view.Colors.Ink)(gtx)
+				}),
+				layout.Rigid(view.Hairline),
+			)
 			for _, field := range fields {
 				children = append(children, layout.Rigid(field))
 			}
-			return layout.UniformInset(11).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx, children...)
-			})
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, children...)
 		})
 	}
 }
 
+// fundsAmount shows a labelled amount as a name on the left and the figure on
+// the right.
 func fundsAmount(view ui.View, label i18n.MessageID, amount *domain.Money) layout.Widget {
 	value := view.Language.Text(i18n.OverviewNoValue)
 	if amount != nil {
 		value = portfolioDecimal(view, amount.CanonicalAmount()) + " " + amount.Currency().String()
 	}
-	return view.Message(fmt.Sprintf(view.Language.Text(label), value), view.Colors.Ink)
+	return labeledAmount(view, label, value, view.Colors.Ink)
 }
 
 func fundsStatus(status domain.CompletenessStatus) i18n.MessageID {

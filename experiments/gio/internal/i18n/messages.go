@@ -1956,6 +1956,20 @@ const (
 	ChartNotInRing
 	ChartNothingToDraw
 	PreviewTabControls
+	AccountAddEntry
+	AccountStepType
+	AccountStepDetails
+	AccountStepReview
+	AccountTypeStepTitle
+	AccountTypeStepHelp
+	AccountTypeTracking
+	AccountTypeMore
+	AccountTypeFewer
+	AccountTypeContinue
+	AccountTrackingStepTitle
+	AccountTrackingStepHelp
+	AccountTrackingBack
+	AccountCreateSectionBasics
 	messageCount
 )
 

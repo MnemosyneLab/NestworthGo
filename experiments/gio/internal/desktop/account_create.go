@@ -92,9 +92,17 @@ func (d *balanceAccountDraft) selectMode(mode domain.TrackingMode) {
 	if mode == d.mode {
 		return
 	}
-	d.mode = mode
 	if !domain.IsValidAccountCombination(d.kind, d.role, mode) {
+		// Institution entry still offers the valued/holdings pair and moves to
+		// brokerage when the current type cannot use the chosen method. An
+		// unscoped account keeps its type; its choices are already legal.
+		if !d.scoped {
+			return
+		}
+		d.mode = mode
 		d.selectType(domain.TypeBrokerage)
+	} else {
+		d.mode = mode
 	}
 	d.opening.Editor.SetText("")
 	d.included = domain.SuggestedInclusion(d.kind, mode).IncludeInNetWorth
@@ -113,6 +121,7 @@ func (d *balanceAccountDraft) selectType(kind domain.AccountType) {
 // created object, never the form or a submit intent.
 type balanceAccountCreation struct {
 	service      accountCreator
+	chooser      *accountTypeChooser
 	draft        *balanceAccountDraft
 	review       *balanceAccountReview
 	submission   <-chan accountCreateResult
@@ -238,7 +247,11 @@ func (d *balanceAccountDraft) institutionIndex() int {
 }
 
 func (f *balanceAccountCreation) discard() {
-	if f == nil || f.draft == nil {
+	if f == nil {
+		return
+	}
+	f.chooser = nil
+	if f.draft == nil {
 		return
 	}
 	if f.draft.cancelRefs != nil {

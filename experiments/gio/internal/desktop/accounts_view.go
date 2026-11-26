@@ -3,17 +3,17 @@ package desktop
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 
-	"gioui.org/font"
-	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -50,22 +50,20 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.startBankAccount()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.canCreateUnscoped() {
-		if p.createAsset.Clicked(gtx) {
-			p.startBalanceAccount(domain.TypeCashOnHand, domain.RoleAsset, domain.Institution{})
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		if p.createLiability.Clicked(gtx) {
-			p.startBalanceAccount(domain.TypeCreditCard, domain.RoleLiability, domain.Institution{})
-			gtx.Execute(op.InvalidateCmd{})
-		}
+	if p.canCreateUnscoped() && p.createAccount.Clicked(gtx) {
+		p.startAccountChooser()
+		view.RestorePageScroll(0)
+		gtx.Execute(op.InvalidateCmd{})
 	}
-	if (p.canCreateBankAccount() || p.canCreateUnscoped()) && p.createShell.Clicked(gtx) {
+	if p.canCreateBankAccount() && p.createShell.Clicked(gtx) {
 		p.startAccount(domain.TypeProperty, domain.RoleAsset, domain.TrackingManualValue, p.current.institutions[p.target.institution])
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if p.creation != nil && p.creation.draft != nil {
 		return p.layoutAccountCreation(gtx, view)
+	}
+	if p.creation != nil && p.creation.chooser != nil {
+		return p.layoutAccountTypeChooser(gtx, view)
 	}
 	if p.maintenance != nil && p.maintenance.draft != nil {
 		return p.layoutAccountSettings(gtx, view)
@@ -164,9 +162,19 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	}
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			var controls []layout.FlexChild
+			reload := func(gtx layout.Context) layout.Dimensions {
+				label := i18n.HistoryRefresh
+				if p.err != nil {
+					label = i18n.HistoryRetry
+				}
+				if p.request != nil {
+					gtx = gtx.Disabled()
+				}
+				return view.Button(&p.reload, l.Text(label))(gtx)
+			}
+			var left, right []layout.Widget
 			if detail {
-				controls = append(controls, layout.Rigid(view.Button(&p.back, l.Text(i18n.AccountBack))))
+				controls := []layout.FlexChild{layout.Rigid(view.Button(&p.back, l.Text(i18n.AccountBack)))}
 				controls = append(controls, p.accountMaintenanceActions(gtx, view)...)
 				if p.canSetCashBalance() {
 					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -181,69 +189,93 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 						return view.Button(&p.balanceTarget.open, l.Text(action))(gtx)
 					}))
 				}
-			} else if !p.invalid && (p.current == nil || !p.current.unavailable) {
-				archive := i18n.InstitutionsShowArchived
-				if p.archived {
-					archive = i18n.InstitutionsHideArchived
+				if p.target.institution != "" {
+					controls = append(controls, layout.Rigid(view.Button(&p.clear, l.Text(i18n.AccountClearInstitution))))
+				} else if p.target.accountList.active() {
+					controls = append(controls, layout.Rigid(returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false)))
 				}
-				controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.request != nil {
-						gtx = gtx.Disabled()
+				left = append(left, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, controls...)
+				})
+			} else {
+				primary := true
+				add := func(button *widget.Clickable, id i18n.MessageID) {
+					draw := view.Button(button, l.Text(id))
+					if primary {
+						draw = view.PrimaryButton(button, l.Text(id))
+						primary = false
 					}
-					return view.TabButton(&p.archiveFilter, l.Text(archive), p.archived)(gtx)
-				}))
+					if button != &p.createAccount {
+						left = append(left, draw)
+						return
+					}
+					left = append(left, func(gtx layout.Context) layout.Dimensions {
+						if p.focusCreate && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: &p.createAccount})
+							p.focusCreate = false
+						}
+						return draw(gtx)
+					})
+				}
+				if p.canCreateBankAccount() {
+					add(&p.createBank, i18n.AccountCreateAdd)
+					add(&p.createShell, i18n.AccountCreateShellAdd)
+				} else if p.canCreateUnscoped() {
+					add(&p.createAccount, i18n.AccountAddEntry)
+				}
+				if p.target.institution != "" {
+					right = append(right, view.Button(&p.clear, l.Text(i18n.AccountClearInstitution)))
+				} else if p.target.accountList.active() {
+					right = append(right, returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false))
+				}
+				if !p.invalid && (p.current == nil || !p.current.unavailable) {
+					archive := i18n.InstitutionsShowArchived
+					if p.archived {
+						archive = i18n.InstitutionsHideArchived
+					}
+					right = append(right, func(gtx layout.Context) layout.Dimensions {
+						if p.request != nil {
+							gtx = gtx.Disabled()
+						}
+						variant := ui.ButtonOutline
+						if p.archived {
+							variant = ui.ButtonSoft
+						}
+						return view.ButtonOf(&p.archiveFilter, ui.ButtonSpec{Variant: variant, Title: l.Text(archive), Name: l.Text(archive), Toggle: true, Selected: p.archived})(gtx)
+					})
+				}
 			}
-			if p.target.institution != "" {
-				controls = append(controls, layout.Rigid(view.Button(&p.clear, l.Text(i18n.AccountClearInstitution))))
-			} else if p.target.accountList.active() {
-				controls = append(controls, layout.Rigid(returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false)))
-			}
-			if p.canCreateBankAccount() {
-				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createBank, l.Text(i18n.AccountCreateAdd))))
-			}
-			if p.canCreateUnscoped() {
-				controls = append(controls,
-					layout.Rigid(view.PrimaryButton(&p.createLiability, l.Text(i18n.AccountCreateLiabilityAdd))),
-					layout.Rigid(view.PrimaryButton(&p.createAsset, l.Text(i18n.AccountCreateAssetAdd))),
-				)
-			}
-			controls = append(controls, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }))
 			if !p.invalid {
-				reload := i18n.HistoryRefresh
-				if p.err != nil {
-					reload = i18n.HistoryRetry
-				}
-				controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.request != nil {
-						gtx = gtx.Disabled()
-					}
-					return view.Button(&p.reload, l.Text(reload))(gtx)
-				}))
+				right = append(right, reload)
 			}
 			toolbar := func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, controls...)
-			}
-			if p.canPostLiability() {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
-					layout.Rigid(toolbar),
+				return layout.Flex{Gap: gtx.Dp(16), Alignment: layout.Start}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
+						dims.Size.X = gtx.Constraints.Max.X
+						return dims
+					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						f := p.liabilityPosting
-						view.Focus.Watch(gtx, &f.open)
-						if f.restore && gtx.Enabled() {
-							gtx.Execute(key.FocusCmd{Tag: &f.open})
-							f.restore = false
-						}
-						action := liabilityEntryLabel(p.freshDetail().record.Account)
-						return layout.W.Layout(gtx, view.PrimaryButton(&f.open, l.Text(action)))
+						return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(right), func(gtx layout.Context, i int) layout.Dimensions { return right[i](gtx) })
 					}),
 				)
 			}
-			if !p.canCreateBankAccount() && !p.canCreateUnscoped() {
+			if !p.canPostLiability() {
 				return toolbar(gtx)
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 				layout.Rigid(toolbar),
-				layout.Rigid(view.PrimaryButton(&p.createShell, l.Text(i18n.AccountCreateShellAdd))),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					f := p.liabilityPosting
+					view.Focus.Watch(gtx, &f.open)
+					if f.restore && gtx.Enabled() {
+						gtx.Execute(key.FocusCmd{Tag: &f.open})
+						f.restore = false
+					}
+					action := liabilityEntryLabel(p.freshDetail().record.Account)
+					return layout.W.Layout(gtx, view.PrimaryButton(&f.open, l.Text(action)))
+				}),
 			)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
@@ -251,18 +283,19 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			if p.current == nil || p.current.unavailable || len(p.current.rows) == 0 {
 				return layout.Dimensions{}
 			}
+			title := l.Text(i18n.AccountReadList)
 			if detail {
 				rows := p.detailRows(view)
-				return p.scrolling(gtx, view, len(rows), func(gtx layout.Context, i int) layout.Dimensions { return rows[i](gtx) })
+				return pageListGap(gtx, view, &p.list, title, len(rows), 0, func(gtx layout.Context, i int) layout.Dimensions { return rows[i](gtx) })
 			}
-			return p.scrolling(gtx, view, len(p.rows), func(gtx layout.Context, i int) layout.Dimensions {
-				if row := p.rows[i]; row.account != nil {
-					return p.accountTile(gtx, view, *row.account)
-				} else {
-					return layout.Inset{Top: 9, Bottom: 6, Left: 5}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, row.heading, 15, font.Medium, view.Colors.Ink)
-					})
+			return pageListGap(gtx, view, &p.list, title, len(p.rows), 0, func(gtx layout.Context, i int) layout.Dimensions {
+				row := p.rows[i]
+				if row.account == nil {
+					return p.groupHeading(gtx, view, row, i == 0)
 				}
+				first := i == 0 || p.rows[i-1].account == nil
+				last := i == len(p.rows)-1 || p.rows[i+1].account == nil
+				return p.accountTile(gtx, view, *row.account, first, last)
 			})
 		}),
 	)
@@ -351,33 +384,27 @@ func balanceSavedLine(view ui.View, label i18n.MessageID, link *widget.Clickable
 	}
 }
 
-func (p *accountsPage) scrolling(gtx layout.Context, view ui.View, count int, row layout.ListElement) layout.Dimensions {
-	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-	view.Focus.Watch(gtx, &p.list)
-	event.Op(gtx.Ops, &p.list)
-	for _, pressed := range ui.PressedKeys(gtx, &p.list, key.NameUpArrow, key.NameDownArrow, key.NamePageUp, key.NamePageDown, key.NameHome, key.NameEnd) {
-		page := float32(max(1, p.list.Position.Count-1))
-		switch pressed.Name {
-		case key.NameUpArrow:
-			p.list.ScrollBy(-1)
-		case key.NameDownArrow:
-			p.list.ScrollBy(1)
-		case key.NamePageUp:
-			p.list.ScrollBy(-page)
-		case key.NamePageDown:
-			p.list.ScrollBy(page)
-		case key.NameHome:
-			p.list.ScrollTo(0)
-		case key.NameEnd:
-			p.list.ScrollTo(count - 1)
-		}
+func (p *accountsPage) groupHeading(gtx layout.Context, view ui.View, row accountListRow, top bool) layout.Dimensions {
+	inset := layout.Inset{Top: ui.Space8, Bottom: ui.Space8, Left: ui.Space4}
+	if top {
+		inset.Top = 0
 	}
-	return accessibility.List(gtx, &p.list, view.Language.Text(i18n.AccountReadList), func(gtx layout.Context) layout.Dimensions {
-		return view.List(&p.list).Layout(gtx, count, row)
+	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if row.icon == nil {
+					return layout.Dimensions{}
+				}
+				return ui.LayoutGlyph(gtx, row.icon, 20, view.Colors.Accent)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return view.Line(gtx, ui.TextHeading, row.heading, view.Colors.Ink)
+			}),
+		)
 	})
 }
 
-func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row accountRow) layout.Dimensions {
+func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row accountRow, first, last bool) layout.Dimensions {
 	account := row.record.Account
 	button := p.buttons[account.ID]
 	if button == nil {
@@ -388,19 +415,35 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 		p.open(navigationTarget{route: accountsRoute, account: account.ID}, account.Name, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	content := material.ButtonLayout(view.Theme, button)
-	content.Background, content.CornerRadius = view.Colors.Surface, 8
-	return layout.Inset{Bottom: 5}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	inset := layout.Inset{}
+	if last {
+		inset.Bottom = ui.Space16
+	}
+	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		view.Focus.Watch(gtx, button)
-		return accessibility.Button(gtx, button, account.Name, "", false, func(gtx layout.Context) layout.Dimensions {
-			return content.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				semantic.Button.Add(gtx.Ops)
-				semantic.DescriptionOp(account.Name).Add(gtx.Ops)
-				return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(10)}.Layout(gtx,
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountAmounts(gtx, view, row, true) }),
-					)
+		return view.RowCard(gtx, first, last, func(gtx layout.Context) layout.Dimensions {
+			return accessibility.Button(gtx, button, account.Name, "", false, func(gtx layout.Context) layout.Dimensions {
+				return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					semantic.Button.Add(gtx.Ops)
+					semantic.DescriptionOp(account.Name).Add(gtx.Ops)
+					hover := func(gtx layout.Context) layout.Dimensions {
+						if button.Hovered() || gtx.Focused(button) {
+							paint.FillShape(gtx.Ops, ui.Mix(view.Colors.Surface, view.Colors.HoverSurface, 0.55), clip.Rect{Max: gtx.Constraints.Min}.Op())
+						}
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}
+					return layout.Background{}.Layout(gtx, hover, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return accountAmountLines(gtx, view, row, true, layout.End)
+									})
+								}),
+							)
+						})
+					})
 				})
 			})
 		})
@@ -421,15 +464,19 @@ func accountTitle(gtx layout.Context, view ui.View, account domain.Account) layo
 	if account.ArchivedAt != nil {
 		description += " · " + l.Text(i18n.DirectoryArchived)
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx,
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, account.Name, 17, font.Medium, view.Colors.Ink)
+			return view.Line(gtx, ui.TextLabel, account.Name, view.Colors.Ink)
 		}),
-		layout.Rigid(view.Message(description, view.Colors.SecondaryInk)),
+		layout.Rigid(view.Body(ui.TextCaption, description, view.Colors.SecondaryInk)),
 	)
 }
 
 func accountAmounts(gtx layout.Context, view ui.View, row accountRow, brief bool) layout.Dimensions {
+	return accountAmountLines(gtx, view, row, brief, layout.Start)
+}
+
+func accountAmountLines(gtx layout.Context, view ui.View, row accountRow, brief bool, alignment layout.Alignment) layout.Dimensions {
 	l := view.Language
 	a, v := row.record.Account, row.value
 	var native, base *domain.MoneyView
@@ -465,9 +512,15 @@ func accountAmounts(gtx layout.Context, view ui.View, row accountRow, brief bool
 		}
 		return label
 	}
-	lines := []layout.FlexChild{layout.Rigid(view.Message(amount(native, a.DefaultCurrency, nativePartial), view.Colors.Ink))}
+	line := func(style ui.TextStyle, content string, ink color.NRGBA) layout.FlexChild {
+		if alignment == layout.End {
+			return layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.LineEnd(gtx, style, content, ink) })
+		}
+		return layout.Rigid(view.Body(style, content, ink))
+	}
+	lines := []layout.FlexChild{line(ui.TextLabel, amount(native, a.DefaultCurrency, nativePartial), view.Colors.Ink)}
 	if baseCurrency != "" && baseCurrency != a.DefaultCurrency {
-		lines = append(lines, layout.Rigid(view.Message(amount(base, baseCurrency, !v.Complete), view.Colors.SecondaryInk)))
+		lines = append(lines, line(ui.TextCaption, amount(base, baseCurrency, !v.Complete), view.Colors.SecondaryInk))
 	}
 	if v != nil {
 		if !v.Complete || nativePartial {
@@ -475,13 +528,13 @@ func accountAmounts(gtx layout.Context, view ui.View, row accountRow, brief bool
 			if brief {
 				status = accountIssueStatus(l, *v, status)
 			}
-			lines = append(lines, layout.Rigid(view.Message(status, view.Colors.SecondaryInk)))
+			lines = append(lines, line(ui.TextCaption, status, view.Colors.SecondaryInk))
 		}
 		if accountStale(*v) {
-			lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountStaleQuotes), view.Colors.SecondaryInk)))
+			lines = append(lines, line(ui.TextCaption, l.Text(i18n.AccountStaleQuotes), view.Colors.SecondaryInk))
 		}
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx, lines...)
+	return layout.Flex{Axis: layout.Vertical, Alignment: alignment, Gap: gtx.Dp(2)}.Layout(gtx, lines...)
 }
 
 func accountIssueStatus(lang i18n.Language, value domain.AccountValuation, status string) string {
@@ -553,13 +606,13 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	}
 	var rows []layout.Widget
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-		return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(14).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(7)}.Layout(gtx,
+		return layout.Inset{Bottom: ui.Space12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								side := gtx.Dp(24)
+								side := gtx.Dp(32)
 								gtx.Constraints = layout.Exact(image.Pt(side, side))
 								return accountGlyph(a, p.current.institutions).Layout(gtx, view.Colors.Accent)
 							}),
@@ -567,9 +620,10 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 						)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return accountAmounts(gtx, view, row, false) }),
-					layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountInstitution), institution), view.Colors.SecondaryInk)),
-					layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountGroup), group), view.Colors.SecondaryInk)),
-					layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountOwners), owner), view.Colors.SecondaryInk)),
+					layout.Rigid(view.Hairline),
+					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountInstitution), institution), view.Colors.SecondaryInk)),
+					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountGroup), group), view.Colors.SecondaryInk)),
+					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountOwners), owner), view.Colors.SecondaryInk)),
 				)
 			})
 		})
@@ -581,12 +635,14 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	}
 	if opening {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
+			})
 		})
 	}
 	if buy || sell || dividend {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				var actions []layout.FlexChild
 				f := p.investment
 				action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
@@ -621,14 +677,16 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			f := p.investment
 			buttons := []*widget.Clickable{&f.importOpen, &f.custodyOpen, &f.adjustmentOpen}
 			labels := []i18n.MessageID{i18n.OpeningPositionOpen, i18n.CustodyOpen, i18n.QuantityAdjustOpen}
-			return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
-				return f.accountPositionAction(gtx, view, buttons[i], l.Text(labels[i]))
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
+					return f.accountPositionAction(gtx, view, buttons[i], l.Text(labels[i]))
+				})
 			})
 		})
 	}
 	if p.statement != nil && statementCard(a) && p.freshDetail() != nil {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.W.Layout(gtx, view.Button(&p.statement.open, l.Text(i18n.StatementOpen)))
 			})
 		})
@@ -660,7 +718,8 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		var cash, investments []layout.Widget
 		for _, component := range value.Components {
 			if component.InstrumentID == nil {
-				cash = append(cash, accountLine(view, component.NativeCurrency.String()+" · "+accountComponentAmount(view, component)))
+				currency, amount := component.NativeCurrency.String(), accountComponentAmount(view, component)
+				cash = append(cash, labeledRow(view, currency+" · "+amount, currency, amount, view.Colors.Ink))
 				continue
 			}
 			if p.current.managed[*component.InstrumentID] {
@@ -671,6 +730,8 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			if name == "" {
 				name = l.Text(i18n.OverviewMissingInstrument)
 			}
+			amount := accountComponentAmount(view, component)
+			var item []layout.Widget
 			if component.HoldingID != nil {
 				if holding, ok := p.current.holdings[*component.HoldingID]; ok {
 					if holding.Quantity.IsZero() {
@@ -679,11 +740,11 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					name += " · " + fmt.Sprintf(l.Text(i18n.AccountQuantity), holding.Quantity.Canonical())
 				}
 			}
-			investments = append(investments, accountLine(view, name+" · "+accountComponentAmount(view, component)))
+			item = append(item, headingRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
 			if instrumentName != "" && p.openInstrument != nil {
 				id := *component.InstrumentID
 				button := portfolioButton(p.instruments, id)
-				investments = append(investments, func(gtx layout.Context) layout.Dimensions {
+				item = append(item, func(gtx layout.Context) layout.Dimensions {
 					if button.Clicked(gtx) {
 						p.openInstrument(id, instrumentName, button)
 						gtx.Execute(op.InvalidateCmd{})
@@ -698,21 +759,24 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					if label == "" {
 						label = l.Text(i18n.OverviewMissingInstrument)
 					}
-					investments = append(investments, p.holdingPositionActions(view, a, holding, label))
+					item = append(item, p.holdingPositionActions(view, a, holding, label))
 				}
 			}
+			investments = append(investments, stackWidgets(ui.Space8, item...))
 		}
-		rows = append(rows, accountLine(view, l.Text(i18n.AccountCash)))
+		rows = append(rows, accountSection(view, l.Text(i18n.AccountCash)))
 		if len(cash) == 0 {
-			cash = append(cash, accountLine(view, l.Text(i18n.AccountNoCash)))
+			rows = append(rows, accountLine(view, l.Text(i18n.AccountNoCash)))
+		} else {
+			rows = append(rows, sectionCard(view, cash))
 		}
-		rows = append(rows, cash...)
 		if a.AccountType != domain.TypeCashOnHand {
-			rows = append(rows, accountLine(view, l.Text(i18n.AccountInvestments)))
+			rows = append(rows, accountSection(view, l.Text(i18n.AccountInvestments)))
 			if len(investments) == 0 {
-				investments = append(investments, accountLine(view, l.Text(i18n.AccountNoInvestments)))
+				rows = append(rows, accountLine(view, l.Text(i18n.AccountNoInvestments)))
+			} else {
+				rows = append(rows, sectionCard(view, investments))
 			}
-			rows = append(rows, investments...)
 		}
 	}
 	return p.appendProducts(rows, view, a)
@@ -768,7 +832,7 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 	l := view.Language
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-			layout.Flexed(1, accountLine(view, l.Text(i18n.ManagedProducts))),
+			layout.Flexed(1, accountSection(view, l.Text(i18n.ManagedProducts))),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if !canAdd {
 					return layout.Dimensions{}
@@ -810,6 +874,44 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 		rows = append(rows, fundsCard(view, name, fields...))
 	}
 	return rows
+}
+
+// accountSection is the heading of a block of detail lines.
+func accountSection(view ui.View, label string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: ui.Space24, Bottom: ui.Space4, Left: ui.Space4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return view.Line(gtx, ui.TextHeading, label, view.Colors.Ink)
+		})
+	}
+}
+
+// stackWidgets lays widgets out in a column with a fixed gap.
+func stackWidgets(gap unit.Dp, items ...layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		children := make([]layout.FlexChild, len(items))
+		for i, item := range items {
+			children[i] = layout.Rigid(item)
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(gap)}.Layout(gtx, children...)
+	}
+}
+
+// sectionCard puts the lines of one detail section in a single card, divided
+// by hairlines, as the Wails detail cards do.
+func sectionCard(view ui.View, items []layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			var children []layout.FlexChild
+			for i, item := range items {
+				if i > 0 {
+					children = append(children, layout.Rigid(view.Hairline))
+				}
+				children = append(children, layout.Rigid(item))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, children...)
+		})
+	}
 }
 
 func accountLine(view ui.View, label string) layout.Widget {

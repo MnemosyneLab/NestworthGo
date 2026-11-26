@@ -54,7 +54,7 @@ func (v View) LineEnd(gtx layout.Context, style TextStyle, content string, fg co
 func (v View) styled(gtx layout.Context, style TextStyle, content string, fg color.NRGBA, maxLines int, alignment text.Alignment) layout.Dimensions {
 	label := material.Label(v.Theme, style.Size, content)
 	label.Color = fg
-	label.Font.Weight = style.Weight
+	label.Font.Weight = faceWeight(style.Weight, content)
 	label.LineHeightScale = style.LineHeight
 	label.MaxLines = maxLines
 	label.Alignment = alignment
@@ -62,4 +62,20 @@ func (v View) styled(gtx layout.Context, style TextStyle, content string, fg col
 		label.Font.Typeface = SerifTypeface
 	}
 	return label.Layout(gtx)
+}
+
+// faceWeight maps a semibold request to bold when the text has non-Latin
+// characters. The system face macOS picks for semibold Han text reports a
+// line box with a very deep descent, which lifts the glyphs well above the
+// center of every control they sit in. The bold face has regular metrics.
+func faceWeight(weight font.Weight, content string) font.Weight {
+	if weight != font.SemiBold {
+		return weight
+	}
+	for _, r := range content {
+		if r >= 0x2e80 {
+			return font.Bold
+		}
+	}
+	return weight
 }

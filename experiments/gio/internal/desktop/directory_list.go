@@ -79,7 +79,7 @@ type directoryList struct {
 	archiveFilter   widget.Clickable
 	search          ui.SearchField
 	query           string
-	list            layout.List
+	list            widget.List
 	buttons         map[string]*directoryRowButtons
 	focusRow        directoryFocus
 	focusAdd        bool
@@ -108,7 +108,7 @@ func newDirectoryList(ctx context.Context, source directorySource, copy director
 		ctx: ctx, source: source, copy: copy, defaultIcon: defaultIcon, invalidate: invalidate,
 		results: make(chan directoryResult, 1),
 		search:  ui.SearchField{Field: ui.NewTextField(true)}, draft: ui.NewTextField(true),
-		list: layout.List{Axis: layout.Vertical}, buttons: make(map[string]*directoryRowButtons),
+		list: widget.List{List: layout.List{Axis: layout.Vertical}}, buttons: make(map[string]*directoryRowButtons),
 	}
 }
 
@@ -236,7 +236,7 @@ func (p *directoryList) header(gtx layout.Context, view ui.View, householdName s
 			if p.busy || p.editMode != directoryRead || p.awaitingRead.operation != directoryRead {
 				gtx = gtx.Disabled()
 			}
-			return view.Button(&p.add, view.Language.Text(p.copy.add))(gtx)
+			return view.PrimaryButton(&p.add, view.Language.Text(p.copy.add))(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.busy || p.editMode != directoryRead {
@@ -252,7 +252,15 @@ func (p *directoryList) header(gtx layout.Context, view ui.View, householdName s
 }
 
 func (p *directoryList) filters(gtx layout.Context, view ui.View) layout.Dimensions {
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
+	return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(12)}.Layout(gtx,
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return p.search.Layout(ui.LimitWidth(gtx, 470), view, p.copy.search, p.copy.searchHint, func(query string) {
+					p.query = query
+					p.list.Position = layout.Position{}
+				})
+			})
+		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			label := i18n.InstitutionsShowArchived
 			if p.includeArchived {
@@ -262,12 +270,6 @@ func (p *directoryList) filters(gtx layout.Context, view ui.View) layout.Dimensi
 				gtx = gtx.Disabled()
 			}
 			return view.Button(&p.archiveFilter, view.Language.Text(label))(gtx)
-		}),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return p.search.Layout(ui.LimitWidth(gtx, 470), view, p.copy.search, p.copy.searchHint, func(query string) {
-				p.query = query
-				p.list.Position = layout.Position{}
-			})
 		}),
 	)
 }
@@ -318,10 +320,8 @@ func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dim
 				}
 				return view.Message(view.Language.Text(message), view.Colors.SecondaryInk)(gtx)
 			}
-			return p.list.Layout(gtx, len(visible), func(gtx layout.Context, i int) layout.Dimensions {
-				return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return p.row(gtx, view, visible[i], restore)
-				})
+			return pageListGap(gtx, view, &p.list, view.Language.Text(p.copy.title), len(visible), ui.Space8, func(gtx layout.Context, i int) layout.Dimensions {
+				return p.row(gtx, view, visible[i], restore)
 			})
 		}),
 	)
@@ -397,9 +397,9 @@ func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow,
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	gtx.Constraints.Min = image.Pt(gtx.Constraints.Max.X, gtx.Dp(56))
-	return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 8, Bottom: 8, Left: 12, Right: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	gtx.Constraints.Min = image.Pt(gtx.Constraints.Max.X, gtx.Dp(64))
+	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return p.rowContent(gtx, view, item, buttons)
 		})
 	})

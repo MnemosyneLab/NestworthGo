@@ -140,6 +140,8 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 		h.focused(page.breakdowns.links[tc.scope])
 	}
 	h.size = image.Pt(700, 480)
+	// The page actions are the first row of the scrolling page body.
+	page.list.ScrollTo(0)
 	h.frame()
 	h.click("View allocation breakdowns", false)
 	h.frame()

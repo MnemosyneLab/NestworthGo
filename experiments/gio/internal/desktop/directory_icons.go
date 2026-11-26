@@ -58,20 +58,30 @@ var directoryGlyphs, directoryIconChoices = func() (map[string]ui.Glyph, map[i18
 }()
 
 func (p *directoryList) glyph(key string, kind domain.InstitutionType) ui.Glyph {
+	return directoryGlyph(key, p.fallbackIcon(kind))
+}
+
+func (p *directoryList) fallbackIcon(kind domain.InstitutionType) string {
+	return institutionFallbackIcon(kind, p.defaultIcon)
+}
+
+func institutionFallbackIcon(kind domain.InstitutionType, defaultIcon string) string {
+	if icon := domain.DefaultIconForInstitutionType(kind); icon != "" {
+		return icon
+	}
+	return defaultIcon
+}
+
+// directoryGlyph resolves an icon key to a bank logo or a directory glyph and
+// falls back to the given key, so every institution shows a mark.
+func directoryGlyph(key, fallback string) ui.Glyph {
 	if logo, ok := directoryBankLogos[key]; ok {
 		return logo.Glyph
 	}
 	if glyph := directoryGlyphs[key]; glyph != nil {
 		return glyph
 	}
-	return directoryGlyphs[p.fallbackIcon(kind)]
-}
-
-func (p *directoryList) fallbackIcon(kind domain.InstitutionType) string {
-	if icon := domain.DefaultIconForInstitutionType(kind); icon != "" {
-		return icon
-	}
-	return p.defaultIcon
+	return directoryGlyphs[fallback]
 }
 
 func loadDirectoryGlyph(key string) ui.Glyph {

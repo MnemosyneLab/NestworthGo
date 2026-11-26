@@ -24,17 +24,22 @@ func (p *wealthHistoryPage) layoutWealthTabs(gtx layout.Context, view ui.View) l
 	if p.accounts.current != nil && p.accounts.current.Right != nil {
 		allocationLabel = i18n.WealthAllocationCompare
 	}
-	buttons := []layout.Widget{
-		analysisToggle(view, &p.allocationTab, l.Text(allocationLabel), p.lens == wealthAllocationLens),
-		view.ButtonOf(&p.accountsTab, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
-			Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.WealthAccountTabName), Toggle: true, Selected: p.lens == wealthAccountsLens}),
-		analysisToggle(view, &p.trendTab, l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens),
+	type tab struct {
+		button      *widget.Clickable
+		title, name string
+		selected    bool
+	}
+	tabs := []tab{
+		{&p.allocationTab, l.Text(allocationLabel), l.Text(allocationLabel), p.lens == wealthAllocationLens},
+		{&p.accountsTab, l.Text(i18n.NavAccounts), l.Text(i18n.WealthAccountTabName), p.lens == wealthAccountsLens},
+		{&p.trendTab, l.Text(i18n.WealthTrendTab), l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens},
 	}
 	if p.accounts.current != nil && p.accounts.current.Right != nil {
-		buttons = append([]layout.Widget{analysisToggle(view, &p.changeTab, l.Text(i18n.WealthChangeTab), p.lens == wealthChangeLens)}, buttons...)
+		tabs = append([]tab{{&p.changeTab, l.Text(i18n.WealthChangeTab), l.Text(i18n.WealthChangeTab), p.lens == wealthChangeLens}}, tabs...)
 	}
-	return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
-		return buttons[index](gtx)
+	return view.TabTrack(gtx, len(tabs), func(gtx layout.Context, index int) layout.Dimensions {
+		t := tabs[index]
+		return view.TabSegmentNamed(t.button, t.title, t.name, t.selected)(gtx)
 	})
 }
 
@@ -70,8 +75,9 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	width, gap := gtx.Constraints.Max.X, gtx.Dp(10)
-	modes := (ui.Wrap{Gap: 8}).Layout(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
-		return analysisToggle(view, &a.modes[index], l.Text(labels[index]), a.draft.mode == wealthAccountMode(index))(gtx)
+	modes := view.TabTrack(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
+		view.Focus.Watch(gtx, &a.modes[index])
+		return view.TabSegment(&a.modes[index], l.Text(labels[index]), a.draft.mode == wealthAccountMode(index))(gtx)
 	})
 	offset := modes.Size.Y + gap
 	dates := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -176,15 +182,18 @@ func wealthAccountSummary(view ui.View, result application.HistoricalOverviewRes
 			func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 				endpoint := endpoints[index]
 				label := wealthEndpointLabel(l, view, endpoint, index)
-				return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						v := endpoint.DisplayValuation
-						return (ui.Column{Gap: 5}).Layout(gtx,
-							ui.Rigid(view.Body(ui.TextLabel, label+" · "+endpoint.Currency, view.Colors.Ink)),
-							ui.Rigid(view.Message(wealthAmount(view, i18n.NetWorth, v.NetWorth), view.Colors.Ink)),
-							ui.Rigid(view.Message(wealthAmount(view, i18n.Assets, v.Assets), view.Colors.Ink)),
-							ui.Rigid(view.Message(wealthAmount(view, i18n.Liabilities, v.Liabilities), view.Colors.Ink)))
-					})
+				return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+					v := endpoint.DisplayValuation
+					row := func(id i18n.MessageID, amount domain.ValuationAmount) ui.ColumnChild {
+						name, display := wealthAmountParts(view, id, amount)
+						return ui.Rigid(labeledRow(view, name+" · "+display, name, display, view.Colors.Ink))
+					}
+					return (ui.Column{Gap: ui.Space8}).Layout(gtx,
+						ui.Rigid(view.Body(ui.TextHeading, label+" · "+endpoint.Currency, view.Colors.Ink)),
+						ui.Rigid(view.Hairline),
+						row(i18n.NetWorth, v.NetWorth),
+						row(i18n.Assets, v.Assets),
+						row(i18n.Liabilities, v.Liabilities))
 				})
 			})
 	}))
