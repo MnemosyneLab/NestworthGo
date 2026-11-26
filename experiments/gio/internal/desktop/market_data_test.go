@@ -149,6 +149,7 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 		t.Fatalf("instrument search %q did not narrow the list: found bond=%t found fund=%t", page.search.Field.Text(), findPageLabel(&h.router, "Unquoted bond") != nil, findPageLabel(&h.router, "Synthetic market fund") != nil)
 	}
 	setBankField(h, "Search instruments", &page.search.Field, "No matching synthetic instrument")
+	h.frame()
 	assertPageLabel(t, &h.router, "No instruments match this search.")
 	assertPageLabel(t, &h.router, "Add instrument")
 	setBankField(h, "Search instruments", &page.search.Field, "Unquoted")
