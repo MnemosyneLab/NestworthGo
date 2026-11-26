@@ -91,6 +91,7 @@ func TestLedgerQuantityAdjustmentsPreserveExactCostAndMatchWails(t *testing.T) {
 	assertLiabilityPosting(t, app, addID, adapter, req)
 	click("Back to ledger activity")
 	h.focused(&f.adjustmentOpen)
+	label("Position adjustment · Quantity added · 0.625 · QA-BUY · Harbor Brokerage")
 
 	now = now.Add(time.Minute)
 	d = open()
@@ -113,6 +114,7 @@ func TestLedgerQuantityAdjustmentsPreserveExactCostAndMatchWails(t *testing.T) {
 	assertLiabilityPosting(t, app, removeID, adapter, req)
 	click("Back to ledger activity")
 	h.focused(&f.adjustmentOpen)
+	label("Position adjustment · Quantity removed · 0.125 · QA-BUY · Harbor Brokerage")
 	d = open()
 	click("Cancel")
 	h.focused(&f.adjustmentOpen)

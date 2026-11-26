@@ -92,6 +92,11 @@ func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 	return state
 }
 
+type historyTimelineReferences struct {
+	history.References
+	holdingAccounts map[domain.HoldingID]domain.AccountID
+}
+
 type historyReads struct {
 	ctx        context.Context
 	service    historyService
@@ -102,7 +107,7 @@ type historyReads struct {
 
 	references      *history.References
 	rowNames        historyRowNames
-	refsRead        <-chan historyResult[history.References]
+	refsRead        <-chan historyResult[historyTimelineReferences]
 	refsCancel      context.CancelFunc
 	refsErr         error
 	detail          *historyDetailVisit
@@ -164,12 +169,26 @@ func (r *historyReads) loadReferences() {
 	r.refsErr = nil
 	ctx, cancel := context.WithCancel(r.ctx)
 	r.refsCancel = cancel
-	r.refsRead = runHistoryRead(&r.workers, r.invalidate, func() (history.References, error) {
-		var refs history.References
+	r.refsRead = runHistoryRead(&r.workers, r.invalidate, func() (historyTimelineReferences, error) {
+		var refs historyTimelineReferences
 		err := r.service.WithRead(ctx, func(ctx context.Context) error {
-			var err error
-			refs, err = history.LoadReferences(ctx, r.service)
-			return err
+			references, err := history.LoadReferences(ctx, r.service)
+			if err != nil {
+				return err
+			}
+			refs.References = references
+			// Holding names enrich the timeline. If the optional read fails,
+			// keep the exact quantities and let the normal Reload retry it.
+			holdings, err := history.LoadHoldingReferences(ctx, r.service, references.Accounts)
+			if err == nil {
+				refs.holdingAccounts = make(map[domain.HoldingID]domain.AccountID)
+				for account, rows := range holdings {
+					for _, holding := range rows {
+						refs.holdingAccounts[holding.ID] = account
+					}
+				}
+			}
+			return nil
 		})
 		return refs, err
 	})
@@ -240,8 +259,9 @@ func (r *historyReads) update() {
 		r.retireReferences()
 		r.refsErr = result.err
 		if result.err == nil {
-			r.references = &result.value
-			r.rowNames = newHistoryRowNames(result.value)
+			r.references = &result.value.References
+			r.rowNames = newHistoryRowNames(result.value.References)
+			r.rowNames.holdingAccounts = result.value.holdingAccounts
 		}
 	default:
 	}

@@ -121,10 +121,12 @@ checks date ranges against the Wails adapter and restores the scope on Back.
 The row's More actions control loads the same eligibility as the detail.
 Repeat and correction open their existing drafts, and reversal opens its
 review. The Gio regression checks return focus, stale eligibility and
-confirmation before a write. A linked term deposit
-opens the existing product page. Custody account names appear when the
-expanded row loads its holding references. Showing those names on the
-collapsed row remains open.
+confirmation before a write. A linked term deposit opens the existing product
+page. Collapsed custody and position rows resolve their recorded holding IDs
+through the same archived-inclusive batched read Wails uses. They show exact
+recorded quantities and the direction of adjustments. Custody transfers
+show both readable account names. An unavailable holding reference leaves the
+other facts visible. Reload retries the reference read.
 
 ## Remaining Stage 1–6 work
 

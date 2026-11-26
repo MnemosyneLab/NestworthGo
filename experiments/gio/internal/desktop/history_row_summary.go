@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -97,7 +98,10 @@ func historyRowSummary(view ui.View, activity domain.Activity, names historyRowN
 			if from.Money.Currency() != to.Money.Currency() || !from.Money.Amount().Equal(to.Money.Amount()) {
 				amount = historyRowRoute(fromAmount, toAmount)
 			}
-			accountName = historyRowRoute(names.account(from.AccountID).Name, names.account(to.AccountID).Name)
+			accountName = names.endpoint(from)
+			if from.AccountID == nil || to.AccountID == nil || *from.AccountID != *to.AccountID {
+				accountName = historyRowRoute(accountName, names.endpoint(to))
+			}
 		}
 		fee = money(byRole[domain.EffectRoleFee].Money)
 	case domain.ActivityBuy, domain.ActivitySell:
@@ -146,7 +150,14 @@ func historyRowSummary(view ui.View, activity domain.Activity, names historyRowN
 		}
 		for _, role := range []domain.EffectRole{domain.EffectRoleTransferFrom, domain.EffectRoleTransferTo, domain.EffectRoleQuantity} {
 			if movement := byRole[role]; movement.Quantity != nil {
-				quantity = movement.Quantity.Canonical()
+				amount = portfolioDecimal(view, movement.Quantity.Canonical())
+				if label == i18n.HistoryPositionAdjustment {
+					direction := i18n.QuantityAdjustAdded
+					if movement.Direction == domain.EffectRemoved {
+						direction = i18n.QuantityAdjustRemoved
+					}
+					amount = fmt.Sprintf(l.Text(direction), amount)
+				}
 				break
 			}
 		}
@@ -186,7 +197,7 @@ func historyRowSummary(view ui.View, activity domain.Activity, names historyRowN
 }
 
 func historyRowRoute(from, to string) string {
-	if from == "" || from == to {
+	if from == "" {
 		return to
 	}
 	if to == "" {

@@ -290,7 +290,7 @@ func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row hi
 	menu := r.rowActions
 	expanded := toggle != nil && menu != nil && menu.id == row.ID
 	names := r.rowNames
-	if expanded && menu.record != nil {
+	if names.holdingAccounts == nil && expanded && menu.record != nil {
 		names.holdingAccounts = menu.record.HoldingAccounts
 	}
 	summary := historyRowSummary(view, row.Activity, names)

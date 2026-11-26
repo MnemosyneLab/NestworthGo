@@ -14,11 +14,15 @@ type ReferenceReader interface {
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
 }
 
+type holdingReferenceReader interface {
+	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
+}
+
 type DetailReader interface {
 	Reader
 	ReferenceReader
+	holdingReferenceReader
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
-	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
 	RepeatEligibleActivities(context.Context, []domain.Activity) (map[domain.ActivityID]bool, error)
 }
 
@@ -167,13 +171,7 @@ func readPositionAccounts(ctx context.Context, service DetailReader, detail *Det
 	if err != nil {
 		return err
 	}
-	ids := make([]domain.AccountID, 0, len(accounts))
-	for _, row := range accounts {
-		if row.Account.TrackingMode == domain.TrackingHoldings {
-			ids = append(ids, row.Account.ID)
-		}
-	}
-	holdings, err := service.HoldingsByAccounts(ctx, ids)
+	holdings, err := LoadHoldingReferences(ctx, service, accounts)
 	if err != nil {
 		return err
 	}
@@ -185,4 +183,19 @@ func readPositionAccounts(ctx context.Context, service DetailReader, detail *Det
 		}
 	}
 	return nil
+}
+
+// LoadHoldingReferences reads archived and current holdings for the household
+// accounts that can hold positions, in one application call.
+func LoadHoldingReferences(ctx context.Context, service holdingReferenceReader, accounts []domain.AccountRecord) (map[domain.AccountID][]domain.Holding, error) {
+	ids := make([]domain.AccountID, 0, len(accounts))
+	for _, row := range accounts {
+		if row.Account.TrackingMode == domain.TrackingHoldings {
+			ids = append(ids, row.Account.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	return service.HoldingsByAccounts(ctx, ids)
 }

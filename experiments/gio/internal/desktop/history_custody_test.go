@@ -1,9 +1,12 @@
 package desktop
 
 import (
+	"context"
+	"errors"
 	"image"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -223,4 +226,77 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 	costs(ref, refIDs.instrument, refIDs.account, refTarget)
 	assertNativeTradeCash(t, reopened, ids.account, map[domain.CurrencyCode]string{"USD": "157"})
 	assertNativeTradeCash(t, reopened, target, map[domain.CurrencyCode]string{})
+}
+
+type unavailableHoldingReferences struct {
+	*application.Service
+	fail atomic.Bool
+}
+
+func (s *unavailableHoldingReferences) HoldingsByAccounts(ctx context.Context, ids []domain.AccountID) (map[domain.AccountID][]domain.Holding, error) {
+	if s.fail.Swap(false) {
+		return nil, errors.New("synthetic holding reference failure")
+	}
+	return s.Service.HoldingsByAccounts(ctx, ids)
+}
+
+func TestLedgerCollapsedCustodyNamesAndExactQuantity(t *testing.T) {
+	ctx := t.Context()
+	service, _, _, ids := openExistingBuyFixture(t)
+	boot, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	destination, err := service.CreateAccount(ctx, application.AccountInput{
+		Name: "Secondary custody", AccountType: "brokerage", TrackingMode: "holdings",
+		BalanceSheetRole: "asset", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const quantity = "0.62543217"
+	adapter := historyapi.NewService(service)
+	moved, err := adapter.RecordChange(ctx, historyapi.ChangeCommandRequest{
+		Kind: historyapi.ChangePositionTransfer, FromHoldingID: ids.holding.String(),
+		ToAccountID: destination.Account.ID.String(), Quantity: quantity,
+		EffectiveAt: accountTestClock.Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ArchiveAccount(ctx, destination.Account.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	ref, err := adapter.Activity(ctx, moved.Activity.ID)
+	if err != nil || len(ref.Effects) != 2 || ref.Effects[0].Quantity == nil || *ref.Effects[0].Quantity != quantity {
+		t.Fatalf("Wails did not return the recorded transfer quantity: %+v, %v", ref.Effects, err)
+	}
+
+	reader := &unavailableHoldingReferences{Service: service}
+	reader.fail.Store(true)
+	page := newLedgerHistory(ctx, reader, func() time.Time { return accountTestClock }, func() {})
+	h := newShellHarnessWithPages(t, ledgerPages{history: page})
+	h.size = image.Pt(1040, 820)
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	t.Cleanup(page.reads.workers.Wait)
+	wait := func() {
+		for range 4 {
+			h.frame()
+			page.reads.workers.Wait()
+			page.model.Wait()
+		}
+		h.frame()
+	}
+	h.frame()
+	h.click("Ledger activity", false)
+	wait()
+	assertPageLabel(t, &h.router, "Investment transfer · 0.62543217 · QA-BUY")
+	assertPageLabel(t, &h.router, "Account filter")
+
+	h.click("Reload", false)
+	wait()
+	assertPageLabel(t, &h.router, "Investment transfer · 0.62543217 · QA-BUY · Harbor Brokerage → Secondary custody")
+	if page.reads.rowActions != nil || page.reads.detail != nil {
+		t.Fatal("custody names required opening the row")
+	}
 }
