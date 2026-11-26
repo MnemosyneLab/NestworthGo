@@ -36,7 +36,9 @@ func (p *availableFundsPage) reservationButton(view ui.View, name string, source
 		label := fmt.Sprintf(view.Language.Text(i18n.ReserveManage), name)
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, button)
-			return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: label})(gtx)
+			return view.ButtonOf(button, ui.ButtonSpec{
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.ReserveManageAll), Name: label,
+			})(gtx)
 		})
 	}
 }

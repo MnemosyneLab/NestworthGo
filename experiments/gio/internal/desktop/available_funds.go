@@ -205,6 +205,9 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	if p.request == nil && p.jumpSources.Clicked(gtx) {
+		p.state.focusSources = true
+	}
 	l := view.Language
 	accounts := p.productAccounts()
 	if len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
@@ -372,16 +375,32 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		kind = domain.ProductKind(*row.ProductKind)
 	}
 	l := view.Language
-	figures := []fundsFigure{fundsMoneyFigure(view, i18n.FundsCurrent, source.CurrentNativeValue)}
+	values := fundsSourceValues{
+		current:   fundsMoneyFigure(view, i18n.FundsCurrent, source.CurrentNativeValue),
+		expected:  fundsFigure{i18n.FundsLater, l.Text(i18n.OverviewNoValue)},
+		spendable: fundsMoneyFigure(view, i18n.FundsAvailableAfter, nil),
+	}
 	var notes, details, actions []layout.Widget
 	result := fundsResultForHorizon(source, day)
 	if result != nil && !source.Excluded {
-		figures = append(figures, fundsMoneyFigure(view, i18n.FundsAvailableBefore, result.NetNative),
-			fundsMoneyFigure(view, i18n.FundsApplied, result.AppliedReserveNative),
-			fundsMoneyFigure(view, i18n.FundsAvailableAfter, result.UnreservedNative))
+		values.spendable = fundsMoneyFigure(view, i18n.FundsAvailableAfter, result.UnreservedNative)
+		if result.NetNative != nil {
+			before := fundsMoneyFigure(view, i18n.FundsAvailableBefore, result.NetNative)
+			details = append(details, labeledAmount(view, before.pattern, before.value, view.Colors.Ink))
+		}
+		if result.AppliedReserveNative != nil && !result.AppliedReserveNative.IsZero() {
+			reserve := fundsMoneyFigure(view, i18n.FundsApplied, result.AppliedReserveNative)
+			values.applied = &reserve
+		}
 		if result.ReserveShortfallNative != nil && !result.ReserveShortfallNative.IsZero() {
 			notes = append(notes, fundsAmount(view, i18n.FundsShortfall, result.ReserveShortfallNative))
 		}
+	}
+	if source.Excluded {
+		values.expected.value = "—"
+	}
+	if source.Excluded || source.DueUnconfirmed {
+		values.spendable.value = "—"
 	}
 	if !source.ReservationRequested.IsZero() {
 		details = append(details, fundsAmount(view, i18n.FundsRequested, &source.ReservationRequested))
@@ -407,10 +426,10 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		addReasons(result.Reasons)
 		if route != nil {
 			if route.ReceiptOn != nil {
-				notes = append(notes, view.Message(fmt.Sprintf(l.Text(i18n.FundsLater), historyDay(view, *route.ReceiptOn)), view.Colors.SecondaryInk))
+				values.expected.value = historyDay(view, *route.ReceiptOn)
 			}
 			if route.Kind == domain.RouteEarly {
-				notes = append(notes, view.Message(l.Text(i18n.FundsEarlyRoute), view.Colors.SecondaryInk))
+				values.early = true
 			}
 			if route.FeeNative == nil || !route.FeeNative.IsZero() {
 				details = append(details, fundsAmount(view, i18n.FundsRouteFee, route.FeeNative))
@@ -420,7 +439,7 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 			}
 		}
 		if result.SelectedRoute == nil && result.Status == domain.StatusComplete && !source.DueUnconfirmed {
-			reasons = append(reasons, i18n.FundsAtDateUnavailable)
+			values.spendable.value = l.Text(i18n.FundsAtDateUnavailable)
 		}
 	}
 	for _, reason := range reasons {
@@ -455,7 +474,7 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 	}
 	actions = append(actions, p.sourceNavigationActions(view, source.SourceKey, source.AccountID, instrument, source.DisplayName)...)
 	return func(gtx layout.Context) layout.Dimensions {
-		return fundsSourceRow(view, title, p.sourceButtons(source.SourceKey), figures, notes, actions, details)(gtx)
+		return fundsSourceRow(view, title, p.sourceButtons(source.SourceKey), values, notes, actions, details)(gtx)
 	}
 }
 
@@ -488,7 +507,8 @@ func (p *availableFundsPage) sourceNavigationActions(view ui.View, key string, a
 			}
 			view.Focus.Watch(gtx, &buttons.account)
 			return view.ButtonOf(&buttons.account, ui.ButtonSpec{
-				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: fmt.Sprintf(l.Text(i18n.HistoryOpenAccount), accountName),
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: fundsFigureLabel(l, i18n.HistoryOpenAccount),
+				Name: fmt.Sprintf(l.Text(i18n.HistoryOpenAccount), accountName),
 			})(gtx)
 		})
 	}
@@ -501,7 +521,8 @@ func (p *availableFundsPage) sourceNavigationActions(view ui.View, key string, a
 			}
 			view.Focus.Watch(gtx, &buttons.instrument)
 			return view.ButtonOf(&buttons.instrument, ui.ButtonSpec{
-				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), name),
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: fundsFigureLabel(l, i18n.PortfolioOpenInstrument),
+				Name: fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), name),
 			})(gtx)
 		})
 	}

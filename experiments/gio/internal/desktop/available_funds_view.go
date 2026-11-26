@@ -303,10 +303,6 @@ func fundsHorizonUsesEarly(sources []application.LiquidityReadSource, day string
 
 func (p *availableFundsPage) fundsQuickActions(view ui.View) layout.Widget {
 	actions := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
-		if p.jumpSources.Clicked(gtx) {
-			p.state.focusSources = true
-			gtx.Execute(op.InvalidateCmd{})
-		}
 		view.Focus.Watch(gtx, &p.jumpSources)
 		return view.ButtonOf(&p.jumpSources, ui.ButtonSpec{
 			Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.FundsSources),
@@ -366,6 +362,9 @@ func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.Liq
 				return view.TabSegment(button, label, selected)(gtx)
 			})
 		}))
+		if counts[p.state.filter] > 0 && wideFundsSources(gtx) {
+			children = append(children, layout.Rigid(fundsSourceHeadings(view)))
+		}
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, children...)
 	}
 }

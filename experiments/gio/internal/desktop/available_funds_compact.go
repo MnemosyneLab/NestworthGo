@@ -158,37 +158,116 @@ func fundsTitleWithStatus(view ui.View, title, accessibleTitle string, status do
 	}
 }
 
-func fundsSourceRow(view ui.View, title string, buttons *fundsLinks, figures []fundsFigure, notes, actions, details []layout.Widget) layout.Widget {
+type fundsSourceValues struct {
+	current, expected, spendable fundsFigure
+	applied                      *fundsFigure
+	early                        bool
+}
+
+// Wails switches its source table at a 48rem container width. Use the list
+// body's width so the sidebar and wider text have room in either layout.
+func wideFundsSources(gtx layout.Context) bool {
+	return gtx.Constraints.Max.X >= gtx.Dp(768)
+}
+
+func fundsSourceColumns(gtx layout.Context, cells [5]layout.Widget) layout.Dimensions {
+	return layout.Flex{Alignment: layout.Start, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+		layout.Flexed(1.3, cells[0]), layout.Flexed(0.8, cells[1]), layout.Flexed(1.05, cells[2]),
+		layout.Flexed(1.15, cells[3]), layout.Flexed(1.3, cells[4]))
+}
+
+func fundsSourceHeadings(view ui.View) layout.Widget {
+	l := view.Language
 	return fundsCompactRow(view, true, true, func(gtx layout.Context) layout.Dimensions {
-		rowActions := actions
-		rows := []layout.FlexChild{layout.Rigid(view.Message(title, view.Colors.Ink)), layout.Rigid(fundsFigures(view, figures))}
-		if len(details) != 0 {
-			l := view.Language
-			if buttons.details.Clicked(gtx) {
-				buttons.showDetails = !buttons.showDetails
-				gtx.Execute(op.InvalidateCmd{})
+		labels := [5]string{l.Text(i18n.FundsAssetColumn), fundsFigureLabel(l, i18n.FundsCurrent),
+			fundsFigureLabel(l, i18n.FundsLater), l.Text(i18n.FundsSpendableColumn), l.Text(i18n.FundsActionColumn)}
+		var cells [5]layout.Widget
+		for i, label := range labels {
+			cell := view.Message(label, view.Colors.SecondaryInk)
+			if i > 0 && i < len(cells)-1 {
+				cell = func(gtx layout.Context) layout.Dimensions {
+					return layout.E.Layout(gtx, view.Message(label, view.Colors.SecondaryInk))
+				}
 			}
-			rowActions = append(rowActions, func(gtx layout.Context) layout.Dimensions {
-				view.Focus.Watch(gtx, &buttons.details)
-				return view.ButtonOf(&buttons.details, ui.ButtonSpec{
-					Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Toggle: true, Selected: buttons.showDetails,
-					Title: l.Text(i18n.FundsSourceDetails), Name: fmt.Sprintf(l.Text(i18n.FundsNamedSourceDetails), title),
-				})(gtx)
-			})
+			cells[i] = cell
 		}
-		if len(notes) > 0 {
-			rows = append(rows, layout.Rigid(fundsWrappedActions(notes)))
-		}
-		if len(rowActions) > 0 {
-			rows = append(rows, layout.Rigid(fundsWrappedActions(rowActions)))
-		}
-		if buttons.showDetails {
-			for _, detail := range details {
-				rows = append(rows, layout.Rigid(detail))
-			}
-		}
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, rows...)
+		return fundsSourceColumns(gtx, cells)
 	})
+}
+
+func (v fundsSourceValues) expectedCell(view ui.View) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if !v.early {
+			return v.expected.layout(view, false)(gtx)
+		}
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(v.expected.layout(view, false)), ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.E.Layout(gtx, view.Message(view.Language.Text(i18n.FundsEarlyRoute), view.Colors.WarningInk))
+		}))
+	}
+}
+
+func (v fundsSourceValues) spendableCell(view ui.View) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if v.applied == nil {
+			return v.spendable.layout(view, false)(gtx)
+		}
+		reserved := fmt.Sprintf(view.Language.Text(v.applied.pattern), v.applied.value)
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(v.spendable.layout(view, false)), ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.E.Layout(gtx, view.Message(reserved, view.Colors.SecondaryInk))
+		}))
+	}
+}
+
+func fundsSourceRow(view ui.View, title string, buttons *fundsLinks, values fundsSourceValues, notes, actions, details []layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		wide := wideFundsSources(gtx)
+		return fundsCompactRow(view, true, true, func(gtx layout.Context) layout.Dimensions {
+			rowActions := actions
+			if len(details) != 0 {
+				l := view.Language
+				if buttons.details.Clicked(gtx) {
+					buttons.showDetails = !buttons.showDetails
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				rowActions = append(rowActions, func(gtx layout.Context) layout.Dimensions {
+					view.Focus.Watch(gtx, &buttons.details)
+					return view.ButtonOf(&buttons.details, ui.ButtonSpec{
+						Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Toggle: true, Selected: buttons.showDetails,
+						Title: l.Text(i18n.FundsSourceDetails), Name: fmt.Sprintf(l.Text(i18n.FundsNamedSourceDetails), title),
+					})(gtx)
+				})
+			}
+			name := view.Message(title, view.Colors.Ink)
+			var rows []layout.FlexChild
+			if wide {
+				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return fundsSourceColumns(gtx, [5]layout.Widget{name, values.current.layout(view, false),
+						values.expectedCell(view), values.spendableCell(view), fundsWrappedActions(rowActions)})
+				}))
+			} else {
+				figures := []fundsFigure{values.current, values.expected, values.spendable}
+				if values.applied != nil {
+					figures = append(figures, *values.applied)
+				}
+				rows = append(rows, layout.Rigid(name), layout.Rigid(fundsFigures(view, figures)))
+				if values.early {
+					rows = append(rows, layout.Rigid(view.Message(view.Language.Text(i18n.FundsEarlyRoute), view.Colors.WarningInk)))
+				}
+			}
+			if len(notes) > 0 {
+				rows = append(rows, layout.Rigid(fundsWrappedActions(notes)))
+			}
+			if !wide && len(rowActions) > 0 {
+				rows = append(rows, layout.Rigid(fundsWrappedActions(rowActions)))
+			}
+			if buttons.showDetails {
+				for _, detail := range details {
+					rows = append(rows, layout.Rigid(detail))
+				}
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, rows...)
+		})(gtx)
+	}
 }
 
 func fundsWrappedActions(actions []layout.Widget) layout.Widget {

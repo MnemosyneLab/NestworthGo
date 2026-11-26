@@ -1725,6 +1725,9 @@ const (
 	FundsFilterNeedsInfo
 	FundsFilterExcluded
 	FundsSourcesByDate
+	FundsAssetColumn
+	FundsSpendableColumn
+	FundsActionColumn
 	FundsSourcesNeedInfo
 	FundsShowNeedsInfo
 	FundsAllExcluded
