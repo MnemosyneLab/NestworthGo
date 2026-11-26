@@ -364,6 +364,9 @@ func TestBankAccountRevalidatesArchivedReferencesAtConfirmation(t *testing.T) {
 	}
 	h.click("Cancel", false)
 	finish()
+	if p.target.institution != ids.pacific || p.current == nil || p.current.institutions[ids.pacific].ArchivedAt == nil {
+		t.Fatal("cancel did not return to the same institution with refreshed archive evidence")
+	}
 	if findPageLabel(&h.router, "Add bank account") != nil {
 		t.Fatal("archived institution still offered creation")
 	}

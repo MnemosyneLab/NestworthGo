@@ -227,6 +227,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 		d.name.Text() != "Abandoned sample debt" || d.opening.Text() != "84.25" || p.creation.sheet.step != accountDetails || d.mode != domain.TrackingBalance {
 		t.Fatal("read retry lost the account draft, replayed the institution writer or failed to auto-select its saved ID")
 	}
+	h.focused(&d.name.Editor)
 	institutionID := d.institution.ID
 	h.click("Cancel", false)
 	finish()

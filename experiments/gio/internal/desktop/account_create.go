@@ -296,6 +296,11 @@ func (p *accountsPage) pollAccountCreation() domain.AccountRecord {
 		}
 		d.problem = accountCreationProblem(result.err)
 		f.sheet.resetPosition()
+		if d.scoped && d.problem == i18n.AccountCreateInstitutionUnavailable {
+			// The scoped launcher and the draft read institutions independently.
+			// Refresh the underlying account view after this known stale reference.
+			p.refresh()
+		}
 		if d.shell() && d.problem == i18n.AccountCreateWriteFailed {
 			d.problem = i18n.AccountCreateAssetWriteFailed
 		}
