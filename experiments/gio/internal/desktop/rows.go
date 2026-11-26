@@ -68,3 +68,18 @@ func labeledAmount(view ui.View, pattern i18n.MessageID, value string, ink color
 		return dims
 	}
 }
+
+// emptyState is a centered note in a card, for lists that have nothing to show.
+func emptyState(view ui.View, text string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: ui.Space16, Bottom: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return view.Body(ui.TextBody, text, view.Colors.SecondaryInk)(gtx)
+				})
+			})
+		})
+	}
+}

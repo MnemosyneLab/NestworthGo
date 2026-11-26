@@ -4,13 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	"gioui.org/font"
-	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
@@ -156,6 +152,9 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.Vie
 					f := p.investment
 					return f.accountPositionAction(gtx, view, &f.adjustmentOpen, view.Language.Text(i18n.QuantityAdjustOpen))
 				}
+				if i == 0 {
+					return view.PrimaryButton(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
+				}
 				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
 			})
 			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)
@@ -238,41 +237,12 @@ func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions
 }
 
 func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dimensions {
-	border := view.Colors.Divider
-	if gtx.Focused(&p.list) {
-		border = view.Colors.Accent
-	}
-	return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(6).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-			view.Focus.Watch(gtx, &p.list)
-			semantic.DescriptionOp(view.Language.Text(i18n.NavHistory)).Add(gtx.Ops)
-			event.Op(gtx.Ops, &p.list)
-			for _, pressed := range ui.PressedKeys(gtx, &p.list,
-				key.NameUpArrow, key.NameDownArrow, key.NamePageUp, key.NamePageDown, key.NameHome, key.NameEnd) {
-				page := float32(max(1, p.list.Position.Count-1))
-				switch pressed.Name {
-				case key.NameUpArrow:
-					p.list.ScrollBy(-1)
-				case key.NameDownArrow:
-					p.list.ScrollBy(1)
-				case key.NamePageUp:
-					p.list.ScrollBy(-page)
-				case key.NamePageDown:
-					p.list.ScrollBy(page)
-				case key.NameHome:
-					p.list.ScrollTo(0)
-				case key.NameEnd:
-					p.list.ScrollTo(len(p.model.Rows()) - 1)
-				}
-			}
-			return accessibility.List(gtx, &p.list, view.Language.Text(i18n.NavHistory), func(gtx layout.Context) layout.Dimensions {
-				return view.List(&p.list).Layout(gtx, len(p.model.Rows()), func(gtx layout.Context, i int) layout.Dimensions {
-					row := p.model.Rows()[i]
-					return accessibility.Row(gtx, row.ID, func(gtx layout.Context) layout.Dimensions {
-						return p.layoutActivityRow(gtx, view, row)
-					})
-				})
+	rows := p.model.Rows()
+	return pageListGap(gtx, view, &p.list, view.Language.Text(i18n.NavHistory), len(rows), 0, func(gtx layout.Context, i int) layout.Dimensions {
+		row := rows[i]
+		return view.RowCard(gtx, i == 0, i == len(rows)-1, func(gtx layout.Context) layout.Dimensions {
+			return accessibility.Row(gtx, row.ID, func(gtx layout.Context) layout.Dimensions {
+				return p.layoutActivityRow(gtx, view, row)
 			})
 		})
 	})
@@ -292,7 +262,7 @@ func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row hi
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, button)
-			return view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name)(gtx)
+			return layout.Inset{Right: ui.Space12}.Layout(gtx, view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name))
 		}),
 	)
 }
@@ -307,21 +277,21 @@ func historyDay(view ui.View, day string) string {
 func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
 	day := historyDay(view, row.EffectiveLocalDate)
 	kind := historyKindLabel(row.Kind, row.Reason)
-	return layout.Inset{Top: 9, Bottom: 9, Left: 8, Right: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(3)}.Layout(gtx,
+	return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, view.Language.Text(kind), 15, font.Medium, view.Colors.Ink)
+						return view.Line(gtx, ui.TextLabel, view.Language.Text(kind), view.Colors.Ink)
 					}),
-					layout.Rigid(view.Message(day, view.Colors.SecondaryInk)),
+					layout.Rigid(view.Body(ui.TextCaption, day, view.Colors.SecondaryInk)),
 				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if row.Note == nil || *row.Note == "" {
 					return layout.Dimensions{}
 				}
-				return view.Message(*row.Note, view.Colors.SecondaryInk)(gtx)
+				return view.Body(ui.TextCaption, *row.Note, view.Colors.SecondaryInk)(gtx)
 			}),
 		)
 	})

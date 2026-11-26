@@ -423,7 +423,7 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 					semantic.DescriptionOp(account.Name).Add(gtx.Ops)
 					hover := func(gtx layout.Context) layout.Dimensions {
 						if button.Hovered() || gtx.Focused(button) {
-							paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.Rect{Max: gtx.Constraints.Min}.Op())
+							paint.FillShape(gtx.Ops, ui.Mix(view.Colors.Surface, view.Colors.HoverSurface, 0.55), clip.Rect{Max: gtx.Constraints.Min}.Op())
 						}
 						return layout.Dimensions{Size: gtx.Constraints.Min}
 					}
