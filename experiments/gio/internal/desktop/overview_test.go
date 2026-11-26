@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -441,5 +442,55 @@ func TestOverviewSankeyDistinguishesZeroNegativeAndMissingValues(t *testing.T) {
 				t.Fatal("nonpositive or unavailable assets appeared as chart paths")
 			}
 		})
+	}
+}
+
+// The allocation table behind a dense chart keeps every real path, lays out
+// only the rows near the viewport, and still opens the last account.
+func TestOverviewAllocationDetailsVirtualizeLongTables(t *testing.T) {
+	const count = 600
+	unit := decimal.RequireFromString("2.75")
+	total := unit.Mul(decimal.NewFromInt(count))
+	data := domain.OverviewResult{Currency: "USD", AccountCount: count, Assets: total,
+		AssetComposition: domain.OverviewAssetComposition{Positive: total}}
+	c := &data.AssetComposition
+	c.Nodes = []domain.OverviewAssetNode{
+		{ID: "assets", Kind: "total", Amount: total},
+		{ID: "assets/cash", ParentID: "assets", Key: "cash", Kind: "assetClass", Amount: total},
+		{ID: "assets/cash/institution:bank", ParentID: "assets/cash", Key: "bank", Kind: "institution", Amount: total},
+	}
+	for i := range count {
+		id := fmt.Sprintf("account-%03d", i)
+		c.Paths = append(c.Paths, domain.OverviewAssetPath{AssetClass: "cash", InstitutionID: "bank", InstitutionName: "Synthetic bank",
+			AccountID: id, AccountName: fmt.Sprintf("Synthetic account %03d", i), Amount: unit})
+		c.Nodes = append(c.Nodes, domain.OverviewAssetNode{ID: "assets/cash/institution:bank/account:" + id, ParentID: "assets/cash/institution:bank", Kind: "account", Key: id, Amount: unit})
+	}
+	read := overviewRead{readAt: time.Now(), value: data}
+	p := newOverviewPage(t.Context(), nil, time.Now, func() {})
+	p.current = &read
+	h := newShellHarnessWithPages(t, ledgerPages{overview: p})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1000, 720)
+	var opened domain.AccountID
+	p.allocation.openAccount = func(id domain.AccountID, _ string, _ event.Tag) { opened = id }
+	h.frame()
+	if len(p.allocation.model.rows) != count || p.dimensionsIndex()-p.compositionIndex()-1 != count+1 {
+		t.Fatalf("details rows = %d, list items = %d; want every one of %d paths", len(p.allocation.model.rows), p.dimensionsIndex()-p.compositionIndex()-1, count)
+	}
+	p.list.ScrollTo(p.compositionIndex() + 1)
+	h.frame()
+	assertPageLabel(t, &h.router, "Back to asset composition")
+	if laid := len(p.allocation.buttons); laid == 0 || laid > 40 {
+		t.Fatalf("laid out %d detail rows at the top of a %d-row table; want only the visible ones", laid, count)
+	}
+	p.list.ScrollTo(p.dimensionsIndex() - 1)
+	h.frame()
+	if laid := len(p.allocation.buttons); laid > 80 {
+		t.Fatalf("laid out %d detail rows after jumping to the end; want only rows near the viewport", laid)
+	}
+	h.click("Synthetic account 599 · US$2.75", false)
+	h.frame()
+	if opened != "account-599" {
+		t.Fatalf("last allocation row opened %q, want account-599", opened)
 	}
 }

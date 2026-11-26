@@ -28,6 +28,17 @@ type View struct {
 	Focus  *PageFocus
 
 	anchorScroll *widget.List
+	// naturalHeight receives the unstretched height of a stretched Grid cell.
+	naturalHeight *int
+}
+
+// reportNaturalHeight tells a stretched Grid the height a cell needs, apart
+// from the height it was stretched to. An outer card reports after its
+// content, so its height wins over a nested card's.
+func (v View) reportNaturalHeight(height int) {
+	if v.naturalHeight != nil {
+		*v.naturalHeight = height
+	}
 }
 
 // WithScrollAnchors associates popovers registered by this view with the list

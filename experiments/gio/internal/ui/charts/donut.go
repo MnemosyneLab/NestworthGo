@@ -257,41 +257,31 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 		rowInset, swatch, rowPad = gtx.Dp(ui.Space4), gtx.Dp(10), gtx.Dp(ui.Space6)
 	}
 	columns := make([]donutRow, len(spec.Slices))
-	rightW, amountW, chipW := 0, 0, 0
+	rightW := 0
 	for i, sl := range spec.Slices {
 		columns[i].amount, _ = valueText(sl.Value, sl.Text, spec.Messages)
+		if !(sl.Value.Valid() && sl.Value.Number > 0) {
+			columns[i].note = spec.NotDrawn
+		}
 		amount := textBlock{style: ui.TextLabel, content: columns[i].amount, maxWidth: legendWidth, maxLines: 1}.measure(gtx, view).X
 		share := textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: legendWidth, maxLines: 1}.measure(gtx, view).X
-		amountW, chipW = max(amountW, amount), max(chipW, share)
 		rightW = max(rightW, amount, share)
 	}
-	if spec.Compact {
-		chipW += 2 * gtx.Dp(ui.Space6)
-		rightW = amountW + gtx.Dp(ui.Space6) + chipW
-		if !spec.hasShares() {
-			rightW, chipW = amountW, 0
-		}
-	}
 	rightW = min(rightW, legendWidth*45/100)
-	if spec.Compact {
-		rightW = min(rightW, legendWidth*65/100)
-	}
 	labelW := max(1, legendWidth-2*rowInset-swatch-gtx.Dp(ui.Space8)-rightW-gap)
+	var compact compactLegend
+	if spec.Compact {
+		compact = newCompactLegend(gtx, view, spec, columns, legendWidth, rowInset, swatch)
+	}
 	for i, sl := range spec.Slices {
-		note := ""
-		if !(sl.Value.Valid() && sl.Value.Number > 0) {
-			note = spec.NotDrawn
-		}
-		columns[i].note = note
-		labelH := textBlock{style: ui.TextBody, content: sl.Label, maxWidth: labelW}.measure(gtx, view).Y
-		noteH := textBlock{style: ui.TextCaption, content: note, maxWidth: labelW}.measure(gtx, view).Y
-		amountH := textBlock{style: ui.TextLabel, content: columns[i].amount, maxWidth: max(1, rightW)}.measure(gtx, view).Y
 		if spec.Compact {
-			chipH := textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: max(1, rightW)}.measure(gtx, view).Y + 2*gtx.Dp(2)
-			amountH = max(amountH, chipH)
-		} else {
-			amountH += textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: max(1, rightW)}.measure(gtx, view).Y
+			g.legendRows = append(g.legendRows, compact.rowHeight(gtx, view, sl, columns[i])+2*rowPad)
+			continue
 		}
+		labelH := textBlock{style: ui.TextBody, content: sl.Label, maxWidth: labelW}.measure(gtx, view).Y
+		noteH := textBlock{style: ui.TextCaption, content: columns[i].note, maxWidth: labelW}.measure(gtx, view).Y
+		amountH := textBlock{style: ui.TextLabel, content: columns[i].amount, maxWidth: max(1, rightW)}.measure(gtx, view).Y
+		amountH += textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: max(1, rightW)}.measure(gtx, view).Y
 		g.legendRows = append(g.legendRows, max(labelH+noteH, amountH)+2*rowPad)
 	}
 	plan := spec.plan(g)
@@ -305,7 +295,7 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 		hovering := !c.hover.IsZero()
 		c.drawRing(gtx, view, spec, plan, active, image.Rect(0, 0, inner, plan.height))
 		c.drawCenter(gtx, view, spec, plan)
-		c.drawLegend(gtx, view, spec, plan, columns, active, legendMetrics{inset: rowInset, swatch: swatch, pad: rowPad, labelW: labelW, rightW: rightW, amountW: amountW, chipW: chipW})
+		c.drawLegend(gtx, view, spec, plan, columns, active, legendMetrics{inset: rowInset, swatch: swatch, pad: rowPad, labelW: labelW, rightW: rightW, compact: compact})
 		y := plan.height + gtx.Dp(ui.Space8)
 		rgtx := gtx
 		rgtx.Constraints.Max.X = inner
@@ -442,16 +432,109 @@ func (c *DonutChart) drawCenter(gtx layout.Context, view ui.View, spec DonutSpec
 	capBlock.draw(gtx, view, image.Pt(left, top+vSize.Y))
 }
 
-// legendMetrics are the measured pixel sizes of the legend columns.
-type legendMetrics struct{ inset, swatch, pad, labelW, rightW, amountW, chipW int }
+// legendMetrics are the measured pixel sizes of the legend columns. A
+// compact legend uses its own budget instead of labelW and rightW.
+type legendMetrics struct {
+	inset, swatch, pad, labelW, rightW int
+	compact                            compactLegend
+}
 
-func (s DonutSpec) hasShares() bool {
-	for _, sl := range s.Slices {
+const (
+	// compactFiguresShare is the most of a compact row's text width the
+	// amount and share may take beside the category.
+	compactFiguresShare = 65
+	// compactLabelMin is the narrowest a category may become beside the
+	// figures before the legend stacks them under it.
+	compactLabelMin unit.Dp = 88
+)
+
+// compactLegend is the single width budget of a compact legend. Row heights,
+// positions and drawing all read it, so what is measured is what is drawn.
+// Every row uses the same arrangement, so the figures stay in one column.
+type compactLegend struct {
+	// stacked puts the amount and share on their own line under the
+	// category, used when they do not fit beside it. chipBelow further moves
+	// the share chip under the amount when the two do not share a line.
+	stacked, chipBelow bool
+	// labelX is the text start from the row's leading edge; labelW is the
+	// category's wrap width.
+	labelX, labelW int
+	// amountW is the amount's width: its natural width beside the label,
+	// or the line minus the share chip when stacked, where it wraps rather
+	// than being cut. chipW is the share chip's width, zero without shares.
+	amountW, chipW int
+	// inset is the row's trailing inset, chipGap the space before the chip
+	// and chipPad the chip's horizontal padding.
+	inset, chipGap, chipPad int
+}
+
+func newCompactLegend(gtx layout.Context, view ui.View, spec DonutSpec, columns []donutRow, legendWidth, inset, swatch int) compactLegend {
+	c := compactLegend{labelX: inset + swatch + gtx.Dp(ui.Space6), inset: inset, chipPad: gtx.Dp(ui.Space6)}
+	textW := max(1, legendWidth-c.labelX-inset)
+	for i, sl := range spec.Slices {
+		c.amountW = max(c.amountW, textBlock{style: ui.TextLabel, content: columns[i].amount, maxWidth: 1 << 16, maxLines: 1}.natural(gtx, view))
 		if sl.Share != "" {
-			return true
+			c.chipW = max(c.chipW, textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: 1 << 16, maxLines: 1}.natural(gtx, view)+2*c.chipPad)
 		}
 	}
-	return false
+	if c.chipW > 0 {
+		c.chipGap = gtx.Dp(ui.Space6)
+	}
+	figures := c.amountW + c.chipGap + c.chipW
+	beside := textW - figures - gtx.Dp(ui.Space8)
+	if figures <= textW*compactFiguresShare/100 && beside >= gtx.Dp(compactLabelMin) {
+		c.labelW = beside
+		return c
+	}
+	c.stacked, c.labelW = true, textW
+	c.chipW = min(c.chipW, textW)
+	if figures > textW {
+		c.chipBelow, c.amountW = c.chipW > 0, textW
+		return c
+	}
+	c.amountW = max(1, textW-c.chipGap-c.chipW)
+	return c
+}
+
+func (c compactLegend) amountBlock(amount string, ink color.NRGBA) textBlock {
+	block := textBlock{style: ui.TextLabel, content: amount, ink: ink, maxWidth: max(1, c.amountW), maxLines: 1, align: text.End}
+	if c.stacked {
+		block.maxLines, block.align = 0, text.Start
+	}
+	return block
+}
+
+func (c compactLegend) chipBlock(share string, ink color.NRGBA) textBlock {
+	return textBlock{style: ui.TextCaption, content: share, ink: ink, maxWidth: max(1, c.chipW-2*c.chipPad), maxLines: 1, align: text.Middle}
+}
+
+func (c compactLegend) chipHeight(gtx layout.Context, view ui.View, share string) int {
+	if c.chipW == 0 || share == "" {
+		return 0
+	}
+	return c.chipBlock(share, color.NRGBA{}).measure(gtx, view).Y + 2*gtx.Dp(2)
+}
+
+func (c compactLegend) textHeight(gtx layout.Context, view ui.View, sl Slice, row donutRow) int {
+	return textBlock{style: ui.TextBody, content: sl.Label, maxWidth: c.labelW}.measure(gtx, view).Y +
+		textBlock{style: ui.TextCaption, content: row.note, maxWidth: c.labelW}.measure(gtx, view).Y
+}
+
+func (c compactLegend) figuresHeight(gtx layout.Context, view ui.View, sl Slice, row donutRow) int {
+	amountH, chipH := c.amountBlock(row.amount, color.NRGBA{}).measure(gtx, view).Y, c.chipHeight(gtx, view, sl.Share)
+	if c.chipBelow && chipH > 0 {
+		return amountH + gtx.Dp(ui.Space2) + chipH
+	}
+	return max(amountH, chipH)
+}
+
+// rowHeight is the content height of one entry, without the row padding.
+func (c compactLegend) rowHeight(gtx layout.Context, view ui.View, sl Slice, row donutRow) int {
+	textH, figuresH := c.textHeight(gtx, view, sl, row), c.figuresHeight(gtx, view, sl, row)
+	if c.stacked {
+		return textH + gtx.Dp(ui.Space2) + figuresH
+	}
+	return max(textH, figuresH)
 }
 
 func (c *DonutChart) drawLegend(gtx layout.Context, view ui.View, spec DonutSpec, plan donutPlan, columns []donutRow, active Selection, m legendMetrics) {
@@ -481,7 +564,7 @@ func (c *DonutChart) drawLegend(gtx layout.Context, view ui.View, spec DonutSpec
 		}
 		x := swatchBox.Max.X + gtx.Dp(ui.Space8)
 		if spec.Compact {
-			x = swatchBox.Max.X + gtx.Dp(ui.Space6)
+			x, labelW = sp.row.Min.X+m.compact.labelX, m.compact.labelW
 		}
 		size := textBlock{style: ui.TextBody, content: sl.Label, ink: colors.Ink, maxWidth: labelW}.draw(gtx, view, image.Pt(x, y))
 		textBlock{style: ui.TextCaption, content: columns[i].note, ink: colors.SecondaryInk, maxWidth: labelW}.draw(gtx, view, image.Pt(x, y+size.Y))
@@ -490,7 +573,7 @@ func (c *DonutChart) drawLegend(gtx layout.Context, view ui.View, spec DonutSpec
 			amountInk = colors.SecondaryInk
 		}
 		if spec.Compact {
-			c.drawCompactFigures(gtx, view, sp.row, sl, columns[i].amount, amountInk, m)
+			m.compact.drawFigures(gtx, view, sp.row, m.pad, sl, columns[i], amountInk)
 		} else {
 			rx := sp.row.Max.X - inset - rightW
 			amount := textBlock{style: ui.TextLabel, content: columns[i].amount, ink: amountInk, maxWidth: max(1, rightW), align: text.End}.draw(gtx, view, image.Pt(rx, y))
@@ -502,20 +585,35 @@ func (c *DonutChart) drawLegend(gtx layout.Context, view ui.View, spec DonutSpec
 	}
 }
 
-// drawCompactFigures puts the amount and the share pill on the row's centre
-// line, flush with the trailing edge.
-func (c *DonutChart) drawCompactFigures(gtx layout.Context, view ui.View, row image.Rectangle, sl Slice, amount string, ink color.NRGBA, m legendMetrics) {
+// drawFigures puts the amount and the share chip on the row's centre line,
+// flush with the trailing edge, or on the line under the category when the
+// legend is stacked.
+func (c compactLegend) drawFigures(gtx layout.Context, view ui.View, row image.Rectangle, pad int, sl Slice, entry donutRow, ink color.NRGBA) {
 	colors := view.Colors
-	right := row.Max.X - m.inset
-	if m.chipW > 0 && sl.Share != "" {
-		chipH := textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: m.chipW, maxLines: 1}.measure(gtx, view).Y + 2*gtx.Dp(2)
-		top := row.Min.Y + (row.Dy()-chipH)/2
-		chip := image.Rect(right-m.chipW, top, right, top+chipH)
-		ui.FillRoundRect(gtx, chip, ui.RadiusFull, colors.HoverSurface)
-		textBlock{style: ui.TextCaption, content: sl.Share, ink: colors.SecondaryInk, maxWidth: m.chipW, maxLines: 1, align: text.Middle}.draw(gtx, view, image.Pt(chip.Min.X, chip.Min.Y+gtx.Dp(2)))
-		right = chip.Min.X - gtx.Dp(ui.Space6)
+	figuresH := c.figuresHeight(gtx, view, sl, entry)
+	top := row.Min.Y + (row.Dy()-figuresH)/2
+	if c.stacked {
+		top = row.Min.Y + pad + c.textHeight(gtx, view, sl, entry) + gtx.Dp(ui.Space2)
 	}
-	block := textBlock{style: ui.TextLabel, content: amount, ink: ink, maxWidth: max(1, m.amountW), maxLines: 1, align: text.End}
-	top := row.Min.Y + (row.Dy()-block.measure(gtx, view).Y)/2
-	block.draw(gtx, view, image.Pt(right-m.amountW, top))
+	right := row.Max.X - c.inset
+	block := c.amountBlock(entry.amount, ink)
+	if chipH := c.chipHeight(gtx, view, sl.Share); chipH > 0 {
+		chipTop := top + (figuresH-chipH)/2
+		chip := image.Rect(right-c.chipW, chipTop, right, chipTop+chipH)
+		switch {
+		case c.chipBelow:
+			chipTop = top + block.measure(gtx, view).Y + gtx.Dp(ui.Space2)
+			left := row.Min.X + c.labelX
+			chip = image.Rect(left, chipTop, left+c.chipW, chipTop+chipH)
+		case c.stacked:
+			chip = image.Rect(right-c.chipW, top, right, top+chipH)
+		}
+		ui.FillRoundRect(gtx, chip, ui.RadiusFull, colors.HoverSurface)
+		c.chipBlock(sl.Share, colors.SecondaryInk).draw(gtx, view, image.Pt(chip.Min.X+c.chipPad, chip.Min.Y+gtx.Dp(2)))
+	}
+	if c.stacked {
+		block.draw(gtx, view, image.Pt(row.Min.X+c.labelX, top))
+		return
+	}
+	block.draw(gtx, view, image.Pt(right-c.chipW-c.chipGap-c.amountW, top+(figuresH-block.measure(gtx, view).Y)/2))
 }

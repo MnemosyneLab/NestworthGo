@@ -182,3 +182,47 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 		t.Fatal("restored Overview focus reopened a different filter")
 	}
 }
+
+// Opening one composition card's data table stretches its peer in the same
+// row; closing it must return both cards to their original height at the same
+// window width, column count and card count.
+func TestOverviewCompositionRowShrinksAfterDataTableCloses(t *testing.T) {
+	view := ui.View{Theme: ui.NewTheme(), Language: i18n.English, Colors: &lightPalette, DecimalSeparator: ".", GroupingSeparator: ","}
+	amount := decimal.RequireFromString
+	result := domain.OverviewResult{Currency: "USD", Assets: amount("1500"), Liabilities: amount("300"),
+		AssetsByType: []domain.BreakdownItem{
+			{Key: domain.BucketCash, Amount: amount("600"), ShareBPS: 4000},
+			{Key: domain.BucketStock, Amount: amount("450"), ShareBPS: 3000},
+			{Key: domain.BucketOtherAsset, Amount: amount("300"), ShareBPS: 2000},
+			{Key: domain.BucketBond, Amount: amount("150"), ShareBPS: 1000},
+		},
+		LiabilitiesByType: []domain.BreakdownItem{{Key: domain.BucketCreditCard, Amount: amount("300"), ShareBPS: 10000}}}
+	var b overviewBreakdowns
+	columns := (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true}).Columns(chartTableContext(900), 900, 2)
+	// A stretched row settles once two frames in a row agree on its height.
+	settle := func() int {
+		previous := -1
+		for range 5 {
+			height := b.composition(chartTableContext(900), view, result).Size.Y
+			if height == previous {
+				return height
+			}
+			previous = height
+		}
+		t.Fatal("the composition grid kept asking for frames")
+		return 0
+	}
+	if columns != 2 || len(overviewSummaries(result)) != 2 {
+		t.Fatalf("columns = %d, cards = %d; want two cards in one row", columns, len(overviewSummaries(result)))
+	}
+	closed := settle()
+	b.summaries[0].table.open = true
+	open := settle()
+	if open <= closed {
+		t.Fatalf("open data table height %d did not grow the row from %d", open, closed)
+	}
+	b.summaries[0].table.open = false
+	if again := settle(); again != closed {
+		t.Fatalf("closed again = %d, want both cards back to %d", again, closed)
+	}
+}

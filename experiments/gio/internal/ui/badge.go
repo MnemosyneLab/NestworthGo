@@ -81,6 +81,7 @@ func (v View) CardPadded(gtx layout.Context, content layout.Widget) layout.Dimen
 		return layout.UniformInset(Space20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
 			dims := content(gtx)
+			v.reportNaturalHeight(dims.Size.Y + 2*padding)
 			dims.Size.Y = max(dims.Size.Y, minimum)
 			return dims
 		})

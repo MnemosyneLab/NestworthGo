@@ -169,8 +169,14 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		label = i18n.HistoryRetry
 	}
 	p.actions = append(p.actions, returnMonthButton(view, &p.reload, label, nil, !p.loading))
-	return pageList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
-		return p.overviewRow(gtx, view, row)
+	return pageListGap(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), 0, func(gtx layout.Context, row int) layout.Dimensions {
+		gap := ui.Space16
+		if p.continuesAllocationDetails(row) {
+			gap = 0
+		}
+		return layout.Inset{Bottom: gap}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return p.overviewRow(gtx, view, row)
+		})
 	})
 }
 
@@ -284,8 +290,18 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		}
 		return p.breakdowns.dimensions(gtx, view, result, pair)
 	default:
-		return p.allocation.detailsCard(gtx, view)
+		return p.allocation.detailItem(gtx, view, row-composition-1)
 	}
+}
+
+// continuesAllocationDetails reports whether the next list item is the next
+// row of the same allocation table card, so no gap separates them.
+func (p *overviewPage) continuesAllocationDetails(row int) bool {
+	if p.current == nil || p.current.value.AccountCount == 0 || len(p.current.value.AssetComposition.Paths) == 0 {
+		return false
+	}
+	first := p.compositionIndex() + 1
+	return row >= first && row < first+p.allocation.detailItems()-1
 }
 
 func (p *overviewPage) rowCount() int {
@@ -305,7 +321,7 @@ func (p *overviewPage) rowCount() int {
 func (p *overviewPage) dimensionsIndex() int {
 	n := p.compositionIndex() + 1
 	if len(p.current.value.AssetComposition.Paths) > 0 {
-		n++ // the allocation details card
+		n += p.allocation.detailItems()
 	}
 	return n
 }

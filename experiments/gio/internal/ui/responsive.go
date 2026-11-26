@@ -54,13 +54,18 @@ type Grid struct {
 	Balanced bool
 	// Rows, when set, gives every cell the height of the tallest cell in its
 	// row, as stretched CSS grid items are. It carries the heights between
-	// frames, so a cell must pass its Constraints.Min.Y on to its card.
+	// frames, so a cell must pass its Constraints.Min.Y on to a CardPadded.
+	// The card reports its natural height separately from the stretched
+	// height it paints, which lets a row shrink when its tallest cell does.
+	// A cell without a CardPadded is measured by its painted height and can
+	// only grow its row.
 	Rows *RowHeights
 }
 
-// RowHeights remembers the tallest cell of each grid row from the previous
-// frame. The first frame after the grid's shape changes lays out unstretched
-// and asks for another frame.
+// RowHeights remembers the tallest natural cell height of each grid row from
+// the previous frame. The first frame after the grid's shape changes, or after
+// a cell's natural height changes, lays out with the old heights and asks for
+// another frame.
 type RowHeights struct {
 	shape   [3]int
 	heights []int
@@ -99,20 +104,27 @@ func (g Grid) Layout(gtx layout.Context, view View, count int, cell func(gtx lay
 	y := 0
 	changed := false
 	for start := 0; start < count; start += columns {
-		row := 0
+		row, natural := 0, 0
 		for column := 0; column < columns && start+column < count; column++ {
 			index := start + column
 			position := image.Pt(column*(cellWidth+gap), y)
+			reported := -1
 			dims := Place(gtx, view, position, cellWidth, func(gtx layout.Context, view View) layout.Dimensions {
+				view.naturalHeight = nil
 				if known != nil {
 					gtx.Constraints.Min.Y = known[start/columns]
+					view.naturalHeight = &reported
 				}
 				return cell(gtx, view, index)
 			})
 			row = max(row, dims.Size.Y)
+			if reported < 0 {
+				reported = dims.Size.Y
+			}
+			natural = max(natural, reported)
 		}
-		if known != nil && known[start/columns] != row {
-			known[start/columns], changed = row, true
+		if known != nil && known[start/columns] != natural {
+			known[start/columns], changed = natural, true
 		}
 		y += row + gap
 	}

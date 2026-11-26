@@ -271,29 +271,30 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 	})
 }
 
-// detailsCard is the table behind the allocation chart: one card with a back
-// link on top and a row per account path, each opening that account.
-func (a *overviewAllocation) detailsCard(gtx layout.Context, view ui.View) layout.Dimensions {
+// detailItems is how many page list items the table behind the allocation
+// chart takes: the back link, then one per account path. Each is its own list
+// item, so a long table lays out only the rows near the viewport.
+func (a *overviewAllocation) detailItems() int {
+	return 1 + len(a.model.rows)
+}
+
+// detailItem is one item of the allocation table. The items join into one
+// card: the back link rounds its top, the last path rounds its bottom, and the
+// shared edge between items is the row divider.
+func (a *overviewAllocation) detailItem(gtx layout.Context, view ui.View, item int) layout.Dimensions {
 	rows := a.model.rows
-	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(ui.Space12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.W.Layout(gtx, returnMonthButton(view, &a.back, i18n.OverviewAllocationBack, nil, true))
-				})
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				children := make([]layout.FlexChild, 0, len(rows))
-				for _, row := range rows {
-					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(view.Hairline),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions { return a.row(gtx, view, row) }))
-					}))
-				}
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-			}),
-		)
+	last := item == len(rows)
+	if item == 0 {
+		return view.RowCard(gtx, true, last, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return layout.UniformInset(ui.Space12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, returnMonthButton(view, &a.back, i18n.OverviewAllocationBack, nil, true))
+			})
+		})
+	}
+	return view.RowCard(gtx, false, last, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return a.row(gtx, view, rows[item-1])
 	})
 }
 
