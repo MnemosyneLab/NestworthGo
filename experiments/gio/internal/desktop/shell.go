@@ -110,6 +110,7 @@ type shell struct {
 	assets                                *assetChangesPage
 	marketData                            *marketDataPage
 	dataHealth                            *dataHealthPage
+	maintenanceTabs                       [2]widget.Clickable
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -200,6 +201,10 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if s.overviewPage != nil {
 		s.settingsPage.credential.changed = s.overviewPage.healthScan.invalidate
 	}
+	maintenance := newItem(marketDataRoute, i18n.NavMarketData, lucide.RefreshCw, marketDataLayout)
+	if s.marketData == nil && s.dataHealth != nil {
+		maintenance = newItem(dataHealthRoute, i18n.NavMarketData, lucide.RefreshCw, s.dataHealth.layout)
+	}
 	s.groups = []navigationGroup{
 		{items: []navigationItem{
 			newItem(overviewRoute, i18n.NavOverview, lucide.House, overviewLayout),
@@ -218,7 +223,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
 			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
-			newItem(marketDataRoute, i18n.NavMarketData, lucide.RefreshCw, marketDataLayout),
+			maintenance,
 			newItem(settingsRoute, i18n.NavSettings, lucide.Settings, s.settingsPage.layout),
 			newItem(componentPreviewRoute, i18n.NavComponentPreview, lucide.Wrench, preview.layout),
 		}},
@@ -230,9 +235,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.routes[item.id] = item
 		}
 	}
-	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil || s.assets != nil || s.tasks != nil) {
-		item := newItem(dataHealthRoute, i18n.NavDataHealth, nil, s.dataHealth.layout)
-		s.routes[dataHealthRoute] = &item
+	if s.dataHealth != nil {
+		if s.marketData != nil {
+			issues := newItem(dataHealthRoute, i18n.NavMarketData, nil, s.dataHealth.layout)
+			s.routes[dataHealthRoute] = &issues
+		}
 		openHealth := func(scope healthFindingFocus, focus event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute, health: scope}, focus: focus}
 		}
@@ -492,6 +499,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	if p := s.portfolio; p != nil {
 		p.detail.market = s.marketData
+		if s.marketData != nil {
+			p.detail.openMaintenance = func(scope healthFindingFocus, from event.Tag) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: marketDataRoute, health: scope}, focus: from}
+			}
+		}
 		p.openInstrument = func(id domain.InstrumentID, name string, from event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id}, name: name, focus: from}
 		}
@@ -1020,7 +1032,7 @@ func (s *shell) item(gtx layout.Context, view ui.View, item *navigationItem) lay
 		gtx = gtx.Disabled()
 	}
 	active := s.activeRoute()
-	selected := active == item.id || active == dataHealthRoute && item.id == marketDataRoute
+	selected := active == item.id || isMaintenanceRoute(active) && isMaintenanceRoute(item.id)
 	return accessibility.SelectableButton(gtx, &item.button, view.Language.Text(item.label), selected, func(gtx layout.Context) layout.Dimensions {
 		return item.layoutButton(gtx, s, view, size, selected)
 	})
@@ -1108,6 +1120,16 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 			headerView := view
 			headerView.Focus = &focus
 			return s.pageHeader(gtx, headerView, route.label)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !s.hasMaintenanceTabs() {
+				return layout.Dimensions{}
+			}
+			tabsView := view
+			tabsView.Focus = &focus
+			dims := s.layoutMaintenanceTabs(gtx, tabsView)
+			view.Origin.Y += dims.Size.Y
+			return dims
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p := s.historyPage; p != nil && p.cashMovements != nil && p.cashMovements.recovery != nil {
@@ -1201,6 +1223,9 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		}
 	}
 	inset := pageInset
+	if s.hasMaintenanceTabs() {
+		inset.Top = ui.Space12
+	}
 	top, bottom := gtx.Dp(inset.Top), gtx.Dp(inset.Bottom)
 	viewport := gtx.Constraints.Max
 	bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(viewport)}

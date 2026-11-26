@@ -89,7 +89,7 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 	h := newShellHarnessWithPages(t, ledgerPages{marketData: page})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
-	h.click("Market data", false)
+	h.click("Data maintenance", false)
 	page.workers.Wait()
 	h.frame()
 	current := page.current[marketInstruments]

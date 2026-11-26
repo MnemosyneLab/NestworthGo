@@ -5,12 +5,14 @@ import (
 	"strings"
 
 	"gioui.org/font"
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -33,13 +35,15 @@ type instrumentDetailVisit struct {
 }
 
 type portfolioInstrumentDetail struct {
-	visit          instrumentDetailVisit
-	tabs           [len(instrumentDetailLabels)]widget.Clickable
-	historyTabs    [len(instrumentHistoryLabels)]widget.Clickable
-	histories      [len(instrumentHistoryLabels)]*marketQuoteHistory
-	source, manual widget.Clickable
-	market         *marketDataPage
-	performance    instrumentPerformance
+	visit           instrumentDetailVisit
+	tabs            [len(instrumentDetailLabels)]widget.Clickable
+	historyTabs     [len(instrumentHistoryLabels)]widget.Clickable
+	histories       [len(instrumentHistoryLabels)]*marketQuoteHistory
+	source, manual  widget.Clickable
+	maintain        widget.Clickable
+	openMaintenance func(healthFindingFocus, event.Tag)
+	market          *marketDataPage
+	performance     instrumentPerformance
 }
 
 func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -132,6 +136,15 @@ func (p *portfolioPage) instrumentDataActions(view ui.View, instrument domain.In
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			actions = append(actions, returnMonthButton(view, &detail.manual, i18n.MarketManualPrice, nil, ready))
+		}
+		if detail.openMaintenance != nil {
+			if ready && detail.maintain.Clicked(gtx) {
+				window := detail.savedVisit().histories[detail.visit.historyTab].window
+				detail.openMaintenance(healthFindingFocus{instrument: instrument.ID.String(), account: p.accountScope.String(),
+					from: window.from, to: window.to, label: instrument.DisplayLabel(), action: application.HealthActionInstrumentEditor}, &detail.maintain)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			actions = append(actions, returnMonthButton(view, &detail.maintain, i18n.PortfolioMaintainData, nil, ready))
 		}
 		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(actions), func(gtx layout.Context, index int) layout.Dimensions {
 			return actions[index](gtx)

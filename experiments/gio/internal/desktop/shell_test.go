@@ -32,7 +32,7 @@ func TestManagementGroupFollowsSidebarFooter(t *testing.T) {
 	// A taller window leaves more space between Insights and Manage. Every
 	// management destination, including the preview, moves with the footer.
 	lastInsight := semanticBounds(t, &h.router, "Asset changes", false)
-	management := []string{"Directory", "Market data", "Settings", "Component Preview"}
+	management := []string{"Directory", "Data maintenance", "Settings", "Component Preview"}
 	positions := make([]image.Rectangle, len(management))
 	prev := lastInsight
 	for i, name := range management {

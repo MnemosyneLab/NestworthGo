@@ -28,6 +28,8 @@ const (
 	NavAssetChanges
 	NavDirectory
 	NavMarketData
+	MaintenanceIssues
+	MaintenanceQuotes
 	MarketInstruments
 	MarketFX
 	MarketDescription
@@ -1512,6 +1514,7 @@ const (
 	PortfolioInstrumentHoldings
 	PortfolioInstrumentPerformance
 	PortfolioInstrumentData
+	PortfolioMaintainData
 	PortfolioMarketPerformance
 	PortfolioPerformanceBasis
 	PortfolioPerformanceNoHistory

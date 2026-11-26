@@ -83,16 +83,16 @@ func TestOverviewPairsActionCardsAndOpensAuthoritativeHealthFinding(t *testing.T
 	}
 	h.click("View gap · Synthetic provider · Provider configuration needed", false)
 	settle()
-	if h.shell.activeRoute() != dataHealthRoute || health.focus.id != "provider" {
-		t.Fatalf("Overview opened the wrong Health finding: %+v", health.focus)
+	if h.shell.activeRoute() != settingsRoute || h.shell.settingsPage.active != settingsMarket {
+		t.Fatal("the provider finding did not open Market settings directly")
 	}
 	h.click("Back", false)
 	settle()
 	h.focused(page.healthScan.links["provider"])
 	h.press(key.NameReturn)
 	settle()
-	if h.shell.activeRoute() != dataHealthRoute || health.focus.id != "provider" {
-		t.Fatal("restored finding link did not reopen on Enter")
+	if h.shell.activeRoute() != settingsRoute || h.shell.settingsPage.active != settingsMarket {
+		t.Fatal("restored provider link did not reopen Market settings on Enter")
 	}
 	h.click("Back", false)
 	settle()

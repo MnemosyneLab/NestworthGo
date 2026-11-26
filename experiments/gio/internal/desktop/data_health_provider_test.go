@@ -152,7 +152,12 @@ func TestDataHealthCredentialHandoffRechecksSameProviderOnBothDesktops(t *testin
 	issue := overview.healthScan.report.Issues[at]
 	overview.list.ScrollTo(overview.trendIndex() - 1)
 	settle()
-	click("View gap · coingecko · Provider configuration needed")
+	// Open a scoped Issues visit. The ordinary Overview provider action now
+	// opens Settings directly, and is covered by the Overview journey.
+	h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute, health: healthFindingFocus{
+		id: issue.ID, label: issue.Label, from: issue.RangeStart, to: issue.RangeEnd,
+	}}, focus: overview.healthScan.links[issue.ID]}
+	settle()
 	if h.shell.activeRoute() != dataHealthRoute || health.focus.id != issue.ID {
 		t.Fatalf("did not enter the exact provider finding: %+v", health.focus)
 	}

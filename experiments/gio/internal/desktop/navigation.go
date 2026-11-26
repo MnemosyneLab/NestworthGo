@@ -34,6 +34,7 @@ type navigationTarget struct {
 	fundsAction fundsActionFocus
 
 	portfolioAccount domain.AccountID
+	instrumentData   bool
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -167,6 +168,7 @@ type navigationRequest struct {
 	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
 	historyAction        historyRowAction
+	maintenanceTab       bool
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -212,6 +214,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			return
 		}
 	} else {
+		request = resolveMaintenanceTarget(request)
 		item := s.routes[request.target.route]
 		if item == nil || !item.available() || (request.recent == nil && entry.target == request.target) {
 			return
@@ -354,6 +357,23 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
 			tasks: tasksVisit{tab: request.tasksTab, holdingSession: request.tasksSession}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
+		entry = s.trail.current()
+		if request.maintenanceTab {
+			entry.focus = request.focus
+			if entry.target.route == marketDataRoute {
+				entry.marketData = s.marketData.visit()
+			}
+		}
+		if entry.target.route == marketDataRoute && entry.target.health.currencyA != "" && entry.target.health.currencyB != "" {
+			entry.marketData.tab = marketFX
+		}
+		if entry.target.instrumentData {
+			window := marketQuoteFindingWindow(entry.target.health)
+			entry.instrumentDetail.section = instrumentDetailData
+			for i := range entry.instrumentDetail.histories {
+				entry.instrumentDetail.histories[i].window = window
+			}
+		}
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -454,7 +474,18 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	s.narrowExpanded = false
-	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject()
+	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject() || request.maintenanceTab
+	if s.restoreFocus && s.hasMaintenanceTabs() {
+		for i := range s.maintenanceTabs {
+			tab := &s.maintenanceTabs[i]
+			if gtx.Focused(tab) && entry.focus != tab {
+				// A shared tab is still mounted across both visits. Its old
+				// focus must not override the destination's saved control.
+				gtx.Execute(key.FocusCmd{})
+				break
+			}
+		}
+	}
 	gtx.Execute(op.InvalidateCmd{})
 }
 
@@ -715,6 +746,13 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		return language.Text(i18n.DirectoryObjectUnavailable)
 	}
 	title := language.Text(s.routes[entry.target.route].label)
+	if isMaintenanceRoute(entry.target.route) && s.marketData != nil && s.dataHealth != nil {
+		label := i18n.MaintenanceIssues
+		if entry.target.route == marketDataRoute {
+			label = i18n.MaintenanceQuotes
+		}
+		title += " · " + language.Text(label)
+	}
 	if entry.target.route == tasksRoute && s.tasks.checks != nil && entry.visited {
 		return title + " · " + language.Text(taskTabLabels[entry.tasks.tab])
 	}

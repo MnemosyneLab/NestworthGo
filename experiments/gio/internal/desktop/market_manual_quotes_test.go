@@ -96,7 +96,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 		h.frame()
 	}
 	h.frame()
-	h.click("Market data", false)
+	h.click("Data maintenance", false)
 	marketFrame()
 	if current := p.current[marketInstruments]; current == nil || len(current.instruments) != 1 || current.instruments[0].quote != nil {
 		t.Fatalf("synthetic empty quote route=%v loaded=%+v error=%v", h.shell.activeRoute(), current, p.err)
@@ -248,7 +248,7 @@ func TestMarketDataManualQuoteRetryBlocksOverlapAndHonorsCommittedReceipt(t *tes
 	h := newShellHarnessWithPages(t, ledgerPages{marketData: p})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
-	h.click("Market data", false)
+	h.click("Data maintenance", false)
 	p.workers.Wait()
 	h.frame()
 	// A focused link can outlive an instrument. It must never retarget another one.

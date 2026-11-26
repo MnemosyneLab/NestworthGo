@@ -64,7 +64,7 @@ func TestPortfolioInstrumentDataKeepsQuoteAndAccountScope(t *testing.T) {
 	if portfolio.detail.histories[instrumentPriceHistory] != nil {
 		t.Fatal("Holdings requested saved quote history")
 	}
-	click("Data")
+	click("Data records")
 	label("Current price · EUR 30.1234")
 	if findPageLabel(&h.router, "Cost basis · €50.30") != nil {
 		t.Fatal("Data rendered the holdings figures")

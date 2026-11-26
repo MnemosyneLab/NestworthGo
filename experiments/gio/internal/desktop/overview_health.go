@@ -156,7 +156,8 @@ func (p *overviewPage) overviewHealthFinding(view ui.View, issue application.Hea
 	}
 	details = append(details, func(gtx layout.Context) layout.Dimensions {
 		if button.Clicked(gtx) {
-			p.openHealth(healthFindingFocus{id: issue.ID, label: label, from: issue.RangeStart, to: issue.RangeEnd}, button)
+			p.openHealth(healthFindingFocus{id: issue.ID, label: label, from: issue.RangeStart, to: issue.RangeEnd,
+				action: issue.Action, provider: issue.Provider}, button)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 		view.Focus.Watch(gtx, button)

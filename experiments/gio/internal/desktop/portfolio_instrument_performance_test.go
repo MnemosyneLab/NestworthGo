@@ -200,7 +200,7 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 		t.Fatal("chart period changed the fixed returns or failed to open the saved-price table")
 	}
 	label("EUR 120")
-	click("Data")
+	click("Data records")
 	label("Current price · EUR 999")
 	click("Performance")
 	checkSeries(fixture.full.ID, 0, "50", "")

@@ -63,7 +63,8 @@ type dataHealthPage struct {
 
 type healthFindingFocus struct {
 	from, to, account, instrument, currencyA, currencyB, label string
-	id                                                         string
+	id, action, kind, reason, provider                         string
+	executableSpecified                                        bool
 	snapshot                                                   snapshotFindingKey
 }
 
