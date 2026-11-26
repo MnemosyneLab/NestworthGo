@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -14,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/format"
 )
 
 type instrumentDetailSection uint8
@@ -28,6 +28,7 @@ var instrumentDetailLabels = [...]i18n.MessageID{i18n.PortfolioInstrumentHolding
 
 type instrumentDetailVisit struct {
 	section     instrumentDetailSection
+	noteOpen    bool
 	positions   [len(instrumentDetailLabels)]layout.Position
 	historyTab  instrumentHistoryTab
 	histories   [len(instrumentHistoryLabels)]instrumentHistoryVisit
@@ -40,22 +41,26 @@ type portfolioInstrumentDetail struct {
 	historyTabs     [len(instrumentHistoryLabels)]widget.Clickable
 	histories       [len(instrumentHistoryLabels)]*marketQuoteHistory
 	source, manual  widget.Clickable
-	maintain        widget.Clickable
+	maintain, note  widget.Clickable
 	openMaintenance func(healthFindingFocus, event.Tag)
 	market          *marketDataPage
 	performance     instrumentPerformance
 }
 
+func (p *portfolioPage) instrumentDetailName() string {
+	if p.current == nil || p.current.instrument == nil || p.current.instrument.ID != p.id {
+		return ""
+	}
+	return p.current.instrument.DisplayLabel()
+}
+
 func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui.View) layout.Dimensions {
-	if p.current == nil || p.current.instrument == nil {
+	name := p.instrumentDetailName()
+	if name == "" {
 		return layout.Dimensions{}
 	}
-	i, detail := p.current.instrument, &p.detail
-	name := i.DisplayLabel()
-	title := name
-	if i.ArchivedAt != nil {
-		title += " · " + view.Language.Text(i18n.DirectoryArchived)
-	}
+	instrument, detail := p.current.instrument, &p.detail
+	l := view.Language
 	for index := range detail.tabs {
 		section := instrumentDetailSection(index)
 		if detail.tabs[index].Clicked(gtx) && section != detail.visit.section {
@@ -66,11 +71,23 @@ func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return view.Label(gtx, title, 23, font.Medium, view.Colors.Ink)
-	})}
-	if fullName := strings.TrimSpace(i.Name); fullName != "" && fullName != name {
+	rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, name, view.Colors.Ink))}
+	if instrument.ArchivedAt != nil {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentArchived), view.Colors.SecondaryInk)))
+	}
+	if fullName := strings.TrimSpace(instrument.Name); fullName != "" && !strings.EqualFold(fullName, name) {
 		rows = append(rows, ui.Rigid(view.Message(fullName, view.Colors.SecondaryInk)))
+	}
+	rows = append(rows, ui.Rigid(instrumentMetadata(view, *instrument)))
+	if note := productString(instrument.Note); note != "" {
+		if detail.note.Clicked(gtx) {
+			detail.visit.noteOpen = !detail.visit.noteOpen
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		rows = append(rows, ui.Rigid(analysisDisclosure(view, &detail.note, l.Text(i18n.PortfolioInstrumentNote), detail.visit.noteOpen)))
+		if detail.visit.noteOpen {
+			rows = append(rows, ui.Rigid(view.Message(note, view.Colors.Ink)))
+		}
 	}
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return view.TabTrack(gtx, len(detail.tabs), func(gtx layout.Context, index int) layout.Dimensions {
@@ -81,21 +98,92 @@ func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 }
 
+var instrumentDetailTypes = map[domain.InstrumentType]i18n.MessageID{
+	domain.InstrumentStock:                 i18n.PortfolioInstrumentStock,
+	domain.InstrumentETF:                   i18n.PortfolioInstrumentETF,
+	domain.InstrumentMutualFund:            i18n.PortfolioInstrumentFund,
+	domain.InstrumentCrypto:                i18n.MarketCrypto,
+	domain.InstrumentBond:                  i18n.PortfolioInstrumentBond,
+	domain.InstrumentPreciousMetal:         i18n.PortfolioInstrumentMetal,
+	domain.InstrumentBankInvestmentProduct: i18n.PortfolioInstrumentBankProduct,
+	domain.InstrumentOther:                 i18n.InstitutionOther,
+}
+
+func instrumentMetadata(view ui.View, instrument domain.Instrument) layout.Widget {
+	l := view.Language
+	fields := []struct{ label, value string }{
+		{l.Text(i18n.PortfolioInstrumentType), l.Text(instrumentDetailTypes[instrument.Type])},
+		{l.Text(i18n.AnalysisCurrency), instrument.QuoteCurrency.String()},
+		{l.Text(i18n.PortfolioInstrumentSymbol), productString(instrument.Symbol)},
+		{l.Text(i18n.PortfolioInstrumentMarket), productString(instrument.MarketCode)},
+		{l.Text(i18n.PortfolioInstrumentCountry), productString(instrument.CountryCode)},
+		{l.Text(i18n.PortfolioInstrumentISIN), productString(instrument.ISIN)},
+	}
+	cells := make([]layout.Widget, 0, len(fields))
+	for _, field := range fields {
+		if strings.TrimSpace(field.value) == "" {
+			continue
+		}
+		cells = append(cells, func(gtx layout.Context) layout.Dimensions {
+			return semanticRow(gtx, field.label+" · "+field.value, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+					ui.Rigid(view.Body(ui.TextCaption, field.label, view.Colors.SecondaryInk)),
+					ui.Rigid(view.Message(field.value, view.Colors.Ink)))
+			})
+		})
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return overviewBreakdownCard(gtx, view, []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return (ui.Grid{MinColumn: 125, MaxColumns: 3, Gap: ui.Space8}).Layout(gtx, view, len(cells),
+				func(gtx layout.Context, _ ui.View, index int) layout.Dimensions { return cells[index](gtx) })
+		})})
+	}
+}
+
+var instrumentQuoteSources = map[domain.QuoteSourceKind]i18n.MessageID{
+	domain.QuoteSourceManual:   i18n.PortfolioInstrumentQuoteManual,
+	domain.QuoteSourceProvider: i18n.PortfolioInstrumentQuoteProvider,
+	domain.QuoteSourceAgent:    i18n.PortfolioInstrumentQuoteAgent,
+}
+
+func instrumentCurrentQuoteEvidence(view ui.View, quote domain.InstrumentQuote) string {
+	l := view.Language
+	source := l.Text(instrumentQuoteSources[quote.SourceKind])
+	if quote.SourceKey != "" && quote.SourceKey != string(quote.SourceKind) && quote.SourceKind != domain.QuoteSourceAgent {
+		source += " · " + quote.SourceKey
+	}
+	evidence := l.Text(i18n.ChartSource) + ": " + source
+	day := ""
+	if quote.TimestampBasis == "date_label" {
+		day = quote.EffectiveDate
+	}
+	stamp := strings.TrimPrefix(portfolioQuoteStamp(view, "", day, quote.QuotedAt), " · ")
+	if stamp != "" {
+		evidence = fmt.Sprintf(l.Text(i18n.PortfolioInstrumentQuoteAsOf), stamp) + " · " + evidence
+	}
+	if quote.Delayed {
+		evidence += " · " + l.Text(i18n.MarketDelayed)
+	}
+	return evidence
+}
+
 func (p *portfolioPage) instrumentDataRows(view ui.View, instrument domain.Instrument) []layout.Widget {
 	r, l := p.current, view.Language
 	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
-		price := l.Text(i18n.PortfolioPriceMissing)
-		var fields []ui.ColumnChild
+		price := l.Text(i18n.MarketNoCurrentPrice)
 		if q := r.price; q != nil {
-			price = fmt.Sprintf(l.Text(i18n.PortfolioCurrentPrice), q.Currency, portfolioDecimal(view, q.UnitPrice.Canonical()))
+			price = format.QuotePrice(q.UnitPrice.Canonical(), q.Currency.String(), marketNumberPreferences(view))
 			if instrument.UsesMetalConversion() {
 				price = fmt.Sprintf(l.Text(catalogMetalPriceUnit(instrument.QuantityUnit)), price)
 			}
 		}
-		fields = append(fields, ui.Rigid(view.Body(ui.TextHeading, price, view.Colors.Ink)))
+		fields := []ui.ColumnChild{
+			ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentDataNote), view.Colors.SecondaryInk)),
+			ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioInstrumentLatestQuote), view.Colors.Ink)),
+			ui.Rigid(view.Body(ui.TextMoneyMD, price, view.Colors.Ink)),
+		}
 		if q := r.price; q != nil {
-			evidence := marketQuoteEvidence(view, q.SourceKind, q.SourceKey, q.EffectiveDate, q.TimestampBasis, q.QuotedAt, q.Delayed)
-			fields = append(fields, ui.Rigid(view.Message(evidence, view.Colors.SecondaryInk)))
+			fields = append(fields, ui.Rigid(view.Message(instrumentCurrentQuoteEvidence(view, *q), view.Colors.SecondaryInk)))
 		}
 		if r.base != "" && instrument.QuoteCurrency != r.base {
 			fx := fmt.Sprintf(l.Text(i18n.PortfolioFXMissing), instrument.QuoteCurrency, r.base)

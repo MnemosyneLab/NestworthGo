@@ -790,6 +790,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if entry.target.route == accountsRoute && s.accounts != nil && s.accounts.update(s.preferences.language) {
 		s.trail.rename(entry.target, s.accounts.name())
 	}
+	if entry.target.route == portfolioRoute && entry.target.instrument != "" && s.portfolio != nil {
+		s.portfolio.update()
+		if name := s.portfolio.instrumentDetailName(); name != "" && entry.name != name {
+			s.trail.rename(entry.target, name)
+		}
+	}
 	background := func(gtx layout.Context) layout.Dimensions {
 		dims := layout.Flex{}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
@@ -1238,6 +1244,9 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 		if accountName := s.accounts.name(); accountName != "" {
 			name = accountName
 		}
+	}
+	if entry := s.trail.current(); entry.target.route == portfolioRoute && entry.target.instrument != "" && entry.name != "" {
+		name = entry.name
 	}
 	recordView := view
 	view.Focus = nil

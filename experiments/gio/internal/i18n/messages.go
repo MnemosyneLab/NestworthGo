@@ -1645,6 +1645,28 @@ const (
 	PortfolioInstrumentHoldings
 	PortfolioInstrumentPerformance
 	PortfolioInstrumentData
+	PortfolioInstrumentType
+	PortfolioInstrumentSymbol
+	PortfolioInstrumentMarket
+	PortfolioInstrumentCountry
+	PortfolioInstrumentISIN
+	PortfolioInstrumentNote
+	PortfolioInstrumentArchived
+	PortfolioInstrumentStock
+	PortfolioInstrumentETF
+	PortfolioInstrumentFund
+	PortfolioInstrumentBond
+	PortfolioInstrumentMetal
+	PortfolioInstrumentBankProduct
+	PortfolioInstrumentMarketNote
+	PortfolioInstrumentDataNote
+	PortfolioInstrumentLatestQuote
+	PortfolioInstrumentQuoteManual
+	PortfolioInstrumentQuoteProvider
+	PortfolioInstrumentQuoteAgent
+	PortfolioInstrumentQuoteAsOf
+	PortfolioPerformanceEmpty
+	PortfolioPerformanceEmptyHint
 	PortfolioMaintainData
 	PortfolioMarketPerformance
 	PortfolioPerformanceBasis

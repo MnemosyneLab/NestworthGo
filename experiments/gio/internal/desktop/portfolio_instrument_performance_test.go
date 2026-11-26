@@ -24,8 +24,8 @@ import (
 const performanceFixtureHousehold = "Synthetic instrument performance"
 
 type instrumentPerformanceFixture struct {
-	account      domain.AccountID
-	full, sparse domain.Instrument
+	account              domain.AccountID
+	full, sparse, manual domain.Instrument
 }
 
 func seedInstrumentPerformance(t *testing.T, latest time.Time) ([]byte, instrumentPerformanceFixture) {
@@ -56,6 +56,15 @@ func seedInstrumentPerformance(t *testing.T, latest time.Time) ([]byte, instrume
 	}
 	full := instrument("Synthetic performance ETF", "PERF", "etf")
 	sparse := instrument("Synthetic sparse stock", "SPARSE", "stock")
+	note := "Synthetic exact current unit quote"
+	manual, err := app.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic Apple common stock", Symbol: "AAPL", Type: "stock",
+		MarketCode: "NASDAQ", CountryCode: "US", ISIN: "US0378331005", Note: &note, QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.AppendManualInstrumentQuote(ctx, manual.ID, "1234.56789123", latest.Add(23*time.Hour).Format(time.RFC3339), false); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := app.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: full.ID.String(), Quantity: "3"}); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +87,7 @@ func seedInstrumentPerformance(t *testing.T, latest time.Time) ([]byte, instrume
 	if _, err := app.ImportAgentMarketData(ctx, uuid.NewString(), application.AgentMarketDataInput{Items: notes}); err != nil {
 		t.Fatal(err)
 	}
-	return stage6SeedBytes(t, db), instrumentPerformanceFixture{account: account.Account.ID, full: full, sparse: sparse}
+	return stage6SeedBytes(t, db), instrumentPerformanceFixture{account: account.Account.ID, full: full, sparse: sparse, manual: manual}
 }
 
 func TestExportInstrumentPerformanceFixtures(t *testing.T) {
@@ -172,7 +181,7 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	if probe.seriesCalls.Load() != 0 || probe.returnsCalls.Load() != 0 || page.accountScope != fixture.account {
 		t.Fatal("the account holding loaded performance before its tab was selected")
 	}
-	click("Performance")
+	click("Market performance")
 	checkSeries(fixture.full.ID, 30, "20", "")
 	label("+20.00%")
 	label("2026-09-14 – 2026-10-14")
@@ -201,8 +210,8 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	}
 	label("EUR 120")
 	click("Data records")
-	label("Current price · EUR 999")
-	click("Performance")
+	label("€999.00")
+	click("Market performance")
 	checkSeries(fixture.full.ID, 0, "50", "")
 	click("Investment assets")
 	click("Back")
@@ -213,15 +222,58 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 
 	page.openInstrument(fixture.sparse.ID, fixture.sparse.DisplayLabel(), nil)
 	settle()
-	click("Performance")
+	click("Market performance")
 	checkSeries(fixture.sparse.ID, 30, "", "insufficient_daily_history")
-	label("Not enough daily history for this period.")
+	label("Not enough history for this period")
 	if perf.series.value.Item != nil || len(perf.series.value.Points) != 3 || perf.returns.value == nil || len(perf.returns.value.Items) != 0 {
 		t.Fatal("the sparse chart omitted saved closes or invented a covered return")
 	}
 	click("All history")
 	checkSeries(fixture.sparse.ID, 0, "2", "")
 	label("+2.00%")
+	page.openHoldingInstrument(fixture.manual.ID, fixture.account, "Previous instrument label", nil)
+	settle()
+	if current := h.shell.trail.current(); current.name != "AAPL" || current.target.portfolioAccount != fixture.account {
+		t.Fatalf("the instrument title lost its canonical label or account scope: %+v", current)
+	}
+	if heading := assertPageLabel(t, &h.router, "AAPL"); heading.Min.Y >= headerHeight {
+		t.Fatalf("expected the instrument label in the shell heading, got %v", heading)
+	}
+	for _, text := range []string{"Synthetic Apple common stock", "Type · Stock", "Currency · USD", "Symbol · AAPL",
+		"Market code · NASDAQ", "Country code · US", "ISIN · US0378331005", "My holdings", "Market performance", "Data records"} {
+		label(text)
+	}
+	click("Note")
+	label("Synthetic exact current unit quote")
+	click("Note")
+	click("Market performance")
+	checkSeries(fixture.manual.ID, 30, "", "insufficient_daily_history")
+	label("Price and NAV changes describe this instrument, not your personal return.")
+	label("No daily price history yet")
+	label("Record or sync daily closing prices. Timestamped manual prices are available in Market Data.")
+	if len(perf.series.value.Points) != 0 {
+		t.Fatal("a timestamped manual quote was shown as a daily close")
+	}
+	click("Data records")
+	label("Latest quote")
+	label("US$1,234.56789123")
+	label("as of 2026-10-14 23:00 · Source: Manual")
+	current, err := adapter.CurrentInstrumentQuote(ctx, fixture.manual.ID.String())
+	if err != nil || current == nil || current.UnitPrice != "1234.56789123" || current.SourceKind != "manual" {
+		t.Fatalf("Gio metadata sample uses a different quote than Wails: %+v / %v", current, err)
+	}
+
+	h.shell.prefs.saved.Language = settings.LanguageZhCN
+	h.shell.prefs.saved.DecimalSeparator = settings.DecimalComma
+	h.shell.prefs.saved.GroupingSeparator = settings.GroupingDot
+	settle()
+	for _, text := range []string{"类型 · 股票", "货币 · USD", "我的持仓", "标的表现", "数据记录", "最新报价", "US$1.234,56789123", "更新于 2026-10-14 23:00 · 来源: 手动"} {
+		label(text)
+	}
+	click("标的表现")
+	label("暂无每日收盘价历史")
+	label("记录或同步每日收盘价。带时间戳的手动价格可在市场数据中查看。")
+
 	if gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatal("displaying saved market performance requested live market data")
 	}

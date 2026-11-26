@@ -145,6 +145,7 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 	}
 	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
 		fields := []ui.ColumnChild{
+			ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentMarketNote), view.Colors.SecondaryInk)),
 			ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioMarketPerformance), view.Colors.Ink)),
 			ui.Rigid(perf.periodButtons(view)),
 		}
@@ -164,6 +165,11 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 		default:
 			value, ink := instrumentPerformancePercent(view, data.Item.PeriodPercent, true)
 			fields = append(fields, ui.Rigid(view.Body(ui.TextMoneyLG, value, ink)))
+		}
+		if data != nil && period == perf.period && len(data.Points) == 0 {
+			fields = append(fields,
+				ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioPerformanceEmpty), view.Colors.Ink)),
+				ui.Rigid(view.Message(l.Text(i18n.PortfolioPerformanceEmptyHint), view.Colors.SecondaryInk)))
 		}
 		if data != nil && period == perf.period && data.From != "" && data.To != "" {
 			fields = append(fields, ui.Rigid(view.Message(performanceDateRange(view, data.From, data.To), view.Colors.SecondaryInk)))
