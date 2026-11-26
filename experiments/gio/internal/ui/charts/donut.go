@@ -539,7 +539,7 @@ func (c compactLegend) rowHeight(gtx layout.Context, view ui.View, sl Slice, row
 
 func (c *DonutChart) drawLegend(gtx layout.Context, view ui.View, spec DonutSpec, plan donutPlan, columns []donutRow, active Selection, m legendMetrics) {
 	colors := view.Colors
-	inset, swatch, labelW, rightW := m.inset, m.swatch, m.labelW, m.rightW
+	inset, swatch, rightW := m.inset, m.swatch, m.rightW
 	for i, sp := range plan.slices {
 		sl := spec.Slices[i]
 		selected := sp.sel == spec.Selected
@@ -553,35 +553,43 @@ func (c *DonutChart) drawLegend(gtx layout.Context, view ui.View, spec DonutSpec
 		if sp.sel == active && gtx.Focused(c) {
 			ui.StrokeRoundRect(gtx, sp.row, ui.RadiusSM, 2, ui.WithAlpha(colors.Accent, 0.8))
 		}
-		y := sp.row.Min.Y + m.pad
-		swatchBox := image.Rect(sp.row.Min.X+inset, y+gtx.Dp(3), sp.row.Min.X+inset+swatch, y+gtx.Dp(3)+swatch)
-		ink := spec.sliceInk(colors, i)
-		if sp.drawn {
-			ui.FillRoundRect(gtx, swatchBox, ui.RadiusSM/2, ink)
-		} else {
-			// A hollow swatch marks an entry with no arc.
-			ui.StrokeRoundRect(gtx, swatchBox, ui.RadiusSM/2, 1, colors.SecondaryInk)
-		}
-		x := swatchBox.Max.X + gtx.Dp(ui.Space8)
-		if spec.Compact {
-			x, labelW = sp.row.Min.X+m.compact.labelX, m.compact.labelW
-		}
-		size := textBlock{style: ui.TextBody, content: sl.Label, ink: colors.Ink, maxWidth: labelW}.draw(gtx, view, image.Pt(x, y))
-		textBlock{style: ui.TextCaption, content: columns[i].note, ink: colors.SecondaryInk, maxWidth: labelW}.draw(gtx, view, image.Pt(x, y+size.Y))
-		amountInk := colors.Ink
-		if !sp.drawn && !sl.Value.Valid() {
-			amountInk = colors.SecondaryInk
-		}
-		if spec.Compact {
-			m.compact.drawFigures(gtx, view, sp.row, m.pad, sl, columns[i], amountInk)
-		} else {
-			rx := sp.row.Max.X - inset - rightW
-			amount := textBlock{style: ui.TextLabel, content: columns[i].amount, ink: amountInk, maxWidth: max(1, rightW), align: text.End}.draw(gtx, view, image.Pt(rx, y))
-			textBlock{style: ui.TextCaption, content: sl.Share, ink: colors.SecondaryInk, maxWidth: max(1, rightW), align: text.End}.draw(gtx, view, image.Pt(rx, y+amount.Y))
+		offset := op.Offset(sp.row.Min).Push(gtx.Ops)
+		row := image.Rectangle{Max: sp.row.Size()}
+		legend := func(gtx layout.Context) layout.Dimensions {
+			y := m.pad
+			swatchBox := image.Rect(inset, y+gtx.Dp(3), inset+swatch, y+gtx.Dp(3)+swatch)
+			ink := spec.sliceInk(colors, i)
+			if sp.drawn {
+				ui.FillRoundRect(gtx, swatchBox, ui.RadiusSM/2, ink)
+			} else {
+				// A hollow swatch marks an entry with no arc.
+				ui.StrokeRoundRect(gtx, swatchBox, ui.RadiusSM/2, 1, colors.SecondaryInk)
+			}
+			x, labelW := swatchBox.Max.X+gtx.Dp(ui.Space8), m.labelW
+			if spec.Compact {
+				x, labelW = m.compact.labelX, m.compact.labelW
+			}
+			size := textBlock{style: ui.TextBody, content: sl.Label, ink: colors.Ink, maxWidth: labelW}.draw(gtx, view, image.Pt(x, y))
+			textBlock{style: ui.TextCaption, content: columns[i].note, ink: colors.SecondaryInk, maxWidth: labelW}.draw(gtx, view, image.Pt(x, y+size.Y))
+			amountInk := colors.Ink
+			if !sp.drawn && !sl.Value.Valid() {
+				amountInk = colors.SecondaryInk
+			}
+			if spec.Compact {
+				m.compact.drawFigures(gtx, view, row, m.pad, sl, columns[i], amountInk)
+			} else {
+				rx := row.Max.X - inset - rightW
+				amount := textBlock{style: ui.TextLabel, content: columns[i].amount, ink: amountInk, maxWidth: max(1, rightW), align: text.End}.draw(gtx, view, image.Pt(rx, y))
+				textBlock{style: ui.TextCaption, content: sl.Share, ink: colors.SecondaryInk, maxWidth: max(1, rightW), align: text.End}.draw(gtx, view, image.Pt(rx, y+amount.Y))
+			}
+			return layout.Dimensions{Size: row.Size()}
 		}
 		if item := spec.readout(sp.sel); item != nil {
-			semanticItem(gtx, sp.row, itemLabel(*item, spec.Messages))
+			accessibility.Summary(gtx, itemLabel(*item, spec.Messages), legend)
+		} else {
+			legend(gtx)
 		}
+		offset.Pop()
 	}
 }
 
