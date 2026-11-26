@@ -1431,6 +1431,22 @@ const (
 	PortfolioOpenInstrument
 	PortfolioMyHoldings
 	PortfolioByInstrument
+	PortfolioCatalogDetails
+	PortfolioCatalogOpen
+	PortfolioCatalogManage
+	PortfolioCatalogManageNamed
+	PortfolioCatalogArchive
+	PortfolioCatalogRestore
+	PortfolioCatalogWriteFailed
+	PortfolioCatalogChanged
+	PortfolioCatalogNonzero
+	PortfolioCatalogSaved
+	PortfolioCatalogName
+	PortfolioCatalogShortName
+	PortfolioCatalogSymbol
+	PortfolioCatalogMarket
+	PortfolioCatalogISIN
+	PortfolioCatalogCountry
 	PortfolioSortAscending
 	PortfolioSortDescending
 	PortfolioByAccount

@@ -128,7 +128,6 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 		pickers = append(pickers, view.ButtonOf(&h.toggleGroups, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(label)}))
 	}
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
-		ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioMyHoldings), view.Colors.Ink)),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, len(pickers), func(gtx layout.Context, i int) layout.Dimensions {
 				return pickers[i](gtx)

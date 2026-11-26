@@ -53,6 +53,7 @@ type navigationEntry struct {
 	funds            fundsViewState
 	portfolioSearch  string
 	holdings         portfolioHoldingsVisit
+	catalog          portfolioCatalogVisit
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	returns          *returnAnalysisVisit
@@ -184,7 +185,8 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.tasks != nil && s.tasks.holdingRecon.unresolved() {
 		return
 	}
-	if s.portfolio != nil && s.portfolio.investment.unresolved() {
+	if s.portfolio != nil && (s.portfolio.investment.unresolved() ||
+		s.portfolio.catalog.draft != nil && s.portfolio.catalog.draft.pending != nil) {
 		return
 	}
 	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved() || s.funds.policyUnresolved()) {
@@ -301,6 +303,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if f := s.portfolio.investment; f != nil {
 			f.draft, f.restore = nil, nil
 		}
+		s.portfolio.catalog.draft = nil
 		s.portfolio.leave()
 	}
 	if entry.target.route == overviewRoute && s.overviewPage != nil {
@@ -374,10 +377,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == portfolioRoute {
-		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
 		if entry.target.instrument == "" {
 			s.portfolio.restoreHoldingsVisit(entry.holdings)
+			s.portfolio.catalog.restore(entry.catalog)
 		}
+		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
 	}
 	if entry.target.route == wealthHistoryRoute {
 		s.wealthHistory.enter()
@@ -476,6 +480,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 		entry.scroll = s.portfolio.list.Position
 		if entry.target.instrument == "" {
 			entry.holdings = s.portfolio.holdingsVisit()
+			entry.catalog = s.portfolio.catalog.visit()
 		}
 	case overviewRoute:
 		if s.overviewPage != nil {
