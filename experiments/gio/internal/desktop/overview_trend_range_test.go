@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/input"
+	"gioui.org/io/semantic"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
@@ -201,4 +204,110 @@ func (f *overviewRollingFixture) NetWorthTrend(_ context.Context, period domain.
 
 func (f *overviewRollingFixture) HistoryOrigin(context.Context) (*domain.HistoryOrigin, error) {
 	return &domain.HistoryOrigin{Timezone: f.loc.String(), StartedAt: time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)}, nil
+}
+
+func TestOverviewAllHistoryStaysSelectedWhenTheRangeMatchesLastWeek(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 07:00 UTC is still 25 November in Los Angeles. History starts on the 20th,
+	// so that day the ledger has six days. One day later it has seven, which is
+	// exactly Last week.
+	now := time.Date(2026, 11, 26, 7, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	fixture := &overviewShortHistoryFixture{
+		overviewRollingFixture: overviewRollingFixture{now: clock, loc: loc},
+		started:                time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC),
+	}
+	fixture.overviewReader = overviewReaderFunc(func(context.Context, domain.AccountFilter) (domain.OverviewResult, error) {
+		return domain.OverviewResult{Currency: "USD", AccountCount: 1, HistoryStarted: true}, nil
+	})
+	page := newOverviewPage(ctx, fixture, clock, func() {})
+	t.Cleanup(func() {
+		cancel()
+		page.workers.Wait()
+	})
+	h := newShellHarnessWithPages(t, ledgerPages{overview: page})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1160, 1060)
+	settle := func() {
+		t.Helper()
+		for range 3 {
+			h.frame()
+			page.workers.Wait()
+		}
+	}
+	last := func() domain.TrendRange {
+		t.Helper()
+		ranges := fixture.requested()
+		if len(ranges) == 0 {
+			t.Fatal("overview did not read a trend")
+		}
+		return ranges[len(ranges)-1]
+	}
+	settle()
+	h.click("All history", false)
+	settle()
+	if got := last(); got != domain.TrendAllTime {
+		t.Fatalf("All history asked for %q", got)
+	}
+
+	now = time.Date(2026, 11, 26, 8, 30, 0, 0, time.UTC) // 00:30 on the 26th in Los Angeles.
+	settle()
+	if got := last(); got != domain.TrendAllTime {
+		t.Fatalf("after the ledger day the query is %q, want %q", got, domain.TrendAllTime)
+	}
+	assertOnlyDateShortcut(t, h.router.AppendSemantics(nil), "All history")
+
+	h.click("Last week", false)
+	settle()
+	if got := last(); got != "2026-11-20:2026-11-26" {
+		t.Fatalf("Last week asked for %q", got)
+	}
+	assertOnlyDateShortcut(t, h.router.AppendSemantics(nil), "Last week")
+}
+
+// overviewShortHistoryFixture is a synthetic ledger whose history starts on a
+// chosen day in the fixture timezone.
+type overviewShortHistoryFixture struct {
+	overviewRollingFixture
+	started time.Time
+}
+
+func (f *overviewShortHistoryFixture) HistoryOrigin(context.Context) (*domain.HistoryOrigin, error) {
+	return &domain.HistoryOrigin{Timezone: f.loc.String(), StartedAt: f.started}, nil
+}
+
+func assertOnlyDateShortcut(t *testing.T, nodes []input.SemanticNode, want string) {
+	t.Helper()
+	labels := [...]string{
+		"Last closed day", "Last week", "Last month", "Last 3 months",
+		"Last 6 months", "Last year", "All history",
+	}
+	seen := map[string]bool{}
+	var walk func([]input.SemanticNode)
+	walk = func(nodes []input.SemanticNode) {
+		for _, node := range nodes {
+			if node.Desc.Class == semantic.Button {
+				for _, label := range labels {
+					if node.Desc.Label == label {
+						seen[label] = node.Desc.Selected
+					}
+				}
+			}
+			walk(node.Children)
+		}
+	}
+	walk(nodes)
+	for _, label := range labels {
+		selected, ok := seen[label]
+		if !ok {
+			t.Fatalf("date shortcut %q is not in the overview", label)
+		}
+		if label == want && !selected || label != want && selected {
+			t.Fatalf("selected date shortcuts are %v, want only %q", seen, want)
+		}
+	}
 }

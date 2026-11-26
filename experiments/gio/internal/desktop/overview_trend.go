@@ -286,6 +286,12 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	earliest, latest := t.bounds(view, p.clock())
 	t.dates.showRange = true
 	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		// All history is an explicit choice. A later ledger day can make that
+		// window identical to another shortcut, so keep this one highlighted.
+		t.dates.pinned = t.allTime
+		if t.allTime {
+			t.dates.pinnedPreset = analysisAllDates
+		}
 		return t.dates.layout(gtx, view, t.selection(earliest, latest), earliest, latest, func(window analysisDateWindow) {
 			t.allTime = t.dates.chosen == analysisAllDates
 			t.window, t.chosen = window, true

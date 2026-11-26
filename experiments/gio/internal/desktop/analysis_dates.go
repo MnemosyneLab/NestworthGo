@@ -40,6 +40,11 @@ type analysisDateShortcuts struct {
 	// showRange writes the selected dates between the arrows. Leave it off
 	// where date fields beside the control already show them.
 	showRange bool
+	// pinnedPreset, when pinned is set, stays highlighted even if the dates
+	// also match an earlier shortcut. Overview pins All history. Leave pinned
+	// unset and the shortcut is inferred from the dates.
+	pinned       bool
+	pinnedPreset int
 }
 
 func analysisPresetRange(index int, to, earliest string) analysisDateWindow {
@@ -90,6 +95,9 @@ func analysisShiftRange(window analysisDateWindow, direction, preset int) analys
 }
 
 func (p *analysisDateShortcuts) active(current analysisDateWindow, earliest string) int {
+	if p.pinned {
+		return p.pinnedPreset
+	}
 	if p.at.from != "" && p.at == current {
 		return p.chosen
 	}
