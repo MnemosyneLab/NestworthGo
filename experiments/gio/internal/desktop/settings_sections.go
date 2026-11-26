@@ -220,10 +220,12 @@ func (c *settingsCredential) layout(gtx layout.Context, view ui.View, prefs *pre
 			if configured && !c.editing {
 				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return (ui.Wrap{Gap: 8}).Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+						label := i18n.SettingsCoinGeckoRemove
+						button := &c.remove
 						if i == 0 {
-							return view.Button(&c.replace, l.Text(i18n.SettingsSecretReplace))(gtx)
+							label, button = i18n.SettingsSecretReplace, &c.replace
 						}
-						return view.Button(&c.remove, l.Text(i18n.SettingsCoinGeckoRemove))(gtx)
+						return view.ButtonOf(button, ui.ButtonSpec{Title: l.Text(label), Description: l.Text(i18n.SettingsCoinGeckoKey)})(gtx)
 					})
 				}))
 			} else {
@@ -256,6 +258,7 @@ func (c *settingsCredential) editForm(gtx layout.Context, view ui.View, prefs *p
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			l := view.Language
+			keyLabel := l.Text(i18n.SettingsCoinGeckoKey)
 			value := strings.TrimSpace(c.input.Text())
 			if value != "" && c.save.Clicked(gtx) {
 				c.write(prefs, value)
@@ -268,10 +271,10 @@ func (c *settingsCredential) editForm(gtx layout.Context, view ui.View, prefs *p
 					}
 					return view.ButtonOf(&c.save, ui.ButtonSpec{Variant: ui.ButtonSoft, Title: l.Text(i18n.SettingsCoinGeckoSave)})(gtx)
 				},
-				view.Button(&c.show, l.Text(visibility)),
+				view.ButtonOf(&c.show, ui.ButtonSpec{Title: l.Text(visibility), Description: keyLabel, Toggle: true, Selected: c.visible}),
 			}
 			if configured {
-				buttons = append(buttons, view.ButtonOf(&c.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: l.Text(i18n.SettingsCancel)}))
+				buttons = append(buttons, view.ButtonOf(&c.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: l.Text(i18n.SettingsCancel), Description: keyLabel}))
 			}
 			return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions { return buttons[i](gtx) })
 		}),

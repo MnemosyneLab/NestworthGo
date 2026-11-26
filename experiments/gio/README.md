@@ -21,7 +21,10 @@ shows both. Ledger activity keeps its recorded civil dates.
 
 **Market data** sets the FX refresh provider and quote cache duration. Save,
 replace, or remove a CoinGecko key in its own card. The stored key stays in the
-local database. **Diagnostics** sets the application file log level and shows
+local database. **Data → Recalculate all data** rebuilds daily snapshots,
+current balances and returns from recorded facts after History has started.
+The result reports the date range, snapshot days and days with incomplete coverage.
+**Diagnostics** sets the application file log level and shows
 the log path in the active Gio profile. **About** shows the version, build,
 license, and preview app identity.
 

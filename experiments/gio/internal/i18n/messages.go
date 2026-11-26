@@ -1377,9 +1377,22 @@ const (
 	SettingsIntro
 	SettingsTab
 	SettingsMarketTab
+	SettingsDataTab
 	SettingsDiagnosticsTab
 	SettingsAboutTab
 	SettingsMarket
+	SettingsDataRebuildTitle
+	SettingsDataRebuildDescription
+	SettingsDataRebuildIncomplete
+	SettingsDataRebuildAction
+	SettingsDataRebuilding
+	SettingsDataRebuildProgress
+	SettingsDataRebuildError
+	SettingsDataHistoryRequired
+	SettingsDataRebuildComplete
+	SettingsDataRebuildRange
+	SettingsDataRebuildCounts
+	SettingsLoadRetry
 	SettingsFXProvider
 	SettingsFXProviderHelp
 	SettingsFrankfurter
