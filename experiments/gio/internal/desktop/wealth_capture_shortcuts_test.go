@@ -168,6 +168,49 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	h.focused(page.accounts.details[cash.Account.ID.String()])
 }
 
+func TestWealthCaptureShortcutsAtSingaporeMonthBoundary(t *testing.T) {
+	clock := func() time.Time { return time.Date(2026, 12, 1, 16, 30, 0, 0, time.UTC) }
+	for _, tc := range []struct {
+		name, defaultDay string
+		start            time.Time
+	}{
+		{"previous month in history", "2026-11-30", time.Date(2026, 11, 20, 4, 0, 0, 0, time.UTC)},
+		{"history starts this month", "2026-12-01", time.Date(2026, 12, 1, 4, 0, 0, 0, time.UTC)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := wealthHistoryTestReader{origin: &domain.HistoryOrigin{StartedAt: tc.start, Timezone: "Asia/Singapore"}}
+			h, page := openWealthHistoryTest(t, reader, clock)
+			settle := func() {
+				page.workers.Wait()
+				h.frame()
+			}
+			assertCapture := func(day string) {
+				t.Helper()
+				if page.accounts.current == nil || page.accounts.captured.from != day {
+					t.Fatalf("capture date = %q, want %q", page.accounts.captured.from, day)
+				}
+			}
+			settle()
+			assertCapture(tc.defaultDay)
+			if tc.defaultDay == "2026-12-01" {
+				if h.inPage("Last month end", false) {
+					t.Fatal("month end before History Origin is available as a clickable shortcut")
+				}
+				return
+			}
+			for _, shortcut := range []struct{ label, day string }{
+				{"Last closed day", "2026-12-01"},
+				{"Starting point", "2026-11-20"},
+				{"Last month end", "2026-11-30"},
+			} {
+				h.click(shortcut.label, false)
+				settle()
+				assertCapture(shortcut.day)
+			}
+		})
+	}
+}
+
 type interruptedWealthCapture struct {
 	wealthHistoryTestReader
 	calls   atomic.Int32
