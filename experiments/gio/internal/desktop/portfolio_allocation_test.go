@@ -133,7 +133,7 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 		t.Fatalf("current trend point hid an incomplete holding or included cash: %+v", current)
 	}
 
-	page.list.Position = layout.Position{First: 2}
+	page.list.Position = layout.Position{First: 1}
 	h.size.Y = 760
 	settle()
 	click("Last day")
@@ -166,7 +166,7 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 	if !page.allocation.table.open {
 		t.Fatal("the portfolio trend table did not open")
 	}
-	page.list.Position = layout.Position{First: 3}
+	page.list.Position = layout.Position{First: 2}
 	settle()
 	click("Open account · Harbor Brokerage")
 	if accounts.target.account != ids.account {

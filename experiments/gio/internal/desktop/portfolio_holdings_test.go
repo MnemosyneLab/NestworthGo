@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"image"
 	"slices"
 	"testing"
@@ -155,6 +156,13 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	stockHeader := portfolio.holdings.sortButtons[domain.HoldingGroupStock]
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
 	settle()
+	summary := assertPageLabel(t, &h.router, "Current investment value · Known subtotal")
+	coverage := fmt.Sprintf("Totals exclude missing values · %d missing inputs", len(wailsSummary.MissingInputs))
+	assertPageLabel(t, &h.router, coverage)
+	tab := semanticBounds(t, &h.router, "My holdings", false)
+	if summary.Min.Y >= tab.Min.Y {
+		t.Fatalf("portfolio summary should stay above the views and search: %v / %v", summary, tab)
+	}
 	fundHeader := portfolio.holdings.sortButtons[domain.HoldingGroupFund]
 	if stockHeader == nil || fundHeader == nil || stockHeader == fundHeader {
 		t.Fatal("expanded asset groups should each have keyboard-reachable sort headers")
@@ -170,7 +178,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("expected visible EUR 60.36 and full-group EUR 68.36: %+v", filtered)
 	}
 	assertPageLabel(t, &h.router, "EUR · Full group subtotal")
-	assertPageLabel(t, &h.router, "Cost basis · €68.36")
+	subtotal := assertPageLabel(t, &h.router, "Cost basis · €68.36")
 	name := ids.instruments["QA-FULL"].DisplayLabel()
 	identity := assertPageLabel(t, &h.router, name)
 	cost := assertPageLabel(t, &h.router, "Cost basis · €60.36")
@@ -179,6 +187,10 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		cost.Min.Y >= identity.Max.Y || menu.Min.Y >= identity.Max.Y ||
 		cost.Max.Y <= identity.Min.Y || menu.Max.Y <= identity.Min.Y {
 		t.Fatalf("desktop holding cells should share a single row: instrument %v, cost %v, actions %v", identity, cost, menu)
+	}
+	costHeader := semanticBounds(t, &h.router, "Cost basis", false)
+	if subtotal.Max.X != cost.Max.X || costHeader.Max.X-8 != cost.Max.X {
+		t.Fatalf("native subtotal, sort caption, and row must share the cost column: %v / %v / %v", subtotal, costHeader, cost)
 	}
 	click("Cost basis")
 	if portfolio.holdings.visit.sort != (holdingSort{key: holdingSortCost}) {

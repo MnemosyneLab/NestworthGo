@@ -18,7 +18,7 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := ui.View{Theme: ui.NewTheme(), Language: i18n.English, Colors: &lightPalette, DecimalSeparator: ".", GroupingSeparator: ","}
-	breakdown := fundsBreakdown(view, data.today.NativeCurrencyGroups, data.native[data.today.HorizonOn])
+	breakdown := fundsBreakdown(view, fundsHorizon{bucket: &data.today, label: i18n.FundsHorizonToday}, data.native[data.today.HorizonOn])
 	draw := func(width int) *input.Router {
 		t.Helper()
 		gtx := chartTableContext(width)
@@ -109,9 +109,19 @@ func TestAvailableFundsSourceColumnsFollowContainerWidth(t *testing.T) {
 		settle()
 	}
 	setWidth(1260)
+	h.click("Within 7 days", false)
+	settle()
+	horizon := funds.selectedFundsBucket().HorizonOn
+	assertPageLabel(t, &h.router, "Within 7 days · "+horizon)
 	h.click("Funding sources", false)
 	settle()
 	h.focused(&funds.controls.filters[fundsAll])
+	header := assertPageLabel(t, &h.router, "Assets · by "+horizon)
+	reservations := semanticBounds(t, &h.router, "Manage reservations", false)
+	if reservations.Min.Y >= header.Max.Y || reservations.Max.Y <= header.Min.Y {
+		t.Fatalf("manage reservations is no longer next to the active source heading: %v / %v", reservations, header)
+	}
+	assertPageLabel(t, &h.router, "Availability needs more information")
 
 	var expected string
 	ref := domain.AccountValueSourceRef(ids.bank)

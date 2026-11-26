@@ -105,6 +105,7 @@ func (p *tasksPage) pollReviewAcknowledgement(active bool) {
 		if len(p.reviewCursors) > 0 {
 			p.reviewCursors, p.list.Position = nil, layout.Position{}
 		}
+		p.invalidateTaskBadges()
 		if active && p.tab == tasksInvestment {
 			p.read()
 		}

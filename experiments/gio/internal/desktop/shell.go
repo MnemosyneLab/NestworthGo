@@ -924,8 +924,11 @@ func (s *shell) invalidateLedgerReads() {
 	if s.portfolio != nil && s.activeRoute() == portfolioRoute {
 		s.portfolio.read()
 	}
-	if s.tasks != nil && s.activeRoute() == tasksRoute {
-		s.tasks.read()
+	if s.tasks != nil {
+		s.tasks.invalidateTaskBadges()
+		if s.activeRoute() == tasksRoute {
+			s.tasks.read()
+		}
 	}
 }
 

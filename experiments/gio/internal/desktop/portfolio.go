@@ -294,7 +294,13 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			if p.id != "" {
 				return p.layoutInstrumentDetailHeader(gtx, view)
 			}
-			return p.layoutPortfolioTabs(gtx, view)
+			if p.current == nil || p.current.summary.Currency == "" {
+				return p.layoutPortfolioTabs(gtx, view)
+			}
+			return (ui.Column{Gap: ui.Space12}).Layout(gtx,
+				ui.Rigid(portfolioSummary(view, p.current.summary)),
+				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutPortfolioTabs(gtx, view) }),
+			)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.id != "" || p.current == nil {
@@ -330,53 +336,68 @@ func (p *portfolioPage) canImportPosition() bool {
 }
 
 func (p *portfolioPage) rows(view ui.View) []layout.Widget {
-	l := view.Language
 	if p.id != "" {
 		return p.instrumentRows(view)
 	}
-	summary := p.current.summary
-	var rows []layout.Widget
-	if summary.Currency != "" {
-		status := i18n.OverviewCurrentEstimate
-		if !summary.Complete || summary.DisplayValuation.Quality.Availability != domain.ValuationFull {
-			status = i18n.OverviewIncomplete
-		}
-		tone := ui.BadgeSuccess
-		if status == i18n.OverviewIncomplete {
-			tone = ui.BadgeWarning
-		}
-		caption, display := overviewMoneyText(view, i18n.PortfolioValue, summary.DisplayValuation)
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
-									layout.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										return view.Line(gtx, ui.TextMoneyLG, display, view.Colors.Ink)
-									}),
-								)
-							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
-						)
-					}),
-					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk)),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return overviewEvidence(gtx, view, summary.DisplayValuation.Quality, i18n.OverviewQuoteDates)
-					}),
-				)
-			})
-		})
-	}
 	switch p.tabs.active {
 	case portfolioInstruments:
-		return append(rows, p.catalogRows(view)...)
+		return p.catalogRows(view)
 	case portfolioAllocationTab:
-		return append(rows, p.allocationRows(view, summary)...)
+		return p.allocationRows(view, p.current.summary)
 	default:
-		return append(rows, p.holdingsRows(view)...)
+		return p.holdingsRows(view)
+	}
+}
+
+func portfolioSummary(view ui.View, summary domain.PortfolioValuation) layout.Widget {
+	l := view.Language
+	quality := summary.DisplayValuation.Quality
+	status, tone := i18n.OverviewCurrentEstimate, ui.BadgeSuccess
+	if !summary.Complete || quality.Availability != "" && quality.Availability != domain.ValuationFull {
+		status, tone = i18n.OverviewIncomplete, ui.BadgeWarning
+	}
+	caption, amount := overviewMoneyText(view, i18n.PortfolioCurrentValue, summary.DisplayValuation)
+	if quality.Availability == "" && summary.ValuedSubtotal != nil {
+		amount = valuationMoney(view, *summary.ValuedSubtotal, false)
+	}
+	value := func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space2}).Layout(gtx,
+			ui.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
+			ui.Rigid(view.Body(ui.TextMoneyLG, amount, view.Colors.Ink)),
+		)
+	}
+	evidence := func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				base := fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency)
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
+					layout.Rigid(view.Body(ui.TextCaption, base, view.Colors.SecondaryInk)),
+				)
+			}),
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return overviewEvidence(gtx, view, quality, i18n.OverviewQuoteDates)
+			}),
+		)
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 465) {
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+							layout.Flexed(1, value), layout.Rigid(evidence))
+					}
+					return (ui.Column{Gap: ui.Space8}).Layout(gtx, ui.Rigid(value), ui.Rigid(evidence))
+				})}
+				if !summary.Complete && len(summary.MissingInputs) != 0 {
+					note := fmt.Sprintf(l.Text(i18n.PortfolioSummaryCoverage), len(summary.MissingInputs))
+					rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, note, view.Colors.WarningInk)))
+				}
+				return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
+			})
+		})
 	}
 }
 

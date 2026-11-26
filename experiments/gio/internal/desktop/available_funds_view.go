@@ -302,16 +302,10 @@ func fundsHorizonUsesEarly(sources []application.LiquidityReadSource, day string
 }
 
 func (p *availableFundsPage) fundsQuickActions(view ui.View) layout.Widget {
-	actions := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
-		view.Focus.Watch(gtx, &p.jumpSources)
-		return view.ButtonOf(&p.jumpSources, ui.ButtonSpec{
-			Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.FundsSources),
-		})(gtx)
-	}}
-	if p.reservationLedger != nil {
-		actions = append(actions, p.globalReservationButton(view, &p.manageReservations))
-	}
-	return fundsWrappedActions(actions)
+	button := view.ButtonOf(&p.jumpSources, ui.ButtonSpec{
+		Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.FundsSources),
+	})
+	return func(gtx layout.Context) layout.Dimensions { return layout.W.Layout(gtx, button) }
 }
 
 func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.LiquidityBucket, counts [fundsFilterCount]int) layout.Widget {
@@ -327,13 +321,23 @@ func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.Liq
 				filters = append(filters, filter)
 			}
 		}
-		children := []layout.FlexChild{layout.Rigid(view.Body(ui.TextHeading, fmt.Sprintf(l.Text(i18n.FundsSourcesByDate), historyDay(view, bucket.HorizonOn)), view.Colors.Ink))}
+		title := fmt.Sprintf(l.Text(i18n.FundsSourcesByDate), historyDay(view, bucket.HorizonOn))
+		header := []layout.Widget{view.Body(ui.TextHeading, title, view.Colors.Ink)}
+		if p.reservationLedger != nil {
+			header = append(header, p.globalReservationButton(view, &p.manageReservations))
+		}
+		children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return (ui.Wrap{Gap: ui.Space12, Middle: true}).Layout(gtx, len(header), func(gtx layout.Context, i int) layout.Dimensions {
+				return header[i](gtx)
+			})
+		})}
 		switch {
 		case counts[fundsExcluded] == counts[fundsAll]:
 			children = append(children, layout.Rigid(view.Message(l.Text(i18n.FundsAllExcluded), view.Colors.SecondaryInk)))
 		case allLocked:
 			children = append(children, layout.Rigid(view.Message(l.Text(i18n.FundsAllLocked), view.Colors.SecondaryInk)))
-		case bucket.Status != domain.StatusComplete:
+		}
+		if bucket.Status != domain.StatusComplete && counts[fundsExcluded] < counts[fundsAll] {
 			children = append(children, layout.Rigid(view.Message(l.Text(i18n.FundsSourcesNeedInfo), view.Colors.SecondaryInk)))
 			if p.state.filter != fundsNeedsInfo && counts[fundsNeedsInfo] > 0 {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -344,6 +348,9 @@ func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.Liq
 					return view.ButtonOf(&p.controls.needsInfo, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(i18n.FundsShowNeedsInfo)})(gtx)
 				}))
 			}
+		}
+		for _, warning := range bucket.Warnings {
+			children = append(children, layout.Rigid(view.Message(l.Text(fundsReason(warning)), view.Colors.SecondaryInk)))
 		}
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.TabTrack(gtx, len(filters), func(gtx layout.Context, i int) layout.Dimensions {

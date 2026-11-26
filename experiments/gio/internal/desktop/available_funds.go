@@ -335,14 +335,21 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 	if len(groups) != 1 || groups[0].Currency != overview.BaseCurrency {
 		rows = append(rows, fundsBaseSummary(view, overview.BaseCurrency, bucket))
 	}
-	if len(groups) != 0 {
-		rows = append(rows, fundsBreakdown(view, groups, data.native[bucket.HorizonOn]))
-	}
-	for _, warning := range bucket.Warnings {
-		rows = append(rows, view.Message(view.Language.Text(fundsReason(warning)), view.Colors.SecondaryInk))
+	if len(groups) != 0 || len(data.report.Sources) != 0 {
+		horizon := fundsHorizon{bucket: bucket, label: i18n.FundsHorizonToday}
+		for _, option := range p.fundsHorizons() {
+			if option.bucket.HorizonOn == bucket.HorizonOn {
+				horizon = option
+				break
+			}
+		}
+		rows = append(rows, fundsBreakdown(view, horizon, data.native[bucket.HorizonOn]))
 	}
 	sourcesIndex := -1
 	if len(data.report.Sources) == 0 {
+		for _, warning := range bucket.Warnings {
+			rows = append(rows, view.Message(view.Language.Text(fundsReason(warning)), view.Colors.SecondaryInk))
+		}
 		rows = append(rows, view.Message(view.Language.Text(i18n.FundsEmpty), view.Colors.SecondaryInk))
 	} else {
 		counts := countFundsSources(data.report.Sources, bucket.HorizonOn)

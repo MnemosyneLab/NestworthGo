@@ -1,6 +1,8 @@
 package desktop
 
 import (
+	"fmt"
+
 	"gioui.org/layout"
 	"gioui.org/op"
 
@@ -63,12 +65,13 @@ func (p *tasksPage) upcomingRows(view ui.View, rows []layout.Widget, items []dom
 			continue
 		}
 		if p.upcomingFilter == taskUpcomingAll {
-			n, heading := &scheduled, i18n.TasksScheduled
+			n, heading, count := &scheduled, i18n.TasksScheduled, p.current.Counts.Scheduled
 			if row.Group == "attention" {
-				n, heading = &attention, i18n.TasksAttention
+				n, heading, count = &attention, i18n.TasksAttention, p.current.Counts.Attention
 			}
 			if *n == 0 {
-				rows = append(rows, tradeTitle(view, heading))
+				label := fmt.Sprintf("%s · %d", view.Language.Text(heading), count)
+				rows = append(rows, view.Body(ui.TextHeading, label, view.Colors.Ink))
 			}
 			if *n >= limit {
 				more = true

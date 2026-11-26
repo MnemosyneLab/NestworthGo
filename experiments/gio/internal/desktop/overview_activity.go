@@ -34,18 +34,13 @@ type overviewUpcoming struct {
 }
 
 type overviewTaskCounts struct {
-	request             <-chan historyResult[overviewCountResult]
+	request             <-chan historyResult[taskReviewReconciliationCounts]
 	cancel              context.CancelFunc
 	review, sessions    *int
 	reviewErr, reconErr error
 	dirty               bool
 	links               [3]widget.Clickable
 	retry               widget.Clickable
-}
-
-type overviewCountResult struct {
-	review, sessions    int
-	reviewErr, reconErr error
 }
 
 func (u *overviewUpcoming) retire() {
@@ -126,16 +121,8 @@ func (p *overviewPage) updateTaskSummary() {
 	}
 	ctx, cancel := context.WithCancel(p.ctx)
 	s.cancel, s.dirty = cancel, false
-	s.request = runHistoryRead(&p.workers, p.invalidate, func() (overviewCountResult, error) {
-		page, reviewErr := u.checks.ListReviewAlertGroupsV2(ctx, domain.ReviewAlertFilter{Status: "unignored"}, "", 50)
-		sessions, reconErr := u.checks.ListReconciliationSessions(ctx)
-		open := 0
-		for _, session := range sessions {
-			if session.Status == "in_progress" || session.Status == "paused" {
-				open++
-			}
-		}
-		return overviewCountResult{review: page.Summary.ActionableRules, sessions: open, reviewErr: reviewErr, reconErr: reconErr}, nil
+	s.request = runHistoryRead(&p.workers, p.invalidate, func() (taskReviewReconciliationCounts, error) {
+		return readReviewAndReconciliationCounts(ctx, u.checks), nil
 	})
 }
 
@@ -147,7 +134,6 @@ func (p *overviewPage) overviewTaskSummary(view ui.View) layout.Widget {
 		attention = &u.current.Counts.Attention
 	}
 	counts := [3]*int{attention, s.review, s.sessions}
-	formats := [3]i18n.MessageID{i18n.OverviewTaskAttention, i18n.OverviewTaskReview, i18n.OverviewTaskSessions}
 	fields := []ui.ColumnChild{ui.Rigid(view.Hairline), ui.Rigid(tradeTitle(view, i18n.NavTasks))}
 	for i, count := range counts {
 		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -158,7 +144,7 @@ func (p *overviewPage) overviewTaskSummary(view ui.View) layout.Widget {
 			}
 			label := l.Text(taskTabLabels[i])
 			if count != nil {
-				label = fmt.Sprintf(l.Text(formats[i]), *count)
+				label = fmt.Sprintf(l.Text(taskSummaryLabels[i]), *count)
 			}
 			return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: label}))
 		}))

@@ -75,13 +75,25 @@ func fundsBaseSummary(view ui.View, code domain.CurrencyCode, bucket *domain.Liq
 	})
 }
 
-func fundsBreakdown(view ui.View, groups []domain.NativeCurrencyGroup, amounts map[domain.CurrencyCode]application.LiquidityNativeAmounts) layout.Widget {
+func fundsBreakdown(view ui.View, horizon fundsHorizon, amounts map[domain.CurrencyCode]application.LiquidityNativeAmounts) layout.Widget {
 	l := view.Language
+	groups := horizon.bucket.NativeCurrencyGroups
+	window := l.Text(horizon.label) + " · " + historyDay(view, horizon.bucket.HorizonOn)
 	labels := [...]i18n.MessageID{i18n.FundsNativeCash, i18n.FundsNativeProceeds, i18n.FundsApplied, i18n.FundsAvailableAfter}
 	return func(gtx layout.Context) layout.Dimensions {
 		wide := gtx.Constraints.Max.X >= gtx.Dp(ui.BreakpointCompact)
-		rows := []layout.FlexChild{layout.Rigid(tradeTitle(view, i18n.FundsNativeBreakdown))}
-		if wide {
+		headings := [...]layout.Widget{
+			tradeTitle(view, i18n.FundsNativeBreakdown),
+			view.Body(ui.TextCaption, window, view.Colors.SecondaryInk),
+		}
+		rows := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, len(headings), func(gtx layout.Context, i int) layout.Dimensions {
+				return headings[i](gtx)
+			})
+		})}
+		if len(groups) == 0 {
+			rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.OverviewFundsUnknownAmount), view.Colors.SecondaryInk)))
+		} else if wide {
 			rows = append(rows, layout.Rigid(fundsCompactRow(view, true, false, func(gtx layout.Context) layout.Dimensions {
 				var cells [5]layout.Widget
 				cells[0] = view.Message(l.Text(i18n.FundsBreakdownCurrency), view.Colors.SecondaryInk)

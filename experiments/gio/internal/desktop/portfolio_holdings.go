@@ -35,21 +35,19 @@ type portfolioHoldingActions struct {
 	toggle, instrument, account, history, returns, changes widget.Clickable
 }
 
-const holdingTableWidth = 780
+const holdingTableWidth = 736
 
 var holdingTableInset = layout.Inset{Left: ui.Space12, Right: ui.Space12}
 
-// Both the header and each virtualized row use these same column widths.
+// Headers, native subtotals, and holding rows use the same widths.
 func holdingTableColumns(gtx layout.Context, cell func(layout.Context, int) layout.Dimensions, actions layout.Widget) layout.Dimensions {
-	weights := [holdingSortCount]float32{2.5, 1, 1.28, 1.42, 1.55}
+	weights := [holdingSortCount]float32{32, 13, 16, 16, 16}
 	var children [holdingSortCount + 1]layout.FlexChild
 	for index, weight := range weights {
 		children[index] = layout.Flexed(weight, func(gtx layout.Context) layout.Dimensions { return cell(gtx, index) })
 	}
-	children[holdingSortCount] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		width := min(gtx.Dp(82), gtx.Constraints.Max.X)
-		gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
-		return layout.E.Layout(gtx, actions)
+	children[holdingSortCount] = layout.Flexed(7, func(gtx layout.Context) layout.Dimensions {
+		return layout.Center.Layout(gtx, actions)
 	})
 	return (layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}).Layout(gtx, children[:]...)
 }
@@ -325,12 +323,14 @@ func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count 
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		wide := compact && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth)
+		if compact && len(subtotals) > 0 && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth) {
+			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+				inset := holdingTableInset
+				inset.Top, inset.Bottom = ui.Space8, ui.Space8
+				return inset.Layout(gtx, holdingSubtotalTable(view, disclosure, subtotals))
+			})
+		}
 		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-			if wide && len(subtotals) > 0 {
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
-					layout.Flexed(1, disclosure), layout.Flexed(2.2, holdingSubtotalTable(view, subtotals)))
-			}
 			fields := []ui.ColumnChild{ui.Rigid(disclosure)}
 			for _, subtotal := range subtotals {
 				currency := subtotal.Currency.String()
@@ -343,21 +343,26 @@ func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count 
 	}
 }
 
-func holdingSubtotalTable(view ui.View, subtotals []domain.HoldingCurrencySubtotal) layout.Widget {
+func holdingSubtotalTable(view ui.View, disclosure layout.Widget, subtotals []domain.HoldingCurrencySubtotal) layout.Widget {
 	l, colors := view.Language, view.Colors
-	columns := func(first layout.Widget, amounts [3]layout.Widget) ui.ColumnChild {
+	blank := func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{Size: gtx.Constraints.Min} }
+	columns := func(first, currency layout.Widget, amounts [3]layout.Widget) ui.ColumnChild {
+		cells := [...]layout.Widget{first, currency, amounts[0], amounts[1], amounts[2]}
 		return ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-				layout.Flexed(0.45, first), layout.Flexed(1, amounts[0]), layout.Flexed(1.2, amounts[1]), layout.Flexed(1.4, amounts[2]))
+			return holdingTableColumns(gtx, func(gtx layout.Context, i int) layout.Dimensions {
+				return cells[i](gtx)
+			}, blank)
 		})
 	}
 	var captions [3]layout.Widget
 	for i, label := range [...]i18n.MessageID{i18n.PortfolioCost, i18n.PortfolioNativeValue, i18n.PortfolioUnrealized} {
 		captions[i] = func(gtx layout.Context) layout.Dimensions {
-			return layout.E.Layout(gtx, view.Body(ui.TextCaption, holdingMetricLabel(l, label), colors.SecondaryInk))
+			return (layout.Inset{Right: ui.Space8}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return view.LineEnd(gtx, ui.TextCaption, holdingMetricLabel(l, label), colors.SecondaryInk)
+			})
 		}
 	}
-	rows := []ui.ColumnChild{columns(view.Body(ui.TextCaption, l.Text(i18n.AnalysisCurrency), colors.SecondaryInk), captions)}
+	rows := []ui.ColumnChild{columns(disclosure, view.Body(ui.TextCaption, l.Text(i18n.AnalysisCurrency), colors.SecondaryInk), captions)}
 	for _, subtotal := range subtotals {
 		currency := subtotal.Currency.String()
 		name := fmt.Sprintf(l.Text(i18n.PortfolioCurrencySubtotal), currency)
@@ -371,12 +376,10 @@ func holdingSubtotalTable(view ui.View, subtotals []domain.HoldingCurrencySubtot
 				if metric.reason != "" {
 					name += " · " + l.Text(holdingMissingReason(metric.reason))
 				}
-				return semanticRow(gtx, name, func(gtx layout.Context) layout.Dimensions {
-					return view.LineEnd(gtx, ui.TextLabel, metric.value, metric.ink)
-				})
+				return holdingAmountCell(gtx, view, name, metric)
 			}
 		}
-		rows = append(rows, columns(label, amounts))
+		rows = append(rows, columns(blank, label, amounts))
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
@@ -511,9 +514,7 @@ func (p *portfolioPage) compactHoldingRow(gtx layout.Context, view ui.View, iden
 						return identity(gtx)
 					}
 					field := metrics[index-1]
-					return semanticRow(gtx, fmt.Sprintf(l.Text(field.label), field.value), func(gtx layout.Context) layout.Dimensions {
-						return view.LineEnd(gtx, ui.TextLabel, field.value, field.ink)
-					})
+					return holdingAmountCell(gtx, view, fmt.Sprintf(l.Text(field.label), field.value), field)
 				}, p.holdingActionToggle(view, id, name, true))
 			})
 		}),
@@ -537,6 +538,14 @@ func (p *portfolioPage) compactHoldingRow(gtx layout.Context, view ui.View, iden
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return holdingTableInset.Layout(gtx, links) }))
 	}
 	return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
+}
+
+func holdingAmountCell(gtx layout.Context, view ui.View, label string, metric holdingMetric) layout.Dimensions {
+	return (layout.Inset{Right: ui.Space8}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return semanticRow(gtx, label, func(gtx layout.Context) layout.Dimensions {
+			return view.LineEnd(gtx, ui.TextLabel, metric.value, metric.ink)
+		})
+	})
 }
 
 func (p *portfolioPage) holdingActions(id portfolioHoldingKey) *portfolioHoldingActions {

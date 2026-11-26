@@ -1484,6 +1484,8 @@ const (
 	PortfolioNoMatches
 	PortfolioInstrumentUnavailable
 	PortfolioValue
+	PortfolioCurrentValue
+	PortfolioSummaryCoverage
 	PortfolioCost
 	PortfolioNativeValue
 	PortfolioCurrentPrice
@@ -1928,6 +1930,7 @@ const (
 	TasksAccessEligible
 	TasksEligibilityOn
 	TasksDataChecks
+	TasksOpenDataMaintenance
 	TasksPolicyLink
 	TasksReservationLink
 	TasksTargetMissing

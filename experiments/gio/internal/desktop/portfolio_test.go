@@ -312,7 +312,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	other := ids.instruments["QA-FX"]
 	h.frame()
 	click("Investment assets")
-	label("Portfolio value · Known subtotal")
+	label("Current investment value · Known subtotal")
 	visit := h.shell.trail.current().id
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
 	settle()

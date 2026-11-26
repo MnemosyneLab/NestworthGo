@@ -85,6 +85,7 @@ type tasksPage struct {
 	checks         taskChecksReader
 	tab            tasksTab
 	tabs           [len(taskTabLabels)]widget.Clickable
+	taskBadges     taskCategoryBadges
 	review         *domain.ReviewAlertPage
 	reviewCursors  []string
 	reviewAck      taskReviewAcknowledgement
@@ -211,6 +212,7 @@ func (p *tasksPage) read() {
 }
 
 func (p *tasksPage) update() {
+	p.updateTaskBadges()
 	select {
 	case result := <-p.request:
 		p.leave()
@@ -257,6 +259,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 		}
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
+		p.invalidateTaskBadges()
 		if p.tab == tasksInvestment && len(p.reviewCursors) > 0 {
 			p.enter(tasksVisit{tab: p.tab}, 0)
 		} else {
@@ -277,7 +280,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 						return tradeTitle(view, i18n.TasksUpcomingActions)(gtx)
 					}
 					return view.TabTrack(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
-						return view.TabSegment(&p.tabs[i], l.Text(taskTabLabels[i]), p.tab == tasksTab(i))(gtx)
+						return p.taskTabButton(gtx, view, tasksTab(i))
 					})
 				}),
 				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
@@ -353,19 +356,7 @@ func (p *tasksPage) rows(view ui.View) []layout.Widget {
 			}
 		}
 	}
-	if data.Counts.DataChecks > 0 || data.Counts.ScopeNotes > 0 {
-		details := fmt.Sprintf(l.Text(i18n.TasksDataChecks), data.Counts.DataChecks, data.Counts.ScopeNotes)
-		rows = append(rows, view.Message(details, view.Colors.SecondaryInk))
-		if p.upcomingLinks.openHealth != nil {
-			rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-				if p.upcomingHealth.Clicked(gtx) {
-					p.upcomingLinks.openHealth(healthFindingFocus{}, &p.upcomingHealth)
-					gtx.Execute(op.InvalidateCmd{})
-				}
-				return returnMonthButton(view, &p.upcomingHealth, i18n.HealthOpen, nil, true)(gtx)
-			})
-		}
-	}
+	rows = append(rows, p.upcomingDataMaintenance(view, data.Counts))
 	return rows
 }
 

@@ -176,7 +176,7 @@ func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSo
 	}
 	return holdingTableInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return holdingTableColumns(gtx, column, func(gtx layout.Context) layout.Dimensions {
-			return view.LineEnd(gtx, ui.TextCaption, l.Text(i18n.MarketMoreActions), view.Colors.SecondaryInk)
+			return view.Line(gtx, ui.TextCaption, l.Text(i18n.FundsActionColumn), view.Colors.SecondaryInk)
 		})
 	})
 }
