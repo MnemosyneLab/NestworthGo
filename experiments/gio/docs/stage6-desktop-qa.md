@@ -21,8 +21,31 @@ identical at both revisions.
 All three fixture pairs matched their source across 23 authoritative ledger,
 quote and history-origin tables after the run. Automated independent-copy
 tests exercise CoinGecko key save and removal with a synthetic token and zero
-provider HTTP requests. Integrated provider authentication, native mixed
-provider repair/retry, VoiceOver, IME and Wayland remain open.
+provider HTTP requests. Integrated provider authentication, VoiceOver, IME
+and Wayland remain open.
+
+## macOS card statements, market performance and refresh
+
+The second arm64 macOS run used independent copies of four synthetic ledgers.
+The stock Gio card build was `4b314536b6f8fc9e75a92a7f731b0a700210983c`.
+The stock Gio instrument performance build was
+`22ac62fa5deb3eed04c41058de67b32224e98ad8`. The stock Wails reference and both
+Asset Changes bundles were built at `9c80ee9b3d4ee21ff8f2a49ce3cd664a98fded74`.
+Both mixed-refresh bundles used `d8cad269f28f62160b6ab2df357b7ee349514531`
+with in-process provider substitutes. The Wails application and shared quote
+and analysis services were unchanged between these revisions.
+
+| Workflow | Packaged macOS result |
+| --- | --- |
+| Credit-card statement → journal | Both account entries opened the same one-card session. Cancelling the draft or preview preserved the balance, activity, linked evidence and receipts. A USD 2.3456 synthetic purchase moved the signed balance from −USD 42.3456 to −USD 44.6912 with one additional linked activity. The other account stayed at USD 100. Reopen recovered both journal entries. Gio opened the exact new receipt, then Back restored the receipt row and the original card statement action. |
+| Instrument market performance | Both stock apps showed PERF up 20.00% over October 26–November 25 and up 50.00% over all saved history. The EUR close table retained the exact 80 and 120 endpoints. The EUR 999 intraday observation stayed outside the performance series. Both showed unavailable 30-day performance for SPARSE alongside its saved observations. Gio Forward restored the selected All range and open table. From the Performance Brokerage holding, Back restored the initiating link and Forward reopened that scoped instrument. Performance and Asset Changes preserved the checked authoritative ledger and quote tables. |
+| Current instrument and FX refresh | Cancel stored zero quotes. The next attempt saved USD 17.12345678 from Yahoo Finance and JPY/USD 140.4321 from Frankfurter, and reported SGD/USD failed. Retry added only SGD/USD 1.3456. The two earlier observations kept their original timestamps. Both apps showed the exact price and provider in Quote history and displayed both FX values after reopen. Each local substitute used its app's clock for the quote timestamp. |
+| Return Calendar → Asset Changes → Contribution | Both returned the same October 2 portfolio price change and contribution of USD 93.75. The selected day survived both handoffs. Back restored the original October calendar and Gio restored focus to the price driver and the day button. |
+
+A separate Gio regression fixes the clock at December 1, 2026 16:30 UTC
+(December 2 in Singapore). With a November 20 History Origin, the shortcuts
+select November 30, December 1 and November 20. A December 1 Origin clamps
+the initial capture to December 1 and disables the month-end shortcut.
 
 ## Reproduce the automated pair
 
@@ -33,6 +56,8 @@ From the repository root, run:
   -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(WealthCapture|Stage6PairedContributionShowsFullLedgerScope|DataHealthCredentialHandoffRechecksSameProviderOnBothDesktops)')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(CreditCardStatementHandoffReusesLedgerAndJournal|PortfolioInstrumentPerformanceMatchesWails|InstrumentPerformanceChartRespectsPriceBasisAndDenomination)')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1

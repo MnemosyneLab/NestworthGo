@@ -3377,10 +3377,12 @@ choices remain selected.
   [paired macOS run](stage6-desktop-qa.md#macos-acceptance-on-november-26-2026)
   covered Contribution → Ledger with native valuation, the Harbor dividend and
   the broader currency breakdown.
-  Compare Wealth History with priced and missing inputs, preserving date and
-  quote/FX provenance. Verify Market Data partial refresh and Data Health
-  retried and stale provider repair plans with a deterministic local provider.
-  The macOS run covered cancellation and confirmation of a local dated snapshot.
+  The [second macOS run](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh)
+  covered the portfolio day handoffs and mixed latest refresh with local
+  providers. The account-filtered Calendar and Asset Changes pair still needs
+  native Wails verification. Compare Wealth History with priced and missing
+  inputs, preserving date and quote/FX provenance. Verify retried and stale
+  historical provider repair plans with a deterministic local provider.
   Check the exact values, scopes, failures, coverage and readback after reopen.
 - Exercise wide and compact layouts and keyboard traversal on the target
   platforms. Native macOS with VoiceOver and IME, Linux Wayland and paired
@@ -3399,8 +3401,8 @@ macOS-specific interactions in the last column.
 | Priority and flow | Automated reference | Remaining packaged desktop check | Native macOS check |
 | --- | --- | --- | --- |
 | 1. Data Health finding → preview → cancel or repair → recheck | Shared snapshot and repair tests plus Gio cancellation and batch retry cases. | Compare the selected dates and provider target, cancel before posting, stop mid-run, recover after a stale plan, and verify the repaired dates after quit and reopen. | Verify native window close during confirmation, focus after dismissal, and reopen from the bundled app. |
-| 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | Force one target to fail, confirm that the successful quote is visible, retry the failed target only, and compare the stored source and date in Quote history. | Verify progress and failure sheets, compact scrolling, and VoiceOver announcements. |
-| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes, with the same day, filters and visible focus after Back. The interactive Wails comparison remains open. | Verify native Back keyboard commands and focus in the Calendar side sheet. |
+| 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | The [paired macOS run](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh) passed cancel, partial refresh, retry, quote provenance and reopen. | Verify compact scrolling and VoiceOver announcements. |
+| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes, with the same day, filters and visible focus after Back. The [macOS pair](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh) matched the portfolio workflow. | Verify the account-filtered scope, native Back keyboard commands and focus in the Calendar side sheet. |
 | 4. Change Drivers → Contribution → Ledger → Back | [Change Drivers to Contribution](#change-drivers-to-contribution) and [independent-copy Contribution to Ledger](#paired-contribution-to-exact-ledger-record) cover the two handoffs. | Verify the combined workflow across paired interactive apps. | Verify search composition with native IME and screen reader focus after Back. |
 | 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
@@ -3409,6 +3411,8 @@ macOS-specific interactions in the last column.
 The [fixture exporter and desktop procedure](stage6-desktop-qa.md) produce
 independent SQLite copies for stock macOS snapshot repair and Market Data
 readback. Recorded Linux results and automated Wails evidence are below.
+The [macOS pair](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh)
+also verified mixed refresh with in-process providers.
 
 | Workflow | Paired automated evidence | Packaged Linux X11 evidence |
 | --- | --- | --- |
