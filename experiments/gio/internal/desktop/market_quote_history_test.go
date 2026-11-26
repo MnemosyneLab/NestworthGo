@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gioui.org/io/key"
+	"gioui.org/layout"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -24,6 +25,24 @@ import (
 type marketHistoryFailOnce struct {
 	*application.Service
 	fxCalls atomic.Int32
+}
+
+func TestMarketQuoteHistoryTableRetainsUnplottedCurrency(t *testing.T) {
+	observation := domain.QuoteSeriesPoint{Value: "12.34567891", Currency: "EUR", EffectiveDate: "2026-11-20"}
+	history := &marketQuoteHistory{result: &marketQuoteHistoryRead{location: time.UTC, series: domain.QuoteSeries{
+		Range: domain.TrendAllTime, DisplayCurrency: "USD", Points: []domain.QuoteSeriesPoint{observation},
+		Observations: []domain.QuoteSeriesPoint{observation},
+	}}}
+	h := newShellHarness(t)
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.shell.trail = newNavigationTrail(componentPreviewRoute)
+	h.shell.routes[componentPreviewRoute].body = func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return quoteHistoryChart(view, history)(gtx)
+	}
+	h.frame()
+	h.click("View data table", false)
+	h.frame()
+	assertPageLabel(t, &h.router, "EUR 12.34567891")
 }
 
 func (r *marketHistoryFailOnce) FXQuoteSeries(ctx context.Context, a, b domain.CurrencyCode, window domain.TrendRange, filter domain.QuoteSourceFilter) (domain.QuoteSeries, error) {

@@ -1500,6 +1500,8 @@ var simplifiedChineseCatalog = catalog{
 	PortfolioMyHoldings:               "我的持仓",
 	PortfolioInstrumentHoldings:       "持仓",
 	PortfolioInstrumentData:           "数据",
+	PortfolioPriceHistory:             "价格历史",
+	PortfolioFXHistory:                "汇率历史",
 	PortfolioCatalogDetails:           "详情",
 	PortfolioCatalogOpen:              "打开标的 · %s",
 	PortfolioCatalogManage:            "管理标的",

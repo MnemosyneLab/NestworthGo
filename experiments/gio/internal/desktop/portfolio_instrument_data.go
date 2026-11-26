@@ -24,15 +24,19 @@ const (
 var instrumentDetailLabels = [...]i18n.MessageID{i18n.PortfolioInstrumentHoldings, i18n.PortfolioInstrumentData}
 
 type instrumentDetailVisit struct {
-	section   instrumentDetailSection
-	positions [len(instrumentDetailLabels)]layout.Position
+	section    instrumentDetailSection
+	positions  [len(instrumentDetailLabels)]layout.Position
+	historyTab instrumentHistoryTab
+	histories  [len(instrumentHistoryLabels)]instrumentHistoryVisit
 }
 
 type portfolioInstrumentDetail struct {
-	visit                   instrumentDetailVisit
-	tabs                    [len(instrumentDetailLabels)]widget.Clickable
-	history, source, manual widget.Clickable
-	market                  *marketDataPage
+	visit          instrumentDetailVisit
+	tabs           [len(instrumentDetailLabels)]widget.Clickable
+	historyTabs    [len(instrumentHistoryLabels)]widget.Clickable
+	histories      [len(instrumentHistoryLabels)]*marketQuoteHistory
+	source, manual widget.Clickable
+	market         *marketDataPage
 }
 
 func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -72,7 +76,7 @@ func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui
 
 func (p *portfolioPage) instrumentDataRows(view ui.View, instrument domain.Instrument) []layout.Widget {
 	r, l := p.current, view.Language
-	return []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
 		price := l.Text(i18n.PortfolioPriceMissing)
 		var fields []ui.ColumnChild
 		if q := r.price; q != nil {
@@ -99,6 +103,10 @@ func (p *portfolioPage) instrumentDataRows(view ui.View, instrument domain.Instr
 		}
 		return overviewBreakdownCard(gtx, view, fields)
 	}}
+	if p.detail.market != nil && p.detail.market.quoteHistoryReader != nil && p.request == nil && p.err == nil {
+		rows = append(rows, p.instrumentHistoryRows(view, instrument)...)
+	}
+	return rows
 }
 
 func (p *portfolioPage) instrumentDataActions(view ui.View, instrument domain.Instrument) layout.Widget {
@@ -106,15 +114,11 @@ func (p *portfolioPage) instrumentDataActions(view ui.View, instrument domain.In
 	return func(gtx layout.Context) layout.Dimensions {
 		market := detail.market
 		ready := p.request == nil && p.err == nil
-		target := marketQuoteHistoryTarget{instrument: instrument.ID, name: instrument.DisplayLabel()}
 		var actions []layout.Widget
-		if market.quoteHistoryReader != nil {
-			actions = append(actions, market.quoteHistoryAction(gtx, view, target, &detail.history, ready))
-		}
 		if market.instrumentSources != nil && instrument.ArchivedAt == nil {
 			canEdit := ready && !market.providerBusy()
 			if canEdit && detail.source.Clicked(gtx) {
-				market.openInstrumentSource(instrument.ID, target.name, &detail.source)
+				market.openInstrumentSource(instrument.ID, instrument.DisplayLabel(), &detail.source)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			actions = append(actions, returnMonthButton(view, &detail.source, i18n.InstrumentBindingOpen, nil, canEdit))

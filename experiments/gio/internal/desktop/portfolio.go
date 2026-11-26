@@ -173,6 +173,7 @@ func (p *portfolioPage) enterScoped(id domain.InstrumentID, account domain.Accou
 func (p *portfolioPage) leave() {
 	p.retireRead()
 	p.allocation.retireTrend()
+	p.detail.retireHistories()
 }
 
 func (p *portfolioPage) retireRead() {

@@ -78,21 +78,25 @@ func (p *marketDataPage) openQuoteHistory(visit marketQuoteHistoryVisit) {
 	p.closeQuoteHistory()
 	p.quoteHistory = &marketQuoteHistory{visit: visit, sheet: newAnalysisSheet()}
 	p.quoteHistory.sheet.list.Position = visit.scroll
-	p.readQuoteHistory()
+	p.readQuoteHistory(p.quoteHistory)
 }
 
 func (p *marketDataPage) closeQuoteHistory() {
-	if d := p.quoteHistory; d != nil && d.cancel != nil {
-		d.cancel()
+	if d := p.quoteHistory; d != nil {
+		d.retireRead()
 	}
 	p.quoteHistory = nil
 }
 
-func (p *marketDataPage) readQuoteHistory() {
-	d := p.quoteHistory
+func (d *marketQuoteHistory) retireRead() {
 	if d.cancel != nil {
 		d.cancel()
 	}
+	d.request, d.cancel = nil, nil
+}
+
+func (p *marketDataPage) readQuoteHistory(d *marketQuoteHistory) {
+	d.retireRead()
 	ctx, cancel := context.WithCancel(p.ctx)
 	d.cancel, d.err = cancel, nil
 	visit := d.visit
@@ -109,8 +113,8 @@ func (p *marketDataPage) readQuoteHistory() {
 func (d *marketQuoteHistory) update() {
 	select {
 	case response := <-d.request:
-		d.cancel()
-		d.request, d.cancel, d.err = nil, nil, response.err
+		d.retireRead()
+		d.err = response.err
 		if response.err == nil {
 			d.result = &response.value
 			d.visit.window = response.value.window

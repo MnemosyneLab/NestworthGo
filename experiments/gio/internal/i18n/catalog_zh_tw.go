@@ -1500,6 +1500,8 @@ var traditionalChineseCatalog = catalog{
 	PortfolioMyHoldings:               "我的持倉",
 	PortfolioInstrumentHoldings:       "持倉",
 	PortfolioInstrumentData:           "資料",
+	PortfolioPriceHistory:             "價格歷史",
+	PortfolioFXHistory:                "匯率歷史",
 	PortfolioCatalogDetails:           "詳情",
 	PortfolioCatalogOpen:              "開啟標的 · %s",
 	PortfolioCatalogManage:            "管理標的",

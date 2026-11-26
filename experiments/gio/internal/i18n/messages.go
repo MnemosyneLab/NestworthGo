@@ -1472,6 +1472,8 @@ const (
 	PortfolioMyHoldings
 	PortfolioInstrumentHoldings
 	PortfolioInstrumentData
+	PortfolioPriceHistory
+	PortfolioFXHistory
 	PortfolioByInstrument
 	PortfolioCatalogDetails
 	PortfolioCatalogOpen

@@ -1499,6 +1499,8 @@ var japaneseCatalog = catalog{
 	PortfolioMyHoldings:               "保有銘柄",
 	PortfolioInstrumentHoldings:       "保有状況",
 	PortfolioInstrumentData:           "データ",
+	PortfolioPriceHistory:             "価格履歴",
+	PortfolioFXHistory:                "為替履歴",
 	PortfolioCatalogDetails:           "詳細",
 	PortfolioCatalogOpen:              "銘柄を開く · %s",
 	PortfolioCatalogManage:            "銘柄を管理",

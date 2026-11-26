@@ -74,7 +74,7 @@ func (p *marketDataPage) layoutQuoteHistory(gtx layout.Context, view ui.View, ma
 	if d.err != nil {
 		action = i18n.HistoryRetry
 		if d.sheet.action.Clicked(gtx) {
-			p.readQuoteHistory()
+			p.readQuoteHistory(d)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
@@ -102,26 +102,18 @@ func (p *marketDataPage) quoteHistoryContent(view ui.View, d *marketQuoteHistory
 		}
 		return view.Message(l.Text(status), view.Colors.SecondaryInk)
 	}
-	data := d.result
-	observations := data.series.Observations
-	ready := d.request == nil && d.err == nil
+	chart := quoteHistoryChart(view, d)
 	count := 1
-	if ready && len(observations) != 0 {
+	if chart != nil {
 		count = 2
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &d.sheet.list, l.Text(i18n.QuoteHistoryTitleList), count, func(gtx layout.Context, index int) layout.Dimensions {
 			switch index {
 			case 0:
-				return p.quoteHistoryControls(gtx, view, d, mayOpenHealth)
+				return p.quoteHistoryControls(gtx, view, d, mayOpenHealth, true)
 			case 1:
-				spec := quoteHistoryLine(view, data, d.visit.direction())
-				if len(spec.Series) == 0 {
-					return view.Message(l.Text(i18n.QuoteHistoryOffCurrency), view.Colors.SecondaryInk)(gtx)
-				}
-				return analysisLineCardTable(view, &d.chart, spec, &d.selected, &d.table, len(observations), func(charts.LineSpec) charts.Table {
-					return quoteHistoryTable(view, data, d.visit.direction())
-				})(gtx)
+				return chart(gtx)
 			default:
 				return layout.Dimensions{}
 			}
@@ -129,11 +121,34 @@ func (p *marketDataPage) quoteHistoryContent(view ui.View, d *marketQuoteHistory
 	}
 }
 
-func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, d *marketQuoteHistory, mayOpenHealth bool) layout.Dimensions {
+func quoteHistoryChart(view ui.View, d *marketQuoteHistory) layout.Widget {
+	data := d.result
+	if data == nil || d.request != nil || d.err != nil || len(data.series.Observations) == 0 {
+		return nil
+	}
+	pair := d.visit.direction()
+	return func(gtx layout.Context) layout.Dimensions {
+		if d.request != nil {
+			return layout.Dimensions{}
+		}
+		spec := quoteHistoryLine(view, data, pair)
+		table := func() charts.Table { return quoteHistoryTable(view, data, pair) }
+		if len(spec.Series) == 0 {
+			return overviewBreakdownCard(gtx, view, []ui.ColumnChild{
+				ui.Rigid(d.table.layout(view, len(data.series.Observations), table)),
+			})
+		}
+		return analysisLineCardTable(view, &d.chart, spec, &d.selected, &d.table, len(data.series.Observations), func(charts.LineSpec) charts.Table {
+			return table()
+		})(gtx)
+	}
+}
+
+func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, d *marketQuoteHistory, mayOpenHealth, showCurrent bool) layout.Dimensions {
 	data, l := d.result, view.Language
 	change := func() {
 		d.selected = charts.Selection{}
-		p.readQuoteHistory()
+		p.readQuoteHistory(d)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	for i := range d.filters {
@@ -207,14 +222,16 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 			message(fmt.Sprintf(l.Text(i18n.QuoteHistoryDirection), pair.first, pair.second)),
 			ui.Rigid(returnMonthButton(view, &d.swap, i18n.QuoteHistorySwap, nil, true)))
 	}
-	rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.QuoteHistoryCurrent), view.Colors.Ink)))
-	if data.current != nil {
-		rows = append(rows, message(quoteHistoryAmount(view, *data.current, data.storedPair, data.instrument)))
-		for _, line := range quoteHistoryEvidence(view, *data.current) {
-			rows = append(rows, message(line))
+	if showCurrent {
+		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.QuoteHistoryCurrent), view.Colors.Ink)))
+		if data.current != nil {
+			rows = append(rows, message(quoteHistoryAmount(view, *data.current, data.storedPair, data.instrument)))
+			for _, line := range quoteHistoryEvidence(view, *data.current) {
+				rows = append(rows, message(line))
+			}
+		} else {
+			rows = append(rows, message(l.Text(i18n.MarketNoQuote)))
 		}
-	} else {
-		rows = append(rows, message(l.Text(i18n.MarketNoQuote)))
 	}
 	var status i18n.MessageID
 	switch {

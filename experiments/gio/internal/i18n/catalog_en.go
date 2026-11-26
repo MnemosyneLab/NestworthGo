@@ -1500,6 +1500,8 @@ var englishCatalog = catalog{
 	PortfolioMyHoldings:               "My holdings",
 	PortfolioInstrumentHoldings:       "Holdings",
 	PortfolioInstrumentData:           "Data",
+	PortfolioPriceHistory:             "Price history",
+	PortfolioFXHistory:                "FX history",
 	PortfolioCatalogDetails:           "Details",
 	PortfolioCatalogOpen:              "Open instrument · %s",
 	PortfolioCatalogManage:            "Manage instrument",

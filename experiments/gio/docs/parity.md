@@ -102,10 +102,13 @@ comparison and the detailed metal-conversion evidence remain open.
 An ordinary instrument opens on Holdings. Data shows the selected quote at its
 stored precision with its source and timestamp. When the quote currency differs
 from the household base currency, it also shows the oriented exchange rate or
-its unavailable state. Quote history, quote source editing, and manual price
-entry open the same instrument-scoped sheets used by Market Data. Closing a
-sheet returns focus to its action. Back restores the active tab and any account
-scope. The Wails Performance tab remains open for Gio parity.
+its unavailable state. Price and FX histories use the same date and source
+controls, chart and exact observations table as the Market Data sheet. The FX
+history opens with the instrument currency converted to the household base
+currency and can show the reverse direction. Quote source editing and manual
+price entry reuse the scoped Market Data sheets and return focus to their
+action. Back restores the active tab, history settings and account scope. The
+Wails Performance tab remains open for Gio parity.
 
 ### Account positions
 

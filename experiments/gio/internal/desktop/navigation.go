@@ -505,7 +505,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 			entry.catalog = s.portfolio.catalog.visit()
 			entry.portfolioTabs = s.portfolio.portfolioTabsVisit()
 		} else {
-			entry.instrumentDetail = s.portfolio.detail.visit
+			entry.instrumentDetail = s.portfolio.detail.savedVisit()
 		}
 	case overviewRoute:
 		if s.overviewPage != nil {
