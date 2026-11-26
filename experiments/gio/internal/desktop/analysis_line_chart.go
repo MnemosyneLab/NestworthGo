@@ -36,6 +36,25 @@ func analysisLineCard(view ui.View, chart *charts.LineChart, spec charts.LineSpe
 	}
 }
 
+// analysisLineBody is the chart alone, for a section that already sits on a
+// card and has its own title.
+func analysisLineBody(view ui.View, chart *charts.LineChart, spec charts.LineSpec, selected *charts.Selection) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		current := spec
+		current.Selected = *selected
+		if gtx.Constraints.Max.X < gtx.Dp(analysisWideChartMinWidth) {
+			current.Height = 180
+		}
+		view.Focus.Watch(gtx, chart)
+		dims, events := chart.Layout(gtx, view, current)
+		if len(events) > 0 {
+			*selected = charts.Apply(*selected, events)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return dims
+	}
+}
+
 func analysisLineTableText(row charts.TextRow) string {
 	parts := []string{row.Detail[0], row.Value}
 	return strings.Join(append(parts, row.Detail[1:]...), " · ")

@@ -172,7 +172,9 @@ func overviewTrendSpec(view ui.View, trend *domain.NetWorthTrend) charts.LineSpe
 
 func (p *overviewPage) overviewTrendCard(gtx layout.Context, view ui.View, historyStarted bool) layout.Dimensions {
 	l, t := view.Language, &p.trend
-	rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.OverviewNetWorthTrend), view.Colors.Ink))}
+	header := []layout.FlexChild{layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		return view.Line(gtx, ui.TextHeading, l.Text(i18n.OverviewNetWorthTrend), view.Colors.Ink)
+	})}
 	if p.openHistory != nil {
 		label := i18n.OverviewOpenWealthHistory
 		if !historyStarted {
@@ -182,26 +184,27 @@ func (p *overviewPage) overviewTrendCard(gtx layout.Context, view ui.View, histo
 			p.openHistory(historyStarted, &t.history)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		rows = append(rows, ui.Rigid(returnMonthButton(view, &t.history, label, nil, true)))
+		header = append(header, layout.Rigid(returnMonthButton(view, &t.history, label, nil, true)))
 	}
+	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, header...)
+	})}
 	if !historyStarted {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryNoOrigin), view.Colors.SecondaryInk)))
 	} else if t.reader != nil {
 		rows = append(rows, p.overviewTrendRows(gtx, view)...)
 	}
-	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return (ui.Column{Gap: 8}).Layout(gtx, rows...)
-		})
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space12}).Layout(gtx, rows...)
 	})
 }
 
 func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.ColumnChild {
 	l, t := view.Language, &p.trend
 	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return (ui.Wrap{Gap: 8}).Layout(gtx, len(overviewTrendPeriods), func(gtx layout.Context, i int) layout.Dimensions {
+		return view.TabTrack(gtx, len(overviewTrendPeriods), func(gtx layout.Context, i int) layout.Dimensions {
 			option := overviewTrendPeriods[i]
-			return analysisToggle(view, &t.presets[i], l.Text(option.label), t.period == option.rangeID)(gtx)
+			return view.TabSegment(&t.presets[i], l.Text(option.label), t.period == option.rangeID)(gtx)
 		})
 	})}
 	switch {
@@ -232,7 +235,7 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	}
 	rows = append(rows,
 		ui.Rigid(view.Message(wealthDay(view, trend.StartDate)+" – "+wealthDay(view, trend.EndDate)+" · "+string(trend.Currency), view.Colors.SecondaryInk)),
-		ui.Rigid(view.Message(l.Text(change)+" · "+returnMoney(view, amount), view.Colors.Ink)),
+		ui.Rigid(view.Body(ui.TextLabel, l.Text(change)+" · "+returnMoney(view, amount), view.Colors.Ink)),
 		ui.Rigid(view.Message(caption, view.Colors.SecondaryInk)))
 	if gaps != 0 && p.openHealth != nil {
 		if t.gaps.Clicked(gtx) {
@@ -241,7 +244,7 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 		}
 		rows = append(rows, ui.Rigid(returnMonthButton(view, &t.gaps, i18n.OverviewTrendGaps, nil, true)))
 	}
-	rows = append(rows, ui.Rigid(analysisLineCard(view, &t.chart, overviewTrendSpec(view, trend), &t.selected)))
+	rows = append(rows, ui.Rigid(analysisLineBody(view, &t.chart, overviewTrendSpec(view, trend), &t.selected)))
 	for _, point := range trend.Points {
 		if charts.ID(point.LocalDate) == t.selected.Item && !point.Current && overviewTrendTotal(point) == nil && p.openHealth != nil {
 			if t.gap.Clicked(gtx) {

@@ -223,30 +223,58 @@ func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, tit
 	}
 	return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-		view.Focus.Watch(gtx, list)
-		event.Op(gtx.Ops, list)
-		for _, press := range ui.PressedKeys(gtx, list, key.NameUpArrow, key.NameDownArrow, key.NamePageUp, key.NamePageDown, key.NameHome, key.NameEnd) {
-			switch press.Name {
-			case key.NameUpArrow:
-				list.ScrollBy(-1)
-			case key.NameDownArrow:
-				list.ScrollBy(1)
-			case key.NamePageUp:
-				list.ScrollBy(-float32(max(1, list.Position.Count-1)))
-			case key.NamePageDown:
-				list.ScrollBy(float32(max(1, list.Position.Count-1)))
-			case key.NameHome:
-				list.ScrollTo(0)
-			case key.NameEnd:
-				list.ScrollTo(count - 1)
-			}
-		}
-		return accessibility.List(gtx, list, title, func(gtx layout.Context) layout.Dimensions {
-			return view.List(list).Layout(gtx, count, func(gtx layout.Context, i int) layout.Dimensions {
-				return layout.Inset{Top: 5, Bottom: 5, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return row(gtx, i)
-				})
+		return keyboardList(gtx, view, list, title, count, func(gtx layout.Context, i int) layout.Dimensions {
+			return layout.Inset{Top: 5, Bottom: 5, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return row(gtx, i)
 			})
 		})
+	})
+}
+
+// pageList is the scrolling body of a page whose rows are cards and sections.
+// Unlike analysisResultList it draws no panel of its own: the rows sit on the
+// page background, and the list extends into the page's right gutter so its
+// scrollbar rests against the window edge, as the Wails page scrollbar does.
+// Keyboard focus is shown as an accent outline.
+func pageList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {
+	list.Axis = layout.Vertical
+	bleed := gtx.Dp(pageInset.Right)
+	gtx.Constraints.Max.X += bleed
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+	dims := keyboardList(gtx, view, list, title, count, func(gtx layout.Context, i int) layout.Dimensions {
+		return layout.Inset{Right: pageInset.Right, Bottom: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return row(gtx, i)
+		})
+	})
+	if gtx.Focused(list) {
+		ui.StrokeRoundRect(gtx, image.Rectangle{Max: dims.Size}, ui.RadiusXL, 2, ui.WithAlpha(view.Colors.Accent, 0.5))
+	}
+	return dims
+}
+
+// keyboardList makes a list a single tab stop that scrolls with the arrow,
+// page, Home and End keys.
+func keyboardList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {
+	view.Focus.Watch(gtx, list)
+	event.Op(gtx.Ops, list)
+	for _, press := range ui.PressedKeys(gtx, list, key.NameUpArrow, key.NameDownArrow, key.NamePageUp, key.NamePageDown, key.NameHome, key.NameEnd) {
+		switch press.Name {
+		case key.NameUpArrow:
+			list.ScrollBy(-1)
+		case key.NameDownArrow:
+			list.ScrollBy(1)
+		case key.NamePageUp:
+			list.ScrollBy(-float32(max(1, list.Position.Count-1)))
+		case key.NamePageDown:
+			list.ScrollBy(float32(max(1, list.Position.Count-1)))
+		case key.NameHome:
+			list.ScrollTo(0)
+		case key.NameEnd:
+			list.ScrollTo(count - 1)
+		}
+	}
+	return accessibility.List(gtx, list, title, func(gtx layout.Context) layout.Dimensions {
+		return view.List(list).Layout(gtx, count, row)
 	})
 }

@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"slices"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/format"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -58,6 +60,7 @@ type overviewPage struct {
 	openHealth   func(healthFindingFocus, event.Tag)
 	openHistory  func(bool, event.Tag)
 	openAccounts func(event.Tag)
+	actions      []layout.Widget
 }
 
 func newOverviewPage(ctx context.Context, reader overviewReader, clock func() time.Time, invalidate func()) *overviewPage {
@@ -142,30 +145,13 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	children := []ui.ColumnChild{
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					label := i18n.HistoryRefresh
-					if p.err != nil {
-						label = i18n.HistoryRetry
-					}
-					if p.loading {
-						gtx = gtx.Disabled()
-					}
-					return view.Button(&p.reload, view.Language.Text(label))(gtx)
-				}),
-			)
-		}),
-	}
-	var actions []layout.Widget
+	p.actions = p.actions[:0]
 	if p.openHealth != nil {
 		if p.health.Clicked(gtx) {
 			p.openHealth(healthFindingFocus{}, &p.health)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		actions = append(actions, returnMonthButton(view, &p.health, i18n.NavDataHealth, nil, true))
+		p.actions = append(p.actions, returnMonthButton(view, &p.health, i18n.NavDataHealth, nil, true))
 	}
 	if p.hasDimensions() {
 		if p.breakdowns.jump.Clicked(gtx) {
@@ -173,24 +159,43 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			p.breakdowns.focusFirst = p.breakdowns.open != nil
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		actions = append(actions, returnMonthButton(view, &p.breakdowns.jump, i18n.OverviewOpenBreakdowns, nil, true))
+		p.actions = append(p.actions, returnMonthButton(view, &p.breakdowns.jump, i18n.OverviewOpenBreakdowns, nil, true))
 	}
-	if len(actions) > 0 {
-		children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return (ui.Wrap{Gap: 8}).Layout(gtx, len(actions), func(gtx layout.Context, index int) layout.Dimensions {
-				return actions[index](gtx)
-			})
-		}))
+	label := i18n.HistoryRefresh
+	if p.err != nil {
+		label = i18n.HistoryRetry
 	}
-	children = append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return analysisResultList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
-			return p.overviewRow(gtx, view, row)
+	p.actions = append(p.actions, returnMonthButton(view, &p.reload, label, nil, !p.loading))
+	return pageList(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), func(gtx layout.Context, row int) layout.Dimensions {
+		return p.overviewRow(gtx, view, row)
+	})
+}
+
+// intro is the first row of the page: what the figures are read in and when,
+// with the page actions beside it.
+func (p *overviewPage) intro(gtx layout.Context, view ui.View) layout.Dimensions {
+	actions := func(gtx layout.Context) layout.Dimensions {
+		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(p.actions), func(gtx layout.Context, i int) layout.Dimensions {
+			return p.actions[i](gtx)
 		})
-	}))
-	return (ui.Column{Gap: 12}).Layout(gtx, children...)
+	}
+	status := func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }
+	if !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 720) {
+		return (ui.Column{Gap: ui.Space12}).Layout(gtx, ui.Rigid(status), ui.Rigid(actions))
+	}
+	return layout.Flex{Alignment: layout.Start, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+		layout.Flexed(1, status),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(520))
+			return layout.NE.Layout(gtx, actions)
+		}),
+	)
 }
 
 func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) layout.Dimensions {
+	if row == 0 {
+		return p.intro(gtx, view)
+	}
 	result, l := p.current.value, view.Language
 	composition := p.compositionIndex()
 	switch {
@@ -204,10 +209,10 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.accounts, i18n.OverviewOpenAccounts, nil, true)))
 		}
 		return (ui.Column{Gap: 8}).Layout(gtx, rows...)
-	case row == 0:
+	case row == 1:
 		return p.totals(gtx, view)
-	case row <= len(result.MissingInputs):
-		return p.overviewMissingRow(gtx, view, result.MissingInputs[row-1])
+	case row <= len(result.MissingInputs)+1:
+		return p.overviewMissingRow(gtx, view, result.MissingInputs[row-2])
 	case row == composition-1 && p.hasCompositionSummary():
 		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
@@ -234,10 +239,10 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 
 func (p *overviewPage) rowCount() int {
 	if p.current == nil {
-		return 0
+		return 1
 	}
 	if p.current.value.AccountCount == 0 {
-		return 1
+		return 2
 	}
 	n := p.dimensionsIndex()
 	if p.hasDimensions() {
@@ -268,7 +273,7 @@ func (p *overviewPage) compositionIndex() int {
 	return index
 }
 
-func (p *overviewPage) trendIndex() int { return len(p.current.value.MissingInputs) + 1 }
+func (p *overviewPage) trendIndex() int { return len(p.current.value.MissingInputs) + 2 }
 
 func (p *overviewPage) hasCompositionSummary() bool {
 	return len(overviewSummaries(p.current.value)) > 0
@@ -344,31 +349,44 @@ func (p *overviewPage) status(gtx layout.Context, view ui.View) layout.Dimension
 func (p *overviewPage) totals(gtx layout.Context, view ui.View) layout.Dimensions {
 	result := p.current.value
 	values := result.DisplayValuation
-	status := i18n.OverviewCurrentEstimate
+	status, tone := i18n.OverviewCurrentEstimate, ui.BadgeSuccess
 	if !result.Complete || values.NetWorth.Quality.Availability != domain.ValuationFull {
-		status = i18n.OverviewIncomplete
+		status, tone = i18n.OverviewIncomplete, ui.BadgeWarning
 	}
-	return view.Panel(gtx, view.Colors.Divider, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(18).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(gtx,
-				layout.Rigid(view.Message(view.Language.Text(status), view.Colors.SecondaryInk)),
-				layout.Rigid(overviewAmount(view, i18n.NetWorth, values.NetWorth, 32)),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Gap: gtx.Dp(12)}.Layout(gtx,
-						layout.Flexed(1, overviewAmount(view, i18n.Assets, values.Assets, 20)),
-						layout.Flexed(1, overviewAmount(view, i18n.Liabilities, values.Liabilities, 20)),
-					)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
-				}),
-			)
-		})
+	l, colors := view.Language, view.Colors
+	caption, hero := overviewMoneyText(view, i18n.NetWorth, values.NetWorth)
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Line(gtx, ui.TextLabel, caption, colors.SecondaryInk)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Badge(gtx, tone, l.Text(status))
+					}))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.Line(gtx, ui.TextHero, hero, colors.Ink)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
+			}),
+			layout.Rigid(view.Hairline),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+					layout.Flexed(1, overviewFigure(view, i18n.Assets, values.Assets, lucide.TrendingUp, colors.Success)),
+					layout.Flexed(1, overviewFigure(view, i18n.Liabilities, values.Liabilities, lucide.TrendingDown, colors.Destructive)),
+				)
+			}),
+		)
 	})
 }
 
-func overviewAmount(view ui.View, label i18n.MessageID, value domain.ValuationAmount, size unit.Sp) layout.Widget {
-	caption := view.Language.Text(label)
+// overviewMoneyText resolves the caption and the figure of a valuation amount.
+// When only a known subtotal exists the caption says so.
+func overviewMoneyText(view ui.View, label i18n.MessageID, value domain.ValuationAmount) (caption, display string) {
+	caption = view.Language.Text(label)
 	money := value.Total
 	if money == nil && value.KnownSubtotal != nil {
 		money = value.KnownSubtotal
@@ -378,10 +396,39 @@ func overviewAmount(view ui.View, label i18n.MessageID, value domain.ValuationAm
 		}
 		caption += " · " + view.Language.Text(qualifier)
 	}
-	display := view.Language.Text(i18n.OverviewNoValue)
+	display = view.Language.Text(i18n.OverviewNoValue)
 	if money != nil {
 		display = valuationMoney(view, *money, label == i18n.Liabilities)
 	}
+	return caption, display
+}
+
+// overviewFigure is a labelled secondary figure with a trend glyph. Liability
+// figures use the destructive ink, as in Wails.
+func overviewFigure(view ui.View, label i18n.MessageID, value domain.ValuationAmount, icon ui.Glyph, ink color.NRGBA) layout.Widget {
+	caption, display := overviewMoneyText(view, label, value)
+	return func(gtx layout.Context) layout.Dimensions {
+		figure := ui.TextMoneyMD
+		figure.Size = 20
+		figureInk := view.Colors.Ink
+		if label == i18n.Liabilities {
+			figureInk = ink
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space6)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return ui.LayoutGlyph(gtx, icon, 14, ink) }),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Line(gtx, ui.TextCaption, caption, view.Colors.SecondaryInk)
+					}))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, figure, display, figureInk) }),
+		)
+	}
+}
+
+func overviewAmount(view ui.View, label i18n.MessageID, value domain.ValuationAmount, size unit.Sp) layout.Widget {
+	caption, display := overviewMoneyText(view, label, value)
 	return func(gtx layout.Context) layout.Dimensions {
 		label := material.Label(view.Theme, size, display)
 		label.Color, label.Font.Weight = view.Colors.Ink, font.Medium
