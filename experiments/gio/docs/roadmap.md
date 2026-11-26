@@ -2624,7 +2624,27 @@ lenses. Trend remains the initial lens while Allocation and Change are open.
 | Shared/Wails | Independent read-only SQLite copies matched the complete historical account capture for dated and current comparisons, including the missing AUD/USD pair and the stored manual rate `1 USD = 1.2345 AUD`. Both services made zero provider calls. The Wails Historical Overview interaction suites passed 85 tests. |
 | Gio | Frame checks covered date swap, changed-only filtering, expanding the account, both sides of the comparison, switching lenses with retained state and keyboard traversal into the Trend table. The full Gio module suite, including the independently merged chart component tests, and `go vet ./...` passed. |
 | Linux X11 | The packaged app opened a verified synthetic profile and compared November 24 with current. Both sides showed USD 125.00 known net contribution, named the missing rate for Synthetic Australian cash and expanded Synthetic broker to its fund. At 700×480 the summaries stacked. Logical SQLite fingerprints matched before launch and after quit. |
-| Open | Allocation, Change, full account detail and links to Ledger activity remain open, along with the Wails capture shortcuts and expanded evidence. Native Mac, VoiceOver, native IME and Wayland remain unverified. |
+| Open | Allocation, Change, full account detail and links to Ledger activity remain open, along with expanded evidence. The later capture shortcuts checkpoint covers date presets. Native Mac, VoiceOver, native IME and Wayland remain unverified. |
+
+#### Wealth History capture shortcuts
+
+In Allocation, Change and Accounts, the date controls offer Previous day,
+Next day, Last month end, Last closed day and Starting point. Compare dates
+and Compare with current also offer Last month end → last closed day and
+Baseline → captured current. Shortcuts capture through the same read-only
+Historical Overview endpoint as the date fields. The bounds and month end use
+the History Origin timezone. Navigation cancels a capture in flight and resumes
+the selected read on return. An obsolete response cannot replace the active
+result.
+
+Independent read-only copies of one synthetic ledger matched the Wails
+adapter on all selected dates, including the last closed day in Singapore
+while the UTC date was a day behind. The captured account opened Ledger
+activity with its closed date range. Opening and cancelling its existing
+contribution draft left all three seeded records intact. Back restored the
+same capture, selected account detail and focus. The Wails Wealth History page
+offers read-only captures and a scoped Ledger link. Native interaction for
+these shortcuts remains open.
 
 Shared chart components are available through #286. Return Trend is the first
 page integration. Each chart keeps a keyboard-readable table and needs its
@@ -3327,7 +3347,7 @@ choices remain selected.
 ### Stage 6 exit gates
 
 - Close the remaining capabilities listed in the [page-by-page parity matrix](parity.md).
-  Stage 6 still has Wealth History capture shortcuts, contribution detail,
+  Stage 6 still has contribution detail,
   the dated Data Health link and residual Ledger verification from Asset
   Changes, instrument catalog work, and provider and coverage recovery cases.
 - Run paired regressions in the interactive Wails and Gio apps with matching

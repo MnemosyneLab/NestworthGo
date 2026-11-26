@@ -100,6 +100,11 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 			func(gtx layout.Context, view ui.View, index int) layout.Dimensions { return fields[index](gtx, view) })
 	})
 	offset += dates.Size.Y + gap
+	shortcuts := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return p.layoutWealthCaptureShortcuts(gtx, view, now)
+	})
+	offset += shortcuts.Size.Y + gap
+	valid = p.validAccountDates(a.draft, now)
 	body := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		label := i18n.WealthAccountCapture
 		if p.lens == wealthAllocationLens {

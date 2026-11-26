@@ -320,7 +320,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.overviewPage.leave()
 	}
 	if entry.target.route == wealthHistoryRoute {
-		s.wealthHistory.leave()
+		s.wealthHistory.suspend()
 	}
 	if entry.target.route == returnAnalysisRoute {
 		s.returns.leave()

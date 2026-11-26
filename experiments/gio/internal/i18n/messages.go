@@ -638,6 +638,13 @@ const (
 	WealthAccountLoading
 	WealthAccountFailed
 	WealthAccountSwap
+	WealthCapturePrevious
+	WealthCaptureNext
+	WealthCaptureLastMonth
+	WealthCaptureLastClosed
+	WealthCaptureStartingPoint
+	WealthCaptureMonthToLatest
+	WealthCaptureCurrent
 	WealthAccountIncomparable
 	WealthAccountRate
 	WealthQuoteAppliedPrice
