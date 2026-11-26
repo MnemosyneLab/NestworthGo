@@ -1673,6 +1673,7 @@ var traditionalChineseCatalog = catalog{
 	PortfolioMarketFX:              "市場匯率 · 1 %s = %s %s",
 	PortfolioFXMissing:             "缺少市場匯率 · %s/%s",
 	PortfolioInstrumentHistory:     "查看證券歷史",
+	PortfolioRelatedTransactions:   "相關交易",
 	PortfolioOpenInstrument:        "開啟證券 · %s",
 
 	PortfolioMyHoldings:               "我的持倉",

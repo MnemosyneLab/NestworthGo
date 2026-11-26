@@ -72,6 +72,14 @@ type marketQuoteHistory struct {
 	attributionCopied                  bool
 	chart                              charts.LineChart
 	selected                           charts.Selection
+	onRangeChange                      func(analysisDateWindow)
+}
+
+func (d *marketQuoteHistory) selectWindow(window analysisDateWindow) {
+	d.visit.window = window
+	if d.onRangeChange != nil {
+		d.onRangeChange(window)
+	}
 }
 
 func (p *marketDataPage) openQuoteHistory(visit marketQuoteHistoryVisit) {

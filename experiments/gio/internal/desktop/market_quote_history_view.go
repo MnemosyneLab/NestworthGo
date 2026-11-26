@@ -164,7 +164,7 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 		change()
 	}
 	if d.showAll.Clicked(gtx) && data.series.OutsideRange && d.request == nil && d.err == nil {
-		d.visit.window = analysisDateWindow{marketQuoteEarliest, data.latest}
+		d.selectWindow(analysisDateWindow{marketQuoteEarliest, data.latest})
 		change()
 	}
 	message := func(text string) ui.ColumnChild {
@@ -180,7 +180,7 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 	}
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return d.dates.layout(gtx, view, d.visit.window, marketQuoteEarliest, data.latest, func(window analysisDateWindow) {
-			d.visit.window = window
+			d.selectWindow(window)
 			change()
 		})
 	}), message(rangeLabel),

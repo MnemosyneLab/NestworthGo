@@ -1672,6 +1672,7 @@ var japaneseCatalog = catalog{
 	PortfolioMarketFX:              "市場為替レート · 1 %s = %s %s",
 	PortfolioFXMissing:             "市場為替レートを取得できません · %s/%s",
 	PortfolioInstrumentHistory:     "銘柄の履歴を表示",
+	PortfolioRelatedTransactions:   "関連取引",
 	PortfolioOpenInstrument:        "銘柄を開く · %s",
 
 	PortfolioMyHoldings:               "保有銘柄",

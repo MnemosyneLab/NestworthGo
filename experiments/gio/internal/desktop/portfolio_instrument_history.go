@@ -84,6 +84,11 @@ func (p *portfolioPage) instrumentHistoryRows(view ui.View, instrument domain.In
 			target = marketQuoteHistoryTarget{pair: marketFXPair{instrument.QuoteCurrency, base}}
 		}
 		history = &marketQuoteHistory{visit: marketQuoteHistoryVisit{target: target, window: state.window, filter: state.filter, reverse: state.reverse}}
+		if tab == instrumentPriceHistory {
+			history.onRangeChange = func(window analysisDateWindow) {
+				detail.visit.actionDates = window
+			}
+		}
 		history.table.open, history.table.list.Position = state.tableOpen, state.tableScroll
 		detail.histories[tab] = history
 		detail.market.readQuoteHistory(history)

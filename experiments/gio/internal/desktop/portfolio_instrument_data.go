@@ -9,6 +9,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -33,6 +34,7 @@ type instrumentDetailVisit struct {
 	historyTab  instrumentHistoryTab
 	histories   [len(instrumentHistoryLabels)]instrumentHistoryVisit
 	performance instrumentPerformanceVisit
+	actionDates analysisDateWindow
 }
 
 type portfolioInstrumentDetail struct {
@@ -45,6 +47,10 @@ type portfolioInstrumentDetail struct {
 	openMaintenance func(healthFindingFocus, event.Tag)
 	market          *marketDataPage
 	performance     instrumentPerformance
+
+	returns, changes, transactions widget.Clickable
+	openAnalysis                   func(routeID, analysisSelection, string, event.Tag)
+	openTransactions               func(history.Filters, string, event.Tag)
 }
 
 func (p *portfolioPage) instrumentDetailName() string {

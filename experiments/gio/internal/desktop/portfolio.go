@@ -141,13 +141,11 @@ type portfolioPage struct {
 	search                ui.SearchField
 	list                  widget.List
 	reload                widget.Clickable
-	history               widget.Clickable
 	instruments           map[domain.InstrumentID]*widget.Clickable
 	accounts              map[domain.AccountID]*widget.Clickable
 	openInstrument        func(domain.InstrumentID, string, event.Tag)
 	openHoldingInstrument func(domain.InstrumentID, domain.AccountID, string, event.Tag)
 	openAccount           func(domain.AccountID, string, event.Tag)
-	openHistory           func(domain.InstrumentID, string, event.Tag)
 	openProduct           func(domain.ProductContractID, string, event.Tag)
 	openHoldingHistory    func(domain.InstrumentID, domain.AccountID, string, event.Tag)
 	openHoldingAnalysis   func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
@@ -427,7 +425,6 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 	if i == nil {
 		return []layout.Widget{view.Message(l.Text(i18n.PortfolioInstrumentUnavailable), view.Colors.SecondaryInk)}
 	}
-	name := i.DisplayLabel()
 	switch p.detail.visit.section {
 	case instrumentDetailPerformance:
 		return p.instrumentPerformanceRows(view, *i)
@@ -435,14 +432,8 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 		return p.instrumentDataRows(view, *i)
 	}
 	var rows []layout.Widget
-	if p.openHistory != nil {
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			if p.history.Clicked(gtx) {
-				p.openHistory(i.ID, name, &p.history)
-				gtx.Execute(op.InvalidateCmd{})
-			}
-			return layout.W.Layout(gtx, view.Button(&p.history, l.Text(i18n.PortfolioInstrumentHistory)))
-		})
+	if actions := p.instrumentRelatedActions(view, *i); actions != nil {
+		rows = append(rows, actions)
 	}
 	if len(r.positions) != 0 {
 		rows = append(rows, holdingAmounts(view, r.positions[0].Amounts, i.QuantityUnit))

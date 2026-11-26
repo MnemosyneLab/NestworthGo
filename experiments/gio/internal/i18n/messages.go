@@ -1639,6 +1639,7 @@ const (
 	PortfolioMarketFX
 	PortfolioFXMissing
 	PortfolioInstrumentHistory
+	PortfolioRelatedTransactions
 	PortfolioOpenInstrument
 	PortfolioMyHoldings
 	PortfolioAllInstruments

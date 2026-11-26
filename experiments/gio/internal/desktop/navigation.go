@@ -385,6 +385,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if entry.target.instrumentData {
 			window := marketQuoteFindingWindow(entry.target.health)
 			entry.instrumentDetail.section = instrumentDetailData
+			entry.instrumentDetail.actionDates = window
 			for i := range entry.instrumentDetail.histories {
 				entry.instrumentDetail.histories[i].window = window
 			}

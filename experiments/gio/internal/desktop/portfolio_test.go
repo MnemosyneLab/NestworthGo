@@ -335,7 +335,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	h.focused(portfolioButton(accounts.instruments, full.ID))
 	click("Back")
 	h.focused(portfolioButton(portfolio.accounts, ids.account))
-	click("View instrument history")
+	click("Related transactions")
 	filters := historyui.Filters{Instrument: full.ID}
 	if !ledger.model.Filters().Equal(filters) || len(ledger.model.Rows()) != 2 {
 		t.Fatalf("History opened the wrong filtered scope: %+v / %d", ledger.model.Filters(), len(ledger.model.Rows()))

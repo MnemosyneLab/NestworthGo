@@ -1673,6 +1673,7 @@ var englishCatalog = catalog{
 	PortfolioMarketFX:              "Market FX · 1 %s = %s %s",
 	PortfolioFXMissing:             "Market FX unavailable · %s/%s",
 	PortfolioInstrumentHistory:     "View instrument history",
+	PortfolioRelatedTransactions:   "Related transactions",
 	PortfolioOpenInstrument:        "Open instrument · %s",
 
 	PortfolioMyHoldings:               "My holdings",

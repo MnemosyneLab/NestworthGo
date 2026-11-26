@@ -573,13 +573,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			}
 		}
 		if s.historyPage != nil && s.historyPage.reads != nil {
-			p.openHistory = func(id domain.InstrumentID, name string, from event.Tag) {
-				p.openHoldingHistory(id, p.accountScope, name, from)
-			}
+			p.detail.openTransactions = s.openInstrumentTransactions
 			p.openHoldingHistory = s.openHoldingHistory
 			s.historyPage.reads.openInstrument = p.openInstrument
 		}
 		if s.returns != nil && s.assets != nil {
+			p.detail.openAnalysis = s.openScopedAnalysis
 			p.openHoldingAnalysis = s.openHoldingAnalysis
 		}
 	}
