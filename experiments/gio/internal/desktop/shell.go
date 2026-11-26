@@ -499,9 +499,27 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	if p := s.portfolio; p != nil {
 		p.detail.market = s.marketData
-		if s.marketData != nil {
+		if market := s.marketData; market != nil {
 			p.detail.openMaintenance = func(scope healthFindingFocus, from event.Tag) {
 				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: marketDataRoute, health: scope}, focus: from}
+			}
+			market.openInstrumentDetails = func(id domain.InstrumentID, name string, from event.Tag) {
+				scope := healthFindingFocus{instrument: id.String()}
+				if current := market.focus; current.instrument == scope.instrument {
+					scope.account, scope.from, scope.to = current.account, current.from, current.to
+				}
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: marketDataRoute, health: scope}, name: name, focus: from}
+			}
+			if p.catalog.ledger != nil {
+				market.openCatalogEditor = func(item domain.Instrument, from event.Tag) {
+					s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute}, focus: from, catalogEditor: &item}
+				}
+				p.catalog.finishExternal = func(message i18n.MessageID) {
+					if source := s.trail.adjacent(-1); source != nil && source.target.route == marketDataRoute {
+						market.catalogNotice = message
+						s.pendingNavigation = &navigationRequest{step: -1}
+					}
+				}
 			}
 		}
 		p.openInstrument = func(id domain.InstrumentID, name string, from event.Tag) {

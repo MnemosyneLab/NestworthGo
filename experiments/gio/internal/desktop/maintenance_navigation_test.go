@@ -109,9 +109,18 @@ func TestMaintenanceTabsAndInstrumentRecordsRetainNavigationContext(t *testing.T
 	tab("Quotes & FX", true)
 	focus := h.shell.trail.current().target.health
 	if focus.instrument != instrument.ID.String() || focus.account != ids.account.String() ||
-		focus.action != application.HealthActionInstrumentEditor || (analysisDateWindow{from: focus.from, to: focus.to}) != window {
+		focus.action != application.HealthActionInstrumentEditor || (analysisDateWindow{from: focus.from, to: focus.to}) != window ||
+		market.focus != focus {
 		t.Fatalf("Maintain data changed instrument, dates or account: %+v", focus)
 	}
+	click("Open " + instrument.Name + " details")
+	route(portfolioRoute)
+	if data := portfolio.detail.histories[instrumentPriceHistory]; data == nil || data.visit.window != window || portfolio.accountScope != ids.account {
+		t.Fatal("quote row Details lost the focused visit's instrument, account or dates")
+	}
+	click("Back")
+	route(marketDataRoute)
+	h.focused(&market.instrumentActions[instrument.ID].details)
 	click("Back")
 	route(portfolioRoute)
 	h.focused(&portfolio.detail.maintain)
@@ -139,13 +148,43 @@ func TestMaintenanceTabsAndInstrumentRecordsRetainNavigationContext(t *testing.T
 	settle()
 	route(marketDataRoute)
 	tab("Quotes & FX", true)
-	if market.tab != marketFX || h.shell.trail.current().target.health != fx {
+	if market.tab != marketFX || market.focus != fx {
 		t.Fatal("the scoped FX finding did not open the FX list under Quotes & FX")
 	}
 	click("Issues & repair")
 	click("Back")
 	route(marketDataRoute)
-	if market.tab != marketFX || h.shell.trail.current().target.health != fx {
+	if market.tab != marketFX || market.focus != fx {
 		t.Fatal("Back lost the focused FX visit")
+	}
+
+	click("Data maintenance")
+	route(marketDataRoute)
+	h.click("Search instruments", true)
+	h.router.Queue(key.EditEvent{Text: "QA-FULL"})
+	settle()
+	version := service.MobileDataVersion()
+	click("Edit " + instrument.SelectionLabel())
+	route(portfolioRoute)
+	if draft := portfolio.catalog.draft; draft == nil || !draft.external || draft.instrument.ID != instrument.ID ||
+		portfolio.tabs.active != portfolioInstruments {
+		t.Fatalf("quote Edit did not open the selected instrument in the shared catalog editor: %+v", draft)
+	}
+	click("Cancel")
+	route(marketDataRoute)
+	h.focused(&market.instrumentActions[instrument.ID].edit)
+	if market.search.Field.Text() != "QA-FULL" {
+		t.Fatal("cancelling the catalog editor lost the quote search")
+	}
+	click("Add instrument")
+	route(portfolioRoute)
+	if draft := portfolio.catalog.draft; draft == nil || !draft.external || draft.instrument.ID != "" {
+		t.Fatalf("quote Add did not open the shared create form: %+v", draft)
+	}
+	click("Cancel")
+	route(marketDataRoute)
+	h.focused(&market.addInstrument)
+	if version != service.MobileDataVersion() {
+		t.Fatal("reviewing and cancelling quote routes changed the synthetic ledger")
 	}
 }

@@ -169,6 +169,7 @@ type navigationRequest struct {
 	historyFilters       history.Filters
 	historyAction        historyRowAction
 	maintenanceTab       bool
+	catalogEditor        *domain.Instrument
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -364,8 +365,16 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 				entry.marketData = s.marketData.visit()
 			}
 		}
-		if entry.target.route == marketDataRoute && entry.target.health.currencyA != "" && entry.target.health.currencyB != "" {
-			entry.marketData.tab = marketFX
+		if entry.target.route == marketDataRoute {
+			// Switching a top-level tab can reuse search and the inner tab.
+			// Only a link that names a finding applies its scope to a new visit.
+			entry.marketData.focus = entry.target.health
+			if marketFindingFXPair(entry.marketData.focus) != (marketFXPair{}) {
+				entry.marketData.tab = marketFX
+			}
+		}
+		if request.catalogEditor != nil {
+			entry.portfolioTabs.active = portfolioInstruments
 		}
 		if entry.target.instrumentData {
 			window := marketQuoteFindingWindow(entry.target.health)
@@ -425,6 +434,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.portfolio.detail.restoreVisit(entry.instrumentDetail)
 		}
 		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
+		if request.catalogEditor != nil {
+			s.portfolio.requestCatalogEditor(*request.catalogEditor)
+		}
 	}
 	if entry.target.route == wealthHistoryRoute {
 		s.wealthHistory.enter()
