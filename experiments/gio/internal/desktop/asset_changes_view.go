@@ -251,7 +251,8 @@ func assetLevelMoney(view ui.View, value *domain.SignedMoney, debts bool) string
 
 func (p *assetChangesPage) categoryRows(view ui.View, data application.CategoriesResult) []ui.ColumnChild {
 	l := view.Language
-	rows := []ui.ColumnChild{ui.Rigid(labeledAmount(view, i18n.AssetCategoryTotal, returnMoney(view, data.Total), view.Colors.Ink))}
+	label, total := l.Text(i18n.AssetCategoryTotal), returnMoney(view, data.Total)
+	rows := []ui.ColumnChild{ui.Rigid(labeledRow(view, label+" · "+total, label, total, view.Colors.Ink))}
 	if data.ValuationForced != nil {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk)))
 	}
