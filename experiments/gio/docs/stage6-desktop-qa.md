@@ -100,6 +100,30 @@ acknowledgement event each on the same episode at revision 2. The checked
 ledger and quote facts matched the source. The paired Go test also covers
 a stale episode revision and a lost response followed by a same-token retry.
 
+## macOS historical repair expiry and retry
+
+Gio and Wails at `583d2e992cb66ee629a21b4f5e0f82c098185dc5` ran
+on independent `market-history` copies. A development-only overlay
+installed an in-process Frankfurter substitute and advanced the shared
+service clock 16 minutes through `Service.SetClock`. Both windows refused the expired approval with
+zero provider calls and identical FX and coverage readbacks. Gio offered
+Retry sync and Wails refreshed the open preview. The fresh previews kept
+both original pairs and the November 15–25 range, and required confirmation.
+
+The first approved run stored JPY/USD and surfaced the SGD/USD failure.
+The next preview retained that same historical range for SGD/USD. Retry
+made no additional JPY requests and retained its exact rows and timestamps.
+Both bundles reopened with JPY/USD 139.123456 and SGD/USD 1.3456. SQLite
+agreed on 22 daily FX coverage observations and two latest FX quotes.
+
+The paired regression also covers rejection after a changed ledger input,
+scoped activation, cancellation, and partial-result persistence. Application
+regressions cover simultaneous confirmation, a same-scope legacy job,
+background planner drift, and blocking an old-symbol quote after the
+instrument is rebound during a request. Native verification used standard
+FX targets and deterministic substitutes. Expanded non-USD metal dependency
+estimates and live provider behavior remain separate follow-up cases.
+
 ## Reproduce the automated pair
 
 From the repository root, run:
@@ -115,6 +139,9 @@ From the repository root, run:
   -run '^TestStage6PairedAccountFilteredAnalysisRoundTrip$')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(HistoryStandaloneBankExpenseCorrectionAndUndoMatchWails|TaskReviewAcknowledgement)')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run '^TestStage6PairedHistoricalRepairStaleAndRetry$')
+go test ./internal/application -count=1 -run '^TestReviewedMarketDataSync'
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
@@ -209,7 +236,7 @@ run_copy() (
   scenario=$1 app=$2
   case "$scenario" in
     snapshots) household='Synthetic Stage 6 snapshots' ;;
-    market-readback) household='Synthetic Stage 6 market' ;;
+    market-readback|market-history) household='Synthetic Stage 6 market' ;;
     provider-settings) household='Synthetic provider readiness' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
     early-deposit-receipt) household='Synthetic term deposits' ;;

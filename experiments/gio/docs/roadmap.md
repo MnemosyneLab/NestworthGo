@@ -3379,10 +3379,10 @@ choices remain selected.
   the broader currency breakdown.
   The [second macOS run](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh)
   covered the portfolio day handoffs and mixed latest refresh with local
-  providers. The account-filtered Calendar and Asset Changes pair still needs
-  native Wails verification. Compare Wealth History with priced and missing
-  inputs, preserving date and quote/FX provenance. Verify retried and stale
-  historical provider repair plans with a deterministic local provider.
+  providers. Paired macOS also covered the [account-filtered Ledger chain](stage6-desktop-qa.md#macos-account-filtered-return-and-ledger-chain)
+  and [expired historical plans and retries](stage6-desktop-qa.md#macos-historical-repair-expiry-and-retry).
+  Additional acceptance covers residual Ledger cases and Wealth History
+  comparisons with missing inputs and their quote or FX provenance.
   Check the exact values, scopes, failures, coverage and readback after reopen.
 - Exercise wide and compact layouts and keyboard traversal on the target
   platforms. Native macOS with VoiceOver and IME, Linux Wayland and paired
@@ -3402,7 +3402,7 @@ macOS-specific interactions in the last column.
 | --- | --- | --- | --- |
 | 1. Data Health finding → preview → cancel or repair → recheck | Shared snapshot and repair tests plus Gio cancellation and batch retry cases. | Compare the selected dates and provider target, cancel before posting, stop mid-run, recover after a stale plan, and verify the repaired dates after quit and reopen. | Verify native window close during confirmation, focus after dismissal, and reopen from the bundled app. |
 | 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | The [paired macOS run](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh) passed cancel, partial refresh, retry, quote provenance and reopen. | Verify compact scrolling and VoiceOver announcements. |
-| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes, with the same day, filters and visible focus after Back. The [macOS pair](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh) matched the portfolio workflow. | Verify the account-filtered scope, native Back keyboard commands and focus in the Calendar side sheet. |
+| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes. The [macOS pair](stage6-desktop-qa.md#macos-account-filtered-return-and-ledger-chain) matched the account-filtered chain and readback. | Full compact keyboard and Calendar side-sheet accessibility acceptance remain open. |
 | 4. Change Drivers → Contribution → Ledger → Back | [Change Drivers to Contribution](#change-drivers-to-contribution) and [independent-copy Contribution to Ledger](#paired-contribution-to-exact-ledger-record) cover the two handoffs. | Verify the combined workflow across paired interactive apps. | Verify search composition with native IME and screen reader focus after Back. |
 | 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
