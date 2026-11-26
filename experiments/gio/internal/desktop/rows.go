@@ -1,8 +1,16 @@
 package desktop
 
 import (
-	"gioui.org/layout"
+	"fmt"
+	"image/color"
+	"strings"
 
+	"gioui.org/io/semantic"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/clip"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
@@ -26,5 +34,37 @@ func valueRow(view ui.View, name, amount, caption string) layout.Widget {
 				return view.LineEnd(gtx, ui.TextCaption, caption, view.Colors.SecondaryInk)
 			}),
 		)
+	}
+}
+
+// labeledAmount shows "name ... figure" for a message whose pattern ends with
+// the amount, such as "Cost basis · %s". The whole formatted message stays the
+// accessible label, so the split is purely visual; a translation that puts the
+// amount mid-sentence falls back to plain text.
+func labeledAmount(view ui.View, pattern i18n.MessageID, value string, ink color.NRGBA) layout.Widget {
+	text := view.Language.Text(pattern)
+	full := fmt.Sprintf(text, value)
+	const marker = "\x00"
+	name, ok := strings.CutSuffix(fmt.Sprintf(text, marker), marker)
+	if !ok {
+		return view.Message(full, ink)
+	}
+	name = strings.TrimRight(name, " ·:：")
+	return func(gtx layout.Context) layout.Dimensions {
+		macro := op.Record(gtx.Ops)
+		dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return view.Body(ui.TextBody, name, view.Colors.SecondaryInk)(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.Line(gtx, ui.TextLabel, value, ink)
+			}),
+		)
+		call := macro.Stop()
+		area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
+		semantic.LabelOp(full).Add(gtx.Ops)
+		call.Add(gtx.Ops)
+		area.Pop()
+		return dims
 	}
 }

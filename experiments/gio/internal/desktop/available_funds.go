@@ -4,16 +4,13 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -432,39 +429,13 @@ func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widge
 }
 
 // fundsAmount shows a labelled amount as a name on the left and the figure on
-// the right. The whole message stays the accessible label, so the split is
-// purely visual; a translation that puts the amount mid-sentence falls back to
-// plain text.
+// the right.
 func fundsAmount(view ui.View, label i18n.MessageID, amount *domain.Money) layout.Widget {
 	value := view.Language.Text(i18n.OverviewNoValue)
 	if amount != nil {
 		value = portfolioDecimal(view, amount.CanonicalAmount()) + " " + amount.Currency().String()
 	}
-	pattern := view.Language.Text(label)
-	full := fmt.Sprintf(pattern, value)
-	const marker = "\x00"
-	name, ok := strings.CutSuffix(fmt.Sprintf(pattern, marker), marker)
-	if !ok {
-		return view.Message(full, view.Colors.Ink)
-	}
-	name = strings.TrimRight(name, " ·:：")
-	return func(gtx layout.Context) layout.Dimensions {
-		macro := op.Record(gtx.Ops)
-		dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return view.Body(ui.TextBody, name, view.Colors.SecondaryInk)(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Line(gtx, ui.TextLabel, value, view.Colors.Ink)
-			}),
-		)
-		call := macro.Stop()
-		area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
-		semantic.LabelOp(full).Add(gtx.Ops)
-		call.Add(gtx.Ops)
-		area.Pop()
-		return dims
-	}
+	return labeledAmount(view, label, value, view.Colors.Ink)
 }
 
 func fundsStatus(status domain.CompletenessStatus) i18n.MessageID {

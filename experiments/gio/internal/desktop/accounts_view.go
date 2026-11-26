@@ -10,8 +10,9 @@ import (
 	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -245,7 +246,10 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			toolbar := func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(16), Alignment: layout.Start}.Layout(gtx,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
+						dims.Size.X = gtx.Constraints.Max.X
+						return dims
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(right), func(gtx layout.Context, i int) layout.Dimensions { return right[i](gtx) })
@@ -406,8 +410,6 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 		p.open(navigationTarget{route: accountsRoute, account: account.ID}, account.Name, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	content := material.ButtonLayout(view.Theme, button)
-	content.Background, content.CornerRadius = color.NRGBA{}, 0
 	inset := layout.Inset{}
 	if last {
 		inset.Bottom = ui.Space16
@@ -416,18 +418,26 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 		view.Focus.Watch(gtx, button)
 		return view.RowCard(gtx, first, last, func(gtx layout.Context) layout.Dimensions {
 			return accessibility.Button(gtx, button, account.Name, "", false, func(gtx layout.Context) layout.Dimensions {
-				return content.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return button.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					semantic.Button.Add(gtx.Ops)
 					semantic.DescriptionOp(account.Name).Add(gtx.Ops)
-					return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-								return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-									return accountAmountLines(gtx, view, row, true, layout.End)
-								})
-							}),
-						)
+					hover := func(gtx layout.Context) layout.Dimensions {
+						if button.Hovered() || gtx.Focused(button) {
+							paint.FillShape(gtx.Ops, view.Colors.HoverSurface, clip.Rect{Max: gtx.Constraints.Min}.Op())
+						}
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}
+					return layout.Background{}.Layout(gtx, hover, func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+										return accountAmountLines(gtx, view, row, true, layout.End)
+									})
+								}),
+							)
+						})
 					})
 				})
 			})
