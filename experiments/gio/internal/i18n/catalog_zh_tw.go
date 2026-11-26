@@ -1187,6 +1187,7 @@ var traditionalChineseCatalog = catalog{
 	AccountRecordAddMoney:             "增加金額",
 	AccountRecordRemoveMoney:          "減少金額",
 	AccountRecordValue:                "更新價值",
+	AccountRecordPositionAdjustment:   "調整投資數量",
 	AccountRecordDebtValue:            "校正未償餘額",
 	AccountDetailTransactions:         "交易紀錄",
 

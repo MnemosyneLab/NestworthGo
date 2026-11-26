@@ -1187,6 +1187,7 @@ var englishCatalog = catalog{
 	AccountRecordAddMoney:             "Money added",
 	AccountRecordRemoveMoney:          "Money removed",
 	AccountRecordValue:                "Value update",
+	AccountRecordPositionAdjustment:   "Investment quantity adjustment",
 	AccountRecordDebtValue:            "Outstanding balance correction",
 	AccountDetailTransactions:         "Transactions",
 

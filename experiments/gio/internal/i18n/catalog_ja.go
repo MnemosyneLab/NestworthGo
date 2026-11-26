@@ -1186,6 +1186,7 @@ var japaneseCatalog = catalog{
 	AccountRecordAddMoney:             "入金",
 	AccountRecordRemoveMoney:          "出金",
 	AccountRecordValue:                "評価額の更新",
+	AccountRecordPositionAdjustment:   "保有数量の調整",
 	AccountRecordDebtValue:            "未払残高の修正",
 	AccountDetailTransactions:         "関連取引",
 

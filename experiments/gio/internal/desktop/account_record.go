@@ -44,6 +44,14 @@ func (p *accountsPage) accountRecordChoices(view ui.View, account domain.Account
 		}
 		if p.canImportPosition() {
 			invest(domain.ActivityPositionTransfer, i18n.OpeningPositionOpen)
+			position := func(label i18n.MessageID, start func(investmentRuntime, positionScope)) {
+				choices = append(choices, accountRecordChoice{i18n.HistoryEntryInvestments, label, func(layout.Context) {
+					start(p.investmentRuntime(), positionScope{account: account})
+					p.investment.draft.originAction = entry
+				}})
+			}
+			position(i18n.HistoryPositionTransfer, p.investment.startCustody)
+			position(i18n.AccountRecordPositionAdjustment, p.investment.startAdjustment)
 		}
 	}
 	if p.canMoveCash() {

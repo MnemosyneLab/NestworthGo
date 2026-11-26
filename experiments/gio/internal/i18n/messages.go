@@ -449,6 +449,7 @@ const (
 	AccountRecordRemoveMoney
 	AccountRecordDebtValue
 	AccountRecordValue
+	AccountRecordPositionAdjustment
 	AccountDetailTransactions
 	AccountValueUnavailable
 	AccountInstitutionNet

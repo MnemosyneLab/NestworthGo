@@ -42,6 +42,12 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := seed.CreateAccount(ctx, application.AccountInput{
+		Name: "Synthetic custody peer", AccountType: "brokerage", TrackingMode: "holdings", BalanceSheetRole: "asset",
+		DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	api := reconciliation.NewService(seed)
 	last := startTestHoldingReconciliation(t, api, ids.account)
 	source := domain.ReconciliationSource{AsOfDate: "2026-11-22", Reference: "Synthetic completed brokerage check"}
@@ -142,6 +148,38 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	click("Cancel")
 	h.focused(&p.detail.record.trigger)
 
+	version := app.MobileDataVersion()
+	click("Record a change")
+	click("Investment transfer")
+	transfer := p.investment.draft
+	if transfer == nil || transfer.custody == nil || transfer.custody.scope.account.ID != ids.account ||
+		!transfer.custody.available() || transfer.originAction != &p.detail.record.trigger {
+		t.Fatal("investment transfer did not open a usable account-scoped editor")
+	}
+	click("Transfer in")
+	if transfer.custody.to != ids.account || transfer.custody.from != "" {
+		t.Fatal("incoming transfer did not lock the selected account")
+	}
+	click("Cancel")
+	h.focused(&p.detail.record.trigger)
+
+	click("Record a change")
+	click("Investment quantity adjustment")
+	adjustment := p.investment.draft
+	if adjustment == nil || adjustment.adjustment == nil || adjustment.adjustment.scope.account.ID != ids.account ||
+		adjustment.originAction != &p.detail.record.trigger || adjustment.adjustment.sources == nil {
+		t.Fatal("quantity adjustment did not open an account-scoped editor")
+	}
+	holdings := adjustment.adjustment.sources.Holdings
+	if len(holdings) != 1 || holdings[0].Holding.ID != ids.holding {
+		t.Fatal("quantity adjustment offered holdings outside the selected account")
+	}
+	click("Cancel")
+	h.focused(&p.detail.record.trigger)
+	if app.MobileDataVersion() != version {
+		t.Fatal("canceling the position editors changed the ledger")
+	}
+
 	open(bank.Account.ID)
 	label("Last successful reconciliation: No successful reconciliation yet")
 	if findPageLabel(&h.router, "View last successful record") != nil {
@@ -162,7 +200,7 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	settle()
 	h.focused(&p.detail.reconcile)
 	click("Record a change")
-	for _, absent := range []string{"Buy investment", "Sell", "Convert currency", "Card purchase"} {
+	for _, absent := range []string{"Buy investment", "Sell", "Convert currency", "Card purchase", "Investment transfer", "Investment quantity adjustment"} {
 		if findPageLabel(&h.router, absent) != nil {
 			t.Fatalf("balance account offered %q", absent)
 		}
