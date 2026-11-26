@@ -10,8 +10,10 @@ import (
 )
 
 // The preview uses only fonts installed with the operating system. Each name
-// is a Gio typeface list: the first installed family is used, and glyphs it
-// lacks, such as Chinese or Japanese characters, fall back to a system face.
+// is a Gio typeface list. Keep the primary Latin families first, then name
+// the installed Han and emoji families before Gio's automatic script fallback.
+// On macOS the automatic lookup can choose a missing-character box for Han
+// text at medium and bold weights, and omit emoji even at regular weight.
 //
 // Plus Jakarta Sans, which Wails bundles, cannot be loaded here. Avenir Next
 // is the closest macOS family with the same geometric proportions and tabular
@@ -21,8 +23,8 @@ import (
 // proportional and old-style. Where none of these exist, Gio uses its bundled
 // default, which also has tabular figures.
 const (
-	SansTypeface  font.Typeface = "Avenir Next, Helvetica Neue"
-	SerifTypeface font.Typeface = "Iowan Old Style, Charter"
+	SansTypeface  font.Typeface = "Avenir Next, Helvetica Neue, Hiragino Sans GB, Apple Color Emoji"
+	SerifTypeface font.Typeface = "Iowan Old Style, Charter, Hiragino Sans GB, Apple Color Emoji"
 )
 
 // NewTheme returns a Material theme whose text and editors use SansTypeface.

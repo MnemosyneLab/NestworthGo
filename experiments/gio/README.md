@@ -170,9 +170,10 @@ pickers share one field frame; cards and floating layers share one surface
 with shadows. Motion runs only while a tween is moving, so an idle window
 requests no frames. `ui.SetReducedMotion` turns every tween into a jump.
 
-Fonts are system fonts only (Avenir Next, with Helvetica Neue and CJK
-fallbacks, and Iowan Old Style for display titles). Plus Jakarta Sans is not
-bundled. Icons are Lucide. After changing the icon list in
+Fonts are system fonts only (Avenir Next and Helvetica Neue, and Iowan Old
+Style for display titles). The macOS font stack explicitly falls back to
+Hiragino Sans GB for Han and Apple Color Emoji for emoji. Plus Jakarta Sans is
+not bundled. Icons are Lucide. After changing the icon list in
 `tools/lucidegen`, regenerate the tables from `experiments/gio`:
 
 ```sh
