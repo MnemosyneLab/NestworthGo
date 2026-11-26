@@ -66,7 +66,7 @@ func readAvailableFundsQuery(ctx context.Context, service availableFundsReader, 
 }
 
 type fundsLinks struct {
-	account, instrument, reserve, product widget.Clickable
+	account, instrument, reserve, product, policy widget.Clickable
 }
 
 type availableFundsPage struct {
@@ -79,6 +79,10 @@ type availableFundsPage struct {
 	current             *availableFundsRead
 	reservationLedger   fundsReservationLedger
 	reservation         *fundsReservationSession
+	policyLedger        fundsPolicyLedger
+	policy              *fundsPolicyDraft
+	policyFocus         *widget.Clickable
+	policyNotice        i18n.MessageID
 	productLedger       fundsProductLedger
 	productClock        func() time.Time
 	setup               *fundsProductSetup
@@ -101,7 +105,8 @@ type availableFundsPage struct {
 }
 
 func newAvailableFundsPage(ctx context.Context, service availableFundsReader, invalidate func()) *availableFundsPage {
-	return &availableFundsPage{ctx: ctx, service: service, invalidate: invalidate,
+	policyLedger, _ := service.(fundsPolicyLedger)
+	return &availableFundsPage{ctx: ctx, service: service, invalidate: invalidate, policyLedger: policyLedger,
 		list: widget.List{List: layout.List{Axis: layout.Vertical}}, links: make(map[string]*fundsLinks)}
 }
 
@@ -109,6 +114,7 @@ func (p *availableFundsPage) enter(position layout.Position, state fundsViewStat
 	p.list.Position, p.current, p.state = position, nil, state
 	p.controls.early.Value = p.state.includeEarly
 	p.productSaved, p.restoreAddFocus = false, false
+	p.policyFocus, p.policyNotice = nil, i18n.NoMessage
 	p.read()
 }
 
@@ -165,6 +171,12 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if p.policy != nil {
+		p.pollPolicy()
+		if p.policy != nil {
+			return p.layoutPolicy(gtx, view)
+		}
+	}
 	if d := p.setup; d != nil {
 		if !d.poll() {
 			return d.layout(gtx, view, productFormCalendar{today: p.localDate, zone: p.timezone}, func() {
@@ -261,6 +273,9 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 			return p.layoutFundsControls(gtx, view)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.policyNotice != i18n.NoMessage {
+				return view.Message(l.Text(p.policyNotice), view.Colors.Ink)(gtx)
+			}
 			if p.productSaved {
 				return view.Message(l.Text(i18n.ProductSetupSaved), view.Colors.Ink)(gtx)
 			}
@@ -455,6 +470,16 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 	}
 	if source.NativeCurrency != "" {
 		title += " · " + source.NativeCurrency.String()
+	}
+	if p.policyLedger != nil {
+		switch {
+		case editableFundsPolicy(row):
+			fields = append(fields, p.policyButton(view, row, title, result != nil && result.NeedsRules))
+		case source.ProductID != nil:
+			fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.FundsPolicyManaged), view.Colors.SecondaryInk))
+		default:
+			fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.FundsPolicyReadOnly), view.Colors.SecondaryInk))
+		}
 	}
 	return fundsCard(view, title, fields...)
 }

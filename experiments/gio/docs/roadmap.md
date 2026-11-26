@@ -2148,11 +2148,10 @@ retains its known-zero display and no-source message in that state.
 
 The read uses the shared Go service and existing price and FX recovery from
 Data Health. The domain checks cumulative amounts in date order while retaining
-the preset and custom bucket positions expected by Wails. Source rule creation
-and reset, reservation editing and management across source types, and eligible
-grouped product undo remain open. The next slice is **Complete availability
-rules** for an ordinary source, with revision-aware save/reset and readback in
-the same horizon. Stage 7 remains paused.
+the preset and custom bucket positions expected by Wails. See [ordinary source
+availability rules](#ordinary-source-availability-rules) for rule editing and
+same-horizon readback. Broader reservation management and eligible grouped
+product undo remain open. Stage 7 remains paused.
 
 | Check | Evidence |
 | --- | --- |
@@ -2160,6 +2159,28 @@ the same horizon. Stage 7 remains paused.
 | Native compact controls | At 700 × 480 content points, Tab and Return opened the 30-day rules scope and focused Missing rules. Selecting December 6 loaded the USD 85.3071 subtotal, with the 30-day subtotal still USD 125.3071. [Gio compact rules scope](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-narrow.jpg) |
 | Native repair, complete and empty | From Overview, saved EUR/USD 1.2 and QA-FUND USD 12.3456 through Data Health. The refreshed estimates were USD 115.6071 and USD 155.6071 with the access rule still missing. A separately seeded complete ledger showed USD 140.2983 and USD 180.2983. On that ledger, early withdrawal raised Today and 7 days to USD 177.2983 and left 30 days at USD 180.2983. An onboarded empty copy reached the no-source message and known USD zero from the sidebar. |
 | Automated workflow | Frame regressions exercise independent loading and retry, scoped navigation and Back/Forward focus, quote and rule readback, and compact keyboard horizon, custom-date and early-withdrawal selection. The selected date test compares the exact results against the Wails Go adapter. Full VoiceOver, native IME and Wayland acceptance remain open. |
+
+#### Ordinary source availability rules
+
+From the selected source row, **Complete availability rules** or **Edit source
+rules** opens the normal-access presets and the advanced timing, cap, fee and
+early-withdrawal fields. Managed products keep their rules in product terms.
+The shared Go commands validate the source and compare the explicit rule
+revision. Reset asks for confirmation. A conflict keeps the competing revision
+intact and offers explicit readback before another edit. An unreadable result
+retries the read without repeating the mutation.
+[Wails editor](../../../frontend/src/features/liquidity/PolicySheet.tsx)
+
+The saved date, early-withdrawal option and source filter survive save and
+reset. The source action regains focus if it still matches. When the source
+leaves the filtered list, the active filter receives focus. Back and Forward
+restore the saved scope, and Overview reads the current rule counts.
+
+| Check | Evidence |
+| --- | --- |
+| Paired macOS 27.2.1 ARM64 | From the 30-day Missing rules link, both apps saved QA-FUND with a December 10 unlock, two calendar settlement days and USD 0.6912 exit fee. The December 12 receipt contributes exactly USD 24. Today stayed USD 115.6071, 30 days rose from USD 155.6071 to USD 179.6071, and coverage became complete. Gio focused Missing rules 0 when the repaired source disappeared. Restart retained the results. [Wails form](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/wails-policy.jpg) · [Gio form](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/gio-policy.jpg) · [Gio restart](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/gio-policy-saved.jpg) |
+| Compact keyboard and reset | At 700 × 480 in the native Gio window, Tab and Return selected the dated preset. Escape cancelled reset and restored the reset button's focus. Tab and Return then confirmed reset. The source again needed rules and the original known subtotals returned. [Reset confirmation](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/gio-policy-reset.jpg) |
+| Automated workflow | The SQLite frame regression verifies a conflicting revision, explicit reload, retained filter and date, readback retry without a duplicate write, Back and Forward, cancellation, validation and saved-rule reopen. It compares exact amounts through the Wails Go adapter. |
 
 #### Bank-account reservations
 
@@ -3150,9 +3171,8 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 
 #### Follow-up order across Stages 4 to 6
 
-1. Complete ordinary funding-source rules and same-horizon readback from
-   the [Available Funds workspace](#available-funds-from-overview). Then cover
-   broader reservation actions and the standalone
+1. Extend reservation management across eligible funding sources in the
+   [Available Funds workspace](#available-funds-from-overview). Then cover the standalone
    [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
    Standalone locked-product valuation and redemption, interest and terms are
    covered, along with the pre-maturity term-deposit receipt and paged product

@@ -1637,6 +1637,42 @@ const (
 	FundsMissingRuleCountMany
 	FundsComparisonNote
 	FundsRouteFee
+
+	FundsPolicyTitle
+	FundsPolicyEdit
+	FundsPolicyComplete
+	FundsPolicyManaged
+	FundsPolicyReadOnly
+	FundsPolicyQuick
+	FundsPolicyNow
+	FundsPolicyNowHint
+	FundsPolicySoon
+	FundsPolicySoonHint
+	FundsPolicyDate
+	FundsPolicyDateHint
+	FundsPolicyExcluded
+	FundsPolicyExcludedHint
+	FundsPolicyQuickDate
+	FundsPolicyQuickHint
+	FundsPolicyAdvanced
+	FundsPolicyCustom
+	FundsPolicyCap
+	FundsPolicyCapHint
+	FundsPolicySave
+	FundsPolicyReset
+	FundsPolicyResetTitle
+	FundsPolicyResetBody
+	FundsPolicyResetConfirm
+	FundsPolicySaved
+	FundsPolicyResetSaved
+	FundsPolicyChecking
+	FundsPolicyReadFailed
+	FundsPolicyConflict
+	FundsPolicyLoadLatest
+	FundsPolicySaveFailed
+	FundsPolicyInvalid
+	FundsPolicyDateRequired
+	FundsPolicyEarlyRequired
 	ReserveManage
 	ReserveTitle
 	ReserveAdd
