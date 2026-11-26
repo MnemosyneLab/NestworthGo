@@ -31,6 +31,8 @@ type navigationTarget struct {
 	health      healthFindingFocus
 	accountList accountListScope
 	fundsDay    string
+
+	portfolioAccount domain.AccountID
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -50,6 +52,7 @@ type navigationEntry struct {
 	accountsArchived bool
 	funds            fundsViewState
 	portfolioSearch  string
+	holdings         portfolioHoldingsVisit
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	returns          *returnAnalysisVisit
@@ -225,6 +228,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			(request.target.route != historyRoute || request.target.activity != "" || s.historyPage == nil || s.historyPage.reads == nil) {
 			return
 		}
+		if request.target.portfolioAccount != "" && (request.target.route != portfolioRoute || request.target.instrument == "") {
+			return
+		}
 	}
 
 	source := *entry
@@ -368,7 +374,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == portfolioRoute {
-		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
+		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
+		if entry.target.instrument == "" {
+			s.portfolio.restoreHoldingsVisit(entry.holdings)
+		}
 	}
 	if entry.target.route == wealthHistoryRoute {
 		s.wealthHistory.enter()
@@ -465,6 +474,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
+		if entry.target.instrument == "" {
+			entry.holdings = s.portfolio.holdingsVisit()
+		}
 	case overviewRoute:
 		if s.overviewPage != nil {
 			entry.scroll = s.overviewPage.list.Position

@@ -158,8 +158,8 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	}
 	click("Open instrument · QA-BUY")
 	label("Quantity 3")
-	label("Cost basis · USD US$81.00")
-	label("Native market value · USD US$120.00")
+	label("Cost basis · US$81.00")
+	label("Native market value · US$120.00")
 
 	recordReference := func(review history.ReviewedInvestment, quantity, gross, fee, at string) domain.ActivityID {
 		t.Helper()
@@ -261,7 +261,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 		t.Fatal("a closed position still offers sell or first-buy")
 	}
 	click("Investment assets")
-	label("No investment holdings.")
+	label("No current holdings. Enable “Show zero holdings” to see closed positions.")
 	click("Ledger activity")
 	label("Loaded records: 4")
 	refClosing := recordReference(closing, "3", "60", "2", "01:02")

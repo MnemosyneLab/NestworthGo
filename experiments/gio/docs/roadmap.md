@@ -1229,7 +1229,8 @@ base-currency valuation and its quality, with a known subtotal when some
 inputs are missing. Portfolio value covers securities. Household net worth in
 Overview also reflects cash and other eligible balances. A funded account can
 show no investment holdings. Zero-quantity positions are omitted from the
-current list. [Wails Portfolio view](../../../frontend/src/features/portfolio/PortfolioPage.tsx) · [Shared holdings read](../../../internal/application/instrument_holdings.go)
+current list by default. See [My holdings groups](#my-holdings-groups) for the
+grouped workspace. [Wails Portfolio view](../../../frontend/src/features/portfolio/PortfolioPage.tsx) · [Shared holdings read](../../../internal/application/instrument_holdings.go)
 
 Instrument detail shows the shared aggregate and each account's position.
 It reads current price and the stored market FX quote independently and shows
@@ -1251,7 +1252,32 @@ the prior visit, including search, scroll and available source focus.
 | Linux X11 | Native Gio at 900×660 on Xvfb displayed complete, mixed and empty portfolios. The mixed profile showed missing price, missing FX and both gaps separately. The window exercised search, account navigation, instrument-filtered History and normal quit and reopen. A read-only SQLite comparison retained all financial and quote rows. A temporary overlay seeded the verified synthetic profiles and fixed the clock. |
 | Tests | The Gio module suite and Wails Go Portfolio, Quote and Analytics package tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Portfolio grouping and allocation, performance and market-data maintenance, position import, broader trade support, dividends and products remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Follow-up | See [My holdings groups](#my-holdings-groups) for grouping and later native evidence. Allocation and performance views, market-data maintenance, broader trade support, dividends and products have separate milestones. |
+
+#### My holdings groups
+
+**Investment assets → My holdings** defaults to instrument rows. Shared Go
+projections supply asset classes, per-currency costs, market values and
+unrealized gains or losses. Each instrument shows its matching account count.
+Expand the row to inspect each account's quantity and amounts, or choose
+**Account details** for account-level rows. Groups can be collapsed together
+or individually. Search filters the displayed instruments and the visible
+count. Currency subtotals report the full category. Zero holdings are hidden
+until selected. Missing amounts retain the corresponding evidence reason.
+[Wails grouped holdings](../../../frontend/src/features/investments/HoldingGroupsList.tsx)
+
+Instrument, account and managed-product links use their existing destinations.
+The row actions open the existing Ledger activity, Return Analysis and Asset
+Changes with instrument and optional account scope. Back restores the search,
+disclosures, position and source focus. The shared money formatter supplies
+the currency symbol once. Table-column sorting and the other Investment Assets
+tabs remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Paired macOS 27.2.1 ARM64 | The same synthetic holdings showed USD 232.95 known value in both apps. Stocks had independent EUR 78.625 cost, 101.875 value and +23.25 gain, and GBP 133 cost, 82 value and −51 loss. The five EUR units expanded into two accounts with gains of EUR 10.5 and 12.75. [Wails groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/wails-holdings.jpg) · [Gio groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings.jpg) |
+| Native coverage and navigation | JPY 360 cost remained available with market value and gain missing. A separate pre-History fixture showed S$57.00 market value with unavailable cost and gain. Search, collapse and expand, account detail and Back worked. The Ledger link kept the account and instrument. At 700 × 480, Tab and Return opened the holding actions and scoped Return Analysis to the selected instrument. [Narrow JPY holding](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-narrow.jpg) · [SGD missing cost](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-missing-cost.jpg) |
+| Automated workflow | Compact frame tests compare the exact Go projection and Wails adapter, including zero, mixed currencies, independent cost and value availability, account-scoped detail, all three analysis actions and Back focus. VoiceOver, native IME and Wayland acceptance remain open. |
 
 #### First recorded security buy
 

@@ -283,11 +283,25 @@ func TestManagedTermDepositReadOnlyMatchesWails(t *testing.T) {
 	label("Current contract value · 1000 USD")
 	click("Back")
 	click("Investment assets")
-	label("Managed holdings appear under their accounts and Available Funds.")
-	managed, err := readPortfolio(ctx, app, funds.productPage.current.detail.Contract.InstrumentID)
-	if err != nil || managed.product == nil || len(managed.positions) != 0 || managed.price != nil {
-		t.Fatalf("historical instrument target was classified as an ordinary position: %+v / %v", managed, err)
+	const cashLike = "Cash-like · 3 holdings"
+	scrollProductControl(t, h, cashLike)
+	label(cashLike)
+	row := slices.IndexFunc(portfolio.current.groups[0].Instruments, func(row domain.InstrumentHoldingsView) bool {
+		return row.Name == "Winter Deposit" && row.Amounts.Quantity != "0"
+	})
+	if row < 0 {
+		t.Fatal("My holdings omitted the active term deposit")
 	}
+	instrument := portfolio.current.groups[0].Instruments[row]
+	name := holdingInstrumentName(instrument)
+	scrollProductControl(t, h, name)
+	click(name)
+	managed := portfolio.current
+	if managed.product == nil || managed.product.Contract.ID != fixture.ids["Winter Deposit"] || len(managed.positions) != 0 || managed.price != nil {
+		t.Fatalf("historical instrument target was classified as an ordinary position: %+v", managed)
+	}
+	click(winter)
+	label("Current contract value · 1000 USD")
 	if missing, err := readProduct(ctx, app, domain.NewProductContractID()); err != nil || missing.detail != nil {
 		t.Fatalf("missing product was resolved or became a read error: %+v / %v", missing, err)
 	}

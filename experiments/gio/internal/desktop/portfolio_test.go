@@ -130,7 +130,7 @@ func TestPortfolioAndInstrumentReadsMatchWailsGo(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			gio, _, _, gioIDs := openPortfolioFixture(t, mode)
 			wails, _, _, wailsIDs := openPortfolioFixture(t, mode)
-			gl, err := readPortfolio(ctx, gio, "")
+			gl, err := readPortfolio(ctx, gio, "", "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -183,8 +183,14 @@ func TestPortfolioAndInstrumentReadsMatchWailsGo(t *testing.T) {
 					wrows[row.Symbol] = row
 				}
 			}
-			if len(wrows) != len(gl.positions) || len(gl.positions) != len(gioIDs.instruments) {
-				t.Fatalf("unexpected portfolio instrument count: Gio %d, Wails %d", len(gl.positions), len(wrows))
+			grows := make(map[domain.InstrumentID]domain.InstrumentHoldingsView)
+			for _, group := range gl.groups {
+				for _, row := range group.Instruments {
+					grows[row.InstrumentID] = row
+				}
+			}
+			if len(wrows) != len(grows) || len(grows) != len(gioIDs.instruments) {
+				t.Fatalf("unexpected portfolio instrument count: Gio %d, Wails %d", len(grows), len(wrows))
 			}
 			for _, item := range []struct{ symbol, quantity, cost, native, price, fx string }{
 				{"QA-FULL", "3", "60.36", "90.3702", "30.1234", "1.2"},
@@ -196,13 +202,12 @@ func TestPortfolioAndInstrumentReadsMatchWailsGo(t *testing.T) {
 				if !ok {
 					continue
 				}
-				index := slices.IndexFunc(gl.positions, func(row domain.InstrumentHoldingsView) bool { return row.InstrumentID == i.ID })
-				if index < 0 {
+				gr, ok := grows[i.ID]
+				if !ok {
 					t.Fatalf("Portfolio is missing instrument %s", item.symbol)
 				}
-				gr := gl.positions[index]
 				wr := wrows[item.symbol]
-				detail, err := readPortfolio(ctx, gio, i.ID)
+				detail, err := readPortfolio(ctx, gio, i.ID, "")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -314,8 +319,8 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	click(full.DisplayLabel())
 	label("Current price · EUR 30.1234 · manual · 2026-11-21 16:00")
 	label("Market FX · 1 EUR = 1.2 USD · manual · 2026-11-21 16:00")
-	label("Cost basis · EUR €60.36")
-	label("Native market value · EUR €90.37")
+	label("Cost basis · €60.36")
+	label("Native market value · €90.37")
 	click("Open account · Harbor Brokerage")
 	if accounts.target.account != ids.account {
 		t.Fatal("wrong account link destination")
@@ -365,7 +370,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	click(full.DisplayLabel())
 	label("Could not load portfolio data.")
 	click("Retry")
-	label("Native market value · EUR €90.37")
+	label("Native market value · €90.37")
 	probe.holdPrice.Store(true)
 	h.click("Reload", false)
 	select {
@@ -385,7 +390,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	release()
 	settle()
 	label("Market FX unavailable · GBP/USD")
-	label("Native market value · GBP £13.00")
+	label("Native market value · £13.00")
 	if portfolio.current.instrument == nil || portfolio.current.instrument.ID != other.ID {
 		t.Fatal("a late quote replaced the instrument")
 	}
@@ -408,7 +413,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	}
 	reopened, _ := reopenOnboardingProfile(t, paths)
 	reopened.SetClock(clock)
-	facts, err := readPortfolio(ctx, reopened, full.ID)
+	facts, err := readPortfolio(ctx, reopened, full.ID, "")
 	if err != nil || facts.instrument == nil || len(facts.positions) != 1 || facts.positions[0].Amounts.Quantity != "3" {
 		t.Fatalf("could not read the same instrument after reopening: %+v / %v", facts, err)
 	}
@@ -439,5 +444,5 @@ func TestPortfolioShellShowsEmptyHoldingsWithFundedAccount(t *testing.T) {
 	h.click("Reload", false)
 	p.workers.Wait()
 	h.frame()
-	assertPageLabel(t, &h.router, "No investment holdings.")
+	assertPageLabel(t, &h.router, "No current holdings. Enable “Show zero holdings” to see closed positions.")
 }

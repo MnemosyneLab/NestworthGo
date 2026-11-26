@@ -1429,6 +1429,34 @@ const (
 	PortfolioFXMissing
 	PortfolioInstrumentHistory
 	PortfolioOpenInstrument
+	PortfolioMyHoldings
+	PortfolioByInstrument
+	PortfolioByAccount
+	PortfolioShowZero
+	PortfolioZeroOnly
+	PortfolioExpandAll
+	PortfolioCollapseAll
+	PortfolioGroupStock
+	PortfolioGroupFund
+	PortfolioGroupBond
+	PortfolioGroupBankWealth
+	PortfolioGroupMetal
+	PortfolioGroupCrypto
+	PortfolioGroupCashLike
+	PortfolioGroupOther
+	PortfolioGroupOne
+	PortfolioGroupCount
+	PortfolioCurrencySubtotal
+	PortfolioAccountOne
+	PortfolioAccountCount
+	PortfolioUnrealized
+	PortfolioCostMissing
+	PortfolioHoldingFXMissing
+	PortfolioHoldingEvidenceMissing
+	PortfolioActionsFor
+	PortfolioViewReturn
+	PortfolioViewChanges
+	PortfolioContractUnit
 	BuyOpen
 	BuyReview
 	BuyConfirm
@@ -1720,7 +1748,6 @@ const (
 	ProductContractClosed
 	ProductConfirmReceipt
 	ProductReceiveInterest
-	PortfolioManagedOnly
 	ProductForecastInterest
 	ProductValuationAmount
 	ProductValuationHelp

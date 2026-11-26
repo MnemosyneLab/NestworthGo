@@ -468,6 +468,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		p.openInstrument = func(id domain.InstrumentID, name string, from event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id}, name: name, focus: from}
 		}
+		p.openHoldingInstrument = func(id domain.InstrumentID, account domain.AccountID, name string, from event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id, portfolioAccount: account}, name: name, focus: from}
+		}
 		if s.tasks != nil {
 			s.tasks.openInstrument = p.openInstrument
 		}
@@ -479,9 +482,13 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.historyPage != nil && s.historyPage.reads != nil {
 			p.openHistory = func(id domain.InstrumentID, name string, from event.Tag) {
-				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, instrument: id}, name: name, focus: from}
+				p.openHoldingHistory(id, "", name, from)
 			}
+			p.openHoldingHistory = s.openHoldingHistory
 			s.historyPage.reads.openInstrument = p.openInstrument
+		}
+		if s.returns != nil && s.assets != nil {
+			p.openHoldingAnalysis = s.openHoldingAnalysis
 		}
 	}
 	if s.tasks != nil && s.accounts != nil && s.accounts.statement != nil {
