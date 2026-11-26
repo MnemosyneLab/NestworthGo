@@ -167,18 +167,19 @@ func (p fundsReservationPlan) verify(after []domain.LiquidityReservation, acknow
 }
 
 type fundsReservationSession struct {
-	source    domain.LiquiditySourceRef
-	name      string
-	entry     *widget.Clickable
-	current   *fundsReservationRead
-	read      <-chan historyResult[fundsReservationRead]
-	write     <-chan historyResult[domain.LiquidityReservation]
-	plan      *fundsReservationPlan
-	checking  bool
-	readError bool
-	ack       domain.LiquidityReservationID
-	notice    i18n.MessageID
-	failure   i18n.MessageID
+	source      domain.LiquiditySourceRef
+	name        string
+	entry       *widget.Clickable
+	current     *fundsReservationRead
+	read        <-chan historyResult[fundsReservationRead]
+	write       <-chan historyResult[domain.LiquidityReservation]
+	plan        *fundsReservationPlan
+	checking    bool
+	readError   bool
+	ack         domain.LiquidityReservationID
+	focusTarget domain.LiquidityReservationID
+	notice      i18n.MessageID
+	failure     i18n.MessageID
 
 	editing                   bool
 	editRow                   *domain.LiquidityReservation
@@ -254,6 +255,9 @@ func (p *availableFundsPage) pollReservations() {
 			return
 		}
 		r.current = &result.value
+		if r.focusTarget != "" && !slices.ContainsFunc(r.current.records, func(row domain.LiquidityReservation) bool { return row.ID == r.focusTarget }) {
+			r.focusTarget, r.notice, r.restoreFocus = "", i18n.TasksTargetMissing, true
+		}
 		if !r.checking {
 			return
 		}

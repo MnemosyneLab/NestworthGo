@@ -83,6 +83,8 @@ type availableFundsPage struct {
 	policy              *fundsPolicyDraft
 	policyFocus         *widget.Clickable
 	policyNotice        i18n.MessageID
+	actionFocus         fundsActionFocus
+	actionNotice        i18n.MessageID
 	productLedger       fundsProductLedger
 	productClock        func() time.Time
 	setup               *fundsProductSetup
@@ -116,6 +118,7 @@ func (p *availableFundsPage) enter(position layout.Position, state fundsViewStat
 	p.controls.early.Value = p.state.includeEarly
 	p.productSaved, p.restoreAddFocus = false, false
 	p.policyFocus, p.policyNotice = nil, i18n.NoMessage
+	p.actionFocus, p.actionNotice = fundsActionFocus{}, i18n.NoMessage
 	p.read()
 }
 
@@ -172,6 +175,7 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	p.openActionFocus(view)
 	if p.policy != nil {
 		p.pollPolicy()
 		if p.policy != nil {
@@ -279,6 +283,9 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 			}
 			if p.productSaved {
 				return view.Message(l.Text(i18n.ProductSetupSaved), view.Colors.Ink)(gtx)
+			}
+			if p.actionNotice != i18n.NoMessage {
+				return view.Message(l.Text(p.actionNotice), view.Colors.SecondaryInk)(gtx)
 			}
 			return layout.Dimensions{}
 		}),
@@ -463,15 +470,7 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 	if p.reservationLedger != nil && reservableFundsSource(&source) {
 		fields = append(fields, p.reservationButton(view, source.DisplayName, source.Ref))
 	}
-	title := source.DisplayName
-	if source.Ref.Kind == domain.SourceAccountCash {
-		if name := p.current.accounts[source.AccountID].Name; name != "" {
-			title = fmt.Sprintf(l.Text(i18n.FundsCashSource), name)
-		}
-	}
-	if source.NativeCurrency != "" {
-		title += " · " + source.NativeCurrency.String()
-	}
+	title := p.sourceTitle(view, source)
 	if p.policyLedger != nil {
 		switch {
 		case editableFundsPolicy(row):
@@ -483,6 +482,19 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		}
 	}
 	return fundsCard(view, title, fields...)
+}
+
+func (p *availableFundsPage) sourceTitle(view ui.View, source domain.LiquiditySourceResult) string {
+	title := source.DisplayName
+	if source.Ref.Kind == domain.SourceAccountCash {
+		if name := p.current.accounts[source.AccountID].Name; name != "" {
+			title = fmt.Sprintf(view.Language.Text(i18n.FundsCashSource), name)
+		}
+	}
+	if source.NativeCurrency != "" {
+		title += " · " + source.NativeCurrency.String()
+	}
+	return title
 }
 
 func (p *availableFundsPage) sourceLinks(view ui.View, key string, account domain.AccountID, instrument domain.InstrumentID, name string) layout.Widget {

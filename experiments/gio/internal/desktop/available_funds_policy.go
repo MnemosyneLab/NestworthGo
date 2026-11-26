@@ -27,7 +27,7 @@ type fundsPolicyDraft struct {
 	currency                    string
 	id                          domain.LiquidityPolicyID
 	revision                    int
-	entry                       *widget.Clickable
+	entry                       *widget.Clickable // nil when opened from another page
 	fields                      fundsPolicyFields
 	list                        widget.List
 	openingFocus                bool
@@ -106,7 +106,7 @@ func (p *availableFundsPage) policySource(ref domain.LiquiditySourceRef) *applic
 func (p *availableFundsPage) cancelPolicy(refresh bool) {
 	d := p.policy
 	p.policy = nil
-	if row := p.policySource(d.source); row != nil && editableFundsPolicy(*row) && fundsMatchesSourceFilter(row.Result, p.selectedFundsBucket().HorizonOn, p.state.filter) {
+	if row := p.policySource(d.source); d.entry != nil && row != nil && editableFundsPolicy(*row) && fundsMatchesSourceFilter(row.Result, p.selectedFundsBucket().HorizonOn, p.state.filter) {
 		p.policyFocus = d.entry
 	} else {
 		p.state.focusSources = true

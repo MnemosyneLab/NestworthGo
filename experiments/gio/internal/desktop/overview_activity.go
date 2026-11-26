@@ -27,7 +27,7 @@ type overviewUpcoming struct {
 	dirty       bool
 	retry, all  widget.Clickable
 	products    map[string]*widget.Clickable
-	health      map[string]*widget.Clickable
+	links       upcomingActionLinks
 	openTasks   func(tasksTab, event.Tag)
 	openProduct func(domain.ProductContractID, string, bool, event.Tag)
 	summary     overviewTaskCounts
@@ -84,6 +84,7 @@ func (p *overviewPage) updateUpcoming() {
 		u.err = result.err
 		if result.err == nil {
 			u.current = &result.value
+			u.links.retained(result.value.Items)
 		}
 	default:
 	}
@@ -235,17 +236,14 @@ func (p *overviewPage) overviewUpcomingItem(view ui.View, row domain.UpcomingAct
 	u, l := &p.upcoming, view.Language
 	fields := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, row.DisplayName, view.Colors.Ink))}
 	state := taskPhase(row)
-	switch row.Kind {
-	case "reservation_shortfall":
-		state = i18n.OverviewUpcomingShortfall
-	case "reservation_unresolved":
-		state = i18n.OverviewUpcomingUnresolved
-	}
 	if state != i18n.OverviewNoValue {
 		fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, l.Text(state), view.Colors.SecondaryInk)))
 	}
 	if row.MaturityOn != nil {
 		fields = append(fields, ui.Rigid(productMaturity(view, row.MaturityOn)))
+	} else if row.EligibilityOn != nil {
+		label := fmt.Sprintf(l.Text(i18n.TasksEligibilityOn), historyDay(view, *row.EligibilityOn))
+		fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, label, view.Colors.SecondaryInk)))
 	}
 	if row.EstimatedReceiptOn != nil {
 		label := fmt.Sprintf(l.Text(i18n.ProductReceiptDate), historyDay(view, *row.EstimatedReceiptOn))
@@ -255,7 +253,7 @@ func (p *overviewPage) overviewUpcomingItem(view ui.View, row domain.UpcomingAct
 		fields = append(fields, ui.Rigid(fundsAmount(view, i18n.FundsRequested, row.RequestedReserve)))
 	}
 	if row.Amount != nil {
-		fields = append(fields, ui.Rigid(fundsAmount(view, overviewUpcomingAmountLabel(row.AmountRole), row.Amount)))
+		fields = append(fields, ui.Rigid(fundsAmount(view, upcomingAmountLabel(row.AmountRole), row.Amount)))
 	}
 	if id := taskProductID(row); id != "" && u.openProduct != nil {
 		if u.products == nil {
@@ -263,7 +261,7 @@ func (p *overviewPage) overviewUpcomingItem(view ui.View, row domain.UpcomingAct
 		}
 		button := portfolioButton(u.products, row.ID)
 		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if row.Phase != "receipt_due" {
+			if !taskReceiptDue(row) {
 				return productLink(view, id, row.DisplayName, button, func(id domain.ProductContractID, name string, from event.Tag) {
 					u.openProduct(id, name, false, from)
 				})(gtx)
@@ -276,33 +274,10 @@ func (p *overviewPage) overviewUpcomingItem(view ui.View, row domain.UpcomingAct
 			return layout.W.Layout(gtx, view.Button(button, label))
 		}))
 	}
-	if p.openHealth != nil && (row.PrimaryTarget.Kind == "data_health" || slices.ContainsFunc(row.Targets, func(target domain.UpcomingTarget) bool {
-		return target.Kind == "data_health"
-	})) {
-		if u.health == nil {
-			u.health = make(map[string]*widget.Clickable)
-		}
-		button := portfolioButton(u.health, row.ID)
-		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if button.Clicked(gtx) {
-				p.openHealth(healthFindingFocus{}, button)
-				gtx.Execute(op.InvalidateCmd{})
-			}
-			return layout.W.Layout(gtx, view.NamedButton(button, l.Text(i18n.HealthOpen), l.Text(i18n.HealthOpen)+" · "+row.DisplayName))
-		}))
+	for _, link := range u.links.layoutLinks(view, row) {
+		fields = append(fields, ui.Rigid(link))
 	}
 	return func(gtx layout.Context) layout.Dimensions { return (ui.Column{Gap: ui.Space4}).Layout(gtx, fields...) }
-}
-
-func overviewUpcomingAmountLabel(role string) i18n.MessageID {
-	switch role {
-	case "reserve_shortfall":
-		return i18n.FundsShortfall
-	case "reservation_requested":
-		return i18n.FundsRequested
-	default:
-		return i18n.ProductForecastNet
-	}
 }
 
 func (p *overviewPage) overviewRecentActivity(gtx layout.Context, view ui.View, result domain.OverviewResult) layout.Dimensions {

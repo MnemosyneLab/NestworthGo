@@ -31,6 +31,7 @@ type navigationTarget struct {
 	health      healthFindingFocus
 	accountList accountListScope
 	fundsDay    string
+	fundsAction fundsActionFocus
 
 	portfolioAccount domain.AccountID
 }
@@ -195,7 +196,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved() || s.funds.policyUnresolved()) {
 		return
 	}
-	if request.step == -1 && s.activeRoute() == fundsRoute && s.funds.policy != nil {
+	if request.step == -1 && s.activeRoute() == fundsRoute && s.funds.policy != nil && s.funds.policy.entry != nil {
 		s.funds.cancelPolicy(false)
 		gtx.Execute(op.InvalidateCmd{})
 		return
@@ -371,6 +372,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 				}
 			}
 			s.funds.enter(entry.scroll, state)
+			if !entry.visited {
+				s.funds.actionFocus = entry.target.fundsAction
+			}
 		} else {
 			s.funds.productPage.enter(entry.target.product, entry.scroll, request.verifyProductReceipt)
 		}

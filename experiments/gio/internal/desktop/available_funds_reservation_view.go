@@ -218,6 +218,12 @@ func (r *fundsReservationSession) layoutReservationList(gtx layout.Context, view
 			return 1
 		}
 	})
+	target := r.focusTarget
+	if target != "" && gtx.Enabled() {
+		at := slices.IndexFunc(records, func(row domain.LiquidityReservation) bool { return row.ID == target })
+		r.list.Position = layout.Position{First: at}
+		r.focusTarget = ""
+	}
 	r.list.Position = restoredPosition(r.list.Position, len(records))
 	return view.List(&r.list).Layout(gtx, len(records), func(gtx layout.Context, i int) layout.Dimensions {
 		row := records[i]
@@ -230,14 +236,17 @@ func (r *fundsReservationSession) layoutReservationList(gtx layout.Context, view
 		}
 		if !row.Active() {
 			title = fmt.Sprintf(l.Text(i18n.ReserveReleasedRow), row.Label)
+			if row.ID == target && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &r.close})
+			}
 		} else {
-			fields = append(fields, r.reservationRowActions(view, row))
+			fields = append(fields, r.reservationRowActions(view, row, row.ID == target))
 		}
 		return layout.Inset{Bottom: 8}.Layout(gtx, fundsCard(view, title, fields...))
 	})
 }
 
-func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain.LiquidityReservation) layout.Widget {
+func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain.LiquidityReservation, focus bool) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		buttons := r.actions[row.ID]
 		if buttons == nil {
@@ -253,6 +262,9 @@ func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain
 				revision: row.Revision, label: row.Label, amount: row.Amount}
 			r.actionFocus, r.notice = &buttons.release, i18n.NoMessage
 			gtx.Execute(op.InvalidateCmd{})
+		}
+		if focus && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: &buttons.edit})
 		}
 		edit := fmt.Sprintf(view.Language.Text(i18n.ReserveEditRow), row.Label)
 		release := fmt.Sprintf(view.Language.Text(i18n.ReserveReleaseRow), row.Label)

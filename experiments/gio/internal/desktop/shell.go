@@ -227,7 +227,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.routes[item.id] = item
 		}
 	}
-	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil || s.assets != nil) {
+	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil || s.assets != nil || s.tasks != nil) {
 		item := newItem(dataHealthRoute, i18n.NavDataHealth, nil, s.dataHealth.layout)
 		s.routes[dataHealthRoute] = &item
 		openHealth := func(scope healthFindingFocus, focus event.Tag) {
@@ -258,6 +258,10 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.overviewPage != nil {
 			s.overviewPage.openHealth = openHealth
+			s.overviewPage.upcoming.links.openHealth = openHealth
+		}
+		if s.tasks != nil {
+			s.tasks.upcomingLinks.openHealth = openHealth
 		}
 		if s.assets != nil {
 			s.assets.openHealth = openHealth
@@ -517,6 +521,15 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 	}
 	if p := s.funds; p != nil {
+		openAction := func(target fundsActionFocus, from event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, fundsAction: target}, focus: from}
+		}
+		if s.tasks != nil {
+			s.tasks.upcomingLinks.openFunds = openAction
+		}
+		if s.overviewPage != nil {
+			s.overviewPage.upcoming.links.openFunds = openAction
+		}
 		if p.productPage != nil {
 			p.openProduct = func(id domain.ProductContractID, name string, from event.Tag) {
 				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from}

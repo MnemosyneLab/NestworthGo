@@ -1865,7 +1865,20 @@ const (
 	ProductValueAfter
 	ProductReceiptReleases
 	ProductFeeFact
-	TasksTermDeposits
+	TasksUpcomingActions
+	TasksAllActions
+	TasksReceiptsDue
+	TasksShowMoreActions
+	TasksEligible
+	TasksAccessToday
+	TasksAccessUpcoming
+	TasksAccessEligible
+	TasksEligibilityOn
+	TasksDataChecks
+	TasksPolicyLink
+	TasksReservationLink
+	TasksTargetMissing
+	TasksReserveSourceChanged
 	TasksLoading
 	TasksReadFailed
 	TasksEmpty

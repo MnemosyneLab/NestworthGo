@@ -111,6 +111,7 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 			t.Fatalf("inconsistent Tasks window: %s to %s (%s) at %v, want %s to %s (%s) at %s",
 				data.WindowStartOn, data.WindowEndOn, data.Timezone, data.AsOf, want.WindowStartOn, want.WindowEndOn, want.Timezone, want.AsOf)
 		}
+		termItems := termDepositTasks(data.Items)
 		wantItems := slices.DeleteFunc(want.Items, func(row liquidityapi.UpcomingActionDTO) bool {
 			return row.Kind != "product_schedule" || row.ProductKind == nil || *row.ProductKind != "term_deposit" ||
 				(row.Group != "scheduled" && row.Group != "attention")
@@ -120,10 +121,12 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 		for _, name := range extraSettled {
 			delete(phases, name)
 		}
-		if len(data.Items) != len(phases) || len(data.Items) != len(wantItems) {
-			t.Fatalf("unexpected term deposit tasks: %+v", data.Items)
+		if len(termItems) != len(phases) || len(termItems) != len(wantItems) {
+			t.Fatalf("unexpected term deposit tasks: %+v", termItems)
 		}
-		dto := liquidityapi.FromUpcomingActions(*data)
+		termProjection := *data
+		termProjection.Items = termItems
+		dto := liquidityapi.FromUpcomingActions(termProjection)
 		for i, item := range dto.Items {
 			ref := wantItems[i]
 			if item.DisplayName != ref.DisplayName || item.Phase != phases[item.DisplayName] || item.Phase != ref.Phase ||
@@ -134,7 +137,7 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 				!slices.Equal(item.ReasonCodes, ref.ReasonCodes) {
 				t.Fatalf("task facts or order differ: %+v / %+v", item, ref)
 			}
-			if id := taskProductID(data.Items[i]); id == "" || id != fixture.ids[item.DisplayName] ||
+			if id := taskProductID(termItems[i]); id == "" || id != fixture.ids[item.DisplayName] ||
 				ref.PrimaryTarget.ProductID == nil || *ref.PrimaryTarget.ProductID != reference.ids[item.DisplayName].String() {
 				t.Fatalf("task does not target the exact product: %+v / %+v", item, ref)
 			}
@@ -191,7 +194,7 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 	version := app.MobileDataVersion()
 	h.frame()
 	click("Tasks & checks")
-	label("Could not load term deposit tasks.")
+	label("Could not load upcoming actions.")
 	click("Retry")
 	label("Upcoming window · 2026-11-22 to 2026-12-22 (Asia/Singapore)")
 	check(tasks.current)
@@ -277,7 +280,6 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data.Items = termDepositTasks(data.Items)
 	check(&data, "Same Day Deposit", "Due Deposit")
 }
 
@@ -297,21 +299,35 @@ func TestTermDepositTasksEmpty(t *testing.T) {
 	h.click("Tasks & checks", false)
 	tasks.workers.Wait()
 	h.frame()
-	assertPageLabel(t, &h.router, "No term deposit tasks in this view.")
+	assertPageLabel(t, &h.router, "No upcoming actions in this view.")
 }
 
-func TestTermDepositTasksUseOnlySupportedTargets(t *testing.T) {
+func TestProductTaskKeepsDueVerificationRestrictedToTermDeposits(t *testing.T) {
 	term, locked := domain.ProductTermDeposit, domain.ProductLockedProduct
-	a := domain.UpcomingAction{ProductKind: &term, Kind: "product_schedule", Group: "scheduled"}
-	if got := termDepositTasks([]domain.UpcomingAction{
-		a, {ProductKind: &locked, Kind: a.Kind, Group: a.Group},
-		{ProductKind: &term, Kind: "reservation_shortfall", Group: "attention"}, {ProductKind: &term, Kind: a.Kind, Group: "eligible"},
-	}); len(got) != 1 {
-		t.Fatalf("unsupported tasks leaked into the slice: %+v", got)
+	a := domain.UpcomingAction{ProductKind: &term, Kind: "product_schedule", Phase: "receipt_due"}
+	if !taskReceiptDue(a) {
+		t.Fatal("a due term deposit lost receipt verification")
+	}
+	a.ProductKind = &locked
+	if taskReceiptDue(a) {
+		t.Fatal("a locked product must open its detail without a term-deposit receipt shortcut")
 	}
 	aID, bID := domain.NewProductContractID(), domain.NewProductContractID()
 	a.ProductID, a.PrimaryTarget = &aID, domain.UpcomingTarget{Kind: "product", ProductID: &bID}
 	if taskProductID(a) != "" {
 		t.Fatal("mismatched target should not yield a link")
 	}
+}
+
+// The existing end-to-end comparison checks the term-deposit subset on both
+// projections. Upcoming now also presents account liquidity and reservations.
+func termDepositTasks(items []domain.UpcomingAction) []domain.UpcomingAction {
+	var terms []domain.UpcomingAction
+	for _, row := range items {
+		if row.Kind == "product_schedule" && row.ProductKind != nil && *row.ProductKind == domain.ProductTermDeposit &&
+			(row.Group == "attention" || row.Group == "scheduled") {
+			terms = append(terms, row)
+		}
+	}
+	return terms
 }
