@@ -146,7 +146,7 @@ type barPlan struct {
 	compact bool
 }
 
-// minBarTick is the width of the tick that marks a real zero.
+// minBarTickPx keeps zero and subpixel bars visible.
 const minBarTickPx = 3
 
 func (s BarSpec) plan(g barGeometry) barPlan {
@@ -183,7 +183,14 @@ func (s BarSpec) plan(g barGeometry) barPlan {
 			x := int(math.Round(p.scale.at(b.Value.Number)))
 			x0, x1 := min(x, p.zeroX), max(x, p.zeroX)
 			if x1-x0 < minBarTickPx {
-				x0, x1 = p.zeroX-minBarTickPx/2, p.zeroX+(minBarTickPx+1)/2
+				switch {
+				case b.Value.Number < 0:
+					x0 = max(p.trackMin, p.zeroX-minBarTickPx)
+				case b.Value.Number > 0:
+					x1 = min(p.trackMax, p.zeroX+minBarTickPx)
+				default:
+					x0, x1 = p.zeroX-minBarTickPx/2, p.zeroX+(minBarTickPx+1)/2
+				}
 			}
 			row.bar = image.Rect(x0, barY0, x1, barY0+g.barHeight)
 		}
