@@ -149,6 +149,20 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 		h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: f32.Pt(440, 455), Scroll: f32.Pt(0, by)})
 		h.frame()
 	}
+	// reveal scrolls until the label sits inside the window, so the test does
+	// not depend on the exact height of the cards above it.
+	reveal := func(text string, margin int) {
+		t.Helper()
+		for range 80 {
+			if node := findPageLabel(&h.router, text); node != nil {
+				if y := min((node.Desc.Bounds.Min.Y+node.Desc.Bounds.Max.Y)/2, node.Desc.Bounds.Min.Y+16); y > 0 && y < h.size.Y-margin {
+					return
+				}
+			}
+			scroll(60)
+		}
+		t.Fatalf("could not scroll %q into view", text)
+	}
 
 	version := app.MobileDataVersion()
 	h.frame()
@@ -178,7 +192,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 		t.Fatalf("partial conversion exposed a complete total: %+v", got)
 	}
 
-	scroll(545)
+	reveal("Open account · Harbor Savings", 80)
 	label("Harbor Savings · USD")
 	label("Reserved from available funds · 40.125 USD")
 	label("Available after reservations · 85.3071 USD")
@@ -204,7 +218,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	}
 	click("Back")
 
-	scroll(290)
+	reveal("Open instrument · QA-FUND", 80)
 	label("Missing access rules.")
 	label("Current value · Unavailable")
 	instrument := "Open instrument · QA-FUND"
@@ -216,7 +230,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	label("Current price unavailable")
 	click("Back")
 	label(instrument)
-	scroll(1800)
+	reveal("The source is missing, archived, or no longer positive.", 4)
 	label("Unresolved reservation · Old reserve")
 	label("The source is missing, archived, or no longer positive.")
 	if app.MobileDataVersion() != version {
