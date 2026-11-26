@@ -124,6 +124,9 @@ func (p *tasksPage) reviewRows(view ui.View) []layout.Widget {
 					historyDay(view, rule.Window.WindowEnd), rule.Window.HitCount)
 				fields = append(fields, view.Message(window, view.Colors.SecondaryInk))
 			}
+			if action := p.reviewAcknowledgeButton(view, group.DisplayName, rule); action != nil {
+				fields = append(fields, action)
+			}
 		}
 		if len(fields) == 0 {
 			continue

@@ -73,6 +73,11 @@ func (s *overviewTaskCounts) invalidate() {
 	s.dirty = true
 }
 
+func (s *overviewTaskCounts) reviewChanged() {
+	s.review, s.reviewErr = nil, nil
+	s.invalidate()
+}
+
 func (p *overviewPage) updateUpcoming() {
 	u := &p.upcoming
 	if p.current == nil || p.current.value.AccountCount == 0 || u.reader == nil {

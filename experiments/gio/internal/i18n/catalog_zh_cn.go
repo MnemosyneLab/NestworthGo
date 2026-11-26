@@ -2219,6 +2219,14 @@ var simplifiedChineseCatalog = catalog{
 	ReconciliationCurrentValue:   "当前估值 · %s",
 	ReconciliationValueUnchanged: "新估值与当前估值相同。",
 
+	TasksReviewAcknowledge:          "确认已阅",
+	TasksReviewAcknowledging:        "正在保存确认…",
+	TasksReviewAcknowledged:         "已保存确认。",
+	TasksReviewAcknowledgeChanged:   "核查提醒已变更，请查看最新结果。",
+	TasksReviewAcknowledgeFailed:    "无法保存确认。",
+	TasksReviewAcknowledgeUncertain: "无法验证确认是否已保存。",
+	TasksReviewAcknowledgeRetry:     "重试确认",
+
 	TasksUpcomingTab:           "即将发生",
 	TasksInvestmentTab:         "投资核查",
 	TasksReconciliationTab:     "待对账",

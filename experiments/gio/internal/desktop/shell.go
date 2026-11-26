@@ -312,6 +312,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: tasksRoute}, tasksTab: tab, focus: focus}
 		}
 		s.overviewPage.upcoming.checks = s.tasks.checks
+		s.tasks.reviewAck.onChange = s.overviewPage.upcoming.summary.reviewChanged
 	}
 	if s.overviewPage != nil && s.funds != nil {
 		s.overviewPage.funds.reader = s.funds.service
@@ -705,6 +706,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	s.observeLedger(gtx)
 	s.updateNavigation(gtx)
+	if s.tasks != nil {
+		s.tasks.pollReviewAcknowledgement(s.activeRoute() == tasksRoute)
+	}
 	entry := s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
 		s.trail.rename(entry.target, s.directory.object.name())

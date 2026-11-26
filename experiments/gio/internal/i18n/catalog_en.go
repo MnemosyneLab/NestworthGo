@@ -2219,6 +2219,14 @@ var englishCatalog = catalog{
 	ReconciliationCurrentValue:   "Current value · %s",
 	ReconciliationValueUnchanged: "The new value matches the current value.",
 
+	TasksReviewAcknowledge:          "Acknowledge",
+	TasksReviewAcknowledging:        "Saving acknowledgement…",
+	TasksReviewAcknowledged:         "Acknowledgement saved.",
+	TasksReviewAcknowledgeChanged:   "The review alert changed. Check the latest results.",
+	TasksReviewAcknowledgeFailed:    "The acknowledgement could not be saved.",
+	TasksReviewAcknowledgeUncertain: "The acknowledgement could not be verified.",
+	TasksReviewAcknowledgeRetry:     "Retry acknowledgement",
+
 	TasksUpcomingTab:           "Upcoming",
 	TasksInvestmentTab:         "Investment review",
 	TasksReconciliationTab:     "Reconciliation",

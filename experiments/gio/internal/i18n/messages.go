@@ -2195,6 +2195,13 @@ const (
 	TasksReviewEmpty
 	TasksReviewTriggered
 	TasksReviewWindow
+	TasksReviewAcknowledge
+	TasksReviewAcknowledging
+	TasksReviewAcknowledged
+	TasksReviewAcknowledgeChanged
+	TasksReviewAcknowledgeFailed
+	TasksReviewAcknowledgeUncertain
+	TasksReviewAcknowledgeRetry
 	TasksStatementsEmpty
 	TasksStatementStarted
 	TasksStatementCounts

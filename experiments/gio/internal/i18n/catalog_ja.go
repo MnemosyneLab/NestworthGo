@@ -2218,6 +2218,14 @@ var japaneseCatalog = catalog{
 	ReconciliationCurrentValue:   "現在の評価額 · %s",
 	ReconciliationValueUnchanged: "新しい評価額は現在の評価額と同じです。",
 
+	TasksReviewAcknowledge:          "確認済みにする",
+	TasksReviewAcknowledging:        "確認を保存しています…",
+	TasksReviewAcknowledged:         "確認を保存しました。",
+	TasksReviewAcknowledgeChanged:   "アラートが更新されました。最新の結果を確認してください。",
+	TasksReviewAcknowledgeFailed:    "確認を保存できませんでした。",
+	TasksReviewAcknowledgeUncertain: "確認が保存されたか検証できませんでした。",
+	TasksReviewAcknowledgeRetry:     "確認を再試行",
+
 	TasksUpcomingTab:           "今後の予定",
 	TasksInvestmentTab:         "投資の確認",
 	TasksReconciliationTab:     "照合",

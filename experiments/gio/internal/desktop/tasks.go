@@ -40,6 +40,7 @@ type tasksVisit struct {
 	upcomingLimit                int
 	position                     layout.Position
 	reviewCursors                []string
+	reviewGeneration             uint64
 	holdingSession               string
 	holdingReceipt               domain.ActivityID
 	holdingAudit                 []domain.ActivityID
@@ -86,6 +87,7 @@ type tasksPage struct {
 	tabs           [len(taskTabLabels)]widget.Clickable
 	review         *domain.ReviewAlertPage
 	reviewCursors  []string
+	reviewAck      taskReviewAcknowledgement
 	statements     []taskStatement
 	instruments    map[domain.InstrumentID]*widget.Clickable
 	statementLinks map[string]*widget.Clickable
@@ -105,7 +107,12 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 	p.tab, p.list.Position, p.showEligible = visit.tab, visit.position, visit.showEligible
 	p.upcomingFilter, p.upcomingLimit = visit.upcomingFilter, visit.upcomingLimit
-	p.reviewCursors = slices.Clone(visit.reviewCursors)
+	p.reviewCursors = nil
+	if visit.reviewGeneration == p.reviewAck.generation {
+		p.reviewCursors = slices.Clone(visit.reviewCursors)
+	} else if len(visit.reviewCursors) > 0 {
+		p.list.Position = layout.Position{}
+	}
 	p.read()
 	if c := p.holdingRecon; c != nil && visit.holdingSession != "" {
 		if c.sessionButtons == nil {
@@ -138,7 +145,8 @@ func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 func (p *tasksPage) visit(focus event.Tag) tasksVisit {
 	visit := tasksVisit{
 		tab: p.tab, position: p.list.Position, showEligible: p.showEligible, reviewCursors: slices.Clone(p.reviewCursors),
-		upcomingFilter: p.upcomingFilter, upcomingLimit: p.upcomingLimit,
+		reviewGeneration: p.reviewAck.generation,
+		upcomingFilter:   p.upcomingFilter, upcomingLimit: p.upcomingLimit,
 	}
 	if c := p.holdingRecon; c != nil && c.id != "" {
 		visit.holdingSession = c.id
@@ -261,7 +269,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.err != nil {
 		reload = i18n.HistoryRetry
 	}
-	return ui.Column{Gap: 10}.Layout(gtx,
+	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -274,6 +282,11 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 				}),
 				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
 		}),
+	}
+	if p.tab == tasksInvestment && p.reviewAck.status != i18n.NoMessage {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewAcknowledgement(gtx, view) }))
+	}
+	rows = append(rows,
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			loading, failed := i18n.TasksLoading, i18n.TasksReadFailed
 			if p.tab != tasksUpcoming {
@@ -304,6 +317,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 			})
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewPager(gtx, view) }))
+	return ui.Column{Gap: 10}.Layout(gtx, rows...)
 }
 
 func (p *tasksPage) rows(view ui.View) []layout.Widget {
