@@ -10,10 +10,11 @@ import (
 )
 
 type directoryPage struct {
-	lists  []*directoryList
-	tabs   []widget.Clickable
-	active int
-	object directoryObjectPage
+	lists         []*directoryList
+	tabs          []widget.Clickable
+	active        int
+	object        directoryObjectPage
+	householdName string
 }
 
 func newDirectoryPage(lists ...*directoryList) *directoryPage {
@@ -43,7 +44,7 @@ func (p *directoryPage) wait() {
 
 func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if len(p.lists) == 1 {
-		return p.activeList().layout(gtx, view)
+		return p.activeList().layout(gtx, view, p.householdName)
 	}
 	gap := gtx.Dp(10)
 	return ui.Column{Gap: 10}.Layout(gtx,
@@ -67,7 +68,7 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			return dims
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return p.activeList().layout(gtx, view)
+			return p.activeList().layout(gtx, view, p.householdName)
 		}),
 	)
 }

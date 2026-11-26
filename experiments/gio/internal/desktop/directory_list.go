@@ -17,6 +17,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -216,7 +217,7 @@ func (p *directoryList) canAdd(gtx layout.Context) bool {
 	return gtx.Enabled() && !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && p.awaitingRead.operation == directoryRead
 }
 
-func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
 	p.applyVisit()
 	controlsEnabled := !p.busy && p.archiveTarget == nil && gtx.Enabled()
 	if controlsEnabled {
@@ -236,7 +237,7 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			dims := p.toolbar(gtx, view)
+			dims := p.toolbar(gtx, view, householdName)
 			view.Origin.Y += dims.Size.Y + gtx.Dp(12)
 			return dims
 		}),
@@ -245,9 +246,13 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View) layout.Dimensio
 }
 
 // The toolbar keeps its footprint while a side sheet is open or a row is edited.
-func (p *directoryList) toolbar(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
 	l := view.Language
-	rows := []layout.FlexChild{
+	rows := make([]layout.FlexChild, 0, 4)
+	if householdName != "" {
+		rows = append(rows, layout.Rigid(view.Message(householdName, view.Colors.SecondaryInk)))
+	}
+	rows = append(rows,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -276,7 +281,7 @@ func (p *directoryList) toolbar(gtx layout.Context, view ui.View) layout.Dimensi
 				}),
 			)
 		}),
-	}
+	)
 	if p.includeArchived {
 		rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.DirectoryRestoreHint), view.Colors.SecondaryInk)))
 	}
@@ -284,7 +289,9 @@ func (p *directoryList) toolbar(gtx layout.Context, view ui.View) layout.Dimensi
 		if !p.canAdd(gtx) {
 			gtx = gtx.Disabled()
 		}
-		return view.PrimaryButton(&p.add, l.Text(p.copy.add))(gtx)
+		gtx.Constraints.Min.X = 0
+		title := l.Text(p.copy.add)
+		return view.ButtonOf(&p.add, ui.ButtonSpec{Variant: ui.ButtonPrimary, Title: title, Name: title, Icon: lucide.Plus})(gtx)
 	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, rows...)
 }
@@ -470,6 +477,7 @@ func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow,
 	return accessibility.Row(gtx, buttons, func(gtx layout.Context) layout.Dimensions {
 		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.Y = 0
 				if editing {
 					view.Origin = view.Origin.Add(image.Pt(gtx.Dp(16), gtx.Dp(12)))
 					return p.inlineEditor(gtx, view, item, buttons)
