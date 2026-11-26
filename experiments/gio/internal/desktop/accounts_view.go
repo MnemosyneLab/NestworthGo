@@ -434,7 +434,10 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 					}
 					return layout.Background{}.Layout(gtx, hover, func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return directoryTile(gtx, view, string(account.AccountType), accountGlyph(account, p.current.institutions))
+								}),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
 								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 									return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
