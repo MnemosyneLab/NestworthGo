@@ -428,6 +428,10 @@ const (
 	OverviewHealthIssues
 	OverviewUpdatedAt
 	OverviewAttentionTitle
+	OverviewViewGap
+	OverviewRecordFirstActivity
+	OverviewRecordOpenLedger
+	OverviewNoDataActions
 	OverviewFixInHealth
 	OverviewEmpty
 	OverviewLoading

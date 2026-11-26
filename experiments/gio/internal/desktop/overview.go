@@ -48,27 +48,29 @@ type overviewPage struct {
 	request    <-chan overviewRead
 	cancel     context.CancelFunc
 
-	current      *overviewRead
-	loading      bool
-	needsRefresh bool
-	err          error
-	reload       widget.Clickable
-	list         widget.List
-	allocation   overviewAllocation
-	breakdowns   overviewBreakdowns
-	trend        overviewTrend
-	funds        overviewFunds
-	upcoming     overviewUpcoming
-	recent       widget.Clickable
-	health       widget.Clickable
-	fixHealth    widget.Clickable
-	accounts     widget.Clickable
-	missingLinks map[string]*widget.Clickable
-	openHealth   func(healthFindingFocus, event.Tag)
-	openHistory  func(bool, event.Tag)
-	openLedger   func(event.Tag)
-	openAccounts func(event.Tag)
-	actions      []layout.Widget
+	current       *overviewRead
+	loading       bool
+	needsRefresh  bool
+	err           error
+	reload        widget.Clickable
+	list          widget.List
+	allocation    overviewAllocation
+	breakdowns    overviewBreakdowns
+	trend         overviewTrend
+	funds         overviewFunds
+	upcoming      overviewUpcoming
+	healthScan    overviewHealthScan
+	firstActivity widget.Clickable
+	recent        widget.Clickable
+	health        widget.Clickable
+	fixHealth     widget.Clickable
+	accounts      widget.Clickable
+	missingLinks  map[string]*widget.Clickable
+	openHealth    func(healthFindingFocus, event.Tag)
+	openHistory   func(bool, event.Tag)
+	openLedger    func(event.Tag)
+	openAccounts  func(event.Tag)
+	actions       []layout.Widget
 }
 
 func newOverviewPage(ctx context.Context, reader overviewReader, clock func() time.Time, invalidate func()) *overviewPage {
@@ -80,6 +82,7 @@ func newOverviewPage(ctx context.Context, reader overviewReader, clock func() ti
 	}
 	page.trend.reader, _ = reader.(overviewTrendReader)
 	page.upcoming.reader, _ = reader.(upcomingActionsReader)
+	page.healthScan.reader, _ = reader.(dataHealthReader)
 	return page
 }
 
@@ -114,6 +117,7 @@ func (p *overviewPage) refresh() {
 	p.trend.invalidate()
 	p.funds.invalidate()
 	p.upcoming.invalidate()
+	p.healthScan.invalidate()
 }
 
 func (p *overviewPage) update() {
@@ -141,9 +145,11 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.trend.invalidate()
 		p.funds.invalidate()
 		p.upcoming.invalidate()
+		p.healthScan.invalidate()
 	}
 	p.updateFunds(gtx)
 	p.updateUpcoming()
+	p.updateOverviewHealth()
 	if p.current != nil && p.current.value.AccountCount > 0 {
 		p.allocation.update(view, p.current)
 	}
@@ -256,8 +262,17 @@ func (p *overviewPage) statusCluster(view ui.View) layout.Widget {
 func (p *overviewPage) healthButton(view ui.View) layout.Widget {
 	label := view.Language.Text(i18n.NavDataHealth)
 	title := label
-	if issues := len(p.current.value.MissingInputs); issues > 0 {
-		title = fmt.Sprintf(view.Language.Text(i18n.OverviewHealthIssues), issues)
+	if report := p.healthScan.report; report != nil {
+		if report.IssueCount > 0 {
+			title = fmt.Sprintf(view.Language.Text(i18n.OverviewHealthIssues), report.IssueCount)
+		} else {
+			title += " · " + view.Language.Text(i18n.HealthHealthy)
+			if p.healthScan.provisional {
+				title += " · " + view.Language.Text(i18n.HealthProvisional)
+			}
+		}
+	} else if p.healthScan.reader == nil && len(p.current.value.MissingInputs) > 0 {
+		title = fmt.Sprintf(view.Language.Text(i18n.OverviewHealthIssues), len(p.current.value.MissingInputs))
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		view.Focus.Watch(gtx, &p.health)
@@ -284,10 +299,8 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		return (ui.Column{Gap: 8}).Layout(gtx, rows...)
 	case row == 1:
 		return p.financialRow(gtx, view)
-	case row == 2 && p.hasAttentionSection():
-		return p.attention(gtx, view, result.MissingInputs)
-	case p.upcoming.reader != nil && row == p.trendIndex()-1:
-		return p.overviewUpcomingCard(gtx, view)
+	case row == 2 && p.hasActionRow():
+		return p.overviewActionRow(gtx, view)
 	case row == composition-1 && p.hasCompositionSummary():
 		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
@@ -357,18 +370,36 @@ func (p *overviewPage) compositionIndex() int {
 }
 
 func (p *overviewPage) trendIndex() int {
-	index := 2
-	if p.hasAttentionSection() {
-		index++
-	}
-	if p.upcoming.reader != nil {
-		index++
-	}
-	return index
+	return 2 + boolInt(p.hasActionRow())
+}
+
+func (p *overviewPage) hasActionRow() bool {
+	return p.hasAttentionSection() || p.upcoming.reader != nil
 }
 
 func (p *overviewPage) hasAttentionSection() bool {
-	return len(p.current.value.MissingInputs) > 0 || p.upcoming.checks != nil && p.upcoming.openTasks != nil
+	return len(p.current.value.MissingInputs) > 0 || p.upcoming.checks != nil && p.upcoming.openTasks != nil ||
+		p.healthScan.reader != nil && p.openHealth != nil || p.canRecordFirstActivity()
+}
+
+func (p *overviewPage) canRecordFirstActivity() bool {
+	return p.openLedger != nil && p.current.value.HistoryStarted && len(p.current.value.RecentActivities) == 0
+}
+
+func (p *overviewPage) overviewActionRow(gtx layout.Context, view ui.View) layout.Dimensions {
+	if !p.hasAttentionSection() {
+		return p.overviewUpcomingCard(gtx, view)
+	}
+	if p.upcoming.reader == nil {
+		return p.attention(gtx, view, p.current.value.MissingInputs)
+	}
+	grid := ui.Grid{MinColumn: 392, MaxColumns: 2, Gap: ui.Space16}
+	return grid.Layout(gtx, view, 2, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+		if i == 0 {
+			return p.attention(gtx, view, p.current.value.MissingInputs)
+		}
+		return p.overviewUpcomingCard(gtx, view)
+	})
 }
 
 func (p *overviewPage) hasCompositionSummary() bool {
@@ -410,8 +441,25 @@ func (p *overviewPage) attention(gtx layout.Context, view ui.View, missing []dom
 			)
 		}))
 	}
-	if p.openHealth != nil && len(missing) > 0 {
-		rows = append(rows, ui.Rigid(p.fixInHealth(view, len(missing))))
+	rows = append(rows, p.overviewHealthRows(view)...)
+	count := len(missing)
+	if report := p.healthScan.report; report != nil {
+		count = max(count, report.IssueCount, len(p.healthScan.findings))
+	}
+	if p.openHealth != nil && count > 0 {
+		rows = append(rows, ui.Rigid(p.fixInHealth(view, count)))
+	}
+	if p.canRecordFirstActivity() {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewRecordFirstActivity), view.Colors.SecondaryInk)),
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if p.firstActivity.Clicked(gtx) {
+					p.openLedger(&p.firstActivity)
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				return returnMonthButton(view, &p.firstActivity, i18n.OverviewRecordOpenLedger, nil, true)(gtx)
+			}))
+	} else if len(rows) == 1 && p.healthScan.report != nil && p.current.value.HistoryStarted {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewNoDataActions), view.Colors.SecondaryInk)))
 	}
 	if p.upcoming.checks != nil && p.upcoming.openTasks != nil {
 		rows = append(rows, ui.Rigid(p.overviewTaskSummary(view)))
