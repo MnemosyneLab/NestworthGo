@@ -197,13 +197,7 @@ func (p *assetChangesPage) assetTrendRows(view ui.View, data application.AssetTr
 	if missing > 0 {
 		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AssetTrendMissingPeriods), missing), view.Colors.SecondaryInk)))
 	}
-	rows = append(rows, ui.Rigid(analysisLineCard(view, &p.trendChart, spec, &p.trendSelected)))
-	table := spec.Rows()
-	rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return analysisResultList(gtx, view, &p.list, l.Text(i18n.AssetTrendTable), len(table), func(gtx layout.Context, index int) layout.Dimensions {
-			return analysisTableRow(view, table[index])(gtx)
-		})
-	}))
+	rows = append(rows, ui.Rigid(analysisLineCard(view, &p.trendChart, spec, &p.trendSelected, &p.trendTable, chartTableLabels(l, i18n.ChartCoverage))))
 	if data.ValueChange == nil {
 		value := returnMoney(view, data.Summary)
 		if metric == application.TrendReturnRate {

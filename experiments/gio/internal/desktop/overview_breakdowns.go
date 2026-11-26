@@ -24,6 +24,7 @@ type overviewSummaryChart struct {
 	donut    charts.DonutChart
 	bars     charts.BarChart
 	selected charts.Selection
+	table    chartDataTable
 }
 
 type overviewBreakdowns struct {
@@ -117,6 +118,10 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 				}
 				return dims
 			}))
+			rows = append(rows, ui.Rigid(chart.table.layout(view, len(donut.Slices), func() charts.Table {
+				donut.Selected = chart.selected
+				return donut.Table(chartTableLabels(l, i18n.ChartDetails))
+			})))
 			return overviewBreakdownCard(gtx, view, rows)
 		})
 }

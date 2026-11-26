@@ -119,7 +119,7 @@ func (p *wealthHistoryPage) wealthTrendControls(gtx layout.Context, view ui.View
 				return analysisToggle(view, &t.toggles[i], l.Text(wealthTrendMetrics[i]), t.metric == i)(gtx)
 			})
 		}),
-		ui.Rigid(analysisLineCard(view, &t.chart, spec, &t.selected)),
+		ui.Rigid(analysisLineCard(view, &t.chart, spec, &t.selected, nil, charts.TableLabels{})),
 	}
 	selected := slices.IndexFunc(result.Points, func(point application.HistoricalSeriesPoint) bool {
 		return string(t.selected.Item) == point.Date

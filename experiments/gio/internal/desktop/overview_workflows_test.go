@@ -107,14 +107,14 @@ func TestOverviewLinksNetWorthHistoryAndExactCoverageScope(t *testing.T) {
 	h.click("Back", false)
 	h.frame()
 
+	// The open table sits under the chart; a taller window shows its rows.
+	h.size = image.Pt(1160, 1600)
 	page.list.ScrollTo(page.trendIndex())
 	h.frame()
-	if !page.trend.showData {
-		h.click("Daily valuation data", false)
+	if !page.trend.table.open {
+		h.click("View data table", false)
 		h.frame()
 	}
-	page.list.ScrollTo(page.trendIndex() + 2)
-	h.frame()
 	h.click("View this date’s coverage gap", false)
 	h.frame()
 	if health.focus.from != "2026-11-24" || health.focus.to != "2026-11-24" {

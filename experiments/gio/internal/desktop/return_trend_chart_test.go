@@ -77,8 +77,13 @@ func TestReturnTrendChartProjectionKeepsCivilDatesAndGaps(t *testing.T) {
 				t.Fatalf("lost observed amounts or rates: %+v", rows)
 			}
 			gap := rows[1]
-			if points[1].Value.Valid() || !gap.Missing || gap.ID != "2026-08-02" || !strings.Contains(analysisLineTableText(gap), "Missing valuation") {
+			if points[1].Value.Valid() || !gap.Missing || gap.ID != "2026-08-02" || !strings.Contains(strings.Join(gap.Detail, " · "), "Missing valuation") {
 				t.Fatalf("the dated missing valuation did not interrupt the chart: %+v", gap)
+			}
+			table := spec.Table(chartTableLabels(view.Language, i18n.ChartCoverage))
+			gapRow := table.Rows[len(table.Rows)-2]
+			if len(table.Columns) != 3 || gapRow[1] != gap.Value || !strings.Contains(gapRow[2], "Missing valuation") {
+				t.Fatalf("the data table lost the missing valuation: %+v", table)
 			}
 		})
 	}
@@ -110,6 +115,11 @@ func TestReturnTrendChartAndTableThroughShell(t *testing.T) {
 	settle()
 	h.click("Return trend", false)
 	settle()
+	// The open table sits under the chart; a taller window shows its rows.
+	h.size = image.Pt(1120, 1400)
+	h.frame()
+	h.click("View data table", false)
+	h.frame()
 	assertPageLabel(t, &h.router, "2026-07-31 · US$0.00 · Starting value before the selected range")
 	assertPageLabel(t, &h.router, "2026-08-02 · Unavailable · Rated days 0/1 · Missing valuation")
 	h.router.Source().Execute(key.FocusCmd{Tag: &p.output.trendChart})
@@ -137,7 +147,7 @@ func TestReturnTrendChartAndTableThroughShell(t *testing.T) {
 	settle()
 	scrollOverlayTestPage(h, 540)
 	assertPageLabel(t, &h.router, "2026-08-02 · Unavailable · Rated days 0/1 · Missing valuation")
-	h.router.Source().Execute(key.FocusCmd{Tag: &p.output.list})
+	h.router.Source().Execute(key.FocusCmd{Tag: &p.output.trendTable.list})
 	h.frame()
-	h.focused(&p.output.list)
+	h.focused(&p.output.trendTable.list)
 }

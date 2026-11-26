@@ -105,9 +105,13 @@ func TestMarketQuoteHistoryThroughMarketAndFocusedHealth(t *testing.T) {
 	}
 	h.size = image.Pt(640, 480)
 	h.frame()
+	d.sheet.list.ScrollTo(1)
+	h.frame()
 	h.click("View data table", false)
 	h.frame()
-	h.focused(&d.sheet.list)
+	if !d.table.open {
+		t.Fatal("the quote chart's data table did not open")
+	}
 	assertPageLabel(t, &h.router, "USD 12.34567891")
 	h.press(key.NameHome)
 	h.size = image.Pt(1120, 840)

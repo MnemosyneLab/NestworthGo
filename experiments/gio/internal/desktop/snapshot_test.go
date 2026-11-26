@@ -189,6 +189,28 @@ func TestVisualSnapshots(t *testing.T) {
 			}
 		}
 	})
+	t.Run("chart-table", func(t *testing.T) {
+		// Line and donut previews with their data tables open, wide and narrow.
+		for _, mode := range modes {
+			for _, size := range []image.Point{{1120, 1500}, {430, 2200}} {
+				for _, index := range []int{0, 3} {
+					h := newPreviewHarness(t)
+					h.size = size
+					h.shell.prefs.saved.Appearance = mode.appearance
+					group := &h.preview.chartGroups[index]
+					for _, example := range group.examples {
+						example.data.open = true
+					}
+					h.shell.routes[componentPreviewRoute].body = func(gtx layout.Context, view ui.View) layout.Dimensions {
+						return ui.Place(gtx, view, image.Point{}, gtx.Constraints.Max.X, func(gtx layout.Context, view ui.View) layout.Dimensions {
+							return h.preview.chartCard(gtx, view, group)
+						})
+					}
+					h.snapshot(t, dir, fmt.Sprintf("chart-table-%d-%dx%d-%s", index, size.X, size.Y, mode.name))
+				}
+			}
+		}
+	})
 	t.Run("gallery", func(t *testing.T) {
 		for _, accent := range []struct {
 			name  string

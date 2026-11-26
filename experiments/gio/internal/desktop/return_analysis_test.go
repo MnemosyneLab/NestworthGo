@@ -349,6 +349,8 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		assets.current.trend.Rate == nil || wailsRate.Rate == nil || assets.current.trend.Rate.String() != *wailsRate.Rate {
 		t.Fatalf("the linked day's return rate differs from Wails: %v", assets.err)
 	}
+	h.click("View data table", false)
+	h.frame()
 	assertPageLabel(t, &h.router, "2026-02-02 · +25% · Rated days 1/1")
 	wailsCategories, err := adapter.Categories(ctx, dayQuery, string(application.CategoryInvestmentReturn))
 	if err != nil {

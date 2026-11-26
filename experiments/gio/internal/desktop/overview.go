@@ -273,8 +273,6 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
 		return p.overviewTrendCard(gtx, view, result.HistoryStarted)
-	case row < composition:
-		return p.overviewTrendDataRow(gtx, view, p.trend.current.Points[row-p.trendIndex()-1])
 	case row == composition:
 		return p.allocation.section(gtx, view, result)
 	case row >= p.dimensionsIndex():
@@ -316,9 +314,6 @@ func (p *overviewPage) compositionIndex() int {
 	index := p.trendIndex()
 	if p.trend.reader != nil || p.openHistory != nil {
 		index++
-	}
-	if p.current.value.HistoryStarted && p.trend.showData && p.trend.current != nil {
-		index += len(p.trend.current.Points)
 	}
 	if p.hasCompositionSummary() {
 		index++

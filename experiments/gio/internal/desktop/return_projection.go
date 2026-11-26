@@ -31,6 +31,7 @@ type returnProjectionControls struct {
 	rankButtons                map[string]*widget.Clickable
 	selectedKey                string
 	trendChart                 charts.LineChart
+	trendTable                 chartDataTable
 	trendSelection             charts.Selection
 	resetTrend                 widget.Clickable
 }
@@ -189,13 +190,7 @@ func (p *returnAnalysisPage) trendRows(gtx layout.Context, view ui.View, trend a
 	}
 	if len(trend.Points) != 0 {
 		spec := returnTrendLine(view, trend, from, to)
-		rows = append(rows, ui.Rigid(analysisLineCard(view, &p.output.trendChart, spec, &p.output.trendSelection)))
-		table := spec.Rows()
-		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnTrendTable), len(table), func(gtx layout.Context, i int) layout.Dimensions {
-				return analysisTableRow(view, table[i])(gtx)
-			})
-		}))
+		rows = append(rows, ui.Rigid(analysisLineCard(view, &p.output.trendChart, spec, &p.output.trendSelection, &p.output.trendTable, chartTableLabels(l, i18n.ChartCoverage))))
 	}
 	if len(trend.Sources) != 0 {
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink)))

@@ -59,18 +59,19 @@ type marketQuoteHistoryRead struct {
 }
 
 type marketQuoteHistory struct {
-	visit                                     marketQuoteHistoryVisit
-	sheet                                     analysisSheet
-	dates                                     analysisDateShortcuts
-	request                                   <-chan historyResult[marketQuoteHistoryRead]
-	cancel                                    context.CancelFunc
-	result                                    *marketQuoteHistoryRead
-	err                                       error
-	filters                                   [len(marketQuoteSources)]widget.Clickable
-	swap, showAll, table, health, attribution widget.Clickable
-	attributionCopied                         bool
-	chart                                     charts.LineChart
-	selected                                  charts.Selection
+	visit                              marketQuoteHistoryVisit
+	sheet                              analysisSheet
+	dates                              analysisDateShortcuts
+	request                            <-chan historyResult[marketQuoteHistoryRead]
+	cancel                             context.CancelFunc
+	result                             *marketQuoteHistoryRead
+	err                                error
+	filters                            [len(marketQuoteSources)]widget.Clickable
+	swap, showAll, health, attribution widget.Clickable
+	table                              chartDataTable
+	attributionCopied                  bool
+	chart                              charts.LineChart
+	selected                           charts.Selection
 }
 
 func (p *marketDataPage) openQuoteHistory(visit marketQuoteHistoryVisit) {

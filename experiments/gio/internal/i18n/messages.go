@@ -164,7 +164,6 @@ const (
 	QuoteHistoryShowAll
 	QuoteHistoryCoverage
 	QuoteHistoryOffCurrency
-	QuoteHistoryObservations
 	QuoteHistoryEffective
 	QuoteHistoryQuoted
 	QuoteHistoryPolicyTime
@@ -179,7 +178,6 @@ const (
 	QuoteHistoryChartHelp
 	QuoteHistoryMetalReference
 	QuoteHistoryCoinGecko
-	QuoteHistoryViewTable
 	QuoteHistoryCoinGeckoURL
 	QuoteHistoryCoinGeckoCopied
 	QuoteHistoryPerGram
@@ -475,7 +473,6 @@ const (
 	OverviewTrendSelectedGap
 	OverviewTrendChange
 	OverviewTrendEstimate
-	OverviewTrendData
 	HealthFocused
 	HealthShowAll
 	HealthFocusedEmpty
@@ -655,7 +652,6 @@ const (
 	ReturnCumulative
 	ReturnLinked
 	ReturnPeriodAmount
-	ReturnTrendTable
 	ReturnTrendChartSummary
 	ReturnTrendBaseline
 	ReturnTrendValuationGap
@@ -663,6 +659,17 @@ const (
 	ReturnTrendGap
 	ReturnTrendReset
 	ChartSelected
+	ChartDataTable
+	ChartDate
+	ChartCategory
+	ChartAmount
+	ChartShare
+	ChartCoverage
+	ChartDetails
+	ChartObservedAt
+	ChartPrice
+	ChartRate
+	ChartSource
 	ReturnDisplay
 	ReturnTotal
 	ReturnRealized
@@ -737,7 +744,6 @@ const (
 	AssetTrendChartHelp
 	AssetTrendMissingValue
 	AssetTrendMissingPeriods
-	AssetTrendTable
 	AssetTrendPeriodValue
 	AssetDrivers
 	AssetCategories
