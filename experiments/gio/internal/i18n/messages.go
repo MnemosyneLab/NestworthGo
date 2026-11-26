@@ -1069,12 +1069,9 @@ const (
 	InstitutionsRefresh
 	InstitutionsRetry
 	InstitutionsLoading
-	InstitutionsEmpty
 	InstitutionsLoadError
 	InstitutionsReloadAfterSaveError
-	InstitutionsSaved
 	InstitutionsEdit
-	InstitutionsEditTitle
 	InstitutionsEditName
 	InstitutionsSave
 	InstitutionsSaving
@@ -1083,20 +1080,15 @@ const (
 	InstitutionsNameLength
 	InstitutionsAdd
 	InstitutionsCreate
-	InstitutionsCreated
 	InstitutionsType
 	InstitutionsShowArchived
 	InstitutionsHideArchived
-	InstitutionsEmptyAll
 	InstitutionsArchive
-	InstitutionsArchiveTitle
 	InstitutionsArchiveName
-	InstitutionsArchived
 	InstitutionsArchivedType
 	InstitutionsArchiveError
 	InstitutionsRestore
 	InstitutionsRestoreName
-	InstitutionsRestored
 	InstitutionsRestoreError
 	NavMembers
 	NavDirectoryGroups
@@ -1104,20 +1096,15 @@ const (
 	DirectoryGroupName
 	DirectoryAddMember
 	DirectoryAddGroup
-	DirectoryEditMember
-	DirectoryEditGroup
 	DirectorySearchMembers
 	DirectorySearchGroups
 	DirectorySearchHint
 	DirectoryLoading
 	DirectoryLoadError
 	DirectoryEmpty
-	DirectoryEmptyAll
 	DirectoryNoMatches
 	DirectoryCreated
 	DirectorySaved
-	DirectoryArchiveMember
-	DirectoryArchiveGroup
 	DirectoryArchived
 	DirectoryArchiveDone
 	DirectoryRestored
@@ -1125,6 +1112,22 @@ const (
 	DirectoryRestoreError
 	DirectorySaveError
 	DirectoryIcon
+	DirectoryDescription
+	DirectoryAddInstitution
+	DirectoryMemberHint
+	DirectoryInstitutionHint
+	DirectoryGroupHint
+	DirectoryNameRequired
+	DirectoryInstitutionInsurer
+	DirectoryRestoreHint
+	DirectoryMemberEmpty
+	DirectoryInstitutionEmpty
+	DirectoryGroupEmpty
+	DirectoryCreateError
+	DirectorySaving
+	DirectoryRestoredNotice
+	DirectoryChooseIcon
+	DirectorySearchIcons
 	DirectoryMemberOwnsAccount
 	DirectoryLastActiveMember
 	InstitutionBank

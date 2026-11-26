@@ -28,7 +28,7 @@
 // Must match Role and action in frame.go.
 typedef NS_ENUM(NSUInteger, NestworthAXRole) {
 	NestworthAXStaticText = 1, NestworthAXGroup, NestworthAXButton, NestworthAXPopup,
-	NestworthAXTextField, NestworthAXTextArea, NestworthAXList, NestworthAXSheet
+	NestworthAXTextField, NestworthAXTextArea, NestworthAXList, NestworthAXSheet, NestworthAXCheckbox
 };
 typedef NS_ENUM(uint8_t, NestworthAXAction) {
 	NestworthAXPress = 1, NestworthAXFocus, NestworthAXSetValue, NestworthAXSetSelection
@@ -47,6 +47,7 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 	case NestworthAXTextArea: return NSAccessibilityTextAreaRole;
 	case NestworthAXList: return NSAccessibilityListRole;
 	case NestworthAXSheet: return NSAccessibilitySheetRole;
+	case NestworthAXCheckbox: return NSAccessibilityCheckBoxRole;
 	default: return NSAccessibilityGroupRole;
 	}
 }
@@ -68,6 +69,9 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 - (id)accessibilityValue {
 	NSString *value = self.entry[@"Value"];
 	NSUInteger role = axNumber(self.entry, @"Role").unsignedIntegerValue;
+	if (role == NestworthAXCheckbox) {
+		return axNumber(self.entry, @"Selected");
+	}
 	return value.length || role == NestworthAXTextField || role == NestworthAXTextArea ? value : nil;
 }
 

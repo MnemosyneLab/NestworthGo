@@ -193,13 +193,16 @@ search and archive filter. **Members** opens by default. **Show archived**
 includes active and archived entries. Confirm **Archive** to archive an
 active entry, or choose **Restore** from an archived row.
 
-Members and groups can be added and edited with a name and an icon. The picker
-uses the same selectable icon keys and translated names as Wails. The service
+The Add action opens a side sheet and leaves the list's search, archive filter
+and scroll position in place. Closing or saving returns to Add. Edit replaces
+the selected row with name and icon controls, and Save or Cancel returns to
+that row. The picker uses the same selectable icon keys and translated names
+as Wails. The service
 rejects archiving a member who is a live account's only active owner or the
 household's last active member. Archiving a group preserves existing account
 references to that group.
 
-**Add institution** takes a name and type. The type sets the default icon, and
+**Add an institution** takes a name and type. The type sets the default icon, and
 **Icon** searches generic symbols and bank logos by name or alias. **Edit**
 can save the name and icon together. The list and object view display the
 saved icon, including historical wordmarks.

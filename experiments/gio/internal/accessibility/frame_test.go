@@ -13,6 +13,45 @@ import (
 	"gioui.org/widget"
 )
 
+func TestFrameDispatchesCheckboxPressAndPublishesItsState(t *testing.T) {
+	var bridge frame
+	var router input.Router
+	var ops op.Ops
+	var box widget.Bool
+	render := func(req request, enabled bool) element {
+		ops.Reset()
+		gtx := bridge.start(layout.Context{
+			Ops: &ops, Source: router.Source(), Constraints: layout.Exact(image.Pt(320, 240)),
+		}, req)
+		if !enabled {
+			gtx = gtx.Disabled()
+		}
+		Checkbox(gtx, &box, "Show archived", func(gtx layout.Context) layout.Dimensions {
+			return box.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return testLabel(gtx, "Show archived")
+			})
+		})
+		bridge.snapshot(gtx)
+		router.Frame(gtx.Ops)
+		if len(bridge.last) != 1 {
+			t.Fatalf("expected one checkbox, got %+v", bridge.last)
+		}
+		return bridge.last[0]
+	}
+	initial := render(request{}, true)
+	if initial.Role != checkbox || initial.Selected || !initial.Pressable || !initial.Focusable {
+		t.Fatalf("unchecked checkbox has invalid accessibility state: %+v", initial)
+	}
+	toggle := request{id: initial.ID, action: press}
+	if checked := render(toggle, true); !checked.Selected || checked.ID != initial.ID {
+		t.Fatalf("native press did not toggle the same checkbox: %+v", checked)
+	}
+	render(request{}, false)
+	if disabled := render(toggle, false); !disabled.Selected || disabled.Enabled || disabled.Pressable || disabled.Focusable {
+		t.Fatalf("disabled checkbox accepted an action: %+v", disabled)
+	}
+}
+
 func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 	var bridge frame
 	var inputRouter input.Router

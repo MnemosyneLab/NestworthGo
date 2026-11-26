@@ -33,6 +33,7 @@ const (
 	textArea
 	list
 	sheet
+	checkbox
 )
 
 type action uint8
@@ -67,6 +68,7 @@ type binding struct {
 	role              role
 	name, value, help string
 	button            *widget.Clickable
+	box               *widget.Bool
 	editor            *widget.Editor
 	enabled, selected bool
 	option            OptionFocus
@@ -96,6 +98,8 @@ func (f *frame) start(gtx layout.Context, req request) layout.Context {
 		case press:
 			if target.button != nil {
 				target.button.Click()
+			} else if target.box != nil {
+				target.box.Value = !target.box.Value
 			}
 		case focus:
 			tag := target.tag
@@ -154,7 +158,7 @@ func track(gtx layout.Context, b binding, widget layout.Widget) layout.Dimension
 	if f == nil {
 		return widget(gtx)
 	}
-	if b.button != nil || b.editor != nil || b.role == list {
+	if b.button != nil || b.box != nil || b.editor != nil || b.role == list {
 		b.enabled = gtx.Enabled()
 	}
 	recording := op.Record(gtx.Ops)
@@ -179,6 +183,10 @@ func Button(gtx layout.Context, click *widget.Clickable, name, value string, pic
 // SelectableButton exposes the committed selection of a navigation control.
 func SelectableButton(gtx layout.Context, click *widget.Clickable, name string, selected bool, widget layout.Widget) layout.Dimensions {
 	return ButtonWithSelection(gtx, click, name, "", selected, widget)
+}
+
+func Checkbox(gtx layout.Context, box *widget.Bool, name string, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: box, role: checkbox, name: name, box: box}, widget)
 }
 
 func ButtonWithSelection(gtx layout.Context, click *widget.Clickable, name, value string, selected bool, widget layout.Widget) layout.Dimensions {
@@ -332,8 +340,11 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 			f.targets[id] = b
 			e := makeElement(id, parent, b.role, b.name, bounds)
 			e.Enabled, e.Value, e.Help = b.enabled, b.value, b.help
-			e.Pressable = b.button != nil && b.enabled
-			e.Focusable = (b.button != nil || b.editor != nil || b.role == list) && b.enabled
+			e.Pressable = (b.button != nil || b.box != nil) && b.enabled
+			e.Focusable = (e.Pressable || b.editor != nil || b.role == list) && b.enabled
+			if b.box != nil {
+				e.Selected = b.box.Value
+			}
 			if b.button != nil {
 				// The bridge's semantic router has no live pointer filters, so
 				// it may prune the Clickable area that carried SelectedOp.

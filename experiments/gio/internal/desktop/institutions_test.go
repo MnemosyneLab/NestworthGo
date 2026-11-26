@@ -92,7 +92,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	assertPageLabel(t, &h.router, "Could not load institutions.")
 	h.click("Retry reload", false)
 	finish()
-	assertPageLabel(t, &h.router, "This household has no active institutions.")
+	assertPageLabel(t, &h.router, "Nothing here yet")
 	h.click("Reload", false)
 	finish()
 
@@ -135,7 +135,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	assertPageLabel(t, &h.router, "變更已儲存。請重試載入清單。")
 	h.click("重試載入", false)
 	finish()
-	if writeCalls != 2 || readCalls != 5 || p.notice != i18n.InstitutionsSaved || len(p.rows) != 1 || p.rows[0].Name != "Authoritative name" {
+	if writeCalls != 2 || readCalls != 5 || p.notice != i18n.DirectorySaved || len(p.rows) != 1 || p.rows[0].Name != "Authoritative name" {
 		t.Fatalf("retry did not load the authoritative list: %d writes, %d reads, notice %v, rows %v", writeCalls, readCalls, p.notice, p.rows)
 	}
 	assertPageLabel(t, &h.router, "Authoritative name")
@@ -293,11 +293,11 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	h, p, finish := openDirectory(s)
 	assertPageLabel(t, &h.router, "Harbor Sample Bank")
 	search(h, "No matching institutions")
-	h.click("Add institution", false)
+	h.click("Add an institution", false)
 	h.focused(&p.draft.Editor)
 	h.click("Add", false)
 	finish()
-	assertPageLabel(t, &h.router, i18n.English.Text(i18n.PreviewNameRequired))
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.DirectoryNameRequired))
 	h.click("Institution type", true)
 	h.press(key.NameDownArrow)
 	h.press(key.NameDownArrow)
@@ -308,12 +308,13 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	h.click("Add", false)
 	finish()
 	assertPageLabel(t, &h.router, name)
-	assertPageLabel(t, &h.router, "Institution added.")
+	assertPageLabel(t, &h.router, name+" added")
 	row := checkRow(service, "", false)
-	h.focused(&p.buttons[row.ID.String()].edit)
+	h.focused(&p.add)
 
 	h.click("Archive", false)
-	assertPageLabel(t, &h.router, "Archive institution?")
+	h.frame()
+	assertPageLabel(t, &h.router, "Archive")
 	h.focused(&p.confirmation.Cancel)
 	h.press(key.NameTab)
 	h.focused(&p.confirmation.Confirm)
@@ -323,6 +324,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 		t.Fatal("dismissing the confirmation submitted the archive")
 	}
 	h.press(key.NameReturn)
+	h.frame()
 	h.press(key.NameTab)
 	h.press(key.NameReturn)
 	finish()
@@ -333,7 +335,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	h.clickAt(archiveLabel.Min.Add(archiveLabel.Max).Div(2))
 	h.click("Retry reload", false)
 	finish()
-	assertPageLabel(t, &h.router, "Institution archived.")
+	assertPageLabel(t, &h.router, "Archived")
 	assertPageLabel(t, &h.router, "No matching institutions")
 	if findPageLabel(&h.router, name) != nil || !slices.Equal(s.archiveCalls, []bool{true}) {
 		t.Fatalf("active results or writes are incorrect after retry: %v", s.archiveCalls)
@@ -342,7 +344,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	h.click("Show archived", false)
 	finish()
 	assertPageLabel(t, &h.router, name)
-	assertPageLabel(t, &h.router, "Insurer · Archived")
+	assertPageLabel(t, &h.router, "Insurance company · Archived")
 	if findPageLabel(&h.router, "Harbor Sample Bank") != nil || !slices.Equal(s.listFilters, []bool{false, false, false, false, true}) {
 		t.Fatalf("showing archived did not preserve the search or use the right queries: %v", s.listFilters)
 	}
@@ -350,7 +352,7 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	h.frame()
 	h.click("Clear search", true)
 	assertPageLabel(t, &h.router, "Harbor Sample Bank")
-	assertPageLabel(t, &h.router, "Insurer · Archived")
+	assertPageLabel(t, &h.router, "Insurance company · Archived")
 	checkRow(service, row.ID, true)
 	close()
 
@@ -361,21 +363,21 @@ func TestInstitutionsLifecycleKeepsSearchAndPersistsAcrossReopen(t *testing.T) {
 	search(h, "No matching institutions")
 	h.click("Show archived", false)
 	finish()
-	assertPageLabel(t, &h.router, "Insurer · Archived")
+	assertPageLabel(t, &h.router, "Insurance company · Archived")
 	h.click("Restore", false)
 	finish()
 	assertPageLabel(t, &h.router, "Could not restore the institution. Try again.")
-	assertPageLabel(t, &h.router, "Insurer · Archived")
+	assertPageLabel(t, &h.router, "Insurance company · Archived")
 	h.focused(&p.buttons[row.ID.String()].archive)
 	h.press(key.NameReturn)
 	finish()
-	assertPageLabel(t, &h.router, "Institution restored.")
+	assertPageLabel(t, &h.router, "Restored. Related objects are unchanged.")
 	assertPageLabel(t, &h.router, name)
 	semanticBounds(t, &h.router, "Archive", false)
-	if findPageLabel(&h.router, "Insurer · Archived") != nil || !slices.Equal(s.archiveCalls, []bool{false, false}) {
+	if findPageLabel(&h.router, "Insurance company · Archived") != nil || !slices.Equal(s.archiveCalls, []bool{false, false}) {
 		t.Fatalf("restore did not update the row or attempted an unexpected command: %v", s.archiveCalls)
 	}
-	h.click("Hide archived", false)
+	h.click("Show archived", false)
 	finish()
 	assertPageLabel(t, &h.router, name)
 	checkRow(service, row.ID, false)

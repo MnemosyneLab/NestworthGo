@@ -21,12 +21,13 @@ type Select struct {
 }
 
 type SelectOptions struct {
-	Invalid    bool
-	Items      []Choice
-	Searchable bool
-	Clearable  bool
-	ValueLabel string
-	FoldSearch func(string) string
+	Invalid     bool
+	Items       []Choice
+	Searchable  bool
+	Clearable   bool
+	SearchLabel i18n.MessageID
+	ValueLabel  string
+	FoldSearch  func(string) string
 }
 
 func (s *Select) Layout(gtx layout.Context, view View, field PickerField, options SelectOptions, value string, change func(string)) {
@@ -142,7 +143,11 @@ func (s *Select) popup(gtx layout.Context, view View, options SelectOptions, lab
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.search.Layout(gtx, view, i18n.PickerFilter, i18n.PickerFilterHint, func(string) {
+			label, hint := options.SearchLabel, options.SearchLabel
+			if label == i18n.NoMessage {
+				label, hint = i18n.PickerFilter, i18n.PickerFilterHint
+			}
+			return s.search.Layout(gtx, view, label, hint, func(string) {
 				s.list.scroll.Position = layout.Position{}
 				s.list.setActive(s.choices(view, options), value, true)
 			})

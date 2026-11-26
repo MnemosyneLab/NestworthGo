@@ -22,7 +22,7 @@ import (
 )
 
 type PickerField struct {
-	Label          i18n.MessageID
+	Label, Name    i18n.MessageID
 	Glyph          Glyph
 	Origin         image.Point
 	Next, Previous event.Tag
@@ -33,6 +33,10 @@ var ExpandIcon Glyph = lucide.ChevronDown
 
 func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *widget.Clickable, value string, invalid bool, pane Popover) bool {
 	title := view.Language.Text(field.Label)
+	name := title
+	if field.Name != i18n.NoMessage {
+		name = view.Language.Text(field.Name)
+	}
 	view.Line(gtx, TextLabel, title, view.Colors.Ink)
 	y := gtx.Dp(24)
 	offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
@@ -50,7 +54,7 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 	}
 
 	view.Focus.Watch(gtx, trigger)
-	accessibility.Button(gtx, trigger, title, value, true, func(gtx layout.Context) layout.Dimensions {
+	accessibility.Button(gtx, trigger, name, value, true, func(gtx layout.Context) layout.Dimensions {
 		return layoutPickerButton(gtx, view, trigger, title, value, invalid, field.Glyph)
 	})
 	return opened

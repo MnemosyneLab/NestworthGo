@@ -5,15 +5,15 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
 type directoryPage struct {
-	lists         []*directoryList
-	tabs          []widget.Clickable
-	active        int
-	object        directoryObjectPage
-	householdName string
+	lists  []*directoryList
+	tabs   []widget.Clickable
+	active int
+	object directoryObjectPage
 }
 
 func newDirectoryPage(lists ...*directoryList) *directoryPage {
@@ -43,10 +43,15 @@ func (p *directoryPage) wait() {
 
 func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if len(p.lists) == 1 {
-		return p.activeList().layout(gtx, view, p.householdName)
+		return p.activeList().layout(gtx, view)
 	}
 	gap := gtx.Dp(10)
 	return ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			dims := view.Message(view.Language.Text(i18n.DirectoryDescription), view.Colors.SecondaryInk)(gtx)
+			view.Origin.Y += dims.Size.Y + gap
+			return dims
+		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			for i := range p.tabs {
 				button := &p.tabs[i]
@@ -62,7 +67,7 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			return dims
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return p.activeList().layout(gtx, view, p.householdName)
+			return p.activeList().layout(gtx, view)
 		}),
 	)
 }

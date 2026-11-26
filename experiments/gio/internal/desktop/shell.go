@@ -661,9 +661,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		p.update()
 		if p.opened {
 			s.onboarding = nil
-			if s.directory != nil {
-				s.directory.householdName = p.householdName
-			}
 			if p.attempted && s.accounts != nil {
 				s.trail = newNavigationTrail(accountsRoute)
 				s.accounts.enter(s.trail.current().target, false, layout.Position{})
@@ -742,7 +739,11 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if s.activeRoute() == tasksRoute && s.tasks.startReconciliationDraft() != nil {
 		s.tasks.pollHoldingReconciliation()
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	if s.directoryListActive() {
+		s.directory.activeList().updateCreateTrigger(gtx)
+	}
+	directoryArchiveOpen := s.confirmingArchive()
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -806,6 +807,22 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.accounts.layoutAccountCreateSheet(windowContext, view)
 		return dims
 	}
+	if s.directoryCreationOpen() {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.directory.activeList().layoutCreateSheet(windowContext, view)
+		return dims
+	}
+	if directoryArchiveOpen {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		list := s.directory.activeList()
+		accessibility.Modal(windowContext, &list.confirmation, view.Language.Text(i18n.InstitutionsArchive), func(gtx layout.Context) layout.Dimensions {
+			list.layoutConfirmation(gtx, view)
+			return layout.Dimensions{Size: gtx.Constraints.Max}
+		})
+		return dims
+	}
 	if s.startReconciliationReviewOpen() {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
@@ -815,8 +832,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	dims := background(gtx)
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
-	} else if s.confirmingArchive() {
-		s.directory.activeList().layoutConfirmation(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
 	} else if s.fundsPolicyConfirming() {
@@ -1015,9 +1030,16 @@ func (s *shell) accountMaintenanceBlocking() bool {
 	return m.pending != nil || m.review != nil
 }
 
+func (s *shell) directoryListActive() bool {
+	return s.activeRoute() == directoryRoute && s.directory != nil && !s.trail.current().target.hasObject()
+}
+
+func (s *shell) directoryCreationOpen() bool {
+	return s.directoryListActive() && s.directory.activeList().createSheet != nil
+}
+
 func (s *shell) confirmingArchive() bool {
-	return s.activeRoute() == directoryRoute && !s.trail.current().target.hasObject() &&
-		s.directory != nil && s.directory.activeList().archiveTarget != nil
+	return s.directoryListActive() && s.directory.activeList().archiveTarget != nil
 }
 
 func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
