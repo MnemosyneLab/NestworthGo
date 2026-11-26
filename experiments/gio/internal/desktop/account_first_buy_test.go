@@ -219,7 +219,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Open instrument · QA-BUY")
 	label("Cost basis · US$76.36")
 	label("Native market value · US$100.00")
-	label("Current price · USD 40 · manual · 2026-11-21 16:00")
+	label("Latest quote · US$40.00 · as of 2026-11-21 16:00 · Source: Manual")
 	click("Open account · Harbor Brokerage")
 	if accounts.target.account != ids.account || accounts.canFirstBuy() {
 		t.Fatal("the refreshed Holding did not close the first-buy entry")

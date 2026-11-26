@@ -239,8 +239,8 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	if heading := assertPageLabel(t, &h.router, "AAPL"); heading.Min.Y >= headerHeight {
 		t.Fatalf("expected the instrument label in the shell heading, got %v", heading)
 	}
-	for _, text := range []string{"Synthetic Apple common stock", "Type · Stock", "Currency · USD", "Symbol · AAPL",
-		"Market code · NASDAQ", "Country code · US", "ISIN · US0378331005", "My holdings", "Market performance", "Data records"} {
+	for _, text := range []string{"Synthetic Apple common stock", "Type · Stock", "Currency · USD", "Security symbol · AAPL",
+		"Trading market · NASDAQ", "Country / region · US", "ISIN · US0378331005", "My holdings", "Market performance", "Data records"} {
 		label(text)
 	}
 	click("Note")

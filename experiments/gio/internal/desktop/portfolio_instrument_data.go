@@ -119,7 +119,7 @@ func instrumentMetadata(view ui.View, instrument domain.Instrument) layout.Widge
 	l := view.Language
 	fields := []struct{ label, value string }{
 		{l.Text(i18n.PortfolioInstrumentType), l.Text(instrumentDetailTypes[instrument.Type])},
-		{l.Text(i18n.AnalysisCurrency), instrument.QuoteCurrency.String()},
+		{l.Text(i18n.PortfolioInstrumentCurrency), instrument.QuoteCurrency.String()},
 		{l.Text(i18n.PortfolioInstrumentSymbol), productString(instrument.Symbol)},
 		{l.Text(i18n.PortfolioInstrumentMarket), productString(instrument.MarketCode)},
 		{l.Text(i18n.PortfolioInstrumentCountry), productString(instrument.CountryCode)},
@@ -173,15 +173,20 @@ func instrumentCurrentQuoteEvidence(view ui.View, quote domain.InstrumentQuote) 
 	return evidence
 }
 
+func instrumentCurrentQuotePrice(view ui.View, instrument domain.Instrument, quote domain.InstrumentQuote) string {
+	price := format.QuotePrice(quote.UnitPrice.Canonical(), quote.Currency.String(), marketNumberPreferences(view))
+	if instrument.UsesMetalConversion() {
+		price = fmt.Sprintf(view.Language.Text(catalogMetalPriceUnit(instrument.QuantityUnit)), price)
+	}
+	return price
+}
+
 func (p *portfolioPage) instrumentDataRows(view ui.View, instrument domain.Instrument) []layout.Widget {
 	r, l := p.current, view.Language
 	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
 		price := l.Text(i18n.MarketNoCurrentPrice)
 		if q := r.price; q != nil {
-			price = format.QuotePrice(q.UnitPrice.Canonical(), q.Currency.String(), marketNumberPreferences(view))
-			if instrument.UsesMetalConversion() {
-				price = fmt.Sprintf(l.Text(catalogMetalPriceUnit(instrument.QuantityUnit)), price)
-			}
+			price = instrumentCurrentQuotePrice(view, instrument, *q)
 		}
 		fields := []ui.ColumnChild{
 			ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentDataNote), view.Colors.SecondaryInk)),

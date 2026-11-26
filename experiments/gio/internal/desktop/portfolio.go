@@ -442,8 +442,8 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 	}
 	price := l.Text(i18n.PortfolioPriceMissing)
 	if q := r.price; q != nil {
-		price = fmt.Sprintf(l.Text(i18n.PortfolioCurrentPrice), q.Currency, portfolioDecimal(view, q.UnitPrice.Canonical())) +
-			portfolioQuoteStamp(view, q.SourceKey, q.EffectiveDate, q.QuotedAt)
+		price = l.Text(i18n.PortfolioInstrumentLatestQuote) + " · " + instrumentCurrentQuotePrice(view, *i, *q) + " · " +
+			instrumentCurrentQuoteEvidence(view, *q)
 	}
 	rows = append(rows, view.Message(price, view.Colors.Ink))
 	if i.QuoteCurrency != r.base {

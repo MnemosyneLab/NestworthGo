@@ -317,7 +317,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
 	settle()
 	click(full.DisplayLabel())
-	label("Current price · EUR 30.1234 · manual · 2026-11-21 16:00")
+	label("Latest quote · €30.1234 · as of 2026-11-21 16:00 · Source: Manual")
 	label("Market FX · 1 EUR = 1.2 USD · manual · 2026-11-21 16:00")
 	label("Cost basis · €60.36")
 	label("Native market value · €90.37")

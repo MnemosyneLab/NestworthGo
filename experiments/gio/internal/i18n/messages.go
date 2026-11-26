@@ -1647,6 +1647,7 @@ const (
 	PortfolioInstrumentPerformance
 	PortfolioInstrumentData
 	PortfolioInstrumentType
+	PortfolioInstrumentCurrency
 	PortfolioInstrumentSymbol
 	PortfolioInstrumentMarket
 	PortfolioInstrumentCountry
