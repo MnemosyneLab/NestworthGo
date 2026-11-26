@@ -65,6 +65,9 @@ type ButtonSpec struct {
 	Icon             Glyph
 	// Fill stretches the button across the available width.
 	Fill bool
+	// Content replaces the title with a custom layout, as in a clickable row.
+	// The button grows to fit it and Name carries the accessible label.
+	Content layout.Widget
 }
 
 type buttonMetrics struct {
@@ -186,6 +189,9 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 	if spec.Variant == ButtonSegment {
 		metrics = buttonMetrics{height: ControlSmall, padding: Space12, radius: RadiusMD, text: TextLabel}
 	}
+	if spec.Content != nil {
+		metrics.padding = Space12
+	}
 	enabled := gtx.Enabled()
 
 	state := v.Motion.For(button)
@@ -206,16 +212,22 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 	height := gtx.Dp(metrics.height)
 	inner := gtx
 	inner.Constraints.Min = image.Point{}
-	if spec.Title != "" {
+	if spec.Title != "" || spec.Content != nil {
 		inner.Constraints.Max.X = max(0, gtx.Constraints.Max.X-2*padding)
+	}
+	if spec.Content != nil && spec.Fill {
+		inner.Constraints.Min.X = inner.Constraints.Max.X
 	}
 	macro := op.Record(gtx.Ops)
 	content := v.buttonContent(inner, spec, metrics, Fade(colors.ink, opacity))
 	drawContent := macro.Stop()
 
 	width := content.Size.X + 2*padding
-	if spec.Title == "" {
+	if spec.Title == "" && spec.Content == nil {
 		width = height
+	}
+	if spec.Content != nil {
+		height = max(height, content.Size.Y+2*gtx.Dp(Space8))
 	}
 	if spec.Fill {
 		width = gtx.Constraints.Max.X
@@ -268,6 +280,9 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 }
 
 func (v View) buttonContent(gtx layout.Context, spec ButtonSpec, metrics buttonMetrics, ink color.NRGBA) layout.Dimensions {
+	if spec.Content != nil {
+		return spec.Content(gtx)
+	}
 	icon := func(gtx layout.Context) layout.Dimensions {
 		return LayoutGlyph(gtx, spec.Icon, 16, ink)
 	}

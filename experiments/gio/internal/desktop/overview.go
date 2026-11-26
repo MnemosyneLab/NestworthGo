@@ -317,7 +317,20 @@ func (p *overviewPage) overviewMissingRow(gtx layout.Context, view ui.View, item
 		p.openHealth(focus, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return view.ButtonOf(button, ui.ButtonSpec{Title: label, Variant: ui.ButtonLink, Size: ui.ButtonSmall})(gtx)
+	colors := view.Colors
+	return view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonOutline, Fill: true, Content: func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.IconTile(gtx, lucide.CircleAlert, 32, ui.Mix(colors.Surface, colors.Warning, 0.18), colors.WarningInk)
+			}),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return view.Line(gtx, ui.TextBody, label, colors.Ink)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return ui.LayoutGlyph(gtx, lucide.ChevronRight, 16, colors.SecondaryInk)
+			}),
+		)
+	}})(gtx)
 }
 
 func (p *overviewPage) status(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -471,16 +484,16 @@ func overviewEvidence(gtx layout.Context, view ui.View, quality domain.Valuation
 		if quality.NewestMarketDate != nil && *quality.NewestMarketDate != *quality.OldestMarketDate {
 			dates += " – " + localDay(*quality.NewestMarketDate)
 		}
-		rows = append(rows, layout.Rigid(view.Message(fmt.Sprintf(l.Text(referenceDates), dates), view.Colors.SecondaryInk)))
+		rows = append(rows, layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(referenceDates), dates), view.Colors.SecondaryInk)))
 	}
 	if quality.CarriedCount > 0 || quality.StaleCount > 0 {
-		rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.OverviewCarried), view.Colors.SecondaryInk)))
+		rows = append(rows, layout.Rigid(view.Body(ui.TextCaption, l.Text(i18n.OverviewCarried), view.Colors.SecondaryInk)))
 	}
 	if slices.Contains(quality.Reasons, domain.ReasonHistoryUnverified) {
-		rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.OverviewHistoryUnverified), view.Colors.SecondaryInk)))
+		rows = append(rows, layout.Rigid(view.Body(ui.TextCaption, l.Text(i18n.OverviewHistoryUnverified), view.Colors.SecondaryInk)))
 	}
 	if slices.Contains(quality.Reasons, domain.ReasonEvidenceUnavailable) {
-		rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.OverviewEvidenceUnavailable), view.Colors.SecondaryInk)))
+		rows = append(rows, layout.Rigid(view.Body(ui.TextCaption, l.Text(i18n.OverviewEvidenceUnavailable), view.Colors.SecondaryInk)))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx, rows...)
 }

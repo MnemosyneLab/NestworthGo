@@ -74,7 +74,7 @@ func overviewAssetAllocation(view ui.View, data domain.OverviewResult) overviewA
 	out := overviewAllocationModel{
 		spec: charts.SankeySpec{
 			Label: l.Text(i18n.OverviewAllocationTitle), Summary: l.Text(i18n.OverviewAllocationHelp),
-			ColumnTitles: []string{l.Text(root), l.Text(i18n.OverviewAllocationClass), l.Text(i18n.AccountInstitution), l.Text(i18n.OverviewAllocationAccount)},
+			ColumnTitles: []string{l.Text(root), l.Text(i18n.OverviewAllocationClass), l.Text(i18n.AccountMaintenanceInstitution), l.Text(i18n.OverviewAllocationAccount)},
 			Messages:     charts.Messages{Empty: l.Text(i18n.OverviewAllocationEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 		},
 		accounts: make(map[charts.ID]overviewAssetLink),
@@ -190,11 +190,27 @@ func overviewAllocationMoney(view ui.View, currency domain.CurrencyCode, amount 
 
 func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data domain.OverviewResult) layout.Dimensions {
 	l, c := view.Language, data.AssetComposition
-	rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.OverviewAllocationTitle), view.Colors.Ink))}
+	title := func(gtx layout.Context) layout.Dimensions {
+		return view.Line(gtx, ui.TextHeading, l.Text(i18n.OverviewAllocationTitle), view.Colors.Ink)
+	}
+	rows := []ui.ColumnChild{ui.Rigid(title)}
+	if len(c.Paths) != 0 {
+		rows[0] = ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+				layout.Flexed(1, title),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if a.restoreFocus && gtx.Enabled() {
+						a.restoreFocus = false
+						gtx.Execute(key.FocusCmd{Tag: &a.details})
+					}
+					return returnMonthButton(view, &a.details, i18n.OverviewAllocationDetails, nil, true)(gtx)
+				}))
+		})
+	}
 	rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewAllocationScope), view.Colors.SecondaryInk)))
 	if data.ValuationReadDate != "" {
 		date := wealthDay(view, data.ValuationReadDate)
-		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewAllocationDate), date), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewAllocationDate), date), view.Colors.SecondaryInk)))
 	}
 	quality := data.DisplayValuation.Assets.Quality
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -202,10 +218,10 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 	}))
 	if quality.OldestCarriedMarketDate != nil {
 		date := wealthDay(view, *quality.OldestCarriedMarketDate)
-		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewAllocationCarriedDate), date), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewAllocationCarriedDate), date), view.Colors.SecondaryInk)))
 	}
 	appendAmount := func(id i18n.MessageID, amount decimal.Decimal) {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(id)+" · "+overviewAllocationMoney(view, data.Currency, amount), view.Colors.Ink)))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(id)+" · "+overviewAllocationMoney(view, data.Currency, amount), view.Colors.Ink)))
 	}
 	valued := len(c.Paths) != 0 || c.Negative.IsNegative() || c.ZeroCount > 0
 	if c.Negative.IsNegative() {
@@ -220,10 +236,10 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 		appendAmount(id, data.Assets)
 	}
 	if c.MissingCount > 0 {
-		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewAllocationMissing), c.MissingCount), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewAllocationMissing), c.MissingCount), view.Colors.SecondaryInk)))
 	}
 	if c.ZeroCount > 0 {
-		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewAllocationZero), c.ZeroCount), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewAllocationZero), c.ZeroCount), view.Colors.SecondaryInk)))
 	}
 	if len(c.Paths) == 0 {
 		id := i18n.OverviewAllocationEmpty
@@ -232,14 +248,7 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 		}
 		rows = append(rows, ui.Rigid(view.Message(l.Text(id), view.Colors.SecondaryInk)))
 	} else {
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if a.restoreFocus && gtx.Enabled() {
-				a.restoreFocus = false
-				gtx.Execute(key.FocusCmd{Tag: &a.details})
-			}
-			return returnMonthButton(view, &a.details, i18n.OverviewAllocationDetails, nil, true)(gtx)
-		}))
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewAllocationHelp), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.OverviewAllocationHelp), view.Colors.SecondaryInk)))
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, &a.chart)
 			spec := a.model.spec
@@ -257,10 +266,8 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 			return dims
 		}))
 	}
-	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return (ui.Column{Gap: 6}).Layout(gtx, rows...)
-		})
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 	})
 }
 

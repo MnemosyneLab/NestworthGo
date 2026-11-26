@@ -140,3 +140,16 @@ func (v View) Measure(gtx layout.Context, width unit.Dp) (layout.Context, View) 
 	v.Origin.X += shift
 	return gtx, v
 }
+
+// Bleed lays a widget out wider than its slot by amount on each side, so a row
+// with a hover surface can reach past a card's padding while its text stays
+// aligned with the card's other content. The reported width is the slot's.
+func Bleed(gtx layout.Context, amount unit.Dp, content layout.Widget) layout.Dimensions {
+	px := gtx.Dp(amount)
+	gtx.Constraints.Max.X += 2 * px
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	defer op.Offset(image.Pt(-px, 0)).Push(gtx.Ops).Pop()
+	dims := content(gtx)
+	dims.Size.X -= 2 * px
+	return dims
+}

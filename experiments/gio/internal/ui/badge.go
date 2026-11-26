@@ -5,8 +5,10 @@ import (
 	"image/color"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 )
 
 // BadgeTone selects the color of a Badge, as the Badge variants do in
@@ -74,4 +76,16 @@ func (v View) CardPadded(gtx layout.Context, content layout.Widget) layout.Dimen
 	return v.Card(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(Space20).Layout(gtx, content)
 	})
+}
+
+// IconTile is a rounded square that holds a glyph, the leading mark of a
+// list row or card in Wails. Fill is the tile color and Ink the glyph color.
+func (v View) IconTile(gtx layout.Context, glyph Glyph, size unit.Dp, fill, ink color.NRGBA) layout.Dimensions {
+	side := gtx.Dp(size)
+	bounds := image.Rectangle{Max: image.Pt(side, side)}
+	FillRoundRect(gtx, bounds, RadiusMD, fill)
+	inset := (side - gtx.Dp(16)) / 2
+	defer op.Offset(image.Pt(inset, inset)).Push(gtx.Ops).Pop()
+	LayoutGlyph(gtx, glyph, 16, ink)
+	return layout.Dimensions{Size: bounds.Size()}
 }
