@@ -325,11 +325,11 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	if accounts.target.account != ids.account {
 		t.Fatal("wrong account link destination")
 	}
-	h.size.Y = 1020
+	h.size.Y = 1400
 	h.frame()
 	click("Open instrument · " + full.DisplayLabel())
-	if portfolio.id != full.ID {
-		t.Fatal("the account Holding did not open the exact instrument")
+	if portfolio.id != full.ID || portfolio.accountScope != ids.account {
+		t.Fatal("the account holding did not open the exact instrument and account")
 	}
 	click("Back")
 	h.focused(portfolioButton(accounts.instruments, full.ID))

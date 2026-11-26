@@ -75,7 +75,10 @@ func TestAccountPositionsFilterAndScopedInstrumentHistory(t *testing.T) {
 	h.frame()
 	click("Accounts")
 	click("Harbor Brokerage")
-	if groups := accounts.current.holdingGroups; len(groups) != len(want) || groups[0].Subtotals[0].Amounts.TotalCost.Amount != want[0].Subtotals[0].Amounts.TotalCost.Amount {
+	if groups := accounts.current.holdingGroups; len(groups) == 0 || len(groups) != len(want) ||
+		len(groups[0].Subtotals) == 0 || len(want[0].Subtotals) == 0 ||
+		groups[0].Subtotals[0].Amounts.TotalCost == nil || want[0].Subtotals[0].TotalCost == nil ||
+		groups[0].Subtotals[0].Amounts.TotalCost.Amount != want[0].Subtotals[0].TotalCost.Amount {
 		t.Fatalf("account card diverged from Wails exact cost: %+v", groups)
 	}
 	currentLink, closedLink := "Open instrument · "+current.DisplayLabel(), "Open instrument · "+closed.DisplayLabel()

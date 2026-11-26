@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
 	"gioui.org/layout"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -153,9 +154,15 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 	if got := last(); got != "2026-11-22:2026-11-22" {
 		t.Fatalf("Next date requested %q", got)
 	}
-	h.size.Y = 1050
+	h.size.Y = 1420
 	settle()
-	click("View data table")
+	// Both charts use the same translated action label. Activate the trend
+	// disclosure by keyboard so the composition disclosure cannot match it.
+	h.router.Source().Execute(key.FocusCmd{Tag: &page.allocation.table.toggle})
+	h.frame()
+	h.focused(&page.allocation.table.toggle)
+	h.press(key.NameReturn)
+	settle()
 	if !page.allocation.table.open {
 		t.Fatal("the portfolio trend table did not open")
 	}
