@@ -100,16 +100,16 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			ui.Rigid(view.Button(&d.retry, l.Text(i18n.HistoryRetry))),
 		)
 	case known != nil:
+		if d.actionUnavailable {
+			children = append(children, ui.Rigid(view.Message(l.Text(i18n.HistoryAmendmentUnavailable), view.Colors.SecondaryInk)))
+		}
 		if r.repeatAPI != nil && known.Repeatable {
 			children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.W.Layout(gtx, view.Button(&d.repeat, l.Text(i18n.HistoryRepeatAction)))
 			}))
 		}
 		if known.Amendable {
-			correct := i18n.HistoryCorrectAction
-			if _, custody := history.CustodyAmendment(known.Activity); custody {
-				correct = i18n.CustodyAmendmentCorrect
-			}
+			correct := historyCorrectLabel(known.Activity)
 			action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
 				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if d.amendmentFocus == button {

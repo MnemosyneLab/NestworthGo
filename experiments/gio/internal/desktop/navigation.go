@@ -162,6 +162,7 @@ type navigationRequest struct {
 	asset                assetChangesVisit
 	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
+	historyAction        historyRowAction
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -252,8 +253,12 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		s.directory.object.leave()
 	}
-	if entry.target.route == historyRoute && entry.target.activity != "" {
-		s.historyPage.reads.leaveDetail()
+	if entry.target.route == historyRoute && s.historyPage != nil && s.historyPage.reads != nil {
+		if entry.target.activity != "" {
+			s.historyPage.reads.leaveDetail()
+		} else {
+			s.historyPage.reads.closeRowActions()
+		}
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil && s.historyPage.investment != nil {
 		s.historyPage.investment.draft, s.historyPage.investment.restore = nil, nil
@@ -420,6 +425,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
 			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
+			s.historyPage.reads.detail.requested = request.historyAction
 		} else {
 			filters := entry.historyFilters
 			if entry.target.instrument != "" {
@@ -428,6 +434,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, filters)
 			if entry.history.focused != "" && s.historyPage.reads != nil {
 				entry.focus = s.historyPage.detailButton(entry.history.focused)
+				if entry.history.focusActions {
+					entry.focus = s.historyPage.historyActionButton(entry.history.focused)
+				}
 			}
 			if s.historyPage.reads != nil && source.target.route != historyRoute {
 				s.historyPage.reads.loadReferences()

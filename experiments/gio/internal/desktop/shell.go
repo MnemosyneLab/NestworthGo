@@ -398,8 +398,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.historyPage.investment != nil {
 			s.historyPage.investment.onPosted = s.historyPage.showPosted
 		}
+		s.historyPage.reads.openAction = func(id domain.ActivityID, action historyRowAction, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus, historyAction: action}
+		}
 		s.historyPage.reads.open = func(id domain.ActivityID, focus event.Tag) {
-			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus}
+			s.historyPage.reads.openAction(id, historyRowView, focus)
 		}
 		if s.tasks != nil {
 			s.tasks.openActivity = s.historyPage.reads.open

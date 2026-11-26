@@ -466,6 +466,7 @@ var traditionalChineseCatalog = catalog{
 	HistoryReversal:                  "沖銷",
 	HistoryDetailTitle:               "帳務活動詳情",
 	HistoryViewOn:                    "查看%s（%s）",
+	HistoryRowMoreActions:            "%s 的更多操作",
 	HistoryUnavailable:               "啟用歷史記錄後可查看帳務活動。",
 	HistoryNoMatches:                 "沒有符合篩選條件的帳務活動。",
 	HistoryActivityUnavailable:       "此帳務活動無法使用。",

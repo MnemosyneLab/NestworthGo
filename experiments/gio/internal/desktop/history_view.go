@@ -263,27 +263,60 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 }
 
 func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	names := historyRowNames{}
-	if p.reads != nil {
-		names = p.reads.rowNames
-	}
-	summary := historyRowSummary(view, row.Activity, names)
-	if p.reads == nil {
+	r := p.reads
+	if r == nil {
+		summary := historyRowSummary(view, row.Activity, historyRowNames{})
 		return historyEntry(gtx, view, summary, row.Note)
 	}
 	button := p.detailButton(row.ID)
 	if button.Clicked(gtx) {
-		p.reads.open(row.ID, button)
+		r.open(row.ID, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), view.Language.Text(historyKindLabel(row.Kind, row.Reason)), historyDay(view, row.EffectiveLocalDate))
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, summary, row.Note) }),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			view.Focus.Watch(gtx, button)
-			return layout.Inset{Right: ui.Space8}.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name}))
-		}),
-	)
+
+	var toggle *widget.Clickable
+	if r.hasPotentialRowActions(row.Activity) {
+		toggle = p.historyActionButton(row.ID)
+		if toggle.Clicked(gtx) {
+			if r.rowActions != nil && r.rowActions.id == row.ID {
+				r.closeRowActions()
+			} else {
+				r.openRowActions(row.ID)
+			}
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
+
+	menu := r.rowActions
+	expanded := toggle != nil && menu != nil && menu.id == row.ID
+	names := r.rowNames
+	if expanded && menu.record != nil {
+		names.holdingAccounts = menu.record.HoldingAccounts
+	}
+	summary := historyRowSummary(view, row.Activity, names)
+	header := func(gtx layout.Context) layout.Dimensions {
+		name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), view.Language.Text(historyKindLabel(row.Kind, row.Reason)), historyDay(view, row.EffectiveLocalDate))
+		controls := []layout.FlexChild{
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, summary, row.Note) }),
+			layout.Rigid(view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name})),
+		}
+		if toggle != nil {
+			controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return p.layoutRowActionToggle(gtx, view, toggle, summary, expanded)
+			}))
+		}
+		return layout.Inset{Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, controls...)
+		})
+	}
+	if !expanded {
+		return header(gtx)
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, layout.Rigid(header), layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Left: ui.Space16, Right: ui.Space8, Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return p.layoutRowActionChoices(gtx, view, menu, toggle)
+		})
+	}))
 }
 
 // historyDayHeading is the muted band that opens a day of activities.

@@ -38,6 +38,9 @@ func (p *historyPage) applyFilters(gtx layout.Context, filters history.Filters) 
 	if p.model.Filters().Equal(filters) {
 		return
 	}
+	if p.reads != nil {
+		p.reads.closeRowActions()
+	}
 	p.model.SetFilters(filters)
 	p.list.Position = layout.Position{}
 	p.pruneDetailButtons()

@@ -30,6 +30,11 @@ func (p *historyPage) layoutRepeat(gtx layout.Context, view ui.View) layout.Dime
 		return p.layoutRepeatReview(gtx, view)
 	}
 	if d.cancel.Clicked(gtx) {
+		if visit.fromRowAction {
+			r.back()
+			gtx.Execute(op.InvalidateCmd{})
+			return layout.Dimensions{}
+		}
 		visit.repeatDraft = nil
 		if d.refused {
 			r.loadDetail()

@@ -466,6 +466,7 @@ var simplifiedChineseCatalog = catalog{
 	HistoryReversal:                  "冲销",
 	HistoryDetailTitle:               "账务活动详情",
 	HistoryViewOn:                    "查看%s（%s）",
+	HistoryRowMoreActions:            "%s 的更多操作",
 	HistoryUnavailable:               "启用历史记录后可查看账务活动。",
 	HistoryNoMatches:                 "没有符合筛选条件的账务活动。",
 	HistoryActivityUnavailable:       "此账务活动不可用。",

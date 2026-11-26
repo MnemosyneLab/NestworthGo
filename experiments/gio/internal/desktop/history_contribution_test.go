@@ -175,7 +175,7 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	}
 	h.click("Back to ledger activity", false)
 	finish()
-	label("Cash contribution")
+	label("Cash contribution · US$25.00 · Harbor Checking")
 	if len(timeline.model.Rows()) != 7 || timeline.model.Rows()[0].ID != fault.firstActivity {
 		t.Fatal("History did not reload from the first page")
 	}

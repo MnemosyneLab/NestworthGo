@@ -13,8 +13,9 @@ import (
 )
 
 type historyRowNames struct {
-	accounts    map[domain.AccountID]domain.Account
-	instruments map[domain.InstrumentID]string
+	accounts        map[domain.AccountID]domain.Account
+	instruments     map[domain.InstrumentID]string
+	holdingAccounts map[domain.HoldingID]domain.AccountID
 }
 
 func newHistoryRowNames(refs history.References) historyRowNames {
@@ -36,6 +37,16 @@ func (n historyRowNames) account(id *domain.AccountID) domain.Account {
 		return n.accounts[*id]
 	}
 	return domain.Account{}
+}
+
+func (n historyRowNames) endpoint(e domain.ActivityEffect) string {
+	if e.AccountID != nil {
+		return n.account(e.AccountID).Name
+	}
+	if e.HoldingID != nil {
+		return n.accounts[n.holdingAccounts[*e.HoldingID]].Name
+	}
+	return ""
 }
 
 func historyRowSummary(view ui.View, activity domain.Activity, names historyRowNames) string {
@@ -71,7 +82,10 @@ func historyRowSummary(view ui.View, activity domain.Activity, names historyRowN
 	if account.IsLiability() {
 		label = liabilityKindLabel(activity.Kind, activity.Reason)
 	}
-	amount, accountName := money(first.Money), account.Name
+	amount, accountName := money(first.Money), names.endpoint(first)
+	if detail := activity.DividendDetail; detail != nil {
+		instrument = detail.InstrumentID
+	}
 	var quantity, fee string
 
 	switch activity.Kind {
@@ -123,6 +137,10 @@ func historyRowSummary(view ui.View, activity domain.Activity, names historyRowN
 			amount = portfolioDecimal(view, first.CostUnitPrice.Canonical())
 		}
 	case domain.ActivityPositionTransfer:
+		from, to := byRole[domain.EffectRoleTransferFrom], byRole[domain.EffectRoleTransferTo]
+		if from.HoldingID != nil && to.HoldingID != nil {
+			accountName = historyRowRoute(names.endpoint(from), names.endpoint(to))
+		}
 		if activity.Reason == domain.ReasonReconciliation && activity.ProductContext == nil {
 			label = i18n.HistoryPositionAdjustment
 		}

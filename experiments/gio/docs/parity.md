@@ -118,9 +118,13 @@ History reuses the 1D–All date presets and previous/next controls. Each preset
 uses the History Origin timezone and leaves account, instrument and type filters
 in place. The Gio regression uses synthetic AUD fee and USD dividend records,
 checks date ranges against the Wails adapter and restores the scope on Back.
-Repeat, correction, reversal and product actions remain in the activity
-detail. The direct Wails row menu and custody transfer account names in the
-list remain open.
+The row's More actions control loads the same eligibility as the detail.
+Repeat and correction open their existing drafts, and reversal opens its
+review. The Gio regression checks return focus, stale eligibility and
+confirmation before a write. A linked term deposit
+opens the existing product page. Custody account names appear when the
+expanded row loads its holding references. Showing those names on the
+collapsed row remains open.
 
 ## Remaining Stage 1–6 work
 

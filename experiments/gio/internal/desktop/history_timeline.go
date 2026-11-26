@@ -23,12 +23,13 @@ type historyService interface {
 }
 
 type historyTimelineVisit struct {
-	model    history.Visit
-	scroll   layout.Position
-	revision uint64
-	focused  domain.ActivityID
-	dateAt   analysisDateWindow
-	dateMode int
+	model        history.Visit
+	scroll       layout.Position
+	revision     uint64
+	focused      domain.ActivityID
+	focusActions bool
+	dateAt       analysisDateWindow
+	dateMode     int
 }
 
 type historyDetailState struct {
@@ -39,23 +40,26 @@ type historyDetailState struct {
 }
 
 type historyDetailVisit struct {
-	id               domain.ActivityID
-	pending          <-chan historyResult[history.Detail]
-	cancel           context.CancelFunc
-	record           *history.Detail
-	err              error
-	dirty            bool
-	back             widget.Clickable
-	retry            widget.Clickable
-	scroll           widget.List
-	amendment        *historyAmendmentDraft
-	amendmentFocus   *widget.Clickable
-	correct, reverse widget.Clickable
-	repeat           widget.Clickable
-	repeatDraft      *historyRepeatDraft
-	linked           [4]widget.Clickable
-	accounts         map[domain.AccountID]*widget.Clickable
-	instruments      map[domain.InstrumentID]*widget.Clickable
+	id                domain.ActivityID
+	pending           <-chan historyResult[history.Detail]
+	cancel            context.CancelFunc
+	record            *history.Detail
+	err               error
+	dirty             bool
+	back              widget.Clickable
+	retry             widget.Clickable
+	scroll            widget.List
+	amendment         *historyAmendmentDraft
+	amendmentFocus    *widget.Clickable
+	correct, reverse  widget.Clickable
+	repeat            widget.Clickable
+	repeatDraft       *historyRepeatDraft
+	requested         historyRowAction
+	fromRowAction     bool
+	actionUnavailable bool
+	linked            [4]widget.Clickable
+	accounts          map[domain.AccountID]*widget.Clickable
+	instruments       map[domain.InstrumentID]*widget.Clickable
 }
 
 func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickable {
@@ -103,9 +107,12 @@ type historyReads struct {
 	refsErr         error
 	detail          *historyDetailVisit
 	buttons         map[domain.ActivityID]*widget.Clickable
+	actionButtons   map[domain.ActivityID]*widget.Clickable
+	rowActions      *historyRowActions
 	posted          domain.Activity
 	postedNotice    i18n.MessageID
 	open            func(id domain.ActivityID, focus event.Tag)
+	openAction      func(id domain.ActivityID, action historyRowAction, focus event.Tag)
 	openAccount     func(id domain.AccountID, name string, focus event.Tag)
 	openInstrument  func(id domain.InstrumentID, name string, focus event.Tag)
 	openProduct     func(id domain.ProductContractID, name string, focus event.Tag)
@@ -130,7 +137,7 @@ func newLedgerHistory(ctx context.Context, service historyService, clock func() 
 	page.startPoint = newHistoryStart(service)
 	page.reads = &historyReads{
 		ctx: ctx, service: service, clock: clock, invalidate: invalidate,
-		buttons: make(map[domain.ActivityID]*widget.Clickable),
+		buttons: make(map[domain.ActivityID]*widget.Clickable), actionButtons: make(map[domain.ActivityID]*widget.Clickable),
 	}
 	return page
 }
@@ -212,8 +219,11 @@ func (r *historyReads) loadDetail() {
 	visit.retire()
 	ctx, cancel := context.WithCancel(r.ctx)
 	visit.cancel, visit.err, visit.dirty = cancel, nil, false
-	id := visit.id
-	visit.pending = runHistoryRead(&r.workers, r.invalidate, func() (history.Detail, error) {
+	visit.pending = r.readDetail(ctx, visit.id)
+}
+
+func (r *historyReads) readDetail(ctx context.Context, id domain.ActivityID) <-chan historyResult[history.Detail] {
+	return runHistoryRead(&r.workers, r.invalidate, func() (history.Detail, error) {
 		var detail history.Detail
 		err := r.service.WithRead(ctx, func(ctx context.Context) error {
 			var err error
@@ -235,6 +245,7 @@ func (r *historyReads) update() {
 		}
 	default:
 	}
+	r.updateRowActions()
 	if visit := r.detail; visit != nil {
 		if visit.dirty {
 			r.loadDetail()
@@ -245,6 +256,7 @@ func (r *historyReads) update() {
 			visit.err = result.err
 			if result.err == nil {
 				visit.record = &result.value
+				r.startRequestedRowAction(visit)
 			}
 		default:
 		}
@@ -257,6 +269,12 @@ func (p *historyPage) timelineVisit(focus event.Tag) historyTimelineVisit {
 		dateAt: p.filter.dates.at, dateMode: p.filter.dates.chosen,
 	}
 	if p.reads != nil {
+		for id, button := range p.reads.actionButtons {
+			if focus == button {
+				visit.focused, visit.focusActions = id, true
+				return visit
+			}
+		}
 		for id, button := range p.reads.buttons {
 			if focus == button {
 				visit.focused = id
@@ -321,6 +339,7 @@ func (p *historyPage) invalidateLedgerReads() {
 	p.revision++
 	p.model.Refresh()
 	if r := p.reads; r != nil {
+		r.closeRowActions()
 		if r.refsRead != nil || r.references != nil || r.refsErr != nil {
 			r.retireReferences()
 			r.loadReferences()
@@ -355,6 +374,14 @@ func (p *historyPage) detailButton(id domain.ActivityID) *widget.Clickable {
 
 func (p *historyPage) pruneDetailButtons() {
 	rows := p.model.Rows()
+	for id := range p.reads.actionButtons {
+		if !slices.ContainsFunc(rows, func(row history.Row) bool { return row.ID == id }) {
+			delete(p.reads.actionButtons, id)
+		}
+	}
+	if menu := p.reads.rowActions; menu != nil && p.reads.actionButtons[menu.id] == nil {
+		p.reads.closeRowActions()
+	}
 	for id := range p.reads.buttons {
 		if !slices.ContainsFunc(rows, func(row history.Row) bool { return row.ID == id }) {
 			delete(p.reads.buttons, id)

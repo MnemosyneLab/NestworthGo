@@ -1133,6 +1133,7 @@ const (
 	HistoryReversal
 	HistoryDetailTitle
 	HistoryViewOn
+	HistoryRowMoreActions
 	HistoryUnavailable
 	HistoryNoMatches
 	HistoryActivityUnavailable

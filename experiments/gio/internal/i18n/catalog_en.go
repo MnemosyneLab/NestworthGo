@@ -466,6 +466,7 @@ var englishCatalog = catalog{
 	HistoryReversal:                  "Reversal",
 	HistoryDetailTitle:               "Activity details",
 	HistoryViewOn:                    "View %s on %s",
+	HistoryRowMoreActions:            "More actions for %s",
 	HistoryUnavailable:               "Start History to see ledger activity.",
 	HistoryNoMatches:                 "No activity matches these filters.",
 	HistoryActivityUnavailable:       "This activity is unavailable.",

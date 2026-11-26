@@ -465,6 +465,7 @@ var japaneseCatalog = catalog{
 	HistoryReversal:                  "取消仕訳",
 	HistoryDetailTitle:               "履歴の詳細",
 	HistoryViewOn:                    "%s（%s）を表示",
+	HistoryRowMoreActions:            "%s のその他の操作",
 	HistoryUnavailable:               "帳簿の記録を表示するには履歴を開始してください。",
 	HistoryNoMatches:                 "絞り込み条件に一致する記録がありません。",
 	HistoryActivityUnavailable:       "この記録は利用できません。",

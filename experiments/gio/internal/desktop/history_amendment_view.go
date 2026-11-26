@@ -31,6 +31,11 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 		focus = &d.correct
 	}
 	if form.commit == nil && !form.uncertain && form.cancel.Clicked(gtx) {
+		if d.fromRowAction {
+			r.back()
+			gtx.Execute(op.InvalidateCmd{})
+			return layout.Dimensions{}
+		}
 		d.amendment, d.amendmentFocus = nil, focus
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
