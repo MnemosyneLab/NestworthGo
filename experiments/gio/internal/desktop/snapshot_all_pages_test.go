@@ -75,7 +75,7 @@ func TestVisualSnapshotsEveryPage(t *testing.T) {
 	pages := []struct{ label, file string }{
 		{"概览", "overview"}, {"账户", "accounts"}, {"投资资产", "portfolio"}, {"待办核查", "tasks"}, {"账务记录", "history"},
 		{"资产回溯", "wealth"}, {"收益分析", "returns"}, {"资产变动", "asset-changes"}, {"名录", "directory"},
-		{"行情数据", "market"}, {"设置", "settings"},
+		{"行情数据", "market"}, {"数据健康", "health"}, {"设置", "settings"},
 	}
 	settle()
 	for _, page := range pages {
@@ -83,7 +83,14 @@ func TestVisualSnapshotsEveryPage(t *testing.T) {
 			continue
 		}
 		h.frame()
-		h.click(page.label, false)
+		if page.file == "health" {
+			// Data health has no sidebar entry; it opens from the market page.
+			h.click("行情数据", false)
+			settle()
+			h.click("查看数据健康", false)
+		} else {
+			h.click(page.label, false)
+		}
 		settle()
 		name := "page-" + page.file
 		if h.shell.prefs.systemDark {
