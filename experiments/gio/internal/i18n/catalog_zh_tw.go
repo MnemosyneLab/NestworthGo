@@ -1634,7 +1634,7 @@ var traditionalChineseCatalog = catalog{
 	DividendNetCredit:          "淨入帳 · %s",
 	DividendHoldingUnavailable: "請選擇以此帳戶預設幣別計價且未封存的持倉。",
 	DividendHistoryRequired:    "請先啟用歷史記錄，再記錄現金股息。",
-	DividendNoHoldings:         "沒有符合條件且以此帳戶預設幣別計價的持倉。",
+	DividendNoHoldings:         "此帳戶沒有符合條件的持倉。",
 	DividendPreviewFailed:      "無法預覽現金股息。請核對後重試。",
 	DividendStale:              "帳本已變更。請重新預覽股息後再確認。",
 	DividendInvalidAmount:      "請輸入正數金額，最多四位小數。",

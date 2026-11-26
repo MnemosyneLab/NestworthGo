@@ -87,7 +87,7 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 		case domain.ActivitySell:
 			return !held
 		case domain.ActivityCashDividend:
-			return !held || i.QuoteCurrency != account.DefaultCurrency
+			return !held
 		}
 		return false
 	})

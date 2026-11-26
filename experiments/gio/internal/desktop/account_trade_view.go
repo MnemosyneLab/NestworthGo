@@ -84,6 +84,11 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, d.layoutInvestmentAmounts(view, origin))
 		}))
+		if d.kind == domain.ActivityCashDividend && d.link == nil {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.DividendNetHint), view.Colors.SecondaryInk))
+			}))
+		}
 	}
 	if d.investmentFieldsVisible() {
 		children = append(children,
@@ -164,7 +169,7 @@ func (d *accountInvestmentDraft) investmentInputComplete() bool {
 	case domain.ActivityPositionTransfer:
 		return quantity && strings.TrimSpace(d.unitCost.Text()) != ""
 	case domain.ActivityCashDividend:
-		return strings.TrimSpace(d.gross.Text()) != ""
+		return d.dividendCurrency != "" && strings.TrimSpace(d.gross.Text()) != ""
 	default:
 		return quantity && strings.TrimSpace(d.gross.Text()) != ""
 	}
@@ -240,21 +245,18 @@ func (d *accountInvestmentDraft) layoutInvestmentAmounts(view ui.View, origin im
 		}
 		currency := d.currency.String()
 		if d.kind == domain.ActivityCashDividend {
-			if d.link != nil {
-				if d.previewing != nil {
-					gtx = gtx.Disabled()
-				}
-				return layoutCashCurrencyAmount(gtx, view, origin, &d.gross, i18n.DividendAmount, &d.selectDividendCurrency,
-					i18n.CashCurrency, d.dividendCurrency, "", func(value domain.CurrencyCode) {
-						if value != d.dividendCurrency {
-							d.dividendCurrency, d.problem = value, i18n.NoMessage
+			if d.previewing != nil || d.instrument == "" {
+				gtx = gtx.Disabled()
+			}
+			return layoutCashCurrencyAmount(gtx, view, origin, &d.gross, i18n.DividendAmount, &d.selectDividendCurrency,
+				i18n.CashCurrency, d.dividendCurrency, "", func(value domain.CurrencyCode) {
+					if value != d.dividendCurrency {
+						d.dividendCurrency, d.problem = value, i18n.NoMessage
+						if d.link != nil {
 							d.gross.Editor.SetText("")
 						}
-					})
-			}
-			return d.gross.LayoutCurrency(gtx, view, ui.FieldOptions{
-				Label: i18n.DividendAmount, Help: i18n.DividendNetHint, Disabled: d.previewing != nil,
-			}, currency)
+					}
+				})
 		}
 		labels := d.labels()
 		disabled := d.previewing != nil || d.instrument == ""

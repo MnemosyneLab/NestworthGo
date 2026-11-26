@@ -1423,13 +1423,13 @@ The compact form stacks the amount editors and retains the currency labels.
 | Wails and Gio parity | Independent Wails-format synthetic ledgers first rejected an unfunded EUR buy. A distinct USD 120.25 to EUR 100.125 conversion charged USD 0.1234. After a competing EUR deposit invalidated the first preview, three units bought for EUR 60.0001 plus EUR 0.0002 recorded an execution price of EUR 20.00003333 and a EUR −60.0003 cash delta. Selling 1.25 units for EUR 30.1251 less EUR 0.0001 recorded EUR +30.125 and left 1.75 units. Wails Go agreed on the command, linked holding, ledger and wallet balances across restart. The domestic holding and the USD wallet were unchanged by the EUR trades. |
 | Packaged Linux X11 | Posted a separate conversion and a buy at 1160×820, followed by a sale at 640×480. Selected the instrument and confirmed trades by keyboard. Back from each Ledger detail restored the initiating action. After quit and reopen, read-only SQLite showed exactly one conversion, one buy and one sale. The two trades shared a Holding ID, retained both EUR fees and left EUR 70.2497 and USD 79.6266. The unrelated domestic holding and its USD 40 quote remained intact. The untouched synthetic source database and settings matched their original hashes. |
 | Regression checks | The Gio tests covered cancel, stale review, note and civil-time handling, unchanged domestic positions, historical shortfall, duplicate confirmation and a lost response. The full Gio suite and vet, focused application/domain/Wails Go tests and four Wails frontend reference cases passed. |
-| Remaining coverage | Wails' optional market-price calculators in the trade form, more backdated additions or sales that change later cost replay, inline instrument creation, and foreign dividends remain open. Interactive Wails, native macOS, Wayland, VoiceOver and native IME were unrun. |
+| Remaining coverage | Wails' optional market-price calculators in the trade form, more backdated additions or sales that change later cost replay, and inline instrument creation remain open. Interactive Wails, native macOS, Wayland, VoiceOver and native IME were unrun. |
 
 #### Same-currency cash dividends
 
 From a Holdings account, **Record cash dividend** lists its ordinary,
-unarchived holdings whose quote currency matches the account's default
-currency. An unarchived holding remains eligible after liquidation. Enter the
+unarchived holdings. An unarchived holding remains eligible after liquidation.
+The account and holding entry points accept the payment currency. Enter the
 positive amount actually credited, with up to four decimal places. The Wails
 dividend command accepts one amount. Separately posted withholding or fees use
 distinct Wails cash-removal operations and remain outside this slice. Gio uses
@@ -1451,7 +1451,23 @@ realized trade gain and external flows unchanged by the dividend.
 | Linux X11 | In a 900×660 Xvfb window, rejected zero, reviewed USD 12.3456, double-clicked confirmation, and followed the History links to the instrument and account. Overview showed USD 266.35 with no separate contribution in this fixture. A normal quit and reopen retained the four records and the exact dividend. Read-only SQLite verification found one added activity, one income effect, one mutation receipt and USD 146.3456 cash in both event and replay projections. The holding, prior trades and market quotes were unchanged. A temporary build overlay seeded the verified synthetic profile and controlled the clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go dividend, gain and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Dividend notes, separate withholding or fees, foreign-currency dividends, reinvestment and capital-return operations remain outside this slice. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | Dividend notes, separate withholding or fees, reinvestment and capital-return operations remain outside this slice. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Cash dividends paid in another currency
+
+The scoped account and holding entry points use the existing Wails Go
+`ChangeCashDividend` command. As in Wails, the account entry defaults to the
+selected holding's quote currency. The holding entry starts with the account's
+default currency and keeps the holding fixed. The currency selector represents
+the cash actually received. Review shows the exact balance before, net credit
+and resulting balance in the payment currency.
+
+The synthetic paired test uses a USD brokerage with one EUR holding and an
+existing EUR balance of 2.01. Gio and Wails Go both credit EUR 12.3456 once,
+resulting in EUR 14.3556. Each confirms one income effect, leaves USD 200
+unchanged, and retains the holding's 1.25 units and EUR 5.0001 cost. Preview
+leaves both balances unchanged, and Back from the receipt restores the exact
+holding action. Native interaction for this currency selector remains open.
 
 #### Opening position and original cost
 

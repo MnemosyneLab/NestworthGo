@@ -92,20 +92,19 @@ func (p *accountsPage) canRecordDividend() bool {
 	if !p.canTradeAccount() {
 		return false
 	}
-	row := p.current.rows[0]
-	if row.value == nil {
-		return false
+	for _, group := range p.current.holdingGroups {
+		for _, instrument := range group.Instruments {
+			if instrument.Archived || p.current.managed[instrument.InstrumentID] {
+				continue
+			}
+			for _, member := range instrument.Holdings {
+				if holding, ok := p.current.holdings[member.HoldingID]; ok && holding.ArchivedAt == nil {
+					return true
+				}
+			}
+		}
 	}
-	return slices.ContainsFunc(row.value.Components, func(component domain.ValuationComponent) bool {
-		if component.InstrumentID == nil || component.HoldingID == nil || component.NativeCurrency != row.record.Account.DefaultCurrency {
-			return false
-		}
-		if p.current.managed[*component.InstrumentID] {
-			return false
-		}
-		h, ok := p.current.holdings[*component.HoldingID]
-		return ok && h.ArchivedAt == nil
-	})
+	return false
 }
 
 func (p *accountsPage) canTradeAccount() bool {
@@ -245,13 +244,20 @@ func (d *accountInvestmentDraft) chooseInstrument(id domain.InstrumentID) {
 			}
 		}
 	}
-	if d.instrument != id || d.currency != currency {
-		d.instrument, d.currency, d.problem = id, currency, i18n.NoMessage
+	if d.kind == domain.ActivityCashDividend && d.link == nil && d.instrument != id {
+		d.dividendCurrency = d.account.DefaultCurrency
+		if d.lockedHolding.ID == "" && currency != "" {
+			d.dividendCurrency = currency
+		}
+	}
+	if d.instrument != id || (d.kind != domain.ActivityCashDividend && d.currency != currency) {
+		d.instrument, d.problem = id, i18n.NoMessage
 		d.quantity.Editor.SetText("")
 		d.gross.Editor.SetText("")
 		d.fee.Editor.SetText("")
 		d.unitCost.Editor.SetText("")
 	}
+	d.currency = currency
 }
 
 func (d *accountInvestmentDraft) captureTime(now time.Time) {
@@ -281,9 +287,6 @@ func (f *accountInvestment) loadSources(run investmentRuntime) {
 		return
 	}
 	id, kind := d.account.ID, d.kind
-	if kind == domain.ActivityCashDividend && d.link != nil {
-		kind = domain.ActivityBuy
-	}
 	d.loading = runHistoryRead(run.workers, run.invalidate, func() (history.InvestmentSources, error) {
 		return history.LoadInvestmentSources(run.ctx, f.service, id, kind)
 	})
@@ -388,7 +391,7 @@ func (f *accountInvestment) poll(run investmentRuntime) {
 			if d.instrument != "" {
 				old := d.currency
 				d.chooseInstrument(d.instrument)
-				if d.currency != old {
+				if d.kind != domain.ActivityCashDividend && d.currency != old {
 					d.problem = i18n.TradeCurrencyChanged
 				}
 			}
@@ -468,7 +471,12 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return i18n.QuantityAdjustNeedsCost
 	}
 	switch issue.Field {
-	case "grossCurrency", "currency":
+	case "currency":
+		if labels.action == i18n.DividendOpen {
+			return i18n.CashCurrencyRequired
+		}
+		return i18n.TradeCurrencyChanged
+	case "grossCurrency":
 		return i18n.TradeCurrencyChanged
 	case "settlementAccountId", "holdings", "holdingId", "fromHoldingId", "toHoldingId", "toAccountId":
 		return labels.scope

@@ -1634,7 +1634,7 @@ var englishCatalog = catalog{
 	DividendNetCredit:          "Net cash credited · %s",
 	DividendHoldingUnavailable: "Choose an active holding in this account’s default currency.",
 	DividendHistoryRequired:    "Start History before recording a cash dividend.",
-	DividendNoHoldings:         "No eligible holdings use this account’s default currency.",
+	DividendNoHoldings:         "No eligible holdings in this account.",
 	DividendPreviewFailed:      "Could not review this cash dividend. Check the details and try again.",
 	DividendStale:              "The ledger changed. Review the dividend again before confirming.",
 	DividendInvalidAmount:      "Enter a positive cash amount with up to four decimal places.",

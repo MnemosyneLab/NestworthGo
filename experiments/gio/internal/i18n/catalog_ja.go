@@ -1633,7 +1633,7 @@ var japaneseCatalog = catalog{
 	DividendNetCredit:          "入金額（差引後） · %s",
 	DividendHoldingUnavailable: "この口座の既定通貨建ての有効な保有銘柄を選んでください。",
 	DividendHistoryRequired:    "現金配当を記録するには履歴を開始してください。",
-	DividendNoHoldings:         "この口座の既定通貨建ての対象銘柄はありません。",
+	DividendNoHoldings:         "この口座に対象の保有銘柄がありません。",
 	DividendPreviewFailed:      "現金配当を確認できませんでした。入力内容を確認して再試行してください。",
 	DividendStale:              "台帳が変更されました。確定する前に配当を再確認してください。",
 	DividendInvalidAmount:      "小数点以下4桁以内の正の金額を入力してください。",

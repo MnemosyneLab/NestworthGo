@@ -1634,7 +1634,7 @@ var simplifiedChineseCatalog = catalog{
 	DividendNetCredit:          "净到账 · %s",
 	DividendHoldingUnavailable: "请选择以该账户默认币种计价且未归档的持仓。",
 	DividendHistoryRequired:    "请先启用历史记录，再记录现金股息。",
-	DividendNoHoldings:         "没有符合条件且以该账户默认币种计价的持仓。",
+	DividendNoHoldings:         "此账户没有符合条件的持仓。",
 	DividendPreviewFailed:      "无法预览现金股息。请核对后重试。",
 	DividendStale:              "账本已变化。请重新预览股息后再确认。",
 	DividendInvalidAmount:      "请输入正数金额，最多四位小数。",

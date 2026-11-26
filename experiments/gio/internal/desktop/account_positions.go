@@ -183,8 +183,7 @@ func (p *accountsPage) accountHoldingCard(view ui.View, account domain.Account, 
 	if p.canImportPosition() && !closed && holding.ID != "" && holding.ArchivedAt == nil {
 		fields = append(fields, p.holdingPositionActions(view, account, holding, name))
 	}
-	dividend := p.canImportPosition() && !closed && !instrument.Archived && holding.ID != "" &&
-		instrument.QuoteCurrency == account.DefaultCurrency
+	dividend := p.canImportPosition() && !closed && !instrument.Archived && holding.ID != "" && holding.ArchivedAt == nil
 	if p.openHoldingHistory != nil || p.openHoldingAnalysis != nil || dividend {
 		fields = append(fields, p.accountHoldingActions(view, account, row, holding, name, dividend))
 	}
