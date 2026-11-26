@@ -191,12 +191,18 @@ func (p donutPlan) sliceFor(sel Selection) (donutSlicePlan, int, bool) {
 // sector is the outline of an annular sector, offset along its bisector by
 // shift pixels.
 func (p donutPlan) sector(span arcSpan, shift float64) []f32.Point {
+	return p.grownSector(span, shift, 0)
+}
+
+// grownSector is sector with the outer radius extended by grow pixels, the
+// emphasis of an active slice.
+func (p donutPlan) grownSector(span arcSpan, shift, grow float64) []f32.Point {
 	center := p.center
 	if shift != 0 {
 		mid := (span.start + span.end) / 2
 		center = ringPoint(center, shift, mid)
 	}
-	outer := arcPolyline(center, p.outer, span.start, span.end)
+	outer := arcPolyline(center, p.outer+grow, span.start, span.end)
 	inner := arcPolyline(center, p.inner, span.end, span.start)
 	return append(outer, inner...)
 }
@@ -297,7 +303,7 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 	dims := accessibility.List(gtx, c, spec.Label, func(gtx layout.Context) layout.Dimensions {
 		defer op.Offset(image.Pt(pad, pad)).Push(gtx.Ops).Pop()
 		hovering := !c.hover.IsZero()
-		c.drawRing(gtx, view, spec, plan, active)
+		c.drawRing(gtx, view, spec, plan, active, image.Rect(0, 0, inner, plan.height))
 		c.drawCenter(gtx, view, spec, plan)
 		c.drawLegend(gtx, view, spec, plan, columns, active, legendMetrics{inset: rowInset, swatch: swatch, pad: rowPad, labelW: labelW, rightW: rightW, amountW: amountW, chipW: chipW})
 		y := plan.height + gtx.Dp(ui.Space8)
@@ -355,7 +361,7 @@ func (s DonutSpec) sliceInk(colors *ui.Palette, index int) color.NRGBA {
 	return colors.ChartInk(index)
 }
 
-func (c *DonutChart) drawRing(gtx layout.Context, view ui.View, spec DonutSpec, plan donutPlan, active Selection) {
+func (c *DonutChart) drawRing(gtx layout.Context, view ui.View, spec DonutSpec, plan donutPlan, active Selection, bounds image.Rectangle) {
 	colors := view.Colors
 	if plan.total <= 0 {
 		// Nothing can be drawn: show the empty track so the chart keeps its shape.
@@ -368,32 +374,38 @@ func (c *DonutChart) drawRing(gtx layout.Context, view ui.View, spec DonutSpec, 
 		if !sp.drawn {
 			continue
 		}
-		shift := 0.0
+		shift, grow := 0.0, 0.0
 		if sp.sel == spec.Selected {
 			shift = plan.pullout
 		}
-		outline := plan.sector(sp.span, shift)
-		fillPolygon(gtx, outline, spec.sliceInk(colors, i))
+		if sp.sel == active {
+			// The active slice grows outward; the others stay put, so the
+			// ring keeps its shape.
+			grow = float64(gtx.Dp(ui.Space4))
+		}
+		outline := plan.grownSector(sp.span, shift, grow)
+		ink := spec.sliceInk(colors, i)
+		if !active.IsZero() && sp.sel != active && sp.sel != spec.Selected {
+			ink = ui.Mix(colors.Surface, ink, 0.7)
+		}
+		fillPolygon(gtx, outline, ink)
 		if sp.span.sweep() < 2*math.Pi-1e-6 {
 			strokePolyline(gtx, append(outline, outline[0]), gapWidth, colors.Surface)
 		}
-		if sp.sel == active || sp.sel == spec.Selected {
-			// Selected and active sectors carry an ink outline.
-			width, ink := float32(gtx.Dp(2)), colors.Ink
-			if sp.sel != spec.Selected {
-				ink = ui.WithAlpha(colors.Ink, 0.55)
-			}
-			strokePolyline(gtx, append(outline, outline[0]), width, ink)
+		if sp.sel == spec.Selected {
+			// The selected sector carries an ink outline, so selection does
+			// not rely on color or position alone.
+			strokePolyline(gtx, append(outline, outline[0]), float32(gtx.Dp(2)), colors.Ink)
 		}
 	}
 	// The tooltip explains a sector the pointer is over or the keyboard cursor
 	// is on. A hovered legend row already explains itself.
 	showTip := (!c.hover.IsZero() && plan.onRing(c.at)) || (c.hover.IsZero() && gtx.Focused(c))
-	if sp, _, ok := plan.sliceFor(active); ok && sp.drawn && showTip {
+	if sp, index, ok := plan.sliceFor(active); ok && sp.drawn && showTip {
 		if item := spec.readout(active); item != nil {
+			item.mark = readoutMark{ink: spec.sliceInk(colors, index), shape: markerSquare}
 			mid := (sp.span.start + sp.span.end) / 2
-			at := ringPoint(plan.center, plan.outer, mid)
-			bounds := image.Rectangle{Max: image.Pt(int(plan.center.X*2), int(plan.center.Y*2))}
+			at := ringPoint(plan.center, plan.outer+float64(gtx.Dp(ui.Space4)), mid)
 			drawTooltip(gtx, view, bounds, image.Pt(int(at.X), int(at.Y)), *item)
 		}
 	}

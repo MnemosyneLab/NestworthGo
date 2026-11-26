@@ -112,7 +112,7 @@ func assetTrendLine(view ui.View, trend application.AssetTrendResult, query doma
 			if metric == application.TrendReturnRate {
 				return returnRate(view, &amount)
 			}
-			return valuationMoney(view, domain.MoneyView{Amount: amount.String(), Currency: currency}, false)
+			return chartAxisNumber(view, value)
 		},
 		Messages: charts.Messages{Empty: l.Text(i18n.AssetNoData), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}, missing

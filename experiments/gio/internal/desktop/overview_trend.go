@@ -383,8 +383,11 @@ func (p *overviewPage) overviewTrendDataRow(gtx layout.Context, view ui.View, po
 // axes do. The amounts, tooltips and tables keep their exact currency text;
 // this is display rounding of an axis position only.
 func chartAxisNumber(view ui.View, value float64) string {
-	digits := decimal.NewFromFloat(value).Round(0).String()
+	// Axis ticks are round values, so two places only keep the fraction of a
+	// small scale such as 0.25; whole ticks show no decimals.
+	digits := decimal.NewFromFloat(value).Round(2).String()
 	digits, negative := strings.CutPrefix(digits, "-")
+	digits, fraction, _ := strings.Cut(digits, ".")
 	var grouped strings.Builder
 	for i, r := range digits {
 		if i > 0 && (len(digits)-i)%3 == 0 {
@@ -392,7 +395,15 @@ func chartAxisNumber(view ui.View, value float64) string {
 		}
 		grouped.WriteRune(r)
 	}
-	if negative {
+	if fraction != "" {
+		separator := view.DecimalSeparator
+		if separator == "" {
+			separator = "."
+		}
+		grouped.WriteString(separator)
+		grouped.WriteString(fraction)
+	}
+	if negative && grouped.String() != "0" {
 		return "-" + grouped.String()
 	}
 	return grouped.String()

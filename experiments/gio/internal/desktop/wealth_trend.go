@@ -50,12 +50,10 @@ func wealthTrendLine(view ui.View, data application.HistoricalOverviewSeriesResu
 	return charts.LineSpec{Label: l.Text(i18n.WealthTrendChart),
 		Summary: label + " · " + wealthDay(view, data.From) + " – " + wealthDay(view, data.To) + " · " + string(unit),
 		Series:  []charts.LineSeries{series}, From: from, To: to, Height: 260, Area: true,
-		FormatTime: func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },
-		FormatTick: func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },
-		FormatValue: func(number float64) string {
-			return valuationMoney(view, domain.MoneyView{Currency: unit, Amount: decimal.NewFromFloat(number).String()}, false)
-		},
-		Messages: charts.Messages{Empty: l.Text(i18n.WealthHistoryEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)}}
+		FormatTime:  func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },
+		FormatTick:  func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },
+		FormatValue: func(number float64) string { return chartAxisNumber(view, number) },
+		Messages:    charts.Messages{Empty: l.Text(i18n.WealthHistoryEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)}}
 }
 
 func wealthTrendPoint(view ui.View, p *application.HistoricalSeriesPoint, date time.Time, unit domain.CurrencyCode, metric i18n.MessageID) charts.LinePoint {

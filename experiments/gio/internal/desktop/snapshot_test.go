@@ -168,6 +168,27 @@ func TestVisualSnapshots(t *testing.T) {
 			}
 		}
 	})
+	t.Run("chart-hover", func(t *testing.T) {
+		// The pointer rests on one item of each interactive chart so the
+		// tooltip, axis pointer and emphasis are captured.
+		for _, mode := range modes {
+			for _, hover := range []struct {
+				group int
+				at    image.Point
+			}{{0, image.Pt(656, 262)}, {0, image.Pt(800, 640)}, {1, image.Pt(766, 331)}, {3, image.Pt(481, 273)}} {
+				h := newPreviewHarness(t)
+				h.size = image.Pt(1120, 1100)
+				h.shell.prefs.saved.Appearance = mode.appearance
+				group := &h.preview.chartGroups[hover.group]
+				h.shell.routes[componentPreviewRoute].body = func(gtx layout.Context, view ui.View) layout.Dimensions {
+					return ui.Place(gtx, view, image.Point{}, gtx.Constraints.Max.X, func(gtx layout.Context, view ui.View) layout.Dimensions {
+						return h.preview.chartCard(gtx, view, group)
+					})
+				}
+				h.hoverSnapshot(t, dir, fmt.Sprintf("chart-hover-%d-%d-%s", hover.group, hover.at.Y, mode.name), hover.at)
+			}
+		}
+	})
 	t.Run("gallery", func(t *testing.T) {
 		for _, accent := range []struct {
 			name  string
@@ -182,6 +203,23 @@ func TestVisualSnapshots(t *testing.T) {
 			}
 		}
 	})
+}
+
+// hoverSnapshot captures the window with the pointer resting at a point given
+// in dp, after the hover has settled.
+func (h *previewHarness) hoverSnapshot(t *testing.T, dir, name string, at image.Point) {
+	t.Helper()
+	h.scale = snapshotScale
+	size := h.size
+	h.size = size.Mul(snapshotScale)
+	defer func() { h.size, h.scale = size, 0 }()
+	h.frame()
+	pos := f32.Pt(float32(at.X*snapshotScale), float32(at.Y*snapshotScale))
+	h.router.Queue(pointer.Event{Kind: pointer.Move, Source: pointer.Mouse, Position: pos})
+	for range 14 {
+		h.frame()
+	}
+	writeSnapshot(t, dir, name, h.size, &h.ops)
 }
 
 func (h *previewHarness) snapshot(t *testing.T, dir, name string) {

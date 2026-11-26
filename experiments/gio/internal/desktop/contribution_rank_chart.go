@@ -4,7 +4,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"github.com/shopspring/decimal"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -63,10 +62,7 @@ func (p *returnAnalysisPage) contributionBars(view ui.View, data application.Con
 		spec.Bars = append(spec.Bars, bar)
 	}
 	if currency != "" && sameCurrency {
-		spec.FormatValue = func(tick float64) string {
-			amount := domain.MoneyView{Amount: decimal.NewFromFloat(tick).String(), Currency: currency}
-			return valuationMoney(view, amount, false)
-		}
+		spec.FormatValue = func(tick float64) string { return chartAxisNumber(view, tick) }
 	}
 	return spec
 }

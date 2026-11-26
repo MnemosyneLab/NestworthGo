@@ -57,6 +57,31 @@ func fillPolygon(gtx layout.Context, points []f32.Point, fill color.NRGBA) {
 	paint.FillShape(gtx.Ops, fill, clip.Outline{Path: path.End()}.Op())
 }
 
+// fillPolygonGradient fills the closed polygon through points with a linear
+// gradient from c1 at from to c2 at to.
+func fillPolygonGradient(gtx layout.Context, points []f32.Point, from, to f32.Point, c1, c2 color.NRGBA) {
+	if len(points) < 3 || (c1.A == 0 && c2.A == 0) {
+		return
+	}
+	var path clip.Path
+	path.Begin(gtx.Ops)
+	path.MoveTo(points[0])
+	for _, p := range points[1:] {
+		path.LineTo(p)
+	}
+	path.Close()
+	defer clip.Outline{Path: path.End()}.Op().Push(gtx.Ops).Pop()
+	paint.LinearGradientOp{Stop1: from, Color1: c1, Stop2: to, Color2: c2}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+}
+
+// dashedLine strokes a dashed straight line, as a chart axis pointer is drawn.
+func dashedLine(gtx layout.Context, from, to f32.Point, width float32, ink color.NRGBA) {
+	for _, dash := range dashPolyline([]f32.Point{from, to}, float32(gtx.Dp(4)), float32(gtx.Dp(3))) {
+		strokePolyline(gtx, dash, width, ink)
+	}
+}
+
 func fillRect(gtx layout.Context, r image.Rectangle, fill color.NRGBA) {
 	if r.Empty() || fill.A == 0 {
 		return
@@ -136,6 +161,24 @@ type readout struct {
 	detail       []string
 	selected     bool
 	missing      bool
+	// mark is the item's legend mark, repeated in the tooltip so a value is
+	// tied to its series or slice at a glance.
+	mark readoutMark
+	// rows lists every series at the active time, as an axis tooltip does.
+	// The tooltip then shows label as its title and one row per series.
+	rows []readoutRow
+}
+
+// readoutMark is a legend mark; the zero mark draws nothing.
+type readoutMark struct {
+	ink   color.NRGBA
+	shape markerShape
+}
+
+type readoutRow struct {
+	mark          readoutMark
+	name, value   string
+	missing, lead bool
 }
 
 // layoutReadout lays out the readout under a chart. Its height never drops
@@ -197,33 +240,12 @@ func drawTooltip(gtx layout.Context, view ui.View, bounds image.Rectangle, ancho
 	if maxWidth <= 0 {
 		return
 	}
-	colors := view.Colors
 	macro := op.Record(gtx.Ops)
 	tgtx := gtx
 	tgtx.Constraints = layout.Constraints{Max: image.Pt(maxWidth, 1<<20)}
 	dims := view.Floating(tgtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(ui.Space8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			inner := gtx.Constraints.Max.X
-			y := 0
-			widest := 0
-			line := func(block textBlock) {
-				block.maxWidth = inner
-				size := block.draw(gtx, view, image.Pt(0, y))
-				y += size.Y
-				widest = max(widest, size.X)
-			}
-			line(textBlock{style: ui.TextCaptionStrong, content: r.label, ink: colors.Ink})
-			if r.value != "" {
-				ink := colors.Ink
-				if r.missing {
-					ink = colors.SecondaryInk
-				}
-				line(textBlock{style: ui.TextLabel, content: r.value, ink: ink})
-			}
-			for _, d := range r.detail {
-				line(textBlock{style: ui.TextCaption, content: d, ink: colors.SecondaryInk})
-			}
-			return layout.Dimensions{Size: image.Pt(widest, y)}
+		return layout.Inset{Top: ui.Space8, Bottom: ui.Space8, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layoutTooltipBody(gtx, view, r)
 		})
 	})
 	call := macro.Stop()
@@ -233,6 +255,86 @@ func drawTooltip(gtx layout.Context, view ui.View, bounds image.Rectangle, ancho
 	call.Add(gtx.Ops)
 	stack.Pop()
 	op.Defer(gtx.Ops, overlay.Stop())
+}
+
+// layoutTooltipBody lays out the tooltip text. A single item shows its mark
+// beside the name with the value below; an axis tooltip shows the time as a
+// title and one aligned row per series, values flush right.
+func layoutTooltipBody(gtx layout.Context, view ui.View, r readout) layout.Dimensions {
+	colors := view.Colors
+	inner := gtx.Constraints.Max.X
+	markSide := gtx.Dp(ui.Space8)
+	markGap := gtx.Dp(ui.Space6)
+	y, widest := 0, 0
+	line := func(block textBlock, indent int) image.Point {
+		block.maxWidth = max(1, inner-indent)
+		size := block.draw(gtx, view, image.Pt(indent, y))
+		widest = max(widest, indent+size.X)
+		return size
+	}
+	// The mark centers on the first line of its label, however that wraps.
+	mark := func(m readoutMark, label textBlock) int {
+		if m.ink.A == 0 {
+			return 0
+		}
+		label.maxWidth, label.maxLines = 1<<16, 1
+		center := f32.Pt(float32(markSide)/2, float32(y)+float32(label.measure(gtx, view).Y)/2)
+		drawMarker(gtx, m.shape, center, float32(markSide)/2*0.85, m.ink)
+		return markSide + markGap
+	}
+	if len(r.rows) == 0 {
+		head := textBlock{style: ui.TextCaptionStrong, content: r.label, ink: colors.Ink}
+		indent := mark(r.mark, head)
+		y += line(head, indent).Y
+		if r.value != "" {
+			ink := colors.Ink
+			if r.missing {
+				ink = colors.SecondaryInk
+			}
+			y += line(textBlock{style: ui.TextLabel, content: r.value, ink: ink}, indent).Y
+		}
+	} else {
+		// Names and values share one measured column so every value lines up,
+		// and the tooltip is only as wide as its longest row needs.
+		gap := gtx.Dp(ui.Space16)
+		valueW, nameW := 0, 0
+		for _, row := range r.rows {
+			valueW = max(valueW, textBlock{style: ui.TextCaptionStrong, content: row.value}.natural(gtx, view))
+			nameW = max(nameW, textBlock{style: ui.TextCaptionStrong, content: row.name}.natural(gtx, view))
+		}
+		valueW = min(valueW, inner/2)
+		natural := markSide + markGap + nameW + gap + valueW
+		natural = max(natural, textBlock{style: ui.TextCaption, content: r.label}.natural(gtx, view))
+		for _, d := range r.detail {
+			natural = max(natural, textBlock{style: ui.TextCaption, content: d}.natural(gtx, view))
+		}
+		inner = min(inner, natural)
+		y += line(textBlock{style: ui.TextCaption, content: r.label, ink: colors.SecondaryInk}, 0).Y + gtx.Dp(ui.Space2)
+		for _, row := range r.rows {
+			nameStyle, valueInk := ui.TextCaption, colors.Ink
+			if row.lead {
+				nameStyle = ui.TextCaptionStrong
+			}
+			if row.missing {
+				valueInk = colors.SecondaryInk
+			}
+			name := textBlock{style: nameStyle, content: row.name, ink: colors.Ink}
+			indent := mark(row.mark, name)
+			name.maxWidth = max(1, inner-indent-valueW-gap)
+			nameSize := name.draw(gtx, view, image.Pt(indent, y))
+			value := textBlock{style: ui.TextCaptionStrong, content: row.value, ink: valueInk, maxWidth: valueW, align: text.End}
+			valueSize := value.draw(gtx, view, image.Pt(inner-valueW, y))
+			widest = max(widest, indent+nameSize.X+gap+valueW)
+			y += max(nameSize.Y, valueSize.Y)
+		}
+	}
+	for _, d := range r.detail {
+		y += line(textBlock{style: ui.TextCaption, content: d, ink: colors.SecondaryInk}, 0).Y
+	}
+	if len(r.rows) > 0 {
+		widest = inner
+	}
+	return layout.Dimensions{Size: image.Pt(widest, y)}
 }
 
 // drawNotice paints a quiet centered message in a frame of the given size. It
