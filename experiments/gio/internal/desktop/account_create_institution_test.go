@@ -167,13 +167,16 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	d := p.creation.draft
 	setBankField(h, "Account name", &d.name, "Abandoned sample debt")
 	setBankField(h, "Opening amount owed", &d.opening, "84.25")
-	h.click("Add institution", false)
+	h.click("Back", false)
+	h.frame()
+	label("Where is it held?")
+	h.click("Add an institution", false)
 	h.frame()
 	label("The institution is saved separately and stays in Directory if you cancel the account.")
 	if d.newInstitution.kind != domain.InstitutionBank {
 		t.Fatal("credit-card institution form did not default to a bank")
 	}
-	h.click("Add", false)
+	h.click("Continue", false)
 	h.frame()
 	label("Enter an institution name.")
 	setBankField(h, "Institution name", &d.newInstitution.name, "Discarded synthetic institution")
@@ -183,7 +186,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	if fault.institutionWrites.Load() != 0 || d.name.Text() != "Abandoned sample debt" || d.opening.Text() != "84.25" {
 		t.Fatal("canceling the institution lost the account draft or wrote data")
 	}
-	h.click("Add institution", false)
+	h.click("Add an institution", false)
 	h.frame()
 	edit := d.newInstitution
 	setBankField(h, "Institution name", &edit.name, "Paper Synthetic Employer")
@@ -192,13 +195,13 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 		t.Fatal("changing the institution type did not update its default icon")
 	}
 	pickAccountReference(h, "Icon", "Vault", "Vault")
-	h.click("Add", false)
+	h.click("Continue", false)
 	finish()
 	label("Could not save the institution. Try again.")
 	if d.newInstitution != edit || edit.name.Text() != "Paper Synthetic Employer" || edit.icon != "vault" || edit.kind != domain.InstitutionEmployer {
 		t.Fatal("failed institution write discarded draft fields")
 	}
-	bounds := semanticBounds(t, &h.router, "Add", false)
+	bounds := semanticBounds(t, &h.router, "Continue", false)
 	center := bounds.Min.Add(bounds.Max).Div(2)
 	h.clickAt(center)
 	select {
@@ -221,7 +224,7 @@ func TestInlineInstitutionSeparatelyPersistsAndOnlyReadsAfterSuccess(t *testing.
 	finish()
 	label(saved)
 	if p.creation.draft != d || d.newInstitution != nil || fault.institutionWrites.Load() != 2 || d.institution.Name != "Paper Synthetic Employer" ||
-		d.name.Text() != "Abandoned sample debt" || d.opening.Text() != "84.25" {
+		d.name.Text() != "Abandoned sample debt" || d.opening.Text() != "84.25" || p.creation.sheet.step != accountDetails || d.mode != domain.TrackingBalance {
 		t.Fatal("read retry lost the account draft, replayed the institution writer or failed to auto-select its saved ID")
 	}
 	institutionID := d.institution.ID

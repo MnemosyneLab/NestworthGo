@@ -2407,4 +2407,16 @@ var englishCatalog = catalog{
 	AccountTrackingStepHelp:    "Choose a tracking method for %s.",
 	AccountTrackingBack:        "Change account type",
 	AccountCreateSectionBasics: "Account details",
+
+	AccountCreateWizardTitle:    "Add an account",
+	AccountInstitutionStepTitle: "Where is it held?",
+	AccountInstitutionStepHelp:  "Choose an existing institution or add one here. Choose No institution for accounts without a provider or add it later in Account settings.",
+	AccountCreateBack:           "Back",
+	AccountTrackingRecommended:  "Recommended",
+	AccountCreateTrackingLocked: "This recording method cannot currently be changed after creation.",
+	AccountTrackingBalanceHelp:  "Maintain one balance in the account currency. Best for cash, deposits, receivables, or debts.",
+	AccountTrackingManualHelp:   "Update one total value without breaking it down into cash and holdings.",
+	AccountTrackingCashHelp:     "Maintain a separate balance for each currency; the account total is converted to the Household base currency.",
+	AccountTrackingHoldingsHelp: "Record each cash balance and investment holding; the account total is calculated for you.",
+	AccountInstitutionStepNew:   "Add an institution",
 }

@@ -2407,4 +2407,16 @@ var traditionalChineseCatalog = catalog{
 	AccountTrackingStepHelp:    "為%s選擇追蹤方式。",
 	AccountTrackingBack:        "更換帳戶類型",
 	AccountCreateSectionBasics: "帳戶資訊",
+
+	AccountCreateWizardTitle:    "新增帳戶",
+	AccountInstitutionStepTitle: "錢放在哪裡？",
+	AccountInstitutionStepHelp:  "可以選擇現有機構或在這裡新增。沒有機構或暫不確定時，選擇「無機構」，之後可在帳戶設定中補充。",
+	AccountCreateBack:           "返回",
+	AccountTrackingRecommended:  "推薦",
+	AccountCreateTrackingLocked: "建立後暫不能更改記帳方式。",
+	AccountTrackingBalanceHelp:  "以帳戶貨幣維護一個餘額，適合現金、存款、應收款或負債。",
+	AccountTrackingManualHelp:   "只維護一個總值，不再拆分現金和每項持倉。",
+	AccountTrackingCashHelp:     "分別維護每種貨幣的現金餘額，帳戶總值按家庭基礎貨幣換算彙總。",
+	AccountTrackingHoldingsHelp: "分別記錄各幣種現金和每項投資持倉，帳戶總值會自動彙總。",
+	AccountInstitutionStepNew:   "新增機構",
 }

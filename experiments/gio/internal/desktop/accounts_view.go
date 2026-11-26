@@ -49,25 +49,6 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			return p.layoutStatements(gtx, view)
 		}
 	}
-	if p.canCreateBankAccount() && p.createBank.Clicked(gtx) {
-		p.startBankAccount()
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	if p.canCreateUnscoped() && p.createAccount.Clicked(gtx) {
-		p.startAccountChooser()
-		view.RestorePageScroll(0)
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	if p.canCreateBankAccount() && p.createShell.Clicked(gtx) {
-		p.startAccount(domain.TypeProperty, domain.RoleAsset, domain.TrackingManualValue, p.current.institutions[p.target.institution])
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	if p.creation != nil && p.creation.draft != nil {
-		return p.layoutAccountCreation(gtx, view)
-	}
-	if p.creation != nil && p.creation.chooser != nil {
-		return p.layoutAccountTypeChooser(gtx, view)
-	}
 	if p.maintenance != nil && p.maintenance.draft != nil {
 		return p.layoutAccountSettings(gtx, view)
 	}
@@ -225,14 +206,10 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 						draw = view.PrimaryButton(button, l.Text(id))
 						primary = false
 					}
-					if button != &p.createAccount {
-						left = append(left, draw)
-						return
-					}
 					left = append(left, func(gtx layout.Context) layout.Dimensions {
-						if p.focusCreate && gtx.Enabled() {
-							gtx.Execute(key.FocusCmd{Tag: &p.createAccount})
-							p.focusCreate = false
+						if p.focusCreate == button && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: button})
+							p.focusCreate = nil
 						}
 						return draw(gtx)
 					})

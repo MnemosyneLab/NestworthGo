@@ -2406,4 +2406,16 @@ var japaneseCatalog = catalog{
 	AccountTrackingStepHelp:    "%sの記録方法を選んでください。",
 	AccountTrackingBack:        "口座の種類を変更",
 	AccountCreateSectionBasics: "口座の情報",
+
+	AccountCreateWizardTitle:    "口座を追加",
+	AccountInstitutionStepTitle: "どこで管理していますか？",
+	AccountInstitutionStepHelp:  "登録済みの金融機関を選ぶか、ここで追加してください。金融機関がない口座は「金融機関なし」を選択できます。あとから口座設定で追加することもできます。",
+	AccountCreateBack:           "戻る",
+	AccountTrackingRecommended:  "おすすめ",
+	AccountCreateTrackingLocked: "作成後はこの記録方法を変更できません。",
+	AccountTrackingBalanceHelp:  "口座の通貨で残高を 1 つ記録します。現金、預金、未収金、負債に適しています。",
+	AccountTrackingManualHelp:   "現金や保有資産に分けず、合計評価額を手入力で更新します。",
+	AccountTrackingCashHelp:     "通貨ごとに残高を記録し、口座の合計を世帯の基準通貨に換算します。",
+	AccountTrackingHoldingsHelp: "現金残高と投資の保有明細を個別に記録し、口座の合計を自動で計算します。",
+	AccountInstitutionStepNew:   "金融機関を追加",
 }

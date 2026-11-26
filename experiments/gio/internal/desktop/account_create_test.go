@@ -43,11 +43,16 @@ func startNewAccount(h *previewHarness, finish func(), kind string) {
 	h.t.Helper()
 	h.click("Add account", false)
 	finish()
-	if findPageLabel(&h.router, kind) == nil {
+	if slices.ContainsFunc(moreAccountTypes, func(candidate domain.AccountType) bool {
+		return h.shell.preferences.language.Text(accountTypes[candidate]) == kind
+	}) {
 		h.click("More account types", false)
 		finish()
 	}
 	h.click(kind, false)
+	h.click("Continue", false)
+	finish()
+	assertPageLabel(h.t, &h.router, "Where is it held?")
 	h.click("Continue", false)
 	finish()
 	if findPageLabel(&h.router, "How should this account be tracked?") != nil {

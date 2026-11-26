@@ -2407,4 +2407,16 @@ var simplifiedChineseCatalog = catalog{
 	AccountTrackingStepHelp:    "为%s选择跟踪方式。",
 	AccountTrackingBack:        "更换账户类型",
 	AccountCreateSectionBasics: "账户信息",
+
+	AccountCreateWizardTitle:    "添加账户",
+	AccountInstitutionStepTitle: "钱放在哪里？",
+	AccountInstitutionStepHelp:  "可以选择现有机构或在这里新增。没有机构或暂不确定时，选择「无机构」，之后可在账户设置中补充。",
+	AccountCreateBack:           "返回",
+	AccountTrackingRecommended:  "推荐",
+	AccountCreateTrackingLocked: "创建后暂不能更改记账方式。",
+	AccountTrackingBalanceHelp:  "以账户货币维护一个余额，适合现金、存款、应收款或负债。",
+	AccountTrackingManualHelp:   "只维护一个总值，不再拆分现金和每项持仓。",
+	AccountTrackingCashHelp:     "分别维护每种货币的现金余额，账户总值按家庭基础货币换算汇总。",
+	AccountTrackingHoldingsHelp: "分别记录各币种现金和每项投资持仓，账户总值会自动汇总。",
+	AccountInstitutionStepNew:   "新建机构",
 }

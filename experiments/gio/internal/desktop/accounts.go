@@ -324,7 +324,7 @@ type accountsPage struct {
 	creation                           *balanceAccountCreation
 	createBank, createAccount          widget.Clickable
 	createShell                        widget.Clickable
-	focusCreate                        bool
+	focusCreate                        *widget.Clickable
 	createdID                          domain.AccountID
 	createdMessage                     i18n.MessageID
 	maintenance                        *accountMaintenance

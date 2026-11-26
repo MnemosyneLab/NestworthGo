@@ -2346,6 +2346,17 @@ const (
 	AccountTrackingStepTitle
 	AccountTrackingStepHelp
 	AccountTrackingBack
+	AccountCreateWizardTitle
+	AccountInstitutionStepTitle
+	AccountInstitutionStepHelp
+	AccountCreateBack
+	AccountTrackingRecommended
+	AccountCreateTrackingLocked
+	AccountTrackingBalanceHelp
+	AccountTrackingManualHelp
+	AccountTrackingCashHelp
+	AccountTrackingHoldingsHelp
+	AccountInstitutionStepNew
 	AccountCreateSectionBasics
 	messageCount
 )

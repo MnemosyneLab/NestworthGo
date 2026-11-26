@@ -686,6 +686,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				name:   record.Account.Name, focus: focus,
 			}
 		}
+		s.accounts.updateAccountCreateTrigger(gtx)
 	}
 	windowContext := gtx
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
@@ -703,7 +704,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -761,13 +762,17 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.historyPage.layoutRecord(windowContext, view)
 		return dims
 	}
+	if s.accountCreationOpen() {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.accounts.layoutAccountCreateSheet(windowContext, view)
+		return dims
+	}
 	dims := background(gtx)
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
 	} else if s.confirmingArchive() {
 		s.directory.activeList().layoutConfirmation(windowContext, view)
-	} else if s.confirmingAccountCreation() {
-		s.accounts.layoutAccountCreationReview(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
 	} else if s.fundsPolicyConfirming() {
@@ -908,10 +913,6 @@ func (s *shell) marketOperationOpen() bool {
 	return s.marketData != nil && s.marketData.operation != nil && s.marketData.operation.route == s.activeRoute()
 }
 
-func (s *shell) confirmingAccountCreation() bool {
-	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation != nil && s.accounts.creation.review != nil
-}
-
 func (s *shell) observeLedger(gtx layout.Context) {
 	if s.ledgerVersion == nil {
 		return
@@ -960,10 +961,6 @@ func (s *shell) invalidateLedgerReads() {
 			s.tasks.read()
 		}
 	}
-}
-
-func (s *shell) savingAccountInstitution() bool {
-	return s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.creation.creatingInstitution()
 }
 
 func (s *shell) accountMaintenanceBlocking() bool {
