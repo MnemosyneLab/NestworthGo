@@ -202,7 +202,7 @@ export function DataHealthPage({
   const report = health.data;
   const running = sync.running;
   const canRepair = executable.length > 0 && !running && !sync.preview.isPending && !sync.start.isPending;
-  const pendingConfirmation = report.healthy && issues.some(isPendingConfirmation);
+  const pendingConfirmation = report.healthy && (report.issues ?? []).some(isPendingConfirmation);
 
   return (
     <div className="flex flex-col gap-6" data-testid="data-health-page">

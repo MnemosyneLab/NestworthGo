@@ -502,6 +502,25 @@ describe("Snapshot issue context", () => {
     expect(screen.queryByTestId("repair-all")).not.toBeInTheDocument();
   });
 
+  it("keeps ledger-wide pending confirmation when the focused instrument hides that row", async () => {
+    await i18n.changeLanguage("zh-CN");
+    scanHealth.mockResolvedValue({
+      healthy: true, coverageThrough: "2026-11-25", lastFinalizedMarketDate: "2026-11-25",
+      issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0,
+      issues: [{
+        id: "pending-gold", kind: "valuation_provisional", severity: "info", targetKey: "instrument:gold",
+        instrumentId: "gold", label: "黄金", code: "valuation_coverage_pending", reason: "valuation_coverage_pending",
+        action: "none", executable: false, rangeStart: "2026-11-25", rangeEnd: "2026-11-25",
+      }],
+    });
+    renderPage({ focus: { instrumentId: "btc", label: "Bitcoin" } });
+    const coverage = await screen.findByTestId("data-health-coverage");
+    expect(coverage).toHaveTextContent("可估值，部分历史数据待确认");
+    expect(coverage).not.toHaveTextContent("数据全部健康");
+    expect(screen.queryByText("黄金")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("health-issue-valuation_provisional")).not.toBeInTheDocument();
+  });
+
   it("keeps an informational daily reference out of the all-clear summary", async () => {
     scanHealth.mockResolvedValue({
       healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0,
