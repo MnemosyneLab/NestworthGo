@@ -970,6 +970,7 @@ var simplifiedChineseCatalog = catalog{
 	AssetFailed:          "无法加载资产变动。",
 	AssetNoOrigin:        "开始记录历史后即可查看资产变动。",
 	AssetNoData:          "此期间没有可用的资产变动。",
+	AssetDaysIncomplete:  "此期间有部分日期的资产数据不完整。",
 	AssetBeginning:       "期初价值",
 	AssetEnding:          "期末价值",
 	AssetNetChange:       "净变动",

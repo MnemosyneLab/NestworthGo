@@ -114,7 +114,14 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		status = i18n.ReturnNoClosedDays
 	}
 	if status != i18n.NoMessage {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(status), view.Colors.SecondaryInk)))
+		ink := view.Colors.SecondaryInk
+		if status == i18n.AssetFailed {
+			ink = view.Colors.ErrorInk
+		}
+		rows = append(rows, ui.Rigid(view.Message(l.Text(status), ink)))
+		if status == i18n.AssetFailed && p.current == nil {
+			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, reload, nil, true)))
+		}
 	}
 	if result := p.current; result != nil && result.query.From <= result.query.To {
 		rangeLabel := wealthDay(view, result.query.From) + " – " + wealthDay(view, result.query.To)
@@ -157,7 +164,7 @@ func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetC
 	}
 	rows = append(rows, ui.Rigid(assetSummary(view, data.Summary, false)))
 	if data.Status == domain.CompletenessPartial {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Message(l.Text(assetCoverageCopy(data.MissingReason)), view.Colors.WarningInk)))
 	}
 	rows = append(rows, ui.Rigid(p.driverWaterfall(view, data)))
 	if len(data.Groups) > 0 || data.ResidualIssueCount > 0 {
@@ -257,7 +264,7 @@ func (p *assetChangesPage) categoryRows(view ui.View, data application.Categorie
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk)))
 	}
 	if data.Status == domain.CompletenessPartial {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Message(l.Text(assetCoverageCopy(data.MissingReason)), view.Colors.WarningInk)))
 	}
 	if !data.Available || len(data.Rows) == 0 {
 		return append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetNoData), view.Colors.SecondaryInk)))
@@ -288,6 +295,17 @@ func (p *assetChangesPage) categoryRows(view ui.View, data application.Categorie
 			return p.categoryButton(gtx, view, data.Rows[i])
 		})
 	}))
+}
+
+func assetCoverageCopy(reason string) i18n.MessageID {
+	switch reason {
+	case "one or more asset days are incomplete":
+		return i18n.AssetDaysIncomplete
+	case "funding cash is recorded after the product start":
+		return i18n.WealthHistoryFundingGap
+	default:
+		return i18n.OverviewIncomplete
+	}
 }
 
 func assetBucketLabel(l i18n.Language, bucket domain.AttributionBucket) string {

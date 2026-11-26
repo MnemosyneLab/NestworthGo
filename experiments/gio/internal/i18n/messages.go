@@ -789,6 +789,7 @@ const (
 	AssetFailed
 	AssetNoOrigin
 	AssetNoData
+	AssetDaysIncomplete
 	AssetBeginning
 	AssetEnding
 	AssetNetChange

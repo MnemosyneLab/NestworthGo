@@ -970,6 +970,7 @@ var traditionalChineseCatalog = catalog{
 	AssetFailed:          "無法載入資產變動。",
 	AssetNoOrigin:        "開始記錄歷史後即可查看資產變動。",
 	AssetNoData:          "此期間沒有可用的資產變動。",
+	AssetDaysIncomplete:  "此期間有部分日期的資產資料不完整。",
 	AssetBeginning:       "期初價值",
 	AssetEnding:          "期末價值",
 	AssetNetChange:       "淨變動",

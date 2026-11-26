@@ -970,6 +970,7 @@ var englishCatalog = catalog{
 	AssetFailed:          "Could not load asset changes.",
 	AssetNoOrigin:        "Start History to view asset changes.",
 	AssetNoData:          "No asset changes are available for this period.",
+	AssetDaysIncomplete:  "One or more asset days are incomplete.",
 	AssetBeginning:       "Beginning value",
 	AssetEnding:          "Ending value",
 	AssetNetChange:       "Net change",

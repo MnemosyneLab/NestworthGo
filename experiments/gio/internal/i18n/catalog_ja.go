@@ -969,6 +969,7 @@ var japaneseCatalog = catalog{
 	AssetFailed:          "資産変動を読み込めませんでした。",
 	AssetNoOrigin:        "資産変動を表示するには履歴を開始してください。",
 	AssetNoData:          "この期間の資産変動はありません。",
+	AssetDaysIncomplete:  "この期間には資産データが不完全な日があります。",
 	AssetBeginning:       "期首評価額",
 	AssetEnding:          "期末評価額",
 	AssetNetChange:       "純変動額",
