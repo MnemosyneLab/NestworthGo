@@ -56,9 +56,9 @@ func TestReturnTrendChartProjectionKeepsCivilDatesAndGaps(t *testing.T) {
 		first, last                 float64
 		baseline                    bool
 	}{
-		{application.ReturnTrendCumulativeAmount, "2026-07-31", "$ 5.25", "$ 2.75", 5.25, 2.75, true},
+		{application.ReturnTrendCumulativeAmount, "2026-07-31", "US$5.25", "US$2.75", 5.25, 2.75, true},
 		{application.ReturnTrendLinkedRate, "2026-08-01", "+5.25%", "-2.5%", 0.0525, -0.025, false},
-		{application.ReturnTrendPeriodReturnAmount, "2026-08-01", "$ 5.25", "-$ 2.50", 5.25, -2.5, false},
+		{application.ReturnTrendPeriodReturnAmount, "2026-08-01", "US$5.25", "-US$2.50", 5.25, -2.5, false},
 	} {
 		t.Run(string(tc.display), func(t *testing.T) {
 			spec := returnTrendLine(view, returnTrendChartFixture(t, tc.display), "2026-08-01", "2026-08-03")
@@ -67,7 +67,7 @@ func TestReturnTrendChartProjectionKeepsCivilDatesAndGaps(t *testing.T) {
 				t.Fatalf("chart bounds or IDs are invalid: %v, %v, %v", spec.From, spec.To, spec.Validate())
 			}
 			if tc.baseline {
-				if len(points) != 4 || points[0].Time != spec.From || points[0].Value != charts.Num(0) || rows[0].Value != "$ 0.00" {
+				if len(points) != 4 || points[0].Time != spec.From || points[0].Value != charts.Num(0) || rows[0].Value != "US$0.00" {
 					t.Fatalf("prior civil day is not the zero observation: %+v", points)
 				}
 				rows, points = rows[1:], points[1:]
@@ -110,7 +110,7 @@ func TestReturnTrendChartAndTableThroughShell(t *testing.T) {
 	settle()
 	h.click("Return trend", false)
 	settle()
-	assertPageLabel(t, &h.router, "2026-07-31 · $ 0.00 · Starting value before the selected range")
+	assertPageLabel(t, &h.router, "2026-07-31 · US$0.00 · Starting value before the selected range")
 	assertPageLabel(t, &h.router, "2026-08-02 · Unavailable · Rated days 0/1 · Missing valuation")
 	h.router.Source().Execute(key.FocusCmd{Tag: &p.output.trendChart})
 	h.frame()
@@ -129,7 +129,7 @@ func TestReturnTrendChartAndTableThroughShell(t *testing.T) {
 	h.click("Linked return rate", false)
 	settle()
 	assertPageLabel(t, &h.router, "2026-08-01 · +5.25% · Rated days 1/1")
-	if findPageLabel(&h.router, "2026-07-31 · $ 0.00 · Starting value before the selected range") != nil {
+	if findPageLabel(&h.router, "2026-07-31 · US$0.00 · Starting value before the selected range") != nil {
 		t.Fatal("linked return displayed a cumulative baseline")
 	}
 	h.shell.prefs.saved.Appearance = settings.AppearanceDark

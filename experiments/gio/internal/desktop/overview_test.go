@@ -89,9 +89,9 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Incomplete valuation")
 	label("Base currency AUD")
 	label("Net worth · Known net contribution")
-	label("A$ 128.75")
+	label("A$128.75")
 	label("Unavailable")
-	absent("A$ 0.00")
+	absent("A$0.00")
 	label("Missing exchange rate · AUD/USD · Foreign debt")
 	stamp := "Read 2026-08-18 01:34 (Asia/Singapore)"
 	label(stamp)
@@ -110,7 +110,7 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Read 2026-08-19 01:34 (Asia/Singapore)")
 	label("No accounts to show.")
 	absent("Net worth · Known net contribution")
-	absent("A$ 0.00")
+	absent("A$0.00")
 	h.click("Reload", false)
 	finish(overviewRead{value: domain.OverviewResult{
 		Currency: "AUD", AccountCount: 1, DisplayValuation: domain.HouseholdDisplayValuation{Assets: unknown, Liabilities: unknown, NetWorth: unknown},
@@ -120,7 +120,7 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Unavailable")
 	label("Missing price · DEMO")
 	absent("Net worth · Known net contribution")
-	absent("A$ 0.00")
+	absent("A$0.00")
 }
 
 type unavailableOverviewProvider struct{ requests int }
@@ -251,7 +251,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	if ref.NetWorth != "98.411725" || !ref.Complete || value.DisplayValuation.NetWorth.Quality.StaleCount == 0 {
 		t.Fatalf("expected exact net worth with stale cached FX, got %+v", ref)
 	}
-	for _, label := range []string{"A$ 98.41", "A$ 123.51", "-A$ 25.10", "Some cached quotes await an update.", "Current estimate"} {
+	for _, label := range []string{"A$98.41", "A$123.51", "-A$25.10", "Some cached quotes await an update.", "Current estimate"} {
 		assertPageLabel(t, &h.router, label)
 	}
 	model := page.allocation.model
@@ -259,7 +259,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 		t.Fatalf("path or node omitted by Gio: %+v", model)
 	}
 	row := model.rows[0]
-	if row.account.id.String() != ref.AssetComposition.Paths[0].AccountID || row.amount != "A$ 123.51" {
+	if row.account.id.String() != ref.AssetComposition.Paths[0].AccountID || row.amount != "A$123.51" {
 		t.Fatalf("allocation row did not use the Wails path: %+v", row)
 	}
 	page.list.ScrollTo(page.compositionIndex())
@@ -274,7 +274,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	h.size = image.Pt(700, 480)
 	page.list.ScrollTo(page.dimensionsIndex() - 1)
 	h.frame()
-	h.click("USD Cash · A$ 123.51", false)
+	h.click("USD Cash · A$123.51", false)
 	h.frame()
 	if h.shell.trail.current().target.account != row.account.id {
 		t.Fatal("allocation row did not open the exact account")
@@ -314,7 +314,7 @@ func TestOverviewSankeyKeepsEveryPositivePathAndBusinessLabel(t *testing.T) {
 	}
 	last := model.rows[count-1]
 	if last.account.id != domain.AccountID("account-159") || last.account.label != "Savings (160)" || last.institution != "Unassigned institution" ||
-		last.amount != "$ 2.75" || model.spec.Nodes[0].Label != "Known subtotal" {
+		last.amount != "US$2.75" || model.spec.Nodes[0].Label != "Known subtotal" {
 		t.Fatalf("last real path and partial summary: %+v, %+v", last, model.spec.Nodes[0])
 	}
 	node := charts.ID(c.Nodes[len(c.Nodes)-1].ID)
@@ -387,7 +387,7 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 	for i, path := range reference.AssetComposition.Paths {
 		amount, ok := want[path.AccountID+"/"+path.AssetClass]
 		if !ok || path.Amount != amount || got.rows[i].account.id.String() != path.AccountID ||
-			got.rows[i].amount != "$ "+amount {
+			got.rows[i].amount != "US$"+amount {
 			t.Fatalf("allocation row %d = %+v, Wails = %+v", i, got.rows[i], path)
 		}
 		total = total.Add(decimal.RequireFromString(path.Amount))
@@ -404,7 +404,7 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 		leaves[target.id]++
 	}
 	if leaves[mixed] != 2 || leaves[small] != 1 || !total.Equal(read.AssetComposition.Positive) ||
-		total.String() != "215.04" || total.String() != reference.Assets || got.spec.Nodes[0].Text != "$ 215.04" {
+		total.String() != "215.04" || total.String() != reference.Assets || got.spec.Nodes[0].Text != "US$215.04" {
 		t.Fatalf("leaf coverage %v, exact total %s, Wails assets %s", leaves, total, reference.Assets)
 	}
 }
@@ -416,9 +416,9 @@ func TestOverviewSankeyDistinguishesZeroNegativeAndMissingValues(t *testing.T) {
 		zero, missing int
 		labels        []string
 	}{
-		{"zero", decimal.Zero, 1, 0, []string{"Total assets · $ 0.00", "Zero-value asset components · 1", "No positive asset values to chart."}},
+		{"zero", decimal.Zero, 1, 0, []string{"Total assets · US$0.00", "Zero-value asset components · 1", "No positive asset values to chart."}},
 		{"missing", decimal.Zero, 0, 1, []string{"Asset components without a base-currency value · 1", "Asset values are unavailable."}},
-		{"negative", decimal.RequireFromString("-12.25"), 0, 1, []string{"Negative components · -$ 12.25", "Known subtotal · -$ 12.25", "No positive asset values to chart."}},
+		{"negative", decimal.RequireFromString("-12.25"), 0, 1, []string{"Negative components · -US$12.25", "Known subtotal · -US$12.25", "No positive asset values to chart."}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			quoteDate, carriedDate := "2026-11-01", "2026-10-29"

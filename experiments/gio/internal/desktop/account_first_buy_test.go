@@ -115,7 +115,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click := func(label string) { t.Helper(); h.click(label, false); settle() }
 	label := func(text string) { t.Helper(); assertPageLabel(t, &h.router, text) }
 	settle()
-	label("$ 200.00")
+	label("US$200.00")
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record first buy")
@@ -215,15 +215,15 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 		t.Fatal("post-commit read retry submitted a buy")
 	}
 	click("Open instrument · QA-BUY")
-	label("Cost basis · USD $ 76.36")
-	label("Native market value · USD $ 100.00")
+	label("Cost basis · USD US$76.36")
+	label("Native market value · USD US$100.00")
 	label("Current price · USD 40 · manual · 2026-11-21 16:00")
 	click("Open account · Harbor Brokerage")
 	if accounts.target.account != ids.account || accounts.canFirstBuy() {
 		t.Fatal("the refreshed Holding did not close the first-buy entry")
 	}
 	click("Overview")
-	label("$ 223.64")
+	label("US$223.64")
 	click("Ledger activity")
 	label("Loaded records: 1")
 

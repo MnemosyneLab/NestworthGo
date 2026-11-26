@@ -184,12 +184,12 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	label("Contribution · 25 USD")
 	h.click("Overview", false)
 	finish()
-	label("$ 1,759.13")
+	label("US$1,759.13")
 	h.click("Accounts", false)
 	finish()
 	h.click("Harbor Checking", false)
 	finish()
-	label("USD · $ 1,759.13")
+	label("USD · US$1,759.13")
 
 	adapter := historyapi.NewService(reference)
 	request := historyapi.ChangeCommandRequest{

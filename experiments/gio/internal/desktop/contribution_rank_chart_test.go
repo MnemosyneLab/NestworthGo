@@ -41,7 +41,7 @@ func TestContributionChartKeepsRankedSignsAndExactText(t *testing.T) {
 		amount string
 		value  float64
 	}{
-		{"gain", "$ 5.25", 5.25}, {"loss", "-$ 2.50", -2.5}, {"zero", "$ 0.00", 0},
+		{"gain", "US$5.25", 5.25}, {"loss", "-US$2.50", -2.5}, {"zero", "US$0.00", 0},
 	} {
 		if got := rows[index]; got.ID != want.id || got.Value != want.amount || got.Missing || spec.Bars[index].Value != charts.Num(want.value) {
 			t.Fatalf("bar %d lost its ranked amount: %+v", index, got)

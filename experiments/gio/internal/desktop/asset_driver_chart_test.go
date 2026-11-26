@@ -32,10 +32,10 @@ func TestAssetWaterfallUsesExactDriversAndReportedEnding(t *testing.T) {
 	if mismatch || len(spec.Steps) != 4 || len(spec.Validate()) != 0 || len(spec.Breaks()) != 0 {
 		t.Fatalf("expected beginning, two drivers and a reconciled ending: %+v", spec)
 	}
-	if step := spec.Steps[1]; step.From != charts.Num(100) || step.To != charts.Num(105.25) || step.Text != "$ 5.25" {
+	if step := spec.Steps[1]; step.From != charts.Num(100) || step.To != charts.Num(105.25) || step.Text != "US$5.25" {
 		t.Fatalf("positive step lost its exact levels: %+v", step)
 	}
-	if step := spec.Steps[2]; step.From != charts.Num(105.25) || step.To != charts.Num(102.75) || step.Text != "-$ 2.50" || step.Tone != charts.ToneWarning {
+	if step := spec.Steps[2]; step.From != charts.Num(105.25) || step.To != charts.Num(102.75) || step.Text != "-US$2.50" || step.Tone != charts.ToneWarning {
 		t.Fatalf("residual step lost its exact levels or warning: %+v", step)
 	}
 	data.Summary.EndingValue = money("102.755")

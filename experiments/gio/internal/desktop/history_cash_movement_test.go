@@ -297,7 +297,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	}
 	h.click("Overview", false)
 	finish()
-	label("$ 1,907.88")
+	label("US$1,907.88")
 
 	if err := session.Close(); err != nil {
 		t.Fatal(err)

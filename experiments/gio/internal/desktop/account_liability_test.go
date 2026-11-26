@@ -23,9 +23,9 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 		kind                           domain.AccountType
 		history, linked, failWrite     bool
 	}{
-		{"Sample credit card", "USD", "321.09", "USD · -$ 321.09", domain.TypeCreditCard, true, true, true},
-		{"Sample loan", "SGD", "43.21", "SGD · -S$ 43.21", domain.TypeLoan, false, false, false},
-		{"Sample zero loan", "USD", "0", "USD · $ 0.00", domain.TypeLoan, true, false, false},
+		{"Sample credit card", "USD", "321.09", "USD · -US$321.09", domain.TypeCreditCard, true, true, true},
+		{"Sample loan", "SGD", "43.21", "SGD · -S$43.21", domain.TypeLoan, false, false, false},
+		{"Sample zero loan", "USD", "0", "USD · US$0.00", domain.TypeLoan, true, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()

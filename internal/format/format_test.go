@@ -9,44 +9,44 @@ import (
 
 func TestMoneyUsesExactDecimalRoundingAndSeparators(t *testing.T) {
 	pref := settings.Default()
-	if got := Money("1234567.895", "CNY", pref); got != "¥ 1,234,567.90" {
-		t.Fatalf("Money() = %q, want ¥ 1,234,567.90", got)
+	if got := Money("1234567.895", "CNY", pref); got != "CN¥1,234,567.90" {
+		t.Fatalf("Money() = %q, want CN¥1,234,567.90", got)
 	}
-	if got := Money("1234567.885", "CNY", pref); got != "¥ 1,234,567.88" {
-		t.Fatalf("Money() = %q, want ¥ 1,234,567.88", got)
+	if got := Money("1234567.885", "CNY", pref); got != "CN¥1,234,567.88" {
+		t.Fatalf("Money() = %q, want CN¥1,234,567.88", got)
 	}
 
 	pref.DecimalSeparator = settings.DecimalComma
 	pref.GroupingSeparator = settings.GroupingDot
 	pref.Currency = "EUR"
-	if got := Money("-1234567.895", pref.Currency, pref); got != "-€ 1.234.567,90" {
-		t.Fatalf("Money() localized = %q, want -€ 1.234.567,90", got)
+	if got := Money("-1234567.895", pref.Currency, pref); got != "-€1.234.567,90" {
+		t.Fatalf("Money() localized = %q, want -€1.234.567,90", got)
 	}
 }
 
 func TestMoneyRoundsHalfEvenAtZeroPlaces(t *testing.T) {
 	pref := settings.Default()
-	if got := Money("8.5", "JPY", pref); got != "¥ 8" {
-		t.Fatalf("Money(8.5 JPY) = %q, want ¥ 8", got)
+	if got := Money("8.5", "JPY", pref); got != "JP¥8" {
+		t.Fatalf("Money(8.5 JPY) = %q, want JP¥8", got)
 	}
-	if got := Money("9.5", "JPY", pref); got != "¥ 10" {
-		t.Fatalf("Money(9.5 JPY) = %q, want ¥ 10", got)
+	if got := Money("9.5", "JPY", pref); got != "JP¥10" {
+		t.Fatalf("Money(9.5 JPY) = %q, want JP¥10", got)
 	}
 }
 
 func TestMoneyUsesCurrencyFractionDigits(t *testing.T) {
 	pref := settings.Default()
-	if got := Money("1234", "CNY", pref); got != "¥ 1,234.00" {
-		t.Fatalf("Money(CNY) = %q, want ¥ 1,234.00", got)
+	if got := Money("1234", "CNY", pref); got != "CN¥1,234.00" {
+		t.Fatalf("Money(CNY) = %q, want CN¥1,234.00", got)
 	}
-	if got := Money("1234.5", "SGD", pref); got != "S$ 1,234.50" {
-		t.Fatalf("Money(SGD) = %q, want S$ 1,234.50", got)
+	if got := Money("1234.5", "SGD", pref); got != "S$1,234.50" {
+		t.Fatalf("Money(SGD) = %q, want S$1,234.50", got)
 	}
-	if got := Money("1234.56", "JPY", pref); got != "¥ 1,235" {
-		t.Fatalf("Money(JPY) = %q, want ¥ 1,235", got)
+	if got := Money("1234.56", "JPY", pref); got != "JP¥1,235" {
+		t.Fatalf("Money(JPY) = %q, want JP¥1,235", got)
 	}
-	if got := Money("1234.00", "KRW", pref); got != "₩ 1,234" {
-		t.Fatalf("Money(KRW) = %q, want ₩ 1,234", got)
+	if got := Money("1234.00", "KRW", pref); got != "₩1,234" {
+		t.Fatalf("Money(KRW) = %q, want ₩1,234", got)
 	}
 }
 
@@ -93,5 +93,16 @@ func TestValidateTimezone(t *testing.T) {
 	}
 	if err := ValidateTimezone("Not/AZone"); err == nil {
 		t.Fatal("ValidateTimezone(invalid) error = nil")
+	}
+}
+
+func TestMoneyPrefixesMatchTheWailsApp(t *testing.T) {
+	pref := settings.Default()
+	for _, test := range []struct{ currency, want string }{
+		{"CNY", "-CN¥1.50"}, {"USD", "-US$1.50"}, {"HKD", "-HK$1.50"}, {"CHF", "-CHF 1.50"}, {"XXX", "-XXX 1.50"},
+	} {
+		if got := Money("-1.5", test.currency, pref); got != test.want {
+			t.Errorf("Money(-1.5 %s) = %q, want %q", test.currency, got, test.want)
+		}
 	}
 }

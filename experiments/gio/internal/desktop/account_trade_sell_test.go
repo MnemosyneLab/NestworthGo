@@ -98,7 +98,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	click := func(label string) { t.Helper(); h.click(label, false); settle() }
 	label := func(text string) { t.Helper(); assertPageLabel(t, &h.router, text) }
 	settle()
-	label("$ 265.00")
+	label("US$265.00")
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record sell")
@@ -158,8 +158,8 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	}
 	click("Open instrument · QA-BUY")
 	label("Quantity 3")
-	label("Cost basis · USD $ 81.00")
-	label("Native market value · USD $ 120.00")
+	label("Cost basis · USD US$81.00")
+	label("Native market value · USD US$120.00")
 
 	recordReference := func(review history.ReviewedInvestment, quantity, gross, fee, at string) domain.ActivityID {
 		t.Helper()

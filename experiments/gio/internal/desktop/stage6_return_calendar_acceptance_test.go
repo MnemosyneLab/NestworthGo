@@ -177,7 +177,7 @@ func TestStage6PairedReturnCalendarFilteredKeyboardHandoff(t *testing.T) {
 	if page.current == nil || !reflect.DeepEqual(page.current.query, selectedQuery) {
 		t.Fatalf("Gio did not retain the Wails October request: %+v", page.current)
 	}
-	const dateLabel = "2026-10-02 · +25% · € 25.00"
+	const dateLabel = "2026-10-02 · +25% · €25.00"
 	h.click(dateLabel, true)
 	settle()
 	if page.day == nil || !page.day.hasValue || page.day.date != selected ||

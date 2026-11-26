@@ -314,8 +314,8 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	click(full.DisplayLabel())
 	label("Current price · EUR 30.1234 · manual · 2026-11-21 16:00")
 	label("Market FX · 1 EUR = 1.2 USD · manual · 2026-11-21 16:00")
-	label("Cost basis · EUR € 60.36")
-	label("Native market value · EUR € 90.37")
+	label("Cost basis · EUR €60.36")
+	label("Native market value · EUR €90.37")
 	click("Open account · Harbor Brokerage")
 	if accounts.target.account != ids.account {
 		t.Fatal("wrong account link destination")
@@ -365,7 +365,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	click(full.DisplayLabel())
 	label("Could not load portfolio data.")
 	click("Retry")
-	label("Native market value · EUR € 90.37")
+	label("Native market value · EUR €90.37")
 	probe.holdPrice.Store(true)
 	h.click("Reload", false)
 	select {
@@ -385,7 +385,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	release()
 	settle()
 	label("Market FX unavailable · GBP/USD")
-	label("Native market value · GBP £ 13.00")
+	label("Native market value · GBP £13.00")
 	if portfolio.current.instrument == nil || portfolio.current.instrument.ID != other.ID {
 		t.Fatal("a late quote replaced the instrument")
 	}
@@ -424,7 +424,7 @@ func TestPortfolioShellShowsEmptyHoldingsWithFundedAccount(t *testing.T) {
 	p.workers.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "No investment holdings.")
-	assertPageLabel(t, &h.router, "$ 0.00")
+	assertPageLabel(t, &h.router, "US$0.00")
 	i, err := service.CreateInstrument(t.Context(), application.InstrumentInput{
 		Name: "Closed Sample", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
 	})

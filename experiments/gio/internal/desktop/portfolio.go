@@ -528,7 +528,9 @@ func holdingFigures(view ui.View, amounts domain.HoldingAmounts, quantityUnit st
 				// Equal column widths line the figures up from card to card.
 				gtx.Constraints.Min.X = gtx.Dp(cell.width)
 				pattern := l.Text(cell.label)
-				name := strings.TrimRight(strings.Split(pattern, "%s")[0], " ·:：")
+				const marker = "\x00"
+				name, _, _ := strings.Cut(fmt.Sprintf(pattern, marker), marker)
+				name = strings.TrimRight(name, " ·:：")
 				macro := op.Record(gtx.Ops)
 				dims := layout.Flex{Axis: layout.Vertical, Alignment: layout.End, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {

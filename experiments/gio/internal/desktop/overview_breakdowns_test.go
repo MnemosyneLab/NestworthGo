@@ -22,7 +22,7 @@ func TestOverviewBreakdownChartsUseSharedAmountsAndShares(t *testing.T) {
 	liability := overviewSummary{label: i18n.OverviewLiabilitiesComposition, total: decimal.RequireFromString("25.10"), liability: true,
 		items: []domain.BreakdownItem{{Key: domain.BucketCreditCard, Amount: decimal.RequireFromString("25.10"), ShareBPS: 10000}}}
 	donut, _, useDonut := overviewSummarySpecs(view, liability, "USD")
-	if !useDonut || donut.CenterValue != "-$ 25.10" || donut.Rows()[0].Value != "-$ 25.10" || donut.Rows()[0].Detail[0] != "100.00%" {
+	if !useDonut || donut.CenterValue != "-US$25.10" || donut.Rows()[0].Value != "-US$25.10" || donut.Rows()[0].Detail[0] != "100.00%" {
 		t.Fatalf("liability summary = %+v", donut)
 	}
 	assets := overviewSummary{label: i18n.OverviewAssetsComposition, total: decimal.RequireFromString("3.23"),
@@ -31,7 +31,7 @@ func TestOverviewBreakdownChartsUseSharedAmountsAndShares(t *testing.T) {
 			{Key: domain.BucketOtherAsset, Amount: decimal.RequireFromString("-2.02"), ShareBPS: -6254},
 		}}
 	donut, bars, useDonut := overviewSummarySpecs(view, assets, "USD")
-	if useDonut || donut.CenterValue != "$ 3.23" || bars.Rows()[0].Value != "$ 5.25" || bars.Rows()[1].Value != "-$ 2.02" || bars.Rows()[1].Detail[0] != "-62.54%" {
+	if useDonut || donut.CenterValue != "US$3.23" || bars.Rows()[0].Value != "US$5.25" || bars.Rows()[1].Value != "-US$2.02" || bars.Rows()[1].Detail[0] != "-62.54%" {
 		t.Fatalf("signed asset summary = %+v", bars)
 	}
 }

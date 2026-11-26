@@ -103,13 +103,13 @@ func TestWealthAllocationDoesNotDrawNegativeOrIncompleteDonut(t *testing.T) {
 	overdrawn := application.HistoricalOverviewAllocation{Key: string(domain.InstrumentStock), Amount: "-2.5"}
 	donut, bars, useDonut := wealthAllocationCharts(view, state, []application.HistoricalOverviewAllocation{cash, overdrawn}, false)
 	if useDonut || len(donut.Validate()) != 0 || len(bars.Validate()) != 0 ||
-		len(bars.Bars) != 2 || bars.Bars[1].Value.Number != -2.5 || bars.Bars[1].Text != "-$ 2.50" {
+		len(bars.Bars) != 2 || bars.Bars[1].Value.Number != -2.5 || bars.Bars[1].Text != "-US$2.50" {
 		t.Fatalf("signed fallback lost its values: %+v", bars)
 	}
 	cash.Share = "100"
 	state.KnownAssets = cash.Amount
 	donut, _, useDonut = wealthAllocationCharts(view, state, []application.HistoricalOverviewAllocation{cash}, false)
-	if !useDonut || donut.CenterValue != "$ 7.50" || donut.Slices[0].Share != "100%" {
+	if !useDonut || donut.CenterValue != "US$7.50" || donut.Slices[0].Share != "100%" {
 		t.Fatalf("positive valued assets did not produce a donut: %+v", donut)
 	}
 	cash.Amount = ""
@@ -141,13 +141,13 @@ func TestWealthTrendKeepsCoverageAndComparisonBoundaries(t *testing.T) {
 	spec := wealthTrendLine(view, data, i18n.NetWorth)
 	points, rows := spec.Series[0].Points, spec.Rows()
 	if len(spec.Validate()) != 0 || spec.From.Format(time.DateOnly) != data.From || spec.To.Format(time.DateOnly) != data.To ||
-		len(points) != 4 || points[0].Text != "$ 110.25" || points[1].Value.Valid() || !rows[1].Missing ||
-		!slices.Contains(rows[1].Detail, "Net worth · Known net contribution · $ 75.55") ||
+		len(points) != 4 || points[0].Text != "US$110.25" || points[1].Value.Valid() || !rows[1].Missing ||
+		!slices.Contains(rows[1].Detail, "Net worth · Known net contribution · US$75.55") ||
 		!points[2].BreakBefore || !points[2].Provisional || points[3].BreakBefore {
 		t.Fatalf("trend lost comparison or coverage semantics: %+v %+v", points, rows)
 	}
 	debtPoints := wealthTrendLine(view, data, i18n.Liabilities).Series[0].Points
-	if debtPoints[0].Value.Number != -7.5 || debtPoints[0].Text != "-$ 7.50" {
+	if debtPoints[0].Value.Number != -7.5 || debtPoints[0].Text != "-US$7.50" {
 		t.Fatalf("debt level lost the Wails display sign: %+v", debtPoints[0])
 	}
 }
@@ -379,7 +379,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	if before <= 0 {
 		t.Fatal("allocation fixture did not scroll")
 	}
-	h.click("AUD · A$ 50.00 · 100%", false)
+	h.click("AUD · A$50.00 · 100%", false)
 	h.frame()
 	assertPageLabel(t, &h.router, "Filtered by · AUD")
 	h.focused(&page.allocation.clear)
@@ -422,10 +422,10 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	}
 	for _, label := range []string{
 		"2026-08-01 to 2026-08-02 · Base currency AUD · Asia/Singapore",
-		"Net worth · Known net contribution · A$ 24.90",
+		"Net worth · Known net contribution · A$24.90",
 		"2026-08-01 · Foreign cash · USD · Missing exchange rate",
-		"Net worth · A$ 148.41",
-		"Liabilities · -A$ 25.10",
+		"Net worth · A$148.41",
+		"Liabilities · -A$25.10",
 	} {
 		assertPageLabel(t, &h.router, label)
 	}
@@ -467,7 +467,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	assertPageLabel(t, &h.router, "B · 2026-08-02 · AUD")
 	h.click("Category comparison", false)
 	assertPageLabel(t, &h.router, "A · Missing valuation")
-	assertPageLabel(t, &h.router, "B · A$ 123.51")
+	assertPageLabel(t, &h.router, "B · A$123.51")
 	assertPageLabel(t, &h.router, "Change B − A · Comparison unavailable")
 	h.router.Source().Execute(key.FocusCmd{Tag: &page.allocation.paired})
 	h.frame()
@@ -479,7 +479,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.frame()
 	h.focused(&page.allocation.paired)
 	h.click("Liabilities", false)
-	assertPageLabel(t, &h.router, "A · -A$ 25.10")
+	assertPageLabel(t, &h.router, "A · -A$25.10")
 	h.click("Change", false)
 	assertPageLabel(t, &h.router, "Accounts to review separately")
 	if compare.Reconciliation == nil {

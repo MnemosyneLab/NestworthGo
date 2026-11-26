@@ -41,7 +41,7 @@ func TestAssetTrendLineKeepsEmptyPeriodsAndKnownSubtotals(t *testing.T) {
 		t.Fatalf("weekly observations lost the clamped first week, a gap or provisional value: %+v", points)
 	}
 	table := spec.Rows()
-	if !strings.Contains(analysisLineTableText(table[1]), "Known net contribution · $ 45.25") ||
+	if !strings.Contains(analysisLineTableText(table[1]), "Known net contribution · US$45.25") ||
 		!strings.Contains(analysisLineTableText(table[3]), "Quote dates 2026-08-23") {
 		t.Fatalf("the readable data lost evidence: %+v", table)
 	}
@@ -59,7 +59,7 @@ func TestAssetTrendUsesSignedDebtLevelsAndExactRates(t *testing.T) {
 	data := application.AssetTrendPoint{DisplayValuation: &level, Rate: &rate, Coverage: domain.RateCoverage{RatedDays: 1, TotalDays: 1}}
 	period := assetTrendPeriod{key: "2026-08-04"}
 	debt := assetTrendChartPoint(view, application.TrendLiabilities, period, data)
-	if debt.Value != charts.Num(-25.1) || debt.Text != "-$ 25.10" {
+	if debt.Value != charts.Num(-25.1) || debt.Text != "-US$25.10" {
 		t.Fatalf("debt level sign changed: %+v", debt)
 	}
 	point := assetTrendChartPoint(view, application.TrendReturnRate, period, data)

@@ -101,10 +101,10 @@ func TestAssetCategoryRecordsMatchWailsAndRestoreOriginFocus(t *testing.T) {
 	if p.categoryType() != application.CategorySpending || p.current == nil || p.current.categories == nil || len(p.current.categories.Rows) != 1 {
 		t.Fatal("spending did not select the seeded category")
 	}
-	assertPageLabel(t, &h.router, "Synthetic expense account · -$ 25.12")
+	assertPageLabel(t, &h.router, "Synthetic expense account · -US$25.12")
 	row := p.current.categories.Rows[0]
 	button := p.categoryButtons[row.Key]
-	h.click("Synthetic expense account · -$ 25.12", false)
+	h.click("Synthetic expense account · -US$25.12", false)
 	p.workers.Wait()
 	h.frame()
 	if p.categoryDetail == nil || p.categoryDetail.err == nil {
