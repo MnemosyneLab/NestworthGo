@@ -302,11 +302,7 @@ func fundsHorizonUsesEarly(sources []application.LiquidityReadSource, day string
 }
 
 func fundsNativeAmount(view ui.View, label i18n.MessageID, amount *decimal.Decimal, currency domain.CurrencyCode) layout.Widget {
-	value := view.Language.Text(i18n.OverviewNoValue)
-	if amount != nil {
-		value = portfolioDecimal(view, amount.String()) + " " + currency.String()
-	}
-	return labeledAmount(view, label, value, view.Colors.Ink)
+	return labeledAmount(view, label, fundsNativeAmountText(view, amount, currency), view.Colors.Ink)
 }
 
 func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.LiquidityBucket, counts [fundsFilterCount]int) layout.Widget {

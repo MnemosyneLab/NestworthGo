@@ -12,6 +12,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+	"github.com/shopspring/decimal"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -549,17 +550,28 @@ func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widge
 	}
 }
 
-// fundsAmount shows a labelled amount as a name on the left and the figure on
-// the right.
+// fundsAmount displays exact amounts for reviews and ledger evidence.
 func fundsAmount(view ui.View, label i18n.MessageID, amount *domain.Money) layout.Widget {
-	return labeledAmount(view, label, fundsAmountText(view, amount), view.Colors.Ink)
+	value := view.Language.Text(i18n.OverviewNoValue)
+	if amount != nil {
+		value = portfolioDecimal(view, amount.CanonicalAmount()) + " " + amount.Currency().String()
+	}
+	return labeledAmount(view, label, value, view.Colors.Ink)
 }
 
+// fundsAmountText formats a read-only projection at its currency's precision.
 func fundsAmountText(view ui.View, amount *domain.Money) string {
 	if amount == nil {
 		return view.Language.Text(i18n.OverviewNoValue)
 	}
-	return portfolioDecimal(view, amount.CanonicalAmount()) + " " + amount.Currency().String()
+	return valuationMoney(view, domain.MoneyView{Amount: amount.CanonicalAmount(), Currency: amount.Currency()}, false)
+}
+
+func fundsNativeAmountText(view ui.View, amount *decimal.Decimal, currency domain.CurrencyCode) string {
+	if amount == nil {
+		return view.Language.Text(i18n.OverviewNoValue)
+	}
+	return valuationMoney(view, domain.MoneyView{Amount: amount.String(), Currency: currency}, false)
 }
 
 func fundsStatus(status domain.CompletenessStatus) i18n.MessageID {

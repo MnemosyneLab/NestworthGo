@@ -7,11 +7,45 @@ import (
 
 	"gioui.org/io/key"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	liquidityapi "github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
 )
+
+func TestAvailableFundsAmountsUseCurrencyPrecision(t *testing.T) {
+	for _, tc := range []struct {
+		currency       domain.CurrencyCode
+		amount         string
+		decimal, group string
+		want           string
+	}{
+		{"USD", "1234.565", settings.DecimalDot, settings.GroupingComma, "US$1,234.56"},
+		{"AUD", "1234.575", settings.DecimalComma, settings.GroupingDot, "A$1.234,58"},
+		{"SGD", "12003.8999", settings.DecimalComma, settings.GroupingSpace, "S$12 003,90"},
+		{"SGD", "0", settings.DecimalComma, settings.GroupingDot, "S$0,00"},
+		{"JPY", "1234.56", settings.DecimalDot, settings.GroupingComma, "JP¥1,235"},
+	} {
+		view := ui.View{Language: i18n.English, DecimalSeparator: tc.decimal, GroupingSeparator: tc.group}
+		amount, err := domain.ParseMoney(tc.amount, tc.currency)
+		if err != nil {
+			t.Fatal(err)
+		}
+		native := amount.Amount()
+		if projection, component := fundsAmountText(view, &amount), fundsNativeAmountText(view, &native, tc.currency); projection != tc.want || component != tc.want {
+			t.Errorf("%s %s displays as %q and %q, want %q", tc.amount, tc.currency, projection, component, tc.want)
+		}
+		if amount.CanonicalAmount() != tc.amount || native.String() != tc.amount {
+			t.Errorf("formatting changed the exact %s amount: %s / %s", tc.currency, amount.CanonicalAmount(), native)
+		}
+	}
+	view := ui.View{Language: i18n.English}
+	if projection, component := fundsAmountText(view, nil), fundsNativeAmountText(view, nil, "SGD"); projection != "Unavailable" || component != "Unavailable" {
+		t.Errorf("missing amounts display as %q and %q", projection, component)
+	}
+}
 
 func TestAvailableFundsHorizonControlsMatchWails(t *testing.T) {
 	ctx := t.Context()
