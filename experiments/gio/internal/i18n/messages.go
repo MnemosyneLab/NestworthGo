@@ -2286,6 +2286,7 @@ const (
 	ReconciliationSessions
 	ReconciliationHistoryTitle
 	ReconciliationAllSessions
+	ReconciliationFilterInProgress
 	ReconciliationHistoryEmpty
 	ReconciliationHistoryNoMatches
 	ReconciliationHistoryPrevious

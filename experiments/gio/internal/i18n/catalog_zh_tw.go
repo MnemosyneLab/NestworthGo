@@ -2381,6 +2381,7 @@ var traditionalChineseCatalog = catalog{
 	ReconciliationSessions:         "對帳工作階段",
 	ReconciliationHistoryTitle:     "進行中的核對與歷史",
 	ReconciliationAllSessions:      "全部核對",
+	ReconciliationFilterInProgress: "進行中",
 	ReconciliationHistoryEmpty:     "還沒有核對記錄。",
 	ReconciliationHistoryNoMatches: "沒有符合篩選條件的核對。",
 	ReconciliationHistoryPrevious:  "上一頁",

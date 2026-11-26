@@ -2380,6 +2380,7 @@ var japaneseCatalog = catalog{
 	ReconciliationSessions:         "照合セッション",
 	ReconciliationHistoryTitle:     "保存されたセッションと履歴",
 	ReconciliationAllSessions:      "すべてのセッション",
+	ReconciliationFilterInProgress: "進行中",
 	ReconciliationHistoryEmpty:     "照合セッションはまだありません。",
 	ReconciliationHistoryNoMatches: "このフィルターに一致するセッションはありません。",
 	ReconciliationHistoryPrevious:  "前へ",

@@ -115,7 +115,8 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	if findPageLabel(&h.router, "Harbor Brokerage") == nil {
 		t.Fatal("start review omitted the selected account")
 	}
-	confirm()
+	h.focused(&c.draft.startSheet.close)
+	start.activate(t, "Start reconciliation")
 	sessions(app, 1)
 	id := c.id
 	a, item := holdingItem(c.session, ids.holding)

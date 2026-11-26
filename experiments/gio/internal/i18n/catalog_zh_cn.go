@@ -2381,6 +2381,7 @@ var simplifiedChineseCatalog = catalog{
 	ReconciliationSessions:         "对账会话",
 	ReconciliationHistoryTitle:     "进行中的核对与历史",
 	ReconciliationAllSessions:      "全部核对",
+	ReconciliationFilterInProgress: "进行中",
 	ReconciliationHistoryEmpty:     "还没有核对记录。",
 	ReconciliationHistoryNoMatches: "没有符合筛选条件的核对。",
 	ReconciliationHistoryPrevious:  "上一页",

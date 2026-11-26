@@ -2381,6 +2381,7 @@ var englishCatalog = catalog{
 	ReconciliationSessions:         "Reconciliation sessions",
 	ReconciliationHistoryTitle:     "Saved sessions and history",
 	ReconciliationAllSessions:      "All sessions",
+	ReconciliationFilterInProgress: "In progress",
 	ReconciliationHistoryEmpty:     "No reconciliation sessions yet.",
 	ReconciliationHistoryNoMatches: "No sessions match this filter.",
 	ReconciliationHistoryPrevious:  "Previous",

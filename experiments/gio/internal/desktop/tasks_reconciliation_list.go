@@ -32,7 +32,7 @@ var reconciliationSessionFilters = [...]struct {
 	label  i18n.MessageID
 }{
 	{reconciliationAll, i18n.ReconciliationAllSessions},
-	{reconciliationInProgress, i18n.StatementInProgress},
+	{reconciliationInProgress, i18n.ReconciliationFilterInProgress},
 	{reconciliationPaused, i18n.StatementPaused},
 	{reconciliationCompleted, i18n.StatementCompleted},
 }
