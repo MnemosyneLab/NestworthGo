@@ -139,7 +139,7 @@ func TestDirectoryParityAcrossEntityKinds(t *testing.T) {
 			replaceDirectoryName(h, p, tooLong)
 			h.click("Add", false)
 			settle()
-			assertPageLabel(t, &h.router, "Use 120 characters or fewer.")
+			assertPageLabel(t, &h.router, "Name: Use 120 characters or fewer.")
 			if p.editMode != directoryCreate || !reflect.DeepEqual(before, rows()) {
 				t.Fatal("an oversized name escaped the create sheet or changed the directory")
 			}

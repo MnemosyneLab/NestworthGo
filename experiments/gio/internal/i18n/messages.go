@@ -1118,6 +1118,7 @@ const (
 	DirectoryInstitutionHint
 	DirectoryGroupHint
 	DirectoryNameRequired
+	DirectoryNameLength
 	DirectoryInstitutionInsurer
 	DirectoryRestoreHint
 	DirectoryMemberEmpty

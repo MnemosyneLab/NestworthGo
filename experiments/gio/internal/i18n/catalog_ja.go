@@ -435,6 +435,7 @@ var japaneseCatalog = catalog{
 	DirectoryInstitutionHint:         "例：みずほ銀行",
 	DirectoryGroupHint:               "例：退職金",
 	DirectoryNameRequired:            "名前を入力してから保存してください。",
+	DirectoryNameLength:              "名前: %d 文字以内で入力してください。",
 	DirectoryInstitutionInsurer:      "保険会社",
 	DirectoryRestoreHint:             "項目を復元しても、関連する口座や既存の所有関係は変更されません。",
 	DirectoryMemberEmpty:             "メンバーは、正確な所有関係や配分を記録するために使用します。",

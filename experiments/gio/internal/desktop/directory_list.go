@@ -78,20 +78,21 @@ type directoryList struct {
 	noticeName            string
 	writeProblem          i18n.MessageID
 
-	includeArchived bool
-	add, refresh    widget.Clickable
-	archiveFilter   widget.Bool
-	search          ui.SearchField
-	query           string
-	list            widget.List
-	buttons         map[string]*directoryRowButtons
-	focusRow        directoryFocus
-	focusAdd        bool
-	archiveTarget   *directoryRow
-	refreshExternal bool
-	confirmation    ui.Confirmation
-	openObject      func(directoryRef, string, event.Tag)
-	restoreVisit    *directoryListVisit
+	includeArchived   bool
+	add, refresh      widget.Clickable
+	archiveFilter     widget.Bool
+	search            ui.SearchField
+	query             string
+	list              widget.List
+	buttons           map[string]*directoryRowButtons
+	focusRow          directoryFocus
+	focusAdd          bool
+	focusArchiveScope bool
+	archiveTarget     *directoryRow
+	refreshExternal   bool
+	confirmation      ui.Confirmation
+	openObject        func(directoryRef, string, event.Tag)
+	restoreVisit      *directoryListVisit
 
 	editMode           directoryOperation
 	createSheet        *directoryCreateSheet
@@ -229,6 +230,7 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName s
 		p.start(directoryChange{})
 	case controlsEnabled && p.archiveFilter.Value != p.includeArchived:
 		p.setArchiveScope(p.archiveFilter.Value)
+		p.focusArchiveScope = true
 	}
 	if p.focusAdd && gtx.Enabled() {
 		p.focusAdd = false
@@ -266,6 +268,10 @@ func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName 
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.busy {
 						gtx = gtx.Disabled()
+					}
+					if p.focusArchiveScope && gtx.Enabled() {
+						p.focusArchiveScope = false
+						gtx.Execute(key.FocusCmd{Tag: &p.archiveFilter})
 					}
 					return view.Checkbox(&p.archiveFilter, l.Text(i18n.InstitutionsShowArchived))(gtx)
 				}),

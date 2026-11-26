@@ -436,6 +436,7 @@ var traditionalChineseCatalog = catalog{
 	DirectoryInstitutionHint:         "例如 招商銀行",
 	DirectoryGroupHint:               "例如 退休金",
 	DirectoryNameRequired:            "請輸入名稱後再儲存。",
+	DirectoryNameLength:              "名稱: 請使用不超過 %d 個字元。",
 	DirectoryInstitutionInsurer:      "保險機構",
 	DirectoryRestoreHint:             "恢復物件不會恢復關聯帳戶，也不會修改既有所有權。",
 	DirectoryMemberEmpty:             "成員用於精確所有權和分配。",

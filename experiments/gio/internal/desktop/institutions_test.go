@@ -111,7 +111,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	if p.editMode != directoryEdit || p.editID != bank.ID.String() || p.draft.Text() != "Rejected draft" {
 		t.Fatal("a validation failure dropped the active edit")
 	}
-	assertPageLabel(t, &h.router, "Use 120 characters or fewer.")
+	assertPageLabel(t, &h.router, "Name: Use 120 characters or fewer.")
 	selection := key.Range{Start: 8, End: 2}
 	h.router.Queue(key.SelectionEvent(selection), key.SnippetEvent{End: p.draft.Editor.Len()})
 	h.frame()
@@ -123,7 +123,7 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 		t.Fatal("switching preferences changed the institution route, draft, or selection")
 	}
 	semanticBounds(t, &h.router, "機構名稱", true)
-	assertPageLabel(t, &h.router, "名稱不得超過 120 個字元。")
+	assertPageLabel(t, &h.router, "名稱: 請使用不超過 120 個字元。")
 	h.click("機構名稱", true)
 	h.router.Queue(key.EditEvent{Range: key.Range{Start: 0, End: p.draft.Editor.Len()}, Text: "Valid draft"})
 	h.frame()

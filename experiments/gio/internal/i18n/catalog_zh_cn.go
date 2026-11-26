@@ -436,6 +436,7 @@ var simplifiedChineseCatalog = catalog{
 	DirectoryInstitutionHint:         "例如 招商银行",
 	DirectoryGroupHint:               "例如 养老金",
 	DirectoryNameRequired:            "请输入名称后再保存。",
+	DirectoryNameLength:              "名称: 请使用不超过 %d 个字符。",
 	DirectoryInstitutionInsurer:      "保险机构",
 	DirectoryRestoreHint:             "恢复对象不会恢复关联账户，也不会修改已有所有权。",
 	DirectoryMemberEmpty:             "成员用于精确所有权和分配。",

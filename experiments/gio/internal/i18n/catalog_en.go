@@ -436,6 +436,7 @@ var englishCatalog = catalog{
 	DirectoryInstitutionHint:         "e.g. Chase",
 	DirectoryGroupHint:               "e.g. Retirement",
 	DirectoryNameRequired:            "Enter a name before saving.",
+	DirectoryNameLength:              "Name: Use %d characters or fewer.",
 	DirectoryInstitutionInsurer:      "Insurance company",
 	DirectoryRestoreHint:             "Restoring an item does not restore related accounts or change existing ownership.",
 	DirectoryMemberEmpty:             "Members are used for exact ownership and allocation.",

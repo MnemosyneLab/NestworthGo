@@ -241,7 +241,7 @@ func (p *directoryList) editProblem(view ui.View, value string) string {
 			return ""
 		}
 		if problem.MaxLength > 0 {
-			return fmt.Sprintf(view.Language.Text(i18n.InstitutionsNameLength), problem.MaxLength)
+			return fmt.Sprintf(view.Language.Text(i18n.DirectoryNameLength), problem.MaxLength)
 		}
 		return view.Language.Text(i18n.DirectoryNameRequired)
 	}
