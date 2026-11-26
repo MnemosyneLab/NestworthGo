@@ -291,6 +291,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: route}, focus: focus}
 		}
 	}
+	if s.overviewPage != nil && s.funds != nil {
+		s.overviewPage.funds.reader = s.funds.service
+		s.overviewPage.funds.open = func(day string, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, fundsDay: day}, focus: focus}
+		}
+	}
 	if s.returns != nil && s.assets != nil {
 		s.returns.openAssets = func(selection analysisSelection, focus *widget.Clickable) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: assetChangesRoute},

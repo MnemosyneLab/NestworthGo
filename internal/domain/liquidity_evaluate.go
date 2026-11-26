@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"slices"
 	"sort"
 	"time"
 
@@ -947,6 +948,13 @@ func appendUniqueAssumption(values []LiquidityAssumption, next LiquidityAssumpti
 }
 
 func assertCumulativeMonotonic(buckets []LiquidityBucket) error {
+	byDate := func(left, right LiquidityBucket) int { return compareCivilDates(left.HorizonOn, right.HorizonOn) }
+	if !slices.IsSortedFunc(buckets, byDate) {
+		// Presets occupy fixed positions in the response. A custom date is
+		// appended even when it falls before one of those presets.
+		buckets = slices.Clone(buckets)
+		slices.SortFunc(buckets, byDate)
+	}
 	var prevAvailable *decimal.Decimal
 	var prevUnreserved *decimal.Decimal
 	for _, bucket := range buckets {

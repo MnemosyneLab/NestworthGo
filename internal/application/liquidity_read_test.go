@@ -29,3 +29,42 @@ func TestLiquidityReadSortMatrixExactDecimalAndNullLast(t *testing.T) {
 		}
 	}
 }
+
+func TestLiquidityNativeSourceAmountsKeepsExactSubtotalsAndUnknownGroups(t *testing.T) {
+	const day = "2026-11-26"
+	source := func(kind domain.LiquiditySourceKind, currency domain.CurrencyCode, amount string, excluded bool) LiquidityReadSource {
+		t.Helper()
+		result := domain.LiquidityBucketResult{HorizonOn: day, Status: domain.StatusComplete}
+		if amount != "" {
+			value, err := domain.ParseMoney(amount, currency)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result.NetNative = &value
+			result.SelectedRoute = &domain.LiquidityRoute{Kind: domain.RouteNormal}
+		} else {
+			result.Status = domain.StatusUnavailable
+		}
+		return LiquidityReadSource{Result: domain.LiquiditySourceResult{
+			Ref: domain.LiquiditySourceRef{Kind: kind}, NativeCurrency: currency,
+			Excluded: excluded, BucketResults: []domain.LiquidityBucketResult{result},
+		}}
+	}
+	read := LiquidityReadResult{Sources: []LiquidityReadSource{
+		source(domain.SourceAccountValue, "USD", "12.3456", false),
+		source(domain.SourceAccountCash, "USD", "0.0005", false),
+		source(domain.SourceHolding, "USD", "2.0001", false),
+		source(domain.SourceHolding, "USD", "", true),
+		source(domain.SourceAccountCash, "EUR", "", false),
+	}}
+	got := read.NativeSourceAmounts(day)
+	if group := got["USD"]; group.Cash == nil || group.Proceeds == nil || group.Cash.String() != "12.3461" || group.Proceeds.String() != "2.0001" {
+		t.Fatalf("USD = %+v", group)
+	}
+	if group := got["EUR"]; group.Cash != nil || group.Proceeds == nil || !group.Proceeds.IsZero() {
+		t.Fatalf("EUR = %+v, want unknown cash and known zero proceeds", group)
+	}
+	if group := read.NativeSourceAmounts("2026-11-27")["USD"]; group.Cash != nil || group.Proceeds != nil {
+		t.Fatalf("missing horizon supplied amounts: %+v", group)
+	}
+}

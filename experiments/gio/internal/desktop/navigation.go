@@ -30,6 +30,7 @@ type navigationTarget struct {
 	statement   string
 	health      healthFindingFocus
 	accountList accountListScope
+	fundsDay    string
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -47,6 +48,7 @@ type navigationEntry struct {
 	historyFilters   history.Filters
 	historyDetail    historyDetailState
 	accountsArchived bool
+	funds            fundsViewState
 	portfolioSearch  string
 	tasks            tasksVisit
 	asset            assetChangesVisit
@@ -340,7 +342,16 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == fundsRoute {
 		if entry.target.product == "" {
-			s.funds.enter(entry.scroll)
+			state := entry.funds
+			if !entry.visited {
+				state = s.funds.state
+				state.focusSources = false
+				if day := entry.target.fundsDay; day != "" {
+					state.horizonOn, state.filter = day, fundsNeedsRules
+					state.includeEarly, state.focusSources = false, true
+				}
+			}
+			s.funds.enter(entry.scroll, state)
 		} else {
 			s.funds.productPage.enter(entry.target.product, entry.scroll, request.verifyProductReceipt)
 		}
@@ -438,6 +449,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case fundsRoute:
 		if entry.target.product == "" {
 			entry.scroll = s.funds.list.Position
+			entry.funds = s.funds.state
+			entry.funds.focusSources = false
 		} else {
 			entry.scroll = s.funds.productPage.list.Position
 		}
@@ -540,6 +553,9 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 }
 
 func (s *shell) waitingForPageFocus() bool {
+	if s.activeRoute() == overviewRoute && s.overviewPage != nil {
+		return s.overviewPage.loading || s.overviewPage.funds.request != nil
+	}
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
 		if r := s.historyPage.reads; r != nil && r.detail != nil {
 			return r.detail.pending != nil || r.detail.dirty

@@ -69,7 +69,8 @@ live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
 partial sales, liquidations, cash dividends, a positive opening position and
-the Today view of Available Funds with standard bank-account reservations.
+[Available Funds from Overview](#available-funds-from-overview) with date and
+source selection, plus standard bank-account reservations.
 Stage 6 includes the [read-only Wealth History table](#read-only-wealth-history)
 and the [Return Analysis calendar](#read-only-return-analysis-calendar).
 Stage 7 is paused. Use [navigation history](../../../docs/design/navigation-history.md),
@@ -2121,7 +2122,44 @@ report and restores the list position and source focus. [Shared availability pro
 | Linux X11 | In a 900×660 Xvfb window, viewed the USD and EUR amounts and missing-FX explanation, opened the saved account and instrument sources, returned to the scrolled report, and found the unresolved reservation. Normal reopen repeated the same amounts. A separate profile showed the no-source message and known USD zero. Read-only SQLite comparison found the same rows across 13 financial tables in both profiles. A temporary build overlay seeded the verified profiles and controlled the clock. |
 | Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Bank-account reservations](#bank-account-reservations) and [read-only term deposits](#read-only-term-deposits) follow this milestone. Additional horizons, early-withdrawal estimates, broader reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Follow-up | See [bank-account reservations](#bank-account-reservations), [read-only term deposits](#read-only-term-deposits) and [Available Funds from Overview](#available-funds-from-overview) for later capabilities and acceptance. |
+
+#### Available Funds from Overview
+
+On a household with accounts, **Overview** places **Available funds** beside
+Net worth when space permits. The card independently loads Today and Within
+30 days with normal access, shows the amount after reservations and its
+coverage, and distinguishes a confirmed subtotal from an unknown total. A
+failed liquidity read can be retried from the card. The page link opens the
+workspace. A missing-rules link opens the corresponding civil date with the
+Missing rules filter and focuses the source controls. Back restores the
+originating Overview link. [Wails summary](../../../frontend/src/features/liquidity/OverviewLiquidityCard.tsx)
+
+The workspace compares Today, Within 7 days, Within 30 days and an optional
+custom date in the household's History timezone. It estimates early withdrawal
+only when selected. The selected horizon supplies currency totals, cash and
+proceeds, reservation effects, expected dates, fees, coverage and the source
+filters and counts. Account, instrument, reservation and product actions retain
+their established Gio entry points. The date picker can be cleared after a
+failed read. Back and Forward restore the saved date, filters and position.
+An onboarded empty household uses the sidebar to reach Available Funds. Gio
+retains its known-zero display and no-source message in that state.
+[Wails workspace](../../../frontend/src/features/liquidity/AvailableFundsPage.tsx)
+
+The read uses the shared Go service and existing price and FX recovery from
+Data Health. The domain checks cumulative amounts in date order while retaining
+the preset and custom bucket positions expected by Wails. Source rule creation
+and reset, reservation editing and management across source types, and eligible
+grouped product undo remain open. The next slice is **Complete availability
+rules** for an ordinary source, with revision-aware save/reset and readback in
+the same horizon. Stage 7 remains paused.
+
+| Check | Evidence |
+| --- | --- |
+| Paired macOS 27.2.1 ARM64 | Independent copies of the same synthetic ledger were opened with the Wails development and Gio preview identities. Both reached the December 26 Missing rules scope for QA-FUND from Overview. Gio Back restored the originating link, and Return reopened the scope. Wails shows US$85.31 and US$125.31. The shared read and Wails adapter agree on the exact USD 85.3071 and USD 125.3071 subtotals. [Wails Overview](../../../docs/qa/gio-available-funds-2026-11-26/evidence/wails-overview.jpg) · [Wails rules scope](../../../docs/qa/gio-available-funds-2026-11-26/evidence/wails-rules.jpg) · [Gio Overview](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-overview.jpg) · [Gio workspace](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-funds.jpg) |
+| Native compact controls | At 700 × 480 content points, Tab and Return opened the 30-day rules scope and focused Missing rules. Selecting December 6 loaded the USD 85.3071 subtotal, with the 30-day subtotal still USD 125.3071. [Gio compact rules scope](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-narrow.jpg) |
+| Native repair, complete and empty | From Overview, saved EUR/USD 1.2 and QA-FUND USD 12.3456 through Data Health. The refreshed estimates were USD 115.6071 and USD 155.6071 with the access rule still missing. A separately seeded complete ledger showed USD 140.2983 and USD 180.2983. On that ledger, early withdrawal raised Today and 7 days to USD 177.2983 and left 30 days at USD 180.2983. An onboarded empty copy reached the no-source message and known USD zero from the sidebar. |
+| Automated workflow | Frame regressions exercise independent loading and retry, scoped navigation and Back/Forward focus, quote and rule readback, and compact keyboard horizon, custom-date and early-withdrawal selection. The selected date test compares the exact results against the Wails Go adapter. Full VoiceOver, native IME and Wayland acceptance remain open. |
 
 #### Bank-account reservations
 
@@ -3112,7 +3150,10 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 
 #### Follow-up order across Stages 4 to 6
 
-1. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
+1. Complete ordinary funding-source rules and same-horizon readback from
+   the [Available Funds workspace](#available-funds-from-overview). Then cover
+   broader reservation actions and the standalone
+   [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
    Standalone locked-product valuation and redemption, interest and terms are
    covered, along with the pre-maturity term-deposit receipt and paged product
    history. Prioritize eligible grouped undo. Renewal is covered

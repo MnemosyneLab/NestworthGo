@@ -478,6 +478,11 @@ const (
 	HealthFocusedEmpty
 	OverviewKnownNet
 	OverviewNoValue
+	OverviewFundsToday
+	OverviewFundsUnknownAmount
+	OverviewFundsUnavailable
+	OverviewFundsPriceHint
+	OverviewOpenFunds
 	OverviewQuoteDates
 	OverviewCarried
 	OverviewHistoryUnverified
@@ -1595,6 +1600,43 @@ const (
 	FundsReservationCurrency
 	FundsUnresolvedReason
 	FundsUnknownRoute
+	FundsUpdating
+	FundsHorizonToday
+	FundsHorizonWeek
+	FundsHorizonMonth
+	FundsCustomDate
+	FundsConsiderEarly
+	FundsEarlyInfo
+	FundsEarlyIncluded
+	FundsFilterAll
+	FundsFilterAvailable
+	FundsFilterLocked
+	FundsFilterNeedsRules
+	FundsFilterNeedsInfo
+	FundsFilterExcluded
+	FundsSourcesByDate
+	FundsSourcesNeedInfo
+	FundsShowNeedsInfo
+	FundsAllExcluded
+	FundsAllLocked
+	FundsNoMatchingSources
+	FundsShowAllSources
+	FundsNoMissingRules
+	FundsSpendableHint
+	FundsSubtotalHint
+	FundsUnknownHint
+	FundsEarlyRoute
+	FundsAtDateUnavailable
+	FundsNativeCash
+	FundsNativeProceeds
+	FundsNativeBreakdown
+	FundsSameAs
+	FundsMoreThan
+	FundsLessThan
+	FundsMissingRuleCountOne
+	FundsMissingRuleCountMany
+	FundsComparisonNote
+	FundsRouteFee
 	ReserveManage
 	ReserveTitle
 	ReserveAdd
