@@ -238,7 +238,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 
 	// Save outside the filtered scope, then fail the first timeline refresh
 	// after acknowledgement. Retry must be a filtered read, never a write.
-	h.click("Record contribution", false)
+	h.click("Record change", false)
 	finish()
 	draft := page.cashMovements.draft
 	pick("Receiving account", "Harbor", "Harbor Checking · USD")

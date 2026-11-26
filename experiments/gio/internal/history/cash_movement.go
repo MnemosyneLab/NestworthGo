@@ -54,6 +54,9 @@ func acceptsHoldingsCash(account domain.Account) bool {
 }
 
 func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement) (CashMovementSources, error) {
+	if movement.Debt() {
+		return loadCashMovementSources(ctx, ledger, movement, checkpointMovementAccounts(movement))
+	}
 	return loadCashMovementSources(ctx, ledger, movement, acceptsCashMovement)
 }
 
@@ -172,9 +175,9 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 			return nil, err
 		}
 		accepts := acceptsCashMovement
-		if input.Link != nil {
+		if input.Link != nil || input.Movement.Debt() {
 			accepts = checkpointMovementAccounts(input.Movement)
-		} else if input.Movement.Debt() || input.Movement == CashValueUpdate {
+		} else if input.Movement == CashValueUpdate {
 			return nil, &domain.Error{Code: domain.ErrInvalidChange, Field: "kind"}
 		}
 		account, err := cashMovementAccountMatching(ctx, ledger, input.Account, "accountId", accepts)
@@ -194,6 +197,9 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 			destination, err = cashMovementAccountMatching(ctx, ledger, input.Destination, "counterparty", accepts)
 			if err != nil {
 				return nil, err
+			}
+			if !IsDebtCounterparty(account, destination) {
+				return nil, &domain.Error{Code: domain.ErrValidation, Field: "counterparty"}
 			}
 		}
 		request, err := cashMovementRequest(input, account, destination, false)
@@ -256,7 +262,7 @@ func cashMovementRequest(input CashMovementInput, account, destination domain.Ac
 		request.Note = &note
 	}
 	if input.Movement.Debt() {
-		return checkpointDebtRequest(request, input, account, destination), nil
+		return cashDebtRequest(request, input, account, destination), nil
 	}
 	currency, err := movementCurrency(account, input.Currency, "currency")
 	if err != nil {
@@ -330,7 +336,7 @@ func cashMovementRequest(input CashMovementInput, account, destination domain.Ac
 	return request, nil
 }
 
-func checkpointDebtRequest(request historyapi.ChangeCommandRequest, input CashMovementInput, account, peer domain.Account) historyapi.ChangeCommandRequest {
+func cashDebtRequest(request historyapi.ChangeCommandRequest, input CashMovementInput, account, peer domain.Account) historyapi.ChangeCommandRequest {
 	cash, debt := account, peer
 	if account.IsLiability() {
 		cash, debt = peer, account

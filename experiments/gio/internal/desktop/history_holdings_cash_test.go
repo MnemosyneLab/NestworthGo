@@ -120,6 +120,7 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 		}
 	}
 
+	h.click("Record change", false)
 	h.click("Record transfer", false)
 	finish()
 	d := c.draft
@@ -157,6 +158,7 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 	expectInvalid(history.CashMovementInput{Movement: history.CashConversion, Account: studio, Currency: "USD", ToCurrency: "USD", Amount: "1", Received: "1", Date: day, Time: "01:01"}, "toCurrency")
 	expectInvalid(history.CashMovementInput{Movement: history.CashConversion, Account: studio, Currency: "USD", ToCurrency: "XXX", Amount: "1", Received: "1", Date: day, Time: "01:01"}, "toCurrency")
 
+	h.click("Record change", false)
 	h.click("Record conversion", false)
 	finish()
 	d = c.draft

@@ -375,6 +375,9 @@ func TestCashReceiptWriteErrorDoesNotDispatchAndSameProcessRetryKeepsIdentity(t 
 	page, timeline, h, finish := cashMovementHarness(t, fault)
 	recovery := &cashReceiptRecovery{ctx: t.Context(), store: cashReceiptSaveFailure{session.CashReceipts}, reader: app, invalidate: func() {}}
 	page.recovery = recovery
+	h.click("Record change", false)
+	h.click("Record transfer", false)
+	finish()
 	prepareCashReceiptReview(t, page, history.CashTransfer)
 	id, digest := page.draft.review.ReceiptIdentity()
 	h.frame()

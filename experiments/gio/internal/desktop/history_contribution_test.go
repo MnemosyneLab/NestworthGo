@@ -85,7 +85,7 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	c, timeline, h, finish := cashMovementHarness(t, fault)
 	t.Cleanup(func() { release(); c.workers.Wait() })
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
-	h.click("Record contribution", false)
+	h.click("Record change", false)
 	finish()
 	d := c.draft
 	pickAccountReference(h, "Receiving account", "Harbor", "Harbor Checking · USD")
@@ -113,7 +113,7 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	if c.draft != nil || len(fault.attempts) != 0 || len(openingActivity(t, service, selected)) != 6 {
 		t.Fatal("canceling the preview created an activity")
 	}
-	h.click("Record contribution", false)
+	h.click("Record change", false)
 	finish()
 	d = c.draft
 	pickAccountReference(h, "Receiving account", "Harbor", "Harbor Checking · USD")
@@ -267,7 +267,7 @@ func TestContributionRequiresNewPreviewAndRejectsUnavailableAccount(t *testing.T
 	service, _ := openBankFixture(t, createFixtureRoot(t))
 	fault := &cashMovementFault{Service: service}
 	c, _, h, finish := cashMovementHarness(t, fault)
-	h.click("Record contribution", false)
+	h.click("Record change", false)
 	finish()
 	d := c.draft
 	id := d.account
@@ -296,7 +296,7 @@ func TestContributionRequiresNewPreviewAndRejectsUnavailableAccount(t *testing.T
 	if err := service.ArchiveAccount(ctx, id, false); err != nil {
 		t.Fatal(err)
 	}
-	h.click("Record contribution", false)
+	h.click("Record change", false)
 	finish()
 	d = c.draft
 	setBankField(h, "Contribution amount", &d.amount, "25")
@@ -318,7 +318,7 @@ func TestContributionRequiresHistoryOrigin(t *testing.T) {
 	fault := &cashMovementFault{Service: service}
 	_, _, h, finish := cashMovementHarness(t, fault)
 	assertPageLabel(t, &h.router, "Start History to see ledger activity.")
-	h.click("Record contribution", false)
+	h.click("Record change", false)
 	finish()
 	assertPageLabel(t, &h.router, "Start History before recording a contribution.")
 	if findPageLabel(&h.router, "Preview contribution") != nil || len(fault.attempts) != 0 {

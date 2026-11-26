@@ -48,6 +48,18 @@ var cashMovementLabels = [...]movementLabels{
 		i18n.ConversionReview, i18n.ConversionConfirm, i18n.CashMovementStale, i18n.ConversionPosted,
 		i18n.CashMovementDelta,
 	},
+	history.CashDebtDraw: {
+		i18n.HistoryDebtDraw, i18n.HistoryDebtDraw, i18n.LiabilityChooseCash, i18n.HistoryDebtPrincipal,
+		i18n.CashMovementHistoryRequired, i18n.LiabilityPreview, i18n.CashMovementPreviewFailed,
+		i18n.HistoryDebtDraw, i18n.LiabilityConfirm, i18n.CashMovementStale, i18n.LiabilityPosted,
+		i18n.CashMovementDelta,
+	},
+	history.CashDebtPayment: {
+		i18n.HistoryDebtPayment, i18n.HistoryDebtPayment, i18n.LiabilityChooseCash, i18n.HistoryDebtPrincipal,
+		i18n.CashMovementHistoryRequired, i18n.LiabilityPreview, i18n.CashMovementPreviewFailed,
+		i18n.HistoryDebtPayment, i18n.LiabilityConfirm, i18n.CashMovementStale, i18n.LiabilityPosted,
+		i18n.CashMovementDelta,
+	},
 }
 
 func (p *historyCashMovements) formLabels() movementLabels {
@@ -87,9 +99,6 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 	}
 	if d.cancel.Clicked(gtx) {
 		p.discard()
-		if p.linked == nil {
-			gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
-		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -103,6 +112,8 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 	ready := d.sources != nil && d.sourceError == i18n.NoMessage && len(d.sources.Accounts) > 0
 	if ready && p.linked != nil {
 		_, ready = d.accountByID(p.linked.account)
+	} else if ready && d.movement.Debt() {
+		ready = d.hasDebtEndpoints()
 	}
 	if ready {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -120,6 +131,14 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 		message := i18n.ContributionNoAccounts
 		if d.movement == history.CashConversion {
 			message = i18n.ConversionNoAccounts
+		} else if d.movement.Debt() {
+			message = i18n.LiabilityNoCash
+			for _, account := range d.sources.Accounts {
+				if !account.IsLiability() {
+					message = i18n.LiabilityNoDebt
+					break
+				}
+			}
 		}
 		children = append(children, layout.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk)))
 	}
@@ -139,9 +158,8 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 			}
 			buttons = append(buttons, layout.Rigid(view.Button(&d.retrySources, l.Text(i18n.HistoryRetry))))
 		case ready && !busy && (p.linked == nil || p.linked.link() != nil):
-			if p.linked != nil && (p.valueUnchanged() ||
-				(d.movement.Debt() || d.movement == history.CashValueUpdate) && d.amount.Text() == "" ||
-				d.movement.Debt() && d.destination == "") {
+			if p.linked != nil && (p.valueUnchanged() || d.movement == history.CashValueUpdate && d.amount.Text() == "") ||
+				d.movement.Debt() && (d.account == "" || d.destination == "" || d.amount.Text() == "") {
 				buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return view.PrimaryButton(&d.preview, l.Text(labels.preview))(gtx.Disabled())
 				}))
@@ -187,6 +205,9 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 			} else {
 				var items []ui.Choice
 				for _, item := range d.sources.Accounts {
+					if debt && item.IsLiability() {
+						continue
+					}
 					name := item.Name
 					if item.TrackingMode != domain.TrackingHoldings {
 						name += " · " + item.DefaultCurrency.String()
@@ -198,7 +219,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 					}
 				}
 				next := any(&d.amount.Editor)
-				if transfer && len(destinations) > 0 {
+				if debt || transfer && len(destinations) > 0 {
 					next = &d.destinationPicker.Trigger
 				}
 				children = []layout.FlexChild{
@@ -256,7 +277,7 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 						return layoutCashCurrencyAmount(gtx, view, at, &d.amount, label, &d.currencyPicker, currencyLabel, d.currency, "", d.chooseCurrency)
 					}
 					options := ui.FieldOptions{Label: label, Hint: i18n.AccountCreateAmountHint}
-					if crossCurrency || p.linked != nil {
+					if crossCurrency || debt || p.linked != nil {
 						return d.amount.LayoutCurrency(gtx, view, options, currency.String())
 					}
 					return d.amount.Layout(gtx, view, options)
@@ -489,9 +510,6 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 	}
 	if !d.uncertain && d.posting == nil && d.cancel.Clicked(gtx) {
 		p.discard()
-		if p.linked == nil {
-			gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
-		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}

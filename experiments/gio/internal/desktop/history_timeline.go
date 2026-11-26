@@ -341,18 +341,14 @@ func (p *historyPage) pollPosted() {
 		p.pollAmendment()
 		p.pollRepeat()
 	}
-	if p.cashMovements == nil {
-		return
+	if p.investment != nil {
+		p.investment.poll(p.investmentRuntime())
 	}
-	var focus event.Tag = &p.list
-	if d := p.cashMovements.draft; d != nil {
-		focus = &p.cashMovements.actions[d.movement]
+	if p.cashMovements != nil {
+		if activity := p.cashMovements.update(); activity != nil {
+			p.recordPosted(*activity, i18n.NoMessage, &p.record.trigger)
+		}
 	}
-	activity := p.cashMovements.update()
-	if activity == nil {
-		return
-	}
-	p.showPosted(*activity, i18n.NoMessage, focus)
 }
 
 func (p *historyPage) invalidateLedgerReads() {

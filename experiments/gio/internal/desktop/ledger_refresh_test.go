@@ -141,7 +141,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	wantFilter := history.Filters{Kind: domain.ActivityCashOut}
 	timelineID := h.shell.trail.current().id
 	label("Loaded records: 1")
-	click("Record contribution")
+	click("Record change")
 	draft := ledger.cashMovements.draft
 	setBankField(h, "Contribution amount", &draft.amount, "25")
 	click("Preview contribution")
@@ -205,7 +205,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 		ledger.model.Rows()[0].ID != previousID {
 		t.Fatal("History return discarded the visit, filter, or matching row")
 	}
-	h.focused(&ledger.cashMovements.actions[history.CashContribution])
+	h.focused(&ledger.record.trigger)
 
 	// Open a different activity, cross to its account, then change the same
 	// ledger through the application API without a Gio posting callback.

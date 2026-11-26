@@ -71,6 +71,7 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 
 	open := func() *accountInvestmentDraft {
 		t.Helper()
+		click("Record change")
 		click("Transfer position")
 		d := f.draft
 		h.focused(&d.custody.fromPicker.Trigger)
@@ -87,8 +88,8 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 		}
 		h.click("Destination account", true)
 		finish()
-		if findPageLabel(&h.router, "Harbor Brokerage") != nil {
-			t.Fatal("same account was offered as the destination")
+		if label := findPageLabel(&h.router, "Harbor Brokerage"); label != nil && label.Desc.Bounds.In(ledger.record.overlay.Panel) {
+			t.Fatalf("same account was offered as the destination: %v", label.Desc)
 		}
 		click("Secondary custody")
 		if d.custody.from != ids.holding || d.custody.to != target {
@@ -102,7 +103,7 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 	click("Review position transfer")
 	label("This holding did not have enough quantity at the effective time.")
 	click("Cancel")
-	h.focused(&f.custodyOpen)
+	h.focused(&ledger.record.trigger)
 	if app.MobileDataVersion() != version || !ledger.model.Filters().Equal(filter) {
 		t.Fatal("failed preview or cancel modified the ledger or its filter")
 	}
@@ -148,8 +149,8 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("custody confirmation did not start")
 	}
-	h.click("Back", false)
-	if h.shell.activeRoute() != historyRoute || !f.unresolved() {
+	h.press(key.NameEscape)
+	if h.shell.activeRoute() != historyRoute || !ledger.record.open || !f.unresolved() {
 		t.Fatal("navigation dismissed pending confirmation")
 	}
 	release()
@@ -174,7 +175,7 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 	}
 	destinationHolding := *got.Effects[1].HoldingID
 	click("Back to ledger activity")
-	h.focused(&f.custodyOpen)
+	h.focused(&ledger.record.trigger)
 	if !ledger.model.Filters().Equal(filter) {
 		t.Fatal("receipt lost the account and instrument filters")
 	}

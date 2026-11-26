@@ -55,6 +55,7 @@ func TestCrossCurrencyTransferWithoutQuoteMatchesWails(t *testing.T) {
 		}
 	}
 	compareOverview(service, "")
+	h.click("Record change", false)
 	h.click("Record transfer", false)
 	finish()
 	d := c.draft

@@ -148,7 +148,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	if len(ledger.model.Rows()) != 2 {
 		t.Fatalf("the closed-date range included today's records: %+v", ledger.model.Rows())
 	}
-	click("Record contribution")
+	click("Record change")
 	if ledger.cashMovements.draft == nil {
 		t.Fatal("Ledger did not open its ordinary draft")
 	}

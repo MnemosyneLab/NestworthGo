@@ -55,7 +55,6 @@ type historyCashMovements struct {
 	clock      func() time.Time
 	invalidate func()
 	workers    sync.WaitGroup
-	actions    [len(cashMovementLabels)]widget.Clickable
 	draft      *cashMovementDraft
 	recovery   *cashReceiptRecovery
 	linked     *checkpointCashScope
@@ -68,7 +67,7 @@ func newHistoryCashMovements(ctx context.Context, service cashMovementService, c
 func (p *historyCashMovements) start(movement history.CashMovement) {
 	p.draft = &cashMovementDraft{
 		movement: movement, amount: ui.NewTextField(true), received: ui.NewTextField(true), fee: ui.NewTextField(true),
-		focusAmount: movement != history.CashTransfer && movement != history.CashConversion,
+		focusAmount: movement == history.CashContribution || movement == history.CashWithdrawal,
 	}
 	if p.linked != nil {
 		p.draft.focusAmount = true
@@ -138,13 +137,44 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 	case first:
 		local := now.In(sources.Location)
 		d.day, d.time = local.Format(time.DateOnly), local.Format("15:04")
-		if len(sources.Accounts) == 1 {
+		if d.movement.Debt() {
+			var cashID domain.AccountID
+			for _, account := range sources.Accounts {
+				if !account.IsLiability() {
+					if cashID != "" {
+						cashID = ""
+						break
+					}
+					cashID = account.ID
+				}
+			}
+			d.chooseSource(cashID)
+		} else if len(sources.Accounts) == 1 {
 			d.chooseSource(sources.Accounts[0].ID)
+		}
+	}
+	if d.movement.Debt() && d.destination != "" {
+		account, _ := d.accountByID(d.account)
+		peer, _ := d.accountByID(d.destination)
+		if !history.IsDebtCounterparty(account, peer) {
+			d.destination = ""
 		}
 	}
 	if d.movement == history.CashTransfer && d.destination != "" && !d.canSelectDestination(d.destination) {
 		d.chooseDestination("")
 	}
+}
+
+func (d *cashMovementDraft) hasDebtEndpoints() bool {
+	var cash, debt bool
+	for _, account := range d.sources.Accounts {
+		if account.IsLiability() {
+			debt = true
+		} else {
+			cash = true
+		}
+	}
+	return cash && debt
 }
 
 func (d *cashMovementDraft) linkedTransferPeer() domain.AccountID {
@@ -264,7 +294,7 @@ func (p *historyCashMovements) preview() {
 	}
 	if d.movement.Debt() && d.destination == "" {
 		d.problem = i18n.LiabilityDebtRequired
-		if p.linked.liability {
+		if p.linked != nil && p.linked.liability {
 			d.problem = i18n.LiabilityCashRequired
 		}
 		return

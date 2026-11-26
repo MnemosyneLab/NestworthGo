@@ -401,7 +401,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	if s.historyPage != nil && s.historyPage.reads != nil {
 		if s.historyPage.investment != nil {
-			s.historyPage.investment.onPosted = s.historyPage.showPosted
+			s.historyPage.investment.onPosted = s.historyPage.recordPosted
 		}
 		s.historyPage.reads.openAction = func(id domain.ActivityID, action historyRowAction, focus event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus, historyAction: action}
@@ -658,6 +658,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
+	if s.activeRoute() == historyRoute && s.historyPage != nil {
+		s.historyPage.pollPosted()
+		s.historyPage.updateRecordTrigger(gtx)
+	}
 	if s.marketData != nil && s.marketData.updateLatest() {
 		s.refreshLedgerReads()
 		switch s.activeRoute() {
@@ -669,7 +673,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -701,9 +705,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.overlay.Layout(gtx, view)
 		return dims
 	}
-	if s.activeRoute() == historyRoute && s.historyPage != nil {
-		s.historyPage.pollPosted()
-	}
 	s.observeLedger(gtx)
 	s.updateNavigation(gtx)
 	if s.tasks != nil {
@@ -716,11 +717,21 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if entry.target.route == accountsRoute && s.accounts != nil && s.accounts.update(s.preferences.language) {
 		s.trail.rename(entry.target, s.accounts.name())
 	}
-	dims := layout.Flex{}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
-	)
-	s.overlay.Layout(gtx, view)
+	background := func(gtx layout.Context) layout.Dimensions {
+		dims := layout.Flex{}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
+		)
+		s.overlay.Layout(gtx, view)
+		return dims
+	}
+	if s.historyRecordOpen() {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.historyPage.layoutRecord(windowContext, view)
+		return dims
+	}
+	dims := background(gtx)
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
 	} else if s.confirmingArchive() {
@@ -1090,7 +1101,11 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
 	focus := ui.PageFocus{Target: entry.focus}
 	dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.pageHeader(gtx, view, route.label) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			headerView := view
+			headerView.Focus = &focus
+			return s.pageHeader(gtx, headerView, route.label)
+		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p := s.historyPage; p != nil && p.cashMovements != nil && p.cashMovements.recovery != nil {
 				dims := p.cashMovements.recovery.layout(gtx, view, p.reads.open)
@@ -1109,6 +1124,8 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 }
 
 func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
+	recordView := view
+	view.Focus = nil
 	colors := view.Colors
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
 	gtx.Constraints = layout.Exact(size)
@@ -1139,6 +1156,12 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 					event.Op(gtx.Ops, &s.headingFocus)
 					return view.Line(gtx, ui.TextPageTitle, view.Language.Text(title), colors.Ink)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if s.activeRoute() == historyRoute && s.historyPage.canRecord() {
+						return s.historyPage.layoutRecordTrigger(gtx, recordView)
+					}
+					return layout.Dimensions{}
 				}),
 			)
 		})

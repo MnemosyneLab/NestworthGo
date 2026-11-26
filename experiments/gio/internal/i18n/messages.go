@@ -1145,6 +1145,10 @@ const (
 	HistoryBuy
 	HistorySell
 	HistoryValueUpdate
+	HistoryRecordChange
+	HistoryEntryCash
+	HistoryEntryInvestments
+	HistoryEntryDebt
 	HistoryDebtDraw
 	HistoryDebtPayment
 	HistoryReversal

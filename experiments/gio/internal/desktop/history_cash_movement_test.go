@@ -63,6 +63,7 @@ func TestCashMovementWithdrawalAndTransferMatchWails(t *testing.T) {
 	}
 	openDraft := func(action, field string) *cashMovementDraft {
 		t.Helper()
+		h.click("Record change", false)
 		h.click(action, false)
 		finish()
 		pickAccountReference(h, field, "Harbor", "Harbor Checking · USD")

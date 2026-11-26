@@ -10,8 +10,10 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
@@ -20,6 +22,8 @@ type analysisSheet struct {
 	close, retry, action widget.Clickable
 	list                 widget.List
 	focus                bool
+	width                unit.Dp
+	modal                bool
 }
 
 func newAnalysisSheet() analysisSheet {
@@ -72,7 +76,11 @@ func (s *analysisSheet) layoutActions(gtx layout.Context, view ui.View, title st
 }
 
 func (s *analysisSheet) layoutPanel(gtx layout.Context, view ui.View, title string, body func(layout.Context, ui.View) layout.Dimensions, footer layout.Widget, canClose bool) {
-	width := min(gtx.Constraints.Max.X, gtx.Dp(450))
+	panelWidth := s.width
+	if panelWidth == 0 {
+		panelWidth = 450
+	}
+	width := min(gtx.Constraints.Max.X, gtx.Dp(panelWidth))
 	backdrop := image.Rect(0, 0, gtx.Constraints.Max.X-width, gtx.Constraints.Max.Y)
 	paint.Fill(gtx.Ops, color.NRGBA{A: 0x65})
 	mask := clip.Rect(backdrop).Push(gtx.Ops)
@@ -81,33 +89,39 @@ func (s *analysisSheet) layoutPanel(gtx layout.Context, view ui.View, title stri
 	view.Origin = image.Pt(backdrop.Max.X+gtx.Dp(16), gtx.Dp(16))
 	layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints = layout.Exact(image.Pt(width, gtx.Constraints.Max.Y))
-		return view.Floating(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				var headHeight int
-				rows := []ui.ColumnChild{
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
-							layout.Flexed(1, view.Body(ui.TextHeading, title, view.Colors.Ink)),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								if !canClose {
-									gtx = gtx.Disabled()
-								}
-								return view.Button(&s.close, view.Language.Text(i18n.FieldDismiss))(gtx)
-							}))
-						headHeight = dims.Size.Y
-						return dims
-					}),
-					ui.Fill(func(gtx layout.Context) layout.Dimensions {
-						bodyView := view
-						bodyView.Origin.Y += headHeight + gtx.Dp(12)
-						return body(gtx, bodyView)
-					}),
-				}
-				if footer != nil {
-					rows = append(rows, ui.Rigid(footer))
-				}
-				return (ui.Column{Gap: 12}).Layout(gtx, rows...)
+		panel := func(gtx layout.Context) layout.Dimensions {
+			return view.Floating(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					var headHeight int
+					rows := []ui.ColumnChild{
+						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
+								layout.Flexed(1, view.Body(ui.TextHeading, title, view.Colors.Ink)),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									if !canClose {
+										gtx = gtx.Disabled()
+									}
+									return view.Button(&s.close, view.Language.Text(i18n.FieldDismiss))(gtx)
+								}))
+							headHeight = dims.Size.Y
+							return dims
+						}),
+						ui.Fill(func(gtx layout.Context) layout.Dimensions {
+							bodyView := view
+							bodyView.Origin.Y += headHeight + gtx.Dp(12)
+							return body(gtx, bodyView)
+						}),
+					}
+					if footer != nil {
+						rows = append(rows, ui.Rigid(footer))
+					}
+					return (ui.Column{Gap: 12}).Layout(gtx, rows...)
+				})
 			})
-		})
+		}
+		if s.modal {
+			return accessibility.Modal(gtx, s, title, panel)
+		}
+		return panel(gtx)
 	})
 }

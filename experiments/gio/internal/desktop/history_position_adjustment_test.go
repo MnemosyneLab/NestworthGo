@@ -42,6 +42,7 @@ func TestLedgerQuantityAdjustmentsPreserveExactCostAndMatchWails(t *testing.T) {
 	click("Ledger activity")
 	open := func() *accountInvestmentDraft {
 		t.Helper()
+		click("Record change")
 		click("Adjust position")
 		d := f.draft
 		h.focused(&d.adjustment.holdingPick.Trigger)
@@ -90,7 +91,7 @@ func TestLedgerQuantityAdjustmentsPreserveExactCostAndMatchWails(t *testing.T) {
 		EffectiveAt: now.Format(time.RFC3339Nano)}
 	assertLiabilityPosting(t, app, addID, adapter, req)
 	click("Back to ledger activity")
-	h.focused(&f.adjustmentOpen)
+	h.focused(&ledger.record.trigger)
 	label("Position adjustment · Quantity added · 0.625 · QA-BUY · Harbor Brokerage")
 
 	now = now.Add(time.Minute)
@@ -113,11 +114,11 @@ func TestLedgerQuantityAdjustmentsPreserveExactCostAndMatchWails(t *testing.T) {
 	req.EffectiveAt = now.Format(time.RFC3339Nano)
 	assertLiabilityPosting(t, app, removeID, adapter, req)
 	click("Back to ledger activity")
-	h.focused(&f.adjustmentOpen)
+	h.focused(&ledger.record.trigger)
 	label("Position adjustment · Quantity removed · 0.125 · QA-BUY · Harbor Brokerage")
 	d = open()
 	click("Cancel")
-	h.focused(&f.adjustmentOpen)
+	h.focused(&ledger.record.trigger)
 
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
