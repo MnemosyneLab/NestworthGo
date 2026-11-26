@@ -1657,7 +1657,6 @@ const (
 	ProductReceiptRecorded
 	ProductReceiptHistory
 	ProductInterestHistory
-	ProductReceiptNotDue
 	ProductPrincipalFact
 	ProductInterestFact
 	ProductNoInterestPosted
@@ -1728,6 +1727,24 @@ const (
 	HoldingReconValuationFailed
 	HoldingReconObservedValue
 	HoldingReconValuationImpact
+	ProductHistoryHeading
+	ProductHistoryLoading
+	ProductHistoryFailed
+	ProductHistoryChanged
+	ProductHistoryEmpty
+	ProductHistoryComplete
+	ProductHistoryCount
+	ProductHistoryRefresh
+	ProductHistoryOlder
+	ProductHistoryRetryOlder
+	ProductHistoryOpened
+	ProductHistoryRecorded
+	ProductHistoryInterest
+	ProductHistorySettled
+	ProductHistoryRenewed
+	ProductHistoryUndo
+	ProductHistoryValuation
+	ProductHistoryReversed
 	ProductStandaloneInterestSaved
 	ProductStandaloneInterestHelp
 	ProductStandaloneInterestInvalid

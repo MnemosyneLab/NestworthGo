@@ -88,6 +88,9 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.problem != i18n.NoMessage {
 				message := d.problem
+				if message == i18n.ProductReceiptTimeInvalid && !d.fromTasks {
+					message = i18n.ProductRedemptionTimeInvalid
+				}
 				if d.received != nil {
 					switch message {
 					case i18n.ProductReceiptAmountsInvalid:
@@ -97,8 +100,6 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 					}
 				} else if d.kind == domain.ProductLockedProduct {
 					switch message {
-					case i18n.ProductReceiptTimeInvalid:
-						message = i18n.ProductRedemptionTimeInvalid
 					case i18n.ProductReceiptAmountsInvalid:
 						message = i18n.ProductRedemptionAmountsInvalid
 					}
@@ -158,7 +159,7 @@ func (d *productReceiptDraft) layoutReceiptTime(gtx layout.Context, view ui.View
 	if view.WeekStart == "sunday" {
 		weekStart = time.Sunday
 	}
-	dates := ui.DateOptions{Min: d.maturity, Today: today, Max: today, WeekStart: weekStart, Format: view.DateFormat, Clearable: true}
+	dates := ui.DateOptions{Min: d.earliest, Today: today, Max: today, WeekStart: weekStart, Format: view.DateFormat, Clearable: true}
 	var timeOrigin image.Point
 	return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {

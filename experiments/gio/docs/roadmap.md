@@ -2226,7 +2226,7 @@ checkpoint.
 | Gio and Wails adapter | Independent SQLite copies matched USD 131.2345 at the same valuation instant, with USD 156 cash and existing activity intact. The redemption copied the same effective date, gross USD 132.1234, fee USD 1.2222, and final cash USD 286.9012. Both reservations in the automated case were released. Both tests exercise Cancel, lost-acknowledgement retry and normal SQLite reopen. Valuation tests invalid input, and redemption tests a preview made stale by a newly added reservation. |
 | Packaged Gio Linux X11 | At 1140×920 both forms canceled without a write and Return reopened the original action. At 665×480 keyboard confirmation posted the valuation and then, after a restart, the redemption. Reopen showed USD 131.2345 and USD 156 cash after valuation. After redemption a second restart showed Settled and its exact Ledger sell with USD 132.1234 gross, USD 1.2222 fee and USD 286.9012 cash. The shell Back buttons restored the receipt and account product links, and Return reopened each. SQLite matched the observation timestamp and closed operation, one released USD 25 reservation, and intact earlier rows. Both source hashes matched. |
 | Checks | Full Gio tests, vet, stock Linux packaging, the fixture exporter, focused shared Go and Wails adapter tests, and 64 Wails product sheet, account products and Available Funds navigation tests passed. |
-| Remaining | Eligible grouped undo and pre-maturity term-deposit receipts remain. See [standalone interest and terms](#standalone-product-interest-and-terms). Renewal is available via linked Reconciliation. Interactive Wails and native macOS and accessibility acceptance remain open. |
+| Remaining | Eligible grouped undo remains. See [standalone interest and terms](#standalone-product-interest-and-terms) and [pre-maturity term-deposit receipts](#standalone-pre-maturity-term-deposit-receipt). Renewal is available via linked Reconciliation. Interactive Wails and native macOS and accessibility acceptance remain open. |
 
 #### Standalone product interest and terms
 
@@ -2256,7 +2256,50 @@ Go contracts and produce no reconciliation links.
 | Gio and Wails adapter | Independent copies matched manual interest of USD 3.4568, remaining interest USD 6.4197, principal USD 125.25, value USD 123.4567, and cash USD 159.4568. A simple-interest deposit matched USD 1.0123, exact paid-through date, USD 50.1234 principal and USD 106.8766 cash after reopen. The terms case matched USD 0.0123 fee, two-day settlement, name and short name, one new revision and unchanged principal, value, cash and activities. Tests exercise Cancel, invalid draft, stale preview, exact retry, revision conflict and reload. |
 | Packaged Gio Linux X11 | At 1140×920, Cancel left interest and terms unchanged and Return reopened the originating action. At 665×480, keyboard confirmation posted interest and saved terms. The terms picker remained usable after scrolling. SQLite reopen showed one USD 3.4568 interest activity, USD 159.4568 cash, principal USD 125.25, value USD 123.4567 and USD 6.4197 forecast. The terms edit saved a two-day settlement and USD 0.0123 exit fee without another financial entry. The resumed app opened the exact interest entry from Accounts. Shell Back restored the receipt link and Return reopened it at compact width. The reservation, earlier immutable rows and independent source checksums stayed intact. |
 | Checks | Full Gio tests and vet, the Linux package build, fixture exporter, focused application and Wails adapter suites, and 64 Wails product sheet, account and Available Funds navigation tests passed. |
-| Remaining | Grouped undo, fuller operation history and pre-maturity term-deposit receipts remain. The existing due-only Tasks verification keeps its eligibility and time guards. Native macOS and interactive Wails remain open. |
+| Remaining | Grouped undo remains. See [pre-maturity receipts and product history](#standalone-pre-maturity-term-deposit-receipt). Native macOS and interactive Wails remain open. |
+
+#### Standalone pre-maturity term-deposit receipt
+
+From Accounts or Available Funds, open the term deposit and choose **Confirm
+actual receipt**. Availability follows the shared product detail's settlement
+permission. Enter returned principal, actual interest and the fee from the
+receipt. The standalone form accepts an effective date before maturity and
+sends it to the same Go preview as the Wails product detail. The Go service
+still validates date, available holdings, cash and reservations. The existing
+Tasks shortcut verifies that the contract is due and keeps its maturity-date
+guard. The planned early-access policy continues to describe expected
+availability. It does not replace the actual receipt entered from the product.
+
+Confirmation uses the reviewed-state hash and stable mutation ID. Cancel
+returns to the action with no write. Back to details retains the entered
+amounts and civil time. A stale review needs a new preview. A lost response
+retries the same command. One settlement groups the principal and interest
+Ledger activities and releases the listed reservations. A later visit exposes
+the same receipt links under the closed contract.
+[Wails actual receipt](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx) · [Shared settlement](../../../internal/application/product_operations.go)
+
+| Evidence | Observed result |
+| --- | --- |
+| Gio and Wails adapter | Independent synthetic ledgers agreed on USD 987.6543 returned principal, USD 4.5678 actual interest, USD 1.2345 fee and USD 2090.9876 cash after reopen. The December 20 contract settled on November 21 at 18:15 in the ledger timezone. The shared preview rejected a future time and the due-only Tasks flow refused the open, unmatured contract. Reservation changes made the first review stale and a lost response replayed the same command. |
+| Packaged Gio Linux X11 | At 1140×920, Back retained all amounts and the chosen November 23 03:05 civil time. Cancel posted nothing and Return reopened the focused action. Return posted a fresh review at 665×480. The reopened SQLite copy held one new settlement and two linked activities at 2026-11-22 19:05 UTC, USD 2090.9876 cash, and the released USD 25 reservation. The original immutable rows, unrelated contracts and source checksums matched. |
+
+#### Product operation history
+
+Product details list all operation kinds, effective times in the ledger
+timezone and recorded reversal status. Gio places Refresh and **Load older
+operations** above the list so both are reachable together at compact widths.
+The shared 25-row cursor keeps the order and stable IDs. A failed page keeps
+earlier rows and can be retried. If the head changes during paging, refresh
+before reading older operations. At the end, focus returns to Refresh and the
+page reports the full count. The latest unreversed interest link continues to
+use the first page. Grouped undo remains a separate workflow.
+[Wails history](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx) · [Shared history read](../../../internal/application/liquidity.go)
+
+| Evidence | Observed result |
+| --- | --- |
+| Gio and Wails adapter | The first-page and next-page failures were retryable. A new valuation while paging required refresh. Gio matched Wails order, stable IDs, effective instants and reversal status across 30 rows after SQLite reopen. |
+| Packaged Gio Linux X11 | At 1140×920 the first page showed 25 operations. At 665×480 Tab and Return loaded all 29, including the grouped reversal, reversed interest and original product entry. Eight financial and linkage tables matched the independent source. |
+| Checks | Full Gio tests and vet, stock Linux packaging, the fixture exporter, focused application and Wails adapter tests, and 64 Wails product, account and Available Funds tests passed. Interactive Wails, native macOS and native accessibility remain open. |
 
 #### Read-only term deposits
 
@@ -2398,8 +2441,8 @@ statement sessions.
 
 Broader investment work still includes remaining linked cash, balance and other reconciliation activity, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
-include eligible grouped undo, pre-maturity term deposit receipts, and broader
-policy and reservation actions. Renewal is covered
+include eligible grouped undo and broader policy and reservation actions.
+Renewal is covered
 through linked Reconciliation.
 Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
@@ -3071,8 +3114,8 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 
 1. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
    Standalone locked-product valuation and redemption, interest and terms are
-   covered. Prioritize eligible grouped undo and the pre-maturity term-deposit
-   receipt. Renewal is covered
+   covered, along with the pre-maturity term-deposit receipt and paged product
+   history. Prioritize eligible grouped undo. Renewal is covered
    through Reconciliation in Gio, and the traced Wails product detail has no
    standalone renewal action. Keep funding source and reservation effects
    explicit.

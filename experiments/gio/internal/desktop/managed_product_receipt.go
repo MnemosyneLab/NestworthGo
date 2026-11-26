@@ -34,10 +34,8 @@ func (r productRead) canConfirmReceipt() bool {
 }
 
 func (r productRead) canRecordReceipt() bool {
-	if r.detail != nil && r.detail.Contract.Kind == domain.ProductLockedProduct {
-		return r.detail.Contract.State == domain.ProductStateOpen && slices.Contains(r.detail.PermittedActions, string(domain.ProductOpSettle))
-	}
-	return r.canConfirmReceipt()
+	return r.detail != nil && r.detail.Contract.State == domain.ProductStateOpen &&
+		slices.Contains(r.detail.PermittedActions, string(domain.ProductOpSettle))
 }
 
 func (r productRead) canRecordInterest() bool {
@@ -47,6 +45,7 @@ func (r productRead) canRecordInterest() bool {
 type productReceiptInput struct {
 	principal, interest, fee string
 	day, minute              string
+	fromTasks                bool
 }
 
 type productInterestInput struct {
@@ -92,12 +91,12 @@ func reviewProductReceipt(ctx context.Context, service productReceiptLedger, id 
 		if err != nil {
 			return err
 		}
-		if !current.canRecordReceipt() {
+		if !current.canRecordReceipt() || input.fromTasks && !current.canConfirmReceipt() {
 			return errProductReceiptUnavailable
 		}
 		contract := current.detail.Contract
 		deposit := contract.Kind == domain.ProductTermDeposit
-		if deposit && input.day != "" && input.day < *contract.MaturityOn {
+		if input.fromTasks && input.day != "" && input.day < *contract.MaturityOn {
 			return &domain.Error{Code: domain.ErrInvalidChangeTime}
 		}
 		// Pass the actual amounts through unchanged. An explicit timestamp
@@ -125,7 +124,7 @@ func reviewProductReceipt(ctx context.Context, service productReceiptLedger, id 
 		if err != nil {
 			return err
 		}
-		if deposit {
+		if input.fromTasks {
 			day, _, err := domain.LocalCivilDate(plan.review.EffectiveAt, plan.review.Timezone)
 			if err != nil {
 				return err
@@ -141,8 +140,9 @@ func reviewProductReceipt(ctx context.Context, service productReceiptLedger, id 
 }
 
 type productReceiptDraft struct {
-	name, currency, maturity, timezone   string
+	name, currency, earliest, timezone   string
 	kind                                 domain.ProductKind
+	fromTasks                            bool
 	principal, interest, fee             ui.TextField
 	date                                 ui.DatePicker
 	time                                 ui.TimePicker
@@ -191,16 +191,19 @@ func (p *productDetailPage) receiptAction() *widget.Clickable {
 	return &p.startConfirmation
 }
 
-func (p *productDetailPage) startReceipt() {
+func (p *productDetailPage) startReceipt(fromTasks bool) {
 	contract := p.current.detail.Contract
 	d := &productReceiptDraft{
 		name: productName(*p.current.detail), kind: contract.Kind, focusEditor: true,
+		fromTasks:  fromTasks,
 		reviewList: widget.List{List: layout.List{Axis: layout.Vertical}},
 		currency:   contract.Currency.String(), timezone: p.current.timezone,
 		principal: ui.NewTextField(true), interest: ui.NewTextField(true), fee: ui.NewTextField(true),
 	}
+	if fromTasks {
+		d.earliest = productString(contract.MaturityOn)
+	}
 	if contract.Kind == domain.ProductTermDeposit {
-		d.maturity = *contract.MaturityOn
 		d.principal.Editor.SetText(contract.Principal.CanonicalAmount())
 		d.interest.Editor.SetText("0")
 	}
@@ -229,7 +232,8 @@ func (p *productDetailPage) reviewReceipt() {
 		})
 		return
 	}
-	input := productReceiptInput{strings.TrimSpace(d.principal.Text()), strings.TrimSpace(d.interest.Text()), strings.TrimSpace(d.fee.Text()), d.day, d.minute}
+	input := productReceiptInput{principal: strings.TrimSpace(d.principal.Text()), interest: strings.TrimSpace(d.interest.Text()),
+		fee: strings.TrimSpace(d.fee.Text()), day: d.day, minute: d.minute, fromTasks: d.fromTasks}
 	d.reviewing = runHistoryRead(&p.workers, p.invalidate, func() (productReceiptPlan, error) {
 		return reviewProductReceipt(p.ctx, p.receipts, id, input, p.clock)
 	})

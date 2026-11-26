@@ -104,7 +104,8 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|standalone-interest-terms|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections) household='Synthetic first buy' ;;
+    early-deposit-receipt) household='Synthetic term deposits' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|standalone-interest-terms|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections|product-operation-history) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -298,6 +299,22 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   name, two settlement days and a USD 0.0123 exit fee. Restart and verify
   the exact policy, USD 125.25 principal, USD 123.4567 value, USD
   159.4568 cash and absence of any further activity.
+
+- Run `run_copy early-deposit-receipt gio` and
+  `run_copy early-deposit-receipt wails`. Open Winter Deposit from
+  Available Funds. Record returned principal USD 987.6543, interest USD
+  4.5678 and fee USD 1.2345, with an effective date before its December
+  20 maturity. Back to details must retain input. Cancel once and
+  confirm a fresh preview. Restart and open both Ledger receipt links
+  from the settled deposit in Accounts. Verify exact USD 2090.9876
+  account cash and the release of the named USD 25 reservation.
+
+- Run `run_copy product-operation-history gio` and
+  `run_copy product-operation-history wails`. Open Synthetic locked
+  product and scroll to product operation history. Observe the grouped
+  reversal and the reversed interest entry. Load the next page from the
+  first 25 rows and verify all 29 rows, including the original recorded
+  product. Refresh returns to the first page. No ledger write is needed.
 
 - Run `run_copy linked-debt-value gio` and
   `run_copy linked-debt-value wails`. In Tasks, Reconciliation, open the

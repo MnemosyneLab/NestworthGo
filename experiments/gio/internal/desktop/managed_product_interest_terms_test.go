@@ -121,11 +121,11 @@ func TestStandaloneProductInterestMatchesWails(t *testing.T) {
 			detail.Contract.MaturityInterest == nil || detail.Contract.MaturityInterest.CanonicalAmount() != remaining || len(detail.Reservations) != 1 {
 			t.Fatalf("wrong saved terms or reserve: %+v / %v", detail, err)
 		}
-		activityID, err := readRecentProductInterest(ctx, c.app, c.id)
+		history, err := readProductHistoryPage(ctx, c.app, c.id, "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		activity, err := c.app.Activity(ctx, activityID)
+		activity, err := c.app.Activity(ctx, history.interest)
 		if err != nil || activity.Kind != domain.ActivityCashIn || activity.Reason != domain.ReasonInterest || activity.EffectiveAt.Format(time.RFC3339) != "2026-11-23T10:00:00Z" ||
 			activity.ProductContext == nil || activity.ProductContext.OperationID != c.operation || len(activity.Effects) != 1 ||
 			activity.Effects[0].Money == nil || activity.Effects[0].Money.CanonicalAmount() != amount {

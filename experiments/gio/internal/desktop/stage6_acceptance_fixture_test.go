@@ -183,6 +183,28 @@ func seedStage6TermDeposit(t *testing.T) []byte {
 	return stage6SeedBytes(t, db)
 }
 
+func seedStage6EarlyTermDeposit(t *testing.T) []byte {
+	t.Helper()
+	db, _, app := openStage6Database(t, filepath.Join(t.TempDir(), "early-deposit.db"), func() time.Time { return accountTestClock })
+	fixture, err := seedManagedProducts(t.Context(), app, accountTestClock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reserveTermDeposit(t, app, fixture.ids["Winter Deposit"], "Synthetic deposit reserve")
+	return stage6SeedBytes(t, db)
+}
+
+func seedStage6ProductHistory(t *testing.T) []byte {
+	t.Helper()
+	db, _, app := openStage6Database(t, filepath.Join(t.TempDir(), "product-history.db"), func() time.Time { return accountTestClock })
+	ids, err := seedExistingBuy(t.Context(), app, accountTestClock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedPagedProductHistory(t, app, ids.account)
+	return stage6SeedBytes(t, db)
+}
+
 func TestExportStage6DesktopFixtures(t *testing.T) {
 	output := os.Getenv("NESTWORTH_STAGE6_QA_DIR")
 	if output == "" {
@@ -242,6 +264,8 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"multi-account-reconciliation", seedStage6ReconciliationSelection(t)},
 		{"check-account", lockedProductSeed},
 		{"deposit-corrections", termDepositSeed},
+		{"early-deposit-receipt", seedStage6EarlyTermDeposit(t)},
+		{"product-operation-history", seedStage6ProductHistory(t)},
 	} {
 		dir := filepath.Join(root, profile.name)
 		if err := os.Mkdir(dir, 0o700); err != nil {
