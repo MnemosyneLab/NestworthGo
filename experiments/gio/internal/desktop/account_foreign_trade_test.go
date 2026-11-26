@@ -54,6 +54,7 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	h.frame()
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record buy")
 	click("Record buy")
 	d := p.investment.draft
 	h.focused(&d.selectInstrument.Trigger)
@@ -84,6 +85,7 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	}
 	compareLiabilityReview(t, fx.Preview, adapter, fxRequest)
 	assertLiabilityPosting(t, app, exchange.Activity.ID, adapter, fxRequest)
+	scrollToAccountDetailLabel(h, "Record buy")
 	click("Record buy")
 	d = p.investment.draft
 	chooseTradeInstrument(t, h, d, ids.foreign, finish)
@@ -151,6 +153,7 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	h.focused(&p.investment.buy)
 
 	now = now.Add(time.Minute)
+	scrollToAccountDetailLabel(h, "Record sell")
 	click("Record sell")
 	d = p.investment.draft
 	chooseTradeInstrument(t, h, d, ids.foreign, finish)

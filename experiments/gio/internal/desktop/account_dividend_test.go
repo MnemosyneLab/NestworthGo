@@ -90,6 +90,7 @@ func TestCashDividendGioPreviewReplayAndWailsParity(t *testing.T) {
 	label("US$254.00")
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record cash dividend")
 	click("Record cash dividend")
 	d := accounts.investment.draft
 	if d.kind != domain.ActivityCashDividend || len(d.sources.Instruments) != 1 || d.sources.Holdings[d.instrument].ID != ids.holding ||

@@ -47,6 +47,7 @@ func TestAccountPositionImportAfterHistoryMatchesWails(t *testing.T) {
 	finish()
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record existing position")
 	click("Record existing position")
 	d := p.investment.draft
 	if len(d.sources.Instruments) != 1 || d.instrument != ids.foreign || d.currency != "EUR" {
@@ -68,6 +69,7 @@ func TestAccountPositionImportAfterHistoryMatchesWails(t *testing.T) {
 		t.Fatal("opening, reviewing or canceling import changed the ledger")
 	}
 
+	scrollToAccountDetailLabel(h, "Record existing position")
 	click("Record existing position")
 	d = p.investment.draft
 	setBankField(h, "Existing quantity", &d.quantity, "2.12345678")
@@ -144,6 +146,7 @@ func TestAccountPositionImportAfterHistoryMatchesWails(t *testing.T) {
 	}
 	click("Back to account")
 	h.focused(&p.investment.importOpen)
+	scrollToAccountDetailLabel(h, "Record existing position")
 	click("Record existing position")
 	label("No unused securities are available for this account.")
 	click("Cancel")

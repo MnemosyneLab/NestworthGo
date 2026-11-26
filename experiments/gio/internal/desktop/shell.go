@@ -1199,6 +1199,12 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 }
 
 func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
+	name := view.Language.Text(title)
+	if s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.target.account != "" {
+		if accountName := s.accounts.name(); accountName != "" {
+			name = accountName
+		}
+	}
 	recordView := view
 	view.Focus = nil
 	colors := view.Colors
@@ -1230,7 +1236,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 					}
 					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 					event.Op(gtx.Ops, &s.headingFocus)
-					return view.Line(gtx, ui.TextPageTitle, view.Language.Text(title), colors.Ink)
+					return view.Line(gtx, ui.TextPageTitle, name, colors.Ink)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if s.activeRoute() == historyRoute && s.historyPage.canRecord() {

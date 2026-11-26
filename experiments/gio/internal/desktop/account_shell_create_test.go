@@ -128,13 +128,18 @@ func TestValuedAndHoldingsCreationThroughInstitution(t *testing.T) {
 		h.click("Retry", false)
 		finish()
 		label(tc.name)
+		if tc.kind == domain.TypeCashOnHand {
+			label("Cash on hand · Cash by currency")
+		}
+		if tc.mode == domain.TrackingHoldings {
+			scrollToAccountDetailLabel(h, tc.detail)
+		}
 		label(tc.detail)
 		id := p.target.account
 		if id == "" || fault.writes.Load() != before+1 || p.creation.draft != nil {
 			t.Fatal("successful create lost the stable ID or replayed the write")
 		}
 		if tc.kind == domain.TypeCashOnHand {
-			label("Cash on hand · Cash by currency")
 			if liabilityTextAppears(h.router.AppendSemantics(nil), "No investment holdings.") {
 				t.Fatal("cash-only account displayed investments")
 			}

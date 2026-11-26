@@ -266,6 +266,7 @@ func TestManagedTermDepositReadOnlyMatchesWails(t *testing.T) {
 	label("Confirm actual receipt · Available for review")
 	const bank = "Open account · Harbor Deposit Bank"
 	click(bank)
+	scrollToAccountDetailLabel(h, "No investment holdings.")
 	label("No investment holdings.")
 	scrollProductControl(t, h, winter)
 	click(winter)

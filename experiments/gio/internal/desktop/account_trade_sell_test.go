@@ -101,6 +101,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	label("US$265.00")
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record sell")
 	click("Record sell")
 	d := accounts.investment.draft
 	if d.kind != domain.ActivitySell || len(d.sources.Instruments) != 1 || d.sources.Holdings[d.instrument].ID != ids.holding {
@@ -240,6 +241,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 
 	now = accountTestClock.Add(2 * time.Minute)
 	click("Open account · Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record sell")
 	click("Record sell")
 	d = accounts.investment.draft
 	setFields(d, "3", "60", "2")

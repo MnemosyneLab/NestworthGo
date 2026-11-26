@@ -47,9 +47,16 @@ type accountPositions struct {
 	retry   widget.Clickable
 }
 
-func (p *accountsPage) accountPositionRows(view ui.View, account domain.Account) []layout.Widget {
+func (p *accountsPage) accountPositionRows(view ui.View, account domain.Account, first int) []layout.Widget {
 	l, positions := view.Language, &p.positions
 	rows := []layout.Widget{accountSection(view, l.Text(i18n.AccountInvestments))}
+	if p.opening != nil && p.opening.saved == account.ID {
+		rows = append(rows, view.Message(l.Text(i18n.OpeningPositionSaved), view.Colors.Ink))
+	}
+	if actions := p.accountInvestmentShortcuts(view); len(actions) != 0 {
+		p.detail.investmentActionsRow = first + len(rows)
+		rows = append(rows, accountDetailActions(view, actions))
+	}
 	if p.current.holdingsErr != nil {
 		return append(rows, accountLine(view, l.Text(i18n.AccountPositionsReadFailed)), func(gtx layout.Context) layout.Dimensions {
 			if p.request != nil {
@@ -144,6 +151,57 @@ func (p *accountsPage) accountPositionRows(view ui.View, account domain.Account)
 		}
 	}
 	return rows
+}
+
+func (p *accountsPage) accountInvestmentShortcuts(view ui.View) []layout.Widget {
+	var actions []layout.Widget
+	add := func(button *widget.Clickable, label i18n.MessageID) {
+		actions = append(actions, func(gtx layout.Context) layout.Dimensions {
+			p.investment.watchAccountAction(gtx, view, button)
+			return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
+				Title: view.Language.Text(label)})(gtx)
+		})
+	}
+	if p.canOpenPosition() {
+		add(&p.opening.open, i18n.OpeningPositionOpen)
+	}
+	f := p.investment
+	if p.canTradeAccount() {
+		label := i18n.BuyExistingOpen
+		if p.canFirstBuy() {
+			label = i18n.BuyOpen
+		}
+		add(&f.buy, label)
+	}
+	if p.canSell() {
+		add(&f.sell, i18n.SellOpen)
+	}
+	if p.canRecordDividend() {
+		add(&f.dividend, i18n.DividendOpen)
+	}
+	if p.canImportPosition() {
+		add(&f.importOpen, i18n.OpeningPositionOpen)
+		add(&f.custodyOpen, i18n.CustodyOpen)
+		add(&f.adjustmentOpen, i18n.QuantityAdjustOpen)
+	}
+	return actions
+}
+
+// The account list restores its prior offset on Back. Changed cash or
+// composition above a shortcut can push it outside that saved viewport.
+func (p *accountsPage) revealInvestmentShortcut(focus event.Tag) bool {
+	f, detail := p.investment, &p.detail
+	if f == nil || focus == nil || detail.investmentActionsRow < 0 || detail.revealedShortcut == focus {
+		return false
+	}
+	switch focus {
+	case &f.buy, &f.sell, &f.dividend, &f.importOpen, &f.custodyOpen, &f.adjustmentOpen:
+		p.list.Position = layout.Position{First: detail.investmentActionsRow}
+		detail.revealedShortcut = focus
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *accountsPage) accountHoldingCard(view ui.View, account domain.Account, row portfolioHoldingRow) layout.Widget {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -27,6 +28,9 @@ type accountDetailControls struct {
 	cashActions        accountCashActions
 	composition        accountCompositionControls
 	cashHistory        chartDataTable
+
+	investmentActionsRow int
+	revealedShortcut     event.Tag
 }
 
 func (d *accountDetailControls) restore(visit accountCompositionVisit) {
@@ -99,8 +103,8 @@ func (p *accountsPage) accountReconciliationRow(view ui.View, account domain.Acc
 	rows := []layout.Widget{
 		view.Body(ui.TextLabel, l.Text(i18n.AccountCheckLastSuccess)+": "+status, ink),
 	}
+	var actions []layout.Widget
 	if d.openReconciliation != nil {
-		var actions []layout.Widget
 		if account.ArchivedAt == nil {
 			actions = append(actions, accountDetailButton(view, &d.reconcile, i18n.AccountCheckOpen, ui.ButtonOutline, func() {
 				d.openReconciliation(account.ID, "", account.Name, &d.reconcile)
@@ -111,9 +115,16 @@ func (p *accountsPage) accountReconciliationRow(view ui.View, account domain.Acc
 				d.openReconciliation(account.ID, last.ID, account.Name, &d.receipt)
 			}))
 		}
-		if len(actions) != 0 {
-			rows = append(rows, accountDetailActions(view, actions))
-		}
+	}
+	if f := p.statement; f != nil && statementCard(account) && p.freshDetail() != nil {
+		actions = append(actions, func(gtx layout.Context) layout.Dimensions {
+			view.Focus.Watch(gtx, &f.open)
+			return view.ButtonOf(&f.open, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
+				Title: l.Text(i18n.StatementOpen)})(gtx)
+		})
+	}
+	if len(actions) != 0 {
+		rows = append(rows, accountDetailActions(view, actions))
 	}
 	if last != nil {
 		i := slices.IndexFunc(last.Accounts, func(row domain.ReconciliationAccount) bool {
@@ -204,7 +215,23 @@ func accountCashHistoryTable(view ui.View, values []domain.AccountCashValue) cha
 	return table
 }
 
-func accountSimpleValue(view ui.View, row accountRow, update layout.Widget) layout.Widget {
+func (p *accountsPage) accountDebtShortcut(view ui.View) layout.Widget {
+	if !p.canPostLiability() {
+		return nil
+	}
+	f := p.liabilityPosting
+	return func(gtx layout.Context) layout.Dimensions {
+		view.Focus.Watch(gtx, &f.open)
+		if f.restore && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: &f.open})
+			f.restore = false
+		}
+		return view.ButtonOf(&f.open, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
+			Title: view.Language.Text(i18n.LiabilityRecordDebt)})(gtx)
+	}
+}
+
+func accountSimpleValue(view ui.View, row accountRow, actions []layout.Widget) layout.Widget {
 	l := view.Language
 	label := i18n.AccountCurrentBalance
 	if row.record.Account.TrackingMode == domain.TrackingManualValue {
@@ -214,8 +241,8 @@ func accountSimpleValue(view ui.View, row accountRow, update layout.Widget) layo
 		view.Body(ui.TextHeading, l.Text(accountTypes[row.record.Account.AccountType]), view.Colors.Ink),
 		view.Message(fmt.Sprintf(l.Text(label), accountAmountLines(view, row, false)[0].label), view.Colors.SecondaryInk),
 	}
-	if update != nil {
-		rows = append(rows, accountDetailActions(view, []layout.Widget{update}))
+	if len(actions) != 0 {
+		rows = append(rows, accountDetailActions(view, actions))
 	}
 	return sectionCard(view, rows)
 }

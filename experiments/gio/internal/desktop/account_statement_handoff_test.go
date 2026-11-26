@@ -161,7 +161,7 @@ func TestCreditCardStatementHandoffReusesLedgerAndJournal(t *testing.T) {
 	const amount, note = "2.3456", "Synthetic statement desktop comparison"
 	preview := func() *cashMovementDraft {
 		t.Helper()
-		click("Record debt activity")
+		click("Record a change")
 		f := session.cashDated
 		if f == nil || f.draft == nil || f.draft.account != ids.card || f.draft.reason != domain.ReasonCardPurchase ||
 			f.linked.link().SessionID != ids.session || f.linked.link().ItemID != "balance" {

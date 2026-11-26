@@ -644,12 +644,18 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 	}
 	target := focus.Target
 	if !focus.TargetDrawn {
-		if s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.canImportPosition() {
-			if fallback := s.accounts.investment.holdingActionFallback(target); fallback != nil {
-				entry.focus = fallback
-				s.accounts.list.Position = layout.Position{}
+		if s.activeRoute() == accountsRoute && s.accounts != nil {
+			p := s.accounts
+			if p.revealInvestmentShortcut(target) {
 				gtx.Execute(op.InvalidateCmd{})
 				return
+			}
+			if p.canImportPosition() {
+				if fallback := p.investment.holdingActionFallback(target); fallback != nil {
+					entry.focus = fallback
+					gtx.Execute(op.InvalidateCmd{})
+					return
+				}
 			}
 		}
 		if s.activeRoute() == dataHealthRoute && s.dataHealth != nil && focus.Target != nil {

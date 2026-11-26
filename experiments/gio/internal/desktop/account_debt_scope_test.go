@@ -167,6 +167,7 @@ func TestCashAccountDebtPaymentUsesHoldingsCash(t *testing.T) {
 	}
 	p, h, finish := liabilityPostingHarness(t, app, "Synthetic Brokerage", image.Pt(660, 740), func() time.Time { return accountTestClock })
 	click := func(text string) { h.click(text, false); finish() }
+	scrollToAccountDetailLabel(h, "Record debt activity")
 	click("Record debt activity")
 	click("Debt payment")
 	d := p.liabilityPosting.draft

@@ -112,8 +112,18 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	click := func(text string) { t.Helper(); h.click(text, false); settle() }
 	label := func(text string) { t.Helper(); assertPageLabel(t, &h.router, text) }
 	open(ids.account)
-	label("Harbor Brokerage")
-	label("Account composition")
+	title := assertPageLabel(t, &h.router, "Harbor Brokerage")
+	composition := assertPageLabel(t, &h.router, "Account composition")
+	check := assertPageLabel(t, &h.router, "View last successful record")
+	parent := assertPageLabel(t, &h.router, "Back to accounts")
+	if title.Min.Y >= parent.Min.Y || check.Max.Y > composition.Min.Y {
+		t.Fatalf("account header sequence: title %v, parent %v, reconciliation %v, composition %v", title, parent, check, composition)
+	}
+	for _, shortcut := range []string{"Record debt activity", "Record buy", "Transfer position"} {
+		if node := findPageLabel(&h.router, shortcut); node != nil && node.Desc.Bounds.Min.Y < composition.Min.Y {
+			t.Fatalf("%q interrupted the balance, reconciliation and composition sequence", shortcut)
+		}
+	}
 	label("By type")
 	label("By detail")
 	if !reflect.DeepEqual(p.current.lastCheck, want) {

@@ -118,6 +118,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	label("US$200.00")
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record first buy")
 	click("Record first buy")
 	d := accounts.investment.draft
 	if len(d.sources.Instruments) != 2 || d.instrument != "" || d.day != "2026-11-22" || d.time != "01:00:00" {
@@ -176,6 +177,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Cancel")
 	noBuy()
 
+	scrollToAccountDetailLabel(h, "Record first buy")
 	click("Record first buy")
 	chooseTradeInstrument(t, h, accounts.investment.draft, ids.instrument, settle)
 	d = accounts.investment.draft

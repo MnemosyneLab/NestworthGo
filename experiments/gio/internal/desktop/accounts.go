@@ -359,6 +359,7 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
 	p.positions.visit = accountPositionsVisit{}
 	p.detail.restore(accountCompositionVisit{})
+	p.detail.investmentActionsRow, p.detail.revealedShortcut = -1, nil
 	p.invalid = !validAccountTarget(target)
 	p.read()
 }
