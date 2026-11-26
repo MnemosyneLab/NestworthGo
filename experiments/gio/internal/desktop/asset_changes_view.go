@@ -237,7 +237,7 @@ func assetLevelMoney(view ui.View, value *domain.SignedMoney, debts bool) string
 
 func (p *assetChangesPage) categoryRows(view ui.View, data application.CategoriesResult) []ui.ColumnChild {
 	l := view.Language
-	rows := []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.AssetCategoryTotal)+" · "+returnMoney(view, data.Total), view.Colors.Ink))}
+	rows := []ui.ColumnChild{ui.Rigid(labeledAmount(view, i18n.AssetCategoryTotal, returnMoney(view, data.Total), view.Colors.Ink))}
 	if data.ValuationForced != nil {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk)))
 	}
@@ -246,6 +246,27 @@ func (p *assetChangesPage) categoryRows(view ui.View, data application.Categorie
 	}
 	if !data.Available || len(data.Rows) == 0 {
 		return append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetNoData), view.Colors.SecondaryInk)))
+	}
+	if len(data.Rows) <= 6 {
+		// A short list is one card as tall as its rows, not a scroller with
+		// empty space under them.
+		return append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+				children := make([]layout.FlexChild, 0, 2*len(data.Rows))
+				for i := range data.Rows {
+					if i > 0 {
+						children = append(children, layout.Rigid(view.Hairline))
+					}
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Top: 8, Bottom: 8, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return p.categoryButton(gtx, view, data.Rows[i])
+						})
+					}))
+				}
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+			})
+		}))
 	}
 	return append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &p.list, l.Text(i18n.AssetCategories), len(data.Rows), func(gtx layout.Context, i int) layout.Dimensions {
