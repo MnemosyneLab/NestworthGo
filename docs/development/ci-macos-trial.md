@@ -9,12 +9,14 @@ per run, using a locally cached pinned Wails CLI; no comparison regeneration.
 Go package completion is checked against `go list ./...`; missing and
 duplicate package results fail the gate.
 Each gate retains its own outcome and failures do not suppress later gates.
-The separate `gio-i18n` gate checks the Gio module's translations and UI
-source without opening a window.
+Gio is a separate Go module. Its full non-race suite, including the former
+`gio-i18n` translation and UI-source checks, runs independently on GitHub-hosted
+Linux in [`gio-unit-tests.yml`](../../.github/workflows/gio-unit-tests.yml).
+The Mac `test` aggregate covers the parent module and Wails gates only.
 
 ## Automatic checks, trust and rollback
 
-Regular CI runs only on the native Mac: every push to any branch in
+The regular Wails/parent-module CI runs on the native Mac: every push to any branch in
 `MnemosyneLab/NestworthGo`, plus authenticated manual dispatch. The stable required
 check name is `test`. Internal PRs get automatic full checks on each pushed head,
 including branches created before opening the PR; main pushes also run. This

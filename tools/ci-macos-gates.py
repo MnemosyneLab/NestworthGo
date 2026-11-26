@@ -21,7 +21,6 @@ LANES = (
         ('format', 'test -z "$(gofmt -l cmd internal)"', '.'),
         ('go-tests', 'go list ./... | tee "$RUNNER_TEMP/go-packages.txt"\n'
          'go test -count=1 -json -timeout 20m -p "$NESTWORTH_GO_PARALLEL" ./... | tee "$RUNNER_TEMP/go-results.jsonl"', '.'),
-        ('gio-i18n', 'go test -mod=readonly -count=1 -p "$NESTWORTH_GO_PARALLEL" ./internal/i18n', 'experiments/gio'),
         ('vet', 'go vet -p "$NESTWORTH_GO_PARALLEL" ./...', '.'),
         ('build', 'go build -p "$NESTWORTH_GO_PARALLEL" -o "$RUNNER_TEMP/nestworth-ci" ./cmd/nestworth', '.'),
     ),

@@ -179,7 +179,7 @@ in [the runtime contract](../architecture/builtin-ai-runtime.md).
 
 ## Validation strategy
 
-The full regular check set runs on the self-hosted native Mac. See
+The regular Wails and parent-module check set runs on the self-hosted native Mac. See
 [Native Mac CI](ci-macos-trial.md) for trusted internal branch triggers,
 external contribution handling, isolation and the nonrunning Linux rollback archive.
 
@@ -208,6 +208,11 @@ once before the frontend build; bounded Go/tooling/frontend lanes then run with
 independent logs, timings and fail-closed aggregation. The Linux regular workflow
 is a nonrunning rollback archive, not an automatic PR fallback. Native GUI,
 packaging and signing acceptance remain separate from these checks.
+The independent `gio-unit-tests` job in `.github/workflows/gio-unit-tests.yml`
+runs `go test -mod=readonly -count=1 ./...` from `experiments/gio` on
+GitHub-hosted `ubuntu-latest` for every origin branch push and manual dispatch.
+It includes the Gio translation gate; opt-in visual snapshots and fixture
+exports are not CI tests.
 Race detection and extended functional tooling are not part of regular CI.
 `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
 manual dispatch. A scheduled run skips the perf and race jobs when the

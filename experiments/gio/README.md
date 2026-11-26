@@ -59,6 +59,11 @@ to choose an Indigo, Lavender, Mint, Sky or Peach accent.
 Keep page-specific query state beside its feature model and Gio widget state
 in the desktop view. Shared financial rules and storage remain in the parent
 module. Run `go test -mod=readonly ./...` from this module for changes here.
+The dedicated [Gio unit tests workflow](../../.github/workflows/gio-unit-tests.yml)
+runs the entire module on GitHub-hosted `ubuntu-latest` for each origin branch
+push (including main and internal PR heads) and manual dispatch. It requires
+the default Linux native build dependencies, but no desktop session or virtual
+display; opt-in visual snapshots and fixture exports remain manual.
 
 ### Adding UI text
 
@@ -67,7 +72,8 @@ Simplified Chinese, Traditional Chinese and Japanese catalog. Use the
 [Wails translations](../../frontend/src/i18n/locales) for existing workflows.
 Resolve copy through the active language for visible text, tooltips, errors and
 accessible labels. Display user-entered names, notes and canonical data values
-directly. Run the same translation checks as CI from the repository root:
+directly. The dedicated CI suite includes these translation checks. To run just those
+checks from the repository root:
 
 ```sh
 go -C experiments/gio test -mod=readonly -count=1 ./internal/i18n
