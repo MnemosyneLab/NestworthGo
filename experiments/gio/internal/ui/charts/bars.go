@@ -5,10 +5,12 @@ import (
 	"image/color"
 	"math"
 
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -42,6 +44,9 @@ type BarSpec struct {
 	// lengths on both sides. By default the axis sits where zero falls between
 	// the smallest and largest value, which uses the full width.
 	Symmetric bool
+	// ActionableRows exposes each row as a native accessibility action while
+	// the chart still owns pointer and keyboard input.
+	ActionableRows bool
 	// FormatValue labels the ends of the scale under the bars. Without it no
 	// scale labels are drawn.
 	FormatValue func(float64) string
@@ -251,6 +256,7 @@ const (
 // BarChart is the widget state of one bar chart.
 type BarChart struct {
 	interaction
+	nativeRows map[ID]*widget.Clickable
 }
 
 // Layout draws the chart at the width of gtx.Constraints.Max and returns the
@@ -259,6 +265,7 @@ func (c *BarChart) Layout(gtx layout.Context, view ui.View, spec BarSpec) (layou
 	width := gtx.Constraints.Max.X
 	colors := view.Colors
 	if len(spec.Bars) == 0 {
+		c.nativeRows = nil
 		return drawNotice(gtx, view, image.Pt(width, gtx.Dp(120)), spec.Messages.Empty), nil
 	}
 	pad := gtx.Dp(ringPad)
@@ -309,6 +316,11 @@ func (c *BarChart) Layout(gtx layout.Context, view ui.View, spec BarSpec) (layou
 	plan := spec.plan(g)
 
 	items := frameItems{order: plan.order, selected: spec.Selected, pick: plan.pick}
+	if spec.ActionableRows {
+		items.activate = c.nativePress(gtx, plan.order)
+	} else {
+		c.nativeRows = nil
+	}
 	events := c.update(gtx, c, items)
 	active := c.active(gtx, c, plan.order)
 
@@ -328,7 +340,17 @@ func (c *BarChart) Layout(gtx layout.Context, view ui.View, spec BarSpec) (layou
 			shown = spec.Selected
 		}
 		offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
-		read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(shown))
+		readout := spec.readout(shown)
+		drawReadout := func(gtx layout.Context) layout.Dimensions {
+			return layoutReadout(gtx, view, spec.Messages, spec.Summary, readout)
+		}
+		var read layout.Dimensions
+		if spec.ActionableRows && readout != nil {
+			// The focused row already exposes the same text and its action.
+			read = accessibility.Hidden(rgtx, drawReadout)
+		} else {
+			read = drawReadout(rgtx)
+		}
 		offset.Pop()
 		y += read.Size.Y
 
@@ -344,6 +366,33 @@ func (c *BarChart) Layout(gtx layout.Context, view ui.View, spec BarSpec) (layou
 		return layout.Dimensions{Size: size}
 	})
 	return dims, events
+}
+
+func (c *BarChart) nativePress(gtx layout.Context, order []Selection) Selection {
+	if c.nativeRows == nil {
+		c.nativeRows = make(map[ID]*widget.Clickable, len(order))
+	}
+	var pressed Selection
+	for _, sel := range order {
+		button := c.nativeRows[sel.Item]
+		if button == nil {
+			button = new(widget.Clickable)
+			c.nativeRows[sel.Item] = button
+		}
+		// These clickables are activated by the native bridge. They have no
+		// input operations of their own, so the chart remains one Tab stop.
+		if button.Clicked(gtx) && gtx.Enabled() {
+			pressed = sel
+		}
+	}
+	if len(c.nativeRows) > len(order) {
+		for id := range c.nativeRows {
+			if !contains(order, Selection{Item: id}) {
+				delete(c.nativeRows, id)
+			}
+		}
+	}
+	return pressed
 }
 
 // axisTicks picks round value ticks that fit the track with their labels
@@ -420,15 +469,13 @@ func (c *BarChart) drawRows(gtx layout.Context, view ui.View, spec BarSpec, plan
 		}
 	}
 	vertical(plan.zeroX, axis)
+	cursor := c.cursor
+	if !contains(plan.order, cursor) {
+		cursor = defaultCursor(frameItems{order: plan.order, selected: spec.Selected})
+	}
 	for i, row := range plan.rows {
 		b := spec.Bars[i]
-		textBlock{style: ui.TextBody, content: b.Label, ink: colors.Ink, maxWidth: max(1, row.labelWidth)}.draw(gtx, view, row.label)
-		ink := colors.Ink
-		if !row.present {
-			ink = colors.SecondaryInk
-		}
-		valueW := row.row.Max.X - row.amount.X - gtx.Dp(ui.Space12)
-		textBlock{style: ui.TextLabel, content: texts[i], ink: ink, maxWidth: max(1, valueW), align: text.End}.draw(gtx, view, row.amount)
+		c.drawRowLabels(gtx, view, spec, row, b, texts[i], row.sel == cursor)
 		if row.present {
 			tone := toneColor(colors, b.Tone, row.value)
 			if row.sel != active && !active.IsZero() && row.sel != spec.Selected {
@@ -439,9 +486,35 @@ func (c *BarChart) drawRows(gtx layout.Context, view ui.View, spec BarSpec, plan
 		if row.sel == active && gtx.Focused(c) {
 			ui.StrokeRoundRect(gtx, row.row, radius, 2, ui.WithAlpha(colors.Accent, 0.8))
 		}
-		label := itemLabel(*spec.readout(row.sel), spec.Messages)
-		semanticItem(gtx, row.row, label)
 	}
+}
+
+func (c *BarChart) drawRowLabels(gtx layout.Context, view ui.View, spec BarSpec, row barRowPlan, b Bar, amount string, active bool) {
+	defer op.Offset(row.row.Min).Push(gtx.Ops).Pop()
+	content := func(gtx layout.Context) layout.Dimensions {
+		colors := view.Colors
+		textBlock{style: ui.TextBody, content: b.Label, ink: colors.Ink, maxWidth: max(1, row.labelWidth)}.draw(gtx, view, row.label.Sub(row.row.Min))
+		ink := colors.Ink
+		if !row.present {
+			ink = colors.SecondaryInk
+		}
+		valueW := row.row.Max.X - row.amount.X - gtx.Dp(ui.Space12)
+		textBlock{style: ui.TextLabel, content: amount, ink: ink, maxWidth: max(1, valueW), align: text.End}.draw(gtx, view, row.amount.Sub(row.row.Min))
+		return layout.Dimensions{Size: row.row.Size()}
+	}
+	selected := row.sel == spec.Selected
+	label := itemLabel(readout{label: b.Label, value: amount, detail: b.Detail, selected: selected}, spec.Messages)
+	if spec.ActionableRows {
+		focus := accessibility.OptionFocus{Owner: c, Active: active, Move: func() {
+			c.cursor, c.hover = row.sel, Selection{}
+		}}
+		accessibility.Option(gtx, c.nativeRows[b.ID], label, selected, focus, func(gtx layout.Context) layout.Dimensions {
+			semantic.LabelOp(label).Add(gtx.Ops)
+			return content(gtx)
+		})
+		return
+	}
+	accessibility.Summary(gtx, label, content)
 }
 
 // drawScale labels the ends of the scale and zero under the bars and returns

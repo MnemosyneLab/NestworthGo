@@ -14,7 +14,7 @@ import (
 
 func assetDriverBars(view ui.View, data application.AssetChangeResult) charts.BarSpec {
 	l := view.Language
-	spec := charts.BarSpec{Label: l.Text(i18n.AssetDriverChart), Summary: l.Text(i18n.AssetDriverChartHelp), Symmetric: true,
+	spec := charts.BarSpec{Label: l.Text(i18n.AssetDriverChart), Summary: l.Text(i18n.AssetDriverChartHelp), Symmetric: true, ActionableRows: true,
 		Messages: charts.Messages{Empty: l.Text(i18n.AssetDriverNoChanges), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)}}
 	var currency domain.CurrencyCode
 	mixedCurrencies := false

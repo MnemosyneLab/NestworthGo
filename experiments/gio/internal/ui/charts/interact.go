@@ -32,6 +32,8 @@ type frameItems struct {
 	// move steps through order: Left and Up go back, Right and Down advance.
 	move     func(from Selection, name key.Name) (Selection, bool)
 	selected Selection
+	// activate requests the same action as pressing Return on an item.
+	activate Selection
 }
 
 var navigationKeys = [...]key.Name{
@@ -67,6 +69,11 @@ func (in *interaction) update(gtx layout.Context, tag event.Tag, items frameItem
 		} else {
 			events = append(events, Event{Kind: EventSelect, Selection: sel})
 		}
+	}
+	if !items.activate.IsZero() {
+		in.cursor, in.hover = items.activate, Selection{}
+		gtx.Execute(key.FocusCmd{Tag: tag})
+		toggle(items.activate)
 	}
 	for {
 		e, ok := gtx.Event(filters...)
