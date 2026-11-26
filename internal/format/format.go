@@ -81,6 +81,19 @@ func Money(value, currency string, preference settings.Settings) string {
 	return result
 }
 
+// AuditMoney preserves a recorded decimal where normal currency rounding
+// hides nonzero digits. The suffix uses the canonical amount and currency.
+func AuditMoney(value, currency string, preference settings.Settings) string {
+	display := Money(value, currency, preference)
+	canonical := strings.TrimSpace(value)
+	_, fraction, ok := strings.Cut(canonical, ".")
+	places := domain.CurrencyFractionDigits(domain.CurrencyCode(currency))
+	if ok && len(fraction) > places && strings.Trim(fraction[places:], "0") != "" {
+		return display + " (" + canonical + " " + currency + ")"
+	}
+	return display
+}
+
 // ShareBPS formats a basis-point share without converting it through a
 // binary float. The application owns the share value; this helper only turns
 // it into a fixed two-decimal percentage for presentation.

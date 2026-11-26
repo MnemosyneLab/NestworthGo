@@ -27,6 +27,8 @@ type historyTimelineVisit struct {
 	scroll   layout.Position
 	revision uint64
 	focused  domain.ActivityID
+	dateAt   analysisDateWindow
+	dateMode int
 }
 
 type historyDetailState struct {
@@ -95,6 +97,7 @@ type historyReads struct {
 	workers    sync.WaitGroup
 
 	references      *history.References
+	rowNames        historyRowNames
 	refsRead        <-chan historyResult[history.References]
 	refsCancel      context.CancelFunc
 	refsErr         error
@@ -228,6 +231,7 @@ func (r *historyReads) update() {
 		r.refsErr = result.err
 		if result.err == nil {
 			r.references = &result.value
+			r.rowNames = newHistoryRowNames(result.value)
 		}
 	default:
 	}
@@ -248,7 +252,10 @@ func (r *historyReads) update() {
 }
 
 func (p *historyPage) timelineVisit(focus event.Tag) historyTimelineVisit {
-	visit := historyTimelineVisit{model: p.model.Visit(), scroll: p.list.Position, revision: p.revision}
+	visit := historyTimelineVisit{
+		model: p.model.Visit(), scroll: p.list.Position, revision: p.revision,
+		dateAt: p.filter.dates.at, dateMode: p.filter.dates.chosen,
+	}
 	if p.reads != nil {
 		for id, button := range p.reads.buttons {
 			if focus == button {
@@ -265,7 +272,9 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 		return
 	}
 	p.bound = id
+	p.filter.dates.at = analysisDateWindow{}
 	if visited {
+		p.filter.dates.at, p.filter.dates.chosen = visit.dateAt, visit.dateMode
 		p.model.Restore(visit.model)
 		p.list.Position = restoredPosition(visit.scroll, len(p.model.Rows()))
 		if visit.revision != p.revision {

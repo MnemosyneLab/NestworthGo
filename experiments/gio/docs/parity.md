@@ -109,6 +109,19 @@ Gio regression covers the closed position of an instrument held in two accounts
 and the account-specific dividend entry. Inline price performance and foreign
 dividends remain open.
 
+### Ledger row summaries and date shortcuts
+
+Ledger rows summarize the recorded activity, account, instrument and available
+amounts using the shared activity page and archived-inclusive references. Cash
+amounts keep the exact recorded decimal when currency rounding hides digits.
+History reuses the 1D–All date presets and previous/next controls. Each preset
+uses the History Origin timezone and leaves account, instrument and type filters
+in place. The Gio regression uses synthetic AUD fee and USD dividend records,
+checks date ranges against the Wails adapter and restores the scope on Back.
+Repeat, correction, reversal and product actions remain in the activity
+detail. The direct Wails row menu and custody transfer account names in the
+list remain open.
+
 ## Remaining Stage 1–6 work
 
 1. Compare reservation management and grouped undo interactively. Treat

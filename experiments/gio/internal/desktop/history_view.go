@@ -263,8 +263,13 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 }
 
 func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
+	names := historyRowNames{}
+	if p.reads != nil {
+		names = p.reads.rowNames
+	}
+	summary := historyRowSummary(view, row.Activity, names)
 	if p.reads == nil {
-		return historyEntry(gtx, view, row)
+		return historyEntry(gtx, view, summary, row.Note)
 	}
 	button := p.detailButton(row.ID)
 	if button.Clicked(gtx) {
@@ -273,7 +278,7 @@ func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row hi
 	}
 	name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), view.Language.Text(historyKindLabel(row.Kind, row.Reason)), historyDay(view, row.EffectiveLocalDate))
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, summary, row.Note) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, button)
 			return layout.Inset{Right: ui.Space8}.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name}))
@@ -302,18 +307,17 @@ func historyDay(view ui.View, day string) string {
 	return day
 }
 
-func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	kind := historyKindLabel(row.Kind, row.Reason)
+func historyEntry(gtx layout.Context, view ui.View, summary string, note *string) layout.Dimensions {
 	return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Line(gtx, ui.TextLabel, view.Language.Text(kind), view.Colors.Ink)
+				return view.Body(ui.TextLabel, summary, view.Colors.Ink)(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if row.Note == nil || *row.Note == "" {
+				if note == nil || *note == "" {
 					return layout.Dimensions{}
 				}
-				return view.Body(ui.TextCaption, *row.Note, view.Colors.SecondaryInk)(gtx)
+				return view.Body(ui.TextCaption, *note, view.Colors.SecondaryInk)(gtx)
 			}),
 		)
 	})

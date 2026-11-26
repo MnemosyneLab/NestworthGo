@@ -48,14 +48,10 @@ func (f Filters) query(after *domain.ActivityCursor) domain.ActivityQuery {
 	return q
 }
 
-// Row retains the fields needed to display an activity in the list. Detail
-// reads the underlying activity separately by its stable ID.
+// Row keeps the immutable list response for rendering its summary. Detail
+// reads fresh activity evidence and action eligibility by the same stable ID.
 type Row struct {
-	ID                 domain.ActivityID
-	Kind               domain.ActivityKind
-	Reason             domain.ActivityReason
-	EffectiveLocalDate string
-	Note               *string
+	domain.Activity
 }
 
 type pageResult struct {
@@ -235,10 +231,7 @@ func (p *Model) readRange(ctx context.Context, query domain.ActivityQuery, windo
 			return pageResult{err: err}
 		}
 		for i, activity := range page.Activities {
-			result.rows = append(result.rows, Row{
-				ID: activity.ID, Kind: activity.Kind, Reason: activity.Reason,
-				EffectiveLocalDate: activity.EffectiveLocalDate, Note: activity.Note,
-			})
+			result.rows = append(result.rows, Row{Activity: activity})
 			if window.through != "" && activity.ID == window.through {
 				if len(result.rows) < pageSize {
 					window.through = ""
