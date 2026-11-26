@@ -202,7 +202,7 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 			emitRefreshProgress(ctx, detail)
 			continue
 		}
-		marketData := s.marketDataSnapshot(target)
+		marketData := s.marketDataSnapshot(ctx, target)
 		if batch, ok := ctx.Value(latestBatchContextKey{}).(latestBatchState); ok && target.providerKey == CoinGeckoProviderKey {
 			marketData.registry = batch.registry
 		}
@@ -243,7 +243,10 @@ type marketDataSnapshot struct {
 // marketDataSnapshot copies the service routing state once. Registry methods
 // run after the state lock is released because a registry may perform work of
 // its own; the refresh then consistently uses this copied registry and key.
-func (s *Service) marketDataSnapshot(target refreshTarget) marketDataSnapshot {
+func (s *Service) marketDataSnapshot(ctx context.Context, target refreshTarget) marketDataSnapshot {
+	if reviewed, ok := ctx.Value(reviewedMarketSyncKey{}).(reviewedMarketSync); ok {
+		return reviewed.marketData
+	}
 	s.stateMu.RLock()
 	registry, key := s.marketData, s.fxProviderKey
 	s.stateMu.RUnlock()
@@ -305,6 +308,9 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	}
 
 	epoch := s.refreshEpoch.Load()
+	if reviewed, ok := ctx.Value(reviewedMarketSyncKey{}).(reviewedMarketSync); ok {
+		epoch = reviewed.epoch
+	}
 	if batch, ok := ctx.Value(latestBatchContextKey{}).(latestBatchState); ok && target.providerKey == CoinGeckoProviderKey {
 		epoch = batch.epoch
 	}
@@ -314,7 +320,8 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		var conversion string
 		var providerErr error
 		if target.instrument.UsesMetalConversion() {
-			quote, conversion, providerErr = s.latestMetalQuote(ctx, target.instrument, provider, true)
+			metalCtx := context.WithValue(ctx, reviewedMetalSourceKey{}, target.instrument)
+			quote, conversion, providerErr = s.latestMetalQuote(metalCtx, target.instrument, provider, true)
 		} else {
 			quote, providerErr = latestInstrumentQuote(ctx, provider, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency, Market: instrumentMarket(target.instrument), InstrumentType: string(target.instrument.Type)})
 		}
@@ -331,7 +338,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		}
 		stored.ConversionJSON = conversion
 		var inserted bool
-		persistErr := s.persistRefreshWrite(ctx, epoch, func(ctx context.Context) error {
+		persistErr := s.persistLatestMarketQuote(ctx, epoch, target, func(ctx context.Context) error {
 			var err error
 			inserted, err = s.repository.AppendProviderInstrumentQuoteIfChanged(ctx, stored)
 			return err
@@ -342,7 +349,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		if inserted {
 			s.invalidateAnalysis()
 		}
-		s.rememberSuccessfulCheck(s.refreshCacheKey(target))
+		s.rememberSuccessfulCheck(refreshCacheKey(target, marketData.fxProviderKey))
 		if inserted {
 			return fetchedRefresh(target), false
 		}
@@ -365,7 +372,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		return failedRefresh(target, malformedProviderError()), false
 	}
 	var inserted bool
-	persistErr := s.persistRefreshWrite(ctx, epoch, func(ctx context.Context) error {
+	persistErr := s.persistLatestMarketQuote(ctx, epoch, target, func(ctx context.Context) error {
 		var err error
 		inserted, err = s.repository.AppendProviderFXQuoteIfChanged(ctx, stored)
 		return err
@@ -380,7 +387,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	if err := s.repriceMetalsForFX(ctx, target.householdID, target.baseCurrency, target.quoteCurrency); err != nil {
 		return failedRefresh(target, err), false
 	}
-	s.rememberSuccessfulCheck(s.refreshCacheKey(target))
+	s.rememberSuccessfulCheck(refreshCacheKey(target, marketData.fxProviderKey))
 	if inserted {
 		return fetchedRefresh(target), false
 	}
@@ -504,12 +511,13 @@ func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []r
 	}
 	ttl := s.QuoteCacheTTL()
 	now := s.clock()
+	fxProvider := s.FXProviderKey()
 	for index := range targets {
 		if targets[index].skip {
 			continue
 		}
 		target := targets[index]
-		lastCheck := s.lastSuccessfulCheckAt(s.refreshCacheKey(target))
+		lastCheck := s.lastSuccessfulCheckAt(refreshCacheKey(target, fxProvider))
 		// Persisted fetch times survive restarts. Observation timestamps can be old
 		// during a market closure and must not be used as request timestamps.
 		for _, quote := range snapshot.InstrumentQuotes {
@@ -720,10 +728,10 @@ func malformedProviderError() error {
 	return &domain.Error{Code: domain.ErrMalformedProviderResponse, Message: "provider response is malformed"}
 }
 
-func (s *Service) refreshCacheKey(target refreshTarget) string {
+func refreshCacheKey(target refreshTarget, fxProvider string) string {
 	provider := target.providerKey
 	if target.kind == RefreshFXTarget {
-		provider = s.FXProviderKey()
+		provider = fxProvider
 	}
 	return target.key + "|" + provider + "|" + target.providerSymbol + "|" + target.instrument.UpdatedAt.Format(time.RFC3339Nano)
 }

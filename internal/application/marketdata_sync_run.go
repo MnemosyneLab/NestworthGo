@@ -10,8 +10,13 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, request SyncRequest) {
+func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, request SyncRequest, work *marketSyncWork) {
 	ctx = withMetalFetchCache(ctx)
+	if work != nil {
+		ctx = context.WithValue(ctx, reviewedMarketSyncKey{}, reviewedMarketSync{
+			marketData: work.marketData, provider: work.provider, preferences: work.preferences, epoch: job.epoch,
+		})
+	}
 	defer s.syncWG.Done()
 	defer job.cancel()
 	outcome := SyncOutcomeFailed
@@ -27,38 +32,47 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	s.publishSync(job, SyncEventProgress, func() {
 		job.snapshot.Phase = SyncPhasePlan
 	})
-	if aborted(ctx) {
+	if aborted(ctx) || !s.jobMayWrite(job) {
 		phase = SyncPhaseCancelled
 		return
 	}
 
-	plan, err := s.PlanHistorySync(ctx, HistorySyncOptions{ForceRecheck: request.ForceRecheck})
-	if err != nil {
-		s.failSync(job, err)
-		return
-	}
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		s.failSync(job, err)
-		return
-	}
-
-	needs := filterInstrumentNeeds(plan.Instruments, request)
-	for _, need := range needs {
-		if len(need.UnavailableRanges) > 0 {
-			s.recordBlocker(job, instrumentTargetKey(need.InstrumentID), "coingecko_history_limit_365_days", "coingecko_history_limit_365_days")
+	var plan HistoryRepairPlan
+	var household domain.HouseholdID
+	var instrumentTasks []instrumentHistoryTask
+	var fxTasks []fxHistoryTask
+	var fxBlockers []SyncBlocker
+	if work != nil {
+		plan, household, instrumentTasks, fxTasks = work.plan, work.household, work.instruments, work.fx
+	} else {
+		current, err := s.PlanHistorySync(ctx, HistorySyncOptions{ForceRecheck: request.ForceRecheck})
+		if err != nil {
+			s.failSync(job, err)
+			return
 		}
-	}
-	instrumentTasks := s.instrumentHistoryTasksFromNeeds(needs)
-	fxTasks, fxBlockers := s.planFXHistoryRanges(ctx, household.ID, plan, request)
-	if request.Scope == SyncScopeInstrument {
-		fxTasks = nil
-		fxBlockers = nil
+		hh, err := s.requireHousehold(ctx)
+		if err != nil {
+			s.failSync(job, err)
+			return
+		}
+		plan, household = current, hh.ID
+		needs := filterInstrumentNeeds(plan.Instruments, request)
+		for _, need := range needs {
+			if len(need.UnavailableRanges) > 0 {
+				s.recordBlocker(job, instrumentTargetKey(need.InstrumentID), "coingecko_history_limit_365_days", "coingecko_history_limit_365_days")
+			}
+		}
+		instrumentTasks = s.instrumentHistoryTasksFromNeeds(needs)
+		if request.Scope != SyncScopeInstrument {
+			fxTasks, fxBlockers = s.planFXHistoryRanges(ctx, household, plan, request)
+		}
 	}
 
 	s.publishSync(job, SyncEventProgress, func() {
 		job.snapshot.Phase = SyncPhaseHistoricalInstruments
-		job.snapshot.PlanRevision = plan.ResolverPolicyVersion
+		if work == nil {
+			job.snapshot.PlanRevision = plan.ResolverPolicyVersion
+		}
 		job.snapshot.TargetCount = len(uniqueInstrumentIDs(instrumentTasks)) + len(fxTasks)
 		job.snapshot.Blockers = append(job.snapshot.Blockers, fxBlockers...)
 	})
@@ -80,7 +94,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	s.publishSync(job, SyncEventProgress, func() {
 		job.snapshot.Phase = SyncPhaseHistoricalFX
 	})
-	if !s.runFXHistoryPhase(ctx, job, household.ID, fxTasks, stopped) {
+	if !s.runFXHistoryPhase(ctx, job, household, fxTasks, stopped) {
 		if aborted(ctx) {
 			phase = SyncPhaseCancelled
 		}
@@ -95,7 +109,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 		s.publishSync(job, SyncEventProgress, func() {
 			job.snapshot.Phase = SyncPhaseLatestInstruments
 		})
-		s.runLatestInstrumentPhase(ctx, job, needs, stopped)
+		s.runSyncLatest(ctx, job, request, work, RefreshInstrumentTarget, stopped)
 	}
 	if aborted(ctx) {
 		phase = SyncPhaseCancelled
@@ -105,7 +119,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 		s.publishSync(job, SyncEventProgress, func() {
 			job.snapshot.Phase = SyncPhaseLatestFX
 		})
-		s.runLatestFXPhase(ctx, job, request, stopped)
+		s.runSyncLatest(ctx, job, request, work, RefreshFXTarget, stopped)
 	}
 	if aborted(ctx) {
 		phase = SyncPhaseCancelled
@@ -123,7 +137,11 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	s.publishSync(job, SyncEventProgress, func() {
 		job.snapshot.Phase = SyncPhaseRebuildSnapshots
 	})
-	rebuilt, rebuildErr := s.RebuildDirtySnapshots(ctx)
+	var through string
+	if work != nil {
+		through = plan.YesterdayLocal
+	}
+	rebuilt, rebuildErr := s.rebuildDirtySnapshots(ctx, through)
 	if rebuildErr != nil && !aborted(ctx) {
 		job.rebuildErr = true
 		s.recordBlocker(job, "snapshots", string(domain.ErrHistoryUpdateFailed), "rebuild_failed")
@@ -139,7 +157,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	s.publishSync(job, SyncEventProgress, func() {
 		job.snapshot.Phase = SyncPhaseVerify
 	})
-	state, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
+	state, stateErr := s.repository.DailySnapshotState(ctx, household)
 	dirtyLeft := false
 	if stateErr == nil {
 		_, _, dirtyLeft = dirtySnapshotRange(state, plan)
@@ -148,7 +166,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	if stateErr != nil {
 		s.recordBlocker(job, "snapshots", string(domain.ErrHistoryUpdateFailed), "snapshot_verification_failed")
 	} else {
-		snapshots, verifyErr := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+		snapshots, verifyErr := s.repository.ListDailyValuationSnapshots(ctx, household, time.Time{}, time.Time{})
 		if verifyErr != nil {
 			s.recordBlocker(job, "snapshots", string(domain.ErrHistoryUpdateFailed), "snapshot_verification_failed")
 		} else {
@@ -295,7 +313,7 @@ func (s *Service) runFXHistoryPhase(ctx context.Context, job *syncJobState, hous
 func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJobState, task instrumentHistoryTask, stopped map[string]string) bool {
 	providerKey := strings.ToLower(task.identity.ProviderKey)
 	target := instrumentTargetKey(task.need.InstrumentID)
-	registry := s.MarketDataRegistry()
+	registry := s.syncMarketRegistry(ctx)
 	if registry == nil {
 		s.recordBlocker(job, target, string(domain.ErrUnavailable), "provider_not_configured")
 		return true
@@ -312,15 +330,21 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 	}
 	identity := task.identity
 	var metal *domain.Instrument
-	if inst, lookupErr := s.repository.Instrument(ctx, job.snapshot.HouseholdID, task.need.InstrumentID); lookupErr == nil {
+	inst := task.instrument
+	if inst == nil {
+		if record, err := s.repository.Instrument(ctx, job.snapshot.HouseholdID, task.need.InstrumentID); err == nil {
+			inst = &record
+		}
+	}
+	if inst != nil {
 		identity.QuoteCurrency = inst.QuoteCurrency
 		if inst.UsesMetalConversion() {
-			metal = &inst
+			metal = inst
 			identity.QuoteCurrency = "USD"
 		}
 		identity.InstrumentType = string(inst.Type)
 		if identity.Market == "" {
-			identity.Market = instrumentMarket(inst)
+			identity.Market = instrumentMarket(*inst)
 		}
 	}
 	item := s.syncHistoryDetail(ctx, job.snapshot.HouseholdID, target, providerKey, task.rng)
@@ -377,7 +401,7 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 		Market:       task.need.Market,
 		Outcome:      outcome,
 		FetchedAt:    s.clock(),
-	})
+	}, metal)
 	if persistErr != nil {
 		if isWorkspaceFence(persistErr) || aborted(ctx) {
 			s.recordBlocker(job, target, string(domain.ErrBackupRestoreBusy), "workspace_fenced")
@@ -419,7 +443,7 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 func (s *Service) fetchAndCommitFXRange(ctx context.Context, job *syncJobState, householdID domain.HouseholdID, task fxHistoryTask, stopped map[string]string) bool {
 	providerKey := strings.ToLower(task.identity.ProviderKey)
 	target := fxIdentityKey(task.identity)
-	registry := s.MarketDataRegistry()
+	registry := s.syncMarketRegistry(ctx)
 	if registry == nil {
 		s.recordBlocker(job, target, string(domain.ErrUnavailable), "provider_not_configured")
 		return true
@@ -582,19 +606,17 @@ func (s *Service) classifyProviderFetchError(ctx context.Context, job *syncJobSt
 	}
 }
 
-func (s *Service) runLatestInstrumentPhase(ctx context.Context, job *syncJobState, needs []InstrumentRepairNeed, stopped map[string]string) {
-	s.runSyncLatest(ctx, job, job.snapshot.Scope, RefreshInstrumentTarget, stopped)
-}
-
-func (s *Service) runLatestFXPhase(ctx context.Context, job *syncJobState, request SyncRequest, stopped map[string]string) {
-	s.runSyncLatest(ctx, job, request, RefreshFXTarget, stopped)
-}
-
-func (s *Service) runSyncLatest(ctx context.Context, job *syncJobState, request SyncRequest, kind RefreshTargetKind, stopped map[string]string) {
-	targets, err := s.syncLatestTargets(ctx, request)
-	if err != nil {
-		s.recordBlocker(job, "latest", string(domain.ErrUnavailable), "latest_plan_failed")
-		return
+func (s *Service) runSyncLatest(ctx context.Context, job *syncJobState, request SyncRequest, work *marketSyncWork, kind RefreshTargetKind, stopped map[string]string) {
+	var targets []refreshTarget
+	if work != nil {
+		targets = work.latest
+	} else {
+		var err error
+		targets, err = s.syncLatestTargets(ctx, request)
+		if err != nil {
+			s.recordBlocker(job, "latest", string(domain.ErrUnavailable), "latest_plan_failed")
+			return
+		}
 	}
 	var selected []refreshTarget
 	for _, target := range targets {
@@ -608,7 +630,7 @@ func (s *Service) runSyncLatest(ctx context.Context, job *syncJobState, request 
 		}
 		provider := target.providerKey
 		if provider == "" {
-			provider = s.FXProviderKey()
+			provider = s.syncFXProvider(ctx)
 		}
 		if reason := stopped[strings.ToLower(provider)]; reason != "" {
 			s.recordItem(job, target.key, string(kind), "skipped", reason, provider)
@@ -639,7 +661,7 @@ func (s *Service) runSyncLatest(ctx context.Context, job *syncJobState, request 
 			completed = append(completed, target)
 		}
 	}
-	s.publishSync(job, SyncEventProgress, func() { job.snapshot.CompletedRequests += s.latestRequestEstimate(completed) })
+	s.publishSync(job, SyncEventProgress, func() { job.snapshot.CompletedRequests += s.latestRequestEstimate(ctx, completed) })
 	s.applyLatestRefreshResult(job, result)
 }
 
@@ -658,7 +680,7 @@ func (s *Service) applyLatestRefreshResult(job *syncJobState, result RefreshResu
 	}
 }
 
-func (s *Service) persistInstrumentHistory(ctx context.Context, job *syncJobState, request CommitInstrumentHistoryRequest) (CommitHistoryResult, error) {
+func (s *Service) persistInstrumentHistory(ctx context.Context, job *syncJobState, request CommitInstrumentHistoryRequest, metal *domain.Instrument) (CommitHistoryResult, error) {
 	writer, err := s.historyWriter()
 	if err != nil {
 		return CommitHistoryResult{}, err
@@ -668,9 +690,15 @@ func (s *Service) persistInstrumentHistory(ctx context.Context, job *syncJobStat
 		if s.workspaceIdentity() != job.workspace {
 			return backupRestoreBusy()
 		}
-		var persistErr error
-		result, persistErr = writer.PersistInstrumentHistory(ctx, request)
-		return persistErr
+		persist := func() error {
+			var persistErr error
+			result, persistErr = writer.PersistInstrumentHistory(ctx, request)
+			return persistErr
+		}
+		if metal != nil {
+			return s.withReviewedMetalFXPolicy(ctx, *metal, persist)
+		}
+		return persist()
 	})
 	return result, err
 }

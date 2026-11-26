@@ -47,6 +47,7 @@ type Service struct {
 	mobileJobCurrent      string
 	mobileJobsWG          sync.WaitGroup
 	syncJobs              map[string]*syncJobState
+	syncReviews           map[string]marketSyncReview
 	currentSyncID         string
 	syncWG                sync.WaitGroup
 	syncListener          MarketDataSyncListener

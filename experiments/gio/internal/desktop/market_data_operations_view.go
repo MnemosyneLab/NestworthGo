@@ -305,7 +305,7 @@ func (p *marketDataPage) layoutMarketSyncPreview(gtx layout.Context, view ui.Vie
 			p.loadMarketSyncPreview()
 		case i18n.MarketStartSync:
 			p.lastSync = plan.Scope
-			job.start(p.ctx, &p.workers, p.invalidate, plan.Scope)
+			job.start(p.ctx, &p.workers, p.invalidate, *plan)
 			p.operation = nil
 			gtx.Execute(op.InvalidateCmd{})
 			return sheet.source

@@ -13,14 +13,15 @@ vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
     GetCurrentSyncJob: async () => ({ jobId: "" }),
-    PreviewMarketDataSync: (request: unknown) => previewSync(request),
+    ReviewMarketDataSync: (request: unknown) => previewSync(request),
+    ConfirmMarketDataSync: (request: unknown, reviewId: string) => startSync(request, reviewId),
     StartMarketDataSync: (request: unknown) => startSync(request),
   },
 }));
 
 function plan(estimatedRequestCount = 3, snapshotWorkEstimate = 0) {
   return {
-    estimatedRequestCount, snapshotWorkEstimate,
+    reviewId: "review-1", estimatedRequestCount, snapshotWorkEstimate,
     instrumentTargets: 0, fxTargets: 0, latestInstrumentCount: 0, latestFxCount: 0,
     items: [], unresolved: [],
   };
@@ -79,7 +80,7 @@ describe("MarketDataSyncBar preview readiness", () => {
     await act(async () => retry.resolve(plan()));
     await waitFor(() => expect(start).toBeEnabled());
     await user.click(start);
-    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: false });
+    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: false }, "review-1");
   });
 
   it("requires a successful current-option preview after force recheck changes or fails", async () => {
@@ -111,7 +112,7 @@ describe("MarketDataSyncBar preview readiness", () => {
     await waitFor(() => expect(start).toBeEnabled());
     expect(screen.getByTestId("sync-preview")).toHaveTextContent("7 estimated provider requests");
     await user.click(start);
-    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: true });
+    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: true }, "review-1");
   });
 
   it("uses the latest mutation observer when options change again before completion", async () => {
@@ -134,7 +135,7 @@ describe("MarketDataSyncBar preview readiness", () => {
     await waitFor(() => expect(start).toBeEnabled());
     expect(screen.getByTestId("sync-preview")).toHaveTextContent("2 estimated provider requests");
     await user.click(start);
-    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: false });
+    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: false }, "review-1");
   });
 
   it("requires a fresh preview after closing and reopening a successful review", async () => {
@@ -153,6 +154,28 @@ describe("MarketDataSyncBar preview readiness", () => {
     await act(async () => reopened.resolve(plan(4)));
     await waitFor(() => expect(start).toBeEnabled());
     expect(screen.getByTestId("sync-preview")).toHaveTextContent("4 estimated provider requests");
+  });
+
+  it("reopens the same forced review after a stale confirmation and requires approval again", async () => {
+    const user = userEvent.setup();
+    startSync.mockRejectedValueOnce(new Error(JSON.stringify({ code: "stale_preview", message: "Expired" })));
+    previewSync.mockResolvedValueOnce(plan())
+      .mockResolvedValueOnce({ ...plan(5), reviewId: "forced-old" })
+      .mockResolvedValueOnce({ ...plan(2), reviewId: "forced-new" });
+    renderBar();
+    const start = await openPreview(user);
+    await waitFor(() => expect(start).toBeEnabled());
+    await user.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(screen.getByTestId("sync-preview")).toHaveTextContent("5 estimated provider requests"));
+    await user.click(start);
+
+    await waitFor(() => expect(screen.getByTestId("sync-preview")).toHaveTextContent("2 estimated provider requests"));
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(previewSync).toHaveBeenLastCalledWith({ scope: "repair_all", forceRecheck: true });
+    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: true }, "forced-old");
+
+    await user.click(start);
+    expect(startSync).toHaveBeenNthCalledWith(2, { scope: "repair_all", forceRecheck: true }, "forced-new");
   });
 
   it("keeps a dismissed pending preview closed when it completes", async () => {
@@ -177,6 +200,6 @@ describe("MarketDataSyncBar preview readiness", () => {
     await waitFor(() => expect(start).toBeEnabled());
     expect(screen.getByTestId("sync-preview")).toHaveTextContent("0 estimated provider requests");
     await user.click(start);
-    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: false });
+    expect(startSync).toHaveBeenCalledExactlyOnceWith({ scope: "repair_all", forceRecheck: false }, "review-1");
   });
 });

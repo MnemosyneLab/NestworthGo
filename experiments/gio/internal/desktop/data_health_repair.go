@@ -18,8 +18,8 @@ import (
 )
 
 type healthRepairService interface {
-	PreviewMarketDataSync(context.Context, application.SyncRequest) (application.SyncPlanPreview, error)
-	StartMarketDataSync(context.Context, application.SyncRequest) (application.SyncStartResult, error)
+	ReviewMarketDataSync(context.Context, application.SyncRequest) (application.SyncPlanPreview, error)
+	ConfirmMarketDataSync(context.Context, application.SyncRequest, string) (application.SyncStartResult, error)
 	GetCurrentSyncJob() (application.SyncJobSnapshot, bool)
 	CancelSyncJob(string) (application.SyncJobSnapshot, bool)
 }
@@ -40,6 +40,7 @@ type dataHealthRepair struct {
 	cancel       widget.Clickable
 	returnFocus  bool
 	owner        routeID
+	lastScope    application.SyncRequest
 	latestBusy   func() bool
 }
 
@@ -55,20 +56,21 @@ func (r *dataHealthRepair) preview(ctx context.Context, workers *sync.WaitGroup,
 	ctx, cancel := context.WithCancel(ctx)
 	r.stopPreview = cancel
 	r.previewRead = runHistoryRead(workers, invalidate, func() (application.SyncPlanPreview, error) {
-		return r.service.PreviewMarketDataSync(ctx, request)
+		return r.service.ReviewMarketDataSync(ctx, request)
 	})
 }
 
 func (p *dataHealthPage) confirmRepair() {
 	r := p.repair
-	r.start(p.ctx, &p.workers, p.invalidate, r.plan.Scope)
+	r.start(p.ctx, &p.workers, p.invalidate, *r.plan)
 }
 
-func (r *dataHealthRepair) start(ctx context.Context, workers *sync.WaitGroup, invalidate func(), scope application.SyncRequest) {
+func (r *dataHealthRepair) start(ctx context.Context, workers *sync.WaitGroup, invalidate func(), plan application.SyncPlanPreview) {
 	r.retirePreview()
 	r.problem = i18n.NoMessage
+	r.lastScope = plan.Scope
 	r.startRead = runHistoryRead(workers, invalidate, func() (application.SyncStartResult, error) {
-		return r.service.StartMarketDataSync(ctx, scope)
+		return r.service.ConfirmMarketDataSync(ctx, plan.Scope, plan.ReviewID)
 	})
 }
 
@@ -115,7 +117,10 @@ func (r *dataHealthRepair) update() (terminal bool) {
 		}
 	case response := <-r.startRead:
 		r.startRead = nil
+		var problem *domain.Error
 		switch {
+		case errors.As(response.err, &problem) && problem.Code == domain.ErrStalePreview:
+			r.problem = i18n.HealthRepairStale
 		case response.err != nil:
 			r.problem = i18n.HealthRepairStartFailed
 		case response.value.Conflict:

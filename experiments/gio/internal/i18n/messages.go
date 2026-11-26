@@ -252,6 +252,7 @@ const (
 	HealthRepairPlanning
 	HealthRepairPlanFailed
 	HealthRepairStartFailed
+	HealthRepairStale
 	HealthRepairConflict
 	HealthRepairCancelFailed
 	HealthRepairTitle

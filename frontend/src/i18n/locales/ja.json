@@ -2718,6 +2718,7 @@
     "syncCancelled": "同期がキャンセルされました",
     "syncPreviewTitle": "同期計画",
     "syncPreviewDescription": "プロバイダーに接続する前に、予定されている処理を確認してください。",
+    "syncPreviewStale": "修復プレビューの有効期限が切れたか、内容が変更されました。開始する前に新しいプランを確認してください。",
     "forceRecheck": "最近の記録を強制的に再確認",
     "startSync": "同期を開始する",
     "previewRequests": "プロバイダーへのリクエスト推定 {{count}} 件",

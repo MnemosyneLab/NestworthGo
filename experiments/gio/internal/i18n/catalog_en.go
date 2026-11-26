@@ -242,6 +242,7 @@ var englishCatalog = catalog{
 	HealthRepairPlanning:        "Preparing repair plan…",
 	HealthRepairPlanFailed:      "Could not prepare the repair plan. Try Repair all again.",
 	HealthRepairStartFailed:     "Could not start the repair. Review a new plan to retry.",
+	HealthRepairStale:           "This repair preview expired or changed. Open a new preview.",
 	HealthRepairConflict:        "Another market data operation is already running.",
 	HealthRepairCancelFailed:    "Could not cancel this repair.",
 	HealthRepairTitle:           "Repair market data",

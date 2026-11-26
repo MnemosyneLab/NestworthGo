@@ -28,7 +28,10 @@ func (s *Service) withLatestBatches(ctx context.Context, targets []refreshTarget
 	}
 	epoch := s.refreshEpoch.Load()
 	results := map[string]LatestInstrumentResult{}
-	registry := s.MarketDataRegistry()
+	registry := s.syncMarketRegistry(ctx)
+	if reviewed, ok := ctx.Value(reviewedMarketSyncKey{}).(reviewedMarketSync); ok {
+		epoch = reviewed.epoch
+	}
 	if registry == nil {
 		return ctx
 	}

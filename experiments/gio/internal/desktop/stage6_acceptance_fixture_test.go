@@ -223,7 +223,8 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	calendarStart := time.Date(today.Year(), today.Month(), 1, 8, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
 	calendarSeed, _, _ := seedStage6ReturnCalendar(t, calendarStart)
 	contributionSeed, _, _, dividend := seedStage6Contribution(t, calendarStart)
-	marketSeed, _ := seedStage6Market(t, start)
+	marketSeed, _ := seedStage6Market(t, start, true)
+	historyMarketSeed, _ := seedStage6Market(t, start, false)
 	marketPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "market-readback"), marketSeed)
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	fx := &stage6LatestFXProvider{refreshTestProvider: refreshTestProvider{now: now}}
@@ -254,6 +255,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	}{
 		{"snapshots", snapshotSeed},
 		{"market", marketSeed},
+		{"market-history", historyMarketSeed},
 		{"market-readback", marketReadback},
 		{"provider-settings", providerSettings},
 		{"return-calendar", calendarSeed},

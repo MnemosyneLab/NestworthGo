@@ -45,7 +45,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     StartRefreshMissingOrStale: (requestId: string) => startRefresh(refreshMissing)(requestId),
     CancelRefresh: () => cancelRefresh(),
     GetCurrentSyncJob: () => getCurrentSyncJob(),
-    PreviewMarketDataSync: (request: unknown) => previewSync(request),
+    ReviewMarketDataSync: (request: unknown) => previewSync(request),
+    ConfirmMarketDataSync: (request: unknown, reviewId: string) => startSync(request, reviewId),
     StartMarketDataSync: (request: unknown) => startSync(request),
     CancelSyncJob: (jobId: string) => cancelSyncJob(jobId),
     ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
@@ -134,6 +135,7 @@ describe("MarketDataPage", () => {
     fxQuoteSeries.mockReset();
     getCurrentSyncJob.mockResolvedValue({ jobId: "" });
     previewSync.mockResolvedValue({
+      reviewId: "review-1",
       estimatedRequestCount: 3,
       instrumentTargets: 1,
       fxTargets: 1,
@@ -536,7 +538,7 @@ describe("MarketDataPage", () => {
     expect(screen.getByTestId("sync-work-details")).toHaveTextContent("yahoo_finance");
     expect(previewSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     await userEvent.click(screen.getByRole("button", { name: "Start sync" }));
-    expect(startSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
+    expect(startSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false }, "review-1");
     expect(await screen.findByTestId("sync-progress")).toHaveTextContent("Historical prices");
     expect(screen.getByTestId("sync-progress")).toHaveTextContent("1 / 2");
     expect(await screen.findByTestId("sync-work-details")).toHaveTextContent("Querying");
@@ -575,7 +577,7 @@ describe("MarketDataPage", () => {
     expect(previewSync).not.toHaveBeenCalled();
   });
   it("disables confirmation when targeted preview has no executable work", async () => {
-    previewSync.mockResolvedValue({ estimatedRequestCount: 0, snapshotWorkEstimate: 0, items: [], unresolved: [] });
+    previewSync.mockResolvedValue({ reviewId: "review-1", estimatedRequestCount: 0, snapshotWorkEstimate: 0, items: [], unresolved: [] });
     renderPage({ currencyA: "USD", currencyB: "CNY", action: "repair", executable: true });
     await userEvent.click(await screen.findByRole("button", { name: "Preview repair" }));
     expect(await screen.findByText(/No executable repair work/)).toBeInTheDocument();

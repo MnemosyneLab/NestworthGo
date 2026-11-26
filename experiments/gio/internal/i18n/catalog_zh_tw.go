@@ -242,6 +242,7 @@ var traditionalChineseCatalog = catalog{
 	HealthRepairPlanning:        "正在準備修復計畫…",
 	HealthRepairPlanFailed:      "無法準備修復計畫。請重試全部修復。",
 	HealthRepairStartFailed:     "無法開始修復。請查看新計畫後重試。",
+	HealthRepairStale:           "此修復預覽已過期或發生變化。請重新開啟預覽。",
 	HealthRepairConflict:        "另一項行情資料操作正在進行。",
 	HealthRepairCancelFailed:    "無法取消此修復。",
 	HealthRepairTitle:           "修復行情資料",

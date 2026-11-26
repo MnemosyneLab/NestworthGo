@@ -18,6 +18,12 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
 
+// Review identity is one-use interaction state, separate from plan evidence.
+func marketSyncEvidence(plan application.SyncPlanPreview) marketdata.SyncPlanPreviewDTO {
+	plan.ReviewID = ""
+	return marketdata.SyncPreviewDTO(plan)
+}
+
 type refreshTestProvider struct {
 	unavailableOverviewProvider
 	latestCalls, historyCalls atomic.Int32
@@ -245,7 +251,7 @@ func TestMarketDataFocusedSyncPreviewCancelAndVerifiedRetry(t *testing.T) {
 	request := p.operation.request
 	want, err := wails.PreviewMarketDataSync(marketdata.SyncRequestDTO{Scope: string(application.SyncScopeFX), CurrencyA: "JPY", CurrencyB: "USD"})
 	if err != nil || want.FetchRanges == 0 || request.Scope != application.SyncScopeFX ||
-		!reflect.DeepEqual(marketdata.SyncPreviewDTO(*p.sync.plan), want) {
+		!reflect.DeepEqual(marketSyncEvidence(*p.sync.plan), want) {
 		t.Fatalf("scoped request = %+v, Gio plan = %+v, Wails = %+v, %v", request, p.sync.plan, want, err)
 	}
 	h.press(key.NameEscape)
@@ -323,7 +329,7 @@ func TestMarketDataInstrumentRefreshAndForcedPlan(t *testing.T) {
 	h.click("Preview historical repair", false)
 	waitMarketOperations(t, h, func() bool { return p.sync.plan != nil })
 	want, err := wails.PreviewMarketDataSync(marketdata.SyncRequestDTO{Scope: string(application.SyncScopeInstrument), InstrumentID: instrument.ID.String()})
-	if err != nil || !reflect.DeepEqual(marketdata.SyncPreviewDTO(*p.sync.plan), want) {
+	if err != nil || !reflect.DeepEqual(marketSyncEvidence(*p.sync.plan), want) {
 		t.Fatalf("Gio plan = %+v, Wails = %+v, %v", p.sync.plan, want, err)
 	}
 	if p.operation.request.InstrumentID != instrument.ID.String() {

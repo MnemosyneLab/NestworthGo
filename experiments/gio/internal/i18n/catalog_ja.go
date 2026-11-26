@@ -242,6 +242,7 @@ var japaneseCatalog = catalog{
 	HealthRepairPlanning:        "修復計画を準備中…",
 	HealthRepairPlanFailed:      "修復計画を準備できませんでした。すべて修復を再度お試しください。",
 	HealthRepairStartFailed:     "修復を開始できませんでした。新しい計画で再試行してください。",
+	HealthRepairStale:           "この修復プレビューは期限切れか、内容が変更されました。新しいプレビューを開いてください。",
 	HealthRepairConflict:        "別の市場データ処理が実行中です。",
 	HealthRepairCancelFailed:    "この修復をキャンセルできませんでした。",
 	HealthRepairTitle:           "市場データを修復",

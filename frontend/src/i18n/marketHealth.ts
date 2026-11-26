@@ -121,6 +121,7 @@ export const marketHealthEn = {
     syncPreviewTitle: "Sync plan",
     syncPreviewDescription:
       "Review the planned work before providers are contacted.",
+    syncPreviewStale: "The repair preview expired or changed. Review the new plan before starting.",
     forceRecheck: "Force recheck recent observations",
     startSync: "Start sync",
     previewRequests: "{{count}} estimated provider requests",
@@ -348,6 +349,7 @@ export const marketHealthZhCN = {
     syncCancelled: "同步已取消",
     syncPreviewTitle: "同步计划",
     syncPreviewDescription: "在联系提供方之前先确认计划工作。",
+    syncPreviewStale: "修复预览已过期或发生变化。请先查看新方案，再开始修复。",
     forceRecheck: "强制复核近期观察值",
     startSync: "开始同步",
     previewRequests: "预计 {{count}} 次提供方请求",
@@ -564,6 +566,7 @@ export const marketHealthZhTW = {
     syncCancelled: "同步已取消",
     syncPreviewTitle: "同步計畫",
     syncPreviewDescription: "在聯絡提供方之前先確認計畫工作。",
+    syncPreviewStale: "修復預覽已過期或已變更。請先查看新方案，再開始修復。",
     forceRecheck: "強制覆核近期觀察值",
     startSync: "開始同步",
     previewRequests: "預計 {{count}} 次提供方請求",
