@@ -1666,7 +1666,17 @@ var traditionalChineseCatalog = catalog{
 	ProductReceiveInterest:     "記錄已收利息 · %s",
 	PortfolioManagedOnly:       "受管持倉顯示在所屬帳戶與可用資金內。",
 
-	ProductForecastInterest:      "預估到期未付利息 · %s",
+	ProductForecastInterest:         "預估到期未付利息 · %s",
+	ProductValuationAmount:          "新合約價值",
+	ProductValuationHelp:            "記錄目前實際合約價值。此操作不會變動現金。",
+	ProductValuationInvalid:         "請輸入正數，最多保留四位小數。",
+	ProductValuationUnavailable:     "只能更新未結清鎖定產品的估值。",
+	ProductValuationSaved:           "已記錄合約估值。",
+	ProductRedemptionHelp:           "輸入實際回款憑證上的總收入和費用。",
+	ProductRedemptionTimeInvalid:    "請選擇不晚於目前時間的有效回款時間。",
+	ProductRedemptionAmountsInvalid: "請檢查總收入和費用。",
+	ProductRedemptionHistory:        "開啟贖回記錄",
+
 	ProductReceiptAction:         "確認實際入帳",
 	ProductReceiptHelp:           "依實際入帳憑證填寫返還本金、利息與手續費。",
 	ProductReturnedPrincipal:     "返還本金",

@@ -1665,7 +1665,17 @@ var japaneseCatalog = catalog{
 	ProductReceiveInterest:     "受取利息を記録 · %s",
 	PortfolioManagedOnly:       "管理対象の保有商品は、口座と利用可能資金から確認できます。",
 
-	ProductForecastInterest:      "満期時の未受取利息の見込み · %s",
+	ProductForecastInterest:         "満期時の未受取利息の見込み · %s",
+	ProductValuationAmount:          "新しい契約価値",
+	ProductValuationHelp:            "現在の実際の契約価値を記録します。現金は移動しません。",
+	ProductValuationInvalid:         "小数点以下4桁までの正の契約価値を入力してください。",
+	ProductValuationUnavailable:     "未決済のロック型商品のみ評価を更新できます。",
+	ProductValuationSaved:           "契約の評価を記録しました。",
+	ProductRedemptionHelp:           "実際の受取記録にある手数料控除前の受取額と手数料を入力してください。",
+	ProductRedemptionTimeInvalid:    "現在時刻以前の有効な受取時刻を選択してください。",
+	ProductRedemptionAmountsInvalid: "受取額と手数料を確認してください。",
+	ProductRedemptionHistory:        "償還記録を開く",
+
 	ProductReceiptAction:         "実際の受取を確認",
 	ProductReceiptHelp:           "実際の受取明細に記載された元本、利息、手数料を入力します。",
 	ProductReturnedPrincipal:     "返還元本",

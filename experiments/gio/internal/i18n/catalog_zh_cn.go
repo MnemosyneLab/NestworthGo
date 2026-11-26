@@ -1666,7 +1666,17 @@ var simplifiedChineseCatalog = catalog{
 	ProductReceiveInterest:     "记录已收利息 · %s",
 	PortfolioManagedOnly:       "受管持仓显示在所属账户和可用资金内。",
 
-	ProductForecastInterest:      "预计到期未付利息 · %s",
+	ProductForecastInterest:         "预计到期未付利息 · %s",
+	ProductValuationAmount:          "新合约价值",
+	ProductValuationHelp:            "记录当前实际合约价值。此操作不会变动现金。",
+	ProductValuationInvalid:         "请输入正数，最多保留四位小数。",
+	ProductValuationUnavailable:     "只能更新未结清锁定产品的估值。",
+	ProductValuationSaved:           "已记录合约估值。",
+	ProductRedemptionHelp:           "输入实际回款凭证上的总收入和费用。",
+	ProductRedemptionTimeInvalid:    "请选择不晚于当前时间的有效回款时间。",
+	ProductRedemptionAmountsInvalid: "请检查总收入和费用。",
+	ProductRedemptionHistory:        "打开赎回记录",
+
 	ProductReceiptAction:         "确认实际到账",
 	ProductReceiptHelp:           "按实际到账凭证填写返还本金、利息和手续费。",
 	ProductReturnedPrincipal:     "返还本金",

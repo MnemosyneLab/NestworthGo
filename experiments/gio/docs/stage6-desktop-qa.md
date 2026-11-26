@@ -104,7 +104,7 @@ run_copy() (
     snapshots) household='Synthetic Stage 6 snapshots' ;;
     market-readback) household='Synthetic Stage 6 market' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
-    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections) household='Synthetic first buy' ;;
+    locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
   case "$app" in
@@ -277,6 +277,17 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   belong to the same USD cash checkpoint. Verify USD 168.0988 in Harbor
   Brokerage, USD 110.6234 in Dollar Savings, EUR 390 in Euro Manual Value
   and the unrelated USD 12.34 unchanged.
+
+- Run `run_copy standalone-locked-lifecycle gio` and
+  `run_copy standalone-locked-lifecycle wails`. Open Synthetic locked
+  product from Harbor Brokerage or Available Funds. Start valuation, enter
+  USD 131.2345, cancel and reopen the focused action, and confirm. Restart
+  and check the exact new value and unchanged USD 156 cash. Start Confirm
+  actual receipt, enter gross proceeds USD 132.1234 and fee USD 1.2222, and
+  review the USD 286.9012 cash and the named reservation release. Cancel
+  once, return to the focused action, and review and post again. Restart
+  and open the exact redemption in Ledger. The product is settled, the
+  account shows the same cash, and the saved reservation is released.
 
 - Run `run_copy linked-debt-value gio` and
   `run_copy linked-debt-value wails`. In Tasks, Reconciliation, open the

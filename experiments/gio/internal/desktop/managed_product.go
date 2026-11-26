@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -122,12 +123,16 @@ type productDetailPage struct {
 	activities        map[domain.ActivityID]*widget.Clickable
 	receipts          productReceiptLedger
 	receipt           *productReceiptDraft
-	receiptSaved      bool
+	valuations        productValuationLedger
+	valuation         *productValuationDraft
+	saved             i18n.MessageID
+	focusAction       *widget.Clickable
 	receiptRequested  bool
 	receiptChanged    bool
 	startConfirmation widget.Clickable
+	startValuation    widget.Clickable
 	clock             func() time.Time
-	onReceiptSaved    func()
+	onProductSaved    func()
 }
 
 func newProductDetailPage(ctx context.Context, service productReader, invalidate func()) *productDetailPage {
@@ -137,9 +142,23 @@ func newProductDetailPage(ctx context.Context, service productReader, invalidate
 
 func (p *productDetailPage) enter(id domain.ProductContractID, position layout.Position, verifyReceipt bool) {
 	p.id, p.current, p.list.Position = id, nil, position
-	p.receipt, p.receiptSaved = nil, false
+	p.receipt, p.valuation, p.saved, p.focusAction = nil, nil, i18n.NoMessage, nil
 	p.receiptRequested, p.receiptChanged = verifyReceipt, false
 	p.read()
+}
+
+func (p *productDetailPage) unresolved() bool {
+	return p != nil && (p.receiptUnresolved() || p.valuationUnresolved())
+}
+
+func (p *productDetailPage) refreshAfterProductWrite(message i18n.MessageID) {
+	p.saved = message
+	p.list.Position = layout.Position{}
+	if p.onProductSaved != nil {
+		p.onProductSaved()
+	} else {
+		p.read()
+	}
 }
 
 func (p *productDetailPage) leave() {
@@ -178,8 +197,12 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	default:
 	}
 	p.pollReceipt()
+	p.pollValuation()
 	if p.receipt != nil {
 		return p.layoutReceipt(gtx, view)
+	}
+	if p.valuation != nil {
+		return p.layoutValuation(gtx, view)
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
@@ -202,14 +225,18 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.request != nil {
 						gtx = gtx.Disabled()
+					} else if p.focusAction == &p.startValuation &&
+						(status != i18n.NoMessage || !canUpdateProductValuation(*p.current.detail)) {
+						gtx.Execute(key.FocusCmd{Tag: &p.reload})
+						p.focusAction = nil
 					}
 					view.Focus.Watch(gtx, &p.reload)
 					return view.Button(&p.reload, l.Text(reload))(gtx)
 				}))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.receiptSaved {
-				return view.Message(l.Text(i18n.ProductReceiptSaved), view.Colors.Ink)(gtx)
+			if p.saved != i18n.NoMessage {
+				return view.Message(l.Text(p.saved), view.Colors.Ink)(gtx)
 			}
 			if p.receiptChanged {
 				return view.Message(l.Text(i18n.ProductReceiptChanged), view.Colors.SecondaryInk)(gtx)
@@ -294,7 +321,9 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 				break
 			}
 			label := i18n.ProductReceiptHistory
-			if activity.ProductContext.Purpose == domain.ProductPurposeInterest {
+			if contract.Kind == domain.ProductLockedProduct {
+				label = i18n.ProductRedemptionHistory
+			} else if activity.ProductContext.Purpose == domain.ProductPurposeInterest {
 				label = i18n.ProductInterestHistory
 			}
 			button := portfolioButton(p.activities, activity.ID)
@@ -311,19 +340,34 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 			rows = append(rows, fundsCard(view, l.Text(i18n.ProductReceiptRecorded), links...))
 		}
 	}
-	canRecord := p.receipts != nil && p.current.canConfirmReceipt()
+	canRecord := p.receipts != nil && p.current.canRecordReceipt()
 	actions := productActions(view, *product, p.receipts == nil || canRecord)
 	if canRecord {
-		actions = append([]layout.Widget{func(gtx layout.Context) layout.Dimensions {
-			if p.startConfirmation.Clicked(gtx) {
-				p.startReceipt()
-				gtx.Execute(op.InvalidateCmd{})
-			}
-			view.Focus.Watch(gtx, &p.startConfirmation)
-			return layout.W.Layout(gtx, view.PrimaryButton(&p.startConfirmation, l.Text(i18n.ProductReceiptAction)))
-		}}, actions[1:]...)
+		actions[0] = p.lifecycleAction(view, &p.startConfirmation, i18n.ProductReceiptAction, true, p.startReceipt)
+	}
+	if p.valuations != nil && canUpdateProductValuation(*product) {
+		actions = append(actions, p.lifecycleAction(view, &p.startValuation, i18n.HoldingReconProductValuation, false, p.beginValuation))
 	}
 	return append(rows, fundsCard(view, l.Text(i18n.ProductActions), actions...))
+}
+
+func (p *productDetailPage) lifecycleAction(view ui.View, button *widget.Clickable, label i18n.MessageID, primary bool, begin func()) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if p.focusAction == button && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: button})
+			p.focusAction = nil
+		}
+		if button.Clicked(gtx) {
+			begin()
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		view.Focus.Watch(gtx, button)
+		title := view.Language.Text(label)
+		if primary {
+			return layout.W.Layout(gtx, view.PrimaryButton(button, title))
+		}
+		return layout.W.Layout(gtx, view.Button(button, title))
+	}
 }
 
 func productActions(view ui.View, product application.ProductDetail, allowReceipt bool) []layout.Widget {

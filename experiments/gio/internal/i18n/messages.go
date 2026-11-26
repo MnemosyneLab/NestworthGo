@@ -1632,6 +1632,15 @@ const (
 	ProductReceiveInterest
 	PortfolioManagedOnly
 	ProductForecastInterest
+	ProductValuationAmount
+	ProductValuationHelp
+	ProductValuationInvalid
+	ProductValuationUnavailable
+	ProductValuationSaved
+	ProductRedemptionHelp
+	ProductRedemptionTimeInvalid
+	ProductRedemptionAmountsInvalid
+	ProductRedemptionHistory
 	ProductReceiptAction
 	ProductReceiptHelp
 	ProductReturnedPrincipal

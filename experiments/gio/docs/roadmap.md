@@ -2183,7 +2183,7 @@ including read-only locked-product detail.
 | Packaged Gio Linux X11 | Wide review at 1140×920 and Cancel preserved nine financial and linkage tables. Return reopened Add product. At 665×480, Back retained the draft and Return confirmed a new review. Reopen showed USD 105.8643 cash and the exact term deposit from its source button. SQLite matched the review instant, USD 50.1234 principal and quote, and the December 23 unlock date and USD 0.0021 exit fee. The source hashes matched. |
 | Packaged Gio existing product | An independent copy at 665×480 confirmed the EUR 50.1234 locked product. Reopen opened the correct source detail with EUR 52.0123 value and the November 23 and December 23 contract dates. SQLite matched EUR 49.7891 basis, the service recording time and one new position activity with no cash legs. The source hashes matched. |
 | Checks | Full Gio tests, vet, Linux packaging, the fixture exporter, focused shared Go and adapter tests, and 94 Wails Available Funds, account products and form tests passed. |
-| Remaining | See [account-detail setup](#product-setup-from-account-detail) for the corresponding Accounts entry. Standalone lifecycle actions remain open. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
+| Remaining | See [account-detail setup](#product-setup-from-account-detail) for the corresponding Accounts entry. See [standalone locked-product valuation and redemption](#standalone-locked-product-valuation-and-redemption) for the next lifecycle actions. Interactive Wails, native macOS, VoiceOver, Wayland and native IME remain open. |
 
 #### Product setup from account detail
 
@@ -2200,7 +2200,33 @@ to the account and focuses Add product.
 | --- | --- |
 | Gio and Wails adapter | Four paired cases cover both setup modes from Accounts and Available Funds. Both entries match the USD 50.1234 opening with USD 0.0123 fee and USD 105.8643 cash, and the EUR recorded holding with EUR 49.7891 cost and EUR 52.0123 value and USD 156 cash. The tests exercise retained review Back, Cancel, retry after a lost acknowledgement, stale review and exact SQLite reopen. |
 | Packaged Gio Linux X11 | At 1140×920 shell Back returned to the scoped draft and Cancel preserved nine financial and linkage tables. Return reopened Add product. At 665×480 Return confirmed the preview of USD 105.8643 remaining cash. Restarting at the ordinary entry point and opening the exact new contract from Accounts showed USD 50.1234 and the December 23 maturity. SQLite matched the opening fee, exact review time, unlock date and original rows. Both source hashes matched. The existing-product case is verified by the adapter test. |
-| Remaining | Standalone lifecycle and funding source actions, interactive Wails and target-platform accessibility remain open. |
+| Remaining | Standalone interest, terms, eligible grouped undo and funding source actions remain open. Interactive Wails and target-platform accessibility remain open. |
+
+#### Standalone locked-product valuation and redemption
+
+Open the locked product from its Account or Available Funds. **Update contract
+valuation** shows the current value, takes a new amount in the contract currency
+and confirms the same standalone observation that Wails records at service
+time. Cancel returns to the action. An uncertain response retries the original
+request and mutation ID. The refreshed cash and activity stay as recorded.
+
+**Confirm actual receipt** offers the locked product's gross proceeds and fee,
+plus an optional civil effective date and time. Blank time is captured at the
+Gio review, following the existing term-deposit receipt form. The shared
+preview supplies before and after values, cash, the exact redemption amounts
+and any active reservations to release. Back to details keeps the draft.
+A stale preview requires a fresh review. A lost response retries the original
+reviewed submission. After posting, the product opens its exact Ledger
+redemption. Both operations use standalone Go commands without a reconciliation
+checkpoint.
+[Wails product detail](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx) · [Wails adapter](../../../internal/wailsapi/liquidity/liquidity.go) · [Shared valuation](../../../internal/application/liquidity.go) · [Shared settlement](../../../internal/application/product_operations.go)
+
+| Evidence | Observed result |
+| --- | --- |
+| Gio and Wails adapter | Independent SQLite copies matched USD 131.2345 at the same valuation instant, with USD 156 cash and existing activity intact. The redemption copied the same effective date, gross USD 132.1234, fee USD 1.2222, and final cash USD 286.9012. Both reservations in the automated case were released. Both tests exercise Cancel, lost-acknowledgement retry and normal SQLite reopen. Valuation tests invalid input, and redemption tests a preview made stale by a newly added reservation. |
+| Packaged Gio Linux X11 | At 1140×920 both forms canceled without a write and Return reopened the original action. At 665×480 keyboard confirmation posted the valuation and then, after a restart, the redemption. Reopen showed USD 131.2345 and USD 156 cash after valuation. After redemption a second restart showed Settled and its exact Ledger sell with USD 132.1234 gross, USD 1.2222 fee and USD 286.9012 cash. The shell Back buttons restored the receipt and account product links, and Return reopened each. SQLite matched the observation timestamp and closed operation, one released USD 25 reservation, and intact earlier rows. Both source hashes matched. |
+| Checks | Full Gio tests, vet, stock Linux packaging, the fixture exporter, focused shared Go and Wails adapter tests, and 64 Wails product sheet, account products and Available Funds navigation tests passed. |
+| Remaining | Standalone interest, terms, eligible grouped undo and pre-maturity term-deposit receipts remain. Renewal is available via linked Reconciliation. Interactive Wails and native macOS and accessibility acceptance remain open. |
 
 #### Read-only term deposits
 
@@ -2342,8 +2368,10 @@ statement sessions.
 
 Broader investment work still includes remaining linked cash, balance and other reconciliation activity, inline instrument creation, market quote calculators,
 instrument catalog maintenance and wider lifecycle coverage. Product gaps
-include setup from account detail, standalone early redemption, renewal and
-interest, and broader policy and reservation actions. Tasks still has the broader Upcoming
+include standalone interest, terms, eligible grouped undo, pre-maturity term
+deposit receipts, and broader policy and reservation actions. Renewal is covered
+through linked Reconciliation.
+Tasks still has the broader Upcoming
 item types and data checks, review management, general reconciliation, and
 reminders. Production startup and target-platform acceptance also remain open.
 
@@ -3012,9 +3040,11 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 #### Follow-up order across Stages 4 to 6
 
 1. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
-   Prioritize locked product value and receipt, applicable interest, terms and
-   grouped undo. Verify actual Wails entry points for renewal before expanding
-   the standalone view. Keep funding source and reservation effects explicit.
+   Standalone locked-product valuation and redemption are covered. Prioritize
+   applicable interest, terms and eligible grouped undo. Renewal is covered
+   through Reconciliation in Gio, and the traced Wails product detail has no
+   standalone renewal action. Keep funding source and reservation effects
+   explicit.
 2. Continue broader account-scope investment entries, archived inventory,
    account Starting Point handoffs, and liability-specific amendments. Then
    address additional Agent audit filters and large-history paging. The

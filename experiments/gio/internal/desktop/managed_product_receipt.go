@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,12 +30,14 @@ func (r productRead) canConfirmReceipt() bool {
 		r.detail.Contract.MaturityOn == nil || r.localDate < *r.detail.Contract.MaturityOn {
 		return false
 	}
-	for _, action := range r.detail.PermittedActions {
-		if action == "settle" {
-			return true
-		}
+	return slices.Contains(r.detail.PermittedActions, string(domain.ProductOpSettle))
+}
+
+func (r productRead) canRecordReceipt() bool {
+	if r.detail != nil && r.detail.Contract.Kind == domain.ProductLockedProduct {
+		return r.detail.Contract.State == domain.ProductStateOpen && slices.Contains(r.detail.PermittedActions, string(domain.ProductOpSettle))
 	}
-	return false
+	return r.canConfirmReceipt()
 }
 
 type productReceiptInput struct {
@@ -54,19 +57,25 @@ func reviewProductReceipt(ctx context.Context, service productReceiptLedger, id 
 		if err != nil {
 			return err
 		}
-		if !current.canConfirmReceipt() {
+		if !current.canRecordReceipt() {
 			return errProductReceiptUnavailable
 		}
-		if input.day != "" && input.day < *current.detail.Contract.MaturityOn {
+		contract := current.detail.Contract
+		deposit := contract.Kind == domain.ProductTermDeposit
+		if deposit && input.day != "" && input.day < *contract.MaturityOn {
 			return &domain.Error{Code: domain.ErrInvalidChangeTime}
 		}
 		// Pass the actual amounts through unchanged. An explicit timestamp
 		// gives the blank "now" option the same effective time on review,
 		// confirmation, and receipt replay.
 		settle := &application.SettleProductCommand{
-			ProductID: id.String(), ReturnedPrincipal: &input.principal,
-			Interest: &input.interest, Fee: &input.fee,
+			ProductID: id.String(), Fee: &input.fee,
 			EffectiveLocalDate: input.day, EffectiveLocalTime: input.minute,
+		}
+		if deposit {
+			settle.ReturnedPrincipal, settle.Interest = &input.principal, &input.interest
+		} else {
+			settle.GrossProceeds = &input.principal
 		}
 		if input.day == "" && input.minute == "" {
 			settle.EffectiveAt = clock().UTC().Format(time.RFC3339Nano)
@@ -81,12 +90,14 @@ func reviewProductReceipt(ctx context.Context, service productReceiptLedger, id 
 		if err != nil {
 			return err
 		}
-		day, _, err := domain.LocalCivilDate(plan.review.EffectiveAt, plan.review.Timezone)
-		if err != nil {
-			return err
-		}
-		if day < *current.detail.Contract.MaturityOn {
-			return &domain.Error{Code: domain.ErrInvalidChangeTime}
+		if deposit {
+			day, _, err := domain.LocalCivilDate(plan.review.EffectiveAt, plan.review.Timezone)
+			if err != nil {
+				return err
+			}
+			if day < *contract.MaturityOn {
+				return &domain.Error{Code: domain.ErrInvalidChangeTime}
+			}
 		}
 		plan.mutation = domain.NewProductOperationID()
 		return nil
@@ -95,32 +106,37 @@ func reviewProductReceipt(ctx context.Context, service productReceiptLedger, id 
 }
 
 type productReceiptDraft struct {
-	name, currency, maturity, timezone string
-	principal, interest, fee           ui.TextField
-	date                               ui.DatePicker
-	time                               ui.TimePicker
-	day, minute                        string
-	preview, edit, confirm             widget.Clickable
-	replay, cancel                     widget.Clickable
-	reviewList                         widget.List
-	reviewing                          <-chan historyResult[productReceiptPlan]
-	posting                            <-chan historyResult[application.ProductOperationReceipt]
-	plan                               *productReceiptPlan
-	problem                            i18n.MessageID
-	uncertain, focusEditor             bool
+	name, currency, maturity, timezone   string
+	kind                                 domain.ProductKind
+	principal, interest, fee             ui.TextField
+	date                                 ui.DatePicker
+	time                                 ui.TimePicker
+	day, minute                          string
+	preview, edit, confirm               widget.Clickable
+	replay, cancel                       widget.Clickable
+	reviewList                           widget.List
+	reviewing                            <-chan historyResult[productReceiptPlan]
+	posting                              <-chan historyResult[application.ProductOperationReceipt]
+	plan                                 *productReceiptPlan
+	problem                              i18n.MessageID
+	uncertain, focusEditor, focusConfirm bool
 }
 
 func (p *productDetailPage) startReceipt() {
 	contract := p.current.detail.Contract
 	d := &productReceiptDraft{
-		name: productName(*p.current.detail), maturity: *contract.MaturityOn, focusEditor: true,
+		name: productName(*p.current.detail), kind: contract.Kind, focusEditor: true,
 		reviewList: widget.List{List: layout.List{Axis: layout.Vertical}},
 		currency:   contract.Currency.String(), timezone: p.current.timezone,
 		principal: ui.NewTextField(true), interest: ui.NewTextField(true), fee: ui.NewTextField(true),
 	}
-	d.principal.Editor.SetText(contract.Principal.CanonicalAmount())
-	d.interest.Editor.SetText("0")
+	if contract.Kind == domain.ProductTermDeposit {
+		d.maturity = *contract.MaturityOn
+		d.principal.Editor.SetText(contract.Principal.CanonicalAmount())
+		d.interest.Editor.SetText("0")
+	}
 	d.fee.Editor.SetText("0")
+	p.saved = i18n.NoMessage
 	p.receipt = d
 }
 
@@ -166,7 +182,7 @@ func (p *productDetailPage) pollReceipt() {
 				p.read()
 			}
 		} else {
-			d.plan = &result.value
+			d.plan, d.focusConfirm = &result.value, true
 			d.reviewList.Position = layout.Position{}
 		}
 	default:
@@ -175,13 +191,8 @@ func (p *productDetailPage) pollReceipt() {
 	case result := <-d.posting:
 		d.posting = nil
 		if result.err == nil && result.value.OperationID == d.plan.mutation && len(result.value.ActivityIDs) != 0 {
-			p.receipt, p.receiptSaved = nil, true
-			p.list.Position = layout.Position{}
-			if p.onReceiptSaved != nil {
-				p.onReceiptSaved()
-			} else {
-				p.read()
-			}
+			p.receipt = nil
+			p.refreshAfterProductWrite(i18n.ProductReceiptSaved)
 			return
 		}
 		switch productReceiptProblem(result.err) {
@@ -192,7 +203,7 @@ func (p *productDetailPage) pollReceipt() {
 			d.plan, d.uncertain, d.focusEditor = nil, false, true
 			p.read()
 		default:
-			d.uncertain = true
+			d.uncertain, d.focusConfirm = true, true
 		}
 	default:
 	}
@@ -215,7 +226,7 @@ func productReceiptProblem(err error) i18n.MessageID {
 		}
 	case domain.ErrInvalidChangeTime:
 		return i18n.ProductReceiptTimeInvalid
-	case domain.ErrValidation, domain.ErrDecimalOverflow:
+	case domain.ErrValidation, domain.ErrDecimalOverflow, domain.ErrUnsupportedPartialOperation:
 		switch issue.Field {
 		case "effectiveAt", "effectiveLocalDate", "effectiveLocalTime", "effectiveLocalDateTime":
 			return i18n.ProductReceiptTimeInvalid

@@ -128,6 +128,20 @@ func seedStage6LinkedCashTransfer(t *testing.T) []byte {
 	return stage6SeedBytes(t, db)
 }
 
+func seedStage6StandaloneLockedLifecycle(t *testing.T) []byte {
+	t.Helper()
+	clock := func() time.Time { return accountTestClock }
+	db, _, app := openStage6Database(t, filepath.Join(t.TempDir(), "standalone-locked.db"), clock)
+	seeded, err := seedExistingBuy(t.Context(), app, clock())
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := seedTestLockedProductWithUnlock(t, app, seeded.account, nil, "2026-11-22")
+	app.SetClock(linkedContractClock)
+	reserveTermDeposit(t, app, id, "Synthetic redemption reserve")
+	return stage6SeedBytes(t, db)
+}
+
 func seedStage6ReconciliationSelection(t *testing.T) []byte {
 	t.Helper()
 	clock := func() time.Time { return accountTestClock }
@@ -221,6 +235,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"add-product", lockedProductSeed},
 		{"funds-product", lockedProductSeed},
 		{"account-product", lockedProductSeed},
+		{"standalone-locked-lifecycle", seedStage6StandaloneLockedLifecycle(t)},
 		{"linked-cash-transfer", linkedCashTransferSeed},
 		{"linked-debt-value", seedStage6LinkedDebtValue(t)},
 		{"multi-account-reconciliation", seedStage6ReconciliationSelection(t)},

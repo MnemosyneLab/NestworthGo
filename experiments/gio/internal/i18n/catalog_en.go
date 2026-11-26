@@ -1666,7 +1666,17 @@ var englishCatalog = catalog{
 	ProductReceiveInterest:     "Record interest received · %s",
 	PortfolioManagedOnly:       "Managed holdings appear under their accounts and Available Funds.",
 
-	ProductForecastInterest:      "Estimated unpaid interest at maturity · %s",
+	ProductForecastInterest:         "Estimated unpaid interest at maturity · %s",
+	ProductValuationAmount:          "New contract value",
+	ProductValuationHelp:            "Record the actual contract value as of now. This does not move cash.",
+	ProductValuationInvalid:         "Enter a positive contract value using up to four decimal places.",
+	ProductValuationUnavailable:     "Only an open locked product can be revalued.",
+	ProductValuationSaved:           "Contract valuation recorded.",
+	ProductRedemptionHelp:           "Enter the gross proceeds and fee shown on the actual receipt.",
+	ProductRedemptionTimeInvalid:    "Choose a valid receipt time no later than now.",
+	ProductRedemptionAmountsInvalid: "Check the gross proceeds and fee.",
+	ProductRedemptionHistory:        "Open redemption receipt",
+
 	ProductReceiptAction:         "Confirm actual receipt",
 	ProductReceiptHelp:           "Enter the principal, interest, and fee shown on the actual receipt.",
 	ProductReturnedPrincipal:     "Returned principal",

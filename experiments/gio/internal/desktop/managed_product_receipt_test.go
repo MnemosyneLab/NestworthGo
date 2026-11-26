@@ -122,8 +122,8 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	timeline := newLedgerHistory(ctx, app, now, func() {})
 	accounts := newAccountsPage(ctx, app, now, func() {})
 	h := newShellHarnessWithPages(t, ledgerPages{funds: funds, accounts: accounts, history: timeline, version: app.MobileDataVersion})
-	refresh := p.onReceiptSaved
-	p.onReceiptSaved = func() {
+	refresh := p.onProductSaved
+	p.onProductSaved = func() {
 		fault.failRead.Store(true)
 		refresh()
 	}

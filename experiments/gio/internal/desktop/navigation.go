@@ -182,7 +182,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.portfolio != nil && s.portfolio.investment.unresolved() {
 		return
 	}
-	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.receiptUnresolved()) {
+	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved()) {
 		return
 	}
 	entry := s.trail.current()
@@ -276,7 +276,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.funds.leave()
 		} else {
 			s.funds.productPage.leave()
-			s.funds.productPage.receipt = nil
+			s.funds.productPage.receipt, s.funds.productPage.valuation = nil, nil
 		}
 	}
 	if entry.target.route == tasksRoute {

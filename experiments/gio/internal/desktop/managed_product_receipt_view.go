@@ -23,8 +23,7 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 		d.focusEditor = false
 	}
 	if !p.receiptUnresolved() && d.cancel.Clicked(gtx) {
-		p.receipt = nil
-		gtx.Execute(key.FocusCmd{Tag: &p.startConfirmation})
+		p.receipt, p.focusAction = nil, &p.startConfirmation
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -35,6 +34,21 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 
 	l := view.Language
 	origin := view.Origin
+	help, amount := i18n.ProductReceiptHelp, i18n.ProductReturnedPrincipal
+	if d.kind == domain.ProductLockedProduct {
+		help, amount = i18n.ProductRedemptionHelp, i18n.HoldingReconGrossProceeds
+	}
+	cols := []layout.FlexChild{layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		return d.principal.LayoutCurrency(gtx, view, ui.FieldOptions{Label: amount, Disabled: d.reviewing != nil}, d.currency)
+	})}
+	if d.kind == domain.ProductTermDeposit {
+		cols = append(cols, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return d.interest.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.ProductActualInterest, Disabled: d.reviewing != nil}, d.currency)
+		}))
+	}
+	cols = append(cols, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: d.reviewing != nil}, d.currency)
+	}))
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, tradeTitle(view, i18n.ProductReceiptAction))
@@ -43,27 +57,27 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 			return fieldPosition(gtx, &origin, view.Message(d.name+" · "+d.currency, view.Colors.Ink))
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.ProductReceiptHelp), view.Colors.SecondaryInk))
+			return fieldPosition(gtx, &origin, view.Message(l.Text(help), view.Colors.SecondaryInk))
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return d.principal.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.ProductReturnedPrincipal, Disabled: d.reviewing != nil}, d.currency)
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return d.interest.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.ProductActualInterest, Disabled: d.reviewing != nil}, d.currency)
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: d.reviewing != nil}, d.currency)
-					}))
+				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, cols...)
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutReceiptTime(gtx, view, origin, p.clock()) }),
 		layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ProductReceiptTimeHelp), d.timezone), view.Colors.SecondaryInk)),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.problem != i18n.NoMessage {
-				return view.Message(l.Text(d.problem), view.Colors.ErrorInk)(gtx)
+				message := d.problem
+				if d.kind == domain.ProductLockedProduct {
+					switch message {
+					case i18n.ProductReceiptTimeInvalid:
+						message = i18n.ProductRedemptionTimeInvalid
+					case i18n.ProductReceiptAmountsInvalid:
+						message = i18n.ProductRedemptionAmountsInvalid
+					}
+				}
+				return view.Message(l.Text(message), view.Colors.ErrorInk)(gtx)
 			}
 			if d.reviewing != nil {
 				return view.Message(l.Text(i18n.HistoryLoading), view.Colors.SecondaryInk)(gtx)
@@ -143,6 +157,17 @@ func (p *productDetailPage) layoutReceiptReview(gtx layout.Context, view ui.View
 			return layout.Dimensions{}
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if d.focusConfirm && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: confirm})
+				d.focusConfirm = false
+			}
+			if d.posting == nil {
+				view.Focus.Watch(gtx, confirm)
+				if !d.uncertain {
+					view.Focus.Watch(gtx, &d.cancel)
+					view.Focus.Watch(gtx, &d.edit)
+				}
+			}
 			return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, i18n.ProductReceiptPost)
 		}))
 }
@@ -164,7 +189,11 @@ func (d *productReceiptDraft) reviewRows(view ui.View) []layout.Widget {
 	var interest, fee *domain.Money
 	for _, preview := range review.Activities {
 		if trade := preview.Activity.TradeDetail; trade != nil {
-			rows = append(rows, fundsAmount(view, i18n.ProductPrincipalFact, &trade.Gross))
+			label := i18n.ProductPrincipalFact
+			if d.kind == domain.ProductLockedProduct {
+				label = i18n.HoldingReconGrossProceedsFact
+			}
+			rows = append(rows, fundsAmount(view, label, &trade.Gross))
 			fee = trade.Fee
 		}
 		if preview.Activity.Kind == domain.ActivityCashIn && preview.Activity.Reason == domain.ReasonInterest {
@@ -176,10 +205,12 @@ func (d *productReceiptDraft) reviewRows(view ui.View) []layout.Widget {
 			}
 		}
 	}
-	if interest == nil {
-		rows = append(rows, view.Message(l.Text(i18n.ProductNoInterestPosted), view.Colors.Ink))
-	} else {
-		rows = append(rows, fundsAmount(view, i18n.ProductInterestFact, interest))
+	if d.kind == domain.ProductTermDeposit {
+		if interest == nil {
+			rows = append(rows, view.Message(l.Text(i18n.ProductNoInterestPosted), view.Colors.Ink))
+		} else {
+			rows = append(rows, fundsAmount(view, i18n.ProductInterestFact, interest))
+		}
 	}
 	if fee == nil {
 		rows = append(rows, view.Message(l.Text(i18n.ProductNoReceiptFee), view.Colors.Ink))
